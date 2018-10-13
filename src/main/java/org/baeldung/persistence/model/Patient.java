@@ -27,6 +27,10 @@ public class Patient implements Serializable {
 
 	private String phone;
 
+	private String cnic;
+
+	private boolean blocked;
+	
 	//bi-directional many-to-one association to Appointment
 	@OneToMany(mappedBy="patient")
 	private List<Appointment> appointments;
@@ -96,4 +100,21 @@ public class Patient implements Serializable {
 		return appointment;
 	}
 
+	public String getCnic() {
+		return cnic;
+	}
+
+	public void setCnic(String cnic) {
+		this.cnic = cnic;
+	}
+
+	public boolean isBlocked() {
+		return blocked;
+	}
+
+	public void setBlocked(boolean blocked) {
+		this.blocked = blocked;
+	}
+
+	
 }

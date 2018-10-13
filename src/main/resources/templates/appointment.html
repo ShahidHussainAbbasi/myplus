@@ -25,64 +25,52 @@ color:#000;
 </nav>
 
     <div class="container">
-		<span>Add doctor Detail</span>
+		<span>Appointment Request</span>
 		<div class="container">
 	        <div >
 	            <h1 th:text="#{label.form.title}">form</h1>
 	            <br/>
 	            <form action="/" method="POST" enctype="utf8">
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.hospital.name}">Hospital Name</label>
+	                    <label class="col-sm-2" th:text="#{label.appointment.hospital.name}">Hospital Name</label>
 	                    <select class="col-sm-3" id="hospitalId" name="hospitalId" required="required">
 	                         <option value=""> Select Hospital </option>
-	                         <option th:each="key : ${hospitals.keySet()}"
-	                            th:value="${key}"
-	                            th:utext="${hospitals.get(key)}"/>
+	                         <option th:each="hospital : ${hospitals}"
+	                            th:value="${hospital.hospitalId}"
+	                            th:utext="${hospital.name}"/>
 	                  </select>               
 	                    <span id="hospitalNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.doctor.availabe}">Available</label>
-		                <select class="col-sm-3" id="availabe" name="availabe" required="required">	                
-    						<option value="yes" selected="selected"> Available </option>
-    						<option value="no"> Not Available </option>
-						</select>
+	                    <label class="col-sm-2" th:text="#{label.appointment.doctor.name}">Doctor Name</label>
+	                    <select class="col-sm-3" id="doctorId" name="doctorId" required="required">
+	                         <option value=""> Select Doctor </option>
+	                         <option th:each="doctor : ${doctors}"
+	                            th:value="${doctor.doctorId}"
+	                            th:utext="${doctor.name}"/>
+	                  </select>               
+	                    <span id="doctorNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.doctor.name}">Name</label>
+	                    <label class="col-sm-2" th:text="#{label.appointment.name}">Name</label>
 	                    <span class="col-sm-3"><input class="form-control" name="name" value="" required="required"/></span>
 	                    <span id="nameError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.doctor.mobile}">Mobile</label>
+	                    <label class="col-sm-2" th:text="#{label.appointment.mobile}">Mobile</label>
 	                    <span class="col-sm-3"><input id="mobile" class="form-control" name="mobile" value="" required="required"/></span>
 	                    <span id="mobileError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.doctor.mail}">Email</label>
+	                    <label class="col-sm-2" th:text="#{label.appointment.mail}">Email</label>
 	                    <span class="col-sm-3"><input type="email" class="form-control" name="email" value="" required="required"/></span>                    
 	                    <span id="emailError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                    
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.doctor.address}">Address</label>
+	                    <label class="col-sm-2" th:text="#{label.appointment.address}">Address</label>
 	                    <span class="col-sm-3"><input id="phone" class="form-control" name="address" value="" required="required"/></span>
 	                    <span id="phoneError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.doctor.speciality}">Speciality</label>
-	                    <span class="col-sm-3"><input id="speciality" class="form-control" name="speciality" value="" required="required"/></span>
-	                    <span id="specialityError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <div class="form-group row" >
-	                    <label class="col-sm-2" th:text="#{label.doctor.timeIn}">Time In</label>
-	                    <span class="col-sm-3"><input type="time" class="form-control" name="timeIn" id="timeIn" required="required" placeholder="Time in"/></span>
-	                    <span id="timeInError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <div class="form-group row" >
-	                    <label class="col-sm-2" th:text="#{label.doctor.timeOut}">Time Out</label>
-	                    <span class="col-sm-3"><input type="time" class="form-control" name="timeOut" id="timeOut" required="required"/></span>
-	                    <span id="timeInError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <br/>
 	                <button type="submit" class="btn btn-primary" th:text="#{label.form.submit}">submit</button>
@@ -97,18 +85,18 @@ var serverContext = [[@{/}]];
 
 $(document).ready(function () {
 	$('form').submit(function(event) {
-		registerDoctor(event);
+		appointmentReq(event);
 	});
 });
 
-function registerDoctor(event){
+function appointmentReq(event){
 	event.preventDefault();
     $(".alert").html("").hide();
     $(".error-list").html("");
    
     var formData= $('form').serialize();
    alert(formData+" : "+serverContext);
-    $.post(serverContext + "registerDoctor",formData ,function(data){
+    $.post(serverContext + "appointmentReq",formData ,function(data){
         if(data.message == "success"){
         	alert(1);
             window.location.href = serverContext + "successRegister.html";
