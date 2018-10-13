@@ -18,28 +18,35 @@ public class HospitalDto {
 	
 	private int hospitalId;
     @NotNull
-	private String city;
+	private String name;
     @NotNull
-	private String country;
-    @NotNull
-	private String datetime;
+	private String phone;
     @ValidEmail
     @NotNull
 	private String email;
     @NotNull
-	private String logoUrl;
+	private String datetime;
     @NotNull
-	private String name;
-    @NotNull
-	private String phone;
+	private String country;
     @NotNull
 	private String state;
+    @NotNull
+	private String city;
+
+//    @NotNull
+	private String logoUrl;
 
     private String zip;
+
     @NotNull
     private String appointmentOfferType;
     
-	@NotNull
+    @NotNull
+    private Short appointmentOfferValue;
+    
+    @NotNull
+    private short hours;
+    
 	private java.math.BigInteger userId;
 
 	private Appointment appointment;
@@ -176,6 +183,23 @@ public class HospitalDto {
 
 	public void setDoctors(List<Doctor> doctors) {
 		this.doctors = doctors;
+	}
+
+	
+	public Short getAppointmentOfferValue() {
+		return appointmentOfferValue;
+	}
+
+	public void setAppointmentOfferValue(Short appointmentOfferValue) {
+		this.appointmentOfferValue = appointmentOfferValue;
+	}
+
+	public short getHours() {
+		return hours;
+	}
+
+	public void setHours(short hours) {
+		this.hours = hours;
 	}
 
 	@Override

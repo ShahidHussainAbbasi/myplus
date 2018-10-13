@@ -21,7 +21,7 @@ public class Doctor implements Serializable {
 
 	private String address;
 
-	private Object availabe;
+	private String availabe;
 
 	private String datetime;
 
@@ -67,11 +67,11 @@ public class Doctor implements Serializable {
 		this.address = address;
 	}
 
-	public Object getAvailabe() {
+	public String getAvailabe() {
 		return this.availabe;
 	}
 
-	public void setAvailabe(Object availabe) {
+	public void setAvailabe(String availabe) {
 		this.availabe = availabe;
 	}
 

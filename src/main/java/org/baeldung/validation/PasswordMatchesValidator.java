@@ -14,8 +14,12 @@ public class PasswordMatchesValidator implements ConstraintValidator<PasswordMat
 
     @Override
     public boolean isValid(final Object obj, final ConstraintValidatorContext context) {
-        final UserDto user = (UserDto) obj;
-        return user.getPassword().equals(user.getMatchingPassword());
+    	if(obj instanceof UserDto) {
+    		final UserDto user = (UserDto) obj;
+        	return user.getPassword().equals(user.getMatchingPassword());
+    	}else {
+    		return true;
+    	}
     }
 
 }

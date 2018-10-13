@@ -30,4 +30,5 @@ public class UserController {
         model.addAttribute("users", userService.getUsersFromSessionRegistry());
         return "users";
     }
+
 }

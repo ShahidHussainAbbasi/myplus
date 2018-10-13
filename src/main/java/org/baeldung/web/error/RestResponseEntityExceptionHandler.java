@@ -96,4 +96,11 @@ public class RestResponseEntityExceptionHandler extends ResponseEntityExceptionH
         return new ResponseEntity<Object>(bodyOfResponse, new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+//    @ExceptionHandler({ Exception.class })
+//    public ResponseEntity<Object> alreadyExist(final RuntimeException ex, final WebRequest request) {
+//        logger.error("302 Status Code", ex);
+//        final GenericResponse bodyOfResponse = new GenericResponse(messages.getMessage("message.hospital.exist", null, request.getLocale()), "HospitalAlreadyExist");
+//        return new ResponseEntity<Object>(bodyOfResponse, new HttpHeaders(), HttpStatus.FOUND);
+//    }
+
 }

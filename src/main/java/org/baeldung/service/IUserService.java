@@ -48,6 +48,6 @@ public interface IUserService {
 
     List<String> getUsersFromSessionRegistry();
     
-    User getUserFromSessionRegistry();
+    List<String> getUsersIdFromSessionRegistry();
 
 }

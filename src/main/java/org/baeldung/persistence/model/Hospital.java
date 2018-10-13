@@ -1,7 +1,18 @@
 package org.baeldung.persistence.model;
 import java.io.Serializable;
-import javax.persistence.*;
 import java.util.List;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.NamedQuery;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
 
 
 /**
@@ -9,6 +20,14 @@ import java.util.List;
  * 
  */
 @Entity
+
+@Table(
+        name = "hospital",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "hospital_id"),
+                @UniqueConstraint(columnNames = "name")
+        }
+)
 @NamedQuery(name="Hospital.findAll", query="SELECT h FROM Hospital h")
 public class Hospital implements Serializable {
 	private static final long serialVersionUID = 1L;
@@ -16,7 +35,7 @@ public class Hospital implements Serializable {
 	@Id
 	@GeneratedValue(strategy=GenerationType.AUTO)
 	@Column(name="hospital_id")
-	private int hospitalId;
+	private Long hospitalId;
 
 	private String city;
 
@@ -35,7 +54,8 @@ public class Hospital implements Serializable {
 
 	private String state;
 
-	@Column(name="user_id")
+	@ManyToOne
+	@JoinColumn(name="user_id")
 	private java.math.BigInteger userId;
 
 	private String zip;
@@ -43,6 +63,9 @@ public class Hospital implements Serializable {
 	@Column(name="appointment_offer_type")
 	private String appointmentOfferType;
 	
+	@Column(name="appointment_offer_value")
+	private Short appointmentOfferValue;
+
 	//bi-directional many-to-one association to Appointment
 	@OneToMany(mappedBy="hospital")
 	private List<Appointment> appointments;
@@ -54,11 +77,11 @@ public class Hospital implements Serializable {
 	public Hospital() {
 	}
 
-	public int getHospitalId() {
+	public Long getHospitalId() {
 		return this.hospitalId;
 	}
 
-	public void setHospitalId(int hospitalId) {
+	public void setHospitalId(Long hospitalId) {
 		this.hospitalId = hospitalId;
 	}
 
@@ -148,6 +171,14 @@ public class Hospital implements Serializable {
 
 	public void setAppointmentOfferType(String appointmentOfferType) {
 		this.appointmentOfferType = appointmentOfferType;
+	}
+
+	public Short getAppointmentOfferValue() {
+		return appointmentOfferValue;
+	}
+
+	public void setAppointmentOfferValue(Short appointmentOfferValue) {
+		this.appointmentOfferValue = appointmentOfferValue;
 	}
 
 	public List<Appointment> getAppointments() {

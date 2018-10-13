@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 
 @Component("myLogoutSuccessHandler")
 public class MyLogoutSuccessHandler implements LogoutSuccessHandler {
-
+	
     @Override
     public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         final HttpSession session = request.getSession();
@@ -21,6 +21,11 @@ public class MyLogoutSuccessHandler implements LogoutSuccessHandler {
             session.removeAttribute("user");
         }
 
-        response.sendRedirect("/logout.html?logSucc=true");
+        response.sendRedirect(this.getAppUrl(request)+"/logout.html?logSucc=true");
     }
+    
+	private String getAppUrl(HttpServletRequest request) {
+		return "http://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath();
+	}
+
 }

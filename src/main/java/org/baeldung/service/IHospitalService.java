@@ -14,13 +14,13 @@ import org.baeldung.web.error.UserAlreadyExistException;
 
 public interface IHospitalService {
 
-	Hospital registerNewHospital(HospitalDto hospitalDto) throws UserAlreadyExistException;
+	Hospital registerNewHospital(HospitalDto hospitalDto) throws UserAlreadyExistException, Exception;
 
     void saveHospital(Hospital hospital);
 
     void deleteHospital(Hospital hospital);
 
-    Hospital findHospitalByEmail(String email);
+    boolean findByName(String anme);
 
     Optional<Hospital> getHospitalByID(long id);
 

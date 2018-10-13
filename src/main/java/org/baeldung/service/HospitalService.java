@@ -2,8 +2,12 @@ package org.baeldung.service;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 
+import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 
 import org.baeldung.persistence.dao.HospitalRepository;
@@ -11,8 +15,12 @@ import org.baeldung.persistence.dao.PasswordResetTokenRepository;
 import org.baeldung.persistence.dao.RoleRepository;
 import org.baeldung.persistence.dao.VerificationTokenRepository;
 import org.baeldung.persistence.model.Hospital;
+import org.baeldung.persistence.model.User;
 import org.baeldung.web.dto.HospitalDto;
+import org.baeldung.web.util.AppUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Example;
+import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -52,33 +60,26 @@ public class HospitalService implements IHospitalService {
     // API
 
     @Override
-    public Hospital registerNewHospital(final HospitalDto hospitalDto) {
-//        if (emailExist(accountDto.getEmail())) {
-//            throw new UserAlreadyExistException("There is an account with that email adress: " + accountDto.getEmail());
-//        }
+    public Hospital registerNewHospital(final HospitalDto hospitalDto) throws Exception{
+
         final Hospital hospital = new Hospital();
         
-        hospital.setUserId(BigInteger.valueOf(userService.getUserFromSessionRegistry().getId()));
+        hospital.setUserId(BigInteger.valueOf(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0))));
         hospital.setDoctors(hospitalDto.getDoctors());
 
-        hospital.setCountry(hospitalDto.getCountry());
-        hospital.setCity(hospitalDto.getCity());
-        hospital.setDatetime(hospitalDto.getDatetime());
-        hospital.setEmail(hospitalDto.getEmail());
-        hospital.setLogoUrl(hospitalDto.getLogoUrl());
         hospital.setName(hospitalDto.getName());
         hospital.setPhone(hospitalDto.getPhone());
+        hospital.setEmail(hospitalDto.getEmail());
+        hospital.setLogoUrl(hospitalDto.getLogoUrl());
+        hospital.setCountry(hospitalDto.getCountry());
         hospital.setState(hospitalDto.getState());
+        hospital.setCity(hospitalDto.getCity());
         hospital.setZip(hospitalDto.getZip());
-        hospital.setAppointmentOfferType(hospitalDto.getAppointmentOfferType());
+       	hospital.setAppointmentOfferType(hospitalDto.getAppointmentOfferType()+"/"+hospitalDto.getHours());
+        hospital.setAppointmentOfferValue(hospitalDto.getAppointmentOfferValue());
         
-//
-//        user.setFirstName(accountDto.getFirstName());
-//        user.setLastName(accountDto.getLastName());
-//        user.setPassword(passwordEncoder.encode(accountDto.getPassword()));
-//        user.setEmail(accountDto.getEmail());
-//        user.setUsing2FA(accountDto.isUsing2FA());
-//        user.setRoles(Arrays.asList(roleRepository.findByName("ROLE_USER")));
+        hospital.setDatetime(AppUtil.todayDateStr());
+        
         return repository.save(hospital);
     }
 
@@ -95,10 +96,13 @@ public class HospitalService implements IHospitalService {
 	}
 
 	@Override
-	public Hospital findHospitalByEmail(String email) {
-		// TODO Auto-generated method stub
-		return null;
+	public boolean findByName(String name) {
+		return repository.findByName(name).isPresent();
 	}
+//		Hospital filterBy = new Hospital();
+//		filterBy.setName(name);
+//        Example<Hospital> example = Example.of(filterBy);
+//		return repository.exists(example);
 
 	@Override
 	public Optional<Hospital> getHospitalByID(long id) {
