@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
+<style>
+.password-verdict{
+color:#000;
+}
+</style>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<script th:src="@{/resources/pwstrength.js}"></script>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII"/>
+<title th:text="#{label.form.title}">form</title>
+</head>
+<body>
+<nav class="navbar navbar-default">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <a class="navbar-brand" th:href="@{/home.html}" th:text="#{label.pages.home.title}">home</a>
+    </div>
+      <ul class="nav navbar-nav navbar-right">
+        <li><a th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a> </li>
+      </ul>
+    </div>
+</nav>
+
+    <div class="container">
+		<span>Add doctor Detail</span>
+		<div class="container">
+	        <div >
+	            <h1 th:text="#{label.form.title}">form</h1>
+	            <br/>
+	            <form action="/" method="POST" enctype="utf8">
+	                <div class="form-group row">
+	                    <label class="col-sm-3" th:text="#{label.doctor.name}">Hospital Name</label>
+	                    <select class="col-sm-5" id="hospitalId" name="hospitalId">
+	                         <option value=""> Select Hospital </option>
+	                         <option th:each="key : ${hospitals.keySet()}"
+	                            th:value="${key}"
+	                            th:utext="${hospitals.get(key)}"/>
+	                  </select>               
+	                    <span id="hospitalNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
+	                </div>
+	                <div class="form-group row">
+	                    <label class="col-sm-3" th:text="#{label.doctor.address}">Address</label>
+	                    <span class="col-sm-5"><input id="phone" class="form-control" name="address" value="" required="required"/></span>
+	                    <span id="phoneError" class="alert alert-danger col-sm-4" style="display:none"></span>
+	                </div>
+	                <div class="form-group row">
+	                    <label class="col-sm-3" th:text="#{label.doctor.availabe}">Available</label>
+		                <select class="col-sm-5" id="availabe" name="availabe" required="required">	                
+    						<option value="yes" selected="selected"> Available </option>
+    						<option value="no"> Not Available </option>
+						</select>
+	                </div>
+	                <div class="form-group row">
+	                    <label class="col-sm-3" th:text="#{label.doctor.mail}">Email</label>
+	                    <span class="col-sm-5"><input type="email" class="form-control" name="email" value="" required="required"/></span>                    
+	                    <span id="emailError" class="alert alert-danger col-sm-4" style="display:none"></span>
+	                    
+	                </div>
+	                <div class="form-group row">
+	                    <label class="col-sm-3" th:text="#{label.doctor.mobile}">Mobile</label>
+	                    <span class="col-sm-5"><input id="mobile" class="form-control" name="mobile" value="" required="required"/></span>
+	                    <span id="mobileError" class="alert alert-danger col-sm-4" style="display:none"></span>
+	                </div>
+	                <div class="form-group row">
+	                    <label class="col-sm-3" th:text="#{label.doctor.name}">Name</label>
+	                    <span class="col-sm-5"><input class="form-control" name="name" value="" required="required"/></span>
+	                    <span id="nameError" class="alert alert-danger col-sm-4" style="display:none"></span>
+	                    
+	                </div>
+	                <div class="form-group row">
+	                    <label class="col-sm-3" th:text="#{label.doctor.speciality}">Speciality</label>
+	                    <span class="col-sm-5"><input id="speciality" class="form-control" name="speciality" value="" required="required"/></span>
+	                    <span id="specialityError" class="alert alert-danger col-sm-4" style="display:none"></span>
+	                </div>
+	                <div class="form-group row" >
+	                    <label class="col-sm-3" th:text="#{label.doctor.timeIn}">Time In</label>
+	                    <span class="col-sm-5"><input type="time" class="form-control" name="timeIn" id="timeIn" required="required" placeholder="Time in"/></span>
+	                    <span id="timeInError" class="alert alert-danger col-sm-4" style="display:none"></span>
+	                </div>
+	                <div class="form-group row" >
+	                    <label class="col-sm-3" th:text="#{label.doctor.timeOut}">Time Out</label>
+	                    <span class="col-sm-5"><input type="time" name="timeOut" id="timeOut" required="required" placeholder="Time out"/></span>
+	                    <span id="timeOutError" class="alert alert-danger col-sm-4" style="display:none"></span>
+	                </div>
+	                <br/>
+	                <button type="submit" class="btn btn-primary" th:text="#{label.form.submit}">submit</button>
+	            </form>
+	        </div>
+	    </div>
+    </div>
+    
+
+<script th:inline="javascript">
+var serverContext = [[@{/}]];
+
+$(document).ready(function () {
+	$('form').submit(function(event) {
+		registerDoctor(event);
+	});
+});
+
+function registerDoctor(event){
+	event.preventDefault();
+    $(".alert").html("").hide();
+    $(".error-list").html("");
+   
+    var formData= $('form').serialize();
+   alert(formData+" : "+serverContext);
+    $.post(serverContext + "registerDoctor",formData ,function(data){
+        if(data.message == "success"){
+        	alert(1);
+            window.location.href = serverContext + "successRegister.html";
+        }
+    })
+    .fail(function(data) {
+    	alert(data.responseJSON.message);
+    	/*
+        if(data.responseJSON.error.indexOf("MailError") > -1)
+        {
+            window.location.href = serverContext + "emailError.html";
+        }
+        else if(data.responseJSON.error == "UserAlreadyExist"){
+            $("#emailError").show().html(data.responseJSON.message);
+        }
+        else if(data.responseJSON.error.indexOf("InternalError") > -1){
+            window.location.href = serverContext + "login?message=" + data.responseJSON.message;
+        }
+        else*/
+        {
+        	var errors = $.parseJSON(data.responseJSON.message);
+            $.each( errors, function( index,item ){
+            	if (item.field){
+            		$("#"+item.field+"Error").show().append(item.defaultMessage+"<br/>");
+            	}
+            	else {
+            		$("#globalError").show().append(item.defaultMessage+"<br/>");
+            	}
+               
+            });
+        }
+    });
+}
+
+</script>    
+</body>
+</html>
