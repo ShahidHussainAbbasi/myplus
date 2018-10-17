@@ -10,6 +10,13 @@ import java.util.List;
  * 
  */
 @Entity
+@Table(
+        name = "doctor",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "mobile"),
+                @UniqueConstraint(columnNames = "name")
+        }
+)
 @NamedQuery(name="Doctor.findAll", query="SELECT d FROM Doctor d")
 public class Doctor implements Serializable {
 	private static final long serialVersionUID = 1L;
@@ -17,7 +24,7 @@ public class Doctor implements Serializable {
 	@Id
 	@GeneratedValue(strategy=GenerationType.AUTO)
 	@Column(name="doctor_id")
-	private int doctorId;
+	private Long doctorId;
 
 	private String address;
 
@@ -51,11 +58,11 @@ public class Doctor implements Serializable {
 	public Doctor() {
 	}
 
-	public int getDoctorId() {
+	public Long getDoctorId() {
 		return this.doctorId;
 	}
 
-	public void setDoctorId(int doctorId) {
+	public void setDoctorId(Long doctorId) {
 		this.doctorId = doctorId;
 	}
 

@@ -16,23 +16,23 @@ color:#000;
 <nav class="navbar navbar-default">
   <div class="container-fluid">
     <div class="navbar-header">
-      <a class="navbar-brand" th:href="@{/home.html}" th:text="#{label.pages.home.title}">home</a>
+      <!-- <a class="navbar-brand" th:href="@{/home.html}" th:text="#{label.pages.home.title}">home</a> -->
     </div>
       <ul class="nav navbar-nav navbar-right">
-        <li><a th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a> </li>
+       <!--  <li><a th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a> </li> -->
       </ul>
     </div>
 </nav>
 
     <div class="container">
-		<span>Appointment Request</span>
+		<span>Appointment Request</span><div id="messageDiv"></div>
 		<div class="container">
 	        <div >
 	            <h1 th:text="#{label.form.title}">form</h1>
 	            <br/>
 	            <form action="/" method="POST" enctype="utf8">
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.appointment.hospital.name}">Hospital Name</label>
+	                    <label class="col-sm-2" th:text="#{label.hospital.name}">Hospital Name</label>
 	                    <select class="col-sm-3" id="hospitalId" name="hospitalId" required="required">
 	                         <option value=""> Select Hospital </option>
 	                         <option th:each="hospital : ${hospitals}"
@@ -42,7 +42,7 @@ color:#000;
 	                    <span id="hospitalNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.appointment.doctor.name}">Doctor Name</label>
+	                    <label class="col-sm-2" th:text="#{label.doctor.name}">Doctor Name</label>
 	                    <select class="col-sm-3" id="doctorId" name="doctorId" required="required">
 	                         <option value=""> Select Doctor </option>
 	                         <option th:each="doctor : ${doctors}"
@@ -52,23 +52,23 @@ color:#000;
 	                    <span id="doctorNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.appointment.name}">Name</label>
+	                    <label class="col-sm-2" th:text="#{label.appointment.name}">Patient Name</label>
 	                    <span class="col-sm-3"><input class="form-control" name="name" value="" required="required"/></span>
 	                    <span id="nameError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.appointment.mobile}">Mobile</label>
+	                    <label class="col-sm-2" th:text="#{label.mobile}">Mobile</label>
 	                    <span class="col-sm-3"><input id="mobile" class="form-control" name="mobile" value="" required="required"/></span>
 	                    <span id="mobileError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.appointment.mail}">Email</label>
+	                    <label class="col-sm-2" th:text="#{label.email}">Email</label>
 	                    <span class="col-sm-3"><input type="email" class="form-control" name="email" value="" required="required"/></span>                    
 	                    <span id="emailError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                    
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.appointment.address}">Address</label>
+	                    <label class="col-sm-2" th:text="#{label.address}">Address</label>
 	                    <span class="col-sm-3"><input id="phone" class="form-control" name="address" value="" required="required"/></span>
 	                    <span id="phoneError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
@@ -93,17 +93,21 @@ function appointmentReq(event){
 	event.preventDefault();
     $(".alert").html("").hide();
     $(".error-list").html("");
-   
+    $("#messageDiv").html("");
+    $("#messageDiv").removeClass("alert alert-danger");
     var formData= $('form').serialize();
-   alert(formData+" : "+serverContext);
+	//alert(1);
     $.post(serverContext + "appointmentReq",formData ,function(data){
-        if(data.message == "success"){
-        	alert(1);
-            window.location.href = serverContext + "successRegister.html";
+        if(data.status == "SUCCESS"){
+        	$("#messageDiv").show().html(data.message);
+        	$("#messageDiv").addClass("alert alert-success");
+        }else if(data.status == "FAILURE"){
+        	$("#messageDiv").show().html(data.error);
+        	$("#messageDiv").addClass("alert alert-danger");
         }
     })
     .fail(function(data) {
-    	alert(data.responseJSON.message);
+    	alert("responseJSON exist  "+data.responseJSON.message);
     	/*
         if(data.responseJSON.error.indexOf("MailError") > -1)
         {

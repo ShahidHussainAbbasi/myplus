@@ -2,13 +2,13 @@ package org.baeldung.service;
 
 import java.util.Optional;
 
-import org.baeldung.persistence.model.Appointment;
 import org.baeldung.web.dto.AppointmentDTO;
 import org.baeldung.web.dto.DoctorDTO;
+import org.baeldung.web.util.GenericResponse;
 
 public interface IAppointmentService {
 
-	AppointmentDTO registerNewAppointment(AppointmentDTO appointmentDTO) throws Exception;
+	GenericResponse registerNewAppointment(AppointmentDTO appointmentDTO) throws Exception;
 
     void saveDoctor(DoctorDTO doctorDTO) throws Exception;
 

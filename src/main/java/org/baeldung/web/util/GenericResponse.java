@@ -3,12 +3,17 @@ package org.baeldung.web.util;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Component;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
 
 public class GenericResponse {
     private String message;
     private String error;
+    private String status = "SUCCESS";
+    
+    public GenericResponse() {
+    }
 
     public GenericResponse(final String message) {
         super();
@@ -49,4 +54,13 @@ public class GenericResponse {
         this.error = error;
     }
 
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+    
 }

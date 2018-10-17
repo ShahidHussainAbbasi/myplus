@@ -8,11 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.annotation.PersistenceExceptionTranslationPostProcessor;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
@@ -32,16 +34,25 @@ public class PersistenceJPAConfig {
         super();
     }
 
-    //
-
+//    //
     @Bean
+	public LocalSessionFactoryBean sessionFactory() {
+		LocalSessionFactoryBean sessionFactory = new LocalSessionFactoryBean();
+		sessionFactory.setDataSource(dataSource());
+		sessionFactory.setPackagesToScan(new String[] { "org.baeldung.persistence.model" });
+		sessionFactory.setHibernateProperties(jpaProperties());
+		return sessionFactory;
+	}
+    
+    @Bean
+    @Primary
     public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
         final LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource());
         em.setPackagesToScan(new String[] { "org.baeldung.persistence.model" });
         final HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
         em.setJpaVendorAdapter(vendorAdapter);
-        em.setJpaProperties(additionalProperties());
+        em.setJpaProperties(jpaProperties());//additionalProperties
         return em;
     }
 
@@ -61,12 +72,29 @@ public class PersistenceJPAConfig {
         transactionManager.setEntityManagerFactory(entityManagerFactory().getObject());
         return transactionManager;
     }
-
+//    @Bean
+//	@Autowired
+//	public PlatformTransactionManager transactionManager(EntityManagerFactory emf) {
+//		JpaTransactionManager txManager = new JpaTransactionManager();
+////		JtaTransactionManager txManager2 = new JtaTransactionManager(); need to review by link of https://softwarecave.org/2014/03/15/using-jpa-and-jta-with-spring/
+//		txManager.setEntityManagerFactory(emf);
+//		return txManager;
+//	}
     @Bean
     public PersistenceExceptionTranslationPostProcessor exceptionTranslation() {
         return new PersistenceExceptionTranslationPostProcessor();
     }
 
+    private Properties jpaProperties() {
+		Properties jpaProperties = new Properties();
+		jpaProperties.put("hibernate.dialect", env.getRequiredProperty("hibernate.dialect"));//"org.hibernate.dialect.MySQLDialect"
+		jpaProperties.put("hibernate.hbm2ddl.auto",env.getRequiredProperty("hibernate.hbm2ddl.auto"));// "update")
+		jpaProperties.put("hibernate.show_sql", env.getRequiredProperty("hibernate.show_sql"));//"true"
+		jpaProperties.put("hibernate.format_sql", env.getRequiredProperty("hibernate.format_sql"));//"false"
+		
+        return jpaProperties;
+    }
+    
     protected Properties additionalProperties() {
         final Properties hibernateProperties = new Properties();
         hibernateProperties.setProperty("hibernate.hbm2ddl.auto", env.getProperty("hibernate.hbm2ddl.auto"));

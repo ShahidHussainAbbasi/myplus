@@ -16,6 +16,7 @@ import org.baeldung.persistence.model.Doctor;
 import org.baeldung.persistence.model.Hospital;
 import org.baeldung.validation.PasswordMatches;
 import org.baeldung.validation.ValidEmail;
+import org.baeldung.validation.ValidMobileNumber;
 import org.baeldung.validation.ValidPassword;
 
 @PasswordMatches
@@ -32,6 +33,7 @@ public class DoctorDTO {
 	@ValidEmail
 	private String email;
 	@NotNull
+	@ValidMobileNumber
 	private String mobile;
 	@NotNull
 	private String name;

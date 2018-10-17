@@ -27,6 +27,8 @@ public class Appointment implements Serializable {
 	@Column(name="date_time")
 	private String dateTime;
 
+	private String date;
+
 	//bi-directional many-to-one association to Doctor
 	@ManyToOne
 	@JoinColumn(name="FK_doctor_id")
@@ -41,6 +43,15 @@ public class Appointment implements Serializable {
 	@ManyToOne
 	@JoinColumn(name="FK_patient_id")
 	private Patient patient;
+
+	@Column(name="patients_to_visit")
+	private Integer patientToVisit;
+
+	@Column(name="patients_appointed")
+	private Integer patientAppointed;
+
+	@Column(name="patients_visited")
+	private Integer patientVisited;
 
 	public Appointment() {
 	}
@@ -101,4 +112,39 @@ public class Appointment implements Serializable {
 		this.patient = patient;
 	}
 
+	public Integer getPatientToVisit() {
+		return patientToVisit;
+	}
+
+	public void setPatientToVisit(Integer patientToVisit) {
+		this.patientToVisit = patientToVisit;
+	}
+
+	public Integer getPatientAppointed() {
+		return patientAppointed;
+	}
+
+	public void setPatientAppointed(Integer patientAppointed) {
+		this.patientAppointed = patientAppointed;
+	}
+
+	public Integer getPatientVisited() {
+		return patientVisited;
+	}
+
+	public void setPatientVisited(Integer patientVisited) {
+		this.patientVisited = patientVisited;
+	}
+
+	public static long getSerialversionuid() {
+		return serialVersionUID;
+	}
+
+	public String getDate() {
+		return date;
+	}
+
+	public void setDate(String date) {
+		this.date = date;
+	}
 }

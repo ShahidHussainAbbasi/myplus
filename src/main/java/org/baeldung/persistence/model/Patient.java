@@ -10,6 +10,13 @@ import java.util.List;
  * 
  */
 @Entity
+@Table(
+        name = "patient",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "mobile"),
+                @UniqueConstraint(columnNames = "cnic"),
+        }
+)
 @NamedQuery(name="Patient.findAll", query="SELECT p FROM Patient p")
 public class Patient implements Serializable {
 	private static final long serialVersionUID = 1L;
@@ -25,7 +32,7 @@ public class Patient implements Serializable {
 
 	private String name;
 
-	private String phone;
+	private String mobile;
 
 	private String cnic;
 
@@ -70,12 +77,12 @@ public class Patient implements Serializable {
 		this.name = name;
 	}
 
-	public String getPhone() {
-		return this.phone;
+	public String getMobile() {
+		return mobile;
 	}
 
-	public void setPhone(String phone) {
-		this.phone = phone;
+	public void setMobile(String mobile) {
+		this.mobile = mobile;
 	}
 
 	public List<Appointment> getAppointments() {

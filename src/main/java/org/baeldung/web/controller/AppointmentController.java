@@ -1,5 +1,6 @@
 package org.baeldung.web.controller;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.Locale;
 
@@ -23,6 +24,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -52,9 +54,10 @@ public class AppointmentController {
 
 	@RequestMapping(value = "/appointmentReq", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse appointmentReq(final AppointmentDTO appointmentDTO, final HttpServletRequest request) {
+	public GenericResponse appointmentReq(@Validated final AppointmentDTO appointmentDTO, final HttpServletRequest request) {
 		try {
 			LOGGER.debug("Registering hospital account with information: {}", appointmentDTO);
+			Principal principal = request.getUserPrincipal();
 		    final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 			if (!authenticationTrustResolver.isAnonymous(authentication)) 
 				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"NotSupported");
@@ -63,14 +66,17 @@ public class AppointmentController {
 				return new GenericResponse(messages.getMessage("message.hospital.exist", null, request.getLocale()),
 						"HospitalAlreadyExist");
 
-			final AppointmentDTO appointmentDTO2 = appointmentService.registerNewAppointment(appointmentDTO);
+			GenericResponse genericResponse =  appointmentService.registerNewAppointment(appointmentDTO);
+			if(appointmentDTO.getAppntmntNo()!=null)
+				genericResponse.setMessage("Dear "+appointmentDTO.getName()+" Your appointment number "+appointmentDTO.getAppntmntNo()+" has been registered for "+appointmentDTO.getMobile());
+			return genericResponse;
 //        eventPublisher.publishEvent(new OnRegistrationCompleteEvent(hospital, request.getLocale(), getAppUrl(request)));
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
-		return new GenericResponse("success");
+//		return new GenericResponse("success");
 	}
 
     @RequestMapping(value = "/appointment", method = RequestMethod.GET)
