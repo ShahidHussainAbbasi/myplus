@@ -25,10 +25,19 @@
 <body>
 	<!-- START PAGE CONTAINER -->
 	<div class="container-fluid">
-		<!-- START PAGE SIDEBAR -->
-		<!-- commented out     <div th:replace="fragments/header :: header"> </div> -->
-		<!-- END PAGE SIDEBAR -->
-		<!-- PAGE TITLE -->
+		<nav class="navbar navbar-default">
+			<div class="container-fluid">
+				<ul class="nav navbar-nav">
+					<li><a th:href="@{/addHospital}"
+						th:text="#{label.hospital.add}">New Hospital</a></li>
+					<li><a th:href="@{/addDoctor}" th:text="#{label.doctor.add}">New
+							Doctor</a></li>
+				</ul>
+				<ul class="nav navbar-nav navbar-right">
+					<li><a th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a></li>
+				</ul>
+			</div>
+		</nav>
 		<div class="page-title">
 			<h2>
 				<span class="fa fa-arrow-circle-o-left"></span> Patients Viewer

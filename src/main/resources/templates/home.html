@@ -1,27 +1,27 @@
 <html>
 
 <head>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-<title th:text="#{label.pages.home.title}">home</title>
+<link rel="stylesheet"
+	href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" />
+<title th:text="#{label.pages.home.title}">MyPlus</title>
 </head>
 <body>
-<nav class="navbar navbar-default">
-  <div class="container-fluid">
-      <ul class="nav navbar-nav navbar-right">
-        <li><a th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a></li>
-      </ul>
-  </div>
-</nav>
-    <div class="container">
-           <h1 th:text="#{label.pages.home.message}">home</h1>
-           <br />	
-	    <a th:href="@{/addHospital}" th:text="#{label.hospital.add}">Add Hospital</a>
-		<br />	    
-	    <a th:href="@{/addDoctor}" th:text="#{label.doctor.add}">Add Doctor</a>
-		<br />	                
-	    <!-- <a th:href="@{/appointmentReq2}" th:text="#{label.form.appointmentReq}">Appointment Request</a> -->
-		<br />	                
-    </div>
+	<nav class="navbar navbar-default">
+		<div class="container-fluid">
+			<ul class="nav navbar-nav">
+				<li><a th:href="@{/appointmentDashboard}"
+					th:text="#{label.my.dashBoard}">My DashBoard</a></li>
+				<li><a th:href="@{/addHospital}"
+					th:text="#{label.hospital.add}">New Hospital</a></li>
+				<li><a th:href="@{/addDoctor}" th:text="#{label.doctor.add}">New
+						Doctor</a></li>
+			</ul>
+			<ul class="nav navbar-nav navbar-right">
+				<li><a th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a></li>
+			</ul>
+		</div>
+	</nav>
+
 </body>
 
 </html>
