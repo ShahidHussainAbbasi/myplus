@@ -1,12 +1,13 @@
-<html xmlns="http://www.w3.org/1999/xhtml"
-	xmlns:th="http://www.thymeleaf.org">
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-<!-- CSS INCLUDE -->
-<link rel="stylesheet"
-	href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
-	integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
-	crossorigin="anonymous"></link>
-<!-- EOF CSS INCLUDE -->
+<div th:replace="header :: header-css" />
+<style>
+.password-verdict {
+	color: #000;
+}
+</style>
+
 <style>
 .pagination-centered {
 	text-align: center;
@@ -21,94 +22,76 @@
 	pointer-events: none;
 }
 </style>
+
 </head>
 <body>
-	<!-- START PAGE CONTAINER -->
-	<div class="container-fluid">
-		<nav class="navbar navbar-default">
-			<div class="container-fluid">
-				<ul class="nav navbar-nav">
-					<li><a th:href="@{/addHospital}"
-						th:text="#{label.hospital.add}">New Hospital</a></li>
-					<li><a th:href="@{/addDoctor}" th:text="#{label.doctor.add}">New
-							Doctor</a></li>
-				</ul>
-				<ul class="nav navbar-nav navbar-right">
-					<li><a th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a></li>
-				</ul>
-			</div>
-		</nav>
-		<div class="page-title">
-			<h2>
-				<span class="fa fa-arrow-circle-o-left"></span> Patients Viewer
-			</h2>
-		</div>
-		<!-- END PAGE TITLE -->
+
+	<div th:replace="header :: header"/>
+
+	<div class="container">
+		<table class="table datatable">
+			<thead>
+				<tr>
+					<th>Name</th>
+					<th>Token</th>
+					<th>Mobile</th>
+					<th>Doctor</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr th:each="clientlist : ${clientlist}">
+					<td th:text="${clientlist.patient.name}" />
+					<td th:text="${clientlist.patientAppointed}" />
+					<td th:text="${clientlist.patient.mobile}" />
+					<td th:text="${clientlist.doctor.name}" />
+					<!-- <td><button type="button"
+							class="btn btn-primary btn-condensed">
+							<i class="glyphicon glyphicon-folder-open"></i>
+						</button></td> -->
+				</tr>
+			</tbody>
+		</table>
 		<div class="row">
-			<table class="table datatable">
-				<thead>
-					<tr>
-						<th>Name</th>
-						<th>Token</th>
-						<th>Mobile</th>
-						<th>Doctor</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr th:each="clientlist : ${clientlist}">
-						<td th:text="${clientlist.patient.name}"/>
-						<td th:text="${clientlist.patientAppointed}"/>
-						<td th:text="${clientlist.patient.mobile}"/>
-						<td th:text="${clientlist.doctor.name}"/>
-						<!-- <td><button type="button"
-								class="btn btn-primary btn-condensed">
-								<i class="glyphicon glyphicon-folder-open"></i>
-							</button></td> -->
-					</tr>
-				</tbody>
-			</table>
-			<div class="row">
-				<div class="form-group col-md-1">
-					<select class="form-control pagination" id="pageSizeSelect">
-						<option th:each="pageSize : ${pageSizes}" th:text="${pageSize}"
-							th:value="${pageSize}"
-							th:selected="${pageSize} == ${selectedPageSize}"></option>
-					</select>
-				</div>
-				<div th:if="${clientlist.totalPages != 1}"
-					class="form-group col-md-11 pagination-centered">
-					<ul class="pagination">
-						<li th:class="${clientlist.number == 0} ? disabled"><a
-							class="pageLink"
-							th:href="@{/(pageSize=${selectedPageSize}, page=1)}">«</a></li>
-						<li th:class="${clientlist.number == 0} ? disabled"><a
-							class="pageLink"
-							th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.number})}">←</a>
-						</li>
-						<li
-							th:class="${clientlist.number == (page - 1)} ? 'active pointer-disabled'"
-							th:each="page : ${#numbers.sequence(pager.startPage, pager.endPage)}">
-							<a class="pageLink"
-							th:href="@{/(pageSize=${selectedPageSize}, page=${page})}"
-							th:text="${page}"></a>
-						</li>
-						<li
-							th:class="${clientlist.number + 1 == clientlist.totalPages} ? disabled">
-							<a class="pageLink"
-							th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.number + 2})}">→</a>
-						</li>
-						<li
-							th:class="${clientlist.number + 1 == clientlist.totalPages} ? disabled">
-							<a class="pageLink"
-							th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.totalPages})}">»</a>
-						</li>
-					</ul>
-				</div>
+			<div class="form-group col-md-1">
+				<select class="form-control pagination" id="pageSizeSelect">
+					<option th:each="pageSize : ${pageSizes}" th:text="${pageSize}"
+						th:value="${pageSize}"
+						th:selected="${pageSize} == ${selectedPageSize}"></option>
+				</select>
+			</div>
+			<div th:if="${clientlist.totalPages != 1}"
+				class="form-group col-md-11 pagination-centered">
+				<ul class="pagination">
+					<li th:class="${clientlist.number == 0} ? disabled"><a
+						class="pageLink"
+						th:href="@{/(pageSize=${selectedPageSize}, page=1)}">«</a></li>
+					<li th:class="${clientlist.number == 0} ? disabled"><a
+						class="pageLink"
+						th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.number})}">←</a>
+					</li>
+					<li
+						th:class="${clientlist.number == (page - 1)} ? 'active pointer-disabled'"
+						th:each="page : ${#numbers.sequence(pager.startPage, pager.endPage)}">
+						<a class="pageLink"
+						th:href="@{/(pageSize=${selectedPageSize}, page=${page})}"
+						th:text="${page}"></a>
+					</li>
+					<li
+						th:class="${clientlist.number + 1 == clientlist.totalPages} ? disabled">
+						<a class="pageLink"
+						th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.number + 2})}">→</a>
+					</li>
+					<li
+						th:class="${clientlist.number + 1 == clientlist.totalPages} ? disabled">
+						<a class="pageLink"
+						th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.totalPages})}">»</a>
+					</li>
+				</ul>
 			</div>
 		</div>
-		<!-- END PAGE CONTENT -->
-		<!-- END PAGE CONTAINER -->
 	</div>
+	<!-- END PAGE CONTENT -->
+	<!-- END PAGE CONTAINER -->
 	<script src="https://code.jquery.com/jquery-1.11.1.min.js"
 		integrity="sha256-VAvG3sHdS5LqTT+5A/aeq/bZGa/Uj04xKxY8KM/w9EE="
 		crossorigin="anonymous"></script>
@@ -129,11 +112,12 @@
 			event.preventDefault();
 			$('#pageSizeSelect').change(
 					function(evt) {
-						window.location.replace(serverContext + "appointmentDashboard/?pageSize=" + this.value
+						window.location.replace(serverContext + "?pageSize=" + this.value
 								+ "&page=1");
 					});
 		}
 		/*]]>*/
 	</script>
+	<div th:replace="footer :: footer"></div>
 </body>
 </html>

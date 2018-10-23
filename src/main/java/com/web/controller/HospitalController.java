@@ -41,13 +41,8 @@ public class HospitalController {
     ActiveUserStore activeUserStore;
 
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
-    
-    @Autowired
     IHospitalService hospitalService;
 
-    @Autowired
-    private AuthenticationManager authenticationManager;    
     @RequestMapping(value = "/registerHospital", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse registerHospital(final HospitalDto hospitalDto, final HttpServletRequest request) {

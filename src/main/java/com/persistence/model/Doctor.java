@@ -39,6 +39,16 @@ public class Doctor implements Serializable {
 	private String name;
 
 	private String speciality;
+	
+	private String dayFrom;
+	
+	private String dayTo;
+	
+	@Column(name="appointment_offer_type")
+	private String appointmentOfferType;
+	
+	@Column(name="appointment_offer_value")
+	private Short appointmentOfferValue;
 
 	@Column(name="time_in")
 	private String timeIn;
@@ -168,4 +178,51 @@ public class Doctor implements Serializable {
 		this.hospital = hospital;
 	}
 
+	public String getDayFrom() {
+		return dayFrom;
+	}
+
+	public void setDayFrom(String dayFrom) {
+		this.dayFrom = dayFrom;
+	}
+
+	public String getDayTo() {
+		return dayTo;
+	}
+
+	public void setDayTo(String dayTo) {
+		this.dayTo = dayTo;
+	}
+
+	public String getAppointmentOfferType() {
+		return appointmentOfferType;
+	}
+
+	public void setAppointmentOfferType(String appointmentOfferType) {
+		this.appointmentOfferType = appointmentOfferType;
+	}
+
+	public Short getAppointmentOfferValue() {
+		return appointmentOfferValue;
+	}
+
+	public void setAppointmentOfferValue(Short appointmentOfferValue) {
+		this.appointmentOfferValue = appointmentOfferValue;
+	}
+
+	public static long getSerialversionuid() {
+		return serialVersionUID;
+	}
+
+	@Override
+	public String toString() {
+		return "Doctor [doctorId=" + doctorId + ", address=" + address + ", availabe=" + availabe + ", datetime="
+				+ datetime + ", email=" + email + ", mobile=" + mobile + ", name=" + name + ", speciality=" + speciality
+				+ ", dayFrom=" + dayFrom + ", dayTo=" + dayTo + ", appointmentOfferType=" + appointmentOfferType
+				+ ", appointmentOfferValue=" + appointmentOfferValue + ", timeIn=" + timeIn + ", timeOut=" + timeOut
+				+ ", appointments=" + appointments + ", hospital=" + hospital + "]";
+	}
+
+	
+	
 }

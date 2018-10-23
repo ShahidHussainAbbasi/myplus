@@ -3,6 +3,8 @@ package com.web.controller;
 import java.security.Principal;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -11,7 +13,9 @@ import com.persistence.dao.HospitalRepository;
 import com.persistence.model.Doctor;
 import com.persistence.model.Hospital;
 import com.security.ActiveUserStore;
+import com.service.HospitalService;
 import com.service.IAppointmentService;
+import com.service.IHospitalService;
 import com.web.dto.AppointmentDTO;
 import com.web.dto.DoctorDTO;
 import com.web.util.GenericResponse;
@@ -27,6 +31,7 @@ import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
@@ -50,14 +55,13 @@ public class AppointmentController {
 	
 	@Autowired
 	AuthenticationTrustResolver authenticationTrustResolver;
-
-
+	
 	@RequestMapping(value = "/appointmentReq", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse appointmentReq(@Validated final AppointmentDTO appointmentDTO, final HttpServletRequest request) {
 		try {
 			LOGGER.debug("Registering hospital account with information: {}", appointmentDTO);
-			Principal principal = request.getUserPrincipal();
+//			Principal principal = request.getUserPrincipal();
 		    final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 			if (!authenticationTrustResolver.isAnonymous(authentication)) 
 				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"NotSupported");

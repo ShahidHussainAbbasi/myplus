@@ -1,14 +1,25 @@
 package com.web.controller;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-import javax.validation.Valid;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
 
 import com.persistence.dao.HospitalRepository;
 import com.persistence.model.Doctor;
@@ -16,29 +27,8 @@ import com.persistence.model.Hospital;
 import com.persistence.model.User;
 import com.security.ActiveUserStore;
 import com.service.IDoctorService;
-import com.service.IHospitalService;
 import com.web.dto.DoctorDTO;
-import com.web.dto.HospitalDto;
 import com.web.util.GenericResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.MessageSource;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetails;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.servlet.ModelAndView;
 
 @Controller
 public class DoctorController {
@@ -55,6 +45,38 @@ public class DoctorController {
 	@Autowired
 	HospitalRepository hospitalRepository;
 
+	@RequestMapping(value = "/loadDoctorDetails", method = RequestMethod.GET)
+	@ResponseBody
+	public String loadDoctorDetails(@RequestParam Long doctorId) {
+		Doctor doctor = new Doctor();
+		StringBuffer sb = new StringBuffer();
+		try {
+			doctor = doctorService.fineByID(doctorId).get();
+			sb.append("<p id='schedule'>Days From : "+doctor.getDayFrom()+" To "+doctor.getDayTo()+ " <br/>");
+			sb.append("Time From : "+doctor.getTimeIn()+" To "+doctor.getTimeOut()+ " <br/>");
+			sb.append("Specialist : "+doctor.getSpeciality()+ " </p>");
+		}catch (Exception e) {
+			e.printStackTrace();
+			return "";
+		}	
+	    return sb.toString();
+	}	
+
+	@RequestMapping(value = "/loadDoctorsByHospital", method = RequestMethod.GET)
+	@ResponseBody
+	public String loadDoctorsByHospital(@RequestParam Long hospitalId) {
+		List<Doctor> doctors = doctorService.findByHospitalId(hospitalId);
+		StringBuffer sb = new StringBuffer();
+		sb.append("<option value='-1'> Select Doctor </option>");
+		doctors.forEach(d -> {
+			if(d!=null)
+				sb.append("<option value='"+d.getDoctorId()+"'>"+d.getName()+"</option>");
+			
+		});
+	    return sb.toString();
+	}	
+
+	
 	@RequestMapping(value = "/registerDoctor", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse registerDoctor(final DoctorDTO doctorDto, final HttpServletRequest request) {
@@ -87,6 +109,7 @@ public class DoctorController {
     	for(Hospital hospital: hospitals) {
     		doctorDTO.getHospitals().put(hospital.getHospitalId(), hospital.getName());
     	}
+    	model.addAttribute("days", Arrays.asList("All","Monday","Tuesday","Wednesday","Thursday","Fiday"));
     	model.addAttribute("hospitals", doctorDTO.getHospitals());
 		return new ModelAndView("doctor","doctorDTO",doctorDTO);
 //        return "doctor";

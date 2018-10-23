@@ -44,6 +44,16 @@ public class DoctorDTO {
 
 	private String timeOut;
 
+	private String dayFrom;
+	
+	private String dayTo;
+	
+	@Column(name="appointment_offer_type")
+	private String appointmentOfferType;
+	
+	@Column(name="appointment_offer_value")
+	private Short appointmentOfferValue;
+
 	//bi-directional many-to-one association to Appointment
 	private List<Appointment> appointments;
 	private Appointment appointment;
@@ -162,7 +172,37 @@ public class DoctorDTO {
 	public void setHospitals(Map<Long, String> hospitals) {
 		this.hospitals = hospitals;
 	}
-	
-	
+
+	public String getDayFrom() {
+		return dayFrom;
+	}
+
+	public void setDayFrom(String dayFrom) {
+		this.dayFrom = dayFrom;
+	}
+
+	public String getDayTo() {
+		return dayTo;
+	}
+
+	public void setDayTo(String dayTo) {
+		this.dayTo = dayTo;
+	}
+
+	public String getAppointmentOfferType() {
+		return appointmentOfferType;
+	}
+
+	public void setAppointmentOfferType(String appointmentOfferType) {
+		this.appointmentOfferType = appointmentOfferType;
+	}
+
+	public Short getAppointmentOfferValue() {
+		return appointmentOfferValue;
+	}
+
+	public void setAppointmentOfferValue(Short appointmentOfferValue) {
+		this.appointmentOfferValue = appointmentOfferValue;
+	}	
 	
 }

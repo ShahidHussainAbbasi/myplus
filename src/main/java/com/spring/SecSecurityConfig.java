@@ -1,9 +1,5 @@
 package com.spring;
 
-import com.persistence.dao.UserRepository;
-import com.security.CustomRememberMeServices;
-import com.security.google2fa.CustomAuthenticationProvider;
-import com.security.google2fa.CustomWebAuthenticationDetailsSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -26,6 +22,11 @@ import org.springframework.security.web.authentication.RememberMeServices;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
 
+import com.persistence.dao.UserRepository;
+import com.security.CustomRememberMeServices;
+import com.security.google2fa.CustomAuthenticationProvider;
+import com.security.google2fa.CustomWebAuthenticationDetailsSource;
+
 @Configuration
 @ComponentScan(basePackages = { "com.security" })
 // @ImportResource({ "classpath:webSecurityConfig.xml" })
@@ -46,9 +47,6 @@ public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
     private CustomWebAuthenticationDetailsSource authenticationDetailsSource;
-
-    @Autowired
-    private UserRepository userRepository;
 
     public SecSecurityConfig() {
         super();
@@ -80,6 +78,7 @@ public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers("/login*","/login*", "/logout*", "/signin/**", "/signup/**", "/customLogin",
                         "/user/registration*", "/registrationConfirm*", "/expiredAccount*", "/registration*",
                         "/registerHospital*","/appointment","/appointmentReq","appointmentDashboard",
+                        "/loadDoctorsByHospital","/loadDoctorDetails",
                         "/badUser*", "/user/resendRegistrationToken*" ,"/forgetPassword*", "/user/resetPassword*",
                         "/user/changePassword*", "/emailError*", "/resources/**","/old/user/registration*","/successRegister*","/qrcode*").permitAll()
                 .antMatchers("/invalidSession*").anonymous()

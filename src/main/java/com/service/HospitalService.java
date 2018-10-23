@@ -49,8 +49,8 @@ public class HospitalService implements IHospitalService {
         hospital.setState(hospitalDto.getState());
         hospital.setCity(hospitalDto.getCity());
         hospital.setZip(hospitalDto.getZip());
-       	hospital.setAppointmentOfferType(hospitalDto.getAppointmentOfferType()+"/"+hospitalDto.getHours());
-        hospital.setAppointmentOfferValue(hospitalDto.getAppointmentOfferValue());
+//       	hospital.setAppointmentOfferType(hospitalDto.getAppointmentOfferType()+"/"+hospitalDto.getHours());
+//        hospital.setAppointmentOfferValue(hospitalDto.getAppointmentOfferValue());
         
         hospital.setDatetime(AppUtil.todayDateStr());
         

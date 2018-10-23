@@ -86,13 +86,12 @@ public class AppointmentService extends AppointmentValidater implements IAppoint
        	Hospital hospitalTemp  = hospital.get();
        	
        	//Below code need to revise
-       	String appointmentType = hospitalTemp.getAppointmentOfferType();
-       	String appType[] = appointmentType.split("/");
-       	if(appType[0].equals("count")) {
-       		appointment.setPatientToVisit(Integer.valueOf(appType[1]));
+       	String appointmentType = doctorTemp.getAppointmentOfferType();
+       	if(appointmentType.equals("count")) {
+       		appointment.setPatientToVisit(doctorTemp.getAppointmentOfferValue().intValue());
        	}else {
            	int hours = Integer.valueOf(doctorTemp.getTimeOut().split(":")[0]) - Integer.valueOf(doctorTemp.getTimeIn().split(":")[0]);
-           	appointment.setPatientToVisit((hours*60)/Integer.valueOf(appType[1]));
+           	appointment.setPatientToVisit((hours*60)/doctorTemp.getAppointmentOfferValue().intValue());
        	}
        	int toVisit = appointment.getPatientToVisit();//10;
        	Appointment appointmentTemp = appointmentRepository.getLastAppointment(hospitalTemp.getHospitalId(), doctorTemp.getDoctorId(), appointment.getDate());

@@ -1,52 +1,37 @@
 <!DOCTYPE html>
-<html>
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-<style>
-.password-verdict{
-color:#000;
-}
-</style>
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-<script th:src="@{/resources/pwstrength.js}"></script>
-<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII"/>
-<title th:text="#{label.form.title}">form</title>
+<div th:replace="header :: header-css" />
 </head>
-<body>
-<nav class="navbar navbar-default">
-  <div class="container-fluid">
-    <div class="navbar-header">
-      <a class="navbar-brand" th:href="@{/home.html}" th:text="#{label.pages.home.title}">home</a>
-    </div>
-      <ul class="nav navbar-nav navbar-right">
-        <li><a th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a> </li>
-      </ul>
-    </div>
-</nav>
 
-    <div class="container">
-		<span>Add hospital</span>
-		<div class="container">
-	        <div >
-	            <h1 th:text="#{label.form.title}">form</h1>
-	            <br/>
-	            <form action="/" method="POST" enctype="utf8" >
-	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.name}">Hospital Name</label>
-	                    <span class="col-sm-5"><input id="name" class="form-control" name="name" value="" required="required"/></span>
-	                    <span id="hospitalNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.hospital.phoneNo}">Phone NO</label>
-	                    <span class="col-sm-5"><input id="phone" class="form-control" name="phone" value="" required="required"/></span>
-	                    <span id="phoneError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.email}">Email</label>
-	                    <span class="col-sm-5"><input type="email" class="form-control" name="email" value="" required="required"/></span>                    
-	                    <span id="emailError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-<!-- 	                <div class="form-group row">
+<body>
+	<div th:replace="header :: header" />
+
+	<div class="container">
+		<h2 th:text="#{label.hospital.form.heading}">Hospital Form</h2>
+		<br />
+		<form action="/" method="POST" enctype="utf8">
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.name}">Hospital
+					Name</label> <span class="col-sm-5"><input id="name"
+					class="form-control" name="name" value="" required="required" /></span> <span
+					id="hospitalNameError" class="alert alert-danger col-sm-4"
+					style="display: none"></span>
+			</div>
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.mobile}">Phone
+					NO</label> <span class="col-sm-5"><input id="phone"
+					class="form-control" name="phone" value="" required="required" /></span> <span
+					id="phoneError" class="alert alert-danger col-sm-4"
+					style="display: none"></span>
+			</div>
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.email}">Email</label> <span
+					class="col-sm-5"><input type="email" class="form-control"
+					name="email" value="" required="required" /></span> <span id="emailError"
+					class="alert alert-danger col-sm-4" style="display: none"></span>
+			</div>
+			<!-- 	                <div class="form-group row">
 	                    <label class="col-sm-3" th:text="#{label.hospital.country}">Country</label>
 	                    <span class="col-sm-5"><input class="form-control" name="country" value="" required="required"/></span>
 	                    <span id="countryError" class="alert alert-danger col-sm-4" style="display:none"></span>
@@ -62,34 +47,47 @@ color:#000;
 	                    <span class="col-sm-5"><input class="form-control" name="city" value="" required="required"/></span>
 	                    <span id="cityError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
- -->	                <div class="form-group row" >
-	                    <label class="col-sm-3" th:text="#{label.hospital.hours}">Hospital Timing</label>
-	                    <select class="col-sm-5" id="hour" name="hours" required="required">
-						    <option th:each="i : ${#numbers.sequence(1, 24)}" th:value="${i}" th:text="${i}"
-						      th:selected="${i==8}" value=""></option>
-						</select>
-	                </div>
-	               	<div class="form-group row" >
-	                    <label class="col-sm-3" th:text="#{label.hospital.appointmentOfferType}">Appointment type</label>
-		                <select class="col-sm-5" id="appointmentOfferType" name="appointmentOfferType" required="required">	                
-    						<option value="count" selected="selected"> Number Of Patient </option>
-    						<option value="minutes"> Time slot for each patient </option>
-						</select>
-	                </div>
-	               	<div class="form-group row" >
-	                    <label class="col-sm-3" th:text="#{label.hospital.appointmentOfferValue}">Total patients / minutes for each patient</label>
-	                    <span class="col-sm-5"><input class="form-control" name="appointmentOfferValue" value="" required="required"/></span>
-	                    <span id="cityError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <br/>
-	                <button type="submit" class="btn btn-primary" th:text="#{label.form.submit}">submit</button>
-	            </form>
-	        </div>
-	    </div>
-    </div>
-    
+ -->
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.hospital.hours}">Hospital
+					Timing</label> 
+					<span class="col-sm-5">
+					<select class="form-control" id="hour" name="hours"
+					required="required">
+					<option th:each="i : ${#numbers.sequence(1, 24)}" th:value="${i}"
+						th:text="${i}" th:selected="${i==24}" value=""></option>
+				</select>
+				</span>
+			</div>
+			<div class="form-group row">
+				<label class="col-sm-3"
+					th:text="#{label.hospital.appointmentOfferType}">Appointment
+					type</label> 
+					<span class="col-sm-5">
+					<select class="form-control" id="appointmentOfferType"
+					name="appointmentOfferType" required="required">
+					<option value="count" selected="selected">Number Of
+						Patient</option>
+					<option value="minutes">Time slot for each patient</option>
+				</select>
+				</span>
+			</div>
+			<div class="form-group row">
+				<label class="col-sm-3"
+					th:text="#{label.hospital.appointmentOfferValue}">Total
+					patients / minutes for each patient</label> <span class="col-sm-5"><input
+					class="form-control" name="appointmentOfferValue" value=""
+					required="required" /></span> <span id="cityError"
+					class="alert alert-danger col-sm-4" style="display: none"></span>
+			</div>
+			<br />
+			<button type="submit" class="btn"
+				th:text="#{label.form.submit}">submit</button>
+		</form>
+	</div>
 
-<script th:inline="javascript">
+
+	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 
 $(document).ready(function () {
@@ -139,6 +137,7 @@ function registerHospital(event){
     });
 }
 
-</script>    
+</script>
+	<div th:replace="footer :: footer"></div>
 </body>
 </html>

@@ -17,7 +17,7 @@ public interface IHospitalService {
     boolean findByName(String anme);
 
     Optional<Hospital> getHospitalByID(long id);
-
+    
     String generateQRUrl(Hospital hospital) throws UnsupportedEncodingException;
 
 }

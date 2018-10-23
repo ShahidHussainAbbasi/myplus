@@ -1,0 +1,45 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<head>
+<div th:fragment="header-css">
+	<!-- this is header-css -->
+	<link rel="stylesheet" type="text/css" href="webjars/bootstrap/3.3.7/css/bootstrap.min.css" />
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+	
+<!-- 	<link rel="stylesheet" type="text/css" href="webjars/bootstrap/3.3.7/css/bootstrap.min.css" />
+	Latest compiled JavaScript
+	<script
+		src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+	jQuery library
+	<script	src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	<script th:src="@{/resources/pwstrength.js}"></script>
+ -->		
+	<title th:text="#{label.app.title}">form</title>
+</div>
+</head>
+<body>
+	<div th:fragment="header">
+		<nav class="navbar-default" style="padding: 10px;">
+			<div class="container-fluid">
+				<div class="navbar-header">
+					<a class="btn btn-default" th:href="@{/home.html}"
+						th:text="#{label.pages.home.title}">home</a> <a
+						class="btn btn-default" th:href="@{/appointmentDashboard}"
+						th:text="#{label.my.dashBoard}">My DashBoard</a> <a
+						class="btn btn-default" th:href="@{/addHospital}"
+						th:text="#{label.hospital.add}">New Hospital</a> <a
+						class="btn btn-default" th:href="@{/addDoctor}"
+						th:text="#{label.doctor.add}">New Doctor</a>
+				</div>
+				<div class="nav navbar-nav navbar-right">
+					<p class="btn btn-default" th:if="${param.user} != null"
+						th:text="${param.user[0]}">user</p>
+					<a class="btn btn-default" th:href="@{/logout}"
+						th:text="#{label.pages.logout}">logout</a>
+				</div>
+			</div>
+		</nav>
+	</div>
+</body>
+</html>
+

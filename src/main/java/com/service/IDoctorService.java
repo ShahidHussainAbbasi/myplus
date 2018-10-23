@@ -1,5 +1,6 @@
 package com.service;
 
+import java.util.List;
 import java.util.Optional;
 
 import com.persistence.model.Doctor;
@@ -13,9 +14,11 @@ public interface IDoctorService {
 
     void deleteDoctor(DoctorDTO doctorDTO) throws Exception;
 
-    boolean isExist(String anme) throws Exception;
+    boolean isExist(String mobile) throws Exception;
 
-    Optional<DoctorDTO> fineByID(long id) throws Exception;
+    Optional<Doctor> fineByID(Long id) throws Exception;
+
+	List<Doctor> findByHospitalId(Long hospitalId);
 
 
 }

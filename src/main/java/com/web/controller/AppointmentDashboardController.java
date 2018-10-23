@@ -3,13 +3,24 @@
  */
 package com.web.controller;
 
+import java.math.BigInteger;
 import java.security.Principal;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import javax.servlet.http.HttpServletRequest;
 
 import com.persistence.dao.AppointmentDashboardRepository;
+import com.persistence.dao.HospitalRepository;
+import com.persistence.dao.UserRepository;
 import com.persistence.model.Appointment;
+import com.persistence.model.Hospital;
+import com.persistence.model.User;
 import com.web.dto.AppointmentDashboardDTO;
 import com.web.pagination.model.PagerModel;
 import com.web.util.GenericResponse;
@@ -17,8 +28,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.ThrowsAdvice;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.data.web.SpringDataWebProperties.Pageable;
 import org.springframework.context.MessageSource;
+import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -41,10 +55,14 @@ public class AppointmentDashboardController {
     @Autowired
     AppointmentDashboardRepository repository;
     @Autowired
+    UserRepository userRepository;
+    @Autowired
+    HospitalRepository hospitalRepository; 
+    @Autowired
 	private MessageSource messages;    
     
     @GetMapping({"/","/appointmentDashboard"})
-    public ModelAndView appointmentDashboard(@RequestParam("pageSize") Optional<Integer> pageSize,@RequestParam("page") Optional<Integer> page){
+    public ModelAndView appointmentDashboard(@RequestParam("pageSize") Optional<Integer> pageSize,@RequestParam("page") Optional<Integer> page,final HttpServletRequest request){
         ModelAndView modelAndView = new ModelAndView("appointmentDashboard");
 		try {
 //			LOGGER.debug("Registering patient's information");
@@ -75,7 +93,29 @@ public class AppointmentDashboardController {
         // print repo
 //        System.out.println("here is client repo " + repository.findAll());
         PageRequest pr = PageRequest.of(evalPage, evalPageSize);
-        Page<Appointment> clientlist = repository.findAll(pr);
+        //Get hospital Id by usertotalPagestotalPages
+        User currentUser = (User) ((Authentication) request.getUserPrincipal()).getPrincipal();
+		Hospital filterBy = new Hospital();
+		filterBy.setUserId(BigInteger.valueOf(currentUser.getId()));
+//        Example<Hospital> example = Example.of(filterBy);
+
+        List<Hospital> hospitals  = hospitalRepository.findAll(Example.of(filterBy));
+//        List<Long> ids=new ArrayList();
+//        hospitals.forEach(e ->{
+//        	if(e.getHospitalId()==141)
+//        		ids.add(e.getHospitalId());
+//        });
+
+        Page<Appointment> clientlist = repository.findByHospitalIds2(hospitals,pr);
+
+//        List<Appointment> clientlist2 = repository.findByHospitalIds(hospitals);
+//        Page<Appointment> clientlist = new PageImpl<Appointment>(clientlist2);
+//        PageRequest pr = PageRequest.of(evalPage, evalPageSize);
+//        Page<Appointment> clientlist3 = repository.findAll(pr);
+//        List<Appointment> clientlist6 = new 
+//        Page<Appointment> clientlist5 = Stream.of(ids).map(clientlist3::creatDTO).collect(Collectors.toList());
+//        Page<Appointment> clientlist = new PageImpl<Appointment>(clientlist2);
+//        Page<Appointment> clientlist = repository.findByHospitalIds(hospitals);
 //        System.out.println("client list get total pages" + clientlist.getTotalPages() + "client list get number " + clientlist.getNumber());
         PagerModel pager = new PagerModel(clientlist.getTotalPages(),clientlist.getNumber(),BUTTONS_TO_SHOW);
         // add clientmodel

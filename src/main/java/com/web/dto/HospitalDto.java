@@ -20,13 +20,13 @@ public class HospitalDto {
     @ValidEmail
     @NotNull
 	private String email;
-    @NotNull
+//    @NotNull
 	private String datetime;
-    @NotNull
+//    @NotNull
 	private String country;
-    @NotNull
+//    @NotNull
 	private String state;
-    @NotNull
+//    @NotNull
 	private String city;
 
 //    @NotNull

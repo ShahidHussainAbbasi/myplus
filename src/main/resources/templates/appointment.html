@@ -2,48 +2,40 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-<style>
-.password-verdict{
-color:#000;
-}
-</style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-<script th:src="@{/resources/pwstrength.js}"></script>
-<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII"/>
-<title th:text="#{label.form.title}">form</title>
+<title th:text="#{label.app.title}">form</title>
 </head>
 <body>
-<nav class="navbar navbar-default">
-  <div class="container-fluid">
-    <div class="navbar-header">
-      <!-- <a class="navbar-brand" th:href="@{/home.html}" th:text="#{label.pages.home.title}">home</a> -->
-    </div>
-      <ul class="nav navbar-nav navbar-right">
-       <!--  <li><a th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a> </li> -->
-      </ul>
-    </div>
-</nav>
-
     <div class="container">
 		<div id="messageDiv"></div>
-		<div class="container">
 	        <div >
 	            <h3 th:text="#{label.appointment.heading}">form</h3>
 	            <br/>
 	            <form action="/" method="POST" enctype="utf8">
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.hospital.name}">Hospital Name</label>
-	                    <select class="col-sm-3" id="hospitalId" name="hospitalId" required="required">
+	                    <label class="col-sm-3" th:text="#{label.hospital.name}">Hospital Name</label>
+	                    <span class="col-sm-5">
+	                    <select class="form-control" id="hospitalId" name="hospitalId" required="required">
 	                         <option value=""> Select Hospital </option>
 	                         <option th:each="hospital : ${hospitals}"
 	                            th:value="${hospital.hospitalId}"
 	                            th:utext="${hospital.name}"/>
-	                  </select>               
+	                  </select>
+	                  </span>
 	                    <span id="hospitalNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.doctor.name}">Doctor Name</label>
-	                    <select class="col-sm-3" id="doctorId" name="doctorId" required="required">
+	                	<label class="col-sm-3" th:text="#{label.doctor.name}">Doctor Name</label>
+				        <!-- <select th:field="*{requestModel.region}" class="form-control" id="region"> -->
+				        <span class="col-sm-5">
+					        <select class="form-control" id="doctorId" name="doctorId" required="required">
+					        </select>
+				        </span>
+						<span id="doctorNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
+				    </div>
+<!-- 	                <div class="form-group row">
+	                    <label class="col-sm-3" th:text="#{label.doctor.name}">Doctor Name</label>
+	                    <select class="col-sm-5" id="doctorId" name="doctorId" required="required">
 	                         <option value=""> Select Doctor </option>
 	                         <option th:each="doctor : ${doctors}"
 	                            th:value="${doctor.doctorId}"
@@ -51,32 +43,40 @@ color:#000;
 	                  </select>               
 	                    <span id="doctorNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
-	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.appointment.name}">Patient Name</label>
-	                    <span class="col-sm-3"><input class="form-control" name="name" value="" required="required"/></span>
+ -->	                
+ 					<div class="form-group row" id="doctorDetails">
+	                    <label class="col-sm-3" th:text="#{label.appointment.doctor.details}">Available</label>
+	                    <span class="col-sm-5" id="doctorDetailSpan">
+	                    </span>
+	                </div>
+ 					<div class="form-group row">
+	                    <label class="col-sm-3" th:text="#{label.appointment.name}">Patient Name</label>
+	                    <span class="col-sm-5"><input class="form-control" name="name" value="" required="required"/></span>
 	                    <span id="nameError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.mobile}">Mobile</label>
-	                    <span class="col-sm-3"><input id="mobile" class="form-control" name="mobile" value="" required="required"/></span>
+	                    <label class="col-sm-3" th:text="#{label.mobile}">Mobile</label>
+	                    <span class="col-sm-5"><input id="mobile" class="form-control" name="mobile" value="" required="required"/></span>
 	                    <span id="mobileError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.email}">Email</label>
-	                    <span class="col-sm-3"><input type="email" class="form-control" name="email" value="" required="required"/></span>                    
+	                    <label class="col-sm-3" th:text="#{label.email}">Email</label>
+	                    <span class="col-sm-5"><input type="email" class="form-control" name="email" value="" required="required"/></span>                    
 	                    <span id="emailError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                    
 	                </div>
 	                <div class="form-group row">
-	                    <label class="col-sm-2" th:text="#{label.address}">Address</label>
-	                    <span class="col-sm-3"><input id="phone" class="form-control" name="address" value="" required="required"/></span>
+	                    <label class="col-sm-3" th:text="#{label.address}">Address</label>
+	                    <span class="col-sm-5"><input id="phone" class="form-control" name="address" value="" required="required"/></span>
 	                    <span id="phoneError" class="alert alert-danger col-sm-4" style="display:none"></span>
 	                </div>
 	                <br/>
-	                <button type="submit" class="btn btn-primary" th:text="#{label.form.submit}">submit</button>
+	                <div class="form-group row">
+	                <button type="submit" class="btn btn-default" th:text="#{label.form.submit}">submit</button>
+	                <a class="btn btn-default" th:href="@{/registration.html}" th:text="#{label.user.register}">Register</a>
+	                </div>
 	            </form>
 	        </div>
-	    </div>
     </div>
     
 
@@ -87,6 +87,12 @@ $(document).ready(function () {
 	$('form').submit(function(event) {
 		appointmentReq(event);
 	});
+	$("#hospitalId").change(function() {
+        loadDoctorsByHospital();
+    });
+	$("#doctorId").change(function() {
+		loadDoctorDetails();
+    });
 });
 
 function appointmentReq(event){
@@ -96,8 +102,7 @@ function appointmentReq(event){
     $("#messageDiv").html("");
     $("#messageDiv").removeClass("alert alert-danger");
     var formData= $('form').serialize();
-	//alert(1);
-    $.post(serverContext + "appointmentReq",formData ,function(data){
+    $.post(serverContext+ "appointmentReq",formData ,function(data){
         if(data.status == "SUCCESS"){
         	$("#messageDiv").show().html(data.message);
         	$("#messageDiv").addClass("alert alert-success");
@@ -107,7 +112,7 @@ function appointmentReq(event){
         }
     })
     .fail(function(data) {
-    	alert("responseJSON exist  "+data.responseJSON.message);
+    	//alert("responseJSON exist  "+data.responseJSON.message);
     	/*
         if(data.responseJSON.error.indexOf("MailError") > -1)
         {
@@ -135,6 +140,39 @@ function appointmentReq(event){
     });
 }
 
-</script>    
+function loadDoctorsByHospital() {
+	$("#doctorId").empty();
+    var hospitalId = $("#hospitalId").val();
+    if(hospitalId==""){
+    	$("#doctorId").append("<option value = ''> Please Select Hospitl </option>");
+    	return false;
+    }
+    
+    $.get(serverContext+ "loadDoctorsByHospital?hospitalId="+hospitalId ,function(data){
+    	$("#doctorId").append(data);
+    })
+	.fail(function(data) {
+		alert(xhr.responseText);
+	});
+}
+
+function loadDoctorDetails() {
+	$("#doctorDetailSpan").empty();
+    var doctorId = $("#doctorId").val();
+    console.log(doctorId);
+    if(doctorId=="" || doctorId==null)
+    	return false;
+    
+    
+    $.get(serverContext+ "loadDoctorDetails?doctorId="+doctorId ,function(data){
+    	$("#doctorDetailSpan").append(data);
+    })
+	.fail(function(data) {
+		alert(xhr.responseText);
+	});
+}
+
+</script>  
+<div th:replace="footer :: footer"/>  
 </body>
 </html>

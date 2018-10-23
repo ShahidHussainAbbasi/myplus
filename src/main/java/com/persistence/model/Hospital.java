@@ -55,6 +55,7 @@ public class Hospital implements Serializable {
 	private String state;
 
 	@JoinColumn(name="user_id")
+	@Column(name="user_id")
 	private java.math.BigInteger userId;
 
 	private String zip;

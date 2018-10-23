@@ -1,28 +1,19 @@
 package com.service;
 
-import java.io.UnsupportedEncodingException;
-import java.math.BigInteger;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 
-import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Example;
+import org.springframework.stereotype.Service;
+
 import com.persistence.dao.DoctorRepository;
-import com.persistence.dao.HospitalRepository;
-import com.persistence.dao.PasswordResetTokenRepository;
-import com.persistence.dao.RoleRepository;
-import com.persistence.dao.VerificationTokenRepository;
 import com.persistence.model.Doctor;
 import com.persistence.model.Hospital;
 import com.web.dto.DoctorDTO;
-import com.web.dto.HospitalDto;
 import com.web.util.AppUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
 @Service
 @Transactional
@@ -59,7 +50,14 @@ public class DoctorService implements IDoctorService {
         doctor.setSpeciality(hospitalDto.getSpeciality());
         doctor.setTimeIn(hospitalDto.getTimeIn());
         doctor.setTimeOut(hospitalDto.getTimeOut());
-        
+        if(hospitalDto.getDayFrom().equals("All") || hospitalDto.getDayTo().equals("All")) {
+            doctor.setDayFrom("All");
+            doctor.setDayTo("All");
+        }
+        doctor.setDayFrom(hospitalDto.getDayFrom());
+        doctor.setDayTo(hospitalDto.getDayTo());
+        doctor.setAppointmentOfferType(hospitalDto.getAppointmentOfferType());
+        doctor.setAppointmentOfferValue(hospitalDto.getAppointmentOfferValue());
         doctor.setDatetime(AppUtil.todayDateStr());
 
         return repository.save(doctor);
@@ -84,9 +82,20 @@ public class DoctorService implements IDoctorService {
 	}
 
 	@Override
-	public Optional<DoctorDTO> fineByID(long id) throws Exception {
+	public Optional<Doctor> fineByID(Long id) throws Exception {
 		// TODO Auto-generated method stub
-		return null;
+		return repository.findById(id);
+	}
+
+
+	@Override
+	public List<Doctor> findByHospitalId(Long hospitalId) {
+		Doctor doctor = new Doctor();
+		Hospital hospital = new Hospital();
+		hospital.setHospitalId(hospitalId);
+		doctor.setHospital(hospital);
+		return repository.findAll(Example.of(doctor));
+		// TODO Auto-generated method stub
 	}
 
 
