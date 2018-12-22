@@ -9,7 +9,7 @@ import javax.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.persistence.dao.HospitalRepository;
+import com.persistence.Repo.HospitalRepository;
 import com.persistence.model.Hospital;
 import com.web.dto.HospitalDto;
 import com.web.util.AppUtil;
@@ -45,11 +45,11 @@ public class HospitalService implements IHospitalService {
         hospital.setPhone(hospitalDto.getPhone());
         hospital.setEmail(hospitalDto.getEmail());
         hospital.setLogoUrl(hospitalDto.getLogoUrl());
-        hospital.setCountry(hospitalDto.getCountry());
-        hospital.setState(hospitalDto.getState());
+        hospital.setGeoId(BigInteger.valueOf(Long.valueOf(hospitalDto.getGeoId())));
+/*        hospital.setState(hospitalDto.getState());
         hospital.setCity(hospitalDto.getCity());
         hospital.setZip(hospitalDto.getZip());
-//       	hospital.setAppointmentOfferType(hospitalDto.getAppointmentOfferType()+"/"+hospitalDto.getHours());
+*///       	hospital.setAppointmentOfferType(hospitalDto.getAppointmentOfferType()+"/"+hospitalDto.getHours());
 //        hospital.setAppointmentOfferValue(hospitalDto.getAppointmentOfferValue());
         
         hospital.setDatetime(AppUtil.todayDateStr());

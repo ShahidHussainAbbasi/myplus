@@ -3,10 +3,12 @@ package com.service;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.JpaRepository;
+
 import com.persistence.model.Doctor;
 import com.web.dto.DoctorDTO;
 
-public interface IDoctorService {
+public interface IDoctorService extends JpaRepository<Doctor, Long>{
 
 	Doctor registerNewDoctor(DoctorDTO doctorDTO) throws Exception;
 

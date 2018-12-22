@@ -6,7 +6,7 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
-import com.persistence.dao.UserRepository;
+import com.persistence.Repo.UserRepository;
 import com.persistence.model.Privilege;
 import com.persistence.model.Role;
 import com.persistence.model.User;
@@ -44,14 +44,15 @@ public class MyUserDetailsService implements UserDetailsService {
         if (loginAttemptService.isBlocked(ip)) {
             throw new RuntimeException("blocked");
         }
-
+        //Set logger
         try {
             final User user = userRepository.findByEmail(email);
             if (user == null) {
                 throw new UsernameNotFoundException("No user found with username: " + email);
             }
-
+          //Set logger
             return new org.springframework.security.core.userdetails.User(user.getEmail(), user.getPassword(), user.isEnabled(), true, true, true, getAuthorities(user.getRoles()));
+          //Set logger
         } catch (final Exception e) {
             throw new RuntimeException(e);
         }
@@ -60,10 +61,12 @@ public class MyUserDetailsService implements UserDetailsService {
     // UTIL
 
     private final Collection<? extends GrantedAuthority> getAuthorities(final Collection<Role> roles) {
+    	//Set logger
         return getGrantedAuthorities(getPrivileges(roles));
     }
 
     private final List<String> getPrivileges(final Collection<Role> roles) {
+    	//Set logger
         final List<String> privileges = new ArrayList<String>();
         final List<Privilege> collection = new ArrayList<Privilege>();
         for (final Role role : roles) {
@@ -77,6 +80,7 @@ public class MyUserDetailsService implements UserDetailsService {
     }
 
     private final List<GrantedAuthority> getGrantedAuthorities(final List<String> privileges) {
+    	//Set logger
         final List<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>();
         for (final String privilege : privileges) {
             authorities.add(new SimpleGrantedAuthority(privilege));
@@ -85,6 +89,7 @@ public class MyUserDetailsService implements UserDetailsService {
     }
 
     private final String getClientIP() {
+    	//Set logger
         final String xfHeader = request.getHeader("X-Forwarded-For");
         if (xfHeader == null) {
             return request.getRemoteAddr();

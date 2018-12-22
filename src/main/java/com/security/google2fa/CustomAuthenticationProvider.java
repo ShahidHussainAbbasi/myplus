@@ -1,6 +1,6 @@
 package com.security.google2fa;
 
-import com.persistence.dao.UserRepository;
+import com.persistence.Repo.UserRepository;
 import com.persistence.model.User;
 import org.jboss.aerogear.security.otp.Totp;
 import org.springframework.beans.factory.annotation.Autowired;

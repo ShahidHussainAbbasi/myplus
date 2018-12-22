@@ -22,7 +22,7 @@ import org.springframework.security.web.authentication.RememberMeServices;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
 
-import com.persistence.dao.UserRepository;
+import com.persistence.Repo.UserRepository;
 import com.security.CustomRememberMeServices;
 import com.security.google2fa.CustomAuthenticationProvider;
 import com.security.google2fa.CustomWebAuthenticationDetailsSource;
@@ -77,11 +77,12 @@ public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
             .authorizeRequests()
                 .antMatchers("/login*","/login*", "/logout*", "/signin/**", "/signup/**", "/customLogin",
                         "/user/registration*", "/registrationConfirm*", "/expiredAccount*", "/registration*",
-                        "/registerHospital*","/appointment","/appointmentReq","appointmentDashboard",
+                        "/registerHospital*","/appointmentReq","appointmentDashboard","/products.html","/appointment",
                         "/loadDoctorsByHospital","/loadDoctorDetails",
+                        "/addDonation",
                         "/badUser*", "/user/resendRegistrationToken*" ,"/forgetPassword*", "/user/resetPassword*",
                         "/user/changePassword*", "/emailError*", "/resources/**","/old/user/registration*","/successRegister*","/qrcode*").permitAll()
-                .antMatchers("/invalidSession*").anonymous()
+                .antMatchers("/invalidSession*","/products*").anonymous()
                 .antMatchers("/user/updatePassword*","/user/savePassword*","/updatePassword*").hasAuthority("CHANGE_PASSWORD_PRIVILEGE")
                 .anyRequest().hasAuthority("READ_PRIVILEGE")
                 .and()

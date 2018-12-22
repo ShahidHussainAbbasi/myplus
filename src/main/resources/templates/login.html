@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="./resources/main.css" />
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 <title th:text="#{label.pages.home.title}">Title</title>
@@ -28,7 +29,7 @@
     
 </script>
 <style type="text/css">
-.wrapper{width:500px;margin-left:auto;margin-right:auto}
+.wrapper{max-width:450px;margin-left:auto;margin-right:auto;padding-top: 50px;}
 label{padding-left:0 !important}
 </style>
 </head>
@@ -37,8 +38,12 @@ label{padding-left:0 !important}
 
 
 <div th:if="${param.error != null}" class="alert alert-danger" th:text="${session[SPRING_SECURITY_LAST_EXCEPTION]}">error</div>
+	<div th:fragment="header" class="navbar-default hdr-cls">
+		<nav class="container">
+		</nav>
+	</div>
 
-    <div class="container">
+    <div class="container content-cls">
         <div class="row wrapper">
             <h1 th:text="#{label.form.loginTitle}">Header</h1>
              <a href="?lang=en" th:text="#{label.form.loginEnglish}">login</a> | 
@@ -56,16 +61,14 @@ label{padding-left:0 !important}
 	                 <span class="col-sm-8"><input class="form-control" type='text' name='code' /></span>
 	 -->                
 					 <br/>
-	                 <input class="btn" name="submit" type="submit" th:value="#{label.form.submit}" />
+	                 <input class="btn btn-default btn-cls" name="submit" type="submit" th:value="#{label.form.login}" />
+		             <a class="btn btn-default btn-cls" th:href="@{/registration.html}" th:text="#{label.form.siguUp}">signup</a>
 	  			</div>
             </form>
             <br/> Current Locale :  <span th:text="${#locale}"></span><br/><br/> 
-            <div class="container-fluid">
-             <a class="btn btn-default" th:href="@{/appointment}" th:text="#{label.form.appointmentReq}">Appointment Request</a>
-             <a class="btn btn-default" th:href="@{/registration.html}" th:text="#{label.form.loginSignUp}">signup</a>
+             <a class="btn btn-default btn-cls" th:href="@{/appointment}" th:text="#{label.form.appointment}">Appointment</a>
              <!-- <a class="btn btn-default" th:href="@{/registrationCaptcha.html}" th:text="#{label.form.loginSignUpCaptcha}">captcha signup</a> -->
-            <a class="btn btn-default" th:href="@{/forgetPassword.html}" th:text="#{message.resetPassword}">reset</a>
-            </div>
+	         <a class="btn btn-default btn-cls" th:href="@{/forgetPassword.html}" th:text="#{message.resetPassword}">reset</a>
         </div>
     </div>
     <div th:replace="footer :: footer"/>

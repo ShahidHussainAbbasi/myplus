@@ -1,14 +1,19 @@
-<html>
-
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII"/>
-<title th:text="#{label.pages.home.title}">home</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="./resources/main.css" />
+	<title th:text="#{label.pages.home.title}">Title</title>
 </head>
 <body>
-<div class="container">
+	<div th:fragment="header" class="navbar-default hdr-cls">
+		<nav class="container">
+		</nav>
+	</div>
+    <div class="container content-cls">
     <h1 class="alert alert-success" th:text="#{message.regSucc}">success</h1>
-    <a th:href="@{/login}" th:text="#{label.login}">login</a>
+    <a class="btn btn-info btn-cls" th:href="@{/login}" th:text="#{label.login}">login</a>
 </div>
+<div th:replace="footer :: footer"/> 
 </body>
 </html>

@@ -17,7 +17,6 @@ import java.util.List;
                 @UniqueConstraint(columnNames = "name")
         }
 )
-@NamedQuery(name="Doctor.findAll", query="SELECT d FROM Doctor d")
 public class Doctor implements Serializable {
 	private static final long serialVersionUID = 1L;
 

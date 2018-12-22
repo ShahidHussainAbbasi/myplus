@@ -1,19 +1,31 @@
-<html>
-
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII"/>
-<title th:text="#{label.pages.home.title}">home</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="./resources/main.css" />
+  	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+	<title th:text="#{label.app.title}">Title</title>
 </head>
-
 <body>
-    <div class="container">
+		<nav th:fragment="header" class="navbar-inverse">
+		  <div class="container-fluid">
+		    <div class="navbar-header active">
+		      <a class="navbar-brand" href="#">Maximum your services</a>
+		    </div>
+		    <ul class="nav navbar-nav">
+		    </ul>
+		    <ul class="nav navbar-nav navbar-right">
+		      	<li><a class="glyphicon glyphicon-log-in" th:href="@{/login}" th:text="#{label.form.login}">Login</a></li>
+	        	<li><a class="glyphicon glyphicon-user" th:href="@{/registration.html}" th:text="#{label.form.siguUp}">Sign Up</a></li>
+		    </ul>
+		  </div>
+		</nav>
+		<div class="container content-cls">
         <h1 id="error" class="alert alert-danger" th:if="${session[SPRING_SECURITY_LAST_EXCEPTION]}" th:text="#{message.logoutError}">error</h1>
                 
         <h1 id="success" class="alert alert-info" th:if="${param.logSucc}" th:text="#{message.logoutSucc}"> success</h1>
-        <br/><br/><br/>
-        <a class="btn btn-primary" th:href="@{/login}" th:text="#{label.form.loginLink}">login</a>
+        <br/><br/>
     </div>
+    <div th:replace="footer :: footer"/>
 </body>
-
 </html>

@@ -5,7 +5,7 @@ import java.util.Calendar;
 
 import javax.transaction.Transactional;
 
-import com.persistence.dao.PasswordResetTokenRepository;
+import com.persistence.Repo.PasswordResetTokenRepository;
 import com.persistence.model.PasswordResetToken;
 import com.persistence.model.User;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -6,9 +6,9 @@ import static org.junit.Assert.assertNull;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import com.persistence.dao.PrivilegeRepository;
-import com.persistence.dao.RoleRepository;
-import com.persistence.dao.UserRepository;
+import com.persistence.Repo.PrivilegeRepository;
+import com.persistence.Repo.RoleRepository;
+import com.persistence.Repo.UserRepository;
 import com.persistence.model.Privilege;
 import com.persistence.model.Role;
 import com.persistence.model.User;

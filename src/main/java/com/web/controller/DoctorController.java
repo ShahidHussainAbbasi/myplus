@@ -2,8 +2,12 @@ package com.web.controller;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -21,8 +25,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
-import com.persistence.dao.HospitalRepository;
+import com.persistence.Repo.HospitalRepository;
 import com.persistence.model.Doctor;
+import com.persistence.model.Geolocation;
 import com.persistence.model.Hospital;
 import com.persistence.model.User;
 import com.security.ActiveUserStore;
@@ -67,7 +72,7 @@ public class DoctorController {
 	public String loadDoctorsByHospital(@RequestParam Long hospitalId) {
 		List<Doctor> doctors = doctorService.findByHospitalId(hospitalId);
 		StringBuffer sb = new StringBuffer();
-		sb.append("<option value='-1'> Select Doctor </option>");
+		sb.append("<option value=''> Select Doctor </option>");
 		doctors.forEach(d -> {
 			if(d!=null)
 				sb.append("<option value='"+d.getDoctorId()+"'>"+d.getName()+"</option>");
@@ -92,50 +97,42 @@ public class DoctorController {
 				return new GenericResponse(messages.getMessage("message.hospital.exist", null, request.getLocale()),
 						"HospitalAlreadyExist");
 
-			final Doctor doctor = doctorService.registerNewDoctor(doctorDto);
+			/*final Doctor doctor = */doctorService.registerNewDoctor(doctorDto);
+			return new GenericResponse("Doctor registered successfully");
 //        eventPublisher.publishEvent(new OnRegistrationCompleteEvent(hospital, request.getLocale(), getAppUrl(request)));
 		} catch (Exception e) {
 			e.printStackTrace();
-			return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+			LOGGER.debug(this.getClass().getName(), e.getCause()+"");
+			return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),e.getCause().toString());
 		}
-		return new GenericResponse("success");
 	}
 
     @RequestMapping(value = "/addDoctor", method = RequestMethod.GET)
-    public ModelAndView addHospital(final Locale locale, final Model model) {
+    public String addDoctor(final Locale locale, final Model model) {
     	List<Hospital> hospitals  = hospitalRepository.findAll();
-    	DoctorDTO doctorDTO = new DoctorDTO();
+//    	DoctorDTO doctorDTO = new DoctorDTO();
+    	Map<Long,String> hospitalMap = new HashMap<Long,String>();
+
     	for(Hospital hospital: hospitals) {
-    		doctorDTO.getHospitals().put(hospital.getHospitalId(), hospital.getName());
+    		hospitalMap.put(hospital.getHospitalId(), hospital.getName());
     	}
     	model.addAttribute("days", Arrays.asList("All","Monday","Tuesday","Wednesday","Thursday","Fiday"));
-    	model.addAttribute("hospitals", doctorDTO.getHospitals());
-		return new ModelAndView("doctor","doctorDTO",doctorDTO);
-//        return "doctor";
+    	model.addAttribute("hospitals", hospitalMap);
+//		return new ModelAndView("doctor");
+        return "doctor";
     }
 
-	private String getPrincipal(){
-		String userName = null;
-		Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-	
-		if (principal instanceof User) {
-			userName = ((User)principal).getFirstName() +" "+((User)principal).getLastName();
-		} else {
-			userName = principal.toString();
-		}
-		return userName;
-	}
-	private String getRole(){
-		String role = null;
-		Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-	
-		if (principal instanceof User) {
-				role = ((org.springframework.security.core.userdetails.User) principal).getAuthorities().iterator().next().getAuthority().toString();
-		} else {
-			role = principal.toString();
-		}
-		return role;
+/*	@RequestMapping(value = "/loadDoctorsByHospital", method = RequestMethod.GET)
+	public String loadDoctorsByHospital(@RequestParam String hospitalId) {
+		List<Doctor> doctors = doctorService.findByHospitalId(Long.valueOf(hospitalId));
+		StringBuffer sb = new StringBuffer();
+		sb.append("<option value=''> Select Doctor </option>");
+		doctors.forEach(d -> {
+			if(d!=null)
+				if(d!=null)
+					sb.append("<option value="+d.getDoctorId()+">"+d.getName()+"</option>");
+		});
+	    return sb.toString();
 	}	
-
+*/
 }

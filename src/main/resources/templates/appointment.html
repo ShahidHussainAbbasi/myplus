@@ -1,82 +1,81 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-<title th:text="#{label.app.title}">form</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="./resources/main.css" />
+  	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+	<title th:text="#{label.app.title}">Title</title>
 </head>
 <body>
-    <div class="container">
-		<div id="messageDiv"></div>
-	        <div >
-	            <h3 th:text="#{label.appointment.heading}">form</h3>
-	            <br/>
-	            <form action="/" method="POST" enctype="utf8">
-	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.hospital.name}">Hospital Name</label>
-	                    <span class="col-sm-5">
+		<nav th:fragment="header" class="navbar-inverse">
+		  <div class="container-fluid">
+		    <div class="navbar-header active">
+		      <a class="navbar-brand" href="#">Maximum your services</a>
+		    </div>
+		    <ul class="nav navbar-nav">
+		    </ul>
+		    <ul class="nav navbar-nav navbar-right">
+		      	<li><a class="glyphicon glyphicon-log-in" th:href="@{/login}" th:text="#{label.form.login}">Login</a></li>
+	        	<li><a class="glyphicon glyphicon-user" th:href="@{/registration.html}" th:text="#{label.form.siguUp}">Sign Up</a></li>
+		    </ul>
+		  </div>
+		</nav>
+    <div class="container content-cls">
+        <div >
+            <h3 th:text="#{label.appointment.heading}">form</h3>
+            <br/>
+            <form action="/" method="POST" enctype="utf8">
+                <div class="form-group row">
+                    <label class="col-sm-3" th:text="#{label.hospital.name}">Hospital Name</label>
+                    <span class="col-sm-5">
 	                    <select class="form-control" id="hospitalId" name="hospitalId" required="required">
 	                         <option value=""> Select Hospital </option>
 	                         <option th:each="hospital : ${hospitals}"
 	                            th:value="${hospital.hospitalId}"
 	                            th:utext="${hospital.name}"/>
-	                  </select>
+		                  </select>
 	                  </span>
-	                    <span id="hospitalNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <div class="form-group row">
-	                	<label class="col-sm-3" th:text="#{label.doctor.name}">Doctor Name</label>
-				        <!-- <select th:field="*{requestModel.region}" class="form-control" id="region"> -->
-				        <span class="col-sm-5">
-					        <select class="form-control" id="doctorId" name="doctorId" required="required">
-					        </select>
-				        </span>
-						<span id="doctorNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
-				    </div>
-<!-- 	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.doctor.name}">Doctor Name</label>
-	                    <select class="col-sm-5" id="doctorId" name="doctorId" required="required">
-	                         <option value=""> Select Doctor </option>
-	                         <option th:each="doctor : ${doctors}"
-	                            th:value="${doctor.doctorId}"
-	                            th:utext="${doctor.name}"/>
-	                  </select>               
-	                    <span id="doctorNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
- -->	                
- 					<div class="form-group row" id="doctorDetails">
-	                    <label class="col-sm-3" th:text="#{label.appointment.doctor.details}">Available</label>
-	                    <span class="col-sm-5" id="doctorDetailSpan">
-	                    </span>
-	                </div>
- 					<div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.appointment.name}">Patient Name</label>
-	                    <span class="col-sm-5"><input class="form-control" name="name" value="" required="required"/></span>
-	                    <span id="nameError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.mobile}">Mobile</label>
-	                    <span class="col-sm-5"><input id="mobile" class="form-control" name="mobile" value="" required="required"/></span>
-	                    <span id="mobileError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.email}">Email</label>
-	                    <span class="col-sm-5"><input type="email" class="form-control" name="email" value="" required="required"/></span>                    
-	                    <span id="emailError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                    
-	                </div>
-	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.address}">Address</label>
-	                    <span class="col-sm-5"><input id="phone" class="form-control" name="address" value="" required="required"/></span>
-	                    <span id="phoneError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <br/>
-	                <div class="form-group row">
-	                <button type="submit" class="btn btn-default" th:text="#{label.form.submit}">submit</button>
-	                <a class="btn btn-default" th:href="@{/registration.html}" th:text="#{label.user.register}">Register</a>
-	                </div>
-	            </form>
-	        </div>
+                </div>
+                <div class="form-group row">
+                	<label class="col-sm-3" th:text="#{label.doctor.name}">Doctor Name</label>
+			        <!-- <select th:field="*{requestModel.region}" class="form-control" id="region"> -->
+			        <span class="col-sm-5">
+				        <select class="form-control" id="doctorId" name="doctorId" required="required">
+				        </select>
+			        </span>
+					<span id="doctorNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
+			    </div>
+					<div class="form-group row" id="doctorDetails">
+                    <label class="col-sm-3" th:text="#{label.appointment.doctor.details}">Available</label>
+                    <span class="col-sm-5" id="doctorDetailSpan">
+                    </span>
+                </div>
+					<div class="form-group row">
+                    <label class="col-sm-3" th:text="#{label.appointment.name}">Patient Name</label>
+                    <span class="col-sm-5"><input class="form-control" name="name" value="" required="required"/></span>
+                    <span id="nameError" class="alert alert-danger col-sm-4" style="display:none"></span>
+                </div>
+                <div class="form-group row">
+                    <label class="col-sm-3" th:text="#{label.mobile}">Mobile</label>
+                    <span class="col-sm-5"><input id="mobile" class="form-control" name="mobile" value="" required="required"/></span>
+                    <span id="mobileError" class="alert alert-danger col-sm-4" style="display:none"></span>
+                </div>
+                <div class="form-group row">
+                    <label class="col-sm-3" th:text="#{label.address}">Address</label>
+                    <span class="col-sm-5"><input id="phone" class="form-control" name="address" value="" required="required"/></span>
+                    <span id="phoneError" class="alert alert-danger col-sm-4" style="display:none"></span>
+                </div>
+                <br/>
+                <div class="form-group row">
+                 	<div class="col-sm-3">
+                		<button type="submit" class="btn btn-info btn-cls" th:text="#{label.form.submit}">submit</button>
+                	</div>
+                	<div id="messageDiv" class="col-sm-5"></div>
+                <!-- Enable when any hospital allow for free -->
+                <!-- <a class="btn btn-default" th:href="@{/registration.html}" th:text="#{label.user.register}">Register</a> -->
+                </div>
+            </form>
+        </div>
     </div>
     
 
@@ -143,13 +142,14 @@ function appointmentReq(event){
 function loadDoctorsByHospital() {
 	$("#doctorId").empty();
     var hospitalId = $("#hospitalId").val();
-    if(hospitalId==""){
+    if(hospitalId=="" || hospitalId==null){
     	$("#doctorId").append("<option value = ''> Please Select Hospitl </option>");
     	return false;
+    }else{
+    	$("#doctorId").append("<option value = ''> Please wait....  </option>");
     }
-    
     $.get(serverContext+ "loadDoctorsByHospital?hospitalId="+hospitalId ,function(data){
-    	$("#doctorId").append(data);
+    	$("#doctorId").empty().append(data);
     })
 	.fail(function(data) {
 		alert(xhr.responseText);

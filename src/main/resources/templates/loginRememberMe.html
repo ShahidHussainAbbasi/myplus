@@ -62,15 +62,15 @@ label{padding-left:0 !important}
                 <input type="checkbox" name="remember-me" />
                 
                 <br/><br/>
-                 <input class="btn btn-primary" name="submit" type="submit" th:value="#{label.form.submit}" />
+                 <input class="btn btn-info btn-cls" name="submit" type="submit" th:value="#{label.form.submit}" />
                         
             </form>
             <br/> Current Locale :  <span th:text="${#locale}"></span><br/><br/> 
-             <a class="btn btn-default" th:href="@{/registration.html}" th:text="#{label.form.loginSignUp}">signup</a>
+             <a class="btn btn-info btn-cls" th:href="@{/registration.html}" th:text="#{label.form.loginSignUp}">signup</a>
              <br/>
-             <a class="btn btn-default" th:href="@{/registrationCaptcha.html}" th:text="#{label.form.loginSignUpCaptcha}">captcha signup</a>
+             <a class="btn btn-info btn-cls" th:href="@{/registrationCaptcha.html}" th:text="#{label.form.loginSignUpCaptcha}">captcha signup</a>
              <br/><br/>
-            <a class="btn btn-default" th:href="@{/forgetPassword.html}" th:text="#{message.resetPassword}">reset</a>
+            <a class="btn btn-info btn-cls" th:href="@{/forgetPassword.html}" th:text="#{message.resetPassword}">reset</a>
         </div>
     </div>
 </body>

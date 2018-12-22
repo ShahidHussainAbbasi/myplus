@@ -28,7 +28,6 @@ import javax.persistence.UniqueConstraint;
                 @UniqueConstraint(columnNames = "name")
         }
 )
-@NamedQuery(name="Hospital.findAll", query="SELECT h FROM Hospital h")
 public class Hospital implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -37,11 +36,16 @@ public class Hospital implements Serializable {
 	@Column(name="hospital_id")
 	private Long hospitalId;
 
-	private String city;
-
+/*	
 	private String country;
 
-	private String datetime;
+	private String state;
+
+	private String city;
+
+	private String zip;
+
+*/	private String datetime;
 
 	private String email;
 
@@ -52,19 +56,15 @@ public class Hospital implements Serializable {
 
 	private String phone;
 
-	private String state;
+
+	@JoinColumn(name="geo_id")
+	@Column(name="geo_id")
+	private java.math.BigInteger geoId;
+	
 
 	@JoinColumn(name="user_id")
 	@Column(name="user_id")
 	private java.math.BigInteger userId;
-
-	private String zip;
-
-	@Column(name="appointment_offer_type")
-	private String appointmentOfferType;
-	
-	@Column(name="appointment_offer_value")
-	private Short appointmentOfferValue;
 
 	//bi-directional many-to-one association to Appointment
 	@OneToMany(mappedBy="hospital")
@@ -83,22 +83,6 @@ public class Hospital implements Serializable {
 
 	public void setHospitalId(Long hospitalId) {
 		this.hospitalId = hospitalId;
-	}
-
-	public String getCity() {
-		return this.city;
-	}
-
-	public void setCity(String city) {
-		this.city = city;
-	}
-
-	public String getCountry() {
-		return this.country;
-	}
-
-	public void setCountry(String country) {
-		this.country = country;
 	}
 
 	public String getDatetime() {
@@ -141,14 +125,6 @@ public class Hospital implements Serializable {
 		this.phone = phone;
 	}
 
-	public String getState() {
-		return this.state;
-	}
-
-	public void setState(String state) {
-		this.state = state;
-	}
-
 	public java.math.BigInteger getUserId() {
 		return this.userId;
 	}
@@ -157,15 +133,14 @@ public class Hospital implements Serializable {
 		this.userId = userId;
 	}
 
-	public String getZip() {
-		return this.zip;
+	public java.math.BigInteger getGeoId() {
+		return geoId;
 	}
 
-	public void setZip(String zip) {
-		this.zip = zip;
+	public void setGeoId(java.math.BigInteger geoId) {
+		this.geoId = geoId;
 	}
-
-	public String getAppointmentOfferType() {
+/*	public String getAppointmentOfferType() {
 		return appointmentOfferType;
 	}
 
@@ -180,7 +155,7 @@ public class Hospital implements Serializable {
 	public void setAppointmentOfferValue(Short appointmentOfferValue) {
 		this.appointmentOfferValue = appointmentOfferValue;
 	}
-
+*/
 	public List<Appointment> getAppointments() {
 		return this.appointments;
 	}

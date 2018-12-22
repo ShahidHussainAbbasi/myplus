@@ -2,14 +2,13 @@ package com.spring;
 
 import java.util.Locale;
 
-import com.validation.EmailValidator;
-import com.validation.PasswordMatchesValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.support.ReloadableResourceBundleMessageSource;
 import org.springframework.validation.Validator;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.context.request.RequestContextListener;
@@ -23,18 +22,35 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 
+import com.ActivityInterceptor;
+import com.validation.EmailValidator;
+import com.validation.PasswordMatchesValidator;
+
 @Configuration
 @ComponentScan(basePackages = { "com.web" })
 @EnableWebMvc
 public class MvcConfig implements WebMvcConfigurer {
 
-    public MvcConfig() {
+ /*   public MvcConfig() {
         super();
-    }
+    }*/
+    
+    private final ActivityInterceptor activityInterceptor;
 
     @Autowired
-    private MessageSource messageSource;
+    public MvcConfig(ActivityInterceptor activityInterceptor) {
+        this.activityInterceptor = activityInterceptor;
+    }
 
+/*    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        super.addInterceptors(registry);
+        registry.addInterceptor(activityInterceptor);
+    }*/    
+/*
+    @Autowired
+    private MessageSource messageSource;
+*/
     @Override
     public void addViewControllers(final ViewControllerRegistry registry) {
         registry.addViewController("/").setViewName("forward:/login");
@@ -59,6 +75,9 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/users.html");
         registry.addViewController("/qrcode.html");
         registry.addViewController("/hospital.html");
+        registry.addViewController("/donator.html");
+        registry.addViewController("/products.html");
+        registry.addViewController("businessDashboard.html");
     }
 
     @Override
@@ -76,6 +95,7 @@ public class MvcConfig implements WebMvcConfigurer {
         final LocaleChangeInterceptor localeChangeInterceptor = new LocaleChangeInterceptor();
         localeChangeInterceptor.setParamName("lang");
         registry.addInterceptor(localeChangeInterceptor);
+        registry.addInterceptor(activityInterceptor);
     }
 
     // beans
@@ -87,15 +107,15 @@ public class MvcConfig implements WebMvcConfigurer {
         return cookieLocaleResolver;
     }
 
-    // @Bean
-    // public MessageSource messageSource() {
-    // final ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
-    // messageSource.setBasename("classpath:messages");
-    // messageSource.setUseCodeAsDefaultMessage(true);
-    // messageSource.setDefaultEncoding("UTF-8");
-    // messageSource.setCacheSeconds(0);
-    // return messageSource;
-    // }
+    @Bean
+    public MessageSource messageSource() {
+    final ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
+    	messageSource.setBasename("classpath:messages");
+    	messageSource.setUseCodeAsDefaultMessage(true);
+	    messageSource.setDefaultEncoding("UTF-8");
+	    messageSource.setCacheSeconds(0);
+	    return messageSource;
+	}
 
     @Bean
     public EmailValidator usernameValidator() {
@@ -116,7 +136,7 @@ public class MvcConfig implements WebMvcConfigurer {
     @Override
     public Validator getValidator() {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
-        validator.setValidationMessageSource(messageSource);
+        validator.setValidationMessageSource(messageSource());
         return validator;
     }
 

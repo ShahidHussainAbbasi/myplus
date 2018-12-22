@@ -23,7 +23,7 @@ public class MobileNumberValidator implements ConstraintValidator<ValidMobileNum
 
     private boolean validateMobileNumber(final String mobileNo) {
         pattern = Pattern.compile(MOBILE_NUMBER_PATTERN);
-        matcher = pattern.matcher(mobileNo);
+        matcher = pattern.matcher(mobileNo.replace(",", ""));
         return matcher.matches();
     }
 }

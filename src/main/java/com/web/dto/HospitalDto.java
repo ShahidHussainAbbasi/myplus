@@ -6,11 +6,9 @@ import javax.validation.constraints.NotNull;
 
 import com.persistence.model.Appointment;
 import com.persistence.model.Doctor;
-import com.validation.PasswordMatches;
 import com.validation.ValidEmail;
 
-@PasswordMatches
-public class HospitalDto {
+public class HospitalDto{
 	
 	private int hospitalId;
     @NotNull
@@ -22,17 +20,14 @@ public class HospitalDto {
 	private String email;
 //    @NotNull
 	private String datetime;
-//    @NotNull
-	private String country;
-//    @NotNull
-	private String state;
-//    @NotNull
-	private String city;
-
+    @NotNull
+	private String countryCode;
+    @NotNull
+    private String state;    
+	@NotNull
+    private String geoId;
 //    @NotNull
 	private String logoUrl;
-
-    private String zip;
 
     @NotNull
     private String appointmentOfferType;
@@ -59,22 +54,6 @@ public class HospitalDto {
 
 	public void setHospitalId(int hospitalId) {
 		this.hospitalId = hospitalId;
-	}
-
-	public String getCity() {
-		return city;
-	}
-
-	public void setCity(String city) {
-		this.city = city;
-	}
-
-	public String getCountry() {
-		return country;
-	}
-
-	public void setCountry(String country) {
-		this.country = country;
 	}
 
 	public String getDatetime() {
@@ -115,22 +94,6 @@ public class HospitalDto {
 
 	public void setPhone(String phone) {
 		this.phone = phone;
-	}
-
-	public String getState() {
-		return state;
-	}
-
-	public void setState(String state) {
-		this.state = state;
-	}
-
-	public String getZip() {
-		return zip;
-	}
-
-	public void setZip(String zip) {
-		this.zip = zip;
 	}
 
     public String getAppointmentOfferType() {
@@ -198,11 +161,36 @@ public class HospitalDto {
 		this.hours = hours;
 	}
 
+	
+	public String getCountryCode() {
+		return countryCode;
+	}
+
+	public void setCountryCode(String countryCode) {
+		this.countryCode = countryCode;
+	}
+
+	public String getState() {
+		return state;
+	}
+
+	public void setState(String state) {
+		this.state = state;
+	}
+
+	public String getGeoId() {
+		return geoId;
+	}
+
+	public void setGeoId(String geoId) {
+		this.geoId = geoId;
+	}
+
 	@Override
 	public String toString() {
-		return "HospitalDto [hospitalId=" + hospitalId + ", city=" + city + ", country=" + country + ", datetime="
+		return "HospitalDto [hospitalId=" + hospitalId + ", geoId=" + geoId+ ", countryCode=" + countryCode + ", datetime="
 				+ datetime + ", email=" + email + ", logoUrl=" + logoUrl + ", name=" + name + ", phone=" + phone
-				+ ", state=" + state + ", zip=" + zip + " ,appointmentOfferType="+appointmentOfferType + ", userId=" + userId + ", appointment=" + appointment
+				+ ", appointmentOfferType="+appointmentOfferType + ", userId=" + userId + ", appointment=" + appointment
 				+ ", appointments=" + appointments + ", doctor=" + doctor + ", doctors=" + doctors + "]";
 	}
 	

@@ -146,6 +146,7 @@ public class User {
         if (!email.equals(user.email)) {
             return false;
         }
+      //Set logger
         return true;
     }
 

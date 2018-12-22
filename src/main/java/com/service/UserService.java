@@ -11,16 +11,20 @@ import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
 
-import com.persistence.dao.PasswordResetTokenRepository;
-import com.persistence.dao.RoleRepository;
-import com.persistence.dao.UserRepository;
-import com.persistence.dao.VerificationTokenRepository;
+import com.persistence.Repo.PasswordResetTokenRepository;
+import com.persistence.Repo.RoleRepository;
+import com.persistence.Repo.UserRepository;
+import com.persistence.Repo.VerificationTokenRepository;
 import com.persistence.model.PasswordResetToken;
 import com.persistence.model.User;
 import com.persistence.model.VerificationToken;
 import com.web.dto.UserDto;
 import com.web.error.UserAlreadyExistException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Example;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -33,7 +37,7 @@ import org.springframework.stereotype.Service;
 public class UserService implements IUserService {
 
     @Autowired
-    private UserRepository repository;
+    private UserRepository userRepository;
 
     @Autowired
     private VerificationTokenRepository tokenRepository;
@@ -58,10 +62,45 @@ public class UserService implements IUserService {
     public static String APP_NAME = "SpringRegistration";
 
     // API
-
+    @Override
+    public User findByName(String name) {
+    	return null;
+//        return userRepository.findByName(name);
+    }
+ 
+    @Override
+    public void saveUser(User user) {
+        userRepository.save(user);
+    }
+ 
+    @Override
+    public void updateUser(User user){
+        saveUser(user);
+    }
+ 
+    @Override
+    public void deleteUserById(Long id){
+        userRepository.deleteById(id);
+    }
+ 
+    @Override
+    public void deleteAllUsers(){
+        userRepository.deleteAll();
+    }
+ 
+    @Override
+    public List<User> findAllUsers(){
+        return userRepository.findAll();
+    }
+ 
+    @Override
+    public boolean isUserExist(User user) {
+        return findByName(user.getFirstName()) != null;
+    }
+    
     @Override
     public User registerNewUserAccount(final UserDto accountDto) {
-        if (emailExist(accountDto.getEmail())) {
+       if (emailExist(accountDto.getEmail())) {
             throw new UserAlreadyExistException("There is an account with that email adress: " + accountDto.getEmail());
         }
         final User user = new User();
@@ -72,7 +111,7 @@ public class UserService implements IUserService {
         user.setEmail(accountDto.getEmail());
         user.setUsing2FA(accountDto.isUsing2FA());
         user.setRoles(Arrays.asList(roleRepository.findByName("ROLE_USER")));
-        return repository.save(user);
+        return userRepository.save(user);
     }
 
     @Override
@@ -91,7 +130,7 @@ public class UserService implements IUserService {
 
     @Override
     public void saveRegisteredUser(final User user) {
-        repository.save(user);
+        userRepository.save(user);
     }
 
     @Override
@@ -108,7 +147,7 @@ public class UserService implements IUserService {
             passwordTokenRepository.delete(passwordToken);
         }
 
-        repository.delete(user);
+        userRepository.delete(user);
     }
 
     @Override
@@ -134,7 +173,7 @@ public class UserService implements IUserService {
 
     @Override
     public User findUserByEmail(final String email) {
-        return repository.findByEmail(email);
+        return userRepository.findByEmail(email);
     }
 
     @Override
@@ -150,13 +189,13 @@ public class UserService implements IUserService {
 
     @Override
     public Optional<User> getUserByID(final long id) {
-        return repository.findById(id);
+        return userRepository.findById(id);
     }
 
     @Override
     public void changeUserPassword(final User user, final String password) {
         user.setPassword(passwordEncoder.encode(password));
-        repository.save(user);
+        userRepository.save(user);
     }
 
     @Override
@@ -183,7 +222,7 @@ public class UserService implements IUserService {
 
         user.setEnabled(true);
         // tokenRepository.delete(verificationToken);
-        repository.save(user);
+        userRepository.save(user);
         return TOKEN_VALID;
     }
 
@@ -198,7 +237,7 @@ public class UserService implements IUserService {
             .getAuthentication();
         User currentUser = (User) curAuth.getPrincipal();
         currentUser.setUsing2FA(use2FA);
-        currentUser = repository.save(currentUser);
+        currentUser = userRepository.save(currentUser);
         final Authentication auth = new UsernamePasswordAuthenticationToken(currentUser, currentUser.getPassword(), curAuth.getAuthorities());
         SecurityContextHolder.getContext()
             .setAuthentication(auth);
@@ -206,7 +245,7 @@ public class UserService implements IUserService {
     }
 
     private boolean emailExist(final String email) {
-        return repository.findByEmail(email) != null;
+        return userRepository.findByEmail(email) != null;
     }
 
     @Override
@@ -242,5 +281,155 @@ public class UserService implements IUserService {
             .collect(Collectors.toList());
 
     }
+
+	@Override
+	public User findByEmail(String email) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void delete(User user) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public List<User> findAll() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public List<User> findAll(Sort sort) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public List<User> findAllById(Iterable<Long> ids) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public <S extends User> List<S> saveAll(Iterable<S> entities) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void flush() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public <S extends User> S saveAndFlush(S entity) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void deleteInBatch(Iterable<User> entities) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void deleteAllInBatch() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public User getOne(Long id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public <S extends User> List<S> findAll(Example<S> example) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public <S extends User> List<S> findAll(Example<S> example, Sort sort) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Page<User> findAll(Pageable pageable) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public <S extends User> S save(S entity) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean existsById(Long id) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public long count() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public void deleteById(Long id) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void deleteAll(Iterable<? extends User> entities) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void deleteAll() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public <S extends User> Optional<S> findOne(Example<S> example) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public <S extends User> Page<S> findAll(Example<S> example, Pageable pageable) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public <S extends User> long count(Example<S> example) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public <S extends User> boolean exists(Example<S> example) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public Optional<User> findById(Long id) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
 }

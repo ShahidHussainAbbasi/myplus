@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableTransactionManagement
 @PropertySource({ "classpath:persistence.properties" })
 @ComponentScan({ "com.persistence" })
-@EnableJpaRepositories(basePackages = "com.persistence.dao")
+@EnableJpaRepositories(basePackages = "com.persistence.Repo")
 public class PersistenceJPAConfig {
 
     @Autowired
@@ -88,7 +88,7 @@ public class PersistenceJPAConfig {
     private Properties jpaProperties() {
 		Properties jpaProperties = new Properties();
 		jpaProperties.put("hibernate.dialect", env.getRequiredProperty("hibernate.dialect"));//"org.hibernate.dialect.MySQLDialect"
-		jpaProperties.put("hibernate.hbm2ddl.auto",env.getRequiredProperty("hibernate.hbm2ddl.auto"));// "update")
+//		jpaProperties.put("hibernate.hbm2ddl.auto",env.getRequiredProperty("hibernate.hbm2ddl.auto"));// "update")
 		jpaProperties.put("hibernate.show_sql", env.getRequiredProperty("hibernate.show_sql"));//"true"
 		jpaProperties.put("hibernate.format_sql", env.getRequiredProperty("hibernate.format_sql"));//"false"
 		
@@ -97,7 +97,7 @@ public class PersistenceJPAConfig {
     
     protected Properties additionalProperties() {
         final Properties hibernateProperties = new Properties();
-        hibernateProperties.setProperty("hibernate.hbm2ddl.auto", env.getProperty("hibernate.hbm2ddl.auto"));
+//        hibernateProperties.setProperty("hibernate.hbm2ddl.auto", env.getProperty("hibernate.hbm2ddl.auto"));
         return hibernateProperties;
     }
 

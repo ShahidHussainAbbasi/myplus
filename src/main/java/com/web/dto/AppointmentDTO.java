@@ -2,22 +2,21 @@ package com.web.dto;
 
 import javax.validation.constraints.NotNull;
 
-import com.validation.ValidEmail;
 import com.validation.ValidMobileNumber;
+import com.validation.ValidateEmpty;
 
 public class AppointmentDTO extends BaseDOTO{
 	
-	@NotNull
+	@ValidateEmpty
 	private Long hospitalId;
-	@NotNull
+	@ValidateEmpty
 	private Long doctorId;
-	@NotNull
+	@ValidateEmpty
 	private String name;
-	@NotNull
 	@ValidMobileNumber
 	private String mobile;
-	@NotNull
-	@ValidEmail
+//	@NotNull
+//	@ValidEmail
 	private String email;
 	@NotNull
 	private String address;

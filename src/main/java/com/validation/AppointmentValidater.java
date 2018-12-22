@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import com.persistence.dao.AppointmentRepository;
+import com.persistence.Repo.AppointmentRepository;
 import com.persistence.model.Appointment;
 import com.web.dto.AppointmentDTO;
 import com.web.util.AppUtil;

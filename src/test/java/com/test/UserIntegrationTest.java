@@ -7,8 +7,8 @@ import java.util.UUID;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
-import com.persistence.dao.UserRepository;
-import com.persistence.dao.VerificationTokenRepository;
+import com.persistence.Repo.UserRepository;
+import com.persistence.Repo.VerificationTokenRepository;
 import com.persistence.model.User;
 import com.persistence.model.VerificationToken;
 import com.spring.ServiceConfig;

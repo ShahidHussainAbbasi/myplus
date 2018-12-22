@@ -15,7 +15,7 @@ import java.util.Properties;
 
 @Configuration
 @Primary
-@ComponentScan({ "com.persistence.dao" })
+@ComponentScan({ "com.persistence.Repo" })
 public class TestDbConfig extends PersistenceJPAConfig {
 
     @Bean

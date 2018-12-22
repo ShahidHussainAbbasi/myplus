@@ -8,8 +8,8 @@ import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
-import com.persistence.dao.DoctorRepository;
-import com.persistence.dao.HospitalRepository;
+import com.persistence.Repo.DoctorRepository;
+import com.persistence.Repo.HospitalRepository;
 import com.persistence.model.Doctor;
 import com.persistence.model.Hospital;
 import com.security.ActiveUserStore;
@@ -60,7 +60,12 @@ public class AppointmentController {
 	@ResponseBody
 	public GenericResponse appointmentReq(@Validated final AppointmentDTO appointmentDTO, final HttpServletRequest request) {
 		try {
-			LOGGER.debug("Registering hospital account with information: {}", appointmentDTO);
+			
+/*			String ipAddress = request.getHeader("X-FORWARDED-FOR");
+			String ip = request.getRemoteAddr();
+			LOGGER.debug("ipAddress: "+ipAddress+" ip: "+ip);		
+					
+*/			LOGGER.debug("Registering hospital account with information: {}", appointmentDTO);
 //			Principal principal = request.getUserPrincipal();
 		    final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 			if (!authenticationTrustResolver.isAnonymous(authentication)) 
@@ -84,19 +89,20 @@ public class AppointmentController {
 	}
 
     @RequestMapping(value = "/appointment", method = RequestMethod.GET)
-    public ModelAndView addHospital(final Locale locale, final Model model) {
+    public ModelAndView appointment(final Locale locale, final Model model) {
     	List<Hospital> hospitals  = hospitalRepository.findAll();
-    	AppointmentDTO appointmentDTO = new AppointmentDTO();
+//    	AppointmentDTO appointmentDTO = new AppointmentDTO();
 //    	for(Hospital hospital: hospitals) {
 //    		doctorDTO.getHospitals().put(hospital.getHospitalId(), hospital.getName());
 //    	}
-    	List<Doctor> doctors  = doctorRepository.findAll();
+//    	List<Doctor> doctors  = doctorRepository.findAll();
 //    	for(Doctor doctor: doctors) {
 //    		doctorDTO.getdos().put(doctor.getDoctorId(), doctor.getName());
 //    	}
     	model.addAttribute("hospitals", hospitals);
-    	model.addAttribute("doctors", doctors);
-		return new ModelAndView("appointment","appointmentDTO",appointmentDTO);
+//    	model.addAttribute("doctors", doctors);
+		return new ModelAndView("appointment");
     }
 
+    
 }

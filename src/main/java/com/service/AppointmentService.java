@@ -5,10 +5,10 @@ import java.util.Optional;
 import javax.persistence.EntityManagerFactory;
 import javax.transaction.Transactional;
 
-import com.persistence.dao.AppointmentRepository;
-import com.persistence.dao.DoctorRepository;
-import com.persistence.dao.HospitalRepository;
-import com.persistence.dao.PatientRepository;
+import com.persistence.Repo.AppointmentRepository;
+import com.persistence.Repo.DoctorRepository;
+import com.persistence.Repo.HospitalRepository;
+import com.persistence.Repo.PatientRepository;
 import com.persistence.model.Appointment;
 import com.persistence.model.Doctor;
 import com.persistence.model.Hospital;

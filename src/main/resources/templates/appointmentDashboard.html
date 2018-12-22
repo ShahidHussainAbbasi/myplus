@@ -28,7 +28,7 @@
 
 	<div th:replace="header :: header"/>
 
-	<div class="container">
+	<div class="container content-cls">
 		<table class="table datatable">
 			<thead>
 				<tr>
@@ -59,7 +59,7 @@
 						th:selected="${pageSize} == ${selectedPageSize}"></option>
 				</select>
 			</div>
-			<div th:if="${clientlist.totalPages != 1}"
+			<div th:if="${clientlist !=null && clientlist.totalPages !=null && clientlist.totalPages != 1}"
 				class="form-group col-md-11 pagination-centered">
 				<ul class="pagination">
 					<li th:class="${clientlist.number == 0} ? disabled"><a
@@ -77,7 +77,7 @@
 						th:text="${page}"></a>
 					</li>
 					<li
-						th:class="${clientlist.number + 1 == clientlist.totalPages} ? disabled">
+						th:class="${clientlist.totalPages != null && clientlist.number + 1 == clientlist.totalPages} ? disabled">
 						<a class="pageLink"
 						th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.number + 2})}">→</a>
 					</li>

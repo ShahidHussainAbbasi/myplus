@@ -7,16 +7,42 @@
 <body>
 	<div th:replace="header :: header" />
 
-	<div class="container">
+	<div class="container content-cls">
+	
+	<div id="messageDiv" class="alert alert-info" role="alert" data-auto-dismiss="2000" th:text="${message}">Message</div>
+	<br/>
 		<h2 th:text="#{label.hospital.form.heading}">Hospital Form</h2>
 		<br />
 		<form action="/" method="POST" enctype="utf8">
 			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.country}">Country	Name</label> 
+				<span class="col-sm-5">
+					<select class="form-control" id="countryCode" name="countryCode"
+						required="required">
+						<option value="">Select Country</option>
+						<option th:each="key : ${countries.keySet()}" th:value="${key}"
+							th:utext="${countries.get(key)}" />
+					</select> 
+				</span>
+			</div>
+            <div class="form-group row">
+              	<label class="col-sm-3" th:text="#{label.state}">Select State</label>
+		        <span class="col-sm-5">
+			        <select class="form-control" id="state" name="state" required="required">
+			        </select>
+		        </span>
+		    </div>
+            <div class="form-group row">
+              	<label class="col-sm-3" th:text="#{label.city}">Select City</label>
+		        <span class="col-sm-5">
+			        <select class="form-control" id="geoId" name="geoId" required="required">
+			        </select>
+		        </span>
+		    </div>
+			<div class="form-group row">
 				<label class="col-sm-3" th:text="#{label.name}">Hospital
 					Name</label> <span class="col-sm-5"><input id="name"
-					class="form-control" name="name" value="" required="required" /></span> <span
-					id="hospitalNameError" class="alert alert-danger col-sm-4"
-					style="display: none"></span>
+					class="form-control" name="name" value="" required="required" /></span> 
 			</div>
 			<div class="form-group row">
 				<label class="col-sm-3" th:text="#{label.mobile}">Phone
@@ -31,23 +57,6 @@
 					name="email" value="" required="required" /></span> <span id="emailError"
 					class="alert alert-danger col-sm-4" style="display: none"></span>
 			</div>
-			<!-- 	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.hospital.country}">Country</label>
-	                    <span class="col-sm-5"><input class="form-control" name="country" value="" required="required"/></span>
-	                    <span id="countryError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                    
-	                </div>
-	                <div class="form-group row">
-	                    <label class="col-sm-3" th:text="#{label.hospital.state}">State</label>
-	                    <span class="col-sm-5"><input id="state" class="form-control" name="state" value="" required="required"/></span>
-	                    <span id="stateError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
-	                <div class="form-group row" >
-	                    <label class="col-sm-3" th:text="#{label.hospital.city}">City</label>
-	                    <span class="col-sm-5"><input class="form-control" name="city" value="" required="required"/></span>
-	                    <span id="cityError" class="alert alert-danger col-sm-4" style="display:none"></span>
-	                </div>
- -->
 			<div class="form-group row">
 				<label class="col-sm-3" th:text="#{label.hospital.hours}">Hospital
 					Timing</label> 
@@ -59,17 +68,15 @@
 				</select>
 				</span>
 			</div>
+<!-- 			
 			<div class="form-group row">
-				<label class="col-sm-3"
-					th:text="#{label.hospital.appointmentOfferType}">Appointment
-					type</label> 
-					<span class="col-sm-5">
-					<select class="form-control" id="appointmentOfferType"
-					name="appointmentOfferType" required="required">
-					<option value="count" selected="selected">Number Of
-						Patient</option>
-					<option value="minutes">Time slot for each patient</option>
-				</select>
+				<label class="col-sm-3"	th:text="#{label.hospital.appointmentOfferType}">Appointment Type</label> 
+				<span class="col-sm-5">
+					<select class="form-control" id="appointmentOfferType" name="appointmentOfferType" required="required">
+						<option value="" selected="selected">Select Type</option>
+						<option value="count">Number Of	Patient</option>
+						<option value="minutes">Time slot for each patient</option>
+					</select>
 				</span>
 			</div>
 			<div class="form-group row">
@@ -80,8 +87,9 @@
 					required="required" /></span> <span id="cityError"
 					class="alert alert-danger col-sm-4" style="display: none"></span>
 			</div>
-			<br />
-			<button type="submit" class="btn"
+
+ -->			<br />
+			<button type="submit" class="btn btn-info btn-cls"
 				th:text="#{label.form.submit}">submit</button>
 		</form>
 	</div>
@@ -94,19 +102,28 @@ $(document).ready(function () {
 	$('form').submit(function(event) {
 		registerHospital(event);
 	});
+	
+	$("#countryCode").change(function() {
+		loadStatesByCountry();
+    });
+	$("#state").change(function() {
+		loadCitiesByState();
+    });
+	
 });
 
 function registerHospital(event){
 	event.preventDefault();
     $(".alert").html("").hide();
     $(".error-list").html("");
+    //$("#messageDiv").hide();
    
     var formData= $('form').serialize();
    
     $.post(serverContext + "registerHospital",formData ,function(data){
-        if(data.message == "success"){
-            window.location.href = serverContext + "successRegister.html";
-        }
+        	$("#messageDiv").append(data.message).show();
+        	return false;
+/*             window.location.href = serverContext + "successRegister.html"; */
     })
     .fail(function(data) {
     	alert(data.responseJSON.message);
@@ -135,6 +152,50 @@ function registerHospital(event){
             });
         }
     });
+}
+
+
+function loadStatesByCountry() {	
+	$("#geoId").empty();
+    var countryCode = $("#countryCode").val();
+    console.log(countryCode);
+    if(countryCode=="" || countryCode==null){
+    	$("#state").append("<option value = ''> Select State </option>");
+    	$("#geoId").append("<option value = ''> Select City </option>");
+    	return false;
+    }else{
+    	$("#state").append("<option value = ''> Please wait....  </option>");
+    }
+    
+//	$("#state").append("./resources/img/waiting-animation.gif");
+    $.get(serverContext+ "loadStatesByCountry?countryCode="+countryCode ,function(data){
+    	$("#state").empty().append(data);
+    })
+	.fail(function(data) {
+		alert(xhr.responseText);
+		$("#state").empty().append("<option value = ''> System error  </option>");
+	});
+}
+
+function loadCitiesByState() {
+	$("#geoId").empty();
+    var state = $("#state").val();
+    console.log(state);
+    if(state=="" || state==null){
+    	$("#geoId").append("<option value = ''> Select City </option>");
+    	return false;
+    }else{
+    	$("#geoId").append("<option value = ''> Please wait....  </option>");
+    }
+    
+//	$("#geoId").append("./resources/img/waiting-animation.gif");    
+    $.get(serverContext+ "loadCitiesByState?state="+state ,function(data){
+    	$("#geoId").empty().append(data);
+    })
+	.fail(function(data) {
+		alert(xhr.responseText);
+		$("#geoId").empty().append("<option value = ''> System error  </option>");
+	});
 }
 
 </script>

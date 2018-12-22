@@ -11,9 +11,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.UUID;
 
-import com.persistence.dao.RoleRepository;
-import com.persistence.dao.UserRepository;
-import com.persistence.dao.VerificationTokenRepository;
+import com.persistence.Repo.RoleRepository;
+import com.persistence.Repo.UserRepository;
+import com.persistence.Repo.VerificationTokenRepository;
 import com.persistence.model.Privilege;
 import com.persistence.model.Role;
 import com.persistence.model.User;

@@ -20,6 +20,7 @@
 		<intercept-url pattern="/badUser*" access="permitAll" />
 		<intercept-url pattern="/resources/**" access="permitAll" />
 		<intercept-url pattern="/invalidSession*" access="isAnonymous()" />
+		<!-- <intercept-url pattern="/products*" access="isAnonymous()" /> -->
 		<intercept-url pattern="/**" access="isAuthenticated()" />
 		<form-login login-page='/login.html'
 			authentication-failure-url="/login.html?error=true"

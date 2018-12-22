@@ -1,11 +1,12 @@
 package com.task;
 
-import com.persistence.dao.PasswordResetTokenRepository;
-import com.persistence.dao.VerificationTokenRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.persistence.Repo.PasswordResetTokenRepository;
+import com.persistence.Repo.VerificationTokenRepository;
 
 import java.time.Instant;
 import java.util.Date;

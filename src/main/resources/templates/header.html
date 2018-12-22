@@ -1,45 +1,94 @@
+<!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
 <head>
 <div th:fragment="header-css">
 	<!-- this is header-css -->
-	<link rel="stylesheet" type="text/css" href="webjars/bootstrap/3.3.7/css/bootstrap.min.css" />
-	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-	
-<!-- 	<link rel="stylesheet" type="text/css" href="webjars/bootstrap/3.3.7/css/bootstrap.min.css" />
+<!-- 
+	<script
+		src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+	<link rel="stylesheet" type="text/css"
+		href="webjars/bootstrap/3.3.7/css/bootstrap.min.css" />
+ -->
+
+	<link rel="stylesheet"
+		th:href="@{resources/webjars/bootstrap/3.3.7/css/bootstrap.min.css}"
+		href="http://netdna.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+	<link rel="stylesheet" th:href="@{resources/css/application.css}"
+		href="../../static/css/application.css" />
+		
+	<script src="resources/js/jquery-2.2.3.min.js"></script>
+	<script src="resources/js/bootstrap/js/bootstrap.js"></script>
+		
+	<script th:src="@{resources/webjars/bootstrap/3.1.1/js/bootstrap.js}"
+		src="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.js">		
+	</script>
+	<link href="http://fonts.googleapis.com/css?family=Corben:bold"
+		rel="stylesheet" type="text/css" />
+	<link href="http://fonts.googleapis.com/css?family=Nobile"
+		rel="stylesheet" type="text/css" />
+	<link rel="stylesheet" type="text/css" href="./resources/main.css" />
+
+	<!-- 	<link rel="stylesheet" type="text/css" href="webjars/bootstrap/3.3.7/css/bootstrap.min.css" />
 	Latest compiled JavaScript
 	<script
 		src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 	jQuery library
 	<script	src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 	<script th:src="@{/resources/pwstrength.js}"></script>
- -->		
+ -->
 	<title th:text="#{label.app.title}">form</title>
 </div>
 </head>
 <body>
-	<div th:fragment="header">
-		<nav class="navbar-default" style="padding: 10px;">
-			<div class="container-fluid">
-				<div class="navbar-header">
-					<a class="btn btn-default" th:href="@{/home.html}"
-						th:text="#{label.pages.home.title}">home</a> <a
-						class="btn btn-default" th:href="@{/appointmentDashboard}"
-						th:text="#{label.my.dashBoard}">My DashBoard</a> <a
-						class="btn btn-default" th:href="@{/addHospital}"
-						th:text="#{label.hospital.add}">New Hospital</a> <a
-						class="btn btn-default" th:href="@{/addDoctor}"
-						th:text="#{label.doctor.add}">New Doctor</a>
-				</div>
-				<div class="nav navbar-nav navbar-right">
-					<p class="btn btn-default" th:if="${param.user} != null"
-						th:text="${param.user[0]}">user</p>
-					<a class="btn btn-default" th:href="@{/logout}"
-						th:text="#{label.pages.logout}">logout</a>
-				</div>
-			</div>
-		</nav>
+	<!-- 	<div class="container hdr-cls row">
+		<a class="btn btn-info btn-cls col-md-1" href="/home.html">Home</a> 
+		<a class="btn btn-info btn-cls col-md-2" href="/appointmentDashboard">My DashBoard</a> 
+		<a class="btn btn-info btn-cls col-md-3" href="/addHospital">Register New Hospital</a> 
+		<a class="btn btn-info btn-cls col-md-3" href="/addDoctor">Register New Doctor</a>
+		<p class="btn btn-info btn-cls col-md-2" style="display: none;">uncer_sh@yahoo.com</p>
+		<a class="btn btn-info btn-cls col-md-3" href="/logout" style="float: right;">Logout</a>
 	</div>
+
+	<div th:fragment="header" class="container hdr-cls row">
+		<a class="btn btn-info btn-cls col-md-1" th:href="@{/home.html}" th:text="#{label.pages.home.title}">home</a> 
+		<a  class="btn btn-info btn-cls col-md-2" th:href="@{/appointmentDashboard}" th:text="#{label.my.dashBoard}">My DashBoard</a> 
+		<a class="btn btn-info btn-cls col-md-3" th:href="@{/addHospital}" th:text="#{label.hospital.add}">New Hospital</a> 
+		<a class="btn btn-info btn-cls col-md-3" th:href="@{/addDoctor}" th:text="#{label.doctor.add}">New Doctor</a>
+		<p style="display: none" class="btn btn-info btn-cls" th:if="${param.user} != null" th:text="${param.user[0]}">user</p>
+		<a class="btn btn-info btn-cls col-md-3" th:href="@{/logout}" th:text="#{label.pages.logout}">logout</a>
+	</div>
+ -->
+
+	<nav th:fragment="header" class="navbar-inverse">
+		<div class="container-fluid">
+			<div class="navbar-header active">
+				<p style="color: lightskyblue; padding-top: 17px"
+					class="glyphicon glyphicon-user" th:if="${param.user} != null"
+					th:text="${param.user[0]}">User</p>
+			</div>
+			<ul class="nav navbar-nav">
+				<li><a class="glyphicon glyphicon-home" th:href="@{/home.html}"
+					th:text="#{label.pages.home.title}">home</a></li>
+				<li><a class="glyphicon glyphicon-dashboard"
+					th:href="@{/appointmentDashboard}" th:text="#{label.my.dashBoard}">My
+						DashBoard</a></li>
+				<li><a th:href="@{/addHospital}"
+					th:text="#{label.hospital.add}">New Hospital</a></li>
+				<li><a th:href="@{/addDoctor}" th:text="#{label.doctor.add}">New
+						Doctor</a></li>
+				<li><a th:href="@{/businessDashboard.html}" th:text="#{label.pharmacyMain}">Pharmaceutical
+						</a></li>
+				<li sec:authorize="hasAuthority('WRITE_PRIVILEGE')"><a
+					th:href="@{/donator.html}"
+					th:text="#{label.abbasiWelfare.donation}">Flahey Abbasia
+						Welfare</a></li>
+			</ul>
+			<ul class="nav navbar-nav navbar-right">
+				<li><a class="glyphicon glyphicon-log-out" th:href="@{/logout}"
+					th:text="#{label.pages.logout}">logout</a></li>
+			</ul>
+		</div>
+	</nav>
 </body>
 </html>
 

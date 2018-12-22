@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.Application;
-import com.persistence.dao.UserRepository;
+import com.persistence.Repo.UserRepository;
 import com.persistence.model.User;
 import com.spring.TestDbConfig;
 import com.spring.TestIntegrationConfig;

@@ -58,8 +58,6 @@ public class DoctorDTO {
 	private List<Appointment> appointments;
 	private Appointment appointment;
 	private Long hospitalId;
-	private Map<Long,String> hospitals = new HashMap();
-
 	
 	public Long getHospitalId() {
 		return hospitalId;
@@ -164,7 +162,7 @@ public class DoctorDTO {
 	public void setAppointment(Appointment appointment) {
 		this.appointment = appointment;
 	}
-
+/*
 	public Map<Long, String> getHospitals() {
 		return hospitals;
 	}
@@ -172,7 +170,7 @@ public class DoctorDTO {
 	public void setHospitals(Map<Long, String> hospitals) {
 		this.hospitals = hospitals;
 	}
-
+*/
 	public String getDayFrom() {
 		return dayFrom;
 	}
