@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<div th:replace="header :: header-css" />
+
+
+<!-- <script src="resources/js/bootstrap/js/bootstrap.js"></script> -->
+<script src="resources/js/bootstrap/js/moment.js"></script>
+<script src="resources/js/bootstrap/js/bootstrap-datetimepicker.js"></script>
+<script type="text/javascript"
+	src="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.js"></script>
+<!-- <link rel="stylesheet" href="resources/js/bootstrap/css/bootstrap.min.css"> -->
+<link rel="stylesheet"
+	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
+<link rel="stylesheet" type="text/css"
+	href="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.css" />
+<script src="resources/jsRocket/bootstrapSpringGrid.js"></script>
+
+
+
+
+</head>
+<body>
+	<div th:replace="header :: header" />
+	<div class="container content-cls">
+		 <div class="subnav" style="margin-top:10px">
+     		<ul>
+				<li class="glyphicon glyphicon-registration-mark">
+					<select name="registrationType" id="registrationType">
+						<option value="">Select To Register</option>
+						<option value="Company">Company</option>
+						<option value="Vender">Vender/Supplier</option>
+						<option value="Item">Item</option>
+						<option value="ItemType">Item Type</option>
+						<option value="ItemUnit">Item Unit</option>
+					</select>
+				</li>
+			</ul>
+		</div>
+		<div id=0Div name="CompanyDiv" style="display:none">
+			<br />
+			<h2 th:text="#{label.company.form.heading}">Company Registration
+				Form</h2>
+			<br />
+			<!-- <form class="form-horizontal" role="form"> -->
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="Company">
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="name">Name:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="name" name="name"
+							placeholder="Company Name"> <span id="nameError"
+							class="alert alert-danger" style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="nameSub">Sub
+						Name:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="nameSub"
+							name="nameSub" placeholder="Sub Company Name">
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="brands">Brand:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="brands" name="brands"
+							placeholder="Brand name">
+					</div>
+				</div>
+				<!-- 		
+		<div class="form-group">
+			<label class="control-label col-sm-2" for="dateBirth">Date of Birth:</label>
+			<div class="col-sm-10">
+				<div class="input-group date" id="pickerDateBirth">
+                    <input type='text' id="dateBirth" class="form-control" placeholder="dd/MM/yyyy" />
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-calendar"></span>
+                    </span>
+                </div>
+			</div>
+		</div>
+ -->
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="phone">Phone:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="phone" name="phone"
+							placeholder="Phone Number"> <span id="phoneError"
+							class="alert alert-danger" style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="mobile">Mobile:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="mobile" name="mobile"
+							placeholder="Mobile Number"> <span id="mobileError"
+							class="alert alert-danger" style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="address">Address:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="address"
+							name="address" placeholder="Complete Address"> <span
+							id="addressError" class="alert alert-danger"
+							style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="description">Description:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="description"
+							name="description" placeholder="Description">
+					</div>
+				</div>
+				<div class="form-group">
+					<!--
+				<button type="submit" class="btn btn-info btn-cls"
+					th:text="#{label.form.submit}">submit</button>
+ 				<button type="button" id="buttonSearch" class="btn btn-info">
+					<span class="glyphicon glyphicon-search"></span> Search
+				</button>
+-->
+					<button type="button" id="addCompany" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Add
+					</button>
+					<button type="button" id="deleteCompany" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+				<div>
+					<table id="tableCompany" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="id">Id</th>
+								<th class="col-sm-1" data-field="checkDelete"></th>
+								<th class="col-sm-2" data-field="name">Name</th>
+								<th class="col-sm-2" data-field="nameSub">Name Sub</th>
+								<th class="col-sm-1" data-field="brands">Brands</th>
+								<th class="col-sm-1" data-field="phone">Phone</th>
+								<th class="col-sm-1" data-field="mobile">Mobile</th>
+								<th class="col-sm-1" data-field="address">Address</th>
+								<th class="col-sm-1" data-field="description">Description</th>
+								<th class="col-sm-1" data-field="dated">Dated</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</form>
+		</div>
+		<div id=1Div name="VenderDiv" style="display: none;">
+			<br />
+			<h2 th:text="#{label.vender.form.heading}">Vender Registration
+				Form</h2>
+			<br />
+			<!-- <form class="form-horizontal" role="form"> -->
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8">
+				<div class="form-group" id="Vender">
+					<label class="control-label col-sm-2" for="name">Name:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="name" name="name"
+							placeholder="Company Name"> <span id="nameError"
+							class="alert alert-danger" style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="email">Email:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="email" name="email"
+							placeholder="Email address"> <span id="emailError"
+							class="alert alert-danger" style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="phone">Phone:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="phone" name="phone"
+							placeholder="Phone Number"> <span id="phoneError"
+							class="alert alert-danger" style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="mobile">Mobile:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="mobile" name="mobile"
+							placeholder="Mobile Number"> <span id="mobileError"
+							class="alert alert-danger" style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="address">Address:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="address"
+							name="address" placeholder="Complete Address"> <span
+							id="addressError" class="alert alert-danger"
+							style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="description">Description:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="description"
+							name="description" placeholder="Description">
+					</div>
+				</div>
+				<div class="form-group">
+					<button type="button" id="addVender" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Add
+					</button>
+					<button type="button" id="deleteVender" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+				<div>
+					<table id="tableVender" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="id">Id</th>
+								<th class="col-sm-1" data-field="checkDelete"></th>
+								<th class="col-sm-3" data-field="name">Name</th>
+								<th class="col-sm-2" data-field="email">Email</th>
+								<th class="col-sm-1" data-field="phone">Phone</th>
+								<th class="col-sm-1" data-field="mobile">Mobile</th>
+								<th class="col-sm-1" data-field="address">Address</th>
+								<th class="col-sm-1" data-field="description">Description</th>
+								<th class="col-sm-1" data-field="dated">Dated</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</form>
+		</div>
+		<div id=2Div name="ItemDiv" style="display: none;">
+			<br />
+			<h2 th:text="#{label.item.form.heading}">Item Registration Form</h2>
+			<br />
+			<!-- <form class="form-horizontal" role="form"> -->
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8">
+				<div class="form-group" id="Item">
+					<label class="control-label col-sm-2" for="itemId">Item Id:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="itemId" name="itemId"
+							placeholder="Item Identity">
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="name">Name:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="name" name="name"
+							placeholder="Item Name"> <span id="nameError"
+							class="alert alert-danger" style="display: none"></span>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.itemType}">Select
+						Type</label> <span class="col-sm-10"> <select
+						class="form-control" id="itemType" name="itemType">
+					</select>
+					</span>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.itemUnit}">Select
+						Unit</label> <span class="col-sm-10"> <select
+						class="form-control" id="itemUnit" name="itemUnit">
+					</select>
+					</span>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.company}">Select
+						Company</label> <span class="col-sm-10"> <select
+						class="form-control" id="company" name="company">
+					</select>
+					</span>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.vender}">Select
+						Vender</label> <span class="col-sm-10"> <select
+						class="form-control" id="vender" name="vender">
+					</select>
+					</span>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="description">Description:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="description"
+							name="description" placeholder="Description">
+					</div>
+				</div>
+				<div class="form-group">
+					<button type="button" id="addItem" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Add
+					</button>
+					<button type="button" id="deleteItem" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+				<div>
+					<table id="tableItem" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="id">Id</th>
+								<th class="col-sm-1" data-field="checkDelete"></th>
+								<th class="col-sm-1" data-field="itemId">Item Id</th>
+								<th class="col-sm-2" data-field="name">Name</th>
+								<th class="col-sm-1" data-field="nameType">Type</th>
+								<th class="col-sm-1" data-field="nameUnit">Unit</th>
+								<th class="col-sm-2" data-field="description">Description</th>
+								<th class="col-sm-1" data-field="company">Company</th>
+								<!-- <th class="col-sm-2" data-field="brand">Brand</th> -->
+								<th class="col-sm-1" data-field="vender">Vender</th>
+								<th class="col-sm-1" data-field="dated">Dated</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</form>
+		</div>
+		<div id=3Div name="ItemTypeDiv" style="display: none">
+			<br />
+			<h2 th:text="#{label.itemType.form.heading}">Item Type Registration Form</h2>
+			<br />
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8">
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="name">Item Type:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="name" name="name"
+							placeholder="Item Type">
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="description">Description:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="description"
+							name="description" placeholder="Description">
+					</div>
+				</div>
+				<div class="form-group">
+					<button type="button" id="addItemType" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Add
+					</button>
+					<button type="button" id="deleteItemType" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+				<div>
+					<table id="tableItemType" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-4" data-field="id">Id</th>
+								<th class="col-sm-4" data-field="checkDelete"></th>
+								<th class="col-sm-4" data-field="itemType">Item Type</th>
+								<th class="col-sm-4" data-field="description">Description</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</form>
+		</div>
+		<div id=4Div name="ItemUnitDiv" style="display: none">
+			<br />
+			<h2 th:text="#{label.itemUnit.form.heading}">Item Unit Registration Form</h2>
+			<br />
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8">
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="name">Item Unit:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="name" name="name"
+							placeholder="Item Unit">
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="description">Description:</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="description"
+							name="description" placeholder="Description">
+					</div>
+				</div>
+				<div class="form-group">
+					<button type="button" id="addItemUnit" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Add
+					</button>
+					<button type="button" id="deleteItemUnit" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+				<div>
+					<table id="tableItemUnit" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-4" data-field="id">Id</th>
+								<th class="col-sm-4" data-field="checkDelete"></th>
+								<th class="col-sm-4" data-field="itemUnit">Item Unit</th>
+								<th class="col-sm-4" data-field="description">Description</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</form>
+		</div>
+	</div>
+	<script th:inline="javascript">
+var serverContext = [[@{/}]];
+	</script>
+	<div th:replace="footer :: footer" />
+</body>
+</html>

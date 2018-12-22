@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<div th:replace="header :: header-css" />
+</head>
+<body>
+	<div class="container content-cls">
+	
+	<div id="messageDiv" class="alert alert-info" role="alert" data-auto-dismiss="2000" th:text="${message}">Message</div>
+	<br/>
+		<h2 th:text="#{label.donator.form.heading}">Donator Form</h2>
+		<br />
+		<form action="/" method="POST" enctype="utf8">
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.name}">Name
+					Name</label> <span class="col-sm-5"><input id="name"
+					class="form-control" name="name" value="" required="required" /></span> 
+			</div>
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.mobile}">Mobile
+					NO</label> <span class="col-sm-5"><input id="phone"
+					class="form-control" name="mobile" value="" required="required" /></span> <span
+					id="phoneError" class="alert alert-danger col-sm-4"
+					style="display: none"></span>
+			</div>
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.fName}">Father Name</label> <span
+					class="col-sm-5"><input type="fName" class="form-control"
+					name="fName" value="" required="required" /></span> 
+					<span id="fNameError" class="alert alert-danger col-sm-4" style="display: none"></span>
+			</div>
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.amount}">Amount</label> <span
+					class="col-sm-5"><input type="amount" class="form-control"
+					name="amount" value="" required="required" /></span> <span id="amountError"
+					class="alert alert-danger col-sm-4" style="display: none"></span>
+			</div>
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.address}">Address</label> <span
+					class="col-sm-5"><input type="address" class="form-control"
+					name="address" value="" required="required" /></span> <span id="addressError"
+					class="alert alert-danger col-sm-4" style="display: none"></span>
+			</div>
+			<div class="form-group row">
+				<label class="col-sm-3" th:text="#{label.receivedBy}">Received By</label> <span
+					class="col-sm-5"><input type="receivedBy" class="form-control"
+					name="receivedBy" value="" required="required" /></span> <span id="receivedByError"
+					class="alert alert-danger col-sm-4" style="display: none"></span>
+			</div>
+ 	
+ 			<br />
+			<button type="submit" class="btn btn-info btn-cls" th:text="#{label.form.submit}">submit</button>
+		</form>
+<!-- 
+		<div class="container">
+			<h2>Donators</h2>
+			<div class="row col-md-7 table-responsive">
+				<table id="donatorTable" class="table">
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>Mobile</th>
+							<th>Father</th>
+							<th>Address</th>
+							<th>Amount</th>
+							<th>Dated</th>
+						</tr>
+					</thead>
+					<tbody>
+						 <tr th:each="d, rowStat: ${donators}"
+						 	 th:style="${rowStat.odd} ? 'color: gray' : 'color: blue;'">
+							<td th:text="${d.name}"/>
+					        <td th:text="${d.mobile}"/>
+					        <td th:text="${d.fName}"/>
+					        <td th:text="${d.address}"/>
+					        <td th:text="${d.amount}"/>
+					        <td th:text="${d.dated}"/>
+					    </tr>
+					</tbody>
+				</table>
+			</div>
+				<div th:if="${dPage.totalPages > 0}" class="pagination"
+				    th:each="pageNumber : ${pageNumbers}">
+				    <a th:href="@{/allDonators(size=${dPage.size}, page=${pageNumber})}"
+				        th:text=${pageNumber}
+				        th:class="${pageNumber==dPage.number + 1} ? active"></a>
+				</div>
+		</div>		
+	</div>
+ -->
+
+	<script th:inline="javascript">
+var serverContext = [[@{/}]];
+
+$(document).ready(function () {
+	$('form').submit(function(event) {
+		addDonation(event);
+	});
+	
+});
+
+function addDonation(event){
+	console.log(1);
+	event.preventDefault();
+    $(".alert").html("").hide();
+    $(".error-list").html("");
+    //$("#messageDiv").hide();
+   
+    var formData= $('form').serialize();
+    console.log(formData);
+    $.post(serverContext + "addDonation",formData ,function(data){
+    	console.log(2);
+        	//$("#messageDiv").append(data.message).show();
+        	return false;
+/*             window.location.href = serverContext + "successRegister.html"; */
+    })
+    .fail(function(data) {
+    	console.log(3);
+    });
+}
+
+
+</script>
+<div th:replace="footer :: footer"/>
+</body>
+</html>

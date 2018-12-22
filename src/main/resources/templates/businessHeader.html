@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- Collect the nav links, forms, and other content for toggling -->
+<div th:fragment="businessDashboard" class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+	<ul class="nav navbar-nav">
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-medkit icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Medicines </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/product"> <i
+						class="fa fa-circle-o"></i> Medicines
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/category"> <i
+						class="fa fa-circle-o"></i> Categories
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/product/pending_stock"> <i
+						class="fa fa-circle-o"></i> Pending stock
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/stock_alert_report"> <i
+						class="fa fa-circle-o"></i> Out of stock
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/product/expired_list"> <i
+						class="fa fa-circle-o"></i> Recent expired
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/product/product_stock"> <i
+						class="fa fa-circle-o"></i> Stock
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/product/expired_stock"> <i
+						class="fa fa-circle-o"></i> Expired Stock
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-cog icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Settings </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/layout"> <i
+						class="fa fa-circle-o"></i> Layout &amp; System
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/frontend"> <i
+						class="fa fa-circle-o"></i> Frontend Settings
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i
+				class="fa fa-balance-scale icon-settings" aria-hidden="true"> </i> <span
+				class="text-center link-settting"> Reports </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/sales_report"> <i
+						class="fa fa-circle-o"></i> Sales Report
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/sales_report/return_item_report">
+						<i class="fa fa-circle-o"></i> Return report
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-user icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Profile </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/profile"> <i
+						class="fa fa-circle-o"></i> Personal
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-truck icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Supplier </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/supplier"> <i
+						class="fa fa-circle-o"></i> Supplier List
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/supplier/payment_list"> <i
+						class="fa fa-circle-o"></i> Supplier payments
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-briefcase icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Purchase </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/purchase"> <i
+						class="fa fa-circle-o"></i> Purchases
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/purchase/return_list"> <i
+						class="fa fa-circle-o"></i> Purchase return
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-flask icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Supply </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/supply"> <i
+						class="fa fa-circle-o"></i> Supply List
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/supply/drivers"> <i
+						class="fa fa-circle-o"></i> Drivers
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/supply/vehicle"> <i
+						class="fa fa-circle-o"></i> Vehicles
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-anchor icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Initilization </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/initilization"> <i
+						class="fa fa-circle-o"></i> Brands
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/initilization/brand_sector">
+						<i class="fa fa-circle-o"></i> Brand Sector
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/initilization/region"> <i
+						class="fa fa-circle-o"></i> Region
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/initilization/town"> <i
+						class="fa fa-circle-o"></i> Towns
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/initilization/units"> <i
+						class="fa fa-circle-o"></i> units
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/initilization/stores"> <i
+						class="fa fa-circle-o"></i> Stores
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-calculator icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Accounts </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/Expense"> <i
+						class="fa fa-circle-o"></i> Expense
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/customers/ledger"> <i
+						class="fa fa-circle-o"></i> Customers ledger
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/supplier/ledger"> <i
+						class="fa fa-circle-o"></i> Supplier legder
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/accounts"> <i
+						class="fa fa-circle-o"></i> Chart of accounts
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/statements/journal_voucher">
+						<i class="fa fa-circle-o"></i> Journal Voucher
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/statements/opening_balance">
+						<i class="fa fa-circle-o"></i> Opening Balance
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-line-chart icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Statements </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/statements"> <i
+						class="fa fa-circle-o"></i> General Journal
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/statements/ledger_accounts">
+						<i class="fa fa-circle-o"></i> Ledger Account
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/statements/trail_balance"> <i
+						class="fa fa-circle-o"></i> Trail Balance
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/statements/income_statement">
+						<i class="fa fa-circle-o"></i> Income
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/statements/balancesheet"> <i
+						class="fa fa-circle-o"></i> Balance Sheet
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i
+				class="fa fa-shopping-bag icon-settings" aria-hidden="true"> </i> <span
+				class="text-center link-settting"> Options </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/users"> <i
+						class="fa fa-circle-o"></i> Users
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/todolist"> <i
+						class="fa fa-circle-o"></i> Requested items
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/backup"> <i
+						class="fa fa-circle-o"></i> Take Backup
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/backup/upload_restore"> <i
+						class="fa fa-circle-o"></i> Restore Backup
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/Printer_settings"> <i
+						class="fa fa-circle-o"></i> Printer Settings
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-dashboard icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Dashboard </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/homepage"> <i
+						class="fa fa-circle-o"></i> Dashboard
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-user icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Customers </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/customers"> <i
+						class="fa fa-circle-o"></i> Customers
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/customers/payment_list "> <i
+						class="fa fa-circle-o"></i> Customer Payments
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-futbol-o icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Frontend </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/testamonial"> <i
+						class="fa fa-circle-o"></i> Testimonials
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/service"> <i
+						class="fa fa-circle-o"></i> Services
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/somewords"> <i
+						class="fa fa-circle-o"></i> Some Words
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/pharmacist"> <i
+						class="fa fa-circle-o"></i> Pharmacists
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/orders/order_history"> <i
+						class="fa fa-circle-o"></i> Prescriptions Requested
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-users icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					Roles </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/multiple_roles"> <i
+						class="fa fa-circle-o"></i> Multiple Roles
+				</a></li>
+			</ul></li>
+		<li class="dropdown"><a href="#"
+			class="dropdown-toggle text-center link-settting"
+			data-toggle="dropdown" role="button" aria-haspopup="true"
+			aria-expanded="false"> <i class="fa fa-clipboard icon-settings"
+				aria-hidden="true"> </i> <span class="text-center link-settting">
+					POS </span>
+		</a>
+			<ul class="dropdown-menu">
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/invoice/manage"> <i
+						class="fa fa-circle-o"></i> View Invoice
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/invoice"> <i
+						class="fa fa-circle-o"></i> Create invoice
+				</a></li>
+				<li class="responsive-color-list"><a
+					href="https://medix.spantiklab.com/return_items"> <i
+						class="fa fa-circle-o"></i> Return items
+				</a></li>
+			</ul></li>
+	</ul>
+</div>
+<!-- /.navbar-collapse -->
+</div>
+</html>

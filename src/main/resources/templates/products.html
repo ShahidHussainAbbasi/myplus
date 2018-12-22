@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<link rel="stylesheet"
+	href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<link rel="stylesheet" type="text/css" href="./resources/main.css" />
+<script
+	src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<title th:text="#{label.app.title}">Title</title>
+</head>
+<body>
+	<nav th:fragment="header" class="navbar-inverse">
+		<div class="container-fluid">
+			<div class="navbar-header active">
+				<a class="navbar-brand" href="#">Maximum your services</a>
+			</div>
+			<ul class="nav navbar-nav">
+			</ul>
+			<ul class="nav navbar-nav navbar-right">
+				<li><a class="glyphicon glyphicon-log-in" th:href="@{/login}"
+					th:text="#{label.form.login}">Login</a></li>
+				<li><a class="glyphicon glyphicon-user"
+					th:href="@{/registration.html}" th:text="#{label.form.siguUp}">Sign
+						Up</a></li>
+			</ul>
+		</div>
+	</nav>
+	<div class="container content-cls">
+		<div class="col-xs-6 col-sm-4 info-box">
+			<a href="/dashboard-examples/finance/"> <img th:src="@{/resources/img/Finance2.png}"
+				alt="Finance Dashboard Examples">
+				<h4>
+					<strong>Finance</strong>
+				</h4> <span> Use maxtheservice.com financial dashboard reports to analyze
+					investments, acquisitions, profits, losses and more </span>
+			</a>
+		</div>
+		<div class="col-xs-6 col-sm-4 info-box">
+			<a href="/dashboard-examples/corporate-social-responsibility/">
+				<img th:src="@{/resources/img/Social_Responsibility1.png}"
+				alt="Social Dashboard Examples">
+				<h4>
+					<strong>Social Responsibility</strong>
+				</h4> <span> Ensure your business meets regulatory and
+					environmental standards. Open interactive dashboard </span>
+			</a>
+		</div>
+		<div class="col-xs-6 col-sm-4 info-box">
+			<a href="/dashboard-examples/healthcare/"> <img th:src="@{/resources/img/Healtcare2.png}"
+				alt="Healthcare Dashboard Examples">
+				<h4>
+					<strong>Healthcare</strong>
+				</h4> <span> Compare the number of admissions, cost, diagnosis by
+					department division and more, all in one place </span>
+			</a>
+		</div>
+		<div class="col-xs-6 col-sm-4 info-box">
+			<a href="/dashboard-examples/human-resources/"> <img th:src="@{/resources/img/HR2.png}"
+				alt="HR Dashboard Examples">
+				<h4>
+					<strong>Human Resources</strong>
+				</h4> <span> Build smart reports &amp; dashboards that analyze
+					detailed human resources data, to make better strategic decisions
+			</span>
+			</a>
+		</div>
+		<div class="col-xs-6 col-sm-4 info-box">
+			<a href="/dashboard-examples/retail/"> <img th:src="@{/resources/img/Retail3.png}"
+				alt="Retail Dashboard Examples">
+				<h4>
+					<strong>Retail / eCommerce</strong>
+				</h4> <span> Access the most powerful and easy to use interactive
+					dashboards &amp; identify the most profitable regions and brands </span>
+			</a>
+		</div>
+		<div class="col-xs-6 col-sm-4 info-box">
+			<a href="/dashboard-examples/education/"> <img th:src="@{/resources/img/Education2.png}"
+				alt="Education Dashboard Examples">
+				<h4>
+					<strong>Education</strong>
+				</h4> <span> Use maxtheservice Educational dashboard reports to analyze
+					school attendance, acceptance rate and more </span>
+			</a>
+		</div>
+		<div class="col-xs-6 col-sm-4 info-box">
+			<a href="/dashboard-examples/performance/"> <img th:src="@{/resources/img/Line-Chart3.png}"
+				alt="Performance Dashboard Examples">
+				<h4>
+					<strong>Performance</strong>
+				</h4> <span> Keep track of your company’s performance with our
+					performance dashboards and reporting templates </span>
+			</a>
+		</div>
+	</div>
+
+
+	<script th:inline="javascript">
+var serverContext = [[@{/}]];
+
+$(document).ready(function () {
+
+});
+
+</script>
+	<div th:replace="footer :: footer" />
+</body>
+</html>
