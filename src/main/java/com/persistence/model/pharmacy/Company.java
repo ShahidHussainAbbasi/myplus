@@ -29,6 +29,8 @@ public class Company implements Serializable {
 	@Column(name="user_id")
 	private Long userId;
 
+//	@Column(name = "name", updatable = false, nullable = false)
+	@Column(name = "name", nullable = false)
 	private String name;
 
 	@Column(name="name_sub")

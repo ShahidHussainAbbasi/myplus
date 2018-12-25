@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
@@ -55,6 +56,7 @@ public class CompanyController {
 	
 	@RequestMapping(value = "/getUserCompany", method = RequestMethod.GET)
 	@ResponseBody
+//	@PreAuthorize("hasRole('ADMIN')")
 	public GenericResponse getUserCompany(final HttpServletRequest request) {
 		try {
 			Company filterBy = new Company();
@@ -122,22 +124,57 @@ public class CompanyController {
 	@ResponseBody
 	public GenericResponse addCompany(@Validated final CompanyDTO companyDTO, final HttpServletRequest request) {
 		try {
+			Company company = new Company();
+/*			company.setName(companyDTO.getName());
+			company.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
+			Example<Company> example = Example.of(company);
+			if(companyRepo.exists(example)) {
+				return new GenericResponse("FOUND",messages.getMessage("Company "+"already.exist", null, request.getLocale()));
+			}
+*/			
 			companyDTO.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
 			companyDTO.setDated(AppUtil.todayDateStr());
-			Company company = modelMapper.map(companyDTO, Company.class);
+			company = modelMapper.map(companyDTO, Company.class);
 			Company companyTemp = companyRepo.save(company);
 			if(companyTemp.getId()>0) {
-				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS",companyTemp);
+				return new GenericResponse("SUCCESS",companyTemp);
 			}else {
-				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"FAILED",companyTemp);
+				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
+			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
 	}
 	
+	@RequestMapping(value = "/updateCompany", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse updateCompany(@Validated final CompanyDTO companyDTO, final HttpServletRequest request) {
+		try {
+/*			Company company = new Company();
+			company.setName(companyDTO.getName());
+			Example<Company> example = Example.of(company);
+			company = companyRepo.findOne(example).get();
+			companyDTO.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
+			companyDTO.setDated(AppUtil.todayDateStr());
+*/			
+			companyDTO.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
+			companyDTO.setDated(AppUtil.todayDateStr());
+			Company company = modelMapper.map(companyDTO, Company.class);
+			Company companyTemp = companyRepo.saveAndFlush(company);
+			if(companyTemp.getId()>0) {
+				return new GenericResponse("SUCCESS",messages.getMessage("Company updated success", null, request.getLocale()));
+			}else {
+				return new GenericResponse("FAILED",messages.getMessage("Company updated fail", null, request.getLocale()));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			return new GenericResponse("ERROR",messages.getMessage("Company update error", null, request.getLocale()),
+					e.getCause().toString());
+		}
+	}
+
 	@RequestMapping(value = "/deleteCompany", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteClient( HttpServletRequest req, HttpServletResponse resp ){

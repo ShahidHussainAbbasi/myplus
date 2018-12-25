@@ -1,4 +1,4 @@
-package com.persistence.dao;
+/*package com.persistence.dao;
 
 import com.persistence.model.PasswordResetToken;
 import com.persistence.model.User;
@@ -23,3 +23,4 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     @Query("delete from PasswordResetToken t where t.expiryDate <= ?1")
     void deleteAllExpiredSince(Date now);
 }
+*/

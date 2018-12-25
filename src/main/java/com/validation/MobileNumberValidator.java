@@ -6,6 +6,8 @@ import java.util.regex.Pattern;
 import javax.validation.ConstraintValidator;
 import javax.validation.ConstraintValidatorContext;
 
+import org.springframework.util.StringUtils;
+
 public class MobileNumberValidator implements ConstraintValidator<ValidMobileNumber, String> {
     private Pattern pattern;
     private Matcher matcher;
@@ -18,12 +20,13 @@ public class MobileNumberValidator implements ConstraintValidator<ValidMobileNum
 
     @Override
     public boolean isValid(final String mobileNo, final ConstraintValidatorContext context) {
+    	if(StringUtils.isEmpty(mobileNo)) {return true;}
         return (validateMobileNumber(mobileNo));
-    }
+    } 
 
     private boolean validateMobileNumber(final String mobileNo) {
         pattern = Pattern.compile(MOBILE_NUMBER_PATTERN);
-        matcher = pattern.matcher(mobileNo.replace(",", ""));
+        matcher = pattern.matcher(mobileNo);
         return matcher.matches();
     }
 }

@@ -1,4 +1,4 @@
-package com.persistence.dao;
+/*package com.persistence.dao;
 
 import com.persistence.model.User;
 import com.persistence.model.VerificationToken;
@@ -23,3 +23,4 @@ public interface VerificationTokenRepository extends JpaRepository<VerificationT
     @Query("delete from VerificationToken t where t.expiryDate <= ?1")
     void deleteAllExpiredSince(Date now);
 }
+*/

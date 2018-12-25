@@ -33,6 +33,12 @@ public class Item implements Serializable {
 	private String itemType;
 	@Column(name="item_unit")
 	private String itemUnit;
+	@Column(name="purchase_amount")
+	private Float purchaseAmount;
+	@Column(name="sell_amount")
+	private Float sellAmount;
+	private Float discount;
+	private Float net;
 	private String description;
 	private String company;
 	private String brand;
@@ -122,6 +128,62 @@ public class Item implements Serializable {
 	 */
 	public void setItemUnit(String itemUnit) {
 		this.itemUnit = itemUnit;
+	}
+
+	/**
+	 * @return the purchaseAmount
+	 */
+	public Float getPurchaseAmount() {
+		return purchaseAmount;
+	}
+
+	/**
+	 * @param purchaseAmount the purchaseAmount to set
+	 */
+	public void setPurchaseAmount(Float purchaseAmount) {
+		this.purchaseAmount = purchaseAmount;
+	}
+
+	/**
+	 * @return the sellAmount
+	 */
+	public Float getSellAmount() {
+		return sellAmount;
+	}
+
+	/**
+	 * @param sellAmount the sellAmount to set
+	 */
+	public void setSellAmount(Float sellAmount) {
+		this.sellAmount = sellAmount;
+	}
+
+	/**
+	 * @return the discount
+	 */
+	public Float getDiscount() {
+		return discount;
+	}
+
+	/**
+	 * @param discount the discount to set
+	 */
+	public void setDiscount(Float discount) {
+		this.discount = discount;
+	}
+
+	/**
+	 * @return the net
+	 */
+	public Float getNet() {
+		return net;
+	}
+
+	/**
+	 * @param net the net to set
+	 */
+	public void setNet(Float net) {
+		this.net = net;
 	}
 
 	/**

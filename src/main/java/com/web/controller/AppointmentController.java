@@ -72,7 +72,7 @@ public class AppointmentController {
 				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"NotSupported");
 			
 			if (appointmentService.isBlocked(appointmentDTO.getMobile()))
-				return new GenericResponse(messages.getMessage("message.hospital.exist", null, request.getLocale()),
+				return new GenericResponse(messages.getMessage("Hospital"+"already.exist", null, request.getLocale()),
 						"HospitalAlreadyExist");
 
 			GenericResponse genericResponse =  appointmentService.registerNewAppointment(appointmentDTO);

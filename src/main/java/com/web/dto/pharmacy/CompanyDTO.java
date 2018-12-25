@@ -5,6 +5,7 @@ import java.io.Serializable;
 import javax.validation.constraints.NotBlank;
 
 import com.validation.ValidMobileNumber;
+import com.validation.ValidateEmpty;
 
 
 /**
@@ -17,14 +18,14 @@ public class CompanyDTO implements Serializable {
 
 	private Long id;
 	private Long userId;
-	@NotBlank
+	@ValidateEmpty
 	private String name;
 	private String nameSub;
 	private String brands;
 	@ValidMobileNumber
 	private String mobile;
 	private String phone;
-	@NotBlank
+	@ValidateEmpty
 	private String address;
 	private String description;
 	private String dated;

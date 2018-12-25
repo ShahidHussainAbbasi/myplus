@@ -29,6 +29,12 @@ public class GenericResponse {
         this.status = status;
     }
 
+    public GenericResponse(final String status,final Object object) {
+        super();
+        this.status = status;
+        this.object = object;
+    }
+
     public GenericResponse(final String status, final String message,final Object object) {
         super();
         this.message = message;

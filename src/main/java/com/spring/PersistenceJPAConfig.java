@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration
 @EnableTransactionManagement
 @PropertySource({ "classpath:persistence.properties" })
-@ComponentScan({ "com.persistence" })
+@ComponentScan({ "com.persistence.*" })
 @EnableJpaRepositories(basePackages = "com.persistence.Repo")
 public class PersistenceJPAConfig {
 
@@ -39,7 +39,7 @@ public class PersistenceJPAConfig {
 	public LocalSessionFactoryBean sessionFactory() {
 		LocalSessionFactoryBean sessionFactory = new LocalSessionFactoryBean();
 		sessionFactory.setDataSource(dataSource());
-		sessionFactory.setPackagesToScan(new String[] { "com.persistence.model" });
+		sessionFactory.setPackagesToScan(new String[] { "com.persistence.*" });
 		sessionFactory.setHibernateProperties(jpaProperties());
 		return sessionFactory;
 	}
@@ -49,7 +49,7 @@ public class PersistenceJPAConfig {
     public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
         final LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource());
-        em.setPackagesToScan(new String[] { "com.persistence.model" });
+        em.setPackagesToScan(new String[] { "com.persistence.*" });
         final HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
         em.setJpaVendorAdapter(vendorAdapter);
         em.setJpaProperties(jpaProperties());//additionalProperties
@@ -97,7 +97,7 @@ public class PersistenceJPAConfig {
     
     protected Properties additionalProperties() {
         final Properties hibernateProperties = new Properties();
-//        hibernateProperties.setProperty("hibernate.hbm2ddl.auto", env.getProperty("hibernate.hbm2ddl.auto"));
+        hibernateProperties.setProperty("hibernate.hbm2ddl.auto", env.getProperty("hibernate.hbm2ddl.auto"));
         return hibernateProperties;
     }
 

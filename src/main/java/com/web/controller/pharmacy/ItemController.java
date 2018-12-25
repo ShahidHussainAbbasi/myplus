@@ -23,10 +23,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.persistence.Repo.pharmacy.ItemRepo;
 import com.persistence.Repo.pharmacy.ItemTypeRepo;
 import com.persistence.Repo.pharmacy.ItemUnitRepo;
+import com.persistence.model.pharmacy.ItemUnit;
 import com.persistence.model.pharmacy.Item;
 import com.persistence.model.pharmacy.ItemType;
 import com.persistence.model.pharmacy.ItemUnit;
-import com.persistence.model.pharmacy.Vender;
 import com.security.ActiveUserStore;
 import com.service.UserService;
 import com.web.dto.pharmacy.ItemDTO;
@@ -176,9 +176,16 @@ public class ItemController {
 	@ResponseBody
 	public GenericResponse addItem(@Validated final ItemDTO itemDTO, final HttpServletRequest request) {
 		try {
+			Item item = new Item();
+			item.setName(itemDTO.getName());
+			Example<Item> example = Example.of(item);
+			if(itemRepo.exists(example)) {
+				return new GenericResponse("FOUND",messages.getMessage("Item "+"already.exist", null, request.getLocale()));
+			}
+
 			itemDTO.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
 			itemDTO.setDated(AppUtil.todayDateStr());
-			Item item = modelMapper.map(itemDTO, Item.class);
+			item = modelMapper.map(itemDTO, Item.class);
 			Item itemTemp = itemRepo.save(item);
 			if(itemTemp.getId()>0) {
 				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS",itemTemp);
@@ -196,6 +203,13 @@ public class ItemController {
 	@ResponseBody
 	public GenericResponse addItemType(@Validated final ItemType itemType, final HttpServletRequest request) {
 		try {
+			ItemType itemTypeTemp = new ItemType();
+			itemTypeTemp.setName(itemType.getName());
+			Example<ItemType> example = Example.of(itemTypeTemp);
+			if(itemTypeRepo.exists(example)) {
+				return new GenericResponse("FOUND",messages.getMessage("Item Type "+"already.exist", null, request.getLocale()));
+			}
+
 			itemType.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
 			itemType.setDated(AppUtil.todayDateStr());
 			ItemType itemUnitTemp = itemTypeRepo.save(itemType);
@@ -215,18 +229,24 @@ public class ItemController {
 	@ResponseBody
 	public GenericResponse addItemUnit(@Validated final ItemUnit itemUnit, final HttpServletRequest request) {
 		try {
+			ItemUnit itemUnitTemp = new ItemUnit();
+			itemUnitTemp.setName(itemUnit.getName());
+			Example<ItemUnit> example = Example.of(itemUnitTemp);
+			if(itemUnitRepo.exists(example)) {
+				return new GenericResponse("FOUND",messages.getMessage("Item Unit "+"already.exist", null, request.getLocale()));
+			}
+
 			itemUnit.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
 			itemUnit.setDated(AppUtil.todayDateStr());
 			ItemUnit itemUnitType = itemUnitRepo.save(itemUnit);
 			if(itemUnitType.getId()>0) {
-				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS",itemUnitType);
+				return new GenericResponse("SUCCESS",itemUnitType);
 			}else {
-				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"FAILED",itemUnitType);
+				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()));
 		}
 	}
 

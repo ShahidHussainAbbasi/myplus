@@ -28,7 +28,7 @@ import com.security.google2fa.CustomAuthenticationProvider;
 import com.security.google2fa.CustomWebAuthenticationDetailsSource;
 
 @Configuration
-@ComponentScan(basePackages = { "com.security" })
+@ComponentScan(basePackages = { "com.*" })
 // @ImportResource({ "classpath:webSecurityConfig.xml" })
 @EnableWebSecurity
 public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
@@ -83,6 +83,7 @@ public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
                         "/badUser*", "/user/resendRegistrationToken*" ,"/forgetPassword*", "/user/resetPassword*",
                         "/user/changePassword*", "/emailError*", "/resources/**","/old/user/registration*","/successRegister*","/qrcode*").permitAll()
                 .antMatchers("/invalidSession*","/products*").anonymous()
+                .antMatchers("/businessDashboard.html").hasAuthority("PHARMACY")
                 .antMatchers("/user/updatePassword*","/user/savePassword*","/updatePassword*").hasAuthority("CHANGE_PASSWORD_PRIVILEGE")
                 .anyRequest().hasAuthority("READ_PRIVILEGE")
                 .and()

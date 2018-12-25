@@ -37,6 +37,8 @@ public class Vender implements Serializable {
 
 	private String name;
 
+	private String company;
+
 	private String mobile;
 
 	private String phone;
@@ -88,6 +90,20 @@ public class Vender implements Serializable {
 	 */
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	/**
+	 * @return the company
+	 */
+	public String getCompany() {
+		return company;
+	}
+
+	/**
+	 * @param company the company to set
+	 */
+	public void setCompany(String company) {
+		this.company = company;
 	}
 
 	/**

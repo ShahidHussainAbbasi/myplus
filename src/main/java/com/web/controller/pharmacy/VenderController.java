@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.Repo.pharmacy.VenderRepo;
 import com.persistence.model.pharmacy.Company;
+import com.persistence.model.pharmacy.Item;
 import com.persistence.model.pharmacy.Vender;
 import com.security.ActiveUserStore;
 import com.service.IAppointmentService;
@@ -119,10 +120,17 @@ public class VenderController {
 	@ResponseBody
 	public GenericResponse addVender(@Validated final VenderDTO venderDTO, final HttpServletRequest request) {
 		try {
+			Vender venderTemp = new Vender();
+			venderTemp.setName(venderDTO.getName());
+			Example<Vender> example = Example.of(venderTemp);
+			if(venderRepo.exists(example)) {
+				return new GenericResponse("FOUND",messages.getMessage("Vender "+"already.exist", null, request.getLocale()));
+			}
+
 			venderDTO.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
 			venderDTO.setDated(AppUtil.todayDateStr());
 			Vender vender = modelMapper.map(venderDTO, Vender.class);
-			Vender venderTemp = venderRepo.save(vender);
+			venderTemp = venderRepo.save(vender);
 			if(venderTemp.getId()>0) {
 				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS",venderTemp);
 			}else {

@@ -21,6 +21,16 @@ public class EmptyValidator implements ConstraintValidator<ValidateEmpty, Object
 		    	return false;
 		    else
 		    	return true;
+    	else if(instance instanceof Float)
+		    if(instance==null || ((Float)instance)<=0)
+		    	return false;
+		    else
+		    	return true;
+    	else if(instance instanceof Double)
+		    if(instance==null || ((Double)instance)<=0)
+		    	return false;
+		    else
+		    	return true;
     	else if(instance instanceof String)
 		    if(instance==null || ((String)instance).length()==0)
 		    	return false;

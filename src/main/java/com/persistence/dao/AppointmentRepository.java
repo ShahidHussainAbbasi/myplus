@@ -1,6 +1,6 @@
 /**
  * 
- */
+ *//*
 package com.persistence.dao;
 
 import java.util.List;
@@ -12,10 +12,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.query.QueryByExampleExecutor;
 
-/**
+*//**
  * @author sabbasi
  *
- */
+ *//*
 public interface AppointmentRepository extends JpaRepository<Appointment, Long>,QueryByExampleExecutor<Appointment> {
 	
 
@@ -33,3 +33,4 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
     		+" ORDER BY a.patients_appointed DESC LIMIT 1",nativeQuery=true)
     Appointment getLastAppointment(Long FK_hospital_id, Long doctor_id, String date);
 }
+*/

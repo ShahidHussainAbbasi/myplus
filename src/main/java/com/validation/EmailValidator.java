@@ -6,6 +6,8 @@ import java.util.regex.Pattern;
 import javax.validation.ConstraintValidator;
 import javax.validation.ConstraintValidatorContext;
 
+import org.springframework.util.StringUtils;
+
 public class EmailValidator implements ConstraintValidator<ValidEmail, String> {
     private Pattern pattern;
     private Matcher matcher;
@@ -16,8 +18,9 @@ public class EmailValidator implements ConstraintValidator<ValidEmail, String> {
     }
 
     @Override
-    public boolean isValid(final String username, final ConstraintValidatorContext context) {
-        return (validateEmail(username));
+    public boolean isValid(final String email, final ConstraintValidatorContext context) {
+    	if(StringUtils.isEmpty(email)) {return true;}
+        return (validateEmail(email));
     }
 
     private boolean validateEmail(final String email) {

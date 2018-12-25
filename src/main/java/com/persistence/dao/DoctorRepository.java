@@ -1,6 +1,6 @@
 /**
  * 
- */
+ *//*
 package com.persistence.dao;
 
 import java.util.List;
@@ -13,10 +13,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.query.QueryByExampleExecutor;
 
-/**
+*//**
  * @author sabbasi
  *
- */
+ *//*
 public interface DoctorRepository extends JpaRepository<Doctor, Long>,QueryByExampleExecutor<Doctor> {
 	
 
@@ -29,3 +29,4 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long>,QueryByExa
     @Query(value = "SELECT * FROM Doctor d where d.mobile = :mobile",nativeQuery=true)
     public Optional<Hospital> findByMobile(@Param("mobile") String mobile);
 }
+*/

@@ -4,6 +4,8 @@ import java.io.Serializable;
 
 import javax.validation.constraints.NotBlank;
 
+import com.validation.ValidateEmpty;
+
 
 /**
  * The persistent class for the doctor database table.
@@ -16,13 +18,19 @@ public class ItemDTO implements Serializable {
 	private Long id;
 	private Long itemId;
 	private Long userId;
-	@NotBlank
+	@ValidateEmpty
 	private String name;
-	@NotBlank
+	@ValidateEmpty
 	private String itemType;
-	@NotBlank
+	@ValidateEmpty
 	private String itemUnit;
-	@NotBlank
+	@ValidateEmpty
+	private Float purchaseAmount;
+	@ValidateEmpty
+	private Float sellAmount;
+	private Float discount;
+	@ValidateEmpty
+	private Float net;
 	private String description;
 	private String company;
 	private String brand;
@@ -112,6 +120,62 @@ public class ItemDTO implements Serializable {
 	 */
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	/**
+	 * @return the purchaseAmount
+	 */
+	public Float getPurchaseAmount() {
+		return purchaseAmount;
+	}
+
+	/**
+	 * @param purchaseAmount the purchaseAmount to set
+	 */
+	public void setPurchaseAmount(Float purchaseAmount) {
+		this.purchaseAmount = purchaseAmount;
+	}
+
+	/**
+	 * @return the sellAmount
+	 */
+	public Float getSellAmount() {
+		return sellAmount;
+	}
+
+	/**
+	 * @param sellAmount the sellAmount to set
+	 */
+	public void setSellAmount(Float sellAmount) {
+		this.sellAmount = sellAmount;
+	}
+
+	/**
+	 * @return the discount
+	 */
+	public Float getDiscount() {
+		return discount;
+	}
+
+	/**
+	 * @param discount the discount to set
+	 */
+	public void setDiscount(Float discount) {
+		this.discount = discount;
+	}
+
+	/**
+	 * @return the net
+	 */
+	public Float getNet() {
+		return net;
+	}
+
+	/**
+	 * @param net the net to set
+	 */
+	public void setNet(Float net) {
+		this.net = net;
 	}
 
 	/**

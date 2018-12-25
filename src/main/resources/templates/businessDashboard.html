@@ -3,75 +3,95 @@
 <head>
 <div th:replace="header :: header-css" />
 
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.css"/> 
+<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.js"></script>
 
 <!-- <script src="resources/js/bootstrap/js/bootstrap.js"></script> -->
-<script src="resources/js/bootstrap/js/moment.js"></script>
-<script src="resources/js/bootstrap/js/bootstrap-datetimepicker.js"></script>
-<script type="text/javascript"
-	src="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.js"></script>
+<script src="resources/bootstrap/js/moment.js"></script>
+<script src="resources/bootstrap/js/bootstrap-datetimepicker.js"></script>
+<script src="resources/js/datatables.min.js"></script>
+<!-- <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.js"></script> -->
 <!-- <link rel="stylesheet" href="resources/js/bootstrap/css/bootstrap.min.css"> -->
-<link rel="stylesheet"
-	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
-<link rel="stylesheet" type="text/css"
-	href="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.css" />
+<link rel="stylesheet"	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
 <script src="resources/jsRocket/bootstrapSpringGrid.js"></script>
-
-
-
 
 </head>
 <body>
 	<div th:replace="header :: header" />
-	<div class="container content-cls">
-		 <div class="subnav" style="margin-top:10px">
-     		<ul>
-				<li class="glyphicon glyphicon-registration-mark">
-					<select name="registrationType" id="registrationType">
-						<option value="">Select To Register</option>
-						<option value="Company">Company</option>
-						<option value="Vender">Vender/Supplier</option>
-						<option value="Item">Item</option>
-						<option value="ItemType">Item Type</option>
-						<option value="ItemUnit">Item Unit</option>
+	<nav class="subnav" id="nav-subheader">
+		<div class="container-fluid">
+			<ul class="nav navbar-nav">
+				<div class="navbar-header active">
+					<p style="color: lightskyblue; padding-top: 17px"
+						class="glyphicon glyphicon-user" th:if="${param.user} != null"
+						th:text="${param.user[0]}">User</p>
+				</div>
+				<li>
+					<select name="registrationType" id="registrationType" class="dropdown show dropdown-menu">
+						<option class="dropdown-item" value="">Register</option>
+						<option class="dropdown-item" value="Company">Company</option>
+						<option class="dropdown-item" value="Vender">Vender/Supplier</option>
+						<option class="dropdown-item" value="ItemType">Item Type</option>
+						<option class="dropdown-item" value="ItemUnit">Item Unit</option>
+						<option class="dropdown-item" value="Item">Item</option>
+						<option class="dropdown-item" value="Customer">Customer</option>
 					</select>
 				</li>
-			</ul>
+			</ul>					
 		</div>
+	</nav>
+	<hr style="margin-top: 40px;">
+	<div class="container content-cls">
 		<div id=0Div name="CompanyDiv" style="display:none">
-			<br />
-			<h2 th:text="#{label.company.form.heading}">Company Registration
-				Form</h2>
+			<h3 th:text="#{label.company.form.heading}">Company Registration
+				Form</h3>
 			<br />
 			<!-- <form class="form-horizontal" role="form"> -->
 			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Company">
+				enctype="utf8" id="Company" autocomplete="off">
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="name">Name:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="name" name="name"
-							placeholder="Company Name"> <span id="nameError"
-							class="alert alert-danger" style="display: none"></span>
+					<label class="control-label col-sm-2" for="name">ID:</label>
+					<div class="col-sm-4">
+						<input type="number" placeholder=" Disabled " class="form-control" id="companyId" name="id" step="any" readonly="readonly"/> 
 					</div>
+					<label class="control-label col-sm-2" for="name">Name:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="companyName" name="name"
+							placeholder="Company Name" required="required"> 
+					</div>
+					<span id="nameError" class="col-sm-12 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="nameSub">Sub
 						Name:</label>
-					<div class="col-sm-10">
+					<div class="col-sm-4">
 						<input type="text" class="form-control" id="nameSub"
 							name="nameSub" placeholder="Sub Company Name">
 					</div>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" for="brands">Brand:</label>
-					<div class="col-sm-10">
+					<div class="col-sm-4">
 						<input type="text" class="form-control" id="brands" name="brands"
 							placeholder="Brand name">
 					</div>
+					<span id="nameError" class="col-sm-12 alert alert-danger" style="display: none"></span>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="phone">Phone:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="companyPhone" name="phone"
+							placeholder="Phone Number">
+					</div>
+					<label class="control-label col-sm-2" for="mobile">Mobile:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="companyMobile" name="mobile"
+							placeholder="Mobile Number" required="required"> 
+					</div>
+					<span id="mobileError" class="col-sm-12 alert alert-danger" style="display: none"></span>
 				</div>
 				<!-- 		
 		<div class="form-group">
 			<label class="control-label col-sm-2" for="dateBirth">Date of Birth:</label>
-			<div class="col-sm-10">
+			<div class="col-sm-4">
 				<div class="input-group date" id="pickerDateBirth">
                     <input type='text' id="dateBirth" class="form-control" placeholder="dd/MM/yyyy" />
                     <span class="input-group-addon">
@@ -82,36 +102,18 @@
 		</div>
  -->
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="phone">Phone:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="phone" name="phone"
-							placeholder="Phone Number"> <span id="phoneError"
-							class="alert alert-danger" style="display: none"></span>
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="mobile">Mobile:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="mobile" name="mobile"
-							placeholder="Mobile Number"> <span id="mobileError"
-							class="alert alert-danger" style="display: none"></span>
-					</div>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" for="address">Address:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="address"
-							name="address" placeholder="Complete Address"> <span
-							id="addressError" class="alert alert-danger"
-							style="display: none"></span>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="companyAddress"
+							name="address" placeholder="Complete Address" required="required">
 					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="description">Description:</label>
-					<div class="col-sm-10">
+					<label class="control-label col-sm-2" for="companyDescription">Description:</label>
+					<div class="col-sm-4">
 						<input type="text" class="form-control" id="description"
 							name="description" placeholder="Description">
 					</div>
+					<span id="addressError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="descriptionError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<!--
@@ -122,93 +124,104 @@
 				</button>
 -->
 					<button type="button" id="addCompany" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Add
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
+					<!-- <button type="button" id="updateCompany" class="btn btn-info">
+						<span class="glyphicon glyphicon-pencil"></span> Update
+					</button> -->
 					<button type="button" id="deleteCompany" class="btn btn-warning">
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 				</div>
-				<div>
-					<table id="tableCompany" class="table table-bordered table-striped">
-						<thead>
-							<tr>
-								<th class="col-sm-1" data-field="id">Id</th>
-								<th class="col-sm-1" data-field="checkDelete"></th>
-								<th class="col-sm-2" data-field="name">Name</th>
-								<th class="col-sm-2" data-field="nameSub">Name Sub</th>
-								<th class="col-sm-1" data-field="brands">Brands</th>
-								<th class="col-sm-1" data-field="phone">Phone</th>
-								<th class="col-sm-1" data-field="mobile">Mobile</th>
-								<th class="col-sm-1" data-field="address">Address</th>
-								<th class="col-sm-1" data-field="description">Description</th>
-								<th class="col-sm-1" data-field="dated">Dated</th>
-							</tr>
-						</thead>
-					</table>
-				</div>
 			</form>
+			<div>
+				<table id="tableCompany" class="table table-bordered table-striped">
+					<thead>
+						<tr>
+							<th class="col-sm-1" data-field="id">ID</th>
+							<th class="col-sm-1" data-field="checkDelete"></th>
+							<th class="col-sm-3" data-field="name">Name</th>
+							<th class="col-sm-3" data-field="nameSub">Name Sub</th>
+							<th class="col-sm-1" data-field="brands">Brands</th>
+							<th class="col-sm-1" data-field="phone">Phone</th>
+							<th class="col-sm-1" data-field="mobile">Mobile</th>
+							<th class="col-sm-1" data-field="address">Address</th>
+							<th class="col-sm-1" data-field="description">Description</th>
+							<th class="col-sm-1" data-field="dated">Dated</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
 		</div>
 		<div id=1Div name="VenderDiv" style="display: none;">
 			<br />
-			<h2 th:text="#{label.vender.form.heading}">Vender Registration
-				Form</h2>
+			<h3 th:text="#{label.vender.form.heading}">Vender Registration
+				Form</h3>
 			<br />
 			<!-- <form class="form-horizontal" role="form"> -->
 			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8">
-				<div class="form-group" id="Vender">
-					<label class="control-label col-sm-2" for="name">Name:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="name" name="name"
-							placeholder="Company Name"> <span id="nameError"
-							class="alert alert-danger" style="display: none"></span>
+				enctype="utf8" id="Vender" autocomplete="off">
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="name">ID:</label>
+					<div class="col-sm-4">
+						<input type="number" placeholder=" Disabled " class="form-control" id="venderId" name="id" step="any" readonly="readonly"/> 
 					</div>
+					<label class="control-label col-sm-2" for="name">Name:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="venderName" name="name"
+							placeholder="Vender Name" required="required">
+					</div>
+					<span id="nameError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.company}">Select
+						Company</label> <span class="col-sm-4"> <select
+						class="form-control" id="venderCompany" name="company">
+					</select>
+					</span>
 					<label class="control-label col-sm-2" for="email">Email:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="email" name="email"
-							placeholder="Email address"> <span id="emailError"
-							class="alert alert-danger" style="display: none"></span>
+					<div class="col-sm-4">
+						<input type="email" class="form-control" id="venderEmail" name="email"
+							placeholder="Email address">
 					</div>
+					<span id="emailError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="phone">Phone:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="phone" name="phone"
-							placeholder="Phone Number"> <span id="phoneError"
-							class="alert alert-danger" style="display: none"></span>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="venderPhone" name="phone"
+							placeholder="Phone Number">
 					</div>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" for="mobile">Mobile:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="mobile" name="mobile"
-							placeholder="Mobile Number"> <span id="mobileError"
-							class="alert alert-danger" style="display: none"></span>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="venderMobile" name="mobile"
+							placeholder="Mobile Number" required="required">
 					</div>
+					<span id="phoneError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="mobileError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="address">Address:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="address"
-							name="address" placeholder="Complete Address"> <span
-							id="addressError" class="alert alert-danger"
-							style="display: none"></span>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="venderAddress"
+							name="address" placeholder="Complete Address" required="required"> 
 					</div>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" for="description">Description:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="description"
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="venderDescription"
 							name="description" placeholder="Description">
 					</div>
+					<span id="addressError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="descriptionError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<button type="button" id="addVender" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Add
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
-					<button type="button" id="deleteVender" class="btn btn-warning">
+<!-- 					<button type="button" id="updateVender" class="btn btn-info">
+						<span class="glyphicon glyphicon-pencil"></span> Update
+					</button>
+ -->					<button type="button" id="deleteVender" class="btn btn-warning">
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 				</div>
@@ -216,10 +229,10 @@
 					<table id="tableVender" class="table table-bordered table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="id">Id</th>
+								<th class="col-sm-1" data-field="id">ID</th>
 								<th class="col-sm-1" data-field="checkDelete"></th>
 								<th class="col-sm-3" data-field="name">Name</th>
-								<th class="col-sm-2" data-field="email">Email</th>
+								<th class="col-sm-3" data-field="email">Email</th>
 								<th class="col-sm-1" data-field="phone">Phone</th>
 								<th class="col-sm-1" data-field="mobile">Mobile</th>
 								<th class="col-sm-1" data-field="address">Address</th>
@@ -237,61 +250,80 @@
 			<br />
 			<!-- <form class="form-horizontal" role="form"> -->
 			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8">
+				enctype="utf8" id="Item" autocomplete="off">
 				<div class="form-group" id="Item">
-					<label class="control-label col-sm-2" for="itemId">Item Id:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="itemId" name="itemId"
+					<label class="control-label col-sm-2" for="itemId">Item ID:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="itemId2" name="itemId"
 							placeholder="Item Identity">
 					</div>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" for="name">Name:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="name" name="name"
-							placeholder="Item Name"> <span id="nameError"
-							class="alert alert-danger" style="display: none"></span>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="itemName" name="name"
+							placeholder="Item Name" required="required">
 					</div>
+					<span id="itemIdError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="nameError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" th:text="#{label.itemType}">Select
-						Type</label> <span class="col-sm-10"> <select
+						Type</label> <span class="col-sm-4"> <select
 						class="form-control" id="itemType" name="itemType">
 					</select>
 					</span>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" th:text="#{label.itemUnit}">Select
-						Unit</label> <span class="col-sm-10"> <select
+						Unit</label> <span class="col-sm-4"> <select
 						class="form-control" id="itemUnit" name="itemUnit">
 					</select>
 					</span>
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" th:text="#{label.company}">Select
-						Company</label> <span class="col-sm-10"> <select
-						class="form-control" id="company" name="company">
+						Company</label> <span class="col-sm-4"> <select
+						class="form-control" id="itemCompany" name="company">
 					</select>
 					</span>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" th:text="#{label.vender}">Select
-						Vender</label> <span class="col-sm-10"> <select
-						class="form-control" id="vender" name="vender">
+						Vender</label> <span class="col-sm-4"> <select
+						class="form-control" id="itemVender" name="vender">
 					</select>
 					</span>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="description">Description:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="description"
-							name="description" placeholder="Description">
+					<label class="control-label col-sm-2" for="sellAmount">S Amount:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="sellAmount" step=any min="0"
+							name="sellAmount" placeholder="Sell Amount 0.0" required="required" onblur="calculateNet()">
 					</div>
+					<label class="control-label col-sm-2" for="purchaseAmount">P Amount:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="purchaseAmount" step=any min="0"
+							name="purchaseAmount" placeholder="Purchase Amount 0.0" required="required" onblur="calculateNet()">
+					</div>
+					<span id="sellAmountError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="purchaseAmountError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="discount">Discount:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="discount" step=any min="0"
+							name="discount" placeholder="Discount 0.0" onblur="calculateNet()">
+					</div>
+					<label class="control-label col-sm-2" for="net">Net:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="net" step=any min="0"
+							name="net" placeholder="Net Amount 0.0" required="required">
+					</div>
+					<span id="discountError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="netError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<button type="button" id="addItem" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Add
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
+					<!-- <button type="button" id="updateItem" class="btn btn-info">
+						<span class="glyphicon glyphicon-pencil"></span> Update
+					</button> -->
 					<button type="button" id="deleteItem" class="btn btn-warning">
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
@@ -300,15 +332,18 @@
 					<table id="tableItem" class="table table-bordered table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="id">Id</th>
+								<th class="col-sm-1" data-field="id">ID</th>
 								<th class="col-sm-1" data-field="checkDelete"></th>
-								<th class="col-sm-1" data-field="itemId">Item Id</th>
+								<th class="col-sm-1" data-field="itemId">Item ID</th>
 								<th class="col-sm-2" data-field="name">Name</th>
 								<th class="col-sm-1" data-field="nameType">Type</th>
 								<th class="col-sm-1" data-field="nameUnit">Unit</th>
-								<th class="col-sm-2" data-field="description">Description</th>
+								<th class="col-sm-3" data-field="purchaseAmount">P Amount</th>
+								<th class="col-sm-3" data-field="sellAmount">S Amount</th>
+								<th class="col-sm-3" data-field="discount">Discount</th>
+								<th class="col-sm-3" data-field="net">Net</th>
 								<th class="col-sm-1" data-field="company">Company</th>
-								<!-- <th class="col-sm-2" data-field="brand">Brand</th> -->
+								<!-- <th class="col-sm-3" data-field="brand">Brand</th> -->
 								<th class="col-sm-1" data-field="vender">Vender</th>
 								<th class="col-sm-1" data-field="dated">Dated</th>
 							</tr>
@@ -322,25 +357,28 @@
 			<h2 th:text="#{label.itemType.form.heading}">Item Type Registration Form</h2>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8">
+				enctype="utf8" id="ItemType" autocomplete="off">
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="name">Item Type:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="name" name="name"
-							placeholder="Item Type">
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="itemTypeName" name="name"
+							placeholder="Item Type" required="required">
 					</div>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" for="description">Description:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="description"
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="itemTypeDescription"
 							name="description" placeholder="Description">
 					</div>
+					<span id="nameError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="descriptionError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<button type="button" id="addItemType" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Add
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
+					<!-- <button type="button" id="updateItemType" class="btn btn-info">
+						<span class="glyphicon glyphicon-pencil"></span> Update
+					</button> -->
 					<button type="button" id="deleteItemType" class="btn btn-warning">
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
@@ -349,10 +387,10 @@
 					<table id="tableItemType" class="table table-bordered table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-4" data-field="id">Id</th>
-								<th class="col-sm-4" data-field="checkDelete"></th>
-								<th class="col-sm-4" data-field="itemType">Item Type</th>
-								<th class="col-sm-4" data-field="description">Description</th>
+								<th class="col-sm-3" data-field="id">ID</th>
+								<th class="col-sm-3" data-field="checkDelete"></th>
+								<th class="col-sm-3" data-field="itemType">Item Type</th>
+								<th class="col-sm-3" data-field="description">Description</th>
 							</tr>
 						</thead>
 					</table>
@@ -364,25 +402,28 @@
 			<h2 th:text="#{label.itemUnit.form.heading}">Item Unit Registration Form</h2>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8">
+				enctype="utf8" id="ItemUnit" autocomplete="off">
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="name">Item Unit:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="name" name="name"
-							placeholder="Item Unit">
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="itemUnitName" name="name"
+							placeholder="Item Unit" required="required">
 					</div>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" for="description">Description:</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="description"
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="itemUnitDescription"
 							name="description" placeholder="Description">
 					</div>
+					<span id="nameError" class="col-sm-2 alert alert-danger" style="display: none"></span>
+					<span id="descriptionError" class="col-sm-2 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<button type="button" id="addItemUnit" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Add
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
+					<!-- <button type="button" id="updateItemUnit" class="btn btn-info">
+						<span class="glyphicon glyphicon-pencil"></span> Update
+					</button> -->
 					<button type="button" id="deleteItemUnit" class="btn btn-warning">
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
@@ -391,10 +432,10 @@
 					<table id="tableItemUnit" class="table table-bordered table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-4" data-field="id">Id</th>
-								<th class="col-sm-4" data-field="checkDelete"></th>
-								<th class="col-sm-4" data-field="itemUnit">Item Unit</th>
-								<th class="col-sm-4" data-field="description">Description</th>
+								<th class="col-sm-3" data-field="id">ID</th>
+								<th class="col-sm-3" data-field="checkDelete"></th>
+								<th class="col-sm-3" data-field="itemUnit">Item Unit</th>
+								<th class="col-sm-3" data-field="description">Description</th>
 							</tr>
 						</thead>
 					</table>

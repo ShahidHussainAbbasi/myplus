@@ -6,6 +6,7 @@ import javax.validation.constraints.NotBlank;
 
 import com.validation.ValidEmail;
 import com.validation.ValidMobileNumber;
+import com.validation.ValidateEmpty;
 
 
 /**
@@ -18,12 +19,13 @@ public class VenderDTO implements Serializable {
 
 	private Long id;
 	private Long userId;
-	@NotBlank	
+	@ValidateEmpty	
 	private String name;
+	private String company;
 	@ValidMobileNumber
 	private String mobile;
 	private String phone;
-	@NotBlank
+	@ValidateEmpty
 	private String address;
 	@ValidEmail
 	private String email;
@@ -55,6 +57,20 @@ public class VenderDTO implements Serializable {
 	 */
 	public void setUserId(Long userId) {
 		this.userId = userId;
+	}
+
+	/**
+	 * @return the company
+	 */
+	public String getCompany() {
+		return company;
+	}
+
+	/**
+	 * @param company the company to set
+	 */
+	public void setCompany(String company) {
+		this.company = company;
 	}
 
 	/**

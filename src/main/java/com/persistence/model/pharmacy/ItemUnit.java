@@ -18,9 +18,11 @@ import javax.persistence.UniqueConstraint;
  */
 @Entity
 @Table(
-        name = "item_unit",
+        name = "item_unit"
+        ,
         uniqueConstraints = {
-                @UniqueConstraint(columnNames = "id")
+                @UniqueConstraint(columnNames = "id"),
+                @UniqueConstraint(columnNames = "name")
         }
 )
 public class ItemUnit implements Serializable {
@@ -35,6 +37,7 @@ public class ItemUnit implements Serializable {
 	@Column(name="user_id")
 	private Long userId;
 
+	@Column(name="name",unique=true, nullable=false) 
 	private String name;
 
 	private String dated;
