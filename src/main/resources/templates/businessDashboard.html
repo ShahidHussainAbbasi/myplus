@@ -37,6 +37,14 @@
 						<option class="dropdown-item" value="Customer">Customer</option>
 					</select>
 				</li>
+				<li>
+					<select name="registrationType" id="registrationType" class="dropdown show dropdown-menu">
+						<option class="dropdown-item" value="">Purchase</option>
+						<option class="dropdown-item" value="Purchase">Purchase</option>
+						<option class="dropdown-item" value="PurchaseReturn">Purchase Return</option>
+						<option class="dropdown-item" value="PurchaseInvoice">Purchase Invoice</option>
+					</select>
+				</li>
 			</ul>					
 		</div>
 	</nav>
@@ -50,11 +58,11 @@
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Company" autocomplete="off">
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="name">ID:</label>
+					<label class="control-label col-sm-2" for="companyId">ID:</label>
 					<div class="col-sm-4">
 						<input type="number" placeholder=" Disabled " class="form-control" id="companyId" name="id" step="any" readonly="readonly"/> 
 					</div>
-					<label class="control-label col-sm-2" for="name">Name:</label>
+					<label class="control-label col-sm-2" for="companyName">Name:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="companyName" name="name"
 							placeholder="Company Name" required="required"> 
@@ -162,7 +170,7 @@
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Vender" autocomplete="off">
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="name">ID:</label>
+					<label class="control-label col-sm-2" for="venderId">ID:</label>
 					<div class="col-sm-4">
 						<input type="number" placeholder=" Disabled " class="form-control" id="venderId" name="id" step="any" readonly="readonly"/> 
 					</div>
@@ -174,10 +182,10 @@
 					<span id="nameError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.company}">Select
-						Company</label> <span class="col-sm-4"> <select
-						class="form-control" id="venderCompany" name="company">
-					</select>
+					<label class="control-label col-sm-2" th:text="#{label.company}">Select	Company</label> 
+					<span class="col-sm-4">
+						<select	class="form-control" id="venderCompany" name="companyName">
+						</select>
 					</span>
 					<label class="control-label col-sm-2" for="email">Email:</label>
 					<div class="col-sm-4">
@@ -231,8 +239,9 @@
 							<tr>
 								<th class="col-sm-1" data-field="id">ID</th>
 								<th class="col-sm-1" data-field="checkDelete"></th>
-								<th class="col-sm-3" data-field="name">Name</th>
-								<th class="col-sm-3" data-field="email">Email</th>
+								<th class="col-sm-2" data-field="name">Name</th>
+								<th class="col-sm-2" data-field="company">Company</th>
+								<th class="col-sm-1" data-field="email">Email</th>
 								<th class="col-sm-1" data-field="phone">Phone</th>
 								<th class="col-sm-1" data-field="mobile">Mobile</th>
 								<th class="col-sm-1" data-field="address">Address</th>
@@ -252,10 +261,9 @@
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Item" autocomplete="off">
 				<div class="form-group" id="Item">
-					<label class="control-label col-sm-2" for="itemId">Item ID:</label>
+					<label class="control-label col-sm-2" for="itemId">ID:</label>
 					<div class="col-sm-4">
-						<input type="text" class="form-control" id="itemId2" name="itemId"
-							placeholder="Item Identity">
+						<input type="number" placeholder=" Disabled " class="form-control" id="itemId" name="id" step="any" readonly="readonly"/> 
 					</div>
 					<label class="control-label col-sm-2" for="name">Name:</label>
 					<div class="col-sm-4">
@@ -280,7 +288,7 @@
 				<div class="form-group">
 					<label class="control-label col-sm-2" th:text="#{label.company}">Select
 						Company</label> <span class="col-sm-4"> <select
-						class="form-control" id="itemCompany" name="company">
+						class="form-control" id="itemCompany" name="companyName">
 					</select>
 					</span>
 					<label class="control-label col-sm-2" th:text="#{label.vender}">Select
@@ -359,13 +367,17 @@
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="ItemType" autocomplete="off">
 				<div class="form-group">
+					<label class="control-label col-sm-1" for="itemTypeId">ID:</label>
+					<div class="col-sm-1">
+						<input type="number" placeholder=" Disabled " class="form-control" id="itemTypeId" name="id" step="any" readonly="readonly"/> 
+					</div>
 					<label class="control-label col-sm-2" for="name">Item Type:</label>
-					<div class="col-sm-4">
+					<div class="col-sm-3">
 						<input type="text" class="form-control" id="itemTypeName" name="name"
 							placeholder="Item Type" required="required">
 					</div>
 					<label class="control-label col-sm-2" for="description">Description:</label>
-					<div class="col-sm-4">
+					<div class="col-sm-3">
 						<input type="text" class="form-control" id="itemTypeDescription"
 							name="description" placeholder="Description">
 					</div>
@@ -404,18 +416,22 @@
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="ItemUnit" autocomplete="off">
 				<div class="form-group">
+					<label class="control-label col-sm-1" for="itemUnitId">ID:</label>
+					<div class="col-sm-1">
+						<input type="number" placeholder=" Disabled " class="form-control" id="itemUnitId" name="id" step="any" readonly="readonly"/> 
+					</div>
 					<label class="control-label col-sm-2" for="name">Item Unit:</label>
-					<div class="col-sm-4">
+					<div class="col-sm-3">
 						<input type="text" class="form-control" id="itemUnitName" name="name"
 							placeholder="Item Unit" required="required">
 					</div>
 					<label class="control-label col-sm-2" for="description">Description:</label>
-					<div class="col-sm-4">
+					<div class="col-sm-3">
 						<input type="text" class="form-control" id="itemUnitDescription"
 							name="description" placeholder="Description">
 					</div>
-					<span id="nameError" class="col-sm-2 alert alert-danger" style="display: none"></span>
-					<span id="descriptionError" class="col-sm-2 alert alert-danger" style="display: none"></span>
+					<span id="nameError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="descriptionError" class="col-sm-6 alert alert-danger" style="display: none"></span>
 				</div>
 				<div class="form-group">
 					<button type="button" id="addItemUnit" class="btn btn-success">
@@ -442,6 +458,111 @@
 				</div>
 			</form>
 		</div>
+		<div id=5Div name="PurchaseDiv" style="display: none;">
+			<br />
+			<h2 th:text="#{label.item.form.heading}">Purchase Form</h2>
+			<br />
+			<!-- <form class="form-horizontal" role="form"> -->
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="Purchase" autocomplete="off">
+				<div class="form-group">
+					<label class="control-label col-sm-1" for="purchaseId">ID:</label>
+					<div class="col-sm-2">
+						<input type="number" placeholder=" Disabled " class="form-control" id="purchaseId" name="id" step="any" readonly="readonly"/> 
+					</div>
+					<label class="control-label col-sm-2" th:text="#{label.select.companyName}">Select	Company</label> 
+					<span class="col-sm-3"> <select class="form-control" id="purchaseCompany" name="companyName"/>
+					<label class="control-label col-sm-2" th:text="#{label.select.venderName}">Select Vender</label> 
+					<span class="col-sm-3"> <select class="form-control" id="purchaseVender" name="venderName"/>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.itemType}">Select
+						Type</label> <span class="col-sm-4"> <select
+						class="form-control" id="purchaseItemType" name="itemType">
+					</select>
+					</span>
+					<label class="control-label col-sm-2" th:text="#{label.itemUnit}">Select
+						Unit</label> <span class="col-sm-4"> <select
+						class="form-control" id="purchaseItemUnit" name="itemUnit">
+					</select>
+					</span>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.company}">Select
+						Company</label> <span class="col-sm-4"> <select
+						class="form-control" id="itemCompany" name="company">
+					</select>
+					</span>
+					<label class="control-label col-sm-2" th:text="#{label.vender}">Select
+						Vender</label> <span class="col-sm-4"> <select
+						class="form-control" id="itemVender" name="vender">
+					</select>
+					</span>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="sellAmount">S Amount:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="sellAmount" step=any min="0"
+							name="sellAmount" placeholder="Sell Amount 0.0" required="required" onblur="calculateNet()">
+					</div>
+					<label class="control-label col-sm-2" for="purchaseAmount">P Amount:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="purchaseAmount" step=any min="0"
+							name="purchaseAmount" placeholder="Purchase Amount 0.0" required="required" onblur="calculateNet()">
+					</div>
+					<span id="sellAmountError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="purchaseAmountError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="discount">Discount:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="discount" step=any min="0"
+							name="discount" placeholder="Discount 0.0" onblur="calculateNet()">
+					</div>
+					<label class="control-label col-sm-2" for="net">Net:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="net" step=any min="0"
+							name="net" placeholder="Net Amount 0.0" required="required">
+					</div>
+					<span id="discountError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+					<span id="netError" class="col-sm-6 alert alert-danger" style="display: none"></span>
+				</div>
+				<div class="form-group">
+					<button type="button" id="addItem" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+					</button>
+					<!-- <button type="button" id="updateItem" class="btn btn-info">
+						<span class="glyphicon glyphicon-pencil"></span> Update
+					</button> -->
+					<button type="button" id="deleteItem" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+				<div>
+					<table id="tableItem" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="id">ID</th>
+								<th class="col-sm-1" data-field="checkDelete"></th>
+								<th class="col-sm-1" data-field="itemId">Item ID</th>
+								<th class="col-sm-2" data-field="name">Name</th>
+								<th class="col-sm-1" data-field="nameType">Type</th>
+								<th class="col-sm-1" data-field="nameUnit">Unit</th>
+								<th class="col-sm-3" data-field="purchaseAmount">P Amount</th>
+								<th class="col-sm-3" data-field="sellAmount">S Amount</th>
+								<th class="col-sm-3" data-field="discount">Discount</th>
+								<th class="col-sm-3" data-field="net">Net</th>
+								<th class="col-sm-1" data-field="company">Company</th>
+								<!-- <th class="col-sm-3" data-field="brand">Brand</th> -->
+								<th class="col-sm-1" data-field="vender">Vender</th>
+								<th class="col-sm-1" data-field="dated">Dated</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</form>
+		</div>
+		
 	</div>
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];

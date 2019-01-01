@@ -13,6 +13,8 @@ import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
 import javax.persistence.Table;
 
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import org.jboss.aerogear.security.otp.api.Base32;
 
 @Entity
@@ -21,10 +23,13 @@ public class User {
 
     @Id
     @Column(unique = true, nullable = false)
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    private String firstName;
+    
+    @Column(name="user_type")
+    private String userType;
+    
+	private String firstName;
 
     private String lastName;
 
@@ -42,8 +47,14 @@ public class User {
     //
 
     @ManyToMany(fetch = FetchType.EAGER)
+    @Fetch(value = FetchMode.SUBSELECT)
     @JoinTable(name = "users_roles", joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "id"), inverseJoinColumns = @JoinColumn(name = "role_id", referencedColumnName = "id"))
     private Collection<Role> roles;
+
+//    @ManyToMany(fetch = FetchType.EAGER)
+//    @Fetch(value = FetchMode.SUBSELECT)
+//    @JoinTable(name = "users_types", joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "id"), inverseJoinColumns = @JoinColumn(name = "type_id", referencedColumnName = "id"))
+//    private Collection<Type> types;
 
     public User() {
         super();
@@ -99,6 +110,28 @@ public class User {
         this.roles = roles;
     }
 
+    /**
+	 * @return the userType
+	 */
+	public String getUserType() {
+		return userType;
+	}
+
+	/**
+	 * @param userType the userType to set
+	 */
+	public void setUserType(String userType) {
+		this.userType = userType;
+	}
+
+//    public void setTypes(final Collection<Type> types) {
+//        this.types = types;
+//    }
+//
+//    public Collection<Type> getTypes() {
+//        return types;
+//    }
+//
     public boolean isEnabled() {
         return enabled;
     }
@@ -150,12 +183,16 @@ public class User {
         return true;
     }
 
-    @Override
-    public String toString() {
-        final StringBuilder builder = new StringBuilder();
-        builder.append("User [id=").append(id).append(", firstName=").append(firstName).append(", lastName=").append(lastName).append(", email=").append(email).append(", password=").append(password).append(", enabled=").append(enabled).append(", isUsing2FA=")
-                .append(isUsing2FA).append(", secret=").append(secret).append(", roles=").append(roles).append("]");
-        return builder.toString();
-    }
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "User [id=" + id + ", firstName=" + firstName + ", lastName=" + lastName + ", email=" + email
+				+ ", password=" + password + ", enabled=" + enabled + ", isUsing2FA=" + isUsing2FA + ", secret="
+				+ secret + ", roles=" + roles + "]";
+	}
+
+
 
 }

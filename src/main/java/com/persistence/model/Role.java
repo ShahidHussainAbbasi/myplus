@@ -16,7 +16,7 @@ import javax.persistence.Table;
 public class Role {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToMany(mappedBy = "roles")
@@ -26,6 +26,10 @@ public class Role {
     @JoinTable(name = "roles_privileges", joinColumns = @JoinColumn(name = "role_id", referencedColumnName = "id"), inverseJoinColumns = @JoinColumn(name = "privilege_id", referencedColumnName = "id"))
     private Collection<Privilege> privileges;
 
+//    @ManyToMany
+//    @JoinTable(name = "roles_services", joinColumns = @JoinColumn(name = "role_id", referencedColumnName = "id"), inverseJoinColumns = @JoinColumn(name = "service_id", referencedColumnName = "id"))
+//    private Collection<Service> services;
+//
     private String name;
 
     public Role() {
@@ -71,6 +75,14 @@ public class Role {
         this.privileges = privileges;
     }
 
+//    public void setServices(final Collection<Service> services) {
+//        this.services = services;
+//    }
+//
+//    public Collection<Service> getServices() {
+//        return services;
+//    }
+//
     @Override
     public int hashCode() {
         final int prime = 31;

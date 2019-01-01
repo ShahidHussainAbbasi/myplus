@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +78,8 @@ public class AppUtil {
     void init() {
     	try {
 			List<Geolocation> countries =  geoLocationService.loadCountries();
+			if(countries==null)
+				return;
 			LOGGER.info("Contries fetched "+countries.size());
 			countryMap = new HashMap<String, String>();
 			countries.forEach(c ->{
@@ -89,4 +92,60 @@ public class AppUtil {
     	}
     }
 
+  
+	public boolean isEmptyOrNull( Collection<?> collection ){
+		if( collection == null || collection.isEmpty() ){
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * This method returns true of the map is null or is empty.
+	 * @param map
+	 * @return true | false
+	 */
+	public boolean isEmptyOrNull( Map<?, ?> map ){
+		if( map == null || map.isEmpty() ){
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * This method returns true if the objet is null.
+	 * @param object
+	 * @return true | false
+	 */
+	public boolean isEmptyOrNull( Object object ){
+		if( object == null ){
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * This method returns true if the input array is null or its length is zero.
+	 * @param array
+	 * @return true | false
+	 */
+	public boolean isEmptyOrNull( Object[] array ){
+		if( array == null || array.length == 0 ){
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * This method returns true if the input string is null or its length is zero.
+	 * @param string
+	 * @return true | false
+	 */
+	public boolean isEmptyOrNull( String string ){
+		if( string == null || string.trim().length() == 0 ){
+			return true;
+		}
+		return false;
+	}    
+   
 }

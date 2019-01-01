@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<div th:replace="header :: header-css" />
+
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.css"/> 
+<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.js"></script>
+
+<!-- <script src="resources/js/bootstrap/js/bootstrap.js"></script> -->
+<script src="resources/bootstrap/js/moment.js"></script>
+<script src="resources/bootstrap/js/bootstrap-datetimepicker.js"></script>
+<script src="resources/js/datatables.min.js"></script>
+<!-- <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.js"></script> -->
+<!-- <link rel="stylesheet" href="resources/js/bootstrap/css/bootstrap.min.css"> -->
+<link rel="stylesheet"	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
+<script src="resources/js/welfare/welfare.js"></script>
+
+</head>
+<body>
+	<div th:replace="header :: header" />
+	<nav class="subnav" id="nav-subheader">
+		<div class="container-fluid">
+			<ul class="nav navbar-nav">
+				<div class="navbar-header active">
+					<p style="color: lightskyblue; padding-top: 17px"
+						class="glyphicon glyphicon-user" th:if="${param.user} != null"
+						th:text="${param.user[0]}">User</p>
+				</div>
+				<li>
+					<select name="registrationType" id="registrationType" class="dropdown show dropdown-menu">
+						<option class="dropdown-item" value="">Nothing Selected</option>
+						<option class="dropdown-item" value="Donator">New Donator</option>
+						<option class="dropdown-item" value="Donation">New Donation</option>
+						<option class="dropdown-item" value="Donations">View Donations</option>
+						<option class="dropdown-item" value="myDonation">My Donations</option>
+					</select>
+				</li>
+			</ul>					
+		</div>
+	</nav>
+	<hr style="margin-top: 40px;">
+	<div class="container content-cls">
+		<div id=0Div name="DonatorDiv" style="display:none">
+			<h3 th:text="#{label.donator.form.heading}">Donator Registration Form</h3>
+			<br />
+			<!-- <form class="form-horizontal" role="form"> -->
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="Donator" autocomplete="off">
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="donatorId">ID:</label>
+					<div class="col-sm-4">
+						<input type="number" placeholder=" Disabled " class="form-control" id="donatorId" name="id" step="any" readonly="readonly"/> 
+					</div>
+					<label class="control-label col-sm-2" for="donatorName">Name:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="donatorName" name="name"
+							placeholder="Donator Name" required="required"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="donatorFName">Ref. Name:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="donatorFName" name="fName"
+							placeholder="Ref. Name" required="required"> 
+					</div>
+					<label class="control-label col-sm-2" for="mobile">Mobile:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="donatorMobile" name="mobile"
+							placeholder="Mobile Number" required="required"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="donatorAddress">Address:</label>
+					<div class="col-sm-6">
+						<input type="text" class="form-control" id="donatorAddress"
+							name="address" placeholder="Compalete Address" required="required">
+					</div>
+					<div class="col-sm-4">
+						<select name="showMe" id="donatorShowMe" class="form-control">
+							<option class="dropdown-item" selected="selected" value="true">Show my donation</option>
+							<option class="dropdown-item" value="false">Hide my donation</option>
+						</select>
+					</div>
+				</div>
+				<div class="form-group">
+					<button type="button" id="addDonator" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+					</button>
+					<button type="button" id="deleteDonator" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+			</form>
+			<div>
+				<table id="tableDonator" class="table table-bordered table-striped">
+					<thead>
+						<tr>
+							<th class="col-sm-1" data-field="id">ID</th>
+							<th class="col-sm-1" data-field="checkDelete"></th>
+							<th class="col-sm-2" data-field="name">Name</th>
+							<th class="col-sm-2" data-field="fName">Ref. Name</th>
+							<th class="col-sm-1" data-field="showMe">Show</th>
+							<th class="col-sm-1" data-field="mobile">Mobile</th>
+							<th class="col-sm-2" data-field="address">Address</th>
+							<th class="col-sm-1" data-field="dated">Dated</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+		</div>
+		<div id=1Div name="DonationDiv" style="display:none">
+			<h3 th:text="#{label.donation.form.heading}">Donation Registration Form</h3>
+			<br />
+			<!-- <form class="form-horizontal" role="form"> -->
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="Donation" autocomplete="off">
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.donator}">Donator</label> 
+					<span class="col-sm-10"> 
+						<select	class="form-control" id="donations" name="donatorId"></select>
+					</span>
+				</div>
+				<div class="form-group">
+					<label class="col-sm-2" th:text="#{label.amount}">Amount</label> <span
+						class="col-sm-4"><input id="donationAmount" class="form-control" type="number"
+						name="amount" value="" required="required" /></span> 
+
+					<label class="col-sm-2" th:text="#{label.receivedBy}">Received By</label> <span
+						class="col-sm-4"><input id="donationReceivedBy" class="form-control"
+						name="receivedBy" value="" required="required" /></span> 
+				</div>
+				<div class="form-group">
+					<button type="button" id="addDonation" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+					</button>
+					<button type="button" id="deleteDonation" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+			</form>
+			<div>
+				<table id="tableDonation" class="table table-bordered table-striped">
+					<thead>
+						<tr>
+							<th class="col-sm-1" data-field="id">ID</th>
+							<th class="col-sm-1" data-field="checkDelete"></th>
+							<th class="col-sm-1" data-field="amount">Amount</th>
+							<th class="col-sm-1" data-field="receivedBy">Received By</th>
+							<th class="col-sm-1" data-field="dated">Dated</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+		</div>
+		<div id=2Div name="DonationsDiv" style="display:none">
+			<h3 th:text="#{label.donations.heading}">Abbasia Welfare Donations</h3>
+			<br />
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="Donations" autocomplete="off">
+				<div class="form-group">
+					<table id="tableDonations" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="id">ID</th>
+								<th class="col-sm-1" data-field="checkDelete"></th>
+								<th class="col-sm-2" data-field="name">Name</th>
+								<th class="col-sm-2" data-field="fName">Ref. Name</th>
+								<th class="col-sm-1" data-field="mobile">Mobile</th>
+								<th class="col-sm-2" data-field="address">Address</th>
+								<th class="col-sm-1" data-field="amount">Amount</th>
+								<th class="col-sm-1" data-field="receivedBy">Received By</th>
+								<th class="col-sm-1" data-field="dated">Dated</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</form>
+		</div>
+	</div>
+	<script th:inline="javascript">
+var serverContext = [[@{/}]];
+	</script>
+	<div th:replace="footer :: footer" />
+</body>
+</html>

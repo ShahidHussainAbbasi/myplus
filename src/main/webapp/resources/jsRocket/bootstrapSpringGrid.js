@@ -45,7 +45,8 @@ function validateForm(){
 */
 function validateForm(){
     formValidated = true;
-   // var form = document.getElementsByClassName('form-horizontal')[tableV];
+    var form = document.getElementsByClassName('form-horizontal')[tableV];
+    formFields = form.length-2;
     if (form.checkValidity() === false) {
       event.preventDefault();
       event.stopPropagation();
@@ -305,14 +306,20 @@ $(document).ready(function() {
 		        {
 */		        
 				resetGlobalError();
-                if(textStatus==="parsererror")
+                if(textStatus==="parsererror"){
                 	window.location.href = serverContext + "login?message=" + errorThrown;
+		        }
+		        else if(data.responseJSON.error.indexOf("InternalError") > -1){
+		            window.location.href = serverContext + "login?message=" + data.responseJSON.message;
+		        }
 
 				var errors = $.parseJSON(data.responseJSON.message);
 	         	$.each( errors, function( index,item ){
 	            	if (item.field){
+	            		$("#"+tableV.toLowerCase()+capitalize(item.field)).addClass("alert-danger");
+/*	            	if (item.field){
 	            		$("#"+item.field).addClass("alert-danger");
-	            		//$("#"+item.field+"Error").show().append(item.defaultMessage+"<br/>");
+*/	            		//$("#"+item.field+"Error").show().append(item.defaultMessage+"<br/>");
 	            	}
 	            	else {
 	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
@@ -324,6 +331,10 @@ $(document).ready(function() {
 
 });
 
+const capitalize = (s) => {
+	  if (typeof s !== 'string') return ''
+	  return s.charAt(0).toUpperCase() + s.slice(1)
+	}
 function editRecord(doc){
 	for(var i=0; i<(formFields); i++){
 		if(doc.getElementById(form[i].id)!=null)
@@ -376,7 +387,7 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='abc'>",
-							"<div id=venderName>"+obj.name+"</div>", "<div id=venderCompany>"+obj.company+"</div>", "<div id=venderEmail>"+obj.email+"</div>",
+							"<div id=venderName>"+obj.name+"</div>", "<div id=venderCompany>"+obj.companyName+"</div>", "<div id=venderEmail>"+obj.email+"</div>",
 							"<div id=venderPhone>"+obj.phone+"</div>", "<div id=venderMobile>"+obj.mobile+"</div>",
 							"<div id=venderAddress>"+obj.address+"</div>", "<div id=venderDescription>"+obj.description+"</div>",obj.dated
 							];
@@ -405,7 +416,7 @@ function loadDataTable(){
 							"<div id=itemId>"+obj.id+"</div>", "<input type='checkbox' value='"+ obj.id+ "' id=''>",
 							"<div id=itemId2>"+obj.itemId+"</div>", "<div id=itemName>"+obj.name+"</div>", "<div id=itemType>"+obj.itemType+"</div>", 
 							"<div id=itemUnit>"+obj.itemUnit+"</div>", "<div id=purchaseAmount>"+obj.purchaseAmount+"</div>", "<div id=sellAmount>"+obj.sellAmount+"</div>",
-							"<div id=discount>"+obj.discount+"</div>", "<div id=net>"+obj.net+"</div>", "<div id=itemCompany>"+obj.company+"</div>", 
+							"<div id=discount>"+obj.discount+"</div>", "<div id=net>"+obj.net+"</div>", "<div id=itemCompany>"+obj.companyName+"</div>", 
 							"<div id=itemVender>"+obj.vender+"</div>",obj.dated
 							];
 						datatable.row.add(arr).draw();
@@ -439,13 +450,13 @@ function loadUserCompanies() {
 //	$("#company").append("/resources/img/waiting-animation.gif");
     $.get(serverContext+ "getUserCompanies",function(data){
     	if(tableV==="Item")
-    		$("#itemCmpany").empty().append(data);
+    		$("#itemCompany").empty().append(data);
     	else
     		$("#venderCompany").empty().append(data);
     })
 	.fail(function(data) {
 		if(tableV==="Item")
-			$("#itemCmpany").empty().append("<option value = ''> System error  </option>");
+			$("#itemCompany").empty().append("<option value = ''> System error  </option>");
 		else
 			$("#venderCompany").empty().append("<option value = ''> System error  </option>");
 	});
@@ -457,11 +468,11 @@ function loadUserVenders() {
     
 //	$("#company").append("/resources/img/waiting-animation.gif");
     $.get(serverContext+ "getUserVenders",function(data){
-    	$("#vender").empty().append(data);
+    	$("#itemVender").empty().append(data);
     })
 	.fail(function(data) {
 		alert(xhr.responseText);
-		$("#vender").empty().append("<option value = ''> System error  </option>");
+		$("#itemVender").empty().append("<option value = ''> System error  </option>");
 	});
 }
 function laodUserItemTypes() {	
@@ -474,7 +485,7 @@ function laodUserItemTypes() {
 		$("#itemType").empty().append("<option value = ''> System error  </option>");
 	});
 }
-function laodUserItemUnits() {	
+function loadUserItemUnits() {	
 	$("#itemUnit").empty().append("<option value = ''> Please wait....  </option>");
     $.get(serverContext+ "getUserItemUnits",function(data){
     	$("#itemUnit").empty().append(data);

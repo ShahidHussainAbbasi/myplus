@@ -14,6 +14,10 @@ import com.validation.ValidateEmpty;
  */
 public class DonatorDTO {
 
+	private Long donatorId =null;
+	private Long userId = null;
+	private String userType = null;
+	
 	private Long id=null;
 	@ValidateEmpty
 	private String name=null;
@@ -21,9 +25,10 @@ public class DonatorDTO {
 	private String mobile = null;
 	private String fName = null;
 	private String address = null;
-	@Digits(fraction = 0, integer = 1)
+//	@Digits(fraction = 0, integer = 1)
 	private Double amount = null;
 	private String receivedBy = null;
+	private Boolean showMe = false;
 	private String dated = null;
 	
 	public Long getId() {
@@ -75,6 +80,54 @@ public class DonatorDTO {
 		this.dated = dated;
 	}
 
+	/**
+	 * @return the donatorId
+	 */
+	public Long getDonatorId() {
+		return donatorId;
+	}
+	/**
+	 * @param donatorId the donatorId to set
+	 */
+	public void setDonatorId(Long donatorId) {
+		this.donatorId = donatorId;
+	}
+	/**
+	 * @return the userId
+	 */
+	public Long getUserId() {
+		return userId;
+	}
+	/**
+	 * @param userId the userId to set
+	 */
+	public void setUserId(Long userId) {
+		this.userId = userId;
+	}
+	/**
+	 * @return the userType
+	 */
+	public String getUserType() {
+		return userType;
+	}
+	/**
+	 * @param userType the userType to set
+	 */
+	public void setUserType(String userType) {
+		this.userType = userType;
+	}
+	/**
+	 * @return the showMe
+	 */
+	public Boolean getShowMe() {
+		return showMe;
+	}
+	/**
+	 * @param showMe the showMe to set
+	 */
+	public void setShowMe(Boolean showMe) {
+		this.showMe = showMe;
+	}
 	@Override
 	public String toString() {
 		return "DonatorDTO [id=" + id + ", name=" + name + ", mobile=" + mobile + ", fName=" + fName + ", address="

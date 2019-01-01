@@ -69,20 +69,21 @@
 			<ul class="nav navbar-nav">
 				<li><a class="glyphicon glyphicon-home" th:href="@{/home.html}"
 					th:text="#{label.pages.home.title}">home</a></li>
-				<li><a class="glyphicon glyphicon-dashboard"
+<!-- 				<li><a class="glyphicon glyphicon-dashboard"
 					th:href="@{/appointmentDashboard}" th:text="#{label.my.dashBoard}">My
 						DashBoard</a></li>
 				<li><a th:href="@{/addHospital}"
 					th:text="#{label.hospital.add}">New Hospital</a></li>
 				<li><a th:href="@{/addDoctor}" th:text="#{label.doctor.add}">New
 						Doctor</a></li>
-				<li><a th:href="@{/businessDashboard.html}" th:text="#{label.pharmacyMain}">Pharmaceutical
+				<li sec:authorize="hasRole('ROLE_BUSINESS_SUPER')">
+				<a th:href="@{/businessDashboard.html}" th:text="#{label.pharmacyMain}">Pharmaceutical
 						</a></li>
 				<li sec:authorize="hasAuthority('WRITE_PRIVILEGE')"><a
 					th:href="@{/donator.html}"
 					th:text="#{label.abbasiWelfare.donation}">Flahey Abbasia
 						Welfare</a></li>
-			</ul>
+ -->			</ul>
 			<ul class="nav navbar-nav navbar-right">
 				<li><a class="glyphicon glyphicon-log-out" th:href="@{/logout}"
 					th:text="#{label.pages.logout}">logout</a></li>

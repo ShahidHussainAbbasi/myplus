@@ -2,6 +2,7 @@ package com.web.util;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -11,8 +12,15 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import com.persistence.model.User;
+import com.service.UserService;
+
+
 @Component
 public class RequestUtil {
+
+	@Autowired
+	UserService userService;
 
 //    public RequestContext getRequestContext() {
 //        HttpServletRequest request = getCurrentHttpRequest();
@@ -33,8 +41,20 @@ public class RequestUtil {
     }
 
     @Nullable
-    private String getRequestUserName() {
-        return SecurityContextHolder.getContext().getAuthentication().getName();
+    public String getRequestUserName() {
+    	Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    	if (principal instanceof UserDetails) {
+    		return ((UserDetails)principal).getUsername();
+    	} else if(principal!=null && principal instanceof User){
+			return principal.toString();
+    	}  
+    	return null;
+    }
+
+    @Nullable
+    public User getRequestUser() {
+    	this.getCurrentUser();
+        return (User)userService.findUserByEmail(this.getRequestUserName());
     }
 
     @Nullable
@@ -48,15 +68,15 @@ public class RequestUtil {
     }
 
     @Nullable
-    public UserDetails getCurrentUser() {
-        UserDetails user = null;
+    public User getCurrentUser() {
+        User user = null;
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Object principal = null;
         if (authentication != null) {
             principal = authentication.getPrincipal();
         }
-        if (principal != null && principal instanceof UserDetails) {
-            user = (UserDetails)principal;
+        if (principal != null && principal instanceof User) {
+            user = (User)principal;
         }
         return user;
     }

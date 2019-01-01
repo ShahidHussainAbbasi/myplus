@@ -1,7 +1,6 @@
 package com.security;
 
 import java.io.IOException;
-import java.util.Collection;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -11,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.DefaultRedirectStrategy;
 import org.springframework.security.web.RedirectStrategy;
 import org.springframework.security.web.WebAttributes;
@@ -19,6 +17,9 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.stereotype.Component;
 
 import com.persistence.model.User;
+import com.web.util.AppUtil;
+
+import net.logstash.logback.encoder.org.apache.commons.lang.StringUtils;
 
 @Component("myAuthenticationSuccessHandler")
 public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
@@ -28,6 +29,9 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
 
     @Autowired
     ActiveUserStore activeUserStore;
+    
+    @Autowired
+    AppUtil appUtil;
 
     @Override
     public void onAuthenticationSuccess(final HttpServletRequest request, final HttpServletResponse response, final Authentication authentication) throws IOException {
@@ -59,32 +63,46 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
         redirectStrategy.sendRedirect(request, response, targetUrl);
     }
 
+//    protected String determineTargetUrl(final Authentication authentication) {
+//        boolean isUser = false;
+//        boolean isAdmin = false;
+//        final Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
+//        for (final GrantedAuthority grantedAuthority : authorities) {
+//            if (grantedAuthority.getAuthority().equals("READ_PRIVILEGE")) {
+//                isUser = true;
+//            } else if (grantedAuthority.getAuthority().equals("WRITE_PRIVILEGE")) {
+//                isAdmin = true;
+//                isUser = false;
+//                break;
+//            }
+//        }
+//        if (isUser) {
+//        	 String username;
+//             if (authentication.getPrincipal() instanceof User) {
+//             	username = ((User)authentication.getPrincipal()).getEmail();
+//             }
+//             else {
+//             	username = authentication.getName();
+//             }
+//        
+//            return "/homepage.html?user="+username;
+//        } else if (isAdmin) {
+//        	return "/homepage.html";
+//            //return "/console.html";
+//        } else {
+//            throw new IllegalStateException();
+//        }
+//    }
+
+    //Navigate user to the dash board on the base of user type 
     protected String determineTargetUrl(final Authentication authentication) {
-        boolean isUser = false;
-        boolean isAdmin = false;
-        final Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-        for (final GrantedAuthority grantedAuthority : authorities) {
-            if (grantedAuthority.getAuthority().equals("READ_PRIVILEGE")) {
-                isUser = true;
-            } else if (grantedAuthority.getAuthority().equals("WRITE_PRIVILEGE")) {
-                isAdmin = true;
-                isUser = false;
-                break;
+         if (authentication.getPrincipal() instanceof User) {
+        	 User user = ((User)authentication.getPrincipal());
+        	 if(!appUtil.isEmptyOrNull(user) && !appUtil.isEmptyOrNull(user.getUserType())){
+        		 return "/"+user.getUserType().toLowerCase()+"Dashboard.html";
+            }else {
+                return "/homepage.html";
             }
-        }
-        if (isUser) {
-        	 String username;
-             if (authentication.getPrincipal() instanceof User) {
-             	username = ((User)authentication.getPrincipal()).getEmail();
-             }
-             else {
-             	username = authentication.getName();
-             }
-        
-            return "/homepage.html?user="+username;
-        } else if (isAdmin) {
-        	return "/homepage.html";
-            //return "/console.html";
         } else {
             throw new IllegalStateException();
         }

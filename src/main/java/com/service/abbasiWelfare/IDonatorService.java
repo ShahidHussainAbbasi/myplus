@@ -1,8 +1,7 @@
 package com.service.abbasiWelfare;
 
-import com.persistence.model.abbasiWelfare.Donator;
+import com.persistence.Repo.abbasiWelfare.DonatorRepository;
 
-public interface IDonatorService {
+public interface IDonatorService extends DonatorRepository{
 
-	public Donator addDonator(Donator donator) throws Exception;
 }

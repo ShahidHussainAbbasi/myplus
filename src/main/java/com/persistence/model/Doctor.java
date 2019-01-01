@@ -1,8 +1,18 @@
 package com.persistence.model;
 
 import java.io.Serializable;
-import javax.persistence.*;
 import java.util.List;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
 
 
 /**
@@ -67,13 +77,22 @@ public class Doctor implements Serializable {
 	public Doctor() {
 	}
 
+
+	/**
+	 * @return the doctorId
+	 */
 	public Long getDoctorId() {
-		return this.doctorId;
+		return doctorId;
 	}
 
+
+	/**
+	 * @param doctorId the doctorId to set
+	 */
 	public void setDoctorId(Long doctorId) {
 		this.doctorId = doctorId;
 	}
+
 
 	public String getAddress() {
 		return this.address;

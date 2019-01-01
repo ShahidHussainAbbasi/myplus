@@ -6,6 +6,8 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
 import javax.persistence.Table;
 
@@ -14,13 +16,17 @@ import javax.persistence.Table;
 public class Privilege {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String name;
 
     @ManyToMany(mappedBy = "privileges")
     private Collection<Role> roles;
+
+//    @ManyToMany
+//    @JoinTable(name = "privilege_services", joinColumns = @JoinColumn(name = "privilege_id", referencedColumnName = "id"), inverseJoinColumns = @JoinColumn(name = "service_id", referencedColumnName = "id"))
+//    private Collection<Service> services;
 
     public Privilege() {
         super();
@@ -57,7 +63,21 @@ public class Privilege {
         this.roles = roles;
     }
 
-    @Override
+//    /**
+//	 * @return the services
+//	 */
+//	public Collection<Service> getServices() {
+//		return services;
+//	}
+//
+//	/**
+//	 * @param services the services to set
+//	 */
+//	public void setServices(Collection<Service> services) {
+//		this.services = services;
+//	}
+//
+	@Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;

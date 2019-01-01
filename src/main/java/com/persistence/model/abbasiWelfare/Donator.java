@@ -18,8 +18,11 @@ import javax.persistence.Table;
 public class Donator {
 
 	@Id
-	@GeneratedValue(strategy=GenerationType.AUTO)
-	private Long id=null;
+	@GeneratedValue(strategy=GenerationType.IDENTITY)
+	private Long id;
+	
+	private Long userId = null;
+	private String userType = null;
 	private String name=null;
 	private String mobile = null;
 	private String fName = null;
@@ -27,11 +30,38 @@ public class Donator {
 	private Double amount = null;
 	private String receivedBy = null;
 	private String dated = null;
+	private boolean showMe = true;
+
 	public Long getId() {
 		return id;
 	}
 	public void setId(Long id) {
 		this.id = id;
+	}
+	
+	/**
+	 * @return the userId
+	 */
+	public Long getUserId() {
+		return userId;
+	}
+	/**
+	 * @param userId the userId to set
+	 */
+	public void setUserId(Long userId) {
+		this.userId = userId;
+	}
+	/**
+	 * @return the userType
+	 */
+	public String getUserType() {
+		return userType;
+	}
+	/**
+	 * @param userType the userType to set
+	 */
+	public void setUserType(String userType) {
+		this.userType = userType;
 	}
 	public String getName() {
 		return name;
@@ -74,6 +104,18 @@ public class Donator {
 	}
 	public void setDated(String dated) {
 		this.dated = dated;
+	}
+	/**
+	 * @return the showMe
+	 */
+	public boolean isShowMe() {
+		return showMe;
+	}
+	/**
+	 * @param showMe the showMe to set
+	 */
+	public void setShowMe(boolean showMe) {
+		this.showMe = showMe;
 	}
 
 }

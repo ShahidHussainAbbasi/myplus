@@ -35,7 +35,7 @@ public class GeoLocationService implements IGeoLocationService {
 
 	@Override
 	public List<Geolocation> loadCountries() {
-		return geoLocationRepo.loadCountries();
+		return null;// geoLocationRepo.loadCountries();
 	}
 
 	@Override

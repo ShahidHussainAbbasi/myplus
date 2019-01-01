@@ -12,8 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import com.persistence.Repo.pharmacy.ItemRepo;
-import com.persistence.model.pharmacy.Item;
+import com.persistence.Repo.business.ItemRepo;
+import com.persistence.model.business.Item;
 import com.service.UserService;
 
 @Service

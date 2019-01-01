@@ -1,13 +1,10 @@
 package com.web.controller;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -23,13 +20,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.servlet.ModelAndView;
 
 import com.persistence.Repo.HospitalRepository;
 import com.persistence.model.Doctor;
-import com.persistence.model.Geolocation;
 import com.persistence.model.Hospital;
-import com.persistence.model.User;
 import com.security.ActiveUserStore;
 import com.service.IDoctorService;
 import com.web.dto.DoctorDTO;
