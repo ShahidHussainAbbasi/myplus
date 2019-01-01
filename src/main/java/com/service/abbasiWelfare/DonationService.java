@@ -115,7 +115,7 @@ public class DonationService implements IDonationService {
 
 	@Override
 	public void deleteById(Long id) {
-			donationRepo.deleteById(id);	
+		donationRepo.deleteById(id);	
 	}
 
 	@Override
