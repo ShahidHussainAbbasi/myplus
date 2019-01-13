@@ -140,8 +140,7 @@ public class DonatorService implements IDonatorService {
 
 	@Override
 	public <S extends Donator> Optional<S> findOne(Example<S> example) {
-		// TODO Auto-generated method stub
-		return null;
+		return donatorRep.findOne(example);
 	}
 
 	@Override

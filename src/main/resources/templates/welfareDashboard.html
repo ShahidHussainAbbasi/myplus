@@ -29,10 +29,10 @@
 				<li>
 					<select name="registrationType" id="registrationType" class="dropdown show dropdown-menu">
 						<option class="dropdown-item" value="">Nothing Selected</option>
-						<option class="dropdown-item" value="Donator">New Donator</option>
-						<option class="dropdown-item" value="Donation">New Donation</option>
-						<option class="dropdown-item" value="Donations">View Donations</option>
-						<option class="dropdown-item" value="myDonation">My Donations</option>
+						<option sec:authorize="hasAuthority('ADD_DONATOR')" class="dropdown-item" value="Donator">New Donator</option>
+						<option sec:authorize="hasAuthority('ADD_DONATION')" class="dropdown-item" value="Donation">New Donation</option>
+						<option sec:authorize="hasAuthority('READ_PRIVILEGE')" class="dropdown-item" value="Donations">View Donations</option>
+						<!-- <option class="dropdown-item" value="myDonation">My Donations</option> -->
 					</select>
 				</li>
 			</ul>					
@@ -47,9 +47,14 @@
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Donator" autocomplete="off">
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="donatorId">ID:</label>
+					<label class="control-label col-sm-2" for="donatorShowMe">ID:</label>
 					<div class="col-sm-4">
-						<input type="number" placeholder=" Disabled " class="form-control" id="donatorId" name="id" step="any" readonly="readonly"/> 
+						<select name="showMe" id="donatorShowMe" class="dropdown show form-control" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="true">Show my donation</option>
+							<option class="dropdown-item" value="false">Hide my donation</option>
+						</select>
+<!-- 						<input type="number" placeholder=" Disabled " class="form-control" id="donatorId" name="id" step="any" readonly="readonly"/> --> 
 					</div>
 					<label class="control-label col-sm-2" for="donatorName">Name:</label>
 					<div class="col-sm-4">
@@ -71,15 +76,9 @@
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="donatorAddress">Address:</label>
-					<div class="col-sm-6">
+					<div class="col-sm-10">
 						<input type="text" class="form-control" id="donatorAddress"
 							name="address" placeholder="Compalete Address" required="required">
-					</div>
-					<div class="col-sm-4">
-						<select name="showMe" id="donatorShowMe" class="form-control">
-							<option class="dropdown-item" selected="selected" value="true">Show my donation</option>
-							<option class="dropdown-item" value="false">Hide my donation</option>
-						</select>
 					</div>
 				</div>
 				<div class="form-group">
@@ -95,8 +94,8 @@
 				<table id="tableDonator" class="table table-bordered table-striped">
 					<thead>
 						<tr>
-							<th class="col-sm-1" data-field="id">ID</th>
-							<th class="col-sm-1" data-field="checkDelete"></th>
+							<!-- <th class="col-sm-1" data-field="id">ID</th> -->
+							<th class="col-sm-1" data-field="checkDelete">Check</th>
 							<th class="col-sm-2" data-field="name">Name</th>
 							<th class="col-sm-2" data-field="fName">Ref. Name</th>
 							<th class="col-sm-1" data-field="showMe">Show</th>
@@ -115,17 +114,17 @@
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Donation" autocomplete="off">
 				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.donator}">Donator</label> 
+					<label class="control-label col-sm-2" th:text="#{label.donator}">Donator:</label> 
 					<span class="col-sm-10"> 
-						<select	class="form-control" id="donations" name="donatorId"></select>
+						<select	class="form-control" id="donations" name="name"></select>
 					</span>
 				</div>
 				<div class="form-group">
-					<label class="col-sm-2" th:text="#{label.amount}">Amount</label> <span
+					<label class="col-sm-2" th:text="#{label.amount}">Amount:</label> <span
 						class="col-sm-4"><input id="donationAmount" class="form-control" type="number"
 						name="amount" value="" required="required" /></span> 
 
-					<label class="col-sm-2" th:text="#{label.receivedBy}">Received By</label> <span
+					<label class="col-sm-2" th:text="#{label.receivedBy}">Received By:</label> <span
 						class="col-sm-4"><input id="donationReceivedBy" class="form-control"
 						name="receivedBy" value="" required="required" /></span> 
 				</div>
@@ -142,8 +141,8 @@
 				<table id="tableDonation" class="table table-bordered table-striped">
 					<thead>
 						<tr>
-							<th class="col-sm-1" data-field="id">ID</th>
-							<th class="col-sm-1" data-field="checkDelete"></th>
+							<th class="col-sm-1" data-field="checkDelete">Check</th>
+							<th class="col-sm-1" data-field="id">Donator</th>
 							<th class="col-sm-1" data-field="amount">Amount</th>
 							<th class="col-sm-1" data-field="receivedBy">Received By</th>
 							<th class="col-sm-1" data-field="dated">Dated</th>
@@ -162,7 +161,6 @@
 						<thead>
 							<tr>
 								<th class="col-sm-1" data-field="id">ID</th>
-								<th class="col-sm-1" data-field="checkDelete"></th>
 								<th class="col-sm-2" data-field="name">Name</th>
 								<th class="col-sm-2" data-field="fName">Ref. Name</th>
 								<th class="col-sm-1" data-field="mobile">Mobile</th>

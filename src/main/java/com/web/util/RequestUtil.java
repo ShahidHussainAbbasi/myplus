@@ -1,5 +1,8 @@
 package com.web.util;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +21,8 @@ import com.service.UserService;
 
 @Component
 public class RequestUtil {
+
+    public static final Map<String,Object> userProperties = new HashMap<String,Object>();
 
 	@Autowired
 	UserService userService;
@@ -81,4 +86,15 @@ public class RequestUtil {
         return user;
     }
 
+    public static void loadUserProperties() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = null;
+        if (authentication != null) {
+            principal = authentication.getPrincipal();
+        }
+        userProperties.put("authorities", authentication.getAuthorities());
+        if (principal != null && principal instanceof User) {
+        	userProperties.put("user", (User)principal);
+        }
+    }
 }

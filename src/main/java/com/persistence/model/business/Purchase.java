@@ -32,7 +32,7 @@ public class Purchase implements Serializable {
 	private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+    @GeneratedValue(strategy=GenerationType.AUTO)
     @Column(name="purchase_id", unique = true, nullable = false)
 	private Long id;
 

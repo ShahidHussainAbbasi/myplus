@@ -1,8 +1,7 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
-import java.sql.Time;
-import java.util.List;
+import java.util.Collection;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
@@ -11,40 +10,31 @@ import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.ManyToMany;
+import javax.persistence.JoinColumn;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
-
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
 @Entity
-@Table(
-        name = "staff"
-)
+@Table(name = "staff")
 
 public class Staff implements Serializable {
 	private static final long serialVersionUID = 1L;
-	
 
 	@Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
-    @Column(name="staff_id", unique = true, nullable = false)
+	@GeneratedValue(strategy = GenerationType.AUTO)
+	@Column(name = "staff_id", unique = true, nullable = false)
 	private Long id;
-	
+
 	@Column(name = "name", nullable = false)
 	private String name;
-	
-	private String code;
 
-	@Column(name="user_id")
+	@Column(name = "user_id")
 	private Long userId;
 
-	@Column(name="user_type")
-	private String userType;
-	
 	private String email;
 
 	private String mobile;
@@ -54,51 +44,52 @@ public class Staff implements Serializable {
 	private String address;
 
 	private String designation;
-	
-	@Column(name="date_of_birth")
-	private String DOB = null;
-	
-	private String Gender;
-	
-	private Time time_in;
-	
-	private Time time_out;
-	
-	private String specialist;
-	
+
+	@Column(name = "date_of_birth")
+	private String dateOfBirth = null;
+
+	private String gender;
+
+	@Column(name = "time_in")
+	private String timeIn;
+
+	@Column(name = "time_out")
+	private String timeOut;
+
 	private String qualification;
-	
-	private Boolean marriad;
-	
+
+	private Boolean married;
+
 	private Boolean status;
-	
+
 	private String dated;
-	
-	@Column(name="owner_id")
-	private Long ownerId = null;
-	
-	//bi-directional many-to-one association to Appointment
-	@ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-	private List<School> schools;
 
-	//bi-directional many-to-one association to Appointment
-	@OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-	private List<Grade> grades;
+//    @ManyToMany(fetch = FetchType.LAZY)
+//    @JoinTable(name = "staff_schools", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), 
+//    inverseJoinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"))
+	// uni-directional on-to-many association to subject
+	@OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+	@JoinColumn(name = "school_id")
+    private Collection<School> schools;
+//    @ManyToMany(fetch = FetchType.LAZY)
+//    @JoinTable(name = "staff_grades", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), 
+//    inverseJoinColumns = @JoinColumn(name = "grade_id", referencedColumnName = "grade_id"))
+	// uni-directional on-to-many association to subject
+	@OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+	@JoinColumn(name = "grade_id")
+    private Collection<Grade> grades;
 
-	//bi-directional many-to-one association to Appointment
-	@OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-	private List<Subject> subjects;
+	// uni-directional on-to-many association to subject
+	@OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+	@JoinColumn(name = "subject_id")
+	private Collection<Subject> subjects;
 
-	
-	
 	/**
 	 * @return the id
 	 */
 	public Long getId() {
 		return id;
 	}
-
-
 
 	/**
 	 * @param id the id to set
@@ -107,16 +98,12 @@ public class Staff implements Serializable {
 		this.id = id;
 	}
 
-
-
 	/**
 	 * @return the name
 	 */
 	public String getName() {
 		return name;
 	}
-
-
 
 	/**
 	 * @param name the name to set
@@ -125,34 +112,12 @@ public class Staff implements Serializable {
 		this.name = name;
 	}
 
-
-
-	/**
-	 * @return the code
-	 */
-	public String getCode() {
-		return code;
-	}
-
-
-
-	/**
-	 * @param code the code to set
-	 */
-	public void setCode(String code) {
-		this.code = code;
-	}
-
-
-
 	/**
 	 * @return the userId
 	 */
 	public Long getUserId() {
 		return userId;
 	}
-
-
 
 	/**
 	 * @param userId the userId to set
@@ -161,34 +126,12 @@ public class Staff implements Serializable {
 		this.userId = userId;
 	}
 
-
-
-	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
-
-
-
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
-	}
-
-
-
 	/**
 	 * @return the email
 	 */
 	public String getEmail() {
 		return email;
 	}
-
-
 
 	/**
 	 * @param email the email to set
@@ -197,16 +140,12 @@ public class Staff implements Serializable {
 		this.email = email;
 	}
 
-
-
 	/**
 	 * @return the mobile
 	 */
 	public String getMobile() {
 		return mobile;
 	}
-
-
 
 	/**
 	 * @param mobile the mobile to set
@@ -215,16 +154,12 @@ public class Staff implements Serializable {
 		this.mobile = mobile;
 	}
 
-
-
 	/**
 	 * @return the phone
 	 */
 	public String getPhone() {
 		return phone;
 	}
-
-
 
 	/**
 	 * @param phone the phone to set
@@ -233,16 +168,12 @@ public class Staff implements Serializable {
 		this.phone = phone;
 	}
 
-
-
 	/**
 	 * @return the address
 	 */
 	public String getAddress() {
 		return address;
 	}
-
-
 
 	/**
 	 * @param address the address to set
@@ -251,16 +182,12 @@ public class Staff implements Serializable {
 		this.address = address;
 	}
 
-
-
 	/**
 	 * @return the designation
 	 */
 	public String getDesignation() {
 		return designation;
 	}
-
-
 
 	/**
 	 * @param designation the designation to set
@@ -269,97 +196,19 @@ public class Staff implements Serializable {
 		this.designation = designation;
 	}
 
-
-
 	/**
-	 * @return the dOB
+	 * @return the dateOfBirth
 	 */
-	public String getDOB() {
-		return DOB;
+	public String getDateOfBirth() {
+		return dateOfBirth;
 	}
 
-
-
 	/**
-	 * @param dOB the dOB to set
+	 * @param dateOfBirth the dateOfBirth to set
 	 */
-	public void setDOB(String dOB) {
-		DOB = dOB;
+	public void setDateOfBirth(String dateOfBirth) {
+		this.dateOfBirth = dateOfBirth;
 	}
-
-
-
-	/**
-	 * @return the gender
-	 */
-	public String getGender() {
-		return Gender;
-	}
-
-
-
-	/**
-	 * @param gender the gender to set
-	 */
-	public void setGender(String gender) {
-		Gender = gender;
-	}
-
-
-
-	/**
-	 * @return the time_in
-	 */
-	public Time getTime_in() {
-		return time_in;
-	}
-
-
-
-	/**
-	 * @param time_in the time_in to set
-	 */
-	public void setTime_in(Time time_in) {
-		this.time_in = time_in;
-	}
-
-
-
-	/**
-	 * @return the time_out
-	 */
-	public Time getTime_out() {
-		return time_out;
-	}
-
-
-
-	/**
-	 * @param time_out the time_out to set
-	 */
-	public void setTime_out(Time time_out) {
-		this.time_out = time_out;
-	}
-
-
-
-	/**
-	 * @return the specialist
-	 */
-	public String getSpecialist() {
-		return specialist;
-	}
-
-
-
-	/**
-	 * @param specialist the specialist to set
-	 */
-	public void setSpecialist(String specialist) {
-		this.specialist = specialist;
-	}
-
-
 
 	/**
 	 * @return the qualification
@@ -368,34 +217,12 @@ public class Staff implements Serializable {
 		return qualification;
 	}
 
-
-
 	/**
 	 * @param qualification the qualification to set
 	 */
 	public void setQualification(String qualification) {
 		this.qualification = qualification;
 	}
-
-
-
-	/**
-	 * @return the marriad
-	 */
-	public Boolean getMarriad() {
-		return marriad;
-	}
-
-
-
-	/**
-	 * @param marriad the marriad to set
-	 */
-	public void setMarriad(Boolean marriad) {
-		this.marriad = marriad;
-	}
-
-
 
 	/**
 	 * @return the status
@@ -404,16 +231,12 @@ public class Staff implements Serializable {
 		return status;
 	}
 
-
-
 	/**
 	 * @param status the status to set
 	 */
 	public void setStatus(Boolean status) {
 		this.status = status;
 	}
-
-
 
 	/**
 	 * @return the dated
@@ -422,8 +245,6 @@ public class Staff implements Serializable {
 		return dated;
 	}
 
-
-
 	/**
 	 * @param dated the dated to set
 	 */
@@ -431,79 +252,103 @@ public class Staff implements Serializable {
 		this.dated = dated;
 	}
 
-
-
-	/**
-	 * @return the ownerId
-	 */
-	public Long getOwnerId() {
-		return ownerId;
-	}
-
-
-
-	/**
-	 * @param ownerId the ownerId to set
-	 */
-	public void setOwnerId(Long ownerId) {
-		this.ownerId = ownerId;
-	}
-
-
-
 	/**
 	 * @return the schools
 	 */
-	public List<School> getSchools() {
+	public Collection<School> getSchools() {
 		return schools;
 	}
-
-
 
 	/**
 	 * @param schools the schools to set
 	 */
-	public void setSchools(List<School> schools) {
+	public void setSchools(Collection<School> schools) {
 		this.schools = schools;
 	}
-
-
 
 	/**
 	 * @return the grades
 	 */
-	public List<Grade> getGrades() {
+	public Collection<Grade> getGrades() {
 		return grades;
 	}
-
-
 
 	/**
 	 * @param grades the grades to set
 	 */
-	public void setGrades(List<Grade> grades) {
+	public void setGrades(Collection<Grade> grades) {
 		this.grades = grades;
 	}
-
-
 
 	/**
 	 * @return the subjects
 	 */
-	public List<Subject> getSubjects() {
+	public Collection<Subject> getSubjects() {
 		return subjects;
 	}
-
-
 
 	/**
 	 * @param subjects the subjects to set
 	 */
-	public void setSubjects(List<Subject> subjects) {
+	public void setSubjects(Collection<Subject> subjects) {
 		this.subjects = subjects;
 	}
 
+	/**
+	 * @return the gender
+	 */
+	public String getGender() {
+		return gender;
+	}
 
+	/**
+	 * @param gender the gender to set
+	 */
+	public void setGender(String gender) {
+		this.gender = gender;
+	}
+
+	/**
+	 * @return the timeIn
+	 */
+	public String getTimeIn() {
+		return timeIn;
+	}
+
+	/**
+	 * @param timeIn the timeIn to set
+	 */
+	public void setTimeIn(String timeIn) {
+		this.timeIn = timeIn;
+	}
+
+	/**
+	 * @return the timeOut
+	 */
+	public String getTimeOut() {
+		return timeOut;
+	}
+
+	/**
+	 * @param timeOut the timeOut to set
+	 */
+	public void setTimeOut(String timeOut) {
+		this.timeOut = timeOut;
+	}
+
+	/**
+	 * @return the married
+	 */
+	public Boolean getMarried() {
+		return married;
+	}
+
+	/**
+	 * @param married the married to set
+	 */
+	public void setMarried(Boolean married) {
+		this.married = married;
+	}
 
 	/**
 	 * @return the serialversionuid
@@ -511,21 +356,5 @@ public class Staff implements Serializable {
 	public static long getSerialversionuid() {
 		return serialVersionUID;
 	}
-
-
-
-	/* (non-Javadoc)
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		return "Staff [id=" + id + ", name=" + name + ", code=" + code + ", userId=" + userId + ", userType=" + userType
-				+ ", email=" + email + ", mobile=" + mobile + ", phone=" + phone + ", address=" + address
-				+ ", designation=" + designation + ", DOB=" + DOB + ", Gender=" + Gender + ", time_in=" + time_in
-				+ ", time_out=" + time_out + ", specialist=" + specialist + ", qualification=" + qualification
-				+ ", marriad=" + marriad + ", status=" + status + ", dated=" + dated + ", ownerId=" + ownerId
-				+ ", schools=" + schools + ", grades=" + grades + ", subjects=" + subjects + "]";
-	}
-
 
 }

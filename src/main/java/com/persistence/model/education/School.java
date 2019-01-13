@@ -1,12 +1,17 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
+import java.util.Collection;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
@@ -27,38 +32,37 @@ public class School implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	@Id
-	@Column(name = "name", unique = true, nullable = false)
-	private String name;
-
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+    @GeneratedValue(strategy=GenerationType.AUTO)
     @Column(name="school_id", unique = true, nullable = false)
 	private Long id;
+
+	private String name;
 
 	@Column(name="user_id")
 	private Long userId;
 
-	@Column(name="user_type")
-	private String userType;
-	
-	private String code;
-
 	private String email;
-
-	private String mobile;
 
 	private String phone;
 
 	private String address;
 
-	private Boolean main = false;
+//	private Boolean main = true;
 	
 	@Column(name="branch_name")
-	private String branName = null;
+	private String branchName;
 	
 	private String dated;
 	
-	@Column(name="owner_id")
-	private Long ownerId = null;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "schools_owners", joinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"), 
+    inverseJoinColumns = @JoinColumn(name = "owner_id", referencedColumnName = "owner_id"))
+    private Collection<SchoolOwner> owners;
+	
+//	@ManyToMany(mappedBy = "schools")
+//    private Set<SchoolOwner> schoolOwners = new HashSet<>();
+//	@OneToMany(mappedBy="school")
+//	private List<SchoolOwner> schoolOwners;
 
 	/**
 	 * @return the name
@@ -103,34 +107,6 @@ public class School implements Serializable {
 	}
 
 	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
-
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
-	}
-
-	/**
-	 * @return the code
-	 */
-	public String getCode() {
-		return code;
-	}
-
-	/**
-	 * @param code the code to set
-	 */
-	public void setCode(String code) {
-		this.code = code;
-	}
-
-	/**
 	 * @return the email
 	 */
 	public String getEmail() {
@@ -142,20 +118,6 @@ public class School implements Serializable {
 	 */
 	public void setEmail(String email) {
 		this.email = email;
-	}
-
-	/**
-	 * @return the mobile
-	 */
-	public String getMobile() {
-		return mobile;
-	}
-
-	/**
-	 * @param mobile the mobile to set
-	 */
-	public void setMobile(String mobile) {
-		this.mobile = mobile;
 	}
 
 	/**
@@ -187,31 +149,17 @@ public class School implements Serializable {
 	}
 
 	/**
-	 * @return the main
+	 * @return the branchName
 	 */
-	public Boolean getMain() {
-		return main;
+	public String getBranchName() {
+		return branchName;
 	}
 
 	/**
-	 * @param main the main to set
+	 * @param branchName the branchName to set
 	 */
-	public void setMain(Boolean main) {
-		this.main = main;
-	}
-
-	/**
-	 * @return the branName
-	 */
-	public String getBranName() {
-		return branName;
-	}
-
-	/**
-	 * @param branName the branName to set
-	 */
-	public void setBranName(String branName) {
-		this.branName = branName;
+	public void setBranchName(String branchName) {
+		this.branchName = branchName;
 	}
 
 	/**
@@ -229,17 +177,17 @@ public class School implements Serializable {
 	}
 
 	/**
-	 * @return the ownerId
+	 * @return the owners
 	 */
-	public Long getOwnerId() {
-		return ownerId;
+	public Collection<SchoolOwner> getOwners() {
+		return owners;
 	}
 
 	/**
-	 * @param ownerId the ownerId to set
+	 * @param owners the owners to set
 	 */
-	public void setOwnerId(Long ownerId) {
-		this.ownerId = ownerId;
+	public void setOwners(Collection<SchoolOwner> owners) {
+		this.owners = owners;
 	}
 
 	/**

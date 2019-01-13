@@ -3,36 +3,32 @@
  */
 package com.web.dto.abbasiWelfare;
 
-import javax.validation.constraints.Digits;
-
-import com.validation.ValidMobileNumber;
-import com.validation.ValidateEmpty;
-
 /**
  * @author Shahid
  *
  */
 public class DonationDTO {
 
-	private Long donatorId =null;
+	private Long id=null;
 	private Long userId = null;
 	private String userType = null;
-	
-	private Long id=null;
+	private String name=null;
 	private Double amount = null;
 	private String receivedBy = null;
 	private String dated = null;
+
+
 	/**
-	 * @return the donatorId
+	 * @return the id
 	 */
-	public Long getDonatorId() {
-		return donatorId;
+	public Long getId() {
+		return id;
 	}
 	/**
-	 * @param donatorId the donatorId to set
+	 * @param id the id to set
 	 */
-	public void setDonatorId(Long donatorId) {
-		this.donatorId = donatorId;
+	public void setId(Long id) {
+		this.id = id;
 	}
 	/**
 	 * @return the userId
@@ -58,17 +54,18 @@ public class DonationDTO {
 	public void setUserType(String userType) {
 		this.userType = userType;
 	}
+	
 	/**
-	 * @return the id
+	 * @return the name
 	 */
-	public Long getId() {
-		return id;
+	public String getName() {
+		return name;
 	}
 	/**
-	 * @param id the id to set
+	 * @param name the name to set
 	 */
-	public void setId(Long id) {
-		this.id = id;
+	public void setName(String name) {
+		this.name = name;
 	}
 	/**
 	 * @return the amount

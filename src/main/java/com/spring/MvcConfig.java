@@ -79,6 +79,7 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/products.html");
         registry.addViewController("/businessDashboard.html");
         registry.addViewController("/welfareDashboard.html");
+        registry.addViewController("/educationDashboard.html");
     }
 
     @Override

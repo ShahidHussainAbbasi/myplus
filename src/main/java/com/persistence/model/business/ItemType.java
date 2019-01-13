@@ -27,7 +27,7 @@ public class ItemType implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@GeneratedValue(strategy=GenerationType.IDENTITY)
+	@GeneratedValue(strategy=GenerationType.AUTO)
 	@Column(name="item_type_id", unique = true, nullable = false)
 	private Long id;
 

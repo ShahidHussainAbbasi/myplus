@@ -11,15 +11,6 @@ import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
 
-import com.persistence.Repo.PasswordResetTokenRepository;
-import com.persistence.Repo.RoleRepository;
-import com.persistence.Repo.UserRepository;
-import com.persistence.Repo.VerificationTokenRepository;
-import com.persistence.model.PasswordResetToken;
-import com.persistence.model.User;
-import com.persistence.model.VerificationToken;
-import com.web.dto.UserDto;
-import com.web.error.UserAlreadyExistException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
@@ -31,6 +22,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import com.persistence.Repo.PasswordResetTokenRepository;
+import com.persistence.Repo.RoleRepository;
+import com.persistence.Repo.UserRepository;
+import com.persistence.Repo.VerificationTokenRepository;
+import com.persistence.model.PasswordResetToken;
+import com.persistence.model.User;
+import com.persistence.model.VerificationToken;
+import com.web.dto.UserDto;
+import com.web.error.UserAlreadyExistException;
 
 @Service
 @Transactional
@@ -57,7 +58,7 @@ public class UserService implements IUserService {
     public static final String TOKEN_INVALID = "invalidToken";
     public static final String TOKEN_EXPIRED = "expired";
     public static final String TOKEN_VALID = "valid";
-
+    
     public static String QR_PREFIX = "https://chart.googleapis.com/chart?chs=200x200&chld=M%%7C0&cht=qr&chl=";
     public static String APP_NAME = "SpringRegistration";
 

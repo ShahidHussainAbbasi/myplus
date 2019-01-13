@@ -21,7 +21,7 @@ public class Company implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+    @GeneratedValue(strategy=GenerationType.AUTO)
     @Column(name="company_id", unique = true, nullable = false)
 	private Long id;
 
@@ -204,7 +204,7 @@ public class Company implements Serializable {
 	 */
 	@Override
 	public String toString() {
-		return "SchoolOwner [id=" + id + ", name=" + name + ", description=" + description + ", brands=" + brands
+		return "SchoolOwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", brands=" + brands
 				+ ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", dated=" + dated + "]";
 	}
 

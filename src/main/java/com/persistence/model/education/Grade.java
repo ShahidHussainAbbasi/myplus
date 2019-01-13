@@ -7,6 +7,8 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
@@ -26,20 +28,17 @@ import javax.persistence.UniqueConstraint;
 public class Grade implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
-	@Id
 	@Column(name = "name", unique = true, nullable = false)
 	private String name;
 
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+	@Id
+    @GeneratedValue(strategy=GenerationType.AUTO)
     @Column(name="grade_id", unique = true, nullable = false)
 	private Long id;
 
 	@Column(name="user_id")
 	private Long userId;
 
-	@Column(name="user_type")
-	private String userType;
-	
 	private String code;
 
 	private String dated;
@@ -52,9 +51,12 @@ public class Grade implements Serializable {
 	@Column(name="time_to")
 	private String timeTo;
 	
-	@Column(name="school_id")
-	private Long schoolId = null;
+	//bi-directional many-to-one association to School
+	@ManyToOne(optional = false)
+	@JoinColumn(name="school_id")
+	private School school;
 
+	private Long room;
 	
 	/**
 	 * @return the name
@@ -101,22 +103,6 @@ public class Grade implements Serializable {
 	 */
 	public void setUserId(Long userId) {
 		this.userId = userId;
-	}
-
-
-	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
-
-
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
 	}
 
 
@@ -199,20 +185,35 @@ public class Grade implements Serializable {
 		this.timeTo = timeTo;
 	}
 
-
 	/**
-	 * @return the schoolId
+	 * @return the room
 	 */
-	public Long getSchoolId() {
-		return schoolId;
+	public Long getRoom() {
+		return room;
 	}
 
 
 	/**
-	 * @param schoolId the schoolId to set
+	 * @param room the room to set
 	 */
-	public void setSchoolId(Long schoolId) {
-		this.schoolId = schoolId;
+	public void setRoom(Long room) {
+		this.room = room;
+	}
+
+
+	/**
+	 * @return the school
+	 */
+	public School getSchool() {
+		return school;
+	}
+
+
+	/**
+	 * @param school the school to set
+	 */
+	public void setSchool(School school) {
+		this.school = school;
 	}
 
 
@@ -222,17 +223,5 @@ public class Grade implements Serializable {
 	public static long getSerialversionuid() {
 		return serialVersionUID;
 	}
-
-
-	/* (non-Javadoc)
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		return "Grade [name=" + name + ", id=" + id + ", userId=" + userId + ", userType=" + userType + ", code=" + code
-				+ ", dated=" + dated + ", section=" + section + ", timeFrom=" + timeFrom + ", timeTo=" + timeTo
-				+ ", schoolId=" + schoolId + "]";
-	}
-
 
 }

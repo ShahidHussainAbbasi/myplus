@@ -20,15 +20,15 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(
-        name = "gaurdian"
+        name = "guardian"
 )
 
-public class Gaurdian implements Serializable {
+public class Guardian implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
 	
 	@Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+    @GeneratedValue(strategy=GenerationType.AUTO)
     @Column(name="gaurdian_id", unique = true, nullable = false)
 	private Long id;
 
@@ -38,9 +38,6 @@ public class Gaurdian implements Serializable {
 	@Column(name="user_id")
 	private Long userId;
 
-	@Column(name="user_type")
-	private String userType;
-	
 	private String email;
 
 	private String mobile;
@@ -53,21 +50,17 @@ public class Gaurdian implements Serializable {
 	@Column(name="perm_address")
 	private String permAddress;
 
-	private String Gender;
+	private String gender;
 	
 	private String relation;
 	
-	private String accupation;
-	
-	@Column(name="blood_group")
-	private String boodGroup;
+	private String occupation;
 	
 	private String dated;
 	
 	//bi-directional many-to-one association to Appointment
 	@OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
 	private List<Student> students;
-
 
 	
 	/**
@@ -115,22 +108,6 @@ public class Gaurdian implements Serializable {
 	 */
 	public void setUserId(Long userId) {
 		this.userId = userId;
-	}
-
-
-	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
-
-
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
 	}
 
 
@@ -213,23 +190,6 @@ public class Gaurdian implements Serializable {
 		this.permAddress = permAddress;
 	}
 
-
-	/**
-	 * @return the gender
-	 */
-	public String getGender() {
-		return Gender;
-	}
-
-
-	/**
-	 * @param gender the gender to set
-	 */
-	public void setGender(String gender) {
-		Gender = gender;
-	}
-
-
 	/**
 	 * @return the relation
 	 */
@@ -243,38 +203,6 @@ public class Gaurdian implements Serializable {
 	 */
 	public void setRelation(String relation) {
 		this.relation = relation;
-	}
-
-
-	/**
-	 * @return the accupation
-	 */
-	public String getAccupation() {
-		return accupation;
-	}
-
-
-	/**
-	 * @param accupation the accupation to set
-	 */
-	public void setAccupation(String accupation) {
-		this.accupation = accupation;
-	}
-
-
-	/**
-	 * @return the boodGroup
-	 */
-	public String getBoodGroup() {
-		return boodGroup;
-	}
-
-
-	/**
-	 * @param boodGroup the boodGroup to set
-	 */
-	public void setBoodGroup(String boodGroup) {
-		this.boodGroup = boodGroup;
 	}
 
 
@@ -309,23 +237,44 @@ public class Gaurdian implements Serializable {
 		this.students = students;
 	}
 
+	
+	/**
+	 * @return the gender
+	 */
+	public String getGender() {
+		return gender;
+	}
+
+
+	/**
+	 * @param gender the gender to set
+	 */
+	public void setGender(String gender) {
+		this.gender = gender;
+	}
+
+
+	/**
+	 * @return the occupation
+	 */
+	public String getOccupation() {
+		return occupation;
+	}
+
+
+	/**
+	 * @param occupation the occupation to set
+	 */
+	public void setOccupation(String occupation) {
+		this.occupation = occupation;
+	}
+
+
 	/**
 	 * @return the serialversionuid
 	 */
 	public static long getSerialversionuid() {
 		return serialVersionUID;
-	}
-
-
-	/* (non-Javadoc)
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		return "Gaurdian [id=" + id + ", name=" + name + ", userId=" + userId + ", userType=" + userType + ", email="
-				+ email + ", mobile=" + mobile + ", phone=" + phone + ", tempAddress=" + tempAddress + ", permAddress="
-				+ permAddress + ", Gender=" + Gender + ", relation=" + relation + ", accupation=" + accupation
-				+ ", boodGroup=" + boodGroup + ", dated=" + dated + ", students=" + students + "]";
 	}
 
 

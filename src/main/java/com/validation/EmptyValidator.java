@@ -1,5 +1,7 @@
 package com.validation;
 
+import java.util.Collection;
+
 import javax.validation.ConstraintValidator;
 import javax.validation.ConstraintValidatorContext;
 
@@ -33,6 +35,11 @@ public class EmptyValidator implements ConstraintValidator<ValidateEmpty, Object
 		    	return true;
     	else if(instance instanceof String)
 		    if(instance==null || ((String)instance).length()==0)
+		    	return false;
+		    else
+		    	return true;
+    	else if(instance instanceof Collection<?>)
+		    if(instance==null || instance.toString().length()==0)
 		    	return false;
 		    else
 		    	return true;

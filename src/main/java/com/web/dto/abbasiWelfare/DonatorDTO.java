@@ -26,7 +26,7 @@ public class DonatorDTO {
 	private String fName = null;
 	private String address = null;
 //	@Digits(fraction = 0, integer = 1)
-	private Double amount = null;
+	private Float amount = null;
 	private String receivedBy = null;
 	private Boolean showMe = false;
 	private String dated = null;
@@ -61,10 +61,10 @@ public class DonatorDTO {
 	public void setAddress(String address) {
 		this.address = address;
 	}
-	public Double getAmount() {
+	public Float getAmount() {
 		return amount;
 	}
-	public void setAmount(Double amount) {
+	public void setAmount(Float amount) {
 		this.amount = amount;
 	}
 	public String getReceivedBy() {

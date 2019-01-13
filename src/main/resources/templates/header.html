@@ -79,7 +79,7 @@
 				<li sec:authorize="hasRole('ROLE_BUSINESS_SUPER')">
 				<a th:href="@{/businessDashboard.html}" th:text="#{label.pharmacyMain}">Pharmaceutical
 						</a></li>
-				<li sec:authorize="hasAuthority('WRITE_PRIVILEGE')"><a
+				<li sec:authorize="hasAuthority('READ_PRIVILEGE')"><a
 					th:href="@{/donator.html}"
 					th:text="#{label.abbasiWelfare.donation}">Flahey Abbasia
 						Welfare</a></li>

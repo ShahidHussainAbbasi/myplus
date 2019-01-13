@@ -3,6 +3,7 @@
  */
 package com.persistence.model.abbasiWelfare;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -18,9 +19,10 @@ import javax.persistence.Table;
 public class Donation {
 
 	@Id
-	@GeneratedValue(strategy=GenerationType.IDENTITY)
-	private Long id=null;
-	private Long donatorId =null;
+	@GeneratedValue(strategy=GenerationType.AUTO)
+	private Long id;
+	@Column(name="donator_name")
+	private String name =null;
 	private Float amount = null;
 	private String receivedBy = null;
 	private String dated = null;
@@ -33,17 +35,18 @@ public class Donation {
 	}
 	
 	/**
-	 * @return the donatorId
+	 * @return the donatorName
 	 */
-	public Long getDonatorId() {
-		return donatorId;
+	public String getName() {
+		return name;
 	}
 	/**
-	 * @param donatorId the donatorId to set
+	 * @param donatorName the donatorName to set
 	 */
-	public void setDonatorId(Long donatorId) {
-		this.donatorId = donatorId;
+	public void setName(String name) {
+		this.name = name;
 	}
+	
 	/**
 	 * @return the amount
 	 */

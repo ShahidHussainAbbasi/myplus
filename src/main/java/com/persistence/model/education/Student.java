@@ -1,18 +1,12 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
-import java.sql.Time;
-import java.util.List;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.ManyToMany;
-import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
 
@@ -30,7 +24,7 @@ public class Student implements Serializable {
 	
 	
 	@Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+    @GeneratedValue(strategy=GenerationType.AUTO)
     @Column(name="student_id", unique = true, nullable = false)
 	private Long id;
 
@@ -40,59 +34,33 @@ public class Student implements Serializable {
 	@Column(name="user_id")
 	private Long userId;
 
-	@Column(name="user_type")
-	private String userType;
-	
 	@Column(name="enroll_no")
 	private String enrollNo;
 	
 	@Column(name="enroll_date")
-	private String enrollmentDate;
-	
-	@Column(name="update_date")
-	private String updateDate;
+	private String enrollDate;
 	
 	private String email;
 
 	private String mobile;
 
-	private String phone;
-
 	private String address;
 
 	@Column(name="date_of_birth")
-	private String DOB = null;
+	private String dateOfBirht = null;
 	
-	private String Gender;
-	
-	private Time time_in;
-	
-	private Time time_out;
-	
-	private String specialist;
-	
-	private String qualification;
+	private String gender;
 	
 	@Column(name="blood_group")
 	private String boodGroup;
 	
 	private Boolean status;
 	
-	private String dated;
-	
-	@Column(name="class_id")
-	private Long classId = null;
-	
 	@Column(name="gaurdian_id")
 	private Long gaurdianId = null;
 
-	//bi-directional many-to-one association to Appointment
-	@ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-	private List<Staff> staff;
-
-	//bi-directional many-to-one association to Appointment
-	@OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-	private List<Subject> subjects;
+	@Column(name="grade_id")
+	private Long gradeId;
 
 	/**
 	 * @return the id
@@ -137,20 +105,6 @@ public class Student implements Serializable {
 	}
 
 	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
-
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
-	}
-
-	/**
 	 * @return the enrollNo
 	 */
 	public String getEnrollNo() {
@@ -162,34 +116,6 @@ public class Student implements Serializable {
 	 */
 	public void setEnrollNo(String enrollNo) {
 		this.enrollNo = enrollNo;
-	}
-
-	/**
-	 * @return the enrollmentDate
-	 */
-	public String getEnrollmentDate() {
-		return enrollmentDate;
-	}
-
-	/**
-	 * @param enrollmentDate the enrollmentDate to set
-	 */
-	public void setEnrollmentDate(String enrollmentDate) {
-		this.enrollmentDate = enrollmentDate;
-	}
-
-	/**
-	 * @return the updateDate
-	 */
-	public String getUpdateDate() {
-		return updateDate;
-	}
-
-	/**
-	 * @param updateDate the updateDate to set
-	 */
-	public void setUpdateDate(String updateDate) {
-		this.updateDate = updateDate;
 	}
 
 	/**
@@ -221,20 +147,6 @@ public class Student implements Serializable {
 	}
 
 	/**
-	 * @return the phone
-	 */
-	public String getPhone() {
-		return phone;
-	}
-
-	/**
-	 * @param phone the phone to set
-	 */
-	public void setPhone(String phone) {
-		this.phone = phone;
-	}
-
-	/**
 	 * @return the address
 	 */
 	public String getAddress() {
@@ -249,87 +161,17 @@ public class Student implements Serializable {
 	}
 
 	/**
-	 * @return the dOB
-	 */
-	public String getDOB() {
-		return DOB;
-	}
-
-	/**
-	 * @param dOB the dOB to set
-	 */
-	public void setDOB(String dOB) {
-		DOB = dOB;
-	}
-
-	/**
 	 * @return the gender
 	 */
 	public String getGender() {
-		return Gender;
+		return gender;
 	}
 
 	/**
 	 * @param gender the gender to set
 	 */
 	public void setGender(String gender) {
-		Gender = gender;
-	}
-
-	/**
-	 * @return the time_in
-	 */
-	public Time getTime_in() {
-		return time_in;
-	}
-
-	/**
-	 * @param time_in the time_in to set
-	 */
-	public void setTime_in(Time time_in) {
-		this.time_in = time_in;
-	}
-
-	/**
-	 * @return the time_out
-	 */
-	public Time getTime_out() {
-		return time_out;
-	}
-
-	/**
-	 * @param time_out the time_out to set
-	 */
-	public void setTime_out(Time time_out) {
-		this.time_out = time_out;
-	}
-
-	/**
-	 * @return the specialist
-	 */
-	public String getSpecialist() {
-		return specialist;
-	}
-
-	/**
-	 * @param specialist the specialist to set
-	 */
-	public void setSpecialist(String specialist) {
-		this.specialist = specialist;
-	}
-
-	/**
-	 * @return the qualification
-	 */
-	public String getQualification() {
-		return qualification;
-	}
-
-	/**
-	 * @param qualification the qualification to set
-	 */
-	public void setQualification(String qualification) {
-		this.qualification = qualification;
+		this.gender = gender;
 	}
 
 	/**
@@ -361,34 +203,6 @@ public class Student implements Serializable {
 	}
 
 	/**
-	 * @return the dated
-	 */
-	public String getDated() {
-		return dated;
-	}
-
-	/**
-	 * @param dated the dated to set
-	 */
-	public void setDated(String dated) {
-		this.dated = dated;
-	}
-
-	/**
-	 * @return the classId
-	 */
-	public Long getClassId() {
-		return classId;
-	}
-
-	/**
-	 * @param classId the classId to set
-	 */
-	public void setClassId(Long classId) {
-		this.classId = classId;
-	}
-
-	/**
 	 * @return the gaurdianId
 	 */
 	public Long getGaurdianId() {
@@ -399,35 +213,7 @@ public class Student implements Serializable {
 	 * @param gaurdianId the gaurdianId to set
 	 */
 	public void setGaurdianId(Long gaurdianId) {
-		gaurdianId = gaurdianId;
-	}
-
-	/**
-	 * @return the staff
-	 */
-	public List<Staff> getStaff() {
-		return staff;
-	}
-
-	/**
-	 * @param staff the staff to set
-	 */
-	public void setStaff(List<Staff> staff) {
-		this.staff = staff;
-	}
-
-	/**
-	 * @return the subjects
-	 */
-	public List<Subject> getSubjects() {
-		return subjects;
-	}
-
-	/**
-	 * @param subjects the subjects to set
-	 */
-	public void setSubjects(List<Subject> subjects) {
-		this.subjects = subjects;
+		this.gaurdianId = gaurdianId;
 	}
 
 	/**
@@ -435,6 +221,48 @@ public class Student implements Serializable {
 	 */
 	public static long getSerialversionuid() {
 		return serialVersionUID;
+	}
+
+	/**
+	 * @return the enrollDate
+	 */
+	public String getEnrollDate() {
+		return enrollDate;
+	}
+
+	/**
+	 * @param enrollDate the enrollDate to set
+	 */
+	public void setEnrollDate(String enrollDate) {
+		this.enrollDate = enrollDate;
+	}
+
+	/**
+	 * @return the dateOfBirht
+	 */
+	public String getDateOfBirht() {
+		return dateOfBirht;
+	}
+
+	/**
+	 * @param dateOfBirht the dateOfBirht to set
+	 */
+	public void setDateOfBirht(String dateOfBirht) {
+		this.dateOfBirht = dateOfBirht;
+	}
+
+	/**
+	 * @return the gradeId
+	 */
+	public Long getGradeId() {
+		return gradeId;
+	}
+
+	/**
+	 * @param gradeId the gradeId to set
+	 */
+	public void setGradeId(Long gradeId) {
+		this.gradeId = gradeId;
 	}
 
 

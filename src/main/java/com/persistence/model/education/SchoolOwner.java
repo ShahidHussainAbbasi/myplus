@@ -1,16 +1,21 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
+import java.util.Collection;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
 import com.validation.ValidEmail;
+import com.validation.ValidateEmpty;
 
 
 /**
@@ -28,19 +33,18 @@ import com.validation.ValidEmail;
 public class SchoolOwner implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
+	
 	@Id
-	@Column(name = "name", unique = true, nullable = false)
-	private String name;
-
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+    @GeneratedValue(strategy=GenerationType.AUTO)
     @Column(name="owner_id", unique = true, nullable = false)
 	private Long id;
 
 	@Column(name="user_id")
 	private Long userId;
 
-	@Column(name="user_type")
-	private String userType;
+	@ValidateEmpty
+	@Column(name="name", unique = true, nullable = false)
+	private String name;
 
 	@ValidEmail
 	private String email;
@@ -51,6 +55,9 @@ public class SchoolOwner implements Serializable {
 
 	private String dated;
 
+    @ManyToMany(mappedBy = "owners")
+    private Collection<School> schools;
+	
 	/**
 	 * @return the id
 	 */
@@ -140,6 +147,34 @@ public class SchoolOwner implements Serializable {
 	 */
 	public static long getSerialversionuid() {
 		return serialVersionUID;
+	}
+
+	/**
+	 * @return the email
+	 */
+	public String getEmail() {
+		return email;
+	}
+
+	/**
+	 * @param email the email to set
+	 */
+	public void setEmail(String email) {
+		this.email = email;
+	}
+
+	/**
+	 * @return the schools
+	 */
+	public Collection<School> getSchools() {
+		return schools;
+	}
+
+	/**
+	 * @param schools the schools to set
+	 */
+	public void setSchools(Collection<School> schools) {
+		this.schools = schools;
 	}
 
 	

@@ -202,7 +202,7 @@ function loadDataTable(){
 				if (getAll === "Donation") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<input type='checkbox' value='"+ obj.id+ "' id='abc'>","<div id=donations>"+obj.donatorId+"</div>", 
+							"<input type='checkbox' value='"+ obj.id+ "' id='abc'>","<div id=donations>"+obj.name+"</div>", 
 							"<div id=donationAmount>"+obj.amount+"</div>", "<div id=donationReceivedBy>"+obj.receivedBy+"</div>",
 							 obj.dated
 							];
@@ -212,7 +212,7 @@ function loadDataTable(){
 				} else if (getAll === "Donator") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=donatorId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id=''>",
+							"<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
 							"<div id=donatorName>"+obj.name+"</div>", "<div id=donatorFName>"+obj.fName+"</div>",
 							"<div id=donatorShowMe>"+obj.showMe+"</div>","<div id=donatorMobile>"+obj.mobile+"</div>", 
 							"<div id=donatorAddress>"+obj.address+"</div>", obj.dated
@@ -220,13 +220,15 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Donations") {
+					var i=0;
 					$.each(collections, function(ind, obj) {
+						i++;
 						arr = [
-							"<div id=donationId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id=''>",
-							"<div id=donationName>"+obj.name+"</div>", "<div id=donationFName>"+obj.fName+"</div>",
-							"<div id=donationMobile>"+obj.mobile+"</div>", "<div id=donationAddress>"+obj.address+"</div>", 
-							"<div id=donationAmount>"+obj.amount+"</div>", "<div id=donationReceivedBy>"+obj.receivedBy+"</div>",
-							obj.dated
+							"<div id=id>"+i+"</div>",
+							"<div id=donatorName>"+obj.name+"</div>", "<div id=donatorFName>"+obj.fName+"</div>",
+							"<div id=donatorMobile>"+obj.mobile+"</div>", "<div id=donatorAddress>"+obj.address+"</div>", 
+							"<div id=donatorAmount>"+obj.amount+"</div>", "<div id=donatorReceivedBy>"+obj.receivedBy+"</div>",
+							"<div id=dated>"+obj.dated+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});

@@ -3,6 +3,7 @@
  */
 package com.web.controller.abbasiWelfare;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -109,9 +110,63 @@ public class DonationController {
 //    }	
 //	
 //	
+	
+	@RequestMapping(value = "/getAllDonations", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getAllDonations(final HttpServletRequest request) {
+		try {
+			List<DonatorDTO> dtos = new ArrayList<>();
+			List<Donation> donations = donationService.findAll();
+			DonatorDTO dto = null;
+			for(Donation d: donations) {
+				if(!appUtil.isEmptyOrNull(d)) {
+					dto = new DonatorDTO();
+					
+					Donator filterBy = new Donator();
+					filterBy.setName(d.getName());
+					Example<Donator> example = Example.of(filterBy);
+					List<Donator> dts = donatorService.findAll(example);
+					if(appUtil.isEmptyOrNull(dts))
+						continue;
+					Donator dt = new Donator();
+					dt = dts.get(0);
+					if(dt.isShowMe()) {
+						dto.setName(dt.getName());
+						dto.setfName(dt.getfName());
+						dto.setAddress(dt.getAddress());
+						dto.setAmount(d.getAmount());
+						dto.setMobile(dt.getMobile());
+						
+						dto.setDated(d.getDated());
+						dto.setReceivedBy(d.getReceivedBy());
+					}else {
+						dto.setName("");
+						dto.setfName("");
+						dto.setAddress("");
+						dto.setAmount(0.0F);
+						dto.setMobile("");
+						
+						dto.setDated(d.getDated());
+						dto.setReceivedBy(d.getReceivedBy());
+					}
+					dtos.add(dto);
+				}
+			}
+			if(!appUtil.isEmptyOrNull(dtos)) {
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
+			}else {
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),donations);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
+					e.getCause().toString());
+		}
+	}
+	
 	@RequestMapping(value = "/getAllDonation", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse loadAllDonation(final HttpServletRequest request) {
+	public GenericResponse getAllDonation(final HttpServletRequest request) {
 		try {
 			List<Donation> donations = donationService.findAll();
 			if(!appUtil.isEmptyOrNull(donations)) {
@@ -156,7 +211,7 @@ public class DonationController {
 			sb.append("<option data-tokens=''> Nothing Selected </option>");
 			donators.forEach(d -> {
 				if(d!=null && d.getId()!=null)
-					sb.append("<option value="+d.getId()+">"+d.getName()+" - "+d.getfName()+"</option>");
+					sb.append("<option value='"+d.getName()+"'>"+d.getName()+" - "+d.getfName()+"</option>");
 			});
 		    return sb.toString();
 		} catch (Exception e) {
@@ -170,17 +225,15 @@ public class DonationController {
 	@ResponseBody
 	public GenericResponse addDonator(@Validated final DonatorDTO donatorDTO, final HttpServletRequest request) {
 		try {
-			Donator donator = new Donator();
 			User user = requestUtil.getCurrentUser();
+			Donator donator = new Donator(user.getId(),user.getUserType(),donatorDTO.getName());
+			Example<Donator> example = Example.of(donator);
+			if(donatorService.exists(example)) {
+				return new GenericResponse("FOUND",messages.getMessage(donatorDTO.getName()+" already exist", null, request.getLocale()));
+			}
 			donatorDTO.setUserId(user.getId());
 			donatorDTO.setUserType(user.getUserType());
 			donator = modelMapper.map(donatorDTO, Donator.class);
-			if(donator.getId()!=null && donator.getId()>0) {
-				Example<Donator> example = Example.of(donator);
-				if(donatorService.exists(example)) {
-					return new GenericResponse("FOUND",messages.getMessage("Your donator already exist", null, request.getLocale()));
-				}
-			}
 			donator.setDated(AppUtil.todayDateStr());
 			Donator donatorTemp = donatorService.save(donator);
 			if(donatorTemp.getId()>0) {
@@ -198,7 +251,7 @@ public class DonationController {
 	
 	@RequestMapping(value = "/addDonation", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse addCompany(@Validated final DonationDTO donationDTO, final HttpServletRequest request) {
+	public GenericResponse addDonation(@Validated final DonationDTO donationDTO, final HttpServletRequest request) {
 		try {
 			Donation donation = new Donation();
 			User user = requestUtil.getCurrentUser();

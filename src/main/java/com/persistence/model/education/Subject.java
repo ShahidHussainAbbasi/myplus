@@ -7,7 +7,10 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
 
 
 /**
@@ -16,45 +19,40 @@ import javax.persistence.Table;
  */
 @Entity
 @Table(
-        name = "subject"
+        name = "subject",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "name")
+        }
 )	
 
 public class Subject implements Serializable {
 	private static final long serialVersionUID = 1L;
 	
-	@Id
 	@Column(name = "name", unique = true, nullable = false)
 	private String name;
 
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+	@Id
+    @GeneratedValue(strategy=GenerationType.AUTO)
     @Column(name="subject_id", unique = true, nullable = false)
 	private Long id;
 
 	@Column(name="user_id")
 	private Long userId;
 
-	@Column(name="user_type")
-	private String userType;
-	
 	private String code;
 
+	private String publisher;
+
+	private String edition;
+	
 	private String dated;
 	
-	@Column(name="school_id")
-	private Long schoolId = null;
-
-	@Column(name="class_id")
-	private Long classid = null;
-
-	@Column(name="student_id")
-	private Long studentId = null;
-
-	@Column(name="room_id")
-	private Long roomId = null;
-
 	private Boolean status;
-
 	
+	//bi-directional many-to-one association to Grade
+	@ManyToOne(optional = false)
+	@JoinColumn(name="grade_id")
+	private Grade grade;
 	/**
 	 * @return the name
 	 */
@@ -104,22 +102,6 @@ public class Subject implements Serializable {
 
 
 	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
-
-
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
-	}
-
-
-	/**
 	 * @return the code
 	 */
 	public String getCode() {
@@ -150,55 +132,6 @@ public class Subject implements Serializable {
 		this.dated = dated;
 	}
 
-
-	/**
-	 * @return the schoolId
-	 */
-	public Long getSchoolId() {
-		return schoolId;
-	}
-
-
-	/**
-	 * @param schoolId the schoolId to set
-	 */
-	public void setSchoolId(Long schoolId) {
-		this.schoolId = schoolId;
-	}
-
-
-	/**
-	 * @return the classid
-	 */
-	public Long getClassid() {
-		return classid;
-	}
-
-
-	/**
-	 * @param classid the classid to set
-	 */
-	public void setClassid(Long classid) {
-		this.classid = classid;
-	}
-
-
-	/**
-	 * @return the roomId
-	 */
-	public Long getRoomId() {
-		return roomId;
-	}
-
-
-	/**
-	 * @param roomId the roomId to set
-	 */
-	public void setRoomId(Long roomId) {
-		this.roomId = roomId;
-	}
-
-
 	/**
 	 * @return the status
 	 */
@@ -224,29 +157,51 @@ public class Subject implements Serializable {
 
 
 	/**
-	 * @return the studentId
+	 * @return the publisher
 	 */
-	public Long getStudentId() {
-		return studentId;
+	public String getPublisher() {
+		return publisher;
 	}
 
 
 	/**
-	 * @param studentId the studentId to set
+	 * @param publisher the publisher to set
 	 */
-	public void setStudentId(Long studentId) {
-		this.studentId = studentId;
+	public void setPublisher(String publisher) {
+		this.publisher = publisher;
 	}
 
 
-	/* (non-Javadoc)
-	 * @see java.lang.Object#toString()
+	/**
+	 * @return the edition
 	 */
-	@Override
-	public String toString() {
-		return "Subject [name=" + name + ", id=" + id + ", userId=" + userId + ", userType=" + userType + ", code="
-				+ code + ", dated=" + dated + ", schoolId=" + schoolId + ", classid=" + classid + ", roomId=" + roomId
-				+ ", status=" + status + "]";
+	public String getEdition() {
+		return edition;
 	}
+
+
+	/**
+	 * @param edition the edition to set
+	 */
+	public void setEdition(String edition) {
+		this.edition = edition;
+	}
+
+
+	/**
+	 * @return the grade
+	 */
+	public Grade getGrade() {
+		return grade;
+	}
+
+
+	/**
+	 * @param grade the grade to set
+	 */
+	public void setGrade(Grade grade) {
+		this.grade = grade;
+	}
+
 	
 }

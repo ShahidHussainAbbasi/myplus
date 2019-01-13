@@ -18,11 +18,6 @@ public class GenericResponse {
     public GenericResponse() {
     }
 
-    public GenericResponse(final String status, final String message,final String error) {
-        super();
-        this.message = message;
-    }
-
     public GenericResponse(final String status, final String message) {
         super();
         this.message = message;
