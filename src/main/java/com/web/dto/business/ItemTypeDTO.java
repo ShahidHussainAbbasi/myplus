@@ -1,42 +1,24 @@
-package com.persistence.model.business;
+package com.web.dto.business;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
-@Entity
-@Table(name = "item_type", uniqueConstraints = { @UniqueConstraint(columnNames = "item_type_id"),
-		@UniqueConstraint(columnNames = "name") })
-public class ItemType implements Serializable {
+public class ItemTypeDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
-	@Column(name = "item_type_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name = "user_id")
 	private Long userId;
 
-	@Column(name = "user_type")
 	private String userType;
 
 	private String name;
 	private String description;
-	private LocalDateTime dated;
-
-	private LocalDateTime updated;
+	private String datedStr;
+	private String updatedStr;
 
 	/**
 	 * @return the id
@@ -109,31 +91,31 @@ public class ItemType implements Serializable {
 	}
 
 	/**
-	 * @return the dated
+	 * @return the datedStr
 	 */
-	public LocalDateTime getDated() {
-		return dated;
+	public String getDatedStr() {
+		return datedStr;
 	}
 
 	/**
-	 * @param dated the dated to set
+	 * @param datedStr the datedStr to set
 	 */
-	public void setDated(LocalDateTime dated) {
-		this.dated = dated;
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
 	}
 
 	/**
-	 * @return the updated
+	 * @return the updatedStr
 	 */
-	public LocalDateTime getUpdated() {
-		return updated;
+	public String getUpdatedStr() {
+		return updatedStr;
 	}
 
 	/**
-	 * @param updated the updated to set
+	 * @param updatedStr the updatedStr to set
 	 */
-	public void setUpdated(LocalDateTime updated) {
-		this.updated = updated;
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
 	}
 
 	/**

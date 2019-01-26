@@ -1,6 +1,7 @@
 package com.persistence.model.business;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -10,30 +11,24 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
-
 /**
  * The persistent class for the doctor database table.
  * 
  */
 @Entity
-@Table(
-        name = "customer",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "customer_id")
-        }
-)
+@Table(name = "customer", uniqueConstraints = { @UniqueConstraint(columnNames = "customer_id") })
 public class Customer implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-    @GeneratedValue(strategy=GenerationType.AUTO)
-    @Column(name="customer_id", unique = true, nullable = false)
+	@GeneratedValue(strategy = GenerationType.AUTO)
+	@Column(name = "customer_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name="user_id")
+	@Column(name = "user_id")
 	private Long userId;
 
-	@Column(name="user_type")
+	@Column(name = "user_type")
 	private Long userType;
 
 	private String name;
@@ -46,9 +41,12 @@ public class Customer implements Serializable {
 
 	private String reference;
 
-	private String dated;
-
 	private String description;
+
+	private LocalDateTime dated;
+
+	private LocalDateTime updated;
+
 	/**
 	 * @return the id
 	 */
@@ -90,8 +88,6 @@ public class Customer implements Serializable {
 	public void setName(String name) {
 		this.name = name;
 	}
-
-
 
 	/**
 	 * @return the userType
@@ -180,15 +176,29 @@ public class Customer implements Serializable {
 	/**
 	 * @return the dated
 	 */
-	public String getDated() {
+	public LocalDateTime getDated() {
 		return dated;
 	}
 
 	/**
 	 * @param dated the dated to set
 	 */
-	public void setDated(String dated) {
+	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
+	}
+
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
 	}
 
 	/**

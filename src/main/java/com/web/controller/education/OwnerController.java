@@ -121,32 +121,26 @@ public class OwnerController {
 			Owner obj= new Owner();
 			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
-			obj.setUserId(user.getId());
-			obj.setName(dto.getName());
+			dto.setUserId(user.getId());
+			obj = modelMapper.map(dto, Owner.class);
 			Example<Owner> example = Example.of(obj);
 			if(AppUtil.isEmptyOrNull(dto.getId()) && ownerService.exists(example))
 				return new GenericResponse("FOUND",messages.getMessage("The Owner "+dto.getName()+" already exist", null, request.getLocale()));
 			
-			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
+			if(!AppUtil.isEmptyOrNull(dto.getId())) {
 				obj = ownerService.getOne(dto.getId());
 				dated = obj.getDated();
+			}else {
+				obj.setDated(dated);
 			}
-			obj = modelMapper.map(dto, Owner.class);
-			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
-				obj.setDated(dated);
-			else
-				obj.setDated(dated);
 			obj.setUpdated(dated);
+
 			Owner schoolOwnerTemp = ownerService.save(obj);
 			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
-//		} catch (DataIntegrityViolationException e) {
-//			e.printStackTrace();
-//			return new GenericResponse("FOUND",messages.getMessage("The Owner "+dto.getName()+" already exist", null, request.getLocale()));
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),

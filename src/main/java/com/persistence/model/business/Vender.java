@@ -1,45 +1,48 @@
 package com.persistence.model.business;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
 @Entity
-@Table(
-        name = "vender",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "vender_id")
-        }
-)
+@Table(name = "vender", uniqueConstraints = { @UniqueConstraint(columnNames = "vender_id") })
 public class Vender implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@GeneratedValue(strategy=GenerationType.AUTO)
-	@Column(name="vender_id", unique = true, nullable = false)
+	@GeneratedValue(strategy = GenerationType.AUTO)
+	@Column(name = "vender_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name="user_id")
+	@Column(name = "user_id")
 	private Long userId;
 
-	@Column(name="user_type")
+	@Column(name = "user_type")
 	private String userType;
 
 	private String name;
 
-	@Column(name="company_name")
-	private String companyName;
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@NotFound(action=NotFoundAction.IGNORE)
+	@JoinColumn(name = "company_id")
+	private Company company;
 
 	private String mobile;
 
@@ -49,9 +52,12 @@ public class Vender implements Serializable {
 
 	private String email;
 
-	private String dated;
-
 	private String description;
+
+	private LocalDateTime dated;
+
+	private LocalDateTime updated;
+
 	/**
 	 * @return the id
 	 */
@@ -94,19 +100,18 @@ public class Vender implements Serializable {
 		this.name = name;
 	}
 
-
 	/**
 	 * @return the company
 	 */
-	public String getCompanyName() {
-		return companyName;
+	public Company getCompany() {
+		return company;
 	}
 
 	/**
 	 * @param company the company to set
 	 */
-	public void setCompanyName(String companyName) {
-		this.companyName = companyName;
+	public void setCompany(Company company) {
+		this.company = company;
 	}
 
 	/**
@@ -182,15 +187,29 @@ public class Vender implements Serializable {
 	/**
 	 * @return the dated
 	 */
-	public String getDated() {
+	public LocalDateTime getDated() {
 		return dated;
 	}
 
 	/**
 	 * @param dated the dated to set
 	 */
-	public void setDated(String dated) {
+	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
+	}
+
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
 	}
 
 	/**
@@ -214,7 +233,9 @@ public class Vender implements Serializable {
 		this.userType = userType;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override

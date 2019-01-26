@@ -2,32 +2,31 @@ package com.web.dto.business;
 
 import java.io.Serializable;
 
-import com.validation.ValidEmail;
-import com.validation.ValidMobileNumber;
-import com.validation.ValidateEmpty;
-
 /**
  * The persistent class for the doctor database table.
  * 
  */
-
-public class VenderDTO implements Serializable {
+public class CustomerDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private Long id;
+
 	private Long userId;
-	private String userType;
+
+	private Long userType;
+
 	private String name;
-	private Long companyId;
-	private String companyName;
-	@ValidMobileNumber
+
 	private String mobile;
-	private String phone;
-	@ValidateEmpty
-	private String address;
-	@ValidEmail
+
 	private String email;
+
+	private String address;
+
+	private String reference;
+
 	private String description;
+
 	private String datedStr;
 	private String updatedStr;
 
@@ -60,48 +59,6 @@ public class VenderDTO implements Serializable {
 	}
 
 	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
-
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
-	}
-
-	/**
-	 * @return the companyId
-	 */
-	public Long getCompanyId() {
-		return companyId;
-	}
-
-	/**
-	 * @param companyId the companyId to set
-	 */
-	public void setCompanyId(Long companyId) {
-		this.companyId = companyId;
-	}
-
-	/**
-	 * @return the company
-	 */
-	public String getCompanyName() {
-		return companyName;
-	}
-
-	/**
-	 * @param company the company to set
-	 */
-	public void setCompanyName(String companyName) {
-		this.companyName = companyName;
-	}
-
-	/**
 	 * @return the name
 	 */
 	public String getName() {
@@ -113,6 +70,34 @@ public class VenderDTO implements Serializable {
 	 */
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	/**
+	 * @return the userType
+	 */
+	public Long getUserType() {
+		return userType;
+	}
+
+	/**
+	 * @param userType the userType to set
+	 */
+	public void setUserType(Long userType) {
+		this.userType = userType;
+	}
+
+	/**
+	 * @return the reference
+	 */
+	public String getReference() {
+		return reference;
+	}
+
+	/**
+	 * @param reference the reference to set
+	 */
+	public void setReference(String reference) {
+		this.reference = reference;
 	}
 
 	/**
@@ -144,20 +129,6 @@ public class VenderDTO implements Serializable {
 	}
 
 	/**
-	 * @return the phone
-	 */
-	public String getPhone() {
-		return phone;
-	}
-
-	/**
-	 * @param phone the phone to set
-	 */
-	public void setPhone(String phone) {
-		this.phone = phone;
-	}
-
-	/**
 	 * @return the address
 	 */
 	public String getAddress() {
@@ -184,6 +155,7 @@ public class VenderDTO implements Serializable {
 	public void setEmail(String email) {
 		this.email = email;
 	}
+
 
 	/**
 	 * @return the datedStr
@@ -218,17 +190,6 @@ public class VenderDTO implements Serializable {
 	 */
 	public static long getSerialversionuid() {
 		return serialVersionUID;
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		return "OwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", email=" + email
-				+ ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", datedStr=" + datedStr + "]";
 	}
 
 }

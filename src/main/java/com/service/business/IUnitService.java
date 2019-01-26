@@ -1,10 +1,10 @@
-package com.service.pharmacy;
+package com.service.business;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.persistence.model.business.Item;
 
-public interface IItemService extends JpaRepository<Item, Long>{
+public interface IUnitService extends JpaRepository<Item, Long>{
 
 
 }

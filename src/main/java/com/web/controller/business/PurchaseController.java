@@ -21,52 +21,68 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
-import com.persistence.model.business.Vender;
+import com.persistence.model.business.Purchase;
 import com.service.business.ICompanyService;
+import com.service.business.IItemTypeService;
+import com.service.business.IItemUnitService;
+import com.service.business.IPurchaseService;
 import com.service.business.IVenderService;
-import com.web.dto.business.VenderDTO;
+import com.web.dto.business.PurchaseDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
 import com.web.util.RequestUtil;
 
 @Controller
-public class VenderController {
+public class PurchaseController {
 
 	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
 
 	@Autowired
-	IVenderService venderService;
+	IPurchaseService purchaseService;
 	
 	@Autowired
 	ICompanyService companyService;
 
 	@Autowired
-	AppUtil appUtil;
-	
+	IItemTypeService itemTypeService;
+
+	@Autowired
+	IItemUnitService itemUnitService;
+
+	@Autowired
+	IVenderService venderService;
+
 	@Autowired
 	RequestUtil requestUtil;
 
 	ModelMapper modelMapper = new ModelMapper();
 	
-	@RequestMapping(value = "/getUserVender", method = RequestMethod.GET)
+	@RequestMapping(value = "/getUserPurchase", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getUserVender(final HttpServletRequest request) {
+	public GenericResponse getUserPurchase(final HttpServletRequest request) {
 		try {
-			Vender filterBy = new Vender();
+			Purchase filterBy = new Purchase();
 			User user = requestUtil.getCurrentUser();
 			filterBy.setUserId(user.getId());
-	        Example<Vender> example = Example.of(filterBy);
-			List<Vender> objs = venderService.findAll(example);
+	        Example<Purchase> example = Example.of(filterBy);
+			List<Purchase> objs = purchaseService.findAll(example);
 			if(AppUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
-			List<VenderDTO> dtos=new ArrayList<VenderDTO>(); 
+			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
 			objs.forEach(obj ->{
-				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
+				PurchaseDTO dto = modelMapper.map(obj, PurchaseDTO.class);
 				dto.setCompanyId(obj.getCompany().getId());
 				dto.setCompanyName(obj.getCompany().getName());
+				dto.setVenderId(obj.getVender().getId());
+				dto.setVenderName(obj.getVender().getName());
+				dto.setItemUnitId(obj.getItemUnit().getId());
+				dto.setItemUnitName(obj.getItemUnit().getName());
+				dto.setItemTypeId(obj.getItemType().getId());
+				dto.setItemTypeName(obj.getItemType().getName());
+				
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -74,49 +90,32 @@ public class VenderController {
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserVender "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > getUserPurchase "+e.getCause());
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
 	}
 	
-	@RequestMapping(value = "/getUserVenders", method = RequestMethod.GET)
+	@RequestMapping(value = "/getAllPurchase", method = RequestMethod.GET)
 	@ResponseBody
-	public String getUserVenders(final HttpServletRequest request) {
-		StringBuffer sb = new StringBuffer();
+	public GenericResponse getAllPurchase(final HttpServletRequest request) {
 		try {
-			Vender filterBy = new Vender();
-			User user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getId());
-	        Example<Vender> example = Example.of(filterBy);
-			List<Vender> objs = venderService.findAll(example);
-			
-			objs.forEach(d -> {
-				if(d!=null && d.getId()!=null) {
-					sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
-				}
-			});
-		    return sb.toString();
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserVenders "+e.getCause());			
-		}
-	    return sb.toString();
-	}
-
-	@RequestMapping(value = "/getAllVender", method = RequestMethod.GET)
-	@ResponseBody
-	public GenericResponse getAllVender(final HttpServletRequest request) {
-		try {
-			List<Vender> objs = venderService.findAll();
+			List<Purchase> objs = purchaseService.findAll();
 			if(AppUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			
-			List<VenderDTO> dtos=new ArrayList<VenderDTO>(); 
+			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
 			objs.forEach(obj ->{
-				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
+				PurchaseDTO dto = modelMapper.map(obj, PurchaseDTO.class);
 				dto.setCompanyId(obj.getCompany().getId());
 				dto.setCompanyName(obj.getCompany().getName());
+				dto.setVenderId(obj.getVender().getId());
+				dto.setVenderName(obj.getVender().getName());
+				dto.setItemUnitId(obj.getItemUnit().getId());
+				dto.setItemUnitName(obj.getItemUnit().getName());
+				dto.setItemTypeId(obj.getItemType().getId());
+				dto.setItemTypeName(obj.getItemType().getName());
+				
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -128,37 +127,43 @@ public class VenderController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getAllVender "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > getAllPurchase "+e.getCause());			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
 	}
 	
-	@RequestMapping(value = "/addVender", method = RequestMethod.POST)
+	@RequestMapping(value = "/addPurchase", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse addOwner(@Validated final VenderDTO dto, final HttpServletRequest request) {
+	public GenericResponse addPurchase(@Validated final PurchaseDTO dto, final HttpServletRequest request) {
 		try {
-			Vender obj= new Vender();
+			Purchase obj= new Purchase();
 			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
+			obj = modelMapper.map(dto, Purchase.class);
 			obj.setUserId(user.getId());
-			obj.setName(dto.getName());
-			Example<Vender> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && venderService.exists(example))
-				return new GenericResponse("FOUND",messages.getMessage("The Vender "+dto.getName()+" already exist", null, request.getLocale()));
-			
-			obj = modelMapper.map(dto, Vender.class);
 			//if it is update
 			if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = venderService.getOne(dto.getId());
+				obj = purchaseService.getOne(dto.getId());
 				dated = obj.getDated();
 			}else {
 				obj.setDated(dated);
 			}
 			obj.setUpdated(dated);
+			//add company
+			if(!AppUtil.isEmptyOrNull(dto.getCompanyId()))
+				obj.setCompany(companyService.getOne(dto.getCompanyId()));
+			//add vender
+			if(!AppUtil.isEmptyOrNull(dto.getVenderId()))
+					obj.setVender(venderService.getOne(dto.getVenderId()));
+			
+			if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
+				obj.setItemType(itemTypeService.getOne(dto.getItemTypeId()));
 
-			obj.setCompany(companyService.getOne(dto.getCompanyId()));
-			obj = venderService.save(obj);
+			if(!AppUtil.isEmptyOrNull(dto.getItemUnitId()))
+				obj.setItemUnit(itemUnitService.getOne(dto.getItemUnitId()));
+			
+			obj = purchaseService.save(obj);
 			if(AppUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
@@ -166,21 +171,21 @@ public class VenderController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addVender "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause());			
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
 	}
 	
-	@RequestMapping(value = "/deleteVender", method = RequestMethod.POST)
+	@RequestMapping(value = "/deletePurchase", method = RequestMethod.POST)
 	@ResponseBody
-	public boolean deleteVender( HttpServletRequest req, HttpServletResponse resp ){
+	public boolean deletePurchase( HttpServletRequest req, HttpServletResponse resp ){
 		try {
 		String ids = req.getParameter("checked");
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					venderService.deleteById(Long.valueOf(id));
+					purchaseService.deleteById(Long.valueOf(id));
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {
@@ -188,7 +193,7 @@ public class VenderController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > deleteVender "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > deletePurchase "+e.getCause());			
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}

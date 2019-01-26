@@ -1,88 +1,64 @@
-package com.persistence.model.business;
+package com.web.dto.business;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToOne;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
-@Entity
-@Table(name = "purchase", uniqueConstraints = { @UniqueConstraint(columnNames = "purchase_id") })
-public class Purchase implements Serializable {
+public class PurchaseDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
-	@Column(name = "purchase_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name = "user_id")
 	private Long userId;
 
-	@Column(name = "user_type")
 	private String userType;
 
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "item_id")
-	private Item item;
+	private Long itemId;
+	
+	private Long itemName;
 
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "company_id")
-	private Company Company;
-
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "vender_id")
-	private Vender vender;
-
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "item_type_id")
-	private ItemType ItemType;
-
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "item_unit_id")
-	private ItemUnit itemUnit;
-
+	private Long companyId;
+	
+	private String companyName;
+	
+	private Long venderId;
+	
+	private String venderName;
+	
+	private Long itemTypeId;
+	
+	private String itemTypeName;
+	
+	private Long itemUnitId;
+	
+	private String itemUnitName;
+	
 	private Float quantity;
 
-	@Column(name = "purchase_rate")
 	private Float purchaseRate;
 
-	@Column(name = "sell_rate")
 	private Float sellRate;
 
-	private Float discount = null;
+	private Float discount;
 
-	@Column(name = "total_amount")
 	private Float totalAmount;
 
-	@Column(name = "net_amount")
 	private Float netAmount = null;
 
 	private Float stock;
 
-	@Column(name = "purchase_expense")
 	private Float purchaseExpense;
 
-	@Column(name = "purchase_expense_desc")
 	private String purchaseExpenseDesc;
 
 	private String description;
 
-	private LocalDateTime dated;
+	private String datedStr;
 
-	private LocalDateTime updated;
+	private String updatedStr;
+
 
 	/**
 	 * @return the id
@@ -91,12 +67,14 @@ public class Purchase implements Serializable {
 		return id;
 	}
 
+
 	/**
 	 * @param id the id to set
 	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
+
 
 	/**
 	 * @return the userId
@@ -105,12 +83,14 @@ public class Purchase implements Serializable {
 		return userId;
 	}
 
+
 	/**
 	 * @param userId the userId to set
 	 */
 	public void setUserId(Long userId) {
 		this.userId = userId;
 	}
+
 
 	/**
 	 * @return the userType
@@ -119,6 +99,7 @@ public class Purchase implements Serializable {
 		return userType;
 	}
 
+
 	/**
 	 * @param userType the userType to set
 	 */
@@ -126,75 +107,166 @@ public class Purchase implements Serializable {
 		this.userType = userType;
 	}
 
-	/**
-	 * @return the item
-	 */
-	public Item getItem() {
-		return item;
-	}
 
 	/**
-	 * @param item the item to set
+	 * @return the itemId
 	 */
-	public void setItem(Item item) {
-		this.item = item;
+	public Long getItemId() {
+		return itemId;
 	}
 
-	/**
-	 * @return the company
-	 */
-	public Company getCompany() {
-		return Company;
-	}
 
 	/**
-	 * @param company the company to set
+	 * @param itemId the itemId to set
 	 */
-	public void setCompany(Company company) {
-		Company = company;
+	public void setItemId(Long itemId) {
+		this.itemId = itemId;
 	}
 
-	/**
-	 * @return the vender
-	 */
-	public Vender getVender() {
-		return vender;
-	}
 
 	/**
-	 * @param vender the vender to set
+	 * @return the itemName
 	 */
-	public void setVender(Vender vender) {
-		this.vender = vender;
+	public Long getItemName() {
+		return itemName;
 	}
 
-	/**
-	 * @return the itemType
-	 */
-	public ItemType getItemType() {
-		return ItemType;
-	}
 
 	/**
-	 * @param itemType the itemType to set
+	 * @param itemName the itemName to set
 	 */
-	public void setItemType(ItemType itemType) {
-		ItemType = itemType;
+	public void setItemName(Long itemName) {
+		this.itemName = itemName;
 	}
 
-	/**
-	 * @return the itemUnit
-	 */
-	public ItemUnit getItemUnit() {
-		return itemUnit;
-	}
 
 	/**
-	 * @param itemUnit the itemUnit to set
+	 * @return the companyId
 	 */
-	public void setItemUnit(ItemUnit itemUnit) {
-		this.itemUnit = itemUnit;
+	public Long getCompanyId() {
+		return companyId;
 	}
+
+
+	/**
+	 * @param companyId the companyId to set
+	 */
+	public void setCompanyId(Long companyId) {
+		this.companyId = companyId;
+	}
+
+
+	/**
+	 * @return the companyName
+	 */
+	public String getCompanyName() {
+		return companyName;
+	}
+
+
+	/**
+	 * @param companyName the companyName to set
+	 */
+	public void setCompanyName(String companyName) {
+		this.companyName = companyName;
+	}
+
+
+	/**
+	 * @return the venderId
+	 */
+	public Long getVenderId() {
+		return venderId;
+	}
+
+
+	/**
+	 * @param venderId the venderId to set
+	 */
+	public void setVenderId(Long venderId) {
+		this.venderId = venderId;
+	}
+
+
+	/**
+	 * @return the venderName
+	 */
+	public String getVenderName() {
+		return venderName;
+	}
+
+
+	/**
+	 * @param venderName the venderName to set
+	 */
+	public void setVenderName(String venderName) {
+		this.venderName = venderName;
+	}
+
+
+	/**
+	 * @return the itemTypeId
+	 */
+	public Long getItemTypeId() {
+		return itemTypeId;
+	}
+
+
+	/**
+	 * @param itemTypeId the itemTypeId to set
+	 */
+	public void setItemTypeId(Long itemTypeId) {
+		this.itemTypeId = itemTypeId;
+	}
+
+
+	/**
+	 * @return the itemTypeName
+	 */
+	public String getItemTypeName() {
+		return itemTypeName;
+	}
+
+
+	/**
+	 * @param itemTypeName the itemTypeName to set
+	 */
+	public void setItemTypeName(String itemTypeName) {
+		this.itemTypeName = itemTypeName;
+	}
+
+
+	/**
+	 * @return the itemUnitId
+	 */
+	public Long getItemUnitId() {
+		return itemUnitId;
+	}
+
+
+	/**
+	 * @param itemUnitId the itemUnitId to set
+	 */
+	public void setItemUnitId(Long itemUnitId) {
+		this.itemUnitId = itemUnitId;
+	}
+
+
+	/**
+	 * @return the itemUnitName
+	 */
+	public String getItemUnitName() {
+		return itemUnitName;
+	}
+
+
+	/**
+	 * @param itemUnitName the itemUnitName to set
+	 */
+	public void setItemUnitName(String itemUnitName) {
+		this.itemUnitName = itemUnitName;
+	}
+
 
 	/**
 	 * @return the quantity
@@ -203,12 +275,14 @@ public class Purchase implements Serializable {
 		return quantity;
 	}
 
+
 	/**
 	 * @param quantity the quantity to set
 	 */
 	public void setQuantity(Float quantity) {
 		this.quantity = quantity;
 	}
+
 
 	/**
 	 * @return the purchaseRate
@@ -217,12 +291,14 @@ public class Purchase implements Serializable {
 		return purchaseRate;
 	}
 
+
 	/**
 	 * @param purchaseRate the purchaseRate to set
 	 */
 	public void setPurchaseRate(Float purchaseRate) {
 		this.purchaseRate = purchaseRate;
 	}
+
 
 	/**
 	 * @return the sellRate
@@ -231,12 +307,14 @@ public class Purchase implements Serializable {
 		return sellRate;
 	}
 
+
 	/**
 	 * @param sellRate the sellRate to set
 	 */
 	public void setSellRate(Float sellRate) {
 		this.sellRate = sellRate;
 	}
+
 
 	/**
 	 * @return the discount
@@ -245,12 +323,14 @@ public class Purchase implements Serializable {
 		return discount;
 	}
 
+
 	/**
 	 * @param discount the discount to set
 	 */
 	public void setDiscount(Float discount) {
 		this.discount = discount;
 	}
+
 
 	/**
 	 * @return the totalAmount
@@ -259,12 +339,14 @@ public class Purchase implements Serializable {
 		return totalAmount;
 	}
 
+
 	/**
 	 * @param totalAmount the totalAmount to set
 	 */
 	public void setTotalAmount(Float totalAmount) {
 		this.totalAmount = totalAmount;
 	}
+
 
 	/**
 	 * @return the netAmount
@@ -273,12 +355,14 @@ public class Purchase implements Serializable {
 		return netAmount;
 	}
 
+
 	/**
 	 * @param netAmount the netAmount to set
 	 */
 	public void setNetAmount(Float netAmount) {
 		this.netAmount = netAmount;
 	}
+
 
 	/**
 	 * @return the stock
@@ -287,12 +371,14 @@ public class Purchase implements Serializable {
 		return stock;
 	}
 
+
 	/**
 	 * @param stock the stock to set
 	 */
 	public void setStock(Float stock) {
 		this.stock = stock;
 	}
+
 
 	/**
 	 * @return the purchaseExpense
@@ -301,12 +387,14 @@ public class Purchase implements Serializable {
 		return purchaseExpense;
 	}
 
+
 	/**
 	 * @param purchaseExpense the purchaseExpense to set
 	 */
 	public void setPurchaseExpense(Float purchaseExpense) {
 		this.purchaseExpense = purchaseExpense;
 	}
+
 
 	/**
 	 * @return the purchaseExpenseDesc
@@ -315,12 +403,14 @@ public class Purchase implements Serializable {
 		return purchaseExpenseDesc;
 	}
 
+
 	/**
 	 * @param purchaseExpenseDesc the purchaseExpenseDesc to set
 	 */
 	public void setPurchaseExpenseDesc(String purchaseExpenseDesc) {
 		this.purchaseExpenseDesc = purchaseExpenseDesc;
 	}
+
 
 	/**
 	 * @return the description
@@ -329,6 +419,7 @@ public class Purchase implements Serializable {
 		return description;
 	}
 
+
 	/**
 	 * @param description the description to set
 	 */
@@ -336,33 +427,38 @@ public class Purchase implements Serializable {
 		this.description = description;
 	}
 
-	/**
-	 * @return the dated
-	 */
-	public LocalDateTime getDated() {
-		return dated;
-	}
 
 	/**
-	 * @param dated the dated to set
+	 * @return the datedStr
 	 */
-	public void setDated(LocalDateTime dated) {
-		this.dated = dated;
+	public String getDatedStr() {
+		return datedStr;
 	}
 
-	/**
-	 * @return the updated
-	 */
-	public LocalDateTime getUpdated() {
-		return updated;
-	}
 
 	/**
-	 * @param updated the updated to set
+	 * @param datedStr the datedStr to set
 	 */
-	public void setUpdated(LocalDateTime updated) {
-		this.updated = updated;
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
 	}
+
+
+	/**
+	 * @return the updatedStr
+	 */
+	public String getUpdatedStr() {
+		return updatedStr;
+	}
+
+
+	/**
+	 * @param updatedStr the updatedStr to set
+	 */
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
+	}
+
 
 	/**
 	 * @return the serialversionuid

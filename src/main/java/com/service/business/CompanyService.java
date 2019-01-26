@@ -1,4 +1,4 @@
-package com.service.pharmacy;
+package com.service.business;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,139 +21,155 @@ import com.service.UserService;
 public class CompanyService implements ICompanyService {
 
     @Autowired
-    private CompanyRepo CompanyRepo;
+    UserService userService;
     
     @Autowired
-    UserService userService;
+    CompanyRepo companyRepo;
 
-    public static final String TOKEN_INVALID = "invalidToken";
-    public static final String TOKEN_EXPIRED = "expired";
-    public static final String TOKEN_VALID = "valid";
-
-    public static String QR_PREFIX = "https://chart.googleapis.com/chart?chs=200x200&chld=M%%7C0&cht=qr&chl=";
-    public static String APP_NAME = "SpringRegistration";
 	@Override
 	public List<Company> findAll() {
 		// TODO Auto-generated method stub
-		return CompanyRepo.findAll();
+		return companyRepo.findAll();
 	}
+
 	@Override
 	public List<Company> findAll(Sort sort) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.findAll(sort);
 	}
+
 	@Override
 	public List<Company> findAllById(Iterable<Long> ids) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.findAllById(ids);
 	}
+
 	@Override
 	public <S extends Company> List<S> saveAll(Iterable<S> entities) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.saveAll(entities);
 	}
+
 	@Override
 	public void flush() {
 		// TODO Auto-generated method stub
-		
+		companyRepo.flush();
 	}
+
 	@Override
 	public <S extends Company> S saveAndFlush(S entity) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.saveAndFlush(entity);
 	}
+
 	@Override
 	public void deleteInBatch(Iterable<Company> entities) {
 		// TODO Auto-generated method stub
-		
+		companyRepo.deleteInBatch(entities);
 	}
+
 	@Override
 	public void deleteAllInBatch() {
 		// TODO Auto-generated method stub
-		
+		companyRepo.deleteAllInBatch();
 	}
+
 	@Override
 	public Company getOne(Long id) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.getOne(id);
 	}
+
 	@Override
 	public <S extends Company> List<S> findAll(Example<S> example) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.findAll(example);
 	}
+
 	@Override
 	public <S extends Company> List<S> findAll(Example<S> example, Sort sort) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.findAll(example,sort);
 	}
+
 	@Override
 	public Page<Company> findAll(Pageable pageable) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.findAll(pageable);
 	}
+
 	@Override
 	public <S extends Company> S save(S entity) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.save(entity);
 	}
+
 	@Override
 	public Optional<Company> findById(Long id) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.findById(id);
 	}
+
 	@Override
 	public boolean existsById(Long id) {
 		// TODO Auto-generated method stub
-		return false;
+		return companyRepo.existsById(id);
 	}
+
 	@Override
 	public long count() {
 		// TODO Auto-generated method stub
-		return 0;
+		return companyRepo.count();
 	}
+
 	@Override
 	public void deleteById(Long id) {
 		// TODO Auto-generated method stub
+		companyRepo.deleteById(id);
 		
 	}
+
 	@Override
 	public void delete(Company entity) {
 		// TODO Auto-generated method stub
+		companyRepo.delete(entity);
 		
 	}
+
 	@Override
 	public void deleteAll(Iterable<? extends Company> entities) {
 		// TODO Auto-generated method stub
-		
+		companyRepo.deleteAll(entities);
 	}
+
 	@Override
 	public void deleteAll() {
 		// TODO Auto-generated method stub
-		
+		companyRepo.deleteAll();
 	}
+
 	@Override
 	public <S extends Company> Optional<S> findOne(Example<S> example) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.findOne(example);
 	}
+
 	@Override
 	public <S extends Company> Page<S> findAll(Example<S> example, Pageable pageable) {
 		// TODO Auto-generated method stub
-		return null;
+		return companyRepo.findAll(example, pageable);
 	}
+
 	@Override
 	public <S extends Company> long count(Example<S> example) {
 		// TODO Auto-generated method stub
-		return 0;
+		return companyRepo.count(example);
 	}
+
 	@Override
 	public <S extends Company> boolean exists(Example<S> example) {
 		// TODO Auto-generated method stub
-		return false;
+		return companyRepo.exists(example);
 	}
-
-    // API
-
 
 }

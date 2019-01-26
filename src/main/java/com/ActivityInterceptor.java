@@ -29,6 +29,9 @@ public class ActivityInterceptor extends HandlerInterceptorAdapter {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+    	
+    	return true;
+    	/*
         String userAgent = request.getHeader("User-Agent");
         if (userAgent == null) userAgent = request.getHeader("user-agent");
         String expires = response.getHeader("Expires");
@@ -64,7 +67,7 @@ public class ActivityInterceptor extends HandlerInterceptorAdapter {
                 activity.setTotalVisitors(1L);
             activity = this.activityService.save(activity);
         }
-        return super.preHandle(request, response, handler);
+        return super.preHandle(request, response, handler);*/
     }
 
     private String getClientIpAddress(HttpServletRequest request) {

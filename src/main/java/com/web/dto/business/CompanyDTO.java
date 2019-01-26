@@ -2,11 +2,8 @@ package com.web.dto.business;
 
 import java.io.Serializable;
 
-import javax.validation.constraints.NotBlank;
-
 import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
-
 
 /**
  * The persistent class for the doctor database table.
@@ -29,7 +26,8 @@ public class CompanyDTO implements Serializable {
 	@ValidateEmpty
 	private String address;
 	private String description;
-	private String dated;
+	private String datedStr;
+	private String updatedStr;
 
 	/**
 	 * @return the id
@@ -58,6 +56,7 @@ public class CompanyDTO implements Serializable {
 	public void setUserId(Long userId) {
 		this.userId = userId;
 	}
+
 	/**
 	 * @return the userType
 	 */
@@ -85,7 +84,7 @@ public class CompanyDTO implements Serializable {
 	public void setName(String name) {
 		this.name = name;
 	}
-	
+
 	/**
 	 * @return the nameSub
 	 */
@@ -100,7 +99,6 @@ public class CompanyDTO implements Serializable {
 		this.nameSub = nameSub;
 	}
 
-	
 	/**
 	 * @return the description
 	 */
@@ -172,17 +170,31 @@ public class CompanyDTO implements Serializable {
 	}
 
 	/**
-	 * @return the dated
+	 * @return the datedStr
 	 */
-	public String getDated() {
-		return dated;
+	public String getDatedStr() {
+		return datedStr;
 	}
 
 	/**
-	 * @param dated the dated to set
+	 * @param datedStr the datedStr to set
 	 */
-	public void setDated(String dated) {
-		this.dated = dated;
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
+	}
+
+	/**
+	 * @return the updatedStr
+	 */
+	public String getUpdatedStr() {
+		return updatedStr;
+	}
+
+	/**
+	 * @param updatedStr the updatedStr to set
+	 */
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
 	}
 
 	/**
@@ -192,14 +204,15 @@ public class CompanyDTO implements Serializable {
 		return serialVersionUID;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
 	public String toString() {
 		return "OwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", brands=" + brands
-				+ ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", dated=" + dated + "]";
+				+ ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", datedStr=" + datedStr + "]";
 	}
 
-	
 }

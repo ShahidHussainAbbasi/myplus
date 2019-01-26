@@ -1,11 +1,9 @@
 package com.web.dto.business;
 
 import java.io.Serializable;
-
-import javax.validation.constraints.NotBlank;
+import java.util.Set;
 
 import com.validation.ValidateEmpty;
-
 
 /**
  * The persistent class for the doctor database table.
@@ -16,27 +14,49 @@ public class ItemDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private Long id;
-	private Long itemId;
+
+	private Long itemCode;
+
 	private Long userId;
+
 	private String userType;
+
 	@ValidateEmpty
 	private String name;
-	@ValidateEmpty
-	private String itemType;
-	@ValidateEmpty
-	private String itemUnit;
+
 	@ValidateEmpty
 	private Float purchaseAmount;
+
 	@ValidateEmpty
 	private Float sellAmount;
+
 	private Float discount;
+
 	@ValidateEmpty
 	private Float net;
+
 	private String description;
-	private String company;
-	private String brand;
-	private String vender;	
-	private String dated;
+
+	private Long companyId;
+
+	private String companyName;
+
+	private Set<Long> venderIds;
+
+	private Set<String> venderNames;
+
+	@ValidateEmpty
+	private Set<Long> itemUnitIds;
+
+	private Set<String> itemUnitNames;
+
+	@ValidateEmpty
+	private Set<Long> itemTypeIds;
+
+	private Set<String> itemTypeNames;
+
+	private String datedStr;
+	private String updatedStr;
 
 	/**
 	 * @return the id
@@ -52,19 +72,18 @@ public class ItemDTO implements Serializable {
 		this.id = id;
 	}
 
-
 	/**
-	 * @return the itemId
+	 * @return the itemCode
 	 */
-	public Long getItemId() {
-		return itemId;
+	public Long getItemCode() {
+		return itemCode;
 	}
 
 	/**
-	 * @param itemId the itemId to set
+	 * @param itemCode the itemCode to set
 	 */
-	public void setItemId(Long itemId) {
-		this.itemId = itemId;
+	public void setItemCode(Long itemCode) {
+		this.itemCode = itemCode;
 	}
 
 	/**
@@ -80,6 +99,7 @@ public class ItemDTO implements Serializable {
 	public void setUserId(Long userId) {
 		this.userId = userId;
 	}
+
 	/**
 	 * @return the userType
 	 */
@@ -99,34 +119,6 @@ public class ItemDTO implements Serializable {
 	 */
 	public String getName() {
 		return name;
-	}
-
-	/**
-	 * @return the itemType
-	 */
-	public String getItemType() {
-		return itemType;
-	}
-
-	/**
-	 * @param nameType the nameType to set
-	 */
-	public void setItemType(String itemType) {
-		this.itemType = itemType;
-	}
-
-	/**
-	 * @return the itemUnit
-	 */
-	public String getItemUnit() {
-		return itemUnit;
-	}
-
-	/**
-	 * @param nameUnit the nameUnit to set
-	 */
-	public void setItemUnit(String itemUnit) {
-		this.itemUnit = itemUnit;
 	}
 
 	/**
@@ -207,59 +199,143 @@ public class ItemDTO implements Serializable {
 	}
 
 	/**
-	 * @return the company
+	 * @return the companyId
 	 */
-	public String getCompany() {
-		return company;
+	public Long getCompanyId() {
+		return companyId;
 	}
 
 	/**
-	 * @param company the company to set
+	 * @param companyId the companyId to set
 	 */
-	public void setCompany(String company) {
-		this.company = company;
+	public void setCompanyId(Long companyId) {
+		this.companyId = companyId;
 	}
 
 	/**
-	 * @return the brand
+	 * @return the companyName
 	 */
-	public String getBrand() {
-		return brand;
+	public String getCompanyName() {
+		return companyName;
 	}
 
 	/**
-	 * @param brand the brand to set
+	 * @param companyName the companyName to set
 	 */
-	public void setBrand(String brand) {
-		this.brand = brand;
+	public void setCompanyName(String companyName) {
+		this.companyName = companyName;
 	}
 
 	/**
-	 * @return the vender
+	 * @return the venderIds
 	 */
-	public String getVender() {
-		return vender;
+	public Set<Long> getVenderIds() {
+		return venderIds;
 	}
 
 	/**
-	 * @param vender the vender to set
+	 * @param venderIds the venderIds to set
 	 */
-	public void setVender(String vender) {
-		this.vender = vender;
+	public void setVenderIds(Set<Long> venderIds) {
+		this.venderIds = venderIds;
 	}
 
 	/**
-	 * @return the dated
+	 * @return the venderNames
 	 */
-	public String getDated() {
-		return dated;
+	public Set<String> getVenderNames() {
+		return venderNames;
 	}
 
 	/**
-	 * @param dated the dated to set
+	 * @param venderNames the venderNames to set
 	 */
-	public void setDated(String dated) {
-		this.dated = dated;
+	public void setVenderNames(Set<String> venderNames) {
+		this.venderNames = venderNames;
+	}
+
+	/**
+	 * @return the itemUnitIds
+	 */
+	public Set<Long> getItemUnitIds() {
+		return itemUnitIds;
+	}
+
+	/**
+	 * @param itemUnitIds the itemUnitIds to set
+	 */
+	public void setItemUnitIds(Set<Long> itemUnitIds) {
+		this.itemUnitIds = itemUnitIds;
+	}
+
+	/**
+	 * @return the itemUnitNames
+	 */
+	public Set<String> getItemUnitNames() {
+		return itemUnitNames;
+	}
+
+	/**
+	 * @param itemUnitNames the itemUnitNames to set
+	 */
+	public void setItemUnitNames(Set<String> itemUnitNames) {
+		this.itemUnitNames = itemUnitNames;
+	}
+
+	/**
+	 * @return the itemTypeIds
+	 */
+	public Set<Long> getItemTypeIds() {
+		return itemTypeIds;
+	}
+
+	/**
+	 * @param itemTypeIds the itemTypeIds to set
+	 */
+	public void setItemTypeIds(Set<Long> itemTypeIds) {
+		this.itemTypeIds = itemTypeIds;
+	}
+
+	/**
+	 * @return the itemTypeNames
+	 */
+	public Set<String> getItemTypeNames() {
+		return itemTypeNames;
+	}
+
+	/**
+	 * @param itemTypeNames the itemTypeNames to set
+	 */
+	public void setItemTypeNames(Set<String> itemTypeNames) {
+		this.itemTypeNames = itemTypeNames;
+	}
+
+	/**
+	 * @return the datedStr
+	 */
+	public String getDatedStr() {
+		return datedStr;
+	}
+
+	/**
+	 * @param datedStr the datedStr to set
+	 */
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
+	}
+
+	/**
+	 * @return the updatedStr
+	 */
+	public String getUpdatedStr() {
+		return updatedStr;
+	}
+
+	/**
+	 * @param updatedStr the updatedStr to set
+	 */
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
 	}
 
 	/**

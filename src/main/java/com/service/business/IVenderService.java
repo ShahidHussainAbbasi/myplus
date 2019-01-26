@@ -1,4 +1,4 @@
-package com.service.pharmacy;
+package com.service.business;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 

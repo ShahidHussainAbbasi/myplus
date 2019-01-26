@@ -1,4 +1,4 @@
-package com.service.pharmacy;
+package com.service.business;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,142 +18,158 @@ import com.service.UserService;
 
 @Service
 @Transactional
-public class ItemService implements IItemService {
+public class PurchaseService implements IItemService {
 
-    @Autowired
-    private ItemRepo itemRepo;
-    
     @Autowired
     UserService userService;
+    
+    @Autowired
+    ItemRepo itemRepo;
 
-    public static final String TOKEN_INVALID = "invalidToken";
-    public static final String TOKEN_EXPIRED = "expired";
-    public static final String TOKEN_VALID = "valid";
-
-    public static String QR_PREFIX = "https://chart.googleapis.com/chart?chs=200x200&chld=M%%7C0&cht=qr&chl=";
-    public static String APP_NAME = "SpringRegistration";
 	@Override
 	public List<Item> findAll() {
 		// TODO Auto-generated method stub
 		return itemRepo.findAll();
 	}
+
 	@Override
 	public List<Item> findAll(Sort sort) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.findAll(sort);
 	}
+
 	@Override
 	public List<Item> findAllById(Iterable<Long> ids) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.findAllById(ids);
 	}
+
 	@Override
 	public <S extends Item> List<S> saveAll(Iterable<S> entities) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.saveAll(entities);
 	}
+
 	@Override
 	public void flush() {
 		// TODO Auto-generated method stub
-		
+		itemRepo.flush();
 	}
+
 	@Override
 	public <S extends Item> S saveAndFlush(S entity) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.saveAndFlush(entity);
 	}
+
 	@Override
 	public void deleteInBatch(Iterable<Item> entities) {
 		// TODO Auto-generated method stub
-		
+		itemRepo.deleteInBatch(entities);
 	}
+
 	@Override
 	public void deleteAllInBatch() {
 		// TODO Auto-generated method stub
-		
+		itemRepo.deleteAllInBatch();
 	}
+
 	@Override
 	public Item getOne(Long id) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.getOne(id);
 	}
+
 	@Override
 	public <S extends Item> List<S> findAll(Example<S> example) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.findAll(example);
 	}
+
 	@Override
 	public <S extends Item> List<S> findAll(Example<S> example, Sort sort) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.findAll(example,sort);
 	}
+
 	@Override
 	public Page<Item> findAll(Pageable pageable) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.findAll(pageable);
 	}
+
 	@Override
 	public <S extends Item> S save(S entity) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.save(entity);
 	}
+
 	@Override
 	public Optional<Item> findById(Long id) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.findById(id);
 	}
+
 	@Override
 	public boolean existsById(Long id) {
 		// TODO Auto-generated method stub
-		return false;
+		return itemRepo.existsById(id);
 	}
+
 	@Override
 	public long count() {
 		// TODO Auto-generated method stub
-		return 0;
+		return itemRepo.count();
 	}
+
 	@Override
 	public void deleteById(Long id) {
 		// TODO Auto-generated method stub
+		itemRepo.deleteById(id);
 		
 	}
+
 	@Override
 	public void delete(Item entity) {
 		// TODO Auto-generated method stub
+		itemRepo.delete(entity);
 		
 	}
+
 	@Override
 	public void deleteAll(Iterable<? extends Item> entities) {
 		// TODO Auto-generated method stub
-		
+		itemRepo.deleteAll(entities);
 	}
+
 	@Override
 	public void deleteAll() {
 		// TODO Auto-generated method stub
-		
+		itemRepo.deleteAll();
 	}
+
 	@Override
 	public <S extends Item> Optional<S> findOne(Example<S> example) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.findOne(example);
 	}
+
 	@Override
 	public <S extends Item> Page<S> findAll(Example<S> example, Pageable pageable) {
 		// TODO Auto-generated method stub
-		return null;
+		return itemRepo.findAll(example, pageable);
 	}
+
 	@Override
 	public <S extends Item> long count(Example<S> example) {
 		// TODO Auto-generated method stub
-		return 0;
+		return itemRepo.count(example);
 	}
+
 	@Override
 	public <S extends Item> boolean exists(Example<S> example) {
 		// TODO Auto-generated method stub
-		return false;
+		return itemRepo.exists(example);
 	}
-
-    // API
-
 
 }

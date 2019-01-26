@@ -1,47 +1,47 @@
 package com.persistence.model.business;
 
 import java.io.Serializable;
-import javax.persistence.*;
-import java.util.List;
+import java.time.LocalDateTime;
 
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
 @Entity
-@Table(
-        name = "company",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "company_id")
-        }
-)
+@Table(name = "company", uniqueConstraints = { @UniqueConstraint(columnNames = "company_id") })
 
 public class Company implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-    @GeneratedValue(strategy=GenerationType.AUTO)
-    @Column(name="company_id", unique = true, nullable = false)
+	@GeneratedValue(strategy = GenerationType.AUTO)
+	@Column(name = "company_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name="user_id")
+	@Column(name = "user_id")
 	private Long userId;
 
-	@Column(name="user_type")
+	@Column(name = "user_type")
 	private String userType;
-
 
 //	@Column(name = "name", updatable = false, nullable = false)
 	@Column(name = "name", nullable = false)
 	private String name;
 
-	@Column(name="name_sub")
+	@Column(name = "name_sub")
 	private String nameSub;
 
 	private String description;
 
-	private String brands;
+//	private String brands;
 
 	private String mobile;
 
@@ -49,7 +49,9 @@ public class Company implements Serializable {
 
 	private String address;
 
-	private String dated;
+	private LocalDateTime dated;
+
+	private LocalDateTime updated;
 
 	/**
 	 * @return the id
@@ -92,7 +94,7 @@ public class Company implements Serializable {
 	public void setName(String name) {
 		this.name = name;
 	}
-	
+
 	/**
 	 * @return the nameSub
 	 */
@@ -107,7 +109,6 @@ public class Company implements Serializable {
 		this.nameSub = nameSub;
 	}
 
-	
 	/**
 	 * @return the description
 	 */
@@ -122,20 +123,20 @@ public class Company implements Serializable {
 		this.description = description;
 	}
 
-	/**
-	 * @return the brands
-	 */
-	public String getBrands() {
-		return brands;
-	}
-
-	/**
-	 * @param brands the brands to set
-	 */
-	public void setBrands(String brands) {
-		this.brands = brands;
-	}
-
+//	/**
+//	 * @return the brands
+//	 */
+//	public String getBrands() {
+//		return brands;
+//	}
+//
+//	/**
+//	 * @param brands the brands to set
+//	 */
+//	public void setBrands(String brands) {
+//		this.brands = brands;
+//	}
+//
 	/**
 	 * @return the mobile
 	 */
@@ -181,15 +182,43 @@ public class Company implements Serializable {
 	/**
 	 * @return the dated
 	 */
-	public String getDated() {
+	public LocalDateTime getDated() {
 		return dated;
 	}
 
 	/**
 	 * @param dated the dated to set
 	 */
-	public void setDated(String dated) {
+	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
+	}
+
+	/**
+	 * @return the userType
+	 */
+	public String getUserType() {
+		return userType;
+	}
+
+	/**
+	 * @param userType the userType to set
+	 */
+	public void setUserType(String userType) {
+		this.userType = userType;
+	}
+
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
 	}
 
 	/**
@@ -199,14 +228,15 @@ public class Company implements Serializable {
 		return serialVersionUID;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
 	public String toString() {
-		return "OwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", brands=" + brands
+		return "OwnerDTO [id=" + id + ", name=" + name + ", description=" + description
 				+ ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", dated=" + dated + "]";
 	}
 
-	
 }

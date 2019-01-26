@@ -1,59 +1,79 @@
 package com.persistence.model.business;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
+import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
 @Entity
-@Table(
-        name = "item",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "item_id")
-        }
-)
+@Table(name = "item", uniqueConstraints = { @UniqueConstraint(columnNames = "item_id") })
 public class Item implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@GeneratedValue(strategy=GenerationType.AUTO)
-	@Column(name="item_id", unique = true, nullable = false)
+	@GeneratedValue(strategy = GenerationType.AUTO)
+	@Column(name = "item_id", unique = true, nullable = false)
 	private Long id;
-	
-	@Column(name="user_id")
+
+	@Column(name = "user_id")
 	private Long userId;
-	
-	@Column(name="user_type")
+
+	@Column(name = "user_type")
 	private String userType;
 
 	private String name;
-	@Column(name="item_type")
-	private String itemType;
-	@Column(name="item_unit")
-	private String itemUnit;
-	@Column(name="purchase_amount")
+
+	@Column(name = "purchase_amount")
 	private Float purchaseAmount;
-	@Column(name="sell_amount")
+
+	@Column(name = "sell_amount")
 	private Float sellAmount;
+
 	private Float discount;
+
 	private Float net;
+
 	private String description;
-	@Column(name="company_name")
-	private String companyName;
-	private String brand;
-	private String vender;
-	private String dated;
+
+	@OneToMany(orphanRemoval = false)
+	@NotFound(action = NotFoundAction.IGNORE)
+	private List<ItemUnit> itemUnits;
+
+	@OneToMany(orphanRemoval = false)
+	@NotFound(action = NotFoundAction.IGNORE)
+	private List<ItemType> itemTypes;
+
+	@OneToOne(optional = false, fetch = FetchType.LAZY)
+	@NotFound(action = NotFoundAction.IGNORE)
+	@JoinColumn(name = "company_id")
+	private Company company;
+
+	@OneToOne(optional = false)
+	@NotFound(action = NotFoundAction.IGNORE)
+	@JoinColumn(name = "vender_id")
+	private List<Vender> venders;
+
+	private LocalDateTime dated;
+	private LocalDateTime updated;
 
 	/**
 	 * @return the id
@@ -84,6 +104,20 @@ public class Item implements Serializable {
 	}
 
 	/**
+	 * @return the userType
+	 */
+	public String getUserType() {
+		return userType;
+	}
+
+	/**
+	 * @param userType the userType to set
+	 */
+	public void setUserType(String userType) {
+		this.userType = userType;
+	}
+
+	/**
 	 * @return the name
 	 */
 	public String getName() {
@@ -95,34 +129,6 @@ public class Item implements Serializable {
 	 */
 	public void setName(String name) {
 		this.name = name;
-	}
-
-	/**
-	 * @return the nameType
-	 */
-	public String getItemType() {
-		return itemType;
-	}
-
-	/**
-	 * @param nameType the nameType to set
-	 */
-	public void setItemType(String itemType) {
-		this.itemType = itemType;
-	}
-
-	/**
-	 * @return the itemUnit
-	 */
-	public String getItemUnit() {
-		return itemUnit;
-	}
-
-	/**
-	 * @param itemUnit the itemUnit to set
-	 */
-	public void setItemUnit(String itemUnit) {
-		this.itemUnit = itemUnit;
 	}
 
 	/**
@@ -195,61 +201,88 @@ public class Item implements Serializable {
 		this.description = description;
 	}
 
-	
 	/**
-	 * @return the companyName
+	 * @return the itemUnits
 	 */
-	public String getCompanyName() {
-		return companyName;
+	public List<ItemUnit> getItemUnits() {
+		return itemUnits;
 	}
 
 	/**
-	 * @param companyName the companyName to set
+	 * @param itemUnits the itemUnits to set
 	 */
-	public void setCompanyName(String companyName) {
-		this.companyName = companyName;
+	public void setItemUnits(List<ItemUnit> itemUnits) {
+		this.itemUnits = itemUnits;
 	}
 
 	/**
-	 * @return the brand
+	 * @return the itemTypes
 	 */
-	public String getBrand() {
-		return brand;
+	public List<ItemType> getItemTypes() {
+		return itemTypes;
 	}
 
 	/**
-	 * @param brand the brand to set
+	 * @param itemTypes the itemTypes to set
 	 */
-	public void setBrand(String brand) {
-		this.brand = brand;
+	public void setItemTypes(List<ItemType> itemTypes) {
+		this.itemTypes = itemTypes;
+	}
+
+	/**
+	 * @return the company
+	 */
+	public Company getCompany() {
+		return company;
+	}
+
+	/**
+	 * @param company the company to set
+	 */
+	public void setCompany(Company company) {
+		this.company = company;
+	}
+
+	/**
+	 * @return the venders
+	 */
+	public List<Vender> getVenders() {
+		return venders;
+	}
+
+	/**
+	 * @param venders the venders to set
+	 */
+	public void setVenders(List<Vender> venders) {
+		this.venders = venders;
 	}
 
 	/**
 	 * @return the dated
 	 */
-	public String getDated() {
+	public LocalDateTime getDated() {
 		return dated;
-	}
-
-	/**
-	 * @return the vender
-	 */
-	public String getVender() {
-		return vender;
-	}
-
-	/**
-	 * @param vender the vender to set
-	 */
-	public void setVender(String vender) {
-		this.vender = vender;
 	}
 
 	/**
 	 * @param dated the dated to set
 	 */
-	public void setDated(String dated) {
+	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
+	}
+
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
 	}
 
 	/**

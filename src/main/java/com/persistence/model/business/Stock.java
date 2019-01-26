@@ -8,22 +8,27 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToOne;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
+
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
 @Entity
-@Table(name = "item_unit", uniqueConstraints = { @UniqueConstraint(columnNames = "item_unit_id"),
-		@UniqueConstraint(columnNames = "name") })
-public class ItemUnit implements Serializable {
+@Table(name = "stock", uniqueConstraints = { @UniqueConstraint(columnNames = "stock_id") })
+
+public class Stock implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
-	@Column(name = "item_unit_id", unique = true, nullable = false)
+	@Column(name = "stock_id", unique = true, nullable = false)
 	private Long id;
 
 	@Column(name = "user_id")
@@ -32,10 +37,16 @@ public class ItemUnit implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
-	@Column(name = "name", unique = true, nullable = false)
-	private String name;
+	@OneToOne(optional = false)
+	@NotFound(action = NotFoundAction.IGNORE)
+	@JoinColumn(name = "item_id")
+	private Item item;
 
-	private String description;
+	private Long purchased;
+
+	private Long sold;
+
+	private Long balance;
 
 	private LocalDateTime dated;
 
@@ -70,34 +81,6 @@ public class ItemUnit implements Serializable {
 	}
 
 	/**
-	 * @return the name
-	 */
-	public String getName() {
-		return name;
-	}
-
-	/**
-	 * @param name the name to set
-	 */
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	/**
-	 * @return the description
-	 */
-	public String getDescription() {
-		return description;
-	}
-
-	/**
-	 * @param description the description to set
-	 */
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	/**
 	 * @return the userType
 	 */
 	public String getUserType() {
@@ -109,6 +92,62 @@ public class ItemUnit implements Serializable {
 	 */
 	public void setUserType(String userType) {
 		this.userType = userType;
+	}
+
+	/**
+	 * @return the item
+	 */
+	public Item getItem() {
+		return item;
+	}
+
+	/**
+	 * @param item the item to set
+	 */
+	public void setItem(Item item) {
+		this.item = item;
+	}
+
+	/**
+	 * @return the purchased
+	 */
+	public Long getPurchased() {
+		return purchased;
+	}
+
+	/**
+	 * @param purchased the purchased to set
+	 */
+	public void setPurchased(Long purchased) {
+		this.purchased = purchased;
+	}
+
+	/**
+	 * @return the sold
+	 */
+	public Long getSold() {
+		return sold;
+	}
+
+	/**
+	 * @param sold the sold to set
+	 */
+	public void setSold(Long sold) {
+		this.sold = sold;
+	}
+
+	/**
+	 * @return the balance
+	 */
+	public Long getBalance() {
+		return balance;
+	}
+
+	/**
+	 * @param balance the balance to set
+	 */
+	public void setBalance(Long balance) {
+		this.balance = balance;
 	}
 
 	/**
