@@ -44,6 +44,23 @@ function validateForm(){
 }
 
 $(document).ready(function() {
+	
+	$(document).ready(function(){
+	    $('input.timepicker').timepicker({ 
+	    	timeFormat: 'HH:mm',
+	        //interval: 60,
+	       // minTime: '10',
+	       // maxTime: '6:00pm',
+	        defaultTime: '8',
+	       // startTime: '10:00',
+	        dynamic: false,
+	        dropdown: true,
+	        scrollbar: true
+	        //timeFormat: 'HH:mm:00' 
+	    		
+	    });
+	    
+	});	
 	$switchInputs =function(val) {
 	    buttonV = val;
 		deleteV = val;
@@ -74,10 +91,10 @@ $(document).ready(function() {
 			}).get().join(",");
 			
 			if (ids == null || ids == "") {
-				alert("Please select at least one record to delete");
+				alert("Please select at least one record to Inactive");
 				return false;
 			}
-			var r = confirm("Are you sure you want to delete?");
+			var r = confirm("Are you sure you want to Inactive?");
 			if (r != true)
 				return false;
 
@@ -178,6 +195,13 @@ const nonCapitalize = (s) => {
   		return s.charAt(0).toLowerCase() + s.slice(1)
 }
 
+/*
+var str ='4/5/8';
+$.each(str.split('/'), function(i, val) {
+    $('#sellist option').filter('[value="' + val + '"]').prop('selected', 'selected');
+});
+ */
+
 function editRecord(doc){
 	for(var i=0; i<(formFields); i++){
 		if(doc.getElementById(form[i].id)){
@@ -227,8 +251,11 @@ function loadDataTable(){
 					getUserOwners(table);
 					getUserSchools(table);
 					getUserGrades(table);
-					getSubjects(table);
-
+					getUserStudents(table);
+					getUserStaffs(table);
+					getUserGuardians(table);
+					getUserVehicles(table);
+					getUserSubjects(table);
 					reload=tableV;
 				}
 				
@@ -241,20 +268,23 @@ function loadDataTable(){
 							"<div id=ownerId>"+obj.id+"</div>",
 							"<input type='checkbox' value='"+ obj.id+ "' id='abc'>","<div id=ownerName>"+obj.name+"</div>", 
 							"<div id=ownerEmail>"+obj.email+"</div>", "<div id=ownerMobile>"+obj.mobile+"</div>",
-							"<div id=ownerAddress>"+obj.address+"</div>", obj.dated
+							"<div id=ownerAddress>"+obj.address+"</div>", "<div id=ownerStatus>"+obj.status+"</div>",
+							"<div id=ownerDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "School") {
 					//check if this user have already registered main branch display it
-					getMainBranchName();
+					//getMainBranchName();
 					//getUserOwners();
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=schoolId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=schoolOwnerDD>"+obj.ownerNames+"</div>","<div id=schoolName>"+obj.name+"</div>",
+							"<div id=schoolOwnerDD>"+obj.ownerNames+"</div>",/*"<div id=schoolName>"+obj.name+"</div>",*/
 							"<div id=schoolBranchName>"+obj.branchName+"</div>","<div id=schoolPhone>"+obj.phone+"</div>",
-							"<div id=schoolEmail>"+obj.email+"</div>","<div id=schoolAddress>"+obj.address+"</div>",obj.dated
+							"<div id=schoolEmail>"+obj.email+"</div>","<div id=schoolAddress>"+obj.address+"</div>",
+							"<div id=schoolStatus>"+obj.status+"</div>",
+							"<div id=schoolDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -263,10 +293,10 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=gradeId>"+obj.id+"</div>", "<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=gradeSchoolDD>"+obj.schoolName+"</div>", "<div id=gradeName>"+obj.name+"</div>", 
-							"<div id=gradeCode>"+obj.code+"</div>", "<div id=gradeTimeFrom>"+obj.timeFrom+"</div>", 
-							"<div id=gradeTimeTo>"+obj.timeTo+"</div>", "<div id=gradeRoom>"+obj.room+"</div>",
-							"<div id=dated>"+obj.dated+"</div>"
+							"<div id=gradeSchoolDD>"+obj.schoolName+"</div>","<div id=gradeName>"+obj.name+"</div>", 
+							"<div id=gradeCode>"+obj.code+"</div>", "<div id=gradeTimeFromStr>"+obj.timeFromStr+"</div>", 
+							"<div id=gradeTimeToStr>"+obj.timeToStr+"</div>", "<div id=gradeRoom>"+obj.room+"</div>",
+							"<div id=gradeStatus>"+obj.status+"</div>","<div id=gradeRoomDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -275,14 +305,15 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						//getUserSchools();
 						arr = [
-							"<div id=staffId>"+obj.staffId+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
+							"<div id=staffId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
 							"<div id=staffName>"+obj.name+"</div>", "<div id=staffEmail>"+obj.email+"</div>",
 							"<div id=staffMobile>"+obj.mobile+"</div>", "<div id=staffPhone>"+obj.phone+"</div>", 
-							"<div id=staffTimeIn>"+obj.timeIn+"</div>", "<div id=staffTimeOut>"+obj.timeOut+"</div>",
+							"<div id=staffTimeInStr>"+obj.timeInStr+"</div>", "<div id=staffTimeOutStr>"+obj.timeOutStr+"</div>",
 							"<div id=staffDesignation>"+obj.designation+"</div>", "<div id=staffQualification>"+obj.qualification+"</div>",
 							"<div id=staffSchoolDD>"+obj.schoolNames+"</div>", "<div id=staffGradeDD>"+obj.gradeNames+"</div>",
-							"<div id=staffSubjectDD>"+obj.subjectNames+"</div>", "<div id=staffStatus>"+obj.status+"</div>",
-							"<div id=staffAddress>"+obj.address+"</div>","<div id=staffGender>"+obj.gender+"</div>","<div id=dated>"+obj.dated+"</div>"
+							"<div id=staffDateOfBirth>"+obj.dateOfBirth+"</div>", "<div id=staffGender>"+obj.gender+"</div>",
+							"<div id=staffMartialStatus>"+obj.martialStatus+"</div>", "<div id=staffAddress>"+obj.address+"</div>",
+							"<div id=staffStatus>"+obj.status+"</div>",	"<div id=staffDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -291,11 +322,12 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<div id=id>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=donatorName>"+obj.name+"</div>", "<div id=donatorFName>"+obj.fName+"</div>",
-							"<div id=donatorMobile>"+obj.mobile+"</div>", "<div id=donatorAddress>"+obj.address+"</div>", 
-							"<div id=donatorAmount>"+obj.amount+"</div>", "<div id=donatorReceivedBy>"+obj.receivedBy+"</div>",
-							"<div id=dated>"+obj.dated+"</div>"
+							"<div id=guardianId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
+							"<div id=guardianName>"+obj.name+"</div>", "<div id=guardianEmail>"+obj.email+"</div>",
+							"<div id=guardianMobile>"+obj.mobile+"</div>", "<div id=guardianPhone>"+obj.phone+"</div>", 
+							"<div id=guardianTempAddress>"+obj.tempAddress+"</div>", "<div id=guardianPermAddress>"+obj.permAddress+"</div>",
+							"<div id=guardianRelation>"+obj.relation+"</div>", "<div id=guardianOccupation>"+obj.occupation+"</div>",
+							"<div id=guardianStatus>"+obj.status+"</div>","<div id=guardianDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -304,24 +336,54 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<div id=studentId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=donatorName>"+obj.name+"</div>", "<div id=donatorFName>"+obj.fName+"</div>",
-							"<div id=donatorMobile>"+obj.mobile+"</div>", "<div id=donatorAddress>"+obj.address+"</div>", 
-							"<div id=donatorAmount>"+obj.amount+"</div>", "<div id=donatorReceivedBy>"+obj.receivedBy+"</div>",
-							"<div id=dated>"+obj.dated+"</div>"
+							"<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
+							"<div id=studentName>"+obj.name+"</div>","<div id=studentSchoolDD>"+obj.schoolName+"</div>",
+							"<div id=studentGradeDD>"+obj.gradeName+"</div>","<div id=studentVehicleDD>"+obj.vehicleName+"</div>",
+							"<div id=studentGuardianDD>"+obj.guardianName+"</div>",
+							"<div id=studentEnrollNo>"+obj.enrollNo+"</div>","<div id=studentEnrollDate>"+obj.enrollDate+"</div>",
+							"<div id=studentMobile>"+obj.mobile+"</div>",
+							"<div id=studentEmail>"+obj.email+"</div>","<div id=studentGender>"+obj.gender+"</div>",
+							"<div id=studentDateOfBirth>"+obj.dateOfBirth+"</div>", "<div id=studentBloodBroup>"+obj.boodGroup+"</div>",
+							"<div id=studentAddress>"+obj.address+"</div>","<div id=studentStatus>"+obj.status+"</div>",
+							"<div id=studentDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Subject") {
-					//getUserGrades();
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
 							"<div id=subjectId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=subjectGradeDD>"+obj.gradeName+"</div>","<div id=subjectName>"+obj.name+"</div>", "<div id=subjectCode>"+obj.code+"</div>",
+							"<div id=subjectGradeDD>"+obj.gradeName+"</div>",
+							"<div id=subjectName>"+obj.name+"</div>", "<div id=subjectCode>"+obj.code+"</div>",
 							"<div id=subjectPublisher>"+obj.publisher+"</div>", "<div id=subjectEdition>"+obj.edition+"</div>", 
-							"<div id=subjectStatus>"+obj.status+"</div>",
-							"<div id=dated>"+obj.dated+"</div>"
+							"<div id=subjectStatus>"+obj.status+"</div>","<div id=subjectDated>"+obj.dated+"</div>"
+							];
+						datatable.row.add(arr).draw();
+					});
+				} else if (getAll === "Vehicle") {
+					$.each(collections, function(ind, obj) {
+						i++;
+						arr = [
+							"<div id=vehicleId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
+							"<div id=vehicleSchoolDD>"+obj.schoolName+"</div>","<div id=vehicleName>"+obj.name+"</div>",
+							"<div id=vehicleNumber>"+obj.number+"</div>", "<div id=vehicleDriverName>"+obj.driverName+"</div>",
+							"<div id=vehicleDriverMobile>"+obj.driverMobile+"</div>", "<div id=vehicleOwnerName>"+obj.ownerName+"</div>", 
+							"<div id=vehicleOwnerMobile>"+obj.ownerMobile+"</div>", "<div id=vehicleStatus>"+obj.status+"</div>", 
+							"<div id=vehicleDated>"+obj.datedStr+"</div>"
+							];
+						datatable.row.add(arr).draw();
+					});
+				} else if (getAll === "Discount") {
+					$.each(collections, function(ind, obj) {
+						i++;
+						arr = [
+							"<div id=discountId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
+							"<div id=discountStudentDD>"+obj.schoolName+"</div>","<div id=discountDscountIn>"+obj.name+"</div>",
+							"<div id=discountAmount>"+obj.number+"</div>", "<div id=discountName>"+obj.driverName+"</div>",
+							"<div id=discountSartDate>"+obj.driverMobile+"</div>", "<div id=discountEndDate>"+obj.driverOwnerName+"</div>", 
+							"<div id=discountDescription>"+obj.driverOwnerMobile+"</div>","<div id=discountStatus>"+obj.status+"</div>",
+							"<div id=discountDated>"+obj.daobj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -340,7 +402,55 @@ function loadDataTable(){
 	});
 }
 
-function getSubjects(table) {	
+function getUserOwners(table){
+	console.log(table);
+    $("#"+table.toLowerCase()+"OwnerDD").empty().append("<option value = ''> Please wait....  </option>");
+    
+    $.get(serverContext+ "getUserOwners",function(data){
+    	$("#"+table+"OwnerDD").empty().append(data);
+    })
+	.fail(function(data) {
+		$("#"+table+"OwnerDD").empty().append("<option value = ''> System error  </option>");
+	});
+}
+function getUserSchools(table) {	
+	console.log(tableV);
+    $("#"+table+"SchoolDD").empty().append("<option value = ''> Please wait....  </option>");
+    
+    $.get(serverContext+ "getUserSchools",function(data){
+    	console.log(2);
+    	$("#"+table+"SchoolDD").empty().append(data);
+    })
+	.fail(function(data) {
+		$("#"+table+"SchoolDD").empty().append("<option value = ''> System error  </option>");
+	});
+}
+
+function getUserStaffs(table){
+	console.log(table);
+    $("#"+table.toLowerCase()+"StaffDD").empty().append("<option value = ''> Please wait....  </option>");
+    
+    $.get(serverContext+ "getUserStaffs",function(data){
+    	$("#"+table+"StaffDD").empty().append(data);
+    })
+	.fail(function(data) {
+		$("#"+table+"StaffDD").empty().append("<option value = ''> System error  </option>");
+	});
+}
+
+function getUserGuardians(table){
+	console.log(table);
+    $("#"+table.toLowerCase()+"GuardianDD").empty().append("<option value = ''> Please wait....  </option>");
+    
+    $.get(serverContext+ "getUserGuardians",function(data){
+    	$("#"+table+"GuardianDD").empty().append(data);
+    })
+	.fail(function(data) {
+		$("#"+table+"GuardianDD").empty().append("<option value = ''> System error  </option>");
+	});
+}
+
+function getUserSubjects(table) {	
 	console.log(tableV);
     $("#"+table+"SubjectDD").empty().append("<option value = ''> Please wait....  </option>");
     
@@ -367,41 +477,28 @@ function getUserGrades(table) {
 	});
 }
 
-function getUserSchools(table) {	
+function getUserStudents(table) {	
 	console.log(tableV);
-    $("#"+table+"SchoolDD").empty().append("<option value = ''> Please wait....  </option>");
+    $("#"+table+"StudentDD").empty().append("<option value = ''> Please wait....  </option>");
     
-    $.get(serverContext+ "getUserSchools",function(data){
+    $.get(serverContext+ "getUserStudents",function(data){
     	console.log(2);
-    	$("#"+table+"SchoolDD").empty().append(data);
+    	$("#"+table+"StudentDD").empty().append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"SchoolDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table+"StudentDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
-function getUserOwners(table){
-	console.log("getUserOwners");
-    $("#"+table.toLowerCase()+"OwnerDD").empty().append("<option value = ''> Please wait....  </option>");
+function getUserVehicles(table){
+	console.log(table);
+    $("#"+table.toLowerCase()+"VehicleDD").empty().append("<option value = ''> Please wait....  </option>");
     
-    $.get(serverContext+ "getUserOwners",function(data){
-    	$("#"+table+"OwnerDD").empty().append(data);
+    $.get(serverContext+ "getUserVehicles",function(data){
+    	$("#"+table+"VehicleDD").empty().append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"OwnerDD").empty().append("<option value = ''> System error  </option>");
-	});
-}
-
-function getMainBranchName(){
-	console.log(3);
-    $.get(serverContext+ "getMainBranchName",function(name){
-    	console.log("Name : "+name);
-    	if(name){
-        	$("#schoolName").val(name);
-    	}
-    })
-	.fail(function(name) {
-    	$("#schoolName").val(name);
+		$("#"+table+"VehicleDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 

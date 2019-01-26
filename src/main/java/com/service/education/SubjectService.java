@@ -170,4 +170,10 @@ public class SubjectService implements ISubjectService {
 		return subjectRepo.exists(example);
 	}
 
+	@Override
+	public int updateStatus(String status, String id) {
+		// TODO Auto-generated method stub
+		return subjectRepo.updateStatus(status, id);
+	}
+
 }

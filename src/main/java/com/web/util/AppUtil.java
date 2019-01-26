@@ -5,9 +5,12 @@ package com.web.util;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +44,7 @@ public class AppUtil {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     public static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
     public static final DateTimeFormatter dateformatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    static SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
     public static Map<String,String> countryMap=null;
 
 
@@ -68,6 +72,20 @@ public class AppUtil {
         return now.format(AppUtil.dateformatter);
     }
 
+   	//Get current date time
+    public static String getDateStr(LocalDateTime date) {
+    	if(date==null)
+    		return "";
+    	return dateformatter.format(date);
+    }
+
+   	//Get current date time
+    public static Date getDate(String date) throws ParseException {
+    	if(date==null)
+    		return new Date();
+    	return dateFormat.parse(date);
+    }
+
     //Get current date time
     public static String todayDateTimeStr() {
         LocalDateTime now = LocalDateTime.now();
@@ -93,7 +111,7 @@ public class AppUtil {
     }
 
   
-	public boolean isEmptyOrNull( Collection<?> collection ){
+	public static boolean isEmptyOrNull( Collection<?> collection ){
 		if( collection == null || collection.isEmpty() ){
 			return true;
 		}
@@ -117,7 +135,7 @@ public class AppUtil {
 	 * @param object
 	 * @return true | false
 	 */
-	public boolean isEmptyOrNull( Object object ){
+	public static boolean isEmptyOrNull( Object object ){
 		if( object == null ){
 			return true;
 		}
@@ -141,7 +159,7 @@ public class AppUtil {
 	 * @param string
 	 * @return true | false
 	 */
-	public boolean isEmptyOrNull( String string ){
+	public static boolean isEmptyOrNull( String string ){
 		if( string == null || string.trim().length() == 0 ){
 			return true;
 		}

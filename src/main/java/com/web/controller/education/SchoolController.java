@@ -1,12 +1,11 @@
 package com.web.controller.education;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -25,8 +24,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
+import com.persistence.model.education.Owner;
 import com.persistence.model.education.School;
-import com.persistence.model.education.SchoolOwner;
+import com.service.education.IOwnerService;
 import com.service.education.ISchoolService;
 import com.web.dto.education.SchoolDTO;
 import com.web.util.AppUtil;
@@ -44,6 +44,9 @@ public class SchoolController {
 	ISchoolService schoolService;
 
 	@Autowired
+	IOwnerService ownerService;
+
+	@Autowired
 	AppUtil appUtil;
 	
 	@Autowired
@@ -51,7 +54,7 @@ public class SchoolController {
 
 	ModelMapper modelMapper = new ModelMapper();
 	
-	List<School> entities=null;
+	List<School> objs=null;
 	List<SchoolDTO> dtos = null;
 	
 	@RequestMapping(value = "/getMainBranchName", method = RequestMethod.GET)
@@ -76,33 +79,20 @@ public class SchoolController {
 			User user = requestUtil.getCurrentUser();
 			filterBy.setUserId(user.getId());
 	        Example<School> example = Example.of(filterBy);
-	        entities = schoolService.findAll(example);
-			if(appUtil.isEmptyOrNull(entities)){
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),entities);
-			}else {
-				SchoolDTO dto=null;
-				dtos = new ArrayList<SchoolDTO>();
-				for(School s:entities) {
-					dto = new SchoolDTO();
-//					dto = modelMapper.map(s,SchoolDTO.class);
-					Set<Long> ids= new HashSet<>();
-					Set<String> names= new HashSet<>();
-					s.getOwners().forEach(e -> 
-						{
-							ids.add(e.getId());
-							names.add(e.getName());
-						}
-					);
-					
-					dto = modelMapper.map(s,SchoolDTO.class);
-					dto.setOwnerIds(ids);
-					dto.setOwnerNames(names);
-//					dto.setOwnerIds(s.getOwners().stream().map(SchoolOwner::getId).collect(Collectors.toSet()));
-//					dto.setOwnerNames(s.getOwners().stream().map(SchoolOwner::getName).collect(Collectors.toSet()));
-					dtos.add(dto);
-				}
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
-			}
+	        objs = schoolService.findAll(example);
+			if(AppUtil.isEmptyOrNull(objs))
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
+			
+			dtos = new ArrayList<SchoolDTO>();
+			objs.forEach(obj ->{
+				SchoolDTO dto = modelMapper.map(obj,SchoolDTO.class);
+				dto.setOwnerIds(obj.getOwners().stream().map(Owner::getId).collect(Collectors.toSet()));
+				dto.setOwnerNames(obj.getOwners().stream().map(Owner::getName).collect(Collectors.toSet()));
+				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dtos.add(dto);
+			});
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
@@ -122,8 +112,9 @@ public class SchoolController {
 			List<School> schools = schoolService.findAll(example);
 			schools.forEach(d -> {
 				if(d!=null && d.getId()!=null)
-					sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
+					sb.append("<option value="+d.getId()+">"+d.getBranchName()+"</option>");
 			});
+			
 		    return sb.toString();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -136,7 +127,7 @@ public class SchoolController {
 	public GenericResponse getAllSchool(final HttpServletRequest request) {
 		try {
 			List<School> schoolOwners = schoolService.findAll();
-			if(appUtil.isEmptyOrNull(schoolOwners)){
+			if(AppUtil.isEmptyOrNull(schoolOwners)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),schoolOwners);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),schoolOwners);
@@ -150,49 +141,40 @@ public class SchoolController {
 	
 	@RequestMapping(value = "/addSchool", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse addSchool(@Validated final SchoolDTO schoolDTO, final HttpServletRequest request) {
+	public GenericResponse addSchool(@Validated final SchoolDTO dto, final HttpServletRequest request) {
 		try {
-			School school= new School();
+			School obj= new School();
+			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
-			school.setUserId(user.getId());
-			Example<School> example = null;
-			if(appUtil.isEmptyOrNull(schoolDTO.getId())){
-				//create
-				school.setName(schoolDTO.getName());
-				example = Example.of(school);
+			obj.setUserId(user.getId());
+			obj.setBranchName(dto.getBranchName());
+			Example<School> example = Example.of(obj);
+			if(AppUtil.isEmptyOrNull(dto.getId()) && schoolService.exists(example))
+				return new GenericResponse("FOUND",messages.getMessage("The School "+dto.getName()+" already exist", null, request.getLocale()));
+
+			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
+				obj = schoolService.getOne(dto.getId());
+				dated = obj.getDated();
+			}
+			obj = modelMapper.map(dto, School.class);
+			obj.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId()))
+				obj.setDated(dated);
+			else
+				obj.setDated(dated);
+			obj.setUpdated(dated);
+
+			Set<Owner> owners = new HashSet<>();
+			for(Long id:dto.getOwnerIds()) {
+				if(!AppUtil.isEmptyOrNull(id))
+					owners.add(ownerService.getOne(id));
+			}
+			obj.setOwners(owners);//ssetOwnerIds(schoolDTO.getOwnerIds());
+			School schoolOwnerTemp = schoolService.save(obj);
+			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
+				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
-				//update
-				school = modelMapper.map(schoolDTO, School.class);
-				Set<SchoolOwner> owners = new HashSet<>();
-				SchoolOwner owner = null;
-				for(Long id:schoolDTO.getOwnerIds()) {
-					owner = new SchoolOwner();
-					owner.setId(id);
-					owners.add(owner);
-				}
-				school.setOwners(owners);//ssetOwnerIds(schoolDTO.getOwnerIds());
-				example = Example.of(school);
-			}
-			if(schoolService.exists(example)) {
-				return new GenericResponse("FOUND",messages.getMessage("The School "+schoolDTO.getName()+" already exist", null, request.getLocale()));
-			}
-			school = modelMapper.map(schoolDTO, School.class);
-			Set<SchoolOwner> owners = new HashSet<>();
-			SchoolOwner owner = null;
-			for(Long id:schoolDTO.getOwnerIds()) {
-				owner = new SchoolOwner();
-				owner.setId(id);
-				owners.add(owner);
-			}
-			school.setOwners(owners);//ssetOwnerIds(schoolDTO.getOwnerIds());
-//			school.setOwnerNames(schoolDTO.getOwnerNames());
-			school.setUserId(user.getId());
-			school.setDated(AppUtil.todayDateStr());
-			School schoolOwnerTemp = schoolService.save(school);
-			if(appUtil.isEmptyOrNull(schoolOwnerTemp)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()),schoolOwnerTemp);
-			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),schoolOwnerTemp);
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -209,7 +191,8 @@ public class SchoolController {
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					schoolService.deleteById(Long.valueOf(id));
+//					schoolService.deleteById(Long.valueOf(id));
+					schoolService.updateStatus("Inactive", id);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

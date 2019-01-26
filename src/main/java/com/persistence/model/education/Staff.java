@@ -1,9 +1,10 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
-import java.util.Collection;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Set;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -11,7 +12,8 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
-import javax.persistence.OneToMany;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
 import javax.persistence.Table;
 
 /**
@@ -51,38 +53,37 @@ public class Staff implements Serializable {
 	private String gender;
 
 	@Column(name = "time_in")
-	private String timeIn;
+	private LocalTime timeIn;
 
 	@Column(name = "time_out")
-	private String timeOut;
+	private LocalTime timeOut;
 
 	private String qualification;
 
-	private Boolean married;
+	@Column(name = "martial_status")
+	private String martialStatus;
 
-	private Boolean status;
+	private String status;
 
-	private String dated;
+//	@Temporal(TemporalType.TIMESTAMP)
+	private LocalDateTime dated;
 
-//    @ManyToMany(fetch = FetchType.LAZY)
-//    @JoinTable(name = "staff_schools", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), 
-//    inverseJoinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"))
-	// uni-directional on-to-many association to subject
-	@OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-	@JoinColumn(name = "school_id")
-    private Collection<School> schools;
-//    @ManyToMany(fetch = FetchType.LAZY)
-//    @JoinTable(name = "staff_grades", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), 
-//    inverseJoinColumns = @JoinColumn(name = "grade_id", referencedColumnName = "grade_id"))
-	// uni-directional on-to-many association to subject
-	@OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-	@JoinColumn(name = "grade_id")
-    private Collection<Grade> grades;
+//	@Temporal(TemporalType.TIMESTAMP)
+	private LocalDateTime updated;
 
-	// uni-directional on-to-many association to subject
-	@OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-	@JoinColumn(name = "subject_id")
-	private Collection<Subject> subjects;
+	@ManyToMany(fetch = FetchType.LAZY)
+//	@Fetch(value = FetchMode.SUBSELECT)
+	@JoinTable(name = "staffs_schools", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), inverseJoinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"))
+	private Set<School> schools;
+
+	@ManyToMany(fetch = FetchType.LAZY)
+//	@Fetch(value = FetchMode.SUBSELECT)
+	@JoinTable(name = "staffs_grades", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), inverseJoinColumns = @JoinColumn(name = "grade_id", referencedColumnName = "grade_id"))
+	private Set<Grade> grades;
+
+	// Bi-directional on-to-many association to subject
+//	@OneToMany(mappedBy = "staff")
+//	private Set<Subject> subjects;
 
 	/**
 	 * @return the id
@@ -227,72 +228,86 @@ public class Staff implements Serializable {
 	/**
 	 * @return the status
 	 */
-	public Boolean getStatus() {
+	public String getStatus() {
 		return status;
 	}
 
 	/**
 	 * @param status the status to set
 	 */
-	public void setStatus(Boolean status) {
+	public void setStatus(String status) {
 		this.status = status;
 	}
 
 	/**
 	 * @return the dated
 	 */
-	public String getDated() {
+	public LocalDateTime getDated() {
 		return dated;
 	}
 
 	/**
 	 * @param dated the dated to set
 	 */
-	public void setDated(String dated) {
+	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
+	}
+
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
 	}
 
 	/**
 	 * @return the schools
 	 */
-	public Collection<School> getSchools() {
+	public Set<School> getSchools() {
 		return schools;
 	}
 
 	/**
 	 * @param schools the schools to set
 	 */
-	public void setSchools(Collection<School> schools) {
+	public void setSchools(Set<School> schools) {
 		this.schools = schools;
 	}
 
 	/**
 	 * @return the grades
 	 */
-	public Collection<Grade> getGrades() {
+	public Set<Grade> getGrades() {
 		return grades;
 	}
 
 	/**
 	 * @param grades the grades to set
 	 */
-	public void setGrades(Collection<Grade> grades) {
+	public void setGrades(Set<Grade> grades) {
 		this.grades = grades;
 	}
-
-	/**
-	 * @return the subjects
-	 */
-	public Collection<Subject> getSubjects() {
-		return subjects;
-	}
-
-	/**
-	 * @param subjects the subjects to set
-	 */
-	public void setSubjects(Collection<Subject> subjects) {
-		this.subjects = subjects;
-	}
+//
+//	/**
+//	 * @return the subjects
+//	 */
+//	public Set<Subject> getSubjects() {
+//		return subjects;
+//	}
+//
+//	/**
+//	 * @param subjects the subjects to set
+//	 */
+//	public void setSubjects(Set<Subject> subjects) {
+//		this.subjects = subjects;
+//	}
 
 	/**
 	 * @return the gender
@@ -311,43 +326,43 @@ public class Staff implements Serializable {
 	/**
 	 * @return the timeIn
 	 */
-	public String getTimeIn() {
+	public LocalTime getTimeIn() {
 		return timeIn;
 	}
 
 	/**
 	 * @param timeIn the timeIn to set
 	 */
-	public void setTimeIn(String timeIn) {
+	public void setTimeIn(LocalTime timeIn) {
 		this.timeIn = timeIn;
 	}
 
 	/**
 	 * @return the timeOut
 	 */
-	public String getTimeOut() {
+	public LocalTime getTimeOut() {
 		return timeOut;
 	}
 
 	/**
 	 * @param timeOut the timeOut to set
 	 */
-	public void setTimeOut(String timeOut) {
+	public void setTimeOut(LocalTime timeOut) {
 		this.timeOut = timeOut;
 	}
 
 	/**
-	 * @return the married
+	 * @return the martialStatus
 	 */
-	public Boolean getMarried() {
-		return married;
+	public String getMartialStatus() {
+		return martialStatus;
 	}
 
 	/**
-	 * @param married the married to set
+	 * @param martialStatus the martialStatus to set
 	 */
-	public void setMarried(Boolean married) {
-		this.married = married;
+	public void setMartialStatus(String martialStatus) {
+		this.martialStatus = martialStatus;
 	}
 
 	/**

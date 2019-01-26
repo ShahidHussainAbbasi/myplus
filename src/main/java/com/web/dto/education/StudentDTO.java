@@ -10,7 +10,7 @@ import com.validation.ValidateEmpty;
 
 public class StudentDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
-	
+
 	private Long id;
 
 	@ValidateEmpty
@@ -19,14 +19,14 @@ public class StudentDTO implements Serializable {
 	private Long userId;
 
 	private String userType;
-	
+
 	@ValidateEmpty
 	private String enrollNo;
-	
+
 	@ValidateEmpty
-	private String enrollmentDate;
-	
-	private String updateDate;
+	private String enrollDate;
+
+	private String updated;
 
 	@ValidEmail
 	private String email;
@@ -39,46 +39,44 @@ public class StudentDTO implements Serializable {
 	@ValidateEmpty
 	private String address;
 
-	@ValidateEmpty
-	private String DOB = null;
-	
-	@ValidateEmpty
-	private String Gender;
-	
 	private Time time_in;
-	
+
 	private Time time_out;
-	
+
 	private List<String> hobbies;
-	
+
 	private String boodGroup;
-	
+
 	@ValidateEmpty
-	private String enrollDate;
-	
+	private String dateOfBirth;
+
 	@ValidateEmpty
-	private String dateOfBirht = null;
-	
+	private Long guardianId;
+
+	private String guardianName;
+
+	private Long vehicleId;
+
+	private String vehicleName;
+
+	@ValidateEmpty
+	private Long schoolId;
+
+	private String schoolName;
+
+	@ValidateEmpty
+	private Long gradeId;
+
+	private String gradeName;
+
+	private String status = "Active";
+
 	@ValidateEmpty
 	private String gender;
-	
-	private Long gaurdianId = null;
 
-	private Long gradeId;
-	
-	private Boolean status = true;
-	
-	private String dated;
+	private String datedStr;
 
-	@ValidateEmpty
-	private String grade = null;
-	
-	@ValidateEmpty
-	private String gaurdian = null;
-
-	@ValidateEmpty
-	private List<String> subjects;
-
+	private String updatedStr;
 
 	/**
 	 * @return the id
@@ -109,45 +107,45 @@ public class StudentDTO implements Serializable {
 	}
 
 	/**
-	 * @return the dateOfBirht
+	 * @return the updated
 	 */
-	public String getDateOfBirht() {
-		return dateOfBirht;
+	public String getUpdated() {
+		return updated;
 	}
 
 	/**
-	 * @param dateOfBirht the dateOfBirht to set
+	 * @param updated the updated to set
 	 */
-	public void setDateOfBirht(String dateOfBirht) {
-		this.dateOfBirht = dateOfBirht;
+	public void setUpdated(String updated) {
+		this.updated = updated;
 	}
 
 	/**
-	 * @return the gaurdianId
+	 * @return the guardianId
 	 */
-	public Long getGaurdianId() {
-		return gaurdianId;
+	public Long getGuardianId() {
+		return guardianId;
 	}
 
 	/**
-	 * @param gaurdianId the gaurdianId to set
+	 * @param guardianId the guardianId to set
 	 */
-	public void setGaurdianId(Long gaurdianId) {
-		this.gaurdianId = gaurdianId;
+	public void setGuardianId(Long guardianId) {
+		this.guardianId = guardianId;
 	}
 
 	/**
-	 * @return the gradeId
+	 * @return the gender
 	 */
-	public Long getGradeId() {
-		return gradeId;
+	public String getGender() {
+		return gender;
 	}
 
 	/**
-	 * @param gradeId the gradeId to set
+	 * @param gender the gender to set
 	 */
-	public void setGradeId(Long gradeId) {
-		this.gradeId = gradeId;
+	public void setGender(String gender) {
+		this.gender = gender;
 	}
 
 	/**
@@ -207,34 +205,6 @@ public class StudentDTO implements Serializable {
 	}
 
 	/**
-	 * @return the enrollmentDate
-	 */
-	public String getEnrollmentDate() {
-		return enrollmentDate;
-	}
-
-	/**
-	 * @param enrollmentDate the enrollmentDate to set
-	 */
-	public void setEnrollmentDate(String enrollmentDate) {
-		this.enrollmentDate = enrollmentDate;
-	}
-
-	/**
-	 * @return the updateDate
-	 */
-	public String getUpdateDate() {
-		return updateDate;
-	}
-
-	/**
-	 * @param updateDate the updateDate to set
-	 */
-	public void setUpdateDate(String updateDate) {
-		this.updateDate = updateDate;
-	}
-
-	/**
 	 * @return the email
 	 */
 	public String getEmail() {
@@ -288,34 +258,6 @@ public class StudentDTO implements Serializable {
 	 */
 	public void setAddress(String address) {
 		this.address = address;
-	}
-
-	/**
-	 * @return the dOB
-	 */
-	public String getDOB() {
-		return DOB;
-	}
-
-	/**
-	 * @param dOB the dOB to set
-	 */
-	public void setDOB(String dOB) {
-		DOB = dOB;
-	}
-
-	/**
-	 * @return the gender
-	 */
-	public String getGender() {
-		return Gender;
-	}
-
-	/**
-	 * @param gender the gender to set
-	 */
-	public void setGender(String gender) {
-		Gender = gender;
 	}
 
 	/**
@@ -377,71 +319,99 @@ public class StudentDTO implements Serializable {
 	/**
 	 * @return the status
 	 */
-	public Boolean getStatus() {
+	public String getStatus() {
 		return status;
 	}
 
 	/**
 	 * @param status the status to set
 	 */
-	public void setStatus(Boolean status) {
+	public void setStatus(String status) {
 		this.status = status;
 	}
 
 	/**
-	 * @return the dated
+	 * @return the guardianName
 	 */
-	public String getDated() {
-		return dated;
+	public String getGuardianName() {
+		return guardianName;
 	}
 
 	/**
-	 * @param dated the dated to set
+	 * @param guardianName the guardianName to set
 	 */
-	public void setDated(String dated) {
-		this.dated = dated;
+	public void setGuardianName(String guardianName) {
+		this.guardianName = guardianName;
 	}
 
 	/**
-	 * @return the grade
+	 * @return the vehicleId
 	 */
-	public String getGrade() {
-		return grade;
+	public Long getVehicleId() {
+		return vehicleId;
 	}
 
 	/**
-	 * @param grade the grade to set
+	 * @param vehicleId the vehicleId to set
 	 */
-	public void setGrade(String grade) {
-		this.grade = grade;
+	public void setVehicleId(Long vehicleId) {
+		this.vehicleId = vehicleId;
 	}
 
 	/**
-	 * @return the gaurdian
+	 * @return the vehicleName
 	 */
-	public String getGaurdian() {
-		return gaurdian;
+	public String getVehicleName() {
+		return vehicleName;
 	}
 
 	/**
-	 * @param gaurdian the gaurdian to set
+	 * @param vehicleName the vehicleName to set
 	 */
-	public void setGaurdian(String gaurdian) {
-		this.gaurdian = gaurdian;
+	public void setVehicleName(String vehicleName) {
+		this.vehicleName = vehicleName;
 	}
 
 	/**
-	 * @return the subjects
+	 * @return the schoolId
 	 */
-	public List<String> getSubjects() {
-		return subjects;
+	public Long getSchoolId() {
+		return schoolId;
 	}
 
 	/**
-	 * @param subjects the subjects to set
+	 * @param schoolId the schoolId to set
 	 */
-	public void setSubjects(List<String> subjects) {
-		this.subjects = subjects;
+	public void setSchoolId(Long schoolId) {
+		this.schoolId = schoolId;
+	}
+
+	/**
+	 * @return the schoolName
+	 */
+	public String getSchoolName() {
+		return schoolName;
+	}
+
+	/**
+	 * @param schoolName the schoolName to set
+	 */
+	public void setSchoolName(String schoolName) {
+		this.schoolName = schoolName;
+	}
+
+	/**
+	 * @return the dateOfBirth
+	 */
+	public String getDateOfBirth() {
+		return dateOfBirth;
+	}
+
+	/**
+	 * @param dateOfBirth the dateOfBirth to set
+	 */
+	public void setDateOfBirth(String dateOfBirth) {
+		this.dateOfBirth = dateOfBirth;
 	}
 
 	/**
@@ -451,19 +421,74 @@ public class StudentDTO implements Serializable {
 		return serialVersionUID;
 	}
 
-	/* (non-Javadoc)
+	/**
+	 * @return the gradeId
+	 */
+	public Long getGradeId() {
+		return gradeId;
+	}
+
+	/**
+	 * @param gradeId the gradeId to set
+	 */
+	public void setGradeId(Long gradeId) {
+		this.gradeId = gradeId;
+	}
+
+	/**
+	 * @return the gradeName
+	 */
+	public String getGradeName() {
+		return gradeName;
+	}
+
+	/**
+	 * @param gradeName the gradeName to set
+	 */
+	public void setGradeName(String gradeName) {
+		this.gradeName = gradeName;
+	}
+
+	/**
+	 * @return the datedStr
+	 */
+	public String getDatedStr() {
+		return datedStr;
+	}
+
+	/**
+	 * @param datedStr the datedStr to set
+	 */
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
+	}
+
+	/**
+	 * @return the updatedStr
+	 */
+	public String getUpdatedStr() {
+		return updatedStr;
+	}
+
+	/**
+	 * @param updatedStr the updatedStr to set
+	 */
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
 	public String toString() {
 		return "StudentDTO [id=" + id + ", name=" + name + ", userId=" + userId + ", userType=" + userType
-				+ ", enrollNo=" + enrollNo + ", enrollmentDate=" + enrollmentDate + ", updateDate=" + updateDate
-				+ ", email=" + email + ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", DOB="
-				+ DOB + ", Gender=" + Gender + ", time_in=" + time_in + ", time_out=" + time_out + ", hobbies="
-				+ hobbies + ", boodGroup=" + boodGroup + ", enrollDate=" + enrollDate + ", dateOfBirht=" + dateOfBirht
-				+ ", gender=" + gender + ", gaurdianId=" + gaurdianId + ", gradeId=" + gradeId + ", status=" + status
-				+ ", dated=" + dated + ", grade=" + grade + ", gaurdian=" + gaurdian + ", subjects=" + subjects + "]";
+				+ ", enrollNo=" + enrollNo + ", updated=" + updated + ", email=" + email + ", mobile=" + mobile
+				+ ", phone=" + phone + ", address=" + address + ", DOB=" + time_in + ", time_out=" + time_out
+				+ ", hobbies=" + hobbies + ", boodGroup=" + boodGroup + ", enrollDate=" + enrollDate + ", guardianId="
+				+ guardianId + ", gradeId=" + gradeId + ", status=" + status + "]";
 	}
-	
 
 }

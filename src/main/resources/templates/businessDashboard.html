@@ -27,7 +27,7 @@
 						th:text="${param.user[0]}">User</p>
 				</div>
 				<li>
-					<select name="registrationType" id="registrationType" class="dropdown show dropdown-menu">
+					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Register</option>
 						<option class="dropdown-item" value="Company">Company</option>
 						<option class="dropdown-item" value="Vender">Vender/Supplier</option>
@@ -38,7 +38,7 @@
 					</select>
 				</li>
 				<li>
-					<select name="registrationType" id="registrationType" class="dropdown show dropdown-menu">
+					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Purchase</option>
 						<option class="dropdown-item" value="Purchase">Purchase</option>
 						<option class="dropdown-item" value="PurchaseReturn">Purchase Return</option>
@@ -48,7 +48,6 @@
 			</ul>					
 		</div>
 	</nav>
-	<hr style="margin-top: 40px;">
 	<div class="container content-cls">
 		<div id=0Div name="CompanyDiv" style="display:none">
 			<h3 th:text="#{label.company.form.heading}">Company Registration

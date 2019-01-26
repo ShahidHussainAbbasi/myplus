@@ -9,17 +9,16 @@ import com.validation.ValidateEmpty;
 
 public class GuardianDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
-	
-	
+
 	private Long id;
 
 	@ValidateEmpty
 	private String name;
-	
+
 	private Long userId;
-	
+
 	private String userType;
-	
+
 	@ValidEmail
 	private String email;
 
@@ -35,14 +34,17 @@ public class GuardianDTO implements Serializable {
 
 	@ValidateEmpty
 	private String relation;
-	
+
 	@ValidateEmpty
 	private String occupation;
-	
+
 	private List<String> students;
 
-	private String dated;
+	private String datedStr;
 
+	private String updatedStr;
+
+	private String status;
 
 	/**
 	 * @return the id
@@ -213,17 +215,45 @@ public class GuardianDTO implements Serializable {
 	}
 
 	/**
-	 * @return the dated
+	 * @return the datedStr
 	 */
-	public String getDated() {
-		return dated;
+	public String getDatedStr() {
+		return datedStr;
 	}
 
 	/**
-	 * @param dated the dated to set
+	 * @param datedStr the datedStr to set
 	 */
-	public void setDated(String dated) {
-		this.dated = dated;
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
+	}
+
+	/**
+	 * @return the updatedStr
+	 */
+	public String getUpdatedStr() {
+		return updatedStr;
+	}
+
+	/**
+	 * @param updatedStr the updatedStr to set
+	 */
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
+	}
+
+	/**
+	 * @return the status
+	 */
+	public String getStatus() {
+		return status;
+	}
+
+	/**
+	 * @param status the status to set
+	 */
+	public void setStatus(String status) {
+		this.status = status;
 	}
 
 	/**
@@ -232,5 +262,5 @@ public class GuardianDTO implements Serializable {
 	public static long getSerialversionuid() {
 		return serialVersionUID;
 	}
-	
+
 }

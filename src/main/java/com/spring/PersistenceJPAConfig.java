@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableTransactionManagement
 @PropertySource({ "classpath:persistence.properties" })
 @ComponentScan({ "com.persistence.*" })
-@EnableJpaRepositories(basePackages = "com.persistence.Repo")
+@EnableJpaRepositories(basePackages = "com.persistence.*")
 public class PersistenceJPAConfig {
 
     @Autowired

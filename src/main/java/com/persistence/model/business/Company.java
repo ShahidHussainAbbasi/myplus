@@ -204,7 +204,7 @@ public class Company implements Serializable {
 	 */
 	@Override
 	public String toString() {
-		return "SchoolOwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", brands=" + brands
+		return "OwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", brands=" + brands
 				+ ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", dated=" + dated + "]";
 	}
 

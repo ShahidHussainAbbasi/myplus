@@ -1,6 +1,7 @@
 package com.web.dto.education;
 
 import java.io.Serializable;
+import java.time.LocalTime;
 import java.util.Set;
 
 import com.validation.ValidEmail;
@@ -41,18 +42,24 @@ public class StaffDTO implements Serializable {
 	@ValidateEmpty
 	private String gender;
 
-	private String timeIn;
+	private String timeInStr;
 
-	private String timeOut;
+	private String timeOutStr;
+
+	private LocalTime timeIn;
+
+	private LocalTime timeOut;
 
 	@ValidateEmpty
 	private String qualification;
 
-	private Boolean married = false;
+	private String martialStatus = "Single";
 
-	private Boolean status = true;
+	private String status = "active";
 
-	private String dated;
+	private String datedStr;
+
+	private String updatedStr;
 
 	@ValidateEmpty
 	private Set<Long> schoolIds;
@@ -60,14 +67,14 @@ public class StaffDTO implements Serializable {
 	@ValidateEmpty
 	private Set<Long> gradeIds;
 
-	@ValidateEmpty
+//	@ValidateEmpty
 	private Set<Long> subjectIds;
 
 	private Set<String> schoolNames;
 
 	private Set<String> gradeNames;
 
-	private Set<String> subjectNames;
+//	private Set<String> subjectNames;
 
 	/**
 	 * @return the id
@@ -226,29 +233,43 @@ public class StaffDTO implements Serializable {
 	/**
 	 * @return the status
 	 */
-	public Boolean getStatus() {
+	public String getStatus() {
 		return status;
 	}
 
 	/**
 	 * @param status the status to set
 	 */
-	public void setStatus(Boolean status) {
+	public void setStatus(String status) {
 		this.status = status;
 	}
 
 	/**
-	 * @return the dated
+	 * @return the datedStr
 	 */
-	public String getDated() {
-		return dated;
+	public String getDatedStr() {
+		return datedStr;
 	}
 
 	/**
-	 * @param dated the dated to set
+	 * @param datedStr the datedStr to set
 	 */
-	public void setDated(String dated) {
-		this.dated = dated;
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
+	}
+
+	/**
+	 * @return the updatedStr
+	 */
+	public String getUpdatedStr() {
+		return updatedStr;
+	}
+
+	/**
+	 * @param updatedStr the updatedStr to set
+	 */
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
 	}
 
 	/**
@@ -321,19 +342,19 @@ public class StaffDTO implements Serializable {
 		this.gradeNames = gradeNames;
 	}
 
-	/**
-	 * @return the subjectNames
-	 */
-	public Set<String> getSubjectNames() {
-		return subjectNames;
-	}
-
-	/**
-	 * @param subjectNames the subjectNames to set
-	 */
-	public void setSubjectNames(Set<String> subjectNames) {
-		this.subjectNames = subjectNames;
-	}
+//	/**
+//	 * @return the subjectNames
+//	 */
+//	public Set<String> getSubjectNames() {
+//		return subjectNames;
+//	}
+//
+//	/**
+//	 * @param subjectNames the subjectNames to set
+//	 */
+//	public void setSubjectNames(Set<String> subjectNames) {
+//		this.subjectNames = subjectNames;
+//	}
 
 	/**
 	 * @return the dateOfBirth
@@ -366,43 +387,71 @@ public class StaffDTO implements Serializable {
 	/**
 	 * @return the timeIn
 	 */
-	public String getTimeIn() {
+	public LocalTime getTimeIn() {
 		return timeIn;
 	}
 
 	/**
 	 * @param timeIn the timeIn to set
 	 */
-	public void setTimeIn(String timeIn) {
+	public void setTimeIn(LocalTime timeIn) {
 		this.timeIn = timeIn;
 	}
 
 	/**
 	 * @return the timeOut
 	 */
-	public String getTimeOut() {
+	public LocalTime getTimeOut() {
 		return timeOut;
 	}
 
 	/**
 	 * @param timeOut the timeOut to set
 	 */
-	public void setTimeOut(String timeOut) {
+	public void setTimeOut(LocalTime timeOut) {
 		this.timeOut = timeOut;
 	}
 
 	/**
-	 * @return the married
+	 * @return the martialStatus
 	 */
-	public Boolean getMarried() {
-		return married;
+	public String getMartialStatus() {
+		return martialStatus;
 	}
 
 	/**
-	 * @param married the married to set
+	 * @param martialStatus the martialStatus to set
 	 */
-	public void setMarried(Boolean married) {
-		this.married = married;
+	public void setMartialStatus(String martialStatus) {
+		this.martialStatus = martialStatus;
+	}
+
+	/**
+	 * @return the timeInStr
+	 */
+	public String getTimeInStr() {
+		return timeInStr;
+	}
+
+	/**
+	 * @param timeInStr the timeInStr to set
+	 */
+	public void setTimeInStr(String timeInStr) {
+		this.timeInStr = timeInStr;
+	}
+
+	/**
+	 * @return the timeOutStr
+	 */
+	public String getTimeOutStr() {
+		return timeOutStr;
+	}
+
+	/**
+	 * @param timeOutStr the timeOutStr to set
+	 */
+	public void setTimeOutStr(String timeOutStr) {
+		this.timeOutStr = timeOutStr;
 	}
 
 	/**

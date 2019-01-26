@@ -1,8 +1,9 @@
 package com.web.controller.education;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -35,6 +36,7 @@ import com.web.util.RequestUtil;
 public class GradeController {
 
 	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
+	
 	@Autowired
 	private MessageSource messages;
 
@@ -64,18 +66,21 @@ public class GradeController {
 			filterBy.setUserId(user.getId());
 	        Example<Grade> example = Example.of(filterBy);
 			List<Grade> objs = gradeService.findAll(example);
+			if(AppUtil.isEmptyOrNull(objs))
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
+
 			List<GradeDTO> dtos = new ArrayList<>();
-			objs.forEach(o->{
+			objs.forEach(obj->{
 				GradeDTO dto = new GradeDTO();
-				dto = modelMapper.map(o, GradeDTO.class);
-				dto.setSchoolName(o.getSchool().getName());
+				dto = modelMapper.map(obj, GradeDTO.class);
+				dto.setSchoolName(obj.getSchool().getBranchName());
+				dto.setTimeFromStr(obj.getTimeFrom().toString());
+			    dto.setTimeToStr(obj.getTimeTo().toString());
+				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
-			if(appUtil.isEmptyOrNull(dtos)){
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
-			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
-			}
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
@@ -109,7 +114,7 @@ public class GradeController {
 	public GenericResponse getAllGrade(final HttpServletRequest request) {
 		try {
 			List<Grade> grades = gradeService.findAll();
-			if(appUtil.isEmptyOrNull(grades)){
+			if(AppUtil.isEmptyOrNull(grades)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),grades);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),grades);
@@ -125,36 +130,33 @@ public class GradeController {
 	@ResponseBody
 	public GenericResponse addGrade(@Validated final GradeDTO dto, final HttpServletRequest request) {
 		try {
-			Grade obj = new Grade();
 			User user = requestUtil.getCurrentUser();
+			LocalDateTime dated = LocalDateTime.now();
+			Grade obj = new Grade();
 			obj.setUserId(user.getId());
-			Example<Grade> example = null;
-			if(appUtil.isEmptyOrNull(dto.getId())){
-				//create
-				obj .setName(dto.getName());
-				example = Example.of(obj );
-			}else {
-				//update
-				obj  = modelMapper.map(dto, Grade.class);
-				//adding school
-				Optional<School> s = schoolService.findById(dto.getSchoolId());
-				if(s.isPresent())
-					obj.setSchool(s.get());
-				example = Example.of(obj );
-			}
-			if(gradeService.exists(example)) {
+			obj.setName(dto.getName());
+			Example<Grade> example = Example.of(obj);
+			if(AppUtil.isEmptyOrNull(dto.getId()) && gradeService.exists(example))
 				return new GenericResponse("FOUND",messages.getMessage("The Grade "+dto.getName()+" already exist", null, request.getLocale()));
+
+			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
+				obj = gradeService.getOne(dto.getId());
+				dated = obj.getDated();
 			}
 			obj  = modelMapper.map(dto, Grade.class);
+			obj.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId()))
+				obj.setDated(dated);
+			else
+				obj.setDated(dated);
+			obj.setTimeFrom(LocalTime.parse(dto.getTimeFromStr()));
+			obj.setTimeTo(LocalTime.parse(dto.getTimeToStr()));
 			obj .setUserId(user.getId());
-			obj .setDated(AppUtil.todayDateStr());
-			//adding school
-			Optional<School> s = schoolService.findById(dto.getSchoolId());
-			if(s.isPresent())
-				obj.setSchool(s.get());
+			School school = schoolService.getOne(dto.getSchoolId()); 
+			obj.setSchool(school);
 			
 			Grade schoolOwnerTemp = gradeService.save(obj);
-			if(appUtil.isEmptyOrNull(schoolOwnerTemp)) {
+			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()),dto);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dto);
@@ -174,7 +176,8 @@ public class GradeController {
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					gradeService.deleteById(Long.valueOf(id));
+//					gradeService.deleteById(Long.valueOf(id));
+					gradeService.updateStatus("Inactive", id);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

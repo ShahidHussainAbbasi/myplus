@@ -18,12 +18,18 @@ public class GradeDTO implements Serializable {
 
 	private String code;
 
-	private String dated;
+	private String datedStr;
+
+	private String updatedStr;
 
 	@ValidateEmpty
+	private String timeFromStr;
+
 	private String timeFrom;
 
 	@ValidateEmpty
+	private String timeToStr;
+
 	private String timeTo;
 
 	@ValidateEmpty
@@ -32,6 +38,8 @@ public class GradeDTO implements Serializable {
 	private String schoolName;
 
 	private String room;
+
+	private String status;
 
 	/**
 	 * @return the name
@@ -101,20 +109,6 @@ public class GradeDTO implements Serializable {
 	 */
 	public void setCode(String code) {
 		this.code = code;
-	}
-
-	/**
-	 * @return the dated
-	 */
-	public String getDated() {
-		return dated;
-	}
-
-	/**
-	 * @param dated the dated to set
-	 */
-	public void setDated(String dated) {
-		this.dated = dated;
 	}
 
 	/**
@@ -194,6 +188,76 @@ public class GradeDTO implements Serializable {
 		return serialVersionUID;
 	}
 
+	/**
+	 * @return the status
+	 */
+	public String getStatus() {
+		return status;
+	}
+
+	/**
+	 * @param status the status to set
+	 */
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	/**
+	 * @return the datedStr
+	 */
+	public String getDatedStr() {
+		return datedStr;
+	}
+
+	/**
+	 * @param datedStr the datedStr to set
+	 */
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
+	}
+
+	/**
+	 * @return the updatedStr
+	 */
+	public String getUpdatedStr() {
+		return updatedStr;
+	}
+
+	/**
+	 * @param updatedStr the updatedStr to set
+	 */
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
+	}
+
+	/**
+	 * @return the timeFromStr
+	 */
+	public String getTimeFromStr() {
+		return timeFromStr;
+	}
+
+	/**
+	 * @param timeFromStr the timeFromStr to set
+	 */
+	public void setTimeFromStr(String timeFromStr) {
+		this.timeFromStr = timeFromStr;
+	}
+
+	/**
+	 * @return the timeToStr
+	 */
+	public String getTimeToStr() {
+		return timeToStr;
+	}
+
+	/**
+	 * @param timeToStr the timeToStr to set
+	 */
+	public void setTimeToStr(String timeToStr) {
+		this.timeToStr = timeToStr;
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -202,7 +266,7 @@ public class GradeDTO implements Serializable {
 	@Override
 	public String toString() {
 		return "GradeDTO [name=" + name + ", id=" + id + ", userId=" + userId + ", userType=" + userType + ", code="
-				+ code + ", dated=" + dated + ", timeFrom=" + timeFrom + ", timeTo=" + timeTo + ", schoolId=" + schoolId
+				+ code + ", timeFrom=" + timeFrom + ", timeTo=" + timeTo + ", schoolId=" + schoolId
 				+ ", room=" + room + "]";
 	}
 

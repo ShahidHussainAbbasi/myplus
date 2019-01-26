@@ -1,5 +1,6 @@
 package com.service.education;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -168,6 +169,12 @@ public class GuardianService implements IGuardianService {
 	public <S extends Guardian> boolean exists(Example<S> example) {
 		// TODO Auto-generated method stub
 		return guardianRepo.exists(example);
+	}
+
+	@Override
+	public int updateStatus(String status, String id,Date updated) {
+		// TODO Auto-generated method stub
+		return guardianRepo.updateStatus(status, id,updated);
 	}
 
 

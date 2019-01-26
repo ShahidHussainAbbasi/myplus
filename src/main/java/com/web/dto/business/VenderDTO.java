@@ -198,7 +198,7 @@ public class VenderDTO implements Serializable {
 	 */
 	@Override
 	public String toString() {
-		return "SchoolOwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", email=" + email
+		return "OwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", email=" + email
 				+ ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", dated=" + dated + "]";
 	}
 

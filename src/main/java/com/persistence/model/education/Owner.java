@@ -1,15 +1,14 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
-import java.util.Collection;
+import java.time.LocalDateTime;
+import java.util.Set;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
@@ -17,33 +16,26 @@ import javax.persistence.UniqueConstraint;
 import com.validation.ValidEmail;
 import com.validation.ValidateEmpty;
 
-
 /**
  * The persistent class for the doctor database table.
  * 
  */
 @Entity
-@Table(
-        name = "school_owner",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "name")
-        }
-)
+@Table(name = "owner", uniqueConstraints = { @UniqueConstraint(columnNames = "name") })
 
-public class SchoolOwner implements Serializable {
+public class Owner implements Serializable {
 	private static final long serialVersionUID = 1L;
-	
-	
+
 	@Id
-    @GeneratedValue(strategy=GenerationType.AUTO)
-    @Column(name="owner_id", unique = true, nullable = false)
+	@GeneratedValue(strategy = GenerationType.AUTO)
+	@Column(name = "owner_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name="user_id")
+	@Column(name = "user_id")
 	private Long userId;
 
 	@ValidateEmpty
-	@Column(name="name", unique = true, nullable = false)
+	@Column(name = "name", unique = true, nullable = false)
 	private String name;
 
 	@ValidEmail
@@ -53,11 +45,17 @@ public class SchoolOwner implements Serializable {
 
 	private String address;
 
-	private String dated;
+//	@Temporal(TemporalType.TIMESTAMP)
+	private LocalDateTime dated;
 
-    @ManyToMany(mappedBy = "owners")
-    private Collection<School> schools;
-	
+//	@Temporal(TemporalType.TIMESTAMP)
+	private LocalDateTime updated;
+
+	private String status;
+
+	@ManyToMany(mappedBy = "owners")
+	private Set<School> schools;
+
 	/**
 	 * @return the id
 	 */
@@ -99,7 +97,7 @@ public class SchoolOwner implements Serializable {
 	public void setName(String name) {
 		this.name = name;
 	}
-	
+
 	/**
 	 * @return the mobile
 	 */
@@ -131,15 +129,29 @@ public class SchoolOwner implements Serializable {
 	/**
 	 * @return the dated
 	 */
-	public String getDated() {
+	public LocalDateTime getDated() {
 		return dated;
 	}
 
 	/**
 	 * @param dated the dated to set
 	 */
-	public void setDated(String dated) {
+	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
+	}
+
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
 	}
 
 	/**
@@ -166,16 +178,29 @@ public class SchoolOwner implements Serializable {
 	/**
 	 * @return the schools
 	 */
-	public Collection<School> getSchools() {
+	public Set<School> getSchools() {
 		return schools;
 	}
 
 	/**
 	 * @param schools the schools to set
 	 */
-	public void setSchools(Collection<School> schools) {
+	public void setSchools(Set<School> schools) {
 		this.schools = schools;
 	}
 
-	
+	/**
+	 * @return the status
+	 */
+	public String getStatus() {
+		return status;
+	}
+
+	/**
+	 * @param status the status to set
+	 */
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
 }

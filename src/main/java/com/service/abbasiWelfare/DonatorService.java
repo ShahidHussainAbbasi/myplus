@@ -30,25 +30,25 @@ public class DonatorService implements IDonatorService {
 	@Override
 	public List<Donator> findAll(Sort sort) {
 		// TODO Auto-generated method stub
-		return null;
+		return donatorRep.findAll(sort);
 	}
 
 	@Override
 	public List<Donator> findAllById(Iterable<Long> ids) {
 		// TODO Auto-generated method stub
-		return null;
+		return donatorRep.findAllById(ids);
 	}
 
 	@Override
 	public <S extends Donator> List<S> saveAll(Iterable<S> entities) {
 		// TODO Auto-generated method stub
-		return null;
+		return donatorRep.saveAll(entities);
 	}
 
 	@Override
 	public void flush() {
 		// TODO Auto-generated method stub
-		
+		donatorRep.flush();
 	}
 
 	@Override
@@ -60,19 +60,19 @@ public class DonatorService implements IDonatorService {
 	@Override
 	public void deleteInBatch(Iterable<Donator> entities) {
 		// TODO Auto-generated method stub
-		
+		donatorRep.deleteInBatch(entities);
 	}
 
 	@Override
 	public void deleteAllInBatch() {
 		// TODO Auto-generated method stub
-		
+		donatorRep.deleteAllInBatch();
 	}
 
 	@Override
 	public Donator getOne(Long id) {
 		// TODO Auto-generated method stub
-		return null;
+		return donatorRep.getOne(id);
 	}
 
 	@Override
@@ -83,13 +83,13 @@ public class DonatorService implements IDonatorService {
 	@Override
 	public <S extends Donator> List<S> findAll(Example<S> example, Sort sort) {
 		// TODO Auto-generated method stub
-		return null;
+		return donatorRep.findAll(example, sort);
 	}
 
 	@Override
 	public Page<Donator> findAll(Pageable pageable) {
 		// TODO Auto-generated method stub
-		return null;
+		return donatorRep.findAll(pageable);
 	}
 
 	@Override
@@ -100,19 +100,19 @@ public class DonatorService implements IDonatorService {
 	@Override
 	public Optional<Donator> findById(Long id) {
 		// TODO Auto-generated method stub
-		return null;
+		return donatorRep.findById(id);
 	}
 
 	@Override
 	public boolean existsById(Long id) {
 		// TODO Auto-generated method stub
-		return false;
+		return donatorRep.existsById(id);
 	}
 
 	@Override
 	public long count() {
 		// TODO Auto-generated method stub
-		return 0;
+		return donatorRep.count();
 	}
 
 	@Override
@@ -123,19 +123,19 @@ public class DonatorService implements IDonatorService {
 	@Override
 	public void delete(Donator entity) {
 		// TODO Auto-generated method stub
-		
+		donatorRep.delete(entity);
 	}
 
 	@Override
 	public void deleteAll(Iterable<? extends Donator> entities) {
 		// TODO Auto-generated method stub
-		
+		donatorRep.deleteAll(entities);
 	}
 
 	@Override
 	public void deleteAll() {
 		// TODO Auto-generated method stub
-		
+		donatorRep.deleteAll();
 	}
 
 	@Override
@@ -146,13 +146,13 @@ public class DonatorService implements IDonatorService {
 	@Override
 	public <S extends Donator> Page<S> findAll(Example<S> example, Pageable pageable) {
 		// TODO Auto-generated method stub
-		return null;
+		return donatorRep.findAll(example, pageable);
 	}
 
 	@Override
 	public <S extends Donator> long count(Example<S> example) {
 		// TODO Auto-generated method stub
-		return 0;
+		return donatorRep.count(example);
 	}
 
 	@Override

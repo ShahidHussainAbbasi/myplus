@@ -86,7 +86,7 @@ public class CompanyController {
 			filterBy.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
 	        Example<Company> example = Example.of(filterBy);
 			List<Company> companies = companyRepo.findAll(example);
-			sb.append("<option data-tokens=''> Select SchoolOwnerDTO </option>");
+			sb.append("<option data-tokens=''> Select OwnerDTO </option>");
 			companies.forEach(d -> {
 				if(d!=null && d.getId()!=null)
 					sb.append("<option value="+d.getName()+">"+d.getName()+"</option>");
@@ -149,9 +149,9 @@ public class CompanyController {
 	@ResponseBody
 	public GenericResponse updateCompany(@Validated final CompanyDTO companyDTO, final HttpServletRequest request) {
 		try {
-/*			SchoolOwnerDTO company = new SchoolOwnerDTO();
+/*			OwnerDTO company = new OwnerDTO();
 			company.setName(companyDTO.getName());
-			Example<SchoolOwnerDTO> example = Example.of(company);
+			Example<OwnerDTO> example = Example.of(company);
 			company = companyRepo.findOne(example).get();
 			companyDTO.setUserId(Long.valueOf(userService.getUsersIdFromSessionRegistry().get(0)));
 			companyDTO.setDated(AppUtil.todayDateStr());
@@ -161,13 +161,13 @@ public class CompanyController {
 			Company company = modelMapper.map(companyDTO, Company.class);
 			Company companyTemp = companyRepo.saveAndFlush(company);
 			if(companyTemp.getId()>0) {
-				return new GenericResponse("SUCCESS",messages.getMessage("SchoolOwnerDTO updated success", null, request.getLocale()));
+				return new GenericResponse("SUCCESS",messages.getMessage("OwnerDTO updated success", null, request.getLocale()));
 			}else {
-				return new GenericResponse("FAILED",messages.getMessage("SchoolOwnerDTO updated fail", null, request.getLocale()));
+				return new GenericResponse("FAILED",messages.getMessage("OwnerDTO updated fail", null, request.getLocale()));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			return new GenericResponse("ERROR",messages.getMessage("SchoolOwnerDTO update error", null, request.getLocale()),
+			return new GenericResponse("ERROR",messages.getMessage("OwnerDTO update error", null, request.getLocale()),
 					e.getCause().toString());
 		}
 	}

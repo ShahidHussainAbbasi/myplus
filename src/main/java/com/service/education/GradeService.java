@@ -170,6 +170,12 @@ public class GradeService implements IGradeService {
 		return gradeRepo.exists(example);
 	}
 
+	@Override
+	public int updateStatus(String status, String id) {
+		// TODO Auto-generated method stub
+		return gradeRepo.updateStatus(status, id);
+	}
+
 
     
 }

@@ -35,19 +35,19 @@ public class DonationService implements IDonationService {
 	@Override
 	public List<Donation> findAllById(Iterable<Long> ids) {
 		// TODO Auto-generated method stub
-		return null;
+		return donationRepo.findAllById(ids);
 	}
 
 	@Override
 	public <S extends Donation> List<S> saveAll(Iterable<S> entities) {
 		// TODO Auto-generated method stub
-		return null;
+		return donationRepo.saveAll(entities);
 	}
 
 	@Override
 	public void flush() {
 		// TODO Auto-generated method stub
-		
+		donationRepo.flush();
 	}
 
 	@Override
@@ -59,19 +59,19 @@ public class DonationService implements IDonationService {
 	@Override
 	public void deleteInBatch(Iterable<Donation> entities) {
 		// TODO Auto-generated method stub
-		
+		donationRepo.deleteInBatch(entities);
 	}
 
 	@Override
 	public void deleteAllInBatch() {
 		// TODO Auto-generated method stub
-		
+		donationRepo.deleteAllInBatch();
 	}
 
 	@Override
 	public Donation getOne(Long id) {
 		// TODO Auto-generated method stub
-		return null;
+		return donationRepo.getOne(id);
 	}
 
 	@Override
@@ -104,13 +104,13 @@ public class DonationService implements IDonationService {
 	@Override
 	public boolean existsById(Long id) {
 		// TODO Auto-generated method stub
-		return false;
+		return donationRepo.existsById(id);
 	}
 
 	@Override
 	public long count() {
 		// TODO Auto-generated method stub
-		return 0;
+		return donationRepo.count();
 	}
 
 	@Override
@@ -126,7 +126,7 @@ public class DonationService implements IDonationService {
 	@Override
 	public void deleteAll(Iterable<? extends Donation> entities) {
 		// TODO Auto-generated method stub
-		
+		donationRepo.deleteAll(entities);
 	}
 
 	@Override
@@ -138,7 +138,7 @@ public class DonationService implements IDonationService {
 	@Override
 	public <S extends Donation> Optional<S> findOne(Example<S> example) {
 		// TODO Auto-generated method stub
-		return null;
+		return donationRepo.findOne(example);
 	}
 
 	@Override

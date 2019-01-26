@@ -1,5 +1,8 @@
 package com.web.controller.education;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -52,12 +55,20 @@ public class GuardianController {
 			User user = requestUtil.getCurrentUser();
 			filterBy.setUserId(user.getId());
 	        Example<Guardian> example = Example.of(filterBy);
-			List<Guardian> obj = guardianService.findAll(example);
-			if(appUtil.isEmptyOrNull(obj)){
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),obj);
-			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),obj);
-			}
+			List<Guardian> objs = guardianService.findAll(example);
+			if(AppUtil.isEmptyOrNull(objs))
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
+			
+			List<GuardianDTO> dtos = new ArrayList<>();
+			objs.forEach(obj->{
+				GuardianDTO dto = new GuardianDTO();
+				dto = modelMapper.map(obj, GuardianDTO.class);
+				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dtos.add(dto);
+			});
+			
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
@@ -75,10 +86,9 @@ public class GuardianController {
 			filterBy.setUserId(user.getId());
 	        Example<Guardian> example = Example.of(filterBy);
 			List<Guardian> objs = guardianService.findAll(example);
-			sb.append("<option value=''> Nothing Selected </option>");
 			objs.forEach(d -> {
 				if(d!=null && d.getId()!=null)
-					sb.append("<option value="+d.getId() +" "+d.getName()+">"+d.getName()+"</option>");
+					sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
 			});
 		    return sb.toString();
 		} catch (Exception e) {
@@ -92,7 +102,7 @@ public class GuardianController {
 	public GenericResponse getAllGuardian(final HttpServletRequest request) {
 		try {
 			List<Guardian> objs = guardianService.findAll();
-			if(appUtil.isEmptyOrNull(objs)){
+			if(AppUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
@@ -108,30 +118,31 @@ public class GuardianController {
 	@ResponseBody
 	public GenericResponse addGuardian(@Validated final GuardianDTO dto, final HttpServletRequest request) {
 		try {
-			Guardian obj = new Guardian();
 			User user = requestUtil.getCurrentUser();
-			obj .setUserId(user.getId());
-			Example<Guardian> example = null;
-			if(appUtil.isEmptyOrNull(dto.getId())){
-				//create
-				obj .setName(dto.getName());
-				example = Example.of(obj );
-			}else {
-				//update
-				obj  = modelMapper.map(dto, Guardian.class);
-				example = Example.of(obj );
-			}
-			if(guardianService.exists(example)) {
+			Guardian obj = new Guardian();
+			LocalDateTime dated = LocalDateTime.now();
+			obj.setUserId(user.getId());
+			obj.setName(dto.getName());
+			Example<Guardian> example = Example.of(obj);
+			if(AppUtil.isEmptyOrNull(dto.getId()) && guardianService.exists(example))
 				return new GenericResponse("FOUND",messages.getMessage("The Guardian "+dto.getName()+" already exist", null, request.getLocale()));
+
+			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
+				obj = guardianService.getOne(dto.getId());
+				dated = obj.getDated();
 			}
 			obj  = modelMapper.map(dto, Guardian.class);
-			obj .setUserId(user.getId());
-			obj .setDated(AppUtil.todayDateStr());
-			Guardian schoolOwnerTemp = guardianService.save(obj );
-			if(appUtil.isEmptyOrNull(schoolOwnerTemp)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()),schoolOwnerTemp);
+			obj.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId()))
+				obj.setDated(dated);
+			else
+				obj.setDated(dated);
+			obj.setUpdated(dated);
+			obj = guardianService.save(obj);
+			if(AppUtil.isEmptyOrNull(obj)) {
+				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),schoolOwnerTemp);
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -148,7 +159,8 @@ public class GuardianController {
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					guardianService.deleteById(Long.valueOf(id));
+//					guardianService.deleteById(Long.valueOf(id));
+					guardianService.updateStatus("Inactive", id,new Date());
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

@@ -3,6 +3,8 @@
  */
 package com.web.controller.abbasiWelfare;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -111,51 +113,51 @@ public class DonationController {
 //	
 //	
 	
-	@RequestMapping(value = "/getAllDonations", method = RequestMethod.GET)
+	@RequestMapping(value = "/getUserDonations", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getAllDonations(final HttpServletRequest request) {
+	public GenericResponse getUserDonations(final HttpServletRequest request) {
 		try {
 			List<DonatorDTO> dtos = new ArrayList<>();
-			List<Donation> donations = donationService.findAll();
+			List<Donation> objs = donationService.findAll();
 			DonatorDTO dto = null;
-			for(Donation d: donations) {
-				if(!appUtil.isEmptyOrNull(d)) {
+			for(Donation obj: objs) {
+				if(!AppUtil.isEmptyOrNull(obj)) {
 					dto = new DonatorDTO();
 					
-					Donator filterBy = new Donator();
-					filterBy.setName(d.getName());
-					Example<Donator> example = Example.of(filterBy);
-					List<Donator> dts = donatorService.findAll(example);
-					if(appUtil.isEmptyOrNull(dts))
-						continue;
-					Donator dt = new Donator();
-					dt = dts.get(0);
-					if(dt.isShowMe()) {
-						dto.setName(dt.getName());
-						dto.setfName(dt.getfName());
-						dto.setAddress(dt.getAddress());
-						dto.setAmount(d.getAmount());
-						dto.setMobile(dt.getMobile());
+//					Donator filterBy = new Donator();
+//					filterBy.setName(obj.getName());
+//					filterBy.setUserId(obj.getUserId());
+//					Example<Donator> example = Example.of(filterBy);
+//					List<Donator> dts = donatorService.findAll(example);
+//					if(AppUtil.isEmptyOrNull(dts))
+//						continue;
+//					Donator dt = new Donator();
+//					dt = dts.get(0);
+					if(!AppUtil.isEmptyOrNull(obj.getDonator()) && obj.getDonator().isShowMe()) {
+						dto.setName(obj.getDonator().getName());
+						dto.setfName(obj.getDonator().getfName());
+						dto.setAddress(obj.getDonator().getAddress());
+						dto.setMobile(obj.getDonator().getMobile());
 						
-						dto.setDated(d.getDated());
-						dto.setReceivedBy(d.getReceivedBy());
 					}else {
 						dto.setName("");
 						dto.setfName("");
 						dto.setAddress("");
-						dto.setAmount(0.0F);
 						dto.setMobile("");
 						
-						dto.setDated(d.getDated());
-						dto.setReceivedBy(d.getReceivedBy());
 					}
+					dto.setId(obj.getId());
+					dto.setAmount(obj.getAmount());
+					dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
+					dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+					dto.setReceivedBy(obj.getReceivedBy());
 					dtos.add(dto);
 				}
 			}
-			if(!appUtil.isEmptyOrNull(dtos)) {
+			if(!AppUtil.isEmptyOrNull(dtos)) {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 			}else {
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),donations);
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -164,16 +166,30 @@ public class DonationController {
 		}
 	}
 	
-	@RequestMapping(value = "/getAllDonation", method = RequestMethod.GET)
+	@RequestMapping(value = "/getUserDonation", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getAllDonation(final HttpServletRequest request) {
+	public GenericResponse getUserDonation(final HttpServletRequest request) {
 		try {
-			List<Donation> donations = donationService.findAll();
-			if(!appUtil.isEmptyOrNull(donations)) {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),donations);
-			}else {
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),donations);
-			}
+			Donation filterBy = new Donation();
+			User user = requestUtil.getCurrentUser();
+			filterBy.setUserId(user.getId());
+	        Example<Donation> example = Example.of(filterBy);
+			List<Donation> objs = donationService.findAll(example);
+			if(AppUtil.isEmptyOrNull(objs))
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
+
+			List<DonationDTO> dtos = new ArrayList<>();
+			objs.forEach(obj->{
+				DonationDTO dto = new DonationDTO();
+				dto = modelMapper.map(obj, DonationDTO.class);
+				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dtos.add(dto);
+			});
+			if(AppUtil.isEmptyOrNull(dtos))
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
+			else 
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
@@ -181,16 +197,31 @@ public class DonationController {
 		}
 	}
 	
-	@RequestMapping(value = "/getAllDonator", method = RequestMethod.GET)
+	@RequestMapping(value = "/getUserDonator", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse loadAllDonator(final HttpServletRequest request) {
+	public GenericResponse getUserDonator(final HttpServletRequest request) {
 		try {
-			List<Donator> donators = donatorService.findAll();
-			if(donators.size()>0) {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),donators);
-			}else {
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),donators);
-			}
+			Donator filterBy = new Donator();
+			User user = requestUtil.getCurrentUser();
+			filterBy.setUserId(user.getId());
+	        Example<Donator> example = Example.of(filterBy);
+			List<Donator> objs = donatorService.findAll(example);
+			if(AppUtil.isEmptyOrNull(objs))
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
+
+			List<DonatorDTO> dtos = new ArrayList<>();
+			objs.forEach(obj->{
+				DonatorDTO dto = new DonatorDTO();
+				dto = modelMapper.map(obj, DonatorDTO.class);
+				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dtos.add(dto);
+			});
+			if(AppUtil.isEmptyOrNull(dtos))
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
+			else 
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
@@ -205,13 +236,13 @@ public class DonationController {
 		try {
 			Donator filterBy = new Donator();
 			User user = requestUtil.getCurrentUser();
-			filterBy.setUserType(user.getUserType());
+			filterBy.setUserId(user.getId());
 	        Example<Donator> example = Example.of(filterBy);
 			List<Donator> donators = donatorService.findAll(example);
 			sb.append("<option data-tokens=''> Nothing Selected </option>");
 			donators.forEach(d -> {
 				if(d!=null && d.getId()!=null)
-					sb.append("<option value='"+d.getName()+"'>"+d.getName()+" - "+d.getfName()+"</option>");
+					sb.append("<option value='"+d.getId()+"'>"+d.getName()+"</option>");
 			});
 		    return sb.toString();
 		} catch (Exception e) {
@@ -223,21 +254,32 @@ public class DonationController {
 
 	@RequestMapping(value = "/addDonator", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse addDonator(@Validated final DonatorDTO donatorDTO, final HttpServletRequest request) {
+	public GenericResponse addDonator(@Validated final DonatorDTO dto, final HttpServletRequest request) {
 		try {
 			User user = requestUtil.getCurrentUser();
-			Donator donator = new Donator(user.getId(),user.getUserType(),donatorDTO.getName());
-			Example<Donator> example = Example.of(donator);
-			if(donatorService.exists(example)) {
-				return new GenericResponse("FOUND",messages.getMessage(donatorDTO.getName()+" already exist", null, request.getLocale()));
+			LocalDateTime dated = LocalDateTime.now();
+			Donator obj = new Donator();
+			obj.setUserId(user.getId());
+			obj.setName(dto.getName());
+			Example<Donator> example = Example.of(obj);
+			if(AppUtil.isEmptyOrNull(dto.getId()) && donatorService.exists(example))
+				return new GenericResponse("FOUND",messages.getMessage("The Donator "+dto.getName()+" already exist", null, request.getLocale()));
+
+			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
+				obj = donatorService.getOne(dto.getId());
+				dated = obj.getDated();
 			}
-			donatorDTO.setUserId(user.getId());
-			donatorDTO.setUserType(user.getUserType());
-			donator = modelMapper.map(donatorDTO, Donator.class);
-			donator.setDated(AppUtil.todayDateStr());
-			Donator donatorTemp = donatorService.save(donator);
-			if(donatorTemp.getId()>0) {
-				return new GenericResponse("SUCCESS",donatorTemp);
+			obj  = modelMapper.map(dto, Donator.class);
+			obj.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId()))
+				obj.setDated(dated);
+			else
+				obj.setDated(dated);
+			obj.setUpdated(dated);
+			
+			obj = donatorService.save(obj);
+			if(AppUtil.isEmptyOrNull(obj)) {
+				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				LOGGER.warn("Your donator can't be added, Please contact with your Admin");
 				return new GenericResponse("FAILED",messages.getMessage("Your donator can't be added, Please contact with your Admin", null, request.getLocale()));
@@ -251,26 +293,37 @@ public class DonationController {
 	
 	@RequestMapping(value = "/addDonation", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse addDonation(@Validated final DonationDTO donationDTO, final HttpServletRequest request) {
+	public GenericResponse addDonation(@Validated final DonationDTO dto, final HttpServletRequest request) {
 		try {
-			Donation donation = new Donation();
 			User user = requestUtil.getCurrentUser();
-			donationDTO.setUserId(user.getId());
-			donationDTO.setUserType(user.getUserType());
-			donation = modelMapper.map(donationDTO, Donation.class);
-			donation.setDated(AppUtil.todayDateStr());
-			if(donation.getId()!=null && donation.getId()>0) {
-				Example<Donation> example = Example.of(donation);
-				if(donationService.exists(example)) {
-					return new GenericResponse("FOUND",messages.getMessage("Same donation same day does not allowed", null, request.getLocale()));
-				}
+			Donation obj = new Donation();
+			
+			LocalDateTime dated = LocalDateTime.now();
+
+			if(!AppUtil.isEmptyOrNull(dto.getId())) {
+				obj = donationService.getOne(dto.getId());
+				if(!AppUtil.isEmptyOrNull(obj.getDated()))
+					dated = obj.getDated();
 			}
-			Donation companyTemp = donationService.save(donation);
-			if(companyTemp.getId()>0) {
-				return new GenericResponse("SUCCESS",companyTemp);
+			obj  = modelMapper.map(dto, Donation.class);
+			if(!AppUtil.isEmptyOrNull(dto.getId()))
+				obj.setId(dto.getId());
+
+			obj.setUserId(user.getId());
+			Donator donator = donatorService.getOne(dto.getDonatorId());
+			obj.setDonator(donator);
+			if(AppUtil.isEmptyOrNull(dto.getId()))
+				obj.setDated(dated);
+			else
+				obj.setDated(dated);
+			obj.setUpdated(dated);
+			
+			obj = donationService.save(obj);
+			if(AppUtil.isEmptyOrNull(obj)) {
+				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
-				return new GenericResponse("FAILED",messages.getMessage("Your donator can't be added, Please contact with your Admin", null, request.getLocale()));
-			}
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+			}	
 		} catch (Exception e) {
 			LOGGER.error(e.getClass().getName()+" : "+e.getMessage());
 			return new GenericResponse("ERROR",messages.getMessage("There is system erro, Please try again lator or contact with System Admin", null, request.getLocale()),

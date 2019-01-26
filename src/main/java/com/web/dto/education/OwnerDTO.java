@@ -6,7 +6,7 @@ import com.validation.ValidEmail;
 import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
 
-public class SchoolOwnerDTO implements Serializable {
+public class OwnerDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@ValidateEmpty
@@ -27,7 +27,11 @@ public class SchoolOwnerDTO implements Serializable {
 	@ValidateEmpty
 	private String address;
 
-	private String dated;
+	private String datedStr;
+
+	private String updatedStr;
+
+	private String status;
 
 	/**
 	 * @return the name
@@ -128,17 +132,31 @@ public class SchoolOwnerDTO implements Serializable {
 	}
 
 	/**
-	 * @return the dated
+	 * @return the datedStr
 	 */
-	public String getDated() {
-		return dated;
+	public String getDatedStr() {
+		return datedStr;
 	}
 
 	/**
-	 * @param dated the dated to set
+	 * @param datedStr the datedStr to set
 	 */
-	public void setDated(String dated) {
-		this.dated = dated;
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
+	}
+
+	/**
+	 * @return the updatedStr
+	 */
+	public String getUpdatedStr() {
+		return updatedStr;
+	}
+
+	/**
+	 * @param updatedStr the updatedStr to set
+	 */
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
 	}
 
 	/**
@@ -146,6 +164,20 @@ public class SchoolOwnerDTO implements Serializable {
 	 */
 	public static long getSerialversionuid() {
 		return serialVersionUID;
+	}
+
+	/**
+	 * @return the status
+	 */
+	public String getStatus() {
+		return status;
+	}
+
+	/**
+	 * @param status the status to set
+	 */
+	public void setStatus(String status) {
+		this.status = status;
 	}
 
 }

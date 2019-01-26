@@ -1,70 +1,79 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Set;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
+import javax.persistence.ManyToMany;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
-
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
 @Entity
-@Table(
-        name = "grade",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "name")
-        }
-)
+@Table(name = "grade", uniqueConstraints = { @UniqueConstraint(columnNames = "name") })
 
 public class Grade implements Serializable {
 	private static final long serialVersionUID = 1L;
-	
+
 	@Column(name = "name", unique = true, nullable = false)
 	private String name;
 
 	@Id
-    @GeneratedValue(strategy=GenerationType.AUTO)
-    @Column(name="grade_id", unique = true, nullable = false)
+	@GeneratedValue(strategy = GenerationType.AUTO)
+	@Column(name = "grade_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name="user_id")
+	@Column(name = "user_id")
 	private Long userId;
 
 	private String code;
 
-	private String dated;
+//	@Temporal(TemporalType.TIMESTAMP)
+	private LocalDateTime dated;
+
+//	@Temporal(TemporalType.TIMESTAMP)
+	private LocalDateTime updated;
 	
 	private String section;
+
+	@Column(name = "time_from")
+//	@Temporal(TemporalType.TIME)
+	private LocalTime timeFrom;
+
+	@Column(name = "time_to")
+//	@Temporal(TemporalType.TIME)
+	private LocalTime timeTo;
 	
-	@Column(name="time_from")
-	private String timeFrom;
-	
-	@Column(name="time_to")
-	private String timeTo;
-	
-	//bi-directional many-to-one association to School
-	@ManyToOne(optional = false)
-	@JoinColumn(name="school_id")
+	private String status;
+
+	// bi-directional many-to-one association to School
+	@ManyToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "school_id")
 	private School school;
 
+	@ManyToMany(mappedBy = "grades")
+	private Set<Staff> staffs;
+
 	private Long room;
-	
+
 	/**
 	 * @return the name
 	 */
 	public String getName() {
 		return name;
 	}
-
 
 	/**
 	 * @param name the name to set
@@ -73,14 +82,12 @@ public class Grade implements Serializable {
 		this.name = name;
 	}
 
-
 	/**
 	 * @return the id
 	 */
 	public Long getId() {
 		return id;
 	}
-
 
 	/**
 	 * @param id the id to set
@@ -89,14 +96,12 @@ public class Grade implements Serializable {
 		this.id = id;
 	}
 
-
 	/**
 	 * @return the userId
 	 */
 	public Long getUserId() {
 		return userId;
 	}
-
 
 	/**
 	 * @param userId the userId to set
@@ -105,14 +110,12 @@ public class Grade implements Serializable {
 		this.userId = userId;
 	}
 
-
 	/**
 	 * @return the code
 	 */
 	public String getCode() {
 		return code;
 	}
-
 
 	/**
 	 * @param code the code to set
@@ -121,30 +124,12 @@ public class Grade implements Serializable {
 		this.code = code;
 	}
 
-
-	/**
-	 * @return the dated
-	 */
-	public String getDated() {
-		return dated;
-	}
-
-
-	/**
-	 * @param dated the dated to set
-	 */
-	public void setDated(String dated) {
-		this.dated = dated;
-	}
-
-
 	/**
 	 * @return the section
 	 */
 	public String getSection() {
 		return section;
 	}
-
 
 	/**
 	 * @param section the section to set
@@ -153,35 +138,31 @@ public class Grade implements Serializable {
 		this.section = section;
 	}
 
-
 	/**
 	 * @return the timeFrom
 	 */
-	public String getTimeFrom() {
+	public LocalTime getTimeFrom() {
 		return timeFrom;
 	}
-
 
 	/**
 	 * @param timeFrom the timeFrom to set
 	 */
-	public void setTimeFrom(String timeFrom) {
+	public void setTimeFrom(LocalTime timeFrom) {
 		this.timeFrom = timeFrom;
 	}
-
 
 	/**
 	 * @return the timeTo
 	 */
-	public String getTimeTo() {
+	public LocalTime getTimeTo() {
 		return timeTo;
 	}
-
 
 	/**
 	 * @param timeTo the timeTo to set
 	 */
-	public void setTimeTo(String timeTo) {
+	public void setTimeTo(LocalTime timeTo) {
 		this.timeTo = timeTo;
 	}
 
@@ -192,14 +173,12 @@ public class Grade implements Serializable {
 		return room;
 	}
 
-
 	/**
 	 * @param room the room to set
 	 */
 	public void setRoom(Long room) {
 		this.room = room;
 	}
-
 
 	/**
 	 * @return the school
@@ -208,7 +187,6 @@ public class Grade implements Serializable {
 		return school;
 	}
 
-
 	/**
 	 * @param school the school to set
 	 */
@@ -216,12 +194,67 @@ public class Grade implements Serializable {
 		this.school = school;
 	}
 
+	/**
+	 * @return the staffs
+	 */
+	public Set<Staff> getStaffs() {
+		return staffs;
+	}
+
+	/**
+	 * @param staffs the staffs to set
+	 */
+	public void setStaffs(Set<Staff> staffs) {
+		this.staffs = staffs;
+	}
 
 	/**
 	 * @return the serialversionuid
 	 */
 	public static long getSerialversionuid() {
 		return serialVersionUID;
+	}
+
+	/**
+	 * @return the status
+	 */
+	public String getStatus() {
+		return status;
+	}
+
+	/**
+	 * @param status the status to set
+	 */
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	/**
+	 * @return the dated
+	 */
+	public LocalDateTime getDated() {
+		return dated;
+	}
+
+	/**
+	 * @param dated the dated to set
+	 */
+	public void setDated(LocalDateTime dated) {
+		this.dated = dated;
+	}
+
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
 	}
 
 }

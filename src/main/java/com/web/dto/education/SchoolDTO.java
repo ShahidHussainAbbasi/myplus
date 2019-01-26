@@ -10,7 +10,6 @@ import com.validation.ValidateEmpty;
 public class SchoolDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	@ValidateEmpty
 	private String name;
 
 	private Long id;
@@ -30,14 +29,19 @@ public class SchoolDTO implements Serializable {
 	@ValidateEmpty
 	private String address;
 
+	@ValidateEmpty
 	private String branchName;
 
-	private String dated;
+	private String datedStr;
+
+	private String updatedStr;
 
 	@ValidateEmpty
 	private Set<Long> ownerIds;
 
 	private Set<String> ownerNames;
+
+	private String status;
 
 	/**
 	 * @return the name
@@ -151,7 +155,6 @@ public class SchoolDTO implements Serializable {
 		this.ownerIds = ownerIds;
 	}
 
-
 	/**
 	 * @return the ownerNames
 	 */
@@ -181,17 +184,31 @@ public class SchoolDTO implements Serializable {
 	}
 
 	/**
-	 * @return the dated
+	 * @return the datedStr
 	 */
-	public String getDated() {
-		return dated;
+	public String getDatedStr() {
+		return datedStr;
 	}
 
 	/**
-	 * @param dated the dated to set
+	 * @param datedStr the datedStr to set
 	 */
-	public void setDated(String dated) {
-		this.dated = dated;
+	public void setDatedStr(String datedStr) {
+		this.datedStr = datedStr;
+	}
+
+	/**
+	 * @return the updatedStr
+	 */
+	public String getUpdatedStr() {
+		return updatedStr;
+	}
+
+	/**
+	 * @param updatedStr the updatedStr to set
+	 */
+	public void setUpdatedStr(String updatedStr) {
+		this.updatedStr = updatedStr;
 	}
 
 	/**
@@ -206,6 +223,20 @@ public class SchoolDTO implements Serializable {
 	 */
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	/**
+	 * @return the status
+	 */
+	public String getStatus() {
+		return status;
+	}
+
+	/**
+	 * @param status the status to set
+	 */
+	public void setStatus(String status) {
+		this.status = status;
 	}
 
 	/**

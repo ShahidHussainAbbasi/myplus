@@ -1,41 +1,36 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.Set;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
-
 /**
  * The persistent class for the doctor database table.
  * 
  */
 @Entity
-@Table(
-        name = "guardian"
-)
+@Table(name = "guardian")
 
 public class Guardian implements Serializable {
 	private static final long serialVersionUID = 1L;
-	
-	
+
 	@Id
-    @GeneratedValue(strategy=GenerationType.AUTO)
-    @Column(name="gaurdian_id", unique = true, nullable = false)
+	@GeneratedValue(strategy = GenerationType.AUTO)
+	@Column(name = "guardian_id", unique = true, nullable = false)
 	private Long id;
 
 	@Column(name = "name", nullable = false)
 	private String name;
 
-	@Column(name="user_id")
+	@Column(name = "user_id")
 	private Long userId;
 
 	private String email;
@@ -44,32 +39,36 @@ public class Guardian implements Serializable {
 
 	private String phone;
 
-	@Column(name="temp_address")
+	@Column(name = "temp_address")
 	private String tempAddress;
 
-	@Column(name="perm_address")
+	@Column(name = "perm_address")
 	private String permAddress;
 
 	private String gender;
-	
-	private String relation;
-	
-	private String occupation;
-	
-	private String dated;
-	
-	//bi-directional many-to-one association to Appointment
-	@OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
-	private List<Student> students;
 
-	
+	private String relation;
+
+	private String occupation;
+
+//	@Temporal(TemporalType.TIMESTAMP)
+	private LocalDateTime dated;
+
+//	@Temporal(TemporalType.TIMESTAMP)
+	private LocalDateTime updated;
+
+	private String status;
+
+	// bi-directional many-to-one association to Appointment
+	@OneToMany(mappedBy = "guardian")
+	private Set<Student> students;
+
 	/**
 	 * @return the id
 	 */
 	public Long getId() {
 		return id;
 	}
-
 
 	/**
 	 * @param id the id to set
@@ -78,14 +77,12 @@ public class Guardian implements Serializable {
 		this.id = id;
 	}
 
-
 	/**
 	 * @return the name
 	 */
 	public String getName() {
 		return name;
 	}
-
 
 	/**
 	 * @param name the name to set
@@ -94,14 +91,12 @@ public class Guardian implements Serializable {
 		this.name = name;
 	}
 
-
 	/**
 	 * @return the userId
 	 */
 	public Long getUserId() {
 		return userId;
 	}
-
 
 	/**
 	 * @param userId the userId to set
@@ -110,14 +105,12 @@ public class Guardian implements Serializable {
 		this.userId = userId;
 	}
 
-
 	/**
 	 * @return the email
 	 */
 	public String getEmail() {
 		return email;
 	}
-
 
 	/**
 	 * @param email the email to set
@@ -126,14 +119,12 @@ public class Guardian implements Serializable {
 		this.email = email;
 	}
 
-
 	/**
 	 * @return the mobile
 	 */
 	public String getMobile() {
 		return mobile;
 	}
-
 
 	/**
 	 * @param mobile the mobile to set
@@ -142,14 +133,12 @@ public class Guardian implements Serializable {
 		this.mobile = mobile;
 	}
 
-
 	/**
 	 * @return the phone
 	 */
 	public String getPhone() {
 		return phone;
 	}
-
 
 	/**
 	 * @param phone the phone to set
@@ -158,14 +147,12 @@ public class Guardian implements Serializable {
 		this.phone = phone;
 	}
 
-
 	/**
 	 * @return the tempAddress
 	 */
 	public String getTempAddress() {
 		return tempAddress;
 	}
-
 
 	/**
 	 * @param tempAddress the tempAddress to set
@@ -174,14 +161,12 @@ public class Guardian implements Serializable {
 		this.tempAddress = tempAddress;
 	}
 
-
 	/**
 	 * @return the permAddress
 	 */
 	public String getPermAddress() {
 		return permAddress;
 	}
-
 
 	/**
 	 * @param permAddress the permAddress to set
@@ -197,7 +182,6 @@ public class Guardian implements Serializable {
 		return relation;
 	}
 
-
 	/**
 	 * @param relation the relation to set
 	 */
@@ -205,46 +189,54 @@ public class Guardian implements Serializable {
 		this.relation = relation;
 	}
 
-
 	/**
 	 * @return the dated
 	 */
-	public String getDated() {
+	public LocalDateTime getDated() {
 		return dated;
 	}
-
 
 	/**
 	 * @param dated the dated to set
 	 */
-	public void setDated(String dated) {
+	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
 	}
 
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
+	}
 
 	/**
 	 * @return the students
 	 */
-	public List<Student> getStudents() {
+	public Set<Student> getStudents() {
 		return students;
 	}
-
 
 	/**
 	 * @param students the students to set
 	 */
-	public void setStudents(List<Student> students) {
+	public void setStudents(Set<Student> students) {
 		this.students = students;
 	}
 
-	
 	/**
 	 * @return the gender
 	 */
 	public String getGender() {
 		return gender;
 	}
-
 
 	/**
 	 * @param gender the gender to set
@@ -253,14 +245,12 @@ public class Guardian implements Serializable {
 		this.gender = gender;
 	}
 
-
 	/**
 	 * @return the occupation
 	 */
 	public String getOccupation() {
 		return occupation;
 	}
-
 
 	/**
 	 * @param occupation the occupation to set
@@ -269,6 +259,19 @@ public class Guardian implements Serializable {
 		this.occupation = occupation;
 	}
 
+	/**
+	 * @return the status
+	 */
+	public String getStatus() {
+		return status;
+	}
+
+	/**
+	 * @param status the status to set
+	 */
+	public void setStatus(String status) {
+		this.status = status;
+	}
 
 	/**
 	 * @return the serialversionuid
@@ -276,6 +279,5 @@ public class Guardian implements Serializable {
 	public static long getSerialversionuid() {
 		return serialVersionUID;
 	}
-
 
 }

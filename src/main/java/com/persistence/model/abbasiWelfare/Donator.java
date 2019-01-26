@@ -3,6 +3,8 @@
  */
 package com.persistence.model.abbasiWelfare;
 
+import java.time.LocalDateTime;
+
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -27,9 +29,10 @@ public class Donator {
 	private String mobile = null;
 	private String fName = null;
 	private String address = null;
-	private Double amount = null;
+	private Float amount = null;
 	private String receivedBy = null;
-	private String dated = null;
+	private LocalDateTime dated;
+	private LocalDateTime updated;
 	private Boolean showMe = null;
 
 	public Donator(Long id2, String userType2, String name2) {
@@ -96,10 +99,10 @@ public class Donator {
 	public void setAddress(String address) {
 		this.address = address;
 	}
-	public Double getAmount() {
+	public Float getAmount() {
 		return amount;
 	}
-	public void setAmount(Double amount) {
+	public void setAmount(Float amount) {
 		this.amount = amount;
 	}
 	public String getReceivedBy() {
@@ -108,10 +111,10 @@ public class Donator {
 	public void setReceivedBy(String receivedBy) {
 		this.receivedBy = receivedBy;
 	}
-	public String getDated() {
+	public LocalDateTime getDated() {
 		return dated;
 	}
-	public void setDated(String dated) {
+	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
 	}
 	/**
@@ -125,6 +128,27 @@ public class Donator {
 	 */
 	public void setShowMe(Boolean showMe) {
 		this.showMe = showMe;
+	}
+
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
+	}
+
+	/**
+	 * @return the showMe
+	 */
+	public Boolean getShowMe() {
+		return showMe;
 	}
 
 }

@@ -4,16 +4,22 @@
 package com.persistence.Repo.education;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.QueryByExampleExecutor;
 
-import com.persistence.model.education.SchoolOwner;
+import com.persistence.model.education.Owner;
 
 /**
  * @author sabbasi
  *
  */
-public interface SchoolOwnerRepo extends JpaRepository<SchoolOwner, Long>,QueryByExampleExecutor<SchoolOwner> {
+public interface OwnerRepo extends JpaRepository<Owner, Long>,QueryByExampleExecutor<Owner> {
 	
+	@Modifying
+	@Query(value = "update owner o set o.status = ? where o.owner_id = ?", nativeQuery = true)
+	int updateStatus(String status, String id);
+
 	
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "
 //    		+ "p.mobile = :mobile AND a.FK_patient_id = p.patient_id",nativeQuery=true)

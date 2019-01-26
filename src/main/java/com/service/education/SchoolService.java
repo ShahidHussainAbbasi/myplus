@@ -169,6 +169,12 @@ public class SchoolService implements ISchoolService {
 		return schoolRepo.exists(example);
 	}
 
+	@Override
+	public int updateStatus(String status, String id) {
+		// TODO Auto-generated method stub
+		return schoolRepo.updateStatus(status, id);
+	}
+
 
     
 }
