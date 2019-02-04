@@ -15,7 +15,7 @@ public class ItemDTO implements Serializable {
 
 	private Long id;
 
-	private Long itemCode;
+	private String code;
 
 	private Long userId;
 
@@ -32,7 +32,6 @@ public class ItemDTO implements Serializable {
 
 	private Float discount;
 
-	@ValidateEmpty
 	private Float net;
 
 	private String description;
@@ -41,18 +40,22 @@ public class ItemDTO implements Serializable {
 
 	private String companyName;
 
-	private Set<Long> venderIds;
+	private Long venderId;
 
-	private Set<String> venderNames;
+	private String venderName;
 
-	@ValidateEmpty
+//	@ValidateEmpty
 	private Set<Long> itemUnitIds;
+	private Long itemUnitId;
 
 	private Set<String> itemUnitNames;
+	private String itemUnitName;
 
-	@ValidateEmpty
+//	@ValidateEmpty
 	private Set<Long> itemTypeIds;
+	private Long itemTypeId;
 
+	private String itemTypeName;
 	private Set<String> itemTypeNames;
 
 	private String datedStr;
@@ -73,17 +76,17 @@ public class ItemDTO implements Serializable {
 	}
 
 	/**
-	 * @return the itemCode
+	 * @return the code
 	 */
-	public Long getItemCode() {
-		return itemCode;
+	public String getCode() {
+		return code;
 	}
 
 	/**
-	 * @param itemCode the itemCode to set
+	 * @param code the code to set
 	 */
-	public void setItemCode(Long itemCode) {
-		this.itemCode = itemCode;
+	public void setCode(String code) {
+		this.code = code;
 	}
 
 	/**
@@ -227,31 +230,31 @@ public class ItemDTO implements Serializable {
 	}
 
 	/**
-	 * @return the venderIds
+	 * @return the venderId
 	 */
-	public Set<Long> getVenderIds() {
-		return venderIds;
+	public Long getVenderId() {
+		return venderId;
 	}
 
 	/**
-	 * @param venderIds the venderIds to set
+	 * @param venderId the venderId to set
 	 */
-	public void setVenderIds(Set<Long> venderIds) {
-		this.venderIds = venderIds;
+	public void setVenderId(Long venderId) {
+		this.venderId = venderId;
 	}
 
 	/**
-	 * @return the venderNames
+	 * @return the venderName
 	 */
-	public Set<String> getVenderNames() {
-		return venderNames;
+	public String getVenderName() {
+		return venderName;
 	}
 
 	/**
-	 * @param venderNames the venderNames to set
+	 * @param venderName the venderName to set
 	 */
-	public void setVenderNames(Set<String> venderNames) {
-		this.venderNames = venderNames;
+	public void setVenderName(String venderName) {
+		this.venderName = venderName;
 	}
 
 	/**
@@ -308,6 +311,62 @@ public class ItemDTO implements Serializable {
 	 */
 	public void setItemTypeNames(Set<String> itemTypeNames) {
 		this.itemTypeNames = itemTypeNames;
+	}
+
+	/**
+	 * @return the itemUnitId
+	 */
+	public Long getItemUnitId() {
+		return itemUnitId;
+	}
+
+	/**
+	 * @param itemUnitId the itemUnitId to set
+	 */
+	public void setItemUnitId(Long itemUnitId) {
+		this.itemUnitId = itemUnitId;
+	}
+
+	/**
+	 * @return the itemUnitName
+	 */
+	public String getItemUnitName() {
+		return itemUnitName;
+	}
+
+	/**
+	 * @param itemUnitName the itemUnitName to set
+	 */
+	public void setItemUnitName(String itemUnitName) {
+		this.itemUnitName = itemUnitName;
+	}
+
+	/**
+	 * @return the itemTypeId
+	 */
+	public Long getItemTypeId() {
+		return itemTypeId;
+	}
+
+	/**
+	 * @param itemTypeId the itemTypeId to set
+	 */
+	public void setItemTypeId(Long itemTypeId) {
+		this.itemTypeId = itemTypeId;
+	}
+
+	/**
+	 * @return the itemTypeName
+	 */
+	public String getItemTypeName() {
+		return itemTypeName;
+	}
+
+	/**
+	 * @param itemTypeName the itemTypeName to set
+	 */
+	public void setItemTypeName(String itemTypeName) {
+		this.itemTypeName = itemTypeName;
 	}
 
 	/**

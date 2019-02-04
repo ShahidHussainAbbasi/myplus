@@ -37,123 +37,146 @@ public class VenderService implements IVenderService {
 		// TODO Auto-generated method stub
 		return venderRepo.findAll();
 	}
+
 	@Override
 	public List<Vender> findAll(Sort sort) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.findAll(sort);
 	}
+
 	@Override
 	public List<Vender> findAllById(Iterable<Long> ids) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.findAllById(ids);
 	}
+
 	@Override
 	public <S extends Vender> List<S> saveAll(Iterable<S> entities) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.saveAll(entities);
 	}
+
 	@Override
 	public void flush() {
 		// TODO Auto-generated method stub
-		
+		venderRepo.flush();
 	}
+
 	@Override
 	public <S extends Vender> S saveAndFlush(S entity) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.saveAndFlush(entity);
 	}
+
 	@Override
 	public void deleteInBatch(Iterable<Vender> entities) {
 		// TODO Auto-generated method stub
-		
+		venderRepo.deleteInBatch(entities);
 	}
+
 	@Override
 	public void deleteAllInBatch() {
 		// TODO Auto-generated method stub
-		
+		venderRepo.deleteAllInBatch();
 	}
+
 	@Override
 	public Vender getOne(Long id) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.getOne(id);
 	}
+
 	@Override
 	public <S extends Vender> List<S> findAll(Example<S> example) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.findAll(example);
 	}
+
 	@Override
 	public <S extends Vender> List<S> findAll(Example<S> example, Sort sort) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.findAll(example,sort);
 	}
+
 	@Override
 	public Page<Vender> findAll(Pageable pageable) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.findAll(pageable);
 	}
+
 	@Override
 	public <S extends Vender> S save(S entity) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.save(entity);
 	}
+
 	@Override
 	public Optional<Vender> findById(Long id) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.findById(id);
 	}
+
 	@Override
 	public boolean existsById(Long id) {
 		// TODO Auto-generated method stub
-		return false;
+		return venderRepo.existsById(id);
 	}
+
 	@Override
 	public long count() {
 		// TODO Auto-generated method stub
-		return 0;
+		return venderRepo.count();
 	}
+
 	@Override
 	public void deleteById(Long id) {
 		// TODO Auto-generated method stub
+		venderRepo.deleteById(id);
 		
 	}
+
 	@Override
 	public void delete(Vender entity) {
 		// TODO Auto-generated method stub
+		venderRepo.delete(entity);
 		
 	}
+
 	@Override
 	public void deleteAll(Iterable<? extends Vender> entities) {
 		// TODO Auto-generated method stub
-		
+		venderRepo.deleteAll(entities);
 	}
+
 	@Override
 	public void deleteAll() {
 		// TODO Auto-generated method stub
-		
+		venderRepo.deleteAll();
 	}
+
 	@Override
 	public <S extends Vender> Optional<S> findOne(Example<S> example) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.findOne(example);
 	}
+
 	@Override
 	public <S extends Vender> Page<S> findAll(Example<S> example, Pageable pageable) {
 		// TODO Auto-generated method stub
-		return null;
+		return venderRepo.findAll(example, pageable);
 	}
+
 	@Override
 	public <S extends Vender> long count(Example<S> example) {
 		// TODO Auto-generated method stub
-		return 0;
+		return venderRepo.count(example);
 	}
+
 	@Override
 	public <S extends Vender> boolean exists(Example<S> example) {
 		// TODO Auto-generated method stub
-		return false;
+		return venderRepo.exists(example);
 	}
-
-    // API
 
 
 }

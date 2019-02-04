@@ -72,3 +72,8 @@ body {
 .bgrnd-clr{
 	background-color: #90caf9;
 }
+.formDiv {
+  padding: 2em;
+  color: black;
+  display: none;
+}

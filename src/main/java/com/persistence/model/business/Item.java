@@ -2,20 +2,19 @@ package com.persistence.model.business;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 
 import javax.persistence.Column;
+import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
-import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
 
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
@@ -25,7 +24,7 @@ import org.hibernate.annotations.NotFoundAction;
  * 
  */
 @Entity
-@Table(name = "item", uniqueConstraints = { @UniqueConstraint(columnNames = "item_id") })
+@Table(name = "item")
 public class Item implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -33,6 +32,8 @@ public class Item implements Serializable {
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "item_id", unique = true, nullable = false)
 	private Long id;
+
+	private String code;
 
 	@Column(name = "user_id")
 	private Long userId;
@@ -54,24 +55,41 @@ public class Item implements Serializable {
 
 	private String description;
 
-	@OneToMany(orphanRemoval = false)
+//	@OneToMany(cascade= CascadeType.REFRESH)
+//	@NotFound(action = NotFoundAction.IGNORE)
+	@ElementCollection
+//	@CollectionTable(name ="tracks" , joinColumns=@JoinColumn(name="playlist_id"))
+//	@Column(name="track")
+//	private Set<Long> itemUnitIds = new HashSet<>();
+	@OneToOne(fetch = FetchType.EAGER)
 	@NotFound(action = NotFoundAction.IGNORE)
-	private List<ItemUnit> itemUnits;
+	@JoinColumn(name = "item_type_id")
+	private ItemType itemType;
 
-	@OneToMany(orphanRemoval = false)
+//	@OneToMany(orphanRemoval = false)
+//	@NotFound(action = NotFoundAction.IGNORE)
+	@ElementCollection
+//	private Set<Long> itemTypeIds = new HashSet<>();
+
+	@OneToOne(fetch = FetchType.EAGER)
 	@NotFound(action = NotFoundAction.IGNORE)
-	private List<ItemType> itemTypes;
+	@JoinColumn(name = "item_unit_id")
+	private ItemUnit itemUnit;
 
-	@OneToOne(optional = false, fetch = FetchType.LAZY)
+	@OneToOne(fetch = FetchType.EAGER)
 	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinColumn(name = "company_id")
 	private Company company;
 
-	@OneToOne(optional = false)
-	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "vender_id")
-	private List<Vender> venders;
+//	@OneToOne(fetch = FetchType.LAZY)
+//	@NotFound(action = NotFoundAction.IGNORE)
+//	@JoinColumn(name = "vender_id")
+//	@MapsId
+//	@OneToOne(fetch = FetchType.LAZY)
+//	@MapsId
+	private Long venderId;
 
+	@Column(updatable = false)
 	private LocalDateTime dated;
 	private LocalDateTime updated;
 
@@ -87,6 +105,20 @@ public class Item implements Serializable {
 	 */
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	/**
+	 * @return the code
+	 */
+	public String getCode() {
+		return code;
+	}
+
+	/**
+	 * @param code the code to set
+	 */
+	public void setCode(String code) {
+		this.code = code;
 	}
 
 	/**
@@ -200,33 +232,125 @@ public class Item implements Serializable {
 	public void setDescription(String description) {
 		this.description = description;
 	}
+//
+//	/**
+//	 * @return the itemUnits
+//	 */
+//	public List<ItemUnit> getItemUnits() {
+//		return itemUnits;
+//	}
+//
+//	/**
+//	 * @param itemUnits the itemUnits to set
+//	 */
+//	public void setItemUnits(List<ItemUnit> itemUnits) {
+//		this.itemUnits = itemUnits;
+//	}
+//
+//	/**
+//	 * @return the itemTypes
+//	 */
+//	public List<ItemType> getItemTypes() {
+//		return itemTypes;
+//	}
+//
+//	/**
+//	 * @param itemTypes the itemTypes to set
+//	 */
+//	public void setItemTypes(List<ItemType> itemTypes) {
+//		this.itemTypes = itemTypes;
+//	}
+//
+//	/**
+//	 * @return the company
+//	 */
+//	public Company getCompany() {
+//		return company;
+//	}
+//
+//	/**
+//	 * @param company the company to set
+//	 */
+//	public void setCompany(Company company) {
+//		this.company = company;
+//	}
+
+//	/**
+//	 * @return the vender
+//	 */
+//	public Vender getVender() {
+//		return vender;
+//	}
+//
+//	/**
+//	 * @param vender the vender to set
+//	 */
+//	public void setVender(Vender vender) {
+//		this.vender = vender;
+//	}
 
 	/**
-	 * @return the itemUnits
+	 * @return the dated
 	 */
-	public List<ItemUnit> getItemUnits() {
-		return itemUnits;
+	public LocalDateTime getDated() {
+		return dated;
+	}
+
+//	/**
+//	 * @return the itemUnitIds
+//	 */
+//	public Set<Long> getItemUnitIds() {
+//		return itemUnitIds;
+//	}
+//
+//	/**
+//	 * @param itemUnitIds the itemUnitIds to set
+//	 */
+//	public void setItemUnitIds(Set<Long> itemUnitIds) {
+//		this.itemUnitIds = itemUnitIds;
+//	}
+//
+//	/**
+//	 * @return the itemTypeIds
+//	 */
+//	public Set<Long> getItemTypeIds() {
+//		return itemTypeIds;
+//	}
+//
+//	/**
+//	 * @param itemTypeIds the itemTypeIds to set
+//	 */
+//	public void setItemTypeIds(Set<Long> itemTypeIds) {
+//		this.itemTypeIds = itemTypeIds;
+//	}
+//
+
+	/**
+	 * @return the itemType
+	 */
+	public ItemType getItemType() {
+		return itemType;
 	}
 
 	/**
-	 * @param itemUnits the itemUnits to set
+	 * @param itemType the itemType to set
 	 */
-	public void setItemUnits(List<ItemUnit> itemUnits) {
-		this.itemUnits = itemUnits;
+	public void setItemType(ItemType itemType) {
+		this.itemType = itemType;
 	}
 
 	/**
-	 * @return the itemTypes
+	 * @return the itemUnit
 	 */
-	public List<ItemType> getItemTypes() {
-		return itemTypes;
+	public ItemUnit getItemUnit() {
+		return itemUnit;
 	}
 
 	/**
-	 * @param itemTypes the itemTypes to set
+	 * @param itemUnit the itemUnit to set
 	 */
-	public void setItemTypes(List<ItemType> itemTypes) {
-		this.itemTypes = itemTypes;
+	public void setItemUnit(ItemUnit itemUnit) {
+		this.itemUnit = itemUnit;
 	}
 
 	/**
@@ -244,24 +368,17 @@ public class Item implements Serializable {
 	}
 
 	/**
-	 * @return the venders
+	 * @return the venderId
 	 */
-	public List<Vender> getVenders() {
-		return venders;
+	public Long getVenderId() {
+		return venderId;
 	}
 
 	/**
-	 * @param venders the venders to set
+	 * @param venderId the venderId to set
 	 */
-	public void setVenders(List<Vender> venders) {
-		this.venders = venders;
-	}
-
-	/**
-	 * @return the dated
-	 */
-	public LocalDateTime getDated() {
-		return dated;
+	public void setVenderId(Long venderId) {
+		this.venderId = venderId;
 	}
 
 	/**

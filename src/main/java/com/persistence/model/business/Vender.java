@@ -31,7 +31,7 @@ public class Vender implements Serializable {
 	@Column(name = "vender_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	@Column(name = "user_type")

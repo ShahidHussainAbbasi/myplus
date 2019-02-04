@@ -90,7 +90,7 @@ public class VenderController {
 			filterBy.setUserId(user.getId());
 	        Example<Vender> example = Example.of(filterBy);
 			List<Vender> objs = venderService.findAll(example);
-			
+				
 			objs.forEach(d -> {
 				if(d!=null && d.getId()!=null) {
 					sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
@@ -100,8 +100,8 @@ public class VenderController {
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getUserVenders "+e.getCause());			
+			return (sb.append("<option value=''>No Data found</option>")).toString();
 		}
-	    return sb.toString();
 	}
 
 	@RequestMapping(value = "/getAllVender", method = RequestMethod.GET)
@@ -141,17 +141,20 @@ public class VenderController {
 			Vender obj= new Vender();
 			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
+			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
-			obj.setName(dto.getName());
-			Example<Vender> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && venderService.exists(example))
-				return new GenericResponse("FOUND",messages.getMessage("The Vender "+dto.getName()+" already exist", null, request.getLocale()));
+			if(AppUtil.isEmptyOrNull(dto.getId())){
+				obj.setUserId(user.getId());
+				obj.setName(dto.getName());
+				Example<Vender> example = Example.of(obj);
+				if(venderService.exists(example))
+					return new GenericResponse("FOUND",messages.getMessage("The Vender "+dto.getName()+" already exist", null, request.getLocale()));
+			}
 			
 			obj = modelMapper.map(dto, Vender.class);
 			//if it is update
 			if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = venderService.getOne(dto.getId());
-				dated = obj.getDated();
+				obj.setDated(venderService.getOne(dto.getId()).getDated());
 			}else {
 				obj.setDated(dated);
 			}

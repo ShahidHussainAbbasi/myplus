@@ -407,22 +407,21 @@ function getUserOwners(table){
     $("#"+table.toLowerCase()+"OwnerDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserOwners",function(data){
-    	$("#"+table+"OwnerDD").empty().append(data);
+    	$("#"+table.toLowerCase()+"OwnerDD").empty().append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"OwnerDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"OwnerDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 function getUserSchools(table) {	
 	console.log(tableV);
-    $("#"+table+"SchoolDD").empty().append("<option value = ''> Please wait....  </option>");
+    $("#"+table+"SchoolDD").empty().append("<option value = ''> Please Select </option>");
     
     $.get(serverContext+ "getUserSchools",function(data){
-    	console.log(2);
-    	$("#"+table+"SchoolDD").empty().append(data);
+    	$("#"+table.toLowerCase()+"SchoolDD").append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"SchoolDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"SchoolDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
@@ -431,10 +430,10 @@ function getUserStaffs(table){
     $("#"+table.toLowerCase()+"StaffDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserStaffs",function(data){
-    	$("#"+table+"StaffDD").empty().append(data);
+    	$("#"+table.toLowerCase()+"StaffDD").empty().append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"StaffDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"StaffDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
@@ -443,10 +442,10 @@ function getUserGuardians(table){
     $("#"+table.toLowerCase()+"GuardianDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserGuardians",function(data){
-    	$("#"+table+"GuardianDD").empty().append(data);
+    	$("#"+table.toLowerCase()+"GuardianDD").empty().append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"GuardianDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"GuardianDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
@@ -455,11 +454,10 @@ function getUserSubjects(table) {
     $("#"+table+"SubjectDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserSubjects",function(data){
-    	console.log(2);
-    	$("#"+table+"SubjectDD").empty().append(data);
+    	$("#"+table.toLowerCase()+"SubjectDD").empty().append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"SubjectDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"SubjectDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
@@ -467,13 +465,11 @@ function getUserGrades(table) {
 	console.log(tableV);
 
     $("#"+table+"GradeDD").empty().append("<option value = ''> Please wait....  </option>");
-    
     $.get(serverContext+ "getUserGrades",function(data){
-    	console.log(2);
-    	$("#"+table+"GradeDD").empty().append(data);
+    	$("#"+table.toLowerCase()+"GradeDD").empty().append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"GradeDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"GradeDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
@@ -482,11 +478,10 @@ function getUserStudents(table) {
     $("#"+table+"StudentDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserStudents",function(data){
-    	console.log(2);
-    	$("#"+table+"StudentDD").empty().append(data);
+    	$("#"+table.toLowerCase()+"StudentDD").empty().append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"StudentDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"StudentDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
@@ -495,10 +490,10 @@ function getUserVehicles(table){
     $("#"+table.toLowerCase()+"VehicleDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserVehicles",function(data){
-    	$("#"+table+"VehicleDD").empty().append(data);
+    	$("#"+table.toLowerCase()+"VehicleDD").empty().append(data);
     })
 	.fail(function(data) {
-		$("#"+table+"VehicleDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"VehicleDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 

@@ -2,6 +2,7 @@ package com.web.dto.business;
 
 import java.io.Serializable;
 
+import com.validation.ValidEmail;
 import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
 
@@ -18,14 +19,16 @@ public class CompanyDTO implements Serializable {
 	private String userType;
 	@ValidateEmpty
 	private String name;
-	private String nameSub;
 	private String brands;
-	@ValidMobileNumber
+//	@ValidMobileNumber
 	private String mobile;
+	@ValidateEmpty
 	private String phone;
 	@ValidateEmpty
 	private String address;
-	private String description;
+//	private String website;
+	@ValidEmail
+	private String email;
 	private String datedStr;
 	private String updatedStr;
 
@@ -85,33 +88,6 @@ public class CompanyDTO implements Serializable {
 		this.name = name;
 	}
 
-	/**
-	 * @return the nameSub
-	 */
-	public String getNameSub() {
-		return nameSub;
-	}
-
-	/**
-	 * @param nameSub the nameSub to set
-	 */
-	public void setNameSub(String nameSub) {
-		this.nameSub = nameSub;
-	}
-
-	/**
-	 * @return the description
-	 */
-	public String getDescription() {
-		return description;
-	}
-
-	/**
-	 * @param description the description to set
-	 */
-	public void setDescription(String description) {
-		this.description = description;
-	}
 
 	/**
 	 * @return the brands
@@ -170,6 +146,20 @@ public class CompanyDTO implements Serializable {
 	}
 
 	/**
+	 * @return the email
+	 */
+	public String getEmail() {
+		return email;
+	}
+
+	/**
+	 * @param email the email to set
+	 */
+	public void setEmail(String email) {
+		this.email = email;
+	}
+
+	/**
 	 * @return the datedStr
 	 */
 	public String getDatedStr() {
@@ -211,7 +201,7 @@ public class CompanyDTO implements Serializable {
 	 */
 	@Override
 	public String toString() {
-		return "OwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", brands=" + brands
+		return "OwnerDTO [id=" + id + ", name=" + name + ", email=" + email + ", brands=" + brands
 				+ ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", datedStr=" + datedStr + "]";
 	}
 

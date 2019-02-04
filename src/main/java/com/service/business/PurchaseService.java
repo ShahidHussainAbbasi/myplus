@@ -12,164 +12,164 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import com.persistence.Repo.business.ItemRepo;
-import com.persistence.model.business.Item;
+import com.persistence.Repo.business.PurchaseRepo;
+import com.persistence.model.business.Purchase;
 import com.service.UserService;
 
 @Service
 @Transactional
-public class PurchaseService implements IItemService {
+public class PurchaseService implements IPurchaseService{
 
     @Autowired
     UserService userService;
     
     @Autowired
-    ItemRepo itemRepo;
+    PurchaseRepo purchaseRepo;
 
 	@Override
-	public List<Item> findAll() {
+	public List<Purchase> findAll() {
 		// TODO Auto-generated method stub
-		return itemRepo.findAll();
+		return purchaseRepo.findAll();
 	}
 
 	@Override
-	public List<Item> findAll(Sort sort) {
+	public List<Purchase> findAll(Sort sort) {
 		// TODO Auto-generated method stub
-		return itemRepo.findAll(sort);
+		return purchaseRepo.findAll(sort);
 	}
 
 	@Override
-	public List<Item> findAllById(Iterable<Long> ids) {
+	public List<Purchase> findAllById(Iterable<Long> ids) {
 		// TODO Auto-generated method stub
-		return itemRepo.findAllById(ids);
+		return purchaseRepo.findAllById(ids);
 	}
 
 	@Override
-	public <S extends Item> List<S> saveAll(Iterable<S> entities) {
+	public <S extends Purchase> List<S> saveAll(Iterable<S> entities) {
 		// TODO Auto-generated method stub
-		return itemRepo.saveAll(entities);
+		return purchaseRepo.saveAll(entities);
 	}
 
 	@Override
 	public void flush() {
 		// TODO Auto-generated method stub
-		itemRepo.flush();
+		purchaseRepo.flush();
 	}
 
 	@Override
-	public <S extends Item> S saveAndFlush(S entity) {
+	public <S extends Purchase> S saveAndFlush(S entity) {
 		// TODO Auto-generated method stub
-		return itemRepo.saveAndFlush(entity);
+		return purchaseRepo.saveAndFlush(entity);
 	}
 
 	@Override
-	public void deleteInBatch(Iterable<Item> entities) {
+	public void deleteInBatch(Iterable<Purchase> entities) {
 		// TODO Auto-generated method stub
-		itemRepo.deleteInBatch(entities);
+		purchaseRepo.deleteInBatch(entities);
 	}
 
 	@Override
 	public void deleteAllInBatch() {
 		// TODO Auto-generated method stub
-		itemRepo.deleteAllInBatch();
+		purchaseRepo.deleteAllInBatch();
 	}
 
 	@Override
-	public Item getOne(Long id) {
+	public Purchase getOne(Long id) {
 		// TODO Auto-generated method stub
-		return itemRepo.getOne(id);
+		return purchaseRepo.getOne(id);
 	}
 
 	@Override
-	public <S extends Item> List<S> findAll(Example<S> example) {
+	public <S extends Purchase> List<S> findAll(Example<S> example) {
 		// TODO Auto-generated method stub
-		return itemRepo.findAll(example);
+		return purchaseRepo.findAll(example);
 	}
 
 	@Override
-	public <S extends Item> List<S> findAll(Example<S> example, Sort sort) {
+	public <S extends Purchase> List<S> findAll(Example<S> example, Sort sort) {
 		// TODO Auto-generated method stub
-		return itemRepo.findAll(example,sort);
+		return purchaseRepo.findAll(example,sort);
 	}
 
 	@Override
-	public Page<Item> findAll(Pageable pageable) {
+	public Page<Purchase> findAll(Pageable pageable) {
 		// TODO Auto-generated method stub
-		return itemRepo.findAll(pageable);
+		return purchaseRepo.findAll(pageable);
 	}
 
 	@Override
-	public <S extends Item> S save(S entity) {
+	public <S extends Purchase> S save(S entity) {
 		// TODO Auto-generated method stub
-		return itemRepo.save(entity);
+		return purchaseRepo.save(entity);
 	}
 
 	@Override
-	public Optional<Item> findById(Long id) {
+	public Optional<Purchase> findById(Long id) {
 		// TODO Auto-generated method stub
-		return itemRepo.findById(id);
+		return purchaseRepo.findById(id);
 	}
 
 	@Override
 	public boolean existsById(Long id) {
 		// TODO Auto-generated method stub
-		return itemRepo.existsById(id);
+		return purchaseRepo.existsById(id);
 	}
 
 	@Override
 	public long count() {
 		// TODO Auto-generated method stub
-		return itemRepo.count();
+		return purchaseRepo.count();
 	}
 
 	@Override
 	public void deleteById(Long id) {
 		// TODO Auto-generated method stub
-		itemRepo.deleteById(id);
+		purchaseRepo.deleteById(id);
 		
 	}
 
 	@Override
-	public void delete(Item entity) {
+	public void delete(Purchase entity) {
 		// TODO Auto-generated method stub
-		itemRepo.delete(entity);
+		purchaseRepo.delete(entity);
 		
 	}
 
 	@Override
-	public void deleteAll(Iterable<? extends Item> entities) {
+	public void deleteAll(Iterable<? extends Purchase> entities) {
 		// TODO Auto-generated method stub
-		itemRepo.deleteAll(entities);
+		purchaseRepo.deleteAll(entities);
 	}
 
 	@Override
 	public void deleteAll() {
 		// TODO Auto-generated method stub
-		itemRepo.deleteAll();
+		purchaseRepo.deleteAll();
 	}
 
 	@Override
-	public <S extends Item> Optional<S> findOne(Example<S> example) {
+	public <S extends Purchase> Optional<S> findOne(Example<S> example) {
 		// TODO Auto-generated method stub
-		return itemRepo.findOne(example);
+		return purchaseRepo.findOne(example);
 	}
 
 	@Override
-	public <S extends Item> Page<S> findAll(Example<S> example, Pageable pageable) {
+	public <S extends Purchase> Page<S> findAll(Example<S> example, Pageable pageable) {
 		// TODO Auto-generated method stub
-		return itemRepo.findAll(example, pageable);
+		return purchaseRepo.findAll(example, pageable);
 	}
 
 	@Override
-	public <S extends Item> long count(Example<S> example) {
+	public <S extends Purchase> long count(Example<S> example) {
 		// TODO Auto-generated method stub
-		return itemRepo.count(example);
+		return purchaseRepo.count(example);
 	}
 
 	@Override
-	public <S extends Item> boolean exists(Example<S> example) {
+	public <S extends Purchase> boolean exists(Example<S> example) {
 		// TODO Auto-generated method stub
-		return itemRepo.exists(example);
+		return purchaseRepo.exists(example);
 	}
 
 }

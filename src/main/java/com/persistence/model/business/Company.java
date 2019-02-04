@@ -26,7 +26,7 @@ public class Company implements Serializable {
 	@Column(name = "company_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	@Column(name = "user_type")
@@ -36,8 +36,8 @@ public class Company implements Serializable {
 	@Column(name = "name", nullable = false)
 	private String name;
 
-	@Column(name = "name_sub")
-	private String nameSub;
+	@Column(name = "email")
+	private String email;
 
 	private String description;
 
@@ -96,17 +96,17 @@ public class Company implements Serializable {
 	}
 
 	/**
-	 * @return the nameSub
+	 * @return the email
 	 */
-	public String getNameSub() {
-		return nameSub;
+	public String getEmail() {
+		return email;
 	}
 
 	/**
-	 * @param nameSub the nameSub to set
+	 * @param email the email to set
 	 */
-	public void setNameSub(String nameSub) {
-		this.nameSub = nameSub;
+	public void setEmail(String email) {
+		this.email = email;
 	}
 
 	/**
@@ -235,8 +235,8 @@ public class Company implements Serializable {
 	 */
 	@Override
 	public String toString() {
-		return "OwnerDTO [id=" + id + ", name=" + name + ", description=" + description
-				+ ", mobile=" + mobile + ", phone=" + phone + ", address=" + address + ", dated=" + dated + "]";
+		return "OwnerDTO [id=" + id + ", name=" + name + ", description=" + description + ", mobile=" + mobile
+				+ ", phone=" + phone + ", address=" + address + ", dated=" + dated + "]";
 	}
 
 }

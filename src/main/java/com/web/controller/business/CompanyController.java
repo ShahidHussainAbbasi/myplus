@@ -92,8 +92,8 @@ public class CompanyController {
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getUserCompanies "+e.getCause());			
+			return (sb.append("<option value=''>No Data found</option>")).toString();
 		}
-	    return sb.toString();
 	}
 
 	@RequestMapping(value = "/getAllCompany", method = RequestMethod.GET)
@@ -122,15 +122,20 @@ public class CompanyController {
 			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
-			obj = modelMapper.map(dto, Company.class);
-			Example<Company> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && companyService.exists(example))
-				return new GenericResponse("FOUND",messages.getMessage("The Company "+dto.getName()+" already exist", null, request.getLocale()));
 			
+			Example<Company> example = Example.of(obj);
+			if(AppUtil.isEmptyOrNull(dto.getId())){
+				obj.setUserId(user.getId());
+				obj.setName(dto.getName());
+				if(companyService.exists(example))
+					return new GenericResponse("FOUND",messages.getMessage("The Company "+dto.getName()+" already exist", null, request.getLocale()));				
+			}
+			
+			obj = modelMapper.map(dto, Company.class);
 			//if it is update
 			if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = companyService.getOne(dto.getId());
-				dated = obj.getDated();
+				obj.setDated(companyService.getOne(dto.getId()).getDated());
+//				dated = obj.getDated();
 			}else {
 				obj.setDated(dated);
 			}

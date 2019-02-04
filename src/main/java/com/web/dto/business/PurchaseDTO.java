@@ -15,26 +15,28 @@ public class PurchaseDTO implements Serializable {
 
 	private String userType;
 
+	private Long items;
+
 	private Long itemId;
-	
+
 	private Long itemName;
 
 	private Long companyId;
-	
+
 	private String companyName;
-	
+
 	private Long venderId;
-	
+
 	private String venderName;
-	
+
 	private Long itemTypeId;
-	
+
 	private String itemTypeName;
-	
+
 	private Long itemUnitId;
-	
+
 	private String itemUnitName;
-	
+
 	private Float quantity;
 
 	private Float purchaseRate;
@@ -45,7 +47,7 @@ public class PurchaseDTO implements Serializable {
 
 	private Float totalAmount;
 
-	private Float netAmount = null;
+	private Float netAmount;
 
 	private Float stock;
 
@@ -59,14 +61,12 @@ public class PurchaseDTO implements Serializable {
 
 	private String updatedStr;
 
-
 	/**
 	 * @return the id
 	 */
 	public Long getId() {
 		return id;
 	}
-
 
 	/**
 	 * @param id the id to set
@@ -75,14 +75,12 @@ public class PurchaseDTO implements Serializable {
 		this.id = id;
 	}
 
-
 	/**
 	 * @return the userId
 	 */
 	public Long getUserId() {
 		return userId;
 	}
-
 
 	/**
 	 * @param userId the userId to set
@@ -91,14 +89,12 @@ public class PurchaseDTO implements Serializable {
 		this.userId = userId;
 	}
 
-
 	/**
 	 * @return the userType
 	 */
 	public String getUserType() {
 		return userType;
 	}
-
 
 	/**
 	 * @param userType the userType to set
@@ -107,6 +103,19 @@ public class PurchaseDTO implements Serializable {
 		this.userType = userType;
 	}
 
+	/**
+	 * @return the items
+	 */
+	public Long getItems() {
+		return items;
+	}
+
+	/**
+	 * @param items the items to set
+	 */
+	public void setItems(Long items) {
+		this.items = items;
+	}
 
 	/**
 	 * @return the itemId
@@ -115,14 +124,12 @@ public class PurchaseDTO implements Serializable {
 		return itemId;
 	}
 
-
 	/**
 	 * @param itemId the itemId to set
 	 */
 	public void setItemId(Long itemId) {
 		this.itemId = itemId;
 	}
-
 
 	/**
 	 * @return the itemName
@@ -131,14 +138,12 @@ public class PurchaseDTO implements Serializable {
 		return itemName;
 	}
 
-
 	/**
 	 * @param itemName the itemName to set
 	 */
 	public void setItemName(Long itemName) {
 		this.itemName = itemName;
 	}
-
 
 	/**
 	 * @return the companyId
@@ -147,14 +152,12 @@ public class PurchaseDTO implements Serializable {
 		return companyId;
 	}
 
-
 	/**
 	 * @param companyId the companyId to set
 	 */
 	public void setCompanyId(Long companyId) {
 		this.companyId = companyId;
 	}
-
 
 	/**
 	 * @return the companyName
@@ -163,14 +166,12 @@ public class PurchaseDTO implements Serializable {
 		return companyName;
 	}
 
-
 	/**
 	 * @param companyName the companyName to set
 	 */
 	public void setCompanyName(String companyName) {
 		this.companyName = companyName;
 	}
-
 
 	/**
 	 * @return the venderId
@@ -179,14 +180,12 @@ public class PurchaseDTO implements Serializable {
 		return venderId;
 	}
 
-
 	/**
 	 * @param venderId the venderId to set
 	 */
 	public void setVenderId(Long venderId) {
 		this.venderId = venderId;
 	}
-
 
 	/**
 	 * @return the venderName
@@ -195,14 +194,12 @@ public class PurchaseDTO implements Serializable {
 		return venderName;
 	}
 
-
 	/**
 	 * @param venderName the venderName to set
 	 */
 	public void setVenderName(String venderName) {
 		this.venderName = venderName;
 	}
-
 
 	/**
 	 * @return the itemTypeId
@@ -211,14 +208,12 @@ public class PurchaseDTO implements Serializable {
 		return itemTypeId;
 	}
 
-
 	/**
 	 * @param itemTypeId the itemTypeId to set
 	 */
 	public void setItemTypeId(Long itemTypeId) {
 		this.itemTypeId = itemTypeId;
 	}
-
 
 	/**
 	 * @return the itemTypeName
@@ -227,14 +222,12 @@ public class PurchaseDTO implements Serializable {
 		return itemTypeName;
 	}
 
-
 	/**
 	 * @param itemTypeName the itemTypeName to set
 	 */
 	public void setItemTypeName(String itemTypeName) {
 		this.itemTypeName = itemTypeName;
 	}
-
 
 	/**
 	 * @return the itemUnitId
@@ -243,14 +236,12 @@ public class PurchaseDTO implements Serializable {
 		return itemUnitId;
 	}
 
-
 	/**
 	 * @param itemUnitId the itemUnitId to set
 	 */
 	public void setItemUnitId(Long itemUnitId) {
 		this.itemUnitId = itemUnitId;
 	}
-
 
 	/**
 	 * @return the itemUnitName
@@ -259,14 +250,12 @@ public class PurchaseDTO implements Serializable {
 		return itemUnitName;
 	}
 
-
 	/**
 	 * @param itemUnitName the itemUnitName to set
 	 */
 	public void setItemUnitName(String itemUnitName) {
 		this.itemUnitName = itemUnitName;
 	}
-
 
 	/**
 	 * @return the quantity
@@ -275,14 +264,12 @@ public class PurchaseDTO implements Serializable {
 		return quantity;
 	}
 
-
 	/**
 	 * @param quantity the quantity to set
 	 */
 	public void setQuantity(Float quantity) {
 		this.quantity = quantity;
 	}
-
 
 	/**
 	 * @return the purchaseRate
@@ -291,14 +278,12 @@ public class PurchaseDTO implements Serializable {
 		return purchaseRate;
 	}
 
-
 	/**
 	 * @param purchaseRate the purchaseRate to set
 	 */
 	public void setPurchaseRate(Float purchaseRate) {
 		this.purchaseRate = purchaseRate;
 	}
-
 
 	/**
 	 * @return the sellRate
@@ -307,14 +292,12 @@ public class PurchaseDTO implements Serializable {
 		return sellRate;
 	}
 
-
 	/**
 	 * @param sellRate the sellRate to set
 	 */
 	public void setSellRate(Float sellRate) {
 		this.sellRate = sellRate;
 	}
-
 
 	/**
 	 * @return the discount
@@ -323,14 +306,12 @@ public class PurchaseDTO implements Serializable {
 		return discount;
 	}
 
-
 	/**
 	 * @param discount the discount to set
 	 */
 	public void setDiscount(Float discount) {
 		this.discount = discount;
 	}
-
 
 	/**
 	 * @return the totalAmount
@@ -339,14 +320,12 @@ public class PurchaseDTO implements Serializable {
 		return totalAmount;
 	}
 
-
 	/**
 	 * @param totalAmount the totalAmount to set
 	 */
 	public void setTotalAmount(Float totalAmount) {
 		this.totalAmount = totalAmount;
 	}
-
 
 	/**
 	 * @return the netAmount
@@ -355,14 +334,12 @@ public class PurchaseDTO implements Serializable {
 		return netAmount;
 	}
 
-
 	/**
 	 * @param netAmount the netAmount to set
 	 */
 	public void setNetAmount(Float netAmount) {
 		this.netAmount = netAmount;
 	}
-
 
 	/**
 	 * @return the stock
@@ -371,14 +348,12 @@ public class PurchaseDTO implements Serializable {
 		return stock;
 	}
 
-
 	/**
 	 * @param stock the stock to set
 	 */
 	public void setStock(Float stock) {
 		this.stock = stock;
 	}
-
 
 	/**
 	 * @return the purchaseExpense
@@ -387,14 +362,12 @@ public class PurchaseDTO implements Serializable {
 		return purchaseExpense;
 	}
 
-
 	/**
 	 * @param purchaseExpense the purchaseExpense to set
 	 */
 	public void setPurchaseExpense(Float purchaseExpense) {
 		this.purchaseExpense = purchaseExpense;
 	}
-
 
 	/**
 	 * @return the purchaseExpenseDesc
@@ -403,14 +376,12 @@ public class PurchaseDTO implements Serializable {
 		return purchaseExpenseDesc;
 	}
 
-
 	/**
 	 * @param purchaseExpenseDesc the purchaseExpenseDesc to set
 	 */
 	public void setPurchaseExpenseDesc(String purchaseExpenseDesc) {
 		this.purchaseExpenseDesc = purchaseExpenseDesc;
 	}
-
 
 	/**
 	 * @return the description
@@ -419,14 +390,12 @@ public class PurchaseDTO implements Serializable {
 		return description;
 	}
 
-
 	/**
 	 * @param description the description to set
 	 */
 	public void setDescription(String description) {
 		this.description = description;
 	}
-
 
 	/**
 	 * @return the datedStr
@@ -435,14 +404,12 @@ public class PurchaseDTO implements Serializable {
 		return datedStr;
 	}
 
-
 	/**
 	 * @param datedStr the datedStr to set
 	 */
 	public void setDatedStr(String datedStr) {
 		this.datedStr = datedStr;
 	}
-
 
 	/**
 	 * @return the updatedStr
@@ -451,14 +418,12 @@ public class PurchaseDTO implements Serializable {
 		return updatedStr;
 	}
 
-
 	/**
 	 * @param updatedStr the updatedStr to set
 	 */
 	public void setUpdatedStr(String updatedStr) {
 		this.updatedStr = updatedStr;
 	}
-
 
 	/**
 	 * @return the serialversionuid
