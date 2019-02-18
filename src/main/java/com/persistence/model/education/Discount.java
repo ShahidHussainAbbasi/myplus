@@ -13,6 +13,9 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
+
 /**
  * The persistent class for the doctor database table.
  * 
@@ -57,7 +60,8 @@ public class Discount implements Serializable {
 	
 
 	// bi-directional many-to-one association to Student
-	@ManyToOne(cascade = CascadeType.ALL)
+	@ManyToOne(optional=false)//(cascade = CascadeType.ALL)
+	@NotFound(action = NotFoundAction.IGNORE)//toOne is eager that's why we add NotFoundAction.IGNORE if not found
 	@JoinColumn(name = "student_id")
 	private Student student;
 

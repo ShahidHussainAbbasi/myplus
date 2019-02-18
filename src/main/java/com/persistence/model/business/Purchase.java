@@ -34,25 +34,25 @@ public class Purchase implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "item_id")
-	private Item item;
+//	@OneToOne(fetch = FetchType.EAGER, optional = false)
+//	@JoinColumn(name = "item_id")
+	private Long itemId;
 
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "company_id")
-	private Company Company;
+//	@OneToOne(fetch = FetchType.LAZY, optional = false)
+//	@JoinColumn(name = "company_id")
+//	private Company Company;
+//
+//	@OneToOne(fetch = FetchType.LAZY, optional = false)
+//	@JoinColumn(name = "vender_id")
+//	private Vender vender;
 
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "vender_id")
-	private Vender vender;
-
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "item_type_id")
-	private ItemType ItemType;
-
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "item_unit_id")
-	private ItemUnit itemUnit;
+//	@OneToOne(fetch = FetchType.LAZY, optional = false)
+//	@JoinColumn(name = "item_type_id")
+//	private ItemType ItemType;
+//
+//	@OneToOne(fetch = FetchType.LAZY, optional = false)
+//	@JoinColumn(name = "item_unit_id")
+//	private ItemUnit itemUnit;
 
 	private Float quantity;
 
@@ -80,6 +80,7 @@ public class Purchase implements Serializable {
 
 	private String description;
 
+	@Column(updatable=false)
 	private LocalDateTime dated;
 
 	private LocalDateTime updated;
@@ -129,71 +130,15 @@ public class Purchase implements Serializable {
 	/**
 	 * @return the item
 	 */
-	public Item getItem() {
-		return item;
+	public Long getItemId() {
+		return itemId;
 	}
 
 	/**
 	 * @param item the item to set
 	 */
-	public void setItem(Item item) {
-		this.item = item;
-	}
-
-	/**
-	 * @return the company
-	 */
-	public Company getCompany() {
-		return Company;
-	}
-
-	/**
-	 * @param company the company to set
-	 */
-	public void setCompany(Company company) {
-		Company = company;
-	}
-
-	/**
-	 * @return the vender
-	 */
-	public Vender getVender() {
-		return vender;
-	}
-
-	/**
-	 * @param vender the vender to set
-	 */
-	public void setVender(Vender vender) {
-		this.vender = vender;
-	}
-
-	/**
-	 * @return the itemType
-	 */
-	public ItemType getItemType() {
-		return ItemType;
-	}
-
-	/**
-	 * @param itemType the itemType to set
-	 */
-	public void setItemType(ItemType itemType) {
-		ItemType = itemType;
-	}
-
-	/**
-	 * @return the itemUnit
-	 */
-	public ItemUnit getItemUnit() {
-		return itemUnit;
-	}
-
-	/**
-	 * @param itemUnit the itemUnit to set
-	 */
-	public void setItemUnit(ItemUnit itemUnit) {
-		this.itemUnit = itemUnit;
+	public void setItemId(Long itemId) {
+		this.itemId = itemId;
 	}
 
 	/**

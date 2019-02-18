@@ -21,8 +21,10 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
+import com.persistence.model.business.Item;
 import com.persistence.model.business.Purchase;
 import com.service.business.ICompanyService;
+import com.service.business.IItemService;
 import com.service.business.IItemTypeService;
 import com.service.business.IItemUnitService;
 import com.service.business.IPurchaseService;
@@ -52,6 +54,9 @@ public class PurchaseController {
 	IItemUnitService itemUnitService;
 
 	@Autowired
+	IItemService itemService;
+
+	@Autowired
 	IVenderService venderService;
 
 	@Autowired
@@ -63,28 +68,26 @@ public class PurchaseController {
 	@ResponseBody
 	public GenericResponse getUserPurchase(final HttpServletRequest request) {
 		try {
-			Purchase filterBy = new Purchase();
+			Purchase obj = new Purchase();
 			User user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getId());
-	        Example<Purchase> example = Example.of(filterBy);
+			obj.setUserId(user.getId());
+	        Example<Purchase> example = Example.of(obj);
 			List<Purchase> objs = purchaseService.findAll(example);
 			if(AppUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
-			objs.forEach(obj ->{
-				PurchaseDTO dto = modelMapper.map(obj, PurchaseDTO.class);
-				dto.setCompanyId(obj.getCompany().getId());
-				dto.setCompanyName(obj.getCompany().getName());
-				dto.setVenderId(obj.getVender().getId());
-				dto.setVenderName(obj.getVender().getName());
-				dto.setItemUnitId(obj.getItemUnit().getId());
-				dto.setItemUnitName(obj.getItemUnit().getName());
-				dto.setItemTypeId(obj.getItemType().getId());
-				dto.setItemTypeName(obj.getItemType().getName());
-				
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+			objs.forEach(o ->{
+				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
+//				dto.setItemUnitId(obj.getItemUnit().getId());
+//				dto.setItemUnitName(obj.getItemUnit().getName());
+//				dto.setItemTypeId(obj.getItemType().getId());
+//				dto.setItemTypeName(obj.getItemType().getName());
+				Item item = itemService.getOne(dto.getItemId());
+				dto.setItemId(item.getId());
+				dto.setItemName(item.getName());
+				dto.setDatedStr(AppUtil.getDateStr(o.getDated()));
+				dto.setUpdatedStr(AppUtil.getDateStr(o.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -107,14 +110,10 @@ public class PurchaseController {
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
 			objs.forEach(obj ->{
 				PurchaseDTO dto = modelMapper.map(obj, PurchaseDTO.class);
-				dto.setCompanyId(obj.getCompany().getId());
-				dto.setCompanyName(obj.getCompany().getName());
-				dto.setVenderId(obj.getVender().getId());
-				dto.setVenderName(obj.getVender().getName());
-				dto.setItemUnitId(obj.getItemUnit().getId());
-				dto.setItemUnitName(obj.getItemUnit().getName());
-				dto.setItemTypeId(obj.getItemType().getId());
-				dto.setItemTypeName(obj.getItemType().getName());
+//				dto.setItemUnitId(obj.getItemUnit().getId());
+//				dto.setItemUnitName(obj.getItemUnit().getName());
+//				dto.setItemTypeId(obj.getItemType().getId());
+//				dto.setItemTypeName(obj.getItemType().getName());
 				
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
@@ -142,27 +141,18 @@ public class PurchaseController {
 			User user = requestUtil.getCurrentUser();
 			obj = modelMapper.map(dto, Purchase.class);
 			obj.setUserId(user.getId());
-			//if it is update
-			if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = purchaseService.getOne(dto.getId());
-				dated = obj.getDated();
-			}else {
-				obj.setDated(dated);
-			}
-			obj.setUpdated(dated);
-			//add company
-			if(!AppUtil.isEmptyOrNull(dto.getCompanyId()))
-				obj.setCompany(companyService.getOne(dto.getCompanyId()));
-			//add vender
-			if(!AppUtil.isEmptyOrNull(dto.getVenderId()))
-					obj.setVender(venderService.getOne(dto.getVenderId()));
-			
-			if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
-				obj.setItemType(itemTypeService.getOne(dto.getItemTypeId()));
 
-			if(!AppUtil.isEmptyOrNull(dto.getItemUnitId()))
-				obj.setItemUnit(itemUnitService.getOne(dto.getItemUnitId()));
+			obj.setDated(dated);
+			obj.setUpdated(dated);
 			
+			obj.setItemId(dto.getItemId());
+			//updating stock
+	        Item item = itemService.getOne(dto.getItemId());
+	        Float stock = item.getStock()+dto.getQuantity();
+	        item.setStock(stock);
+	        itemService.save(item);
+			
+			obj.setStock(stock);
 			obj = purchaseService.save(obj);
 			if(AppUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));

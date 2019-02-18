@@ -136,39 +136,37 @@ public class StaffController {
 	@ResponseBody
 	public GenericResponse addStaff(@Validated final StaffDTO dto, final HttpServletRequest request) {
 		try {
+			LocalDateTime dated = LocalDateTime.now();
 			Staff obj = new Staff();
 			User user = requestUtil.getCurrentUser();
-			LocalDateTime dated = LocalDateTime.now();
-			obj .setUserId(user.getId());
-			obj .setName(dto.getName());
-			Example<Staff> example = Example.of(obj );
-			if(AppUtil.isEmptyOrNull(dto.getId()) &&staffService.exists(example))
-				return new GenericResponse("FOUND",messages.getMessage("The Staff "+dto.getName()+" already exist", null, request.getLocale()));
-				
-			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = staffService.getOne(dto.getId());
-				dated = obj.getDated();
+			dto.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId())) {
+				obj.setUserId(user.getId());
+				obj.setName(dto.getName());
+				obj.setSchools(schoolService.findAllById(dto.getSchoolIds()));
+				Example<Staff> example = Example.of(obj );
+				if(staffService.exists(example))
+					return new GenericResponse("FOUND",messages.getMessage("The Staff "+dto.getName()+" already exist", null, request.getLocale()));
 			}
+				
 			obj  = modelMapper.map(dto, Staff.class);
-			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
-				obj.setDated(dated);
-			else
-				obj.setDated(dated);
+			obj.setDated(dated);
 			obj.setUpdated(dated);
 
-			Set<School> schools = new HashSet<School>();
-			dto.getSchoolIds().forEach(id ->{
-				School school = schoolService.getOne(id);
-				schools.add(school);//schoolService.findById(o).get());
-			});			
-			Set<Grade> grades = new HashSet<Grade>();
-			dto.getGradeIds().forEach(id ->{
-				Grade grade = gradeService.getOne(id);
-				grades.add(grade);//gradeService.findById(o).get());
-			});
-			obj.setSchools(schools);
-			obj.setGrades(grades);
+			obj.setSchools(schoolService.findAllById(dto.getSchoolIds()));
+//			Set<School> schools = new HashSet<School>();
+//			dto.getSchoolIds().forEach(id ->{
+//				School school = schoolService.getOne(id);
+//				schools.add(school);//schoolService.findById(o).get());
+//			});			
+			obj.setGrades(gradeService.findAllById(dto.getGradeIds()));
+//			Set<Grade> grades = new HashSet<Grade>();
+//			dto.getGradeIds().forEach(id ->{
+//				Grade grade = gradeService.getOne(id);
+//				grades.add(grade);//gradeService.findById(o).get());
+//			});
+//			obj.setSchools(schools);
+//			obj.setGrades(grades);
 			obj.setTimeIn(LocalTime.parse(dto.getTimeInStr()));
 			obj.setTimeOut(LocalTime.parse(dto.getTimeOutStr()));
 
@@ -194,7 +192,7 @@ public class StaffController {
 				String idList[] = ids.split(",");
 				for(String id:idList){
 //					staffService.deleteById(Long.valueOf(id));
-					staffService.updateStatus("Inactive", id);
+					staffService.deleteById(Long.valueOf(id));//.updateStatus("Inactive", id);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

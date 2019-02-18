@@ -7,6 +7,7 @@ import java.util.Set;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -15,6 +16,9 @@ import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
+
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
@@ -41,10 +45,14 @@ public class Student implements Serializable {
 	private String enrollNo;
 
 	@Column(name = "enroll_date")
-//	@Temporal(TemporalType.TIMESTAMP)
 	private LocalDateTime enrollDate;
 
-//	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name = "fee_mode")
+	private String feeMode;
+
+	@Column(updatable = false)
+	private LocalDateTime dated;
+	
 	private LocalDateTime updated;
 
 	private String email;
@@ -54,7 +62,7 @@ public class Student implements Serializable {
 	private String address;
 
 	@Column(name = "date_of_birth")
-	private String dateOfBirth = null;
+	private LocalDateTime dateOfBirth;
 
 	private String gender;
 
@@ -63,35 +71,36 @@ public class Student implements Serializable {
 
 	private String status;
 
-	@OneToOne(cascade = CascadeType.ALL)
+//	@ManyToOne//(cascade = CascadeType.ALL)
 //	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinColumn(name = "school_id")
-	private School school;
+	private Long schoolId;
 
 	// @Column(name="gaurdian_id")
 //	private Long gaurdianId = null;
-	@ManyToOne(cascade = CascadeType.ALL)
-//	@NotFound(action = NotFoundAction.IGNORE)
+	@ManyToOne(optional=false)//(cascade = CascadeType.ALL)
+	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinColumn(name = "guardian_id")
 	private Guardian guardian;
 
 //	@Column(name="grade_id")
 //	private Long gradeId;
-	@ManyToOne(cascade = CascadeType.ALL)
+//	@OneToOne//(cascade = CascadeType.ALL)
 //	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinColumn(name = "grade_id")
-	private Grade grade;
+	private Long gradeId;
 
 //	@Column(name = "vehicle_id")
 //	private Long vehicleId;
-	@ManyToOne(cascade = CascadeType.ALL)
+	@ManyToOne(fetch=FetchType.LAZY)//(cascade = CascadeType.ALL)
 	@JoinColumn(name = "vehicle_id")
-//	@NotFound(action = NotFoundAction.IGNORE)
+	@NotFound(action = NotFoundAction.IGNORE)//Works only if it's parent don't have more parent
 	private Vehicle vehicle;
 
 //	@Column(name = "discount_id")
 //	private Long discountId;
 	@OneToMany(mappedBy = "student")
+	@NotFound(action = NotFoundAction.IGNORE)
 	private Set<Discount> discounts;
 
 	/**
@@ -249,6 +258,34 @@ public class Student implements Serializable {
 	}
 
 	/**
+	 * @return the feeMode
+	 */
+	public String getFeeMode() {
+		return feeMode;
+	}
+
+	/**
+	 * @param feeMode the feeMode to set
+	 */
+	public void setFeeMode(String feeMode) {
+		this.feeMode = feeMode;
+	}
+
+	/**
+	 * @return the dated
+	 */
+	public LocalDateTime getDated() {
+		return dated;
+	}
+
+	/**
+	 * @param dated the dated to set
+	 */
+	public void setDated(LocalDateTime dated) {
+		this.dated = dated;
+	}
+
+	/**
 	 * @return the updated
 	 */
 	public LocalDateTime getUpdated() {
@@ -272,14 +309,14 @@ public class Student implements Serializable {
 	/**
 	 * @return the dateOfBirth
 	 */
-	public String getDateOfBirth() {
+	public LocalDateTime getDateOfBirth() {
 		return dateOfBirth;
 	}
 
 	/**
 	 * @param dateOfBirth the dateOfBirth to set
 	 */
-	public void setDateOfBirth(String dateOfBirth) {
+	public void setDateOfBirth(LocalDateTime dateOfBirth) {
 		this.dateOfBirth = dateOfBirth;
 	}
 
@@ -300,15 +337,15 @@ public class Student implements Serializable {
 	/**
 	 * @return the grade
 	 */
-	public Grade getGrade() {
-		return grade;
+	public Long getGradeId() {
+		return gradeId;
 	}
 
 	/**
 	 * @param grade the grade to set
 	 */
-	public void setGrade(Grade grade) {
-		this.grade = grade;
+	public void setGradeId(Long gradeId) {
+		this.gradeId = gradeId;
 	}
 
 	/**
@@ -342,15 +379,15 @@ public class Student implements Serializable {
 	/**
 	 * @return the school
 	 */
-	public School getSchool() {
-		return school;
+	public Long getSchoolId() {
+		return schoolId;
 	}
 
 	/**
 	 * @param school the school to set
 	 */
-	public void setSchool(School school) {
-		this.school = school;
+	public void setSchoolId(Long schoolId) {
+		this.schoolId = schoolId;
 	}
 
 }

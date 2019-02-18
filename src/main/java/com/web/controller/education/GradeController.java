@@ -73,7 +73,12 @@ public class GradeController {
 			objs.forEach(obj->{
 				GradeDTO dto = new GradeDTO();
 				dto = modelMapper.map(obj, GradeDTO.class);
-				dto.setSchoolName(obj.getSchool().getBranchName());
+				if(!AppUtil.isEmptyOrNull(obj.getSchool())) {
+					dto.setSchoolName(obj.getSchool().getBranchName());
+					dto.setSchoolName(obj.getSchool().getBranchName());
+				}else {
+					dto.setSchoolName("NA");
+				}
 				dto.setTimeFromStr(obj.getTimeFrom().toString());
 			    dto.setTimeToStr(obj.getTimeTo().toString());
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
@@ -130,28 +135,24 @@ public class GradeController {
 	@ResponseBody
 	public GenericResponse addGrade(@Validated final GradeDTO dto, final HttpServletRequest request) {
 		try {
-			User user = requestUtil.getCurrentUser();
 			LocalDateTime dated = LocalDateTime.now();
+			User user = requestUtil.getCurrentUser();
 			Grade obj = new Grade();
-			obj.setUserId(user.getId());
-			obj.setName(dto.getName());
-			Example<Grade> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && gradeService.exists(example))
-				return new GenericResponse("FOUND",messages.getMessage("The Grade "+dto.getName()+" already exist", null, request.getLocale()));
-
-			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = gradeService.getOne(dto.getId());
-				dated = obj.getDated();
+			dto.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId())) {
+				obj.setUserId(user.getId());
+				obj.setName(dto.getName());
+				obj.setSchool(schoolService.getOne(dto.getSchoolId()));
+				Example<Grade> example = Example.of(obj);
+				if(gradeService.exists(example))
+					return new GenericResponse("FOUND",messages.getMessage("The Grade "+dto.getName()+" already exist", null, request.getLocale()));
 			}
+
 			obj  = modelMapper.map(dto, Grade.class);
-			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
-				obj.setDated(dated);
-			else
-				obj.setDated(dated);
+			obj.setDated(dated);
+			obj.setUpdated(dated);
 			obj.setTimeFrom(LocalTime.parse(dto.getTimeFromStr()));
 			obj.setTimeTo(LocalTime.parse(dto.getTimeToStr()));
-			obj .setUserId(user.getId());
 			School school = schoolService.getOne(dto.getSchoolId()); 
 			obj.setSchool(school);
 			
@@ -177,7 +178,7 @@ public class GradeController {
 				String idList[] = ids.split(",");
 				for(String id:idList){
 //					gradeService.deleteById(Long.valueOf(id));
-					gradeService.updateStatus("Inactive", id);
+					gradeService.deleteById(Long.valueOf(id));//.updateStatus("Inactive", id);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

@@ -118,25 +118,20 @@ public class GuardianController {
 	@ResponseBody
 	public GenericResponse addGuardian(@Validated final GuardianDTO dto, final HttpServletRequest request) {
 		try {
+			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
 			Guardian obj = new Guardian();
-			LocalDateTime dated = LocalDateTime.now();
-			obj.setUserId(user.getId());
-			obj.setName(dto.getName());
-			Example<Guardian> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && guardianService.exists(example))
-				return new GenericResponse("FOUND",messages.getMessage("The Guardian "+dto.getName()+" already exist", null, request.getLocale()));
-
-			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = guardianService.getOne(dto.getId());
-				dated = obj.getDated();
+			dto.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId())) {
+				obj.setUserId(user.getId());
+				obj.setName(dto.getName());
+				Example<Guardian> example = Example.of(obj);
+				if(guardianService.exists(example))
+					return new GenericResponse("FOUND",messages.getMessage("The Guardian "+dto.getName()+" already exist", null, request.getLocale()));
 			}
+
 			obj  = modelMapper.map(dto, Guardian.class);
-			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
-				obj.setDated(dated);
-			else
-				obj.setDated(dated);
+			obj.setDated(dated);
 			obj.setUpdated(dated);
 			obj = guardianService.save(obj);
 			if(AppUtil.isEmptyOrNull(obj)) {
@@ -160,7 +155,7 @@ public class GuardianController {
 				String idList[] = ids.split(",");
 				for(String id:idList){
 //					guardianService.deleteById(Long.valueOf(id));
-					guardianService.updateStatus("Inactive", id,new Date());
+					guardianService.deleteById(Long.valueOf(id));//.updateStatus("Inactive", id,new Date());
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

@@ -10,7 +10,7 @@ var formFields = 0;
 var reload="";
 	
 
-function resetGlobalError(){
+/*function resetGlobalError(){
     $(".alert").html("").hide();
     $(".error-list").html("");	
 }
@@ -45,22 +45,20 @@ function validateForm(){
 
 $(document).ready(function() {
 	
-	$(document).ready(function(){
-	    $('input.timepicker').timepicker({ 
-	    	timeFormat: 'HH:mm',
-	        //interval: 60,
-	       // minTime: '10',
-	       // maxTime: '6:00pm',
-	        defaultTime: '8',
-	       // startTime: '10:00',
-	        dynamic: false,
-	        dropdown: true,
-	        scrollbar: true
-	        //timeFormat: 'HH:mm:00' 
-	    		
-	    });
-	    
-	});	
+    $('input.timepicker').timepicker({ 
+    	timeFormat: 'HH:mm',
+        //interval: 60,
+       // minTime: '10',
+       // maxTime: '6:00pm',
+        defaultTime: '8',
+       // startTime: '10:00',
+        dynamic: false,
+        dropdown: true,
+        scrollbar: true
+        //timeFormat: 'HH:mm:00' 
+    		
+    });
+    
 	$switchInputs =function(val) {
 	    buttonV = val;
 		deleteV = val;
@@ -103,9 +101,9 @@ $(document).ready(function() {
 			});
 		});
 	};
-	
+*/		
 	// It will show hide
-	$(function() {
+/*	$(function() {
 		var options = $("#registrationType > option").length;
 		$("#registrationType").change(function() {
 			var option = this.value;
@@ -184,8 +182,8 @@ $(document).ready(function() {
 	}
 
 });
-
-const capitalize = (s) => {
+*/
+/*const capitalize = (s) => {
 	if (typeof s !== 'string') return ''
   		return s.charAt(0).toUpperCase() + s.slice(1)
 }
@@ -194,18 +192,17 @@ const nonCapitalize = (s) => {
 	if (typeof s !== 'string') return ''
   		return s.charAt(0).toLowerCase() + s.slice(1)
 }
-
+*/
 /*
 var str ='4/5/8';
 $.each(str.split('/'), function(i, val) {
     $('#sellist option').filter('[value="' + val + '"]').prop('selected', 'selected');
 });
  */
-
+/*
 function editRecord(doc){
 	for(var i=0; i<(formFields); i++){
 		if(doc.getElementById(form[i].id)){
-			console.log("form id");
 			var text = doc.getElementById(form[i].id).textContent;
 			if(form[i].tagName=="SELECT"){
 				var labels = text.split(",");
@@ -225,7 +222,7 @@ function editRecord(doc){
 		}
 	}
 }
-
+*/
 function loadDataTable(){
 	//check if data table exist destroy it
 	if (datatable!=null){
@@ -336,16 +333,16 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
+							"<div id=studentId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
 							"<div id=studentName>"+obj.name+"</div>","<div id=studentSchoolDD>"+obj.schoolName+"</div>",
-							"<div id=studentGradeDD>"+obj.gradeName+"</div>","<div id=studentVehicleDD>"+obj.vehicleName+"</div>",
-							"<div id=studentGuardianDD>"+obj.guardianName+"</div>",
+							"<div id=studentGradeDD>"+obj.gradeName+"</div>",
+							"<div id=studentGuardianDD>"+obj.guardianName+"</div>","<div id=studentVehicleDD>"+obj.vehicleName+"</div>",
 							"<div id=studentEnrollNo>"+obj.enrollNo+"</div>","<div id=studentEnrollDate>"+obj.enrollDate+"</div>",
-							"<div id=studentMobile>"+obj.mobile+"</div>",
+							"<div id=studentFeeMode>"+obj.feeMode+"</div>","<div id=studentMobile>"+obj.mobile+"</div>",
 							"<div id=studentEmail>"+obj.email+"</div>","<div id=studentGender>"+obj.gender+"</div>",
 							"<div id=studentDateOfBirth>"+obj.dateOfBirth+"</div>", "<div id=studentBloodBroup>"+obj.boodGroup+"</div>",
 							"<div id=studentAddress>"+obj.address+"</div>","<div id=studentStatus>"+obj.status+"</div>",
-							"<div id=studentDated>"+obj.datedStr+"</div>"
+							"<div id=studentDated>"+obj.updatedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -357,7 +354,7 @@ function loadDataTable(){
 							"<div id=subjectGradeDD>"+obj.gradeName+"</div>",
 							"<div id=subjectName>"+obj.name+"</div>", "<div id=subjectCode>"+obj.code+"</div>",
 							"<div id=subjectPublisher>"+obj.publisher+"</div>", "<div id=subjectEdition>"+obj.edition+"</div>", 
-							"<div id=subjectStatus>"+obj.status+"</div>","<div id=subjectDated>"+obj.dated+"</div>"
+							"<div id=subjectStatus>"+obj.status+"</div>","<div id=subjectDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});

@@ -17,6 +17,9 @@ import javax.persistence.ManyToMany;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
+
 /**
  * The persistent class for the doctor database table.
  * 
@@ -47,25 +50,29 @@ public class School implements Serializable {
 	private String branchName;
 
 //	@Temporal(TemporalType.TIMESTAMP)
+	@Column(updatable = false)
 	private LocalDateTime dated;
 
 //	@Temporal(TemporalType.TIMESTAMP)
 	private LocalDateTime updated;
 
-	private String status;
+	private String status="Active";
 
-	@ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+	@ManyToMany(fetch = FetchType.LAZY)
+	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinTable(name = "schools_owners", joinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"), inverseJoinColumns = @JoinColumn(name = "owner_id", referencedColumnName = "owner_id"))
 	private Set<Owner> owners;
 
 	@ManyToMany(mappedBy = "schools")
+	@NotFound(action = NotFoundAction.IGNORE)
 	private Set<Staff> staffs;
 
 //	@OneToOne(mappedBy="school",cascade = CascadeType.ALL)
 //	private Student student;
 //
 	// bi-directional one-to-many association to Vehicle
-	@OneToMany(cascade = CascadeType.ALL)
+	@OneToMany(fetch = FetchType.LAZY)
+	@NotFound(action = NotFoundAction.IGNORE)
 	private Set<Vehicle> vehicles;
 
 	/**

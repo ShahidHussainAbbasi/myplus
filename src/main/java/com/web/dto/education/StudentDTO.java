@@ -26,7 +26,10 @@ public class StudentDTO implements Serializable {
 	@ValidateEmpty
 	private String enrollDate;
 
-	private String updated;
+	@ValidateEmpty
+	private String dateOfBirth;
+
+	private String feeMode;
 
 	@ValidEmail
 	private String email;
@@ -46,9 +49,6 @@ public class StudentDTO implements Serializable {
 	private List<String> hobbies;
 
 	private String boodGroup;
-
-	@ValidateEmpty
-	private String dateOfBirth;
 
 	@ValidateEmpty
 	private Long guardianId;
@@ -100,24 +100,24 @@ public class StudentDTO implements Serializable {
 	}
 
 	/**
+	 * @return the feeMode
+	 */
+	public String getFeeMode() {
+		return feeMode;
+	}
+
+	/**
+	 * @param feeMode the feeMode to set
+	 */
+	public void setFeeMode(String feeMode) {
+		this.feeMode = feeMode;
+	}
+
+	/**
 	 * @param enrollDate the enrollDate to set
 	 */
 	public void setEnrollDate(String enrollDate) {
 		this.enrollDate = enrollDate;
-	}
-
-	/**
-	 * @return the updated
-	 */
-	public String getUpdated() {
-		return updated;
-	}
-
-	/**
-	 * @param updated the updated to set
-	 */
-	public void setUpdated(String updated) {
-		this.updated = updated;
 	}
 
 	/**
@@ -485,8 +485,8 @@ public class StudentDTO implements Serializable {
 	@Override
 	public String toString() {
 		return "StudentDTO [id=" + id + ", name=" + name + ", userId=" + userId + ", userType=" + userType
-				+ ", enrollNo=" + enrollNo + ", updated=" + updated + ", email=" + email + ", mobile=" + mobile
-				+ ", phone=" + phone + ", address=" + address + ", DOB=" + time_in + ", time_out=" + time_out
+				+ ", enrollNo=" + enrollNo + ", updatedStr=" + updatedStr + ", email=" + email + ", mobile=" + mobile
+				+ ", phone=" + phone + ", address=" + address + ", dateOfBirth=" + dateOfBirth + ", time_out=" + time_out
 				+ ", hobbies=" + hobbies + ", boodGroup=" + boodGroup + ", enrollDate=" + enrollDate + ", guardianId="
 				+ guardianId + ", gradeId=" + gradeId + ", status=" + status + "]";
 	}

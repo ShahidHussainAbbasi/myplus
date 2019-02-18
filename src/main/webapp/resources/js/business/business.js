@@ -68,12 +68,13 @@ function loadDataTable(){
 				} else if (getAll === "Item") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=itemId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ ">",
+							"<div id=itemId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
 							"<div id=itemCode>"+obj.code+"</div>", "<div id=itemName>"+obj.name+"</div>", 
 							"<div id=itemCompanyDD>"+obj.companyName+"</div>",  "<div id=itemVenderDD>"+obj.venderName+"</div>", 
-							"<div id=itemTypeDD>"+obj.itemTypeName+"</div>","<div id=itemUnitDD>"+obj.itemUnitName+"</div>", 
+							/*"<div id=itemTypeDD>"+obj.itemTypeName+"</div>","<div id=itemUnitDD>"+obj.itemUnitName+"</div>",*/ 
 							"<div id=itemPurchaseAmount>"+obj.purchaseAmount+"</div>","<div id=itemSellAmount>"+obj.sellAmount+"</div>",
-							"<div id=itemDiscount>"+obj.discount+"</div>", "<div id=itemNet>"+obj.net+"</div>",obj.datedStr
+							"<div id=itemDiscount>"+obj.discount+"</div>", "<div id=itemNet>"+obj.net+"</div>",
+							"<div id=itemStock>"+obj.stock+"</div>", obj.datedStr
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -81,11 +82,23 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=purchaseId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=purchaseItemDD>"+obj.itemName+"</div>", "<div id=purchaseItems>"+obj.items+"</div>", 
+							"<div id=purchaseItemDD>"+obj.itemName+"</div>", "<div id=purchaseItems>"+obj.quantity+"</div>", 
 							"<div id=purchaseSellRate>"+obj.sellRate+"</div>",  "<div id=purchasePurchaseRate>"+obj.purchaseRate+"</div>", 
-							"<div id=purchaseExpense>"+obj.purchaseExpense+"</div>","<div id=purchaseExpenseDesc>"+obj.purchaseExpenseDesc+"</div>", 
+							/*"<div id=purchaseExpense>"+obj.purchaseExpense+"</div>","<div id=purchaseExpenseDesc>"+obj.purchaseExpenseDesc+"</div>",*/ 
 							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>","<div id=purchaseDiscount>"+obj.discount+"</div>",
-							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>", "<div id=purchaseStock>"+obj.purchaseStock+"</div>",obj.datedStr
+							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>", "<div id=purchaseStock>"+obj.stock+"</div>",obj.updatedStr
+							];
+						datatable.row.add(arr).draw();
+					});
+				} else if (getAll === "Sell") {
+					$.each(collections, function(ind, obj) {
+						arr = [
+							"<div id=sellId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ ">",
+							"<div id=sellItemDD>"+obj.itemName+"</div>", "<div id=sellItems>"+obj.quantity+"</div>", 
+							"<div id=sellSellRate>"+obj.sellRate+"</div>",  "<div id=sellPurchaseRate>"+obj.sellRate+"</div>", 
+							/*"<div id=sellExpense>"+obj.sellExpense+"</div>","<div id=sellExpenseDesc>"+obj.sellExpenseDesc+"</div>",*/ 
+							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellDiscount>"+obj.discount+"</div>",
+							"<div id=sellNetAmount>"+obj.netAmount+"</div>", "<div id=purchaseStock>"+obj.stock+"</div>",obj.updatedStr
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -171,4 +184,64 @@ function calculateNet(val){
 		$("#itemNet").val(0.0);
 		$('#itemNet').addClass("alert-danger"); 
 	}
+}
+
+
+function calculateNetPurchase(){
+	var p = $("#purchasePurchaseRate").val();
+	var s= $("#purchaseSellRate").val();
+	
+	var totalItems= $("#purchaseItems").val()*1>0?$("#purchaseItems").val():1;
+	var purchaseDiscount= $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val():0;
+	sellhaseTotalAmount = $($("#totalAmount").val(totalItems * p)).val();
+	$("#netAmount").val(((totalItems * s)*1 + 1*purchaseDiscount) - 1*purchaseTotalAmount);
+	
+	$("#purchaseTotalAmount").val(totalItems * p);
+	$("#purchaseNetAmount").val(((totalItems * s)*1 + 1*purchaseDiscount) - 1*purchaseTotalAmount);
+}
+
+
+function populateData(label,value){
+	if(value && tableV=="Purchase"){
+		$("#purchasePurchaseRate").val("");
+		$("#purchaseSellRate").val("")
+	    $.get(serverContext+ "getItem?itemId="+value,function(data){
+	    	console.log(data);
+	    	if(data){
+		    	$("#purchasePurchaseRate").val(data.purchaseAmount);
+		    	$("#purchaseSellRate").val(data.sellAmount)
+		    	calculateNetPurchase();
+	    	}
+	    })
+		.fail(function(data) {
+			console.log(data);
+		});
+	}else if(value && tableV=="Sell"){
+		$("#sellPurchaseRate").val("");
+		$("#sellSellRate").val("")
+	    $.get(serverContext+ "getItem?itemId="+value,function(data){
+	    	console.log(data);
+	    	if(data){
+		    	$("#sellPurchaseRate").val(data.sellAmount);
+		    	$("#sellSellRate").val(data.sellAmount)
+		    	calculateNetSell();
+	    	}
+	    })
+		.fail(function(data) {
+			console.log(data);
+		});
+	}
+}
+
+function calculateNetSell(){
+	var p = $("#sellPurchaseRate").val();
+	var s= $("#sellSellRate").val();
+	
+	var totalItems= $("#sellItems").val()*1>0?$("#sellItems").val():1;
+	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val():0;
+	sellTotalAmount = $($("#stotalAmount").val(totalItems * p)).val();
+	$("#snetAmount").val(((totalItems * s)*1 + 1*sellDiscount) - 1*sellTotalAmount);
+	
+	$("#sellTotalAmount").val(totalItems * p);
+	$("#sellNetAmount").val(((totalItems * s)*1 + 1*sellDiscount) - 1*sellTotalAmount);
 }

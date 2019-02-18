@@ -6,12 +6,16 @@ import java.util.Set;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToMany;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
+
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 import com.validation.ValidEmail;
 import com.validation.ValidateEmpty;
@@ -46,6 +50,7 @@ public class Owner implements Serializable {
 	private String address;
 
 //	@Temporal(TemporalType.TIMESTAMP)
+	@Column(updatable = false)
 	private LocalDateTime dated;
 
 //	@Temporal(TemporalType.TIMESTAMP)
@@ -54,6 +59,7 @@ public class Owner implements Serializable {
 	private String status;
 
 	@ManyToMany(mappedBy = "owners")
+	@NotFound(action = NotFoundAction.IGNORE)
 	private Set<School> schools;
 
 	/**

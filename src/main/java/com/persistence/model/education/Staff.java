@@ -3,6 +3,7 @@ package com.persistence.model.education;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Set;
 
 import javax.persistence.Column;
@@ -63,23 +64,24 @@ public class Staff implements Serializable {
 	@Column(name = "martial_status")
 	private String martialStatus;
 
-	private String status;
+	private String status="Active";
 
 //	@Temporal(TemporalType.TIMESTAMP)
 	private LocalDateTime dated;
 
 //	@Temporal(TemporalType.TIMESTAMP)
+	@Column(updatable=false)
 	private LocalDateTime updated;
 
 	@ManyToMany(fetch = FetchType.LAZY)
 //	@Fetch(value = FetchMode.SUBSELECT)
 	@JoinTable(name = "staffs_schools", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), inverseJoinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"))
-	private Set<School> schools;
+	private List<School> schools;
 
 	@ManyToMany(fetch = FetchType.LAZY)
 //	@Fetch(value = FetchMode.SUBSELECT)
 	@JoinTable(name = "staffs_grades", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), inverseJoinColumns = @JoinColumn(name = "grade_id", referencedColumnName = "grade_id"))
-	private Set<Grade> grades;
+	private List<Grade> grades;
 
 	// Bi-directional on-to-many association to subject
 //	@OneToMany(mappedBy = "staff")
@@ -270,28 +272,28 @@ public class Staff implements Serializable {
 	/**
 	 * @return the schools
 	 */
-	public Set<School> getSchools() {
+	public List<School> getSchools() {
 		return schools;
 	}
 
 	/**
 	 * @param schools the schools to set
 	 */
-	public void setSchools(Set<School> schools) {
+	public void setSchools(List<School> schools) {
 		this.schools = schools;
 	}
 
 	/**
 	 * @return the grades
 	 */
-	public Set<Grade> getGrades() {
+	public List<Grade> getGrades() {
 		return grades;
 	}
 
 	/**
 	 * @param grades the grades to set
 	 */
-	public void setGrades(Set<Grade> grades) {
+	public void setGrades(List<Grade> grades) {
 		this.grades = grades;
 	}
 //

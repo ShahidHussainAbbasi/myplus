@@ -20,6 +20,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
@@ -155,6 +156,18 @@ public class ItemController {
 		}
 	}
 
+	@RequestMapping(value = "/getItem", method = RequestMethod.GET)
+	@ResponseBody
+	public Item getItem(@RequestParam final Long itemId) {
+		try {
+			return itemService.findById(itemId).get();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
+			return null;
+		}
+	}
+
 	@RequestMapping(value = "/getAllItem", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getAllItem(final HttpServletRequest request) {
@@ -205,10 +218,13 @@ public class ItemController {
 			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
 			if(AppUtil.isEmptyOrNull(dto.getId())){
-				obj.setUserId(user.getId());
+//				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
-				obj.setItemType(itemTypeService.getOne(dto.getItemTypeId()));
-				obj.setItemUnit(itemUnitService.getOne(dto.getItemUnitId()));
+/*				if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
+					obj.setItemType(itemTypeService.getOne(dto.getItemTypeId()));
+				if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
+					obj.setItemUnit(itemUnitService.getOne(dto.getItemUnitId()));
+*/				
 				Example<Item> example = Example.of(obj);
 				if(itemService.exists(example))
 					return new GenericResponse("FOUND",messages.getMessage("The Item "+dto.getName()+" already exist", null, request.getLocale()));
@@ -247,7 +263,7 @@ public class ItemController {
 //			else
 //				obj.setItemUnits(null);
 
-			obj = itemService.saveAndFlush(obj);
+			obj = itemService.save(obj);
 			if (AppUtil.isEmptyOrNull(obj.getId())) {
 				return new GenericResponse("FAILED",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));

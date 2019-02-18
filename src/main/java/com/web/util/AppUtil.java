@@ -86,6 +86,20 @@ public class AppUtil {
     	return dateFormat.parse(date);
     }
 
+   	//Get current date time
+    public static LocalDateTime getDateTime(String dateStr) throws ParseException {
+    	if(dateStr==null)
+    		return LocalDateTime.now();
+    	LocalDateTime dateTime = LocalDateTime.parse(dateStr, dateTimeFormatter);
+    	return dateTime;
+    }
+   	//Get date time str
+    public static String getDateTimeStr(LocalDateTime dateTime){
+    	if(dateTime==null)
+    		return "";
+        return dateTimeFormatter.format(dateTime);
+    }
+
     //Get current date time
     public static String todayDateTimeStr() {
         LocalDateTime now = LocalDateTime.now();

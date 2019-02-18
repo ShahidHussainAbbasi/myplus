@@ -76,6 +76,7 @@ public class Sell implements Serializable {
 
 	private String description;
 
+	@Column(updatable=false)
 	private LocalDateTime dated;
 
 	private LocalDateTime updated;

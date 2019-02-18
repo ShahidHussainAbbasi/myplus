@@ -44,6 +44,46 @@ function validateForm(){
 
 $(document).ready(function() {
 	
+   /* $('input.timepicker').timepicker({ 
+    	timeFormat: 'HH:mm',
+        //interval: 60,
+       // minTime: '10',
+       // maxTime: '6:00pm',
+        defaultTime: '8',
+       // startTime: '10:00',
+        dynamic: false,
+        dropdown: true,
+        scrollbar: true
+        //timeFormat: 'HH:mm:00' 
+    });*/
+
+    $(".datePicker").datetimepicker({
+		format : 'DD-MM-YYYY HH:mm:ss'
+	});
+    
+    $('input.timepicker').timepicker({ 
+    	timeFormat: 'HH:mm',
+        //interval: 60,
+       // minTime: '10',
+       // maxTime: '6:00pm',
+        defaultTime: '8',
+       // startTime: '10:00',
+        dynamic: false,
+        dropdown: true,
+        scrollbar: true
+        //timeFormat: 'HH:mm:00' 
+    });
+	
+    $(".onChangeSelect").change(function(){
+    	console.log(this)
+    	var label = $(this).text();
+    	var value = $(this).val();
+    	
+   		populateData(label,value);
+    	
+  //  	  alert($this+ "The text has been changed.");
+    });
+    
 	$switchInputs =function(val) {
 	    
 		buttonV = val;
@@ -60,7 +100,7 @@ $(document).ready(function() {
 		    if(formValidated){
 				var formData = $('form').serialize();
 					formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
-					console.log(" formData for "+val +" is =  "+formData);
+					//console.log(" formData for "+val +" is =  "+formData);
 					$(this).callAjax("add" + buttonV,formData);
 		    }else{
 		    	alert("Please make sure you have entered valid values");
@@ -92,24 +132,25 @@ $(document).ready(function() {
 	    $('.formDiv').hide();
 	    $('#' + $(this).val()).show();
 	    var tab = ($(this).val()).replace("Div","");
-	    console.log(444);
 	  	if(tab){
 			$switchInputs(capitalize(tab));
 			// Activated data table
 			loadDataTable();
 	  	}
+	  	
+	  	//having below block on every switch to get it work
+		//Edit table click on row
+		$("#table" + tableV).on( 'click', 'tbody tr', function () {
+			//console.log(datatable.row( this ));
+			var html = datatable.row(this).selector.rows.innerHTML;
+			var doc = new DOMParser().parseFromString(html, "text/html");
+			
+			//resetForm();
+			editRecord(doc);
+		} );
 	  });
 	});
 
-	//Edit table click on row
-	$("#table" + tableV).on( 'click', 'tbody tr', function () {
-		console.log(datatable.row( this ));
-		var html = datatable.row(this).selector.rows.innerHTML;
-		var doc = new DOMParser().parseFromString(html, "text/html");
-		
-		resetForm();
-		editRecord(doc);
-	} );
 /*	
 	// It will show hide
 	$(function() {
@@ -138,11 +179,11 @@ $(document).ready(function() {
 			} );
 		});
 	});
-*/
-	$("#datePicker").datetimepicker({
+
+	$("#datePicker").datepicker({
 		format : 'DD/MM/YYYY'
 	});
-
+*/
 	$.fn.callAjax = function(method, data) {
 		$.ajax({
 			type : "POST",
@@ -162,7 +203,7 @@ $(document).ready(function() {
 				return false;
 			}, fail: function(data, textStatus, errorThrown) {
 				console.log("Fail block");
-				alert("Fail block ");
+				alert("Fail block "+data);
 			}, error: function(data, textStatus, errorThrown) {
 /*		        if(data.responseJSON.error.indexOf("MailError") > -1)
 		        {
@@ -211,10 +252,14 @@ const capitalize = (s) => {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+const nonCapitalize = (s) => {
+	if (typeof s !== 'string') return ''
+  		return s.charAt(0).toLowerCase() + s.slice(1)
+}
+
 function editRecord(doc){
 	for(var i=0; i<(formFields); i++){
 		if(doc.getElementById(form[i].id)){
-			console.log("form id");
 			var text = doc.getElementById(form[i].id).textContent;
 			if(form[i].tagName=="SELECT"){
 				var labels = text.split(",");

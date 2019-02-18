@@ -4,16 +4,17 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
+
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
@@ -51,19 +52,21 @@ public class Vehicle implements Serializable {
 	@Column(name = "user_id")
 	private Long userId;
 
-	private String status;
+	private String status="Active";
 
+	@Column(updatable = false)
 	private LocalDateTime dated;
 
 	private LocalDateTime updated;
 
 	// create one to one relation to see subject/school performance
-	@ManyToOne(cascade = CascadeType.ALL)
-	@JoinColumn(name = "school_id")
-	private School school;
+//	@ManyToOne(optional=false)
+	@Column(name = "school_id")
+	private Long schoolId;
 
 	// bi-directional many-to-one association to Student
 	@OneToMany(mappedBy = "vehicle")
+	@NotFound(action = NotFoundAction.IGNORE)
 	private Set<Student> students;
 
 	/**
@@ -167,22 +170,26 @@ public class Vehicle implements Serializable {
 	/**
 	 * @return the school
 	 */
-	public School getSchool() {
-		return school;
-	}
-
-	/**
-	 * @param school the school to set
-	 */
-	public void setSchool(School school) {
-		this.school = school;
-	}
 
 	/**
 	 * @return the userId
 	 */
 	public Long getUserId() {
 		return userId;
+	}
+
+	/**
+	 * @return the schoolId
+	 */
+	public Long getSchoolId() {
+		return schoolId;
+	}
+
+	/**
+	 * @param schoolId the schoolId to set
+	 */
+	public void setSchoolId(Long schoolId) {
+		this.schoolId = schoolId;
 	}
 
 	/**

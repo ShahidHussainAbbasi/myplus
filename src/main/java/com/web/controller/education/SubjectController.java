@@ -172,7 +172,7 @@ public class SubjectController {
 				String idList[] = ids.split(",");
 				for(String id:idList){
 //					subjectService.deleteById(Long.valueOf(id));
-					subjectService.updateStatus("Inactive", id);
+					subjectService.deleteById(Long.valueOf(id));//.updateStatus("Inactive", id);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

@@ -22,7 +22,10 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
-import com.persistence.model.education.Staff;
+import com.persistence.model.business.Item;
+import com.persistence.model.education.Grade;
+import com.persistence.model.education.Guardian;
+import com.persistence.model.education.School;
 import com.persistence.model.education.Student;
 import com.service.education.IGradeService;
 import com.service.education.IGuardianService;
@@ -80,17 +83,31 @@ public class StudentController {
 			objs.forEach(obj ->{
 				StudentDTO dto = new StudentDTO();
 				dto = modelMapper.map(obj, StudentDTO.class);
-				dto.setEnrollDate(AppUtil.getDateStr(obj.getEnrollDate()));
+				dto.setEnrollDate(AppUtil.getDateTimeStr(obj.getEnrollDate()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
-				dto.setSchoolId(obj.getSchool().getId());
-				dto.setSchoolName(obj.getSchool().getBranchName());
-				dto.setGuardianId(obj.getGuardian().getId());
-				dto.setGuardianName(obj.getGuardian().getName());
-				dto.setGradeId(obj.getGrade().getId());
-				dto.setGradeName(obj.getGrade().getName());
-				dto.setVehicleId(obj.getVehicle().getId());
-				dto.setVehicleName(obj.getVehicle().getName());
-				
+				dto.setDateOfBirth(AppUtil.getDateTimeStr(obj.getDateOfBirth()));
+				if(!AppUtil.isEmptyOrNull(obj.getSchoolId())) {
+					School school = schoolService.getOne(obj.getSchoolId());
+					if(!AppUtil.isEmptyOrNull(school)) {
+						dto.setSchoolId(school.getId());
+						dto.setSchoolName(school.getBranchName());
+					}
+				}
+				if(!AppUtil.isEmptyOrNull(obj.getGradeId())) {
+					Grade grade = gradeService.getOne(obj.getGradeId());
+					if(!AppUtil.isEmptyOrNull(grade)) {
+						dto.setGradeId(grade.getId());
+						dto.setGradeName(grade.getName());
+					}
+				}
+				if(!AppUtil.isEmptyOrNull(obj.getGuardian())) {
+					dto.setGuardianId(obj.getGuardian().getId());
+					dto.setGuardianName(obj.getGuardian().getName());
+				}
+				if(!AppUtil.isEmptyOrNull(obj.getVehicle())) {
+					dto.setVehicleId(obj.getVehicle().getId());
+					dto.setVehicleName(obj.getVehicle().getName());
+				}				
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -144,33 +161,46 @@ public class StudentController {
 	@ResponseBody
 	public GenericResponse addStudent(@Validated final StudentDTO dto, final HttpServletRequest request) {
 		try {
+			Student obj = new Student();
 			User user = requestUtil.getCurrentUser();
 			LocalDateTime dated = LocalDateTime.now();
-			Student obj = new Student();
+			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
-			obj.setName(dto.getName());
-			Example<Student> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && studentService.exists(example))
-				return new GenericResponse("FOUND",messages.getMessage("The Student "+dto.getName()+" already exist", null, request.getLocale()));
-
-			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = studentService.getOne(dto.getId());
-				dated = obj.getEnrollDate();
+//			obj.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId())){
+				obj.setName(dto.getName());
+				Guardian guardian = new Guardian();
+				guardian.setId(dto.getGuardianId());
+				obj.setGuardian(guardian);
+//				obj.setGuardian(guardianService.getOne(dto.getGuardianId()));
+				Example<Student> example = Example.of(obj);
+				if(studentService.exists(example))
+					return new GenericResponse("FOUND",messages.getMessage("The Student "+dto.getName()+" already exist", null, request.getLocale()));
 			}
+//			obj.setName(dto.getName());
+//			Example<Student> example = Example.of(obj);
+//			if(AppUtil.isEmptyOrNull(dto.getId()) && studentService.exists(example))
+//				return new GenericResponse("FOUND",messages.getMessage("The Student "+dto.getName()+" already exist", null, request.getLocale()));
+//
+//			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
+//				obj = studentService.getOne(dto.getId());
+//				dated = obj.getEnrollDate();
+//			}
 			obj  = modelMapper.map(dto, Student.class);
-			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
-				obj.setEnrollDate(dated);
-			else
-				obj.setEnrollDate(dated);
+//			obj.setUserId(user.getId());
+			
+//			if (AppUtil.isEmptyOrNull(dto.getId())) 
+				obj.setDated(dated);
+			
+			obj.setEnrollDate(AppUtil.getDateTime(dto.getEnrollDate()));
+			obj.setDateOfBirth(AppUtil.getDateTime(dto.getDateOfBirth()));
+			
 			obj.setUpdated(dated);
 
-			if(dto.getSchoolId()>0)
-				obj.setSchool(schoolService.getOne(dto.getSchoolId()));
+			obj.setSchoolId(dto.getSchoolId());
+			obj.setGradeId(dto.getGradeId());
 			if(dto.getGuardianId()>0)
 				obj.setGuardian(guardianService.getOne(dto.getGuardianId()));
-			if(dto.getGradeId()>0)
-				obj.setGrade(gradeService.getOne(dto.getGradeId()));
 			if(dto.getVehicleId()>0)
 				obj.setVehicle(vehicleService.getOne(dto.getVehicleId()));
 			
@@ -195,7 +225,7 @@ public class StudentController {
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					studentService.updateStatus("Inactive",id);//(Long.valueOf(id));
+					studentService.deleteById(Long.valueOf(id));//.updateStatus("Inactive",id);//(Long.valueOf(id));
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

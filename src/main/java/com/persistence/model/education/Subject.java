@@ -6,12 +6,16 @@ import java.time.LocalDateTime;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
+
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
@@ -58,7 +62,8 @@ public class Subject implements Serializable {
 //	private Set<School> schools;
 
 	// bi-directional many-to-one association to Grade
-	@ManyToOne(cascade = CascadeType.ALL)
+	@ManyToOne(optional=false)
+	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinColumn(name = "grade_id")
 	private Grade grade;
 

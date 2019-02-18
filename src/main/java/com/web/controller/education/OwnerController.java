@@ -122,19 +122,17 @@ public class OwnerController {
 			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
-			obj = modelMapper.map(dto, Owner.class);
-			Example<Owner> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && ownerService.exists(example))
-				return new GenericResponse("FOUND",messages.getMessage("The Owner "+dto.getName()+" already exist", null, request.getLocale()));
-			
-			if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = ownerService.getOne(dto.getId());
-				dated = obj.getDated();
-			}else {
-				obj.setDated(dated);
+			if(AppUtil.isEmptyOrNull(dto.getId())){
+				Example<Owner> example = Example.of(obj);
+				obj.setUserId(user.getId());
+				obj.setName(dto.getName());
+				if(ownerService.exists(example))
+					return new GenericResponse("FOUND",messages.getMessage("The Owner "+dto.getName()+" already exist", null, request.getLocale()));
 			}
+			
+			obj = modelMapper.map(dto, Owner.class);
+			obj.setDated(dated);
 			obj.setUpdated(dated);
-
 			Owner schoolOwnerTemp = ownerService.save(obj);
 			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
@@ -156,7 +154,7 @@ public class OwnerController {
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					ownerService.updateStatus("Inactive",id);//deleteById(Long.valueOf(id));
+					ownerService.deleteById(Long.valueOf(id));//.updateStatus("Inactive",id);//deleteById(Long.valueOf(id));
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

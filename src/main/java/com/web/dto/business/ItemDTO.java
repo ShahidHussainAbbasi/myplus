@@ -36,6 +36,8 @@ public class ItemDTO implements Serializable {
 
 	private String description;
 
+	private Float stock=0.0F;
+	
 	private Long companyId;
 
 	private String companyName;
@@ -199,6 +201,21 @@ public class ItemDTO implements Serializable {
 	 */
 	public void setDescription(String description) {
 		this.description = description;
+	}
+
+	
+	/**
+	 * @return the stock
+	 */
+	public Float getStock() {
+		return stock;
+	}
+
+	/**
+	 * @param stock the stock to set
+	 */
+	public void setStock(Float stock) {
+		this.stock = stock;
 	}
 
 	/**

@@ -14,6 +14,7 @@
 <!-- <link rel="stylesheet" href="resources/js/bootstrap/css/bootstrap.min.css"> -->
 <link rel="stylesheet"	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
 <script src="resources/js/education/education.js"></script>
+<script src="resources/js/main.js"></script>
 <!-- <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/timepicker/1.3.5/jquery.timepicker.min.css">
 <script src="//cdnjs.cloudflare.com/ajax/libs/timepicker/1.3.5/jquery.timepicker.min.js"></script>
  -->
@@ -31,15 +32,15 @@
 				<li>
 					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Manage Registrations</option>
-						<option class="dropdown-item" value="Owner">New Owner</option>
-						<option class="dropdown-item" value="School">New School</option>
-						<option class="dropdown-item" value="Vehicle">New Vehicle</option>
-						<option class="dropdown-item" value="Grade">New Grade</option>
-						<option class="dropdown-item" value="Staff">New Employee</option>
-	 					<option class="dropdown-item" value="Subject">New Subject</option>
-						<option class="dropdown-item" value="Guardian">New Guardian</option>
-						<option class="dropdown-item" value="Student">New Student</option>
-						<option class="dropdown-item" value="Discount">New Discount</option>
+						<option class="dropdown-item" value="OwnerDiv">New Owner</option>
+						<option class="dropdown-item" value="SchoolDiv">New School</option>
+						<option class="dropdown-item" value="VehicleDiv">New Vehicle</option>
+						<option class="dropdown-item" value="GradeDiv">New Grade</option>
+						<option class="dropdown-item" value="StaffDiv">New Employee</option>
+	 					<option class="dropdown-item" value="SubjectDiv">New Subject</option>
+						<option class="dropdown-item" value="GuardianDiv">New Guardian</option>
+						<option class="dropdown-item" value="StudentDiv">New Student</option>
+						<option class="dropdown-item" value="DiscountDiv">New Discount</option>
 					</select>
 				</li>
 				<li>
@@ -60,7 +61,7 @@
 		</div>
 	</nav>
 	<div class="container content-cls">
-		<div id=0Div name="OwnerDiv" style="display:none">
+		<div id="OwnerDiv" class="formDiv">
 			<h3 th:text="#{label.owner.form.heading}">Owner Registration</h3>
 			<br />
 			<!-- <form class="form-horizontal" role="form"> -->
@@ -113,7 +114,10 @@
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
 					<button type="button" id="deleteOwner" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Inactive
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetOwner" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
 			</form>
@@ -132,7 +136,7 @@
 				</thead>
 			</table>
 		</div>
-		<div id=1Div name="SchoolDiv" style="display:none">
+		<div id="SchoolDiv" class="formDiv">
 			<h3 th:text="#{label.School.form.heading}">School Registration</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
@@ -194,7 +198,10 @@
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
 					<button type="button" id="deleteSchool" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Inactive
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetSchool" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
 			</form>
@@ -217,7 +224,7 @@
 				</table>
 			</div>
 		</div>
-		<div id=2Div name="GradeDiv" style="display:none">
+		<div id="GradeDiv" class="formDiv">
 			<h3 th:text="#{label.grade.form.heading}">Grade Registration</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
@@ -282,7 +289,10 @@
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
 					<button type="button" id="deleteGrade" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Inactive
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetGrade" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
 			</form>
@@ -305,7 +315,7 @@
 				</table>
 			</div>
 		</div>
-		<div id=3Div name="StaffDiv" style="display:none">
+		<div id="StaffDiv" class="formDiv">
 			<h3 th:text="#{label.staff.form.heading}">Staff Registration</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
@@ -429,7 +439,10 @@
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
 					<button type="button" id="deleteStaff" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Inactive
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetStaff" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
 			</form>
@@ -460,7 +473,7 @@
 				</table>
 			</div>
 		</div>
-		<div id=4Div name="GuardianDiv" style="display:none">
+		<div id="GuardianDiv" class="formDiv">
 			<h3 th:text="#{label.guardian.form.heading}">Guardian Registration</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
@@ -536,7 +549,10 @@
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
 					<button type="button" id="deleteGuardian" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Inactive
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetGuardian" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
 			</form>
@@ -561,7 +577,7 @@
 				</table>
 			</div>
 		</div>		
-		<div id=5Div name="StudentDiv" style="display:none">
+		<div id="StudentDiv" class="formDiv">
 			<h3 th:text="#{label.student.form.heading}">Student Registration</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
@@ -613,21 +629,37 @@
  				<div class="form-group">
 					<label class="control-label col-sm-2" for="studentEnrollDate">Enroll Date:</label>
 					<div class="col-sm-4">
-						<input type="datetime-local" class="form-control" id="studentEnrollDate" name="enrollDate"
-							placeholder="Select Date" required="required"> 
+						<input type="text" class="form-control datePicker" id="studentEnrollDate" name="enrollDate"
+							placeholder="Select Enroll Date"> 
 					</div>
+					<label class="control-label col-sm-2" th:text="#{label.select.fee.mode}" for="studentFeeMode">Fee Mode:</label>
+					<div class="col-sm-4">
+						<select class="form-control" id="studentFeeMode" name="feeMode">
+							<option class="dropdown-item" value=""> Nothing Selected </option>
+							<option class="dropdown-item" value="Monthly">Monthly</option>
+		 					<option class="dropdown-item" value="2 Month">2 Month</option>
+		 					<option class="dropdown-item" value="3 Month">3 Month</option>
+		 					<option class="dropdown-item" value="4 Month">4 Month</option>
+		 					<option class="dropdown-item" value="5 Month">5 Month</option>
+		 					<option class="dropdown-item" value="6 Month">6 Month</option>
+		 					<option class="dropdown-item" value="Yealy">Yearly</option>
+		 					<option class="dropdown-item" value="Randomly">Randomly</option>
+		 				</select>
+					</div>
+				</div>
+ 				<div class="form-group">
 					<label class="control-label col-sm-2" for="studentMobile">Mobile:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="studentMobile" name="mobile"
 							placeholder="Mobile Number" required="required"> 
 					</div>
-				</div>
- 				<div class="form-group">
 					<label class="control-label col-sm-2" for="studentEmail">Email:</label>
 					<div class="col-sm-4">
 						<input type="email" class="form-control" id="studentEmail" name="email"
 							placeholder="Email address">
 					</div>
+				</div>
+				<div class="form-group">
 					<label class="control-label col-sm-2" th:text="#{label.select.gender}" for="studentGender">Gender:</label>
 					<div class="col-sm-4">
 						<select class="form-control" id="studentGender" name="gender">
@@ -636,12 +668,17 @@
 		 					<option class="dropdown-item" value="Female">Female</option>
 		 				</select>
 					</div>
-				</div>
-				<div class="form-group">
 					<label class="control-label col-sm-2" for="studentDateOfBirth">Date of Birth:</label>
 					<div class="col-sm-4">
-						<input type="datetime-local" class="form-control" id="studentDateOfBirth" name="dateOfBirth"
-							placeholder="Select DOB" required="required"> 
+						<input type="text" class="form-control datePicker" id="studentDateOfBirth" name="dateOfBirth"
+							placeholder="Select DOB"> 
+					</div>
+				</div>
+ 				<div class="form-group">
+					<label class="control-label col-sm-2" for="studentAddress">Address:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="studentAddress" name="address"
+							placeholder=" Complete Address" required="required"> 
 					</div>
 					<label class="control-label col-sm-2" th:text="#{label.select.blood.group}" for="studentBloodBroup">Blood Group:</label>
 					<div class="col-sm-4">
@@ -659,11 +696,6 @@
 					</div>
 				</div>
  				<div class="form-group">
-					<label class="control-label col-sm-2" for="studentAddress">Address:</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="studentAddress" name="address"
-							placeholder=" Complete Address" required="required"> 
-					</div>
 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="studentStatus">Status:</label>
 					<div class="col-sm-4">
 						<select class="form-control" id="studentStatus" name="status">
@@ -678,7 +710,10 @@
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
 					<button type="button" id="deleteStudent" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Inactive
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetStudent" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
 			</form>
@@ -692,10 +727,11 @@
 	 							<th class="col-sm-1" data-field="studentName">Name</th>
 								<th class="col-sm-1" data-field="studentSchoolDD">School</th>
 								<th class="col-sm-1" data-field="studentGradeDD">Grade</th>
-								<th class="col-sm-1" data-field="studentVehicleDD">Vehicle</th>
 								<th class="col-sm-1" data-field="studentGuardianDD">Guardian</th>
+								<th class="col-sm-1" data-field="studentVehicleDD">Vehicle</th>
 								<th class="col-sm-1" data-field="studentEnrollNo">Enroll No</th>
 								<th class="col-sm-1" data-field="studentEnrollDate">Enroll Date</th>
+								<th class="col-sm-1" data-field="studentFeeMode">Fee Mode</th>
 								<th class="col-sm-1" data-field="studentMobile">Mobile</th>
 								<th class="col-sm-1" data-field="studentEmail">Email</th>
 								<th class="col-sm-1" data-field="studentGender">Gender</th>
@@ -703,14 +739,14 @@
 								<th class="col-sm-1" data-field="studentBloodBroup">Blood Group</th>
 	 							<th class="col-sm-1" data-field="studentAddress">Address</th>
 								<th class="col-sm-1" data-field="studentStatus">Status</th>
-								<th class="col-sm-1" data-field="studentDated">Status</th>
+								<th class="col-sm-1" data-field="studentDated">Updated</th>
 							</div>
 						</tr>
 					</thead>
 				</table>
 			</div>
 		</div>
-		<div id=6Div name="SubjectDiv" style="display:none">
+		<div id="SubjectDiv" class="formDiv">
 			<h3 th:text="#{label.subject.form.heading}">Subject Registration</h3>
 			<br />
 			<!-- <form class="form-horizontal" role="form"> -->
@@ -775,7 +811,10 @@
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
 					<button type="button" id="deleteSubject" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Inactive
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetSubject" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
 			</form>
@@ -797,7 +836,7 @@
 				</table>
 			</div>
 		</div>	
-		<div id=7Div name="VehicleDiv" style="display:none">
+		<div id="VehicleDiv" class="formDiv">
 			<h3 th:text="#{label.vehicle.form.heading}">Vehicle Registration</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
@@ -865,8 +904,15 @@
 					<button type="button" id="addVehicle" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
-					<button type="button" id="deleteVehicle" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Inactive
+<!-- 					<button type="button" id="inactiveVehicle" class="btn btn-secondary">
+						<span class="glyphicon glyphicon-ban-circle"></span> Inactive
+					</button>
+ -->					
+ 					<button type="button" id="deleteVehicle" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetVehicle" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
 			</form>
@@ -890,7 +936,7 @@
 				</table>
 			</div>
 		</div>		
-		<div id=8Div name="DiscountDiv" style="display:none">
+		<div id="DiscountDiv" class="formDiv">
 			<h3 th:text="#{label.discount.form.heading}">Discount Registration</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
@@ -962,7 +1008,10 @@
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
 					<button type="button" id="deleteDiscount" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Inactive
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetDiscount" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
 			</form>

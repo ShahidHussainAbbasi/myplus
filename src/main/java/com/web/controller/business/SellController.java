@@ -78,12 +78,12 @@ public class SellController {
 			List<SellDTO> dtos=new ArrayList<SellDTO>(); 
 			objs.forEach(obj ->{
 				SellDTO dto = modelMapper.map(obj, SellDTO.class);
-				dto.setCustomerId(obj.getCustomer().getId());
-				dto.setCustomerName(obj.getCustomer().getName());
-				dto.setItemUnitId(obj.getItemUnit().getId());
-				dto.setItemUnitName(obj.getItemUnit().getName());
-				dto.setItemTypeId(obj.getItemType().getId());
-				dto.setItemTypeName(obj.getItemType().getName());
+//				dto.setCustomerId(obj.getCustomer().getId());
+//				dto.setCustomerName(obj.getCustomer().getName());
+//				dto.setItemUnitId(obj.getItemUnit().getId());
+//				dto.setItemUnitName(obj.getItemUnit().getName());
+//				dto.setItemTypeId(obj.getItemType().getId());
+//				dto.setItemTypeName(obj.getItemType().getName());
 				
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
@@ -109,12 +109,12 @@ public class SellController {
 			List<SellDTO> dtos=new ArrayList<SellDTO>(); 
 			objs.forEach(obj ->{
 				SellDTO dto = modelMapper.map(obj, SellDTO.class);
-				dto.setCustomerId(obj.getCustomer().getId());
-				dto.setCustomerName(obj.getCustomer().getName());
-				dto.setItemUnitId(obj.getItemUnit().getId());
-				dto.setItemUnitName(obj.getItemUnit().getName());
-				dto.setItemTypeId(obj.getItemType().getId());
-				dto.setItemTypeName(obj.getItemType().getName());
+//				dto.setCustomerId(obj.getCustomer().getId());
+//				dto.setCustomerName(obj.getCustomer().getName());
+//				dto.setItemUnitId(obj.getItemUnit().getId());
+//				dto.setItemUnitName(obj.getItemUnit().getName());
+//				dto.setItemTypeId(obj.getItemType().getId());
+//				dto.setItemTypeName(obj.getItemType().getName());
 				
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
@@ -143,22 +143,19 @@ public class SellController {
 			obj = modelMapper.map(dto, Sell.class);
 			obj.setUserId(user.getId());
 			//if it is update
-			if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = sellService.getOne(dto.getId());
-				dated = obj.getDated();
-			}else {
-				obj.setDated(dated);
-			}
+
+
+			obj.setDated(dated);
 			obj.setUpdated(dated);
 			//add customer
-			if(!AppUtil.isEmptyOrNull(dto.getCustomerId()))
-				obj.setCustomer(customerService.getOne(dto.getCustomerId()));
-			
-			if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
-				obj.setItemType(itemTypeService.getOne(dto.getItemTypeId()));
-
-			if(!AppUtil.isEmptyOrNull(dto.getItemUnitId()))
-				obj.setItemUnit(itemUnitService.getOne(dto.getItemUnitId()));
+//			if(!AppUtil.isEmptyOrNull(dto.getCustomerId()))
+//				obj.setCustomer(customerService.getOne(dto.getCustomerId()));
+//			
+//			if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
+//				obj.setItemType(itemTypeService.getOne(dto.getItemTypeId()));
+//
+//			if(!AppUtil.isEmptyOrNull(dto.getItemUnitId()))
+//				obj.setItemUnit(itemUnitService.getOne(dto.getItemUnitId()));
 			
 			obj = sellService.save(obj);
 			if(AppUtil.isEmptyOrNull(obj)) {

@@ -146,22 +146,17 @@ public class SchoolController {
 			School obj= new School();
 			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
-			obj.setUserId(user.getId());
-			obj.setBranchName(dto.getBranchName());
-			Example<School> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && schoolService.exists(example))
-				return new GenericResponse("FOUND",messages.getMessage("The School "+dto.getName()+" already exist", null, request.getLocale()));
-
-			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = schoolService.getOne(dto.getId());
-				dated = obj.getDated();
+			dto.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId())) {
+				obj.setUserId(user.getId());
+				obj.setBranchName(dto.getBranchName());
+				Example<School> example = Example.of(obj);
+				if(schoolService.exists(example))
+					return new GenericResponse("FOUND",messages.getMessage("The School "+dto.getName()+" already exist", null, request.getLocale()));
 			}
+
 			obj = modelMapper.map(dto, School.class);
-			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
-				obj.setDated(dated);
-			else
-				obj.setDated(dated);
+			obj.setDated(dated);
 			obj.setUpdated(dated);
 
 			Set<Owner> owners = new HashSet<>();
@@ -192,7 +187,7 @@ public class SchoolController {
 				String idList[] = ids.split(",");
 				for(String id:idList){
 //					schoolService.deleteById(Long.valueOf(id));
-					schoolService.updateStatus("Inactive", id);
+					schoolService.deleteById(Long.valueOf(id));//.updateStatus("Inactive", id);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

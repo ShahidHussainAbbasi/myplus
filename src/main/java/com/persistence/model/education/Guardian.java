@@ -52,12 +52,13 @@ public class Guardian implements Serializable {
 	private String occupation;
 
 //	@Temporal(TemporalType.TIMESTAMP)
+	@Column(updatable=false)
 	private LocalDateTime dated;
 
 //	@Temporal(TemporalType.TIMESTAMP)
 	private LocalDateTime updated;
 
-	private String status;
+	private String status="Active";
 
 	// bi-directional many-to-one association to Appointment
 	@OneToMany(mappedBy = "guardian")
