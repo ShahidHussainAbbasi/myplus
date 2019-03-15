@@ -34,21 +34,17 @@ public class Sell implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "item_id")
-	private Item item;
+	private Long itemId;
 
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "customer_id")
-	private Customer customer;
+	private Long customerId;
 
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "item_type_id")
-	private ItemType ItemType;
-
-	@OneToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "item_unit_id")
-	private ItemUnit itemUnit;
+//	@OneToOne(fetch = FetchType.EAGER, optional = false)
+//	@JoinColumn(name = "item_type_id")
+//	private ItemType ItemType;
+//
+//	@OneToOne(fetch = FetchType.EAGER, optional = false)
+//	@JoinColumn(name = "item_unit_id")
+//	private ItemUnit itemUnit;
 
 	private Float quantity;
 
@@ -58,21 +54,15 @@ public class Sell implements Serializable {
 	@Column(name = "sell_rate")
 	private Float sellRate;
 
-	private Float discount = null;
+	private Float discount;
 
 	@Column(name = "total_amount")
 	private Float totalAmount;
 
 	@Column(name = "net_amount")
-	private Float netAmount = null;
+	private Float netAmount;
 
 	private Float stock;
-
-	@Column(name = "sell_expense")
-	private Float sellExpense;
-
-	@Column(name = "sell_expense_desc")
-	private String sellExpenseDesc;
 
 	private String description;
 
@@ -80,6 +70,7 @@ public class Sell implements Serializable {
 	private LocalDateTime dated;
 
 	private LocalDateTime updated;
+
 
 
 	/**
@@ -90,12 +81,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param id the id to set
 	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
+
 
 
 	/**
@@ -106,12 +99,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param userId the userId to set
 	 */
 	public void setUserId(Long userId) {
 		this.userId = userId;
 	}
+
 
 
 	/**
@@ -122,6 +117,7 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param userType the userType to set
 	 */
@@ -130,68 +126,41 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
-	 * @return the item
+	 * @return the itemId
 	 */
-	public Item getItem() {
-		return item;
+	public Long getItemId() {
+		return itemId;
 	}
 
 
+
 	/**
-	 * @param item the item to set
+	 * @param itemId the itemId to set
 	 */
-	public void setItem(Item item) {
-		this.item = item;
+	public void setItemId(Long itemId) {
+		this.itemId = itemId;
 	}
 
 
+
 	/**
-	 * @return the customer
+	 * @return the customerId
 	 */
-	public Customer getCustomer() {
-		return customer;
+	public Long getCustomerId() {
+		return customerId;
 	}
 
 
-	/**
-	 * @param customer the customer to set
-	 */
-	public void setCustomer(Customer customer) {
-		this.customer = customer;
-	}
-
 
 	/**
-	 * @return the itemType
+	 * @param customerId the customerId to set
 	 */
-	public ItemType getItemType() {
-		return ItemType;
+	public void setCustomerId(Long customerId) {
+		this.customerId = customerId;
 	}
 
-
-	/**
-	 * @param itemType the itemType to set
-	 */
-	public void setItemType(ItemType itemType) {
-		ItemType = itemType;
-	}
-
-
-	/**
-	 * @return the itemUnit
-	 */
-	public ItemUnit getItemUnit() {
-		return itemUnit;
-	}
-
-
-	/**
-	 * @param itemUnit the itemUnit to set
-	 */
-	public void setItemUnit(ItemUnit itemUnit) {
-		this.itemUnit = itemUnit;
-	}
 
 
 	/**
@@ -202,12 +171,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param quantity the quantity to set
 	 */
 	public void setQuantity(Float quantity) {
 		this.quantity = quantity;
 	}
+
 
 
 	/**
@@ -218,12 +189,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param purchaseRate the purchaseRate to set
 	 */
 	public void setPurchaseRate(Float purchaseRate) {
 		this.purchaseRate = purchaseRate;
 	}
+
 
 
 	/**
@@ -234,12 +207,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param sellRate the sellRate to set
 	 */
 	public void setSellRate(Float sellRate) {
 		this.sellRate = sellRate;
 	}
+
 
 
 	/**
@@ -250,12 +225,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param discount the discount to set
 	 */
 	public void setDiscount(Float discount) {
 		this.discount = discount;
 	}
+
 
 
 	/**
@@ -266,12 +243,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param totalAmount the totalAmount to set
 	 */
 	public void setTotalAmount(Float totalAmount) {
 		this.totalAmount = totalAmount;
 	}
+
 
 
 	/**
@@ -282,12 +261,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param netAmount the netAmount to set
 	 */
 	public void setNetAmount(Float netAmount) {
 		this.netAmount = netAmount;
 	}
+
 
 
 	/**
@@ -298,6 +279,7 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param stock the stock to set
 	 */
@@ -305,37 +287,6 @@ public class Sell implements Serializable {
 		this.stock = stock;
 	}
 
-
-	/**
-	 * @return the sellExpense
-	 */
-	public Float getSellExpense() {
-		return sellExpense;
-	}
-
-
-	/**
-	 * @param sellExpense the sellExpense to set
-	 */
-	public void setSellExpense(Float sellExpense) {
-		this.sellExpense = sellExpense;
-	}
-
-
-	/**
-	 * @return the sellExpenseDesc
-	 */
-	public String getSellExpenseDesc() {
-		return sellExpenseDesc;
-	}
-
-
-	/**
-	 * @param sellExpenseDesc the sellExpenseDesc to set
-	 */
-	public void setSellExpenseDesc(String sellExpenseDesc) {
-		this.sellExpenseDesc = sellExpenseDesc;
-	}
 
 
 	/**
@@ -346,12 +297,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param description the description to set
 	 */
 	public void setDescription(String description) {
 		this.description = description;
 	}
+
 
 
 	/**
@@ -362,12 +315,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param dated the dated to set
 	 */
 	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
 	}
+
 
 
 	/**
@@ -378,12 +333,14 @@ public class Sell implements Serializable {
 	}
 
 
+
 	/**
 	 * @param updated the updated to set
 	 */
 	public void setUpdated(LocalDateTime updated) {
 		this.updated = updated;
 	}
+
 
 
 	/**

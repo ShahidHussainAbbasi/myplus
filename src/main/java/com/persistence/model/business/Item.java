@@ -1,6 +1,7 @@
 package com.persistence.model.business;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -51,10 +52,12 @@ public class Item implements Serializable {
 
 	private Float discount;
 
+	private String discountType;
+
 	private Float net;
 
-	private String description;
-	
+	private LocalDate expDate;
+
 	private Float stock;
 
 //	@OneToMany(cascade= CascadeType.REFRESH)
@@ -93,16 +96,15 @@ public class Item implements Serializable {
 
 	@Column(updatable = false)
 	private LocalDateTime dated;
+
 	private LocalDateTime updated;
 
-	
 	/**
 	 * @return the id
 	 */
 	public Long getId() {
 		return id;
 	}
-
 
 	/**
 	 * @param id the id to set
@@ -111,14 +113,12 @@ public class Item implements Serializable {
 		this.id = id;
 	}
 
-
 	/**
 	 * @return the code
 	 */
 	public String getCode() {
 		return code;
 	}
-
 
 	/**
 	 * @param code the code to set
@@ -127,14 +127,12 @@ public class Item implements Serializable {
 		this.code = code;
 	}
 
-
 	/**
 	 * @return the userId
 	 */
 	public Long getUserId() {
 		return userId;
 	}
-
 
 	/**
 	 * @param userId the userId to set
@@ -143,14 +141,12 @@ public class Item implements Serializable {
 		this.userId = userId;
 	}
 
-
 	/**
 	 * @return the userType
 	 */
 	public String getUserType() {
 		return userType;
 	}
-
 
 	/**
 	 * @param userType the userType to set
@@ -159,14 +155,12 @@ public class Item implements Serializable {
 		this.userType = userType;
 	}
 
-
 	/**
 	 * @return the name
 	 */
 	public String getName() {
 		return name;
 	}
-
 
 	/**
 	 * @param name the name to set
@@ -175,14 +169,12 @@ public class Item implements Serializable {
 		this.name = name;
 	}
 
-
 	/**
 	 * @return the purchaseAmount
 	 */
 	public Float getPurchaseAmount() {
 		return purchaseAmount;
 	}
-
 
 	/**
 	 * @param purchaseAmount the purchaseAmount to set
@@ -191,14 +183,12 @@ public class Item implements Serializable {
 		this.purchaseAmount = purchaseAmount;
 	}
 
-
 	/**
 	 * @return the sellAmount
 	 */
 	public Float getSellAmount() {
 		return sellAmount;
 	}
-
 
 	/**
 	 * @param sellAmount the sellAmount to set
@@ -207,14 +197,12 @@ public class Item implements Serializable {
 		this.sellAmount = sellAmount;
 	}
 
-
 	/**
 	 * @return the discount
 	 */
 	public Float getDiscount() {
 		return discount;
 	}
-
 
 	/**
 	 * @param discount the discount to set
@@ -223,14 +211,12 @@ public class Item implements Serializable {
 		this.discount = discount;
 	}
 
-
 	/**
 	 * @return the net
 	 */
 	public Float getNet() {
 		return net;
 	}
-
 
 	/**
 	 * @param net the net to set
@@ -239,20 +225,32 @@ public class Item implements Serializable {
 		this.net = net;
 	}
 
-
 	/**
-	 * @return the description
+	 * @return the expDate
 	 */
-	public String getDescription() {
-		return description;
+	public LocalDate getExpDate() {
+		return expDate;
 	}
 
+	/**
+	 * @param expDate the expDate to set
+	 */
+	public void setExpDate(LocalDate expDate) {
+		this.expDate = expDate;
+	}
 
 	/**
-	 * @param description the description to set
+	 * @return the discountType
 	 */
-	public void setDescription(String description) {
-		this.description = description;
+	public String getDiscountType() {
+		return discountType;
+	}
+
+	/**
+	 * @param discountType the discountType to set
+	 */
+	public void setDiscountType(String discountType) {
+		this.discountType = discountType;
 	}
 
 	/**
@@ -262,14 +260,12 @@ public class Item implements Serializable {
 		return stock;
 	}
 
-
 	/**
 	 * @param stock the stock to set
 	 */
 	public void setStock(Float stock) {
 		this.stock = stock;
 	}
-
 
 	/**
 	 * @return the itemType
@@ -278,14 +274,12 @@ public class Item implements Serializable {
 		return itemType;
 	}
 
-
 	/**
 	 * @param itemType the itemType to set
 	 */
 	public void setItemType(ItemType itemType) {
 		this.itemType = itemType;
 	}
-
 
 	/**
 	 * @return the itemUnit
@@ -294,14 +288,12 @@ public class Item implements Serializable {
 		return itemUnit;
 	}
 
-
 	/**
 	 * @param itemUnit the itemUnit to set
 	 */
 	public void setItemUnit(ItemUnit itemUnit) {
 		this.itemUnit = itemUnit;
 	}
-
 
 	/**
 	 * @return the company
@@ -310,14 +302,12 @@ public class Item implements Serializable {
 		return company;
 	}
 
-
 	/**
 	 * @param company the company to set
 	 */
 	public void setCompany(Company company) {
 		this.company = company;
 	}
-
 
 	/**
 	 * @return the venderId
@@ -326,14 +316,12 @@ public class Item implements Serializable {
 		return venderId;
 	}
 
-
 	/**
 	 * @param venderId the venderId to set
 	 */
 	public void setVenderId(Long venderId) {
 		this.venderId = venderId;
 	}
-
 
 	/**
 	 * @return the dated
@@ -342,14 +330,12 @@ public class Item implements Serializable {
 		return dated;
 	}
 
-
 	/**
 	 * @param dated the dated to set
 	 */
 	public void setDated(LocalDateTime dated) {
 		this.dated = dated;
 	}
-
 
 	/**
 	 * @return the updated
@@ -358,14 +344,12 @@ public class Item implements Serializable {
 		return updated;
 	}
 
-
 	/**
 	 * @param updated the updated to set
 	 */
 	public void setUpdated(LocalDateTime updated) {
 		this.updated = updated;
 	}
-
 
 	/**
 	 * @return the serialversionuid

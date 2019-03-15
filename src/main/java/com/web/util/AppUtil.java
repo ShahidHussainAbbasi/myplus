@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
@@ -80,6 +81,20 @@ public class AppUtil {
     }
 
    	//Get current date time
+    public static String getLoaclDateStr(LocalDate date) {
+    	if(date==null)
+    		return "";
+    	return dateformatter.format(date);
+    }
+
+    //Get current date time
+    public static String getLocalDateStr(LocalDate date) {
+    	if(date==null)
+    		return "";
+    	return dateformatter.format(date);
+    }
+
+   	//Get current date time
     public static Date getDate(String date) throws ParseException {
     	if(date==null)
     		return new Date();
@@ -90,7 +105,14 @@ public class AppUtil {
     public static LocalDateTime getDateTime(String dateStr) throws ParseException {
     	if(dateStr==null)
     		return LocalDateTime.now();
-    	LocalDateTime dateTime = LocalDateTime.parse(dateStr, dateTimeFormatter);
+    	LocalDateTime dateTime = LocalDateTime.parse(dateStr, dateformatter);
+    	return dateTime;
+    }
+   	//Get current date
+    public static LocalDate getLocalDate(String dateStr) throws ParseException {
+    	if(dateStr==null)
+    		return LocalDate.now();
+    	LocalDate dateTime = LocalDate.parse(dateStr, dateformatter);
     	return dateTime;
     }
    	//Get date time str

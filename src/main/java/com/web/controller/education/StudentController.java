@@ -3,6 +3,7 @@ package com.web.controller.education;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
@@ -87,17 +88,17 @@ public class StudentController {
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dto.setDateOfBirth(AppUtil.getDateTimeStr(obj.getDateOfBirth()));
 				if(!AppUtil.isEmptyOrNull(obj.getSchoolId())) {
-					School school = schoolService.getOne(obj.getSchoolId());
-					if(!AppUtil.isEmptyOrNull(school)) {
-						dto.setSchoolId(school.getId());
-						dto.setSchoolName(school.getBranchName());
+					Optional<School> school = schoolService.findById(obj.getSchoolId());
+					if(school.isPresent()) {
+						dto.setSchoolId(school.get().getId());
+						dto.setSchoolName(school.get().getBranchName());
 					}
 				}
 				if(!AppUtil.isEmptyOrNull(obj.getGradeId())) {
-					Grade grade = gradeService.getOne(obj.getGradeId());
-					if(!AppUtil.isEmptyOrNull(grade)) {
-						dto.setGradeId(grade.getId());
-						dto.setGradeName(grade.getName());
+					Optional<Grade> grade = gradeService.findById(obj.getGradeId());
+					if(grade.isPresent()) {
+						dto.setGradeId(grade.get().getId());
+						dto.setGradeName(grade.get().getName());
 					}
 				}
 				if(!AppUtil.isEmptyOrNull(obj.getGuardian())) {

@@ -26,7 +26,7 @@ import com.persistence.model.User;
 @Component
 public class SetupDataLoader implements ApplicationListener<ContextRefreshedEvent> {
 
-    private boolean alreadySetup = false;
+    private boolean alreadySetup = true;
 
     @Autowired
     private UserRepository userRepository;

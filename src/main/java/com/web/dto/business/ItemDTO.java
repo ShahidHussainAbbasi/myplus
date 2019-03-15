@@ -24,17 +24,19 @@ public class ItemDTO implements Serializable {
 	@ValidateEmpty
 	private String name;
 
-	@ValidateEmpty
+//	@ValidateEmpty
 	private Float purchaseAmount;
 
-	@ValidateEmpty
+//	@ValidateEmpty
 	private Float sellAmount;
 
-	private Float discount;
+	private Float discount=0.0F;
+	
+	private String discountType = "%";
 
 	private Float net;
 
-	private String description;
+	private String expDateStr;
 
 	private Float stock=0.0F;
 	
@@ -48,9 +50,11 @@ public class ItemDTO implements Serializable {
 
 //	@ValidateEmpty
 	private Set<Long> itemUnitIds;
+	
 	private Long itemUnitId;
 
 	private Set<String> itemUnitNames;
+	
 	private String itemUnitName;
 
 //	@ValidateEmpty
@@ -176,6 +180,20 @@ public class ItemDTO implements Serializable {
 	}
 
 	/**
+	 * @return the discountType
+	 */
+	public String getDiscountType() {
+		return discountType;
+	}
+
+	/**
+	 * @param discountType the discountType to set
+	 */
+	public void setDiscountType(String discountType) {
+		this.discountType = discountType;
+	}
+
+	/**
 	 * @return the net
 	 */
 	public Float getNet() {
@@ -189,21 +207,21 @@ public class ItemDTO implements Serializable {
 		this.net = net;
 	}
 
-	/**
-	 * @return the description
-	 */
-	public String getDescription() {
-		return description;
-	}
-
-	/**
-	 * @param description the description to set
-	 */
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
 	
+	/**
+	 * @return the expDateStr
+	 */
+	public String getExpDateStr() {
+		return expDateStr;
+	}
+
+	/**
+	 * @param expDateStr the expDateStr to set
+	 */
+	public void setExpDateStr(String expDateStr) {
+		this.expDateStr = expDateStr;
+	}
+
 	/**
 	 * @return the stock
 	 */

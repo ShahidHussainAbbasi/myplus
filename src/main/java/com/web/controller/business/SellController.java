@@ -3,6 +3,7 @@ package com.web.controller.business;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -21,8 +22,11 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
+import com.persistence.model.business.Item;
+import com.persistence.model.business.Purchase;
 import com.persistence.model.business.Sell;
 import com.service.business.ICustomerService;
+import com.service.business.IItemService;
 import com.service.business.IItemTypeService;
 import com.service.business.IItemUnitService;
 import com.service.business.IPurchaseService;
@@ -53,7 +57,7 @@ public class SellController {
 	IItemUnitService itemUnitService;
 
 	@Autowired
-	IVenderService venderService;
+	IItemService itemService;
 
 	@Autowired
 	IPurchaseService purchaseService;
@@ -84,7 +88,17 @@ public class SellController {
 //				dto.setItemUnitName(obj.getItemUnit().getName());
 //				dto.setItemTypeId(obj.getItemType().getId());
 //				dto.setItemTypeName(obj.getItemType().getName());
-				
+				Optional<Item> option = itemService.findById(dto.getItemId());
+				if(option.isPresent()) {
+					Item item  = option.get();
+					dto.setItemId(item.getId());
+					dto.setItemName(item.getName());
+					dto.setStock(item.getStock());
+				}
+//				Item item = itemService.getOne(dto.getItemId());
+//				dto.setItemId(item.getId());
+//				dto.setItemName(item.getName());
+//				dto.setStock(item.getStock());
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -144,8 +158,28 @@ public class SellController {
 			obj.setUserId(user.getId());
 			//if it is update
 
-
-			obj.setDated(dated);
+			//if update
+			Item item = itemService.getOne(dto.getItemId());
+        	Float stock = item.getStock()-dto.getQuantity();
+			if(!AppUtil.isEmptyOrNull(dto.getId())){
+				Sell objTemp = sellService.getOne(dto.getId());
+				if(objTemp.getQuantity() > dto.getQuantity())
+					stock = item.getStock() - (dto.getQuantity() - objTemp.getQuantity());
+				else
+					stock = item.getStock() + (objTemp.getQuantity() - dto.getQuantity());
+				
+				item.setStock(stock);	
+			}
+			//updating stock
+			item.setStock(stock);
+	        itemService.save(item);
+//			//updating stock
+//	        Item item = itemService.getOne(dto.getItemId());
+//	        Float stock = (item.getStock() - dto.getQuantity());
+//	        item.setStock(stock);
+//	        itemService.save(item);
+	        obj.setStock(stock);
+	        obj.setDated(dated);
 			obj.setUpdated(dated);
 			//add customer
 //			if(!AppUtil.isEmptyOrNull(dto.getCustomerId()))

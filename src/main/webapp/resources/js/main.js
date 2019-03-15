@@ -57,7 +57,10 @@ $(document).ready(function() {
         //timeFormat: 'HH:mm:00' 
     });*/
 
-    $(".datePicker").datetimepicker({
+	$(".datePicker").datetimepicker({
+		format : 'DD-MM-YYYY'
+	});
+    $(".datetimepicker").datetimepicker({
 		format : 'DD-MM-YYYY HH:mm:ss'
 	});
     
@@ -145,7 +148,7 @@ $(document).ready(function() {
 			var html = datatable.row(this).selector.rows.innerHTML;
 			var doc = new DOMParser().parseFromString(html, "text/html");
 			
-			//resetForm();
+			resetForm();
 			editRecord(doc);
 		} );
 	  });

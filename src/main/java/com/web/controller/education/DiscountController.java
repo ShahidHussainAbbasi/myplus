@@ -133,10 +133,9 @@ public class DiscountController {
 			obj.setUserId(user.getId());
 			obj.setName(dto.getName());
 			Example<Discount> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && discountService.exists(example))
+			if(AppUtil.isEmptyOrNull(dto.getId()) && discountService.exists(example)) {
 				return new GenericResponse("FOUND",messages.getMessage("The Owner "+dto.getName()+" already exist", null, request.getLocale()));
-			
-			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
+			}else if(!AppUtil.isEmptyOrNull(dto.getId())) {
 				obj = discountService.getOne(dto.getId());
 				dated = obj.getDated();
 			}

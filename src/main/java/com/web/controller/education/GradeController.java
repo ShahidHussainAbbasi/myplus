@@ -77,7 +77,7 @@ public class GradeController {
 					dto.setSchoolName(obj.getSchool().getBranchName());
 					dto.setSchoolName(obj.getSchool().getBranchName());
 				}else {
-					dto.setSchoolName("NA");
+					dto.setSchoolName("");
 				}
 				dto.setTimeFromStr(obj.getTimeFrom().toString());
 			    dto.setTimeToStr(obj.getTimeTo().toString());

@@ -35,25 +35,25 @@
 <!-- 						<option class="dropdown-item" value="ItemTypeDiv">Item Type</option>
 						<option class="dropdown-item" value="ItemUnitDiv">Item Unit</option>
  -->						
- 						<option class="dropdown-item" value="ItemDiv">Item</option>
+ 						<option class="dropdown-item" value="itemDiv">Item</option>
 						<!-- <option class="dropdown-item" value="Customer">Customer</option> -->
 					</select>
 				</li>
 				<li>
 					<select name="purchaseType" id="purchaseType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Purchase</option>
-						<option class="dropdown-item" value="purchaseDiv">New Purchase</option>
-						<option class="dropdown-item" value="purchaseReturnDiv"> Purchase Return</option>
-						<option class="dropdown-item" value="PurchaseInvoice">Purchase Invoice</option>
-					</select>
+						<option class="dropdown-item" value="purchaseDiv"> New Purchase </option>
+<!-- 						<option class="dropdown-item" value="purchaseReturnDiv"> Manage Purchase </option>
+						<option class="dropdown-item" value="PurchaseInvoice"> Purchase Invoice </option>
+ -->					</select>
 				</li>
 				<li>
 					<select name="sellType" id="sellType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Sell</option>
-						<option class="dropdown-item" value="sellDiv">New Sell</option>
-						<option class="dropdown-item" value="sellReturnDiv">Sell Return</option>
+						<option class="dropdown-item" value="sellDiv"> New Sell </option>
+<!-- 						<option class="dropdown-item" value="sellReturnDiv"> Manage Sell</option>
 						<option class="dropdown-item" value="sellInvoiceDiv">Sell Invoice</option>
-					</select>
+ -->					</select>
 				</li>
 			</ul>					
 		</div>
@@ -230,7 +230,7 @@
 				</table>
 			</div>
 		</div>
-		<div id="ItemDiv" class="formDiv">
+		<div id="itemDiv" class="formDiv">
 			<br />
 			<h2 th:text="#{label.item.form.heading}">Item Registration Form</h2>
 			<br />
@@ -240,10 +240,7 @@
 					<div class="col-sm-6">
 						<input type="number" class="form-control" id="itemId" name="id" readonly="readonly"/> 
 					</div>
-<!-- 					<div class="col-sm-6">
-						<input type="date" class="form-control" id="itemDated" name="dated" readonly="readonly"/> 
-					</div>
- -->				</div>
+				</div>
 				<div class="form-group" id="Item">
 					<label class="control-label col-sm-2" for="itemName">Full Name:</label>
 					<div class="col-sm-4">
@@ -256,17 +253,6 @@
 							placeholder="Item Code">
 					</div>
 				</div>
-<!-- 				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.itemType}">Select
-						Type</label> <span class="col-sm-4"> <select class="form-control" id="itemTypeDD" name="itemTypeId">
-					</select>
-					</span>
-					<label class="control-label col-sm-2" th:text="#{label.itemUnit}">Select
-						Unit</label> <span class="col-sm-4"> <select class="form-control" id="itemUnitDD" name="itemUnitId">
-					</select>
-					</span>
-				</div>
- -->				
 				<div class="form-group">
 					<label class="control-label col-sm-2" th:text="#{label.company}">Select
 						Company</label> <span class="col-sm-4"> <select
@@ -280,34 +266,49 @@
 					</span>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="itemSellAmount">S Amount:</label>
+					<label class="control-label col-sm-2" for="itemSellAmount">Sell/Unit price:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="itemSellAmount" step=any min="0"
-							name="sellAmount" placeholder=" Sell Amount 0.0" onblur="calculateNet()">
+						<input type="number" step="any" min="0" class="form-control" id="itemSellAmount"
+							name="sellAmount" placeholder=" Sell Amount 0.0" onkeyup="calculateNet()">
 					</div>
-					<label class="control-label col-sm-2" for="itemPurchaseAmount">P Amount:</label>
+					<label class="control-label col-sm-2" for="itemPurchaseAmount">Purchase/Unit price:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="itemPurchaseAmount" step=any min="0"
-							name="purchaseAmount" placeholder=" Purchase Amount 0.0" onblur="calculateNet()">
+						<input type="number" step="any" class="form-control" id="itemPurchaseAmount"
+							name="purchaseAmount" placeholder=" Purchase Amount 0.0" onkeyup="calculateNet()">
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="itemDiscount">Discount:</label>
+					<label class="control-label col-sm-2" for="discountTypeDD">Discount Type:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="itemDiscount" step=any min="0"
-							name="discount" placeholder=" Discount 0.0" onblur="calculateNet()">
+						<select name="discountType" id="discountTypeDD" class="form-control" onchange="calculateNet()" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="%">%</option>
+							<option class="dropdown-item" value="Amount">Amount</option>
+						</select>
 					</div>
-					<label class="control-label col-sm-2" for="itemNet">Net:</label>
+					<label class="control-label col-sm-2" for="itemDiscount">Fix discount:</label>
+					<div class="col-sm-4">
+						<input type="number" step="any" class="form-control" id="itemDiscount"
+							name="discount" placeholder=" Discount 0.0" onkeyup="calculateNet()">
+					</div>
+				</div>
+<!-- 				<div class="form-group">
+					<label class="control-label col-sm-2" for="itemNet">Profit:</label>
 					<div class="col-sm-4">
 						<input type="number" class="form-control" id="itemNet" step=any min="0"
 							name="net" placeholder=" Net Amount 0.0" required="required">
 					</div>
 				</div>
-				<div class="form-group">
+ -->				<div class="form-group">
 					<label class="control-label col-sm-2" for="itemStock">Available Stock:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="itemStock" step=any min="0"
+						<input type="number" step="any" min="0" class="form-control" id="itemStock"
 							name="stock" placeholder=" Availabe Stock">
+					</div>
+					<label class="control-label col-sm-2" for="itemExpDate">Expiration Date:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control datePicker" id="itemExpDate" name="expDateStr"
+							placeholder=" Expiry Date "> 
 					</div>
 				</div>
 				<div class="form-group">
@@ -334,10 +335,12 @@
 							<th class="col-sm-1" data-field="itemVenderDD">Vender</th>
 							<!-- <th class="col-sm-1" data-field="itemTypeDD">Type</th> -->
 							<!-- <th class="col-sm-1" data-field="itemUnitDD">Unit</th> -->
-							<th class="col-sm-1" data-field="itemPurchaseAmount">P Amount</th>
-							<th class="col-sm-1" data-field="itemSnellAmount">S Amount</th>
+							<th class="col-sm-1" data-field="itemPurchaseAmount">P/U Price</th>
+							<th class="col-sm-1" data-field="itemSnellAmount">S/U Price</th>
+							<th class="col-sm-1" data-field="discountTypeDD">Disc Type</th>
 							<th class="col-sm-1" data-field="itemDiscount">Discount</th>
-							<th class="col-sm-1" data-field="itemNet">Net</th>
+							<!-- <th class="col-sm-1" data-field="itemNet">Profit</th> -->
+							<th class="col-sm-1" data-field="itemExpDate">Exp. Date</th>
 							<th class="col-sm-1" data-field="itemStock">Stock</th>
 							<th class="col-sm-1" data-field="dated">Dated</th>
 						</tr>
@@ -364,20 +367,20 @@
 							class="form-control onChangeSelect" id="purchaseItemDD" name="itemId">
 						</select>
 					</div>
-					<label class="control-label col-sm-2" for="purchaseItems">Total Items:</label>
+					<label class="control-label col-sm-2" for="purchaseQuantity">QTY:</label>
 					<div class="col-sm-4">
-						<input type="number" placeholder=" Enter total item" class="form-control" id="purchaseItems" name="quantity" onkeyup="calculateNetPurchase()"/>
+						<input type="number" step="any" min="0" placeholder=" Enter total item" class="form-control" id="purchaseQuantity" name="quantity" onkeyup="calculateNetPurchase()"/>
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="purchaseSellAmount">Sell Unit Rate:</label>
+					<label class="control-label col-sm-2" for="purchaseSellAmount">S/U Price:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="purchaseSellRate" step=any min="0"
+						<input type="number" step="any" class="form-control" id="purchaseSellRate"
 							name="sellRate" placeholder=" Sell Amount 0.0" onkeyup="calculateNetPurchase()">
 					</div>
-					<label class="control-label col-sm-2" for="purchasePurchaseRate">Purchase Unit Rate:</label>
+					<label class="control-label col-sm-2" for="purchasePurchaseRate">P/U Price:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="purchasePurchaseRate" step=any min="0"
+						<input type="number" step="any" class="form-control" id="purchasePurchaseRate"
 							name="purchaseRate" placeholder=" Purchase Amount 0.0" required="required" onkeyup="calculateNetPurchase()">
 					</div>
 				</div>
@@ -395,26 +398,26 @@
 				</div>
  -->
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="purchaseTotalAmount">Total Amount:</label>
+					<label class="control-label col-sm-2" for="purchaseTotalAmount">Total:</label>
 					<div class="col-sm-4">
-						<input class="form-control" id="purchaseTotalAmount" name="totalAmount" style="display: none">
+						<input type="number" step="any" class="form-control" id="purchaseTotalAmount" name="totalAmount" style="display: none">
 						<output class="form-control" id="totalAmount">
 					</div>
-					<label class="control-label col-sm-2" for="purchaseDiscount">Discount:</label>
+					<label class="control-label col-sm-2" for="purchaseDiscount" id="pdt">Discount:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="purchaseDiscount" step=any min="0"
+						<input type="number" step=any class="form-control" id="purchaseDiscount"
 							name="discount" placeholder=" Discount 0.0" onkeyup="calculateNetPurchase()">
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="net">Net Amount:</label>
+					<label class="control-label col-sm-2" for="net">Profit:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="purchaseNetAmount" name="netAmount" style="display: none">
-						<output type="number" class="form-control" id="netAmount">
+						<input type="number" step=any class="form-control" id="purchaseNetAmount" name="netAmount" style="display: none">
+						<output class="form-control" id="netAmount">
 					</div>
 					<label class="control-label col-sm-2" for="purchaseStock">Stock In Hand:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="purchaseStock" name="stock" style="display: none"/>
+						<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stock" style="display: none"/>
 						<output class="form-control" id="stok"/>
 					</div>
 				</div>
@@ -437,15 +440,15 @@
 						<th class="col-sm-1" data-field="checkDelete"></th>
 						<!-- <th class="col-sm-1" data-field="purchaseItemId">Item ID</th> -->
 						<th class="col-sm-2" data-field="purchaseItemName">Name</th>
-						<th class="col-sm-1" data-field="purchaseItems">Qty</th>
-						<th class="col-sm-1" data-field="purchaseSellRate">SUR</th>
-						<th class="col-sm-1" data-field="purchasePurchaseRate">PUR</th>
+						<th class="col-sm-1" data-field="purchaseQuantity">Qty</th>
+						<th class="col-sm-1" data-field="purchaseSellRate">S/U Price</th>
+						<th class="col-sm-1" data-field="purchasePurchaseRate">P/U Price</th>
 <!-- 						<th class="col-sm-1" data-field="purchaseExpense">P Exp</th>
 						<th class="col-sm-1" data-field="purchaseExpenseDesc">P Exp Desc</th>
  -->
-						<th class="col-sm-1" data-field="purchaseTotalAmount">P Total Amount</th>
+						<th class="col-sm-1" data-field="purchaseTotalAmount">Total</th>
 						<th class="col-sm-1" data-field="purchaseDiscount">Discount</th>
-						<th class="col-sm-1" data-field="purchaseNetAmount">Net Amount</th>
+						<th class="col-sm-1" data-field="purchaseNetAmount">Profit</th>
 						<th class="col-sm-1" data-field="purchaseStock">Stock</th>
 						<th class="col-sm-1" data-field="dated">Dated</th>
 					</tr>
@@ -470,44 +473,44 @@
 							class="form-control onChangeSelect" id="sellItemDD" name="itemId">
 						</select>
 					</div>
-					<label class="control-label col-sm-2" for="sellItems">Total Items:</label>
+					<label class="control-label col-sm-2" for="sellItems">QTY:</label>
 					<div class="col-sm-4">
-						<input type="number" placeholder=" Enter total item" class="form-control" id="sellItems" name="quantity" onkeyup="calculateNetSell()"/>
+						<input type="number" step="any" min="0" placeholder=" Enter total item" class="form-control" id="sellItems" name="quantity" onkeyup="calculateNetSell()"/>
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="sellSellAmount">Sell Unit Rate:</label>
+					<label class="control-label col-sm-2" for="sellSellAmount">S/U Price:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="sellSellRate" step=any min="0"
-							name="sellRate" placeholder=" Sell Amount 0.0" onkeyup="calculateNetSell()">
+						<input type="number" step="any" min="0" class="form-control" id="sellSellRate"
+							name="sellRate" placeholder=" Sell Amount " onkeyup="calculateNetSell()">
 					</div>
-					<label class="control-label col-sm-2" for="sellPurchaseRate">Purchase Unit Rate:</label>
+					<label class="control-label col-sm-2" for="sellPurchaseRate">P/U Price:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="sellPurchaseRate" step=any min="0"
-							name="sellRate" placeholder=" Sell Amount 0.0" required="required" onkeyup="calculateNetSell()">
+						<input type="number" step="any" min="0" class="form-control" id="sellPurchaseRate"
+							name="purchaseRate" placeholder=" Purchase Amount " required="required" onkeyup="calculateNetSell()">
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="sellTotalAmount">Total Amount:</label>
+					<label class="control-label col-sm-2" for="sellTotalAmount">Total:</label>
 					<div class="col-sm-4">
-						<input class="form-control" id="sellTotalAmount" name="totalAmount" style="display: none">
+						<input type="number" step="any" class="form-control" id="sellTotalAmount" name="totalAmount" style="display: none">
 						<output class="form-control" id="stotalAmount">
 					</div>
-					<label class="control-label col-sm-2" for="sellDiscount">Discount:</label>
+					<label class="control-label col-sm-2" for="sellDiscount" id="sdt">Discount:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="sellDiscount" step=any min="0"
+						<input type="number" class="form-control" id="sellDiscount"
 							name="discount" placeholder=" Discount 0.0" onkeyup="calculateNetSell()">
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="net">Net Amount:</label>
+					<label class="control-label col-sm-2" for="net">Profit</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="sellNetAmount" name="netAmount" style="display: none">
-						<output type="number" class="form-control" id="snetAmount">
+						<input type="number" step="any" class="form-control" id="sellNetAmount" name="netAmount" style="display: none">
+						<output class="form-control" id="snetAmount">
 					</div>
 					<label class="control-label col-sm-2" for="sellStock">Stock In Hand:</label>
 					<div class="col-sm-4">
-						<input type="number" class="form-control" id="sellStock" name="stock" style="display: none"/>
+						<input type="number" step="any" min="0" class="form-control" id="sellStock" name="stock" style="display: none"/>
 						<output class="form-control" id="sstok"/>
 					</div>
 				</div>
@@ -529,16 +532,16 @@
 						<th class="col-sm-1" data-field="sellId">ID</th>
 						<th class="col-sm-1" data-field="checkDelete"></th>
 						<!-- <th class="col-sm-1" data-field="sellItemId">Item ID</th> -->
-						<th class="col-sm-2" data-field="sellItemName">Name</th>
+						<th class="col-sm-2" data-field="sellItemDD">Name</th>
 						<th class="col-sm-1" data-field="sellItems">Qty</th>
-						<th class="col-sm-1" data-field="sellSellRate">SUR</th>
-						<th class="col-sm-1" data-field="sellPurchaseRate">PUR</th>
+						<th class="col-sm-1" data-field="sellSellRate">S/U Price</th>
+						<th class="col-sm-1" data-field="sellPurchaseRate">P/U Price</th>
 <!-- 						<th class="col-sm-1" data-field="sellExpense">P Exp</th>
 						<th class="col-sm-1" data-field="sellExpenseDesc">P Exp Desc</th>
  -->
-						<th class="col-sm-1" data-field="sellTotalAmount">P Total Amount</th>
+						<th class="col-sm-1" data-field="sellTotalAmount">Total</th>
 						<th class="col-sm-1" data-field="sellDiscount">Discount</th>
-						<th class="col-sm-1" data-field="sellNetAmount">Net Amount</th>
+						<th class="col-sm-1" data-field="sellNetAmount">Profit</th>
 						<th class="col-sm-1" data-field="sellStock">Stock</th>
 						<th class="col-sm-1" data-field="dated">Dated</th>
 					</tr>

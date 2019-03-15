@@ -4,20 +4,14 @@
 <div th:replace="header :: header-css" />
 
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.css"/> 
-<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.js"></script>
+<link rel="stylesheet"	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
 
-<!-- <script src="resources/js/bootstrap/js/bootstrap.js"></script> -->
+<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.js"></script>
 <script src="resources/bootstrap/js/moment.js"></script>
 <script src="resources/bootstrap/js/bootstrap-datetimepicker.js"></script>
 <script src="resources/js/datatables.min.js"></script>
-<!-- <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.js"></script> -->
-<!-- <link rel="stylesheet" href="resources/js/bootstrap/css/bootstrap.min.css"> -->
-<link rel="stylesheet"	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
 <script src="resources/js/education/education.js"></script>
 <script src="resources/js/main.js"></script>
-<!-- <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/timepicker/1.3.5/jquery.timepicker.min.css">
-<script src="//cdnjs.cloudflare.com/ajax/libs/timepicker/1.3.5/jquery.timepicker.min.js"></script>
- -->
 </head>
 <body>
 	<div th:replace="header :: header" />
@@ -32,29 +26,27 @@
 				<li>
 					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Manage Registrations</option>
-						<option class="dropdown-item" value="OwnerDiv">New Owner</option>
-						<option class="dropdown-item" value="SchoolDiv">New School</option>
-						<option class="dropdown-item" value="VehicleDiv">New Vehicle</option>
-						<option class="dropdown-item" value="GradeDiv">New Grade</option>
-						<option class="dropdown-item" value="StaffDiv">New Employee</option>
-	 					<option class="dropdown-item" value="SubjectDiv">New Subject</option>
-						<option class="dropdown-item" value="GuardianDiv">New Guardian</option>
-						<option class="dropdown-item" value="StudentDiv">New Student</option>
-						<option class="dropdown-item" value="DiscountDiv">New Discount</option>
+						<option class="dropdown-item" value="OwnerDiv">Owners</option>
+						<option class="dropdown-item" value="SchoolDiv">Schools</option>
+						<option class="dropdown-item" value="VehicleDiv">Vehicles</option>
+						<option class="dropdown-item" value="GradeDiv">Grades</option>
+						<option class="dropdown-item" value="StaffDiv">Staff</option>
+	 					<option class="dropdown-item" value="SubjectDiv">Subjects</option>
+						<option class="dropdown-item" value="GuardianDiv">Guardians</option>
+						<option class="dropdown-item" value="StudentDiv">Students</option>
+						<option class="dropdown-item" value="DiscountDiv">Discounts</option>
 					</select>
 				</li>
 				<li>
 					<select name="communicationType" id="communicationType" class="dropdown show panel-heading">
-						<option class="dropdown-item" value="">Manage Communications</option>
-						<option class="dropdown-item" value="newEmailAlerts">New Email & Alerts</option>
-						<option class="dropdown-item" value="viewEmailAlerts">View Email & Alerts</option>
+						<option class="dropdown-item" value="">Manage Alerts</option>
+						<option class="dropdown-item" value="AlertsDiv">Alerts</option>
 					</select>
 				</li>
 				<li>
 					<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Manage Attendance</option>
-						<option class="dropdown-item" value="newAttendance">New Attendance</option>
-						<option class="dropdown-item" value="viewAttendance">View Attendance</option>
+						<option class="dropdown-item" value="newAttendance">Attendance</option>
 					</select>
 				</li>
 			</ul>					
@@ -425,7 +417,7 @@
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="staffDateOfBirth">Date of Birth:</label>
 					<div class="col-sm-4">
-						<input type="datetime-local" class="form-control" id="staffDateOfBirth" name="dateOfBirth"
+						<input type="text" class="form-control datePicker" id="staffDateOfBirth" name="dateOfBirth"
 							placeholder="Select DOB" required="required"> 
 					</div>					
 					<label class="control-label col-sm-2" th:text="#{label.address}" for="staffAddress">Address:</label>
@@ -462,7 +454,7 @@
 							<th class="col-sm-1" data-field="qualification">Qualification</th>
 							<th class="col-sm-1" data-field="staffSchoolDD">Schools</th>
 							<th class="col-sm-1" data-field="staffGradeDD">Grades</th>
-							<th class="col-sm-1" data-field="dateOfBirth">Date of Birth</th>
+							<th class="col-sm-1" data-field="staffDateOfBirth">Date of Birth</th>
 							<th class="col-sm-1" data-field="gender">Gender</th>
  							<th class="col-sm-1" data-field="martialStatus">Martial Status</th>
 							<th class="col-sm-1" data-field="address">Address</th>
@@ -852,7 +844,7 @@
 				<div class="form-group">		
 					<label class="control-label col-sm-2" th:text="#{label.select.school}" for="vehicleSchoolDD">Select School</label> 
 					<div class="col-sm-4">
-						<select class="form-control" id="vehicleSchoolDD" name="schoolId" required="required">
+						<select class="form-control" id="vehicleSchoolDD" name="schoolId">
 						</select>
 					</div>
 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="vehicleStatus">Status:</label>
@@ -1030,6 +1022,160 @@
 							<th class="col-sm-1" data-field="discountDescription">Description</th>
 							<th class="col-sm-1" data-field="discountStatus">Status</th>
 							<th class="col-sm-1" data-field="discountDated">Dated</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+		</div>		
+		<div id="AlertsDiv" class="formDiv">
+			<h3 th:text="#{label.alerts.form.heading}">Manage Alert</h3>
+			<br />
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="Alerts" autocomplete="off">
+				<div class="form-group" style="display: none">				
+					<div class="col-sm-6">
+						<input type="text" class="form-control" id="aId" name="id"> 
+					</div>
+					<div class="col-sm-6">
+					</div>
+				</div>				
+				<div class="form-group">		
+					<label class="control-label col-sm-2" for="acdd">Select Consumers:</label>
+					<div class="col-sm-4">
+						<select multiple="multiple"	class="form-control" id="acdd" name="c" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Students">Students</option>
+		 					<option class="dropdown-item" value="Guardians">Guardians</option>
+							<option class="dropdown-item" value="Employees">Employees</option>
+		 					<option class="dropdown-item" value="Drivers">Drivers</option>
+							<option class="dropdown-item" value="Public">Public</option>
+							<option class="dropdown-item" value="All">All</option>
+		 				</select>
+					</div>
+					<label class="control-label col-sm-2" for="atdd">Alert Type:</label>
+					<div class="col-sm-4">
+						<select multiple="multiple"	class="form-control" id="atdd" name="at" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Notice Board">Notice Board</option>
+		 					<option class="dropdown-item" value="Late Fee">Late Fee</option>
+							<option class="dropdown-item" value="Fee Reviwed">Fee Reviwed</option>
+		 					<option class="dropdown-item" value="Timing Issue">Timing Issue</option>
+							<option class="dropdown-item" value="Performace">Performace</option>
+							<option class="dropdown-item" value="Policies Reviwed">Policies Reviwed</option>
+							<option class="dropdown-item" value="Ethics">Ethics</option>
+							<option class="dropdown-item" value="Promotions">Promotions</option>
+							<option class="dropdown-item" value="Holidays">Holidays</option>
+							<option class="dropdown-item" value="Vacations">Vacations</option>
+							<option class="dropdown-item" value="Attendance">Attendance</option>
+		 				</select>
+					</div>
+				</div>
+				<div class="form-group">		
+					<label class="control-label col-sm-2" for="adcdd">Delivery Channel:</label>
+					<div class="col-sm-4">
+						<select multiple="multiple"	class="form-control" id="adcdd" name="dc" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="SMS">SMS</option>
+		 					<option class="dropdown-item" value="Email">Email</option>
+							<option class="dropdown-item" value="Watts App">Watts App</option>
+		 					<option class="dropdown-item" value="Facebook">Facebook</option>
+							<option class="dropdown-item" value="Twitter">Twitter</option>
+		 					<option class="dropdown-item" value="Instagram">Instagram</option>
+		 				</select>
+					</div>
+					<label class="control-label col-sm-2" for="adpdd">Delivery Channel:</label>
+					<div class="col-sm-4">
+						<select multiple="multiple"	class="form-control" id="adpdd" name="dp" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Daily">Daily</option>
+		 					<option class="dropdown-item" value="Weekly">Weekly</option>
+							<option class="dropdown-item" value="Monthly">Monthly</option>
+		 					<option class="dropdown-item" value="Quartly">Quartly</option>
+							<option class="dropdown-item" value="Yearly">Yearly</option>
+		 				</select>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="adtdd">Delivery Type:</label>
+					<div class="col-sm-4">
+						<select	class="form-control" id="adtdd" name="dt" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Manual">Manual</option>
+		 					<option class="dropdown-item" value="Auto">Auto</option>
+		 				</select>
+					</div>
+ 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="ast">Status:</label>
+					<div class="col-sm-4">
+						<select class="form-control" id="ast" name="st">
+							<option class="dropdown-item" value="">Nothing Selected</option>					
+							<option class="dropdown-item" value="Active">Active</option>
+		 					<option class="dropdown-item" value="Inactive">Inactive</option>
+		 				</select>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.start.date}"  for="asd">Start Date:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control datePicker" id="asd" name="sdStr"
+							placeholder=" Start Date"> 
+					</div>
+					<label class="control-label col-sm-2" th:text="#{label.end.date}"  for="aed">End Date:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control datePicker" id="aed" name="edStr"
+							placeholder=" End Date"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2"  for="ah">Heading:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="ah" name="ah"
+							placeholder=" Message heading " required="required"> 
+					</div>
+					<div class="col-sm-6">
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2"  for="am">Details:</label>
+					<div class="col-sm-10">
+						<textarea class="form-control" rows="5" id="am" name="am" placeholder="Enter message detail here..." required="required"></textarea> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2"  for="as">Signature:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="as" name="as"
+							placeholder=" Message signature "> 
+					</div>
+				</div>
+				<div class="form-group">
+					<button type="button" id="addAlerts" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+					</button>
+					<button type="button" id="deleteAlerts" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+					<button type="reset" id="resetAlerts" class="btn btn-primary">
+						<span class="glyphicon glyphicon-refresh"></span> Reset
+					</button>
+				</div>
+			</form>
+			<div>
+				<table id="tableAlerts" class="table table-bordered table-striped">
+					<thead>
+						<tr>
+							<th class="col-sm-1" data-field="aId">Id</th>
+							<th class="col-sm-1" data-field="checkAlerts">Check</th>
+							<th class="col-sm-1" data-field="acdd">Consumer</th>
+							<th class="col-sm-1" data-field="atdd">Type</th>
+							<th class="col-sm-1" data-field="adcdd">Del. Channel</th>
+							<th class="col-sm-1" data-field="adpdd">Del. Period</th>
+							<th class="col-sm-1" data-field="adtdd">Del. Type</th>
+							<th class="col-sm-1" data-field="ast">Status</th>
+							<th class="col-sm-1" data-field="asd">Start Date</th>
+							<th class="col-sm-1" data-field="aed">End Date</th>
+							<th class="col-sm-1" data-field="ah">Heading</th>
+							<th class="col-sm-1" data-field="am">Message</th>
+							<th class="col-sm-1" data-field="as">Signature</th>
 						</tr>
 					</thead>
 				</table>

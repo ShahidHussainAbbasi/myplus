@@ -3,6 +3,7 @@ package com.web.controller.business;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -83,9 +84,13 @@ public class PurchaseController {
 //				dto.setItemUnitName(obj.getItemUnit().getName());
 //				dto.setItemTypeId(obj.getItemType().getId());
 //				dto.setItemTypeName(obj.getItemType().getName());
-				Item item = itemService.getOne(dto.getItemId());
-				dto.setItemId(item.getId());
-				dto.setItemName(item.getName());
+				Optional<Item> option = itemService.findById(dto.getItemId());
+				if(option.isPresent()) {
+					Item item  = option.get();
+					dto.setItemId(item.getId());
+					dto.setItemName(item.getName());
+					dto.setStock(item.getStock());
+				}
 				dto.setDatedStr(AppUtil.getDateStr(o.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(o.getUpdated()));
 				dtos.add(dto);
@@ -114,7 +119,6 @@ public class PurchaseController {
 //				dto.setItemUnitName(obj.getItemUnit().getName());
 //				dto.setItemTypeId(obj.getItemType().getId());
 //				dto.setItemTypeName(obj.getItemType().getName());
-				
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -146,12 +150,21 @@ public class PurchaseController {
 			obj.setUpdated(dated);
 			
 			obj.setItemId(dto.getItemId());
+			//if update
+			Item item = itemService.getOne(dto.getItemId());
+        	Float stock = item.getStock()+dto.getQuantity();
+			if(!AppUtil.isEmptyOrNull(dto.getId())){
+				Purchase objTemp = purchaseService.getOne(dto.getId());
+				if(objTemp.getQuantity() > dto.getQuantity())
+					stock = item.getStock() + (dto.getQuantity() - objTemp.getQuantity());
+				else
+					stock = item.getStock() - (objTemp.getQuantity() - dto.getQuantity());
+				
+				item.setStock(stock);	
+			}
+			item.setStock(stock);
 			//updating stock
-	        Item item = itemService.getOne(dto.getItemId());
-	        Float stock = item.getStock()+dto.getQuantity();
-	        item.setStock(stock);
 	        itemService.save(item);
-			
 			obj.setStock(stock);
 			obj = purchaseService.save(obj);
 			if(AppUtil.isEmptyOrNull(obj)) {

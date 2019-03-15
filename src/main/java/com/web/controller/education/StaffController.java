@@ -3,17 +3,13 @@ package com.web.controller.education;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
@@ -36,10 +32,13 @@ import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
 import com.web.util.RequestUtil;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Controller
 public class StaffController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
+//	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
 
@@ -82,6 +81,7 @@ public class StaffController {
 				dto.setGradeNames(obj.getGrades()==null?null:obj.getGrades().stream().map(Grade::getName).collect(Collectors.toSet()));
 				dto.setTimeInStr(obj.getTimeIn().toString());
 				dto.setTimeOutStr(obj.getTimeOut().toString());
+				dto.setDateOfBirth(AppUtil.getLoaclDateStr(obj.getDateOfBirth()));
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -89,6 +89,7 @@ public class StaffController {
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error(this.getClass().getName() + " > getUserStaff > "+e.getCause());
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -111,6 +112,7 @@ public class StaffController {
 		    return sb.toString();
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error(this.getClass().getName() + " > getUserStaff > "+e.getCause());			
 		}
 	    return sb.toString();
 	}
@@ -127,6 +129,7 @@ public class StaffController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error(this.getClass().getName() + " > getUserStaff > "+e.getCause());			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -150,16 +153,19 @@ public class StaffController {
 			}
 				
 			obj  = modelMapper.map(dto, Staff.class);
+			
+			obj.setDateOfBirth(AppUtil.getLocalDate(dto.getDateOfBirth()));
 			obj.setDated(dated);
 			obj.setUpdated(dated);
-
-			obj.setSchools(schoolService.findAllById(dto.getSchoolIds()));
+			if(!AppUtil.isEmptyOrNull(dto.getSchoolIds()))
+				obj.setSchools(schoolService.findAllById(dto.getSchoolIds()));
 //			Set<School> schools = new HashSet<School>();
 //			dto.getSchoolIds().forEach(id ->{
 //				School school = schoolService.getOne(id);
 //				schools.add(school);//schoolService.findById(o).get());
 //			});			
-			obj.setGrades(gradeService.findAllById(dto.getGradeIds()));
+			if(!AppUtil.isEmptyOrNull(dto.getGradeIds()))
+				obj.setGrades(gradeService.findAllById(dto.getGradeIds()));
 //			Set<Grade> grades = new HashSet<Grade>();
 //			dto.getGradeIds().forEach(id ->{
 //				Grade grade = gradeService.getOne(id);
@@ -178,6 +184,7 @@ public class StaffController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error(this.getClass().getName() + " > getUserStaff > "+e.getCause());			
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -200,6 +207,7 @@ public class StaffController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error(this.getClass().getName() + " > getUserStaff > "+e.getCause());			
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}

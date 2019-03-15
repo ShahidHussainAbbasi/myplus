@@ -1,10 +1,10 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Set;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -16,6 +16,11 @@ import javax.persistence.JoinColumn;
 import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
 import javax.persistence.Table;
+
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
@@ -49,7 +54,7 @@ public class Staff implements Serializable {
 	private String designation;
 
 	@Column(name = "date_of_birth")
-	private String dateOfBirth = null;
+	private LocalDate dateOfBirth;
 
 	private String gender;
 
@@ -73,13 +78,15 @@ public class Staff implements Serializable {
 	@Column(updatable=false)
 	private LocalDateTime updated;
 
-	@ManyToMany(fetch = FetchType.LAZY)
-//	@Fetch(value = FetchMode.SUBSELECT)
+	@NotFound(action=NotFoundAction.IGNORE)
+    @ManyToMany(fetch = FetchType.EAGER)
+    @Fetch(value = FetchMode.SUBSELECT)
 	@JoinTable(name = "staffs_schools", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), inverseJoinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"))
 	private List<School> schools;
 
-	@ManyToMany(fetch = FetchType.LAZY)
-//	@Fetch(value = FetchMode.SUBSELECT)
+	@NotFound(action=NotFoundAction.IGNORE)
+    @ManyToMany(fetch = FetchType.EAGER)
+    @Fetch(value = FetchMode.SUBSELECT)
 	@JoinTable(name = "staffs_grades", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), inverseJoinColumns = @JoinColumn(name = "grade_id", referencedColumnName = "grade_id"))
 	private List<Grade> grades;
 
@@ -202,14 +209,14 @@ public class Staff implements Serializable {
 	/**
 	 * @return the dateOfBirth
 	 */
-	public String getDateOfBirth() {
+	public LocalDate getDateOfBirth() {
 		return dateOfBirth;
 	}
 
 	/**
 	 * @param dateOfBirth the dateOfBirth to set
 	 */
-	public void setDateOfBirth(String dateOfBirth) {
+	public void setDateOfBirth(LocalDate dateOfBirth) {
 		this.dateOfBirth = dateOfBirth;
 	}
 

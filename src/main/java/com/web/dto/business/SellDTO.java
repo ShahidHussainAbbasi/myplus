@@ -17,37 +17,37 @@ public class SellDTO implements Serializable {
 
 	private Long itemId;
 
-	private Long itemName;
+	private String itemName;
 
 	private Long customerId;
 
 	private String customerName;
 
-	private Long itemTypeId;
+//	private Long itemTypeId;
+//
+//	private String itemTypeName;
+//
+//	private Long itemUnitId;
+//
+//	private String itemUnitName;
 
-	private String itemTypeName;
-
-	private Long itemUnitId;
-
-	private String itemUnitName;
-
-	private Float quantity;
+	private Float quantity=1F;
 
 	private Float purchaseRate;
 
 	private Float sellRate;
 
-	private Float discount;
+	private Float discount=0.0F;
 
 	private Float totalAmount;
 
-	private Float netAmount = null;
+	private Float netAmount;
 
 	private Float stock;
 
-	private Float sellExpense;
-
-	private String sellExpenseDesc;
+//	private Float sellExpense;
+//
+//	private String sellExpenseDesc;
 
 	private String description;
 
@@ -114,14 +114,14 @@ public class SellDTO implements Serializable {
 	/**
 	 * @return the itemName
 	 */
-	public Long getItemName() {
+	public String getItemName() {
 		return itemName;
 	}
 
 	/**
 	 * @param itemName the itemName to set
 	 */
-	public void setItemName(Long itemName) {
+	public void setItemName(String itemName) {
 		this.itemName = itemName;
 	}
 
@@ -151,62 +151,6 @@ public class SellDTO implements Serializable {
 	 */
 	public void setCustomerName(String customerName) {
 		this.customerName = customerName;
-	}
-
-	/**
-	 * @return the itemTypeId
-	 */
-	public Long getItemTypeId() {
-		return itemTypeId;
-	}
-
-	/**
-	 * @param itemTypeId the itemTypeId to set
-	 */
-	public void setItemTypeId(Long itemTypeId) {
-		this.itemTypeId = itemTypeId;
-	}
-
-	/**
-	 * @return the itemTypeName
-	 */
-	public String getItemTypeName() {
-		return itemTypeName;
-	}
-
-	/**
-	 * @param itemTypeName the itemTypeName to set
-	 */
-	public void setItemTypeName(String itemTypeName) {
-		this.itemTypeName = itemTypeName;
-	}
-
-	/**
-	 * @return the itemUnitId
-	 */
-	public Long getItemUnitId() {
-		return itemUnitId;
-	}
-
-	/**
-	 * @param itemUnitId the itemUnitId to set
-	 */
-	public void setItemUnitId(Long itemUnitId) {
-		this.itemUnitId = itemUnitId;
-	}
-
-	/**
-	 * @return the itemUnitName
-	 */
-	public String getItemUnitName() {
-		return itemUnitName;
-	}
-
-	/**
-	 * @param itemUnitName the itemUnitName to set
-	 */
-	public void setItemUnitName(String itemUnitName) {
-		this.itemUnitName = itemUnitName;
 	}
 
 	/**
@@ -305,34 +249,6 @@ public class SellDTO implements Serializable {
 	 */
 	public void setStock(Float stock) {
 		this.stock = stock;
-	}
-
-	/**
-	 * @return the sellExpense
-	 */
-	public Float getSellExpense() {
-		return sellExpense;
-	}
-
-	/**
-	 * @param sellExpense the sellExpense to set
-	 */
-	public void setSellExpense(Float sellExpense) {
-		this.sellExpense = sellExpense;
-	}
-
-	/**
-	 * @return the sellExpenseDesc
-	 */
-	public String getSellExpenseDesc() {
-		return sellExpenseDesc;
-	}
-
-	/**
-	 * @param sellExpenseDesc the sellExpenseDesc to set
-	 */
-	public void setSellExpenseDesc(String sellExpenseDesc) {
-		this.sellExpenseDesc = sellExpenseDesc;
 	}
 
 	/**

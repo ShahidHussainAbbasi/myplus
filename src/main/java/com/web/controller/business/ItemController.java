@@ -2,9 +2,7 @@ package com.web.controller.business;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -24,17 +22,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
-import com.persistence.model.business.Company;
 import com.persistence.model.business.Item;
-import com.persistence.model.business.ItemType;
-import com.persistence.model.business.ItemUnit;
 import com.persistence.model.business.Vender;
 import com.service.business.ICompanyService;
 import com.service.business.IItemService;
 import com.service.business.IItemTypeService;
 import com.service.business.IItemUnitService;
 import com.service.business.IVenderService;
-import com.service.business.ItemTypeService;
 import com.web.dto.business.ItemDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
@@ -105,14 +99,14 @@ public class ItemController {
 					dto.setVenderId(vender.getId());
 					dto.setVenderName(vender.getName());
 				}
-				if(!AppUtil.isEmptyOrNull(obj.getItemType())) {
-					dto.setItemTypeId(obj.getItemType().getId());
-					dto.setItemTypeName(obj.getItemType().getName());
-				}
-				if(!AppUtil.isEmptyOrNull(obj.getItemUnit())) {
-					dto.setItemUnitId(obj.getItemUnit().getId());
-					dto.setItemUnitName(obj.getItemUnit().getName());
-				}
+//				if(!AppUtil.isEmptyOrNull(obj.getItemType())) {
+//					dto.setItemTypeId(obj.getItemType().getId());
+//					dto.setItemTypeName(obj.getItemType().getName());
+//				}
+//				if(!AppUtil.isEmptyOrNull(obj.getItemUnit())) {
+//					dto.setItemUnitId(obj.getItemUnit().getId());
+//					dto.setItemUnitName(obj.getItemUnit().getName());
+//				}
 //				Collection<ItemType> itemTypes = itemTypeService.findAllById(dto.getItemTypeIds()); 
 //				dto.setItemTypeIds(itemTypes.stream().map(ItemType::getId).collect(Collectors.toSet()));
 //				dto.setItemTypeNames(itemTypes.stream().map(ItemType::getName).collect(Collectors.toSet()));
@@ -120,6 +114,7 @@ public class ItemController {
 //				dto.setItemUnitIds(itemUnits.stream().map(ItemUnit::getId).collect(Collectors.toSet()));
 //				dto.setItemUnitNames(itemUnits.stream().map(ItemUnit::getName).collect(Collectors.toSet()));
 				
+				dto.setExpDateStr(AppUtil.getLocalDateStr(obj.getExpDate()));
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -188,7 +183,7 @@ public class ItemController {
 //				dto.setItemUnitNames(obj.getItemUnits().stream().map(ItemUnit::getName).collect(Collectors.toSet()));
 //				dto.setItemTypeIds(obj.getItemTypes().stream().map(ItemType::getId).collect(Collectors.toSet()));
 //				dto.setItemTypeNames(obj.getItemTypes().stream().map(ItemType::getName).collect(Collectors.toSet()));
-
+				dto.setExpDateStr(AppUtil.getLoaclDateStr(obj.getExpDate()));
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -231,15 +226,8 @@ public class ItemController {
 			}
 
 			obj = modelMapper.map(dto, Item.class);
-			// if it is update
-			if (AppUtil.isEmptyOrNull(dto.getId())) 
-				obj.setDated(dated);
-//				obj = itemService.getOne(dto.getId());
-//				dated = obj.getDated();
-//			} else {
-//				obj.setDated(dated);
-//			}
-//			obj.setDated(dated);
+			obj.setExpDate(AppUtil.getLocalDate(dto.getExpDateStr()));
+			obj.setDated(dated);
 			obj.setUpdated(dated);
 			// add company
 			// add company

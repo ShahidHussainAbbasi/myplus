@@ -227,7 +227,7 @@ function loadDataTable(){
 	//check if data table exist destroy it
 	if (datatable!=null){
 		datatable.destroy();
-		datatable = null;
+		//datatable = null;
 	}
 	console.log(1);
 	datatable = $("#table" + tableV).DataTable({
@@ -380,7 +380,21 @@ function loadDataTable(){
 							"<div id=discountAmount>"+obj.number+"</div>", "<div id=discountName>"+obj.driverName+"</div>",
 							"<div id=discountSartDate>"+obj.driverMobile+"</div>", "<div id=discountEndDate>"+obj.driverOwnerName+"</div>", 
 							"<div id=discountDescription>"+obj.driverOwnerMobile+"</div>","<div id=discountStatus>"+obj.status+"</div>",
-							"<div id=discountDated>"+obj.daobj.datedStr+"</div>"
+							"<div id=discountDated>"+obj.datedStr+"</div>"
+							];
+						datatable.row.add(arr).draw();
+					});
+				} else if (getAll === "Alerts") {
+					$.each(collections, function(ind, obj) {
+						i++;
+						arr = [
+							"<div id=aId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
+							"<div id=acdd>"+obj.c+"</div>","<div id=atdd>"+obj.at+"</div>",
+							"<div id=adcdd>"+obj.dc+"</div>","<div id=adpdd>"+obj.dp+"</div>",
+							"<div id=adtdd>"+obj.dt+"</div>","<div id=ast>"+obj.st+"</div>",
+							"<div id=asd>"+obj.sdStr+"</div>", "<div id=aed>"+obj.edStr+"</div>", 
+							"<div id=ah>"+obj.ah+"</div>","<div id=am>"+obj.am+"</div>",
+							"<div id=as>"+obj.as+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});

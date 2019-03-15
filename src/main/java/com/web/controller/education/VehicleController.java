@@ -3,6 +3,7 @@ package com.web.controller.education;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -67,10 +68,12 @@ public class VehicleController {
 			objs.forEach(obj -> {
 				VehicleDTO dto = modelMapper.map(obj, VehicleDTO.class);
 				if(!AppUtil.isEmptyOrNull(obj.getSchoolId())) {
-					School school = schoolService.getOne(dto.getSchoolId());
-					if (!AppUtil.isEmptyOrNull(school)) {
-						dto.setSchoolId(school.getId());
-						dto.setSchoolName(school.getBranchName());
+					Optional<School> school = schoolService.findById(dto.getSchoolId());
+					if (school.isPresent()) {
+						dto.setSchoolId(school.get().getId());
+						dto.setSchoolName(school.get().getBranchName());
+					}else {
+						dto.setSchoolName("");
 					}
 				}
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
