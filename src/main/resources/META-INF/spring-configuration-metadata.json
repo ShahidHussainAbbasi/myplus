@@ -1,0 +1,22 @@
+{
+  "hints": [],
+  "groups": [
+    {
+      "sourceType": "com.captcha.CaptchaSettings",
+      "name": "google.recaptcha.key",
+      "type": "com.captcha.CaptchaSettings"
+    }
+  ],
+  "properties": [
+    {
+      "sourceType": "com.captcha.CaptchaSettings",
+      "name": "google.recaptcha.key.secret",
+      "type": "java.lang.String"
+    },
+    {
+      "sourceType": "com.captcha.CaptchaSettings",
+      "name": "google.recaptcha.key.site",
+      "type": "java.lang.String"
+    }
+  ]
+}

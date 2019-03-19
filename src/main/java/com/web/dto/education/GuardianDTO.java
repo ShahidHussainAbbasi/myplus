@@ -46,6 +46,8 @@ public class GuardianDTO implements Serializable {
 
 	private String status;
 
+	private String cnic;
+
 	/**
 	 * @return the id
 	 */
@@ -254,6 +256,20 @@ public class GuardianDTO implements Serializable {
 	 */
 	public void setStatus(String status) {
 		this.status = status;
+	}
+
+	/**
+	 * @return the cnic
+	 */
+	public String getCnic() {
+		return cnic;
+	}
+
+	/**
+	 * @param cnic the cnic to set
+	 */
+	public void setCnic(String cnic) {
+		this.cnic = cnic;
 	}
 
 	/**

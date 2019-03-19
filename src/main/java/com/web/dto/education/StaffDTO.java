@@ -61,7 +61,6 @@ public class StaffDTO implements Serializable {
 
 	private String updatedStr;
 
-	@ValidateEmpty
 	private Set<Long> schoolIds;
 
 	@ValidateEmpty

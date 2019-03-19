@@ -139,7 +139,7 @@ public class ItemController {
 			filterBy.setUserId(user.getId());
 			Example<Item> example = Example.of(filterBy);
 			List<Item> objs = itemService.findAll(example);
-
+			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
 				sb.append("<option value=" + d.getId() + ">" + d.getName() + "</option>");
 			});

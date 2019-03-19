@@ -45,6 +45,7 @@ public class Subject implements Serializable {
 	private String edition;
 
 //	@Temporal(TemporalType.TIMESTAMP)
+	@Column(updatable=false)
 	private LocalDateTime dated;
 
 //	@Temporal(TemporalType.TIMESTAMP)

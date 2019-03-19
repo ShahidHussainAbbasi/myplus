@@ -59,10 +59,12 @@ public class Guardian implements Serializable {
 	private LocalDateTime updated;
 
 	private String status="Active";
+	
+	private String cnic;
 
-	// bi-directional many-to-one association to Appointment
-	@OneToMany(mappedBy = "guardian")
-	private Set<Student> students;
+//	// bi-directional many-to-one association to Appointment
+//	@OneToMany(mappedBy = "guardian")
+//	private Set<Student> students;
 
 	/**
 	 * @return the id
@@ -218,19 +220,19 @@ public class Guardian implements Serializable {
 		this.updated = updated;
 	}
 
-	/**
-	 * @return the students
-	 */
-	public Set<Student> getStudents() {
-		return students;
-	}
-
-	/**
-	 * @param students the students to set
-	 */
-	public void setStudents(Set<Student> students) {
-		this.students = students;
-	}
+//	/**
+//	 * @return the students
+//	 */
+//	public Set<Student> getStudents() {
+//		return students;
+//	}
+//
+//	/**
+//	 * @param students the students to set
+//	 */
+//	public void setStudents(Set<Student> students) {
+//		this.students = students;
+//	}
 
 	/**
 	 * @return the gender
@@ -272,6 +274,20 @@ public class Guardian implements Serializable {
 	 */
 	public void setStatus(String status) {
 		this.status = status;
+	}
+
+	/**
+	 * @return the cnic
+	 */
+	public String getCnic() {
+		return cnic;
+	}
+
+	/**
+	 * @param cnic the cnic to set
+	 */
+	public void setCnic(String cnic) {
+		this.cnic = cnic;
 	}
 
 	/**

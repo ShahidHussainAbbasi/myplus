@@ -7,6 +7,17 @@ var formValidated = true;
 var form=null;
 var formFields = 0;
 var reload="";
+var ONE = 1;
+var ZERO = 0;
+var HUNDRED = 100;
+var edit = false;
+
+var s2n = function(v){
+	if(isNaN(v))
+		return 0;
+	else
+		return v*ONE;
+}
 
 function resetGlobalError(){
     $(".alert").html("").hide();
@@ -16,21 +27,24 @@ function resetGlobalError(){
 function resetForm(){
 	//Reset error Form's error classes and values
 	form = document.getElementsByClassName('form-horizontal')[tableV];
-	formFields = form.length-2;//-2 mean we don't need to loop over buttons (Add & Delete)
-	for(var i=0; i<formFields; i++){
-		$("#"+form[i].id).removeClass("alert-danger");
+	if(form){
+		formFields = form.length-2;//-2 mean we don't need to loop over buttons (Add & Delete)
+		for(var i=0; i<formFields; i++){
+			$("#"+form[i].id).removeClass("alert-danger");
+		}
+		$(".form-control").val("");
 	}
-	$(".form-control").val("");
 }
 
 function validateForm(){
     formValidated = true;
     var form = document.getElementsByClassName('form-horizontal')[tableV];
+    if(!form)
+    	return alert("Not valid form!");
     formFields = form.length-2;
     if (form.checkValidity() === false) {
       event.preventDefault();
       event.stopPropagation();
-    //  var length = form.length;
       // Loop over them and prevent submission
       for(var i=0; i<formFields; i++){
     	  if(form[i].validity.valid)
@@ -43,38 +57,21 @@ function validateForm(){
 }
 
 $(document).ready(function() {
-	
-   /* $('input.timepicker').timepicker({ 
-    	timeFormat: 'HH:mm',
-        //interval: 60,
-       // minTime: '10',
-       // maxTime: '6:00pm',
-        defaultTime: '8',
-       // startTime: '10:00',
-        dynamic: false,
-        dropdown: true,
-        scrollbar: true
-        //timeFormat: 'HH:mm:00' 
-    });*/
-
+		
 	$(".datePicker").datetimepicker({
 		format : 'DD-MM-YYYY'
 	});
+	
     $(".datetimepicker").datetimepicker({
 		format : 'DD-MM-YYYY HH:mm:ss'
 	});
     
     $('input.timepicker').timepicker({ 
     	timeFormat: 'HH:mm',
-        //interval: 60,
-       // minTime: '10',
-       // maxTime: '6:00pm',
         defaultTime: '8',
-       // startTime: '10:00',
         dynamic: false,
         dropdown: true,
         scrollbar: true
-        //timeFormat: 'HH:mm:00' 
     });
 	
     $(".onChangeSelect").change(function(){
@@ -83,8 +80,6 @@ $(document).ready(function() {
     	var value = $(this).val();
     	
    		populateData(label,value);
-    	
-  //  	  alert($this+ "The text has been changed.");
     });
     
 	$switchInputs =function(val) {
@@ -97,14 +92,34 @@ $(document).ready(function() {
 		resetForm();
 
 		//All button get initialized when user switch form
+		$("#find"+buttonV).off().click(function() {
+			if(!$("#input"+buttonV).val())
+				return alert("Please enter valid input. ");
+			findBy("find" + buttonV,"input="+$("#input"+buttonV).val());
+		});
+
+		//All button get initialized when user switch form
 		$("#add"+buttonV).off().click(function() {
 		    //If all form's required fields are filled
 			validateForm();
 		    if(formValidated){
 				var formData = $('form').serialize();
 					formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
-					//console.log(" formData for "+val +" is =  "+formData);
 					$(this).callAjax("add" + buttonV,formData);
+		    }else{
+		    	alert("Please make sure you have entered valid values");
+		    	return false;
+		    }
+		});
+
+		//All button get initialized when user switch form
+		$("#revert"+buttonV).off().click(function() {
+		    //If all form's required fields are filled
+			validateForm();
+		    if(formValidated){
+				var formData = $('form').serialize();
+					formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
+					$(this).callAjax("revert" + buttonV,formData);
 		    }else{
 		    	alert("Please make sure you have entered valid values");
 		    	return false;
@@ -128,6 +143,21 @@ $(document).ready(function() {
 				checked : ids
 			});
 		});
+
+		//All button get initialized when user switch form
+		$("#send"+buttonV).off().click(function() {
+		    //If all form's required fields are filled
+			validateForm();
+		    if(formValidated){
+				var formData = $('form').serialize();
+					formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
+					$(this).callAjax("send" + buttonV,formData);
+		    }else{
+		    	alert("Please make sure you have entered valid values");
+		    	return false;
+		    }
+		});
+
 	};
 
 	$(function() {
@@ -141,11 +171,23 @@ $(document).ready(function() {
 			loadDataTable();
 	  	}
 	  	
+	  	$("select").each(function() {
+	  		if(this.value == tab+"Div")
+	  			this.value = tab+"Div"
+	  		else	
+	  			this.selectedIndex = 0 
+	  	});
+	  	
 	  	//having below block on every switch to get it work
 		//Edit table click on row
-		$("#table" + tableV).on( 'click', 'tbody tr', function () {
-			//console.log(datatable.row( this ));
-			var html = datatable.row(this).selector.rows.innerHTML;
+/*	  	 var table = $('#example').DataTable();
+	     
+	     $('#example tbody').on('click', 'tr', function () {
+	         var data = table.row( this ).data();
+	         alert( 'You clicked on '+data[0]+'\'s row' );
+	     } );*/	  	
+		$("#table" + tableV).on( 'click', 'tr', function () {
+			var html = datatable.row(this).data();//.selector.rows.innerHTML;
 			var doc = new DOMParser().parseFromString(html, "text/html");
 			
 			resetForm();
@@ -154,39 +196,6 @@ $(document).ready(function() {
 	  });
 	});
 
-/*	
-	// It will show hide
-	$(function() {
-		var options = $("#registrationType > option").length;
-		$("#registrationType").change(function() {
-			var option = this.value;
-			if(!option)
-				return false;
-			
-			for (var i = 0; i < options; i++ ) {
-				$("#" + i + "Div").hide();
-			}
-			$("[name="+ option + "Div").show();
-			
-			$switchInputs(option);
-			// Activated data table
-			loadDataTable();
-			//Edit table click on row
-			$("#table" + option).on( 'click', 'tbody tr', function () {
-				console.log(datatable.row( this ));
-				var html = datatable.row(this).selector.rows.innerHTML;
-				var doc = new DOMParser().parseFromString(html, "text/html");
-				
-				resetForm();
-				editRecord(doc);
-			} );
-		});
-	});
-
-	$("#datePicker").datepicker({
-		format : 'DD/MM/YYYY'
-	});
-*/
 	$.fn.callAjax = function(method, data) {
 		$.ajax({
 			type : "POST",
@@ -197,30 +206,17 @@ $(document).ready(function() {
 
 			success : function(data) {
 				if(data.status==="FOUND"){
-					alert(data.message);
+					alert("Already exist");
 					return false;
 				}
 				datatable.clear().draw();
 				datatable.ajax.reload();
 				resetForm();
+				$("#globalError").empty();
 				return false;
 			}, fail: function(data, textStatus, errorThrown) {
-				console.log("Fail block");
-				alert("Fail block "+data);
+				alert("There is some problem in the request "+errorThrown);
 			}, error: function(data, textStatus, errorThrown) {
-/*		        if(data.responseJSON.error.indexOf("MailError") > -1)
-		        {
-		            window.location.href = serverContext + "emailError.html";
-		        }
-		        else if(data.responseJSON.error == "UserAlreadyExist"){
-		            $("#emailError").show().html(data.responseJSON.message);
-		        }
-		        else if(data.responseJSON.error.indexOf("InternalError") > -1){
-		            window.location.href = serverContext + "login?message=" + data.responseJSON.message;
-		        }
-		        else
-		        {
-*/		        
 				resetGlobalError();
                 if(textStatus==="parsererror"){
                 	window.location.href = serverContext + "login?message=" + errorThrown;
@@ -232,20 +228,21 @@ $(document).ready(function() {
 				var errors = $.parseJSON(data.responseJSON.message);
 	         	$.each( errors, function( index,item ){
 	            	if (item.field){
-	            		$("#"+tableV.toLowerCase()+capitalize(item.field)).addClass("alert-danger");
-/*	            	if (item.field){
-	            		$("#"+item.field).addClass("alert-danger");
-*/	            		//$("#"+item.field+"Error").show().append(item.defaultMessage+"<br/>");
+	            		$("[name="+item.field+"]").addClass("alert-danger");
+	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
+	            		$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
+	            		//$("#globalError").focus();
 	            	}
 	            	else {
 	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
+	            		$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
 	            	}
 	         	});
             }
 		}).fail(function(data) {
-			console.log("Fail block 2");
-			alert("Fail block 2");
+			alert("Please recheck inputs or contact with the system administrator.");
 		});
+		edit = false;
 	}
 
 });
@@ -261,25 +258,37 @@ const nonCapitalize = (s) => {
 }
 
 function editRecord(doc){
+	edit = true;
 	for(var i=0; i<(formFields); i++){
 		if(doc.getElementById(form[i].id)){
 			var text = doc.getElementById(form[i].id).textContent;
+//			var value = doc.getElementById(form[i].id).value;
 			if(form[i].tagName=="SELECT"){
 				var labels = text.split(",");
 				labels.forEach(function(entry) {
 					$("#"+form[i].id+" option").each(function(i) {
 						if(text.indexOf($(this).text()) > -1) {
 							$(this).prop('selected', true);
-							//document.getElementById(form[i].id).selectedIndex = i;
 						}else{
 							$(this).prop('selected', false);
 						}                      
 					});
 				});
+				
 			}else{
 				$("#"+form[i].id).val(text);
+			}
+			if(form[i].className.indexOf("selectpicker")>-1){
+				$( "#"+form[i].id+" :selected" ).text(text);
+				//$( "#"+form[i].id+" option:selected" ).text(text);
+				//$("#"+form[i].id).text(text);
+				$("#"+form[i].id).selectpicker('refresh');
 			}
 		}
 	}
 }
 
+function resetBSDD(id){
+	edit = false;
+	$("#"+id).val('default').selectpicker("refresh");
+}

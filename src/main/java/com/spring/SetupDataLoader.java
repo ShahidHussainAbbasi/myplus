@@ -182,12 +182,14 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
     		}else if(key.startsWith("education.role.user")) {
     			createRoleIfNotFound(rb.getString(key), userEducationPrivileges);
     	        createUserIfNotFound("user@edu.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));
+    	        createUserIfNotFound("younglearners345@gmail.com", "YNS", "YNS", "03002676135", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));
     		}else if(key.startsWith("education.role.admin")) {
     			createRoleIfNotFound(rb.getString(key), adminEducationPrivileges);
     	        createUserIfNotFound("admin@edu.com", "Shahid", "Hussain", "admin", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));
     		}else if(key.startsWith("education.role.super")) {
     			createRoleIfNotFound(rb.getString(key), superEducationPrivileges);
     	        createUserIfNotFound("super@edu.com", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));
+    	        createUserIfNotFound("ednan.ansari@gmail.com", "Adnan", "Ansari", "03002255425", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
     		}else if(key.startsWith("user.role")) {
     			createRoleIfNotFound(rb.getString(key), userPrivileges);
     	        createUserIfNotFound("user@user.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));

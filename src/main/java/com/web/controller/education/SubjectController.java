@@ -3,6 +3,7 @@ package com.web.controller.education;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -74,7 +75,8 @@ public class SubjectController {
 				dto = modelMapper.map(obj, SubjectDTO.class);
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
-				dto.setGradeName(obj.getGrade().getName());
+				if(!AppUtil.isEmptyOrNull(obj.getGrade()))
+					dto.setGradeName(obj.getGrade().getName());
 				dtos.add(dto);
 			});			
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -136,20 +138,14 @@ public class SubjectController {
 			if(AppUtil.isEmptyOrNull(dto.getId()) && subjectService.exists(example))
 				return new GenericResponse("FOUND",messages.getMessage("The Subject "+dto.getName()+" already exist", null, request.getLocale()));
 
-			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = subjectService.getOne(dto.getId());
-				dated = obj.getDated();
-			}
 			obj  = modelMapper.map(dto, Subject.class);
 			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
-				obj.setDated(dated);
-			else
-				obj.setDated(dated);
+			obj.setDated(dated);
 			obj.setUpdated(dated);
 
-			Grade grade = gradeService.getOne(dto.getGradeId());
-			obj.setGrade(grade);
+			Optional<Grade> g = gradeService.findById(dto.getGradeId());
+			if(g.isPresent())
+				obj.setGrade(g.get());
 			Subject objTemp = subjectService.save(obj);
 			if(AppUtil.isEmptyOrNull(objTemp)){
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));

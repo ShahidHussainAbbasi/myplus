@@ -2,6 +2,7 @@ package com.web.controller.education;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,6 +34,9 @@ import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
 import com.web.util.RequestUtil;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Controller
 public class SchoolController {
 
@@ -67,6 +71,7 @@ public class SchoolController {
 	        Example<School> example = Example.of(filterBy);
 			return schoolService.findAll(example).get(0).getName();
 		} catch (Exception e) {
+			log.error(this.getClass().getName()+"  >>>  "+e.getClass());
 			return "";
 		}
 	}
@@ -95,6 +100,7 @@ public class SchoolController {
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -110,14 +116,18 @@ public class SchoolController {
 			filterBy.setUserId(user.getId());
 	        Example<School> example = Example.of(filterBy);
 			List<School> schools = schoolService.findAll(example);
-			schools.forEach(d -> {
-				if(d!=null && d.getId()!=null)
-					sb.append("<option value="+d.getId()+">"+d.getBranchName()+"</option>");
-			});
+			if(!AppUtil.isEmptyOrNull(schools) && schools.size()>1)
+				sb.append("<option value=''>Nothing Selected</option>");
 			
-		    return sb.toString();
+			schools.forEach(d -> {
+				if(d!=null && d.getId()!=null) {
+					sb.append("<option value="+d.getId()+">"+d.getBranchName()+"</option>");
+				}
+			});
+			return sb.toString();
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 		}
 	    return sb.toString();
 	}
@@ -134,6 +144,7 @@ public class SchoolController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -173,6 +184,7 @@ public class SchoolController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -195,6 +207,7 @@ public class SchoolController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}

@@ -3,17 +3,19 @@
 <head>
 <div th:replace="header :: header-css" />
 
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.css"/> 
-<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.js"></script>
-
-<!-- <script src="resources/js/bootstrap/js/bootstrap.js"></script> -->
-<script src="resources/bootstrap/js/moment.js"></script>
-<script src="resources/bootstrap/js/bootstrap-datetimepicker.js"></script>
-<script src="resources/js/datatables.min.js"></script>
-<!-- <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.js"></script> -->
-<!-- <link rel="stylesheet" href="resources/js/bootstrap/css/bootstrap.min.css"> -->
-<link rel="stylesheet"	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
-<script src="resources/js/main.js"></script>
+<!-- start for export -->
+<!-- 
+<script src="resources/js/business/jquery-3.3.1.js"></script>
+<script src="resources/js/business/jquery.dataTables.min.js"></script>
+<script src="resources/js/business/dataTables.buttons.min.js"></script>
+<script src="resources/js/business/buttons.flash.min.js"></script>
+<script src="resources/js/business/jszip.min.js"></script>
+<script src="resources/js/business/pdfmake.min.js"></script>
+<script src="resources/js/business/vfs_fonts.js"></script>
+<script src="resources/js/business/buttons.html5.min.js"></script>
+<script src="resources/js/business/buttons.print.min.js"></script>
+ -->
+<!-- end for export -->
 <script src="resources/js/business/business.js"></script>
 
 </head>
@@ -50,7 +52,7 @@
 				<li>
 					<select name="sellType" id="sellType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Sell</option>
-						<option class="dropdown-item" value="sellDiv"> New Sell </option>
+						<option class="dropdown-item" value="sellDiv"> Manage Sell </option>
 <!-- 						<option class="dropdown-item" value="sellReturnDiv"> Manage Sell</option>
 						<option class="dropdown-item" value="sellInvoiceDiv">Sell Invoice</option>
  -->					</select>
@@ -62,7 +64,7 @@
 		<div id="CompanyDiv" class="formDiv">
 			<h3 th:text="#{label.company.form.heading}">Company Registration
 				Form</h3>
-			<br />
+			
 			<!-- <form class="form-horizontal" role="form"> -->
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Company" autocomplete="off">
@@ -150,10 +152,10 @@
 			</div>
 		</div>
 		<div id="VenderDiv" class="formDiv">
-			<br />
+			
 			<h3 th:text="#{label.vender.form.heading}">Vender Registration
 				Form</h3>
-			<br />
+			
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Vender" autocomplete="off">
 				<div class="form-group" style="display: none">
@@ -231,9 +233,9 @@
 			</div>
 		</div>
 		<div id="itemDiv" class="formDiv">
-			<br />
-			<h2 th:text="#{label.item.form.heading}">Item Registration Form</h2>
-			<br />
+			
+			<h4 th:text="#{label.item.form.heading}">Item Registration Form</h4>
+			
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Item" autocomplete="off">
 				<div class="form-group" style="display: none">
@@ -350,8 +352,8 @@
 		</div>
 
 		<div id="purchaseDiv" class="formDiv">
-			<h2 th:text="#{label.purchase.form.heading}">Purchase Form</h2>
-			<br />
+			<h4 th:text="#{label.purchase.form.heading}">Purchase Form</h4>
+			
 			<!-- <form class="form-horizontal" role="form"> -->
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Purchase" autocomplete="off">
@@ -456,9 +458,7 @@
 			</table>
 		</div>
 		<div id="sellDiv" class="formDiv">
-			<br />
-			<h2 th:text="#{label.sell.form.heading}">Sell Form</h2>
-			<br />
+			<h4 th:text="#{label.sell.form.heading}">Sell Form</h4>
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Sell" autocomplete="off">
 				<div class="form-group" style="display: none">
@@ -470,7 +470,7 @@
 					<label class="control-label col-sm-2" th:text="#{label.item}">Select Item</label> 
 					<div class="col-sm-4">
 						<select
-							class="form-control onChangeSelect" id="sellItemDD" name="itemId">
+							class="form-control onChangeSelect selectpicker" id="sellItemDD" name="itemId" data-live-search="true">
 						</select>
 					</div>
 					<label class="control-label col-sm-2" for="sellItems">QTY:</label>
@@ -493,35 +493,57 @@
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="sellTotalAmount">Total:</label>
 					<div class="col-sm-4">
-						<input type="number" step="any" class="form-control" id="sellTotalAmount" name="totalAmount" style="display: none">
-						<output class="form-control" id="stotalAmount">
+						<input type="number" step="any" class="form-control" id="sellTotalAmount" name="totalAmount" readonly="readonly"/>
+						<!-- <output class="form-control" id="stotalAmount"> -->
 					</div>
 					<label class="control-label col-sm-2" for="sellDiscount" id="sdt">Discount:</label>
-					<div class="col-sm-4">
-						<input type="number" class="form-control" id="sellDiscount"
+					<div class="col-sm-2">
+						<input type="number" step="any" class="form-control" id="sellDiscount"
 							name="discount" placeholder=" Discount 0.0" onkeyup="calculateNetSell()">
 					</div>
+					<div class="col-sm-2">
+						<select id="selldtDD" name="dt" class="form-control" onchange="calculateNetSell()" required="required">
+							<option class="dropdown-item" value="Rs" selected="selected">Rs</option>
+							<option class="dropdown-item" value="%">%</option>
+						</select>
+					</div>					
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="net">Profit</label>
 					<div class="col-sm-4">
-						<input type="number" step="any" class="form-control" id="sellNetAmount" name="netAmount" style="display: none">
-						<output class="form-control" id="snetAmount">
+						<input type="number" step="any" class="form-control" id="sellNetAmount" name="netAmount" readonly="readonly"/>
+						<!-- <output class="form-control" id="snetAmount"> -->
 					</div>
 					<label class="control-label col-sm-2" for="sellStock">Stock In Hand:</label>
 					<div class="col-sm-4">
-						<input type="number" step="any" min="0" class="form-control" id="sellStock" name="stock" style="display: none"/>
-						<output class="form-control" id="sstok"/>
+						<input type="number" step="any" min="0" class="form-control" id="sellStock" name="stock" readonly="readonly"/>
+						<!-- <output class="form-control" id="sstok"/> -->
+					</div>
+				</div>
+				<div class="form-group">
+ 					<label class="control-label col-sm-2" for="sellrm">Add deduction</label>
+ 					<div class="col-sm-2">
+						<input type="number" step="any" class="form-control" id="sellsrp" name="srp" onkeyup="calculateSRP()"/>
+					</div>
+					<div class="col-sm-2">
+						<select id="srpDD" class="form-control" onchange="calculateSRP()">
+							<option class="dropdown-item" value="">Rs</option>
+							<option class="dropdown-item" value="%">%</option>
+						</select>
+					</div>					
+ 					<label class="control-label col-sm-2" for="sellrm">Receive amount</label>
+ 					<div class="col-sm-4">
+						<input type="number" step="any" min="0" class="form-control" id="sellrm" readonly="readonly"/>
 					</div>
 				</div>
 				<div class="form-group">
 					<button type="button" id="addSell" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
-					<button type="button" id="deleteSell" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					<button type="button" id="revertSell" class="btn btn-danger">
+						<span class="glyphicon glyphicon-minus-sign"></span> Return
 					</button>
-					<button type="reset" id="resetSell" class="btn btn-primary">
+					<button type="reset" id="resetSell" class="btn btn-warning" onclick="resetBSDD('sellItemDD')">
 						<span class="glyphicon glyphicon-refresh"></span> Reset
 					</button>
 				</div>
@@ -530,18 +552,15 @@
 				<thead>
 					<tr>
 						<th class="col-sm-1" data-field="sellId">ID</th>
-						<th class="col-sm-1" data-field="checkDelete"></th>
-						<!-- <th class="col-sm-1" data-field="sellItemId">Item ID</th> -->
-						<th class="col-sm-2" data-field="sellItemDD">Name</th>
-						<th class="col-sm-1" data-field="sellItems">Qty</th>
+						<th class="col-sm-1" data-field="sellItemDD">Name</th>
 						<th class="col-sm-1" data-field="sellSellRate">S/U Price</th>
 						<th class="col-sm-1" data-field="sellPurchaseRate">P/U Price</th>
-<!-- 						<th class="col-sm-1" data-field="sellExpense">P Exp</th>
-						<th class="col-sm-1" data-field="sellExpenseDesc">P Exp Desc</th>
- -->
+						<th class="col-sm-1" data-field="sellItems">Qty</th>
 						<th class="col-sm-1" data-field="sellTotalAmount">Total</th>
 						<th class="col-sm-1" data-field="sellDiscount">Discount</th>
+						<th class="col-sm-1" data-field="selldtDD">Type</th>
 						<th class="col-sm-1" data-field="sellNetAmount">Profit</th>
+						<th class="col-sm-1" data-field="sellsrp">S/R Profit</th>
 						<th class="col-sm-1" data-field="sellStock">Stock</th>
 						<th class="col-sm-1" data-field="dated">Dated</th>
 					</tr>
@@ -552,9 +571,9 @@
 		<!-- below 2 sections are temporary hidden -->
 		
 <!-- 		<div id="ItemTypeDiv" class="formDiv">
-			<br />
-			<h2 th:text="#{label.itemType.form.heading}">Item Type Registration Form</h2>
-			<br />
+			
+			<h4 th:text="#{label.itemType.form.heading}">Item Type Registration Form</h4>
+			
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="ItemType" autocomplete="off">
 				<div class="form-group" style="display: none">
@@ -598,9 +617,9 @@
 			</table>
 		</div>
 		<div id="ItemUnitDiv" class="formDiv">
-			<br />
-			<h2 th:text="#{label.itemUnit.form.heading}">Item Unit Registration Form</h2>
-			<br />
+			
+			<h4 th:text="#{label.itemUnit.form.heading}">Item Unit Registration Form</h4>
+			
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="ItemUnit" autocomplete="off">
 				<div class="form-group" style="display: none">

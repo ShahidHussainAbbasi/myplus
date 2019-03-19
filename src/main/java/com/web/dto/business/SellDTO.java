@@ -43,6 +43,8 @@ public class SellDTO implements Serializable {
 
 	private Float netAmount;
 
+	private Float srp;
+	
 	private Float stock;
 
 //	private Float sellExpense;
@@ -55,6 +57,7 @@ public class SellDTO implements Serializable {
 
 	private String updatedStr;
 
+	private String dt="Rs";
 	/**
 	 * @return the id
 	 */
@@ -237,6 +240,21 @@ public class SellDTO implements Serializable {
 		this.netAmount = netAmount;
 	}
 
+	
+//	/**
+//	 * @return the ra
+//	 */
+//	public Float getRa() {
+//		return ra;
+//	}
+//
+//	/**
+//	 * @param ra the ra to set
+//	 */
+//	public void setRa(Float ra) {
+//		this.ra = ra;
+//	}
+
 	/**
 	 * @return the stock
 	 */
@@ -291,6 +309,34 @@ public class SellDTO implements Serializable {
 	 */
 	public void setUpdatedStr(String updatedStr) {
 		this.updatedStr = updatedStr;
+	}
+
+	/**
+	 * @return the srp
+	 */
+	public Float getSrp() {
+		return srp;
+	}
+
+	/**
+	 * @param srp the srp to set
+	 */
+	public void setSrp(Float srp) {
+		this.srp = srp;
+	}
+
+	/**
+	 * @return the dt
+	 */
+	public String getDt() {
+		return dt;
+	}
+
+	/**
+	 * @param dt the dt to set
+	 */
+	public void setDt(String dt) {
+		this.dt = dt;
 	}
 
 	/**

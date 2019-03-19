@@ -10,226 +10,11 @@ var formFields = 0;
 var reload="";
 	
 
-/*function resetGlobalError(){
-    $(".alert").html("").hide();
-    $(".error-list").html("");	
-}
-
-function resetForm(){
-	//Reset error Form's error classes and values
-	form = document.getElementsByClassName('form-horizontal')[tableV];
-	formFields = form.length-2;//-2 mean we don't need to loop over buttons (Add & Delete)
-	for(var i=0; i<formFields; i++){
-		$("#"+form[i].id).removeClass("alert-danger");
-	}
-	$(".form-control").val("");
-}
-
-function validateForm(){
-    formValidated = true;
-    var form = document.getElementsByClassName('form-horizontal')[tableV];
-    formFields = form.length-2;//2 is the number of button (add & delete)
-    if (form.checkValidity() === false) {
-      event.preventDefault();
-      event.stopPropagation();
-      // Loop over them and prevent submission
-      for(var i=0; i<formFields; i++){
-    	  if(form[i].validity.valid)
-    		  $("#"+form[i].id).removeClass("alert-danger");
-    	  else
-    		  $("#"+form[i].id).addClass("alert-danger");
-      }
-      formValidated = false;
-    }
-}
-
-$(document).ready(function() {
-	
-    $('input.timepicker').timepicker({ 
-    	timeFormat: 'HH:mm',
-        //interval: 60,
-       // minTime: '10',
-       // maxTime: '6:00pm',
-        defaultTime: '8',
-       // startTime: '10:00',
-        dynamic: false,
-        dropdown: true,
-        scrollbar: true
-        //timeFormat: 'HH:mm:00' 
-    		
-    });
-    
-	$switchInputs =function(val) {
-	    buttonV = val;
-		deleteV = val;
-		tableV = val;
-		getAll = val;	
-
-		resetForm();
-		
-		//All button get initialized when user switch form
-		$("#add"+buttonV).off().click(function() {
-		    //If all form is filled correctly
-			validateForm();
-			
-		    if(formValidated){
-				var formData = $('form').serialize();
-					formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
-					console.log(" formData for "+val +" is =  "+formData);
-					$(this).callAjax("add" + buttonV,formData);
-		    }else{
-		    	alert("Please make sure you have entered valid values");
-		    	return false;
-		    }
-		});
-
-		$("#delete"+deleteV).off().click(function() {
-			var ids = $("#table"+ tableV+ " input[type='checkbox']:checkbox:checked").map(function() {
-				return this.value;
-			}).get().join(",");
-			
-			if (ids == null || ids == "") {
-				alert("Please select at least one record to Inactive");
-				return false;
-			}
-			var r = confirm("Are you sure you want to Inactive?");
-			if (r != true)
-				return false;
-
-			$(this).callAjax("delete" + deleteV, {
-				checked : ids
-			});
-		});
-	};
-*/		
-	// It will show hide
-/*	$(function() {
-		var options = $("#registrationType > option").length;
-		$("#registrationType").change(function() {
-			var option = this.value;
-			if(!option)
-				return false;
-			
-			for (var i = 0; i < options; i++ ) {
-				$("#" + i + "Div").hide();
-			}
-			$("[name="+ option + "Div").show();
-			
-			$switchInputs(option);
-			// Activated data table
-			loadDataTable();
-			//Edit table click on row
-			$("#table" + option).on( 'click', 'tbody tr', function () {
-				console.log(datatable.row( this ));
-				var html = datatable.row(this).selector.rows.innerHTML;
-				var doc = new DOMParser().parseFromString(html, "text/html");
-				
-				resetForm();
-				editRecord(doc);
-			} );
-		});
-	});
-
-
-	$("#pickerDateBirth").datetimepicker({
-		format : 'DD/MM/YYYY'
-	});
-
-	$(window).load(function() {
-
-	});
-
-	$.fn.callAjax = function(method, data) {
-		$.ajax({
-			type : "POST",
-			url : serverContext + method,
-			dataType : "json",
-			timeout : 100000,
-			data : data,
-
-			success : function(data) {
-				if(data.status==="FOUND" || data.status==="ERROR"){
-					alert(data.message);
-					return false;
-				}
-				datatable.clear().draw();
-				datatable.ajax.reload();
-				resetForm();
-				return false;
-			},
-			 error: function(data, textStatus, errorThrown) {
-		        
-				resetGlobalError();
-				
-                if(textStatus==="parsererror"){
-                	window.location.href = serverContext + "login?message=" + errorThrown;
-		        }
-		        else if(data.responseJSON.error.indexOf("InternalError") > -1){
-		            window.location.href = serverContext + "login?message=" + data.responseJSON.message;
-		        }
-
-				var errors = $.parseJSON(data.responseJSON.message);
-	         	$.each( errors, function( index,item ){
-	            	if (item.field){
-	            		$("#"+tableV.toLowerCase()+capitalize(item.field)).addClass("alert-danger");
-	            	}
-	            	else {
-	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
-	            	}
-	         	});
-            }
-		});
-	}
-
-});
-*/
-/*const capitalize = (s) => {
-	if (typeof s !== 'string') return ''
-  		return s.charAt(0).toUpperCase() + s.slice(1)
-}
-
-const nonCapitalize = (s) => {
-	if (typeof s !== 'string') return ''
-  		return s.charAt(0).toLowerCase() + s.slice(1)
-}
-*/
-/*
-var str ='4/5/8';
-$.each(str.split('/'), function(i, val) {
-    $('#sellist option').filter('[value="' + val + '"]').prop('selected', 'selected');
-});
- */
-/*
-function editRecord(doc){
-	for(var i=0; i<(formFields); i++){
-		if(doc.getElementById(form[i].id)){
-			var text = doc.getElementById(form[i].id).textContent;
-			if(form[i].tagName=="SELECT"){
-				var labels = text.split(",");
-				labels.forEach(function(entry) {
-					$("#"+form[i].id+" option").each(function(i) {
-						if(text.indexOf($(this).text()) > -1) {
-							$(this).prop('selected', true);
-							//document.getElementById(form[i].id).selectedIndex = i;
-						}else{
-							$(this).prop('selected', false);
-						}                      
-					});
-				});
-			}else{
-				$("#"+form[i].id).val(text);
-			}
-		}
-	}
-}
-*/
 function loadDataTable(){
 	//check if data table exist destroy it
 	if (datatable!=null){
 		datatable.destroy();
-		//datatable = null;
 	}
-	console.log(1);
 	datatable = $("#table" + tableV).DataTable({
 		"autoWidth" : true,
 		"columnDefs" : [ {
@@ -252,6 +37,7 @@ function loadDataTable(){
 					getUserStaffs(table);
 					getUserGuardians(table);
 					getUserVehicles(table);
+					getUserDiscounts(table);
 					getUserSubjects(table);
 					reload=tableV;
 				}
@@ -271,9 +57,6 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "School") {
-					//check if this user have already registered main branch display it
-					//getMainBranchName();
-					//getUserOwners();
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=schoolId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
@@ -286,7 +69,6 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Grade") {
-					//getUserSchools();
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=gradeId>"+obj.id+"</div>", "<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
@@ -298,31 +80,29 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Staff") {
-					var i=0;
 					$.each(collections, function(ind, obj) {
-						//getUserSchools();
 						arr = [
 							"<div id=staffId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
 							"<div id=staffName>"+obj.name+"</div>", "<div id=staffEmail>"+obj.email+"</div>",
 							"<div id=staffMobile>"+obj.mobile+"</div>", "<div id=staffPhone>"+obj.phone+"</div>", 
 							"<div id=staffTimeInStr>"+obj.timeInStr+"</div>", "<div id=staffTimeOutStr>"+obj.timeOutStr+"</div>",
 							"<div id=staffDesignation>"+obj.designation+"</div>", "<div id=staffQualification>"+obj.qualification+"</div>",
-							"<div id=staffSchoolDD>"+obj.schoolNames+"</div>", "<div id=staffGradeDD>"+obj.gradeNames+"</div>",
-							"<div id=staffDateOfBirth>"+obj.dateOfBirth+"</div>", "<div id=staffGender>"+obj.gender+"</div>",
-							"<div id=staffMartialStatus>"+obj.martialStatus+"</div>", "<div id=staffAddress>"+obj.address+"</div>",
-							"<div id=staffStatus>"+obj.status+"</div>",	"<div id=staffDated>"+obj.datedStr+"</div>"
+							/*"<div id=staffSchoolDD>"+obj.schoolNames+"</div>",*/ 
+							"<div id=staffGradeDD>"+obj.gradeNames+"</div>", "<div id=staffGender>"+obj.gender+"</div>",
+							"<div id=staffDateOfBirth>"+obj.dateOfBirth+"</div>","<div id=staffMartialStatus>"+obj.martialStatus+"</div>",
+							 "<div id=staffAddress>"+obj.address+"</div>","<div id=staffStatus>"+obj.status+"</div>",
+							 "<div id=staffDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Guardian") {
 					var i=0;
 					$.each(collections, function(ind, obj) {
-						i++;
 						arr = [
 							"<div id=guardianId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=guardianName>"+obj.name+"</div>", "<div id=guardianEmail>"+obj.email+"</div>",
+							"<div id=guardianName>"+obj.name+"</div>", "<div id=guardianEmail>"+obj.email+"</div>", 
 							"<div id=guardianMobile>"+obj.mobile+"</div>", "<div id=guardianPhone>"+obj.phone+"</div>", 
-							"<div id=guardianTempAddress>"+obj.tempAddress+"</div>", "<div id=guardianPermAddress>"+obj.permAddress+"</div>",
+							"<div id=guardianCNIC>"+obj.cnic+"</div>", "<div id=guardianPermAddress>"+obj.permAddress+"</div>",
 							"<div id=guardianRelation>"+obj.relation+"</div>", "<div id=guardianOccupation>"+obj.occupation+"</div>",
 							"<div id=guardianStatus>"+obj.status+"</div>","<div id=guardianDated>"+obj.datedStr+"</div>"
 							];
@@ -331,18 +111,18 @@ function loadDataTable(){
 				} else if (getAll === "Student") {
 					var i=0;
 					$.each(collections, function(ind, obj) {
-						i++;
 						arr = [
 							"<div id=studentId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=studentName>"+obj.name+"</div>","<div id=studentSchoolDD>"+obj.schoolName+"</div>",
-							"<div id=studentGradeDD>"+obj.gradeName+"</div>",
-							"<div id=studentGuardianDD>"+obj.guardianName+"</div>","<div id=studentVehicleDD>"+obj.vehicleName+"</div>",
 							"<div id=studentEnrollNo>"+obj.enrollNo+"</div>","<div id=studentEnrollDate>"+obj.enrollDate+"</div>",
-							"<div id=studentFeeMode>"+obj.feeMode+"</div>","<div id=studentMobile>"+obj.mobile+"</div>",
-							"<div id=studentEmail>"+obj.email+"</div>","<div id=studentGender>"+obj.gender+"</div>",
-							"<div id=studentDateOfBirth>"+obj.dateOfBirth+"</div>", "<div id=studentBloodBroup>"+obj.boodGroup+"</div>",
-							"<div id=studentAddress>"+obj.address+"</div>","<div id=studentStatus>"+obj.status+"</div>",
-							"<div id=studentDated>"+obj.updatedStr+"</div>"
+							"<div id=studentName>"+obj.name+"</div>","<div id=studentSchoolDD>"+obj.schoolName+"</div>",
+							"<div id=studentGradeDD>"+obj.gradeName+"</div>","<div id=studentGuardianDD>"+obj.guardianName+"</div>",
+							"<div id=studentFeeMode>"+obj.feeMode+"</div>","<div id=studentFee>"+obj.fee+"</div>",
+							"<div id=studentVehicleDD>"+obj.vehicleName+"</div>","<div id=studentvf>"+obj.vf+"</div>",
+							"<div id=studentDiscountDD>"+obj.discountName+"</div>","<div id=studentDueDay>"+obj.dueDay+"</div>",
+							"<div id=studentMobile>"+obj.mobile+"</div>","<div id=studentEmail>"+obj.email+"</div>",
+							"<div id=studentGender>"+obj.gender+"</div>","<div id=studentDateOfBirth>"+obj.dateOfBirth+"</div>",
+							"<div id=studentBloodBroup>"+obj.bloodGroup+"</div>","<div id=studentAddress>"+obj.address+"</div>",
+							"<div id=studentStatus>"+obj.status+"</div>","<div id=studentDated>"+obj.updatedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -376,11 +156,9 @@ function loadDataTable(){
 						i++;
 						arr = [
 							"<div id=discountId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=discountStudentDD>"+obj.schoolName+"</div>","<div id=discountDscountIn>"+obj.name+"</div>",
-							"<div id=discountAmount>"+obj.number+"</div>", "<div id=discountName>"+obj.driverName+"</div>",
-							"<div id=discountSartDate>"+obj.driverMobile+"</div>", "<div id=discountEndDate>"+obj.driverOwnerName+"</div>", 
-							"<div id=discountDescription>"+obj.driverOwnerMobile+"</div>","<div id=discountStatus>"+obj.status+"</div>",
-							"<div id=discountDated>"+obj.datedStr+"</div>"
+							"<div id=discountNameDD>"+obj.name+"</div>","<div id=discountTypeDD>"+obj.type+"</div>", 
+							"<div id=discountAmount>"+obj.amount+"</div>","<div id=discountDescription>"+obj.description+"</div>",
+							"<div id=discountStatus>"+obj.status+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -395,6 +173,30 @@ function loadDataTable(){
 							"<div id=asd>"+obj.sdStr+"</div>", "<div id=aed>"+obj.edStr+"</div>", 
 							"<div id=ah>"+obj.ah+"</div>","<div id=am>"+obj.am+"</div>",
 							"<div id=as>"+obj.as+"</div>"
+							];
+						datatable.row.add(arr).draw();
+					});
+				} else if (getAll === "Fc") {
+					$.each(collections, function(ind, obj) {
+						arr = [
+							"<div id=fcId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
+							"<div id=inputFc>"+obj.en+"</div>","<div id=fchf>"+obj.f+"</div>","<div id=fcdb>"+obj.db+"</div>",
+							"<div id=fchvf>"+obj.vf+"</div>","<div id=fchd>"+obj.d+"</div>",
+							"<div id=fchdt>"+obj.dt+"</div>","<div id=fchda>"+obj.da+"</div>",
+							"<div id=fchdd>"+obj.dd+"</div>", "<div id=fcfp>"+obj.fp+"</div>", 
+							"<div id=fcod>"+obj.od+"</div>","<div id=fcodd>"+obj.odd+"</div>",
+							"<div id=fcp>"+obj.p+"</div>","<div id=fcrb>"+obj.rb+"</div>",
+							"<div id=fcri>"+obj.ri+"</div>","<div id=fccn>"+obj.cn+"</div>",
+							"<div id=fcpd>"+obj.pdStr+"</div>"
+							];
+						datatable.row.add(arr).draw();
+					});
+				} else if (getAll === "A") {
+					$.each(collections, function(ind, obj) {
+						arr = [
+							"<div id=aId>"+obj.id+"</div>",
+							"<div id=aen>"+obj.en+"</div>","<div id=asn>"+obj.sn+"</div>","<div id=fcdb>"+obj.gn+"</div>",
+							"<div id=fchdt>"+obj.dtStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -414,7 +216,6 @@ function loadDataTable(){
 }
 
 function getUserOwners(table){
-	console.log(table);
     $("#"+table.toLowerCase()+"OwnerDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserOwners",function(data){
@@ -425,19 +226,15 @@ function getUserOwners(table){
 	});
 }
 function getUserSchools(table) {	
-	console.log(tableV);
-    $("#"+table+"SchoolDD").empty().append("<option value = ''> Please Select </option>");
-    
+	$select = $("#"+table.toLowerCase()+"SchoolDD");    
     $.get(serverContext+ "getUserSchools",function(data){
-    	$("#"+table.toLowerCase()+"SchoolDD").append(data);
-    })
-	.fail(function(data) {
-		$("#"+table.toLowerCase()+"SchoolDD").empty().append("<option value = ''> System error  </option>");
+    	$select.empty().append(data);//.selectpicker('refresh');
+    }).fail(function(data) {
+		$select.empty().append("<option value = ''> System error  </option>");
 	});
 }
 
 function getUserStaffs(table){
-	console.log(table);
     $("#"+table.toLowerCase()+"StaffDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserStaffs",function(data){
@@ -449,7 +246,6 @@ function getUserStaffs(table){
 }
 
 function getUserGuardians(table){
-	console.log(table);
     $("#"+table.toLowerCase()+"GuardianDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserGuardians",function(data){
@@ -461,7 +257,6 @@ function getUserGuardians(table){
 }
 
 function getUserSubjects(table) {	
-	console.log(tableV);
     $("#"+table+"SubjectDD").empty().append("<option value = ''> Please wait....  </option>");
     
     $.get(serverContext+ "getUserSubjects",function(data){
@@ -473,8 +268,6 @@ function getUserSubjects(table) {
 }
 
 function getUserGrades(table) {	
-	console.log(tableV);
-
     $("#"+table+"GradeDD").empty().append("<option value = ''> Please wait....  </option>");
     $.get(serverContext+ "getUserGrades",function(data){
     	$("#"+table.toLowerCase()+"GradeDD").empty().append(data);
@@ -506,5 +299,123 @@ function getUserVehicles(table){
 	.fail(function(data) {
 		$("#"+table.toLowerCase()+"VehicleDD").empty().append("<option value = ''> System error  </option>");
 	});
+}
+
+function getUserDiscounts(table){
+	console.log(table);
+    $("#"+table.toLowerCase()+"DiscountDD").empty().append("<option value = ''> Please wait....  </option>");
+    
+    $.get(serverContext+ "getUserDiscounts",function(data){
+    	$("#"+table.toLowerCase()+"DiscountDD").empty().append(data);
+    })
+	.fail(function(data) {
+		$("#"+table.toLowerCase()+"DiscountDD").empty().append("<option value = ''> System error  </option>");
+	});
+}
+
+function findBy(method,data){
+	$.ajax({
+		type : "GET",
+		url : serverContext + method,
+		dataType : "json",
+		timeout : 100000,
+		data : data,
+		success : function(data) {
+			if(data.status==="NOT_FOUND"){
+				removeTableBody();
+				return alert("Enrolled ID is invalid or not exist.");
+			}else if(data.status==="SUCCESS"){
+				console.log(data);
+				if(!data || !data.object)
+					return false
+					
+					var o = data.object;
+					var dm=0;//due months
+					
+					if(o.lpd){
+						var lpd = new Date(Date.parse(o.lpd));
+						dm = monthDiff(lpd,new Date());
+						if(dm <= 0){
+							resetForm();
+							removeTableBody();
+							return alert("Current month's Fee has been paid.");
+						}
+					}
+					$("#fcsn").html(o.sn);
+					$("#fcgn").html(o.gn);
+					$("#fcscn").html(o.scn);
+					$("#fcg").html(o.g);
+					$("#fcf").html(o.f);
+					$("#fcf").val(o.f);
+					var vf = s2n(o.vf);
+					var d  = s2n(o.d);
+					var f = s2n(o.f);
+					$("#fchf").val(f);
+					$("#fcvf").html(vf);
+					$("#fchvf").val(vf);
+					$("#fchdt").val(o.dt);
+					var tf = f;
+					if(o.dt=="%"){
+						var d = f * (d / 100);
+						$("#fcd").html(d+" in "+o.dt);
+						$("#fchd").val(d);
+					}else{
+						$("#fcd").html(d);
+						$("#fchd").val(d);
+					}
+					tf = f + vf - d;
+					if(dm>1)
+						tf = tf*dm;
+					if(o.db)
+						tf = tf+o.db;
+					
+					$("#fcda").html(tf);
+					$("#fchda").val(tf);
+
+					var dd = s2n(o.dd);
+					$("#fchdd").val(dd);
+					if(new Date().getDate() <=dd){
+						$("#fcdd").removeClass("alert-danger");
+						$("#fcdd").html(dd - new Date().getDate() +" day(s) left");
+					}else{
+						$("#fcdd").html(new Date().getDate() - dd +" day(s) over");
+						$("#fcdd").addClass("alert-danger");
+					}
+					
+					$("#fcpd").val(o.pdStr);
+					return false;
+			}
+			return false;
+		},
+		 error: function(data, textStatus, errorThrown) {
+			resetForm();
+			 alert("Status : error : "+textStatus+" : "+errorThrown);
+        }
+	});
+}
+
+function monthDiff(d1, d2) {
+	return d2.getMonth() - d1.getMonth() + (12 * (d2.getFullYear() - d1.getFullYear()));
+}
+
+function getDB(){
+	if($("#fchda").val()>$("#fcfp").val())
+		$("#fcdb").val($("#fchda").val() - $("#fcfp").val());
+	else
+		$("#fcdb").val(0);
+}
+
+function removeTableBody(){
+    $('.fcDTC').empty();
+}
+
+function ma(v){
+	if(v && v.length==3){
+		var formData = $('form').serialize();
+		formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
+		$(this).callAjax("markAttendance",formData);
+	}else{
+		console.log(0)
+	}
 }
 

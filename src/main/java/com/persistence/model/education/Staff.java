@@ -15,6 +15,7 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
+import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
 import org.hibernate.annotations.Fetch;
@@ -69,7 +70,7 @@ public class Staff implements Serializable {
 	@Column(name = "martial_status")
 	private String martialStatus;
 
-	private String status="Active";
+	private String status;
 
 //	@Temporal(TemporalType.TIMESTAMP)
 	private LocalDateTime dated;
@@ -78,16 +79,15 @@ public class Staff implements Serializable {
 	@Column(updatable=false)
 	private LocalDateTime updated;
 
-	@NotFound(action=NotFoundAction.IGNORE)
+//    @ManyToMany(fetch = FetchType.EAGER)
+//	@NotFound(action=NotFoundAction.IGNORE)
+//    @Fetch(value = FetchMode.SUBSELECT)
+//	@JoinTable(name = "staffs_schools", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), inverseJoinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"))
+//	private List<School> schools;
+//
     @ManyToMany(fetch = FetchType.EAGER)
-    @Fetch(value = FetchMode.SUBSELECT)
-	@JoinTable(name = "staffs_schools", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), inverseJoinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"))
-	private List<School> schools;
-
 	@NotFound(action=NotFoundAction.IGNORE)
-    @ManyToMany(fetch = FetchType.EAGER)
-    @Fetch(value = FetchMode.SUBSELECT)
-	@JoinTable(name = "staffs_grades", joinColumns = @JoinColumn(name = "staff_id", referencedColumnName = "staff_id"), inverseJoinColumns = @JoinColumn(name = "grade_id", referencedColumnName = "grade_id"))
+	@JoinColumn(name = "grade_Ids")
 	private List<Grade> grades;
 
 	// Bi-directional on-to-many association to subject
@@ -276,20 +276,21 @@ public class Staff implements Serializable {
 		this.updated = updated;
 	}
 
-	/**
-	 * @return the schools
-	 */
-	public List<School> getSchools() {
-		return schools;
-	}
 
-	/**
-	 * @param schools the schools to set
-	 */
-	public void setSchools(List<School> schools) {
-		this.schools = schools;
-	}
-
+//	/**
+//	 * @return the schools
+//	 */
+//	public List<School> getSchools() {
+//		return schools;
+//	}
+//
+//	/**
+//	 * @param schools the schools to set
+//	 */
+//	public void setSchools(List<School> schools) {
+//		this.schools = schools;
+//	}
+//
 	/**
 	 * @return the grades
 	 */
@@ -303,20 +304,6 @@ public class Staff implements Serializable {
 	public void setGrades(List<Grade> grades) {
 		this.grades = grades;
 	}
-//
-//	/**
-//	 * @return the subjects
-//	 */
-//	public Set<Subject> getSubjects() {
-//		return subjects;
-//	}
-//
-//	/**
-//	 * @param subjects the subjects to set
-//	 */
-//	public void setSubjects(Set<Subject> subjects) {
-//		this.subjects = subjects;
-//	}
 
 	/**
 	 * @return the gender

@@ -1,20 +1,29 @@
 function loadDataTable(){
 	//check if data table exist destroy it
 	console.log(111)
+	var offset = $( "select[name='tableSell_length']" ).val();
+	if(!offset)
+		offset = 5;
+	
+	var pl = offset;
+	if(pl==-1)
+		pl=100;
 	if (datatable!=null){
 		datatable.destroy();
 		datatable = null;
 	}
 	datatable = $("#table" + tableV).DataTable({
+		lengthMenu:[[5, 20, 50,100, -1 ],[ '5', '20', '50', '100', 'All' ]],
+		"iDisplayLength": offset,
+		"pageLength": pl,
+		"order": [[ 0, "desc" ]],
 		"autoWidth" : true,
-		"columnDefs" : [ {
-			"targets" : [ 0 ],
-			"visible" : true,
-			"searchable" : true,
-			"deferRender": true
-		} ],
+		/*dom: 'Bfrtip',
+		buttons: [
+            'copy', 'csv', 'excel', 'pdf', 'print'
+        ],*/
 		"ajax" : {
-			"url" : serverContext + "getUser" + getAll,
+			"url" : serverContext + "getUser" + getAll+"?q="+offset,
 			"type" : "GET",
 			"success" : function(data) {
 				if(reload != tableV){
@@ -83,7 +92,6 @@ function loadDataTable(){
 							"<div id=purchaseId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ ">",
 							"<div id=purchaseItemDD>"+obj.itemName+"</div>", "<div id=purchaseQuantity>"+obj.quantity+"</div>", 
 							"<div id=purchaseSellRate>"+obj.sellRate+"</div>",  "<div id=purchasePurchaseRate>"+obj.purchaseRate+"</div>", 
-							/*"<div id=purchaseExpense>"+obj.purchaseExpense+"</div>","<div id=purchaseExpenseDesc>"+obj.purchaseExpenseDesc+"</div>",*/ 
 							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>","<div id=purchaseDiscount>"+obj.discount+"</div>",
 							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>", "<div id=purchaseStock>"+obj.stock+"</div>",obj.updatedStr
 							];
@@ -92,12 +100,12 @@ function loadDataTable(){
 				} else if (getAll === "Sell") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=sellId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=sellItemDD>"+obj.itemName+"</div>", "<div id=sellItems>"+obj.quantity+"</div>", 
+							"<div id=sellId>"+obj.id+"</div>","<div id=sellItemDD>"+obj.itemName+"</div>", 
 							"<div id=sellSellRate>"+obj.sellRate+"</div>",  "<div id=sellPurchaseRate>"+obj.purchaseRate+"</div>", 
-							/*"<div id=sellExpense>"+obj.sellExpense+"</div>","<div id=sellExpenseDesc>"+obj.sellExpenseDesc+"</div>",*/ 
-							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellDiscount>"+obj.discount+"</div>",
-							"<div id=sellNetAmount>"+obj.netAmount+"</div>", "<div id=sellStock>"+obj.stock+"</div>",obj.updatedStr
+							"<div id=sellItems>"+obj.quantity+"</div>", "<div id=sellTotalAmount>"+obj.totalAmount+"</div>",
+							"<div id=sellDiscount>"+obj.discount+"</div>","<div id=selldtDD>"+obj.dt+"</div>",
+							"<div id=sellNetAmount>"+obj.netAmount+"</div>","<div id=sellsrp>"+obj.srp+"</div>", 
+							"<div id=sellStock>"+obj.stock+"</div>",obj.updatedStr
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -116,6 +124,12 @@ function loadDataTable(){
 	            }
 		}
 	});
+//	$(".dataTables_length").hide();
+	//register and call when show entries drop down changes
+	$("select[name='tableSell_length']").change(function(){
+		loadDataTable();
+	});
+
 }
 
 function loadUserCompanies(table) {	
@@ -157,9 +171,8 @@ function loadUserItemUnits(table) {
 }
 
 function loadUserItems(table) {	
-	$("#"+table.toLowerCase()+"ItemDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserItems",function(data){
-    	$("#"+table.toLowerCase()+"ItemDD").append(data);
+    	$("#"+table.toLowerCase()+"ItemDD").empty().append(data).selectpicker('refresh');
     })
 	.fail(function(data) {
 		$("#"+table.toLowerCase()+"ItemDD").empty().append("<option value = ''> System error  </option>");
@@ -203,9 +216,16 @@ function calculateNet(val){
 }
 
 var itemStock = 0;
-var discountType = "%";
+var discountType = "";
 var discountValue = "0";
 function populateData(label,value){
+	if(discountType){
+		$("#selldtDD").val("Rs");
+		discountType = "Rs";
+	}else{
+		$("#selldtDD").val("%");
+		discountType = "%";
+	}	
 	$("#purchasePurchaseRate").val("");
 	$("#purchaseSellRate").val("")
 	$("#sellPurchaseRate").val("");
@@ -262,6 +282,9 @@ function calculateNetPurchase(){
 	if(discountType == "%"){
 		//Discount  =  List Price × Discount Rate 
 		purchaseDiscount = purchaseTotalAmount * (purchaseDiscount*1 / 100);
+	}else{
+		purchaseDiscount = purchaseDiscount * qty;
+		$("#purchaseQuantity").val(purchaseDiscount);
 	}
 
 	$("#netAmount").val(parseFloat((qty * s - purchaseTotalAmount) + purchaseDiscount).toFixed(2));
@@ -270,12 +293,17 @@ function calculateNetPurchase(){
 }
 
 function calculateNetSell(){
-	var p = $("#sellPurchaseRate").val();
-	var s= $("#sellSellRate").val();
+	var p = $("#sellPurchaseRate").val()*ONE;
+	var s= $("#sellSellRate").val()*ONE;
 	$("#sellItems").removeClass("alert-danger");
 	
 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val():1;
-	$("#sstok").val(itemStock);
+	if(edit){
+		discountType = $("#selldtDD :selected").val();
+		itemStock = $("#sellStock").val();
+	}
+
+	$("#sellStock").val(itemStock);
 	if(itemStock < qty){
 		$("#sellItems").addClass("alert-danger");
 		alert("You can not select more item than availabe in stock, Please purchase or select some other item to sell.")
@@ -284,14 +312,39 @@ function calculateNetSell(){
 	}
 	
 	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val():0;
-	sellTotalAmount = $($("#stotalAmount").val(parseFloat(qty * s).toFixed(2))).val();
+	sellTotalAmount = parseFloat(qty * s).toFixed(2);
 	if(discountType == "%"){
 		//Discount  =  List Price × Discount Rate 
 		sellDiscount =  sellTotalAmount * (sellDiscount*1 / 100);
+	}else{
+		sellDiscount = sellDiscount * qty;
+		//$("#sellDiscount").val(sellDiscount);
 	}
-	$("#snetAmount").val(sellTotalAmount- (p*qty) - sellDiscount);
-	//$("#snetAmount").val($("#netAmount").val());
+	var profit = parseFloat(sellTotalAmount- (p*qty) - sellDiscount).toFixed(2);
+	$("#sellNetAmount").val(profit);
+	if(profit<=0)
+		$("#sellNetAmount").addClass("alert-danger");
+	else
+		$("#sellNetAmount").removeClass("alert-danger");
 	
 	$("#sellTotalAmount").val(sellTotalAmount);
-	$("#sellNetAmount").val($("#snetAmount").val());//(totalItems * s)*1 - (1*sellDiscount - 1*sellTotalAmount));
+	$("#sellrm").val($("#sellTotalAmount").val()-sellDiscount);
+}
+
+function calculateSRP(){
+	var s= $("#sellSellRate").val();
+	if(!s || s<=0){
+		alert("Please select valid item's record to return sold");
+		return false;
+	}
+	
+	var qty= $("#sellItems").val()*1>0?$("#sellItems").val():1;
+	
+	var srp= $("#sellsrp").val()*1>0?$("#sellsrp").val():0;
+	sellTotalAmount = parseFloat(qty * s).toFixed(2);
+	var type = $("#srpDD :selected" ).val();
+	if(type == "%"){
+		srp =  sellTotalAmount * (srp*1 / 100);
+	}
+	$("#sellrm").val($("#sellNetAmount").val()*ONE+srp*ONE);
 }

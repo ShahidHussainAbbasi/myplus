@@ -99,6 +99,7 @@ public class VehicleController {
 			filterBy.setUserId(user.getId());
 			Example<Vehicle> example = Example.of(filterBy);
 			List<Vehicle> objs = vehicleService.findAll(example);
+			sb.append("<option value=''>Nothing Selected</option>");			
 			objs.forEach(d -> {
 				if (d != null && d.getId() != null) {
 					sb.append("<option value=" + d.getId() + ">" + d.getName() + "</option>");

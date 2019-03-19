@@ -74,13 +74,15 @@ public class GradeController {
 				GradeDTO dto = new GradeDTO();
 				dto = modelMapper.map(obj, GradeDTO.class);
 				if(!AppUtil.isEmptyOrNull(obj.getSchool())) {
-					dto.setSchoolName(obj.getSchool().getBranchName());
+					dto.setSchoolId(obj.getSchool().getId());
 					dto.setSchoolName(obj.getSchool().getBranchName());
 				}else {
 					dto.setSchoolName("");
 				}
-				dto.setTimeFromStr(obj.getTimeFrom().toString());
-			    dto.setTimeToStr(obj.getTimeTo().toString());
+				if(!AppUtil.isEmptyOrNull(dto.getTimeFrom()))
+					dto.setTimeFromStr(obj.getTimeFrom().toString());
+				if(!AppUtil.isEmptyOrNull(dto.getTimeTo()))
+					dto.setTimeToStr(obj.getTimeTo().toString());
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -103,6 +105,7 @@ public class GradeController {
 			filterBy.setUserId(user.getId());
 	        Example<Grade> example = Example.of(filterBy);
 			List<Grade> grades = gradeService.findAll(example);
+			sb.append("<option value=''>Nothing Selected</option>");
 			grades.forEach(d -> {
 				if(d!=null && d.getId()!=null)
 					sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
@@ -151,8 +154,10 @@ public class GradeController {
 			obj  = modelMapper.map(dto, Grade.class);
 			obj.setDated(dated);
 			obj.setUpdated(dated);
-			obj.setTimeFrom(LocalTime.parse(dto.getTimeFromStr()));
-			obj.setTimeTo(LocalTime.parse(dto.getTimeToStr()));
+			if(!AppUtil.isEmptyOrNull(dto.getTimeFromStr()))
+				obj.setTimeFrom(LocalTime.parse(dto.getTimeFromStr()));
+			if(!AppUtil.isEmptyOrNull(dto.getTimeToStr()))
+				obj.setTimeTo(LocalTime.parse(dto.getTimeToStr()));
 			School school = schoolService.getOne(dto.getSchoolId()); 
 			obj.setSchool(school);
 			

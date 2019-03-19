@@ -5,12 +5,9 @@ import java.time.LocalDateTime;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToOne;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
@@ -61,6 +58,12 @@ public class Sell implements Serializable {
 
 	@Column(name = "net_amount")
 	private Float netAmount;
+
+	@Column(name = "sell_return_profit")
+	private Float srp;
+
+	@Column(name = "discount_type")
+	private String dt;
 
 	private Float stock;
 
@@ -339,6 +342,34 @@ public class Sell implements Serializable {
 	 */
 	public void setUpdated(LocalDateTime updated) {
 		this.updated = updated;
+	}
+
+	/**
+	 * @return the srp
+	 */
+	public Float getSrp() {
+		return srp;
+	}
+
+	/**
+	 * @param srp the srp to set
+	 */
+	public void setSrp(Float srp) {
+		this.srp = srp;
+	}
+
+	/**
+	 * @return the dt
+	 */
+	public String getDt() {
+		return dt;
+	}
+
+	/**
+	 * @param dt the dt to set
+	 */
+	public void setDt(String dt) {
+		this.dt = dt;
 	}
 
 

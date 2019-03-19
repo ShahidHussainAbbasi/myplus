@@ -29,10 +29,10 @@ public class TestDbConfig extends PersistenceJPAConfig {
         return datasource;
     }
 
-    @Override
-    protected Properties additionalProperties() {
-        Properties properties = super.additionalProperties();
-        properties.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
-        return properties;
-    }
+//    @Override
+//    protected Properties additionalProperties() {
+//        Properties properties = super.additionalProperties();
+//        properties.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+//        return properties;
+//    }
 }

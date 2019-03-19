@@ -1,7 +1,5 @@
 package com.web.controller.education;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,8 +22,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
 import com.persistence.model.education.Discount;
-import com.persistence.model.education.Owner;
-import com.persistence.model.education.Student;
 import com.service.education.IDiscountService;
 import com.service.education.IStudentService;
 import com.web.dto.education.DiscountDTO;
@@ -68,8 +64,6 @@ public class DiscountController {
 			List<DiscountDTO> dtos=new ArrayList(); 
 			objs.forEach(obj ->{
 				DiscountDTO dto = modelMapper.map(obj, DiscountDTO.class);
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -90,6 +84,7 @@ public class DiscountController {
 			filterBy.setUserId(user.getId());
 	        Example<Discount> example = Example.of(filterBy);
 			List<Discount> objs = discountService.findAll(example);
+			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
 				if(d!=null && d.getId()!=null) {
 					sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
@@ -128,27 +123,17 @@ public class DiscountController {
 	public GenericResponse addDiscount(@Validated final DiscountDTO dto, final HttpServletRequest request) {
 		try {
 			Discount obj= new Discount();
-			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
+			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
-			obj.setName(dto.getName());
-			Example<Discount> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && discountService.exists(example)) {
-				return new GenericResponse("FOUND",messages.getMessage("The Owner "+dto.getName()+" already exist", null, request.getLocale()));
-			}else if(!AppUtil.isEmptyOrNull(dto.getId())) {
-				obj = discountService.getOne(dto.getId());
-				dated = obj.getDated();
+//			obj.setUserId(user.getId());
+			if(AppUtil.isEmptyOrNull(dto.getId())){
+				obj.setName(dto.getName());
+				Example<Discount> example = Example.of(obj);
+				if(discountService.exists(example))
+					return new GenericResponse("FOUND",messages.getMessage("The Student "+dto.getName()+" already exist", null, request.getLocale()));
 			}
-			obj = modelMapper.map(obj,Discount.class);
-			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
-				obj.setDated(dated);
-			else
-				obj.setDated(dated);
-			obj.setUpdated(dated);
-
-			Student student = studentService.getOne(dto.getStudentid());
-			obj.setStudent(student);
+			obj = modelMapper.map(dto,Discount.class);
 			obj = discountService.save(obj);
 			if(AppUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));

@@ -1,20 +1,14 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
 import javax.persistence.Table;
-
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
@@ -36,13 +30,13 @@ public class Discount implements Serializable {
 
 	private String name;
 
-	private String discountIn;// percent/amount
+	private String type;// percent/amount
 
-	private Float amount;
+	private Integer amount;
 
-	private LocalDateTime start;
+	private LocalDate startDate;
 
-	private LocalDateTime end;
+	private LocalDate endDate;
 
 	private String description;
 
@@ -51,19 +45,6 @@ public class Discount implements Serializable {
 	private String referenceMobile;
 
 	private String status;
-	
-//	@Temporal(TemporalType.TIMESTAMP)
-	private LocalDateTime dated;
-	
-//	@Temporal(TemporalType.TIMESTAMP)
-	private LocalDateTime updated;
-	
-
-	// bi-directional many-to-one association to Student
-	@ManyToOne(optional=false)//(cascade = CascadeType.ALL)
-	@NotFound(action = NotFoundAction.IGNORE)//toOne is eager that's why we add NotFoundAction.IGNORE if not found
-	@JoinColumn(name = "student_id")
-	private Student student;
 
 	/**
 	 * @return the id
@@ -108,59 +89,60 @@ public class Discount implements Serializable {
 	}
 
 	/**
-	 * @return the discountIn
-	 */
-	public String getDiscountIn() {
-		return discountIn;
-	}
-
-	/**
-	 * @param discountIn the discountIn to set
-	 */
-	public void setDiscountIn(String discountIn) {
-		this.discountIn = discountIn;
-	}
-
-	/**
 	 * @return the amount
 	 */
-	public Float getAmount() {
+	public Integer getAmount() {
 		return amount;
 	}
 
 	/**
 	 * @param amount the amount to set
 	 */
-	public void setAmount(Float amount) {
+	public void setAmount(Integer amount) {
 		this.amount = amount;
 	}
 
+
 	/**
-	 * @return the start
+	 * @return the type
 	 */
-	public LocalDateTime getStart() {
-		return start;
+	public String getType() {
+		return type;
 	}
 
 	/**
-	 * @param start the start to set
+	 * @param type the type to set
 	 */
-	public void setStart(LocalDateTime start) {
-		this.start = start;
+	public void setType(String type) {
+		this.type = type;
 	}
 
 	/**
-	 * @return the end
+	 * @return the startDate
 	 */
-	public LocalDateTime getEnd() {
-		return end;
+	public LocalDate getStartDate() {
+		return startDate;
 	}
 
 	/**
-	 * @param end the end to set
+	 * @param startDate the startDate to set
 	 */
-	public void setEnd(LocalDateTime end) {
-		this.end = end;
+	public void setStartDate(LocalDate startDate) {
+		this.startDate = startDate;
+	}
+
+	/**
+	 * @return the endDate
+	 */
+	public LocalDate getEndDate() {
+		return endDate;
+	}
+
+	/**
+	 * @param endDate the endDate to set
+	 */
+	public void setEndDate(LocalDate endDate) {
+		this.endDate = endDate;
 	}
 
 	/**
@@ -206,20 +188,6 @@ public class Discount implements Serializable {
 	}
 
 	/**
-	 * @return the student
-	 */
-	public Student getStudent() {
-		return student;
-	}
-
-	/**
-	 * @param student the student to set
-	 */
-	public void setStudent(Student student) {
-		this.student = student;
-	}
-
-	/**
 	 * @return the serialversionuid
 	 */
 	public static long getSerialversionuid() {
@@ -240,32 +208,5 @@ public class Discount implements Serializable {
 		this.status = status;
 	}
 
-	/**
-	 * @return the dated
-	 */
-	public LocalDateTime getDated() {
-		return dated;
-	}
-
-	/**
-	 * @param dated the dated to set
-	 */
-	public void setDated(LocalDateTime dated) {
-		this.dated = dated;
-	}
-
-	/**
-	 * @return the updated
-	 */
-	public LocalDateTime getUpdated() {
-		return updated;
-	}
-
-	/**
-	 * @param updated the updated to set
-	 */
-	public void setUpdated(LocalDateTime updated) {
-		this.updated = updated;
-	}
 
 }

@@ -66,20 +66,20 @@ public class Item implements Serializable {
 //	@CollectionTable(name ="tracks" , joinColumns=@JoinColumn(name="playlist_id"))
 //	@Column(name="track")
 //	private Set<Long> itemUnitIds = new HashSet<>();
-	@OneToOne(fetch = FetchType.EAGER)
-	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "item_type_id")
-	private ItemType itemType;
+//	@OneToOne(fetch = FetchType.EAGER)
+//	@NotFound(action = NotFoundAction.IGNORE)
+//	@JoinColumn(name = "item_type_id")
+//	private ItemType itemType;
 
 //	@OneToMany(orphanRemoval = false)
 //	@NotFound(action = NotFoundAction.IGNORE)
-	@ElementCollection
+//	@ElementCollection
 //	private Set<Long> itemTypeIds = new HashSet<>();
 
-	@OneToOne(fetch = FetchType.EAGER)
-	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "item_unit_id")
-	private ItemUnit itemUnit;
+//	@OneToOne(fetch = FetchType.EAGER)
+//	@NotFound(action = NotFoundAction.IGNORE)
+//	@JoinColumn(name = "item_unit_id")
+//	private ItemUnit itemUnit;
 
 	@OneToOne(fetch = FetchType.EAGER)
 	@NotFound(action = NotFoundAction.IGNORE)
@@ -267,33 +267,33 @@ public class Item implements Serializable {
 		this.stock = stock;
 	}
 
-	/**
-	 * @return the itemType
-	 */
-	public ItemType getItemType() {
-		return itemType;
-	}
-
-	/**
-	 * @param itemType the itemType to set
-	 */
-	public void setItemType(ItemType itemType) {
-		this.itemType = itemType;
-	}
-
-	/**
-	 * @return the itemUnit
-	 */
-	public ItemUnit getItemUnit() {
-		return itemUnit;
-	}
-
-	/**
-	 * @param itemUnit the itemUnit to set
-	 */
-	public void setItemUnit(ItemUnit itemUnit) {
-		this.itemUnit = itemUnit;
-	}
+//	/**
+//	 * @return the itemType
+//	 */
+//	public ItemType getItemType() {
+//		return itemType;
+//	}
+//
+//	/**
+//	 * @param itemType the itemType to set
+//	 */
+//	public void setItemType(ItemType itemType) {
+//		this.itemType = itemType;
+//	}
+//
+//	/**
+//	 * @return the itemUnit
+//	 */
+//	public ItemUnit getItemUnit() {
+//		return itemUnit;
+//	}
+//
+//	/**
+//	 * @param itemUnit the itemUnit to set
+//	 */
+//	public void setItemUnit(ItemUnit itemUnit) {
+//		this.itemUnit = itemUnit;
+//	}
 
 	/**
 	 * @return the company

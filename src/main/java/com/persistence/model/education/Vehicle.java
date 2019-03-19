@@ -64,10 +64,10 @@ public class Vehicle implements Serializable {
 	@Column(name = "school_id")
 	private Long schoolId;
 
-	// bi-directional many-to-one association to Student
-	@OneToMany(mappedBy = "vehicle")
-	@NotFound(action = NotFoundAction.IGNORE)
-	private Set<Student> students;
+//	// bi-directional many-to-one association to Student
+//	@OneToMany(mappedBy = "vehicle")
+//	@NotFound(action = NotFoundAction.IGNORE)
+//	private Set<Student> students;
 
 	/**
 	 * @return the id
@@ -227,19 +227,19 @@ public class Vehicle implements Serializable {
 		this.updated = updated;
 	}
 
-	/**
-	 * @return the students
-	 */
-	public Set<Student> getStudents() {
-		return students;
-	}
-
-	/**
-	 * @param students the students to set
-	 */
-	public void setStudents(Set<Student> students) {
-		this.students = students;
-	}
+//	/**
+//	 * @return the students
+//	 */
+//	public Set<Student> getStudents() {
+//		return students;
+//	}
+//
+//	/**
+//	 * @param students the students to set
+//	 */
+//	public void setStudents(Set<Student> students) {
+//		this.students = students;
+//	}
 
 	/**
 	 * @return the serialversionuid

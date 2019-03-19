@@ -21,6 +21,8 @@ import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 
@@ -30,10 +32,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.persistence.model.Geolocation;
 import com.service.IGeoLocationService;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * @author sabbasi
  *
  */
+@Slf4j
 @Component
 public class AppUtil {
 	
@@ -47,6 +52,19 @@ public class AppUtil {
     public static final DateTimeFormatter dateformatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     static SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
     public static Map<String,String> countryMap=null;
+    // Evaluate page size. If requested parameter is null, return initial
+    private static final int INITIAL_PAGE = 0;
+    // page size
+    private static final int INITIAL_PAGE_SIZE = 5;
+
+	public static final String ACTIVE = "Active";
+	public static final String INACTIVE = "Inactive";
+
+	public static final String SUCCESS = "SUCCESS";
+	public static final String FAILURE = "FAILURE";
+	public static final String FOUND = "FOUND";
+	public static final String NOT_FOUND = "NOT_FOUND";
+	public static final String ERROR = "ERROR";
 
 
     @NonNull
@@ -73,14 +91,19 @@ public class AppUtil {
         return now.format(AppUtil.dateformatter);
     }
 
-   	//Get current date time
+   	//Get current date
     public static String getDateStr(LocalDateTime date) {
     	if(date==null)
     		return "";
     	return dateformatter.format(date);
     }
 
-   	//Get current date time
+   	//Get current date
+    public static String getLocalDateStr() {
+    	return dateformatter.format(LocalDate.now());
+    }
+
+    //Get current date time
     public static String getLoaclDateStr(LocalDate date) {
     	if(date==null)
     		return "";
@@ -94,7 +117,14 @@ public class AppUtil {
     	return dateformatter.format(date);
     }
 
-   	//Get current date time
+    //Get current date time
+    public static String getLocalDateTimeStr(LocalDateTime date) {
+    	if(date==null)
+    		return "";
+    	return dateTimeFormatter.format(date);
+    }
+
+    //Get current date time
     public static Date getDate(String date) throws ParseException {
     	if(date==null)
     		return new Date();
@@ -196,10 +226,63 @@ public class AppUtil {
 	 * @return true | false
 	 */
 	public static boolean isEmptyOrNull( String string ){
-		if( string == null || string.trim().length() == 0 ){
+		if( string == null || string.equals("null") || string.trim().length() == 0 ){
 			return true;
 		}
 		return false;
 	}    
    
+	public static Sort orderByASC(String f) {
+		// TODO Auto-generated method stub
+//		return new Sort(Sort.Direction.ASC, f);
+		return Sort.by(f).ascending();
+	}
+
+	public static Sort orderByDESC(String f) {
+		// TODO Auto-generated method stub
+		return new Sort(Sort.Direction.DESC, f);
+//		return Sort.by(f).descending();
+	}
+
+	public static Sort orderByASC(String f1, String f2) {
+		// TODO Auto-generated method stub
+		return new Sort(Sort.Direction.ASC, f1).and(new Sort(Sort.Direction.ASC,f2));
+	}
+
+	public static Sort orderByDESC(String f1, String f2) {
+		// TODO Auto-generated method stub
+		return new Sort(Sort.Direction.DESC, f1).and(new Sort(Sort.Direction.DESC,f2));
+	}
+
+	public static Sort orderByASCDESC(String f1, String f2) {
+		// TODO Auto-generated method stub
+		return new Sort(Sort.Direction.ASC, f1).and(new Sort(Sort.Direction.DESC,f2));
+	}
+
+	public static Sort orderByDESCASC(String f1, String f2) {
+		// TODO Auto-generated method stub
+		return new Sort(Sort.Direction.DESC, f1).and(new Sort(Sort.Direction.ASC,f2));
+	}
+	
+	public static Sort createDynamicSort(String[] arrayOrdre) {
+        return  Sort.by(arrayOrdre);
+    }	
+
+	public static PageRequest getPageRequest(int INITIAL_PAGE, int INITIAL_PAGE_SIZE, Sort sort) {
+        return PageRequest.of(INITIAL_PAGE, INITIAL_PAGE_SIZE,sort);
+    }
+    
+    public static PageRequest getPageRequest(Sort sort) {
+        return getPageRequest(INITIAL_PAGE, INITIAL_PAGE_SIZE, sort);
+    }
+
+    public static void le(Class<?> c,Exception e) {
+		log.error(c.getName()+"  >>>  "+e.getClass());
+    }
+    public static void li(Class<?> c,Exception e) {
+		log.info(c.getName()+"  >>>  "+e.getClass());
+    }
+    public static void lw(Class<?> c,Exception e) {
+		log.warn(c.getName()+"  >>>  "+e.getClass());
+    }
 }

@@ -26,18 +26,18 @@ import org.hibernate.annotations.NotFoundAction;
  * 
  */
 @Entity
-@Table(name = "grade", uniqueConstraints = { @UniqueConstraint(columnNames = "name") })
+@Table(name = "grade")
 
 public class Grade implements Serializable {
 	private static final long serialVersionUID = 1L;
-
-	@Column(name = "name", unique = true, nullable = false)
-	private String name;
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "grade_id", unique = true, nullable = false)
 	private Long id;
+
+	@Column(name = "name", unique = true, nullable = false)
+	private String name;
 
 	@Column(name = "user_id")
 	private Long userId;
@@ -61,7 +61,7 @@ public class Grade implements Serializable {
 //	@Temporal(TemporalType.TIME)
 	private LocalTime timeTo;
 	
-	private String status="Active";
+	private String status;
 
 	// bi-directional many-to-one association to School
 	@ManyToOne(optional=false)
@@ -70,7 +70,9 @@ public class Grade implements Serializable {
 	private School school;
 
 	@ManyToMany(mappedBy = "grades")
-	private Set<Staff> staffs;
+	private Set<Staff> staff;
+	
+	
 
 	private Long room;
 
@@ -200,19 +202,19 @@ public class Grade implements Serializable {
 		this.school = school;
 	}
 
-	/**
-	 * @return the staffs
-	 */
-	public Set<Staff> getStaffs() {
-		return staffs;
-	}
-
-	/**
-	 * @param staffs the staffs to set
-	 */
-	public void setStaffs(Set<Staff> staffs) {
-		this.staffs = staffs;
-	}
+//	/**
+//	 * @return the staffs
+//	 */
+//	public Set<Staff> getStaffs() {
+//		return staffs;
+//	}
+//
+//	/**
+//	 * @param staffs the staffs to set
+//	 */
+//	public void setStaffs(Set<Staff> staffs) {
+//		this.staffs = staffs;
+//	}
 
 	/**
 	 * @return the serialversionuid

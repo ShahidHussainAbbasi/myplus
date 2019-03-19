@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
 import com.persistence.model.education.Grade;
-import com.persistence.model.education.School;
 import com.persistence.model.education.Staff;
 import com.service.education.IGradeService;
 import com.service.education.ISchoolService;
@@ -77,10 +76,18 @@ public class StaffController {
 			List<StaffDTO> dtos= new ArrayList<>();
 			objs.forEach(obj ->{
 				StaffDTO dto = modelMapper.map(obj, StaffDTO.class);
-				dto.setSchoolNames(obj.getSchools()==null?null:obj.getSchools().stream().map(School::getBranchName).collect(Collectors.toSet()));
-				dto.setGradeNames(obj.getGrades()==null?null:obj.getGrades().stream().map(Grade::getName).collect(Collectors.toSet()));
-				dto.setTimeInStr(obj.getTimeIn().toString());
-				dto.setTimeOutStr(obj.getTimeOut().toString());
+				if(!AppUtil.isEmptyOrNull(obj.getGrades())) {
+					dto.setGradeIds(obj.getGrades()==null?null:obj.getGrades().stream().map(Grade::getId).collect(Collectors.toSet()));
+					dto.setGradeNames(obj.getGrades()==null?null:obj.getGrades().stream().map(Grade::getName).collect(Collectors.toSet()));
+				}
+//				if(!AppUtil.isEmptyOrNull(obj.getSchools())) {
+//					dto.setSchoolIds(obj.getSchools()==null?null:obj.getSchools().stream().map(School::getId).collect(Collectors.toSet()));
+//					dto.setSchoolNames(obj.getSchools()==null?null:obj.getSchools().stream().map(School::getBranchName).collect(Collectors.toSet()));
+//				}
+				if(!AppUtil.isEmptyOrNull(obj.getTimeIn()))
+					dto.setTimeInStr(obj.getTimeIn().toString());
+				if(!AppUtil.isEmptyOrNull(obj.getTimeOut()))
+					dto.setTimeOutStr(obj.getTimeOut().toString());
 				dto.setDateOfBirth(AppUtil.getLoaclDateStr(obj.getDateOfBirth()));
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
@@ -146,7 +153,8 @@ public class StaffController {
 			if(AppUtil.isEmptyOrNull(dto.getId())) {
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
-				obj.setSchools(schoolService.findAllById(dto.getSchoolIds()));
+				obj.setGrades(gradeService.findAllById(dto.getGradeIds()));
+//				obj.setSchools(schoolService.findAllById(dto.getSchoolIds()));
 				Example<Staff> example = Example.of(obj );
 				if(staffService.exists(example))
 					return new GenericResponse("FOUND",messages.getMessage("The Staff "+dto.getName()+" already exist", null, request.getLocale()));
@@ -157,14 +165,14 @@ public class StaffController {
 			obj.setDateOfBirth(AppUtil.getLocalDate(dto.getDateOfBirth()));
 			obj.setDated(dated);
 			obj.setUpdated(dated);
-			if(!AppUtil.isEmptyOrNull(dto.getSchoolIds()))
-				obj.setSchools(schoolService.findAllById(dto.getSchoolIds()));
+//			if(AppUtil.isEmptyOrNull(obj.getSchools()) && !AppUtil.isEmptyOrNull(dto.getSchoolIds()))
+//				obj.setSchools(schoolService.findAllById(dto.getSchoolIds()));
 //			Set<School> schools = new HashSet<School>();
 //			dto.getSchoolIds().forEach(id ->{
 //				School school = schoolService.getOne(id);
 //				schools.add(school);//schoolService.findById(o).get());
 //			});			
-			if(!AppUtil.isEmptyOrNull(dto.getGradeIds()))
+			if(AppUtil.isEmptyOrNull(obj.getGrades()) && !AppUtil.isEmptyOrNull(dto.getGradeIds()))
 				obj.setGrades(gradeService.findAllById(dto.getGradeIds()));
 //			Set<Grade> grades = new HashSet<Grade>();
 //			dto.getGradeIds().forEach(id ->{
@@ -173,8 +181,10 @@ public class StaffController {
 //			});
 //			obj.setSchools(schools);
 //			obj.setGrades(grades);
-			obj.setTimeIn(LocalTime.parse(dto.getTimeInStr()));
-			obj.setTimeOut(LocalTime.parse(dto.getTimeOutStr()));
+			if(!AppUtil.isEmptyOrNull(dto.getTimeInStr()))
+				obj.setTimeIn(LocalTime.parse(dto.getTimeInStr()));
+			if(!AppUtil.isEmptyOrNull(dto.getTimeInStr()))
+				obj.setTimeOut(LocalTime.parse(dto.getTimeOutStr()));
 
 			obj = staffService.save(obj);
 			if(AppUtil.isEmptyOrNull(obj)) {

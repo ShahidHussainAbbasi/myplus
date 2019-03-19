@@ -3,42 +3,21 @@
 <head>
 <div th:fragment="header-css">
 	<!-- this is header-css -->
-<!-- 
-	<script
-		src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-	<link rel="stylesheet" type="text/css"
-		href="webjars/bootstrap/3.3.7/css/bootstrap.min.css" />
- -->
-
-	<link rel="stylesheet"
-		th:href="@{resources/webjars/bootstrap/3.3.7/css/bootstrap.min.css}"
-		href="http://netdna.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
-	<link rel="stylesheet" th:href="@{resources/css/application.css}"
-		href="../../static/css/application.css" />
-		
-	<link rel="stylesheet" href="resources/css/jquery.timepicker.min.css" />
-
-	<script src="resources/js/jquery-2.2.3.min.js"></script>
+	<link rel="stylesheet" href="resources/bootstrap/css/bootstrap.min.css">
+	<link rel="stylesheet" href="resources/bootstrap/css/bootstrap-select.min.css" />
+	<link rel="stylesheet" href="resources/css/application.css" />
+	<link rel="stylesheet" href="resources/main.css" />
+	<!-- 	<link href="//netdna.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet"> -->
+    <!-- <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.6.3/css/bootstrap-select.min.css" /> -->
+	<script src="resources/js/jquery.min.js"></script>
+  	<script src="resources/bootstrap/js/bootstrap.min.js"></script>
+  	<script src="resources/bootstrap/js/bootstrap-select.min.js"></script>
+	<script src="resources/bootstrap/js/moment.js"></script>
+	<script src="resources/bootstrap/js/bootstrap-datetimepicker.js"></script>
+	<!-- <script src="resources/js/jquery-2.2.3.min.js"></script> -->
 	<script src="resources/js/jquery.timepicker.min.js"></script>
-	<script src="resources/bootstrap/js/bootstrap.js"></script>
-		
-	<script th:src="@{resources/webjars/bootstrap/3.3.7/js/bootstrap.js}"
-		src="http://netdna.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.js">		
-	</script>
-	<link href="http://fonts.googleapis.com/css?family=Corben:bold"
-		rel="stylesheet" type="text/css" />
-	<link href="http://fonts.googleapis.com/css?family=Nobile"
-		rel="stylesheet" type="text/css" />
-	<link rel="stylesheet" type="text/css" href="./resources/main.css" />
-
-	<!-- 	<link rel="stylesheet" type="text/css" href="webjars/bootstrap/3.3.7/css/bootstrap.min.css" />
-	Latest compiled JavaScript
-	<script
-		src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-	jQuery library
-	<script	src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-	<script th:src="@{/resources/pwstrength.js}"></script>
- -->
+	<script src="resources/js/datatables.min.js"></script>
+	 <script src="resources/js/main.js"></script> 
 	<title th:text="#{label.app.title}">form</title>
 </div>
 </head>

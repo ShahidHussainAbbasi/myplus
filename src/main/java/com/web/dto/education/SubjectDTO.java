@@ -25,7 +25,7 @@ public class SubjectDTO implements Serializable {
 
 	private String gradeName;
 
-	private String status;
+	private String status="Active";
 
 	private String datedStr;
 	

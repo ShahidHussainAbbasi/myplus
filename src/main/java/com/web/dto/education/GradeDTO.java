@@ -22,12 +22,10 @@ public class GradeDTO implements Serializable {
 
 	private String updatedStr;
 
-	@ValidateEmpty
 	private String timeFromStr;
 
 	private String timeFrom;
 
-	@ValidateEmpty
 	private String timeToStr;
 
 	private String timeTo;
@@ -39,7 +37,7 @@ public class GradeDTO implements Serializable {
 
 	private String room;
 
-	private String status;
+	private String status="Active";
 
 	/**
 	 * @return the name

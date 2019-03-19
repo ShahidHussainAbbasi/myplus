@@ -2,15 +2,12 @@ package com.web.controller.education;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
@@ -32,16 +29,12 @@ import com.web.util.RequestUtil;
 @Controller
 public class GuardianController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
 
 	@Autowired
 	IGuardianService guardianService;
 
-	@Autowired
-	AppUtil appUtil;
-	
 	@Autowired
 	RequestUtil requestUtil;
 
@@ -71,6 +64,7 @@ public class GuardianController {
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -86,6 +80,7 @@ public class GuardianController {
 			filterBy.setUserId(user.getId());
 	        Example<Guardian> example = Example.of(filterBy);
 			List<Guardian> objs = guardianService.findAll(example);
+			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
 				if(d!=null && d.getId()!=null)
 					sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
@@ -93,6 +88,7 @@ public class GuardianController {
 		    return sb.toString();
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 		}
 	    return sb.toString();
 	}
@@ -109,6 +105,7 @@ public class GuardianController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -141,6 +138,7 @@ public class GuardianController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -163,6 +161,7 @@ public class GuardianController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			AppUtil.le(this.getClass(), e);
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}

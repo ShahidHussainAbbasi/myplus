@@ -1,4 +1,4 @@
-* {
+/* * {
   margin: 0;
 }
  html {
@@ -6,8 +6,8 @@
 }
 
 body {
- background-image:url("./resources/bg-img.jpg"); 
-  /* padding-bottom: 30px; */           
+ background-image:url("resources/c.jpg"); 
+  padding-bottom: 30px;           
 }
 
 .footer-cls{
@@ -36,16 +36,16 @@ body {
 
 .page-wrap {
   min-height: 100%;
-  /* equal to footer height */
- /*  margin-bottom: -190px; */
+  equal to footer height
+  margin-bottom: -190px;
 }
 .page-wrap:after {
   content: "";
   display: block;
 }
-/* .site-footer, .page-wrap:after {
+.site-footer, .page-wrap:after {
   height: 190px; 
-} */
+}
 .site-footer {
    background: #90caf9;
 }
@@ -71,4 +71,4 @@ body {
 
 .bgrnd-clr{
 	background-color: #90caf9;
-}
+} */

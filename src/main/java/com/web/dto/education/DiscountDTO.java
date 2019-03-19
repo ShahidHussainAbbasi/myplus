@@ -28,14 +28,13 @@ public class DiscountDTO implements Serializable {
 	private String name;
 
 	@ValidateEmpty
-	private String discountIn;// percent/amount
+	private String type;// percent/amount
 
-	@ValidateEmpty
 	private Float amount;
 
-	private Date start;
+	private Date startDate;
 
-	private Date end;
+	private Date endDate;
 
 	private String description;
 
@@ -43,15 +42,15 @@ public class DiscountDTO implements Serializable {
 
 	private String referenceMobile;
 
-	private Long studentid;
-
-	private String studentName;
-
+//	private Long studentid;
+//
+//	private String studentName;
+//
 	private String status;
 
-	private String datedStr;
-	
-	private String updatedStr;
+//	private String datedStr;
+//	
+//	private String updatedStr;
 	
 	/**
 	 * @return the id
@@ -96,20 +95,6 @@ public class DiscountDTO implements Serializable {
 	}
 
 	/**
-	 * @return the discountIn
-	 */
-	public String getDiscountIn() {
-		return discountIn;
-	}
-
-	/**
-	 * @param discountIn the discountIn to set
-	 */
-	public void setDiscountIn(String discountIn) {
-		this.discountIn = discountIn;
-	}
-
-	/**
 	 * @return the amount
 	 */
 	public Float getAmount() {
@@ -123,32 +108,47 @@ public class DiscountDTO implements Serializable {
 		this.amount = amount;
 	}
 
+
 	/**
-	 * @return the start
+	 * @return the type
 	 */
-	public Date getStart() {
-		return start;
+	public String getType() {
+		return type;
 	}
 
 	/**
-	 * @param start the start to set
+	 * @param type the type to set
 	 */
-	public void setStart(Date start) {
-		this.start = start;
+	public void setType(String type) {
+		this.type = type;
 	}
 
 	/**
-	 * @return the end
+	 * @return the startDate
 	 */
-	public Date getEnd() {
-		return end;
+	public Date getStartDate() {
+		return startDate;
 	}
 
 	/**
-	 * @param end the end to set
+	 * @param startDate the startDate to set
 	 */
-	public void setEnd(Date end) {
-		this.end = end;
+	public void setStartDate(Date startDate) {
+		this.startDate = startDate;
+	}
+
+	/**
+	 * @return the endDate
+	 */
+	public Date getEndDate() {
+		return endDate;
+	}
+
+	/**
+	 * @param endDate the endDate to set
+	 */
+	public void setEndDate(Date endDate) {
+		this.endDate = endDate;
 	}
 
 	/**
@@ -194,34 +194,6 @@ public class DiscountDTO implements Serializable {
 	}
 
 	/**
-	 * @return the studentid
-	 */
-	public Long getStudentid() {
-		return studentid;
-	}
-
-	/**
-	 * @param studentid the studentid to set
-	 */
-	public void setStudentid(Long studentid) {
-		this.studentid = studentid;
-	}
-
-	/**
-	 * @return the studentName
-	 */
-	public String getStudentName() {
-		return studentName;
-	}
-
-	/**
-	 * @param studentName the studentName to set
-	 */
-	public void setStudentName(String studentName) {
-		this.studentName = studentName;
-	}
-
-	/**
 	 * @return the serialversionuid
 	 */
 	public static long getSerialversionuid() {
@@ -242,32 +214,5 @@ public class DiscountDTO implements Serializable {
 		this.status = status;
 	}
 
-	/**
-	 * @return the datedStr
-	 */
-	public String getDatedStr() {
-		return datedStr;
-	}
-
-	/**
-	 * @param datedStr the datedStr to set
-	 */
-	public void setDatedStr(String datedStr) {
-		this.datedStr = datedStr;
-	}
-
-	/**
-	 * @return the updatedStr
-	 */
-	public String getUpdatedStr() {
-		return updatedStr;
-	}
-
-	/**
-	 * @param updatedStr the updatedStr to set
-	 */
-	public void setUpdatedStr(String updatedStr) {
-		this.updatedStr = updatedStr;
-	}
 
 }

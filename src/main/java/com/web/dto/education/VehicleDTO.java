@@ -2,6 +2,7 @@ package com.web.dto.education;
 
 import java.io.Serializable;
 
+import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
 
 public class VehicleDTO implements Serializable {
@@ -18,13 +19,13 @@ public class VehicleDTO implements Serializable {
 	@ValidateEmpty
 	private String driverName;
 
-	@ValidateEmpty
+	@ValidMobileNumber
 	private String driverMobile;
 
 	@ValidateEmpty
 	private String ownerName;
 
-	@ValidateEmpty
+	@ValidMobileNumber
 	private String ownerMobile;
 
 	private Long userId;

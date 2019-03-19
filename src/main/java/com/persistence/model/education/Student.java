@@ -1,24 +1,15 @@
 package com.persistence.model.education;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Set;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.OneToOne;
 import javax.persistence.Table;
-
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
@@ -45,14 +36,14 @@ public class Student implements Serializable {
 	private String enrollNo;
 
 	@Column(name = "enroll_date")
-	private LocalDateTime enrollDate;
+	private LocalDate enrollDate;
 
 	@Column(name = "fee_mode")
 	private String feeMode;
 
 	@Column(updatable = false)
 	private LocalDateTime dated;
-	
+
 	private LocalDateTime updated;
 
 	private String email;
@@ -62,46 +53,54 @@ public class Student implements Serializable {
 	private String address;
 
 	@Column(name = "date_of_birth")
-	private LocalDateTime dateOfBirth;
+	private LocalDate dateOfBirth;
 
 	private String gender;
 
 	@Column(name = "blood_group")
-	private String boodGroup;
+	private String bloodGroup;
 
 	private String status;
 
 //	@ManyToOne//(cascade = CascadeType.ALL)
 //	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "school_id")
+	@Column(name = "school_id")
 	private Long schoolId;
 
 	// @Column(name="gaurdian_id")
 //	private Long gaurdianId = null;
-	@ManyToOne(optional=false)//(cascade = CascadeType.ALL)
-	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "guardian_id")
-	private Guardian guardian;
+//	@ManyToOne(optional = false) // (cascade = CascadeType.ALL)
+//	@NotFound(action = NotFoundAction.IGNORE)
+	@Column(name = "guardian_id")
+	private Long guardianId;
 
 //	@Column(name="grade_id")
 //	private Long gradeId;
 //	@OneToOne//(cascade = CascadeType.ALL)
 //	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "grade_id")
+	@Column(name = "grade_id")
 	private Long gradeId;
 
 //	@Column(name = "vehicle_id")
 //	private Long vehicleId;
-	@ManyToOne(fetch=FetchType.LAZY)//(cascade = CascadeType.ALL)
-	@JoinColumn(name = "vehicle_id")
-	@NotFound(action = NotFoundAction.IGNORE)//Works only if it's parent don't have more parent
-	private Vehicle vehicle;
+//	@ManyToOne(fetch = FetchType.LAZY) // (cascade = CascadeType.ALL)
+//	@NotFound(action = NotFoundAction.IGNORE) // Works only if it's parent don't have more parent
+	@Column(name = "vehicle_id")
+	private Long vehicleId;
 
 //	@Column(name = "discount_id")
 //	private Long discountId;
-	@OneToMany(mappedBy = "student")
-	@NotFound(action = NotFoundAction.IGNORE)
-	private Set<Discount> discounts;
+//	@OneToOne(optional = false)
+//	@NotFound(action = NotFoundAction.IGNORE)
+	@Column(name = "discount_id")
+	private Long discountId;
+	
+	private Integer fee;
+
+	private Integer dueDay;
+	
+	@Column(name="vehicle_fare")
+	private Integer vf;
 
 	/**
 	 * @return the id
@@ -215,18 +214,19 @@ public class Student implements Serializable {
 		this.gender = gender;
 	}
 
+
 	/**
-	 * @return the boodGroup
+	 * @return the bloodGroup
 	 */
-	public String getBoodGroup() {
-		return boodGroup;
+	public String getBloodGroup() {
+		return bloodGroup;
 	}
 
 	/**
-	 * @param boodGroup the boodGroup to set
+	 * @param bloodGroup the bloodGroup to set
 	 */
-	public void setBoodGroup(String boodGroup) {
-		this.boodGroup = boodGroup;
+	public void setBloodGroup(String bloodGroup) {
+		this.bloodGroup = bloodGroup;
 	}
 
 	/**
@@ -253,7 +253,7 @@ public class Student implements Serializable {
 	/**
 	 * @return the enrollDate
 	 */
-	public LocalDateTime getEnrollDate() {
+	public LocalDate getEnrollDate() {
 		return enrollDate;
 	}
 
@@ -302,36 +302,36 @@ public class Student implements Serializable {
 	/**
 	 * @param enrollDate the enrollDate to set
 	 */
-	public void setEnrollDate(LocalDateTime enrollDate) {
+	public void setEnrollDate(LocalDate enrollDate) {
 		this.enrollDate = enrollDate;
 	}
 
 	/**
 	 * @return the dateOfBirth
 	 */
-	public LocalDateTime getDateOfBirth() {
+	public LocalDate getDateOfBirth() {
 		return dateOfBirth;
 	}
 
 	/**
 	 * @param dateOfBirth the dateOfBirth to set
 	 */
-	public void setDateOfBirth(LocalDateTime dateOfBirth) {
+	public void setDateOfBirth(LocalDate dateOfBirth) {
 		this.dateOfBirth = dateOfBirth;
 	}
 
 	/**
-	 * @return the guardian
+	 * @return the guardianId
 	 */
-	public Guardian getGuardian() {
-		return guardian;
+	public Long getGuardianId() {
+		return guardianId;
 	}
 
 	/**
-	 * @param guardian the guardian to set
+	 * @param guardianId the guardianId to set
 	 */
-	public void setGuardian(Guardian guardian) {
-		this.guardian = guardian;
+	public void setGuardianId(Long guardianId) {
+		this.guardianId = guardianId;
 	}
 
 	/**
@@ -349,31 +349,31 @@ public class Student implements Serializable {
 	}
 
 	/**
-	 * @return the discounts
+	 * @return the discountId
 	 */
-	public Set<Discount> getDiscounts() {
-		return discounts;
+	public Long getDiscountId() {
+		return discountId;
 	}
 
 	/**
-	 * @param discounts the discounts to set
+	 * @param discountId the discountId to set
 	 */
-	public void setDiscounts(Set<Discount> discounts) {
-		this.discounts = discounts;
+	public void setDiscountId(Long discountId) {
+		this.discountId = discountId;
 	}
 
 	/**
-	 * @return the vehicle
+	 * @return the vehicleId
 	 */
-	public Vehicle getVehicle() {
-		return vehicle;
+	public Long getVehicleId() {
+		return vehicleId;
 	}
 
 	/**
-	 * @param vehicle the vehicle to set
+	 * @param vehicleId the vehicleId to set
 	 */
-	public void setVehicle(Vehicle vehicle) {
-		this.vehicle = vehicle;
+	public void setVehicleId(Long vehicleId) {
+		this.vehicleId = vehicleId;
 	}
 
 	/**
@@ -388,6 +388,48 @@ public class Student implements Serializable {
 	 */
 	public void setSchoolId(Long schoolId) {
 		this.schoolId = schoolId;
+	}
+
+	/**
+	 * @return the fee
+	 */
+	public Integer getFee() {
+		return fee;
+	}
+
+	/**
+	 * @param fee the fee to set
+	 */
+	public void setFee(Integer fee) {
+		this.fee = fee;
+	}
+
+	/**
+	 * @return the dueDay
+	 */
+	public Integer getDueDay() {
+		return dueDay;
+	}
+
+	/**
+	 * @param dueDay the dueDay to set
+	 */
+	public void setDueDay(Integer dueDay) {
+		this.dueDay = dueDay;
+	}
+
+	/**
+	 * @return the vf
+	 */
+	public Integer getVf() {
+		return vf;
+	}
+
+	/**
+	 * @param vf the vf to set
+	 */
+	public void setVf(Integer vf) {
+		this.vf = vf;
 	}
 
 }

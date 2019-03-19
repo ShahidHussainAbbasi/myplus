@@ -10,10 +10,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
@@ -23,11 +20,11 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
-import com.persistence.model.business.Item;
 import com.persistence.model.education.Grade;
 import com.persistence.model.education.Guardian;
 import com.persistence.model.education.School;
 import com.persistence.model.education.Student;
+import com.persistence.model.education.Vehicle;
 import com.service.education.IGradeService;
 import com.service.education.IGuardianService;
 import com.service.education.ISchoolService;
@@ -38,12 +35,14 @@ import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
 import com.web.util.RequestUtil;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Controller
 public class StudentController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
-	@Autowired
-	private MessageSource messages;
+//	@Autowired
+//	private MessageSource messages;
 
 	@Autowired
 	ISchoolService schoolService;
@@ -79,14 +78,14 @@ public class StudentController {
 			List<Student> objs = studentService.findAll(example);
 			Set<StudentDTO> dtos = new HashSet<StudentDTO>();
 			if(AppUtil.isEmptyOrNull(objs))
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
+				return new GenericResponse("NOT_FOUND");
 
 			objs.forEach(obj ->{
 				StudentDTO dto = new StudentDTO();
 				dto = modelMapper.map(obj, StudentDTO.class);
-				dto.setEnrollDate(AppUtil.getDateTimeStr(obj.getEnrollDate()));
+				dto.setEnrollDate(AppUtil.getLocalDateStr(obj.getEnrollDate()));
+				dto.setDateOfBirth(AppUtil.getLocalDateStr(obj.getDateOfBirth()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
-				dto.setDateOfBirth(AppUtil.getDateTimeStr(obj.getDateOfBirth()));
 				if(!AppUtil.isEmptyOrNull(obj.getSchoolId())) {
 					Optional<School> school = schoolService.findById(obj.getSchoolId());
 					if(school.isPresent()) {
@@ -101,21 +100,34 @@ public class StudentController {
 						dto.setGradeName(grade.get().getName());
 					}
 				}
-				if(!AppUtil.isEmptyOrNull(obj.getGuardian())) {
-					dto.setGuardianId(obj.getGuardian().getId());
-					dto.setGuardianName(obj.getGuardian().getName());
+				if(!AppUtil.isEmptyOrNull(obj.getGuardianId())) {
+					Optional<Guardian> g = guardianService.findById(obj.getGuardianId());
+					if(g.isPresent()) {
+						dto.setGuardianId(g.get().getId());
+						dto.setGuardianName(g.get().getName());
+					}
 				}
-				if(!AppUtil.isEmptyOrNull(obj.getVehicle())) {
-					dto.setVehicleId(obj.getVehicle().getId());
-					dto.setVehicleName(obj.getVehicle().getName());
+				if(!AppUtil.isEmptyOrNull(obj.getDiscountId())) {
+					Optional<Guardian> d = guardianService.findById(obj.getDiscountId());
+					if(d.isPresent()) {
+						dto.setDiscountId(d.get().getId());
+						dto.setDiscountName(d.get().getName());
+					}
+				}
+				if(!AppUtil.isEmptyOrNull(obj.getVehicleId())) {
+					Optional<Vehicle> vehicle = vehicleService.findById(obj.getVehicleId());
+					if(vehicle.isPresent()) {
+						dto.setVehicleId(vehicle.get().getId());
+						dto.setVehicleName(vehicle.get().getName());
+					}
 				}				
 				dtos.add(dto);
 			});
-			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
+			return new GenericResponse("SUCCESS","",dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
-			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+			log.error(this.getClass().getName() +" > "+e.getCause());
+			return new GenericResponse("ERROR",e.getCause().toString());
 		}
 	}
 	
@@ -137,6 +149,7 @@ public class StudentController {
 		    return sb.toString();
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error(this.getClass().getName() +" > "+e.getCause());
 		}
 	    return sb.toString();
 	}
@@ -147,14 +160,14 @@ public class StudentController {
 		try {
 			List<Student> objs = studentService.findAll();
 			if(AppUtil.isEmptyOrNull(objs)){
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
+				return new GenericResponse("NOT_FOUND");
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
+				return new GenericResponse("SUCCESS",objs);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+			log.error(this.getClass().getName() +" > "+e.getCause());
+			return new GenericResponse("ERROR",e.getCause().toString());
 		}
 	}
 	
@@ -169,52 +182,46 @@ public class StudentController {
 			obj.setUserId(user.getId());
 //			obj.setUserId(user.getId());
 			if(AppUtil.isEmptyOrNull(dto.getId())){
-				obj.setName(dto.getName());
-				Guardian guardian = new Guardian();
-				guardian.setId(dto.getGuardianId());
-				obj.setGuardian(guardian);
-//				obj.setGuardian(guardianService.getOne(dto.getGuardianId()));
+				obj.setEnrollNo(dto.getEnrollNo());
+				obj.setGuardianId(dto.getGuardianId());
 				Example<Student> example = Example.of(obj);
 				if(studentService.exists(example))
-					return new GenericResponse("FOUND",messages.getMessage("The Student "+dto.getName()+" already exist", null, request.getLocale()));
+					return new GenericResponse("FOUND");
 			}
-//			obj.setName(dto.getName());
-//			Example<Student> example = Example.of(obj);
-//			if(AppUtil.isEmptyOrNull(dto.getId()) && studentService.exists(example))
-//				return new GenericResponse("FOUND",messages.getMessage("The Student "+dto.getName()+" already exist", null, request.getLocale()));
-//
-//			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
-//				obj = studentService.getOne(dto.getId());
-//				dated = obj.getEnrollDate();
-//			}
 			obj  = modelMapper.map(dto, Student.class);
-//			obj.setUserId(user.getId());
-			
-//			if (AppUtil.isEmptyOrNull(dto.getId())) 
-				obj.setDated(dated);
-			
-			obj.setEnrollDate(AppUtil.getDateTime(dto.getEnrollDate()));
-			obj.setDateOfBirth(AppUtil.getDateTime(dto.getDateOfBirth()));
-			
+			obj.setEnrollDate(AppUtil.getLocalDate(dto.getEnrollDate()));
+			obj.setDateOfBirth(AppUtil.getLocalDate(dto.getDateOfBirth()));
+			obj.setDated(dated);			
 			obj.setUpdated(dated);
 
-			obj.setSchoolId(dto.getSchoolId());
-			obj.setGradeId(dto.getGradeId());
-			if(dto.getGuardianId()>0)
-				obj.setGuardian(guardianService.getOne(dto.getGuardianId()));
-			if(dto.getVehicleId()>0)
-				obj.setVehicle(vehicleService.getOne(dto.getVehicleId()));
+			if(AppUtil.isEmptyOrNull(obj.getEmail()) || AppUtil.isEmptyOrNull(obj.getMobile()) || AppUtil.isEmptyOrNull(obj.getAddress())) {
+				Optional<Guardian> g = guardianService.findById(obj.getGuardianId());
+				if(g.isPresent()) {
+					if(AppUtil.isEmptyOrNull(obj.getEmail()))
+						obj.setEmail(g.get().getEmail());
+					if(AppUtil.isEmptyOrNull(obj.getMobile()))
+						obj.setMobile(g.get().getMobile());
+					if(AppUtil.isEmptyOrNull(obj.getAddress()))
+						obj.setAddress(g.get().getPermAddress());
+				}
+			}
+//			obj.setSchoolId(dto.getSchoolId());
+//			obj.setGradeId(dto.getGradeId());
+//			if(dto.getGuardianId()>0)
+//				obj.setGuardianId(dto.getGuardianId());
+//
+//			obj.setVehicleId(dto.getVehicleId());
 			
 			Student schoolOwnerTemp = studentService.save(obj);
 			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("FAILED");
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("SUCCESS");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
+			log.error(this.getClass().getName() +" > "+e.getCause());
+			return new GenericResponse("ERROR",e.getCause().toString());
 		}
 	}
 	
@@ -234,6 +241,7 @@ public class StudentController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error(this.getClass().getName() +" > "+e.getCause());
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}

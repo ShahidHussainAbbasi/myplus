@@ -4,8 +4,6 @@ import java.io.Serializable;
 import java.sql.Time;
 import java.util.List;
 
-import com.validation.ValidEmail;
-import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
 
 public class StudentDTO implements Serializable {
@@ -29,17 +27,14 @@ public class StudentDTO implements Serializable {
 	@ValidateEmpty
 	private String dateOfBirth;
 
-	private String feeMode;
+	private String feeMode="Monthly";
 
-	@ValidEmail
 	private String email;
 
-	@ValidMobileNumber
 	private String mobile;
 
 	private String phone;
 
-	@ValidateEmpty
 	private String address;
 
 	private Time time_in;
@@ -48,7 +43,7 @@ public class StudentDTO implements Serializable {
 
 	private List<String> hobbies;
 
-	private String boodGroup;
+	private String bloodGroup;
 
 	@ValidateEmpty
 	private Long guardianId;
@@ -58,6 +53,10 @@ public class StudentDTO implements Serializable {
 	private Long vehicleId;
 
 	private String vehicleName;
+
+	private Long discountId;
+
+	private String discountName;
 
 	@ValidateEmpty
 	private Long schoolId;
@@ -77,7 +76,12 @@ public class StudentDTO implements Serializable {
 	private String datedStr;
 
 	private String updatedStr;
+	
+	private Integer fee;
 
+	private Integer dueDay = 10;
+	
+	private Integer vf;
 	/**
 	 * @return the id
 	 */
@@ -302,18 +306,19 @@ public class StudentDTO implements Serializable {
 		this.hobbies = hobbies;
 	}
 
+
 	/**
-	 * @return the boodGroup
+	 * @return the bloodGroup
 	 */
-	public String getBoodGroup() {
-		return boodGroup;
+	public String getBloodGroup() {
+		return bloodGroup;
 	}
 
 	/**
-	 * @param boodGroup the boodGroup to set
+	 * @param bloodGroup the bloodGroup to set
 	 */
-	public void setBoodGroup(String boodGroup) {
-		this.boodGroup = boodGroup;
+	public void setBloodGroup(String bloodGroup) {
+		this.bloodGroup = bloodGroup;
 	}
 
 	/**
@@ -363,6 +368,34 @@ public class StudentDTO implements Serializable {
 	 */
 	public String getVehicleName() {
 		return vehicleName;
+	}
+
+	/**
+	 * @return the discountId
+	 */
+	public Long getDiscountId() {
+		return discountId;
+	}
+
+	/**
+	 * @param discountId the discountId to set
+	 */
+	public void setDiscountId(Long discountId) {
+		this.discountId = discountId;
+	}
+
+	/**
+	 * @return the discountName
+	 */
+	public String getDiscountName() {
+		return discountName;
+	}
+
+	/**
+	 * @param discountName the discountName to set
+	 */
+	public void setDiscountName(String discountName) {
+		this.discountName = discountName;
 	}
 
 	/**
@@ -477,6 +510,48 @@ public class StudentDTO implements Serializable {
 		this.updatedStr = updatedStr;
 	}
 
+	/**
+	 * @return the fee
+	 */
+	public Integer getFee() {
+		return fee;
+	}
+
+	/**
+	 * @param fee the fee to set
+	 */
+	public void setFee(Integer fee) {
+		this.fee = fee;
+	}
+
+	/**
+	 * @return the dueDay
+	 */
+	public Integer getDueDay() {
+		return dueDay;
+	}
+
+	/**
+	 * @param dueDay the dueDay to set
+	 */
+	public void setDueDay(Integer dueDay) {
+		this.dueDay = dueDay;
+	}
+
+	/**
+	 * @return the vf
+	 */
+	public Integer getVf() {
+		return vf;
+	}
+
+	/**
+	 * @param vf the vf to set
+	 */
+	public void setVf(Integer vf) {
+		this.vf = vf;
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -486,9 +561,9 @@ public class StudentDTO implements Serializable {
 	public String toString() {
 		return "StudentDTO [id=" + id + ", name=" + name + ", userId=" + userId + ", userType=" + userType
 				+ ", enrollNo=" + enrollNo + ", updatedStr=" + updatedStr + ", email=" + email + ", mobile=" + mobile
-				+ ", phone=" + phone + ", address=" + address + ", dateOfBirth=" + dateOfBirth + ", time_out=" + time_out
-				+ ", hobbies=" + hobbies + ", boodGroup=" + boodGroup + ", enrollDate=" + enrollDate + ", guardianId="
-				+ guardianId + ", gradeId=" + gradeId + ", status=" + status + "]";
+				+ ", phone=" + phone + ", address=" + address + ", dateOfBirth=" + dateOfBirth + ", time_out="
+				+ time_out + ", hobbies=" + hobbies + ", bloodGroup=" + bloodGroup + ", enrollDate=" + enrollDate
+				+ ", guardianId=" + guardianId + ", gradeId=" + gradeId + ", status=" + status + "]";
 	}
 
 }

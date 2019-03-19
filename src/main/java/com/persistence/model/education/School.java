@@ -56,24 +56,24 @@ public class School implements Serializable {
 //	@Temporal(TemporalType.TIMESTAMP)
 	private LocalDateTime updated;
 
-	private String status="Active";
+	private String status;
 
 	@ManyToMany(fetch = FetchType.LAZY)
 	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinTable(name = "schools_owners", joinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"), inverseJoinColumns = @JoinColumn(name = "owner_id", referencedColumnName = "owner_id"))
 	private Set<Owner> owners;
 
-	@ManyToMany(mappedBy = "schools")
-	@NotFound(action = NotFoundAction.IGNORE)
-	private Set<Staff> staffs;
+//	@ManyToMany(mappedBy = "schools")
+//	@NotFound(action = NotFoundAction.IGNORE)
+//	private Set<Staff> staffs;
 
 //	@OneToOne(mappedBy="school",cascade = CascadeType.ALL)
 //	private Student student;
 //
 	// bi-directional one-to-many association to Vehicle
-	@OneToMany(fetch = FetchType.LAZY)
-	@NotFound(action = NotFoundAction.IGNORE)
-	private Set<Vehicle> vehicles;
+//	@OneToMany(fetch = FetchType.LAZY)
+//	@NotFound(action = NotFoundAction.IGNORE)
+//	private Set<Vehicle> vehicles;
 
 	/**
 	 * @return the name
@@ -215,34 +215,34 @@ public class School implements Serializable {
 		this.owners = owners;
 	}
 
-	/**
-	 * @return the staffs
-	 */
-	public Set<Staff> getStaffs() {
-		return staffs;
-	}
-
-	/**
-	 * @param staffs the staffs to set
-	 */
-	public void setStaffs(Set<Staff> staffs) {
-		this.staffs = staffs;
-	}
-
-	/**
-	 * @return the vehicles
-	 */
-	public Set<Vehicle> getPickAndDrops() {
-		return vehicles;
-	}
-
-	/**
-	 * @param vehicles the vehicles to set
-	 */
-	public void setPickAndDrops(Set<Vehicle> vehicles) {
-		this.vehicles = vehicles;
-	}
-
+//	/**
+//	 * @return the staffs
+//	 */
+//	public Set<Staff> getStaffs() {
+//		return staffs;
+//	}
+//
+//	/**
+//	 * @param staffs the staffs to set
+//	 */
+//	public void setStaffs(Set<Staff> staffs) {
+//		this.staffs = staffs;
+//	}
+//
+//	/**
+//	 * @return the vehicles
+//	 */
+//	public Set<Vehicle> getPickAndDrops() {
+//		return vehicles;
+//	}
+//
+//	/**
+//	 * @param vehicles the vehicles to set
+//	 */
+//	public void setPickAndDrops(Set<Vehicle> vehicles) {
+//		this.vehicles = vehicles;
+//	}
+//
 	/**
 	 * @return the status
 	 */
@@ -257,20 +257,20 @@ public class School implements Serializable {
 		this.status = status;
 	}
 
-	/**
-	 * @return the vehicles
-	 */
-	public Set<Vehicle> getVehicles() {
-		return vehicles;
-	}
-
-	/**
-	 * @param vehicles the vehicles to set
-	 */
-	public void setVehicles(Set<Vehicle> vehicles) {
-		this.vehicles = vehicles;
-	}
-
+//	/**
+//	 * @return the vehicles
+//	 */
+//	public Set<Vehicle> getVehicles() {
+//		return vehicles;
+//	}
+//
+//	/**
+//	 * @param vehicles the vehicles to set
+//	 */
+//	public void setVehicles(Set<Vehicle> vehicles) {
+//		this.vehicles = vehicles;
+//	}
+//
 	/**
 	 * @return the serialversionuid
 	 */
