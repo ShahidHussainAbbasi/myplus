@@ -18,6 +18,10 @@ public class StudentDTO implements Serializable {
 
 	private String userType;
 
+	private String ys;
+	
+	private String ye;
+	
 	@ValidateEmpty
 	private String enrollNo;
 
@@ -58,6 +62,10 @@ public class StudentDTO implements Serializable {
 
 	private String discountName;
 
+	private Integer nd;
+
+	private String di;
+	
 	@ValidateEmpty
 	private Long schoolId;
 
@@ -192,6 +200,34 @@ public class StudentDTO implements Serializable {
 	 */
 	public void setUserType(String userType) {
 		this.userType = userType;
+	}
+
+	/**
+	 * @return the ys
+	 */
+	public String getYs() {
+		return ys;
+	}
+
+	/**
+	 * @param ys the ys to set
+	 */
+	public void setYs(String ys) {
+		this.ys = ys;
+	}
+
+	/**
+	 * @return the ye
+	 */
+	public String getYe() {
+		return ye;
+	}
+
+	/**
+	 * @param ye the ye to set
+	 */
+	public void setYe(String ye) {
+		this.ye = ye;
 	}
 
 	/**
@@ -396,6 +432,34 @@ public class StudentDTO implements Serializable {
 	 */
 	public void setDiscountName(String discountName) {
 		this.discountName = discountName;
+	}
+	
+	/**
+	 * @return the nd
+	 */
+	public Integer getNd() {
+		return nd;
+	}
+
+	/**
+	 * @param nd the nd to set
+	 */
+	public void setNd(Integer nd) {
+		this.nd = nd;
+	}
+
+	/**
+	 * @return the di
+	 */
+	public String getDi() {
+		return di;
+	}
+
+	/**
+	 * @param di the di to set
+	 */
+	public void setDi(String di) {
+		this.di = di;
 	}
 
 	/**

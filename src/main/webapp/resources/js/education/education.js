@@ -40,6 +40,8 @@ function loadDataTable(){
 					getUserDiscounts(table);
 					getUserSubjects(table);
 					reload=tableV;
+					getUserStudentMap();
+
 				}
 				
 				var collections = data.collection;
@@ -118,11 +120,13 @@ function loadDataTable(){
 							"<div id=studentGradeDD>"+obj.gradeName+"</div>","<div id=studentGuardianDD>"+obj.guardianName+"</div>",
 							"<div id=studentFeeMode>"+obj.feeMode+"</div>","<div id=studentFee>"+obj.fee+"</div>",
 							"<div id=studentVehicleDD>"+obj.vehicleName+"</div>","<div id=studentvf>"+obj.vf+"</div>",
-							"<div id=studentDiscountDD>"+obj.discountName+"</div>","<div id=studentDueDay>"+obj.dueDay+"</div>",
+							"<div id=studentDiscountDD>"+obj.discountName+"</div>","<div id=studentND>"+obj.nd+"</div>",
+							"<div id=studentDIDD>"+obj.di+"</div>","<div id=studentDueDay>"+obj.dueDay+"</div>",
 							"<div id=studentMobile>"+obj.mobile+"</div>","<div id=studentEmail>"+obj.email+"</div>",
 							"<div id=studentGender>"+obj.gender+"</div>","<div id=studentDateOfBirth>"+obj.dateOfBirth+"</div>",
 							"<div id=studentBloodBroup>"+obj.bloodGroup+"</div>","<div id=studentAddress>"+obj.address+"</div>",
-							"<div id=studentStatus>"+obj.status+"</div>","<div id=studentDated>"+obj.updatedStr+"</div>"
+							"<div id=studentStatus>"+obj.status+"</div>","<div id=studentDated>"+obj.updatedStr+"</div>",
+							"<div id=studentYS>"+obj.ys+"</div>","<div id=studentYE>"+obj.ye+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -156,7 +160,7 @@ function loadDataTable(){
 						i++;
 						arr = [
 							"<div id=discountId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=discountNameDD>"+obj.name+"</div>","<div id=discountTypeDD>"+obj.type+"</div>", 
+							"<div id=discountNameDD>"+obj.name+"</div>","<div id=discountTypeDD>"+obj.di+"</div>", 
 							"<div id=discountAmount>"+obj.amount+"</div>","<div id=discountDescription>"+obj.description+"</div>",
 							"<div id=discountStatus>"+obj.status+"</div>"
 							];
@@ -410,12 +414,37 @@ function removeTableBody(){
 }
 
 function ma(v){
-	if(v && v.length==3){
+	for ( var i in sm) {
+//	for(i=0;i<sm.length;i++){
+		 if(v===i){
+			$(this).callAjax("markAttendance2",sm[i]);
+		 }
+	}
+	
+/*	if(v && v.length==3){
 		var formData = $('form').serialize();
 		formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
 		$(this).callAjax("markAttendance",formData);
 	}else{
 		console.log(0)
 	}
+*/
 }
 
+var sm = {"":[]};
+function getUserStudentMap(){
+    $.get(serverContext+ "getUserStudentMap",function(data){
+		console.log(data)
+		if(data.status=="SUCCESS"){
+//			var sml = JSON.stringify(data.object);
+//			sml.forEach(function(ind,val){
+				sm = data.object;//new Map(ind,val);
+//			})
+		}
+		console.log(sm)
+    })
+	.fail(function(data) {
+		console.log(data)
+	});
+	
+}

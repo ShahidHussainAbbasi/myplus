@@ -20,11 +20,13 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
+import com.persistence.model.education.Discount;
 import com.persistence.model.education.Grade;
 import com.persistence.model.education.Guardian;
 import com.persistence.model.education.School;
 import com.persistence.model.education.Student;
 import com.persistence.model.education.Vehicle;
+import com.service.education.IDiscountService;
 import com.service.education.IGradeService;
 import com.service.education.IGuardianService;
 import com.service.education.ISchoolService;
@@ -49,6 +51,9 @@ public class StudentController {
 
 	@Autowired
 	IGuardianService guardianService;
+	
+	@Autowired
+	IDiscountService discountService;
 
 	@Autowired
 	IStudentService studentService;
@@ -66,7 +71,7 @@ public class StudentController {
 	RequestUtil requestUtil;
 
 	ModelMapper modelMapper = new ModelMapper();
-	
+		
 	@RequestMapping(value = "/getUserStudent", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserStudent(final HttpServletRequest request) {
@@ -85,6 +90,8 @@ public class StudentController {
 				dto = modelMapper.map(obj, StudentDTO.class);
 				dto.setEnrollDate(AppUtil.getLocalDateStr(obj.getEnrollDate()));
 				dto.setDateOfBirth(AppUtil.getLocalDateStr(obj.getDateOfBirth()));
+				dto.setYs(AppUtil.getLocalDateStr(obj.getYs()));
+				dto.setYe(AppUtil.getLocalDateStr(obj.getYe()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				if(!AppUtil.isEmptyOrNull(obj.getSchoolId())) {
 					Optional<School> school = schoolService.findById(obj.getSchoolId());
@@ -108,10 +115,17 @@ public class StudentController {
 					}
 				}
 				if(!AppUtil.isEmptyOrNull(obj.getDiscountId())) {
-					Optional<Guardian> d = guardianService.findById(obj.getDiscountId());
+					Optional<Discount> d = discountService.findById(obj.getDiscountId());
 					if(d.isPresent()) {
 						dto.setDiscountId(d.get().getId());
 						dto.setDiscountName(d.get().getName());
+						
+						if(AppUtil.isEmptyOrNull(obj.getNd()))
+							dto.setNd(d.get().getAmount());
+							if(AppUtil.isEmptyOrNull(obj.getDi()))
+								dto.setDi(d.get().getDi());
+						
+						
 					}
 				}
 				if(!AppUtil.isEmptyOrNull(obj.getVehicleId())) {
@@ -130,7 +144,7 @@ public class StudentController {
 			return new GenericResponse("ERROR",e.getCause().toString());
 		}
 	}
-	
+
 	@RequestMapping(value = "/getUserStudents", method = RequestMethod.GET)
 	@ResponseBody
 	public String getUserStudents(final HttpServletRequest request) {
@@ -191,6 +205,8 @@ public class StudentController {
 			obj  = modelMapper.map(dto, Student.class);
 			obj.setEnrollDate(AppUtil.getLocalDate(dto.getEnrollDate()));
 			obj.setDateOfBirth(AppUtil.getLocalDate(dto.getDateOfBirth()));
+			obj.setYs(AppUtil.getLocalDate(dto.getYs()));
+			obj.setYe(AppUtil.getLocalDate(dto.getYe()));
 			obj.setDated(dated);			
 			obj.setUpdated(dated);
 

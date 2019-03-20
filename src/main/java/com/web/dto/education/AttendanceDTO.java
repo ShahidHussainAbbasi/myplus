@@ -2,7 +2,6 @@ package com.web.dto.education;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 
 /**
  * The persistent class for the doctor database table.
@@ -17,19 +16,23 @@ public class AttendanceDTO implements Serializable {
 
 	private String dtStr;
 
+	private String in;
+
 	private String en;
 
 	private String sn;
 
+	private String g;
+
 	private String gn;
 
-	private Character s;
+	private Character s='I';
 
 	private LocalDateTime dt;
 	
-	private LocalTime i;
+//	private LocalTime i;
 	
-	private LocalTime o;
+//	private LocalTime o;
 	
 	private String r;
 
@@ -164,38 +167,6 @@ public class AttendanceDTO implements Serializable {
 
 
 	/**
-	 * @return the i
-	 */
-	public LocalTime getI() {
-		return i;
-	}
-
-
-	/**
-	 * @param i the i to set
-	 */
-	public void setI(LocalTime i) {
-		this.i = i;
-	}
-
-
-	/**
-	 * @return the o
-	 */
-	public LocalTime getO() {
-		return o;
-	}
-
-
-	/**
-	 * @param o the o to set
-	 */
-	public void setO(LocalTime o) {
-		this.o = o;
-	}
-
-
-	/**
 	 * @return the r
 	 */
 	public String getR() {
@@ -208,6 +179,38 @@ public class AttendanceDTO implements Serializable {
 	 */
 	public void setR(String r) {
 		this.r = r;
+	}
+
+
+	/**
+	 * @return the in
+	 */
+	public String getIn() {
+		return in;
+	}
+
+
+	/**
+	 * @param in the in to set
+	 */
+	public void setIn(String in) {
+		this.in = in;
+	}
+
+
+	/**
+	 * @return the g
+	 */
+	public String getG() {
+		return g;
+	}
+
+
+	/**
+	 * @param g the g to set
+	 */
+	public void setG(String g) {
+		this.g = g;
 	}
 
 

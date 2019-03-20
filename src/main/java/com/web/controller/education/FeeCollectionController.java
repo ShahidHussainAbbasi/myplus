@@ -1,6 +1,5 @@
 package com.web.controller.education;
 
-import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -140,7 +139,7 @@ public class FeeCollectionController {
 			if(!AppUtil.isEmptyOrNull(s.getDiscountId())) {
 				Optional<Discount> d = discountService.findById(s.getDiscountId());
 				if(d.isPresent()) {
-					dto.setDt(d.get().getType());
+					dto.setDt(d.get().getDi());
 					dto.setD(d.get().getAmount());
 				}
 			}

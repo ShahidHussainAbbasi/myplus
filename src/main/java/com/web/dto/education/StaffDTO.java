@@ -63,7 +63,7 @@ public class StaffDTO implements Serializable {
 
 	private Set<Long> schoolIds;
 
-	@ValidateEmpty
+//	@ValidateEmpty
 	private Set<Long> gradeIds;
 
 //	@ValidateEmpty

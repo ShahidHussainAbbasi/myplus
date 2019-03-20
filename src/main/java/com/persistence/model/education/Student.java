@@ -32,6 +32,12 @@ public class Student implements Serializable {
 	@Column(name = "user_id")
 	private Long userId;
 
+	@Column(name = "year_start")
+	private LocalDate ys;
+	
+	@Column(name = "year_end")
+	private LocalDate ye;
+
 	@Column(name = "enroll_no")
 	private String enrollNo;
 
@@ -95,6 +101,12 @@ public class Student implements Serializable {
 	@Column(name = "discount_id")
 	private Long discountId;
 	
+	@Column(name = "new_discount")
+	private Integer nd;
+
+	@Column(name = "discount_in")
+	private String di;
+
 	private Integer fee;
 
 	private Integer dueDay;
@@ -142,6 +154,34 @@ public class Student implements Serializable {
 	 */
 	public void setUserId(Long userId) {
 		this.userId = userId;
+	}
+
+	/**
+	 * @return the ys
+	 */
+	public LocalDate getYs() {
+		return ys;
+	}
+
+	/**
+	 * @param ys the ys to set
+	 */
+	public void setYs(LocalDate ys) {
+		this.ys = ys;
+	}
+
+	/**
+	 * @return the ye
+	 */
+	public LocalDate getYe() {
+		return ye;
+	}
+
+	/**
+	 * @param ye the ye to set
+	 */
+	public void setYe(LocalDate ye) {
+		this.ye = ye;
 	}
 
 	/**
@@ -360,6 +400,35 @@ public class Student implements Serializable {
 	 */
 	public void setDiscountId(Long discountId) {
 		this.discountId = discountId;
+	}
+
+	
+	/**
+	 * @return the nd
+	 */
+	public Integer getNd() {
+		return nd;
+	}
+
+	/**
+	 * @param nd the nd to set
+	 */
+	public void setNd(Integer nd) {
+		this.nd = nd;
+	}
+
+	/**
+	 * @return the di
+	 */
+	public String getDi() {
+		return di;
+	}
+
+	/**
+	 * @param di the di to set
+	 */
+	public void setDi(String di) {
+		this.di = di;
 	}
 
 	/**

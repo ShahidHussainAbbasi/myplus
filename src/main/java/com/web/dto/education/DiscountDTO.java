@@ -28,7 +28,7 @@ public class DiscountDTO implements Serializable {
 	private String name;
 
 	@ValidateEmpty
-	private String type;// percent/amount
+	private String di;;// percent/amount
 
 	private Float amount;
 
@@ -108,19 +108,18 @@ public class DiscountDTO implements Serializable {
 		this.amount = amount;
 	}
 
-
 	/**
-	 * @return the type
+	 * @return the di
 	 */
-	public String getType() {
-		return type;
+	public String getDi() {
+		return di;
 	}
 
 	/**
-	 * @param type the type to set
+	 * @param di the di to set
 	 */
-	public void setType(String type) {
-		this.type = type;
+	public void setDi(String di) {
+		this.di = di;
 	}
 
 	/**

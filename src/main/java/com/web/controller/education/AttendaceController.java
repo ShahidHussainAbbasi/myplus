@@ -1,9 +1,10 @@
 package com.web.controller.education;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.persistence.model.User;
 import com.persistence.model.education.Attendance;
 import com.persistence.model.education.Grade;
+import com.persistence.model.education.Guardian;
 import com.persistence.model.education.Student;
 import com.service.education.IAttendanceService;
 import com.service.education.IDiscountService;
@@ -74,6 +76,49 @@ public class AttendaceController {
 	RequestUtil requestUtil;
 
 	ModelMapper modelMapper = new ModelMapper();
+	
+	@RequestMapping(value = "/getUserStudentMap", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getUserStudentMap(final HttpServletRequest request) {
+		try {
+			Student filterBy = new Student();
+			User user = requestUtil.getCurrentUser();
+			filterBy.setUserId(user.getId());
+	        Example<Student> example = Example.of(filterBy);
+			List<Student> objs = studentService.findAll(example);
+			if(AppUtil.isEmptyOrNull(objs))
+				return new GenericResponse("NOT_FOUND");
+
+			Map<String,AttendanceDTO> sm = new HashMap<String, AttendanceDTO>();
+			
+			objs.forEach(obj ->{
+				AttendanceDTO dto = new AttendanceDTO();
+				if(!AppUtil.isEmptyOrNull(obj.getGradeId())) {
+					Optional<Grade> grade = gradeService.findById(obj.getGradeId());
+					if(grade.isPresent()) {
+//						dto.setGradeId(grade.get().getId());
+						dto.setG(grade.get().getName());
+					}
+				}
+				if(!AppUtil.isEmptyOrNull(obj.getGuardianId())) {
+					Optional<Guardian> g = guardianService.findById(obj.getGuardianId());
+					if(g.isPresent()) {
+//						dto.setGuardianId(g.get().getId());
+						dto.setGn(g.get().getName());
+					}
+				}
+				dto.setEn(obj.getEnrollNo());
+				dto.setSn(obj.getName());
+				dto.setUserId(user.getId());
+				sm.put(obj.getEnrollNo(),dto);
+			});
+			return new GenericResponse("SUCCESS","",sm);
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error(this.getClass().getName() +" > "+e.getCause());
+			return new GenericResponse("ERROR",e.getCause().toString());
+		}
+	}
 	
 	@RequestMapping(value = "/getUserA", method = RequestMethod.GET)
 	@ResponseBody
@@ -183,9 +228,53 @@ public class AttendaceController {
 		}
 	}
 	
+	@RequestMapping(value = "/markAttendance2", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse markAttendance2(final AttendanceDTO data, final HttpServletRequest request) {
+		try {
+			Attendance obj = new Attendance();
+			obj = modelMapper.map(data, Attendance.class);
+//			Student filter = new Student();
+//			User user = requestUtil.getCurrentUser();
+//			filter.setUserId(user.getId());
+//			filter.setEnrollNo(dto.getEn());
+//	        Example<Student> example = Example.of(filter);
+//	        //getting student detail
+//			Optional<Student> o = studentService.findOne(example);
+//			if(!o.isPresent())
+//				return new GenericResponse("NOT_FOUND");
+			
+//			Student s = new Student();
+			
+//			obj.setUserId(user.getId());
+			obj.setDt(LocalDateTime.now());
+//			obj.setI(LocalTime.now());
+//			obj.setO(LocalTime.now());			
+//			obj.setEn(dto.getEn());
+//			obj.setSn(s.getName());
+			
+//			Optional<Grade> g = gradeService.findById(s.getGradeId());
+//			if(!g.isPresent())
+//				return new GenericResponse("NOT_FOUND");
+			
+//			obj.setGn(g.get().getName());
+			
+			obj =service.save(obj);
+			if(AppUtil.isEmptyOrNull(obj))
+				return new GenericResponse("FAILED");
+
+			return new GenericResponse("SUCCESS",obj);
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error(this.getClass().getName() +" >>> "+e.getCause());
+			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
+					e.getCause().toString());
+		}
+	}
+	
 	@RequestMapping(value = "/markAttendance", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse addA(@Validated final AttendanceDTO dto, final HttpServletRequest request) {
+	public GenericResponse markAttendance(@Validated final AttendanceDTO dto, final HttpServletRequest request) {
 		try {
 			Attendance obj = new Attendance();
 			Student filter = new Student();
@@ -225,7 +314,7 @@ public class AttendaceController {
 					e.getCause().toString());
 		}
 	}
-	
+
 	@RequestMapping(value = "/deleteA", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteA( HttpServletRequest req, HttpServletResponse resp ){

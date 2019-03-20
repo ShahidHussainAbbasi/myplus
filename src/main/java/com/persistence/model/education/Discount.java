@@ -30,7 +30,8 @@ public class Discount implements Serializable {
 
 	private String name;
 
-	private String type;// percent/amount
+	@Column(name = "discount_in")
+	private String di;// percent/amount
 
 	private Integer amount;
 
@@ -104,17 +105,17 @@ public class Discount implements Serializable {
 
 
 	/**
-	 * @return the type
+	 * @return the di
 	 */
-	public String getType() {
-		return type;
+	public String getDi() {
+		return di;
 	}
 
 	/**
-	 * @param type the type to set
+	 * @param di the di to set
 	 */
-	public void setType(String type) {
-		this.type = type;
+	public void setDi(String di) {
+		this.di = di;
 	}
 
 	/**
