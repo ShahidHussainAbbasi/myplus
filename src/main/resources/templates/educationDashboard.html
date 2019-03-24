@@ -3,9 +3,16 @@
 <head>
 <div th:replace="header :: header-css" />
 
-<!-- <script type="text/javascript" src="resources/bootstrap/js/moment.js"></script>
-<script type="text/javascript" src="resources/bootstrap/js/bootstrap-datetimepicker.js"></script>
+<!--<script type="text/javascript" src="resources/js/moment.js"></script>
+ <script type="text/javascript" src="resources/bootstrap/js/bootstrap-datetimepicker.js"></script>
  -->
+ <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.5.3/jspdf.debug.js" integrity="sha384-NaWTHo/8YCBYJ59830LTz/P4aQZK1sS0SneOgAvhsIl3zBu8r9RevNg5lHCHAuQ/" crossorigin="anonymous"></script> -->
+<!-- <script type="text/javascript" src="resources/js/jspdf.debug.js"></script>
+<script type="text/javascript" src="resources/js/html2canvas.min.js"></script>
+ -->
+<script type="text/javascript" src="resources/js/jspdf.min.js"></script>
+<script type="text/javascript" src="resources/js/jspdf.plugin.autotable.js"></script>
+
 <script type="text/javascript" src="resources/js/education/education.js"></script>
 </head>
 <body>
@@ -114,7 +121,7 @@
 					</button>
 				</div>
 			</form>
-			<table id="tableOwner" class="table table-bordered table-striped">
+			<table id="tableOwner" class="table table-striped">
 				<thead>
 					<tr>
 						<th class="col-sm-1" data-field="ownerId">Id</th>
@@ -199,7 +206,7 @@
 				</div>
 			</form>
 			<div>
-				<table id="tableSchool" class="table table-bordered table-striped">
+				<table id="tableSchool" class="table table-striped">
 					<thead>
 						<tr>
 							<th class="col-sm-1" data-field="schoolId">Id</th>
@@ -290,7 +297,7 @@
 				</div>
 			</form>
 			<div class="form-group">
-				<table id="tableGrade" class="table table-bordered table-striped">
+				<table id="tableGrade" class="table table-striped">
 					<thead>
 						<tr>
 							<th class="col-sm-1" data-field="gradeId">Id</th>
@@ -438,7 +445,7 @@
 				</div>
 			</form>
 			<div>
-				<table id="tableStaff" class="table table-bordered table-striped">
+				<table id="tableStaff" class="table table-striped">
 					<thead>
 						<tr>
 							<th class="col-sm-1" data-field="staffId">Id</th>
@@ -547,7 +554,7 @@
 					</button>
 				</div>
 			</form>
-			<table id="tableGuardian" class="table table-bordered table-striped">
+			<table id="tableGuardian" class="table table-striped">
 				<thead>
 					<th class="col-sm-1" data-field="guardianId">Id</th>
 					<th class="col-sm-1" data-field="checkDelete">Check</th>
@@ -637,9 +644,9 @@
 					</div>
 				</div>
 				<div class="form-group">				
-					<label class="control-label col-sm-2" th:text="#{label.select.grade}" for="studentGradeDD">Select Grade</label> 
+					<label class="control-label col-sm-2 req" th:text="#{label.select.grade}" for="studentGradeDD">Select Grade</label> 
 					<div class="col-sm-4">
-						<select class="form-control" id="studentGradeDD" name="gradeId">
+						<select class="form-control" id="studentGradeDD" name="gradeId" required="required">
 						<option class="dropdown-item" value=""> Nothing Selected </option>
 						</select>
 					</div>
@@ -698,7 +705,7 @@
 					</div>
 					<div class="col-sm-2">
 						<select id="studentDIDD" name="di" class="form-control">
-							<option class="dropdown-item" value="Rs">Default is Rs.</option>
+							<option class="dropdown-item" value="">Default is Selected.</option>
 		 					<option class="dropdown-item" value="Rs" selected="selected">Rs</option>
 							<option class="dropdown-item" value="%">%</option>
 						</select>
@@ -779,7 +786,7 @@
 					</button>
 				</div>
 			</form>
-			<table id="tableStudent" class="table table-bordered table-striped">
+			<table id="tableStudent" class="table table-striped">
 				<thead>
 					<th class="col-sm-1" data-field="staffId">Id</th>
 					<th class="col-sm-1" data-field="checkDelete">Check</th>
@@ -793,9 +800,9 @@
 					<th class="col-sm-1" data-field="studentFee">Fee</th>
 					<th class="col-sm-1" data-field="studentVehicleDD">Vehicle</th>
 					<th class="col-sm-1" data-field="studentvf">Vehicle Fare</th>
-					<th class="col-sm-1" data-field="studentDiscountDD">Disc. type</th>
+					<th class="col-sm-1" data-field="studentDiscountDD">Disc. Name</th>
 					<th class="col-sm-1" data-field="studentND">Disc. amount</th>
-					<th class="col-sm-1" data-field="studentDIDD">Disc. in</th>
+					<th class="col-sm-1" data-field="studentDIDD">Disc. type</th>
 					<th class="col-sm-1" data-field="studentDueDay">Due Day</th>
 					<th class="col-sm-1" data-field="studentMobile">Mobile</th>
 					<th class="col-sm-1" data-field="studentEmail">Email</th>
@@ -883,7 +890,7 @@
 				</div>
 			</form>
 			<div>
-				<table id="tableSubject" class="table table-bordered table-striped">
+				<table id="tableSubject" class="table table-striped">
 					<thead>
 						<tr>
 							<th class="col-sm-1" data-field="subjectId">Id</th>
@@ -981,7 +988,7 @@
 				</div>
 			</form>
 			<div>
-				<table id="tableVehicle" class="table table-bordered table-striped">
+				<table id="tableVehicle" class="table table-striped">
 					<thead>
 						<tr>
 							<th class="col-sm-1" data-field="vehicleId">Id</th>
@@ -1054,7 +1061,7 @@
  					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="discountStatus">Status</label>
 					<div class="col-sm-4">
 						<select class="form-control" id="discountStatus" name="status">
-							<option class="dropdown-item" value="">Default is Active</option>					
+							<option class="dropdown-item" value="Active">Default is Active</option>					
 							<option class="dropdown-item" value="Active">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
@@ -1073,7 +1080,7 @@
 				</div>
 			</form>
 			<div>
-				<table id="tableDiscount" class="table table-bordered table-striped">
+				<table id="tableDiscount" class="table table-striped">
 					<thead>
 						<tr>
 							<th class="col-sm-1" data-field="discountId">Id</th>
@@ -1136,8 +1143,8 @@
 					<div class="col-sm-4">
 						<select multiple="multiple"	class="form-control" id="adcdd" name="dc" required="required">
 							<option class="dropdown-item" value="">Nothing Selected</option>
-							<option class="dropdown-item" value="SMS">SMS</option>
 		 					<option class="dropdown-item" value="Email">Email</option>
+							<option class="dropdown-item" value="SMS">SMS</option>
 							<option class="dropdown-item" value="Watts App">Watts App</option>
 		 					<option class="dropdown-item" value="Facebook">Facebook</option>
 							<option class="dropdown-item" value="Twitter">Twitter</option>
@@ -1153,6 +1160,7 @@
 							<option class="dropdown-item" value="Monthly">Monthly</option>
 		 					<option class="dropdown-item" value="Quartly">Quartly</option>
 							<option class="dropdown-item" value="Yearly">Yearly</option>
+							<option class="dropdown-item" value="Random">Random</option>
 		 				</select>
 					</div>
 				</div>
@@ -1224,7 +1232,7 @@
 				</div>
 			</form>
 			<div>
-				<table id="tableAlerts" class="table table-bordered table-striped">
+				<table id="tableAlerts" class="table table-striped">
 					<thead>
 						<tr>
 							<th class="col-sm-1" data-field="aId">Id</th>
@@ -1265,9 +1273,12 @@
 							placeholder=" Enter Enroll No " required="required"> 
 					</div>
 					<div class="col-sm-6">
-					<button type="button" id="findFc" class="btn btn-success">
-						<span class="glyphicon glyphicon-search"></span> Search
-					</button>
+						<button type="button" id="findFc" class="btn btn-success">
+							<span class="glyphicon glyphicon-search"></span> Search
+						</button>
+						<button type="button" id="printFc" onclick="printFc2()" class="btn btn-success">
+							<span class="glyphicon glyphicon-print"></span> Print
+						</button>
 					</div>
 				</div>
 				<div id="fcCalculaton" class="form-group" style="display: none">	
@@ -1279,7 +1290,56 @@
 					<input type="text" class="form-control" id="fchdd" name="dd"/>
 				</div>			
 				<div class="form-group" id="fcDetail">
-					<table class="table" id="fcDT">
+					<table id="" class="display table" style="width:100%">
+						<thead>
+							<tr>
+								<th class="col-sm-2">Student</th>
+								<th class="col-sm-2">Gaurdian</th>
+								<th class="col-sm-2">School</th>
+								<th class="col-sm-1">Grade</th>
+								<th class="col-sm-1">Fee</th>
+								<th class="col-sm-1">V. Fare</th>
+								<th class="col-sm-1">Discount</th>
+								<th class="col-sm-1">Due Amount</th>
+								<th class="col-sm-1">Due Date</th>
+							</tr>	
+						</thead>
+						<tbody>
+							<tr>
+								<td class="col-sm-2"><div class=" fcDTC" id="fcsn"></div></td>
+								<td class="col-sm-2"><div class=" fcDTC" id="fcgn"></div></td>
+								<td class="col-sm-2"><div class=" fcDTC" id="fcscn"></div></td>
+								<td class="col-sm-1"><div class=" fcDTC" id="fcg"></div></td>
+								<td class="col-sm-1"><div class=" fcDTC" id="fcf"></div></td>
+								<td class="col-sm-1"><div class=" fcDTC" id="fcvf"></div></td>
+								<td class="col-sm-1"><div class=" fcDTC" id="fcd"></div>
+								<td class="col-sm-1"><div class=" fcDTC" id="fcda"></div></td>
+								<td class="col-sm-1"><div class=" fcDTC" id="fcdd"></div></td>
+							</tr>
+						</tbody>						
+					</table>
+					<table id="fcDT" class="display table" style="width:100%">
+						<thead>
+							<tr><th rowspan="1" colspan="12" style="margin: 0px;padding: 3px">Fee details since last payment</th></tr>
+							<tr>
+								<th class="col-sm-1">Date</th>
+								<th class="col-sm-2">Payer</th>
+								<th class="col-sm-1">Payee</th>
+								<th class="col-sm-1">Fee</th>
+								<th class="col-sm-1">V. Fee</th>
+								<th class="col-sm-1">Discount</th>
+								<th class="col-sm-1">Other payment</th>
+								<th class="col-sm-1">Other desc.</th>
+								<th class="col-sm-1">Due Amount</th>
+								<th class="col-sm-1">paid</th>
+								<th class="col-sm-1">Balance</th>
+							</tr>	
+						</thead>
+						<!-- <tbody>
+							<tr role="row"><th rowspan="1" colspan="12" style="width: 100%;">Details since last payment</th></tr>
+						</tbody> -->						
+					</table>
+					<!-- <table class="table" id="fcDT">
 						<thead>
 							<tr>
 								<th class="col-sm-2">Student</th>
@@ -1306,7 +1366,7 @@
 								<td class="col-sm-2"><div class=" fcDTC" id="fcdd"></div></td>
 							</tr>
 						</tbody>
-					</table>
+					</table> -->
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2 req" for="fcf">Total payment</label>
@@ -1332,19 +1392,19 @@
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="fcp">Payee</label>
+					<label class="control-label col-sm-2 req" for="fcp">Payer</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="fcp" name="p"
-							placeholder=" Enter payee "/> 
+							placeholder=" Submit By " required="required"/> 
 					</div>
-					<label class="control-label col-sm-2" for="fcrb">Recieved By</label>
+					<label class="control-label col-sm-2 req" for="fcrb">Payee</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="fcrb" name="rb"
-							placeholder=" Revieved by "/> 
+							placeholder=" Revieved by " required="required"/> 
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="fcri">Recieved in</label>
+					<label class="control-label col-sm-2 req"  for="fcri">Recieved In</label>
 					<div class="col-sm-4">
 						<select class="form-control" id="fcri" name="ri" required="required">
 							<option class="dropdown-item" value="">Nothing Selected</option>
@@ -1380,27 +1440,27 @@
 				</div>
 			</form>
 			<div>
-				<table id="tableFc" class="table table-bordered table-striped">
+				<table id="tableFc" class="table table-striped">
 					<thead>
 						<tr>
 							<th class="col-sm-1" data-field="fcId">Id</th>
 							<th class="col-sm-1" data-field="checkfc">Check</th>
 							<th class="col-sm-1" data-field="fcen">Enroll No</th>
-							<th class="col-sm-1" data-field="fchf">Fee</th>
-							<th class="col-sm-1" data-field="fcdb">Balance</th>
-							<th class="col-sm-1" data-field="fchvf">V. Fee</th>
-							<th class="col-sm-1" data-field="fchd">Discount</th>
+							<th class="col-sm-1">Date</th>
+							<th class="col-sm-2">Payer</th>
+							<th class="col-sm-1">Payee</th>
+							<th class="col-sm-1">Fee</th>
+							<th class="col-sm-1">V. Fee</th>
+							<th class="col-sm-1">Discount</th>
 							<th class="col-sm-1" data-field="fchdt">Discount Type</th>
-							<th class="col-sm-1" data-field="fchda">Due Amount</th>
-							<th class="col-sm-1" data-field="fchdd">Due Day</th>
-							<th class="col-sm-1" data-field="fcfp">Fee paid</th>
-							<th class="col-sm-1" data-field="fcod">Other dues</th>
-							<th class="col-sm-1" data-field="fcodd">Other dues desc.</th>
-							<th class="col-sm-1" data-field="fcp">Payee.</th>
-							<th class="col-sm-1" data-field="fcrb">Recieved By.</th>
+							<th class="col-sm-1">Other payment</th>
+							<th class="col-sm-1">Other desc.</th>
+							<th class="col-sm-1">Due Amount</th>
+							<th class="col-sm-1">paid</th>
+							<th class="col-sm-1">Balance</th>
+							<th class="col-sm-1">Due Day</th>
 							<th class="col-sm-1" data-field="fcri">Recieved In.</th>
 							<th class="col-sm-1" data-field="fccn">Check No.</th>
-							<th class="col-sm-1" data-field="fcpd">Payment Date</th>
 						</tr>
 					</thead>
 				</table>
@@ -1428,7 +1488,7 @@
 				</div>
 			</form>			
 			<div>
-				<table id="tableA" class="table table-bordered table-striped">
+				<table id="tableA" class="table table-striped">
 					<thead>
 						<tr>
 							<th class="col-sm-1" data-field="aId">Id</th>

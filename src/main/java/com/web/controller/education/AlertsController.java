@@ -24,8 +24,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
 import com.persistence.model.education.Alerts;
+import com.persistence.model.education.Guardian;
 import com.persistence.model.education.Staff;
 import com.service.education.IAlertsService;
+import com.service.education.IGuardianService;
 import com.service.education.IStaffService;
 import com.web.dto.education.AlertsDTO;
 import com.web.util.AppUtil;
@@ -45,6 +47,9 @@ public class AlertsController {
 	@Autowired
 	IStaffService staffService;
 	
+	@Autowired
+	IGuardianService guardianService;
+
 	@Autowired
 	RequestUtil requestUtil;
 	
@@ -202,12 +207,35 @@ public class AlertsController {
 				        email.setFrom(env.getProperty("support.email"));
 				        mailSender.send(email);					
 					});
+				}else if(c[i].equals("Guardians")) {
+					Guardian g = new Guardian();
+					User user = requestUtil.getCurrentUser();
+					g.setUserId(user.getId());
+					g.setStatus(AppUtil.ACTIVE);
+			        Example<Guardian> example = Example.of(g);
+					List<Guardian> objs = guardianService.findAll(example);
+					if(AppUtil.isEmptyOrNull(objs))
+						continue;
+					objs.forEach(o ->{
+						
+				        final String recipientAddress = o.getEmail();
+				        final String subject = dto.getAh();
+//				        final String message = messages.getMessage(dto.getAm(),request.getLocale());
+				        final SimpleMailMessage email = new SimpleMailMessage();
+				        email.setTo(recipientAddress);
+				        email.setSubject(subject);
+				        email.setText("Dear "+o.getName()+ " \r\n\n" +dto.getAm() + " \r\n\n Best Regards\n" + dto.getAs());
+				        email.setFrom(env.getProperty("support.email"));
+				        mailSender.send(email);					
+						AppUtil.li(this.getClass(), "Email sent successfully to "+recipientAddress);
+					});
 				}
 			}
+//			AppUtil.li(this.getClass(), "Email sent successfully");
 			return new GenericResponse(AppUtil.SUCCESS);
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" >>> "+e.getCause());
+			AppUtil.le(this.getClass(), e);//.error(this.getClass().getName()+" >>> "+e.getCause());
 			return new GenericResponse(AppUtil.ERROR,messages.getMessage(e.getCause()+"", null, request.getLocale()));
 		}
 	}

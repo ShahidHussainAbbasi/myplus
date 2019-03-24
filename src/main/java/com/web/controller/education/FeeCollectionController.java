@@ -1,7 +1,10 @@
 package com.web.controller.education;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -104,10 +107,14 @@ public class FeeCollectionController {
 		}
 	}
 	
+	@SuppressWarnings("null")
 	@RequestMapping(value = "/findFc", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse findFc(final HttpServletRequest request) {
 		try {
+			FeeCollectionDTO dto = new FeeCollectionDTO();//modelMapper.map(obj, FeeCollectionDTO.class);
+//			List<FeeCollection> dtol = new ArrayList<FeeCollection>();
+			Map<String, Object> fcm = new HashMap<String, Object>();
 			String en = request.getParameter("input");
 			Student filter = new Student();
 			User user = requestUtil.getCurrentUser();
@@ -117,10 +124,9 @@ public class FeeCollectionController {
 	        //getting student detail
 			Optional<Student> obj = studentService.findOne(example);
 			if(!obj.isPresent())
-				return new GenericResponse("NOT_FOUND");
+				return new GenericResponse("NOT_FOUND","Student not found");
 			
 			Student s = obj.get();
-			FeeCollectionDTO dto = new FeeCollectionDTO();//modelMapper.map(obj, FeeCollectionDTO.class);
 			if(!AppUtil.isEmptyOrNull(s.getSchoolId()))
 				dto.setScn(schoolService.findById(s.getSchoolId()).get().getBranchName());
 			
@@ -136,6 +142,8 @@ public class FeeCollectionController {
 					dto.setG(grade.get().getName());
 			}
 			dto.setVf(s.getVf()==null?0:s.getVf());
+			dto.setF(s.getFee());
+			dto.setDd(s.getDueDay());
 			if(!AppUtil.isEmptyOrNull(s.getDiscountId())) {
 				Optional<Discount> d = discountService.findById(s.getDiscountId());
 				if(d.isPresent()) {
@@ -148,23 +156,99 @@ public class FeeCollectionController {
 			f.setUserId(user.getId());
 			f.setEn(en);
 	        Example<FeeCollection> e = Example.of(f);
-			List<FeeCollection> l = feeCollectionService.findAll(e,AppUtil.getPageRequest(0,1,AppUtil.orderByDESC("pd"))).getContent();
-			if(!AppUtil.isEmptyOrNull(l)) {
-				dto.setLpd(l.get(0).getPd());
-				dto.setDb(l.get(0).getDb());
+			List<FeeCollection> L = feeCollectionService.findAll(e,AppUtil.getPageRequest(AppUtil.orderByDESC("pd"))).getContent();
+			if(!AppUtil.isEmptyOrNull(L)) {
+				dto.setLpd(L.get(0).getPd());
+				dto.setDb(L.get(0).getDb());
 			}
 			
-			dto.setF(s.getFee());
-			dto.setDd(s.getDueDay());
 			dto.setPdStr(AppUtil.getLocalDateStr());
-			return new GenericResponse("SUCCESS",dto);
+			fcm.put("sf", dto);
+			//rest of detail
+			
+			//update list with last payment date where balance is >0 
+			//Note: need to implement DSL or some criteria
+			if(!AppUtil.isEmptyOrNull(L)) {
+				List<FeeCollection> L2=new ArrayList<FeeCollection>();
+				for (FeeCollection o : L) {
+					if(o.getDb()>0)
+						L2.add(o);
+					else {
+						L2.add(o);//last payment
+						break;
+					}
+				}
+				fcm.put("sfd", L2);
+			}
+			return new GenericResponse("SUCCESS",fcm);
 		} catch (Exception e) {
 			e.printStackTrace();
-			log.error(this.getClass().getName() +" >>> "+e.getCause());
+			AppUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage(e.getCause()+"", null, request.getLocale()));
 		}
 	}
 
+//	@RequestMapping(value = "/findFc", method = RequestMethod.GET)
+//	@ResponseBody
+//	public GenericResponse findFc(final HttpServletRequest request) {
+//		try {
+//			String en = request.getParameter("input");
+//			Student filter = new Student();
+//			User user = requestUtil.getCurrentUser();
+//			filter.setUserId(user.getId());
+//			filter.setEnrollNo(en);
+//	        Example<Student> example = Example.of(filter);
+//	        //getting student detail
+//			Optional<Student> obj = studentService.findOne(example);
+//			if(!obj.isPresent())
+//				return new GenericResponse("NOT_FOUND","Student not found");
+//			
+//			Student s = obj.get();
+//			FeeCollectionDTO dto = new FeeCollectionDTO();//modelMapper.map(obj, FeeCollectionDTO.class);
+//			if(!AppUtil.isEmptyOrNull(s.getSchoolId()))
+//				dto.setScn(schoolService.findById(s.getSchoolId()).get().getBranchName());
+//			
+//			if(!AppUtil.isEmptyOrNull(s.getGuardianId())) {
+//				Optional<Guardian> g = guardianService.findById(s.getGuardianId());
+//				if(g.isPresent())
+//					dto.setGn(g.get().getName());
+//			}
+//			dto.setSn(s.getName());
+//			if(!AppUtil.isEmptyOrNull(s.getGradeId())) {
+//				Optional<Grade> grade = gradeService.findById(s.getGradeId());
+//				if(grade.isPresent())
+//					dto.setG(grade.get().getName());
+//			}
+//			dto.setVf(s.getVf()==null?0:s.getVf());
+//			if(!AppUtil.isEmptyOrNull(s.getDiscountId())) {
+//				Optional<Discount> d = discountService.findById(s.getDiscountId());
+//				if(d.isPresent()) {
+//					dto.setDt(d.get().getDi());
+//					dto.setD(d.get().getAmount());
+//				}
+//			}
+//			
+//			FeeCollection f = new FeeCollection();
+//			f.setUserId(user.getId());
+//			f.setEn(en);
+//	        Example<FeeCollection> e = Example.of(f);
+//			List<FeeCollection> l = feeCollectionService.findAll(e,AppUtil.getPageRequest(0,1,AppUtil.orderByDESC("pd"))).getContent();
+//			if(!AppUtil.isEmptyOrNull(l)) {
+//				dto.setLpd(l.get(0).getPd());
+//				dto.setDb(l.get(0).getDb());
+//			}
+//			
+//			dto.setF(s.getFee());
+//			dto.setDd(s.getDueDay());
+//			dto.setPdStr(AppUtil.getLocalDateStr());
+//			return new GenericResponse("SUCCESS",dto);
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//			log.error(this.getClass().getName() +" >>> "+e.getCause());
+//			return new GenericResponse("ERROR",messages.getMessage(e.getCause()+"", null, request.getLocale()));
+//		}
+//	}
+	
 	@RequestMapping(value = "/getAllFc", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getAllStudent(final HttpServletRequest request) {

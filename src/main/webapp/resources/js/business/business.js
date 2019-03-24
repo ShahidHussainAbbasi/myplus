@@ -219,13 +219,7 @@ var itemStock = 0;
 var discountType = "";
 var discountValue = "0";
 function populateData(label,value){
-	if(discountType){
-		$("#selldtDD").val("Rs");
-		discountType = "Rs";
-	}else{
-		$("#selldtDD").val("%");
-		discountType = "%";
-	}	
+	edit = false;
 	$("#purchasePurchaseRate").val("");
 	$("#purchaseSellRate").val("")
 	$("#sellPurchaseRate").val("");
@@ -235,9 +229,18 @@ function populateData(label,value){
     $.get(serverContext+ "getItem?itemId="+value,function(data){
     	console.log(data);
     	if(data){
-	    	discountType = data.discountType;
 	    	discountValue = data.discount;
-	    	itemStock = data.stock;
+	    	discountType = data.discountType;
+    		$("#selldtDD").val(discountType);
+    		//discountType = "amount";
+/*	    	if(discountType.indexOf("%") <0){
+	    		$("#selldtDD").val("amount");
+	    		discountType = "amount";
+	    	}else{
+	    		$("#selldtDD").val("%");
+	    		discountType = "%";
+	    	}	
+*/	    	itemStock = data.stock;
     		if(value && tableV=="Purchase"){
     			$("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val():0;
 		    	$("#purchasePurchaseRate").val(data.purchaseAmount);
@@ -261,7 +264,7 @@ function populateData(label,value){
 		    	if($("#sellItems").val()*1<=0){
 		    		$("#sellItems").val(1);
 		    	}
-		    	$("#sdt").html(discountType+" Discount");
+		    	//$("#sdt").html(discountType+" Discount");
 		    	calculateNetSell();
     		}
     	}
@@ -298,8 +301,8 @@ function calculateNetSell(){
 	$("#sellItems").removeClass("alert-danger");
 	
 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val():1;
+	discountType = $("#selldtDD :selected").val();
 	if(edit){
-		discountType = $("#selldtDD :selected").val();
 		itemStock = $("#sellStock").val();
 	}
 

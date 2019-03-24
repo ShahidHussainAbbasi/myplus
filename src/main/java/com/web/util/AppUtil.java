@@ -279,10 +279,10 @@ public class AppUtil {
     public static void le(Class<?> c,Exception e) {
 		log.error(c.getName()+"  >>>  "+e.getClass());
     }
-    public static void li(Class<?> c,Exception e) {
-		log.info(c.getName()+"  >>>  "+e.getClass());
+    public static void li(Class<?> c,String s) {
+		log.info(c.getName()+"  >>>  "+s);
     }
-    public static void lw(Class<?> c,Exception e) {
-		log.warn(c.getName()+"  >>>  "+e.getClass());
+    public static void lw(Class<?> c,String s) {
+		log.warn(c.getName()+"  >>>  "+s);
     }
 }

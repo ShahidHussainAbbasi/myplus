@@ -9,6 +9,14 @@ var form=null;
 var formFields = 0;
 var reload="";
 	
+$(document).ready(function() {
+    $('table.display').DataTable( {
+        "paging":   false,
+        "ordering": false,
+        "info":     false,
+        "searching": false
+    } );
+} );
 
 function loadDataTable(){
 	//check if data table exist destroy it
@@ -17,6 +25,7 @@ function loadDataTable(){
 	}
 	datatable = $("#table" + tableV).DataTable({
 		"autoWidth" : true,
+		"order": [[ 0, "desc" ]],
 		"columnDefs" : [ {
 			"targets" : [ 0 ],
 			"visible" : true,
@@ -184,14 +193,14 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=fcId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=inputFc>"+obj.en+"</div>","<div id=fchf>"+obj.f+"</div>","<div id=fcdb>"+obj.db+"</div>",
-							"<div id=fchvf>"+obj.vf+"</div>","<div id=fchd>"+obj.d+"</div>",
-							"<div id=fchdt>"+obj.dt+"</div>","<div id=fchda>"+obj.da+"</div>",
-							"<div id=fchdd>"+obj.dd+"</div>", "<div id=fcfp>"+obj.fp+"</div>", 
-							"<div id=fcod>"+obj.od+"</div>","<div id=fcodd>"+obj.odd+"</div>",
+							"<div id=inputFc>"+obj.en+"</div>","<div id=fcpd>"+obj.pdStr+"</div>",
 							"<div id=fcp>"+obj.p+"</div>","<div id=fcrb>"+obj.rb+"</div>",
-							"<div id=fcri>"+obj.ri+"</div>","<div id=fccn>"+obj.cn+"</div>",
-							"<div id=fcpd>"+obj.pdStr+"</div>"
+							"<div id=fchf>"+obj.f+"</div>","<div id=fchvf>"+obj.vf+"</div>",
+							"<div id=fchd>"+obj.d+"</div>","<div id=fchdt>"+obj.dt+"</div>",
+							"<div id=fcod>"+obj.od+"</div>","<div id=fcodd>"+obj.odd+"</div>",
+							"<div id=fchda>"+obj.da+"</div>","<div id=fcfp>"+obj.fp+"</div>", 
+							"<div id=fcdb>"+obj.db+"</div>","<div id=fchdd>"+obj.dd+"</div>", 
+							"<div id=fcri>"+obj.ri+"</div>","<div id=fccn>"+obj.cn+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -317,12 +326,14 @@ function getUserDiscounts(table){
 	});
 }
 
+//Temp Fee Voucher(FV) object
+var fvObj = "";
 function findBy(method,data){
 	$.ajax({
 		type : "GET",
 		url : serverContext + method,
 		dataType : "json",
-		timeout : 100000,
+	//	timeout : 100000,
 		data : data,
 		success : function(data) {
 			if(data.status==="NOT_FOUND"){
@@ -330,10 +341,14 @@ function findBy(method,data){
 				return alert("Enrolled ID is invalid or not exist.");
 			}else if(data.status==="SUCCESS"){
 				console.log(data);
+				fvObj = data;
 				if(!data || !data.object)
-					return false
+					return alert("Data not found.");
 					
-					var o = data.object;
+					var o = data.object.sf;
+					if(!o)
+						return alert("Invalid data");
+					
 					var dm=0;//due months
 					
 					if(o.lpd){
@@ -375,6 +390,9 @@ function findBy(method,data){
 					
 					$("#fcda").html(tf);
 					$("#fchda").val(tf);
+					//again setting to get in print
+					o.da=tf;
+					o.d=d;
 
 					var dd = s2n(o.dd);
 					$("#fchdd").val(dd);
@@ -387,6 +405,11 @@ function findBy(method,data){
 					}
 					
 					$("#fcpd").val(o.pdStr);
+				//sfd - student fee detail
+					var l = data.object.sfd;
+					if(l){
+						fd(l);
+					}	
 					return false;
 			}
 			return false;
@@ -398,37 +421,43 @@ function findBy(method,data){
 	});
 }
 
+function fd(l){
+	$('#fcDT').DataTable().clear().draw();
+	l.forEach(function(obj,i){
+		var t = $('#fcDT').DataTable();
+		t.row.add( [
+			"<div id=fcdpd>"+dateToDMY(new Date(obj.pd))+"</div>","<div id=fcdp>"+obj.p+"</div>","<div id=fcdri>"+obj.rb+"</div>",
+			"<div id=fcdhf>"+obj.f+"</div>","<div id=fcdhvf>"+obj.vf+"</div>","<div id=fcdhd>"+obj.d+"</div>",
+			"<div id=fcdod>"+obj.od+"</div>","<div id=fcdodd>"+obj.odd+"</div>","<div id=fcdhda>"+obj.da+"</div>",
+			"<div id=fcdfp>"+obj.fp+"</div>", "<div id=fcddb>"+obj.db+"</div>",
+		] ).draw( false );			
+	});
+}
+
 function monthDiff(d1, d2) {
 	return d2.getMonth() - d1.getMonth() + (12 * (d2.getFullYear() - d1.getFullYear()));
 }
 
 function getDB(){
-	if($("#fchda").val()>$("#fcfp").val())
-		$("#fcdb").val($("#fchda").val() - $("#fcfp").val());
+	var da = $("#fchda").val()*ONE; 
+	var fp = $("#fcfp").val()*ONE;
+	if(da>fp)
+		$("#fcdb").val(da - fp);
 	else
 		$("#fcdb").val(0);
 }
 
 function removeTableBody(){
     $('.fcDTC').empty();
+    $('#fcDT').DataTable().clear().draw();
 }
 
 function ma(v){
 	for ( var i in sm) {
-//	for(i=0;i<sm.length;i++){
-		 if(v===i){
+		if(v===i){
 			$(this).callAjax("markAttendance2",sm[i]);
-		 }
+		}
 	}
-	
-/*	if(v && v.length==3){
-		var formData = $('form').serialize();
-		formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
-		$(this).callAjax("markAttendance",formData);
-	}else{
-		console.log(0)
-	}
-*/
 }
 
 var sm = {"":[]};
@@ -436,15 +465,57 @@ function getUserStudentMap(){
     $.get(serverContext+ "getUserStudentMap",function(data){
 		console.log(data)
 		if(data.status=="SUCCESS"){
-//			var sml = JSON.stringify(data.object);
-//			sml.forEach(function(ind,val){
-				sm = data.object;//new Map(ind,val);
-//			})
+			sm = data.object;//new Map(ind,val);
 		}
 		console.log(sm)
     })
 	.fail(function(data) {
 		console.log(data)
 	});
+	
+}
+
+function printFc2(){
+/*	let mywindow = window.open('', 'PRINT', 'height=650,width=1000,top=100,left=150');
+
+	  mywindow.document.write('<html>');
+	  //<head><title>${title}</title>`);
+	  mywindow.document.write('</head><body >');
+	  mywindow.document.write(document.getElementById("fcDetail").innerHTML);
+	  mywindow.document.write('</body></html>');
+
+	  mywindow.document.close(); // necessary for IE >= 10
+	  mywindow.focus(); // necessary for IE >= 10
+
+	  mywindow.print();
+	  mywindow.close();
+
+	  return true;	*/
+	if(!fvObj)
+		return alert("No data available to print");
+	
+	var doc = new jsPDF('p', 'pt', 'letter');
+	//doc.addImage(imgData, 'JPEG', 15, 40, 180, 160);
+	var sf = fvObj.object.sf;
+	var sfd = fvObj.object.sfd;
+	
+	var L = 20; var U = 20;
+	doc.setFontSize(14)
+	doc.text(L,U,'Summary')
+
+	var head = [["Student", "Guardian", "Grade","V. Fee","Fee","Discount","Due Amount","Due Day"]];
+    var body = [
+        [sf.sn, sf.gn, sf.g,sf.vf,sf.f,sf.d,sf.da,sf.dd]];
+/*        [2, "Switzerland", 	7.509, "Bern"],
+        [3, "Iceland", 7.501, "Reykjavík"],
+        [4, "Norway", 7.498, "Oslo"],
+        [5, "Finland", 7.413, "Helsinki"]
+    ];
+*/ //   var doc = new jsPDF();
+    doc.autoTable({head: head, body: body, startY: 100});
+   // doc.autoTable({html: '#table', startY: 100});
+   // doc.output("dataurlnewwindow");
+	
+	doc.save("file.pdf")
 	
 }

@@ -46,7 +46,7 @@ public class DiscountDTO implements Serializable {
 //
 //	private String studentName;
 //
-	private String status;
+	private String status = "Active";
 
 //	private String datedStr;
 //	

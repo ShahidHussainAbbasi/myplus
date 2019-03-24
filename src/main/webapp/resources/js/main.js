@@ -191,7 +191,17 @@ $(document).ready(function() {
 			var doc = new DOMParser().parseFromString(html, "text/html");
 			
 			resetForm();
-			editRecord(doc);
+			if(tableV==="Fc"){
+				var ids = $("#table"+ tableV+ " input[type='checkbox']:checkbox:checked").map(function() {
+					return this.value;
+				}).get().join(",");
+				if(!ids){
+					removeTableBody();
+					alert("Edit/Update is not allowed, You can delete and submit new one only");
+				}
+			}else{
+				editRecord(doc);
+			}
 		} );
 	  });
 	});
@@ -209,10 +219,12 @@ $(document).ready(function() {
 					alert("Already exist");
 					return false;
 				}
-				datatable.clear().draw();
-				datatable.ajax.reload();
-				resetForm();
-				$("#globalError").empty();
+				if(method!=="sendAlerts"){
+					datatable.clear().draw();
+					datatable.ajax.reload();
+					resetForm();
+					$("#globalError").empty();
+				}
 				return false;
 			}, fail: function(data, textStatus, errorThrown) {
 				alert("There is some problem in the request "+errorThrown);
@@ -291,4 +303,17 @@ function editRecord(doc){
 function resetBSDD(id){
 	edit = false;
 	$("#"+id).val('default').selectpicker("refresh");
+}
+
+function dateToYMD(date) {
+    var d = date.getDate();
+    var m = date.getMonth() + 1;
+    var y = date.getFullYear();
+    return '' + y + '-' + (m<=9 ? '0' + m : m) + '-' + (d <= 9 ? '0' + d : d);
+}
+function dateToDMY(date) {
+    var d = date.getDate();
+    var m = date.getMonth() + 1;
+    var y = date.getFullYear();
+    return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
 }

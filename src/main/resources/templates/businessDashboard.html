@@ -85,7 +85,7 @@
 					<label class="control-label col-sm-2" for="companyPhone">Phone:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="companyPhone" name="phone"
-							placeholder="Mobile Number" required="required"> 
+							placeholder="Phone Number" required="required"> 
 					</div>
 				</div>
 				<div class="form-group">
@@ -283,9 +283,8 @@
 					<label class="control-label col-sm-2" for="discountTypeDD">Discount Type:</label>
 					<div class="col-sm-4">
 						<select name="discountType" id="discountTypeDD" class="form-control" onchange="calculateNet()" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="amount" selected="selected">amount</option>
 							<option class="dropdown-item" value="%">%</option>
-							<option class="dropdown-item" value="Amount">Amount</option>
 						</select>
 					</div>
 					<label class="control-label col-sm-2" for="itemDiscount">Fix discount:</label>
@@ -503,7 +502,7 @@
 					</div>
 					<div class="col-sm-2">
 						<select id="selldtDD" name="dt" class="form-control" onchange="calculateNetSell()" required="required">
-							<option class="dropdown-item" value="Rs" selected="selected">Rs</option>
+							<option class="dropdown-item" value="amount" selected="selected">amount</option>
 							<option class="dropdown-item" value="%">%</option>
 						</select>
 					</div>					
@@ -527,7 +526,7 @@
 					</div>
 					<div class="col-sm-2">
 						<select id="srpDD" class="form-control" onchange="calculateSRP()">
-							<option class="dropdown-item" value="">Rs</option>
+							<option class="dropdown-item" value="amount" selected="selected">amount</option>
 							<option class="dropdown-item" value="%">%</option>
 						</select>
 					</div>					
