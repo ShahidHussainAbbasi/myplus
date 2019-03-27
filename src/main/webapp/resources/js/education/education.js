@@ -16,6 +16,14 @@ $(document).ready(function() {
         "info":     false,
         "searching": false
     } );
+    
+    $("#fvp").change(function(){
+    	if($(this).val()=="4"){
+    		$("#fvdrdiv").show();
+    	}else{
+    		$("#fvdrdiv").hide();
+    	}
+    });    
 } );
 
 function loadDataTable(){
@@ -475,47 +483,204 @@ function getUserStudentMap(){
 	
 }
 
+function getImgFromUrl(logo_url, callback) {
+    var img = new Image();
+   // var logo_url = serverContext+"resources/a.jpg";
+    img.src = logo_url;
+    img.onload = function () {
+        callback(img);
+    };
+} 
+
+function toDataURL(url, callback) {
+	var xhr = new XMLHttpRequest();
+	xhr.onload = function() {
+		var reader = new FileReader();
+	    reader.onloadend = function() {
+	      callback(reader.result);
+	    }
+	    reader.readAsDataURL(xhr.response);
+	};
+	xhr.open('GET', url);
+	xhr.responseType = 'blob';
+	xhr.send();
+}
+
+function loadFV(){
+	var formData = $('form').serialize();
+	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
+
+	$.ajax({
+		type : "POST",
+		url : serverContext + "loadFV",
+		dataType : "json",
+		data : formData,
+		success : function(data) {
+			if(data.status==="NOT_FOUND"){
+				return alert(data.status+" - "+data.msg);
+			}else if(data.status==="SUCCESS"){
+				if(!data || !data.object)
+					return alert("Data not found.");
+					
+//					$.each(data.object.sfd, function(ind, o) {
+					var o = data.object.sf;
+					console.log(o);
+					if(!o)
+						return alert("Invalid data");
+					
+					var FVL = [];
+					var dm=0;//due months
+					
+					if(o.lpd){
+						var lpd = new Date(Date.parse(o.lpd));
+						dm = monthDiff(lpd,new Date());
+					}
+//						$("#fcsn").html(o.sn);
+//						$("#fcgn").html(o.gn);
+//						$("#fcscn").html(o.scn);
+//						$("#fcg").html(o.g);
+//						$("#fcf").html(o.f);
+//						$("#fcf").val(o.f);
+					var vf = s2n(o.vf);
+					var d  = s2n(o.d);
+					var f = s2n(o.f);
+//						$("#fchf").val(f);
+//						$("#fcvf").html(vf);
+//						$("#fchvf").val(vf);
+//						$("#fchdt").val(o.dt);
+					var tf = f;
+					if(o.dt=="%"){
+						var d = f * (d / 100);
+//							$("#fcd").html(d+" in "+o.dt);
+//							$("#fchd").val(d);
+					}else{
+//							$("#fcd").html(d);
+//							$("#fchd").val(d);
+					}
+					tf = f + vf - d;
+					if(dm>1)
+						tf = tf*dm;
+					if(o.db)
+						tf = tf+o.db;
+					
+//						$("#fcda").html(tf);
+//						$("#fchda").val(tf);
+					//again setting to get in print
+					o.da=tf;
+					o.d=d;
+
+					var dd = s2n(o.dd);
+//						$("#fchdd").val(dd);
+//						if(new Date().getDate() <=dd){
+//							$("#fcdd").removeClass("alert-danger");
+//							$("#fcdd").html(dd - new Date().getDate() +" day(s) left");
+//						}else{
+//							$("#fcdd").html(new Date().getDate() - dd +" day(s) over");
+//							$("#fcdd").addClass("alert-danger");
+//						}
+					
+//						$("#fcpd").val(o.pdStr);
+				//sfd - student fee detail
+					var doc = new jsPDF('p', 'pt', 'letter');
+					var L = 20; var U = 20;
+					var logo_url = serverContext+"resources/img/logos/ASL_logo.jpg";
+					toDataURL(logo_url, function(dataUrl) {
+						doc.addImage(dataUrl, 'JPEG', 10, 10, 1000, 500);
+						doc.text("School's fee voucher", 430, 25);
+						  var head = [["Summary"]];
+						  doc.autoTable({head: head,startY: 80});
+						  var head = [["Student", "Guardian", "Grade","Fee","V. Fee","Discount","Due Amount","Due Day"]];
+//						  var sf = fvObj.object.sf;
+						  var body = [[o.sn, o.gn, o.g,o.f,o.vf,o.d,o.da,o.dd]];
+						  doc.autoTable({head: head, body: body, startY: 100});
+						  var sfds = data.object.sfd;
+						  if(sfds){
+							  var head = [["Fee details since last payment"]];
+							  doc.autoTable({head: head,startY: 145});
+							  var head = [["Date", "Payer", "Payee","Fee","V. Fee","Dis.","O Payment","O Desc.","Due","Paid","Bal."]];
+							  var body = [];
+							  sfds.forEach(function(sfd,i){
+									var row = [dateToDMY(new Date(sfd.pd)), sfd.p, sfd.rb,sfd.f,sfd.vf,sfd.d,sfd.od,sfd.odd,sfd.da,sfd.fp,sfd.db]
+									body[i] = row;
+								});
+							  doc.autoTable({head: head, body: body, startY: 165});
+						  }
+						  doc.text("Instructions for GUARDIAN", 10, 220);
+						  doc.text("NOTE:PLEASE IMMEDIATELY NOTIFY THE SCHOOL OF ANY CHANGES IN GIVEN CELL NO. FOR USE OF EMERGENCY / SMS ALERTS AND ETC.", 10, 235);
+							  
+//							  1. Fee is payable in advance EVERY MONTH and only cash
+//							  payment will be accepted.
+//							  2. Ensuring the timely receipt of fee voucher is the responsibility
+//							  of parents AND shall NOT be considered AS an excuse.
+//							  3. For RE-ISSUANCE of Fee Voucher, Rs. 20/- will be charged.
+//							  4. Parents must retain their copy of the PAID fee voucher in safe
+//							  custody for future reference.
+//							  5. Summer vacation fee to be paid in advance as follows;
+//							  FOR June together WITH January December / January Fee.
+//							  FOR July together WITH January / February Fee.
+//							  5. Fee once paid is not transferable and Non-Refundable.
+//							  6. Fee will not be acceptable in installments.
+//							  7. Fee will not be accepted without FEE VOUCHER.
+//						  doc.output("dataurlnewwindow");
+						  doc.autoPrint({variant: 'non-conform'});
+						  doc.save("feeslip.pdf");
+						})
+					
+					
+					var l = data.object.sfd;
+					if(l){
+						fd(l);
+					}	
+					return false;
+			}
+			return false;
+		},
+		 error: function(data, textStatus, errorThrown) {
+			resetForm();
+			 alert("Status : error : "+textStatus+" : "+errorThrown);
+        }
+	});
+}
+
 function printFc2(){
-/*	let mywindow = window.open('', 'PRINT', 'height=650,width=1000,top=100,left=150');
-
-	  mywindow.document.write('<html>');
-	  //<head><title>${title}</title>`);
-	  mywindow.document.write('</head><body >');
-	  mywindow.document.write(document.getElementById("fcDetail").innerHTML);
-	  mywindow.document.write('</body></html>');
-
-	  mywindow.document.close(); // necessary for IE >= 10
-	  mywindow.focus(); // necessary for IE >= 10
-
-	  mywindow.print();
-	  mywindow.close();
-
-	  return true;	*/
 	if(!fvObj)
-		return alert("No data available to print");
+		return alert("No data available to print, Do a search first");
 	
 	var doc = new jsPDF('p', 'pt', 'letter');
 	//doc.addImage(imgData, 'JPEG', 15, 40, 180, 160);
-	var sf = fvObj.object.sf;
-	var sfd = fvObj.object.sfd;
 	
 	var L = 20; var U = 20;
-	doc.setFontSize(14)
-	doc.text(L,U,'Summary')
+	//doc.setFontSize(14)
+	//doc.text(L,U,'Summary')
+	var logo_url = serverContext+"resources/ASL_logo.jpg";
+	toDataURL(logo_url, function(dataUrl) {
+		  console.log('RESULT:', dataUrl)
+		//  doc.addImage(dataUrl, 'JPEG', 50, 20, 70, 70);
+		  var head = [["Summary"]];
+		  doc.autoTable({head: head,startY: 100});
+		  var head = [["Student", "Guardian", "Grade","Fee","V. Fee","Discount","Due Amount","Due Day"]];
+		  var sf = fvObj.object.sf;
+		  var body = [[sf.sn, sf.gn, sf.g,sf.f,sf.vf,sf.d,sf.da,sf.dd]];
+		  doc.autoTable({head: head, body: body, startY: 120});
+		  var sfds = fvObj.object.sfd;
+		  if(sfds){
+			  var head = [["Fee details since last payment"]];
+			  doc.autoTable({head: head,startY: 180});
+			  var head = [["Date", "Payer", "Payee","Fee","V. Fee","Dis.","O Payment","O Desc.","Due","Paid","Bal."]];
+			  var body = [];
+			  sfds.forEach(function(sfd,i){
+					var row = [dateToDMY(new Date(sfd.pd)), sfd.p, sfd.rb,sfd.f,sfd.vf,sfd.d,sfd.od,sfd.odd,sfd.da,sfd.fp,sfd.db]
+					body[i] = row;
+				});
+			  doc.autoTable({head: head, body: body, startY: 200});
+		  }
+//		  doc.output("dataurlnewwindow");
+		  doc.autoPrint({variant: 'non-conform'});
+		  doc.save("feeslip.pdf");
+		})
 
-	var head = [["Student", "Guardian", "Grade","V. Fee","Fee","Discount","Due Amount","Due Day"]];
-    var body = [
-        [sf.sn, sf.gn, sf.g,sf.vf,sf.f,sf.d,sf.da,sf.dd]];
-/*        [2, "Switzerland", 	7.509, "Bern"],
-        [3, "Iceland", 7.501, "Reykjavík"],
-        [4, "Norway", 7.498, "Oslo"],
-        [5, "Finland", 7.413, "Helsinki"]
-    ];
-*/ //   var doc = new jsPDF();
-    doc.autoTable({head: head, body: body, startY: 100});
-   // doc.autoTable({html: '#table', startY: 100});
    // doc.output("dataurlnewwindow");
 	
-	doc.save("file.pdf")
+//	doc.save("file.pdf")
 	
 }

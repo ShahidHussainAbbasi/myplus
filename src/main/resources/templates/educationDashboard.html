@@ -48,11 +48,12 @@
 				</li>
 				<li>
 					<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading">
-						<option class="dropdown-item" value="">Manage Expense</option>
+						<option class="dropdown-item" value="">Manage Fee</option>
 						<option class="dropdown-item" value="FcDiv">Fee Collection</option>
-						<option class="dropdown-item" value="">Salary Distribution</option>
+						<option class="dropdown-item" value="FVDiv">Fee Voucher</option>
+<!-- 						<option class="dropdown-item" value="">Salary Distribution</option>
 						<option class="dropdown-item" value="">Miscellaneous</option>
-					</select>
+ -->					</select>
 				</li>
 				<li>
 					<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading">
@@ -509,10 +510,10 @@
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="guardianCNIC">CNIC</label>
+					<label class="control-label col-sm-2" for="guardianCNIC">CNIC</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="guardianCNIC" name="cnic"
-							placeholder="Computerized National Identity Card" required="required"> 
+							placeholder="Computerized National Identity Card"> 
 					</div>
 					<label class="control-label col-sm-2 req" for="guardianPermAddress">Address</label>
 					<div class="col-sm-4">
@@ -582,12 +583,12 @@
 					</div>
 				</div>								
  				<div class="form-group">
-					<label class="control-label col-sm-2" for="studentYS">Year Start</label>
+					<label class="control-label col-sm-2" for="studentYS">Session Year Start</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control datePicker" id="studentYS" name="ys"
 							placeholder="Yesr start"> 
 					</div>
-					<label class="control-label col-sm-2" for="studentYE">Year End</label>
+					<label class="control-label col-sm-2" for="studentYE">Session Year End</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control datePicker" id="studentYE" name="ye"
 							placeholder="Yesr end"> 
@@ -663,13 +664,13 @@
 						<select class="form-control" id="studentFeeMode" name="feeMode">
 							<option class="dropdown-item" value=""> Nothing Selected </option>
 							<option class="dropdown-item" value="Monthly">Monthly</option>
-		 					<option class="dropdown-item" value="2 Month">2 Month</option>
+<!-- 		 					<option class="dropdown-item" value="2 Month">2 Month</option>
 		 					<option class="dropdown-item" value="3 Month">3 Month</option>
 		 					<option class="dropdown-item" value="4 Month">4 Month</option>
 		 					<option class="dropdown-item" value="5 Month">5 Month</option>
 		 					<option class="dropdown-item" value="6 Month">6 Month</option>
 		 					<option class="dropdown-item" value="Yealy">Yearly</option>
-		 					<option class="dropdown-item" value="Randomly">Randomly</option>
+ -->		 					<option class="dropdown-item" value="Randomly">Randomly</option>
 		 				</select>
 					</div>
 					<label class="control-label col-sm-2" for="studentFee">Student Fee</label>
@@ -705,8 +706,7 @@
 					</div>
 					<div class="col-sm-2">
 						<select id="studentDIDD" name="di" class="form-control">
-							<option class="dropdown-item" value="">Default is Selected.</option>
-		 					<option class="dropdown-item" value="Rs" selected="selected">Rs</option>
+		 					<option class="dropdown-item" value="amount" selected="selected">amount</option>
 							<option class="dropdown-item" value="%">%</option>
 						</select>
 					</div>					
@@ -1039,8 +1039,8 @@
 	 				<label class="control-label col-sm-2 req" th:text="#{label.DiscountIn}" for="discountType">Discount Type</label>
 					<div class="col-sm-4">
 						<select	class="form-control" id="discountTypeDD" name="di" required="required">
-							<option class="dropdown-item" value="Rs">Default is Rs.</option>
-		 					<option class="dropdown-item" value="Rs" selected="selected">Rs</option>
+							<option class="dropdown-item" value="amount">amount is amount.</option>
+		 					<option class="dropdown-item" value="amount" selected="selected">amount</option>
 							<option class="dropdown-item" value="%">%</option>
 		 				</select>
 					</div>
@@ -1276,10 +1276,10 @@
 						<button type="button" id="findFc" class="btn btn-success">
 							<span class="glyphicon glyphicon-search"></span> Search
 						</button>
-						<button type="button" id="printFc" onclick="printFc2()" class="btn btn-success">
+<!-- 						<button type="button" id="printFc" onclick="printFc2()" class="btn btn-success">
 							<span class="glyphicon glyphicon-print"></span> Print
 						</button>
-					</div>
+ -->					</div>
 				</div>
 				<div id="fcCalculaton" class="form-group" style="display: none">	
 					<input type="number" class="form-control" id="fchf" name="f" required="required"> 
@@ -1427,7 +1427,7 @@
 							placeholder=" Payment Date"> 
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center;margin-top: 30px;margin-bottom: 0;">
 					<button type="button" id="addFc" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -1465,6 +1465,59 @@
 					</thead>
 				</table>
 			</div>
+		</div>		
+		<div id="FVDiv" class="formDiv">
+			<h4 th:text="#{label.fc.form.heading}">Fee Voucher(s)</h4>
+			<br />
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="FV" autocomplete="off">
+				<div class="form-group">
+					<label class="control-label col-sm-2 req"  for="fvb">Voucher By</label>
+					<div class="col-sm-4">
+						<select class="form-control" id="fvb" name="vb" required="required">
+							<option class="dropdown-item" value=0 selected="selected">Student</option>
+							<option class="dropdown-item" value=1>Grade</option>
+						</select>	
+					</div>
+					<div id="fvidiv">
+						<label class="control-label col-sm-2 req" for="fvi">Enter Id</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="fvi" name="vi"
+								placeholder=" Enter Id " required="required"> 
+						</div>					
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2 req"  for="fvp">Period</label>
+					<div class="col-sm-4">
+						<select class="form-control" id="fvp" name="vp" required="required">
+							<option class="dropdown-item" value=0 selected="selected">Current month</option>
+							<option class="dropdown-item" value=2>Last 2 month</option>
+							<option class="dropdown-item" value=3>Last 3 month</option>
+							<option class="dropdown-item" value=4>Custom range</option>
+						</select>	
+					</div>
+				</div>
+				<div class="form-group">
+					<div id="fvdrdiv" style="display: none">
+						<label class="control-label col-sm-2" for="fcpd">Start date</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="fvsd" name="sd"
+								placeholder=" Start Date"> 
+						</div>
+						<label class="control-label col-sm-2" for="fcpd">End date</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="fved" name="ed"
+								placeholder=" End Date"> 
+						</div>
+					</div>
+				</div>
+				<div class="form-group" style="text-align: center; margin-top: 25px;">
+					<button type="button" id="printFc" onclick="loadFV()" class="btn btn-success">
+						<span class="glyphicon glyphicon-print"></span> Generate
+					</button>
+				</div>
+			</form>
 		</div>		
 
 		<div id="ADiv" class="formDiv">

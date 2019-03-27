@@ -3,7 +3,6 @@ package com.web.dto.education;
 import java.io.Serializable;
 import java.util.List;
 
-import com.validation.ValidEmail;
 import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
 
@@ -19,7 +18,7 @@ public class GuardianDTO implements Serializable {
 
 	private String userType;
 
-	@ValidEmail
+//	@ValidEmail
 	private String email;
 
 	@ValidMobileNumber
@@ -35,7 +34,7 @@ public class GuardianDTO implements Serializable {
 	@ValidateEmpty
 	private String relation;
 
-	@ValidateEmpty
+//	@ValidateEmpty
 	private String occupation;
 
 	private List<String> students;

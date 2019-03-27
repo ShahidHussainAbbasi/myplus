@@ -317,3 +317,12 @@ function dateToDMY(date) {
     var y = date.getFullYear();
     return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
 }
+
+function formToJSON(formId){
+	var myForm = document.getElementById(getAll);
+    var formData = new FormData(myForm),
+    obj = {};
+    for (var entry of formData.entries()){
+    	obj[entry[0]] = entry[1];
+    }	
+}

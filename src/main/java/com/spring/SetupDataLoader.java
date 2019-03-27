@@ -24,7 +24,7 @@ import com.persistence.model.User;
 @Component
 public class SetupDataLoader implements ApplicationListener<ContextRefreshedEvent> {
 
-    private boolean alreadySetup = true;
+    private boolean alreadySetup = false;
 
     @Autowired
     private UserRepository userRepository;
@@ -46,14 +46,12 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
 
     // API
 
-    @SuppressWarnings("null")
-	@Override
+    @Override
     @Transactional
     public void onApplicationEvent(final ContextRefreshedEvent event) {
         if (alreadySetup) {
             return;
         }
-
         // == create initial education role & privileges
     	ArrayList<Privilege> userPrivileges = new ArrayList<>();
     	ArrayList<Privilege> generalPrivileges = new ArrayList<>();
@@ -116,7 +114,8 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
     		}else if(key.startsWith("business.role.admin")) {
     			createRoleIfNotFound(rb.getString(key), adminBusinessPrivileges);
     	        createUserIfNotFound("email2uncer@gmail.com", "Shahid", "Hussain", "admin", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
-    	        createUserIfNotFound("sameerfaisal29@gmail.com", "Faisal", "Fameer", "03453176525", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
+    	        createUserIfNotFound("sameerfaisal29@gmail.com", "Faisal", "Sameer", "03453176525", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
+    	        createUserIfNotFound("Haidergarmentskpr@gmail.com","Irfan","Shabir", "03053939495", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
     		}else if(key.startsWith("business.role.super")) {
     			createRoleIfNotFound(rb.getString(key), superBusinessPrivileges);
     	        createUserIfNotFound("maxtheservice@gmail.com", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
@@ -184,6 +183,8 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
     		}else if(key.startsWith("education.role.admin")) {
     			createRoleIfNotFound(rb.getString(key), adminEducationPrivileges);
     	        createUserIfNotFound("admin@edu.com", "Shahid", "Hussain", "admin", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));
+    	        createUserIfNotFound("njaslam35@gmail.com", "Adeel", "Ahmed", "03062314046", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
+    	        createUserIfNotFound("Majidmalikofficial@gmail.com", "Majid", "Malik", "0333 0268525", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
     		}else if(key.startsWith("education.role.super")) {
     			createRoleIfNotFound(rb.getString(key), superEducationPrivileges);
     	        createUserIfNotFound("super@edu.com", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));
