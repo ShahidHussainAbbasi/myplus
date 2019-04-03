@@ -23,7 +23,6 @@ public class VenderDTO implements Serializable {
 	@ValidMobileNumber
 	private String mobile;
 	private String phone;
-	@ValidateEmpty
 	private String address;
 	@ValidEmail
 	private String email;

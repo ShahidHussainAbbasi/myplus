@@ -37,6 +37,7 @@ public class PurchaseDTO implements Serializable {
 	@ValidateEmpty
 	private Float quantity;
 
+	@ValidateEmpty
 	private Float purchaseRate;
 
 	private Float sellRate;

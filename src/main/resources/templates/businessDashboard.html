@@ -1,23 +1,8 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<div th:replace="header :: header-css" />
-
-<!-- start for export -->
-<!-- 
-<script src="resources/js/business/jquery-3.3.1.js"></script>
-<script src="resources/js/business/jquery.dataTables.min.js"></script>
-<script src="resources/js/business/dataTables.buttons.min.js"></script>
-<script src="resources/js/business/buttons.flash.min.js"></script>
-<script src="resources/js/business/jszip.min.js"></script>
-<script src="resources/js/business/pdfmake.min.js"></script>
-<script src="resources/js/business/vfs_fonts.js"></script>
-<script src="resources/js/business/buttons.html5.min.js"></script>
-<script src="resources/js/business/buttons.print.min.js"></script>
- -->
-<!-- end for export -->
-<script src="resources/js/business/business.js"></script>
-
+	<div th:replace="header :: header-css" />
+	<script src="resources/js/business/business.js"></script>
 </head>
 <body>
 	<div th:replace="header :: header" />
@@ -77,12 +62,12 @@
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="companyName">Name:</label>
+					<label class="control-label col-sm-2 req" for="companyName">Name:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="companyName" name="name"
 							placeholder="Company Name" required="required"> 
 					</div>
-					<label class="control-label col-sm-2" for="companyPhone">Phone:</label>
+					<label class="control-label col-sm-2 req" for="companyPhone">Phone:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="companyPhone" name="phone"
 							placeholder="Phone Number" required="required"> 
@@ -94,44 +79,21 @@
 						<input type="text" class="form-control" id="companyEmail"
 							name="email" placeholder="Email Address">
 					</div>
-					<label class="control-label col-sm-2" for="address">Address:</label>
+					<label class="control-label col-sm-2 req" for="address">Address:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="companyAddress"
 							name="address" placeholder="Complete Address" required="required">
 					</div>
 				</div>
-				<!-- 		
-		<div class="form-group">
-			<label class="control-label col-sm-2" for="dateBirth">Date of Birth:</label>
-			<div class="col-sm-4">
-				<div class="input-group date" id="pickerDateBirth">
-                    <input type='text' id="dateBirth" class="form-control" placeholder="dd/MM/yyyy" />
-                    <span class="input-group-addon">
-                        <span class="glyphicon glyphicon-calendar"></span>
-                    </span>
-                </div>
-			</div>
-		</div>
- -->
 				<div class="form-group">
-					<!--
-				<button type="submit" class="btn btn-info btn-cls"
-					th:text="#{label.form.submit}">submit</button>
- 				<button type="button" id="buttonSearch" class="btn btn-info">
-					<span class="glyphicon glyphicon-search"></span> Search
-				</button>
--->
 					<button type="button" id="addCompany" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
-					<!-- <button type="button" id="updateCompany" class="btn btn-info">
-						<span class="glyphicon glyphicon-pencil"></span> Update
-					</button> -->
 					<button type="button" id="deleteCompany" class="btn btn-warning">
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetItem" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -152,27 +114,22 @@
 			</div>
 		</div>
 		<div id="VenderDiv" class="formDiv">
-			
 			<h3 th:text="#{label.vender.form.heading}">Vender Registration
 				Form</h3>
-			
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Vender" autocomplete="off">
 				<div class="form-group" style="display: none">
 					<div class="col-sm-6">
 						<input type="number" class="form-control" id="venderId" name="id" readonly="readonly"/> 
 					</div>
-<!-- 					<div class="col-sm-6">
-						<input type="number" class="form-control" id="venderDated" name="dated" readonly="readonly"/> 
-					</div>
- -->				</div>
+				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" th:text="#{label.company}">Select	Company</label> 
 					<div class="col-sm-4">
 						<select	class="form-control" id="venderCompanyDD" name="companyId">
 						</select>
 					</div>
-					<label class="control-label col-sm-2" for="name">Name:</label>
+					<label class="control-label col-sm-2 req" for="name">Name:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="venderName" name="name"
 							placeholder="Vender Name" required="required">
@@ -184,7 +141,7 @@
 						<input type="text" class="form-control" id="venderPhone" name="phone"
 							placeholder="Phone Number">
 					</div>
-					<label class="control-label col-sm-2" for="mobile">Mobile:</label>
+					<label class="control-label col-sm-2 req" for="mobile">Mobile:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="venderMobile" name="mobile"
 							placeholder="Mobile Number" required="required">
@@ -199,7 +156,7 @@
 					<label class="control-label col-sm-2" for="address">Address:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="venderAddress"
-							name="address" placeholder="Complete Address" required="required"> 
+							name="address" placeholder="Complete Address"> 
 					</div>
 				</div>
 				<div class="form-group">
@@ -210,7 +167,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetItem" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -233,9 +190,7 @@
 			</div>
 		</div>
 		<div id="itemDiv" class="formDiv">
-			
 			<h4 th:text="#{label.item.form.heading}">Item Registration Form</h4>
-			
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Item" autocomplete="off">
 				<div class="form-group" style="display: none">
@@ -244,15 +199,15 @@
 					</div>
 				</div>
 				<div class="form-group" id="Item">
-					<label class="control-label col-sm-2" for="itemName">Full Name:</label>
+					<label class="control-label col-sm-2 req" for="itemName">Full name / Code:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="itemName" name="name"
 							placeholder="Item Name" required="required">
 					</div>
-					<label class="control-label col-sm-2" for="itemCode">Code:</label>
+					<label class="control-label col-sm-2" for="itemDesc">Description:</label>
 					<div class="col-sm-4">
-						<input type="text" class="form-control" id="itemCode" name="code"
-							placeholder="Item Code">
+						<input type="text" class="form-control" id="itemDesc" name="desc"
+							placeholder="Item desciption">
 					</div>
 				</div>
 				<div class="form-group">
@@ -271,12 +226,12 @@
 					<label class="control-label col-sm-2" for="itemSellAmount">Sell/Unit price:</label>
 					<div class="col-sm-4">
 						<input type="number" step="any" min="0" class="form-control" id="itemSellAmount"
-							name="sellAmount" placeholder=" Sell Amount 0.0" onkeyup="calculateNet()">
+							name="sellAmount" placeholder=" Sell Amount 0.0" onblur="calculateNet()" onkeyup="calculateNet()">
 					</div>
-					<label class="control-label col-sm-2" for="itemPurchaseAmount">Purchase/Unit price:</label>
+					<label class="control-label col-sm-2 req" for="itemPurchaseAmount">Purchase/Unit price:</label>
 					<div class="col-sm-4">
 						<input type="number" step="any" class="form-control" id="itemPurchaseAmount"
-							name="purchaseAmount" placeholder=" Purchase Amount 0.0" onkeyup="calculateNet()">
+							name="purchaseAmount" placeholder=" Purchase Amount 0.0" onblur="calculateNet()" onkeyup="calculateNet()" required="required">
 					</div>
 				</div>
 				<div class="form-group">
@@ -290,21 +245,14 @@
 					<label class="control-label col-sm-2" for="itemDiscount">Fix discount:</label>
 					<div class="col-sm-4">
 						<input type="number" step="any" class="form-control" id="itemDiscount"
-							name="discount" placeholder=" Discount 0.0" onkeyup="calculateNet()">
+							name="discount" placeholder=" Discount 0.0" onblur="calculateNet()" onkeyup="calculateNet()">
 					</div>
 				</div>
-<!-- 				<div class="form-group">
-					<label class="control-label col-sm-2" for="itemNet">Profit:</label>
-					<div class="col-sm-4">
-						<input type="number" class="form-control" id="itemNet" step=any min="0"
-							name="net" placeholder=" Net Amount 0.0" required="required">
-					</div>
-				</div>
- -->				<div class="form-group">
-					<label class="control-label col-sm-2" for="itemStock">Available Stock:</label>
+				<div class="form-group">
+					<label class="control-label col-sm-2 req" for="itemStock">Available Stock:</label>
 					<div class="col-sm-4">
 						<input type="number" step="any" min="0" class="form-control" id="itemStock"
-							name="stock" placeholder=" Availabe Stock">
+							name="stock" placeholder=" Availabe Stock" required="required">
 					</div>
 					<label class="control-label col-sm-2" for="itemExpDate">Expiration Date:</label>
 					<div class="col-sm-4">
@@ -320,7 +268,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetItem" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -330,17 +278,14 @@
 						<tr>
 							<th class="col-sm-1" data-field="itemId">ID</th>
 							<th class="col-sm-1" data-field="checkDelete"></th>
-							<th class="col-sm-1" data-field="itemCode">Item Code</th>
-							<th class="col-sm-1" data-field="itemName">Name</th>
+							<th class="col-sm-1" data-field="itemName">Item Name/Code</th>
+							<th class="col-sm-1" data-field="itemDesc">Description</th>
 							<th class="col-sm-1" data-field="itemCompanyDD">Company</th>
 							<th class="col-sm-1" data-field="itemVenderDD">Vender</th>
-							<!-- <th class="col-sm-1" data-field="itemTypeDD">Type</th> -->
-							<!-- <th class="col-sm-1" data-field="itemUnitDD">Unit</th> -->
 							<th class="col-sm-1" data-field="itemPurchaseAmount">P/U Price</th>
 							<th class="col-sm-1" data-field="itemSnellAmount">S/U Price</th>
 							<th class="col-sm-1" data-field="discountTypeDD">Disc Type</th>
 							<th class="col-sm-1" data-field="itemDiscount">Discount</th>
-							<!-- <th class="col-sm-1" data-field="itemNet">Profit</th> -->
 							<th class="col-sm-1" data-field="itemExpDate">Exp. Date</th>
 							<th class="col-sm-1" data-field="itemStock">Stock</th>
 							<th class="col-sm-1" data-field="dated">Dated</th>
@@ -352,7 +297,6 @@
 
 		<div id="purchaseDiv" class="formDiv">
 			<h4 th:text="#{label.purchase.form.heading}">Purchase Form</h4>
-			
 			<!-- <form class="form-horizontal" role="form"> -->
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Purchase" autocomplete="off">
@@ -362,42 +306,30 @@
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.item}">Select Item</label> 
+					<label class="control-label col-sm-2 req" th:text="#{label.item}">Select Item</label> 
 					<div class="col-sm-4">
 						<select
-							class="form-control onChangeSelect" id="purchaseItemDD" name="itemId">
+							class="form-control onChangeSelect" id="purchaseItemDD" name="itemId" required="required">
 						</select>
 					</div>
 					<label class="control-label col-sm-2" for="purchaseQuantity">QTY:</label>
 					<div class="col-sm-4">
-						<input type="number" step="any" min="0" placeholder=" Enter total item" class="form-control" id="purchaseQuantity" name="quantity" onkeyup="calculateNetPurchase()"/>
+						<input type="number" step="any" min="0" placeholder=" Enter total item" class="form-control" id="purchaseQuantity" 
+						name="quantity" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()" required="required"/>
 					</div>
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="purchaseSellAmount">S/U Price:</label>
 					<div class="col-sm-4">
 						<input type="number" step="any" class="form-control" id="purchaseSellRate"
-							name="sellRate" placeholder=" Sell Amount 0.0" onkeyup="calculateNetPurchase()">
+							name="sellRate" placeholder=" Sell Amount 0.0" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
 					</div>
-					<label class="control-label col-sm-2" for="purchasePurchaseRate">P/U Price:</label>
+					<label class="control-label col-sm-2 req" for="purchasePurchaseRate">P/U Price:</label>
 					<div class="col-sm-4">
 						<input type="number" step="any" class="form-control" id="purchasePurchaseRate"
-							name="purchaseRate" placeholder=" Purchase Amount 0.0" required="required" onkeyup="calculateNetPurchase()">
+							name="purchaseRate" placeholder=" Purchase Amount 0.0" required="required" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
 					</div>
 				</div>
-<!-- 				<div class="form-group">
-					<label class="control-label col-sm-2" for="purchaseExpense">Purchase Expense:</label>
-					<div class="col-sm-4">
-						<input type="number" class="form-control" id="purchaseExpense" step=any min="0"
-							name="purchaseExpense" placeholder=" Purchase expense" onblur="calculate()">
-					</div>
-					<label class="control-label col-sm-2" for="purchaseExpenseDesc">Purchase Expense Description:</label>
-					<div class="col-sm-4">
-						<input type="number" class="form-control" id="purchaseExpenseDesc" step=any min="0"
-							name="purchaseExpenseDesc" placeholder="Purchase expense desc">
-					</div>
-				</div>
- -->
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="purchaseTotalAmount">Total:</label>
 					<div class="col-sm-4">
@@ -407,7 +339,7 @@
 					<label class="control-label col-sm-2" for="purchaseDiscount" id="pdt">Discount:</label>
 					<div class="col-sm-4">
 						<input type="number" step=any class="form-control" id="purchaseDiscount"
-							name="discount" placeholder=" Discount 0.0" onkeyup="calculateNetPurchase()">
+							name="discount" placeholder=" Discount 0.0" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
 					</div>
 				</div>
 				<div class="form-group">
@@ -430,7 +362,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetPurchase" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -466,39 +398,46 @@
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.item}">Select Item</label> 
+					<label class="control-label col-sm-2 req">Item detail/Code</label> 
 					<div class="col-sm-4">
 						<select
 							class="form-control onChangeSelect selectpicker" id="sellItemDD" name="itemId" data-live-search="true">
 						</select>
 					</div>
-					<label class="control-label col-sm-2" for="sellItems">QTY:</label>
-					<div class="col-sm-4">
-						<input type="number" step="any" min="0" placeholder=" Enter total item" class="form-control" id="sellItems" name="quantity" onkeyup="calculateNetSell()"/>
+					<div style="display: none;">
+						<label class="control-label col-sm-2" for="sellItemDesc">Description</label> 
+						<div class="col-sm-4">
+							<input type="text" placeholder=" item description" class="form-control" id="sellItemDesc" name="desc"/>
+						</div>
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="sellSellAmount">S/U Price:</label>
+					<label class="control-label col-sm-2 req" for="sellItems">QTY:</label>
 					<div class="col-sm-4">
-						<input type="number" step="any" min="0" class="form-control" id="sellSellRate"
-							name="sellRate" placeholder=" Sell Amount " onkeyup="calculateNetSell()">
+						<input type="text" placeholder=" Enter total item" class="form-control" id="sellItems" name="quantity"
+						 onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required"/>
 					</div>
-					<label class="control-label col-sm-2" for="sellPurchaseRate">P/U Price:</label>
+					<label class="control-label col-sm-2" for="sellStock">Stock In Hand:</label>
 					<div class="col-sm-4">
-						<input type="number" step="any" min="0" class="form-control" id="sellPurchaseRate"
-							name="purchaseRate" placeholder=" Purchase Amount " required="required" onkeyup="calculateNetSell()">
+						<input type="text" class="form-control" id="sellStock" name="stock" readonly="readonly"/>
 					</div>
 				</div>
 				<div class="form-group">
+					<label class="control-label col-sm-2 req" for="sellSellAmount">S/U Price:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="sellSellRate"
+							name="sellRate" placeholder=" Sell Amount " onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required">
+					</div>
 					<label class="control-label col-sm-2" for="sellTotalAmount">Total:</label>
 					<div class="col-sm-4">
-						<input type="number" step="any" class="form-control" id="sellTotalAmount" name="totalAmount" readonly="readonly"/>
-						<!-- <output class="form-control" id="stotalAmount"> -->
+						<input type="text" class="form-control" id="sellTotalAmount" name="totalAmount" readonly="readonly"/>
 					</div>
+				</div>
+				<div class="form-group">
 					<label class="control-label col-sm-2" for="sellDiscount" id="sdt">Discount:</label>
 					<div class="col-sm-2">
-						<input type="number" step="any" class="form-control" id="sellDiscount"
-							name="discount" placeholder=" Discount 0.0" onkeyup="calculateNetSell()">
+						<input type="text" class="form-control" id="sellDiscount"
+							name="discount" placeholder=" Discount 0.0" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
 					</div>
 					<div class="col-sm-2">
 						<select id="selldtDD" name="dt" class="form-control" onchange="calculateNetSell()" required="required">
@@ -506,23 +445,48 @@
 							<option class="dropdown-item" value="%">%</option>
 						</select>
 					</div>					
+ 					<label class="control-label col-sm-2" for="sellrm">Receiving</label>
+ 					<div class="col-sm-4">
+						<input type="text" class="form-control" id="sellrm" readonly="readonly"/>
+					</div>
+				</div>
+				<div class="form-group" style="display: none">
+					<label class="control-label col-sm-2" for="sellR">Received:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="sellR"
+							name="R" placeholder=" Received amount " onblur="calcuBalSell()" onkeyup="calcuBalSell()">
+					</div>
+					<label class="control-label col-sm-2" for="sellB">Balance</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="sellB" name="B" readonly="readonly"/>
+					</div>
 				</div>
 				<div class="form-group">
+					<label class="control-label col-sm-2" for="sellCN">Customer name</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="sellCN"
+							name="cn" placeholder=" Customer name ">
+					</div>
+					<label class="control-label col-sm-2" for="sellCC">Contact #</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="sellCC" name="cc"/>
+					</div>
+				</div>
+				<div class="form-group" id="pDiv" style="display: none">
+					<label class="control-label col-sm-2" for="sellPurchaseRate">P/U Price:</label>
+					<div class="col-sm-4">
+						<input type="number" class="form-control" id="sellPurchaseRate"
+							name="purchaseRate" placeholder=" Purchase Amount " required="required" onblur="calculateNetSell()" onkeyup="calculateNetSell()" readonly="readonly">
+					</div>
 					<label class="control-label col-sm-2" for="net">Profit</label>
 					<div class="col-sm-4">
-						<input type="number" step="any" class="form-control" id="sellNetAmount" name="netAmount" readonly="readonly"/>
-						<!-- <output class="form-control" id="snetAmount"> -->
-					</div>
-					<label class="control-label col-sm-2" for="sellStock">Stock In Hand:</label>
-					<div class="col-sm-4">
-						<input type="number" step="any" min="0" class="form-control" id="sellStock" name="stock" readonly="readonly"/>
-						<!-- <output class="form-control" id="sstok"/> -->
+						<input type="text" class="form-control" id="sellNetAmount" name="netAmount" readonly="readonly"/>
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="display: block;">
  					<label class="control-label col-sm-2" for="sellrm">Add deduction</label>
  					<div class="col-sm-2">
-						<input type="number" step="any" class="form-control" id="sellsrp" name="srp" onkeyup="calculateSRP()"/>
+						<input type="number" class="form-control" id="sellsrp" name="srp" onblur="calculateSRP()" onkeyup="calculateSRP()"/>
 					</div>
 					<div class="col-sm-2">
 						<select id="srpDD" class="form-control" onchange="calculateSRP()">
@@ -530,139 +494,105 @@
 							<option class="dropdown-item" value="%">%</option>
 						</select>
 					</div>					
- 					<label class="control-label col-sm-2" for="sellrm">Receive amount</label>
- 					<div class="col-sm-4">
-						<input type="number" step="any" min="0" class="form-control" id="sellrm" readonly="readonly"/>
+					<label class="control-label col-sm-2" for="sellRe">Reason</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="sellRe" name="re"/>
 					</div>
 				</div>
 				<div class="form-group">
-					<button type="button" id="addSell" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+					<button type="button" id="addInviceItem" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Add
 					</button>
-					<button type="button" id="revertSell" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Return
+					<button type="button" id="deleteSellItem" class="btn btn-danger">
+						<span class="glyphicon glyphicon-minus-sign"></span> delete
 					</button>
-					<button type="reset" id="resetSell" class="btn btn-warning" onclick="resetBSDD('sellItemDD')">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+					<button type="reset" id="resetItem" class="btn btn-warning" onclick="resetBSDD('sellItemDD')">
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
-			<table id="tableSell" class="table table-bordered table-striped">
+			<br>
+			<div id="iDiv" style="text-align: center;" class="col-sm-12">
+				<div class="col-sm-3"></div>
+				<div class="table-bordered table-striped col-sm-6">
+					<h4 id="ibn">Haidar Garments KP</h4>
+					<h6 id="iba">Link road</h6>
+					<h3 id="im">12364</h3>
+					<hr>
+					<div class="col-sm-12">
+						<div id="idt" class="col-sm-6">11:58:1254</div>
+						<div id="in" class="col-sm-6">123</div>
+					</div>
+					<hr>
+					<div class="col-sm-12">
+						<div id="icn" class="col-sm-6">Shahid</div>
+						<div id="icc" class="col-sm-6">03114499660</div>
+					</div>
+					<br>
+					<div id="ism" class="col-sm-2">Irfan</div><div id="ism" class="col-sm-10"></div>
+					<hr>
+					<table id="tablesi" class="display" style="width:100%">
+						<thead>
+							<tr>
+								<th class="col-sm-1">Item id</th>
+								<th class="col-sm-2">Item detail/Code</th>
+								<th class="col-sm-2">Qty</th>
+								<th class="col-sm-2">S/U Price</th>
+								<th class="col-sm-2">Discount</th>
+								<th class="col-sm-2">Total</th>
+								<th class="col-sm-1">Action</th>
+							</tr>
+						</thead>
+					</table>
+					<hr>
+					<div id="tdiv">
+						<div class="col-sm-3" id="it">Total</div>
+						<div class="col-sm-2" id="itq"></div>
+						<div class="col-sm-2" id="itp"></div>
+						<div class="col-sm-2" id="itd"></div>
+						<div class="col-sm-2" id="itt"></div>
+						<div class="col-sm-1" id="action"></div>				
+					</div>
+				</div>	
+				<div class="col-sm-3"></div>
+			</div>
+			<br>
+			<div class="form-group">
+				<button type="button" id="addSell" class="btn btn-success">
+					<span class="glyphicon glyphicon-plus-sign"></span> Submit
+				</button>
+				<button type="button" id="printSell" class="btn btn-success" onclick="printDiv('iDiv')"><!-- print and submit -->
+					<span class="glyphicon glyphicon-print"></span> Submit & Print
+				</button>					
+				<button type="button" id="revertSell" class="btn btn-danger">
+					<span class="glyphicon glyphicon-minus-sign"></span> return
+				</button>
+			</div>			
+			<div style="display: none">Toggle column: <a class="toggle-vis" data-column="10">P/U Price</a> - <a class="toggle-vis" data-column="11">Profit</a></div>
+			<table id="tableSell" class="table table-bordered table-striped" style="width:100%">
 				<thead>
 					<tr>
 						<th class="col-sm-1" data-field="sellId">ID</th>
-						<th class="col-sm-1" data-field="sellItemDD">Name</th>
-						<th class="col-sm-1" data-field="sellSellRate">S/U Price</th>
-						<th class="col-sm-1" data-field="sellPurchaseRate">P/U Price</th>
+						<th class="col-sm-1" data-field="sellItemDD">Item detail/Code</th>
 						<th class="col-sm-1" data-field="sellItems">Qty</th>
+						<th class="col-sm-1" data-field="sellStock">Stock</th>
+						<th class="col-sm-1" data-field="sellSellRate">S/U Price</th>
 						<th class="col-sm-1" data-field="sellTotalAmount">Total</th>
 						<th class="col-sm-1" data-field="sellDiscount">Discount</th>
 						<th class="col-sm-1" data-field="selldtDD">Type</th>
+<!-- 						<th class="col-sm-1" data-field="sellR">Received</th>
+						<th class="col-sm-1" data-field="sellB">Balance</th>
+ -->						<th class="col-sm-1" data-field="sellCN">Customer Name</th>
+						<th class="col-sm-1" data-field="sellCC">Customer Contact</th>
+						<th class="col-sm-1" data-field="sellPurchaseRate">P/U Price</th>
 						<th class="col-sm-1" data-field="sellNetAmount">Profit</th>
-						<th class="col-sm-1" data-field="sellsrp">S/R Profit</th>
-						<th class="col-sm-1" data-field="sellStock">Stock</th>
+						<th class="col-sm-1" data-field="sellsrp">Return profit</th>
+						<th class="col-sm-1" data-field="sellRe">Return reason</th>
 						<th class="col-sm-1" data-field="dated">Dated</th>
 					</tr>
 				</thead>
 			</table>
 		</div>
-		
-		<!-- below 2 sections are temporary hidden -->
-		
-<!-- 		<div id="ItemTypeDiv" class="formDiv">
-			
-			<h4 th:text="#{label.itemType.form.heading}">Item Type Registration Form</h4>
-			
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="ItemType" autocomplete="off">
-				<div class="form-group" style="display: none">
-					<div class="col-sm-6">
-						<input type="number" class="form-control" id="itemTypeId" name="id" readonly="readonly"/> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="itemTypeName">Item Type:</label>
-					<div class="col-sm-3">
-						<input type="text" class="form-control" id="itemTypeName" name="name"
-							placeholder="Item Type" required="required">
-					</div>
-					<label class="control-label col-sm-2" for="itemTypeDescription">Description:</label>
-					<div class="col-sm-3">
-						<input type="text" class="form-control" id="itemTypeDescription"
-							name="description" placeholder="Description">
-					</div>
-				</div>
-				<div class="form-group">
-					<button type="button" id="addItemType" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteItemType" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetItem" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
-					</button>
-				</div>
-			</form>
-			<table id="tableItemType" class="table table-bordered table-striped">
-				<thead>
-					<tr>
-						<th class="col-sm-3" data-field="itemTypeId">ID</th>
-						<th class="col-sm-3" data-field="checkDelete"></th>
-						<th class="col-sm-3" data-field="itemTypeName">Item Type</th>
-						<th class="col-sm-3" data-field="itemTypeDescription">Description</th>
-					</tr>
-				</thead>
-			</table>
-		</div>
-		<div id="ItemUnitDiv" class="formDiv">
-			
-			<h4 th:text="#{label.itemUnit.form.heading}">Item Unit Registration Form</h4>
-			
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="ItemUnit" autocomplete="off">
-				<div class="form-group" style="display: none">
-					<div class="col-sm-6">
-						<input type="number" class="form-control" id="itemUnitId" name="id" readonly="readonly"/> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="itemUnitName">Item Unit:</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="itemUnitName" name="name"
-							placeholder="Item Unit" required="required">
-					</div>
-					<label class="control-label col-sm-2" for="itemUnitDescription">Description:</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="itemUnitDescription"
-							name="description" placeholder="Description">
-					</div>
-				</div>
-				<div class="form-group">
-					<button type="button" id="addItemUnit" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteItemUnit" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetItem" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
-					</button>
-				</div>
-			</form>
-			<table id="tableItemUnit" class="table table-bordered table-striped">
-				<thead>
-					<tr>
-						<th class="col-sm-3" data-field="itemUnitId">ID</th>
-						<th class="col-sm-3" data-field="checkDelete"></th>
-						<th class="col-sm-3" data-field="itemUnitName">Item Unit</th>
-						<th class="col-sm-3" data-field="itemUnitDescription">Description</th>
-					</tr>
-				</thead>
-			</table>
-		</div>	
- -->		
-			
 	</div>
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];

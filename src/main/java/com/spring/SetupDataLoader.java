@@ -184,11 +184,13 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
     			createRoleIfNotFound(rb.getString(key), adminEducationPrivileges);
     	        createUserIfNotFound("admin@edu.com", "Shahid", "Hussain", "admin", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));
     	        createUserIfNotFound("njaslam35@gmail.com", "Adeel", "Ahmed", "03062314046", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
-    	        createUserIfNotFound("Majidmalikofficial@gmail.com", "Majid", "Malik", "0333 0268525", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
+    	        createUserIfNotFound("Majidmalikofficial@gmail.com", "Majid", "Malik", "03330268525", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
+    	        createUserIfNotFound("kashif_ucit@yahoo.com", "Kashif", "Siddique", "03334589059", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
     		}else if(key.startsWith("education.role.super")) {
     			createRoleIfNotFound(rb.getString(key), superEducationPrivileges);
     	        createUserIfNotFound("super@edu.com", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));
-    	        createUserIfNotFound("ednan.ansari@gmail.com", "Adnan", "Ansari", "03002255425", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
+    	        createUserIfNotFound("ednan.ansari@gmail.com", "Adnan", "Ansari", "03332255425", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
+    	        createUserIfNotFound("misteransari@hotmail.com", "Adnan", "Ansari", "03332255425", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
     		}else if(key.startsWith("user.role")) {
     			createRoleIfNotFound(rb.getString(key), userPrivileges);
     	        createUserIfNotFound("user@user.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));

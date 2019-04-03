@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,8 +46,7 @@ public class GuardianController {
 			Guardian filterBy = new Guardian();
 			User user = requestUtil.getCurrentUser();
 			filterBy.setUserId(user.getId());
-	        Example<Guardian> example = Example.of(filterBy);
-			List<Guardian> objs = guardianService.findAll(example);
+			List<Guardian> objs = guardianService.findAll(Example.of(filterBy));
 			if(AppUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			
@@ -124,7 +122,7 @@ public class GuardianController {
 				obj.setName(dto.getName());
 				Example<Guardian> example = Example.of(obj);
 				if(guardianService.exists(example))
-					return new GenericResponse("FOUND",messages.getMessage("The Guardian "+dto.getName()+" already exist", null, request.getLocale()));
+					return new GenericResponse("FOUND",messages.getMessage("message.exist", null, request.getLocale()));
 			}
 
 			obj  = modelMapper.map(dto, Guardian.class);
@@ -132,37 +130,36 @@ public class GuardianController {
 			obj.setUpdated(dated);
 			obj = guardianService.save(obj);
 			if(AppUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("FAILED",messages.getMessage("message.fail_saveOrUpdate", null, request.getLocale()));
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("SUCCESS",messages.getMessage("message.success_saveOrUpdate", null, request.getLocale()));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			AppUtil.le(this.getClass(), e);
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
+			return new GenericResponse("ERROR",messages.getMessage("message.error_system_error "+e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
 	}
 	
 	@RequestMapping(value = "/deleteGuardian", method = RequestMethod.POST)
 	@ResponseBody
-	public boolean deleteGuardian( HttpServletRequest req, HttpServletResponse resp ){
+	public GenericResponse deleteGuardian(final HttpServletRequest request){
 		try {
-		String ids = req.getParameter("checked");
+		String ids = request.getParameter("checked");
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-//					guardianService.deleteById(Long.valueOf(id));
-					guardianService.deleteById(Long.valueOf(id));//.updateStatus("Inactive", id,new Date());
+					guardianService.deleteById(Long.valueOf(id));
 				}
-				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
+				return new GenericResponse("SUCCESS",messages.getMessage("message.success_delete", null, request.getLocale()));
 			}else {
-				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
+				return new GenericResponse("FAILED",messages.getMessage("message.fail_delete", null, request.getLocale()));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			AppUtil.le(this.getClass(), e);
-			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
+			return new GenericResponse("ERROR",messages.getMessage("message.e", null, request.getLocale()));
 		}
 	}
 }

@@ -13,13 +13,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
-import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.persistence.model.User;
 import com.persistence.model.business.Item;
@@ -34,7 +34,7 @@ import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
 import com.web.util.RequestUtil;
 
-@Controller
+@RestController
 public class ItemController {
 
 	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
@@ -155,6 +155,9 @@ public class ItemController {
 	@ResponseBody
 	public Item getItem(@RequestParam final Long itemId) {
 		try {
+			if(AppUtil.isEmptyOrNull(itemId))
+				return null;
+			
 			return itemService.findById(itemId).get();
 		} catch (Exception e) {
 			e.printStackTrace();

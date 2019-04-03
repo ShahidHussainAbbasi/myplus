@@ -118,7 +118,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetOwner" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -202,7 +202,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetSchool" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -293,7 +293,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetGrade" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -441,7 +441,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetStaff" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -551,7 +551,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetGuardian" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -614,34 +614,8 @@
 					</div>
 					<label class="control-label col-sm-2 req" th:text="#{label.select.institute}" for="studentSchoolDD">Select Institute</label> 
 					<div class="col-sm-4">
-					<!--
-						<input type="text" class="form-control" name="schoolId" required="required" id="studentSchoolId" list="studentSchoolDD" placeholder="e.g. JavaScript">
-					  
-	 					  <datalist id="languages">
-						    <option value="HTML">
-						    <option value="CSS">
-						    <option value="JavaScript">
-						    <option value="Java">
-						    <option value="Ruby">
-						    <option value="PHP">
-						    <option value="Go">
-						    <option value="Erlang">
-						    <option value="Python">
-						    <option value="C">
-						    <option value="C#">
-						    <option value="C++">
-						  </datalist>					
--->		
-			
 						<select class="form-control" id="studentSchoolDD" name="schoolId" required="required">
-							
 						</select>
- 	 						
-<!--  						
-						<select class="form-control selectpicker" id="studentSchoolDD" name="schoolId" required="required" data-live-search="true">
-    
-  						</select>
---> 
 					</div>
 				</div>
 				<div class="form-group">				
@@ -664,19 +638,13 @@
 						<select class="form-control" id="studentFeeMode" name="feeMode">
 							<option class="dropdown-item" value=""> Nothing Selected </option>
 							<option class="dropdown-item" value="Monthly">Monthly</option>
-<!-- 		 					<option class="dropdown-item" value="2 Month">2 Month</option>
-		 					<option class="dropdown-item" value="3 Month">3 Month</option>
-		 					<option class="dropdown-item" value="4 Month">4 Month</option>
-		 					<option class="dropdown-item" value="5 Month">5 Month</option>
-		 					<option class="dropdown-item" value="6 Month">6 Month</option>
-		 					<option class="dropdown-item" value="Yealy">Yearly</option>
- -->		 					<option class="dropdown-item" value="Randomly">Randomly</option>
+		 					<option class="dropdown-item" value="Randomly">Randomly</option>
 		 				</select>
 					</div>
-					<label class="control-label col-sm-2" for="studentFee">Student Fee</label>
+					<label class="control-label col-sm-2 req" for="studentFee">Student Fee</label>
 					<div class="col-sm-4">
 						<input type="number" class="form-control" id="studentFee" name="fee"
-							placeholder=" Enter Fee "> 
+							placeholder=" Enter Fee " required="required"> 
 					</div>
 				</div>
  				<div class="form-group">
@@ -782,7 +750,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetStudent" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -885,7 +853,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetSubject" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -983,7 +951,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetVehicle" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -1075,7 +1043,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetDiscount" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -1224,7 +1192,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetAlerts" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 					<button type="reset" id="sendAlerts" class="btn btn-primary">
 						<span class="glyphicon glyphicon-send"></span> Send
@@ -1435,7 +1403,7 @@
 						<span class="glyphicon glyphicon-minus-sign"></span> Delete
 					</button>
 					<button type="reset" id="resetFc" class="btn btn-primary">
-						<span class="glyphicon glyphicon-refresh"></span> Reset
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
 				</div>
 			</form>
@@ -1476,7 +1444,8 @@
 					<div class="col-sm-4">
 						<select class="form-control" id="fvb" name="vb" required="required">
 							<option class="dropdown-item" value=0 selected="selected">Student</option>
-							<option class="dropdown-item" value=1>Grade</option>
+							<option class="dropdown-item" value=1>Guardian</option>
+							<option class="dropdown-item" value=2>Grade</option>
 						</select>	
 					</div>
 					<div id="fvidiv">
@@ -1492,9 +1461,9 @@
 					<div class="col-sm-4">
 						<select class="form-control" id="fvp" name="vp" required="required">
 							<option class="dropdown-item" value=0 selected="selected">Current month</option>
-							<option class="dropdown-item" value=2>Last 2 month</option>
-							<option class="dropdown-item" value=3>Last 3 month</option>
-							<option class="dropdown-item" value=4>Custom range</option>
+							<option class="dropdown-item" value=2 disabled="disabled">Last 2 month</option>
+							<option class="dropdown-item" value=3 disabled="disabled">Last 3 month</option>
+							<option class="dropdown-item" value=4 disabled="disabled">Custom range</option>
 						</select>	
 					</div>
 				</div>

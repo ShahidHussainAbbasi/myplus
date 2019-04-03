@@ -3,8 +3,6 @@ package com.persistence.model.business;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 import javax.persistence.Column;
 import javax.persistence.ElementCollection;
@@ -20,6 +18,9 @@ import javax.persistence.Table;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * The persistent class for the doctor database table.
  * 
@@ -29,12 +30,14 @@ import org.hibernate.annotations.NotFoundAction;
 public class Item implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	@Id
+	@Id	
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "item_id", unique = true, nullable = false)
 	private Long id;
 
-	private String code;
+	@Column(name = "description")
+	@Getter@Setter
+	private String desc;
 
 	@Column(name = "user_id")
 	private Long userId;
@@ -111,20 +114,6 @@ public class Item implements Serializable {
 	 */
 	public void setId(Long id) {
 		this.id = id;
-	}
-
-	/**
-	 * @return the code
-	 */
-	public String getCode() {
-		return code;
-	}
-
-	/**
-	 * @param code the code to set
-	 */
-	public void setCode(String code) {
-		this.code = code;
 	}
 
 	/**

@@ -12,12 +12,14 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
-import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.persistence.model.User;
 import com.persistence.model.business.Item;
@@ -31,9 +33,10 @@ import com.service.business.ISellService;
 import com.web.dto.business.SellDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
+import com.web.util.ObjectMapperUtils;
 import com.web.util.RequestUtil;
 
-@Controller
+@RestController
 public class SellController {
 
 	@Autowired
@@ -59,6 +62,9 @@ public class SellController {
 	
 	@Autowired
 	RequestUtil requestUtil;
+	
+	@Autowired
+	ObjectMapperUtils objectMapperUtils;
 
 	ModelMapper modelMapper = new ModelMapper();
 	
@@ -178,6 +184,46 @@ public class SellController {
 		}
 	}
 	
+	@PostMapping(value = "/addSelling")
+	@ResponseBody
+	public GenericResponse addSelling(@RequestBody final List<SellDTO> dtos, final HttpServletRequest request) {
+		try {
+//			Sell obj= new Sell();
+			LocalDateTime dated = LocalDateTime.now();
+			User user = requestUtil.getCurrentUser();
+			List<Sell> objs = ObjectMapperUtils.mapAll(dtos, Sell.class);
+			objs.forEach(obj ->{
+				obj.setUserId(user.getId());
+				//if update
+				Item item = itemService.getOne(obj.getItemId());
+	        	Float stock = item.getStock()-obj.getQuantity();
+				if(!AppUtil.isEmptyOrNull(obj.getId())){
+					Sell objTemp = sellService.getOne(obj.getId());
+					if(objTemp.getQuantity() > obj.getQuantity())
+						stock = item.getStock() - (obj.getQuantity() - objTemp.getQuantity());
+					else
+						stock = item.getStock() + (objTemp.getQuantity() - obj.getQuantity());
+					
+					item.setStock(stock);	
+				}
+				//updating stock
+				item.setStock(stock);
+		        itemService.save(item);
+	//			//updating stock
+		        obj.setStock(stock);
+		        obj.setDated(dated);
+				obj.setUpdated(dated);
+	
+				obj = sellService.save(obj);
+			});
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+		} catch (Exception e) {
+			e.printStackTrace();
+			AppUtil.le(this.getClass(),e);
+			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
+					e.getCause().toString());
+		}
+	}
 	@RequestMapping(value = "/revertSell", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse reverSell(@Validated final SellDTO dto, final HttpServletRequest request) {

@@ -1,8 +1,8 @@
 package com.web.dto.education;
 
 import java.io.Serializable;
-import java.util.List;
 
+import com.validation.ValidEmail;
 import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
 
@@ -18,7 +18,7 @@ public class GuardianDTO implements Serializable {
 
 	private String userType;
 
-//	@ValidEmail
+	@ValidEmail
 	private String email;
 
 	@ValidMobileNumber
@@ -34,10 +34,9 @@ public class GuardianDTO implements Serializable {
 	@ValidateEmpty
 	private String relation;
 
-//	@ValidateEmpty
 	private String occupation;
 
-	private List<String> students;
+//	private List<String> students;
 
 	private String datedStr;
 
@@ -75,19 +74,19 @@ public class GuardianDTO implements Serializable {
 		this.occupation = occupation;
 	}
 
-	/**
-	 * @return the students
-	 */
-	public List<String> getStudents() {
-		return students;
-	}
-
-	/**
-	 * @param students the students to set
-	 */
-	public void setStudents(List<String> students) {
-		this.students = students;
-	}
+//	/**
+//	 * @return the students
+//	 */
+//	public List<String> getStudents() {
+//		return students;
+//	}
+//
+//	/**
+//	 * @param students the students to set
+//	 */
+//	public void setStudents(List<String> students) {
+//		this.students = students;
+//	}
 
 	/**
 	 * @return the name

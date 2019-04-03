@@ -85,6 +85,7 @@ public class StudentDTO implements Serializable {
 
 	private String updatedStr;
 	
+	@ValidateEmpty
 	private Integer fee;
 
 	private Integer dueDay = 10;

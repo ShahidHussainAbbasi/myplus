@@ -1,6 +1,107 @@
+var data=[]; // use a global for the submit and return data rendering in the examples
+var tablesi;
+var removed = true;
+
+function printDiv(divId) {
+  let mywindow = window.open('', 'PRINT', 'height=650,width=900,top=100,left=150');
+
+ // mywindow.document.write(`<html><head><title>${title}</title>`);
+  mywindow.document.write('</head><body >');
+  mywindow.document.write(document.getElementById(divId).innerHTML);
+  mywindow.document.write('</body></html>');
+
+  mywindow.document.close(); // necessary for IE >= 10
+  mywindow.focus(); // necessary for IE >= 10*/
+
+  mywindow.print();
+  mywindow.close();
+
+  return true;
+}
+$(document).ready(function() {
+   /* var table = $("#tableSell").DataTable( {
+        "scrollY": "200px"
+    } );*/
+ 
+    $('a.toggle-vis').on( 'click', function (e) {
+        e.preventDefault();
+        // Get the column API object
+        var column = datatable.column( $(this).attr('data-column') );
+ 
+        // Toggle the visibility
+        if(column.visible()){
+            column.visible( ! column.visible() );
+        }
+    } );
+    //invoice table
+    tablesi = $('#tablesi').DataTable( {
+        "scrollY": "100px",
+        "paging": false,
+        "searching":false,
+        "info": false
+    } );
+    
+    tablesi.columns( [0] ).visible( false );
+    
+    $('#tablesi tbody').on( 'click', 'tr', function () {
+        if ( $(this).hasClass('selected') ) {
+            $(this).removeClass('selected');
+        }else {
+        	tablesi.$('tr.selected').removeClass('selected');
+            $(this).addClass('selected');
+            if(removed)
+            	tablesi.row(this).remove().draw( false );
+            
+            removed = false;
+        }
+    } );
+ 
+  //All button get initialized when user switch form
+    $("#addInviceItem").off().click(function() {
+        //If all form's required fields are filled
+    	validateForm();
+        if(formValidated){
+        	var obj  = formToJSON("Sell");
+        	data.push(obj);
+			var arr = [
+				obj.itemId,$( "#sellItemDD :selected" ).text(),obj.quantity,obj.sellRate,obj.discount,(obj.totalAmount*ONE - obj.discount*ONE),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
+				];
+			tablesi.row.add(arr).draw();
+			CIT(data);//calculate invoice totals
+        }else{
+        	alert("Please make sure you have entered valid values");
+        	return false;
+        }
+    });
+} );
+
+function UIT(id){
+	data.forEach(function(d,i){
+		if(id==d.itemId){
+			removed = true;
+			data.splice(i,1);
+		}
+	});
+	CIT(data)
+}
+
+function CIT(data){
+	var q=ZERO,sr=ZERO,dis=ZERO,t=ZERO;
+	data.forEach(function(d){
+		q=d.quantity*ONE+q;
+		sr=d.sellRate*ONE+sr;
+		dis=d.discount*ONE+dis;
+		t=d.totalAmount*ONE+t;
+	});
+	$("#itq").text(q);
+	$("#itp").text(sr);
+	$("#itd").text(dis);
+	$("#itt").text(t-dis);
+	$("#action").text("");
+}
+
 function loadDataTable(){
 	//check if data table exist destroy it
-	console.log(111)
 	var offset = $( "select[name='tableSell_length']" ).val();
 	if(!offset)
 		offset = 5;
@@ -78,7 +179,7 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=itemId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=itemCode>"+obj.code+"</div>", "<div id=itemName>"+obj.name+"</div>", 
+							 "<div id=itemName>"+obj.name+"</div>", "<div id=itemDesc>"+obj.desc+"</div>",
 							"<div id=itemCompanyDD>"+obj.companyName+"</div>",  "<div id=itemVenderDD>"+obj.venderName+"</div>", 
 							"<div id=itemPurchaseAmount>"+obj.purchaseAmount+"</div>","<div id=itemSellAmount>"+obj.sellAmount+"</div>",
 							"<div id=discountTypeDD>"+obj.discountType+"</div>","<div id=itemDiscount>"+obj.discount+"</div>",/* "<div id=itemNet>"+obj.net+"</div>",*/
@@ -101,13 +202,15 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=sellId>"+obj.id+"</div>","<div id=sellItemDD>"+obj.itemName+"</div>", 
-							"<div id=sellSellRate>"+obj.sellRate+"</div>",  "<div id=sellPurchaseRate>"+obj.purchaseRate+"</div>", 
-							"<div id=sellItems>"+obj.quantity+"</div>", "<div id=sellTotalAmount>"+obj.totalAmount+"</div>",
-							"<div id=sellDiscount>"+obj.discount+"</div>","<div id=selldtDD>"+obj.dt+"</div>",
-							"<div id=sellNetAmount>"+obj.netAmount+"</div>","<div id=sellsrp>"+obj.srp+"</div>", 
-							"<div id=sellStock>"+obj.stock+"</div>",obj.updatedStr
+							"<div id=sellItems>"+obj.quantity+"</div>",
+							"<div id=sellStock>"+obj.stock+"</div>","<div id=sellSellRate>"+obj.sellRate+"</div>", 
+							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellDiscount>"+obj.discount+"</div>",
+							"<div id=selldtDD>"+obj.dt+"</div>","<div id=sellCN>"+obj.cn+"</div>","<div id=sellCC>"+obj.cc+"</div>",
+							"<div id=sellPurchaseRate>"+obj.purchaseRate+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
+							"<div id=sellsrp>"+obj.srp+"</div>","<div id=sellRe>"+obj.re+"</div>",obj.updatedStr
 							];
 						datatable.row.add(arr).draw();
+						datatable.columns( [10,11] ).visible( false );
 					});
 				}
 			},
@@ -227,20 +330,11 @@ function populateData(label,value){
 	$("#sellItems").removeClass("alert-danger");
 	$("pdt").html("      ");
     $.get(serverContext+ "getItem?itemId="+value,function(data){
-    	console.log(data);
     	if(data){
 	    	discountValue = data.discount;
 	    	discountType = data.discountType;
     		$("#selldtDD").val(discountType);
-    		//discountType = "amount";
-/*	    	if(discountType.indexOf("%") <0){
-	    		$("#selldtDD").val("amount");
-	    		discountType = "amount";
-	    	}else{
-	    		$("#selldtDD").val("%");
-	    		discountType = "%";
-	    	}	
-*/	    	itemStock = data.stock;
+	    	itemStock = data.stock;
     		if(value && tableV=="Purchase"){
     			$("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val():0;
 		    	$("#purchasePurchaseRate").val(data.purchaseAmount);
@@ -264,7 +358,6 @@ function populateData(label,value){
 		    	if($("#sellItems").val()*1<=0){
 		    		$("#sellItems").val(1);
 		    	}
-		    	//$("#sdt").html(discountType+" Discount");
 		    	calculateNetSell();
     		}
     	}
@@ -275,15 +368,14 @@ function populateData(label,value){
 }
 
 function calculateNetPurchase(){
-	var p = $("#purchasePurchaseRate").val();
-	var s= $("#purchaseSellRate").val();
-	
-	var qty= $("#purchaseQuantity").val();
-	var purchaseDiscount = $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val()*1:0;
+	var p = $("#purchasePurchaseRate").val()*ONE;
+	var s= $("#purchaseSellRate").val()*ONE;
+	var qty= $("#purchaseQuantity").val()*ONE;
+	var purchaseDiscount = $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val()*ONE:0;
 	var purchaseTotalAmount = $($("#totalAmount").val(parseFloat(qty * p).toFixed(2))).val();
 	$("#stok").val(itemStock);
 	if(discountType == "%"){
-		//Discount  =  List Price × Discount Rate 
+		//Discount  =  List Price Ã— Discount Rate 
 		purchaseDiscount = purchaseTotalAmount * (purchaseDiscount*1 / 100);
 	}else{
 		purchaseDiscount = purchaseDiscount * qty;
@@ -299,13 +391,11 @@ function calculateNetSell(){
 	var p = $("#sellPurchaseRate").val()*ONE;
 	var s= $("#sellSellRate").val()*ONE;
 	$("#sellItems").removeClass("alert-danger");
-	
-	var qty= $("#sellItems").val()*1>0?$("#sellItems").val():1;
+	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
 	discountType = $("#selldtDD :selected").val();
 	if(edit){
-		itemStock = $("#sellStock").val();
+		itemStock = $("#sellStock").val()*ONE;
 	}
-
 	$("#sellStock").val(itemStock);
 	if(itemStock < qty){
 		$("#sellItems").addClass("alert-danger");
@@ -313,14 +403,13 @@ function calculateNetSell(){
 		$(".form-control").val("");
 		return false;
 	}
-	
-	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val():0;
+	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val()*ONE:0;
 	sellTotalAmount = parseFloat(qty * s).toFixed(2);
 	if(discountType == "%"){
-		//Discount  =  List Price × Discount Rate 
+		//Discount  =  List Price Ã— Discount Rate 
 		sellDiscount =  sellTotalAmount * (sellDiscount*1 / 100);
 	}else{
-		sellDiscount = sellDiscount * qty;
+		//sellDiscount = sellDiscount * qty;
 		//$("#sellDiscount").val(sellDiscount);
 	}
 	var profit = parseFloat(sellTotalAmount- (p*qty) - sellDiscount).toFixed(2);
@@ -335,15 +424,13 @@ function calculateNetSell(){
 }
 
 function calculateSRP(){
-	var s= $("#sellSellRate").val();
+	var s= $("#sellSellRate").val()*ONE;
 	if(!s || s<=0){
 		alert("Please select valid item's record to return sold");
 		return false;
 	}
-	
-	var qty= $("#sellItems").val()*1>0?$("#sellItems").val():1;
-	
-	var srp= $("#sellsrp").val()*1>0?$("#sellsrp").val():0;
+	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
+	var srp= $("#sellsrp").val()*1>0?$("#sellsrp").val()*ONE:0;
 	sellTotalAmount = parseFloat(qty * s).toFixed(2);
 	var type = $("#srpDD :selected" ).val();
 	if(type == "%"){

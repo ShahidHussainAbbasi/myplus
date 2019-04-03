@@ -5,6 +5,9 @@ import java.time.LocalDate;
 
 import com.validation.ValidateEmpty;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * The persistent class for the doctor database table.
  * 
@@ -25,11 +28,17 @@ public class FeeCollectionDTO implements Serializable {
 	private String sen;
 
 	private String gn;
-
+	
+	@Getter@Setter
+	private Long gId;
+	
 	private String scn;
 
 	private String g;
 
+	@Getter@Setter
+	private Long grId;
+	
 	private String dt;
 
 	private Integer d;

@@ -277,7 +277,7 @@ public class AppUtil {
     }
 
     public static void le(Class<?> c,Exception e) {
-		log.error(c.getName()+"  >>>  "+e.getClass());
+		log.error(c.getName()+"  >>>  "+e.getMessage());
     }
     public static void li(Class<?> c,String s) {
 		log.info(c.getName()+"  >>>  "+s);

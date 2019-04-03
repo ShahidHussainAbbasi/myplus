@@ -11,6 +11,9 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * The persistent class for the doctor database table.
  * 
@@ -74,7 +77,25 @@ public class Sell implements Serializable {
 
 	private LocalDateTime updated;
 
-
+//	@Column(name = "received")
+//	@Getter@Setter
+//	private String R;
+//	
+//	@Column(name = "balance")
+//	@Getter@Setter
+//	private String B;
+	
+	@Column(name = "customer_name")
+	@Getter@Setter
+	private String cn;
+	
+	@Column(name = "customer_contact")
+	@Getter@Setter
+	private String cc;
+	
+	@Column(name = "return_reason")
+	@Getter@Setter
+	private String re;
 
 	/**
 	 * @return the id

@@ -2,6 +2,9 @@ package com.web.dto.business;
 
 import java.io.Serializable;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * The persistent class for the doctor database table.
  * 
@@ -33,19 +36,19 @@ public class SellDTO implements Serializable {
 
 	private Float quantity=1F;
 
-	private Float purchaseRate;
+	private Float purchaseRate=0.0F;
 
-	private Float sellRate;
+	private Float sellRate=0.0F;
 
 	private Float discount=0.0F;
 
-	private Float totalAmount;
+	private Float totalAmount=0.0F;
 
-	private Float netAmount;
+	private Float netAmount=0.0F;
 
-	private Float srp;
+	private Float srp=0.0F;
 	
-	private Float stock;
+	private Float stock=0.0F;
 
 //	private Float sellExpense;
 //
@@ -58,6 +61,22 @@ public class SellDTO implements Serializable {
 	private String updatedStr;
 
 	private String dt="Rs";
+	
+//	@Getter@Setter
+//	private String R;
+//	
+//	@Getter@Setter
+//	private String B;
+	
+	@Getter@Setter
+	private String cc="";
+	
+	@Getter@Setter
+	private String cn="";
+	
+	@Getter@Setter
+	private String re="";
+	
 	/**
 	 * @return the id
 	 */

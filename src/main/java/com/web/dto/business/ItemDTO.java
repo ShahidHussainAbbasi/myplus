@@ -5,6 +5,9 @@ import java.util.Set;
 
 import com.validation.ValidateEmpty;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * The persistent class for the doctor database table.
  * 
@@ -66,7 +69,9 @@ public class ItemDTO implements Serializable {
 
 	private String datedStr;
 	private String updatedStr;
-
+	
+	@Getter@Setter
+	private String desc;
 	/**
 	 * @return the id
 	 */

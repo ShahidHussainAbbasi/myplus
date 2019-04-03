@@ -1,3 +1,17 @@
+var month = new Array();
+month[0] = "Jan";
+month[1] = "Feb";
+month[2] = "Mar";
+month[3] = "Apr";
+month[4] = "May";
+month[5] = "Jun";
+month[6] = "Jul";
+month[7] = "Aug";
+month[8] = "Sep";
+month[9] = "Oct";
+month[10] = "Nov";
+month[11] = "Dec";
+
 var buttonV = "Company";
 var deleteV = "Company";
 var tableV = "Company";
@@ -30,7 +44,7 @@ function resetForm(){
 	if(form){
 		formFields = form.length-2;//-2 mean we don't need to loop over buttons (Add & Delete)
 		for(var i=0; i<formFields; i++){
-			$("#"+form[i].id).removeClass("alert-danger");
+			//$("#"+form[i].id).removeClass("alert-danger");
 		}
 		$(".form-control").val("");
 	}
@@ -48,9 +62,11 @@ function validateForm(){
       // Loop over them and prevent submission
       for(var i=0; i<formFields; i++){
     	  if(form[i].validity.valid)
-    		  $("#"+form[i].id).removeClass("alert-danger");
+    		  console.log(form[i].id+' valid')
+    		  //$("#"+form[i].id).removeClass("alert-danger");
     	  else
-    		  $("#"+form[i].id).addClass("alert-danger");
+    		  console.log(form[i].id+' invalid')
+    		  //$("#"+form[i].id).addClass("alert-danger");
       }
       formValidated = false;
     }
@@ -75,7 +91,6 @@ $(document).ready(function() {
     });
 	
     $(".onChangeSelect").change(function(){
-    	console.log(this)
     	var label = $(this).text();
     	var value = $(this).val();
     	
@@ -101,15 +116,24 @@ $(document).ready(function() {
 		//All button get initialized when user switch form
 		$("#add"+buttonV).off().click(function() {
 		    //If all form's required fields are filled
-			validateForm();
-		    if(formValidated){
-				var formData = $('form').serialize();
-					formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
-					$(this).callAjax("add" + buttonV,formData);
-		    }else{
-		    	alert("Please make sure you have entered valid values");
-		    	return false;
-		    }
+			if(buttonV=="Sell"){
+				if(data && data.length>0){
+					jsonPost("addSelling",data);
+			    }else{
+			    	alert("Please make sure you have entered valid values");
+			    	return false;
+			    }
+			}else{	
+				validateForm();
+			    if(formValidated){
+					var formData = $('form').serialize();
+						formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
+						$(this).callAjax("add" + buttonV,formData);
+			    }else{
+			    	alert("Please make sure you have entered valid values");
+			    	return false;
+			    }
+			}
 		});
 
 		//All button get initialized when user switch form
@@ -211,7 +235,7 @@ $(document).ready(function() {
 			type : "POST",
 			url : serverContext + method,
 			dataType : "json",
-			timeout : 100000,
+//			timeout : 100000,
 			data : data,
 
 			success : function(data) {
@@ -243,7 +267,6 @@ $(document).ready(function() {
 	            		$("[name="+item.field+"]").addClass("alert-danger");
 	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
 	            		$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
-	            		//$("#globalError").focus();
 	            	}
 	            	else {
 	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
@@ -254,10 +277,32 @@ $(document).ready(function() {
 		}).fail(function(data) {
 			alert("Please recheck inputs or contact with the system administrator.");
 		});
-		edit = false;
-	}
-
+		edit = false;//when add/update & delete done
+	}	
 });
+
+function jsonPost(method,data) {	
+	$.ajax({
+	      type : "POST",
+	      contentType : "application/json",
+	      url : serverContext + method,
+	      data : JSON.stringify(data),
+	      dataType : 'json',			
+	      success : function(data) {
+			if(data.status!="SUCCESS"){
+				alert("Insertion error");
+				return false;
+			}
+		}, fail: function(data, textStatus, errorThrown) {
+			alert("There is some problem in the request "+errorThrown);
+		}, error: function(data, textStatus, errorThrown) {
+			resetGlobalError();
+       	}
+	}).fail(function(data) {
+		alert("Please recheck inputs or contact with the system administrator.");
+	});
+	edit = false;//when add/update & delete done
+}
 
 const capitalize = (s) => {
   if (typeof s !== 'string') return ''
@@ -274,7 +319,6 @@ function editRecord(doc){
 	for(var i=0; i<(formFields); i++){
 		if(doc.getElementById(form[i].id)){
 			var text = doc.getElementById(form[i].id).textContent;
-//			var value = doc.getElementById(form[i].id).value;
 			if(form[i].tagName=="SELECT"){
 				var labels = text.split(",");
 				labels.forEach(function(entry) {
@@ -286,14 +330,12 @@ function editRecord(doc){
 						}                      
 					});
 				});
-				
 			}else{
 				$("#"+form[i].id).val(text);
 			}
+			//Handled bootstrap drop down 
 			if(form[i].className.indexOf("selectpicker")>-1){
 				$( "#"+form[i].id+" :selected" ).text(text);
-				//$( "#"+form[i].id+" option:selected" ).text(text);
-				//$("#"+form[i].id).text(text);
 				$("#"+form[i].id).selectpicker('refresh');
 			}
 		}
@@ -301,7 +343,7 @@ function editRecord(doc){
 }
 
 function resetBSDD(id){
-	edit = false;
+	edit = false;//when reset boot strap drill down
 	$("#"+id).val('default').selectpicker("refresh");
 }
 
@@ -311,6 +353,7 @@ function dateToYMD(date) {
     var y = date.getFullYear();
     return '' + y + '-' + (m<=9 ? '0' + m : m) + '-' + (d <= 9 ? '0' + d : d);
 }
+
 function dateToDMY(date) {
     var d = date.getDate();
     var m = date.getMonth() + 1;
@@ -318,11 +361,28 @@ function dateToDMY(date) {
     return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
 }
 
+function getMonth(){
+	var d = new Date();
+	return month[d.getMonth()];
+}
+
+function getMonthYear(d){
+	return month[d.getMonth()]+""+d.getFullYear();
+}
+
+function currentdateByDay(d) {
+	var date = new Date();
+    var m = date.getMonth() + 1;
+    var y = date.getFullYear();
+    return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
+}
+
 function formToJSON(formId){
-	var myForm = document.getElementById(getAll);
+	var myForm = document.getElementById(formId);
     var formData = new FormData(myForm),
     obj = {};
     for (var entry of formData.entries()){
     	obj[entry[0]] = entry[1];
-    }	
+    }
+    return obj;
 }

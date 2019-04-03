@@ -36,6 +36,12 @@ public class GenericResponse {
         this.collection = collection;
     }
 
+    public GenericResponse(final Object object,final Collection<?> collection) {
+        super();
+        this.object = object;
+        this.collection = collection;
+    }
+    
     public GenericResponse(final String status, final String message,final Object object) {
         super();
         this.message = message;
@@ -51,7 +57,7 @@ public class GenericResponse {
         this.collection = collection;
     }
 
-    public GenericResponse(final String status, final String message,final Collection collection) {
+    public GenericResponse(final String status, final String message,final Collection<?> collection) {
         super();
         this.message = message;
         this.status = status;
