@@ -294,6 +294,198 @@ public class FeeCollectionController {
 		}
 	}
 	
+	@RequestMapping(value = "/loadFL", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse loadFL(final FeeVoucherDTO dto) {
+		try {
+			@SuppressWarnings({ "unchecked", "rawtypes" })
+			List<GenericResponse> ML = new ArrayList();
+			List<Long> SIDs = new ArrayList<Long>();
+			User user = requestUtil.getCurrentUser();
+			Student exp = new Student();
+			exp.setUserId(user.getId());
+			if(dto.getVb()==0) {
+				exp.setEnrollNo(dto.getVi());
+				SIDs.add(studentService.findOne(Example.of(exp)).get().getId());
+			}else if(dto.getVb()==1) {
+					exp.setGuardianId(Long.valueOf(dto.getVi()));
+					SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else if(dto.getVb()==2) {
+				exp.setGradeId(Long.valueOf(dto.getVi()));
+				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}
+	        //getting student detail
+			if(AppUtil.isEmptyOrNull(SIDs))
+				return new GenericResponse("FAILURE","Invalid input");
+				
+			List<Student> objs = studentService.findAllById(SIDs);
+			objs.forEach(s ->{		
+				final FeeCollectionDTO resDTO = new FeeCollectionDTO();
+				resDTO.setUserId(user.getId());
+				if(!AppUtil.isEmptyOrNull(s.getSchoolId()))
+					resDTO.setScn(schoolService.findById(s.getSchoolId()).get().getBranchName());
+				
+				if(!AppUtil.isEmptyOrNull(s.getGuardianId())) {
+					Optional<Guardian> g = guardianService.findById(s.getGuardianId());
+					if(g.isPresent()) {
+						resDTO.setGn(g.get().getName());
+						resDTO.setGId(g.get().getId());
+					}
+				}
+				resDTO.setSn(s.getName());
+				resDTO.setEn(s.getEnrollNo());
+				if(!AppUtil.isEmptyOrNull(s.getGradeId())) {
+					Optional<Grade> grade = gradeService.findById(s.getGradeId());
+					if(grade.isPresent()) {
+						resDTO.setGrId(grade.get().getId());
+						resDTO.setG(grade.get().getName());
+					}
+				}
+				resDTO.setVf(s.getVf()==null?0:s.getVf());
+				resDTO.setF(s.getFee());
+				resDTO.setDd(s.getDueDay());
+				if(!AppUtil.isEmptyOrNull(s.getDiscountId())) {
+					Optional<Discount> d = discountService.findById(s.getDiscountId());
+					if(d.isPresent()) {
+						resDTO.setDt(d.get().getDi());
+						resDTO.setD(d.get().getAmount());
+					}else {
+						resDTO.setDt(s.getDi());
+						resDTO.setD(s.getNd());
+					}
+				}else {
+					resDTO.setDt(s.getDi());
+					resDTO.setD(s.getNd());
+				}
+				
+				FeeCollection f = new FeeCollection();
+				f.setUserId(user.getId());
+				f.setEn(s.getEnrollNo());
+		        Example<FeeCollection> e = Example.of(f);
+				List<FeeCollection> L = feeCollectionService.findAll(e,AppUtil.getPageRequest(AppUtil.orderByDESC("pd"))).getContent();
+				if(!AppUtil.isEmptyOrNull(L)) {
+					resDTO.setLpd(L.get(0).getPd());
+					resDTO.setDb(L.get(0).getDb());
+				}
+				
+				resDTO.setPdStr(AppUtil.getLocalDateStr());
+				//update list with last payment date where balance is due mean >0 
+				//Note: need to implement DSL or some criteria
+				List<FeeCollection> L2=new ArrayList<FeeCollection>();
+				if(!AppUtil.isEmptyOrNull(L)) {
+					for (FeeCollection o : L) {
+						L2.add(o);
+					}
+				}
+				ML.add(new GenericResponse(resDTO,L2));
+			});
+			return new GenericResponse("SUCCESS",ML);
+		} catch (Exception e) {
+			e.printStackTrace();
+			AppUtil.le(this.getClass(),e);
+			return new GenericResponse("ERROR",e.getMessage());
+		}
+	}
+	
+	@RequestMapping(value = "/getUserFR", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse loadFR(final FeeVoucherDTO dto) {
+		try {
+			@SuppressWarnings({ "unchecked", "rawtypes" })
+			List<GenericResponse> ML = new ArrayList();
+			List<Long> SIDs = new ArrayList<Long>();
+			User user = requestUtil.getCurrentUser();
+			Student exp = new Student();
+			exp.setUserId(user.getId());
+			if(dto.getRb()==0) {
+				exp.setEnrollNo(dto.getRi());
+				SIDs.add(studentService.findOne(Example.of(exp)).get().getId());
+			}else if(dto.getRb()==1) {
+					exp.setGuardianId(Long.valueOf(dto.getRi()));
+					SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else if(dto.getRb()==2) {
+				exp.setGradeId(Long.valueOf(dto.getRi()));
+				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else if(dto.getRb()==3) {
+				exp.setSchoolId(Long.valueOf(dto.getRi()));
+				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else {
+//				exp.setGradeId(Long.valueOf(dto.getVi()));
+				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}
+	        //getting student detail
+			if(AppUtil.isEmptyOrNull(SIDs))
+				return new GenericResponse("FAILURE","Invalid input");
+				
+			List<Student> objs = studentService.findAllById(SIDs);
+			objs.forEach(s ->{		
+				final FeeCollectionDTO resDTO = new FeeCollectionDTO();
+				resDTO.setUserId(user.getId());
+				if(!AppUtil.isEmptyOrNull(s.getSchoolId()))
+					resDTO.setScn(schoolService.findById(s.getSchoolId()).get().getBranchName());
+				
+				if(!AppUtil.isEmptyOrNull(s.getGuardianId())) {
+					Optional<Guardian> g = guardianService.findById(s.getGuardianId());
+					if(g.isPresent()) {
+						resDTO.setGn(g.get().getName());
+						resDTO.setGId(g.get().getId());
+					}
+				}
+				resDTO.setSn(s.getName());
+				resDTO.setEn(s.getEnrollNo());
+				if(!AppUtil.isEmptyOrNull(s.getGradeId())) {
+					Optional<Grade> grade = gradeService.findById(s.getGradeId());
+					if(grade.isPresent()) {
+						resDTO.setGrId(grade.get().getId());
+						resDTO.setG(grade.get().getName());
+					}
+				}
+				resDTO.setVf(s.getVf()==null?0:s.getVf());
+				resDTO.setF(s.getFee());
+				resDTO.setDd(s.getDueDay());
+				if(!AppUtil.isEmptyOrNull(s.getDiscountId())) {
+					Optional<Discount> d = discountService.findById(s.getDiscountId());
+					if(d.isPresent()) {
+						resDTO.setDt(d.get().getDi());
+						resDTO.setD(d.get().getAmount());
+					}else {
+						resDTO.setDt(s.getDi());
+						resDTO.setD(s.getNd());
+					}
+				}else {
+					resDTO.setDt(s.getDi());
+					resDTO.setD(s.getNd());
+				}
+				
+				FeeCollection f = new FeeCollection();
+				f.setUserId(user.getId());
+				f.setEn(s.getEnrollNo());
+		        Example<FeeCollection> e = Example.of(f);
+				List<FeeCollection> L = feeCollectionService.findAll(e,AppUtil.getPageRequest(AppUtil.orderByDESC("pd"))).getContent();
+				if(!AppUtil.isEmptyOrNull(L)) {
+					resDTO.setLpd(L.get(0).getPd());
+					resDTO.setDb(L.get(0).getDb());
+				}
+				
+				resDTO.setPdStr(AppUtil.getLocalDateStr());
+				//update list with last payment date where balance is due mean >0 
+				//Note: need to implement DSL or some criteria
+				List<FeeCollection> L2=new ArrayList<FeeCollection>();
+				if(!AppUtil.isEmptyOrNull(L)) {
+					for (FeeCollection o : L) {
+						L2.add(o);
+					}
+				}
+				ML.add(new GenericResponse(resDTO,L2));
+			});
+			return new GenericResponse("SUCCESS",ML);
+		} catch (Exception e) {
+			e.printStackTrace();
+			AppUtil.le(this.getClass(),e);
+			return new GenericResponse("ERROR",e.getMessage());
+		}
+	}
+
 	@RequestMapping(value = "/getAllFc", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getAllStudent(final HttpServletRequest request) {

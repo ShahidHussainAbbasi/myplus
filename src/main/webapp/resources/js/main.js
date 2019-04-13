@@ -62,10 +62,12 @@ function validateForm(){
       // Loop over them and prevent submission
       for(var i=0; i<formFields; i++){
     	  if(form[i].validity.valid)
-    		  console.log(form[i].id+' valid')
+    		  document.getElementById(form[i].id).style.borderColor = "";
+    		 // console.log(form[i].id+' valid')
     		  //$("#"+form[i].id).removeClass("alert-danger");
     	  else
-    		  console.log(form[i].id+' invalid')
+    		  document.getElementById(form[i].id).style.borderColor = "red";
+//    		  console.log(form[i].id+' invalid')
     		  //$("#"+form[i].id).addClass("alert-danger");
       }
       formValidated = false;
@@ -75,7 +77,11 @@ function validateForm(){
 $(document).ready(function() {
 		
 	$(".datePicker").datetimepicker({
-		format : 'DD-MM-YYYY'
+		useCurrent: false,
+		format : 'DD-MM-YYYY',
+		showTodayButton: true,
+		showClear:true,
+		showClose:true
 	});
 	
     $(".datetimepicker").datetimepicker({
@@ -242,6 +248,8 @@ $(document).ready(function() {
 				if(data.status==="FOUND"){
 					alert("Already exist");
 					return false;
+				}else if(data.status==="ERROR"){
+					return alert(data.message);
 				}
 				if(method!=="sendAlerts"){
 					datatable.clear().draw();
@@ -374,6 +382,22 @@ function currentdateByDay(d) {
 	var date = new Date();
     var m = date.getMonth() + 1;
     var y = date.getFullYear();
+    return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
+}
+
+function currentFormattedDate() {
+	var date = new Date();
+	var d = date.getDate();
+    var m = date.getMonth() + 1;
+    var y = date.getFullYear();
+    return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
+}
+
+function currentFormattedNextYearDate() {
+	var date = new Date();
+	var d = date.getDate();
+    var m = date.getMonth() + 1;
+    var y = date.getFullYear()+1;
     return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
 }
 

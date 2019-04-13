@@ -6,6 +6,9 @@ import java.util.List;
 
 import com.validation.ValidateEmpty;
 
+import lombok.Getter;
+import lombok.Setter;
+
 public class StudentDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -28,7 +31,6 @@ public class StudentDTO implements Serializable {
 	@ValidateEmpty
 	private String enrollDate;
 
-	@ValidateEmpty
 	private String dateOfBirth;
 
 	private String feeMode="Monthly";
@@ -91,6 +93,16 @@ public class StudentDTO implements Serializable {
 	private Integer dueDay = 10;
 	
 	private Integer vf;
+
+	@Getter@Setter
+	private String pob;
+
+	@Getter@Setter
+	private String mn;
+
+	@Getter@Setter
+	private String wa;
+
 	/**
 	 * @return the id
 	 */

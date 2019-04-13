@@ -35,11 +35,13 @@ $(document).ready(function() {
     } );
     //invoice table
     tablesi = $('#tablesi').DataTable( {
-        "scrollY": "100px",
-        "paging": false,
-        "searching":false,
-        "info": false
-    } );
+    	 dom: 'Bfrtip',
+         buttons: [
+            // 'copyHtml5',
+            // 'excelHtml5',
+             'csvHtml5'
+            // 'pdfHtml5'
+         ]    } );
     
     tablesi.columns( [0] ).visible( false );
     
@@ -99,7 +101,11 @@ function CIT(data){
 	$("#itt").text(t-dis);
 	$("#action").text("");
 }
-
+function resetCart(){
+	data = [];
+	tablesi.clear().draw();
+	CIT(data)
+}
 function loadDataTable(){
 	//check if data table exist destroy it
 	var offset = $( "select[name='tableSell_length']" ).val();
@@ -138,6 +144,7 @@ function loadDataTable(){
 					reload=tableV;
 				}				
 				var collections = data.collection;
+				datatable.columns( [0] ).visible( false );
 				console.log("getUser : "+getAll+" collections : "+collections);
 				var arr = [" No Data Found "];
 				if (getAll === "Company") {

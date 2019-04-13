@@ -10,12 +10,20 @@ var formFields = 0;
 var reload="";
 	
 $(document).ready(function() {
-    $("table.display").DataTable( {
+	
+    $('#paymentHistory').DataTable( {
+        dom: 'Bfrtip',
+        buttons: [
+            'copy', 'csv', 'excel', 'pdf', 'print'
+        ]
+    } );
+	
+  /*  $("table.display").DataTable( {
         "paging":   false,
         "ordering": false,
         "info":     false,
         "searching": false
-    } );
+    } );*/
     
     $("#fvp").change(function(){
     	if($(this).val()=="4"){
@@ -31,9 +39,14 @@ function loadDataTable(){
 	if (datatable!=null){
 		datatable.destroy();
 	}
+	$('.datePicker').val(currentFormattedDate());
 	datatable = $("#table" + tableV).DataTable({
+        buttons: [
+            'copy', 'csv', 'excel', 'pdf', 'print'
+        ],
 		"autoWidth" : true,
 		"order": [[ 0, "desc" ]],
+        dom: 'Bfrtip',
 		"columnDefs" : [ {
 			"targets" : [ 0 ],
 			"visible" : true,
@@ -119,34 +132,41 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=guardianId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=guardianName>"+obj.name+"</div>", "<div id=guardianEmail>"+obj.email+"</div>", 
-							"<div id=guardianMobile>"+obj.mobile+"</div>", "<div id=guardianPhone>"+obj.phone+"</div>", 
-							"<div id=guardianCNIC>"+obj.cnic+"</div>", "<div id=guardianPermAddress>"+obj.permAddress+"</div>",
-							"<div id=guardianRelation>"+obj.relation+"</div>", "<div id=guardianOccupation>"+obj.occupation+"</div>",
+							"<div id=guardianName>"+obj.name+"</div>", "<div id=guardianMobile>"+obj.mobile+"</div>", 
+							"<div id=relationDD>"+obj.relation+"</div>", "<div id=guardianPermAddress>"+obj.permAddress+"</div>",
+							"<div id=guardianEmail>"+obj.email+"</div>", "<div id=guardianPhone>"+obj.phone+"</div>", 
+							"<div id=guardianCNIC>"+obj.cnic+"</div>", "<div id=guardianOccupation>"+obj.occupation+"</div>",
 							"<div id=guardianStatus>"+obj.status+"</div>","<div id=guardianDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Student") {
 					var i=0;
+					var en;
 					$.each(collections, function(ind, obj) {
+						en = obj.enrollNo;
+						++i;//Adding new enroll number
 						arr = [
 							"<div id=studentId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=studentEnrollNo>"+obj.enrollNo+"</div>","<div id=studentEnrollDate>"+obj.enrollDate+"</div>",
+							"<div id=studentEnrollNo>"+obj.enrollNo+"</div>","<div id=studentStatus>"+obj.status+"</div>","<div id=studentEnrollDate>"+obj.enrollDate+"</div>",
 							"<div id=studentName>"+obj.name+"</div>","<div id=studentSchoolDD>"+obj.schoolName+"</div>",
 							"<div id=studentGradeDD>"+obj.gradeName+"</div>","<div id=studentGuardianDD>"+obj.guardianName+"</div>",
-							"<div id=studentFeeMode>"+obj.feeMode+"</div>","<div id=studentFee>"+obj.fee+"</div>",
+							"<div id=studentGender>"+obj.gender+"</div>","<div id=studentFee>"+obj.fee+"</div>","<div id=studentFeeMode>"+obj.feeMode+"</div>",
+							"<div id=studentMN>"+obj.mn+"</div>","<div id=studentBloodBroup>"+obj.bloodGroup+"</div>",
 							"<div id=studentVehicleDD>"+obj.vehicleName+"</div>","<div id=studentvf>"+obj.vf+"</div>",
+							"<div id=studentDateOfBirth>"+obj.dateOfBirth+"</div>","<div id=studentPOB>"+obj.pob+"</div>",
 							"<div id=studentDiscountDD>"+obj.discountName+"</div>","<div id=studentND>"+obj.nd+"</div>",
 							"<div id=studentDIDD>"+obj.di+"</div>","<div id=studentDueDay>"+obj.dueDay+"</div>",
-							"<div id=studentMobile>"+obj.mobile+"</div>","<div id=studentEmail>"+obj.email+"</div>",
-							"<div id=studentGender>"+obj.gender+"</div>","<div id=studentDateOfBirth>"+obj.dateOfBirth+"</div>",
-							"<div id=studentBloodBroup>"+obj.bloodGroup+"</div>","<div id=studentAddress>"+obj.address+"</div>",
-							"<div id=studentStatus>"+obj.status+"</div>","<div id=studentDated>"+obj.updatedStr+"</div>",
+							"<div id=studentMobile>"+obj.mobile+"</div>","<div id=studentWA>"+obj.wa+"</div>",
+							"<div id=studentEmail>"+obj.email+"</div>","<div id=studentAddress>"+obj.address+"</div>",
+							"<div id=studentDated>"+obj.updatedStr+"</div>",
 							"<div id=studentYS>"+obj.ys+"</div>","<div id=studentYE>"+obj.ye+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
+					$('#studentYE').val(currentFormattedNextYearDate());
+					if(!isNaN(en))
+						$('#studentEnrollNo').val(++i);
 				} else if (getAll === "Subject") {
 					$.each(collections, function(ind, obj) {
 						i++;
@@ -220,6 +240,62 @@ function loadDataTable(){
 							"<div id=fchdt>"+obj.dtStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
+					});
+				} else if (getAll === "FR") {
+					var tfee=0;
+					var tdis=0;
+					var tod=0;
+					var tdue=0;
+					var tpaid=0;
+					var bal=0;
+					
+					$.each(collections, function(ind, obj) {
+						var o = obj.object;
+						var objs = obj.collection;
+						console.log(o);
+						if(!o)
+							return alert(data.status+" : "+data.message);
+						
+						var dm=0;//due months
+						if(o.lpd){
+							var lpd = new Date(Date.parse(o.lpd));
+							dm = monthDiff(lpd,new Date());
+							if(dm <= 0){//reset dues
+								o.f = 0;
+								o.vf = 0;
+								o.d
+							}
+						}
+						var vf = s2n(o.vf);
+						var d  = s2n(o.d);
+						var f = s2n(o.f);
+						var tf = f;
+						if(o.dt=="%")
+							d = f * (d / 100);
+
+						tf = f + vf - d;
+						if(dm>1)
+							tf = tf*dm;
+						if(o.db)
+							tf = tf+o.db;
+						
+						//again setting to get in print
+						o.da=tf;
+						o.d=d;
+						o.dd = s2n(o.dd);
+						if(objs && objs.length > 0){
+							objs.forEach(function(sfd,i){
+								tfee+=sfd.f;
+								tdis+=sfd.d;
+								tod+=sfd.od;
+								tdue+=sfd.da;
+								tpaid+=sfd.fp;
+								bal+=sfd.db;
+								arr = [o.id,o.scn,o.g,o.gn,o.sn,sfd.f,sfd.od,sfd.odd,sfd.d,sfd.p,sfd.rb,dateToDMY(new Date(sfd.pd)),sfd.da,sfd.fp,sfd.db];
+								datatable.row.add(arr).draw();
+							});
+							console.log("tfee "+tfee)
+						}
 					});
 				}
 			},
@@ -349,6 +425,7 @@ function findBy(method,data){
 				return alert("Enrolled ID is invalid or not exist.");
 			}else if(data.status==="SUCCESS"){
 				console.log(data);
+				removeTableBody();
 				fvObj = data;
 				if(!data || !data.object)
 					return alert("Data not found.");
@@ -359,13 +436,18 @@ function findBy(method,data){
 					
 					var dm=0;//due months
 					
+					$("#fcda").removeClass("alert-danger");
 					if(o.lpd){
 						var lpd = new Date(Date.parse(o.lpd));
 						dm = monthDiff(lpd,new Date());
-						if(dm <= 0){
+						if(dm <= 0 && o.db <=0){
 							resetForm();
-							removeTableBody();
 							return alert("Current month's Fee has been paid.");
+						}else if(dm <= 0){//reset dues
+							o.f = 0;
+							o.vf = 0;
+							o.d
+							$("#fcda").addClass("alert-danger");
 						}
 					}
 					$("#fcsn").html(o.sn);
@@ -382,7 +464,7 @@ function findBy(method,data){
 					$("#fchvf").val(vf);
 					$("#fchdt").val(o.dt);
 					var tf = f;
-					if(o.dt=="%"){
+					if(o.dt=="%" && d>0){
 						var d = f * (d / 100);
 						$("#fcd").html(d+" in "+o.dt);
 						$("#fchd").val(d);
@@ -506,6 +588,294 @@ function toDataURL(url, callback) {
 	xhr.send();
 }
 
+function loadFR(){
+	var formData = $("form").serialize();
+	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
+
+	$.ajax({
+		type : "POST",
+		url : serverContext + "loadFR",
+		dataType : "json",
+		data : formData,
+		success : function(data) {
+			if(data.status!=="SUCCESS"){
+				return alert(data.status+" : "+data.message);
+			}else{
+				if(!data || !data.collection)
+					return alert("Data not found.");
+
+				//iterate over list of map
+				var doc = new jsPDF('landscape');
+				var L = 0;
+				var T = 3;
+				var tfee=0;
+				var tdis=0;
+				var tod=0;
+				var tdue=0;
+				var tpaid=0;
+				var bal=0;
+				var col1=20,col2=20,col3=20,col4=5,col5=7,col6,col7=10,col8=10,col9=5,col10=5,col11=5,col12=5,col13=5,col14=5;
+				var head = [["Branch","Student", "Guardian", "Grade","Date", "Payer", "Payee","Fee","Dis.","O Payment","O Desc.","Due","Paid","Bal."]];
+				doc.autoTable({head: head,startY: 2,theme: "grid", columnStyles: {
+				0:{cellWidth: col1}, 1: {cellWidth: col2}, 2: {cellWidth: col3},3:{cellWidth: col4}, 4: {cellWidth: col5}, 5: {cellWidth: col6},
+				6:{cellWidth: col7}, 7: {cellWidth: col8}, 8: {cellWidth: col9},9:{cellWidth: col10}, 10: {cellWidth: col11}, 11: {cellWidth: col12},
+				12:{cellWidth: col13}, 13: {cellWidth: col14},
+				first_name: {fillColor: [41, 128, 185], textColor: 255}}});
+				$.each(data.collection, function(ind, obj) {
+					var o = obj.object;
+					var objs = obj.collection;
+					console.log(o);
+					if(!o)
+						return alert(data.status+" : "+data.message);
+					
+					var FVL = [];
+					var dm=0;//due months
+					
+					if(o.lpd){
+						var lpd = new Date(Date.parse(o.lpd));
+						dm = monthDiff(lpd,new Date());
+						if(dm <= 0){//reset dues
+							o.f = 0;
+							o.vf = 0;
+							o.d
+						}
+					}
+					var vf = s2n(o.vf);
+					var d  = s2n(o.d);
+					var f = s2n(o.f);
+					var tf = f;
+					if(o.dt=="%")
+						d = f * (d / 100);
+
+					tf = f + vf - d;
+					if(dm>1)
+						tf = tf*dm;
+					if(o.db)
+						tf = tf+o.db;
+					
+					//again setting to get in print
+					o.da=tf;
+					o.d=d;
+					o.dd = s2n(o.dd);
+					var temT = T;
+					console.log(L,T);
+					if(objs && objs.length > 0){
+						var body = [];
+						objs.forEach(function(sfd,i){
+							var row = [o.scn,o.sn, o.gn, o.g,dateToDMY(new Date(sfd.pd)), sfd.p, sfd.rb,sfd.f,sfd.d,sfd.od,sfd.odd,sfd.da,sfd.fp,sfd.db]
+							body[i] = row;
+							tfee+=sfd.f;
+							tdis+=sfd.d;
+							tod+=sfd.od;
+							tdue+=sfd.da;
+							tpaid+=sfd.fp;
+							bal+=sfd.db;
+							console.log(L,T);
+							temT+=7;
+							doc.autoTable({body: [row], startY: temT,theme: "grid",styles: {
+						        fontSize: 8,
+						        overflow: 'linebreak',
+						        cellWidth: 'wrap',
+						    }, columnStyles: {text:{ cellWidth: 'wrap'},
+								0:{cellWidth: col1}, 1: {cellWidth: col2}, 2: {cellWidth: col3},3:{cellWidth: col4}, 4: {cellWidth: col5}, 5: {cellWidth: col6},
+								6:{cellWidth: col7}, 7: {cellWidth: col8}, 8: {cellWidth: col9},9:{cellWidth: col10}, 10: {cellWidth: col11}, 11: {cellWidth: col12},
+								12:{cellWidth: col13}, 13: {cellWidth: col14},
+								first_name: {fillColor: [41, 128, 185], textColor: 255}}});
+						});
+//						doc.setFontSize(8);
+					}
+					//165
+					T = temT;
+					console.log(L,T);
+					
+				});
+				var row = [["Totals"," "," "," "," "," "," ",tfee,tdis*ONE,tod*ONE,tdue*ONE,tdue*ONE,tpaid*ONE,bal*ONE]];
+				doc.autoTable({body: row, startY: T+2,theme: "grid", columnStyles: {
+					0:{cellWidth: col1}, 1: {cellWidth: col2}, 2: {cellWidth: col3},3:{cellWidth: col4}, 4: {cellWidth: col5}, 5: {cellWidth: col6},
+					6:{cellWidth: col7}, 7: {cellWidth: col8}, 8: {cellWidth: col9},9:{cellWidth: col10}, 10: {cellWidth: col11}, 11: {cellWidth: col12},
+					12:{cellWidth: col13}, 13: {cellWidth: col14},
+					first_name: {fillColor: [41, 128, 185], textColor: 255}}});
+				console.log(doc.internal.pageSize.height+" <> "+doc.internal.pageSize.width)
+				//doc.text('Footer Text', doc.internal.pageSize.width + 200, doc.internal.pageSize.height - 2);
+				doc.autoPrint({variant: "non-confirm"});
+				doc.save("fee report.pdf");
+				return;
+			}
+		},
+		 error: function(data, textStatus, errorThrown) {
+			resetForm();
+			 alert("Status : error : "+textStatus+" : "+errorThrown);
+        }
+	});
+}
+
+function PFR(doc,o,sfds,logo_url,X,Y,dataUrl){
+	var L = 10;
+	var T = 10;
+	//var doc = new jsPDF("p", "pt", "a4");
+	console.log(L,T);
+	doc.addImage(dataUrl, "JPEG", L, T, X, Y);
+	L = L+390;//410
+	T = T+25;//25
+/*	console.log(L,T);
+	var head = [["Summary"]];
+	T = T+55;//80
+	console.log(L,T);
+	doc.autoTable({head: head,startY: T});
+*/	
+	//var head = [["Branch("+o.scn+")","Student("+o.en+")", "Guardian("+o.gid+")", "Grade("+o.grId+")"]];
+//	var body = [[o.scn,o.sn, o.gn, o.g]];
+	//T = T+20;//100
+	//console.log(L,T);
+//	doc.autoTable({head: head, startY: T,theme: "grid", columnStyles: {first_name: {fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold"}}});
+	if(sfds && sfds.length > 0){
+/*		var head = [["Fee details since last payment"]];
+		T = T+45;//145
+		console.log(L,T);
+		doc.autoTable({head: head,startY: T});
+*/		
+		var head = [["Branch("+o.scn+")","Student("+o.en+")", "Guardian("+o.gid+")", "Grade("+o.grId+")","Date", "Payer", "Payee","Fee","Dis.","O Payment","O Desc.","Due","Paid","Bal."]];
+		var body = [];
+		sfds.forEach(function(sfd,i){
+			var row = [o.scn,o.sn, o.gn, o.g,dateToDMY(new Date(sfd.pd)), sfd.p, sfd.rb,sfd.f,sfd.d,sfd.od,sfd.odd,sfd.da,sfd.fp,sfd.db]
+			body[i] = row;
+		});
+		T = T+20;//165
+		console.log(L,T);
+		doc.autoTable({head: head, body: body, startY: T,theme: "grid", columnStyles: {first_name: {fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold"}}});
+	}
+	doc.setFontSize(16);
+	L=40;
+	T = T+70;
+	console.log(L,T);
+
+}
+
+function loadFL(){
+	var formData = $("form").serialize();
+	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
+
+	$.ajax({
+		type : "POST",
+		url : serverContext + "loadFL",
+		dataType : "json",
+		data : formData,
+		success : function(data) {
+			if(data.status!=="SUCCESS"){
+				return alert(data.status+" : "+data.message);
+			}else{
+				if(!data || !data.collection)
+					return alert("Data not found.");
+
+				//iterate over list of map
+				$.each(data.collection, function(ind, obj) {
+					var o = obj.object;
+					var sfd = obj.collection;
+					console.log(o);
+					if(!o)
+						return alert(data.status+" : "+data.message);
+					
+					var FVL = [];
+					var dm=0;//due months
+					
+					if(o.lpd){
+						var lpd = new Date(Date.parse(o.lpd));
+						dm = monthDiff(lpd,new Date());
+						if(dm <= 0){//reset dues
+							o.f = 0;
+							o.vf = 0;
+							o.d
+						}
+					}
+					var vf = s2n(o.vf);
+					var d  = s2n(o.d);
+					var f = s2n(o.f);
+					var tf = f;
+					if(o.dt=="%")
+						d = f * (d / 100);
+
+					tf = f + vf - d;
+					if(dm>1)
+						tf = tf*dm;
+					if(o.db)
+						tf = tf+o.db;
+					
+					//again setting to get in print
+					o.da=tf;
+					o.d=d;
+					o.dd = s2n(o.dd);
+
+					if(o.userId == 61 || o.userId == 520){
+						var logo_url = serverContext+"resources/img/logos/IQRA_logo.png";
+						toDataURL(logo_url, function(dataUrl) {
+							PFL(o,sfd,logo_url,30,35,dataUrl,getIqraInst());//print fee voucher
+						});
+					}else if(o.userId == 61  || o.userId == 823 || o.userId == 821){
+							var logo_url = serverContext+"resources/img/logos/ASL_logo.jpg";
+							toDataURL(logo_url, function(dataUrl) {
+								PFL(o,sfd,logo_url,300,40,dataUrl,getASLInst());//print fee voucher
+							});
+					}else if(o.userId == 61 || o.userId == 203){
+							var logo_url = serverContext+"resources/img/logos/TYL_logo.jpg";
+							toDataURL(logo_url, function(dataUrl) {
+								PFL(o,sfd,logo_url,150,40,dataUrl,getASLInst());//print fee voucher
+							});
+					}
+				});
+			}
+		},
+		 error: function(data, textStatus, errorThrown) {
+			resetForm();
+			 alert("Status : error : "+textStatus+" : "+errorThrown);
+        }
+	});
+}
+
+function PFL(o,sfds,logo_url,X,Y,dataUrl){
+	var L = 40;
+	var T = 10;
+	var doc = new jsPDF("p", "pt", "a4");
+	console.log(L,T);
+	doc.addImage(dataUrl, "JPEG", L, T, X, Y);
+	L = L+390;//410
+	T = T+25;//25
+/*	console.log(L,T);
+	var head = [["Summary"]];
+	T = T+55;//80
+	console.log(L,T);
+	doc.autoTable({head: head,startY: T});
+*/	
+	var head = [["Branch("+o.scn+")","Student("+o.en+")", "Guardian("+o.gid+")", "Grade("+o.grId+")"]];
+//	var body = [[o.scn,o.sn, o.gn, o.g]];
+	T = T+20;//100
+	console.log(L,T);
+	doc.autoTable({head: head, startY: T,theme: "grid", columnStyles: {first_name: {fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold"}}});
+	if(sfds && sfds.length > 0){
+/*		var head = [["Fee details since last payment"]];
+		T = T+45;//145
+		console.log(L,T);
+		doc.autoTable({head: head,startY: T});
+*/		
+		var head = [["Date", "Payer", "Payee","Fee","Dis.","O Payment","O Desc.","Due","Paid","Bal."]];
+		var body = [];
+		sfds.forEach(function(sfd,i){
+			var row = [dateToDMY(new Date(sfd.pd)), sfd.p, sfd.rb,sfd.f,sfd.d,sfd.od,sfd.odd,sfd.da,sfd.fp,sfd.db]
+			body[i] = row;
+		});
+		T = T+20;//165
+		console.log(L,T);
+		doc.autoTable({head: head, body: body, startY: T,theme: "grid", columnStyles: {first_name: {fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold"}}});
+	}
+	doc.setFontSize(16);
+	L=40;
+	T = T+70;
+	console.log(L,T);
+
+	doc.autoPrint({variant: "non-confirm"});
+	doc.save(o.sn+"("+o.en+") fee ledger.pdf");
+	return;
+}
+
 function loadFV(){
 	var formData = $("form").serialize();
 	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
@@ -555,25 +925,20 @@ function loadFV(){
 					o.d=d;
 					o.dd = s2n(o.dd);
 
-					if(o.userId == 671 || o.userId == 520){
-//						var V = ["School","Guardian"]
+					if(o.userId == 601 || o.userId == 520){
 						var logo_url = serverContext+"resources/img/logos/IQRA_logo.png";
 						toDataURL(logo_url, function(dataUrl) {
-							PFV_2Colum(o,V,logo_url,55,5,30,20,dataUrl,getIqraInst());//print fee voucher
+							PFV_2Colum(o,logo_url,55,4,30,35,dataUrl,getIqraInst());//print fee voucher
 						});
-					}else if(o.userId == -61 || o.userId == 517){
-//							var V = ["School","Guardian","Bank"]
+					}else if(o.userId == 601  || o.userId == 823 || o.userId == 821){
 							var logo_url = serverContext+"resources/img/logos/ASL_logo.jpg";
 							toDataURL(logo_url, function(dataUrl) {
 								PFV_3Colum(o,logo_url,0,3,95,20,dataUrl,getASLInst());//print fee voucher
-//								PFV(o,sfd,V,logo_url,95,20,dataUrl);//print fee voucher
 							});
 					}else if(o.userId == 61 || o.userId == 203){
-//							var V = ["School","Guardian","Bank"]
 							var logo_url = serverContext+"resources/img/logos/TYL_logo.jpg";
 							toDataURL(logo_url, function(dataUrl) {
-								PFV_2Colum(o,logo_url,3,3,90,20,dataUrl,getASLInst());//print fee voucher
-//								PFV(o,sfd,V,logo_url,165,70,dataUrl);//print fee voucher
+								PFV_2Colum(o,logo_url,8,5,100,40,dataUrl,getASLInst());//print fee voucher
 							});
 					}
 				});
@@ -604,12 +969,12 @@ function PFV_3Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 //		doc.setFontSize();
 		L = L-20;//5
 		doc.text("Fee Voucher", L, T);
-		L = L+55;//60
+		L = L+70;//60
 		doc.text(V[i]+" copy", L, T);
 		T = T+6;//46
 		doc.line(2, T, 300, T);
-		L = L-55;//5
-		T= T+4;//44
+		L = L-70;//5
+		T= T+3;//44
 		doc.text("Issue date: "+dateToDMY(new Date()), L, T);
 		L = L+32;//37
 		doc.text("Valid date: "+dateToDMY(new Date()), L, T);
@@ -619,14 +984,14 @@ function PFV_3Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 		L =L-64;//5
 		doc.text("Name: "+o.sn, L, T);
 		L +=64;//69
-		doc.text("Enrol No: "+o.en, L, T);
+		doc.text("GR/Enrol No: "+o.en, L, T);
 		T+=1;//55
 		doc.line(2, T, 300, T);
 		T+=10;//54
 		L =L-64;//5
 		doc.text("Guardian: "+o.gn, L, T);
 		L +=64;//69
-		doc.text("GR No: "+o.gid, L, T);
+		doc.text("Guardian No: "+o.gid, L, T);
 		T+=1;//55
 		doc.line(2, T, 300, T);
 		T+=3;//57
@@ -747,20 +1112,20 @@ function PFV_2Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 	for(i=0;i<V.length;i++){
 		console.log(L,T);
 		doc.addImage(dataUrl, "JPEG", L+X, Y, W, H);
-		T = T+25;//20
+		T = T+40;//20
 		console.log(L,T);
 		doc.setFontSize(8);
 		L = L+40;//25
 		doc.text("Campus : "+o.scn, L, T);
-		T = T+10;//40
+		T = T+5;//40
 		L = L-20;//5
 		doc.text("Fee Voucher", L, T);
 		L = L+75;//60
 		doc.text(V[i]+" copy", L, T);
-		T = T+6;//46
+		T = T+8;//46
 		doc.line(2, T, 300, T);
 		L = L-75;//5
-		T= T+4;//44
+		T= T+3;//44
 		doc.text("Issue date: "+dateToDMY(new Date()), L, T);
 		L = L+42;//37
 		doc.text("Valid date: "+dateToDMY(new Date()), L, T);
@@ -770,14 +1135,14 @@ function PFV_2Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 		L =L-84;//5
 		doc.text("Name: "+o.sn, L, T);
 		L +=74;//69
-		doc.text("Enrol No: "+o.en, L, T);
+		doc.text("GR/Enrol No: "+o.en, L, T);
 		T+=1;//55
 		doc.line(2, T, 300, T);
 		T+=10;//54
 		L =L-74;//5
 		doc.text("Guardian: "+o.gn, L, T);
 		L +=74;//69
-		doc.text("GR No: "+o.gid, L, T);
+		doc.text("Guardian No: "+o.gid, L, T);
 		T+=1;//55
 		doc.line(2, T, 300, T);
 		T+=3;//57

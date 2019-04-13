@@ -24,7 +24,7 @@ import com.persistence.model.User;
 @Component
 public class SetupDataLoader implements ApplicationListener<ContextRefreshedEvent> {
 
-    private boolean alreadySetup = false;
+    private boolean alreadySetup = true;
 
     @Autowired
     private UserRepository userRepository;
@@ -186,6 +186,7 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
     	        createUserIfNotFound("njaslam35@gmail.com", "Adeel", "Ahmed", "03062314046", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
     	        createUserIfNotFound("Majidmalikofficial@gmail.com", "Majid", "Malik", "03330268525", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
     	        createUserIfNotFound("kashif_ucit@yahoo.com", "Kashif", "Siddique", "03334589059", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
+    	        createUserIfNotFound("themontessoriworldc48@gmail.com", "Farooq", "Ahmed", "03003683308", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));    	        
     		}else if(key.startsWith("education.role.super")) {
     			createRoleIfNotFound(rb.getString(key), superEducationPrivileges);
     	        createUserIfNotFound("super@edu.com", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(role)),rb.getString("education.user.type"));

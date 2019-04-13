@@ -11,6 +11,9 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * The persistent class for the doctor database table.
  * 
@@ -113,6 +116,18 @@ public class Student implements Serializable {
 	
 	@Column(name="vehicle_fare")
 	private Integer vf;
+
+	@Getter@Setter
+	@Column(name="place_0f_birth")
+	private String pob;
+
+	@Getter@Setter
+	@Column(name="mother_name")
+	private String mn;
+
+	@Getter@Setter
+	@Column(name="watts_app")
+	private String wa;
 
 	/**
 	 * @return the id

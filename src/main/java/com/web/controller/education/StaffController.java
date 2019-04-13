@@ -88,7 +88,7 @@ public class StaffController {
 					dto.setTimeInStr(obj.getTimeIn().toString());
 				if(!AppUtil.isEmptyOrNull(obj.getTimeOut()))
 					dto.setTimeOutStr(obj.getTimeOut().toString());
-				dto.setDateOfBirth(AppUtil.getLoaclDateStr(obj.getDateOfBirth()));
+				dto.setStaffDOB(AppUtil.getLoaclDateStr(obj.getStaffDOB()));
 				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -162,7 +162,7 @@ public class StaffController {
 				
 			obj  = modelMapper.map(dto, Staff.class);
 			
-			obj.setDateOfBirth(AppUtil.getLocalDate(dto.getDateOfBirth()));
+			obj.setStaffDOB(AppUtil.getLocalDate(dto.getStaffDOB()));
 			obj.setDated(dated);
 			obj.setUpdated(dated);
 //			if(AppUtil.isEmptyOrNull(obj.getSchools()) && !AppUtil.isEmptyOrNull(dto.getSchoolIds()))

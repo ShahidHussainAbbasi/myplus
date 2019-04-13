@@ -8,6 +8,9 @@ import com.validation.ValidEmail;
 import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
 
+import lombok.Getter;
+import lombok.Setter;
+
 public class StaffDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -37,7 +40,8 @@ public class StaffDTO implements Serializable {
 	private String designation;
 
 	@ValidateEmpty
-	private String dateOfBirth;
+	@Getter@Setter
+	private String staffDOB;
 
 	@ValidateEmpty
 	private String gender;
@@ -339,34 +343,6 @@ public class StaffDTO implements Serializable {
 	 */
 	public void setGradeNames(Set<String> gradeNames) {
 		this.gradeNames = gradeNames;
-	}
-
-//	/**
-//	 * @return the subjectNames
-//	 */
-//	public Set<String> getSubjectNames() {
-//		return subjectNames;
-//	}
-//
-//	/**
-//	 * @param subjectNames the subjectNames to set
-//	 */
-//	public void setSubjectNames(Set<String> subjectNames) {
-//		this.subjectNames = subjectNames;
-//	}
-
-	/**
-	 * @return the dateOfBirth
-	 */
-	public String getDateOfBirth() {
-		return dateOfBirth;
-	}
-
-	/**
-	 * @param dateOfBirth the dateOfBirth to set
-	 */
-	public void setDateOfBirth(String dateOfBirth) {
-		this.dateOfBirth = dateOfBirth;
 	}
 
 	/**

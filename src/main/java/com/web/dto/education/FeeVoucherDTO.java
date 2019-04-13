@@ -2,6 +2,9 @@ package com.web.dto.education;
 
 import java.time.LocalDate;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * 
  */
@@ -15,6 +18,19 @@ public class FeeVoucherDTO {
 	private Short vb = 1;
 	private String vi = null;
 	private Short vp = 1;
+	
+	@Getter@Setter
+	private Short rb = -1;//report by
+	@Getter@Setter
+	private Short rbs = -1;//report by student status
+	@Getter@Setter
+	private String ri = null;//report input
+	@Getter@Setter
+	private Short rp = 1;
+	@Getter@Setter
+	private String redStr = null;
+	@Getter@Setter
+	private String rsdStr = null;
 	private String sdStr = null;
 	private String edStr = null;
 	private LocalDate sd = LocalDate.now();

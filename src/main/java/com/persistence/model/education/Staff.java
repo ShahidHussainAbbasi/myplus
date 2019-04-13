@@ -13,15 +13,14 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
-import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
-import javax.persistence.OneToMany;
 import javax.persistence.Table;
 
-import org.hibernate.annotations.Fetch;
-import org.hibernate.annotations.FetchMode;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
+
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * The persistent class for the doctor database table.
@@ -55,7 +54,8 @@ public class Staff implements Serializable {
 	private String designation;
 
 	@Column(name = "date_of_birth")
-	private LocalDate dateOfBirth;
+	@Getter@Setter
+	private LocalDate staffDOB;
 
 	private String gender;
 
@@ -204,20 +204,6 @@ public class Staff implements Serializable {
 	 */
 	public void setDesignation(String designation) {
 		this.designation = designation;
-	}
-
-	/**
-	 * @return the dateOfBirth
-	 */
-	public LocalDate getDateOfBirth() {
-		return dateOfBirth;
-	}
-
-	/**
-	 * @param dateOfBirth the dateOfBirth to set
-	 */
-	public void setDateOfBirth(LocalDate dateOfBirth) {
-		this.dateOfBirth = dateOfBirth;
 	}
 
 	/**
