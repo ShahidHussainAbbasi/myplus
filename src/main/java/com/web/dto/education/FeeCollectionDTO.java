@@ -47,7 +47,7 @@ public class FeeCollectionDTO implements Serializable {
 
 	private Integer da;
 
-	@ValidateEmpty
+//	@ValidateEmpty
 	private Integer f;
 
 	@ValidateEmpty

@@ -8,22 +8,173 @@ var formValidated = true;
 var form=null;
 var formFields = 0;
 var reload="";
+var tableFeeReport;
 	
 $(document).ready(function() {
 	
-    $('#paymentHistory').DataTable( {
+    tableFeeReport = $('#tableFeeReport').DataTable( {
         dom: 'Bfrtip',
         buttons: [
-            'copy', 'csv', 'excel', 'pdf', 'print'
-        ]
+            { extend: 'copyHtml5', footer: true },
+            { extend: 'csvHtml5', footer: true },
+            { extend: 'excelHtml5', footer: true },
+            { extend: 'print', footer: true },
+        	{ extend: 'pdfHtml5',
+              orientation: 'landscape',
+              pageSize: 'LEGAL',
+              footer: true
+            }
+        ],
+	    
+	    "footerCallback": function ( row, data, start, end, display ) {
+	        var api = this.api(), data;
+	
+	        // Remove the formatting to get integer data for summation
+	        var intVal = function ( i ) {
+	            return typeof i === 'string' ?
+	                i.replace(/[\$,]/g, '')*1 :
+	                typeof i === 'number' ?
+	                    i : 0;
+	        };
+	
+	        // Total over all pages
+	        feeTotal = api
+	            .column( 4 )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        feePageTotal = api
+	            .column( 4, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column( 4 ).footer() ).html(
+	            feePageTotal +'/'+ feeTotal
+	        );
+
+	        // Total over all pages
+	        otherTotal = api
+	            .column( 5 )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        otherPageTotal = api
+	            .column( 5, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column( 5 ).footer() ).html(
+	            otherPageTotal +'/'+ otherTotal
+	        );
+	    
+
+	        // Total over all pages
+	        disTotal = api
+	            .column(7)
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        disPageTotal = api
+	            .column(7, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column(7).footer() ).html(
+	        		disPageTotal +'/'+ disTotal
+	        );
+
+	        // Total over all pages
+	        dueTotal = api
+	            .column(11)
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        duePageTotal = api
+	            .column(11, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column(11).footer() ).html(
+	        		duePageTotal +'/'+ dueTotal
+	        );
+	    
+	        // Total over all pages
+	        paidTotal = api
+	            .column(12)
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        paidPageTotal = api
+	            .column(12, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column(12).footer() ).html(
+	        		paidPageTotal +'/'+ paidTotal
+	        );
+	    
+	        // Total over all pages
+	        balTotal = api
+	            .column(13)
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        balPageTotal = api
+	            .column(13, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column(13).footer() ).html(
+	        		balPageTotal +'/'+ balTotal
+	        );
+	    
+	        
+	    }    
     } );
 	
-  /*  $("table.display").DataTable( {
+    
+    $("table.display").DataTable( {
         "paging":   false,
         "ordering": false,
         "info":     false,
         "searching": false
-    } );*/
+    } );
     
     $("#fvp").change(function(){
     	if($(this).val()=="4"){
@@ -41,8 +192,18 @@ function loadDataTable(){
 	}
 	$('.datePicker').val(currentFormattedDate());
 	datatable = $("#table" + tableV).DataTable({
+		dom: 'Bfrtip',
         buttons: [
-            'copy', 'csv', 'excel', 'pdf', 'print'
+            { extend: 'copyHtml5', footer: true },
+            { extend: 'csvHtml5', footer: true },
+            { extend: 'excelHtml5', footer: true },
+            {extend:'print', footer: true },
+        	{
+                extend: 'pdfHtml5',
+                orientation: 'landscape',
+                pageSize: 'LEGAL',
+                footer: true
+            }
         ],
 		"autoWidth" : true,
 		"order": [[ 0, "desc" ]],
@@ -82,8 +243,8 @@ function loadDataTable(){
 						arr = [
 							"<div id=ownerId>"+obj.id+"</div>",
 							"<input type='checkbox' value='"+ obj.id+ "' id='abc'>","<div id=ownerName>"+obj.name+"</div>", 
-							"<div id=ownerEmail>"+obj.email+"</div>", "<div id=ownerMobile>"+obj.mobile+"</div>",
-							"<div id=ownerAddress>"+obj.address+"</div>", "<div id=ownerStatus>"+obj.status+"</div>",
+							"<div id=ownerMobile>"+obj.mobile+"</div>","<div id=ownerAddress>"+obj.address+"</div>",
+							"<div id=ownerEmail>"+obj.email+"</div>", "<div id=ownerStatus>"+obj.status+"</div>",
 							"<div id=ownerDated>"+obj.datedStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
@@ -92,9 +253,9 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=schoolId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=schoolOwnerDD>"+obj.ownerNames+"</div>",/*"<div id=schoolName>"+obj.name+"</div>",*/
+							"<div id=schoolOwnerDD>"+obj.ownerNames+"</div>","<div id=schoolAddress>"+obj.address+"</div>",/*"<div id=schoolName>"+obj.name+"</div>",*/
 							"<div id=schoolBranchName>"+obj.branchName+"</div>","<div id=schoolPhone>"+obj.phone+"</div>",
-							"<div id=schoolEmail>"+obj.email+"</div>","<div id=schoolAddress>"+obj.address+"</div>",
+							"<div id=schoolEmail>"+obj.email+"</div>",
 							"<div id=schoolStatus>"+obj.status+"</div>",
 							"<div id=schoolDated>"+obj.datedStr+"</div>"
 							];
@@ -240,62 +401,6 @@ function loadDataTable(){
 							"<div id=fchdt>"+obj.dtStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
-					});
-				} else if (getAll === "FR") {
-					var tfee=0;
-					var tdis=0;
-					var tod=0;
-					var tdue=0;
-					var tpaid=0;
-					var bal=0;
-					
-					$.each(collections, function(ind, obj) {
-						var o = obj.object;
-						var objs = obj.collection;
-						console.log(o);
-						if(!o)
-							return alert(data.status+" : "+data.message);
-						
-						var dm=0;//due months
-						if(o.lpd){
-							var lpd = new Date(Date.parse(o.lpd));
-							dm = monthDiff(lpd,new Date());
-							if(dm <= 0){//reset dues
-								o.f = 0;
-								o.vf = 0;
-								o.d
-							}
-						}
-						var vf = s2n(o.vf);
-						var d  = s2n(o.d);
-						var f = s2n(o.f);
-						var tf = f;
-						if(o.dt=="%")
-							d = f * (d / 100);
-
-						tf = f + vf - d;
-						if(dm>1)
-							tf = tf*dm;
-						if(o.db)
-							tf = tf+o.db;
-						
-						//again setting to get in print
-						o.da=tf;
-						o.d=d;
-						o.dd = s2n(o.dd);
-						if(objs && objs.length > 0){
-							objs.forEach(function(sfd,i){
-								tfee+=sfd.f;
-								tdis+=sfd.d;
-								tod+=sfd.od;
-								tdue+=sfd.da;
-								tpaid+=sfd.fp;
-								bal+=sfd.db;
-								arr = [o.id,o.scn,o.g,o.gn,o.sn,sfd.f,sfd.od,sfd.odd,sfd.d,sfd.p,sfd.rb,dateToDMY(new Date(sfd.pd)),sfd.da,sfd.fp,sfd.db];
-								datatable.row.add(arr).draw();
-							});
-							console.log("tfee "+tfee)
-						}
 					});
 				}
 			},
@@ -506,7 +611,7 @@ function findBy(method,data){
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();
-			 alert("Status : error : "+textStatus+" : "+errorThrown);
+        	window.location.href = serverContext + "login?message=" + errorThrown;
         }
 	});
 }
@@ -589,6 +694,7 @@ function toDataURL(url, callback) {
 }
 
 function loadFR(){
+	tableFeeReport.clear().draw();
 	var formData = $("form").serialize();
 	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
 
@@ -604,23 +710,12 @@ function loadFR(){
 				if(!data || !data.collection)
 					return alert("Data not found.");
 
-				//iterate over list of map
-				var doc = new jsPDF('landscape');
-				var L = 0;
-				var T = 3;
 				var tfee=0;
 				var tdis=0;
 				var tod=0;
 				var tdue=0;
 				var tpaid=0;
 				var bal=0;
-				var col1=20,col2=20,col3=20,col4=5,col5=7,col6,col7=10,col8=10,col9=5,col10=5,col11=5,col12=5,col13=5,col14=5;
-				var head = [["Branch","Student", "Guardian", "Grade","Date", "Payer", "Payee","Fee","Dis.","O Payment","O Desc.","Due","Paid","Bal."]];
-				doc.autoTable({head: head,startY: 2,theme: "grid", columnStyles: {
-				0:{cellWidth: col1}, 1: {cellWidth: col2}, 2: {cellWidth: col3},3:{cellWidth: col4}, 4: {cellWidth: col5}, 5: {cellWidth: col6},
-				6:{cellWidth: col7}, 7: {cellWidth: col8}, 8: {cellWidth: col9},9:{cellWidth: col10}, 10: {cellWidth: col11}, 11: {cellWidth: col12},
-				12:{cellWidth: col13}, 13: {cellWidth: col14},
-				first_name: {fillColor: [41, 128, 185], textColor: 255}}});
 				$.each(data.collection, function(ind, obj) {
 					var o = obj.object;
 					var objs = obj.collection;
@@ -628,9 +723,7 @@ function loadFR(){
 					if(!o)
 						return alert(data.status+" : "+data.message);
 					
-					var FVL = [];
 					var dm=0;//due months
-					
 					if(o.lpd){
 						var lpd = new Date(Date.parse(o.lpd));
 						dm = monthDiff(lpd,new Date());
@@ -657,54 +750,26 @@ function loadFR(){
 					o.da=tf;
 					o.d=d;
 					o.dd = s2n(o.dd);
-					var temT = T;
-					console.log(L,T);
 					if(objs && objs.length > 0){
-						var body = [];
 						objs.forEach(function(sfd,i){
-							var row = [o.scn,o.sn, o.gn, o.g,dateToDMY(new Date(sfd.pd)), sfd.p, sfd.rb,sfd.f,sfd.d,sfd.od,sfd.odd,sfd.da,sfd.fp,sfd.db]
-							body[i] = row;
+							var row = [o.scn, o.g,o.gn,o.sn,sfd.f,sfd.od,sfd.odd,sfd.d,sfd.p,sfd.rb,dateToDMY(new Date(sfd.pd)), sfd.da,sfd.fp,sfd.db]
 							tfee+=sfd.f;
 							tdis+=sfd.d;
 							tod+=sfd.od;
 							tdue+=sfd.da;
 							tpaid+=sfd.fp;
 							bal+=sfd.db;
-							console.log(L,T);
-							temT+=7;
-							doc.autoTable({body: [row], startY: temT,theme: "grid",styles: {
-						        fontSize: 8,
-						        overflow: 'linebreak',
-						        cellWidth: 'wrap',
-						    }, columnStyles: {text:{ cellWidth: 'wrap'},
-								0:{cellWidth: col1}, 1: {cellWidth: col2}, 2: {cellWidth: col3},3:{cellWidth: col4}, 4: {cellWidth: col5}, 5: {cellWidth: col6},
-								6:{cellWidth: col7}, 7: {cellWidth: col8}, 8: {cellWidth: col9},9:{cellWidth: col10}, 10: {cellWidth: col11}, 11: {cellWidth: col12},
-								12:{cellWidth: col13}, 13: {cellWidth: col14},
-								first_name: {fillColor: [41, 128, 185], textColor: 255}}});
+							tableFeeReport.row.add(row).draw();
 						});
-//						doc.setFontSize(8);
 					}
-					//165
-					T = temT;
-					console.log(L,T);
-					
 				});
-				var row = [["Totals"," "," "," "," "," "," ",tfee,tdis*ONE,tod*ONE,tdue*ONE,tdue*ONE,tpaid*ONE,bal*ONE]];
-				doc.autoTable({body: row, startY: T+2,theme: "grid", columnStyles: {
-					0:{cellWidth: col1}, 1: {cellWidth: col2}, 2: {cellWidth: col3},3:{cellWidth: col4}, 4: {cellWidth: col5}, 5: {cellWidth: col6},
-					6:{cellWidth: col7}, 7: {cellWidth: col8}, 8: {cellWidth: col9},9:{cellWidth: col10}, 10: {cellWidth: col11}, 11: {cellWidth: col12},
-					12:{cellWidth: col13}, 13: {cellWidth: col14},
-					first_name: {fillColor: [41, 128, 185], textColor: 255}}});
-				console.log(doc.internal.pageSize.height+" <> "+doc.internal.pageSize.width)
-				//doc.text('Footer Text', doc.internal.pageSize.width + 200, doc.internal.pageSize.height - 2);
-				doc.autoPrint({variant: "non-confirm"});
-				doc.save("fee report.pdf");
-				return;
+				//var row = ["Totals"," "," "," "," "," "," ",tfee,tdis*ONE,tod*ONE,tdue*ONE,tdue*ONE,tpaid*ONE,bal*ONE];
+				//tableFeeReport.row.add(row).draw();
 			}
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();
-			 alert("Status : error : "+textStatus+" : "+errorThrown);
+        	window.location.href = serverContext + "login?message=" + errorThrown;
         }
 	});
 }
@@ -826,7 +891,7 @@ function loadFL(){
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();
-			 alert("Status : error : "+textStatus+" : "+errorThrown);
+        	window.location.href = serverContext + "login?message=" + errorThrown;
         }
 	});
 }
@@ -946,7 +1011,7 @@ function loadFV(){
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();
-			 alert("Status : error : "+textStatus+" : "+errorThrown);
+        	window.location.href = serverContext + "login?message=" + errorThrown;
         }
 	});
 }

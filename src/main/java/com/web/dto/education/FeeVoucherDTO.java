@@ -22,7 +22,7 @@ public class FeeVoucherDTO {
 	@Getter@Setter
 	private Short rb = -1;//report by
 	@Getter@Setter
-	private Short rbs = -1;//report by student status
+	private String rbs = null;//report by student status
 	@Getter@Setter
 	private String ri = null;//report input
 	@Getter@Setter

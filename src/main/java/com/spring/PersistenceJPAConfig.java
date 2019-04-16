@@ -89,8 +89,8 @@ public class PersistenceJPAConfig {
 		Properties jpaProperties = new Properties();
 		jpaProperties.put("hibernate.dialect", env.getRequiredProperty("hibernate.dialect"));//"org.hibernate.dialect.MySQLDialect"
 		jpaProperties.put("hibernate.hbm2ddl.auto",env.getRequiredProperty("hibernate.hbm2ddl.auto"));// "update")
-		jpaProperties.put("hibernate.show_sql", env.getRequiredProperty("hibernate.show_sql"));//"true"
-		jpaProperties.put("hibernate.format_sql", env.getRequiredProperty("hibernate.format_sql"));//"false"
+		jpaProperties.put("hibernate.show_sql", env.getRequiredProperty("hibernate.show_sql"));
+		jpaProperties.put("hibernate.format_sql", env.getRequiredProperty("hibernate.format_sql"));
 		
         return jpaProperties;
     }

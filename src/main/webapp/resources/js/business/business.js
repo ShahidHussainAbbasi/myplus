@@ -2,22 +2,6 @@ var data=[]; // use a global for the submit and return data rendering in the exa
 var tablesi;
 var removed = true;
 
-function printDiv(divId) {
-  let mywindow = window.open('', 'PRINT', 'height=650,width=900,top=100,left=150');
-
- // mywindow.document.write(`<html><head><title>${title}</title>`);
-  mywindow.document.write('</head><body >');
-  mywindow.document.write(document.getElementById(divId).innerHTML);
-  mywindow.document.write('</body></html>');
-
-  mywindow.document.close(); // necessary for IE >= 10
-  mywindow.focus(); // necessary for IE >= 10*/
-
-  mywindow.print();
-  mywindow.close();
-
-  return true;
-}
 $(document).ready(function() {
    /* var table = $("#tableSell").DataTable( {
         "scrollY": "200px"
@@ -35,13 +19,50 @@ $(document).ready(function() {
     } );
     //invoice table
     tablesi = $('#tablesi').DataTable( {
-    	 dom: 'Bfrtip',
-         buttons: [
-            // 'copyHtml5',
-            // 'excelHtml5',
-             'csvHtml5'
-            // 'pdfHtml5'
-         ]    } );
+    	 "searching": false,
+ 	    
+ 	    "footerCallback": function ( row, data, start, end, display ) {
+ 	        var api = this.api(), data;
+ 	
+ 	        // Remove the formatting to get integer data for summation
+ 	        var intVal = function ( i ) {
+ 	            return typeof i === 'string' ?
+ 	                i.replace(/[\$,]/g, '')*1 :
+ 	                typeof i === 'number' ?
+ 	                    i : 0;
+ 	        };
+ 	
+ 	        // quantity Total over all pages
+ 	        total = api.column(2).data().reduce( function (a, b) {
+ 	                	return intVal(a) + intVal(b);
+ 	            	}, 0 );
+ 	        // Update footer
+ 	        $( api.column(2).footer() ).html(total);
+
+ 	        // sell Total over all pages
+ 	       total = api.column(3).data().reduce( function (a, b) {
+ 	                	return intVal(a) + intVal(b);
+ 	            	}, 0 );
+ 	        // Update footer
+ 	        $( api.column(3).footer() ).html(total);
+
+ 	        // discount Total over all pages
+  	       total = api.column(4).data().reduce( function (a, b) {
+  	                	return intVal(a) + intVal(b);
+  	            	}, 0 );
+  	        // Update footer
+  	        $( api.column(4).footer() ).html(total);
+
+ 	        // totals Total over all pages
+   	       total = api.column(5).data().reduce( function (a, b) {
+   	                	return intVal(a) + intVal(b);
+   	            	}, 0 );
+   	        // Update footer
+   	        $( api.column(5).footer() ).html(total);
+
+ 	        
+ 	    }    
+     } );
     
     tablesi.columns( [0] ).visible( false );
     
@@ -69,7 +90,7 @@ $(document).ready(function() {
 				obj.itemId,$( "#sellItemDD :selected" ).text(),obj.quantity,obj.sellRate,obj.discount,(obj.totalAmount*ONE - obj.discount*ONE),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
-			CIT(data);//calculate invoice totals
+			//CIT(data);//calculate invoice totals
         }else{
         	alert("Please make sure you have entered valid values");
         	return false;
@@ -84,7 +105,7 @@ function UIT(id){
 			data.splice(i,1);
 		}
 	});
-	CIT(data)
+	//CIT(data)
 }
 
 function CIT(data){
@@ -104,7 +125,7 @@ function CIT(data){
 function resetCart(){
 	data = [];
 	tablesi.clear().draw();
-	CIT(data)
+	//CIT(data)
 }
 function loadDataTable(){
 	//check if data table exist destroy it
@@ -125,10 +146,19 @@ function loadDataTable(){
 		"pageLength": pl,
 		"order": [[ 0, "desc" ]],
 		"autoWidth" : true,
-		/*dom: 'Bfrtip',
-		buttons: [
-            'copy', 'csv', 'excel', 'pdf', 'print'
-        ],*/
+		dom: 'Bfrtip',
+        buttons: [
+            { extend: 'copyHtml5', footer: true },
+            { extend: 'csvHtml5', footer: true },
+            { extend: 'excelHtml5', footer: true },
+            {extend:'print', footer: true },
+        	{
+                extend: 'pdfHtml5',
+                orientation: 'landscape',
+                pageSize: 'LEGAL',
+                footer: true
+            }
+        ],
 		"ajax" : {
 			"url" : serverContext + "getUser" + getAll+"?q="+offset,
 			"type" : "GET",
@@ -375,6 +405,7 @@ function populateData(label,value){
 }
 
 function calculateNetPurchase(){
+	console.log(1)
 	var p = $("#purchasePurchaseRate").val()*ONE;
 	var s= $("#purchaseSellRate").val()*ONE;
 	var qty= $("#purchaseQuantity").val()*ONE;
@@ -386,7 +417,7 @@ function calculateNetPurchase(){
 		purchaseDiscount = purchaseTotalAmount * (purchaseDiscount*1 / 100);
 	}else{
 		purchaseDiscount = purchaseDiscount * qty;
-		$("#purchaseQuantity").val(purchaseDiscount);
+		$("#purchaseDiscount").val(purchaseDiscount);
 	}
 
 	$("#netAmount").val(parseFloat((qty * s - purchaseTotalAmount) + purchaseDiscount).toFixed(2));

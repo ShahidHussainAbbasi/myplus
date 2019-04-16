@@ -229,7 +229,9 @@ public class ItemController {
 			}
 
 			obj = modelMapper.map(dto, Item.class);
-			obj.setExpDate(AppUtil.getLocalDate(dto.getExpDateStr()));
+			if(!AppUtil.isEmptyOrNull(dto.getExpDateStr()))
+				obj.setExpDate(AppUtil.getLocalDate(dto.getExpDateStr()));
+			
 			obj.setDated(dated);
 			obj.setUpdated(dated);
 			// add company

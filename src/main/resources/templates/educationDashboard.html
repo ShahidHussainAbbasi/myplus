@@ -30,7 +30,7 @@
 					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Manage Registrations</option>
 						<option class="dropdown-item" value="OwnerDiv">Owners</option>
-						<option class="dropdown-item" value="SchoolDiv">Institute</option>
+						<option class="dropdown-item" value="SchoolDiv">Campus</option>
 						<option class="dropdown-item" value="VehicleDiv">Vehicles</option>
 						<option class="dropdown-item" value="GradeDiv">Grades</option>
 						<option class="dropdown-item" value="StaffDiv">Employee</option>
@@ -109,16 +109,15 @@
 					</div>
 				</div>
 				<div class="form-group">
- 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="ownerStatus">Status</label>
+ 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="ownerStatus">Status</label>
 					<div class="col-sm-4">
-						<select class="form-control" id="ownerStatus" name="status">
-							<option class="dropdown-item" value="">Default is Active</option>					
-							<option class="dropdown-item" value="Active">Active</option>
+						<select class="form-control" id="ownerStatus" name="status" required="required">
+							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addOwner" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -188,16 +187,15 @@
 						<input type="text" class="form-control" id="schoolEmail" name="email"
 							placeholder="Email address">
 					</div>
- 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="schoolStatus">Status</label>
+ 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="schoolStatus">Status</label>
 					<div class="col-sm-4">
-						<select class="form-control" id="schoolStatus" name="status">
-							<option class="dropdown-item" value="">Default is Active</option>					
-							<option class="dropdown-item" value="Active">Active</option>
+						<select class="form-control" id="schoolStatus" name="status" required="required">
+							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addSchool" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -241,7 +239,7 @@
 					</div>
 				</div>				
 				<div class="form-group">
-					<label class="control-label col-sm-2 req" th:text="#{label.select.institute}" for="gradeSchoolDD">Select Institute</label> 
+					<label class="control-label col-sm-2 req" for="gradeSchoolDD">Select Campus</label> 
 					<div class="col-sm-4">
 						<select class="form-control" id="gradeSchoolDD" name="schoolId" required="required">
 						</select>
@@ -278,16 +276,15 @@
 								th:text="${i}" th:selected="${i==24}" value=""></option>
 						</select>
 					</div>
- 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="gradeStatus">Status</label>
+ 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="gradeStatus">Status</label>
 					<div class="col-sm-4">
-						<select class="form-control" id="gradeStatus" name="status">
-							<option class="dropdown-item" value="">Default is Active</option>					
-							<option class="dropdown-item" value="Active">Active</option>
+						<select class="form-control" id="gradeStatus" name="status" required="required">
+							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addGrade" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -426,16 +423,15 @@
 						<input type="text" class="form-control" id="staffAddress"
 							name="address" placeholder="Complete Address" required="required">
 					</div>
- 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="staffStatus">Status</label>
+ 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="staffStatus">Status</label>
 					<div class="col-sm-4">
-						<select class="form-control" id="staffStatus" name="status">
-							<option class="dropdown-item" value="">Default is Active</option>					
-							<option class="dropdown-item" value="Active">Active</option>
+						<select class="form-control" id="staffStatus" name="status" required="required">
+							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addStaff" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -543,16 +539,15 @@
 					</div>
 				</div>
 				<div class="form-group">
- 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="guardianStatus">Status</label>
+ 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="guardianStatus">Status</label>
 					<div class="col-sm-4">
-						<select class="form-control" id="guardianStatus" name="status">
-							<option class="dropdown-item" value="">Default is Active</option>					
-							<option class="dropdown-item" value="Active">Active</option>
+						<select class="form-control" id="guardianStatus" name="status" required="required">
+							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addGuardian" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -610,8 +605,7 @@
 							placeholder="Enrollment number" required="required"> 
 					</div>
 					<div class="col-sm-2">
-						<select class="form-control" id="studentStatus" name="status">
-							<option class="dropdown-item" value="">Default is Active</option>
+						<select class="form-control" id="studentStatus" name="status" required="required">
 							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
@@ -629,7 +623,7 @@
 						<input type="text" class="form-control" id="studentName" name="name"
 							placeholder=" Student Name" required="required"> 
 					</div>
-					<label class="control-label col-sm-2 req" th:text="#{label.select.institute}" for="studentSchoolDD">Select Branch</label> 
+					<label class="control-label col-sm-2 req" for="studentSchoolDD">Select Campus</label> 
 					<div class="col-sm-4">
 						<select class="form-control" id="studentSchoolDD" name="schoolId" required="required">
 						</select>
@@ -771,7 +765,7 @@
 							placeholder="default is Guardian's"> 
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center;">
 					<button type="button" id="addStudent" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -791,7 +785,7 @@
 					<th class="col-sm-1" data-field="studentStatus">Status</th>
 					<th class="col-sm-1" data-field="studentEnrollDate">Enroll Date</th>
 					<th class="col-sm-1" data-field="studentName">Name</th>
-					<th class="col-sm-1" data-field="studentSchoolDD">Institute</th>
+					<th class="col-sm-1" data-field="studentSchoolDD">Campus</th>
 					<th class="col-sm-1" data-field="studentGradeDD">Grade</th>
 					<th class="col-sm-1" data-field="studentGuardianDD">Guardian</th>
 					<th class="col-sm-1" data-field="studentGender">Gender</th>
@@ -843,11 +837,10 @@
 						<select class="form-control" id="subjectGradeDD" name="gradeId" required="required">
 						</select>
 					</div>
-					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="subjectStatus">Status</label>
+					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="subjectStatus">Status</label>
 					<div class="col-sm-4">
-						<select	class="form-control" id="subjectStatus" name="status">
-							<option class="dropdown-item" value="">Default is Active</option>
-							<option class="dropdown-item" value="Active">Active</option>
+						<select	class="form-control" id="subjectStatus" name="status" required="required">
+							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
 					</div>
@@ -877,7 +870,7 @@
 							name="edition" placeholder="Enter Edition">
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addSubject" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -921,16 +914,15 @@
 					</div>
 				</div>				
 				<div class="form-group">		
-					<label class="control-label col-sm-2" for="vehicleSchoolDD">Select Institute</label> 
+					<label class="control-label col-sm-2" for="vehicleSchoolDD">Select Campus</label> 
 					<div class="col-sm-4">
 						<select class="form-control" id="vehicleSchoolDD" name="schoolId">
 						</select>
 					</div>
-					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="vehicleStatus">Status</label>
+					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="vehicleStatus">Status</label>
 					<div class="col-sm-4">
-						<select	class="form-control" id="vehicleStatus" name="status">
-							<option class="dropdown-item" value="">Default is Active</option>
-							<option class="dropdown-item" value="Active">Active</option>
+						<select	class="form-control" id="vehicleStatus" name="status" required="required">
+							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
 					</div>
@@ -971,7 +963,7 @@
 							placeholder=" Owner Mobile" required="required"> 
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addVehicle" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -1058,16 +1050,15 @@
 					</div>
 				</div>
 				<div class="form-group">		
- 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="discountStatus">Status</label>
+ 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="discountStatus">Status</label>
 					<div class="col-sm-4">
-						<select class="form-control" id="discountStatus" name="status">
-							<option class="dropdown-item" value="Active">Default is Active</option>					
-							<option class="dropdown-item" value="Active">Active</option>
+						<select class="form-control" id="discountStatus" name="status" required="required">
+							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addDiscount" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -1173,11 +1164,10 @@
 		 					<option class="dropdown-item" value="Auto">Auto</option>
 		 				</select>
 					</div>
- 					<label class="control-label col-sm-2" th:text="#{label.select.status}" for="ast">Status</label>
+ 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="ast">Status</label>
 					<div class="col-sm-4">
-						<select class="form-control" id="ast" name="st">
-							<option class="dropdown-item" value="">Default is Active</option>					
-							<option class="dropdown-item" value="Active">Active</option>
+						<select class="form-control" id="ast" name="st" required="required">
+							<option class="dropdown-item" value="Active" selected="selected">Active</option>
 		 					<option class="dropdown-item" value="Inactive">Inactive</option>
 		 				</select>
 					</div>
@@ -1216,7 +1206,7 @@
 							placeholder=" Message signature "> 
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addAlerts" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -1282,11 +1272,11 @@
  -->					</div>
 				</div>
 				<div id="fcCalculaton" class="form-group" style="display: none">	
-					<input type="number" class="form-control" id="fchf" name="f" required="required"> 
+					<input type="number" class="form-control" id="fchf" name="f"/> 
 					<input type="number" class="form-control" id="fchvf" name="vf"/> 
 					<input type="number" class="form-control" id="fchd" name="d"/> 
 					<input type="text" class="form-control" id="fchdt" name="dt"/> 
-					<input type="number" class="form-control" id="fchda" name="da" required="required"> 
+					<input type="number" class="form-control" id="fchda" name="da"/> 
 					<input type="text" class="form-control" id="fchdd" name="dd"/>
 				</div>			
 				<div class="form-group" id="fcDetail">
@@ -1576,20 +1566,20 @@
 						</select>	
 					</div>
 					<div id="fvidiv">
-						<label class="control-label col-sm-2 req" for="fri">Enter Id</label>
+						<label class="control-label col-sm-2" for="fri">Enter Id</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="fri" name="ri"
-								placeholder=" Enter Id " required="required"> 
+								placeholder=" Enter Id "> 
 						</div>					
 					</div>					
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2 req"  for="frbss">Student By</label>
 					<div class="col-sm-4">
-						<select class="form-control" id="frbss" name="rbss" required="required">
-							<option class="dropdown-item" value=-1 selected="selected">All</option>
-							<option class="dropdown-item" value=0>Active</option>
-							<option class="dropdown-item" value=1>InActive</option>
+						<select class="form-control" id="frbs" name="rbs" required="required">
+							<option class="dropdown-item" value="" selected="selected">All</option>
+							<option class="dropdown-item" value="Active">Active</option>
+							<option class="dropdown-item" value="Inactive">Inactive</option>
 						</select>	
 					</div>
 				</div>
@@ -1620,15 +1610,14 @@
 				</div>
 				<div class="form-group" style="text-align: center; margin-top: 25px;">
 					<button type="button" id="printFc" onclick="loadFR()" class="btn btn-success">
-						<span class="glyphicon glyphicon-print"></span> Print
+						<span class="glyphicon glyphicon-sunglasses"></span> View
 					</button>
 				</div>
 			</form>
-			<table id="tableFR" class="table table-striped">
+			<table id="tableFeeReport" class="table table-striped">
 		        <thead>
 		            <tr>
-						<th class="col-sm-1">Id</th>
-						<th class="col-sm-1">Institute</th>
+						<th class="col-sm-1">Campus</th>
 						<th class="col-sm-1">Grade</th>
 						<th class="col-sm-1">Guardian</th>
 						<th class="col-sm-1">Student</th>
@@ -1644,7 +1633,25 @@
 						<th class="col-sm-1">Balance</th>
 		            </tr>
 		        </thead>
-		    </table>
+				<tfoot>
+		            <tr>
+		                <th>Totals:</th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		                <th></th>
+		            </tr>
+		        </tfoot>
+   		    </table>
 		</div>		
 
 	</div>

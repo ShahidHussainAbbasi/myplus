@@ -132,9 +132,7 @@ $(document).ready(function() {
 			}else{	
 				validateForm();
 			    if(formValidated){
-					var formData = $('form').serialize();
-						formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
-						$(this).callAjax("add" + buttonV,formData);
+					$(this).callAjax("add" + buttonV,populateFormData());
 			    }else{
 			    	alert("Please make sure you have entered valid values");
 			    	return false;
@@ -147,9 +145,13 @@ $(document).ready(function() {
 		    //If all form's required fields are filled
 			validateForm();
 		    if(formValidated){
-				var formData = $('form').serialize();
-					formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
-					$(this).callAjax("revert" + buttonV,formData);
+//				var formArr = $('form'). serializeArray();
+//				jQuery.each(formArr , function(i, field) {
+//				  formArr[i].value = $.trim(field.value);
+//				});
+//				var serializedForm = $.param(formArr);
+//				formData = serializedForm.replace(/[^&]+=\.?(?:&|$)/g, '');
+				$(this).callAjax("revert" + buttonV,populateFormData());
 		    }else{
 		    	alert("Please make sure you have entered valid values");
 		    	return false;
@@ -179,9 +181,7 @@ $(document).ready(function() {
 		    //If all form's required fields are filled
 			validateForm();
 		    if(formValidated){
-				var formData = $('form').serialize();
-					formData = formData.replace(/[^&]+=\.?(?:&|$)/g, '');
-					$(this).callAjax("send" + buttonV,formData);
+				$(this).callAjax("send" + buttonV,populateFormData());
 		    }else{
 		    	alert("Please make sure you have entered valid values");
 		    	return false;
@@ -210,12 +210,6 @@ $(document).ready(function() {
 	  	
 	  	//having below block on every switch to get it work
 		//Edit table click on row
-/*	  	 var table = $('#example').DataTable();
-	     
-	     $('#example tbody').on('click', 'tr', function () {
-	         var data = table.row( this ).data();
-	         alert( 'You clicked on '+data[0]+'\'s row' );
-	     } );*/	  	
 		$("#table" + tableV).on( 'click', 'tr', function () {
 			var html = datatable.row(this).data();//.selector.rows.innerHTML;
 			var doc = new DOMParser().parseFromString(html, "text/html");
@@ -289,6 +283,16 @@ $(document).ready(function() {
 	}	
 });
 
+function populateFormData(){
+	var myForm = document.getElementById(tableV);
+    var formData = new FormData(myForm),
+    obj = {};
+    for (var entry of formData.entries()){
+    	obj[entry[0]] = $.trim(entry[1]);
+    }
+	return $.param(obj);
+}
+
 function jsonPost(method,data) {	
 	$.ajax({
 	      type : "POST",
@@ -301,10 +305,12 @@ function jsonPost(method,data) {
 				alert("Insertion error");
 				return false;
 			}
+			loadDataTable();
 		}, fail: function(data, textStatus, errorThrown) {
 			alert("There is some problem in the request "+errorThrown);
 		}, error: function(data, textStatus, errorThrown) {
 			resetGlobalError();
+        	window.location.href = serverContext + "login?message=" + errorThrown;			
        	}
 	}).fail(function(data) {
 		alert("Please recheck inputs or contact with the system administrator.");
@@ -406,7 +412,7 @@ function formToJSON(formId){
     var formData = new FormData(myForm),
     obj = {};
     for (var entry of formData.entries()){
-    	obj[entry[0]] = entry[1];
+    	obj[entry[0]] = $.trim(entry[1]);
     }
     return obj;
 }

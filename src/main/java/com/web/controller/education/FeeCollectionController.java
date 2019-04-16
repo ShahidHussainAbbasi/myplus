@@ -387,35 +387,44 @@ public class FeeCollectionController {
 		}
 	}
 	
-	@RequestMapping(value = "/getUserFR", method = RequestMethod.POST)
+	@RequestMapping(value = "/loadFR", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse loadFR(final FeeVoucherDTO dto) {
 		try {
+			Short ENROLL_NO = 0;
+			Short GUARDIAN = 1;
+			Short GRADE = 2;
+			Short CAMPUS = 3;
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			List<GenericResponse> ML = new ArrayList();
 			List<Long> SIDs = new ArrayList<Long>();
 			User user = requestUtil.getCurrentUser();
 			Student exp = new Student();
 			exp.setUserId(user.getId());
-			if(dto.getRb()==0) {
+			if(dto.getRb()==ENROLL_NO) {
 				exp.setEnrollNo(dto.getRi());
-				SIDs.add(studentService.findOne(Example.of(exp)).get().getId());
-			}else if(dto.getRb()==1) {
+//				SIDs.add(studentService.findOne(Example.of(exp)).get().getId());
+			}else if(dto.getRb()==GUARDIAN) {
 					exp.setGuardianId(Long.valueOf(dto.getRi()));
-					SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
-			}else if(dto.getRb()==2) {
+//					SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else if(dto.getRb()==GRADE) {
 				exp.setGradeId(Long.valueOf(dto.getRi()));
-				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
-			}else if(dto.getRb()==3) {
+//				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else if(dto.getRb()==CAMPUS) {
 				exp.setSchoolId(Long.valueOf(dto.getRi()));
-				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+//				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
 			}else {
 //				exp.setGradeId(Long.valueOf(dto.getVi()));
-				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+//				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
 			}
+			if(!AppUtil.isEmptyOrNull(dto.getRbs())) {
+				exp.setStatus(dto.getRbs());
+//				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}
+			SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
 	        //getting student detail
-			if(AppUtil.isEmptyOrNull(SIDs))
-				return new GenericResponse("FAILURE","Invalid input");
+//			if(AppUtil.isEmptyOrNull(SIDs))
+//				return new GenericResponse("NOT_FOUND","NOT FOUND");
 				
 			List<Student> objs = studentService.findAllById(SIDs);
 			objs.forEach(s ->{		
@@ -513,7 +522,7 @@ public class FeeCollectionController {
 			obj  = modelMapper.map(dto, FeeCollection.class);
 			obj.setUserId(user.getId());
 			obj.setPd(AppUtil.getLocalDate(dto.getPdStr()));
-			
+			obj.setFp((obj.getFp()==null?0:obj.getFp()) + (obj.getOd()==null?0:obj.getOd()));
 			if(AppUtil.isEmptyOrNull(feeCollectionService.save(obj)))
 				return new GenericResponse("FAILED");
 
