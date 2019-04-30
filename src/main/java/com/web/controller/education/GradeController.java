@@ -9,8 +9,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
@@ -35,8 +33,6 @@ import com.web.util.RequestUtil;
 @Controller
 public class GradeController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
-	
 	@Autowired
 	private MessageSource messages;
 
@@ -66,25 +62,25 @@ public class GradeController {
 			filterBy.setUserId(user.getId());
 	        Example<Grade> example = Example.of(filterBy);
 			List<Grade> objs = gradeService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<GradeDTO> dtos = new ArrayList<>();
 			objs.forEach(obj->{
 				GradeDTO dto = new GradeDTO();
 				dto = modelMapper.map(obj, GradeDTO.class);
-				if(!AppUtil.isEmptyOrNull(obj.getSchool())) {
+				if(!appUtil.isEmptyOrNull(obj.getSchool())) {
 					dto.setSchoolId(obj.getSchool().getId());
 					dto.setSchoolName(obj.getSchool().getBranchName());
 				}else {
 					dto.setSchoolName("");
 				}
-				if(!AppUtil.isEmptyOrNull(dto.getTimeFrom()))
+				if(!appUtil.isEmptyOrNull(dto.getTimeFrom()))
 					dto.setTimeFromStr(obj.getTimeFrom().toString());
-				if(!AppUtil.isEmptyOrNull(dto.getTimeTo()))
+				if(!appUtil.isEmptyOrNull(dto.getTimeTo()))
 					dto.setTimeToStr(obj.getTimeTo().toString());
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -122,7 +118,7 @@ public class GradeController {
 	public GenericResponse getAllGrade(final HttpServletRequest request) {
 		try {
 			List<Grade> grades = gradeService.findAll();
-			if(AppUtil.isEmptyOrNull(grades)){
+			if(appUtil.isEmptyOrNull(grades)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),grades);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),grades);
@@ -142,7 +138,7 @@ public class GradeController {
 			User user = requestUtil.getCurrentUser();
 			Grade obj = new Grade();
 			dto.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())) {
+			if(appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				obj.setSchool(schoolService.getOne(dto.getSchoolId()));
@@ -154,15 +150,15 @@ public class GradeController {
 			obj  = modelMapper.map(dto, Grade.class);
 			obj.setDated(dated);
 			obj.setUpdated(dated);
-			if(!AppUtil.isEmptyOrNull(dto.getTimeFromStr()))
+			if(!appUtil.isEmptyOrNull(dto.getTimeFromStr()))
 				obj.setTimeFrom(LocalTime.parse(dto.getTimeFromStr()));
-			if(!AppUtil.isEmptyOrNull(dto.getTimeToStr()))
+			if(!appUtil.isEmptyOrNull(dto.getTimeToStr()))
 				obj.setTimeTo(LocalTime.parse(dto.getTimeToStr()));
 			School school = schoolService.getOne(dto.getSchoolId()); 
 			obj.setSchool(school);
 			
 			Grade schoolOwnerTemp = gradeService.save(obj);
-			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
+			if(appUtil.isEmptyOrNull(schoolOwnerTemp)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()),dto);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dto);

@@ -14,7 +14,12 @@ $(document).ready(function() {
 	
     tableFeeReport = $('#tableFeeReport').DataTable( {
         dom: 'Bfrtip',
+		lengthMenu: [
+            [ 10, 25, 50, -1 ],
+            [ '10 rows', '25 rows', '50 rows', 'Show all' ]
+        ],
         buttons: [
+        	'pageLength',
             { extend: 'copyHtml5', footer: true },
             { extend: 'csvHtml5', footer: true },
             { extend: 'excelHtml5', footer: true },
@@ -169,20 +174,13 @@ $(document).ready(function() {
     } );
 	
     
-    $("table.display").DataTable( {
+ /*   $("table.display").DataTable( {
         "paging":   false,
         "ordering": false,
         "info":     false,
         "searching": false
-    } );
+    } );*/
     
-    $("#fvp").change(function(){
-    	if($(this).val()=="4"){
-    		$("#fvdrdiv").show();
-    	}else{
-    		$("#fvdrdiv").hide();
-    	}
-    });    
 } );
 
 function loadDataTable(){
@@ -193,7 +191,12 @@ function loadDataTable(){
 	$('.datePicker').val(currentFormattedDate());
 	datatable = $("#table" + tableV).DataTable({
 		dom: 'Bfrtip',
+		lengthMenu: [
+            [ 10, 25, 50, -1 ],
+            [ '10 rows', '25 rows', '50 rows', 'Show all' ]
+        ],
         buttons: [
+        	'pageLength',
             { extend: 'copyHtml5', footer: true },
             { extend: 'csvHtml5', footer: true },
             { extend: 'excelHtml5', footer: true },
@@ -266,7 +269,8 @@ function loadDataTable(){
 						arr = [
 							"<div id=gradeId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
 							"<div id=gradeSchoolDD>"+obj.schoolName+"</div>","<div id=gradeName>"+obj.name+"</div>", 
-							"<div id=gradeCode>"+obj.code+"</div>", "<div id=gradeTimeFromStr>"+obj.timeFromStr+"</div>", 
+							"<div id=gradeCode>"+obj.code+"</div>","<div id=gradeFee>"+obj.fee+"</div>",
+							"<div id=gradeTimeFromStr>"+obj.timeFromStr+"</div>", 
 							"<div id=gradeTimeToStr>"+obj.timeToStr+"</div>", "<div id=gradeRoom>"+obj.room+"</div>",
 							"<div id=gradeStatus>"+obj.status+"</div>","<div id=gradeRoomDated>"+obj.datedStr+"</div>"
 							];
@@ -401,6 +405,14 @@ function loadDataTable(){
 							"<div id=fchdt>"+obj.dtStr+"</div>"
 							];
 						datatable.row.add(arr).draw();
+					});
+				} else if (getAll === "PA") {
+					$.each(collections, function(ind, obj) {
+						arr = [
+							obj.id,obj.dtStr,obj.cn,obj.c,obj.s
+							];
+						datatable.row.add(arr).draw();
+						datatable.columns( [0] ).visible( false );
 					});
 				}
 			},
@@ -650,7 +662,7 @@ function removeTableBody(){
 function ma(v){
 	for ( var i in sm) {
 		if(v===i){
-			$(this).callAjax("markAttendance2",sm[i]);
+			$(this).callAjax("markAttendance",sm[i]);
 		}
 	}
 }
@@ -679,7 +691,7 @@ function getImgFromUrl(logo_url, callback) {
     };
 } 
 
-function toDataURL(url, callback) {
+/*function toDataURL(url, callback) {
 	var xhr = new XMLHttpRequest();
 	xhr.onload = function() {
 		var reader = new FileReader();
@@ -691,18 +703,19 @@ function toDataURL(url, callback) {
 	xhr.open("GET", url);
 	xhr.responseType = "blob";
 	xhr.send();
-}
+}*/
 
 function loadFR(){
 	tableFeeReport.clear().draw();
-	var formData = $("form").serialize();
-	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
+	
+//	var formData = $("form").serialize();
+//	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
 
 	$.ajax({
 		type : "POST",
 		url : serverContext + "loadFR",
 		dataType : "json",
-		data : formData,
+		data : populateFormData(),
 		success : function(data) {
 			if(data.status!=="SUCCESS"){
 				return alert(data.status+" : "+data.message);
@@ -817,14 +830,14 @@ function PFR(doc,o,sfds,logo_url,X,Y,dataUrl){
 }
 
 function loadFL(){
-	var formData = $("form").serialize();
-	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
+	//var formData = $("form").serialize();
+	//formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
 
 	$.ajax({
 		type : "POST",
 		url : serverContext + "loadFL",
 		dataType : "json",
-		data : formData,
+		data : populateFormData(),
 		success : function(data) {
 			if(data.status!=="SUCCESS"){
 				return alert(data.status+" : "+data.message);
@@ -870,7 +883,7 @@ function loadFL(){
 					o.d=d;
 					o.dd = s2n(o.dd);
 
-					if(o.userId == 61 || o.userId == 520){
+					if(o.userId == 601 || o.userId == 520){
 						var logo_url = serverContext+"resources/img/logos/IQRA_logo.png";
 						toDataURL(logo_url, function(dataUrl) {
 							PFL(o,sfd,logo_url,30,35,dataUrl,getIqraInst());//print fee voucher
@@ -880,7 +893,7 @@ function loadFL(){
 							toDataURL(logo_url, function(dataUrl) {
 								PFL(o,sfd,logo_url,300,40,dataUrl,getASLInst());//print fee voucher
 							});
-					}else if(o.userId == 61 || o.userId == 203){
+					}else if(o.userId == 601 || o.userId == 203){
 							var logo_url = serverContext+"resources/img/logos/TYL_logo.jpg";
 							toDataURL(logo_url, function(dataUrl) {
 								PFL(o,sfd,logo_url,150,40,dataUrl,getASLInst());//print fee voucher
@@ -942,14 +955,14 @@ function PFL(o,sfds,logo_url,X,Y,dataUrl){
 }
 
 function loadFV(){
-	var formData = $("form").serialize();
-	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
+	//var formData = $("form").serialize();
+	//formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
 
 	$.ajax({
 		type : "POST",
 		url : serverContext + "loadFV",
 		dataType : "json",
-		data : formData,
+		data : populateFormData(),
 		success : function(data) {
 			if(data.status!=="SUCCESS"){
 				return alert(data.status+" : "+data.message);
@@ -990,7 +1003,7 @@ function loadFV(){
 					o.d=d;
 					o.dd = s2n(o.dd);
 
-					if(o.userId == 601 || o.userId == 520){
+					if(o.userId == 61 || o.userId == 241 || o.userId == 520){
 						var logo_url = serverContext+"resources/img/logos/IQRA_logo.png";
 						toDataURL(logo_url, function(dataUrl) {
 							PFV_2Colum(o,logo_url,55,4,30,35,dataUrl,getIqraInst());//print fee voucher
@@ -1000,7 +1013,7 @@ function loadFV(){
 							toDataURL(logo_url, function(dataUrl) {
 								PFV_3Colum(o,logo_url,0,3,95,20,dataUrl,getASLInst());//print fee voucher
 							});
-					}else if(o.userId == 61 || o.userId == 203){
+					}else if(o.userId == 601 || o.userId == 203){
 							var logo_url = serverContext+"resources/img/logos/TYL_logo.jpg";
 							toDataURL(logo_url, function(dataUrl) {
 								PFV_2Colum(o,logo_url,8,5,100,40,dataUrl,getASLInst());//print fee voucher
@@ -1179,90 +1192,106 @@ function PFV_2Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 		doc.addImage(dataUrl, "JPEG", L+X, Y, W, H);
 		T = T+40;//20
 		console.log(L,T);
-		doc.setFontSize(8);
-		L = L+40;//25
-		doc.text("Campus : "+o.scn, L, T);
+		doc.setFontSize(9);
+		doc.setFont("arial");
+		doc.setFontType('bold');
+//		L = L+40;//25
+		doc.text("Campus : IQRA TALEEM-O-TARBIAT-UL-ATFAL", L, T);
 		T = T+5;//40
-		L = L-20;//5
-		doc.text("Fee Voucher", L, T);
-		L = L+75;//60
-		doc.text(V[i]+" copy", L, T);
+//		L = L+20;//5
+		doc.setFontSize(7);
+		doc.setFont("arial");
+		doc.text("Fee voucher : "+V[i]+" copy", L, T);
+//		L = L-75;//60
+//		doc.text(V[i]+" copy", L, T);
 		T = T+8;//46
-		doc.line(2, T, 300, T);
-		L = L-75;//5
-		T= T+3;//44
 		doc.text("Issue date: "+dateToDMY(new Date()), L, T);
 		L = L+42;//37
 		doc.text("Valid date: "+dateToDMY(new Date()), L, T);
-		L = L+42;//69
+		L = L+40;//69
 		doc.text("Due date: "+currentdateByDay(o.dd), L, T);
-		T+=10;//54
-		L =L-84;//5
-		doc.text("Name: "+o.sn, L, T);
-		L +=74;//69
-		doc.text("GR/Enrol No: "+o.en, L, T);
-		T+=1;//55
+//		L = L+75;//5
+		T= T+1;//44
+		doc.setFontType('normal');
 		doc.line(2, T, 300, T);
-		T+=10;//54
-		L =L-74;//5
+		doc.setFontType('bold');
+		T+=3;//54
+		L =L-82;//5
+		doc.setFontSize(9);
+		doc.setFont("arial");
 		doc.text("Guardian: "+o.gn, L, T);
-		L +=74;//69
+		L +=82;//69
+//		T+=10;//54
 		doc.text("Guardian No: "+o.gid, L, T);
 		T+=1;//55
+//		doc.line(2, T, 300, T);
+		T+=10;//54
+		L =L-82;//5
+		doc.text("Name: "+o.sn, L, T);
+		L +=82;//69
+		doc.text("GR/Enrol No: "+o.en, L, T);
+		T+=1;//55
+		doc.setFontType('normal');
 		doc.line(2, T, 300, T);
+		doc.setFontType('bold');
 		T+=3;//57
-		L =L-74;//5
+		L =L-82;//5
 		doc.text("Grade: "+o.g, L, T);
-		L +=65;//66
+		L +=82;//66
 		doc.text("Section: "+o.g, L, T);
 		L +=9;//69
 		
 		T = T+13;//70
 		doc.setFontSize(7);
-		L =L-74;//5
+		L =L-91;//5
+		doc.setFontSize(9);
 		doc.text("Date: ", L, T);
 		L =L+40;//35
 		doc.text("Description: ", L, T);
-		L =L+40;//70
+		L =L+42;//70
 		doc.text("Fee: ", L, T);
 
+		doc.setFontSize(8);
 		T = T+1;//71
 		doc.line(2, T, 300, T);
 		T = T+3;//72
-		L =L-80;//5
+		L =L-82;//5
 		doc.text(getMonthYear(new Date())+"", L, T);
 		L =L+40;//35
 		doc.text("Monthly fee", L, T);
-		L =L+40;//70
+		L =L+42;//70
 		doc.text(o.f+"", L, T);
 		
 		T = T+3;//75
-		L =L-80;//5
+		L =L-82;//5
 		doc.text(getMonthYear(new Date())+"", L, T);
 		L =L+40;//35
 		doc.text("Discount", L, T);
-		L =L+40;//70
+		L =L+42;//70
 		doc.text(o.d+"", L, T);
 
 		T = T+3;//76
-		L =L-80;//5
+		L =L-82;//5
 		doc.text(getMonthYear(new Date())+"", L, T);
 		L =L+40;//35
 		doc.text("Vehicle Fee", L, T);
-		L =L+40;//70
+		L =L+42;//70
 		doc.text(o.vf+"", L, T);
 		
 		T = T+1;//78
+		doc.setFontType('normal');
 		doc.line(2, T, 300, T);
+		doc.setFontType('bold');
 		T = T+3;//80
-		L =L-80;//5
+		L =L-82;//5
+		doc.setFontSize(9);
 		doc.text("Total", L, T);
-		L =L+80;//35
+		L =L+82;//35
 		doc.text(o.da+"", L, T);
 
 		T = T+20;//78
 		L =L-80;//5
-		doc.setFontSize(8);
+		doc.setFontSize(10);
 		doc.text("Instuctions for Guardians", L, T);
 		doc.setFontSize(7);
 		
@@ -1272,7 +1301,7 @@ function PFV_2Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 			doc.text(inst, L, T);
 		});
 		
-		L =L+125;//35
+		L =L+152;//35
 		T = 5;
 		console.log(L,T);
 	}

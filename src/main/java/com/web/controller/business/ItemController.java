@@ -59,6 +59,9 @@ public class ItemController {
 	@Autowired
 	RequestUtil requestUtil;
 
+    @Autowired
+    private AppUtil appUtil;  
+    
 	ModelMapper modelMapper = new ModelMapper();
 
 	@RequestMapping(value = "/getUserItem", method = RequestMethod.GET)
@@ -67,10 +70,10 @@ public class ItemController {
 		try {
 			Item filterBy = new Item();
 			User user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getId());
+			filterBy.setUserType("PHARMACY");
 			Example<Item> example = Example.of(filterBy);
 			List<Item> objs = itemService.findAll(example);
-			if (AppUtil.isEmptyOrNull(objs))
+			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -90,11 +93,11 @@ public class ItemController {
 //				Company company = companyService.getOne(dto.getCompanyId());
 //				dto.setCompanyId(company.getId());
 //				dto.setCompanyName(company.getName());
-				if(!AppUtil.isEmptyOrNull(obj.getCompany())) {
+				if(!appUtil.isEmptyOrNull(obj.getCompany())) {
 					dto.setCompanyId(obj.getCompany().getId());
 					dto.setCompanyName(obj.getCompany().getName());
 				}
-				if(!AppUtil.isEmptyOrNull(dto.getVenderId())) {
+				if(!appUtil.isEmptyOrNull(dto.getVenderId())) {
 					Vender vender = venderService.getOne(dto.getVenderId());
 					dto.setVenderId(vender.getId());
 					dto.setVenderName(vender.getName());
@@ -114,9 +117,9 @@ public class ItemController {
 //				dto.setItemUnitIds(itemUnits.stream().map(ItemUnit::getId).collect(Collectors.toSet()));
 //				dto.setItemUnitNames(itemUnits.stream().map(ItemUnit::getName).collect(Collectors.toSet()));
 				
-				dto.setExpDateStr(AppUtil.getLocalDateStr(obj.getExpDate()));
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setExpDateStr(appUtil.getLocalDateStr(obj.getExpDate()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",
@@ -155,7 +158,7 @@ public class ItemController {
 	@ResponseBody
 	public Item getItem(@RequestParam final Long itemId) {
 		try {
-			if(AppUtil.isEmptyOrNull(itemId))
+			if(appUtil.isEmptyOrNull(itemId))
 				return null;
 			
 			return itemService.findById(itemId).get();
@@ -171,7 +174,7 @@ public class ItemController {
 	public GenericResponse getAllItem(final HttpServletRequest request) {
 		try {
 			List<Item> objs = itemService.findAll();
-			if (AppUtil.isEmptyOrNull(objs))
+			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -186,12 +189,12 @@ public class ItemController {
 //				dto.setItemUnitNames(obj.getItemUnits().stream().map(ItemUnit::getName).collect(Collectors.toSet()));
 //				dto.setItemTypeIds(obj.getItemTypes().stream().map(ItemType::getId).collect(Collectors.toSet()));
 //				dto.setItemTypeNames(obj.getItemTypes().stream().map(ItemType::getName).collect(Collectors.toSet()));
-				dto.setExpDateStr(AppUtil.getLoaclDateStr(obj.getExpDate()));
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setExpDateStr(appUtil.getLoaclDateStr(obj.getExpDate()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
-			if (AppUtil.isEmptyOrNull(objs)) {
+			if (appUtil.isEmptyOrNull(objs)) {
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
 			} else {
@@ -215,7 +218,12 @@ public class ItemController {
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())){
+			if(appUtil.isEmptyOrNull(dto.getStock()))
+				dto.setStock(1F);
+			if(appUtil.isEmptyOrNull(dto.getDiscountType()))
+				dto.setDiscountType("%");
+			
+			if(appUtil.isEmptyOrNull(dto.getId())){
 //				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 /*				if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
@@ -229,8 +237,8 @@ public class ItemController {
 			}
 
 			obj = modelMapper.map(dto, Item.class);
-			if(!AppUtil.isEmptyOrNull(dto.getExpDateStr()))
-				obj.setExpDate(AppUtil.getLocalDate(dto.getExpDateStr()));
+			if(!appUtil.isEmptyOrNull(dto.getExpDateStr()))
+				obj.setExpDate(appUtil.getLocalDate(dto.getExpDateStr()));
 			
 			obj.setDated(dated);
 			obj.setUpdated(dated);
@@ -257,7 +265,7 @@ public class ItemController {
 //				obj.setItemUnits(null);
 
 			obj = itemService.save(obj);
-			if (AppUtil.isEmptyOrNull(obj.getId())) {
+			if (appUtil.isEmptyOrNull(obj.getId())) {
 				return new GenericResponse("FAILED",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
 			} else {

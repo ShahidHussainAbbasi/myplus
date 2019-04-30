@@ -2,10 +2,14 @@ package com.web.controller.education;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
@@ -13,9 +17,12 @@ import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.persistence.model.User;
 import com.persistence.model.education.Guardian;
@@ -35,6 +42,9 @@ public class GuardianController {
 	IGuardianService guardianService;
 
 	@Autowired
+	AppUtil appUtil;
+	
+	@Autowired
 	RequestUtil requestUtil;
 
 	ModelMapper modelMapper = new ModelMapper();
@@ -47,22 +57,22 @@ public class GuardianController {
 			User user = requestUtil.getCurrentUser();
 			filterBy.setUserId(user.getId());
 			List<Guardian> objs = guardianService.findAll(Example.of(filterBy));
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			
 			List<GuardianDTO> dtos = new ArrayList<>();
 			objs.forEach(obj->{
 				GuardianDTO dto = new GuardianDTO();
 				dto = modelMapper.map(obj, GuardianDTO.class);
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -71,6 +81,7 @@ public class GuardianController {
 	@RequestMapping(value = "/getUserGuardians", method = RequestMethod.GET)
 	@ResponseBody
 	public String getUserGuardians(final HttpServletRequest request) {
+//		importGuardian();
 		StringBuffer sb = new StringBuffer();
 		try {
 			Guardian filterBy = new Guardian();
@@ -86,7 +97,7 @@ public class GuardianController {
 		    return sb.toString();
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 		}
 	    return sb.toString();
 	}
@@ -95,15 +106,16 @@ public class GuardianController {
 	@ResponseBody
 	public GenericResponse getAllGuardian(final HttpServletRequest request) {
 		try {
+//			importGuardian();
 			List<Guardian> objs = guardianService.findAll();
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -117,7 +129,7 @@ public class GuardianController {
 			User user = requestUtil.getCurrentUser();
 			Guardian obj = new Guardian();
 			dto.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())) {
+			if(appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				Example<Guardian> example = Example.of(obj);
@@ -129,14 +141,14 @@ public class GuardianController {
 			obj.setDated(dated);
 			obj.setUpdated(dated);
 			obj = guardianService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.fail_saveOrUpdate", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.success_saveOrUpdate", null, request.getLocale()));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.error_system_error "+e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -158,8 +170,73 @@ public class GuardianController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.e", null, request.getLocale()));
 		}
 	}
+	
+	@SuppressWarnings({ "resource", "rawtypes" })
+	@PostMapping("/impG")
+	public void mapReapExcelDatatoDB(@RequestParam("file") MultipartFile reapExcelDataFile){
+//    public void importGuardian() {
+		LocalDateTime dated = LocalDateTime.now();
+		User user = requestUtil.getCurrentUser();
+		try {
+		    XSSFWorkbook workbook = new XSSFWorkbook (reapExcelDataFile.getInputStream());
+		    XSSFSheet sheet = workbook.getSheetAt(0);
+		    Iterator ite = sheet.rowIterator();
+		    while(ite.hasNext()){
+		    	Guardian obj = new Guardian();
+		        Row row = (Row) ite.next();
+		        if(row.getRowNum()==0)
+		        	continue;
+		        if(row.getRowNum()==155)
+		        	break;
+		        
+	        	//validate if already exist
+		        obj.setUserId(user.getId());
+				obj.setName(row.getCell(5).getStringCellValue());
+				Example<Guardian> example = Example.of(obj);
+				if(guardianService.exists(example))
+	  		  		continue;
+	  		  		
+  				obj.setDated(dated);
+  				if(row.getCell(2)!=null)
+				obj.setEmail(row.getCell(2).getStringCellValue().trim());
+  				if(row.getCell(3)!=null)
+				obj.setGender(row.getCell(3).getStringCellValue().trim());
+  				if(row.getCell(4)!=null)
+				obj.setMobile(row.getCell(4).getStringCellValue().trim());
+  				if(row.getCell(5)!=null)
+				obj.setName(row.getCell(5).getStringCellValue().trim());
+  				if(row.getCell(6)!=null)
+				obj.setOccupation(row.getCell(6).getStringCellValue().trim());
+  				if(row.getCell(7)!=null)
+				obj.setPermAddress(row.getCell(7).getStringCellValue().trim());
+  				if(row.getCell(8)!=null)
+				obj.setPhone(row.getCell(8).getStringCellValue().trim());
+  				if(row.getCell(9)!=null)
+				obj.setRelation(row.getCell(9).getStringCellValue().trim());
+  				if(row.getCell(10)!=null)
+				obj.setStatus(row.getCell(10).getStringCellValue().trim());
+  				if(row.getCell(11)!=null)
+				obj.setTempAddress(row.getCell(11).getStringCellValue().trim());
+  				obj.setUpdated(dated);
+  				if(row.getCell(14)!=null)
+				obj.setCnic(row.getCell(14).getStringCellValue().trim());
+  				obj = guardianService.save(obj);
+  				if(appUtil.isEmptyOrNull(obj)) {
+  					System.out.println(obj);
+  				}else {
+  					System.out.println();
+  				}
+	  		  		
+		    }
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			
+		}    
+	}
+	
 }

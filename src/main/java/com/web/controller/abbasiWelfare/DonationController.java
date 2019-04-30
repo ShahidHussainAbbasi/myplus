@@ -3,7 +3,6 @@
  */
 package com.web.controller.abbasiWelfare;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -121,7 +120,7 @@ public class DonationController {
 			List<Donation> objs = donationService.findAll();
 			DonatorDTO dto = null;
 			for(Donation obj: objs) {
-				if(!AppUtil.isEmptyOrNull(obj)) {
+				if(!appUtil.isEmptyOrNull(obj)) {
 					dto = new DonatorDTO();
 					
 //					Donator filterBy = new Donator();
@@ -133,7 +132,7 @@ public class DonationController {
 //						continue;
 //					Donator dt = new Donator();
 //					dt = dts.get(0);
-					if(!AppUtil.isEmptyOrNull(obj.getDonator()) && obj.getDonator().isShowMe()) {
+					if(!appUtil.isEmptyOrNull(obj.getDonator()) && obj.getDonator().isShowMe()) {
 						dto.setName(obj.getDonator().getName());
 						dto.setfName(obj.getDonator().getfName());
 						dto.setAddress(obj.getDonator().getAddress());
@@ -148,13 +147,13 @@ public class DonationController {
 					}
 					dto.setId(obj.getId());
 					dto.setAmount(obj.getAmount());
-					dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-					dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+					dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+					dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 					dto.setReceivedBy(obj.getReceivedBy());
 					dtos.add(dto);
 				}
 			}
-			if(!AppUtil.isEmptyOrNull(dtos)) {
+			if(!appUtil.isEmptyOrNull(dtos)) {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 			}else {
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -175,18 +174,18 @@ public class DonationController {
 			filterBy.setUserId(user.getId());
 	        Example<Donation> example = Example.of(filterBy);
 			List<Donation> objs = donationService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<DonationDTO> dtos = new ArrayList<>();
 			objs.forEach(obj->{
 				DonationDTO dto = new DonationDTO();
 				dto = modelMapper.map(obj, DonationDTO.class);
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
-			if(AppUtil.isEmptyOrNull(dtos))
+			if(appUtil.isEmptyOrNull(dtos))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 			else 
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -206,18 +205,18 @@ public class DonationController {
 			filterBy.setUserId(user.getId());
 	        Example<Donator> example = Example.of(filterBy);
 			List<Donator> objs = donatorService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<DonatorDTO> dtos = new ArrayList<>();
 			objs.forEach(obj->{
 				DonatorDTO dto = new DonatorDTO();
 				dto = modelMapper.map(obj, DonatorDTO.class);
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
-			if(AppUtil.isEmptyOrNull(dtos))
+			if(appUtil.isEmptyOrNull(dtos))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 			else 
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -262,23 +261,23 @@ public class DonationController {
 			obj.setUserId(user.getId());
 			obj.setName(dto.getName());
 			Example<Donator> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && donatorService.exists(example))
+			if(appUtil.isEmptyOrNull(dto.getId()) && donatorService.exists(example))
 				return new GenericResponse("FOUND",messages.getMessage("The Donator "+dto.getName()+" already exist", null, request.getLocale()));
 
-			else if(!AppUtil.isEmptyOrNull(dto.getId())) {
+			else if(!appUtil.isEmptyOrNull(dto.getId())) {
 				obj = donatorService.getOne(dto.getId());
 				dated = obj.getDated();
 			}
 			obj  = modelMapper.map(dto, Donator.class);
 			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
+			if(appUtil.isEmptyOrNull(dto.getId()))
 				obj.setDated(dated);
 			else
 				obj.setDated(dated);
 			obj.setUpdated(dated);
 			
 			obj = donatorService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				LOGGER.warn("Your donator can't be added, Please contact with your Admin");
@@ -300,26 +299,26 @@ public class DonationController {
 			
 			LocalDateTime dated = LocalDateTime.now();
 
-			if(!AppUtil.isEmptyOrNull(dto.getId())) {
+			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				obj = donationService.getOne(dto.getId());
-				if(!AppUtil.isEmptyOrNull(obj.getDated()))
+				if(!appUtil.isEmptyOrNull(obj.getDated()))
 					dated = obj.getDated();
 			}
 			obj  = modelMapper.map(dto, Donation.class);
-			if(!AppUtil.isEmptyOrNull(dto.getId()))
+			if(!appUtil.isEmptyOrNull(dto.getId()))
 				obj.setId(dto.getId());
 
 			obj.setUserId(user.getId());
 			Donator donator = donatorService.getOne(dto.getDonatorId());
 			obj.setDonator(donator);
-			if(AppUtil.isEmptyOrNull(dto.getId()))
+			if(appUtil.isEmptyOrNull(dto.getId()))
 				obj.setDated(dated);
 			else
 				obj.setDated(dated);
 			obj.setUpdated(dated);
 			
 			obj = donationService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));

@@ -75,8 +75,16 @@ public class SellDTO implements Serializable {
 	private String cn="";
 	
 	@Getter@Setter
-	private String re="";
+	private Float re=0.0F;
 	
+	@Getter@Setter
+	private String sd;
+	
+	@Getter@Setter
+	private String ed;
+
+	@Getter@Setter
+	private Integer rp;
 	/**
 	 * @return the id
 	 */

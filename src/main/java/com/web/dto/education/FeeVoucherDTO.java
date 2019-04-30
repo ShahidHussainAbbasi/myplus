@@ -26,7 +26,7 @@ public class FeeVoucherDTO {
 	@Getter@Setter
 	private String ri = null;//report input
 	@Getter@Setter
-	private Short rp = 1;
+	private Short rp = 0;
 	@Getter@Setter
 	private String redStr = null;
 	@Getter@Setter

@@ -1,3 +1,4 @@
+var userId = -1;
 var month = new Array();
 month[0] = "Jan";
 month[1] = "Feb";
@@ -56,19 +57,16 @@ function validateForm(){
     if(!form)
     	return alert("Not valid form!");
     formFields = form.length-2;
-    if (form.checkValidity() === false) {
+    if (!form.checkValidity()) {
       event.preventDefault();
       event.stopPropagation();
       // Loop over them and prevent submission
       for(var i=0; i<formFields; i++){
-    	  if(form[i].validity.valid)
+    	  if(form[i].id && form[i].validity.valid){
     		  document.getElementById(form[i].id).style.borderColor = "";
-    		 // console.log(form[i].id+' valid')
-    		  //$("#"+form[i].id).removeClass("alert-danger");
-    	  else
+    	  }else if(form[i].id){
     		  document.getElementById(form[i].id).style.borderColor = "red";
-//    		  console.log(form[i].id+' invalid')
-    		  //$("#"+form[i].id).addClass("alert-danger");
+    	  }
       }
       formValidated = false;
     }
@@ -76,6 +74,44 @@ function validateForm(){
 
 $(document).ready(function() {
 		
+	$("#paBtn").click(function (event) {
+
+	    //stop submit the form, we will post it manually.
+	    event.preventDefault();
+
+	    // Get form
+	    var form = $('#PAForm')[0];
+
+		// Create an FormData object 
+	    var data = new FormData(form);
+
+		// If you want to add an extra field for the FormData
+//	    data.append("CustomField", "This is some extra data, testing");
+
+		// disabled the submit button
+	    $("#paBtn").prop("disabled", true);
+
+	    $.ajax({
+	        type: "POST",
+	        enctype: 'multipart/form-data',
+	        url : serverContext + "importCSV",
+	        data: data,
+	        processData: false,
+	        contentType: false,
+	        cache: false,
+//	        timeout: 600000,
+	        success: function (data) {
+//	            $("#result").text(data);
+	            console.log("SUCCESS : ", data);
+	            $("#paBtn").prop("disabled", false);
+	            loadDataTable();
+	        },
+	        error: function (e) {
+	            $("#paBtn").prop("disabled", false);
+	        }
+	    });
+	});	
+
 	$(".datePicker").datetimepicker({
 		useCurrent: false,
 		format : 'DD-MM-YYYY',
@@ -112,6 +148,15 @@ $(document).ready(function() {
 		
 		resetForm();
 
+	    $("#dateRangeDD"+tableV).change(function(){
+	    	console.log(1)
+	    	if($(this).val()=="0"){
+	    		$("#dateRange"+tableV).hide();
+	    	}else{
+	    		$("#dateRange"+tableV).show();
+	    	}
+	    });    
+				
 		//All button get initialized when user switch form
 		$("#find"+buttonV).off().click(function() {
 			if(!$("#input"+buttonV).val())
@@ -123,11 +168,15 @@ $(document).ready(function() {
 		$("#add"+buttonV).off().click(function() {
 		    //If all form's required fields are filled
 			if(buttonV=="Sell"){
-				if(data && data.length>0){
+	    		document.getElementById("sellRec").style.borderColor = "";
+				if(data && data.length>0 && $("#sellRec").val()*ONE>0){
 					jsonPost("addSelling",data);
 			    }else{
 			    	alert("Please make sure you have entered valid values");
-			    	return false;
+			    	if($("#sellRec").val()*ONE<=0){
+			    		document.getElementById("sellRec").style.borderColor = "red";
+			    		document.getElementById("sellRec").focus();
+			    	}
 			    }
 			}else{	
 				validateForm();
@@ -152,6 +201,7 @@ $(document).ready(function() {
 //				var serializedForm = $.param(formArr);
 //				formData = serializedForm.replace(/[^&]+=\.?(?:&|$)/g, '');
 				$(this).callAjax("revert" + buttonV,populateFormData());
+				loadDataTable();
 		    }else{
 		    	alert("Please make sure you have entered valid values");
 		    	return false;
@@ -211,20 +261,26 @@ $(document).ready(function() {
 	  	//having below block on every switch to get it work
 		//Edit table click on row
 		$("#table" + tableV).on( 'click', 'tr', function () {
-			var html = datatable.row(this).data();//.selector.rows.innerHTML;
-			var doc = new DOMParser().parseFromString(html, "text/html");
+/*			var r = confirm("Any selection if you have will be discarded, Are you sure do you want to edit?");
+			if (r != true)
+				return false;
 			
+*/			
 			resetForm();
 			if(tableV==="Fc"){
 				var ids = $("#table"+ tableV+ " input[type='checkbox']:checkbox:checked").map(function() {
 					return this.value;
 				}).get().join(",");
-				if(!ids){
+				if(!ids && ids.lenght>0){
 					removeTableBody();
 					alert("Edit/Update is not allowed, You can delete and submit new one only");
 				}
 			}else{
-				editRecord(doc);
+				if(tableV!="Sell"){					
+					var html = datatable.row(this).data();//.selector.rows.innerHTML;
+					var doc = new DOMParser().parseFromString(html, "text/html");
+					editRecord(doc);
+				}
 			}
 		} );
 	  });
@@ -293,7 +349,12 @@ function populateFormData(){
 	return $.param(obj);
 }
 
-function jsonPost(method,data) {	
+function jsonPost(method,data) {
+	var r = confirm("Are you sure you want to Sell?");
+	if (r != true)
+		return false;
+	
+	var printData = data;
 	$.ajax({
 	      type : "POST",
 	      contentType : "application/json",
@@ -303,9 +364,12 @@ function jsonPost(method,data) {
 	      success : function(data) {
 			if(data.status!="SUCCESS"){
 				alert("Insertion error");
-				return false;
+			}
+			if($("#sellP")[0].checked){
+				pGarmtsInv(printData);
 			}
 			loadDataTable();
+			resetCart();
 		}, fail: function(data, textStatus, errorThrown) {
 			alert("There is some problem in the request "+errorThrown);
 		}, error: function(data, textStatus, errorThrown) {
@@ -399,6 +463,14 @@ function currentFormattedDate() {
     return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
 }
 
+function currentFormattedDateTime() {
+	var date = new Date();
+	var d = date.getDate();
+    var m = date.getMonth() + 1;
+    var y = date.getFullYear();
+    return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y+" "+date.getHours()+":"+date.getMinutes() ;
+}
+
 function currentFormattedNextYearDate() {
 	var date = new Date();
 	var d = date.getDate();
@@ -415,4 +487,30 @@ function formToJSON(formId){
     	obj[entry[0]] = $.trim(entry[1]);
     }
     return obj;
+}
+
+function toDataURL(url, callback) {
+	var xhr = new XMLHttpRequest();
+	xhr.onload = function() {
+		var reader = new FileReader();
+	    reader.onloadend = function() {
+	      callback(reader.result);
+	    }
+	    reader.readAsDataURL(xhr.response);
+	};
+	xhr.open("GET", url);
+	xhr.responseType = "blob";
+	xhr.send();
+}
+
+function checkfile(file) {
+    var validExts = new Array(".csv");
+    var fileExt = $("#csvFile").val();
+    fileExt = fileExt.substring(fileExt.lastIndexOf('.'));
+    if (validExts.indexOf(fileExt) < 0) {
+      alert("Invalid file selected, valid file is of " +
+               validExts.toString() + " type");
+      return false;
+    }
+    else return true;
 }

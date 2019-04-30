@@ -1,5 +1,6 @@
 package com.service.education;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -169,8 +170,22 @@ public class FeeCollectionService implements IFeeCollectionService{
 
 	@Override
 	public FeeCollection findStudent(String enrollNo, String name,Long userId) {
-		// TODO Auto-generated method stub
 		return findStudent(enrollNo, name,userId);
+	}
+
+	@Override
+	public List<FeeCollection> findFCByStartDate(String enroll_no, LocalDate sd, Long userId) {
+		return feeCollectionRep.findFCByStartDate(enroll_no, sd, userId);
+	}
+
+	@Override
+	public List<FeeCollection> findFCByEndDate(String enroll_no, LocalDate ed, Long userId) {
+		return feeCollectionRep.findFCByEndDate(enroll_no, ed, userId);
+	}
+
+	@Override
+	public List<FeeCollection> findFCByDates(String enroll_no, LocalDate sd, LocalDate ed, Long userId) {
+		return feeCollectionRep.findFCByDates(enroll_no, sd, ed, userId);
 	}
 
     

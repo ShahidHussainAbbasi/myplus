@@ -41,7 +41,7 @@ public class ItemDTO implements Serializable {
 
 	private String expDateStr;
 
-	private Float stock=0.0F;
+	private Float stock=1.0F;
 	
 	private Long companyId;
 
@@ -72,6 +72,10 @@ public class ItemDTO implements Serializable {
 	
 	@Getter@Setter
 	private String desc;
+	
+	@Getter@Setter
+	private String bn;
+	
 	/**
 	 * @return the id
 	 */

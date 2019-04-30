@@ -1,11 +1,147 @@
 var data=[]; // use a global for the submit and return data rendering in the examples
 var tablesi;
-var removed = true;
+var removed = false;
+var tableSellReport;
 
 $(document).ready(function() {
-   /* var table = $("#tableSell").DataTable( {
-        "scrollY": "200px"
-    } );*/
+    tableSellReport = $('#tableSellReport').DataTable( {
+        dom: 'Bfrtip',
+        lengthMenu: [
+            [ 10, 25, 50, -1 ],
+            [ '10 rows', '25 rows', '50 rows', 'Show all' ]
+        ],        
+        buttons: [
+        	'pageLength',
+            { extend: 'copyHtml5', footer: true },
+            { extend: 'csvHtml5', footer: true },
+            { extend: 'excelHtml5', footer: true },
+            { extend: 'print', footer: true },
+        	{ extend: 'pdfHtml5',
+              orientation: 'landscape',
+              pageSize: 'LEGAL',
+              footer: true
+            }
+        ],
+	    
+	    "footerCallback": function ( row, data, start, end, display ) {
+	        var api = this.api(), data;
+	
+	        // Remove the formatting to get integer data for summation
+	        var intVal = function ( i ) {
+	            return typeof i === 'string' ?
+	                i.replace(/[\$,]/g, '')*1 :
+	                typeof i === 'number' ?
+	                    i : 0;
+	        };
+	
+	        // Total over all pages
+	        feeTotal = api
+	            .column( 1 )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        feePageTotal = api
+	            .column( 1, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column( 1 ).footer() ).html(
+	            feePageTotal +'/'+ feeTotal
+	        );
+
+	        // Total over all pages
+	        otherTotal = api
+	            .column( 4 )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        otherPageTotal = api
+	            .column( 4, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column( 4 ).footer() ).html(
+	            otherPageTotal +'/'+ otherTotal
+	        );
+	    
+
+	        // Total over all pages
+	        disTotal = api
+	            .column(5)
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        disPageTotal = api
+	            .column(5, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column(5).footer() ).html(
+	        		disPageTotal +'/'+ disTotal
+	        );
+
+	        // Total over all pages
+	        dueTotal = api
+	            .column(7)
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        duePageTotal = api
+	            .column(7, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column(7).footer() ).html(
+	        		duePageTotal +'/'+ dueTotal
+	        );
+	    
+	        // Total over all pages
+	        paidTotal = api
+	            .column(8)
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Total over this page
+	        paidPageTotal = api
+	            .column(8, { page: 'current'} )
+	            .data()
+	            .reduce( function (a, b) {
+	                return intVal(a) + intVal(b);
+	            }, 0 );
+	
+	        // Update footer
+	        $( api.column(8).footer() ).html(
+	        		paidPageTotal +'/'+ paidTotal
+	        );
+	        
+	    }    
+    } );
  
     $('a.toggle-vis').on( 'click', function (e) {
         e.preventDefault();
@@ -20,7 +156,8 @@ $(document).ready(function() {
     //invoice table
     tablesi = $('#tablesi').DataTable( {
     	 "searching": false,
- 	    
+    	 "paging": false,
+    	 "info":false,
  	    "footerCallback": function ( row, data, start, end, display ) {
  	        var api = this.api(), data;
  	
@@ -85,11 +222,17 @@ $(document).ready(function() {
     	validateForm();
         if(formValidated){
         	var obj  = formToJSON("Sell");
+        	
+        	obj.name = $( "#sellItemDD :selected" ).text();
         	data.push(obj);
 			var arr = [
-				obj.itemId,$( "#sellItemDD :selected" ).text(),obj.quantity,obj.sellRate,obj.discount,(obj.totalAmount*ONE - obj.discount*ONE),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
+				obj.itemId,$( "#sellItemDD :selected" ).text(),obj.quantity,obj.sellRate,obj.discount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
+				//,"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
+			resetForm();
+			//$("#sellItems").val("");
+			resetBSDD('sellItemDD');
 			//CIT(data);//calculate invoice totals
         }else{
         	alert("Please make sure you have entered valid values");
@@ -128,6 +271,7 @@ function resetCart(){
 	//CIT(data)
 }
 function loadDataTable(){
+	tableSellReport.clear().draw();
 	//check if data table exist destroy it
 	var offset = $( "select[name='tableSell_length']" ).val();
 	if(!offset)
@@ -148,6 +292,7 @@ function loadDataTable(){
 		"autoWidth" : true,
 		dom: 'Bfrtip',
         buttons: [
+        	'pageLength',
             { extend: 'copyHtml5', footer: true },
             { extend: 'csvHtml5', footer: true },
             { extend: 'excelHtml5', footer: true },
@@ -172,8 +317,12 @@ function loadDataTable(){
 					loadUserItemUnits(table);
 					loadUserItems(table);
 					reload=tableV;
-				}				
+				}
 				var collections = data.collection;
+				if(data.collection.length<=0)
+					return false;
+				
+				userId = collections[0].userId;
 				datatable.columns( [0] ).visible( false );
 				console.log("getUser : "+getAll+" collections : "+collections);
 				var arr = [" No Data Found "];
@@ -220,7 +369,8 @@ function loadDataTable(){
 							"<div id=itemCompanyDD>"+obj.companyName+"</div>",  "<div id=itemVenderDD>"+obj.venderName+"</div>", 
 							"<div id=itemPurchaseAmount>"+obj.purchaseAmount+"</div>","<div id=itemSellAmount>"+obj.sellAmount+"</div>",
 							"<div id=discountTypeDD>"+obj.discountType+"</div>","<div id=itemDiscount>"+obj.discount+"</div>",/* "<div id=itemNet>"+obj.net+"</div>",*/
-							"<div id=itemExpDate>"+obj.expDateStr+"</div>","<div id=itemStock>"+obj.stock+"</div>",obj.updatedStr
+							"<div id=itemExpDate>"+obj.expDateStr+"</div>","<div id=itemStock>"+obj.stock+"</div>"
+							,"<div id=itemBN>"+obj.bn+"</div>",obj.updatedStr
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -241,10 +391,11 @@ function loadDataTable(){
 							"<div id=sellId>"+obj.id+"</div>","<div id=sellItemDD>"+obj.itemName+"</div>", 
 							"<div id=sellItems>"+obj.quantity+"</div>",
 							"<div id=sellStock>"+obj.stock+"</div>","<div id=sellSellRate>"+obj.sellRate+"</div>", 
-							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellDiscount>"+obj.discount+"</div>",
-							"<div id=selldtDD>"+obj.dt+"</div>","<div id=sellCN>"+obj.cn+"</div>","<div id=sellCC>"+obj.cc+"</div>",
+							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellDiscount>"+obj.discount+" ("+obj.dt+")</div>",
+							/*"<div id=selldtDD>"+obj.dt+"</div>",*/"<div id=sellCN>"+obj.cn+"</div>","<div id=sellCC>"+obj.cc+"</div>",
 							"<div id=sellPurchaseRate>"+obj.purchaseRate+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
-							"<div id=sellsrp>"+obj.srp+"</div>","<div id=sellRe>"+obj.re+"</div>",obj.updatedStr
+							/*"<div id=sellsrp>"+obj.srp+"</div>","<div id=sellRe>"+obj.re+"</div>",*/
+							obj.updatedStr
 							];
 						datatable.row.add(arr).draw();
 						datatable.columns( [10,11] ).visible( false );
@@ -389,6 +540,8 @@ function populateData(label,value){
 	    			$(".form-control").val("");
 	    			return false;
 	    		}
+	    		$("#sellStock").val(itemStock);
+	    		$("#sellItemDesc").val(data.desc);
 	    		$("#sellPurchaseRate").val(data.purchaseAmount);
 		    	$("#sellSellRate").val(data.sellAmount)
 		    	$("#sellDiscount").val(discountValue);
@@ -462,6 +615,7 @@ function calculateNetSell(){
 }
 
 function calculateSRP(){
+	console.log(2)
 	var s= $("#sellSellRate").val()*ONE;
 	if(!s || s<=0){
 		alert("Please select valid item's record to return sold");
@@ -474,5 +628,40 @@ function calculateSRP(){
 	if(type == "%"){
 		srp =  sellTotalAmount * (srp*1 / 100);
 	}
-	$("#sellrm").val($("#sellNetAmount").val()*ONE+srp*ONE);
+	$("#sellReturn").val($("#sellrm").val()*ONE+srp);
+}
+
+function calculateChange(){
+	var recAm = $("#sellRec").val()*ONE;
+	var sellTotal = $("#sellTotal")[0].innerHTML*ONE;
+	$("#sellCh").val(recAm - sellTotal);
+}
+
+function loadSR(){
+	console.log(11)
+	tableSellReport.clear().draw();
+	$.ajax({
+		type : "POST",
+		url : serverContext + "loadSR",
+		dataType : "json",
+		data : populateFormData(),
+		success : function(data) {
+			if(data.status!=="SUCCESS"){
+				return alert(data.status+" : "+data.message);
+			}else{
+				if(!data || !data.collection)
+					return alert("Data not found.");
+
+				$.each(data.collection, function(ind, o) {
+					var row = [o.itemName, o.stock,o.purchaseRate,o.sellRate,o.quantity,o.discount,o.dt,o.totalAmount,o.netAmount,o.cn,o.cc,o.srp,o.re,o.datedStr]
+
+					tableSellReport.row.add(row).draw();
+				});
+			}
+		},
+		 error: function(data, textStatus, errorThrown) {
+			resetForm();
+        	window.location.href = serverContext + "login?message=" + errorThrown;
+        }
+	});
 }

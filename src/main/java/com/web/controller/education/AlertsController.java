@@ -1,8 +1,15 @@
 package com.web.controller.education;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -13,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Example;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Controller;
@@ -20,18 +29,23 @@ import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-
+import org.springframework.web.multipart.MultipartFile;
+import com.persistence.Repo.education.AlertChannelRepo;
 import com.persistence.model.User;
+import com.persistence.model.education.AlertChannel;
 import com.persistence.model.education.Alerts;
 import com.persistence.model.education.Guardian;
 import com.persistence.model.education.Staff;
 import com.service.education.IAlertsService;
 import com.service.education.IGuardianService;
 import com.service.education.IStaffService;
+import com.web.dto.education.AlertChannelDTO;
 import com.web.dto.education.AlertsDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
+import com.web.util.ObjectMapperUtils;
 import com.web.util.RequestUtil;
 
 @Controller
@@ -59,6 +73,12 @@ public class AlertsController {
     @Autowired
     private Environment env;
 	
+    @Autowired
+    AppUtil appUtil;  
+    
+    @Autowired
+    AlertChannelRepo alertChannelRepo;
+    
 	ModelMapper modelMapper = new ModelMapper();
 	
 	@RequestMapping(value = "/getUserAlerts", method = RequestMethod.GET)
@@ -71,14 +91,14 @@ public class AlertsController {
 	        Example<Alerts> example = Example.of(filterBy);
 			List<Alerts> objs = service.findAll(example);
 			Set<AlertsDTO> dtos = new HashSet<AlertsDTO>();
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 
 			objs.forEach(obj ->{
 				AlertsDTO dto = new AlertsDTO();
 				dto = modelMapper.map(obj, AlertsDTO.class);
-				dto.setSdStr(AppUtil.getLoaclDateStr(obj.getSd()));
-				dto.setEdStr(AppUtil.getLoaclDateStr(obj.getEd()));
+				dto.setSdStr(appUtil.getLoaclDateStr(obj.getSd()));
+				dto.setEdStr(appUtil.getLoaclDateStr(obj.getEd()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -116,7 +136,7 @@ public class AlertsController {
 	public GenericResponse getAllAlerts(final HttpServletRequest request) {
 		try {
 			List<Alerts> objs = service.findAll();
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
@@ -136,18 +156,18 @@ public class AlertsController {
 			User user = requestUtil.getCurrentUser();
 			dto.setuId(user.getId());
 			obj.setuId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())){
+			if(appUtil.isEmptyOrNull(dto.getId())){
 				obj.setAh(dto.getAh());
 				Example<Alerts> example = Example.of(obj);
 				if(service.exists(example))
 					return new GenericResponse("FOUND",messages.getMessage("The Alerts "+dto.getAh()+" already exist", null, request.getLocale()));
 			}
 			obj  = modelMapper.map(dto, Alerts.class);
-			obj.setSd(AppUtil.getLocalDate(dto.getSdStr()));
-			obj.setEd(AppUtil.getLocalDate(dto.getEdStr()));
+			obj.setSd(appUtil.getLocalDate(dto.getSdStr()));
+			obj.setEd(appUtil.getLocalDate(dto.getEdStr()));
 			
 			Alerts schoolOwnerTemp = service.save(obj);
-			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
+			if(appUtil.isEmptyOrNull(schoolOwnerTemp)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
@@ -190,10 +210,10 @@ public class AlertsController {
 					Staff f = new Staff();
 					User user = requestUtil.getCurrentUser();
 					f.setUserId(user.getId());
-					f.setStatus(AppUtil.ACTIVE);
+					f.setStatus(appUtil.ACTIVE);
 			        Example<Staff> example = Example.of(f);
 					List<Staff> objs = staffService.findAll(example);
-					if(AppUtil.isEmptyOrNull(objs))
+					if(appUtil.isEmptyOrNull(objs))
 						continue;
 					objs.forEach(o ->{
 						
@@ -211,10 +231,10 @@ public class AlertsController {
 					Guardian g = new Guardian();
 					User user = requestUtil.getCurrentUser();
 					g.setUserId(user.getId());
-					g.setStatus(AppUtil.ACTIVE);
+					g.setStatus(appUtil.ACTIVE);
 			        Example<Guardian> example = Example.of(g);
 					List<Guardian> objs = guardianService.findAll(example);
-					if(AppUtil.isEmptyOrNull(objs))
+					if(appUtil.isEmptyOrNull(objs))
 						continue;
 					objs.forEach(o ->{
 						
@@ -227,16 +247,138 @@ public class AlertsController {
 				        email.setText("Dear "+o.getName()+ " \r\n\n" +dto.getAm() + " \r\n\n Best Regards\n" + dto.getAs());
 				        email.setFrom(env.getProperty("support.email"));
 				        mailSender.send(email);					
-						AppUtil.li(this.getClass(), "Email sent successfully to "+recipientAddress);
+						appUtil.li(this.getClass(), "Email sent successfully to "+recipientAddress);
 					});
 				}
 			}
 //			AppUtil.li(this.getClass(), "Email sent successfully");
-			return new GenericResponse(AppUtil.SUCCESS);
+			return new GenericResponse(appUtil.SUCCESS);
 		} catch (Exception e) {
-			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);//.error(this.getClass().getName()+" >>> "+e.getCause());
-			return new GenericResponse(AppUtil.ERROR,messages.getMessage(e.getCause()+"", null, request.getLocale()));
+//			e.printStackTrace();
+			appUtil.le(this.getClass(), e);//.error(this.getClass().getName()+" >>> "+e.getCause());
+			return new GenericResponse(appUtil.ERROR,messages.getMessage(e.getCause()+"", null, request.getLocale()));
 		}
 	}
+	
+//	@PostMapping("/importCSV")
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	@RequestMapping(value = "/importCSV", method = RequestMethod.POST)
+	public ResponseEntity<?> importCSV(@RequestParam("file") MultipartFile multipart){
+		if (multipart.isEmpty()) {
+            return new ResponseEntity("please select a file!", HttpStatus.OK);
+        }
+		LocalDateTime dated = LocalDateTime.now();
+		User user = requestUtil.getCurrentUser();
+		List<String> invalids = new ArrayList();
+		BufferedReader br;
+		try {
+//            byte[] bytes = multipart.getBytes();
+//            String completeData = new String(bytes);
+//            String[] rows = completeData.split("#");
+//            String[] columns = rows[0].split(",");			
+		     br = new BufferedReader(new InputStreamReader(multipart.getInputStream()));
+			//br returns as stream and convert it into a List
+			Stream<String> stream  = br.lines();
+			stream.forEach(line ->{
+				if(!line.equals("")) {
+					final Stream<String> stream2 = Arrays.stream(line.split(","));
+					stream2.forEach(item ->{
+						try {
+							AlertChannel ac = new AlertChannel();
+							if(appUtil.validateEmail(item)) {
+								ac.setC(item);
+								ac.setCn("Email");
+								ac.setS("Valid");
+							}else if(appUtil.validateMobileNumber(item)) {
+								ac.setC(item);
+								ac.setCn("Mobile");
+								ac.setS("Valid");
+							}else {
+								invalids.add(item);
+							}
+							ac.setUId(user.getId());
+							Example<AlertChannel> example = Example.of(ac);
+							if(!appUtil.isEmptyOrNull(ac.getS())&& !alertChannelRepo.exists(example)) {
+								ac.setDt(dated);
+								ac.setUt("EDUCATION");
+								alertChannelRepo.save(ac);
+							}
+						  } catch (Exception e) {
+							  appUtil.le(this.getClass(), e);      
+						  }
+				    });
+				}
+			});
+//			alertChannelRepo.saveAll(acL);
+			return new ResponseEntity("File successfully imported!", HttpStatus.OK);
+		  } catch (Exception e) {
+			  appUtil.le(this.getClass(), e);      
+			  return new ResponseEntity("File import error! "+e.getClass().toString(), HttpStatus.EXPECTATION_FAILED);
+		  }
+	}
+
+	@RequestMapping(value = "/getUserPA", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getUserpa(final HttpServletRequest request) {
+		try {
+			AlertChannel filterBy = new AlertChannel();
+			User user = requestUtil.getCurrentUser();
+			filterBy.setUId(user.getId());
+	        Example<AlertChannel> example = Example.of(filterBy);
+			List<AlertChannel> objs = alertChannelRepo.findAll(example);
+			List<AlertChannelDTO> DTOs = new ArrayList<>();
+			if(appUtil.isEmptyOrNull(objs))
+				return new GenericResponse("NOT_FOUND","No data available",objs);
+
+			DTOs = ObjectMapperUtils.mapAll(objs, AlertChannelDTO.class);
+			DTOs.forEach(dto ->{
+				dto.setDtStr(appUtil.getDateTimeStr(dto.getDt()));
+			});
+			return new GenericResponse("SUCCESS","Data loaded successfully",DTOs);
+		} catch (Exception e) {
+			appUtil.le(this.getClass(), e);
+			return new GenericResponse("ERROR",e.getCause().toString());
+		}
+	}
+	
+	@RequestMapping(value = "/sendPA", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse sendPA(@Validated final AlertChannelDTO dto,final HttpServletRequest request){
+		try {
+			List<AlertChannel> emails = new ArrayList<>();
+			List<AlertChannel> mobiles = new ArrayList<>();
+			AlertChannel ac = new AlertChannel();
+			User user = requestUtil.getCurrentUser();
+			ac.setUId(user.getId());
+			if(dto.getIsEmail() && !dto.getIsAll() && !dto.getIsMobile()) {
+				ac.setCn("Email");
+		        Example<AlertChannel> example = Example.of(ac);
+		        emails = alertChannelRepo.findAll(example);
+			}else if(dto.getIsMobile() && !dto.getIsAll() && !dto.getIsEmail()) {
+				ac.setCn("Email");
+		        Example<AlertChannel> example = Example.of(ac);
+		        emails = alertChannelRepo.findAll(example);
+			}else {
+		        Example<AlertChannel> example = Example.of(ac);
+				List<AlertChannel> objs = alertChannelRepo.findAll(example);
+				emails = objs.stream().filter(o -> "Email".equals(o.getCn())).collect(Collectors.toList()); 
+				mobiles = objs.stream().filter(o -> "Mobile".equals(o.getCn())).collect(Collectors.toList()); 
+			}
+			emails.forEach(o -> {
+		        final String recipientAddress = o.getC();
+		        final String subject = dto.getPah();
+		        final SimpleMailMessage email = new SimpleMailMessage();
+		        email.setTo(recipientAddress);
+		        email.setSubject(subject);
+		        email.setText(dto.getPam() + " \r\n\n Best Regards\n" + dto.getPas());
+		        email.setFrom(env.getProperty("support.email"));
+		        mailSender.send(email);					
+			});
+			return new GenericResponse(appUtil.SUCCESS);
+		} catch (Exception e) {
+			appUtil.le(this.getClass(), e);//.error(this.getClass().getName()+" >>> "+e.getCause());
+			return new GenericResponse(appUtil.ERROR,messages.getMessage(e.getCause()+"", null, request.getLocale()));
+		}
+	}
+	
 }

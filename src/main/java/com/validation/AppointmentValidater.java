@@ -23,6 +23,9 @@ public class AppointmentValidater implements Validator {
     @Autowired
     private AppointmentRepository appointmentRepository;
 
+    @Autowired
+    private AppUtil appUtil;  
+    
     @Override
     public boolean supports(final Class<?> clazz) {
         return AppointmentDTO.class.isAssignableFrom(clazz);
@@ -34,7 +37,7 @@ public class AppointmentValidater implements Validator {
         //if already appointed
     	GenericResponse genericResponse = new GenericResponse();
     	allErrors = new ArrayList<>();
-        Optional<Appointment> optionAppointment = appointmentRepository.isPatientAppointed(appointmentDTO.getDoctorId(),AppUtil.todayDateStr(),appointmentDTO.getMobile());
+        Optional<Appointment> optionAppointment = appointmentRepository.isPatientAppointed(appointmentDTO.getDoctorId(),appUtil.todayDateStr(),appointmentDTO.getMobile());
         if(optionAppointment.isPresent())
         	objectError = new ObjectError("Appointment", "Already appointed with your number "+appointmentDTO.getMobile());
         	

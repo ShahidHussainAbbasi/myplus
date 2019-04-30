@@ -18,6 +18,9 @@ import javax.persistence.Table;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * The persistent class for the doctor database table.
  * 
@@ -69,6 +72,8 @@ public class Grade implements Serializable {
 	@ManyToMany(mappedBy = "grades")
 	private Set<Staff> staff;
 	
+	@Getter@Setter
+	private Float fee;
 	
 
 	private Long room;

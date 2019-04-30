@@ -9,8 +9,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
@@ -23,7 +21,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.User;
 import com.persistence.model.education.Grade;
-import com.persistence.model.education.Staff;
 import com.persistence.model.education.Subject;
 import com.service.education.IGradeService;
 import com.service.education.ISchoolService;
@@ -36,7 +33,6 @@ import com.web.util.RequestUtil;
 @Controller
 public class SubjectController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
 
@@ -66,16 +62,16 @@ public class SubjectController {
 			filterBy.setUserId(user.getId());
 	        Example<Subject> example = Example.of(filterBy);
 			List<Subject> objs = subjectService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 
 			List<SubjectDTO>  dtos = new ArrayList<>();
 			objs.forEach(obj ->{
 				SubjectDTO  dto = new SubjectDTO();
 				dto = modelMapper.map(obj, SubjectDTO.class);
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
-				if(!AppUtil.isEmptyOrNull(obj.getGrade()))
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
+				if(!appUtil.isEmptyOrNull(obj.getGrade()))
 					dto.setGradeName(obj.getGrade().getName());
 				dtos.add(dto);
 			});			
@@ -113,7 +109,7 @@ public class SubjectController {
 	public GenericResponse getAllSubject(final HttpServletRequest request) {
 		try {
 			List<Subject> objs = subjectService.findAll();
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
@@ -135,7 +131,7 @@ public class SubjectController {
 			obj .setUserId(user.getId());
 			obj.setName(dto.getName());
 			Example<Subject> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId()) && subjectService.exists(example))
+			if(appUtil.isEmptyOrNull(dto.getId()) && subjectService.exists(example))
 				return new GenericResponse("FOUND",messages.getMessage("The Subject "+dto.getName()+" already exist", null, request.getLocale()));
 
 			obj  = modelMapper.map(dto, Subject.class);
@@ -147,7 +143,7 @@ public class SubjectController {
 			if(g.isPresent())
 				obj.setGrade(g.get());
 			Subject objTemp = subjectService.save(obj);
-			if(AppUtil.isEmptyOrNull(objTemp)){
+			if(appUtil.isEmptyOrNull(objTemp)){
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));

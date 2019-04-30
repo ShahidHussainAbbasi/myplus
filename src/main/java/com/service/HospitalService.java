@@ -23,6 +23,10 @@ public class HospitalService implements IHospitalService {
     
     @Autowired
     UserService userService;
+    
+    @Autowired
+    private AppUtil appUtil;  
+    
 
     public static final String TOKEN_INVALID = "invalidToken";
     public static final String TOKEN_EXPIRED = "expired";
@@ -52,7 +56,7 @@ public class HospitalService implements IHospitalService {
 *///       	hospital.setAppointmentOfferType(hospitalDto.getAppointmentOfferType()+"/"+hospitalDto.getHours());
 //        hospital.setAppointmentOfferValue(hospitalDto.getAppointmentOfferValue());
         
-        hospital.setDatetime(AppUtil.todayDateStr());
+        hospital.setDatetime(appUtil.todayDateStr());
         
         return repository.save(hospital);
     }

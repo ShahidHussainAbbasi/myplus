@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.Geolocation;
-import com.persistence.model.Hospital;
 import com.security.ActiveUserStore;
 import com.service.IGeoLocationService;
 import com.service.IHospitalService;
@@ -41,9 +40,9 @@ public class HospitalController {
     @Autowired
     IHospitalService hospitalService;
 
-/*    @Autowired
+    @Autowired
     AppUtil appUtil;
-*/    
+    
 	@Autowired
 	IGeoLocationService geoLocationService;
     
@@ -84,7 +83,7 @@ public class HospitalController {
     		coutries.put(c.getCountryCode(),c.getCountry()!=null?c.getCountry():"-");
     	});
 */        
-    	model.addAttribute("countries", AppUtil.countryMap);
+    	model.addAttribute("countries", appUtil.countryMap);
         return "hospital";
     }
 

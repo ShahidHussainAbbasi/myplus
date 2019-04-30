@@ -47,8 +47,8 @@ public class FeeCollectionDTO implements Serializable {
 
 	private Integer da;
 
-//	@ValidateEmpty
-	private Integer f;
+	@Getter@Setter
+	private Float f;
 
 	@ValidateEmpty
 	private Integer fp;
@@ -270,20 +270,6 @@ public class FeeCollectionDTO implements Serializable {
 	 */
 	public void setPdStr(String pdStr) {
 		this.pdStr = pdStr;
-	}
-
-	/**
-	 * @return the f
-	 */
-	public Integer getF() {
-		return f;
-	}
-
-	/**
-	 * @param f the f to set
-	 */
-	public void setF(Integer f) {
-		this.f = f;
 	}
 
 	/**

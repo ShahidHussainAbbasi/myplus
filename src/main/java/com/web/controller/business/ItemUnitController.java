@@ -41,6 +41,9 @@ public class ItemUnitController {
 	@Autowired
 	RequestUtil requestUtil;
 
+    @Autowired
+    private AppUtil appUtil;  
+    
 	ModelMapper modelMapper = new ModelMapper();
 
 	@RequestMapping(value = "/getUserItemUnit", method = RequestMethod.GET)
@@ -59,8 +62,8 @@ public class ItemUnitController {
 				dto.setName(obj.getName());
 				dto.setDescription(obj.getDescription());
 
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);
@@ -98,7 +101,7 @@ public class ItemUnitController {
 	public GenericResponse getAllItemUnit(final HttpServletRequest request) {
 		try {
 			List<ItemUnit> objs = itemUnitService.findAll();
-			if (AppUtil.isEmptyOrNull(objs))
+			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<ItemUnitDTO> dtos = new ArrayList<ItemUnitDTO>();
@@ -107,8 +110,8 @@ public class ItemUnitController {
 				dto.setName(obj.getName());
 				dto.setDescription(obj.getDescription());
 
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
@@ -129,7 +132,7 @@ public class ItemUnitController {
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())){
+			if(appUtil.isEmptyOrNull(dto.getId())){
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				Example<ItemUnit> example = Example.of(obj);
@@ -139,7 +142,7 @@ public class ItemUnitController {
 			
 			obj = modelMapper.map(dto, ItemUnit.class);
 			//if it is update
-			if(!AppUtil.isEmptyOrNull(dto.getId())) {
+			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setDated(itemUnitService.getOne(dto.getId()).getDated());
 			}else {
 				obj.setDated(dated);
@@ -147,7 +150,7 @@ public class ItemUnitController {
 			obj.setUpdated(dated);
 
 			obj = itemUnitService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));

@@ -4,5 +4,4 @@ import com.persistence.Repo.business.SellRepo;
 
 public interface ISellService extends SellRepo{
 
-
 }

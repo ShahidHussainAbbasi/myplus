@@ -87,8 +87,8 @@ public class StudentDTO implements Serializable {
 
 	private String updatedStr;
 	
-	@ValidateEmpty
-	private Integer fee;
+	@Getter@Setter
+	private Float fee;
 
 	private Integer dueDay = 10;
 	
@@ -103,6 +103,9 @@ public class StudentDTO implements Serializable {
 	@Getter@Setter
 	private String wa;
 
+	@Getter@Setter
+	private String religion="ISLAM";
+	
 	/**
 	 * @return the id
 	 */
@@ -587,19 +590,6 @@ public class StudentDTO implements Serializable {
 		this.updatedStr = updatedStr;
 	}
 
-	/**
-	 * @return the fee
-	 */
-	public Integer getFee() {
-		return fee;
-	}
-
-	/**
-	 * @param fee the fee to set
-	 */
-	public void setFee(Integer fee) {
-		this.fee = fee;
-	}
 
 	/**
 	 * @return the dueDay

@@ -2,7 +2,6 @@ package com.web.controller.education;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -12,8 +11,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
@@ -40,7 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 @Controller
 public class SchoolController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
 
@@ -85,7 +81,7 @@ public class SchoolController {
 			filterBy.setUserId(user.getId());
 	        Example<School> example = Example.of(filterBy);
 	        objs = schoolService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			
 			dtos = new ArrayList<SchoolDTO>();
@@ -93,14 +89,14 @@ public class SchoolController {
 				SchoolDTO dto = modelMapper.map(obj,SchoolDTO.class);
 				dto.setOwnerIds(obj.getOwners().stream().map(Owner::getId).collect(Collectors.toSet()));
 				dto.setOwnerNames(obj.getOwners().stream().map(Owner::getName).collect(Collectors.toSet()));
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -116,7 +112,7 @@ public class SchoolController {
 			filterBy.setUserId(user.getId());
 	        Example<School> example = Example.of(filterBy);
 			List<School> schools = schoolService.findAll(example);
-			if(!AppUtil.isEmptyOrNull(schools) && schools.size()>1)
+			if(!appUtil.isEmptyOrNull(schools) && schools.size()>1)
 				sb.append("<option value=''>Nothing Selected</option>");
 			
 			schools.forEach(d -> {
@@ -127,7 +123,7 @@ public class SchoolController {
 			return sb.toString();
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 		}
 	    return sb.toString();
 	}
@@ -137,14 +133,14 @@ public class SchoolController {
 	public GenericResponse getAllSchool(final HttpServletRequest request) {
 		try {
 			List<School> schoolOwners = schoolService.findAll();
-			if(AppUtil.isEmptyOrNull(schoolOwners)){
+			if(appUtil.isEmptyOrNull(schoolOwners)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),schoolOwners);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),schoolOwners);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -158,7 +154,7 @@ public class SchoolController {
 			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())) {
+			if(appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setUserId(user.getId());
 				obj.setBranchName(dto.getBranchName());
 				Example<School> example = Example.of(obj);
@@ -172,19 +168,19 @@ public class SchoolController {
 
 			Set<Owner> owners = new HashSet<>();
 			for(Long id:dto.getOwnerIds()) {
-				if(!AppUtil.isEmptyOrNull(id))
+				if(!appUtil.isEmptyOrNull(id))
 					owners.add(ownerService.getOne(id));
 			}
 			obj.setOwners(owners);//ssetOwnerIds(schoolDTO.getOwnerIds());
 			School schoolOwnerTemp = schoolService.save(obj);
-			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
+			if(appUtil.isEmptyOrNull(schoolOwnerTemp)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -207,7 +203,7 @@ public class SchoolController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(), e);
+			appUtil.le(this.getClass(), e);
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}

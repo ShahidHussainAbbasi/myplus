@@ -56,7 +56,7 @@ public class Guardian implements Serializable {
 //	@Temporal(TemporalType.TIMESTAMP)
 	private LocalDateTime updated;
 
-	private String status="Active";
+	private String status;
 	
 	private String cnic;
 

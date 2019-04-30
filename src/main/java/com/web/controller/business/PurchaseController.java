@@ -63,6 +63,9 @@ public class PurchaseController {
 	@Autowired
 	RequestUtil requestUtil;
 
+    @Autowired
+    private AppUtil appUtil;  
+    
 	ModelMapper modelMapper = new ModelMapper();
 	
 	@RequestMapping(value = "/getUserPurchase", method = RequestMethod.GET)
@@ -74,7 +77,7 @@ public class PurchaseController {
 			obj.setUserId(user.getId());
 	        Example<Purchase> example = Example.of(obj);
 			List<Purchase> objs = purchaseService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
@@ -91,8 +94,8 @@ public class PurchaseController {
 					dto.setItemName(item.getName());
 					dto.setStock(item.getStock());
 				}
-				dto.setDatedStr(AppUtil.getDateStr(o.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(o.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(o.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(o.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -109,7 +112,7 @@ public class PurchaseController {
 	public GenericResponse getAllPurchase(final HttpServletRequest request) {
 		try {
 			List<Purchase> objs = purchaseService.findAll();
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
@@ -119,11 +122,11 @@ public class PurchaseController {
 //				dto.setItemUnitName(obj.getItemUnit().getName());
 //				dto.setItemTypeId(obj.getItemType().getId());
 //				dto.setItemTypeName(obj.getItemType().getName());
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
@@ -153,7 +156,7 @@ public class PurchaseController {
 			//if update
 			Item item = itemService.getOne(dto.getItemId());
         	Float stock = item.getStock()+dto.getQuantity();
-			if(!AppUtil.isEmptyOrNull(dto.getId())){
+			if(!appUtil.isEmptyOrNull(dto.getId())){
 				Purchase objTemp = purchaseService.getOne(dto.getId());
 				if(objTemp.getQuantity() > dto.getQuantity())
 					stock = item.getStock() + (dto.getQuantity() - objTemp.getQuantity());
@@ -167,7 +170,7 @@ public class PurchaseController {
 	        itemService.save(item);
 			obj.setStock(stock);
 			obj = purchaseService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));

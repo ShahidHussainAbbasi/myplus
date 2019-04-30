@@ -110,7 +110,8 @@ public class Student implements Serializable {
 	@Column(name = "discount_in")
 	private String di;
 
-	private Integer fee;
+	@Getter@Setter
+	private Float fee;
 
 	private Integer dueDay;
 	
@@ -129,6 +130,10 @@ public class Student implements Serializable {
 	@Column(name="watts_app")
 	private String wa;
 
+	@Getter@Setter
+	@Column(name="religion")
+	private String religion;
+	
 	/**
 	 * @return the id
 	 */
@@ -472,20 +477,6 @@ public class Student implements Serializable {
 	 */
 	public void setSchoolId(Long schoolId) {
 		this.schoolId = schoolId;
-	}
-
-	/**
-	 * @return the fee
-	 */
-	public Integer getFee() {
-		return fee;
-	}
-
-	/**
-	 * @param fee the fee to set
-	 */
-	public void setFee(Integer fee) {
-		this.fee = fee;
 	}
 
 	/**

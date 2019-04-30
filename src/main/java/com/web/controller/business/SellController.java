@@ -66,6 +66,9 @@ public class SellController {
 	@Autowired
 	ObjectMapperUtils objectMapperUtils;
 
+    @Autowired
+    private AppUtil appUtil;  
+    
 	ModelMapper modelMapper = new ModelMapper();
 	
 	@RequestMapping(value = "/getUserSell", method = RequestMethod.GET)
@@ -80,13 +83,13 @@ public class SellController {
 	        
 	        List<Sell> objs;
 //			Page<Sell> objsss = sellService.findAll(example,AppUtil.getPageRequest(AppUtil.orderByDESC("id")));
-	        if(AppUtil.isEmptyOrNull(offset) || offset.equals("-1"))
+	        if(appUtil.isEmptyOrNull(offset) || offset.equals("-1"))
 				objs = sellService.findAll(example);
 	        else
-	        	objs = sellService.findAll(example,AppUtil.getPageRequest(0,Integer.valueOf(offset),AppUtil.orderByDESC("id"))).getContent();
+	        	objs = sellService.findAll(example,appUtil.getPageRequest(0,Integer.valueOf(offset),appUtil.orderByDESC("id"))).getContent();
 
 //			List<Sell> objs = sellService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<SellDTO> dtos=new ArrayList<SellDTO>(); 
@@ -99,14 +102,61 @@ public class SellController {
 					dto.setItemName(item.getName());
 					dto.setStock(item.getStock());
 				}
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(),e);
+			appUtil.le(this.getClass(),e);
+			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
+					e.getCause().toString());
+		}
+	}
+	
+	@RequestMapping(value = "/loadSR", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse loadSR(final SellDTO dto, final HttpServletRequest request) {
+		int CURRENT_MONTH = 0;
+		try {
+			User user = requestUtil.getCurrentUser();
+	        List<Sell> objs=null;
+	        if(dto.getRp() == CURRENT_MONTH) {
+	        	objs = sellService.findSellByDates(appUtil.firstDateTimeOfMonth(),appUtil.lastDateTimeOfMonth(), user.getId());
+	        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
+	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.getDateTime(dto.getEd()), user.getId());
+	        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && appUtil.isEmptyOrNull(dto.getEd())) {
+	        	objs = sellService.findSellByStartDate(appUtil.getDateTime(dto.getSd()), user.getId());
+	        }else if(appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
+	        	objs = sellService.findSellByEndDate(appUtil.getDateTime(dto.getEd()), user.getId());
+//	        }else {
+//	        	//current month
+//	        	
+//				objs = sellService.findAll(example);
+	        }
+	        
+			if(appUtil.isEmptyOrNull(objs))
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
+
+			List<SellDTO> dtos=new ArrayList<SellDTO>(); 
+			objs.forEach(obj ->{
+				Optional<Item> option = itemService.findById(obj.getItemId());
+				SellDTO dtotemp = modelMapper.map(obj, SellDTO.class);
+				if(option.isPresent()) {
+					Item item  = option.get();
+					dtotemp.setItemId(item.getId());
+					dtotemp.setItemName(item.getName());
+					dtotemp.setStock(item.getStock());
+				}
+				dtotemp.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dtotemp.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
+				dtos.add(dtotemp);
+			});
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
+		} catch (Exception e) {
+			e.printStackTrace();
+			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -117,24 +167,24 @@ public class SellController {
 	public GenericResponse getAllSell(final HttpServletRequest request) {
 		try {
 			List<Sell> objs = sellService.findAll();
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			
 			List<SellDTO> dtos=new ArrayList<SellDTO>(); 
 			objs.forEach(obj ->{
 				SellDTO dto = modelMapper.map(obj, SellDTO.class);
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(),e);
+			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -152,7 +202,7 @@ public class SellController {
 			//if update
 			Item item = itemService.getOne(dto.getItemId());
         	Float stock = item.getStock()-dto.getQuantity();
-			if(!AppUtil.isEmptyOrNull(dto.getId())){
+			if(!appUtil.isEmptyOrNull(dto.getId())){
 				Sell objTemp = sellService.getOne(dto.getId());
 				if(objTemp.getQuantity() > dto.getQuantity())
 					stock = item.getStock() - (dto.getQuantity() - objTemp.getQuantity());
@@ -170,7 +220,7 @@ public class SellController {
 			obj.setUpdated(dated);
 
 			obj = sellService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				
@@ -178,7 +228,7 @@ public class SellController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(),e);
+			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -197,7 +247,7 @@ public class SellController {
 				//if update
 				Item item = itemService.getOne(obj.getItemId());
 	        	Float stock = item.getStock()-obj.getQuantity();
-				if(!AppUtil.isEmptyOrNull(obj.getId())){
+				if(!appUtil.isEmptyOrNull(obj.getId())){
 					Sell objTemp = sellService.getOne(obj.getId());
 					if(objTemp.getQuantity() > obj.getQuantity())
 						stock = item.getStock() - (obj.getQuantity() - objTemp.getQuantity());
@@ -219,7 +269,7 @@ public class SellController {
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(),e);
+			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -233,7 +283,7 @@ public class SellController {
 			User user = requestUtil.getCurrentUser();
 			obj = modelMapper.map(dto, Sell.class);
 			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId()))
+			if(appUtil.isEmptyOrNull(dto.getId()))
 				return new GenericResponse("NOT_FOUND");
 				
 			Optional<Item> o = itemService.findById(dto.getItemId());
@@ -259,7 +309,7 @@ public class SellController {
 			obj.setUpdated(dated);
 
 			obj = sellService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				
@@ -267,7 +317,7 @@ public class SellController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(),e);
+			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
@@ -289,7 +339,7 @@ public class SellController {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			AppUtil.le(this.getClass(),e);
+			appUtil.le(this.getClass(),e);
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}

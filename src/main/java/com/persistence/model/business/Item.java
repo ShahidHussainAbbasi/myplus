@@ -101,6 +101,10 @@ public class Item implements Serializable {
 	private LocalDateTime dated;
 
 	private LocalDateTime updated;
+	
+	@Getter@Setter
+	@JoinColumn(name = "batch_number")
+	private String bn;
 
 	/**
 	 * @return the id

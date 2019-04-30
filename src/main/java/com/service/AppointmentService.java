@@ -2,8 +2,10 @@ package com.service;
 
 import java.util.Optional;
 
-import javax.persistence.EntityManagerFactory;
 import javax.transaction.Transactional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import com.persistence.Repo.AppointmentRepository;
 import com.persistence.Repo.DoctorRepository;
@@ -18,12 +20,6 @@ import com.web.dto.AppointmentDTO;
 import com.web.dto.DoctorDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
-import org.hibernate.SessionFactory;
-import org.hibernate.Transaction;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Repository;
 
 @Component
 @Transactional
@@ -45,13 +41,8 @@ public class AppointmentService extends AppointmentValidater implements IAppoint
     UserService userService;
 
     @Autowired
-    private SessionRegistry sessionRegistry;    
-	@Autowired
-	private SessionFactory sessionFactory;
+    private AppUtil appUtil;  
     
-    @Autowired
-    private EntityManagerFactory entityManagerFactory;
-	
     public static final String TOKEN_INVALID = "invalidToken";
     public static final String TOKEN_EXPIRED = "expired";
     public static final String TOKEN_VALID = "valid";
@@ -63,8 +54,8 @@ public class AppointmentService extends AppointmentValidater implements IAppoint
     @Override
     public GenericResponse registerNewAppointment(final AppointmentDTO appointmentDTO) throws Exception{
         Appointment appointment = new Appointment();
-        appointment.setDateTime(AppUtil.todayDateTimeStr());
-        appointment.setDate(AppUtil.todayDateStr());
+        appointment.setDateTime(appUtil.todayDateTimeStr());
+        appointment.setDate(appUtil.todayDateStr());
 
         GenericResponse genericResponse = validate(appointmentDTO);
         if(genericResponse.getStatus().equals("FAILURE"))

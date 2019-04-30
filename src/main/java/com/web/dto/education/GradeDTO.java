@@ -4,6 +4,9 @@ import java.io.Serializable;
 
 import com.validation.ValidateEmpty;
 
+import lombok.Getter;
+import lombok.Setter;
+
 public class GradeDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -39,6 +42,8 @@ public class GradeDTO implements Serializable {
 
 	private String status="Active";
 
+	@Getter@Setter
+	private Float fee;
 	/**
 	 * @return the name
 	 */

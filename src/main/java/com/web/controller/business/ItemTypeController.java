@@ -41,6 +41,9 @@ public class ItemTypeController {
 	@Autowired
 	RequestUtil requestUtil;
 
+    @Autowired
+    private AppUtil appUtil;  
+    
 	ModelMapper modelMapper = new ModelMapper();
 
 	@RequestMapping(value = "/getUserItemType", method = RequestMethod.GET)
@@ -59,8 +62,8 @@ public class ItemTypeController {
 				dto.setName(obj.getName());
 				dto.setDescription(obj.getDescription());
 
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);
@@ -98,7 +101,7 @@ public class ItemTypeController {
 	public GenericResponse getAllItemType(final HttpServletRequest request) {
 		try {
 			List<ItemType> objs = itemTypeService.findAll();
-			if (AppUtil.isEmptyOrNull(objs))
+			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -108,8 +111,8 @@ public class ItemTypeController {
 				dto.setName(obj.getName());
 				dto.setDescription(obj.getDescription());
 
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
@@ -130,7 +133,7 @@ public class ItemTypeController {
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())){
+			if(appUtil.isEmptyOrNull(dto.getId())){
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				Example<ItemType> example = Example.of(obj);
@@ -140,7 +143,7 @@ public class ItemTypeController {
 			
 			obj = modelMapper.map(dto, ItemType.class);
 			//if it is update
-			if(!AppUtil.isEmptyOrNull(dto.getId())) {
+			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setDated(itemTypeService.getOne(dto.getId()).getDated());
 			}else {
 				obj.setDated(dated);
@@ -148,7 +151,7 @@ public class ItemTypeController {
 			obj.setUpdated(dated);
 
 			obj = itemTypeService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));

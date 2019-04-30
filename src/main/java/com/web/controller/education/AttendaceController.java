@@ -1,6 +1,7 @@
 package com.web.controller.education;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -70,11 +71,11 @@ public class AttendaceController {
 	IVehicleService vehicleService;
 
 	@Autowired
-	AppUtil appUtil;
-	
-	@Autowired
 	RequestUtil requestUtil;
 
+	@Autowired
+	AppUtil appUtil;
+	
 	ModelMapper modelMapper = new ModelMapper();
 	
 	@RequestMapping(value = "/getUserStudentMap", method = RequestMethod.GET)
@@ -86,21 +87,21 @@ public class AttendaceController {
 			filterBy.setUserId(user.getId());
 	        Example<Student> example = Example.of(filterBy);
 			List<Student> objs = studentService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND");
 
 			Map<String,AttendanceDTO> sm = new HashMap<String, AttendanceDTO>();
 			
 			objs.forEach(obj ->{
 				AttendanceDTO dto = new AttendanceDTO();
-				if(!AppUtil.isEmptyOrNull(obj.getGradeId())) {
+				if(!appUtil.isEmptyOrNull(obj.getGradeId())) {
 					Optional<Grade> grade = gradeService.findById(obj.getGradeId());
 					if(grade.isPresent()) {
 //						dto.setGradeId(grade.get().getId());
 						dto.setG(grade.get().getName());
 					}
 				}
-				if(!AppUtil.isEmptyOrNull(obj.getGuardianId())) {
+				if(!appUtil.isEmptyOrNull(obj.getGuardianId())) {
 					Optional<Guardian> g = guardianService.findById(obj.getGuardianId());
 					if(g.isPresent()) {
 //						dto.setGuardianId(g.get().getId());
@@ -130,13 +131,13 @@ public class AttendaceController {
 	        Example<Attendance> example = Example.of(filterBy);
 			List<Attendance> objs = service.findAll(example);
 			Set<AttendanceDTO> dtos = new HashSet<AttendanceDTO>();
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 
 			objs.forEach(obj ->{
 				AttendanceDTO dto = new AttendanceDTO();
 				dto = modelMapper.map(obj, AttendanceDTO.class);
-				dto.setDtStr(AppUtil.getLocalDateTimeStr(obj.getDt()));
+				dto.setDtStr(appUtil.getLocalDateTimeStr(obj.getDt()));
 				
 				dtos.add(dto);
 			});
@@ -215,7 +216,7 @@ public class AttendaceController {
 	public GenericResponse getAllStudent(final HttpServletRequest request) {
 		try {
 			List<Attendance> objs = service.findAll();
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
@@ -260,7 +261,7 @@ public class AttendaceController {
 //			obj.setGn(g.get().getName());
 			
 			obj =service.save(obj);
-			if(AppUtil.isEmptyOrNull(obj))
+			if(appUtil.isEmptyOrNull(obj))
 				return new GenericResponse("FAILED");
 
 			return new GenericResponse("SUCCESS",obj);
@@ -285,25 +286,26 @@ public class AttendaceController {
 	        //getting student detail
 			Optional<Student> o = studentService.findOne(example);
 			if(!o.isPresent())
-				return new GenericResponse("NOT_FOUND");
+				return new GenericResponse("NOT_FOUND","Student not found");
 			
 			Student s = o.get();
 			
 			obj.setUserId(user.getId());
 			obj.setDt(LocalDateTime.now());
-//			obj.setI(LocalTime.now());
-//			obj.setO(LocalTime.now());			
+			obj.setIn(LocalTime.now());
+			obj.setOut(LocalTime.now());			
 			obj.setEn(dto.getEn());
 			obj.setSn(s.getName());
 			
 			Optional<Grade> g = gradeService.findById(s.getGradeId());
 			if(!g.isPresent())
-				return new GenericResponse("NOT_FOUND");
+				return new GenericResponse("NOT_FOUND","Student is not registered with Grade");
 			
 			obj.setGn(g.get().getName());
+			obj.setGrid(g.get().getId());
 			
 			obj =service.save(obj);
-			if(AppUtil.isEmptyOrNull(obj))
+			if(appUtil.isEmptyOrNull(obj))
 				return new GenericResponse("FAILED");
 
 			return new GenericResponse("SUCCESS");

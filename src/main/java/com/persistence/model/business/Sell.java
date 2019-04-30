@@ -95,7 +95,7 @@ public class Sell implements Serializable {
 	
 	@Column(name = "return_reason")
 	@Getter@Setter
-	private String re;
+	private Float re;
 
 	/**
 	 * @return the id

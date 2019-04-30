@@ -59,7 +59,7 @@ public class VenderController {
 			filterBy.setUserId(user.getId());
 	        Example<Vender> example = Example.of(filterBy);
 			List<Vender> objs = venderService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<VenderDTO> dtos=new ArrayList<VenderDTO>(); 
@@ -67,8 +67,8 @@ public class VenderController {
 				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
 				dto.setCompanyId(obj.getCompany().getId());
 				dto.setCompanyName(obj.getCompany().getName());
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -109,7 +109,7 @@ public class VenderController {
 	public GenericResponse getAllVender(final HttpServletRequest request) {
 		try {
 			List<Vender> objs = venderService.findAll();
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			
 			List<VenderDTO> dtos=new ArrayList<VenderDTO>(); 
@@ -117,11 +117,11 @@ public class VenderController {
 				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
 				dto.setCompanyId(obj.getCompany().getId());
 				dto.setCompanyName(obj.getCompany().getName());
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
@@ -143,7 +143,7 @@ public class VenderController {
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())){
+			if(appUtil.isEmptyOrNull(dto.getId())){
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				Example<Vender> example = Example.of(obj);
@@ -153,7 +153,7 @@ public class VenderController {
 			
 			obj = modelMapper.map(dto, Vender.class);
 			//if it is update
-			if(!AppUtil.isEmptyOrNull(dto.getId())) {
+			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setDated(venderService.getOne(dto.getId()).getDated());
 			}else {
 				obj.setDated(dated);
@@ -162,7 +162,7 @@ public class VenderController {
 
 			obj.setCompany(companyService.getOne(dto.getCompanyId()));
 			obj = venderService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));

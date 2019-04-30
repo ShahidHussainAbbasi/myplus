@@ -9,8 +9,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
@@ -34,7 +32,6 @@ import com.web.util.RequestUtil;
 @Controller
 public class VehicleController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
 
@@ -43,8 +40,9 @@ public class VehicleController {
 
 	@Autowired
 	ISchoolService schoolService;
-//	@Autowired
-//	AppUtil appUtil;
+
+	@Autowired
+	AppUtil appUtil;
 
 	@Autowired
 	RequestUtil requestUtil;
@@ -60,14 +58,14 @@ public class VehicleController {
 			filterBy.setUserId(user.getId());
 			Example<Vehicle> example = Example.of(filterBy);
 			List<Vehicle> objs = vehicleService.findAll(example);
-			if (AppUtil.isEmptyOrNull(objs))
+			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
 
-			List<VehicleDTO> dtos = new ArrayList();
+			List<VehicleDTO> dtos = new ArrayList<VehicleDTO>();
 			objs.forEach(obj -> {
 				VehicleDTO dto = modelMapper.map(obj, VehicleDTO.class);
-				if(!AppUtil.isEmptyOrNull(obj.getSchoolId())) {
+				if(!appUtil.isEmptyOrNull(obj.getSchoolId())) {
 					Optional<School> school = schoolService.findById(dto.getSchoolId());
 					if (school.isPresent()) {
 						dto.setSchoolId(school.get().getId());
@@ -76,8 +74,8 @@ public class VehicleController {
 						dto.setSchoolName("");
 					}
 				}
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",
@@ -117,11 +115,11 @@ public class VehicleController {
 	public GenericResponse getAllVehicle(final HttpServletRequest request) {
 		try {
 			List<Vehicle> objs = vehicleService.findAll();
-			List<VehicleDTO> dtos = new ArrayList();
+			List<VehicleDTO> dtos = new ArrayList<VehicleDTO>();
 			objs.forEach(obj -> {
 				dtos.add(modelMapper.map(obj, VehicleDTO.class));
 			});
-			if (AppUtil.isEmptyOrNull(objs)) {
+			if (appUtil.isEmptyOrNull(objs)) {
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);
 			} else {
@@ -143,7 +141,7 @@ public class VehicleController {
 			Vehicle obj = new Vehicle();
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
-			if (AppUtil.isEmptyOrNull(dto.getId())) {
+			if (appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				obj.setSchoolId(dto.getSchoolId());
@@ -158,7 +156,7 @@ public class VehicleController {
 			obj.setUpdated(dated);
 
 			obj = vehicleService.save(obj);
-			if (AppUtil.isEmptyOrNull(obj)) {
+			if (appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILURE",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
 			} else {

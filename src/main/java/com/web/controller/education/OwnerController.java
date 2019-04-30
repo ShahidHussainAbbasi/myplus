@@ -8,8 +8,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
@@ -31,7 +29,6 @@ import com.web.util.RequestUtil;
 @Controller
 public class OwnerController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
 
@@ -56,14 +53,14 @@ public class OwnerController {
 			filterBy.setUserId(user.getId());
 	        Example<Owner> example = Example.of(filterBy);
 			List<Owner> objs = ownerService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
-			List<OwnerDTO> dtos=new ArrayList(); 
+			List<OwnerDTO> dtos=new ArrayList<OwnerDTO>(); 
 			objs.forEach(obj ->{
 				OwnerDTO dto = modelMapper.map(obj, OwnerDTO.class);
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -102,7 +99,7 @@ public class OwnerController {
 	public GenericResponse getAllOwner(final HttpServletRequest request) {
 		try {
 			List<Owner> owners = ownerService.findAll();
-			if(AppUtil.isEmptyOrNull(owners)){
+			if(appUtil.isEmptyOrNull(owners)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),owners);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),owners);
@@ -122,7 +119,7 @@ public class OwnerController {
 			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())){
+			if(appUtil.isEmptyOrNull(dto.getId())){
 				Example<Owner> example = Example.of(obj);
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
@@ -134,7 +131,7 @@ public class OwnerController {
 			obj.setDated(dated);
 			obj.setUpdated(dated);
 			Owner schoolOwnerTemp = ownerService.save(obj);
-			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
+			if(appUtil.isEmptyOrNull(schoolOwnerTemp)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));

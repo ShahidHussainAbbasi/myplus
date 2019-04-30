@@ -7,8 +7,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -32,7 +30,6 @@ import com.web.util.RequestUtil;
 @Controller
 public class DiscountController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
 
@@ -47,6 +44,9 @@ public class DiscountController {
 	@Autowired
 	RequestUtil requestUtil;
 
+	@Autowired
+	AppUtil appUtil;
+	
 	ModelMapper modelMapper = new ModelMapper();
 	
 	@RequestMapping(value = "/getUserDiscount", method = RequestMethod.GET)
@@ -58,10 +58,10 @@ public class DiscountController {
 			filterBy.setUserId(user.getId());
 	        Example<Discount> example = Example.of(filterBy);
 			List<Discount> objs = discountService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			
-			List<DiscountDTO> dtos=new ArrayList(); 
+			List<DiscountDTO> dtos=new ArrayList<DiscountDTO>(); 
 			objs.forEach(obj ->{
 				DiscountDTO dto = modelMapper.map(obj, DiscountDTO.class);
 				dtos.add(dto);
@@ -102,11 +102,11 @@ public class DiscountController {
 	public GenericResponse getAllDiscount(final HttpServletRequest request) {
 		try {
 			List<Discount> objs = discountService.findAll();
-			List<DiscountDTO> dtos=new ArrayList(); 
+			List<DiscountDTO> dtos=new ArrayList<DiscountDTO>(); 
 			objs.forEach(obj ->{
 				dtos.add(modelMapper.map(obj, DiscountDTO.class));
 			});
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -127,7 +127,7 @@ public class DiscountController {
 			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
 //			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())){
+			if(appUtil.isEmptyOrNull(dto.getId())){
 				obj.setName(dto.getName());
 				Example<Discount> example = Example.of(obj);
 				if(discountService.exists(example))
@@ -135,7 +135,7 @@ public class DiscountController {
 			}
 			obj = modelMapper.map(dto,Discount.class);
 			obj = discountService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));

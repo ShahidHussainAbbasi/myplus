@@ -1,7 +1,9 @@
 package com.web.controller.education;
 
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -9,15 +11,21 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.persistence.model.User;
 import com.persistence.model.education.Discount;
@@ -82,53 +90,53 @@ public class StudentController {
 	        Example<Student> example = Example.of(filterBy);
 			List<Student> objs = studentService.findAll(example);
 			Set<StudentDTO> dtos = new HashSet<StudentDTO>();
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND");
 
 			objs.forEach(obj ->{
 				StudentDTO dto = new StudentDTO();
 				dto = modelMapper.map(obj, StudentDTO.class);
-				dto.setEnrollDate(AppUtil.getLocalDateStr(obj.getEnrollDate()));
-				dto.setDateOfBirth(AppUtil.getLocalDateStr(obj.getDateOfBirth()));
-				dto.setYs(AppUtil.getLocalDateStr(obj.getYs()));
-				dto.setYe(AppUtil.getLocalDateStr(obj.getYe()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
-				if(!AppUtil.isEmptyOrNull(obj.getSchoolId())) {
+				dto.setEnrollDate(appUtil.getLocalDateStr(obj.getEnrollDate()));
+				dto.setDateOfBirth(appUtil.getLocalDateStr(obj.getDateOfBirth()));
+				dto.setYs(appUtil.getLocalDateStr(obj.getYs()));
+				dto.setYe(appUtil.getLocalDateStr(obj.getYe()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
+				if(!appUtil.isEmptyOrNull(obj.getSchoolId())) {
 					Optional<School> school = schoolService.findById(obj.getSchoolId());
 					if(school.isPresent()) {
 						dto.setSchoolId(school.get().getId());
 						dto.setSchoolName(school.get().getBranchName());
 					}
 				}
-				if(!AppUtil.isEmptyOrNull(obj.getGradeId())) {
+				if(!appUtil.isEmptyOrNull(obj.getGradeId())) {
 					Optional<Grade> grade = gradeService.findById(obj.getGradeId());
 					if(grade.isPresent()) {
 						dto.setGradeId(grade.get().getId());
 						dto.setGradeName(grade.get().getName());
 					}
 				}
-				if(!AppUtil.isEmptyOrNull(obj.getGuardianId())) {
+				if(!appUtil.isEmptyOrNull(obj.getGuardianId())) {
 					Optional<Guardian> g = guardianService.findById(obj.getGuardianId());
 					if(g.isPresent()) {
 						dto.setGuardianId(g.get().getId());
 						dto.setGuardianName(g.get().getName());
 					}
 				}
-				if(!AppUtil.isEmptyOrNull(obj.getDiscountId())) {
+				if(!appUtil.isEmptyOrNull(obj.getDiscountId())) {
 					Optional<Discount> d = discountService.findById(obj.getDiscountId());
 					if(d.isPresent()) {
 						dto.setDiscountId(d.get().getId());
 						dto.setDiscountName(d.get().getName());
 						
-						if(AppUtil.isEmptyOrNull(obj.getNd()))
+						if(appUtil.isEmptyOrNull(obj.getNd()))
 							dto.setNd(d.get().getAmount());
-							if(AppUtil.isEmptyOrNull(obj.getDi()))
+							if(appUtil.isEmptyOrNull(obj.getDi()))
 								dto.setDi(d.get().getDi());
 						
 						
 					}
 				}
-				if(!AppUtil.isEmptyOrNull(obj.getVehicleId())) {
+				if(!appUtil.isEmptyOrNull(obj.getVehicleId())) {
 					Optional<Vehicle> vehicle = vehicleService.findById(obj.getVehicleId());
 					if(vehicle.isPresent()) {
 						dto.setVehicleId(vehicle.get().getId());
@@ -173,7 +181,7 @@ public class StudentController {
 	public GenericResponse getAllStudent(final HttpServletRequest request) {
 		try {
 			List<Student> objs = studentService.findAll();
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND");
 			}else {
 				return new GenericResponse("SUCCESS",objs);
@@ -194,8 +202,7 @@ public class StudentController {
 			LocalDateTime dated = LocalDateTime.now();
 			dto.setUserId(user.getId());
 			obj.setUserId(user.getId());
-//			obj.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())){
+			if(appUtil.isEmptyOrNull(dto.getId())){
 				obj.setEnrollNo(dto.getEnrollNo());
 				obj.setGuardianId(dto.getGuardianId());
 				Example<Student> example = Example.of(obj);
@@ -203,23 +210,28 @@ public class StudentController {
 					return new GenericResponse("FOUND");
 			}
 			obj  = modelMapper.map(dto, Student.class);
-			obj.setEnrollDate(AppUtil.getLocalDate(dto.getEnrollDate()));
-			obj.setDateOfBirth(AppUtil.getLocalDate(dto.getDateOfBirth()));
-			obj.setYs(AppUtil.getLocalDate(dto.getYs()));
-			obj.setYe(AppUtil.getLocalDate(dto.getYe()));
+			obj.setEnrollDate(appUtil.getLocalDate(dto.getEnrollDate()));
+			obj.setDateOfBirth(appUtil.getLocalDate(dto.getDateOfBirth()));
+			obj.setYs(appUtil.getLocalDate(dto.getYs()));
+			obj.setYe(appUtil.getLocalDate(dto.getYe()));
 			obj.setDated(dated);			
 			obj.setUpdated(dated);
 
-			if(AppUtil.isEmptyOrNull(obj.getEmail()) || AppUtil.isEmptyOrNull(obj.getMobile()) || AppUtil.isEmptyOrNull(obj.getAddress())) {
+			if(appUtil.isEmptyOrNull(obj.getEmail()) || appUtil.isEmptyOrNull(obj.getMobile()) || appUtil.isEmptyOrNull(obj.getAddress())) {
 				Optional<Guardian> g = guardianService.findById(obj.getGuardianId());
 				if(g.isPresent()) {
-					if(AppUtil.isEmptyOrNull(obj.getEmail()))
+					if(appUtil.isEmptyOrNull(obj.getEmail()))
 						obj.setEmail(g.get().getEmail());
-					if(AppUtil.isEmptyOrNull(obj.getMobile()))
+					if(appUtil.isEmptyOrNull(obj.getMobile()))
 						obj.setMobile(g.get().getMobile());
-					if(AppUtil.isEmptyOrNull(obj.getAddress()))
+					if(appUtil.isEmptyOrNull(obj.getAddress()))
 						obj.setAddress(g.get().getPermAddress());
 				}
+			}
+			if(appUtil.isEmptyOrNull(obj.getFee())){
+				Optional<Grade> g = gradeService.findById(obj.getGradeId());
+				if(g.isPresent())
+					obj.setFee(g.get().getFee());
 			}
 //			obj.setSchoolId(dto.getSchoolId());
 //			obj.setGradeId(dto.getGradeId());
@@ -229,7 +241,7 @@ public class StudentController {
 //			obj.setVehicleId(dto.getVehicleId());
 			
 			Student schoolOwnerTemp = studentService.save(obj);
-			if(AppUtil.isEmptyOrNull(schoolOwnerTemp)) {
+			if(appUtil.isEmptyOrNull(schoolOwnerTemp)) {
 				return new GenericResponse("FAILED");
 			}else {
 				return new GenericResponse("SUCCESS");
@@ -261,4 +273,92 @@ public class StudentController {
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}
+	
+	@SuppressWarnings({ "resource", "rawtypes" })
+	@PostMapping("/impStudents")
+	public void impStudents(@RequestParam("file") MultipartFile reapExcelDataFile){
+		LocalDateTime dated = LocalDateTime.now();
+		User user = requestUtil.getCurrentUser();
+		try {
+		    XSSFWorkbook workbook = new XSSFWorkbook (reapExcelDataFile.getInputStream());
+		    XSSFSheet sheet = workbook.getSheetAt(0);
+		    Iterator ite = sheet.rowIterator();
+		    while(ite.hasNext()){
+		    	Student obj = new Student();
+		        Row row = (Row) ite.next();
+		        if(row.getRowNum()==0 || row.getRowNum() == 1)
+		        	continue;
+		        
+		        if(row.getCell(0)==null || row.getCell(0).getNumericCellValue() <= 0)
+		        	break;
+		       
+		        Guardian g = new Guardian();
+		        g.setUserId(user.getId());
+				g.setName(row.getCell(14).getStringCellValue());
+				Example<Guardian> g_example = Example.of(g);
+		        List<Guardian> g2 = guardianService.findAll(g_example);
+		        
+		        if(g2==null || g2.size() <=0)
+		        	continue;
+
+		        Grade gr = new Grade();
+		        gr.setUserId(user.getId());
+		        gr.setName(row.getCell(13).getStringCellValue());
+				Example<Grade> gr_example = Example.of(gr);
+		        List<Grade> gr2 = gradeService.findAll(gr_example);
+		        
+		        if(gr2==null || gr2.size() <=0)
+		        	continue;
+		        
+	        	//validate if already exist
+		        obj.setUserId(user.getId());
+  				if(row.getCell(16)!=null)
+  					obj.setName(row.getCell(16).getStringCellValue().trim());
+				Example<Student> example = Example.of(obj);
+				if(studentService.exists(example))
+	  		  		continue;
+	  		  		
+		        obj.setGradeId(gr2.get(0).getId());
+		        obj.setGuardianId(g2.get(0).getId());
+		        
+		        String df = null;
+		        
+  				if(row.getCell(3)!=null && row.getCell(3).getDateCellValue()!=null) {
+  			        df = new SimpleDateFormat("dd-MM-yyyy").format(row.getCell(3).getDateCellValue());
+  					obj.setDateOfBirth(appUtil.getLocalDate(df.trim()));
+  				}
+  				if(row.getCell(8)!=null &&row.getCell(8).getDateCellValue()!=null) {
+  			        df = new SimpleDateFormat("dd-MM-yyyy").format(row.getCell(8).getDateCellValue());
+  					obj.setEnrollDate(appUtil.getLocalDate(df.trim()));  					
+  				}
+				obj.setDated(dated);
+  				obj.setUpdated(dated);
+  				if(row.getCell(10)!=null)
+  				obj.setFee((float) row.getCell(10).getNumericCellValue());
+  				
+  				if(row.getCell(27)!=null)
+				obj.setMn(row.getCell(27).getStringCellValue().trim());
+  				if(row.getCell(38)!=null)
+				obj.setPob(row.getCell(38).getStringCellValue().trim());
+  				if(row.getCell(29)!=null)
+				obj.setReligion(row.getCell(29).getStringCellValue().trim());
+
+  				obj.setStatus(appUtil.ACTIVE);
+  				obj = studentService.save(obj);
+  				
+  				if(appUtil.isEmptyOrNull(obj)) {
+  					System.out.println(obj);
+  				}else {
+  					System.out.println();
+  				}
+	  		  		
+		    }
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			
+		}    
+	}
+	
+	
 }

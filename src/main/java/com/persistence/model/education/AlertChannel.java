@@ -2,7 +2,6 @@ package com.persistence.model.education;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -10,7 +9,6 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -20,55 +18,40 @@ import lombok.Setter;
  * 
  */
 @Entity
-@Table(name = "attendance", uniqueConstraints = { @UniqueConstraint(columnNames = "attendance_id") })
-public class Attendance implements Serializable {
+@Table(name = "alert_channel")
+
+public class AlertChannel implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
-	@Column(name = "attendance_id", unique = true, nullable = false)
+	@Column(name = "alert_channel_id", unique = true, nullable = false)
 	@Getter@Setter
 	private Long id;
 
 	@Column(name = "user_id")
 	@Getter@Setter
-	private Long userId;
+	private Long uId;
 
-	@Column(name = "enroll_no")
+	@Column(name = "channel",nullable=false)
 	@Getter@Setter
-	private String en;
+	private String c;
 
-	@Column(name = "student_name")
+	@Column(name = "channel_name")
 	@Getter@Setter
-	private String sn;
+	private String cn;
 
+	@Column(name = "user_type")
 	@Getter@Setter
-	@Column(name = "grade_Id")
-	private Long grid;
+	private String ut;
 
-	@Column(name = "grade_name")
-	@Getter@Setter
-	private String gn;
-
-	@Column(name = "time_in")
-	@Getter@Setter
-	private LocalTime in;
-
-	@Column(name = "time_out")
-	@Getter@Setter
-	private LocalTime out;
-
-	@Column(name = "status")
-	@Getter@Setter
-	private String status="Active";
-
-	@Column(name = "dated_time")
+	@Column(name = "dated")
 	@Getter@Setter
 	private LocalDateTime dt;
 
-	@Column(name = "remarks")
+	@Column(name = "status")
 	@Getter@Setter
-	private String rem;
+	private String s;	
 
 	/**
 	 * @return the serialversionuid

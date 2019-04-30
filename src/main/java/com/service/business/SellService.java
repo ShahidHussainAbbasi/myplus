@@ -1,5 +1,6 @@
 package com.service.business;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -170,6 +171,24 @@ public class SellService implements ISellService {
 	public <S extends Sell> boolean exists(Example<S> example) {
 		// TODO Auto-generated method stub
 		return sellRepo.exists(example);
+	}
+
+	@Override
+	public List<Sell> findSellByStartDate(LocalDateTime sd, Long userId) {
+		// TODO Auto-generated method stub
+		return sellRepo.findSellByStartDate(sd, userId);
+	}
+
+	@Override
+	public List<Sell> findSellByEndDate(LocalDateTime ed, Long userId) {
+		// TODO Auto-generated method stub
+		return sellRepo.findSellByEndDate(ed, userId);
+	}
+
+	@Override
+	public List<Sell> findSellByDates(LocalDateTime sd, LocalDateTime ed, Long userId) {
+		// TODO Auto-generated method stub
+		return sellRepo.findSellByDates(sd, ed, userId);
 	}
 
 }

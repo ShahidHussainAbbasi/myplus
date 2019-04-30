@@ -28,6 +28,9 @@ public class DoctorService implements IDoctorService {
     @Autowired
     UserService userService;
 
+    @Autowired
+    private AppUtil appUtil;  
+    
     public static final String TOKEN_INVALID = "invalidToken";
     public static final String TOKEN_EXPIRED = "expired";
     public static final String TOKEN_VALID = "valid";
@@ -61,7 +64,7 @@ public class DoctorService implements IDoctorService {
         doctor.setDayTo(hospitalDto.getDayTo());
         doctor.setAppointmentOfferType(hospitalDto.getAppointmentOfferType());
         doctor.setAppointmentOfferValue(hospitalDto.getAppointmentOfferValue());
-        doctor.setDatetime(AppUtil.todayDateStr());
+        doctor.setDatetime(appUtil.todayDateStr());
 
         return repository.save(doctor);
     }

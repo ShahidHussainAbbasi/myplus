@@ -82,6 +82,9 @@ body {
   font-size: x-small;
 }
 
+.form-divider{
+	height: 25px;background-color: lightskyblue;margin: 20px;font-size: initial;font-family: initial;padding-left: 5px;
+}
 .form-control {
     display: block;
     width: 100%;

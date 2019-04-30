@@ -55,14 +55,14 @@ public class CompanyController {
 			filterBy.setUserId(user.getId());
 	        Example<Company> example = Example.of(filterBy);
 			List<Company> objs = companyService.findAll(example);
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<CompanyDTO> dtos=new ArrayList<CompanyDTO>(); 
 			objs.forEach(obj ->{
 				CompanyDTO dto = modelMapper.map(obj, CompanyDTO.class);
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -101,7 +101,7 @@ public class CompanyController {
 	public GenericResponse getAllCompany(final HttpServletRequest request) {
 		try {
 			List<Company> objs = companyService.findAll();
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
@@ -124,7 +124,7 @@ public class CompanyController {
 			dto.setUserId(user.getId());
 			
 			Example<Company> example = Example.of(obj);
-			if(AppUtil.isEmptyOrNull(dto.getId())){
+			if(appUtil.isEmptyOrNull(dto.getId())){
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				if(companyService.exists(example))
@@ -133,7 +133,7 @@ public class CompanyController {
 			
 			obj = modelMapper.map(dto, Company.class);
 			//if it is update
-			if(!AppUtil.isEmptyOrNull(dto.getId())) {
+			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setDated(companyService.getOne(dto.getId()).getDated());
 //				dated = obj.getDated();
 			}else {
@@ -142,7 +142,7 @@ public class CompanyController {
 			obj.setUpdated(dated);
 
 			obj = companyService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));

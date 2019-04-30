@@ -70,13 +70,13 @@ public class StaffController {
 			filterBy.setUserId(user.getId());
 	        Example<Staff> example = Example.of(filterBy);
 			List<Staff> objs = staffService.findAll(example);			
-			if(AppUtil.isEmptyOrNull(objs))
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			
 			List<StaffDTO> dtos= new ArrayList<>();
 			objs.forEach(obj ->{
 				StaffDTO dto = modelMapper.map(obj, StaffDTO.class);
-				if(!AppUtil.isEmptyOrNull(obj.getGrades())) {
+				if(!appUtil.isEmptyOrNull(obj.getGrades())) {
 					dto.setGradeIds(obj.getGrades()==null?null:obj.getGrades().stream().map(Grade::getId).collect(Collectors.toSet()));
 					dto.setGradeNames(obj.getGrades()==null?null:obj.getGrades().stream().map(Grade::getName).collect(Collectors.toSet()));
 				}
@@ -84,13 +84,13 @@ public class StaffController {
 //					dto.setSchoolIds(obj.getSchools()==null?null:obj.getSchools().stream().map(School::getId).collect(Collectors.toSet()));
 //					dto.setSchoolNames(obj.getSchools()==null?null:obj.getSchools().stream().map(School::getBranchName).collect(Collectors.toSet()));
 //				}
-				if(!AppUtil.isEmptyOrNull(obj.getTimeIn()))
+				if(!appUtil.isEmptyOrNull(obj.getTimeIn()))
 					dto.setTimeInStr(obj.getTimeIn().toString());
-				if(!AppUtil.isEmptyOrNull(obj.getTimeOut()))
+				if(!appUtil.isEmptyOrNull(obj.getTimeOut()))
 					dto.setTimeOutStr(obj.getTimeOut().toString());
-				dto.setStaffDOB(AppUtil.getLoaclDateStr(obj.getStaffDOB()));
-				dto.setDatedStr(AppUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(AppUtil.getDateStr(obj.getUpdated()));
+				dto.setStaffDOB(appUtil.getLoaclDateStr(obj.getStaffDOB()));
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -129,7 +129,7 @@ public class StaffController {
 	public GenericResponse getAllStaff(final HttpServletRequest request) {
 		try {
 			List<Staff> objs = staffService.findAll();
-			if(AppUtil.isEmptyOrNull(objs)){
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
@@ -150,7 +150,7 @@ public class StaffController {
 			Staff obj = new Staff();
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
-			if(AppUtil.isEmptyOrNull(dto.getId())) {
+			if(appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				obj.setGrades(gradeService.findAllById(dto.getGradeIds()));
@@ -162,7 +162,7 @@ public class StaffController {
 				
 			obj  = modelMapper.map(dto, Staff.class);
 			
-			obj.setStaffDOB(AppUtil.getLocalDate(dto.getStaffDOB()));
+			obj.setStaffDOB(appUtil.getLocalDate(dto.getStaffDOB()));
 			obj.setDated(dated);
 			obj.setUpdated(dated);
 //			if(AppUtil.isEmptyOrNull(obj.getSchools()) && !AppUtil.isEmptyOrNull(dto.getSchoolIds()))
@@ -172,7 +172,7 @@ public class StaffController {
 //				School school = schoolService.getOne(id);
 //				schools.add(school);//schoolService.findById(o).get());
 //			});			
-			if(AppUtil.isEmptyOrNull(obj.getGrades()) && !AppUtil.isEmptyOrNull(dto.getGradeIds()))
+			if(appUtil.isEmptyOrNull(obj.getGrades()) && !appUtil.isEmptyOrNull(dto.getGradeIds()))
 				obj.setGrades(gradeService.findAllById(dto.getGradeIds()));
 //			Set<Grade> grades = new HashSet<Grade>();
 //			dto.getGradeIds().forEach(id ->{
@@ -181,13 +181,13 @@ public class StaffController {
 //			});
 //			obj.setSchools(schools);
 //			obj.setGrades(grades);
-			if(!AppUtil.isEmptyOrNull(dto.getTimeInStr()))
+			if(!appUtil.isEmptyOrNull(dto.getTimeInStr()))
 				obj.setTimeIn(LocalTime.parse(dto.getTimeInStr()));
-			if(!AppUtil.isEmptyOrNull(dto.getTimeInStr()))
+			if(!appUtil.isEmptyOrNull(dto.getTimeInStr()))
 				obj.setTimeOut(LocalTime.parse(dto.getTimeOutStr()));
 
 			obj = staffService.save(obj);
-			if(AppUtil.isEmptyOrNull(obj)) {
+			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
