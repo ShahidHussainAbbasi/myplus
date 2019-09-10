@@ -40,53 +40,69 @@ function resetGlobalError(){
 }
 
 function resetForm(){
-	//Reset error Form's error classes and values
+	// Reset error Form's error classes and values
 	form = document.getElementsByClassName('form-horizontal')[tableV];
 	if(form){
-		formFields = form.length-2;//-2 mean we don't need to loop over buttons (Add & Delete)
+		formFields = form.length-2;// -2 mean we don't need to loop over
+									// buttons (Add & Delete)
 		for(var i=0; i<formFields; i++){
-			//$("#"+form[i].id).removeClass("alert-danger");
+			// $("#"+form[i].id).removeClass("alert-danger");
 		}
 		$(".form-control").val("");
 	}
 }
 
 function validateForm(){
-    formValidated = true;
+    formValidated = false;
     var form = document.getElementsByClassName('form-horizontal')[tableV];
-    if(!form)
+    if(!form || !form.checkValidity())
     	return alert("Not valid form!");
+    
     formFields = form.length-2;
-    if (!form.checkValidity()) {
-      event.preventDefault();
-      event.stopPropagation();
-      // Loop over them and prevent submission
-      for(var i=0; i<formFields; i++){
-    	  if(form[i].id && form[i].validity.valid){
-    		  document.getElementById(form[i].id).style.borderColor = "";
-    	  }else if(form[i].id){
-    		  document.getElementById(form[i].id).style.borderColor = "red";
-    	  }
-      }
-      formValidated = false;
-    }
+	event.preventDefault();
+	event.stopPropagation();
+	// Loop over them and prevent submission
+	for(var i=0; i<formFields; i++){
+		if(form[i].id && form[i].validity.valid){
+			document.getElementById(form[i].id).style.borderColor = "";
+		}else if(form[i].id){
+			document.getElementById(form[i].id).style.borderColor = "red";
+		}
+	}
+	formValidated = true;
 }
 
 $(document).ready(function() {
-		
+
+//	
+//	$(".onChangeSelect").hover(function(){
+//		var dropdownMenu = $(this).children(".dropdown-menu");
+//		if(dropdownMenu.is(":visible")){
+//			dropdownMenu.parent().toggleClass("open");
+//		}
+//	});
+	
+/*	$('select').hover(function() {
+		  $(this).attr('size',  $(this).children('option').length+1);
+		}, function() {
+		  $(this).attr('size', 1);
+		});
+*/	
+
+	
 	$("#paBtn").click(function (event) {
 
-	    //stop submit the form, we will post it manually.
+	    // stop submit the form, we will post it manually.
 	    event.preventDefault();
 
 	    // Get form
 	    var form = $('#PAForm')[0];
 
-		// Create an FormData object 
+		// Create an FormData object
 	    var data = new FormData(form);
 
 		// If you want to add an extra field for the FormData
-//	    data.append("CustomField", "This is some extra data, testing");
+// data.append("CustomField", "This is some extra data, testing");
 
 		// disabled the submit button
 	    $("#paBtn").prop("disabled", true);
@@ -99,9 +115,9 @@ $(document).ready(function() {
 	        processData: false,
 	        contentType: false,
 	        cache: false,
-//	        timeout: 600000,
+// timeout: 600000,
 	        success: function (data) {
-//	            $("#result").text(data);
+// $("#result").text(data);
 	            console.log("SUCCESS : ", data);
 	            $("#paBtn").prop("disabled", false);
 	            loadDataTable();
@@ -157,16 +173,16 @@ $(document).ready(function() {
 	    	}
 	    });    
 				
-		//All button get initialized when user switch form
+		// All button get initialized when user switch form
 		$("#find"+buttonV).off().click(function() {
 			if(!$("#input"+buttonV).val())
 				return alert("Please enter valid input. ");
 			findBy("find" + buttonV,"input="+$("#input"+buttonV).val());
 		});
 
-		//All button get initialized when user switch form
+		// All button get initialized when user switch form
 		$("#add"+buttonV).off().click(function() {
-		    //If all form's required fields are filled
+		    // If all form's required fields are filled
 			if(buttonV=="Sell"){
 	    		document.getElementById("sellRec").style.borderColor = "";
 				if(data && data.length>0 && $("#sellRec").val()*ONE>0){
@@ -189,17 +205,17 @@ $(document).ready(function() {
 			}
 		});
 
-		//All button get initialized when user switch form
+		// All button get initialized when user switch form
 		$("#revert"+buttonV).off().click(function() {
-		    //If all form's required fields are filled
+		    // If all form's required fields are filled
 			validateForm();
 		    if(formValidated){
-//				var formArr = $('form'). serializeArray();
-//				jQuery.each(formArr , function(i, field) {
-//				  formArr[i].value = $.trim(field.value);
-//				});
-//				var serializedForm = $.param(formArr);
-//				formData = serializedForm.replace(/[^&]+=\.?(?:&|$)/g, '');
+// var formArr = $('form'). serializeArray();
+// jQuery.each(formArr , function(i, field) {
+// formArr[i].value = $.trim(field.value);
+// });
+// var serializedForm = $.param(formArr);
+// formData = serializedForm.replace(/[^&]+=\.?(?:&|$)/g, '');
 				$(this).callAjax("revert" + buttonV,populateFormData());
 				loadDataTable();
 		    }else{
@@ -226,9 +242,10 @@ $(document).ready(function() {
 			});
 		});
 
-		//All button get initialized when user switch form
+		// All button get initialized when user switch form
 		$("#send"+buttonV).off().click(function() {
-		    //If all form's required fields are filled
+		    // If all form's required fields are filled
+			showWait();
 			validateForm();
 		    if(formValidated){
 				$(this).callAjax("send" + buttonV,populateFormData());
@@ -258,14 +275,14 @@ $(document).ready(function() {
 	  			this.selectedIndex = 0 
 	  	});
 	  	
-	  	//having below block on every switch to get it work
-		//Edit table click on row
+	  	// having below block on every switch to get it work
+		// Edit table click on row
 		$("#table" + tableV).on( 'click', 'tr', function () {
-/*			var r = confirm("Any selection if you have will be discarded, Are you sure do you want to edit?");
-			if (r != true)
-				return false;
-			
-*/			
+/*
+ * var r = confirm("Any selection if you have will be discarded, Are you sure do
+ * you want to edit?"); if (r != true) return false;
+ * 
+ */			
 			resetForm();
 			if(tableV==="Fc"){
 				var ids = $("#table"+ tableV+ " input[type='checkbox']:checkbox:checked").map(function() {
@@ -277,7 +294,7 @@ $(document).ready(function() {
 				}
 			}else{
 				if(tableV!="Sell"){					
-					var html = datatable.row(this).data();//.selector.rows.innerHTML;
+					var html = datatable.row(this).data();// .selector.rows.innerHTML;
 					var doc = new DOMParser().parseFromString(html, "text/html");
 					editRecord(doc);
 				}
@@ -291,10 +308,11 @@ $(document).ready(function() {
 			type : "POST",
 			url : serverContext + method,
 			dataType : "json",
-//			timeout : 100000,
+// timeout : 100000,
 			data : data,
 
 			success : function(data) {
+				hideWait();
 				if(data.status==="FOUND"){
 					alert("Already exist");
 					return false;
@@ -309,8 +327,10 @@ $(document).ready(function() {
 				}
 				return false;
 			}, fail: function(data, textStatus, errorThrown) {
+				hideWait();
 				alert("There is some problem in the request "+errorThrown);
 			}, error: function(data, textStatus, errorThrown) {
+				hideWait();
 				resetGlobalError();
                 if(textStatus==="parsererror"){
                 	window.location.href = serverContext + "login?message=" + errorThrown;
@@ -333,24 +353,47 @@ $(document).ready(function() {
 	         	});
             }
 		}).fail(function(data) {
+			hideWait();
 			alert("Please recheck inputs or contact with the system administrator.");
 		});
-		edit = false;//when add/update & delete done
+		edit = false;// when add/update & delete done
 	}	
 });
 
 function populateFormData(){
-	var myForm = document.getElementById(tableV);
-    var formData = new FormData(myForm),
     obj = {};
-    for (var entry of formData.entries()){
-    	obj[entry[0]] = $.trim(entry[1]);
-    }
+// var myForm = document.getElementById(tableV);
+	for(var i=0; i<(formFields); i++){
+		if(document.getElementById(form[i].id)){
+			if(form[i].tagName=="SELECT"){
+				var list = [];
+				for(var option of document.getElementById(form[i].id).selectedOptions){
+					list.push(option.value)
+				}
+		    	obj[form[i].name] = $.trim(list);
+			}else{
+		    	obj[form[i].name] = $.trim(document.getElementById(form[i].id).value);
+			}
+			// Handled bootstrap drop down
+// if(form[i].className.indexOf("selectpicker")>-1){
+// $( "#"+form[i].id+" :selected" ).text(text);
+// $("#"+form[i].id).selectpicker('refresh');
+// }
+		}
+	}
+	
+// var myForm = document.getElementById(tableV);
+// var formData = new FormData(myForm),
+// obj = {};
+// for (var entry of formData.entries()){
+// //obj[entry[0]] = $.trim(entry[1]);
+// }
 	return $.param(obj);
 }
 
+
 function jsonPost(method,data) {
-	var r = confirm("Are you sure you want to Sell?");
+	var r = true;// confirm("Are you sure you want to Sell?");
 	if (r != true)
 		return false;
 	
@@ -362,11 +405,16 @@ function jsonPost(method,data) {
 	      data : JSON.stringify(data),
 	      dataType : 'json',			
 	      success : function(data) {
+	    	  debugger;
 			if(data.status!="SUCCESS"){
 				alert("Insertion error");
 			}
 			if($("#sellP")[0].checked){
-				pGarmtsInv(printData);
+				// pGarmtsInv(printData);
+		    	var mylink = document.getElementById("MyLink");
+		    	mylink.setAttribute("href", "../");
+		        mylink.setAttribute("href", ".."+serverContext+"reports/createdocument.docx");
+		        mylink.click();
 			}
 			loadDataTable();
 			resetCart();
@@ -379,7 +427,7 @@ function jsonPost(method,data) {
 	}).fail(function(data) {
 		alert("Please recheck inputs or contact with the system administrator.");
 	});
-	edit = false;//when add/update & delete done
+	edit = false;// when add/update & delete done
 }
 
 const capitalize = (s) => {
@@ -411,7 +459,7 @@ function editRecord(doc){
 			}else{
 				$("#"+form[i].id).val(text);
 			}
-			//Handled bootstrap drop down 
+			// Handled bootstrap drop down
 			if(form[i].className.indexOf("selectpicker")>-1){
 				$( "#"+form[i].id+" :selected" ).text(text);
 				$("#"+form[i].id).selectpicker('refresh');
@@ -421,7 +469,7 @@ function editRecord(doc){
 }
 
 function resetBSDD(id){
-	edit = false;//when reset boot strap drill down
+	edit = false;// when reset boot strap drill down
 	$("#"+id).val('default').selectpicker("refresh");
 }
 
@@ -445,7 +493,7 @@ function getMonth(){
 }
 
 function getMonthYear(d){
-	return month[d.getMonth()]+""+d.getFullYear();
+	return month[d.getMonth()]+" "+d.getFullYear();
 }
 
 function currentdateByDay(d) {
@@ -513,4 +561,80 @@ function checkfile(file) {
       return false;
     }
     else return true;
+}
+
+function getImgFromUrl(logo_url, callback) {
+    var img = new Image();
+   // var logo_url = serverContext+"resources/a.jpg";
+    img.src = logo_url;
+    img.onload = function () {
+        callback(img);
+    };
+} 
+
+function handleKey(event,action,elementId)
+{
+	if (event.keyCode === 13 &&  action == "click") {
+        $("#"+elementId).click();
+	}else if (event.keyCode === 9 &&  action == "table") {
+            $("#"+elementId).focus();
+	}else if (event.keyCode === 9 &&  action == "table") {
+        $("#"+elementId).focus();
+    }
+}
+
+function handleEnterKey(event,action,elementId)
+{
+	if (event.keyCode === 13 &&  action == "enter") {
+        $("#"+elementId).click();
+    }
+}
+
+function handleTabKey(event,action,elementId)
+{
+	if (event.keyCode === 9 &&  action == "tab") {
+            $("#"+elementId).focus();
+    }
+}
+
+function handleKey(event,action,elementId)
+{
+	console.log(window.location.href)
+	if (event.keyCode === 105 &&  action == "click") {
+        $("#"+elementId+".div.button").click();
+	}else if (event.keyCode === 73 &&  action == "focus") {
+		$("#"+elementId).click();
+    }
+}
+
+/**
+ * Displays overlay with "Please wait" text. Based on bootstrap modal. Contains
+ * animated progress bar.
+ */
+function showWait() {
+    var modalLoading = '<div class="modal" id="pleaseWaitDialog" data-backdrop="static" data-keyboard="false" role="dialog">\
+        <div class="modal-dialog">\
+            <div class="modal-content">\
+                <div class="modal-header">\
+                    <h4 class="modal-title">Please wait...</h4>\
+                </div>\
+                <div class="modal-body">\
+                    <div class="progress">\
+                      <div class="progress-bar progress-bar-success progress-bar-striped active" role="progressbar"\
+                      aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width:100%; height: 40px">\
+                      </div>\
+                    </div>\
+                </div>\
+            </div>\
+        </div>\
+    </div>';
+    $(document.body).append(modalLoading);
+    $("#pleaseWaitDialog").modal("show");
+}
+
+/**
+ * Hides "Please wait" overlay. See function showPleaseWait().
+ */
+function hideWait() {
+    $("#pleaseWaitDialog").modal("hide");
 }

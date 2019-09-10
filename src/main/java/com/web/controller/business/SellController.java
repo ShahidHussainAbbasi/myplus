@@ -82,13 +82,13 @@ public class SellController {
 	        Example<Sell> example = Example.of(filterBy);
 	        
 	        List<Sell> objs;
-//			Page<Sell> objsss = sellService.findAll(example,AppUtil.getPageRequest(AppUtil.orderByDESC("id")));
+//			Page<AgricultureIncome> objsss = sellService.findAll(example,AppUtil.getPageRequest(AppUtil.orderByDESC("id")));
 	        if(appUtil.isEmptyOrNull(offset) || offset.equals("-1"))
 				objs = sellService.findAll(example);
 	        else
 	        	objs = sellService.findAll(example,appUtil.getPageRequest(0,Integer.valueOf(offset),appUtil.orderByDESC("id"))).getContent();
 
-//			List<Sell> objs = sellService.findAll(example);
+//			List<AgricultureIncome> objs = sellService.findAll(example);
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -223,7 +223,6 @@ public class SellController {
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}else {
-				
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
 		} catch (Exception e) {
@@ -238,7 +237,7 @@ public class SellController {
 	@ResponseBody
 	public GenericResponse addSelling(@RequestBody final List<SellDTO> dtos, final HttpServletRequest request) {
 		try {
-//			Sell obj= new Sell();
+//			AgricultureIncome obj= new AgricultureIncome();
 			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
 			List<Sell> objs = ObjectMapperUtils.mapAll(dtos, Sell.class);
@@ -266,7 +265,8 @@ public class SellController {
 	
 				obj = sellService.save(obj);
 			});
-			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+			String status = sellService.createReport(objs);
+			return new GenericResponse(status,messages.getMessage("message.userNotFound", null, request.getLocale()));
 		} catch (Exception e) {
 			e.printStackTrace();
 			appUtil.le(this.getClass(),e);

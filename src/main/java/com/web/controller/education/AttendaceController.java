@@ -82,6 +82,7 @@ public class AttendaceController {
 	@ResponseBody
 	public GenericResponse getUserStudentMap(final HttpServletRequest request) {
 		try {
+//			request.isUserInRole(role)
 			Student filterBy = new Student();
 			User user = requestUtil.getCurrentUser();
 			filterBy.setUserId(user.getId());
@@ -281,6 +282,9 @@ public class AttendaceController {
 			Student filter = new Student();
 			User user = requestUtil.getCurrentUser();
 			filter.setUserId(user.getId());
+			if(appUtil.isEmptyOrNull(dto.getEn()))
+				return new GenericResponse("Null/Empty Value","Enrollment must not be null or empty");
+			
 			filter.setEnrollNo(dto.getEn());
 	        Example<Student> example = Example.of(filter);
 	        //getting student detail

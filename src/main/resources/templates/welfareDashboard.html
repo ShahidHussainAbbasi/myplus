@@ -3,17 +3,18 @@
 <head>
 <div th:replace="header :: header-css" />
 
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.css"/> 
+<!-- <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.css"/> 
 <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.js"></script>
 
-<!-- <script src="resources/js/bootstrap/js/bootstrap.js"></script> -->
+<script src="resources/js/bootstrap/js/bootstrap.js"></script>
 <script src="resources/bootstrap/js/moment.js"></script>
 <script src="resources/bootstrap/js/bootstrap-datetimepicker.js"></script>
 <script src="resources/js/datatables.min.js"></script>
-<!-- <script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.js"></script> -->
-<!-- <link rel="stylesheet" href="resources/js/bootstrap/css/bootstrap.min.css"> -->
+<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.js"></script>
+<link rel="stylesheet" href="resources/js/bootstrap/css/bootstrap.min.css">
 <link rel="stylesheet"	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
-<script src="resources/js/welfare/welfare.js"></script>
+ --><script src="resources/js/welfare/welfare.js"></script>
+<!-- <script src="resources/js/datatables.min.js"></script> -->
 
 </head>
 <body>
@@ -29,9 +30,9 @@
 				<li>
 					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Nothing Selected</option>
-						<option sec:authorize="hasAuthority('ADD_DONATOR')" class="dropdown-item" value="Donator">New Donator</option>
-						<option sec:authorize="hasAuthority('ADD_DONATION')" class="dropdown-item" value="Donation">New Donation</option>
-						<option sec:authorize="hasAuthority('READ_PRIVILEGE')" class="dropdown-item" value="Donations">View Donations</option>
+						<option sec:authorize="hasAuthority('ADD_DONATOR')" class="dropdown-item" value="DonatorDiv">Add Donator</option>
+						<option sec:authorize="hasAuthority('ADD_DONATION')" class="dropdown-item" value="DonationDiv">Add Donation</option>
+						<option sec:authorize="hasAuthority('READ_PRIVILEGE')" class="dropdown-item" value="DonationsDiv">View Donations</option>
 						<!-- <option class="dropdown-item" value="myDonation">My Donations</option> -->
 					</select>
 				</li>
@@ -39,7 +40,7 @@
 		</div>
 	</nav>
 	<div class="container content-cls">
-		<div id=0Div name="DonatorDiv" style="display:none">
+		<div id=DonatorDiv class="formDiv" style="display:none">
 			<h3 th:text="#{label.donator.form.heading}">Donator Registration Form</h3>
 			<br />
 			<!-- <form class="form-horizontal" role="form"> -->
@@ -54,7 +55,7 @@
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="donatorShowMe">Select Option:</label>
 					<div class="col-sm-4">
-						<select name="showMe" id="donatorShowMe" class="dropdown show form-control" required="required">
+						<select name="showMe" id="donatorShowMe" class="show form-control" required="required">
 							<option class="dropdown-item" value="">Nothing Selected</option>
 							<option class="dropdown-item" value="true">Show my donation</option>
 							<option class="dropdown-item" value="false">Hide my donation</option>
@@ -70,7 +71,7 @@
 					<label class="control-label col-sm-2" for="donatorFName">Ref. Name:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="donatorFName" name="fName"
-							placeholder="Ref. Name" required="required"> 
+							placeholder="Any reference"> 
 					</div>
 					<label class="control-label col-sm-2" for="mobile">Mobile:</label>
 					<div class="col-sm-4">
@@ -110,7 +111,7 @@
 				</table>
 			</div>
 		</div>
-		<div id=1Div name="DonationDiv" style="display:none">
+		<div id=DonationDiv class="formDiv" style="display:none">
 			<h3 th:text="#{label.donation.form.heading}">Donation Registration Form</h3>
 			<br />
 			<!-- <form class="form-horizontal" role="form"> -->
@@ -161,7 +162,7 @@
 				</table>
 			</div>
 		</div>
-		<div id=2Div name="DonationsDiv" style="display:none">
+		<div id="DonationsDiv" class="formDiv" style="display:none">
 			<h3 th:text="#{label.donations.heading}">Abbasia Welfare Donations</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"

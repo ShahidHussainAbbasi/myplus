@@ -1,132 +1,149 @@
 var invGarmtsLogoL = "resources/img/logos/gll.jpg";
-var invGarmtsLogoR = "resources/img/logos/glr.jpg";
+var invGarmtsLogoR = "resources/img/exangeOfGoods.jpg";
 
 function pGarmtsInv(data){
-	if(userId*ONE != 519)
+	if(userId*ONE != 37)//519)
 		return false;
 	
-	var doc = new jsPDF("p", "pt", "letter");
-	var L = 230; var T = 30;
-	//toDataURL(invGarmtsLogoL, function(dataUrl) {//logo 1
-	//	toDataURL(invGarmtsLogoR, function(dataUrl2) {//logo 2
-			//doc.addImage(dataUrl2, "JPEG", 455, 5, 140, 85);
-			
-			//doc.addImage(dataUrl, "JPEG", 5, 2, 140, 90);
-			doc.setFont("Arial");
-			doc.setFontType("bold");
-			doc.setFontSize(20);
-			doc.text("Haider Garments", L, T);//Company receipt name
-			L=L+10;//240
-			T=T+15;
-			doc.addFont()
-			doc.setFontSize(9);
-			doc.text("Link road model town A Khanpur", L, T);//company address
-			doc.setFontSize(12);
-			L=L+30;//270
-			T=T+15;
-			doc.setFontType("bold");
-			doc.text("03053939495", L, T);//company contact number
+	var doc = new jsPDF('p', 'pt', 'a4');
+	var L = 200; var T = 25;
+	toDataURL(invGarmtsLogoR, function(dataUrl) {
+		doc.setFont("Cambria");
+		doc.setFontSize(30);
+		doc.text("Haider Garments", L, T);//Company receipt name
+		L=L-10;//240
+		T=T+18;
+		doc.addFont()
+		doc.setFontType("bold");
+		doc.setFontSize(16);
+		doc.text("Link road model town A Khanpur", L, T);//company address
+		L=L+70;//270
+		T=T+18;
+		doc.text("03053939495", L, T);//company contact number
 	
-			L=L-20;//250
-			T=T+30;
-			doc.setFontSize(20);
-			doc.text("Sales Invoice", L, T);
+		T=T+30;
+		doc.text("Sales Invoice", L, T);
+		L=L-25;//250
 	
-			T=T+10;
-			//doc.line(150, T, 150, 0);
-			//doc.line(450, T, 450, 0);
-			doc.line(0, T, 650, T)
-			L=L-230;//10
-			T=T+15;
-			doc.addFont()
-			doc.setFontSize(12);
-			doc.setFontType("helvetica");
-			doc.text("Dated "+currentFormattedDateTime(), L, T);
-			L=L+500;//510
-			//doc.text("INV # "+4, L, T);
-			
-			T=T+5;
-			doc.line(0, T, 650, T)
-			
-			L=L-500;//10
-			T=T+15;
-			
-			doc.setFontType("helvetica");
-			doc.text("Customer name ", L, T);
-			L=L+450;
-			doc.text($("#sellCN").val()+" "+$("#sellCC").val(), L, T);//doc.fromHTML($("#sellCN").val(), L, T);
-			L=L-450;
-			T=T+20;
-			
-			doc.text("Sale's Person", L, T);
-			L=L+450;
-			doc.text("", L, T);//doc.fromHTML($("#sellCC").val(), L, T);
-			L=L-450;
-			T=T+20;
-
-			doc.setFontSize(14);
-			doc.setFont("courier");
-			var head = [["Item", "Qty", "Price","Disc","Amount"]];
-			var body = [];
-			var Y = T;
-			var items=0,qtys=0,prices=0,discs=0,amounts=0;
-			data.forEach(function(o,i){
-				var total = 0;
-				var dis = 0;
-				if(o.dt=="%"){
-					dis = o.totalAmount*ONE * o.discount/100;
-					//total =o.totalAmount*ONE - dis;
-				}else{
-					dis = o.discount*ONE;
-					//total = o.totalAmount*ONE - dis;
-				}
-				body.push([o.name, o.quantity, o.sellRate,dis,o.totalAmount*ONE]);
-				T=T+22;
-				qtys+=o.quantity*ONE;
-				prices+=o.sellRate*ONE;
-				discs+=dis;
-				amounts+=o.totalAmount*ONE;
-			});
-			T=T+30;
-			console.log(T,Y)
-			doc.autoTable({head: head, body: body, startY: Y});
-			doc.line(0, T, 650, T)
-			T=T+15;
-			doc.text("Totals ", L, T);
-			doc.text(qtys+"", 237, T);
-			doc.text(discs+"", 385, T);
-			doc.text(amounts+"" , 460, T);
-			if(discs*ONE>0){
-				T=T+15;
-				doc.text("Special discount ", L, T);
-				doc.text("- "+discs , 445, T);
-				T=T+10;
-				doc.line(0, T, 650, T)
+		T=T+10;
+		doc.line(0, T, 650, T)
+		L=L-180;//10
+		T=T+15;
+		doc.text("Dated: "+currentFormattedDateTime(), L, T);
+		L=L+480;//510
+		T=T+5;
+		doc.line(0, T, 650, T)
+		L=L-480;//10
+		T=T+17;
+		doc.text("Customer: ", L, T);
+		L=L+80;
+		doc.text($("#sellCN").val()+" "+$("#sellCC").val(), L, T);//doc.fromHTML($("#sellCN").val(), L, T);
+		L=L-80;
+		T=T+15;
+		
+		doc.text("Sale's Person", L, T);
+		L=L+430;
+		doc.text("", L, T);//doc.fromHTML($("#sellCC").val(), L, T);
+		L=L-430;
+		T=T+50;
+	
+		doc.setFontSize(18);
+		doc.text("Item Name", L, T);
+		L=L+280;
+		doc.text("Qty", L, T);
+		L=L+55;
+		doc.text("Price", L, T);
+		L=L+55;
+		doc.text("Disc", L, T);
+		L=L+60;
+		doc.text("Amount", L, T);
+	
+		L=L-450;
+		var items=0,qtys=0,prices=0,discs=0,amounts=0;
+		T=T+30;
+		doc.setFontSize(16);
+		data.forEach(function(o,i){
+			var total = 0;
+			var dis = 0;
+			if(o.dt=="%"){
+				dis = o.totalAmount*ONE * o.discount/100;
+			}else{
+				dis = o.discount*ONE;
 			}
-			T=T+20;
-			doc.setFontType("Arial");
-			doc.text("Receivings ", L, T);
-			doc.text("= "+(amounts - discs) , 445, T);
-			T=T+20;
-			doc.text("Received ", L, T);
-			doc.text("- "+$("#sellRec").val() , 445, T);
-			T=T+30;
-			doc.text("Change ", L, T);
-			doc.text("= "+$("#sellCh").val()  , 445, T);
+			doc.text(o.name, L, T);
+			L=L+280;
+			doc.text(o.quantity+"", L, T);
+			L=L+55;
+			doc.text(o.sellRate+"", L, T);
+			L=L+55;
+			doc.text(dis+"", L, T);
+			L=L+60;
+			doc.text(o.totalAmount+"", L, T);
 			
-/*			doc.fromHTML(document.getElementById("iDiv").innerHTML, L, T);
-			L=L-450;
 			T=T+20;
-			doc.text("Total "+$("#sellCC").val(), L, T);
-*/			
-			doc.setFont("Arial");
-			doc.setFontType("bold");
-	        doc.setFontSize(17);
-	        doc.text("THANKS FOR SHOPPING WITH US ", 10, doc.internal.pageSize.height - 10);
-			doc.autoPrint({variant: "non-confirm"});
-			doc.save("receipt.pdf");
-			$('input').val('');
-		//})
-	//})
+			qtys+=o.quantity*ONE;
+			prices+=o.sellRate*ONE;
+			discs+=dis;
+			amounts+=o.totalAmount*ONE;
+			L=L-450;
+		});
+		T=T+10;
+		doc.line(0, T, 650, T)
+		T=T+25;
+		doc.text("Totals", L, T);
+		L=L+280;
+		doc.text(qtys+"", L, T);
+		L=L+55;
+		doc.text((Math.round(prices)).toFixed(2)+"", L, T);
+		L=L+55;
+		doc.text((Math.round(discs)).toFixed(2)+"", L, T);
+		L=L+60;
+		doc.text((Math.round(amounts)).toFixed(2)+"", L, T);
+		L=L-170;
+		T=T+35;
+		if(discs*ONE>0){
+			doc.text("Special discount", L, T);
+			L=L+170;
+			doc.text(discs.toFixed(2)+"", L, T);
+			L=L-170;
+		}
+		T=T+20;
+		doc.text("Receivings: ", L, T);
+		L=L+170;
+		doc.text(Math.round((amounts - discs)).toFixed(2)+"", L, T);
+		L=L-170;
+		T=T+20;
+		doc.text("Received: ", L, T);
+		L=L+170;
+		doc.text(Math.round(($("#sellRec").val())).toFixed(2)+"", L, T);
+		T=T+30;
+		L=L-170;
+		doc.text("Change", L, T);
+		L=L+170;
+		doc.text(Math.round(($("#sellCh").val())).toFixed(2), L, T);
+		L=L-170;
+	
+		L=L-270;
+		T=T+60;
+//	    doc.setFontSize(14);
+	    doc.addImage(dataUrl, "JPG", L, T, 1000, 300);
+		T=T+15;
+		doc.addFont()
+	    doc.setFontSize(12);
+	   // doc.text("Please bring receipt for exchange of goods ", L, T);
+		T=T+10;
+	    doc.text("THANKS FOR SHOPPING WITH US ", L, T);
+		T=T+20;
+	    doc.text("Abbasi Soft Engineering. +92 03114499660", L, T);
+		T=T+10;
+	    doc.text("https://maxtheservice.com/login ", L, T);
+	    //doc.text("Please bring receipt for exchange of goodsسامان کی تبادلہ کے لئے براہ مہربانی رسید لائیں ", 10, doc.internal.pageSize.height - 10);
+	    
+		doc.autoPrint({variant: "non-confirm"});
+//		doc.autoPrint();
+		window.open(doc.output('bloburl'), '_blank');
+//		window.print();
+	});
+//	$('input').val('');
 	
 }

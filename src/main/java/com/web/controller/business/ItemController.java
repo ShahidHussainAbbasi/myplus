@@ -70,7 +70,7 @@ public class ItemController {
 		try {
 			Item filterBy = new Item();
 			User user = requestUtil.getCurrentUser();
-			filterBy.setUserType("PHARMACY");
+			filterBy.setUserId(user.getId());
 			Example<Item> example = Example.of(filterBy);
 			List<Item> objs = itemService.findAll(example);
 			if (appUtil.isEmptyOrNull(objs))

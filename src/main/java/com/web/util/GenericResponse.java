@@ -20,8 +20,8 @@ public class GenericResponse {
 
     public GenericResponse(final String status, final String message) {
         super();
-        this.message = message;
         this.status = status;
+        this.message = message;
     }
 
     public GenericResponse(final String status,final Object object) {
@@ -44,23 +44,23 @@ public class GenericResponse {
     
     public GenericResponse(final String status, final String message,final Object object) {
         super();
-        this.message = message;
         this.status = status;
+        this.message = message;
         this.object = object;
     }
 
     public GenericResponse(final String status, final String message,final Object object,final Collection<?> collection) {
         super();
-        this.message = message;
         this.status = status;
+        this.message = message;
         this.object = object;
         this.collection = collection;
     }
 
     public GenericResponse(final String status, final String message,final Collection<?> collection) {
         super();
-        this.message = message;
         this.status = status;
+        this.message = message;
         this.collection = collection;
     }
 

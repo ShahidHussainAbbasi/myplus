@@ -42,7 +42,7 @@ function validateForm(){
 }
 
 $(document).ready(function() {
-	$switchInputs =function(val) {
+/*	$switchInputs =function(val) {
 	    buttonV = val;
 		deleteV = val;
 		tableV = val;
@@ -84,9 +84,9 @@ $(document).ready(function() {
 			});
 		});
 	};
-	
+*/	
 	// It will show hide
-	$(function() {
+/*	$(function() {
 		var options = $("#registrationType > option").length;
 		$("#registrationType").change(function() {
 			var option = this.value;
@@ -112,7 +112,7 @@ $(document).ready(function() {
 			} );
 		});
 	});
-
+*/
 
 	$("#pickerDateBirth").datetimepicker({
 		format : 'DD/MM/YYYY'
@@ -165,12 +165,12 @@ $(document).ready(function() {
 	}
 
 });
-
+/*
 const capitalize = (s) => {
 	if (typeof s !== 'string') return ''
   		return s.charAt(0).toUpperCase() + s.slice(1)
 }
-
+*/
 function editRecord(doc){
 	for(var i=0; i<(formFields); i++){
 		if(doc.getElementById(form[i].id)){

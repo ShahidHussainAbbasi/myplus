@@ -216,8 +216,14 @@ $(document).ready(function() {
         }
     } );
  
+    
   //All button get initialized when user switch form
     $("#addInviceItem").off().click(function() {
+//    	window.open(window.location.hostname + ':' + window.location.port+""+serverContext+"reports/createdocument.docx");
+    //	window.print(window.location.hostname + ':' + window.location.port+""+serverContext+"reports/createdocument.docx");
+    	//window.print("resources/file/2.docx");
+//    	isLoaded();
+//    	return false;
         //If all form's required fields are filled
     	validateForm();
         if(formValidated){

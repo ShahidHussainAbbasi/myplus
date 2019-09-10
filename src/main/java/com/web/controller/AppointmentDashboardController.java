@@ -53,7 +53,7 @@ public class AppointmentDashboardController {
     @Autowired
 	private MessageSource messages;    
     
-    @GetMapping({"/","/loadAppointments"})
+    @GetMapping({"/loadAppointments"})
     public ResponseEntity<List<Appointment>>  loadAppointments(final HttpServletRequest request){
     	List<Appointment> appointments = null;
     	try {
@@ -75,7 +75,7 @@ public class AppointmentDashboardController {
         return new ResponseEntity<List<Appointment>>(appointments, HttpStatus.OK);
     }
     
-    @GetMapping({"/","/appointmentDashboard"})
+    @GetMapping({"/appointmentDashboard"})
     public ModelAndView appointmentDashboard(@RequestParam("pageSize") Optional<Integer> pageSize,@RequestParam("page") Optional<Integer> page,final HttpServletRequest request){
         ModelAndView modelAndView = new ModelAndView("appointmentDashboard");
 		try {

@@ -149,7 +149,7 @@ public class GuardianController {
 		} catch (Exception e) {
 			e.printStackTrace();
 			appUtil.le(this.getClass(), e);
-			return new GenericResponse("ERROR",messages.getMessage("message.error_system_error "+e.getMessage(), null, request.getLocale()),
+			return new GenericResponse("ERROR",messages.getMessage("message.system_error "+e.getMessage(), null, request.getLocale()),
 					e.getCause().toString());
 		}
 	}

@@ -1,4 +1,4 @@
-* {
+f* {
   margin: 0;
 }
  html {
@@ -23,7 +23,7 @@ body {
 }
 
 .content-cls{
-  min-height: 522px;
+   min-height: 522px;
   overflow: auto;
   min-width: 100%;
 }
@@ -67,7 +67,7 @@ body {
 }
 
 .ftr-cls {
-    background-color: #4B515D;
+    /* background-color: #4B515D; */
     padding: 20px;
     margin-top: 20px;
 }
@@ -115,4 +115,25 @@ body {
 .control-label.req:after {
   content:"*";
   color:red;
+}
+
+
+/* select:hover {
+    position: absolute;
+    z-index: 2;
+ padding-right: 2em; 
+}
+
+select:hover {
+    position: absolute;
+    top: 30px;
+    z-index: 2;
+    margin-top: -2em;
+    margin-left: 4em;
+ padding-right: 2em; 
+}
+ */
+option:hover {
+    color: white;
+    background: #0000FF;
 }

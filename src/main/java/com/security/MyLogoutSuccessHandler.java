@@ -21,7 +21,8 @@ public class MyLogoutSuccessHandler implements LogoutSuccessHandler {
             session.removeAttribute("user");
         }
 
-        response.sendRedirect(this.getAppUrl(request)+"/logout.html?logSucc=true");
+        response.sendRedirect(this.getAppUrl(request)+"/home");
+//        response.sendRedirect(this.getAppUrl(request)+"/logout.html?logSucc=true");
     }
     
 	private String getAppUrl(HttpServletRequest request) {

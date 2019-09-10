@@ -53,18 +53,24 @@ public class MvcConfig implements WebMvcConfigurer {
 */
     @Override
     public void addViewControllers(final ViewControllerRegistry registry) {
-        registry.addViewController("/").setViewName("forward:/login");
-        registry.addViewController("/login");
+//        registry.addViewController("/").setViewName("forward:/login");
+//        registry.addViewController("/").setViewName("forward:/home");
+//        registry.addViewController("").setViewName("forward:home.html");
+        registry.addViewController("/").setViewName("forward:home.html");
+        registry.addViewController("/home").setViewName("home.html");
+        registry.addViewController("/login").setViewName("/login.html");        
+//        registry.addViewController("/login");
+//        registry.addViewController("/login.html");
         registry.addViewController("/loginRememberMe");
         registry.addViewController("/customLogin");
         registry.addViewController("/registration.html");
         registry.addViewController("/registrationCaptcha.html");
-        registry.addViewController("/logout.html");
+        registry.addViewController("/logout").setViewName("logout.html");;
         registry.addViewController("/homepage.html");
         registry.addViewController("/expiredAccount.html");
         registry.addViewController("/badUser.html");
         registry.addViewController("/emailError.html");
-        registry.addViewController("/home.html");
+//        registry.addViewController("/home.html");
         registry.addViewController("/invalidSession.html");
         registry.addViewController("/console.html");
         registry.addViewController("/admin.html");
@@ -75,11 +81,12 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/users.html");
         registry.addViewController("/qrcode.html");
         registry.addViewController("/hospital.html");
-        registry.addViewController("/donator.html");
-        registry.addViewController("/products.html");
-        registry.addViewController("/businessDashboard.html");
-        registry.addViewController("/welfareDashboard.html");
-        registry.addViewController("/educationDashboard.html");
+        registry.addViewController("/donator").setViewName("donator.html");
+        registry.addViewController("/services").setViewName("services.html");
+        registry.addViewController("/businessDashboard").setViewName("businessDashboard.html");
+        registry.addViewController("/welfareDashboard").setViewName("welfareDashboard.html");
+        registry.addViewController("/educationDashboard").setViewName("educationDashboard.html");
+        registry.addViewController("/agricultureDashboard").setViewName("agricultureDashboard.html");
     }
 
     @Override

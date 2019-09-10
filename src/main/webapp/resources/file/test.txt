@@ -1,0 +1,16 @@
+$scope.orderTypeChanged = function(category,or) {
+                if (category == 2 || $scope.printOrderHeader.ordertype == 2) {
+                  Preferences.getSystem(null,function(response) {
+                    var responseData = response.data;
+                    if(responseData.systemDTO.corrCodeFreeOrder || responseData.systemDTO.corrCodeFreeOrder == 0){
+                      $scope.printOrderHeader.corCorrcode = responseData.systemDTO.corrCodeFreeOrder;
+                    }else{
+                      $scope.printOrderHeader.corCorrcode = null;
+                      NotificationsService.errorByKey("reports.filter.corcode.missing", {}, NotificationsService.SURVIVE_NEXT, -1);
+                    }
+                  })
+                } else {
+                  $scope.printOrderHeader.corCorrcode = null;
+                }
+                $scope.printOrderHeader.category = null;
+              };

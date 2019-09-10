@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -30,6 +31,7 @@ import com.security.google2fa.CustomWebAuthenticationDetailsSource;
 @ComponentScan(basePackages = { "com.*" })
 // @ImportResource({ "classpath:webSecurityConfig.xml" })
 @EnableWebSecurity
+@EnableGlobalMethodSecurity(prePostEnabled = true)
 public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
@@ -74,21 +76,22 @@ public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
         http
             .csrf().disable()
             .authorizeRequests()
-                .antMatchers("/login*","/login*", "/logout*", "/signin/**", "/signup/**", "/customLogin",
+                .antMatchers("/home*","/login*", "/logout*", "/signin/**", "/signup/**", "/customLogin",
                         "/user/registration*", "/registrationConfirm*", "/expiredAccount*", "/registration*",
-                        "/registerHospital*","/appointmentReq","appointmentDashboard","/products.html","/appointment",
+                        "/registerHospital*","/appointmentReq","appointmentDashboard","/services","/appointment",
                         "/loadDoctorsByHospital","/loadDoctorDetails",
                         "/addDonation",
                         "/badUser*", "/user/resendRegistrationToken*" ,"/forgetPassword*", "/user/resetPassword*",
                         "/user/changePassword*", "/emailError*", "/resources/**","/old/user/registration*","/successRegister*","/qrcode*").permitAll()
-                .antMatchers("/invalidSession*","/products*").anonymous()
+                .antMatchers("/invalidSession*","/home*").anonymous()
 //                .antMatchers("/businessDashboard.html").hasRole("BUSINESS_SUPER")
                 .antMatchers("/user/updatePassword*","/user/savePassword*","/updatePassword*").hasAuthority("CHANGE_PASSWORD_PRIVILEGE")
                 .anyRequest().hasAuthority("LOGIN_PRIVILEGE")
                 .and()
             .formLogin()
-                .loginPage("/login")
-				.defaultSuccessUrl("/homepage.html")
+                .loginPage("/home")//.loginPage("/login")
+//                .loginProcessingUrl("/home")
+				.defaultSuccessUrl("/home")
                 .failureUrl("/login?error=true")
                 .successHandler(myAuthenticationSuccessHandler)
                 .failureHandler(authenticationFailureHandler)

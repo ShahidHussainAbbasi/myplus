@@ -1,5 +1,8 @@
 package com.web.util;
 
+import java.io.File;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -96,5 +99,27 @@ public class RequestUtil {
         if (principal != null && principal instanceof User) {
         	userProperties.put("user", (User)principal);
         }
+    }
+    
+    public String getPath(String directory) throws UnsupportedEncodingException {
+    	String path = this.getClass().getClassLoader().getResource("").getPath();
+    	String fullPath = URLDecoder.decode(path, "UTF-8");
+    	String pathArr[] = fullPath.split("/WEB-INF/classes/");
+    	System.out.println(fullPath);
+    	System.out.println(pathArr[0]);
+    	fullPath = pathArr[0];
+    	String reponsePath = "";
+    	// to read a file from webcontent
+    	reponsePath = new File(fullPath).getPath() + File.separatorChar + directory;
+		File customDir = new File(reponsePath);
+		if (customDir.exists()) {
+		    System.out.println(customDir + " already exists");
+		} else if (customDir.mkdirs()) {
+		    System.out.println(customDir + " was created");
+		} else {
+		    System.out.println(customDir + " was not created");
+		}			
+    	
+    	return reponsePath+"/";  
     }
 }

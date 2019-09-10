@@ -551,6 +551,10 @@ public class FeeCollectionController {
 			obj.setUserId(user.getId());
 			obj.setPd(appUtil.getLocalDate(dto.getPdStr()));
 			obj.setFp((obj.getFp()==null?0:obj.getFp()) + (obj.getOd()==null?0:obj.getOd()));
+//			if(!appUtil.isEmptyOrNull(obj.getFp()) && obj.getFp()>0)
+//				obj.setDa(obj.getDa() - obj.getFp());
+//			else
+//				obj.setDa(obj.getDa() - obj.getFp());
 			if(appUtil.isEmptyOrNull(feeCollectionService.save(obj)))
 				return new GenericResponse("FAILED");
 

@@ -9,7 +9,7 @@
 	<script src="resources/js/business/business.js"></script>
 	<script src="resources/js/business/businessInvoicePrint.js"></script>
 </head>
-<body>
+<body onkeypress="handleKey(event,'click','sellItemDD')">
 	<div th:replace="header :: header" />
 	<nav class="subnav" id="nav-subheader">
 		<div class="container-fluid">
@@ -399,6 +399,8 @@
 			</table>
 		</div>
 		<div id="sellDiv" class="formDiv">
+		<a id="MyLink"  style="display:none"></a>
+		<input id="Button1" type="button" value="Click Me" onclick="OpenWord()" style="display: none;"/>
 			<h4 th:text="#{label.sell.form.heading}">Sell Form</h4>
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Sell" autocomplete="off">

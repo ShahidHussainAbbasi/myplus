@@ -507,4 +507,19 @@ public class Student implements Serializable {
 		this.vf = vf;
 	}
 
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "Student [id=" + id + ", name=" + name + ", userId=" + userId + ", ys=" + ys + ", ye=" + ye
+				+ ", enrollNo=" + enrollNo + ", enrollDate=" + enrollDate + ", feeMode=" + feeMode + ", dated=" + dated
+				+ ", updated=" + updated + ", email=" + email + ", mobile=" + mobile + ", address=" + address
+				+ ", dateOfBirth=" + dateOfBirth + ", gender=" + gender + ", bloodGroup=" + bloodGroup + ", status="
+				+ status + ", schoolId=" + schoolId + ", guardianId=" + guardianId + ", gradeId=" + gradeId
+				+ ", vehicleId=" + vehicleId + ", discountId=" + discountId + ", nd=" + nd + ", di=" + di + ", fee="
+				+ fee + ", dueDay=" + dueDay + ", vf=" + vf + ", pob=" + pob + ", mn=" + mn + ", wa=" + wa
+				+ ", religion=" + religion + "]";
+	}
+
 }

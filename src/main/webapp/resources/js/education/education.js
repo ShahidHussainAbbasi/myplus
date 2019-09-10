@@ -238,6 +238,9 @@ function loadDataTable(){
 
 				}
 				
+				if(!data || !data.collection)
+					return; 
+				
 				var collections = data.collection;
 				console.log("getAll : "+getAll+" collections : "+collections);
 				var arr = [" No Data Found "];
@@ -286,7 +289,7 @@ function loadDataTable(){
 							"<div id=staffDesignation>"+obj.designation+"</div>", "<div id=staffQualification>"+obj.qualification+"</div>",
 							/*"<div id=staffSchoolDD>"+obj.schoolNames+"</div>",*/ 
 							"<div id=staffGradeDD>"+obj.gradeNames+"</div>", "<div id=staffGender>"+obj.gender+"</div>",
-							"<div id=staffDateOfBirth>"+obj.dateOfBirth+"</div>","<div id=staffMartialStatus>"+obj.martialStatus+"</div>",
+							"<div id=staffDOB>"+obj.staffDOB+"</div>","<div id=staffMartialStatus>"+obj.martialStatus+"</div>",
 							 "<div id=staffAddress>"+obj.address+"</div>","<div id=staffStatus>"+obj.status+"</div>",
 							 "<div id=staffDated>"+obj.datedStr+"</div>"
 							];
@@ -563,7 +566,7 @@ function findBy(method,data){
 						}else if(dm <= 0){//reset dues
 							o.f = 0;
 							o.vf = 0;
-							o.d
+							o.d = 0;
 							$("#fcda").addClass("alert-danger");
 						}
 					}
@@ -660,8 +663,11 @@ function removeTableBody(){
 }
 
 function ma(v){
-	for ( var i in sm) {
-		if(v===i){
+	if(!v || v===" ")
+		return;
+	
+	for (var i in sm) {
+		if(!i && i===v){
 			$(this).callAjax("markAttendance",sm[i]);
 		}
 	}
@@ -675,10 +681,7 @@ function getUserStudentMap(){
 			sm = data.object;//new Map(ind,val);
 		}
 		console.log(sm)
-    })
-	.fail(function(data) {
-		console.log(data)
-	});
+    });
 	
 }
 
@@ -710,6 +713,7 @@ function loadFR(){
 	
 //	var formData = $("form").serialize();
 //	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
+	formFields++;
 
 	$.ajax({
 		type : "POST",
@@ -832,6 +836,7 @@ function PFR(doc,o,sfds,logo_url,X,Y,dataUrl){
 function loadFL(){
 	//var formData = $("form").serialize();
 	//formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
+	//this form has only one button
 
 	$.ajax({
 		type : "POST",
@@ -936,6 +941,7 @@ function PFL(o,sfds,logo_url,X,Y,dataUrl){
 */		
 		var head = [["Date", "Payer", "Payee","Fee","Dis.","O Payment","O Desc.","Due","Paid","Bal."]];
 		var body = [];
+		debugger;
 		sfds.forEach(function(sfd,i){
 			var row = [dateToDMY(new Date(sfd.pd)), sfd.p, sfd.rb,sfd.f,sfd.d,sfd.od,sfd.odd,sfd.da,sfd.fp,sfd.db]
 			body[i] = row;
@@ -1002,8 +1008,12 @@ function loadFV(){
 					o.da=tf;
 					o.d=d;
 					o.dd = s2n(o.dd);
-
 					if(o.userId == 61 || o.userId == 241 || o.userId == 520){
+						var logo_url = serverContext+"resources/img/logos/ll_logo.jpg";
+						toDataURL(logo_url, function(dataUrl) {
+							PFV_1by4(o,logo_url,70,4,25,25,dataUrl,getLLInst());//print fee voucher
+						});
+					}else if(o.userId == 601 || o.userId == 241 || o.userId == 520){
 						var logo_url = serverContext+"resources/img/logos/IQRA_logo.png";
 						toDataURL(logo_url, function(dataUrl) {
 							PFV_2Colum(o,logo_url,55,4,30,35,dataUrl,getIqraInst());//print fee voucher
@@ -1310,6 +1320,175 @@ function PFV_2Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 	doc.autoPrint({variant: "non-conform"});
 	doc.save(o.sn+"("+o.en+") fee voucher.pdf");
 	return;
+}
+
+function PFV_1by4(o,logo_url,X,Y,W,H,dataUrl,insts){
+	var L = 3;
+	var T = 5;
+	var V = 4;
+	var doc = new jsPDF('a4');
+//	var doc = new jsPDF("p", "pt", "a4");
+	for(i=0;i<V;i++){
+		if(i===2){
+			T=T+100;
+			L = 3;
+			doc.line(2, T-5, 300, T-5);
+		}
+		if(i===3){
+			T=T+100;
+			L = 108;
+		}
+			
+		
+		console.log(L,T);
+		doc.addImage(dataUrl, "JPEG", L+X, T, W, H);
+		T = T+2;//20
+		console.log(L,T);
+		doc.setFontSize(9);
+		doc.setFont("arial");
+		doc.setFontType('bold');
+//		L = L+40;//25
+		doc.text("Learning Links School System", L, T);
+		T = T+5;//40
+//		L = L+20;//5
+		doc.setFontSize(7);
+		doc.setFont("arial");
+		doc.text("Fee Challan ", L, T);
+//		L = L-75;//60
+//		doc.text(V[i]+" copy", L, T);
+		T = T+28;//46
+		doc.text("Issue date: "+dateToDMY(new Date()), L, T);
+		L = L+35;//37
+		var ld = Date.today().clearTime().moveToLastDayOfMonth();
+		var lastday = ld.toString("MM-dd-yyyy");
+		doc.text("Valid date: "+dateToDMY(Date.today().clearTime().moveToLastDayOfMonth()), L, T);
+		L = L+35;//69
+		if(o.dd===0)
+			o.dd=10;
+		
+		doc.text("Due date: "+currentdateByDay(o.dd), L, T);
+//		L = L+75;//5
+		T= T+1;//44
+		doc.setFontType('normal');
+		doc.line(2, T, 300, T);
+		doc.setFontType('bold');
+		T+=3;//54
+		L =L-70;//5
+		doc.setFontSize(9);
+		doc.setFont("arial");
+//		doc.text("Guardian: "+o.gn, L, T);
+//		L +=82;//69
+////		T+=10;//54
+//		doc.text("Guardian No: "+o.gid, L, T);
+//		T+=1;//55
+////		doc.line(2, T, 300, T);
+//		T+=10;//54
+//		L =L-82;//5
+		doc.text("Name: "+o.sn, L, T);
+		L +=70;//69
+		doc.text("GR No: "+o.en, L, T);
+		T+=1;//55
+		doc.setFontType('normal');
+		doc.line(2, T, 300, T);
+		doc.setFontType('bold');
+		T+=3;//57
+		L =L-70;//5
+		doc.text("Grade: "+o.g, L, T);
+		L +=70;//66
+		doc.text("Section: "+o.g, L, T);
+		L +=9;//69
+		
+		T = T+5;//70
+		doc.setFontSize(7);
+		L =L-79;//5
+		doc.setFontSize(9);
+		doc.text("Date: ", L, T);
+		L =L+35;//35
+		doc.text("Description: ", L, T);
+		L =L+35;//70
+		doc.text("Fee: ", L, T);
+
+		doc.setFontSize(8);
+		T = T+1;//71
+		doc.line(2, T, 300, T);
+		T = T+3;//72
+		L =L-70;//5
+		doc.text(getMonthYear(new Date())+"", L, T);
+		L =L+35;//35
+		doc.text("Monthly fee", L, T);
+		L =L+35;//70
+		doc.text(o.f+"", L, T);
+		
+		T = T+3;//75
+		L =L-70;//5
+		doc.text(getMonthYear(new Date())+"", L, T);
+		L =L+35;//35
+		doc.text("Arrears", L, T);
+		L =L+35;//70
+		doc.text(0+"", L, T);
+
+//		T = T+3;//76
+		L =L-35;//5
+//		doc.text(getMonthYear(new Date())+"", L, T);
+//		L =L+40;//35
+//		doc.text("Vehicle Fee", L, T);
+//		L =L+35;//70
+//		doc.text(o.vf+"", L, T);
+		
+		T = T+1;//78
+//		doc.addFont("ConsolasHex.ttf", "ConsolasHex", "Bold");
+//		doc.setFont("ConsolasHex","Bold");		
+//		doc.setFontType('helvetica');
+		doc.line(2, T, 300, T);
+//		doc.setFontType('bold');
+		T = T+3;//80
+		L =L-35	;//5
+//		doc.setFontSize(9);
+		doc.text("Payable before due date", L, T);
+		L =L+70;//35
+		doc.text(o.da+"", L, T);
+
+		T = T+3;//80
+		L =L-70	;//5
+		doc.text("Payable after due date", L, T);
+		L =L+70;//35
+		doc.text((o.da+500)+"", L, T);
+
+		T = T+10;//78
+		L =L-70;//5
+		doc.setFontSize(8);
+		doc.setFontType('italic');
+		doc.text("Instuctions for Guardians", L, T);
+		doc.setFontSize(7);
+		
+		T = T+2;//78
+		insts.forEach(function(inst,i){
+			T = T+3;//78
+			doc.text(inst, L, T);
+		});
+		
+		console.log(L,T);
+		L =L+105;//35
+		T = 5;
+		
+	}
+	doc.line(105, 300, 105, 0);
+//	doc.addPage()
+//	doc.text('I am on page 3', 10, 10)
+//	doc.setPage(1)
+//	doc.text('I am on page 1', 10, 10)
+	doc.autoPrint({variant: "non-conform"});
+	doc.save(o.sn+"("+o.en+") fee voucher.pdf");
+	return;
+}
+
+function getLLInst(){
+	var inst = [];
+	inst.push("1. For RE-ISSUANCE of Fee Voucher, Rs. 50/- will be charged");
+	inst.push("2. Parents must retain their copy of the PAID fee voucher in safe");
+	inst.push("   custody for future reference");
+	inst.push("3. Fee once paid is not transferable and Non-Refundable");
+	return inst;
 }
 
 function getIqraInst(){

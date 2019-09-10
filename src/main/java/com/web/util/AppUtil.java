@@ -28,6 +28,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
@@ -130,28 +131,28 @@ public class AppUtil {
 
     //Get current date time
     public Date getDate(String date) throws ParseException {
-    	if(date==null)
+    	if(StringUtils.isEmpty(date))
     		return new Date();
     	return dateFormat.parse(date);
     }
 
    	//Get Local date time
     public LocalDateTime getDateTime(String dateTimeStr) throws ParseException {
-    	if(dateTimeStr==null)
+    	if(StringUtils.isEmpty(dateTimeStr))
     		return LocalDateTime.now();
     	LocalDateTime dateTime = LocalDateTime.parse(dateTimeStr, dateTimeFormatter);
     	return dateTime;
     }
    	//Get current date
     public LocalDate getLocalDate(String dateStr) throws ParseException {
-    	if(dateStr==null)
+    	if(StringUtils.isEmpty(dateStr))
     		return LocalDate.now();
     	LocalDate dateTime = LocalDate.parse(dateStr, dateformatter);
     	return dateTime;
     }
    	//Get date time str
     public String getDateTimeStr(LocalDateTime dateTime){
-    	if(dateTime==null)
+    	if(StringUtils.isEmpty(dateTime))
     		return "";
         return dateTimeFormatter.format(dateTime);
     }

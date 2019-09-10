@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<div th:replace="header :: header-css" />
+	<script src="resources/js/agriculture/agriculture.js"></script>
+</head>
+<body>
+	<div th:replace="header :: header" />
+	<nav class="subnav" id="nav-subheader">
+		<div class="container-fluid">
+			<ul class="nav navbar-nav">
+				<div class="navbar-header active">
+					<p style="color: lightskyblue; padding-top: 17px"
+						class="glyphicon glyphicon-user" th:if="${param.user} != null"
+						th:text="${param.user[0]}">User</p>
+				</div>
+				<li>
+					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
+						<option class="dropdown-item" value="">Nothing Selected</option>
+						<option sec:authorize="hasAuthority('AGRICULTURE_ADD_EXPENSE')" class="dropdown-item" value="agricultureExpenseDiv">Add Expense</option>
+						<option sec:authorize="hasAuthority('AGRICULTURE_ADD_INCOME')" class="dropdown-item" value="agricultureIncomeDiv">Add Income</option>
+<!-- 						<option sec:authorize="hasAuthority('READ_AGRICULTURE_EXPENSE')" class="dropdown-item" value="DonationsDiv">View Expense</option>
+						<option sec:authorize="hasAuthority('READ_AGRICULTURE_INCOME')" class="dropdown-item" value="DonationsDiv">View Income</option>
+ -->					</select>
+				</li>
+			</ul>					
+		</div>
+	</nav>
+	<div class="container content-cls">
+		<div id="agricultureExpenseDiv" class="formDiv" style="display:none">
+			<h3 th:text="#{label.donator.form.heading}">Expense Form</h3>
+			<br />
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="AgricultureExpense" autocomplete="off">
+				<div class="form-group" style="display: none">
+					<label class="control-label col-sm-2" for="expenseId">Id:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="expenseId" name="id"/> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="landUnitDD">Select Option:</label>
+					<div class="col-sm-4">
+						<select name="landUnit" id="landUnitDD" class="show form-control" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Acre">Acre</option>
+							<option class="dropdown-item" value="Bigha">Bigha</option>
+							<option class="dropdown-item" value="Kanal">Kanal</option>
+							<option class="dropdown-item" value="Marla">Marla</option>
+						</select>
+					</div>
+					<label class="control-label col-sm-2" for="totalLandUnit">Total Land Units</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="totalLandUnit" name="totalLandUnit"
+							placeholder="Total of units" required="required"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="cropNameDD">Select Crop Name</label>
+					<div class="col-sm-4">
+						<select name="cropName" id="cropNameDD" class="show form-control" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Sugarcane">Sugarcane</option><!-- Kammad / Ganna / Sugarcane -->
+							<option class="dropdown-item" value="Wheat">Wheat</option><!-- Ghandum / Kanak /Wheat -->
+							<option class="dropdown-item" value="Rice">Rice</option><!-- Dhaan /Rice/Paddy -->
+							<option class="dropdown-item" value="Maize">Maize</option><!-- Makkai / Corn /Maize -->
+							<option class="dropdown-item" value="Cotton">Cotton</option><!-- Kappas / Cotton -->
+							<option class="dropdown-item" value="Mustard">Mustard</option><!-- Raya / Indian Mustard -->
+							<option class="dropdown-item" value="Canola">Canola</option><!-- Canola / Rapeseed -->
+							<option class="dropdown-item" value="Peanuts">Peanuts</option><!-- Moongphali / Ground nut / Peanuts -->
+							<option class="dropdown-item" value="Sunflower">Sunflower</option><!-- Suraj Mukkhi / Sunflower -->
+							<option class="dropdown-item" value="Black Gram">Black Gram</option><!-- Kalay Channay / Chickpea /Black Gram -->
+							<option class="dropdown-item" value="White Gram">White Gram</option><!-- Kabuli Channay / Chickpea / White Gram -->
+							<option class="dropdown-item" value="jantar">Jantar</option>
+							<option class="dropdown-item" value="Barley">Barley</option><!-- Juo / Barley -->
+							<option class="dropdown-item" value="Sorghum">Sorghum</option><!-- Jowar / Chari / Great Millet /Sorghum -->
+							<option class="dropdown-item" value="Pearl Millet">Pearl Millet</option><!-- Bajra / PearlMillet -->
+							<option class="dropdown-item" value="Field Pea">Field Pea</option>
+							<option class="dropdown-item" value="Lentil">Lentil</option><!-- Masur / Lentil -->
+							<option class="dropdown-item" value="Mung bean">Mung bean</option><!-- Mung bean / Oregon Pea / Green Gram -->
+							<option class="dropdown-item" value="Mash bean">Mash bean</option><!-- Mash / Urd Bean / Black Gram -->
+							<option class="dropdown-item" value="Arhar">Arhar</option><!-- Pigeon pea / Red Gram / Arhar -->
+							<option class="dropdown-item" value="Black-eyed Pea">Black-eyed Pea</option><!-- Lobia / Cowpea / Black-eyed Pea -->
+							<option class="dropdown-item" value="Cowpea">Cowpea</option><!-- Rawan / Cowpea -->
+							<option class="dropdown-item" value="Rapeseed">Rapeseed</option><!-- Toria / Brown or Yellow Sarsoon / Rapeseed -->
+<!-- 							<option class="dropdown-item" value="egyptianClover">Berseem / Egyptian Clover</option>
+							<option class="dropdown-item" value="alfalfa">Lucern / Alfalfa</option>
+							<option class="dropdown-item" value="clusterBean">Guar / Cluster bean</option>
+							<option class="dropdown-item" value="custom">Custom</option>
+ -->						</select>
+					</div>
+					<label class="control-label col-sm-2" for="cropType">Crop Type</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="cropType" name="cropType"
+							placeholder="Crop Type"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="expenseTypeDD">Select expense type</label>
+					<div class="col-sm-4">
+						<select name="expenseType" id="expenseTypeDD" class="show form-control" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Cultivators">Cultivators</option>
+							<option class="dropdown-item" value="Cultipacker">Cultipacker</option>
+							<option class="dropdown-item" value="Harvester">Harvester</option>
+							<option class="dropdown-item" value="Drill">Drill</option>
+							<option class="dropdown-item" value="Broadcast Seeder">Broadcast Seeder</option>
+							<option class="dropdown-item" value="Planter">Planter</option>
+							<option class="dropdown-item" value="Fertilizers">Fertilizers</option>
+							<option class="dropdown-item" value="Triller">Triller</option>
+							<option class="dropdown-item" value="Spray">Spray</option>
+							<option class="dropdown-item" value="Diesel">Diesel</option>
+							<option class="dropdown-item" value="Petrol">Petrol</option>
+							<option class="dropdown-item" value="Labour">Labour</option>
+							<!-- <option class="dropdown-item" value="custom">Custom</option> -->
+						</select>
+					</div>
+					<label class="control-label col-sm-2" for="expenseName">Expense Name</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="expenseName" name="expenseName"
+							placeholder="Expense name"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.amount}">Amount</label> 
+					<span class="col-sm-4">
+						<input id="amount" class="form-control" type="number" name="amount" value="" required="required" />
+					</span> 
+					<label class="control-label col-sm-2" th:text="#{label.date}"  for="updatedStr">Expense Date</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control datetimepicker" id="updatedStr" name="updatedStr">
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="description">Description</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="description"
+							name="Description" placeholder="Description">
+					</div>
+				</div>
+				<div class="form-group">
+					<button type="button" id="addAgricultureExpense" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+					</button>
+					<button type="button" id="deleteAgricultureExpense" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+			</form>
+			<div>
+				<table id="tableAgricultureExpense" class="table table-bordered table-striped">
+					<thead>
+						<tr>
+							<th class="col-sm-1" data-field="id">ID</th>
+							<th class="col-sm-1" data-field="checkDelete">Check</th>
+							<th class="col-sm-2" data-field="landUnitDD">Unit</th>
+							<th class="col-sm-3" data-field="totalLandUnit">Total unit</th>
+							<th class="col-sm-1" data-field="cropNameDD">Crop name</th>
+							<th class="col-sm-3" data-field="cropType">Crop type</th>
+							<th class="col-sm-1" data-field="expenseTypeDD">Expense type</th>
+							<th class="col-sm-3" data-field="expenseName">Expense name</th>
+							<th class="col-sm-3" data-field="amount">Amount</th>
+							<th class="col-sm-3" data-field="datedStr">Date</th>
+							<th class="col-sm-1" data-field="updatedStr">Updated</th>
+							<th class="col-sm-1" data-field="description">Description</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+		</div>
+		
+		<div id="agricultureIncomeDiv" class="formDiv" style="display:none">
+			<h3 th:text="#{label.donator.form.heading}">Expense Form</h3>
+			<br />
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="AgricultureIncome" autocomplete="off">
+				<div class="form-group" style="display: none">
+					<label class="control-label col-sm-2" for="incomeId">Id:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="incomeId" name="id"/> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="incomeLandUnitDD">Select Option:</label>
+					<div class="col-sm-4">
+						<select name="landUnit" id="incomeLandUnitDD" class="show form-control" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Acre">Acre</option>
+							<option class="dropdown-item" value="Bigha">Bigha</option>
+							<option class="dropdown-item" value="Kanal">Kanal</option>
+							<option class="dropdown-item" value="Marla">Marla</option>
+						</select>
+					</div>
+					<label class="control-label col-sm-2" for="incomeTotalLandUnit">Total Land Units</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="incomeTotalLandUnit" name="totalLandUnit"
+							placeholder="Total of units" required="required"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="incomeCropNameDD">Select Crop Name</label>
+					<div class="col-sm-4">
+						<select name="cropName" id="incomeCropNameDD" class="show form-control" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Sugarcane">Sugarcane</option><!-- Kammad / Ganna / Sugarcane -->
+							<option class="dropdown-item" value="Wheat">Wheat</option><!-- Ghandum / Kanak /Wheat -->
+							<option class="dropdown-item" value="Rice">Rice</option><!-- Dhaan /Rice/Paddy -->
+							<option class="dropdown-item" value="Maize">Maize</option><!-- Makkai / Corn /Maize -->
+							<option class="dropdown-item" value="Cotton">Cotton</option><!-- Kappas / Cotton -->
+							<option class="dropdown-item" value="Mustard">Mustard</option><!-- Raya / Indian Mustard -->
+							<option class="dropdown-item" value="Canola">Canola</option><!-- Canola / Rapeseed -->
+							<option class="dropdown-item" value="Peanuts">Peanuts</option><!-- Moongphali / Ground nut / Peanuts -->
+							<option class="dropdown-item" value="Sunflower">Sunflower</option><!-- Suraj Mukkhi / Sunflower -->
+							<option class="dropdown-item" value="Black Gram">Black Gram</option><!-- Kalay Channay / Chickpea /Black Gram -->
+							<option class="dropdown-item" value="White Gram">White Gram</option><!-- Kabuli Channay / Chickpea / White Gram -->
+							<option class="dropdown-item" value="jantar">Jantar</option>
+							<option class="dropdown-item" value="Barley">Barley</option><!-- Juo / Barley -->
+							<option class="dropdown-item" value="Sorghum">Sorghum</option><!-- Jowar / Chari / Great Millet /Sorghum -->
+							<option class="dropdown-item" value="Pearl Millet">Pearl Millet</option><!-- Bajra / PearlMillet -->
+							<option class="dropdown-item" value="Field Pea">Field Pea</option>
+							<option class="dropdown-item" value="Lentil">Lentil</option><!-- Masur / Lentil -->
+							<option class="dropdown-item" value="Mung bean">Mung bean</option><!-- Mung bean / Oregon Pea / Green Gram -->
+							<option class="dropdown-item" value="Mash bean">Mash bean</option><!-- Mash / Urd Bean / Black Gram -->
+							<option class="dropdown-item" value="Arhar">Arhar</option><!-- Pigeon pea / Red Gram / Arhar -->
+							<option class="dropdown-item" value="Black-eyed Pea">Black-eyed Pea</option><!-- Lobia / Cowpea / Black-eyed Pea -->
+							<option class="dropdown-item" value="Cowpea">Cowpea</option><!-- Rawan / Cowpea -->
+							<option class="dropdown-item" value="Rapeseed">Rapeseed</option><!-- Toria / Brown or Yellow Sarsoon / Rapeseed -->
+<!-- 							<option class="dropdown-item" value="egyptianClover">Berseem / Egyptian Clover</option>
+							<option class="dropdown-item" value="alfalfa">Lucern / Alfalfa</option>
+							<option class="dropdown-item" value="clusterBean">Guar / Cluster bean</option>
+							<option class="dropdown-item" value="custom">Custom</option>
+ -->						</select>
+					</div>
+					<label class="control-label col-sm-2" for="incomeVropType">Crop Type</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="incomeCropType" name="cropType"
+							placeholder="Crop Type"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="incomeTypeDD">Select expense type</label>
+					<div class="col-sm-4">
+						<select name="incomeType" id="incomeTypeDD" class="show form-control" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Cultivators">Cultivators</option>
+							<option class="dropdown-item" value="Cultipacker">Cultipacker</option>
+							<option class="dropdown-item" value="Harvester">Harvester</option>
+							<option class="dropdown-item" value="Drill">Drill</option>
+							<option class="dropdown-item" value="Broadcast Seeder">Broadcast Seeder</option>
+							<option class="dropdown-item" value="Planter">Planter</option>
+							<option class="dropdown-item" value="Fertilizers">Fertilizers</option>
+							<option class="dropdown-item" value="Triller">Triller</option>
+							<option class="dropdown-item" value="Spray">Spray</option>
+							<option class="dropdown-item" value="Diesel">Diesel</option>
+							<option class="dropdown-item" value="Petrol">Petrol</option>
+							<option class="dropdown-item" value="Labour">Labour</option>
+							<!-- <option class="dropdown-item" value="custom">Custom</option> -->
+						</select>
+					</div>
+					<label class="control-label col-sm-2" for="incomeName">Expense Name</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="incomeName" name="incomeName"
+							placeholder="Expense name"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.amount}" for="incomeAmount">Amount</label> 
+					<span class="col-sm-4">
+						<input id="incomeAmount" class="form-control" type="number" name="amount" value="" required="required" />
+					</span> 
+					<label class="control-label col-sm-2" th:text="#{label.date}"  for="incomeUpdatedStr">Expense Date</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control datetimepicker" id="incomeUpdatedStr" name="updatedStr">
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="incomeDescription">Description</label>
+					<div class="col-sm-10">
+						<input type="text" class="form-control" id="incomeDescription"
+							name="Description" placeholder="Description">
+					</div>
+				</div>
+				<div class="form-group">
+					<button type="button" id="addAgricultureIncome" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+					</button>
+					<button type="button" id="deleteAgricultureIncome" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+			</form>
+			<div>
+				<table id="tableAgricultureIncome" class="table table-bordered table-striped">
+					<thead>
+						<tr>
+							<th class="col-sm-1" data-field="id">ID</th>
+							<th class="col-sm-1" data-field="checkDelete">Check</th>
+							<th class="col-sm-1" data-field="landUnitDD">Unit</th>
+							<th class="col-sm-1" data-field="totalLandUnit">Total unit</th>
+							<th class="col-sm-1" data-field="cropNameDD">Crop name</th>
+							<th class="col-sm-1" data-field="cropType">Crop type</th>
+							<th class="col-sm-1" data-field="incomeTypeDD">Income type</th>
+							<th class="col-sm-1" data-field="incomeName">Income name</th>
+							<th class="col-sm-1" data-field="amount">Amount</th>
+							<th class="col-sm-1" data-field="datedStr">Date</th>
+							<th class="col-sm-1" data-field="updatedStr">Updated</th>
+							<th class="col-sm-1" data-field="description">Description</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+		</div>
+		
+	</div>
+	<script th:inline="javascript">
+var serverContext = [[@{/}]];
+	</script>
+	<div th:replace="footer :: footer" />
+</body>
+</html>

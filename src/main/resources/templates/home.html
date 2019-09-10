@@ -1,12 +1,26 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-	<div th:replace="header :: header-css" />
+<div th:replace="header :: header-css" />
 </head>
 <body>
-	<div th:replace="header :: header" />
-	<div class="container content-cls">
-	</div>
+	<nav class="navbar navbar-inverse">
+		<div class="container-fluid">
+			<div class="navbar-header active">
+				<a class="navbar-brand" href="#">Maximize your services</a>
+			</div>
+			<ul class="nav navbar-nav">
+			</ul>
+			<ul class="nav navbar-nav navbar-right">
+				<li><a class="glyphicon glyphicon-log-in" th:href="@{/login}"
+					th:text="#{label.form.login}">Login</a></li>
+				<li><a class="glyphicon glyphicon-user"
+					th:href="@{/registration.html}" th:text="#{label.form.siguUp}">Sign
+						Up</a></li>
+			</ul>
+		</div>
+	</nav>
+	<div class="container content-cls"></div>
 	<div th:replace="footer :: footer"></div>
 </body>
 </html>

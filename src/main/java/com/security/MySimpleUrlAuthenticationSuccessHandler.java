@@ -38,7 +38,7 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
         handle(request, response, authentication);
         final HttpSession session = request.getSession(false);
         if (session != null) {
-            session.setMaxInactiveInterval(30 * 60);
+            session.setMaxInactiveInterval(8 * 60 * 60);//h*m*s
             
             String username;
             if (authentication.getPrincipal() instanceof User) {
@@ -99,9 +99,9 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
          if (authentication.getPrincipal() instanceof User) {
         	 User user = ((User)authentication.getPrincipal());
         	 if(!appUtil.isEmptyOrNull(user) && !appUtil.isEmptyOrNull(user.getUserType())){
-        		 return "/"+user.getUserType().toLowerCase()+"Dashboard.html";
+        		 return "/"+user.getUserType().toLowerCase()+"Dashboard";
             }else {
-                return "/products.html";
+                return "/services";
             }
         } else {
             throw new IllegalStateException();
