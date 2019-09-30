@@ -1,6 +1,7 @@
 package com.web.controller.education;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -166,7 +167,7 @@ public class StudentController {
 			sb.append("<option value=''> Nothing Selected </option>");
 			objs.forEach(d -> {
 				if(d!=null && d.getId()!=null)
-					sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
+					sb.append("<option value="+d.getId()+">"+d.getName()+"-"+d.getEnrollNo()+"</option>");
 			});
 		    return sb.toString();
 		} catch (Exception e) {
@@ -313,7 +314,7 @@ public class StudentController {
 	        	//validate if already exist
 		        obj.setUserId(user.getId());
   				if(row.getCell(16)!=null) {
-  					obj.setEnrollNo((long)row.getCell(9).getNumericCellValue()+"");
+  					obj.setEnrollNo(row.getCell(9).getStringCellValue());
   					obj.setName(row.getCell(16).getStringCellValue().trim());
   				}
 				Example<Student> example = Example.of(obj);
@@ -334,12 +335,14 @@ public class StudentController {
   				if(row.getCell(8)!=null &&row.getCell(8).getDateCellValue()!=null) {
   			        df = new SimpleDateFormat("dd-MM-yyyy").format(row.getCell(8).getDateCellValue());
   					obj.setEnrollDate(appUtil.getLocalDate(df.trim()));  					
+  				}else {
+  					obj.setEnrollDate(LocalDate.now());
   				}
 				obj.setDated(dated);
   				obj.setUpdated(dated);
   				if(row.getCell(10)!=null)
-  				obj.setFee((float) row.getCell(10).getNumericCellValue());
-  				obj.setMobile("0"+(long)row.getCell(15).getNumericCellValue());
+  					obj.setFee((float) row.getCell(10).getNumericCellValue());
+  				obj.setMobile(row.getCell(15).getStringCellValue());
   				
 	        	//validate if already exist
 		        obj.setUserId(user.getId());
@@ -353,13 +356,14 @@ public class StudentController {
 					obj.setSchoolId(schools.get(0).getId());
   				
   				if(row.getCell(27)!=null)
-				obj.setMn(row.getCell(27).getStringCellValue().trim());
+  					obj.setMn(row.getCell(27).getStringCellValue().trim());
   				if(row.getCell(28)!=null)
-				obj.setPob(row.getCell(28).getStringCellValue().trim());
+  					obj.setPob(row.getCell(28).getStringCellValue().trim());
   				if(row.getCell(30)!=null)
-				obj.setReligion(row.getCell(30).getStringCellValue().trim());
+  					obj.setReligion(row.getCell(30).getStringCellValue().trim());
+  				if(row.getCell(29)!=null)
+  					obj.setWa("0"+(long)row.getCell(29).getNumericCellValue());
   				obj.setStatus(appUtil.ACTIVE);
-  				obj.setWa("0"+(long)row.getCell(29).getNumericCellValue());
   				
   				log.info(obj.toString());
   				obj = studentService.save(obj);

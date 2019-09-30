@@ -15,8 +15,11 @@ import lombok.Setter;
  */
 public class FeeVoucherDTO {
 
-	private Short vb = 1;
+	@Getter@Setter
+	private String vb = null;
+	@Getter@Setter
 	private String vi = null;
+	@Getter@Setter
 	private Short vp = 1;
 	
 	@Getter@Setter
@@ -35,18 +38,7 @@ public class FeeVoucherDTO {
 	private String edStr = null;
 	private LocalDate sd = LocalDate.now();
 	private LocalDate ed = LocalDate.now();
-	/**
-	 * @return the vb
-	 */
-	public Short getVb() {
-		return vb;
-	}
-	/**
-	 * @param vb the vb to set
-	 */
-	public void setVb(Short vb) {
-		this.vb = vb;
-	}
+
 	/**
 	 * @return the vi
 	 */

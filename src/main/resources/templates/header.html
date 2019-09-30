@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+<!-- <head profile="http://www.w3.org/2005/10/profile"> -->
+<link rel="icon" type="image/png" sizes="32x32" href="resources/logo-max.png"/>
+<link rel="icon" href="/logo-max.png" sizes="32x32" type="image/png">
+<link rel="shortcut icon" href="resources/images/favicon.ico" type="image/x-icon">
+<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
 <div th:fragment="header-css">
 
 	<link rel="stylesheet" href="resources/bootstrap/css/bootstrap.min.css">
@@ -8,7 +13,7 @@
 	<link rel="stylesheet" href="resources/css/jquery.dataTables.min.css">
 	<link rel="stylesheet" href="resources/css/buttons.dataTables.min.css">
 	<link rel="stylesheet" href="resources/css/application.css" />
-	<link rel="stylesheet" href="resources/main.css" />
+	<link rel="stylesheet" href="resources/main.css"/>
 	<link rel="stylesheet" href="resources/css/jquery.timepicker.min.css" />
 
 	<script src="resources/js/jquery-3.3.1.js"></script>
@@ -28,10 +33,51 @@
 	<script src="resources/jQExp/vfs_fonts.js"></script>
 	<script src="resources/jQExp/buttons.html5.min.js"></script>
 	<script src="resources/jQExp/buttons.print.min.js"></script>
-	 <script src="resources/js/main.js"></script> 
+	 <script src="resources/js/main.js"></script>
 	<title th:text="#{label.app.title}">Form</title>
 </div>
 </head>
+
+<body>
+ <!--    <div class="navbar navbar-inverse navbar-fixed-top" th:fragment="header">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">My project</a>
+          <img th:src="@{/resources/favicon.jpeg}" height="50" width="100" title="Maximize your services"/>
+        </div>
+        <div class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li th:classappend="${module == 'home' ? 'active' : ''}">
+              <a href="#" th:href="@{/home}">Home</a>
+            </li>
+            <li th:classappend="${module == 'tasks' ? 'active' : ''}">
+            	<a class="glyphicon glyphicon-dashboard" th:text="#{label.my.dashBoard}">My DashBoard</a>
+              <a href="#" th:href="@{/task}">Tasks</a>
+            </li>
+          </ul>
+          <ul class="nav navbar-nav navbar-right">
+            <li th:if="${#authorization.expression('!isAuthenticated()')}">
+              <a href="/login" th:href="@{/login}">
+                <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>&nbsp;Sign in
+              </a>
+            </li>
+            <li th:if="${#authorization.expression('isAuthenticated()')}">
+              <a href="/logout" th:href="@{#}" onclick="$('#form').submit();">
+                <span class="glyphicon glyphicon-log-out" aria-hidden="true"></span>&nbsp;Logout
+              </a>
+             <form style="visibility: hidden" id="form" method="post" action="#" th:action="@{/logout}"></form>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </body>
+  --> 
 <body>
 	<!-- 	<div class="container hdr-cls row">
 		<a class="btn btn-info btn-cls col-md-1" href="/home.html">Home</a> 
@@ -60,12 +106,19 @@
 					th:text="${param.user[0]}">User</p>
 			</div>
 			<ul class="nav navbar-nav">
-				<li><a class="glyphicon glyphicon-home" th:href="@{/home}"
-					th:text="#{label.pages.home.title}">home</a></li>
-<!-- 				<li><a class="glyphicon glyphicon-dashboard"
-					th:href="@{/appointmentDashboard}" th:text="#{label.my.dashBoard}">My
-						DashBoard</a></li>
-				<li><a th:href="@{/addHospital}"
+				<li>
+				 <img th:src="@{/resources/favicon.png}" height="50" width="50" title="Maximize your services"/>
+				</li>
+				<li>
+					<a th:href="@{/home}">
+						<span class="glyphicon glyphicon-home" aria-hidden="true">&nbsp;Home</span>
+					</a></li>
+ 				<li>
+ 					<a>
+						<span class="glyphicon glyphicon-dashboard" aria-hidden="true">&nbsp;Dashboard</span>
+					</a>
+				</li>
+<!--				<li><a th:href="@{/addHospital}"
 					th:text="#{label.hospital.add}">New Hospital</a></li>
 				<li><a th:href="@{/addDoctor}" th:text="#{label.doctor.add}">New
 						Doctor</a></li>
@@ -77,10 +130,20 @@
 					th:text="#{label.abbasiWelfare.donation}">Flahey Abbasia
 						Welfare</a></li>
  -->			</ul>
-			<ul class="nav navbar-nav navbar-right">
-				<li><a class="glyphicon glyphicon-log-out" th:href="@{/logout}"
-					th:text="#{label.pages.logout}">logout</a></li>
-			</ul>
+				<ul class="nav navbar-nav navbar-right">
+		            <li th:if="${#authorization.expression('!isAuthenticated()')}">
+		              <a href="/login" th:href="@{/login}">
+		                <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>&nbsp;Sign in
+		              </a>
+		            </li>
+				
+		            <li th:if="${#authorization.expression('isAuthenticated()')}">
+			            <a href="/logout" th:href="@{#}" onclick="$('#form').submit();">
+				            <span class="glyphicon glyphicon-log-out" aria-hidden="true"></span>&nbsp;Logout
+			            </a>
+			            <form style="visibility: hidden" id="form" method="post" action="#" th:action="@{/logout}"></form>
+		            </li>
+				</ul>
 		</div>
 	</nav>
 </body>

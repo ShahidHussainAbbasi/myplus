@@ -80,7 +80,7 @@ public class StudentDTO implements Serializable {
 
 	private String status = "Active";
 
-	@ValidateEmpty
+//	@ValidateEmpty
 	private String gender;
 
 	private String datedStr;

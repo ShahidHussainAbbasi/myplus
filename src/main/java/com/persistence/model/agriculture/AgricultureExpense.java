@@ -6,10 +6,9 @@ import java.time.LocalDateTime;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -19,7 +18,7 @@ import lombok.Setter;
  * 
  */
 @Entity
-@Table(name = "agriculture_expense", uniqueConstraints = { @UniqueConstraint(columnNames = "agri_expense_id") })
+@Table(name = "agriculture_expense")
 public class AgricultureExpense implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -31,7 +30,9 @@ public class AgricultureExpense implements Serializable {
 	}
 	
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "agri_expense_gen", sequenceName = "agri_expense_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "agri_expense_gen")	
+//	@GeneratedValue(strategy = GenerationType.SEQUENCE)
 	@Column(name = "agri_expense_id", unique = true, nullable = false)
 	@Setter @Getter	
 	private Long id;
@@ -44,13 +45,21 @@ public class AgricultureExpense implements Serializable {
 	@Setter @Getter	
 	private String userType;
 
-	@Column(name = "land_unit")
+	@Column(name = "land_id")
 	@Setter @Getter	
-	private String landUnit;    
+	private Long landId;
 
-	@Column(name = "total_land_unit")
+	@Column(name = "land_name")
 	@Setter @Getter	
-	private String totalLandUnit;
+	private String landName;
+
+	//	@Column(name = "land_unit")
+//	@Setter @Getter	
+//	private String landUnit;    
+//
+//	@Column(name = "total_land_unit")
+//	@Setter @Getter	
+//	private String totalLandUnit;
 
 	@Column(name = "crop_name")
 	@Setter @Getter	

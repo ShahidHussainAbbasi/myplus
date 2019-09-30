@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+<link rel="icon" type="image/jpg" sizes="60x50" href="resources/favicon.jpeg"/>
 <div th:replace="header :: header-css" />
 	<script src="resources/js/agriculture/agriculture.js"></script>
 </head>
@@ -17,8 +18,9 @@
 				<li>
 					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Nothing Selected</option>
-						<option sec:authorize="hasAuthority('AGRICULTURE_ADD_EXPENSE')" class="dropdown-item" value="agricultureExpenseDiv">Add Expense</option>
-						<option sec:authorize="hasAuthority('AGRICULTURE_ADD_INCOME')" class="dropdown-item" value="agricultureIncomeDiv">Add Income</option>
+						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="landDiv">Register Land</option>
+						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="agricultureExpenseDiv">Add Expense</option>
+						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="agricultureIncomeDiv">Add Income</option>
 <!-- 						<option sec:authorize="hasAuthority('READ_AGRICULTURE_EXPENSE')" class="dropdown-item" value="DonationsDiv">View Expense</option>
 						<option sec:authorize="hasAuthority('READ_AGRICULTURE_INCOME')" class="dropdown-item" value="DonationsDiv">View Income</option>
  -->					</select>
@@ -28,7 +30,7 @@
 	</nav>
 	<div class="container content-cls">
 		<div id="agricultureExpenseDiv" class="formDiv" style="display:none">
-			<h3 th:text="#{label.donator.form.heading}">Expense Form</h3>
+			<h3 th:text="#{label.expense.form.heading}">Expense Form</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="AgricultureExpense" autocomplete="off">
@@ -39,20 +41,10 @@
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="landUnitDD">Select Option:</label>
+					<label class="control-label col-sm-2 req" for="expenseLandNameDD">Select Land</label>
 					<div class="col-sm-4">
-						<select name="landUnit" id="landUnitDD" class="show form-control" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>
-							<option class="dropdown-item" value="Acre">Acre</option>
-							<option class="dropdown-item" value="Bigha">Bigha</option>
-							<option class="dropdown-item" value="Kanal">Kanal</option>
-							<option class="dropdown-item" value="Marla">Marla</option>
+						<select name="landId" id="expenseLandNameDD" class="show form-control" required="required" onchange="loadLastCropAttached(this.id)">
 						</select>
-					</div>
-					<label class="control-label col-sm-2" for="totalLandUnit">Total Land Units</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="totalLandUnit" name="totalLandUnit"
-							placeholder="Total of units" required="required"> 
 					</div>
 				</div>
 				<div class="form-group">
@@ -135,10 +127,10 @@
 					<label class="control-label col-sm-2" for="description">Description</label>
 					<div class="col-sm-10">
 						<input type="text" class="form-control" id="description"
-							name="Description" placeholder="Description">
+							name="description" placeholder="Description">
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addAgricultureExpense" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -153,8 +145,7 @@
 						<tr>
 							<th class="col-sm-1" data-field="id">ID</th>
 							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-2" data-field="landUnitDD">Unit</th>
-							<th class="col-sm-3" data-field="totalLandUnit">Total unit</th>
+							<th class="col-sm-2" data-field="expenseLandDD">Land</th>
 							<th class="col-sm-1" data-field="cropNameDD">Crop name</th>
 							<th class="col-sm-3" data-field="cropType">Crop type</th>
 							<th class="col-sm-1" data-field="expenseTypeDD">Expense type</th>
@@ -170,7 +161,7 @@
 		</div>
 		
 		<div id="agricultureIncomeDiv" class="formDiv" style="display:none">
-			<h3 th:text="#{label.donator.form.heading}">Expense Form</h3>
+			<h3 th:text="#{label.income.form.heading}">Income Form</h3>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="AgricultureIncome" autocomplete="off">
@@ -181,21 +172,17 @@
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="incomeLandUnitDD">Select Option:</label>
+					<label class="control-label col-sm-2" for="incomeLandNameDD">Select Land</label>
 					<div class="col-sm-4">
-						<select name="landUnit" id="incomeLandUnitDD" class="show form-control" required="required">
+						<select name="landId" id="incomeLandNameDD" class="show form-control" required="required">
 							<option class="dropdown-item" value="">Nothing Selected</option>
-							<option class="dropdown-item" value="Acre">Acre</option>
-							<option class="dropdown-item" value="Bigha">Bigha</option>
-							<option class="dropdown-item" value="Kanal">Kanal</option>
-							<option class="dropdown-item" value="Marla">Marla</option>
 						</select>
 					</div>
-					<label class="control-label col-sm-2" for="incomeTotalLandUnit">Total Land Units</label>
+					<!-- <label class="control-label col-sm-2" for="incomeTotalLandUnit">Total Land Units</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="incomeTotalLandUnit" name="totalLandUnit"
 							placeholder="Total of units" required="required"> 
-					</div>
+					</div> -->
 				</div>
 				<div class="form-group">
 					<label class="control-label col-sm-2" for="incomeCropNameDD">Select Crop Name</label>
@@ -238,29 +225,32 @@
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="incomeTypeDD">Select expense type</label>
+					<label class="control-label col-sm-2" for="incomeTypeDD">Select Income Type</label>
 					<div class="col-sm-4">
 						<select name="incomeType" id="incomeTypeDD" class="show form-control" required="required">
 							<option class="dropdown-item" value="">Nothing Selected</option>
 							<option class="dropdown-item" value="Cultivators">Cultivators</option>
-							<option class="dropdown-item" value="Cultipacker">Cultipacker</option>
+							<option class="dropdown-item" value="Routawator">Routawator</option>
+							<option class="dropdown-item" value="Disc">Disc</option>
 							<option class="dropdown-item" value="Harvester">Harvester</option>
 							<option class="dropdown-item" value="Drill">Drill</option>
 							<option class="dropdown-item" value="Broadcast Seeder">Broadcast Seeder</option>
 							<option class="dropdown-item" value="Planter">Planter</option>
 							<option class="dropdown-item" value="Fertilizers">Fertilizers</option>
 							<option class="dropdown-item" value="Triller">Triller</option>
+							<option class="dropdown-item" value="Sead">Sead</option>
 							<option class="dropdown-item" value="Spray">Spray</option>
 							<option class="dropdown-item" value="Diesel">Diesel</option>
 							<option class="dropdown-item" value="Petrol">Petrol</option>
-							<option class="dropdown-item" value="Labour">Labour</option>
+							<option class="dropdown-item" value="Water">Water</option>
+							<option class="dropdown-item" value="Labor">Labor</option>
 							<!-- <option class="dropdown-item" value="custom">Custom</option> -->
 						</select>
 					</div>
-					<label class="control-label col-sm-2" for="incomeName">Expense Name</label>
+					<label class="control-label col-sm-2" for="incomeDescription">Description</label>
 					<div class="col-sm-4">
-						<input type="text" class="form-control" id="incomeName" name="incomeName"
-							placeholder="Expense name"> 
+						<input type="text" class="form-control" id="incomeDescription"
+							name="description" placeholder="Description">
 					</div>
 				</div>
 				<div class="form-group">
@@ -273,14 +263,7 @@
 						<input type="text" class="form-control datetimepicker" id="incomeUpdatedStr" name="updatedStr">
 					</div>
 				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="incomeDescription">Description</label>
-					<div class="col-sm-10">
-						<input type="text" class="form-control" id="incomeDescription"
-							name="Description" placeholder="Description">
-					</div>
-				</div>
-				<div class="form-group">
+				<div class="form-group" style="text-align: center">
 					<button type="button" id="addAgricultureIncome" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
@@ -295,8 +278,7 @@
 						<tr>
 							<th class="col-sm-1" data-field="id">ID</th>
 							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-1" data-field="landUnitDD">Unit</th>
-							<th class="col-sm-1" data-field="totalLandUnit">Total unit</th>
+							<th class="col-sm-1" data-field="incomelandDD">Land</th>
 							<th class="col-sm-1" data-field="cropNameDD">Crop name</th>
 							<th class="col-sm-1" data-field="cropType">Crop type</th>
 							<th class="col-sm-1" data-field="incomeTypeDD">Income type</th>
@@ -311,6 +293,87 @@
 			</div>
 		</div>
 		
+		<div id="landDiv" class="formDiv" style="display:none">
+			<h3 th:text="#{label.land.registration.form.heading}">Land Registration</h3>
+			<br />
+			<form action="/" method="POST" class="form-horizontal" role="form"
+				enctype="utf8" id="Land" autocomplete="off">
+				<div class="form-group" style="display: none">
+					<label class="control-label col-sm-2" for="landId">Id:</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="landId" name="id"/> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2 req" for="landUnitDD">Select land type</label>
+					<div class="col-sm-4">
+						<select name="landUnit" id="landUnitDD" class="show form-control" required="required">
+							<option class="dropdown-item" value="">Nothing Selected</option>
+							<option class="dropdown-item" value="Acre">Acre</option>
+							<option class="dropdown-item" value="Bigha">Bigha</option>
+							<option class="dropdown-item" value="Kanal">Kanal</option>
+							<option class="dropdown-item" value="Half Kanal">Half Kanal</option>
+							<option class="dropdown-item" value="Marla">Marla</option>
+						</select>
+					</div>
+					<label class="control-label col-sm-2 req" for="totalLandUnitOf">Total of</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="totalLandUnitOf" name="totalLandUnit"
+							placeholder="Enter total of selected land unit" required="required"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" for="landName">Land Name</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="landName" name="landName"
+							placeholder="Enter name" required="required"> 
+					</div>
+					<label class="control-label col-sm-2" for="landType">Land Type</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="landType" name="landType"
+							placeholder="Enter type"> 
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.date}"  for="landUpdatedStr">Date</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control datetimepicker" id="landUpdatedStr" name="updatedStr">
+					</div>
+					<label class="control-label col-sm-2" for="landDescription">Description</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="landDescription"
+							name="description" placeholder="Description">
+					</div>
+				</div>
+				<div class="form-group" style="text-align: center">
+					<button type="button" id="addLand" class="btn btn-success">
+						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+					</button>
+					<button type="button" id="deleteLand" class="btn btn-warning">
+						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					</button>
+				</div>
+			</form>
+			<div>
+				<table id="tableLand" class="table table-bordered table-striped">
+					<thead>
+						<tr>
+							<th class="col-sm-1" data-field="id">ID</th>
+							<th class="col-sm-1" data-field="checkDelete">Check</th>
+							<th class="col-sm-1" data-field="totalLandUnit">Land</th>
+							<th class="col-sm-1" data-field="landUnitDD">Unit</th>
+							<th class="col-sm-1" data-field="landName">Land name</th>
+							<th class="col-sm-1" data-field="landType">Land type</th>
+							<th class="col-sm-1" data-field="datedStr">Date</th>
+							<th class="col-sm-1" data-field="updatedStr">Updated</th>
+							<th class="col-sm-1" data-field="description">Description</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+		</div>
+
+
 	</div>
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];

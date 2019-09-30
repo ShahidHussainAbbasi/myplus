@@ -515,7 +515,7 @@ function calculateNet(val){
 var itemStock = 0;
 var discountType = "";
 var discountValue = "0";
-function populateData(label,value){
+function laodItems(label,value){
 	edit = false;
 	$("#purchasePurchaseRate").val("");
 	$("#purchaseSellRate").val("")

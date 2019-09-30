@@ -89,6 +89,10 @@ $(document).ready(function() {
 		});
 */	
 
+	$(".glyphicon-dashboard").click(function (){
+		$('.formDiv').hide();
+		$("#DashboardDiv").show();
+	});
 	
 	$("#paBtn").click(function (event) {
 
@@ -129,7 +133,7 @@ $(document).ready(function() {
 	});	
 
 	$(".datePicker").datetimepicker({
-		useCurrent: false,
+		useCurrent: true,
 		format : 'DD-MM-YYYY',
 		showTodayButton: true,
 		showClear:true,
@@ -137,7 +141,11 @@ $(document).ready(function() {
 	});
 	
     $(".datetimepicker").datetimepicker({
-		format : 'DD-MM-YYYY HH:mm:ss'
+		useCurrent: true,
+		format : 'DD-MM-YYYY HH:mm:ss',
+		showTodayButton: true,
+		showClear:true,
+		showClose:true
 	});
     
     $('input.timepicker').timepicker({ 
@@ -152,7 +160,12 @@ $(document).ready(function() {
     	var label = $(this).text();
     	var value = $(this).val();
     	
-   		populateData(label,value);
+    	if(tableV=="FV"){
+//    		loadFVIBSDD(label,value); 
+//    		loadBSDD("getUser"+lable.trim(),"fviDD");
+    	}else{
+    		laodItems(label,value);    		
+    	}
     });
     
 	$switchInputs =function(val) {
@@ -448,8 +461,8 @@ function editRecord(doc){
 			if(form[i].tagName=="SELECT"){
 				var labels = text.split(",");
 				labels.forEach(function(entry) {
-					$("#"+form[i].id+" option").each(function(i) {
-						if(text.indexOf($(this).text()) > -1) {
+					$("#"+form[i].id+" option").each(function() {
+						if(text.indexOf(($(this).text()).split("-")[0]) > -1) {
 							$(this).prop('selected', true);
 						}else{
 							$(this).prop('selected', false);
@@ -473,6 +486,17 @@ function resetBSDD(id){
 	$("#"+id).val('default').selectpicker("refresh");
 }
 
+function parseDate(dateStr, format) {
+  const regex = format.toLocaleLowerCase()
+    .replace(/\bd+\b/, '(?<day>\\d+)')
+    .replace(/\bm+\b/, '(?<month>\\d+)')
+    .replace(/\by+\b/, '(?<year>\\d+)')
+  
+  const parts = new RegExp(regex).exec(dateStr) || {};
+  const { year, month, day } = parts.groups || {};
+  return parts.length === 4 ? new Date(year, month-1, day) : undefined;
+}
+
 function dateToYMD(date) {
     var d = date.getDate();
     var m = date.getMonth() + 1;
@@ -487,13 +511,32 @@ function dateToDMY(date) {
     return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
 }
 
+function dateToD3MY(date) {
+    var d = date.getDate()+9;
+    var m = date.getMonth();
+    var y = date.getFullYear();
+    return (d <= 9 ? '0' + d : d)+ '-' + (m<=9 ? '0' + m : m) + '-' + '' + y ;
+}
+
 function getMonth(){
 	var d = new Date();
 	return month[d.getMonth()];
 }
 
+function getCurrentMonth(d){
+	return month[d.getMonth()];
+}
+
 function getMonthYear(d){
 	return month[d.getMonth()]+" "+d.getFullYear();
+}
+
+function getNextMonthYear(d){
+	return month[d.getMonth()+1]+" "+d.getFullYear();
+}
+
+function getN_NextMonthYear(d,n){
+	return month[d.getMonth()+n]+" "+d.getFullYear();
 }
 
 function currentdateByDay(d) {
@@ -638,3 +681,25 @@ function showWait() {
 function hideWait() {
     $("#pleaseWaitDialog").modal("hide");
 }
+//It is being used to populate any HTML DD 
+function loadDD(remoteMethod,DDID) {	
+	$("#"+DDID).empty();
+    $.get(serverContext+ remoteMethod,function(data){
+   		$("#"+DDID).append(data);
+    })
+	.fail(function(data) {
+		$("#"+DDID).empty().append("<option value = ''> System error  </option>");
+	});
+}
+
+//It is being used to populate any BS DD
+function loadBSDD(remoteMethod,DDID) {
+	$("#"+DDID).empty();
+    $.get(serverContext+ remoteMethod,function(data){
+    	$("#"+DDID).empty().append(data).selectpicker('refresh');
+    })
+	.fail(function(data) {
+		$("#"+DDID).empty().append("<option value = ''> System error  </option>");
+	});
+}
+

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+<link rel="icon" type="image/jpg" sizes="60x50" href="resources/favicon.jpeg"/>
 <div th:replace="header :: header-css" />
 <script type="text/javascript" src="resources/js/jspdf.min.js"></script>
 <script type="text/javascript" src="resources/js/jspdf.plugin.autotable.js"></script>
@@ -19,29 +20,36 @@
 						class="glyphicon glyphicon-user" th:if="${param.user} != null"
 						th:text="${param.user[0]}">User</p>
 				</div>
-				<li>
-					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
-						<option class="dropdown-item" value="">Manage Registrations</option>
-						<option class="dropdown-item" value="OwnerDiv">Owners</option>
-						<option class="dropdown-item" value="SchoolDiv">Campus</option>
-						<option class="dropdown-item" value="VehicleDiv">Vehicles</option>
-						<option class="dropdown-item" value="GradeDiv">Classes</option>
-						<option class="dropdown-item" value="StaffDiv">Employee</option>
-	 					<option class="dropdown-item" value="SubjectDiv">Subjects</option>
-<!-- 
-						<option class="dropdown-item" value="NewDiscountDiv">Discounts</option>
-						<option class="dropdown-item" value="NewChargesDiv">Charges</option>
- -->
-						<option class="dropdown-item" value="DiscountDiv">Manage Discounts/Charges</option>
-						<option class="dropdown-item" value="GuardianDiv">Guardians</option>						
-						<option class="dropdown-item" value="StudentDiv">Manage Students</option>
-					</select>
-				</li>
+				<!-- <security:authorize access="hasRole('SUPER_ROLE')"> -->
+<!-- 					<li>
+						<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
+							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DashboardDiv">Dashboard</option>
+						</select>
+					</li>
+ -->					<li>
+						<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
+							<option class="dropdown-item" value="">Manage Registrations</option>
+							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="OwnerDiv">Owners</option>
+							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="SchoolDiv">Campus</option>
+							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="VehicleDiv">Vehicles</option>
+							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="GradeDiv">Classes</option>
+							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="StaffDiv">Employee</option>
+		 					<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="SubjectDiv">Subjects</option>
+	<!-- 
+							<option class="dropdown-item" value="NewDiscountDiv">Discounts</option>
+							<option class="dropdown-item" value="NewChargesDiv">Charges</option>
+	 -->
+							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DiscountDiv">Manage Discounts/Charges</option>
+							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="GuardianDiv">Guardians</option>						
+							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="StudentDiv">Manage Students</option>
+						</select>
+					</li>
+				<!-- </security:authorize> -->
 				<li>
 					<select name="feeType" id="feeType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Manage Fee</option>
-						<option class="dropdown-item" value="FcDiv">Fee Collection</option>
-						<option class="dropdown-item" value="FVDiv">Fee Voucher/Ledger</option>
+						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="FcDiv">Fee Collection</option>
+						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="FVDiv">Fee Voucher/Ledger</option>
 <!-- 						<option class="dropdown-item" value="">Salary Distribution</option>
 						<option class="dropdown-item" value="">Miscellaneous</option>
  -->					</select>
@@ -49,26 +57,156 @@
 				<li>
 					<select name="reportType" id="reportType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">View Reports</option>
-						<option class="dropdown-item" value="FRDiv">Fee</option>
+						<option sec:authorize="hasAuthority('FEE_REPORT,SUPER_PRIVILEGE')" class="dropdown-item" value="FRDiv">Fee Report</option>
 					</select>
 				</li>
 				<li>
 					<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Manage Attendance</option>
-						<option class="dropdown-item" value="ADiv">Attendance</option>
+						<option sec:authorize="hasAuthority('MANAGE_ATTENDANCE,SUPER_PRIVILEGE')" class="dropdown-item" value="ADiv">Attendance</option>
 					</select>
 				</li>
 				<li>
 					<select name="communicationType" id="communicationType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Manage Alerts</option>
-						<option class="dropdown-item" value="PADiv">Public Alerts</option>
-						<option class="dropdown-item" value="AlertsDiv">System Alerts</option>
+						<option sec:authorize="hasAuthority('PUBLIC_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="PADiv">Public Alerts</option>
+						<option sec:authorize="hasAuthority('SYSTEM_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="AlertsDiv">System Alerts</option>
 					</select>
 				</li>
 			</ul>					
 		</div>
 	</nav>
 	<div class="container content-cls">
+		<div id="DashboardDiv" class="formDiv dashbo">
+          <div class="card-row"> 
+           <div class="col-sm-2">
+              <div class="card">
+                <div class="card-body">
+                  <div class="card-top">
+                    <div class="card-col">
+                      <h5 class="card-title text-uppercase text-muted">Total Students</h5>
+                      <span class="h3 font-weight-bold">2,356</span>
+                    </div>
+                    <div class="card-col">
+                      <div class="icon icon-shape bg-warning text-white rounded-circle shadow">
+                        <i class="fas fa-chart-pie"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-bottom text-muted text-sm">
+                    <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i> 3.48%</span>
+                    <span class="text-nowrap">By last year</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+           <div class="col-sm-2">
+              <div class="card">
+                <div class="card-body">
+                  <div class="card-top">
+                    <div class="card-col">
+                      <h5 class="card-title text-uppercase text-muted">New Students</h5>
+                      <span class="h3 font-weight-bold">2,356</span>
+                    </div>
+                    <div class="card-col">
+                      <div class="icon icon-shape bg-warning text-white rounded-circle shadow">
+                        <i class="fas fa-chart-pie"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-bottom text-muted text-sm">
+                    <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i> 3.48%</span>
+                    <span class="text-nowrap">By last month</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-2">
+              <div class="card">
+                <div class="card-body">
+                  <div class="card-top">
+                    <div class="card-col">
+                      <h5 class="card-title text-uppercase text-muted">Total Dues</h5>
+                      <span class="h3 font-weight-bold">924</span>
+                    </div>
+                    <div class="card-col">
+                      <div class="icon icon-shape bg-yellow text-white rounded-circle shadow">
+                        <i class="fas fa-users"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-bottom text-muted text-sm">
+                    <span class="text-warning mr-2"><i class="fas fa-arrow-down"></i> 1.10%</span>
+                    <span class="text-nowrap">By last month</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-2">
+              <div class="card">
+                <div class="card-body">
+                  <div class="card-top">
+                    <div class="card-col">
+                      <h5 class="card-title text-uppercase text-muted">Total Collection</h5>
+                      <span class="h3 font-weight-bold">49,65%</span>
+                    </div>
+                    <div class="card-col">
+                      <div class="icon icon-shape bg-info text-white rounded-circle shadow">
+                        <i class="fas fa-percent"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-bottom text-muted text-sm">
+                    <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 12%</span>
+                    <span class="text-nowrap">By last month</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-2">
+              <div class="card">
+                <div class="card-body">
+                  <div class="card-top">
+                    <div class="card-col">
+                      <h5 class="card-title text-uppercase text-muted">Expense</h5>
+                      <span class="h3 font-weight-bold">49,65%</span>
+                    </div>
+                    <div class="col-auto">
+                      <div class="icon icon-shape bg-info text-white rounded-circle shadow">
+                        <i class="fas fa-percent"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-bottom text-muted text-sm">
+                    <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 12%</span>
+                    <span class="text-nowrap">By last month</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-2">
+              <div class="card">
+                <div class="card-body">
+                  <div class="card-top">
+                    <div class="card-col">
+                      <h5 class="card-title text-uppercase text-muted">Profit</h5>
+                      <span class="h3 font-weight-bold">49,65%</span>
+                    </div>
+                    <div class="col-auto">
+                      <div class="icon icon-shape bg-info text-white rounded-circle shadow">
+                        <i class="fas fa-percent"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-bottom text-muted text-sm">
+                    <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 12%</span>
+                    <span class="text-nowrap">By last month</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+  		</div>
 		<div id="OwnerDiv" class="formDiv">
 			<h4 th:text="#{label.owner.form.heading}">Owner Registration</h4>
 			<br />
@@ -647,27 +785,6 @@
 						</select>
 					</div>
 				</div>
- 				<div class="form-group">
-					<label class="control-label col-sm-2 req" th:text="#{label.select.gender}" for="studentGender">Gender</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="studentGender" name="gender" required="required">
-							<option class="dropdown-item" value=""> Nothing Selected </option>
-							<option class="dropdown-item" value="Male" selected="selected">Male</option>
-		 					<option class="dropdown-item" value="Female">Female</option>
-		 				</select>
-					</div>
-					<label class="control-label col-sm-2" for="studentReligion">Religion</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="studentReligion" name="religion">
-							<option class="dropdown-item" value=""> ISLAM </option>
-							<option class="dropdown-item" value="CHRISTIAN">CHRISTIAN</option>
-		 					<option class="dropdown-item" value="AHMADI">AHMADI</option>
-		 					<option class="dropdown-item" value="SIKH">SIKH</option>
-		 					<option class="dropdown-item" value="HINDU">HINDU</option>
-		 					<option class="dropdown-item" value="OTHER">OTHER</option>
-		 				</select>
-					</div>
-				</div>
 				<nav class="form-divider">
 					Recommended Fields
 				</nav>
@@ -695,6 +812,27 @@
 							placeholder="default is Guardian's"> 
 					</div>
 				</div>
+ 				<div class="form-group">
+					<label class="control-label col-sm-2" th:text="#{label.select.gender}" for="studentGender">Gender</label>
+					<div class="col-sm-4">
+						<select class="form-control" id="studentGender" name="gender">
+							<option class="dropdown-item" value=""> Nothing Selected </option>
+							<option class="dropdown-item" value="Male" selected="selected">Male</option>
+		 					<option class="dropdown-item" value="Female">Female</option>
+		 				</select>
+					</div>
+					<label class="control-label col-sm-2" for="studentReligion">Religion</label>
+					<div class="col-sm-4">
+						<select class="form-control" id="studentReligion" name="religion">
+							<option class="dropdown-item" value=""> ISLAM </option>
+							<option class="dropdown-item" value="CHRISTIAN">CHRISTIAN</option>
+		 					<option class="dropdown-item" value="AHMADI">AHMADI</option>
+		 					<option class="dropdown-item" value="SIKH">SIKH</option>
+		 					<option class="dropdown-item" value="HINDU">HINDU</option>
+		 					<option class="dropdown-item" value="OTHER">OTHER</option>
+		 				</select>
+					</div>
+				</div>				
 				<nav class="form-divider">
 					Optional Fields
 				</nav>
@@ -1521,28 +1659,97 @@
 			</div>
 		</div>		
 		<div id="FVDiv" class="formDiv">
-			<h4>Fee Voucher(s) & Ledger(s)</h4>
+			<h4>Fee Vouchers</h4>
 			<br />
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="FV" autocomplete="off">
 				<div class="form-group">
 					<label class="control-label col-sm-2 req"  for="fvb">Voucher By</label>
 					<div class="col-sm-4">
-						<select class="form-control" id="fvb" name="vb" required="required">
-							<option class="dropdown-item" value=0 selected="selected">Student</option>
-							<option class="dropdown-item" value=1>Guardian</option>
-							<option disabled="disabled" class="dropdown-item" value=2>Class</option>
+						<select class="form-control onChangeSelect selectpicker req" id="fvb" name="vb" required="required" onchange="loadFVIBSDD(this,'fviDD')">
+							<option class="dropdown-item" value='' selected="selected">Not Selected</option>
+							<option class="dropdown-item" value='Students'>Students</option>
+							<option class="dropdown-item" value='Guardians'>Guardians</option>
+							<option class="dropdown-item" value='Grades'>Classes</option>
+							<option class="dropdown-item" value='Schools'>Campuses</option>
 						</select>	
 					</div>
 					<div id="fvidiv">
-						<label class="control-label col-sm-2 req" for="fvi">Enter Id</label>
+						<label class="control-label col-sm-2 req" for="fvi" th:text="#{label.please.select}">Please Select</label>
 						<div class="col-sm-4">
+							<select required="required" multiple="multiple"
+								class="form-control onChangeSelect selectpicker" id="fviDD" name="vi" data-live-search="true">
+							</select>
+<!-- 						
 							<input type="text" class="form-control" id="fvi" name="vi"
 								placeholder=" Enter Id " required="required"> 
+ -->
 						</div>					
 					</div>
 				</div>
 				<div class="form-group">
+					<label class="control-label col-sm-2 req"  for="fIssueDate">Issue Date</label>
+					<div class="col-sm-2">
+						<input type="text" class="form-control datePicker" id="fIssueDate" placeholder=" Issue Date" required="required"> 
+					</div>
+					<label class="control-label col-sm-2 req"  for="fDueDate">Due Date</label>
+					<div class="col-sm-2">
+						<input type="text" class="form-control datePicker" id="fDueDate" name="dueDate"
+							placeholder=" Due Date" required="required"> 
+					</div>
+					<label class="control-label col-sm-2 req"  for="fValidDate">Valid Date</label>
+					<div class="col-sm-2">
+						<input type="text" class="form-control datePicker" id="fValidDate" name="validDate"
+							placeholder=" Valid Date" required="required"> 
+					</div>
+				</div>
+<!-- 				<div class="form-group" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
+					<label class="control-label col-sm-2 req"  for="fvp">Period</label>
+					<div class="col-sm-4">
+						<select class="form-control" id="dateRangeDDFV" name="vp" required="required">
+							<option class="dropdown-item" value=0 selected="selected">Current month</option>
+							<option class="dropdown-item" value=1>Custom range</option>
+						</select>	
+					</div>
+					<div id="dateRangeFV" style="display: none">
+						<label class="control-label col-sm-2" for="fvsd">First Month</label>
+						<div class="col-sm-1">
+							<select class="form-control" id="firstMonthDDFV" name="vp" required="required">
+								<option class="dropdown-item" value=1>Jan</option>
+								<option class="dropdown-item" value=2>Feb</option>
+								<option class="dropdown-item" value=3>Mar</option>
+								<option class="dropdown-item" value=4>Apr</option>
+								<option class="dropdown-item" value=5>May</option>
+								<option class="dropdown-item" value=6>Jun</option>
+								<option class="dropdown-item" value=7>Jul</option>
+								<option class="dropdown-item" value=8>Aug</option>
+								<option class="dropdown-item" value=9>Sep</option>
+								<option class="dropdown-item" value=10>Oct</option>
+								<option class="dropdown-item" value=11>Nov</option>
+								<option class="dropdown-item" value=12>Dec</option>
+							</select>	
+						</div>
+						<label class="control-label col-sm-2" for="fvsd">Last Month</label>
+						<div class="col-sm-1">
+							<select class="form-control" id="lastMonthDDFV" name="vp" required="required">
+								<option class="dropdown-item" value=1>Jan</option>
+								<option class="dropdown-item" value=2>Feb</option>
+								<option class="dropdown-item" value=3>Mar</option>
+								<option class="dropdown-item" value=4>Apr</option>
+								<option class="dropdown-item" value=5>May</option>
+								<option class="dropdown-item" value=6>Jun</option>
+								<option class="dropdown-item" value=7>Jul</option>
+								<option class="dropdown-item" value=8>Aug</option>
+								<option class="dropdown-item" value=9>Sep</option>
+								<option class="dropdown-item" value=10>Oct</option>
+								<option class="dropdown-item" value=11>Nov</option>
+								<option class="dropdown-item" value=12>Dec</option>
+							</select>	
+						</div>
+					</div>
+				</div>
+ -->				
+ 				<div class="form-group" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
 					<label class="control-label col-sm-2 req"  for="fvp">Period</label>
 					<div class="col-sm-4">
 						<select class="form-control" id="dateRangeDDFV" name="vp" required="required">
@@ -1563,10 +1770,10 @@
 					</div>
 				</div>
 				<div class="form-group" style="text-align: center; margin-top: 25px;">
-					<button type="button" id="printFc" onclick="loadFV()" class="btn btn-success">
+					<button type="button" id="printFc" onclick="loadFV()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
 						<span class="glyphicon glyphicon-print"></span> Print Voucher
 					</button>
-					<button type="button" id="printFc" onclick="loadFL()" class="btn btn-success">
+					<button type="button" id="printFc" onclick="loadFL()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE_')">
 						<span class="glyphicon glyphicon-print"></span> Print Ledger
 					</button>
 				</div>

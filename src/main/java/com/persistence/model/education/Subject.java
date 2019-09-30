@@ -3,15 +3,13 @@ package com.persistence.model.education;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 
 import org.hibernate.annotations.NotFound;
@@ -31,7 +29,9 @@ public class Subject implements Serializable {
 	private String name;
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "agri_subject_gen", sequenceName = "agri_subject_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "agri_subject_gen")	
+//	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "subject_id", nullable = false)
 	private Long id;
 

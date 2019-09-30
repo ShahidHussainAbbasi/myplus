@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -81,11 +83,15 @@ public class FeeCollectionController {
 
 	ModelMapper modelMapper = new ModelMapper();
 	
-	private Short ENROLL_NO = 0;
-	private Short GUARDIAN = 1;
-	private Short GRADE = 2;
-	private Short CAMPUS = 3;
-	private Short CURRENT_MONTH = 0;
+	private final Short ENROLL_NO = 0;
+	private final Short GUARDIAN = 1;
+	private final Short GRADE = 2;
+	private final Short CAMPUS = 3;
+	private final Short CURRENT_MONTH = 0;
+	private final String STUDENTS = "Students"; 
+	private final String GUARDIANS = "Guardians"; 
+	private final String GRADES = "Grades"; 
+	private final String SCHOOLS = "Schools"; 
 	
 	@RequestMapping(value = "/getUserFc", method = RequestMethod.GET)
 	@ResponseBody
@@ -211,17 +217,18 @@ public class FeeCollectionController {
 			List<GenericResponse> ML = new ArrayList();
 			List<Long> SIDs = new ArrayList<Long>();
 			User user = requestUtil.getCurrentUser();
-			Student exp = new Student();
-			exp.setUserId(user.getId());
-			if(dto.getVb()==0) {
-				exp.setEnrollNo(dto.getVi());
-				SIDs.add(studentService.findOne(Example.of(exp)).get().getId());
-			}else if(dto.getVb()==1) {
-					exp.setGuardianId(Long.valueOf(dto.getVi()));
-					SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
-			}else if(dto.getVb()==2) {
-				exp.setGradeId(Long.valueOf(dto.getVi()));
-				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			Iterable<String> list = Stream.of(dto.getVi().split(",")).collect(Collectors.toList());
+			list.forEach(id ->{	
+				SIDs.add(Long.valueOf(id));
+			});
+			if(dto.getVb().equals(STUDENTS)) {
+				SIDs.addAll(studentService.findStudentsByStudentIdsAndUserId(user.getId(), SIDs,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else if(dto.getVb().equals(GUARDIANS)) {
+				SIDs.addAll(studentService.findStudentsByGuardianIdsAndUserId(user.getId(), SIDs,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else if(dto.getVb().equals(GRADES)) {
+				SIDs.addAll(studentService.findStudentsByGradeIdsAndUserId(user.getId(), SIDs,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else if(dto.getVb().equals(SCHOOLS)) {
+				SIDs.addAll(studentService.findStudentsByCampusIdsAndUserId(user.getId(), SIDs,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
 			}
 	        //getting student detail
 			if(appUtil.isEmptyOrNull(SIDs))
@@ -312,16 +319,29 @@ public class FeeCollectionController {
 			User user = requestUtil.getCurrentUser();
 			Student exp = new Student();
 			exp.setUserId(user.getId());
-			if(dto.getVb()==0) {
-				exp.setEnrollNo(dto.getVi());
+			if(dto.getVb().equals(STUDENTS)) {
+				exp.setId(Long.valueOf(dto.getVi()));
+//				exp.setEnrollNo(dto.getVi());
 				SIDs.add(studentService.findOne(Example.of(exp)).get().getId());
-			}else if(dto.getVb()==1) {
+			}else if(dto.getVb().equals(GUARDIANS)) {
 					exp.setGuardianId(Long.valueOf(dto.getVi()));
 					SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
-			}else if(dto.getVb()==2) {
+			}else if(dto.getVb().equals(GRADES)) {
 				exp.setGradeId(Long.valueOf(dto.getVi()));
 				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+			}else if(dto.getVb().equals(SCHOOLS)) {
+				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
 			}
+//			if(dto.getVb()==0) {
+//				exp.setEnrollNo(dto.getVi());
+//				SIDs.add(studentService.findOne(Example.of(exp)).get().getId());
+//			}else if(dto.getVb()==1) {
+//					exp.setGuardianId(Long.valueOf(dto.getVi()));
+//					SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+//			}else if(dto.getVb()==2) {
+//				exp.setGradeId(Long.valueOf(dto.getVi()));
+//				SIDs.addAll(studentService.findAll(Example.of(exp)).stream().map(Student::getId).collect(Collectors.toSet()));
+//			}
 	        //getting student detail
 			if(appUtil.isEmptyOrNull(SIDs))
 				return new GenericResponse("FAILURE","Invalid input");
@@ -587,4 +607,10 @@ public class FeeCollectionController {
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}
+
+	@GetMapping("favicon.ico")
+    @ResponseBody
+    public String returnNoFavicon() {
+		return "";
+    }    
 }

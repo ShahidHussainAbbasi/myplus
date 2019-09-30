@@ -5,7 +5,6 @@ package com.web.controller.agriculture;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -19,11 +18,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.persistence.model.agriculture.AgricultureIncome;
+import com.persistence.model.User;
 import com.persistence.model.agriculture.Land;
-import com.service.agriculture.IAgricultureIncomeService;
-import com.service.agriculture.ILandService;
-import com.web.dto.agriculture.AgricultureIncomeDTO;
+import com.service.agriculture.LandService;
+import com.web.dto.agriculture.LandDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
 import com.web.util.RequestUtil;
@@ -36,14 +34,12 @@ import com.web.util.RequestUtil;
 
 //@RequestMapping("/agricultureIncome")
 @Controller
-public class AgricultureIncomeController {
+public class LandController {
 
     @Autowired
 	private MessageSource messages;    
 	@Autowired
-	IAgricultureIncomeService service;
-	@Autowired
-	ILandService landService;
+	LandService service;
 	@Autowired
 	RequestUtil requestUtil;
 	
@@ -52,48 +48,39 @@ public class AgricultureIncomeController {
 	
 	private ModelMapper modelMapper = new ModelMapper();
 
-	@RequestMapping(value = "/addAgricultureIncome", method = RequestMethod.POST)
+	@RequestMapping(value = "/addLand", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse addAgricultureIncome(final AgricultureIncomeDTO dto, final HttpServletRequest request){
+	public GenericResponse addLand(final LandDTO dto, final HttpServletRequest request){
 		try {
 //			dto.setDatedStr(appUtil.todayDateStr());
-			AgricultureIncome e = modelMapper.map(dto, AgricultureIncome.class);
+			Land e = modelMapper.map(dto, Land.class);
 			e.setUserId(requestUtil.getCurrentUser().getId());
 			e.setDated(appUtil.getDateTime(dto.getDatedStr()));
 			e.setUpdated(appUtil.getDateTime(dto.getUpdatedStr()));
-			//update with land name
-			Optional<Land> optional = landService.findById(dto.getLandId());
-			if(optional.isPresent()) {
-				Land land = optional.get();
-				e.setLandId(land.getId());
-				e.setLandName(land.getTotalLandUnit()+"-"+land.getLandUnit());
-			}
-
 			if(service.save(e).getId()>0)
-				return new GenericResponse("Income added successfully");
+				return new GenericResponse("Land added successfully");
 			else
-				return new GenericResponse("Sorry, Your expense not submitted");
+				return new GenericResponse("Sorry, Your land not added");
 		} catch (Exception e) {
 			appUtil.le(this.getClass(), e);
-			return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("Sorry, Your expense not submitted", null, request.getLocale()),dto);
+			return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("Sorry, Your land not added", null, request.getLocale()),dto);
 		}
 	}
 	
-	@RequestMapping(value = "/getUserAgricultureIncome", method = RequestMethod.GET)
+	@RequestMapping(value = "/getUserLand", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getUserAgricultureIncome(final HttpServletRequest request) {
-		AgricultureIncomeDTO dto = null;
+	public GenericResponse getUserLand(final HttpServletRequest request) {
+		LandDTO dto = null;
 		try {
-			List<AgricultureIncomeDTO> dtos = new ArrayList<>();
-			AgricultureIncome agricultureIncome = new AgricultureIncome(requestUtil.getCurrentUser().getId());
-			Example<AgricultureIncome> example = Example.of(agricultureIncome);
-			List<AgricultureIncome> objs = service.findAll(example);
+			List<LandDTO> dtos = new ArrayList<>();
+			Land agricultureIncome = new Land(requestUtil.getCurrentUser().getId());
+			Example<Land> example = Example.of(agricultureIncome);
+			List<Land> objs = service.findAll(example);
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("message.no.data.found", null, request.getLocale()),objs);
-			
-			for(AgricultureIncome obj: objs) {
-				dto = new AgricultureIncomeDTO();
-				dto  = modelMapper.map(obj, AgricultureIncomeDTO.class);
+			for(Land obj: objs) {
+				dto = new LandDTO();
+				dto  = modelMapper.map(obj, LandDTO.class);
 				dto.setDatedStr(appUtil.getDateTimeStr(obj.getDated()));
 				dto.setUpdatedStr(appUtil.getDateTimeStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -105,9 +92,53 @@ public class AgricultureIncomeController {
 		}
 	}
 	
-	@RequestMapping(value = "/deleteAgricultureIncome", method = RequestMethod.POST)
+	@RequestMapping(value = "/getUserLands", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse deleteDonator( HttpServletRequest request){
+	public String getUserLands(final HttpServletRequest request) {
+		StringBuffer sb = new StringBuffer();
+		try {
+			Land filterBy = new Land();
+			User user = requestUtil.getCurrentUser();
+			filterBy.setUserId(user.getId());
+	        Example<Land> example = Example.of(filterBy);
+			List<Land> objs = service.findAll(example);
+			if(appUtil.isEmptyOrNull(objs)) {
+				sb.append("<option value=''> No Data </option>");
+			}else {
+				sb.append("<option value=''> Nothing Selected </option>");
+			}
+			objs.forEach(d -> {
+				if(d!=null && d.getId()!=null)
+					sb.append("<option value=" +d.getId() + ">" +  d.getLandName()+"- ("+d.getTotalLandUnit()+" "+d.getLandUnit()+")" + "</option>");
+			});
+		    return sb.toString();
+		} catch (Exception e) {
+//			e.printStackTrace();
+			appUtil.le(this.getClass() ,e);
+		}
+	    return sb.toString();
+	}
+
+	@RequestMapping(value = "/getAllLand", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getAllLand(final HttpServletRequest request) {
+		try {
+			List<Land> objs = service.findAll();
+			if(appUtil.isEmptyOrNull(objs)){
+				return new GenericResponse("NOT_FOUND");
+			}else {
+				return new GenericResponse("SUCCESS",objs);
+			}
+		} catch (Exception e) {
+//			e.printStackTrace();
+			appUtil.le(this.getClass() ,e);
+			return new GenericResponse("ERROR",e.getCause().toString());
+		}
+	}
+
+	@RequestMapping(value = "/deleteLand", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse deleteLand( HttpServletRequest request){
 		try {
 		String ids = request.getParameter("checked");
 			if(StringUtils.isEmpty(ids)) 

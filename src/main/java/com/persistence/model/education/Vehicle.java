@@ -2,19 +2,13 @@ package com.persistence.model.education;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Set;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToMany;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
-
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
 
 /**
  * The persistent class for the doctor database table.
@@ -27,7 +21,9 @@ public class Vehicle implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "agri_vehicle_gen", sequenceName = "agri_vehicle_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "agri_vehicle_gen")	
+//	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "vehicle_id", unique = true, nullable = false)
 	private Long id;
 

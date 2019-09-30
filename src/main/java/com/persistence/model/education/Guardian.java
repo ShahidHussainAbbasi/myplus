@@ -6,8 +6,8 @@ import java.time.LocalDateTime;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 
 /**
@@ -21,7 +21,9 @@ public class Guardian implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "agri_guardian_gen", sequenceName = "agri_guardian_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "agri_guardian_gen")	
+//	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "guardian_id", unique = true, nullable = false)
 	private Long id;
 

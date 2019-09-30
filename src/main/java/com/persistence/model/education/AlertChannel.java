@@ -6,8 +6,8 @@ import java.time.LocalDateTime;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 
 import lombok.Getter;
@@ -24,7 +24,9 @@ public class AlertChannel implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "agri_alertChan_gen", sequenceName = "agri_alertChan_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "agri_alertChan_gen")	
+//	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "alert_channel_id", unique = true, nullable = false)
 	@Getter@Setter
 	private Long id;

@@ -19,6 +19,10 @@ public class AgricultureBaseDTO {
 	@Setter @Getter
 	private Long id = null;
 	@Setter @Getter
+	private Long landId = null;
+	@Setter @Getter
+	private String landName = null;
+	@Setter @Getter
 	private String landUnit = null;
 	@Setter @Getter
 	private String totalLandUnit = null;

@@ -10,10 +10,10 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToMany;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 
 import org.hibernate.annotations.NotFound;
@@ -33,7 +33,9 @@ public class Staff implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "agri_staff_gen", sequenceName = "agri_staff_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "agri_staff_gen")	
+//	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "staff_id", unique = true, nullable = false)
 	private Long id;
 

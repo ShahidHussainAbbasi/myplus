@@ -5,6 +5,7 @@ package com.web.controller.agriculture;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -12,14 +13,18 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.agriculture.AgricultureExpense;
-import com.service.agriculture.AgricultureExpenseService;
+import com.persistence.model.agriculture.Land;
+import com.service.agriculture.IAgricultureExpenseService;
+import com.service.agriculture.ILandService;
 import com.web.dto.agriculture.AgricultureExpenseDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
@@ -43,7 +48,9 @@ public class AgricultureExpenseController {
     @Autowired
 	private MessageSource messages;    
 	@Autowired
-	AgricultureExpenseService service;
+	IAgricultureExpenseService service;
+	@Autowired
+	ILandService landService;
 	@Autowired
 	RequestUtil requestUtil;
 	
@@ -61,6 +68,14 @@ public class AgricultureExpenseController {
 			e.setUserId(requestUtil.getCurrentUser().getId());
 			e.setDated(appUtil.getDateTime(dto.getDatedStr()));
 			e.setUpdated(appUtil.getDateTime(dto.getUpdatedStr()));
+			//update with land name
+			Optional<Land> optional = landService.findById(dto.getLandId());
+			if(optional.isPresent()) {
+				Land land = optional.get();
+				e.setLandId(land.getId());
+				e.setLandName(land.getLandName());
+			}
+			
 			if(service.save(e).getId()>0)
 				return new GenericResponse("Expense added successfully");
 			else
@@ -131,6 +146,26 @@ public class AgricultureExpenseController {
 		}
 	}
 	
+	@RequestMapping(value = "/loadLastCropAttached", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse loadLastCropAttached(@RequestParam Long landId,final HttpServletRequest request) {
+		AgricultureExpenseDTO dto = null;
+		try {
+			AgricultureExpense agricultureExpense = new AgricultureExpense(requestUtil.getCurrentUser().getId());
+			agricultureExpense.setLandId(landId);
+			Example<AgricultureExpense> example = Example.of(agricultureExpense);
+			AgricultureExpense obj = service.findAll(example, new Sort(Sort.Direction.DESC, "updated")).get(0);
+			if(appUtil.isEmptyOrNull(obj))
+				return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("message.no.data.found", null, request.getLocale()));
+			
+		
+			return new GenericResponse("SUCCESS",obj);
+		} catch (Exception e) {
+			appUtil.le(this.getClass(), e);
+			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()),dto);
+		}
+	}
+
 	@RequestMapping(value = "/deleteAgricultureExpense", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse deleteDonator( HttpServletRequest request){

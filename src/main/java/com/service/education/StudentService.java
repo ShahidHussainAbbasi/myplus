@@ -177,5 +177,86 @@ public class StudentService implements IStudentService {
 		return updateStatus(status, id);
 	}
 
-    
+	@Override
+	public List<Student> findStudentsByStudentIdsAndUserId(Long userId,List<Long> studentIds,String status){
+		return studentRepo.findStudentsByStudentIdsAndUserId(userId, studentIds, status);
+	}
+
+	@Override
+	public List<Student> findStudentsByGuardianIdsAndUserId(Long userId,List<Long> guardianIds,String status){
+		return studentRepo.findStudentsByGuardianIdsAndUserId(userId, guardianIds, status);
+	}
+
+	@Override
+	public List<Student> findStudentsByGradeIdsAndUserId(Long userId,List<Long> gradeIds,String status){
+		return studentRepo.findStudentsByGradeIdsAndUserId(userId, gradeIds, status);
+	}
+
+	@Override
+	public List<Student> findStudentsByCampusIdsAndUserId(Long userId,List<Long> campusIds,String status){
+		return studentRepo.findStudentsByCampusIdsAndUserId(userId, campusIds, status);
+	}
+
+//	@Override
+//	public List<Student> findByStudentIdsAndUserIdCriteria(Long userId,List<Long> studentIds){
+//        return studentRepo.findAll(new Specification<Student>() {
+//            /**
+//			 * 
+//			 */
+//			private static final long serialVersionUID = 1L;
+//
+//			@Override
+//            public Predicate toPredicate(Root<Student> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
+//                List<Predicate> predicates = new ArrayList<>();
+//                if(studentIds!=null) {
+////                    criteriaBuilder.equal((root.get("u"), "%" + text + "%"),
+////                    criteriaBuilder.like(root.get("employeeEmail"), "%" + text + "%"))
+//
+//                    predicates.add(criteriaBuilder.equal(root.get("userId"), userId));
+//                    predicates.add(criteriaBuilder.in(root.get("id")).in(studentIds));
+//                    }	
+////                    );
+////                }	
+//                return criteriaBuilder.and(predicates.toArray(new Predicate[predicates.size()]));
+//            }
+//
+////			@Override
+////			public Predicate toPredicate(Root<Student> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
+////				// TODO Auto-generated method stub
+////				return null;
+////			}
+//        });
+//	
+//    
+//}
+//
+//	@Override
+//	public Optional<Student> findOne(Specification<Student> spec) {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+//
+//	@Override
+//	public List<Student> findAll(Specification<Student> spec) {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+//
+//	@Override
+//	public Page<Student> findAll(Specification<Student> spec, Pageable pageable) {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+//
+//	@Override
+//	public List<Student> findAll(Specification<Student> spec, Sort sort) {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+//
+//	@Override
+//	public long count(Specification<Student> spec) {
+//		// TODO Auto-generated method stub
+//		return 0;
+//	}
 }

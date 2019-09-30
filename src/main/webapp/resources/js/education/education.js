@@ -977,8 +977,8 @@ function loadFV(){
 					return alert("Data not found.");
 
 				//iterate over list of map
-				$.each(data.collection, function(ind, obj) {
-					var o = obj.object;
+//				$.each(data.collection, function(ind, obj) {
+					var o = data.collection[0].object;
 					var sfd = obj.collection;
 					console.log(o);
 					if(!o)
@@ -1008,10 +1008,10 @@ function loadFV(){
 					o.da=tf;
 					o.d=d;
 					o.dd = s2n(o.dd);
-					if(o.userId == 61 || o.userId == 241 || o.userId == 520){
+					if(o.userId == 1426 || o.userId == 1829 || o.userId == 1427){
 						var logo_url = serverContext+"resources/img/logos/ll_logo.jpg";
 						toDataURL(logo_url, function(dataUrl) {
-							PFV_1by4(o,logo_url,70,4,25,25,dataUrl,getLLInst());//print fee voucher
+							PFV_3ColumBy3(data.collection,logo_url,3,6,15,15,dataUrl,getLLInst());//print fee voucher//PFV_1by4
 						});
 					}else if(o.userId == 601 || o.userId == 241 || o.userId == 520){
 						var logo_url = serverContext+"resources/img/logos/IQRA_logo.png";
@@ -1029,7 +1029,7 @@ function loadFV(){
 								PFV_2Colum(o,logo_url,8,5,100,40,dataUrl,getASLInst());//print fee voucher
 							});
 					}
-				});
+//				});
 			}
 		},
 		 error: function(data, textStatus, errorThrown) {
@@ -1100,7 +1100,7 @@ function PFV_3Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 
 		T = T+1;//71
 		doc.line(2, T, 300, T);
-		T = T+3;//72
+		T = T+4;//72
 		L =L-65;//5
 		doc.text(getMonthYear(new Date())+"", L, T);
 		L =L+30;//35
@@ -1108,7 +1108,7 @@ function PFV_3Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 		L =L+35;//70
 		doc.text(o.f+"", L, T);
 		
-		T = T+3;//75
+		T = T+4;//75
 		L =L-65;//5
 		doc.text(getMonthYear(new Date())+"", L, T);
 		L =L+30;//35
@@ -1116,7 +1116,7 @@ function PFV_3Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 		L =L+35;//70
 		doc.text(o.d+"", L, T);
 
-		T = T+3;//76
+		T = T+4;//76
 		L =L-65;//5
 		doc.text(getMonthYear(new Date())+"", L, T);
 		L =L+30;//35
@@ -1126,7 +1126,7 @@ function PFV_3Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 		
 		T = T+1;//78
 		doc.line(2, T, 300, T);
-		T = T+3;//80
+		T = T+4;//80
 		L =L-65;//5
 		doc.text("Total", L, T);
 		L =L+65;//35
@@ -1322,6 +1322,7 @@ function PFV_2Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 	return;
 }
 
+/*
 function PFV_1by4(o,logo_url,X,Y,W,H,dataUrl,insts){
 	var L = 3;
 	var T = 5;
@@ -1481,6 +1482,912 @@ function PFV_1by4(o,logo_url,X,Y,W,H,dataUrl,insts){
 	doc.save(o.sn+"("+o.en+") fee voucher.pdf");
 	return;
 }
+*/
+
+function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
+//	var doc = new jsPDF('landscape');
+	var orientation = "landscape"//,portrait
+	var unit = "mm"//,mm,cm,in
+	var format = "a4" //"a3", "a4" (default), "a5", "letter", "legal".
+	var doc = new jsPDF(orientation, unit, format);
+//	var doc = new jsPDF("p", "pt", "a4");
+	var total = collection.length;
+	var payableAfterDue= 500;
+	var payableAfterValidity = 1000;
+	if(collection.length>3){
+		total = total/3;
+	}if(total >1 && total/2 !=0){
+		total++;
+	}
+	for(var i=0; i<total;i++){
+		var L = 15;
+		var n = 0;
+		doc.line(L-3, 250, L-3, 6);
+		var xLineStart = 15;
+		var xLineEnd = 93;
+//		Sorting on enrolled no in asc order
+		collection.sort(function(a, b) {
+			  return a.object.en - b.object.en;
+		});
+		while(collection.length>0){
+//			var endMonth = $("#lastMonthDDFV")[0].selectedOptions[0].value*ONE;
+			var endMonth = $("#fved")[0].value;
+			var startMonth = $("#fvsd")[0].value; 
+//			if(endMonth<startMonth){
+//				alert("Fist Month can not be greater than last month");
+//				return false;
+//			}
+			var monthOption = $("#dateRangeDDFV")[0].selectedOptions[0].value;
+			var T = 7;
+			var o = collection[0].object;
+			var sfd = obj.collection;
+			if(!o)
+				return alert(data.status+" : "+data.message);
+			
+			var FVL = [];
+			var dm=0;//due months
+			
+			if(o.lpd){
+				var lpd = new Date(Date.parse(o.lpd));
+				dm = monthDiff(lpd,new Date());
+			}
+			var vf = s2n(o.vf);
+			var d  = s2n(o.d);
+			var f = s2n(o.f);
+			var tf = f;
+			if(o.dt=="%")
+				d = f * (d / 100);
+
+			tf = f + vf - d;
+			if(dm>1)
+				tf = tf*dm;
+			if(o.db)
+				tf = tf+o.db;
+			
+			//again setting to get in print
+			o.da=tf;
+			o.d=d;
+			o.dd = s2n(o.dd);
+			
+			doc.addImage(dataUrl, "JPEG", L, Y, W, H);
+			doc.setFontSize(13);
+			doc.setFont('Comic Sans');
+			doc.setFontType('bold');
+			L = L+18;//25
+			T = T+3;//40
+			doc.text("Learning Links School System", L, T);
+			doc.setFontSize(7);
+			T = T+5;//40
+			doc.text("C-5, Block D, North Nazimabad, Karachi, Pakistan-74700", L, T);
+			
+			L = L-18;//25
+			T = T+20;//40
+			doc.setFontSize(12);
+			var pageXEnd = 270;
+			var pageXstart = 15;
+			doc.line(xLineStart, T, xLineEnd, T);
+			T = T+4;//40
+			doc.text("Fee Challan ", L, T);
+			T = T+1.5;//40
+			doc.line(xLineStart, T, xLineEnd, T);
+			T = T+10;//40
+			doc.setFontSize(10);
+			doc.text("Issue date", L, T);
+			T+=4;//54
+			doc.setFontType('normal');
+			var issueDate = $("#fIssueDate")[0].value;
+			doc.text(issueDate, L, T);
+			L = L+28;//40
+			T-=4;//54
+			doc.setFont('Comic Sans');
+			doc.setFontType('bold');
+			doc.text("Due date", L, T);
+			T = T+4;//37
+			doc.setFontType('normal');
+			var dueDate = $("#fDueDate")[0].value;
+			doc.text(dueDate, L, T);		
+			T = T-4;//40
+			L = L+27;//69
+			doc.setFont('Comic Sans');
+			doc.setFontType('bold');
+			doc.text("Valid date", L, T);
+			T = T+4;//37
+			doc.setFontType('normal');		
+			var validDate = $("#fValidDate")[0].value;
+			doc.text(validDate, L, T);		
+			T= T+10;//44
+			var pageLeftRight = 55;
+			L =L-pageLeftRight;//5
+			doc.setFont('Comic Sans');
+			doc.setFontType('bold');
+			doc.text("Student Name", L, T);
+			L +=pageLeftRight;
+			doc.text("G.R.No", L, T);
+			T+=1;//pageLeftRight
+			T+=3.5;//54
+			L =L-pageLeftRight;//5
+			doc.setFontType('normal');
+			doc.text(o.sn, L, T);
+			L +=pageLeftRight;//69
+			doc.text(o.en, L, T);
+			T+=1;//pageLeftRight
+			T+=10;//57
+			L =L-pageLeftRight;//5
+			doc.setFont('Comic Sans');
+			doc.setFontType('bold');
+			doc.text("Class ", L, T);
+			L +=pageLeftRight;//66
+			doc.text("Section ", L, T);
+			T+=1;//pageLeftRight
+			T+=3.5;//57
+			L =L-pageLeftRight;//5
+			doc.setFontType('normal');
+			doc.text(o.g, L, T);
+			L +=pageLeftRight;//66
+			doc.text(o.g, L, T);
+			T+=1;//pageLeftRight			
+			T = T+15;//70
+			L =L-pageLeftRight;//5
+			doc.setFontSize(11);
+			doc.setFont('Comic Sans');
+			doc.setFontType('bold');
+			T+=3.5;//57
+			doc.text("Date ", L, T);
+			L =L+28;//35
+			doc.text("Description ", L, T);
+			L =L+27;//70
+			doc.text("Fee ", L, T);
+			doc.setFontSize(10);
+			doc.setFontType('normal');
+			doc.setFont('Comic Sans');
+			T = T+1;//71
+			doc.line(xLineStart, T, xLineEnd, T);
+			T = T+3.5;//72
+			L =L-pageLeftRight;//5
+			var totalFee = 0;
+			if(monthOption==="0"){
+				var parts =startMonth.split('-');
+				var mydate = new Date(parts[2], parts[1] - 1, parts[0]); 
+				var month =getMonthYear(mydate);
+				doc.text(month, L, T);
+				L =L+28;//35
+				doc.text("Monthly fee", L, T);
+				L =L+27;//70
+				doc.text(o.f+"", L, T);
+				totalFee +=o.f;
+				T = T+1;//78
+				T = T+3.5;//72
+				L =L-pageLeftRight;//5
+			}else{
+				var parts =startMonth.split('-');
+				var mydate = new Date(parts[2], parts[1] - 1, parts[0]); 
+				startMonth = Date.parse(mydate);
+				parts =endMonth.split('-');
+				mydate = new Date(parts[2], parts[1] - 1, parts[0]); 
+				endMonth = Date.parse(mydate);
+				var monthDiff = Date.monthDiff(startMonth,endMonth)+2;
+				for(var m=1;m<=monthDiff;m++){
+					var month =getMonthYear(startMonth);
+					doc.text(month, L, T);
+					L =L+28;//35
+					doc.text("Monthly fee", L, T);
+					L =L+27;//70
+					doc.text(o.f+"", L, T);
+					totalFee +=o.f;
+					T = T+1;//78
+					T = T+3.5;//72
+					L =L-pageLeftRight;//5
+					startMonth = Date.addMonths(startMonth,m);
+				}
+			}
+			doc.text("Arrears", L, T);
+			if(o.db && o.db >0){
+				L =L+pageLeftRight;
+				doc.text(o.db+"", L, T);
+				L =L-pageLeftRight;
+			}
+			T = T+2;//78
+			doc.line(xLineStart, T, xLineEnd, T);
+			T = T+3.5;//80
+			doc.text("Payable before due date", L, T);
+			L =L+pageLeftRight;//35
+			doc.text(totalFee+"", L, T);
+
+			T = T+4;//80
+			L =L-pageLeftRight	;//5
+			doc.text("Payable after due date("+payableAfterDue+")", L, T);
+			L =L+pageLeftRight;//35
+			doc.text((totalFee+payableAfterDue)+"", L, T);
+
+			T = T+4;//80
+			L =L-pageLeftRight	;//5
+			doc.text("Payable after valid date("+payableAfterValidity+")", L, T);
+			L =L+pageLeftRight;//35
+			doc.text((totalFee+payableAfterValidity)+"", L, T);
+
+			T = T+45;//78
+			L =L-pageLeftRight;//5
+			doc.setFontSize(12);
+			doc.setFontType('bold');
+			doc.text("Instuctions for Guardians", L, T);
+			doc.setFontSize(8);
+			
+			T = T+2;//78
+			insts.forEach(function(inst,i){
+				T = T+4;//78
+				doc.text(inst, L, T);
+			});
+
+//			T = T+30;//80
+//			doc.text("Design and developed by maxtheservice", L, T);
+//			T = T+4;//78
+//			doc.text("Web:  https://maxtheservice.com/login", L, T);
+//			T = T+4;//78
+//			doc.text("Tel: 03114499660", L, T);
+		
+			L+=89;
+//			T = 5;
+
+			doc.line(L-8, 250, L-8, 4);
+
+			n++;
+			collection.splice(0,1);
+			if(n==3){
+				break;
+			}else{
+				doc.line(L-3, 250, L-3, 4);				
+			}
+			debugger;
+			xLineStart =xLineEnd+ 11;
+			xLineEnd += 89;
+			
+		}
+		if(collection.length > 0){
+			doc.addPage();//doc.addPage(i+1);
+		}
+	}
+	doc.autoPrint({variant: "non-conform"});
+	window.open(doc.output('bloburl'), '_blank');
+	doc.save("LL_Fee Vouchers.pdf");
+	return;
+}
+
+function PFV_3ColumBy3_backup3(collection,logo_url,X,Y,W,H,dataUrl,insts){
+//	var V = ["School","Guardian","Bank"]
+	var doc = new jsPDF('landscape');
+	var total = collection.length;
+	if(collection.length>3)
+		total = total/3;
+	if(total/2 !=0)
+		total++;
+	for(var i=0; i<total;i++){
+		var L = 3;
+		var T = 5;
+		var n = 0;
+		while(collection.length>0){
+			var o = collection[0].object;
+			var sfd = obj.collection;
+			console.log(o);
+			if(!o)
+				return alert(data.status+" : "+data.message);
+			
+			var FVL = [];
+			var dm=0;//due months
+			
+			if(o.lpd){
+				var lpd = new Date(Date.parse(o.lpd));
+				dm = monthDiff(lpd,new Date());
+			}
+			var vf = s2n(o.vf);
+			var d  = s2n(o.d);
+			var f = s2n(o.f);
+			var tf = f;
+			if(o.dt=="%")
+				d = f * (d / 100);
+
+			tf = f + vf - d;
+			if(dm>1)
+				tf = tf*dm;
+			if(o.db)
+				tf = tf+o.db;
+			
+			//again setting to get in print
+			o.da=tf;
+			o.d=d;
+			o.dd = s2n(o.dd);
+			
+			console.log(L,T);
+			doc.addImage(dataUrl, "JPEG", L, Y, W, H);
+//			T = T+25;//20
+			doc.setFontSize(14);
+			doc.setFont('Comic Sans');
+			doc.setFontType('bold');
+			L = L+18;//25
+			T = T+3;//40
+			doc.text("Learning Links School System", L, T);
+			doc.setFontSize(8);
+//			doc.setFont("Sans-serif");
+			T = T+5;//40
+			doc.text("C-5, Block D, North Nazimabad, Karachi, Pakistan-74700", L, T);
+			
+			L = L-18;//25
+			T = T+20;//40
+			doc.setFontSize(12);
+			doc.line(2, T, 300, T);
+			T = T+4;//40
+			doc.text("Fee Challan ", L, T);
+			T = T+1.5;//40
+			doc.line(2, T, 300, T);
+			T = T+5;//40
+//			doc.line(2, T, 300, T);
+			T = T+3.5;//40
+			doc.setFontSize(10);
+			doc.setFontType('normal');
+			doc.text("Issue date: ", L, T);
+			L = L+64;//37
+			doc.text(dateToDMY(new Date()), L, T);
+			T = T+1;//40
+//			doc.line(2, T, 300, T);
+			T+=3.5;//54
+			L = L-64;//37
+			doc.text("Due date: ", L, T);
+			L = L+64;//37
+			doc.text(currentdateByDay(o.dd==0?10:odd), L, T);
+			T = T+1;//40
+//			doc.line(2, T, 300, T);
+			T+=3.5;//54
+			L = L-64;//69
+			doc.text("Valid date: ", L, T);
+			L = L+64;//37
+			doc.text(dateToDMY(Date.today().clearTime().moveToLastDayOfMonth()), L, T);
+			T+=1;//pageLeftRight
+//			doc.line(2, T, 300, T);
+			T= T+8;//44
+//			doc.line(2, T, 300, T);
+//			doc.setFontType('bold');
+			T+=3.5;//54
+			L =L-64;//5
+//			doc.setFontSize(9);
+			doc.setFont('Comic Sans');
+			doc.text("Student Name: ", L, T);
+			L +=64;
+			doc.text(o.sn, L, T);
+			T+=1;//pageLeftRight
+//			doc.line(2, T, 300, T);
+			T+=3.5;//54
+			L =L-64;//5
+			doc.text("GR No: ", L, T);
+			L +=64;//69
+			doc.text(o.en, L, T);
+			T+=1;//pageLeftRight
+//			doc.line(2, T, 300, T);
+			T+=3.5;//57
+			L =L-64;//5
+			doc.text("Class: ", L, T);
+			L +=64;//66
+			doc.text(o.g, L, T);
+			T+=1;//pageLeftRight
+//			doc.line(2, T, 300, T);
+			T+=3.5;//57
+			L =L-64;//5
+			doc.text("Section: ", L, T);
+			L +=64;//66
+			doc.text(o.g, L, T);
+			T+=1;//pageLeftRight
+//			doc.line(2, T, 300, T);
+			L +=13;//69
+			
+			T = T+8;//70
+			L =L-77;//5
+			doc.setFontSize(11);
+			doc.setFontType('bold');
+//			doc.line(2, T, 300, T);
+			T+=3.5;//57
+			doc.text("Date ", L, T);
+			L =L+35;//35
+			doc.text("Description ", L, T);
+			L =L+33;//70
+			doc.text("Fee ", L, T);
+			//calculate selected months fee
+			doc.setFontSize(10);
+			doc.setFontType('normal');
+			doc.setFont('Comic Sans');
+			T = T+1;//71
+			doc.line(2, T, 300, T);
+			T = T+3.5;//72
+			L =L-68;//5
+			doc.text(getMonthYear(new Date())+"", L, T);
+			L =L+35;//35
+			doc.text("Monthly fee", L, T);
+			L =L+33;//70
+			doc.text(o.f+"", L, T);
+			T = T+1;//78
+//			doc.line(2, T, 300, T);
+			
+			T = T+3.5;//72
+			L =L-68;//5
+			doc.text(getNextMonthYear(new Date())+"", L, T);
+			L =L+35;//35
+			doc.text("Monthly fee", L, T);
+			L =L+33;//70
+			doc.text(o.f+"", L, T);
+			T = T+1;//78
+//			doc.line(2, T, 300, T);
+
+			T = T+3.5;//75
+			L =L-68;//5
+//			doc.text(getMonthYear(new Date())+"", L, T);
+//			L =L+35;//35
+			doc.text("Arrears", L, T);
+//			L =L+68;//70
+			if(o.db && o.db >0){
+				L =L+68;
+				doc.text(o.db+"", L, T);
+				L =L-68;
+			}
+			T = T+2;//78
+			doc.line(2, T, 300, T);
+//			L =L-68;//5
+//			T = T+1;//78
+//			doc.line(2, T, 300, T);
+			T = T+3.5;//80
+//			L =L-33	;//5
+			doc.text("Payable before due date", L, T);
+			L =L+68;//35
+			doc.text(o.da*2+"", L, T);
+
+			T = T+4;//80
+			L =L-68	;//5
+			doc.text("Payable after due date", L, T);
+			L =L+68;//35
+			doc.text((o.da*2+500)+"", L, T);
+
+			T = T+4;//80
+			L =L-68	;//5
+			doc.text("Payable after expiry date", L, T);
+			L =L+68;//35
+			doc.text((o.da*2+1500)+"", L, T);
+
+			T = T+60;//78
+			L =L-68;//5
+			doc.setFontSize(12);
+			doc.setFontType('bold');
+			doc.text("Instuctions for Guardians", L, T);
+			doc.setFontSize(8);
+			
+			T = T+2;//78
+			insts.forEach(function(inst,i){
+				T = T+4;//78
+				doc.text(inst, L, T);
+			});
+
+			T = T+30;//80
+			doc.text("Design and developed by maxtheservice", L, T);
+			T = T+4;//78
+			doc.text("Web:  https://maxtheservice.com/login", L, T);
+			T = T+4;//78
+			doc.text("Tel: 03114499660", L, T);
+			
+			L+=99;
+			T = 5;
+			doc.line(100, 250, 99, 0);
+			doc.line(200, 250, 198, 0);
+			n++;
+			collection.splice(0,1);
+			if(n==3){
+				break;
+			}
+		}
+		if(collection.length > 0){
+			doc.addPage();//doc.addPage(i+1);
+		}
+	}
+	doc.autoPrint({variant: "non-conform"});
+	window.open(doc.output('bloburl'), '_blank');
+	doc.save("LL_Fee Vouchers.pdf");
+	return;
+}
+
+
+function PFV_3ColumBy3_backuup2(collection,logo_url,X,Y,W,H,dataUrl,insts){
+//	var V = ["School","Guardian","Bank"]
+	var doc = new jsPDF('landscape');
+	var total = collection.length;
+	if(collection.length>3)
+		total = total/3;
+	if(total/2 !=0)
+		total++;
+	for(var i=0; i<total;i++){
+		var L = 3;
+		var T = 5;
+		var n = 0;
+		while(collection.length>0){
+			var o = collection[0].object;
+			var sfd = obj.collection;
+			console.log(o);
+			if(!o)
+				return alert(data.status+" : "+data.message);
+			
+			var FVL = [];
+			var dm=0;//due months
+			
+			if(o.lpd){
+				var lpd = new Date(Date.parse(o.lpd));
+				dm = monthDiff(lpd,new Date());
+			}
+			var vf = s2n(o.vf);
+			var d  = s2n(o.d);
+			var f = s2n(o.f);
+			var tf = f;
+			if(o.dt=="%")
+				d = f * (d / 100);
+
+			tf = f + vf - d;
+			if(dm>1)
+				tf = tf*dm;
+			if(o.db)
+				tf = tf+o.db;
+			
+			//again setting to get in print
+			o.da=tf;
+			o.d=d;
+			o.dd = s2n(o.dd);
+			
+			console.log(L,T);
+			doc.addImage(dataUrl, "JPEG", L, Y, W, H);
+//			T = T+25;//20
+			doc.setFontSize(14);
+			doc.setFont('Comic Sans');
+			doc.setFontType('bold');
+			L = L+18;//25
+			T = T+3;//40
+			doc.text("Learning Links School System", L, T);
+			doc.setFontSize(8);
+//			doc.setFont("Sans-serif");
+			T = T+4;//40
+			doc.text("C-5, Block D, North Nazimabad, Karachi, Pakistan-74700", L, T);
+			
+			L = L-18;//25
+			T = T+25;//40
+			doc.setFontSize(12);
+			doc.text("Fee Challan ", L, T);
+			T = T+5;//40
+			doc.line(2, T, 300, T);
+			T = T+3.5;//40
+			doc.setFontSize(10);
+			doc.setFontType('normal');
+			doc.text("Issue date: ", L, T);
+			L = L+64;//37
+			doc.text(dateToDMY(new Date()), L, T);
+			T = T+1;//40
+			doc.line(2, T, 300, T);
+			T+=3.5;//54
+			L = L-64;//37
+			doc.text("Due date: ", L, T);
+			L = L+64;//37
+			doc.text(currentdateByDay(o.dd==0?10:odd), L, T);
+			T = T+1;//40
+			doc.line(2, T, 300, T);
+			T+=3.5;//54
+			L = L-64;//69
+			doc.text("Valid date: ", L, T);
+			L = L+64;//37
+			doc.text(dateToDMY(Date.today().clearTime().moveToLastDayOfMonth()), L, T);
+			T+=1;//pageLeftRight
+			doc.line(2, T, 300, T);
+			T= T+8;//44
+			doc.line(2, T, 300, T);
+//			doc.setFontType('bold');
+			T+=3.5;//54
+			L =L-64;//5
+//			doc.setFontSize(9);
+			doc.setFont('Comic Sans');
+			doc.text("Student Name: ", L, T);
+			L +=64;
+			doc.text(o.sn, L, T);
+			T+=1;//pageLeftRight
+			doc.line(2, T, 300, T);
+			T+=3.5;//54
+			L =L-64;//5
+			doc.text("GR No: ", L, T);
+			L +=64;//69
+			doc.text(o.en, L, T);
+			T+=1;//pageLeftRight
+			doc.line(2, T, 300, T);
+			T+=3.5;//57
+			L =L-64;//5
+			doc.text("Class: ", L, T);
+			L +=64;//66
+			doc.text(o.g, L, T);
+			T+=1;//55
+			doc.line(2, T, 300, T);
+			T+=3.5;//57
+			L =L-64;//5
+			doc.text("Section: ", L, T);
+			L +=64;//66
+			doc.text(o.g, L, T);
+			T+=1;//55
+			doc.line(2, T, 300, T);
+			L +=13;//69
+			
+			T = T+8;//70
+			L =L-77;//5
+			doc.setFontSize(11);
+			doc.setFontType('bold');
+//			doc.line(2, T, 300, T);
+			T+=3.5;//57
+			doc.text("Date ", L, T);
+			L =L+35;//35
+			doc.text("Description ", L, T);
+			L =L+33;//70
+			doc.text("Fee ", L, T);
+			//calculate selected months fee
+			doc.setFontSize(10);
+			doc.setFontType('normal');
+			doc.setFont('Comic Sans');
+			T = T+1;//71
+			doc.line(2, T, 300, T);
+			T = T+3.5;//72
+			L =L-68;//5
+			doc.text(getMonthYear(new Date())+"", L, T);
+			L =L+35;//35
+			doc.text("Monthly fee", L, T);
+			L =L+33;//70
+			doc.text(o.f+"", L, T);
+			T = T+1;//78
+//			doc.line(2, T, 300, T);
+			
+			T = T+3.5;//72
+			L =L-68;//5
+			doc.text(getNextMonthYear(new Date())+"", L, T);
+			L =L+35;//35
+			doc.text("Monthly fee", L, T);
+			L =L+33;//70
+			doc.text(o.f+"", L, T);
+			T = T+1;//78
+//			doc.line(2, T, 300, T);
+
+			T = T+3.5;//75
+			L =L-68;//5
+//			doc.text(getMonthYear(new Date())+"", L, T);
+//			L =L+35;//35
+			doc.text("Arrears", L, T);
+//			L =L+68;//70
+			if(o.db && o.db >0){
+				L =L+68;
+				doc.text(o.db+"", L, T);
+				L =L-68;
+			}
+			T = T+2;//78
+			doc.line(2, T, 300, T);
+//			L =L-68;//5
+//			T = T+1;//78
+//			doc.line(2, T, 300, T);
+			T = T+3.5;//80
+//			L =L-33	;//5
+			doc.text("Payable before due date", L, T);
+			L =L+68;//35
+			doc.text(o.da*2+"", L, T);
+
+			T = T+4;//80
+			L =L-68	;//5
+			doc.text("Payable after due date", L, T);
+			L =L+68;//35
+			doc.text((o.da*2+500)+"", L, T);
+
+			T = T+4;//80
+			L =L-68	;//5
+			doc.text("Payable after expiry date", L, T);
+			L =L+68;//35
+			doc.text((o.da*2+1500)+"", L, T);
+
+			T = T+60;//78
+			L =L-68;//5
+			doc.setFontSize(12);
+			doc.setFontType('bold');
+			doc.text("Instuctions for Guardians", L, T);
+			doc.setFontSize(8);
+			
+			T = T+2;//78
+			insts.forEach(function(inst,i){
+				T = T+4;//78
+				doc.text(inst, L, T);
+			});
+
+			T = T+30;//80
+			doc.text("Design and developed by maxtheservice", L, T);
+			T = T+4;//78
+			doc.text("Web:  https://maxtheservice.com/login", L, T);
+			T = T+4;//78
+			doc.text("Tel: 03114499660", L, T);
+			
+			L+=99;
+			T = 5;
+			doc.line(100, 250, 99, 0);
+			doc.line(200, 250, 198, 0);
+			n++;
+			collection.splice(0,1);
+			if(n==3){
+				break;
+			}
+		}
+		if(collection.length > 0){
+			doc.addPage();//doc.addPage(i+1);
+		}
+	}
+	doc.autoPrint({variant: "non-conform"});
+	window.open(doc.output('bloburl'), '_blank');
+	doc.save("LL_Fee Vouchers.pdf");
+	return;
+}
+
+
+function PFV_3ColumBy3_backup(collection,logo_url,X,Y,W,H,dataUrl,insts){
+//	var V = ["School","Guardian","Bank"]
+	var doc = new jsPDF('landscape');
+	var total = collection.length;
+	if(collection.length>3)
+		total = total/3;
+	if(total/2 !=0)
+		total++;
+	for(var i=0; i<total;i++){
+		var L = 3;
+		var T = 5;
+		var n = 0;
+		while(collection.length>0){
+			var o = collection[0].object;
+			var sfd = obj.collection;
+			console.log(o);
+			if(!o)
+				return alert(data.status+" : "+data.message);
+			
+			var FVL = [];
+			var dm=0;//due months
+			
+			if(o.lpd){
+				var lpd = new Date(Date.parse(o.lpd));
+				dm = monthDiff(lpd,new Date());
+			}
+			var vf = s2n(o.vf);
+			var d  = s2n(o.d);
+			var f = s2n(o.f);
+			var tf = f;
+			if(o.dt=="%")
+				d = f * (d / 100);
+
+			tf = f + vf - d;
+			if(dm>1)
+				tf = tf*dm;
+			if(o.db)
+				tf = tf+o.db;
+			
+			//again setting to get in print
+			o.da=tf;
+			o.d=d;
+			o.dd = s2n(o.dd);
+			
+			console.log(L,T);
+			doc.addImage(dataUrl, "JPEG", L, Y, W, H);
+//			T = T+25;//20
+			doc.setFontSize(11);
+			doc.setFont("arial");
+			doc.setFontType('bold');
+			L = L+18;//25
+			T = T+2;//40
+			doc.text("Learning Links School System", L, T);
+			doc.setFontSize(8);
+			doc.setFont("Sans-serif");
+			T = T+8;//40
+			doc.text("C-5, Block D, North Nazimabad, Karachi, Pakistan-74700", L, T);
+			
+			L = L-18;//25
+			T = T+25;//40
+			doc.setFontSize(10);
+			doc.text("Fee Challan ", L, T);
+			T = T+1;//40
+			doc.line(2, T, 300, T);
+			T = T+4;//40
+			doc.setFontSize(7);
+			doc.text("Issue date: "+dateToDMY(new Date()), L, T);
+			L = L+35;//37
+			doc.text("Due date: "+currentdateByDay(o.dd==0?10:odd), L, T);
+			L = L+33;//69
+			doc.text("Valid date: "+dateToDMY(Date.today().clearTime().moveToLastDayOfMonth()), L, T);
+			T= T+10;//44
+			doc.line(2, T, 300, T);
+			doc.setFontType('bold');
+			T+=3;//54
+			L =L-68;//5
+			doc.setFontSize(9);
+			doc.setFont('Comic Sans');
+			doc.text("Name: "+o.sn, L, T);
+			L +=68;//69
+			doc.text("GR No: "+o.en, L, T);
+			T+=1;//55
+			doc.line(2, T, 300, T);
+			doc.setFontType('bold');
+			T+=3;//57
+			L =L-68;//5
+			doc.text("Grade: "+o.g, L, T);
+			L +=68;//66
+			doc.text("Section: "+o.g, L, T);
+			L +=9;//69
+			
+			T = T+15;//70
+			doc.setFontSize(7);
+			L =L-77;//5
+			doc.setFontSize(9);
+			doc.text("Date ", L, T);
+			L =L+35;//35
+			doc.text("Description ", L, T);
+			L =L+33;//70
+			doc.text("Fee ", L, T);
+
+			doc.setFontSize(8);
+			T = T+1;//71
+			doc.line(2, T, 300, T);
+			T = T+4;//72
+			L =L-68;//5
+			doc.text(getMonthYear(new Date())+"", L, T);
+			L =L+35;//35
+			doc.text("Monthly fee", L, T);
+			L =L+33;//70
+			doc.text(o.f+"", L, T);
+			
+			T = T+4;//75
+			L =L-68;//5
+			doc.text(getMonthYear(new Date())+"", L, T);
+			L =L+35;//35
+			doc.text("Arrears", L, T);
+			L =L+33;//70
+			doc.text(0+"", L, T);
+			L =L-35;//5
+			T = T+1;//78
+			doc.line(2, T, 300, T);
+			T = T+4;//80
+			L =L-33	;//5
+			doc.text("Payable before due date", L, T);
+			L =L+68;//35
+			doc.text(o.da+"", L, T);
+
+			T = T+4;//80
+			L =L-68	;//5
+			doc.text("Payable after due date", L, T);
+			L =L+68;//35
+			doc.text((o.da+500)+"", L, T);
+
+			T = T+10;//78
+			L =L-68;//5
+			doc.setFontSize(10);
+			doc.setFontType('italic');
+			doc.text("Instuctions for Guardians", L, T);
+			doc.setFontSize(8);
+			
+			T = T+2;//78
+			insts.forEach(function(inst,i){
+				T = T+4;//78
+				doc.text(inst, L, T);
+			});
+			
+			L+=99;
+			T = 5;
+			doc.line(100, 250, 99, 0);
+			doc.line(200, 250, 198, 0);
+			n++;
+			collection.splice(0,1);
+			if(n==3){
+				break;
+			}
+		}
+		if(collection.length > 0){
+			doc.addPage();//doc.addPage(i+1);
+		}
+	}
+	doc.autoPrint({variant: "non-conform"});
+	doc.save("LL_Fee Vouchers.pdf");
+	return;
+}
+
 
 function getLLInst(){
 	var inst = [];
@@ -1488,6 +2395,7 @@ function getLLInst(){
 	inst.push("2. Parents must retain their copy of the PAID fee voucher in safe");
 	inst.push("   custody for future reference");
 	inst.push("3. Fee once paid is not transferable and Non-Refundable");
+	inst.push("4. At the expiry of the validity of voucher Rs.1000 will be charged");
 	return inst;
 }
 
@@ -1631,4 +2539,13 @@ function CSV(url){
  mywindow.close();
 
  return true;
+}
+
+function loadFVIBSDD(element,destinationId){
+//	var lable  = $(element)[0].selectedOptions[0].text;
+	var value  = $(element)[0].selectedOptions[0].value;
+	if(!value || value == '')
+		return false;
+	loadBSDD("getUser"+value.trim(),destinationId);
+	
 }
