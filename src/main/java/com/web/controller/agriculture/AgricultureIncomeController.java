@@ -3,6 +3,7 @@
  */
 package com.web.controller.agriculture;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -13,10 +14,12 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.agriculture.AgricultureIncome;
@@ -46,7 +49,6 @@ public class AgricultureIncomeController {
 	ILandService landService;
 	@Autowired
 	RequestUtil requestUtil;
-	
 	@Autowired
 	AppUtil appUtil;
 	
@@ -56,26 +58,31 @@ public class AgricultureIncomeController {
 	@ResponseBody
 	public GenericResponse addAgricultureIncome(final AgricultureIncomeDTO dto, final HttpServletRequest request){
 		try {
-//			dto.setDatedStr(appUtil.todayDateStr());
-			AgricultureIncome e = modelMapper.map(dto, AgricultureIncome.class);
-			e.setUserId(requestUtil.getCurrentUser().getId());
-			e.setDated(appUtil.getDateTime(dto.getDatedStr()));
-			e.setUpdated(appUtil.getDateTime(dto.getUpdatedStr()));
+			dto.setUserId(requestUtil.getCurrentUser().getId());
+			AgricultureIncome obj = new AgricultureIncome(dto.getUserId(),dto.getIncomeName());
+			if(appUtil.isEmptyOrNull(dto.getId())) {
+				Example<AgricultureIncome> example = Example.of(obj);
+				if(service.exists(example))				
+					return new GenericResponse(appUtil.INVALID,messages.getMessage("The Income "+dto.getIncomeName()+" exist or invalid", null, request.getLocale()));
+			}
+			obj  = modelMapper.map(dto, AgricultureIncome.class);
+			obj.setDated(LocalDateTime.now());
+			obj.setUpdated(appUtil.getDateTime(dto.getUpdatedStr()));
 			//update with land name
 			Optional<Land> optional = landService.findById(dto.getLandId());
 			if(optional.isPresent()) {
 				Land land = optional.get();
-				e.setLandId(land.getId());
-				e.setLandName(land.getTotalLandUnit()+"-"+land.getLandUnit());
+				obj.setLandId(land.getId());
+				obj.setLandName(land.getLandName());
 			}
 
-			if(service.save(e).getId()>0)
+			if(service.save(obj).getId()>0)
 				return new GenericResponse("Income added successfully");
 			else
-				return new GenericResponse("Sorry, Your expense not submitted");
+				return new GenericResponse("Sorry, Your Income not submitted");
 		} catch (Exception e) {
 			appUtil.le(this.getClass(), e);
-			return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("Sorry, Your expense not submitted", null, request.getLocale()),dto);
+			return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("Sorry, Your Income not submitted", null, request.getLocale()),dto);
 		}
 	}
 	
@@ -102,6 +109,24 @@ public class AgricultureIncomeController {
 		} catch (Exception e) {
 			appUtil.le(this.getClass(), e);
 			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()),dto);
+		}
+	}
+	
+	@RequestMapping(value = "/income/loadLastCropAttached", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse loadLastIncomeCropAttached(@RequestParam Long landId,final HttpServletRequest request) {
+		try {
+			AgricultureIncome obj = new AgricultureIncome(requestUtil.getCurrentUser().getId());
+			obj.setLandId(landId);
+			Example<AgricultureIncome> example = Example.of(obj);
+			obj = service.findAll(example, new Sort(Sort.Direction.DESC, "updated")).get(0);
+			if(appUtil.isEmptyOrNull(obj))
+				return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("message.no.data.found", null, request.getLocale()));
+		
+			return new GenericResponse("SUCCESS",obj);
+		} catch (Exception e) {
+			appUtil.le(this.getClass(), e);
+			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()));
 		}
 	}
 	

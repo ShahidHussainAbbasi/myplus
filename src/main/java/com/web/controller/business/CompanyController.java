@@ -20,10 +20,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.persistence.model.Company;
 import com.persistence.model.User;
-import com.persistence.model.business.Company;
 import com.service.business.ICompanyService;
-import com.web.dto.business.CompanyDTO;
+import com.web.dto.CompanyDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
 import com.web.util.RequestUtil;

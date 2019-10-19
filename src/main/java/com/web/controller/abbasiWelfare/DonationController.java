@@ -25,8 +25,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.persistence.model.User;
 import com.persistence.model.abbasiWelfare.Donation;
 import com.persistence.model.abbasiWelfare.Donator;
-import com.service.abbasiWelfare.DonationService;
-import com.service.abbasiWelfare.DonatorService;
+import com.service.abbasiWelfare.IDonationService;
+import com.service.abbasiWelfare.IDonatorService;
 import com.web.dto.abbasiWelfare.DonationDTO;
 import com.web.dto.abbasiWelfare.DonatorDTO;
 import com.web.util.AppUtil;
@@ -51,9 +51,9 @@ public class DonationController {
     @Autowired
 	private MessageSource messages;    
 	@Autowired
-	DonatorService donatorService;
+	IDonatorService donatorService;
 	@Autowired
-	DonationService donationService;
+	IDonationService donationService;
 	@Autowired
 	RequestUtil requestUtil;
 	
@@ -169,15 +169,15 @@ public class DonationController {
 	@ResponseBody
 	public GenericResponse getUserDonation(final HttpServletRequest request) {
 		try {
+			List<DonationDTO> dtos = new ArrayList<>();
 			Donation filterBy = new Donation();
 			User user = requestUtil.getCurrentUser();
 			filterBy.setUserId(user.getId());
 	        Example<Donation> example = Example.of(filterBy);
 			List<Donation> objs = donationService.findAll(example);
 			if(appUtil.isEmptyOrNull(objs))
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 
-			List<DonationDTO> dtos = new ArrayList<>();
 			objs.forEach(obj->{
 				DonationDTO dto = new DonationDTO();
 				dto = modelMapper.map(obj, DonationDTO.class);

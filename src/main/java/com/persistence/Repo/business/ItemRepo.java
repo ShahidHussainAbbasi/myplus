@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.persistence.model.Appointment;
-import com.persistence.model.business.Company;
+import com.persistence.model.Company;
 import com.persistence.model.business.Item;
 
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -153,6 +153,7 @@ $(document).ready(function() {
             column.visible( ! column.visible() );
         }
     } );
+    
     //invoice table
     tablesi = $('#tablesi').DataTable( {
     	 "searching": false,

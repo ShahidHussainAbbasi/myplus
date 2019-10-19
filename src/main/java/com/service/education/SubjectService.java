@@ -14,15 +14,11 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.education.SubjectRepo;
 import com.persistence.model.education.Subject;
-import com.service.UserService;
 
 @Service
 @Transactional
 public class SubjectService implements ISubjectService {
 
-    @Autowired
-    UserService userService;
-    
     @Autowired
     SubjectRepo subjectRepo;
     

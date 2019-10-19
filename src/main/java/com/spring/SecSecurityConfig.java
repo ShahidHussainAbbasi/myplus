@@ -43,7 +43,7 @@ public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
     @Autowired
     private LogoutSuccessHandler myLogoutSuccessHandler;
 
-    @Autowired
+//    @Autowired
     private AuthenticationFailureHandler authenticationFailureHandler;
 
     @Autowired

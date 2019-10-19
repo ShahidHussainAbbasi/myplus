@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.VenderRepo;
 import com.persistence.model.business.Vender;
-import com.service.UserService;
+import com.service.IUserService;
 
 @Service
 @Transactional
@@ -24,7 +24,7 @@ public class VenderService implements IVenderService {
     private VenderRepo venderRepo;
     
     @Autowired
-    UserService userService;
+    IUserService userService;
 
     public static final String TOKEN_INVALID = "invalidToken";
     public static final String TOKEN_EXPIRED = "expired";

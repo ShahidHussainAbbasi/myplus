@@ -30,6 +30,11 @@ public class AgricultureIncome implements Serializable {
 		this.userId = userId;
 	}
 	
+	public AgricultureIncome(Long userId, String incomeName) {
+		this.userId = userId;
+		this.incomeName = incomeName;
+	}
+
 	@Id
 	@SequenceGenerator(name = "agri_income_gen", sequenceName = "agri_income_seq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "agri_income_gen")	

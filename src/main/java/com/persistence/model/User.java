@@ -29,7 +29,7 @@ public class User {
     @Column(name="user_type")
     private String userType;
     
-	private String firstName;
+    private String firstName;
 
     private String lastName;
 

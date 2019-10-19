@@ -14,14 +14,10 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.education.GradeRepo;
 import com.persistence.model.education.Grade;
-import com.service.UserService;
 
 @Service
 @Transactional
 public class GradeService implements IGradeService {
-
-    @Autowired
-    UserService userService;
     
     @Autowired
     GradeRepo gradeRepo;

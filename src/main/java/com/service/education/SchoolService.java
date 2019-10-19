@@ -14,14 +14,10 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.education.SchoolRepo;
 import com.persistence.model.education.School;
-import com.service.UserService;
 
 @Service
 @Transactional
 public class SchoolService implements ISchoolService {
-
-    @Autowired
-    UserService userService;
 
     @Autowired
     SchoolRepo schoolRepo;

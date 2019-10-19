@@ -189,7 +189,7 @@ public class ItemController {
 //				dto.setItemUnitNames(obj.getItemUnits().stream().map(ItemUnit::getName).collect(Collectors.toSet()));
 //				dto.setItemTypeIds(obj.getItemTypes().stream().map(ItemType::getId).collect(Collectors.toSet()));
 //				dto.setItemTypeNames(obj.getItemTypes().stream().map(ItemType::getName).collect(Collectors.toSet()));
-				dto.setExpDateStr(appUtil.getLoaclDateStr(obj.getExpDate()));
+				dto.setExpDateStr(appUtil.getLocalDateStr(obj.getExpDate()));
 				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);

@@ -54,9 +54,11 @@ public class AppUtil {
     private static final String EMAIL_PATTERN = "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@" + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
     private static final String MOBILE_NUMBER_PATTERN = "^((\\+923)|(00923)|(03))-{0,1}\\d{2}\\d{7}$";
 
+
 	final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
     final DateTimeFormatter dateformatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    final DateTimeFormatter dateformatterForDB = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     final SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
     public Map<String,String> countryMap=null;
     // Evaluate page size. If requested parameter is null, return initial
@@ -71,6 +73,7 @@ public class AppUtil {
 	public final String FOUND = "FOUND";
 	public final String NOT_FOUND = "NOT_FOUND";
 	public final String ERROR = "ERROR";
+	public final String INVALID = "INVALID";
 
     @NonNull
     public String toJson(@org.springframework.lang.Nullable Object object) {
@@ -109,10 +112,10 @@ public class AppUtil {
     }
 
     //Get current date time
-    public String getLoaclDateStr(LocalDate date) {
+    public String getLocalDateForDBStr(LocalDate date) {
     	if(date==null)
     		return "";
-    	return dateformatter.format(date);
+    	return dateformatterForDB.format(date);
     }
 
     //Get current date time
@@ -314,7 +317,15 @@ public class AppUtil {
     	return LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
     }
 
-//    for future use
+    public LocalDate dateOfLastMonth() {
+    	return LocalDate.now().minusMonths(1);
+    }
+
+    public LocalDate dateOfLastMonth(int month) {
+    	return LocalDate.now().minusMonths(month);
+    }
+
+    //    for future use
 //    <dependency>
 //    <groupId>com.fasterxml.jackson.dataformat</groupId>
 //    <artifactId>jackson-dataformat-csv</artifactId>

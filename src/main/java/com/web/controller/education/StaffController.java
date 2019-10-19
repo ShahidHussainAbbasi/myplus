@@ -88,7 +88,7 @@ public class StaffController {
 					dto.setTimeInStr(obj.getTimeIn().toString());
 				if(!appUtil.isEmptyOrNull(obj.getTimeOut()))
 					dto.setTimeOutStr(obj.getTimeOut().toString());
-				dto.setStaffDOB(appUtil.getLoaclDateStr(obj.getStaffDOB()));
+				dto.setStaffDOB(appUtil.getLocalDateStr(obj.getStaffDOB()));
 				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);

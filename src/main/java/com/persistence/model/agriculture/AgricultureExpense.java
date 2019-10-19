@@ -28,6 +28,10 @@ public class AgricultureExpense implements Serializable {
 	public AgricultureExpense(Long userId) {
 		this.userId = userId;
 	}
+	public AgricultureExpense(Long userId,String expenseName) {
+		this.userId = userId;
+		this.expenseName = expenseName;
+	}
 	
 	@Id
 	@SequenceGenerator(name = "agri_expense_gen", sequenceName = "agri_expense_seq",initialValue = 1, allocationSize = 1)

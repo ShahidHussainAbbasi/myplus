@@ -1,24 +1,10 @@
 package com.web.controller;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
-import com.persistence.Repo.DoctorRepository;
-import com.persistence.Repo.HospitalRepository;
-import com.persistence.model.Doctor;
-import com.persistence.model.Hospital;
-import com.security.ActiveUserStore;
-import com.service.HospitalService;
-import com.service.IAppointmentService;
-import com.service.IHospitalService;
-import com.web.dto.AppointmentDTO;
-import com.web.dto.DoctorDTO;
-import com.web.util.GenericResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,9 +17,16 @@ import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
+
+import com.persistence.Repo.DoctorRepository;
+import com.persistence.Repo.HospitalRepository;
+import com.persistence.model.Hospital;
+import com.security.ActiveUserStore;
+import com.service.IAppointmentService;
+import com.web.dto.AppointmentDTO;
+import com.web.util.GenericResponse;
 
 @Controller
 public class AppointmentController {

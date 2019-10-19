@@ -9,14 +9,16 @@ import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToOne;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
+
+import com.persistence.model.Company;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -31,7 +33,8 @@ public class Item implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id	
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "item_gen", sequenceName = "item_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "item_gen")	
 	@Column(name = "item_id", unique = true, nullable = false)
 	private Long id;
 

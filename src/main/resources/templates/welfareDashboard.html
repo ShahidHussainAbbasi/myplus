@@ -31,8 +31,8 @@
 				<li>
 					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
 						<option class="dropdown-item" value="">Nothing Selected</option>
-						<option sec:authorize="hasAuthority('ADD_DONATOR')" class="dropdown-item" value="DonatorDiv">Add Donator</option>
-						<option sec:authorize="hasAuthority('ADD_DONATION')" class="dropdown-item" value="DonationDiv">Add Donation</option>
+						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonatorDiv">Add Donator</option>
+						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonationDiv">Add Donation</option>
 						<option sec:authorize="hasAuthority('READ_PRIVILEGE')" class="dropdown-item" value="DonationsDiv">View Donations</option>
 						<!-- <option class="dropdown-item" value="myDonation">My Donations</option> -->
 					</select>

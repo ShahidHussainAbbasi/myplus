@@ -14,14 +14,14 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.PurchaseRepo;
 import com.persistence.model.business.Purchase;
-import com.service.UserService;
+import com.service.IUserService;
 
 @Service
 @Transactional
 public class PurchaseService implements IPurchaseService{
 
     @Autowired
-    UserService userService;
+    IUserService userService;
     
     @Autowired
     PurchaseRepo purchaseRepo;

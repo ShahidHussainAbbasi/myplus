@@ -24,7 +24,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.persistence.Repo.HospitalRepository;
 import com.persistence.model.Doctor;
 import com.persistence.model.Hospital;
-import com.security.ActiveUserStore;
 import com.service.IDoctorService;
 import com.web.dto.DoctorDTO;
 import com.web.util.GenericResponse;
@@ -35,8 +34,6 @@ public class DoctorController {
 	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
-	@Autowired
-	ActiveUserStore activeUserStore;
 
 	@Autowired
 	IDoctorService doctorService;

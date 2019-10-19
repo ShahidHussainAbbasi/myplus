@@ -7,1926 +7,1838 @@
 <script type="text/javascript" src="resources/js/jspdf.plugin.autotable.js"></script>
 
 <script type="text/javascript" src="resources/js/education/education.js"></script>
+<script type="text/javascript" src="resources/js/education/educationDashboard.js"></script>
 <script type="text/javascript" src="resources/js/date.js"></script>
 </head>
 <body>
-	<div th:replace="header :: header" />
-	<div id="globalError" class="alert alert-danger col-sm-12" style="display:none">error</div>	
-	<nav class="subnav" id="nav-subheader">
-		<div class="container-fluid">
-			<ul class="nav navbar-nav">
-				<div class="navbar-header active">
-					<p style="color: lightskyblue; padding-top: 17px"
-						class="glyphicon glyphicon-user" th:if="${param.user} != null"
-						th:text="${param.user[0]}">User</p>
-				</div>
-				<!-- <security:authorize access="hasRole('SUPER_ROLE')"> -->
-<!-- 					<li>
-						<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
-							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DashboardDiv">Dashboard</option>
-						</select>
-					</li>
- -->					<li>
-						<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
-							<option class="dropdown-item" value="">Manage Registrations</option>
-							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="OwnerDiv">Owners</option>
-							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="SchoolDiv">Campus</option>
-							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="VehicleDiv">Vehicles</option>
-							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="GradeDiv">Classes</option>
-							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="StaffDiv">Employee</option>
-		 					<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="SubjectDiv">Subjects</option>
-	<!-- 
-							<option class="dropdown-item" value="NewDiscountDiv">Discounts</option>
-							<option class="dropdown-item" value="NewChargesDiv">Charges</option>
-	 -->
-							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DiscountDiv">Manage Discounts/Charges</option>
-							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="GuardianDiv">Guardians</option>						
-							<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="StudentDiv">Manage Students</option>
-						</select>
-					</li>
-				<!-- </security:authorize> -->
-				<li>
-					<select name="feeType" id="feeType" class="dropdown show panel-heading">
-						<option class="dropdown-item" value="">Manage Fee</option>
-						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="FcDiv">Fee Collection</option>
-						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="FVDiv">Fee Voucher/Ledger</option>
-<!-- 						<option class="dropdown-item" value="">Salary Distribution</option>
-						<option class="dropdown-item" value="">Miscellaneous</option>
- -->					</select>
-				</li>
-				<li>
-					<select name="reportType" id="reportType" class="dropdown show panel-heading">
-						<option class="dropdown-item" value="">View Reports</option>
-						<option sec:authorize="hasAuthority('FEE_REPORT,SUPER_PRIVILEGE')" class="dropdown-item" value="FRDiv">Fee Report</option>
-					</select>
-				</li>
-				<li>
-					<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading">
-						<option class="dropdown-item" value="">Manage Attendance</option>
-						<option sec:authorize="hasAuthority('MANAGE_ATTENDANCE,SUPER_PRIVILEGE')" class="dropdown-item" value="ADiv">Attendance</option>
-					</select>
-				</li>
-				<li>
-					<select name="communicationType" id="communicationType" class="dropdown show panel-heading">
-						<option class="dropdown-item" value="">Manage Alerts</option>
-						<option sec:authorize="hasAuthority('PUBLIC_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="PADiv">Public Alerts</option>
-						<option sec:authorize="hasAuthority('SYSTEM_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="AlertsDiv">System Alerts</option>
-					</select>
-				</li>
-			</ul>					
-		</div>
-	</nav>
-	<div class="container content-cls">
-		<div id="DashboardDiv" class="formDiv dashbo">
-          <div class="card-row"> 
-           <div class="col-sm-2">
-              <div class="card">
-                <div class="card-body">
-                  <div class="card-top">
-                    <div class="card-col">
-                      <h5 class="card-title text-uppercase text-muted">Total Students</h5>
-                      <span class="h3 font-weight-bold">2,356</span>
-                    </div>
-                    <div class="card-col">
-                      <div class="icon icon-shape bg-warning text-white rounded-circle shadow">
-                        <i class="fas fa-chart-pie"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="card-bottom text-muted text-sm">
-                    <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i> 3.48%</span>
-                    <span class="text-nowrap">By last year</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-           <div class="col-sm-2">
-              <div class="card">
-                <div class="card-body">
-                  <div class="card-top">
-                    <div class="card-col">
-                      <h5 class="card-title text-uppercase text-muted">New Students</h5>
-                      <span class="h3 font-weight-bold">2,356</span>
-                    </div>
-                    <div class="card-col">
-                      <div class="icon icon-shape bg-warning text-white rounded-circle shadow">
-                        <i class="fas fa-chart-pie"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="card-bottom text-muted text-sm">
-                    <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i> 3.48%</span>
-                    <span class="text-nowrap">By last month</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-sm-2">
-              <div class="card">
-                <div class="card-body">
-                  <div class="card-top">
-                    <div class="card-col">
-                      <h5 class="card-title text-uppercase text-muted">Total Dues</h5>
-                      <span class="h3 font-weight-bold">924</span>
-                    </div>
-                    <div class="card-col">
-                      <div class="icon icon-shape bg-yellow text-white rounded-circle shadow">
-                        <i class="fas fa-users"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="card-bottom text-muted text-sm">
-                    <span class="text-warning mr-2"><i class="fas fa-arrow-down"></i> 1.10%</span>
-                    <span class="text-nowrap">By last month</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-sm-2">
-              <div class="card">
-                <div class="card-body">
-                  <div class="card-top">
-                    <div class="card-col">
-                      <h5 class="card-title text-uppercase text-muted">Total Collection</h5>
-                      <span class="h3 font-weight-bold">49,65%</span>
-                    </div>
-                    <div class="card-col">
-                      <div class="icon icon-shape bg-info text-white rounded-circle shadow">
-                        <i class="fas fa-percent"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="card-bottom text-muted text-sm">
-                    <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 12%</span>
-                    <span class="text-nowrap">By last month</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-sm-2">
-              <div class="card">
-                <div class="card-body">
-                  <div class="card-top">
-                    <div class="card-col">
-                      <h5 class="card-title text-uppercase text-muted">Expense</h5>
-                      <span class="h3 font-weight-bold">49,65%</span>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-info text-white rounded-circle shadow">
-                        <i class="fas fa-percent"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="card-bottom text-muted text-sm">
-                    <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 12%</span>
-                    <span class="text-nowrap">By last month</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-sm-2">
-              <div class="card">
-                <div class="card-body">
-                  <div class="card-top">
-                    <div class="card-col">
-                      <h5 class="card-title text-uppercase text-muted">Profit</h5>
-                      <span class="h3 font-weight-bold">49,65%</span>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-info text-white rounded-circle shadow">
-                        <i class="fas fa-percent"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="card-bottom text-muted text-sm">
-                    <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 12%</span>
-                    <span class="text-nowrap">By last month</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-  		</div>
-		<div id="OwnerDiv" class="formDiv">
-			<h4 th:text="#{label.owner.form.heading}">Owner Registration</h4>
-			<br />
-			<!-- <form class="form-horizontal" role="form"> -->
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Owner" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-12">
-						<input type="text" class="form-control" id="ownerId" name="id"> 
-					</div>
-				</div>
-				<div class="form-group">				
-					<label class="control-label col-sm-2 req" for="ownerName">Owner name</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="ownerName" name="name"
-							placeholder=" Owner Name" required="required"> 
-					</div>
-					<label class="control-label col-sm-2 req" for="ownerMobile">Mobile</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="ownerMobile" name="mobile"
-							placeholder="Mobile Number" required="required"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="ownerAddress">Address</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="ownerAddress"
-							name="address" placeholder="Complete Address" required="required">
-					</div>
-					<label class="control-label col-sm-2" for="ownerEmail">Email</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="ownerEmail" name="email"
-							placeholder="Email address">
-					</div>
-				</div>
-				<div class="form-group">
- 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="ownerStatus">Status</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="ownerStatus" name="status" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center">
-					<button type="button" id="addOwner" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteOwner" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetOwner" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<table id="tableOwner" class="table table-striped">
-				<thead>
-					<tr>
-						<th class="col-sm-1" data-field="ownerId">Id</th>
-						<th class="col-sm-1" data-field="checkDelete">Check</th>
-						<th class="col-sm-2" data-field="name">Name</th>
-						<th class="col-sm-1" data-field="mobile">Mobile</th>
-						<th class="col-sm-3" data-field="address">Address</th>
-						<th class="col-sm-2" data-field="email">Email</th>
-						<th class="col-sm-3" data-field="ownerStatus">Status</th>
-						<th class="col-sm-2" data-field="ownderDated">Dated</th>
-					</tr>
-				</thead>
-			</table>
-		</div>
-		<div id="SchoolDiv" class="formDiv">
-			<h4 th:text="#{label.School.form.heading}">School Registration</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="School" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="schoolId" name="id"> 
-					</div>
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="schoolDated" name="datedStr"> 
-					</div>
-				</div>
-				<div class="form-group" id="mainBranchDiv">
-					<label class="control-label col-sm-2 req" th:text="#{label.select.owner}">Owner name</label> 
-					<div class="col-sm-4">
-						<select multiple="multiple" class="form-control" id="schoolOwnerDD" name="ownerIds" required="required">
-						</select>
-					</div>
-					<label class="control-label col-sm-2 req" for="schoolAddress" th:text="#{label.address}">Address</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="schoolAddress"
-							name="address" placeholder="Complete Address" required="required">
-					</div>
- 				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="schoolBranchName" th:text="#{label.branch}">Branch Name</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="schoolBranchName"
-							name="branchName" placeholder="Branch name">
-					</div>
-					<label class="control-label col-sm-2" for="schoolPhone" th:text="#{label.phone}">Phone Number</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="schoolPhone" name="phone"
-							placeholder="Phone Number"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="schoolEmail" th:text="#{label.email}">Email</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="schoolEmail" name="email"
-							placeholder="Email address">
-					</div>
- 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="schoolStatus">Status</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="schoolStatus" name="status" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center">
-					<button type="button" id="addSchool" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteSchool" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetSchool" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<div>
-				<table id="tableSchool" class="table table-striped">
-					<thead>
-						<tr>
-							<th class="col-sm-1" data-field="schoolId">Id</th>
-							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-2" data-field="owner">Owner</th>
-							<th class="col-sm-2" data-field="address">Address</th>
-							<th class="col-sm-2" data-field="branchName">Branch Name</th>
-							<th class="col-sm-1" data-field="phone">Phone</th>
-							<th class="col-sm-1" data-field="email">Email</th>
-							<th class="col-sm-1" data-field="schoolStatus">Status</th>
-							<th class="col-sm-1" data-field="schoolDated">Dated</th>
-						</tr>
-					</thead>
-				</table>
-			</div>
-		</div>
-		<div id="GradeDiv" class="formDiv">
-			<h4 th:text="#{label.grade.form.heading}">Class Registration</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Grade" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="gradeId" name="id"> 
-					</div>
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="schoolDated" name="datedStr"> 
-					</div>
-				</div>				
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="gradeSchoolDD">Select Campus</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="gradeSchoolDD" name="schoolId" required="required">
-						</select>
-					</div>
-					<label class="control-label col-sm-2 req" for="gradeName">Class name</label> 
-					<div class="col-sm-4">
-						<input id="gradeName" class="form-control" type="text"	name="name" value="" required="required"/>
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="gradeCode">Code/Batch</label> 
-					<div class="col-sm-4">
-						<input id="gradeCode" class="form-control" type="text"	name="code"/>
-					</div>
-					<label class="control-label col-sm-2 req" for="gradeFee">Fee</label> 
-					<div class="col-sm-4">
-						<input id="gradeFee" class="form-control" type="number" step="any" min="0"	name="fee" placeholder="Enter fee" required="required"/>
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.start.time}" for="gradeTimeFromStr">Time Start</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control timepicker text-center" id="gradeTimeFromStr"
-							name="timeFromStr" placeholder="Enter start time">
-					</div>
-					<label class="control-label col-sm-2" for="gradeTimeToStr">Time End</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control timepicker text-center" id="gradeTimeToStr"
-							name="timeToStr" placeholder="Enter end time">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.select.room}">Room</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="gradeRoom" name="room">
-							<option class="dropdown-item" value=""> Nothing Selected </option>
-							<option th:each="i : ${#numbers.sequence(1, 50)}" th:value="${i}"
-								th:text="${i}" th:selected="${i==24}" value=""></option>
-						</select>
-					</div>
- 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="gradeStatus">Status</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="gradeStatus" name="status" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center">
-					<button type="button" id="addGrade" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteGrade" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetGrade" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<div class="form-group">
-				<table id="tableGrade" class="table table-striped">
-					<thead>
-						<tr>
-							<th class="col-sm-1" data-field="gradeId">Id</th>
-							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-2" data-field="schoolName">Branch Name</th>
-							<th class="col-sm-2" data-field="name">Name</th>
-							<th class="col-sm-1" data-field="code">Code</th>
-							<th class="col-sm-1" data-field="GradeFee">Fee</th>
-							<th class="col-sm-1" data-field="timeFromStr">Time From</th>
-							<th class="col-sm-1" data-field="timeToStr">Time To</th>
-							<th class="col-sm-1" data-field="room">Room</th>
-							<th class="col-sm-1" data-field="gradeStatus">Status</th>
-							<th class="col-sm-1" data-field="schoolDated">Dated</th>
-						</tr>
-					</thead>
-				</table>
-			</div>
-		</div>
-		<div id="StaffDiv" class="formDiv">
-			<h4 th:text="#{label.staff.form.heading}">Staff Registration</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Staff" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="staffId" name="id"> 
-					</div>
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="staffDated" name="datedStr"> 
-					</div>
-				</div>				
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="staffName">Employee name</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="staffName" name="name"
-							placeholder=" Employee Name" required="required"> 
-					</div>
-					<label class="control-label col-sm-2" for="staffEmail">Email</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="staffEmail" name="email"
-							placeholder="Email address">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="staffMobile">Mobile</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control req" id="staffMobile" name="mobile"
-							placeholder="Mobile Number" required="required"> 
-					</div>
-					<label class="control-label col-sm-2" for="staffPhone">Phone</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="staffPhone"
-							name="phone" placeholder="Phone number">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.timeIn}" for="staffTimeInStr">Time In</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control timepicker text-center" id="staffTimeInStr"
-							name="timeInStr" placeholder=" Time In ">
-					</div>
-					<label class="control-label col-sm-2" th:text="#{label.timeOut}" for="staffTimeOutStr">Time Out</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control timepicker text-center" id="staffTimeOutStr"
-							name="timeOutStr" placeholder=" Time Out ">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 required req" for="staffDesignation">Designation</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="staffDesignation" name="designation"
-							placeholder="Designation" required="required"> 
-					</div>
-					<label class="control-label col-sm-2 req" for="staffQualification">Qualification</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="staffQualification"
-							name="qualification" placeholder="Qualification" required="required">
-					</div>
-				</div>
- 				<div class="form-group">
-<!-- 					<label class="control-label col-sm-2" th:text="#{label.select.school}">Select Schools</label> 
-					<span class="col-sm-4"> 
-						<select multiple="multiple"	class="form-control" id="staffSchoolDD" name="schoolIds"></select>
-					</span>
- -->					<label class="control-label col-sm-2" th:text="#{label.select.grade}">Select Class</label> 
-					<div class="col-sm-4"> 
-						<select multiple="multiple"	class="form-control" id="staffGradeDD" name="gradeIds"></select>
-					</div>
-					<label class="control-label col-sm-2 req" th:text="#{label.select.gender}" for="staffGender">Select Gender</label>
-					<div class="col-sm-4">
-						<select	class="form-control" id="staffGender" name="gender" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>						
-							<option class="dropdown-item" value="Male">Male</option>
-		 					<option class="dropdown-item" value="Female">Female</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="staffDOB">Date of Birth</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control datePicker" id="staffDOB" name="staffDOB"
-							placeholder="Select DOB" required="required"> 
-					</div>					
-					<label class="control-label col-sm-2" th:text="#{label.select.martial.status}" for="staffMartialStatus">Martial Status</label>
-					<div class="col-sm-4">
-						<select	class="form-control" id="staffMartialStatus" name="martialStatus">
-							<option class="dropdown-item" value="">Nothing Selected</option>						
-							<option class="dropdown-item" value="Single" selected="selected">Single</option>
-		 					<option class="dropdown-item" value="Married">Married</option>
-		 					<option class="dropdown-item" value="Divorced">Divorced</option>
-		 					<option class="dropdown-item" value="Widowed">Widowed</option>
-		 				</select>
-					</div>
-								
-<!-- 					<label class="control-label col-sm-2" th:text="#{label.select.subject}">Select Subjects</label> 
-					<span class="col-sm-4"> 
-						<select disabled="disabled" multiple="multiple" class="form-control" id="staffSubjectDD" name="subjectIds"></select>
-					</span>
- -->					
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" th:text="#{label.address}" for="staffAddress">Address</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="staffAddress"
-							name="address" placeholder="Complete Address" required="required">
-					</div>
- 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="staffStatus">Status</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="staffStatus" name="status" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center">
-					<button type="button" id="addStaff" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteStaff" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetStaff" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<div>
-				<table id="tableStaff" class="table table-striped">
-					<thead>
-						<tr>
-							<th class="col-sm-1" data-field="staffId">Id</th>
-							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-1" data-field="name">Name</th>
-							<th class="col-sm-1" data-field="email">Email</th>
-							<th class="col-sm-1" data-field="mobile">Mobile</th>
-							<th class="col-sm-1" data-field="phone">Phone</th>
- 							<th class="col-sm-1" data-field="timeIn">Time In</th>
-							<th class="col-sm-1" data-field="timeOut">Time Out</th>
- 							<th class="col-sm-1" data-field="designation">Designation</th>
-							<th class="col-sm-1" data-field="qualification">Qualification</th>
-<!-- 							<th class="col-sm-1" data-field="staffSchoolDD">Schools</th> -->
-							<th class="col-sm-1" data-field="staffGradeDD">Classes</th>
-							<th class="col-sm-1" data-field="gender">Gender</th>
-							<th class="col-sm-1" data-field="staffDOB">Date of Birth</th>
- 							<th class="col-sm-1" data-field="martialStatus">Martial Status</th>
-							<th class="col-sm-1" data-field="address">Address</th>
-							<th class="col-sm-1" data-field="status">Status</th>
-							<th class="col-sm-1" data-field="staffDated">Dated</th>
-						</tr>
-					</thead>
-				</table>
-			</div>
-		</div>
-		<div id="GuardianDiv" class="formDiv">
-			<h4 th:text="#{label.guardian.form.heading}">Guardian Registration</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Guardian" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="guardianId" name="id"> 
-					</div>
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="guardianDated" name="datedStr"> 
-					</div>
-				</div>				
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="guardianName">Guardian Name</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="guardianName" name="name"
-							placeholder=" Guardian Name" required="required"> 
-					</div>
-					<label class="control-label col-sm-2 req" for="guardianMobile">Mobile</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="guardianMobile" name="mobile"
-							placeholder="Mobile Number" required="required"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="relationDD">Relation</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="relationDD" name="relation">
-							<option class="dropdown-item" value="Father" selected="selected">Father</option>					
-							<option class="dropdown-item" value="Mother">Mother</option>
-		 					<option class="dropdown-item" value="Aunt">Aunt</option>
-		 					<option class="dropdown-item" value="Grandfather">Grandfather</option>
-		 					<option class="dropdown-item" value="Grandmother">Grandmother</option>
-		 					<option class="dropdown-item" value="Guardian">Guardian</option>
-		 					<option class="dropdown-item" value="Self">Self</option>
-		 				</select>
-					</div>
-					<label class="control-label col-sm-2 req" for="guardianPermAddress">Address</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="guardianPermAddress"
-							name="permAddress" placeholder="Permanent Address" required="required">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="guardianEmail">Email</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="guardianEmail" name="email"
-							placeholder="Email address">
-					</div>
-					<label class="control-label col-sm-2" for="guardianPhone">Phone</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="guardianPhone"
-							name="phone" placeholder="Phone number">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="guardianCNIC">CNIC</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="guardianCNIC" name="cnic"
-							placeholder="Computerized National Identity Card"> 
-					</div>
-					<label class="control-label col-sm-2" for="guardianOccupation">Occupation</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="guardianOccupation"
-							name="occupation" placeholder="Occupation">
-					</div>
-				</div>
-				<div class="form-group">
- 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="guardianStatus">Status</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="guardianStatus" name="status" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center">
-					<button type="button" id="addGuardian" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteGuardian" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetGuardian" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<table id="tableGuardian" class="table table-striped">
-				<thead>
-					<th class="col-sm-1" data-field="guardianId">Id</th>
-					<th class="col-sm-1" data-field="checkDelete">Check</th>
-					<th class="col-sm-1" data-field="name">Name</th>
-					<th class="col-sm-1" data-field="mobile">Mobile</th>
-					<th class="col-sm-1" data-field="relationDD">Relation</th>
-					<th class="col-sm-1" data-field="permAddress">Address</th>
-					<th class="col-sm-1" data-field="email">Email</th>
-					<th class="col-sm-1" data-field="phone">Phone</th>
-					<th class="col-sm-1" data-field="guardianCNIC">CNIC</th>
-					<th class="col-sm-1" data-field="occupation">Occupation</th>
-					<th class="col-sm-1" data-field="guardianStatus">Status</th>
-					<th class="col-sm-1" data-field="guardianDated">Dated</th>
-				</thead>
-			</table>
-		</div>		
-		<div id="StudentDiv" class="formDiv">
-			<h4 th:text="#{label.student.form.heading}">Student Registration</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Student" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-12">
-						<input type="text" class="form-control" id="studentId" name="id"> 
-					</div>
-				</div>								
- 				<div class="form-group">
-					<label class="control-label col-sm-2" for="studentYS">Session Year Start</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control datePicker" id="studentYS" name="ys"
-							placeholder="Year start"> 
-					</div>
-					<label class="control-label col-sm-2" for="studentYE">Session Year End</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control datePicker" id="studentYE" name="ye"
-							placeholder="Year end"> 
-					</div>
-				</div>
-				<nav class="form-divider">
-					Mandatory Fields
-				</nav>				
- 				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="studentEnrollNo">Enroll No</label>
-					<div class="col-sm-2">
-						<input type="text" class="form-control" id="studentEnrollNo" name="enrollNo"
-							placeholder="Enrollment number" required="required"> 
-					</div>
-					<div class="col-sm-2">
-						<select class="form-control" id="studentStatus" name="status" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-					
-					<label class="control-label col-sm-2 req" for="studentEnrollDate">Enroll Date</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control datePicker" id="studentEnrollDate" name="enrollDate"
-							placeholder="Select Enroll Date" required="required"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="studentName">Student Name</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="studentName" name="name"
-							placeholder=" Student Name" required="required"> 
-					</div>
-					<label class="control-label col-sm-2 req" for="studentSchoolDD">Select Campus</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="studentSchoolDD" name="schoolId" required="required">
-						</select>
-					</div>
-				</div>
-				<div class="form-group">				
-					<label class="control-label col-sm-2 req" th:text="#{label.select.grade}" for="studentGradeDD">Select Class</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="studentGradeDD" name="gradeId" required="required">
-						<option class="dropdown-item" value=""> Nothing Selected </option>
-						</select>
-					</div>
-					<label class="control-label col-sm-2 req" for="studentGuardianDD">Select Guardian</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="studentGuardianDD" name="guardianId" required="required">
-						<option class="dropdown-item" value=""> Nothing Selected </option>
-						</select>
-					</div>
-				</div>
-				<nav class="form-divider">
-					Recommended Fields
-				</nav>
- 				<div class="form-group">
-					<label class="control-label col-sm-2" for="studentMobile">Mobile</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="studentMobile" name="mobile"
-							placeholder="default is Guardian's"> 
-					</div>
-					<label class="control-label col-sm-2" for="studentMobile">WatsApp</label>
-					<div class="col-sm-4">
-							<input type="text" class="form-control" id="studentWA" name="wa"
-								placeholder="default is Guardian's"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="studentEmail">Email</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="studentEmail" name="email"
-							placeholder="default is Guardian's">
-					</div>
-					<label class="control-label col-sm-2" for="studentAddress">Address</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="studentAddress" name="address"
-							placeholder="default is Guardian's"> 
-					</div>
-				</div>
- 				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.select.gender}" for="studentGender">Gender</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="studentGender" name="gender">
-							<option class="dropdown-item" value=""> Nothing Selected </option>
-							<option class="dropdown-item" value="Male" selected="selected">Male</option>
-		 					<option class="dropdown-item" value="Female">Female</option>
-		 				</select>
-					</div>
-					<label class="control-label col-sm-2" for="studentReligion">Religion</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="studentReligion" name="religion">
-							<option class="dropdown-item" value=""> ISLAM </option>
-							<option class="dropdown-item" value="CHRISTIAN">CHRISTIAN</option>
-		 					<option class="dropdown-item" value="AHMADI">AHMADI</option>
-		 					<option class="dropdown-item" value="SIKH">SIKH</option>
-		 					<option class="dropdown-item" value="HINDU">HINDU</option>
-		 					<option class="dropdown-item" value="OTHER">OTHER</option>
-		 				</select>
-					</div>
-				</div>				
-				<nav class="form-divider">
-					Optional Fields
-				</nav>
- 				<div class="form-group">
-					<label class="control-label col-sm-2" for="studentFee">Student Fee</label>
-					<div class="col-sm-2">
-						<select class="form-control" id="studentFeeMode" name="feeMode">
-							<option class="dropdown-item" value=""> Nothing Selected </option>
-							<option class="dropdown-item" value="Monthly" selected="selected">Monthly</option>
-		 					<option class="dropdown-item" value="Randomly">Randomly</option>
-		 				</select>
-					</div>
-					<div class="col-sm-2">
-						<input type="number" step="any" min="0" class="form-control" id="studentFee" name="fee"
-							placeholder="Default's Class fee"> 
-					</div>
-					<label class="control-label col-sm-2" for="studentDueDay">Due day of fee payment</label>
-					<div class="col-sm-4">
-						<input type="number" placeholder="default is 10" class="form-control" id="studentDueDay" name="dueDay"
-						 min="0" max="31"> 						
-					</div>
-				</div>
- 				<div class="form-group">
-					<label class="control-label col-sm-2" for="studentMN">Mother Name</label> 
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="studentMN" name="mn"
-							placeholder=" Mother name "/> 
-					</div>
-					<label class="control-label col-sm-2" th:text="#{label.select.blood.group}" for="studentBloodBroup">Blood Group</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="studentBloodBroup" name="bloodGroup">
-							<option class="dropdown-item" value=""> Nothing Selected </option>
-							<option class="dropdown-item" value="A+">A+</option>
-		 					<option class="dropdown-item" value="A-">A-</option>
-							<option class="dropdown-item" value="B+">B+</option>
-		 					<option class="dropdown-item" value="B-">B-</option>
-							<option class="dropdown-item" value="AB+">AB+</option>
-		 					<option class="dropdown-item" value="AB-">AB-</option>
-							<option class="dropdown-item" value="O++">O+</option>
-		 					<option class="dropdown-item" value="O-">O-</option>
-		 				</select>
-					</div>
-				</div>
- 				<div class="form-group">
-					<label class="control-label col-sm-2" for="studentDateOfBirth">Date of Birth</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control datePicker" id="studentDateOfBirth" name="dateOfBirth"
-							placeholder="Select DOB"> 
-					</div>
-					<label class="control-label col-sm-2" for="studentPOB">Place of birth</label> 
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="studentPOB" name="pob"
-							placeholder="Place of birth"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.select.discount}" for="studentDiscountDD">Select Discount</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="studentDiscountDD" name="discountId">
-							<option class="dropdown-item" value=""> Nothing Selected </option>
-						</select>
-					</div>
-	 				<div id="newDiscDiv">
-						<label class="control-label col-sm-2" for="studentND">New Discount</label> 
-						<div class="col-sm-2">
-							<select id="studentDIDD" name="di" class="form-control">
-			 					<option class="dropdown-item" value="amount" selected="selected">amount</option>
-								<option class="dropdown-item" value="%">%</option>
+   	<div id="container" class="wrapper">
+		<div th:replace="header :: header"/>
+	    <div id="content">
+			<nav class="subnav" id="nav-subheader">
+				<div class="container-fluid">
+					<ul class="nav navbar-nav">
+						<div class="navbar-header active">
+							<p style="color: lightskyblue; padding-top: 17px"
+								class="glyphicon glyphicon-user" th:if="${param.user} != null"
+								th:text="${param.user[0]}">User</p>
+						</div>
+						<!-- <security:authorize access="hasRole('SUPER_ROLE')"> -->
+		<!-- 					<li>
+								<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
+									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DashboardDiv">Dashboard</option>
+								</select>
+							</li>
+		 -->					<li>
+								<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
+									<option class="dropdown-item" value="">Manage Registrations</option>
+									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="OwnerDiv">Owners</option>
+									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="SchoolDiv">Campus</option>
+									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="VehicleDiv">Vehicles</option>
+									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="GradeDiv">Classes</option>
+									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="StaffDiv">Employee</option>
+				 					<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="SubjectDiv">Subjects</option>
+			<!-- 
+									<option class="dropdown-item" value="NewDiscountDiv">Discounts</option>
+									<option class="dropdown-item" value="NewChargesDiv">Charges</option>
+			 -->
+									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DiscountDiv">Manage Discounts/Charges</option>
+									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="GuardianDiv">Guardians</option>						
+									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="StudentDiv">Manage Students</option>
+								</select>
+							</li>
+						<!-- </security:authorize> -->
+						<li>
+							<select name="feeType" id="feeType" class="dropdown show panel-heading">
+								<option class="dropdown-item" value="">Manage Fee</option>
+								<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="FcDiv">Fee Collection</option>
+								<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="FVDiv">Fee Voucher/Ledger</option>
+		<!-- 						<option class="dropdown-item" value="">Salary Distribution</option>
+								<option class="dropdown-item" value="">Miscellaneous</option>
+		 -->					</select>
+						</li>
+						<li>
+							<select name="reportType" id="reportType" class="dropdown show panel-heading">
+								<option class="dropdown-item" value="">View Reports</option>
+								<option sec:authorize="hasAuthority('FEE_REPORT,SUPER_PRIVILEGE')" class="dropdown-item" value="FRDiv">Fee Report</option>
 							</select>
-						</div>					
-						<div class="col-sm-2">
-							<input type="number" class="form-control" id="studentND" name="nd"
-								placeholder=" New discount "> 
+						</li>
+						<li>
+							<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading">
+								<option class="dropdown-item" value="">Manage Attendance</option>
+								<option sec:authorize="hasAuthority('MANAGE_ATTENDANCE,SUPER_PRIVILEGE')" class="dropdown-item" value="ADiv">Attendance</option>
+							</select>
+						</li>
+						<li>
+							<select name="communicationType" id="communicationType" class="dropdown show panel-heading">
+								<option class="dropdown-item" value="">Manage Alerts</option>
+								<option sec:authorize="hasAuthority('PUBLIC_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="PADiv">Public Alerts</option>
+								<option sec:authorize="hasAuthority('SYSTEM_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="AlertsDiv">System Alerts</option>
+							</select>
+						</li>
+					</ul>					
+				</div>
+			</nav>
+
+			<div id="globalError" class="alert alert-danger col-sm-12" style="display:none">error</div>	
+			<div id="DashboardDiv" class="formDiv dashbo">
+	          <div class="card-row"> 
+	             <div class="card col-sm-3">
+	               <div class="card-body">
+	                 <div class="card-top">
+	                   <div class="card-col">
+	                     <h4 class="card-title text-uppercase text-muted">Students</h4>
+	                     <span class="h4 font-weight-bold"><div id="studentDiv"></div></span>
+	                   </div>
+	                   <div class="card-col">
+	                     <div class="icon icon-shape bg-warning text-white rounded-circle shadow">
+	                       <i class="fas fa-chart-pie"></i>
+	                     </div>
+	                   </div>
+	                 </div>
+	                 <div class="card-bottom text-muted text-sm">
+	                   <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i><div id="percentDiv"></div></span>
+	                   <span class="text-nowrap">By last month</span>
+	                 </div>
+	               </div>
+	            </div>
+	             <div class="card col-sm-3">
+	               <div class="card-body">
+	                 <div class="card-top">
+	                   <div class="card-col">
+	                     <h4 class="card-title text-uppercase text-muted">Attendance</h4>
+	                     <span class="h3 font-weight-bold">0/0</span>
+	                   </div>
+	                   <div class="card-col">
+	                     <div class="icon icon-shape bg-warning text-white rounded-circle shadow">
+	                       <i class="fas fa-chart-pie"></i>
+	                     </div>
+	                   </div>
+	                 </div>
+	                 <div class="card-bottom text-muted text-sm">
+	                   <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i> 0%</span>
+	                   <span class="text-nowrap">By last month</span>
+	                 </div>
+	               </div>
+	            </div>
+	            <div class="card col-sm-3">
+	               <div class="card-body">
+	                 <div class="card-top">
+	                   <div class="card-col">
+	                     <h4 class="card-title text-uppercase text-muted">Collection</h4>
+	                     <span class="h3 font-weight-bold">0/0</span>
+	                   </div>
+	                   <div class="card-col">
+	                     <div class="icon icon-shape bg-yellow text-white rounded-circle shadow">
+	                       <i class="fas fa-users"></i>
+	                     </div>
+	                   </div>
+	                 </div>
+	                 <div class="card-bottom text-muted text-sm">
+	                   <span class="text-warning mr-2"><i class="fas fa-arrow-down"></i> 0%</span>
+	                   <span class="text-nowrap">By last month</span>
+	                 </div>
+	               </div>
+	            </div>            
+	             <div class="card col-sm-3">
+	               <div class="card-body">
+	                 <div class="card-top">
+	                   <div class="card-col">
+	                     <h4 class="card-title text-uppercase text-muted">Expense</h4>
+	                     <span class="h3 font-weight-bold">0/0</span>
+	                   </div>
+	                   <div class="col-auto">
+	                     <div class="icon icon-shape bg-info text-white rounded-circle shadow">
+	                       <i class="fas fa-percent"></i>
+	                     </div>
+	                   </div>
+	                 </div>
+	                 <div class="card-bottom text-muted text-sm">
+	                   <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 0%</span>
+	                   <span class="text-nowrap">By last month</span>
+	                 </div>
+	               </div>
+	            </div>            
+	          </div>
+	  		</div>
+			<div id="OwnerDiv" class="formDiv">
+				<h4 th:text="#{label.owner.form.heading}">Owner Registration</h4>
+				<br />
+				<!-- <form class="form-horizontal" role="form"> -->
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Owner" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-12">
+							<input type="text" class="form-control" id="ownerId" name="id"> 
 						</div>
 					</div>
-				</div>
- 				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.select.vehicle}" for="studentVehicleDD">Select Vehicle</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="studentVehicleDD" name="vehicleId">
-						<option class="dropdown-item" value=""> Nothing Selected </option>
-						</select>
+					<div class="form-group">				
+						<label class="control-label col-sm-2 req" for="ownerName">Owner name</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="ownerName" name="name"
+								placeholder=" Owner Name" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req" for="ownerMobile">Mobile</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="ownerMobile" name="mobile"
+								placeholder="Mobile Number" required="required"> 
+						</div>
 					</div>
-					<label class="control-label col-sm-2" for="studentvf">Vehicle Fare</label> 
-					<div class="col-sm-4">
-						<input type="number" class="form-control" id="studentvf" name="vf"
-							placeholder=" Vehicle Fare "> 
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="ownerAddress">Address</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="ownerAddress"
+								name="address" placeholder="Complete Address" required="required">
+						</div>
+						<label class="control-label col-sm-2" for="ownerEmail">Email</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="ownerEmail" name="email"
+								placeholder="Email address">
+						</div>
 					</div>
-				</div>
-				<div class="form-group" style="text-align: center;">
-					<button type="button" id="addStudent" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteStudent" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetStudent" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<table id="tableStudent" class="table table-striped">
-				<thead>
-					<th class="col-sm-1" data-field="staffId">Id</th>
-					<th class="col-sm-1" data-field="checkDelete">Check</th>
-					<th class="col-sm-1" data-field="studentEnrollNo">Enroll No</th>
-					<th class="col-sm-1" data-field="studentStatus">Status</th>
-					<th class="col-sm-1" data-field="studentEnrollDate">Enroll Date</th>
-					<th class="col-sm-1" data-field="studentName">Name</th>
-					<th class="col-sm-1" data-field="studentSchoolDD">Campus</th>
-					<th class="col-sm-1" data-field="studentGradeDD">Class</th>
-					<th class="col-sm-1" data-field="studentGuardianDD">Guardian</th>
-					<th class="col-sm-1" data-field="studentGender">Gender</th>
-					<th class="col-sm-1" data-field="studentFee">Fee</th>
-					<th class="col-sm-1" data-field="studentFeeMode">Fee Mode</th>
-					<th class="col-sm-1" data-field="studentMN">Mother name</th>
-					<th class="col-sm-1" data-field="studentBloodBroup">Blood Group</th>
-					<th class="col-sm-1" data-field="studentVehicleDD">Vehicle</th>
-					<th class="col-sm-1" data-field="studentvf">Vehicle Fare</th>
-					<th class="col-sm-1" data-field="studentDateOfBirth">DOB</th>
-					<th class="col-sm-1" data-field="studentPOB">POB</th>
-					<th class="col-sm-1" data-field="studentDiscountDD">Disc. Name</th>
-					<th class="col-sm-1" data-field="studentND">Disc. amount</th>
-					<th class="col-sm-1" data-field="studentDIDD">Disc. type</th>
-					<th class="col-sm-1" data-field="studentDueDay">Due Day</th>
-					<th class="col-sm-1" data-field="studentMobile">Mobile</th>
-					<th class="col-sm-1" data-field="studentWA">WatsApp</th>
-					<th class="col-sm-1" data-field="studentEmail">Email</th>
-					<th class="col-sm-1" data-field="studentAddress">Address</th>
-					<th class="col-sm-1" data-field="studentDated">Updated</th>
-					<th class="col-sm-1" data-field="studentYS">Year Start</th>
-					<th class="col-sm-1" data-field="studentYE">Year End</th>
-				</thead>
-			</table>
-		</div>
-		<div id="SubjectDiv" class="formDiv">
-			<h4 th:text="#{label.subject.form.heading}">Subject Registration</h4>
-			<br />
-			<!-- <form class="form-horizontal" role="form"> -->
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Subject" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="subjectId" name="id"> 
+					<div class="form-group">
+	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="ownerStatus">Status</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="ownerStatus" name="status" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
 					</div>
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="subjectDated" name="datedStr"> 
-					</div>
-				</div>				
-				<div class="form-group">		
-<!-- 					<label class="control-label col-sm-2" th:text="#{label.select.staff}" for="subjectStaffDD">Select Staff</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="subjectStaffDD" name="staffId" required="required">
-						</select>
-					</div>
- -->					
- 					<label class="control-label col-sm-2 req" th:text="#{label.select.grade}" for="subjectGradeId">Select Class</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="subjectGradeDD" name="gradeId" required="required">
-						</select>
-					</div>
-					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="subjectStatus">Status</label>
-					<div class="col-sm-4">
-						<select	class="form-control" id="subjectStatus" name="status" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-					
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="subjectName">Subject name</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="subjectName" name="name"
-							placeholder=" Subject Name" required="required"> 
-					</div>
-					<label class="control-label col-sm-2" for="subjectCode">Code</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="subjectCode" name="code"
-							placeholder="Subject Code">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="subjectPublisher">Publisher</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="subjectPublisher" name="publisher"
-							placeholder=" Enter Publisher"> 
-					</div>
-					<label class="control-label col-sm-2" for="subjectEdition">Edition</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="subjectEdition"
-							name="edition" placeholder="Enter Edition">
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center">
-					<button type="button" id="addSubject" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteSubject" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetSubject" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<div>
-				<table id="tableSubject" class="table table-striped">
-					<thead>
-						<tr>
-							<th class="col-sm-1" data-field="subjectId">Id</th>
-							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-2" data-field="gradeName">Class</th>
-							<th class="col-sm-1" data-field="name">Name</th>
-							<th class="col-sm-1" data-field="code">code</th>
-							<th class="col-sm-1" data-field="publisher">Publisher</th>
-							<th class="col-sm-1" data-field="edition">Edition</th>
-							<th class="col-sm-1" data-field="status">Status</th>
-							<th class="col-sm-1" data-field="subjectDated">Dated</th>
-						</tr>
-					</thead>
-				</table>
-			</div>
-		</div>	
-		<div id="VehicleDiv" class="formDiv">
-			<h4 th:text="#{label.vehicle.form.heading}">Vehicle Registration</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Vehicle" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="vehicleId" name="id"> 
-					</div>
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="vehicleDated" name="datedStr"> 
-					</div>
-				</div>				
-				<div class="form-group">		
-					<label class="control-label col-sm-2" for="vehicleSchoolDD">Select Campus</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="vehicleSchoolDD" name="schoolId">
-						</select>
-					</div>
-					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="vehicleStatus">Status</label>
-					<div class="col-sm-4">
-						<select	class="form-control" id="vehicleStatus" name="status" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group">		
-					<label class="control-label col-sm-2 req" for="vehicleName">Vehicle name</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="vehicleName" name="name"
-							placeholder=" Vehicle Name" required="required"> 
-					</div>
-					<label class="control-label col-sm-2 req" for="vehicleNumber">Number</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="vehicleNumber" name="number"
-							placeholder=" Vehicle Number" required="required"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="vehicleDriverName">Driver Name</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="vehicleDriverName" name="driverName"
-							placeholder=" Driver Name" required="required"> 
-					</div>
-					<label class="control-label col-sm-2 req"  for="vehicleDriverMobile">Driver Mobile</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="vehicleDriverMobile" name="driverMobile"
-							placeholder=" Driver Mobile" required="required"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="vehicleOwnerName">Owner Name</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="vehicleOwnerName" name="ownerName"
-							placeholder=" Owner Name" required="required"> 
-					</div>
-					<label class="control-label col-sm-2 req" for="vehicleOwnerMobile">Owner Mobile</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="vehicleOwnerMobile" name="ownerMobile"
-							placeholder=" Owner Mobile" required="required"> 
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center">
-					<button type="button" id="addVehicle" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-<!-- 					<button type="button" id="inactiveVehicle" class="btn btn-secondary">
-						<span class="glyphicon glyphicon-ban-circle"></span> Inactive
-					</button>
- -->					
- 					<button type="button" id="deleteVehicle" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetVehicle" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<div>
-				<table id="tableVehicle" class="table table-striped">
-					<thead>
-						<tr>
-							<th class="col-sm-1" data-field="vehicleId">Id</th>
-							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-2" data-field="vehicleSchoolDD">School</th>
-							<th class="col-sm-1" data-field="vehicleName">Vehicle</th>
-							<th class="col-sm-1" data-field="vehicleNumber">Number</th>
-							<th class="col-sm-1" data-field="vehicleDriverName">Driver Name</th>
-							<th class="col-sm-1" data-field="vehicleDriverMobile">Driver Mobile</th>
-							<th class="col-sm-1" data-field="vehicleOwnerName">Owner Name</th>
-							<th class="col-sm-1" data-field="vehicleOwnerMobile">Owner Mobile</th>
-							<th class="col-sm-1" data-field="vehicleStatus">Status</th>
-							<th class="col-sm-1" data-field="vehicleDated">Dated</th>
-						</tr>
-					</thead>
-				</table>
-			</div>
-		</div>		
-		<div id="DiscountDiv" class="formDiv">
-			<h4>Discount Management</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Discount" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="discountId" name="id"> 
-					</div>
-				</div>				
-				<div class="form-group">		
-<!-- 					<label class="control-label col-sm-2" th:text="#{label.select.school}" for="discountStudentDD">Select Student</label> 
-					<div class="col-sm-4">
-						<select class="form-control" id="discountStudentDD" name="schoolId" required="required">
-						</select>
-					</div>
- -->					
-					<label class="control-label col-sm-2 req" for="discountName">Discount name</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="discountNameDD" name="name" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>					
-							<option class="dropdown-item" value="Admission">Admission</option>
-		 					<option class="dropdown-item" value="Scholarship">Scholarship</option>
-		 					<option class="dropdown-item" value="Performance">Performance</option>
-		 					<option class="dropdown-item" value="Charity">Charity</option>
-		 					<option class="dropdown-item" value="Reference">Reference</option>
-		 					<option class="dropdown-item" value="Sibling">Sibling</option>
-		 				</select>
-					</div>
-	 				<label class="control-label col-sm-2 req" th:text="#{label.DiscountIn}" for="discountType">Discount Type</label>
-					<div class="col-sm-4">
-						<select	class="form-control" id="discountTypeDD" name="di" required="required">
-							<option class="dropdown-item" value="amount">amount is amount.</option>
-		 					<option class="dropdown-item" value="amount" selected="selected">amount</option>
-							<option class="dropdown-item" value="%">%</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group">		
-					<label class="control-label col-sm-2" for="discountAmount">Fixed Amount</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="discountAmount" name="amount"
-							placeholder=" Discount Amount"> 
-					</div>
-					<label class="control-label col-sm-2" th:text="#{label.description}" for="discountDescription">Description</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="discountDescription" name="description"
-							placeholder=" Discount Description"> 
-					</div>
-				</div>
-				<div class="form-group">		
- 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="discountStatus">Status</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="discountStatus" name="status" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center">
-					<button type="button" id="addDiscount" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteDiscount" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetDiscount" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<div>
-				<table id="tableDiscount" class="table table-striped">
-					<thead>
-						<tr>
-							<th class="col-sm-1" data-field="discountId">Id</th>
-							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-1" data-field="discountName">Discount Name</th>
-							<th class="col-sm-2" data-field="discountType">Type</th>
-							<th class="col-sm-1" data-field="discountAmount">Amount</th>
-							<th class="col-sm-1" data-field="discountDescription">Description</th>
-							<th class="col-sm-1" data-field="discountStatus">Status</th>
-						</tr>
-					</thead>
-				</table>
-			</div>
-		</div>		
-		<div id="PADiv" class="formDiv">
-			<h4>Public Alerts</h4>
-			<form action="/educationDashboard.html" method="POST" class="form-horizontal" role="form" enctype="multipart/form-data" id="PAForm" autocomplete="off">
-			<!-- <form method="POST" enctype="multipart/form-data" id="maForm"> -->
-			<!-- <form th:action="@{/importCSV}" method="post" id="maForm" enctype="multipart/form-data"> -->
-				<div class="" style="padding-bottom: 15px;padding-top: 10px;">
-			    	<input type="file" name="file" id="csvFile" accept=".csv" class="btn btn-primary" style="float: left" title="Choose CSV file">
-					<input type="button" id="paBtn" value="Import" onclick="return checkfile()" class="btn btn-success" style="margin-left: 10px;">
-				</div>
-			</form>
-			<table id="tablePA" class="table table-striped">
-		        <thead>
-		            <tr>
-		            	<th class="col-sm-1">Id</th>
-						<th class="col-sm-2">Dated</th>
-						<th class="col-sm-3">Channel</th>
-						<th class="col-sm-3">Target</th>
-						<th class="col-sm-3">Status</th>
-		            </tr>
-		        </thead>
-   		    </table>
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="PA" autocomplete="off">
-				<div class="" style="padding-bottom: 15px;padding-top: 10px;">
-					<input type="text" class="form-control" style="margin-bottom: 5px" id="pah" name="pah"
-						placeholder="Heading" title="Subject" required="required">
-					<textarea class="form-control" style="margin-bottom: 5px" rows="5" id="pam" name="pam" title="Message details" placeholder="Message details ..." required="required"></textarea> 
-					<input type="text" class="form-control" style="margin-bottom: 10px" id="pas" name="pas" title="Signature" placeholder="Signature">
-				</div>
-				<div class="form-group">
-					<input type="checkbox" name="isEmail" id="email" class="btn default">
-						<span class="glyphicon glyphicon-envelope"></span> Email
-					</input>
-					<input type="checkbox" name="isMobile" id="mobile" class="btn default">
-						<span class="glyphicon glyphicon-phone"></span> Mobile
-					</input>
-					<input type="checkbox" name="isAll" id="all" checked="checked" class="btn default" >
-						<span class="glyphicon glyphicon-random"></span> All
-					</input>
-					<button type="button" id="sendPA" class="btn btn-success">
-						<span class="glyphicon glyphicon-send"></span> Send
-					</button>
-				</div>
-			</form>   		    
-		</div>				
-		<div id="AlertsDiv" class="formDiv">
-			<h4 th:text="#{label.alerts.form.heading}">Manage Alert</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Alerts" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="aId" name="id"> 
-					</div>
-					<div class="col-sm-6">
-					</div>
-				</div>				
-				<div class="form-group">		
-					<label class="control-label col-sm-2 req" for="acdd">Select Consumers</label>
-					<div class="col-sm-4">
-						<select multiple="multiple"	class="form-control" id="acdd" name="c" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>
-							<option class="dropdown-item" value="Students">Students</option>
-		 					<option class="dropdown-item" value="Guardians">Guardians</option>
-							<option class="dropdown-item" value="Employees">Employees</option>
-		 					<option class="dropdown-item" value="Drivers">Drivers</option>
-							<option class="dropdown-item" value="Public">Public</option>
-							<option class="dropdown-item" value="All">All</option>
-		 				</select>
-					</div>
-					<label class="control-label col-sm-2 req" for="atdd">Alert Type</label>
-					<div class="col-sm-4">
-						<select multiple="multiple"	class="form-control" id="atdd" name="at" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>
-							<option class="dropdown-item" value="Notice Board">Notice Board</option>
-		 					<option class="dropdown-item" value="Late Fee">Late Fee</option>
-							<option class="dropdown-item" value="Fee Reviwed">Fee Reviwed</option>
-		 					<option class="dropdown-item" value="Timing Issue">Timing Issue</option>
-							<option class="dropdown-item" value="Performace">Performace</option>
-							<option class="dropdown-item" value="Policies Reviwed">Policies Reviwed</option>
-							<option class="dropdown-item" value="Ethics">Ethics</option>
-							<option class="dropdown-item" value="Promotions">Promotions</option>
-							<option class="dropdown-item" value="Holidays">Holidays</option>
-							<option class="dropdown-item" value="Vacations">Vacations</option>
-							<option class="dropdown-item" value="Attendance">Attendance</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group">		
-					<label class="control-label col-sm-2 req" for="adcdd">Delivery Channel</label>
-					<div class="col-sm-4">
-						<select multiple="multiple"	class="form-control" id="adcdd" name="dc" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>
-		 					<option class="dropdown-item" value="Email">Email</option>
-							<option class="dropdown-item" value="SMS">SMS</option>
-							<option class="dropdown-item" value="Watts App">Watts App</option>
-		 					<option class="dropdown-item" value="Facebook">Facebook</option>
-							<option class="dropdown-item" value="Twitter">Twitter</option>
-		 					<option class="dropdown-item" value="Instagram">Instagram</option>
-		 				</select>
-					</div>
-					<label class="control-label col-sm-2 req" for="adpdd">Delivery Channel</label>
-					<div class="col-sm-4">
-						<select multiple="multiple"	class="form-control" id="adpdd" name="dp" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>
-							<option class="dropdown-item" value="Daily">Daily</option>
-		 					<option class="dropdown-item" value="Weekly">Weekly</option>
-							<option class="dropdown-item" value="Monthly">Monthly</option>
-		 					<option class="dropdown-item" value="Quartly">Quartly</option>
-							<option class="dropdown-item" value="Yearly">Yearly</option>
-							<option class="dropdown-item" value="Random">Random</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="adtdd">Delivery Type</label>
-					<div class="col-sm-4">
-						<select	class="form-control" id="adtdd" name="dt" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>
-							<option class="dropdown-item" value="Manual">Manual</option>
-		 					<option class="dropdown-item" value="Auto">Auto</option>
-		 				</select>
-					</div>
- 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="ast">Status</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="ast" name="st" required="required">
-							<option class="dropdown-item" value="Active" selected="selected">Active</option>
-		 					<option class="dropdown-item" value="Inactive">Inactive</option>
-		 				</select>
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" th:text="#{label.start.date}"  for="asd">Start Date</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control datePicker" id="asd" name="sdStr"
-							placeholder=" Start Date"> 
-					</div>
-					<label class="control-label col-sm-2" th:text="#{label.end.date}"  for="aed">End Date</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control datePicker" id="aed" name="edStr"
-							placeholder=" End Date"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="ah">Heading</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="ah" name="ah"
-							placeholder=" Message heading " required="required"> 
-					</div>
-					<div class="col-sm-6">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="am">Details</label>
-					<div class="col-sm-10">
-						<textarea class="form-control" rows="5" id="am" name="am" placeholder="Enter message detail here..." required="required"></textarea> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2"  for="as">Signature</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="as" name="as"
-							placeholder=" Message signature "> 
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center">
-					<button type="button" id="addAlerts" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteAlerts" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetAlerts" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-					<button type="reset" id="sendAlerts" class="btn btn-primary">
-						<span class="glyphicon glyphicon-send"></span> Send
-					</button>
-				</div>
-			</form>
-			<div>
-				<table id="tableAlerts" class="table table-striped">
-					<thead>
-						<tr>
-							<th class="col-sm-1" data-field="aId">Id</th>
-							<th class="col-sm-1" data-field="checkAlerts">Check</th>
-							<th class="col-sm-1" data-field="acdd">Consumer</th>
-							<th class="col-sm-1" data-field="atdd">Type</th>
-							<th class="col-sm-1" data-field="adcdd">Del. Channel</th>
-							<th class="col-sm-1" data-field="adpdd">Del. Period</th>
-							<th class="col-sm-1" data-field="adtdd">Del. Type</th>
-							<th class="col-sm-1" data-field="ast">Status</th>
-							<th class="col-sm-1" data-field="asd">Start Date</th>
-							<th class="col-sm-1" data-field="aed">End Date</th>
-							<th class="col-sm-1" data-field="ah">Heading</th>
-							<th class="col-sm-1" data-field="am">Message</th>
-							<th class="col-sm-1" data-field="as">Signature</th>
-						</tr>
-					</thead>
-				</table>
-			</div>
-		</div>		
-			
-		<div id="FcDiv" class="formDiv">
-			<h4 th:text="#{label.fc.form.heading}">Manage Fee Collection</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="Fc" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="fcId" name="id"> 
-					</div>
-					<div class="col-sm-6">
-					</div>
-				</div>				
-				<div class="form-group">		
-					<label class="control-label col-sm-2 req" for="fcen">Enter Enroll No</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="inputFc" name="en"
-							placeholder=" Enter Enroll No " required="required" onkeypress="handleEnterKey(event,'enter','findFc')"> 
-					</div>
-					<div class="col-sm-6">
-						<button type="button" id="findFc" class="btn btn-success">
-							<span class="glyphicon glyphicon-search"></span> Search
+					<div class="form-group" style="text-align: center">
+						<button type="button" id="addOwner" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-<!-- 						<button type="button" id="printFc" onclick="printFc2()" class="btn btn-success">
-							<span class="glyphicon glyphicon-print"></span> Print
+						<button type="button" id="deleteOwner" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
 						</button>
- -->					</div>
-				</div>
-				<div id="fcCalculaton" class="form-group" style="display: none">	
-					<input type="number" class="form-control" id="fchf" name="f"/> 
-					<input type="number" class="form-control" id="fchvf" name="vf"/> 
-					<input type="number" class="form-control" id="fchd" name="d"/> 
-					<input type="text" class="form-control" id="fchdt" name="dt"/> 
-					<input type="number" class="form-control" id="fchda" name="da"/> 
-					<input type="text" class="form-control" id="fchdd" name="dd"/>
-				</div>			
-				<div class="form-group" id="fcDetail">
-					<table id="" class="display table" style="width:100%">
+						<button type="reset" id="resetOwner" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+				</form>
+				<table id="tableOwner" class="table table-striped">
+					<thead>
+						<tr>
+							<th class="col-sm-1" data-field="ownerId">Id</th>
+							<th class="col-sm-1" data-field="checkDelete">Check</th>
+							<th class="col-sm-2" data-field="name">Name</th>
+							<th class="col-sm-1" data-field="mobile">Mobile</th>
+							<th class="col-sm-3" data-field="address">Address</th>
+							<th class="col-sm-2" data-field="email">Email</th>
+							<th class="col-sm-3" data-field="ownerStatus">Status</th>
+							<th class="col-sm-2" data-field="ownderDated">Dated</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+			<div id="SchoolDiv" class="formDiv">
+				<h4 th:text="#{label.School.form.heading}">School Registration</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="School" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="schoolId" name="id"> 
+						</div>
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="schoolDated" name="datedStr"> 
+						</div>
+					</div>
+					<div class="form-group" id="mainBranchDiv">
+						<label class="control-label col-sm-2 req" th:text="#{label.select.owner}">Owner name</label> 
+						<div class="col-sm-4">
+							<select multiple="multiple" class="form-control" id="schoolOwnerDD" name="ownerIds" required="required">
+							</select>
+						</div>
+						<label class="control-label col-sm-2 req" for="schoolAddress" th:text="#{label.address}">Address</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="schoolAddress"
+								name="address" placeholder="Complete Address" required="required">
+						</div>
+	 				</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="schoolBranchName" th:text="#{label.branch}">Branch Name</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="schoolBranchName"
+								name="branchName" placeholder="Branch name">
+						</div>
+						<label class="control-label col-sm-2" for="schoolPhone" th:text="#{label.phone}">Phone Number</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="schoolPhone" name="phone"
+								placeholder="Phone Number"> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="schoolEmail" th:text="#{label.email}">Email</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="schoolEmail" name="email"
+								placeholder="Email address">
+						</div>
+	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="schoolStatus">Status</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="schoolStatus" name="status" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center">
+						<button type="button" id="addSchool" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteSchool" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetSchool" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+				</form>
+				<div>
+					<table id="tableSchool" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-2">Student</th>
-								<th class="col-sm-2">Gaurdian</th>
-								<th class="col-sm-2">School</th>
-								<th class="col-sm-1">Class</th>
-								<th class="col-sm-1">Fee</th>
-								<th class="col-sm-1">V. Fare</th>
-								<th class="col-sm-1">Discount</th>
-								<th class="col-sm-1">Due Amount</th>
-								<th class="col-sm-1">Due Date</th>
-							</tr>	
-						</thead>
-						<tbody>
-							<tr>
-								<td class="col-sm-2"><div class=" fcDTC" id="fcsn"></div></td>
-								<td class="col-sm-2"><div class=" fcDTC" id="fcgn"></div></td>
-								<td class="col-sm-2"><div class=" fcDTC" id="fcscn"></div></td>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcg"></div></td>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcf"></div></td>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcvf"></div></td>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcd"></div>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcda"></div></td>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcdd"></div></td>
+								<th class="col-sm-1" data-field="schoolId">Id</th>
+								<th class="col-sm-1" data-field="checkDelete">Check</th>
+								<th class="col-sm-2" data-field="owner">Owner</th>
+								<th class="col-sm-2" data-field="address">Address</th>
+								<th class="col-sm-2" data-field="branchName">Branch Name</th>
+								<th class="col-sm-1" data-field="phone">Phone</th>
+								<th class="col-sm-1" data-field="email">Email</th>
+								<th class="col-sm-1" data-field="schoolStatus">Status</th>
+								<th class="col-sm-1" data-field="schoolDated">Dated</th>
 							</tr>
-						</tbody>						
+						</thead>
 					</table>
-					<table id="fcDT" class="display table" style="width:100%">
+				</div>
+			</div>
+			<div id="GradeDiv" class="formDiv">
+				<h4 th:text="#{label.grade.form.heading}">Class Registration</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Grade" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="gradeId" name="id"> 
+						</div>
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="schoolDated" name="datedStr"> 
+						</div>
+					</div>				
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="gradeSchoolDD">Select Campus</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="gradeSchoolDD" name="schoolId" required="required">
+							</select>
+						</div>
+						<label class="control-label col-sm-2 req" for="gradeName">Class name</label> 
+						<div class="col-sm-4">
+							<input id="gradeName" class="form-control" type="text"	name="name" value="" required="required"/>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="gradeCode">Code/Batch</label> 
+						<div class="col-sm-4">
+							<input id="gradeCode" class="form-control" type="text"	name="code"/>
+						</div>
+						<label class="control-label col-sm-2 req" for="gradeFee">Fee</label> 
+						<div class="col-sm-4">
+							<input id="gradeFee" class="form-control" type="number" step="any" min="0"	name="fee" placeholder="Enter fee" required="required"/>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" th:text="#{label.start.time}" for="gradeTimeFromStr">Time Start</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control timepicker text-center" id="gradeTimeFromStr"
+								name="timeFromStr" placeholder="Enter start time">
+						</div>
+						<label class="control-label col-sm-2" for="gradeTimeToStr">Time End</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control timepicker text-center" id="gradeTimeToStr"
+								name="timeToStr" placeholder="Enter end time">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" th:text="#{label.select.room}">Room</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="gradeRoom" name="room">
+								<option class="dropdown-item" value=""> Nothing Selected </option>
+								<option th:each="i : ${#numbers.sequence(1, 50)}" th:value="${i}"
+									th:text="${i}" th:selected="${i==24}" value=""></option>
+							</select>
+						</div>
+	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="gradeStatus">Status</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="gradeStatus" name="status" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center">
+						<button type="button" id="addGrade" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteGrade" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetGrade" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+				</form>
+				<div class="form-group">
+					<table id="tableGrade" class="table table-striped">
 						<thead>
-							<tr><th rowspan="1" colspan="12" style="margin: 0px;padding: 3px">Fee details since last payment</th></tr>
 							<tr>
+								<th class="col-sm-1" data-field="gradeId">Id</th>
+								<th class="col-sm-1" data-field="checkDelete">Check</th>
+								<th class="col-sm-2" data-field="schoolName">Branch Name</th>
+								<th class="col-sm-2" data-field="name">Name</th>
+								<th class="col-sm-1" data-field="code">Code</th>
+								<th class="col-sm-1" data-field="GradeFee">Fee</th>
+								<th class="col-sm-1" data-field="timeFromStr">Time From</th>
+								<th class="col-sm-1" data-field="timeToStr">Time To</th>
+								<th class="col-sm-1" data-field="room">Room</th>
+								<th class="col-sm-1" data-field="gradeStatus">Status</th>
+								<th class="col-sm-1" data-field="schoolDated">Dated</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</div>
+			<div id="StaffDiv" class="formDiv">
+				<h4 th:text="#{label.staff.form.heading}">Staff Registration</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Staff" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="staffId" name="id"> 
+						</div>
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="staffDated" name="datedStr"> 
+						</div>
+					</div>				
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="staffName">Employee name</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="staffName" name="name"
+								placeholder=" Employee Name" required="required"> 
+						</div>
+						<label class="control-label col-sm-2" for="staffEmail">Email</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="staffEmail" name="email"
+								placeholder="Email address">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="staffMobile">Mobile</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control req" id="staffMobile" name="mobile"
+								placeholder="Mobile Number" required="required"> 
+						</div>
+						<label class="control-label col-sm-2" for="staffPhone">Phone</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="staffPhone"
+								name="phone" placeholder="Phone number">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" th:text="#{label.timeIn}" for="staffTimeInStr">Time In</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control timepicker text-center" id="staffTimeInStr"
+								name="timeInStr" placeholder=" Time In ">
+						</div>
+						<label class="control-label col-sm-2" th:text="#{label.timeOut}" for="staffTimeOutStr">Time Out</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control timepicker text-center" id="staffTimeOutStr"
+								name="timeOutStr" placeholder=" Time Out ">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 required req" for="staffDesignation">Designation</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="staffDesignation" name="designation"
+								placeholder="Designation" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req" for="staffQualification">Qualification</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="staffQualification"
+								name="qualification" placeholder="Qualification" required="required">
+						</div>
+					</div>
+	 				<div class="form-group">
+	<!-- 					<label class="control-label col-sm-2" th:text="#{label.select.school}">Select Schools</label> 
+						<span class="col-sm-4"> 
+							<select multiple="multiple"	class="form-control" id="staffSchoolDD" name="schoolIds"></select>
+						</span>
+	 -->					<label class="control-label col-sm-2" th:text="#{label.select.grade}">Select Class</label> 
+						<div class="col-sm-4"> 
+							<select multiple="multiple"	class="form-control" id="staffGradeDD" name="gradeIds"></select>
+						</div>
+						<label class="control-label col-sm-2 req" th:text="#{label.select.gender}" for="staffGender">Select Gender</label>
+						<div class="col-sm-4">
+							<select	class="form-control" id="staffGender" name="gender" required="required">
+								<option class="dropdown-item" value="">Nothing Selected</option>						
+								<option class="dropdown-item" value="Male">Male</option>
+			 					<option class="dropdown-item" value="Female">Female</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="staffDOB">Date of Birth</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="staffDOB" name="staffDOB"
+								placeholder="Select DOB" required="required"> 
+						</div>					
+						<label class="control-label col-sm-2" th:text="#{label.select.martial.status}" for="staffMartialStatus">Martial Status</label>
+						<div class="col-sm-4">
+							<select	class="form-control" id="staffMartialStatus" name="martialStatus">
+								<option class="dropdown-item" value="">Nothing Selected</option>						
+								<option class="dropdown-item" value="Single" selected="selected">Single</option>
+			 					<option class="dropdown-item" value="Married">Married</option>
+			 					<option class="dropdown-item" value="Divorced">Divorced</option>
+			 					<option class="dropdown-item" value="Widowed">Widowed</option>
+			 				</select>
+						</div>
+									
+	<!-- 					<label class="control-label col-sm-2" th:text="#{label.select.subject}">Select Subjects</label> 
+						<span class="col-sm-4"> 
+							<select disabled="disabled" multiple="multiple" class="form-control" id="staffSubjectDD" name="subjectIds"></select>
+						</span>
+	 -->					
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" th:text="#{label.address}" for="staffAddress">Address</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="staffAddress"
+								name="address" placeholder="Complete Address" required="required">
+						</div>
+	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="staffStatus">Status</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="staffStatus" name="status" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center">
+						<button type="button" id="addStaff" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteStaff" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetStaff" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+				</form>
+				<div>
+					<table id="tableStaff" class="table table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="staffId">Id</th>
+								<th class="col-sm-1" data-field="checkDelete">Check</th>
+								<th class="col-sm-1" data-field="name">Name</th>
+								<th class="col-sm-1" data-field="email">Email</th>
+								<th class="col-sm-1" data-field="mobile">Mobile</th>
+								<th class="col-sm-1" data-field="phone">Phone</th>
+	 							<th class="col-sm-1" data-field="timeIn">Time In</th>
+								<th class="col-sm-1" data-field="timeOut">Time Out</th>
+	 							<th class="col-sm-1" data-field="designation">Designation</th>
+								<th class="col-sm-1" data-field="qualification">Qualification</th>
+	<!-- 							<th class="col-sm-1" data-field="staffSchoolDD">Schools</th> -->
+								<th class="col-sm-1" data-field="staffGradeDD">Classes</th>
+								<th class="col-sm-1" data-field="gender">Gender</th>
+								<th class="col-sm-1" data-field="staffDOB">Date of Birth</th>
+	 							<th class="col-sm-1" data-field="martialStatus">Martial Status</th>
+								<th class="col-sm-1" data-field="address">Address</th>
+								<th class="col-sm-1" data-field="status">Status</th>
+								<th class="col-sm-1" data-field="staffDated">Dated</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</div>
+			<div id="GuardianDiv" class="formDiv">
+				<h4 th:text="#{label.guardian.form.heading}">Guardian Registration</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Guardian" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="guardianId" name="id"> 
+						</div>
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="guardianDated" name="datedStr"> 
+						</div>
+					</div>				
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="guardianName">Guardian Name</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="guardianName" name="name"
+								placeholder=" Guardian Name" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req" for="guardianMobile">Mobile</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="guardianMobile" name="mobile"
+								placeholder="Mobile Number" required="required"> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="relationDD">Relation</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="relationDD" name="relation">
+								<option class="dropdown-item" value="Father" selected="selected">Father</option>					
+								<option class="dropdown-item" value="Mother">Mother</option>
+			 					<option class="dropdown-item" value="Aunt">Aunt</option>
+			 					<option class="dropdown-item" value="Grandfather">Grandfather</option>
+			 					<option class="dropdown-item" value="Grandmother">Grandmother</option>
+			 					<option class="dropdown-item" value="Guardian">Guardian</option>
+			 					<option class="dropdown-item" value="Self">Self</option>
+			 				</select>
+						</div>
+						<label class="control-label col-sm-2 req" for="guardianPermAddress">Address</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="guardianPermAddress"
+								name="permAddress" placeholder="Permanent Address" required="required">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="guardianEmail">Email</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="guardianEmail" name="email"
+								placeholder="Email address">
+						</div>
+						<label class="control-label col-sm-2" for="guardianPhone">Phone</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="guardianPhone"
+								name="phone" placeholder="Phone number">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="guardianCNIC">CNIC</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="guardianCNIC" name="cnic"
+								placeholder="Computerized National Identity Card"> 
+						</div>
+						<label class="control-label col-sm-2" for="guardianOccupation">Occupation</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="guardianOccupation"
+								name="occupation" placeholder="Occupation">
+						</div>
+					</div>
+					<div class="form-group">
+	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="guardianStatus">Status</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="guardianStatus" name="status" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center">
+						<button type="button" id="addGuardian" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteGuardian" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetGuardian" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+				</form>
+				<table id="tableGuardian" class="table table-striped">
+					<thead>
+						<th class="col-sm-1" data-field="guardianId">Id</th>
+						<th class="col-sm-1" data-field="checkDelete">Check</th>
+						<th class="col-sm-1" data-field="name">Name</th>
+						<th class="col-sm-1" data-field="mobile">Mobile</th>
+						<th class="col-sm-1" data-field="relationDD">Relation</th>
+						<th class="col-sm-1" data-field="permAddress">Address</th>
+						<th class="col-sm-1" data-field="email">Email</th>
+						<th class="col-sm-1" data-field="phone">Phone</th>
+						<th class="col-sm-1" data-field="guardianCNIC">CNIC</th>
+						<th class="col-sm-1" data-field="occupation">Occupation</th>
+						<th class="col-sm-1" data-field="guardianStatus">Status</th>
+						<th class="col-sm-1" data-field="guardianDated">Dated</th>
+					</thead>
+				</table>
+			</div>		
+			<div id="StudentDiv" class="formDiv">
+				<h4 th:text="#{label.student.form.heading}">Student Registration</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Student" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-12">
+							<input type="text" class="form-control" id="studentId" name="id"> 
+						</div>
+					</div>								
+	 				<div class="form-group">
+						<label class="control-label col-sm-2" for="studentYS">Session Year Start</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="studentYS" name="ys"
+								placeholder="Year start"> 
+						</div>
+						<label class="control-label col-sm-2" for="studentYE">Session Year End</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="studentYE" name="ye"
+								placeholder="Year end"> 
+						</div>
+					</div>
+					<nav class="form-divider">
+						Mandatory Fields
+					</nav>				
+	 				<div class="form-group">
+						<label class="control-label col-sm-2 req" for="studentEnrollNo">Enroll No</label>
+						<div class="col-sm-2">
+							<input type="text" class="form-control" id="studentEnrollNo" name="enrollNo"
+								placeholder="Enrollment number" required="required"> 
+						</div>
+						<div class="col-sm-2">
+							<select class="form-control" id="studentStatus" name="status" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
+						
+						<label class="control-label col-sm-2 req" for="studentEnrollDate">Enroll Date</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="studentEnrollDate" name="enrollDate"
+								placeholder="Select Enroll Date" required="required"> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="studentName">Student Name</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="studentName" name="name"
+								placeholder=" Student Name" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req" for="studentSchoolDD">Select Campus</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="studentSchoolDD" name="schoolId" required="required">
+							</select>
+						</div>
+					</div>
+					<div class="form-group">				
+						<label class="control-label col-sm-2 req" th:text="#{label.select.grade}" for="studentGradeDD">Select Class</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="studentGradeDD" name="gradeId" required="required">
+							<option class="dropdown-item" value=""> Nothing Selected </option>
+							</select>
+						</div>
+						<label class="control-label col-sm-2 req" for="studentGuardianDD">Select Guardian</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="studentGuardianDD" name="guardianId" required="required">
+							<option class="dropdown-item" value=""> Nothing Selected </option>
+							</select>
+						</div>
+					</div>
+					<nav class="form-divider">
+						Recommended Fields
+					</nav>
+	 				<div class="form-group">
+						<label class="control-label col-sm-2" for="studentMobile">Mobile</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="studentMobile" name="mobile"
+								placeholder="default is Guardian's"> 
+						</div>
+						<label class="control-label col-sm-2" for="studentMobile">WatsApp</label>
+						<div class="col-sm-4">
+								<input type="text" class="form-control" id="studentWA" name="wa"
+									placeholder="default is Guardian's"> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="studentEmail">Email</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="studentEmail" name="email"
+								placeholder="default is Guardian's">
+						</div>
+						<label class="control-label col-sm-2" for="studentAddress">Address</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="studentAddress" name="address"
+								placeholder="default is Guardian's"> 
+						</div>
+					</div>
+	 				<div class="form-group">
+						<label class="control-label col-sm-2" th:text="#{label.select.gender}" for="studentGender">Gender</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="studentGender" name="gender">
+								<option class="dropdown-item" value=""> Nothing Selected </option>
+								<option class="dropdown-item" value="Male" selected="selected">Male</option>
+			 					<option class="dropdown-item" value="Female">Female</option>
+			 				</select>
+						</div>
+						<label class="control-label col-sm-2" for="studentReligion">Religion</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="studentReligion" name="religion">
+								<option class="dropdown-item" value=""> ISLAM </option>
+								<option class="dropdown-item" value="CHRISTIAN">CHRISTIAN</option>
+			 					<option class="dropdown-item" value="AHMADI">AHMADI</option>
+			 					<option class="dropdown-item" value="SIKH">SIKH</option>
+			 					<option class="dropdown-item" value="HINDU">HINDU</option>
+			 					<option class="dropdown-item" value="OTHER">OTHER</option>
+			 				</select>
+						</div>
+					</div>				
+					<nav class="form-divider">
+						Optional Fields
+					</nav>
+	 				<div class="form-group">
+						<label class="control-label col-sm-2" for="studentFee">Student Fee</label>
+						<div class="col-sm-2">
+							<select class="form-control" id="studentFeeMode" name="feeMode">
+								<option class="dropdown-item" value=""> Nothing Selected </option>
+								<option class="dropdown-item" value="Monthly" selected="selected">Monthly</option>
+			 					<option class="dropdown-item" value="Randomly">Randomly</option>
+			 				</select>
+						</div>
+						<div class="col-sm-2">
+							<input type="number" step="any" min="0" class="form-control" id="studentFee" name="fee"
+								placeholder="Default's Class fee"> 
+						</div>
+						<label class="control-label col-sm-2" for="studentDueDay">Due day of fee payment</label>
+						<div class="col-sm-4">
+							<input type="number" placeholder="default is 10" class="form-control" id="studentDueDay" name="dueDay"
+							 min="0" max="31"> 						
+						</div>
+					</div>
+	 				<div class="form-group">
+						<label class="control-label col-sm-2" for="studentMN">Mother Name</label> 
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="studentMN" name="mn"
+								placeholder=" Mother name "/> 
+						</div>
+						<label class="control-label col-sm-2" th:text="#{label.select.blood.group}" for="studentBloodBroup">Blood Group</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="studentBloodBroup" name="bloodGroup">
+								<option class="dropdown-item" value=""> Nothing Selected </option>
+								<option class="dropdown-item" value="A+">A+</option>
+			 					<option class="dropdown-item" value="A-">A-</option>
+								<option class="dropdown-item" value="B+">B+</option>
+			 					<option class="dropdown-item" value="B-">B-</option>
+								<option class="dropdown-item" value="AB+">AB+</option>
+			 					<option class="dropdown-item" value="AB-">AB-</option>
+								<option class="dropdown-item" value="O++">O+</option>
+			 					<option class="dropdown-item" value="O-">O-</option>
+			 				</select>
+						</div>
+					</div>
+	 				<div class="form-group">
+						<label class="control-label col-sm-2" for="studentDateOfBirth">Date of Birth</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="studentDateOfBirth" name="dateOfBirth"
+								placeholder="Select DOB"> 
+						</div>
+						<label class="control-label col-sm-2" for="studentPOB">Place of birth</label> 
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="studentPOB" name="pob"
+								placeholder="Place of birth"> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" th:text="#{label.select.discount}" for="studentDiscountDD">Select Discount</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="studentDiscountDD" name="discountId">
+								<option class="dropdown-item" value=""> Nothing Selected </option>
+							</select>
+						</div>
+		 				<div id="newDiscDiv">
+							<label class="control-label col-sm-2" for="studentND">New Discount</label> 
+							<div class="col-sm-2">
+								<select id="studentDIDD" name="di" class="form-control">
+				 					<option class="dropdown-item" value="amount" selected="selected">amount</option>
+									<option class="dropdown-item" value="%">%</option>
+								</select>
+							</div>					
+							<div class="col-sm-2">
+								<input type="number" class="form-control" id="studentND" name="nd"
+									placeholder=" New discount "> 
+							</div>
+						</div>
+					</div>
+	 				<div class="form-group">
+						<label class="control-label col-sm-2" th:text="#{label.select.vehicle}" for="studentVehicleDD">Select Vehicle</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="studentVehicleDD" name="vehicleId">
+							<option class="dropdown-item" value=""> Nothing Selected </option>
+							</select>
+						</div>
+						<label class="control-label col-sm-2" for="studentvf">Vehicle Fare</label> 
+						<div class="col-sm-4">
+							<input type="number" class="form-control" id="studentvf" name="vf"
+								placeholder=" Vehicle Fare "> 
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center;">
+						<button type="button" id="addStudent" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteStudent" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetStudent" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+					<div class="form-group">
+						<table id="tableStudent" class="table table-striped">
+							<thead>
+								<th class="col-sm-1" data-field="staffId">Id</th>
+								<th class="col-sm-1" data-field="checkDelete">Check</th>
+								<th class="col-sm-1" data-field="studentEnrollNo">Enroll No</th>
+								<th class="col-sm-1" data-field="studentStatus">Status</th>
+								<th class="col-sm-1" data-field="studentEnrollDate">Enroll Date</th>
+								<th class="col-sm-1" data-field="studentName">Name</th>
+								<th class="col-sm-1" data-field="studentSchoolDD">Campus</th>
+								<th class="col-sm-1" data-field="studentGradeDD">Class</th>
+								<th class="col-sm-1" data-field="studentGuardianDD">Guardian</th>
+								<th class="col-sm-1" data-field="studentGender">Gender</th>
+								<th class="col-sm-1" data-field="studentFee">Fee</th>
+								<th class="col-sm-1" data-field="studentFeeMode">Fee Mode</th>
+								<th class="col-sm-1" data-field="studentMN">Mother name</th>
+								<th class="col-sm-1" data-field="studentBloodBroup">Blood Group</th>
+								<th class="col-sm-1" data-field="studentVehicleDD">Vehicle</th>
+								<th class="col-sm-1" data-field="studentvf">Vehicle Fare</th>
+								<th class="col-sm-1" data-field="studentDateOfBirth">DOB</th>
+								<th class="col-sm-1" data-field="studentPOB">POB</th>
+								<th class="col-sm-1" data-field="studentDiscountDD">Disc. Name</th>
+								<th class="col-sm-1" data-field="studentND">Disc. amount</th>
+								<th class="col-sm-1" data-field="studentDIDD">Disc. type</th>
+								<th class="col-sm-1" data-field="studentDueDay">Due Day</th>
+								<th class="col-sm-1" data-field="studentMobile">Mobile</th>
+								<th class="col-sm-1" data-field="studentWA">WatsApp</th>
+								<th class="col-sm-1" data-field="studentEmail">Email</th>
+								<th class="col-sm-1" data-field="studentAddress">Address</th>
+								<th class="col-sm-1" data-field="studentDated">Updated</th>
+								<th class="col-sm-1" data-field="studentYS">Year Start</th>
+								<th class="col-sm-1" data-field="studentYE">Year End</th>
+							</thead>
+						</table>
+					</div>
+				</form>
+			</div>
+			<div id="SubjectDiv" class="formDiv">
+				<h4 th:text="#{label.subject.form.heading}">Subject Registration</h4>
+				<br />
+				<!-- <form class="form-horizontal" role="form"> -->
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Subject" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="subjectId" name="id"> 
+						</div>
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="subjectDated" name="datedStr"> 
+						</div>
+					</div>				
+					<div class="form-group">		
+	<!-- 					<label class="control-label col-sm-2" th:text="#{label.select.staff}" for="subjectStaffDD">Select Staff</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="subjectStaffDD" name="staffId" required="required">
+							</select>
+						</div>
+	 -->					
+	 					<label class="control-label col-sm-2 req" th:text="#{label.select.grade}" for="subjectGradeId">Select Class</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="subjectGradeDD" name="gradeId" required="required">
+							</select>
+						</div>
+						<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="subjectStatus">Status</label>
+						<div class="col-sm-4">
+							<select	class="form-control" id="subjectStatus" name="status" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
+						
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="subjectName">Subject name</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="subjectName" name="name"
+								placeholder=" Subject Name" required="required"> 
+						</div>
+						<label class="control-label col-sm-2" for="subjectCode">Code</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="subjectCode" name="code"
+								placeholder="Subject Code">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="subjectPublisher">Publisher</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="subjectPublisher" name="publisher"
+								placeholder=" Enter Publisher"> 
+						</div>
+						<label class="control-label col-sm-2" for="subjectEdition">Edition</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="subjectEdition"
+								name="edition" placeholder="Enter Edition">
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center">
+						<button type="button" id="addSubject" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteSubject" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetSubject" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+				</form>
+				<div>
+					<table id="tableSubject" class="table table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="subjectId">Id</th>
+								<th class="col-sm-1" data-field="checkDelete">Check</th>
+								<th class="col-sm-2" data-field="gradeName">Class</th>
+								<th class="col-sm-1" data-field="name">Name</th>
+								<th class="col-sm-1" data-field="code">code</th>
+								<th class="col-sm-1" data-field="publisher">Publisher</th>
+								<th class="col-sm-1" data-field="edition">Edition</th>
+								<th class="col-sm-1" data-field="status">Status</th>
+								<th class="col-sm-1" data-field="subjectDated">Dated</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</div>	
+			<div id="VehicleDiv" class="formDiv">
+				<h4 th:text="#{label.vehicle.form.heading}">Vehicle Registration</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Vehicle" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="vehicleId" name="id"> 
+						</div>
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="vehicleDated" name="datedStr"> 
+						</div>
+					</div>				
+					<div class="form-group">		
+						<label class="control-label col-sm-2" for="vehicleSchoolDD">Select Campus</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="vehicleSchoolDD" name="schoolId">
+							</select>
+						</div>
+						<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="vehicleStatus">Status</label>
+						<div class="col-sm-4">
+							<select	class="form-control" id="vehicleStatus" name="status" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group">		
+						<label class="control-label col-sm-2 req" for="vehicleName">Vehicle name</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="vehicleName" name="name"
+								placeholder=" Vehicle Name" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req" for="vehicleNumber">Number</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="vehicleNumber" name="number"
+								placeholder=" Vehicle Number" required="required"> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="vehicleDriverName">Driver Name</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="vehicleDriverName" name="driverName"
+								placeholder=" Driver Name" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req"  for="vehicleDriverMobile">Driver Mobile</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="vehicleDriverMobile" name="driverMobile"
+								placeholder=" Driver Mobile" required="required"> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="vehicleOwnerName">Owner Name</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="vehicleOwnerName" name="ownerName"
+								placeholder=" Owner Name" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req" for="vehicleOwnerMobile">Owner Mobile</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="vehicleOwnerMobile" name="ownerMobile"
+								placeholder=" Owner Mobile" required="required"> 
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center">
+						<button type="button" id="addVehicle" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+	<!-- 					<button type="button" id="inactiveVehicle" class="btn btn-secondary">
+							<span class="glyphicon glyphicon-ban-circle"></span> Inactive
+						</button>
+	 -->					
+	 					<button type="button" id="deleteVehicle" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetVehicle" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+				</form>
+				<div>
+					<table id="tableVehicle" class="table table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="vehicleId">Id</th>
+								<th class="col-sm-1" data-field="checkDelete">Check</th>
+								<th class="col-sm-2" data-field="vehicleSchoolDD">School</th>
+								<th class="col-sm-1" data-field="vehicleName">Vehicle</th>
+								<th class="col-sm-1" data-field="vehicleNumber">Number</th>
+								<th class="col-sm-1" data-field="vehicleDriverName">Driver Name</th>
+								<th class="col-sm-1" data-field="vehicleDriverMobile">Driver Mobile</th>
+								<th class="col-sm-1" data-field="vehicleOwnerName">Owner Name</th>
+								<th class="col-sm-1" data-field="vehicleOwnerMobile">Owner Mobile</th>
+								<th class="col-sm-1" data-field="vehicleStatus">Status</th>
+								<th class="col-sm-1" data-field="vehicleDated">Dated</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</div>		
+			<div id="DiscountDiv" class="formDiv">
+				<h4>Discount Management</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Discount" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="discountId" name="id"> 
+						</div>
+					</div>				
+					<div class="form-group">		
+	<!-- 					<label class="control-label col-sm-2" th:text="#{label.select.school}" for="discountStudentDD">Select Student</label> 
+						<div class="col-sm-4">
+							<select class="form-control" id="discountStudentDD" name="schoolId" required="required">
+							</select>
+						</div>
+	 -->					
+						<label class="control-label col-sm-2 req" for="discountName">Discount name</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="discountNameDD" name="name" required="required">
+								<option class="dropdown-item" value="">Nothing Selected</option>					
+								<option class="dropdown-item" value="Admission">Admission</option>
+			 					<option class="dropdown-item" value="Scholarship">Scholarship</option>
+			 					<option class="dropdown-item" value="Performance">Performance</option>
+			 					<option class="dropdown-item" value="Charity">Charity</option>
+			 					<option class="dropdown-item" value="Reference">Reference</option>
+			 					<option class="dropdown-item" value="Sibling">Sibling</option>
+			 				</select>
+						</div>
+		 				<label class="control-label col-sm-2 req" th:text="#{label.DiscountIn}" for="discountType">Discount Type</label>
+						<div class="col-sm-4">
+							<select	class="form-control" id="discountTypeDD" name="di" required="required">
+								<option class="dropdown-item" value="amount">amount is amount.</option>
+			 					<option class="dropdown-item" value="amount" selected="selected">amount</option>
+								<option class="dropdown-item" value="%">%</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group">		
+						<label class="control-label col-sm-2" for="discountAmount">Fixed Amount</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="discountAmount" name="amount"
+								placeholder=" Discount Amount"> 
+						</div>
+						<label class="control-label col-sm-2" th:text="#{label.description}" for="discountDescription">Description</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="discountDescription" name="description"
+								placeholder=" Discount Description"> 
+						</div>
+					</div>
+					<div class="form-group">		
+	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="discountStatus">Status</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="discountStatus" name="status" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center">
+						<button type="button" id="addDiscount" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteDiscount" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetDiscount" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+				</form>
+				<div>
+					<table id="tableDiscount" class="table table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="discountId">Id</th>
+								<th class="col-sm-1" data-field="checkDelete">Check</th>
+								<th class="col-sm-1" data-field="discountName">Discount Name</th>
+								<th class="col-sm-2" data-field="discountType">Type</th>
+								<th class="col-sm-1" data-field="discountAmount">Amount</th>
+								<th class="col-sm-1" data-field="discountDescription">Description</th>
+								<th class="col-sm-1" data-field="discountStatus">Status</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</div>		
+			<div id="PADiv" class="formDiv">
+				<h4>Public Alerts</h4>
+				<form action="/educationDashboard.html" method="POST" class="form-horizontal" role="form" enctype="multipart/form-data" id="PAForm" autocomplete="off">
+				<!-- <form method="POST" enctype="multipart/form-data" id="maForm"> -->
+				<!-- <form th:action="@{/importCSV}" method="post" id="maForm" enctype="multipart/form-data"> -->
+					<div class="" style="padding-bottom: 15px;padding-top: 10px;">
+				    	<input type="file" name="file" id="csvFile" accept=".csv" class="btn btn-primary" style="float: left" title="Choose CSV file">
+						<input type="button" id="paBtn" value="Import" onclick="return checkfile()" class="btn btn-success" style="margin-left: 10px;">
+					</div>
+				</form>
+				<table id="tablePA" class="table table-striped">
+			        <thead>
+			            <tr>
+			            	<th class="col-sm-1">Id</th>
+							<th class="col-sm-2">Dated</th>
+							<th class="col-sm-3">Channel</th>
+							<th class="col-sm-3">Target</th>
+							<th class="col-sm-3">Status</th>
+			            </tr>
+			        </thead>
+	   		    </table>
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="PA" autocomplete="off">
+					<div class="" style="padding-bottom: 15px;padding-top: 10px;">
+						<input type="text" class="form-control" style="margin-bottom: 5px" id="pah" name="pah"
+							placeholder="Heading" title="Subject" required="required">
+						<textarea class="form-control" style="margin-bottom: 5px" rows="5" id="pam" name="pam" title="Message details" placeholder="Message details ..." required="required"></textarea> 
+						<input type="text" class="form-control" style="margin-bottom: 10px" id="pas" name="pas" title="Signature" placeholder="Signature">
+					</div>
+					<div class="form-group">
+						<input type="checkbox" name="isEmail" id="email" class="btn default">
+							<span class="glyphicon glyphicon-envelope"></span> Email
+						</input>
+						<input type="checkbox" name="isMobile" id="mobile" class="btn default">
+							<span class="glyphicon glyphicon-phone"></span> Mobile
+						</input>
+						<input type="checkbox" name="isAll" id="all" checked="checked" class="btn default" >
+							<span class="glyphicon glyphicon-random"></span> All
+						</input>
+						<button type="button" id="sendPA" class="btn btn-success">
+							<span class="glyphicon glyphicon-send"></span> Send
+						</button>
+					</div>
+				</form>   		    
+			</div>				
+			<div id="AlertsDiv" class="formDiv">
+				<h4 th:text="#{label.alerts.form.heading}">Manage Alert</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Alerts" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="aId" name="id"> 
+						</div>
+						<div class="col-sm-6">
+						</div>
+					</div>				
+					<div class="form-group">		
+						<label class="control-label col-sm-2 req" for="acdd">Select Consumers</label>
+						<div class="col-sm-4">
+							<select multiple="multiple"	class="form-control" id="acdd" name="c" required="required">
+								<option class="dropdown-item" value="">Nothing Selected</option>
+								<option class="dropdown-item" value="Students">Students</option>
+			 					<option class="dropdown-item" value="Guardians">Guardians</option>
+								<option class="dropdown-item" value="Employees">Employees</option>
+			 					<option class="dropdown-item" value="Drivers">Drivers</option>
+								<option class="dropdown-item" value="Public">Public</option>
+								<option class="dropdown-item" value="All">All</option>
+			 				</select>
+						</div>
+						<label class="control-label col-sm-2 req" for="atdd">Alert Type</label>
+						<div class="col-sm-4">
+							<select multiple="multiple"	class="form-control" id="atdd" name="at" required="required">
+								<option class="dropdown-item" value="">Nothing Selected</option>
+								<option class="dropdown-item" value="Notice Board">Notice Board</option>
+			 					<option class="dropdown-item" value="Late Fee">Late Fee</option>
+								<option class="dropdown-item" value="Fee Reviwed">Fee Reviwed</option>
+			 					<option class="dropdown-item" value="Timing Issue">Timing Issue</option>
+								<option class="dropdown-item" value="Performace">Performace</option>
+								<option class="dropdown-item" value="Policies Reviwed">Policies Reviwed</option>
+								<option class="dropdown-item" value="Ethics">Ethics</option>
+								<option class="dropdown-item" value="Promotions">Promotions</option>
+								<option class="dropdown-item" value="Holidays">Holidays</option>
+								<option class="dropdown-item" value="Vacations">Vacations</option>
+								<option class="dropdown-item" value="Attendance">Attendance</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group">		
+						<label class="control-label col-sm-2 req" for="adcdd">Delivery Channel</label>
+						<div class="col-sm-4">
+							<select multiple="multiple"	class="form-control" id="adcdd" name="dc" required="required">
+								<option class="dropdown-item" value="">Nothing Selected</option>
+			 					<option class="dropdown-item" value="Email">Email</option>
+								<option class="dropdown-item" value="SMS">SMS</option>
+								<option class="dropdown-item" value="Watts App">Watts App</option>
+			 					<option class="dropdown-item" value="Facebook">Facebook</option>
+								<option class="dropdown-item" value="Twitter">Twitter</option>
+			 					<option class="dropdown-item" value="Instagram">Instagram</option>
+			 				</select>
+						</div>
+						<label class="control-label col-sm-2 req" for="adpdd">Delivery Channel</label>
+						<div class="col-sm-4">
+							<select multiple="multiple"	class="form-control" id="adpdd" name="dp" required="required">
+								<option class="dropdown-item" value="">Nothing Selected</option>
+								<option class="dropdown-item" value="Daily">Daily</option>
+			 					<option class="dropdown-item" value="Weekly">Weekly</option>
+								<option class="dropdown-item" value="Monthly">Monthly</option>
+			 					<option class="dropdown-item" value="Quartly">Quartly</option>
+								<option class="dropdown-item" value="Yearly">Yearly</option>
+								<option class="dropdown-item" value="Random">Random</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="adtdd">Delivery Type</label>
+						<div class="col-sm-4">
+							<select	class="form-control" id="adtdd" name="dt" required="required">
+								<option class="dropdown-item" value="">Nothing Selected</option>
+								<option class="dropdown-item" value="Manual">Manual</option>
+			 					<option class="dropdown-item" value="Auto">Auto</option>
+			 				</select>
+						</div>
+	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="ast">Status</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="ast" name="st" required="required">
+								<option class="dropdown-item" value="Active" selected="selected">Active</option>
+			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+			 				</select>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" th:text="#{label.start.date}"  for="asd">Start Date</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="asd" name="sdStr"
+								placeholder=" Start Date"> 
+						</div>
+						<label class="control-label col-sm-2" th:text="#{label.end.date}"  for="aed">End Date</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="aed" name="edStr"
+								placeholder=" End Date"> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="ah">Heading</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="ah" name="ah"
+								placeholder=" Message heading " required="required"> 
+						</div>
+						<div class="col-sm-6">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="am">Details</label>
+						<div class="col-sm-10">
+							<textarea class="form-control" rows="5" id="am" name="am" placeholder="Enter message detail here..." required="required"></textarea> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2"  for="as">Signature</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="as" name="as"
+								placeholder=" Message signature "> 
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center">
+						<button type="button" id="addAlerts" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteAlerts" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetAlerts" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+						<button type="reset" id="sendAlerts" class="btn btn-primary">
+							<span class="glyphicon glyphicon-send"></span> Send
+						</button>
+					</div>
+				</form>
+				<div>
+					<table id="tableAlerts" class="table table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="aId">Id</th>
+								<th class="col-sm-1" data-field="checkAlerts">Check</th>
+								<th class="col-sm-1" data-field="acdd">Consumer</th>
+								<th class="col-sm-1" data-field="atdd">Type</th>
+								<th class="col-sm-1" data-field="adcdd">Del. Channel</th>
+								<th class="col-sm-1" data-field="adpdd">Del. Period</th>
+								<th class="col-sm-1" data-field="adtdd">Del. Type</th>
+								<th class="col-sm-1" data-field="ast">Status</th>
+								<th class="col-sm-1" data-field="asd">Start Date</th>
+								<th class="col-sm-1" data-field="aed">End Date</th>
+								<th class="col-sm-1" data-field="ah">Heading</th>
+								<th class="col-sm-1" data-field="am">Message</th>
+								<th class="col-sm-1" data-field="as">Signature</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</div>		
+				
+			<div id="FcDiv" class="formDiv">
+				<h4 th:text="#{label.fc.form.heading}">Manage Fee Collection</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="Fc" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="fcId" name="id"> 
+						</div>
+						<div class="col-sm-6">
+						</div>
+					</div>				
+					<div class="form-group">		
+						<label class="control-label col-sm-2 req" for="fcen">Enter Enroll No</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="inputFc" name="en"
+								placeholder=" Enter Enroll No " required="required" onkeypress="handleEnterKey(event,'enter','findFc')"> 
+						</div>
+						<div class="col-sm-6">
+							<button type="button" id="findFc" class="btn btn-success">
+								<span class="glyphicon glyphicon-search"></span> Search
+							</button>
+	<!-- 						<button type="button" id="printFc" onclick="printFc2()" class="btn btn-success">
+								<span class="glyphicon glyphicon-print"></span> Print
+							</button>
+	 -->					</div>
+					</div>
+					<div id="fcCalculaton" class="form-group" style="display: none">	
+						<input type="number" class="form-control" id="fchf" name="f"/> 
+						<input type="number" class="form-control" id="fchvf" name="vf"/> 
+						<input type="number" class="form-control" id="fchd" name="d"/> 
+						<input type="text" class="form-control" id="fchdt" name="dt"/> 
+						<input type="number" class="form-control" id="fchda" name="da"/> 
+						<input type="text" class="form-control" id="fchdd" name="dd"/>
+					</div>			
+					<div class="form-group" id="fcDetail">
+						<table id="" class="display table" style="width:100%">
+							<thead>
+								<tr>
+									<th class="col-sm-2">Student</th>
+									<th class="col-sm-2">Gaurdian</th>
+									<th class="col-sm-2">School</th>
+									<th class="col-sm-1">Class</th>
+									<th class="col-sm-1">Fee</th>
+									<th class="col-sm-1">V. Fare</th>
+									<th class="col-sm-1">Discount</th>
+									<th class="col-sm-1">Due Amount</th>
+									<th class="col-sm-1">Due Date</th>
+								</tr>	
+							</thead>
+							<tbody>
+								<tr>
+									<td class="col-sm-2"><div class=" fcDTC" id="fcsn"></div></td>
+									<td class="col-sm-2"><div class=" fcDTC" id="fcgn"></div></td>
+									<td class="col-sm-2"><div class=" fcDTC" id="fcscn"></div></td>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcg"></div></td>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcf"></div></td>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcvf"></div></td>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcd"></div>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcda"></div></td>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcdd"></div></td>
+								</tr>
+							</tbody>						
+						</table>
+						<table id="fcDT" class="display table" style="width:100%">
+							<thead>
+								<tr><th rowspan="1" colspan="12" style="margin: 0px;padding: 3px">Fee details since last payment</th></tr>
+								<tr>
+									<th class="col-sm-1">Date</th>
+									<th class="col-sm-2">Payer</th>
+									<th class="col-sm-1">Payee</th>
+									<th class="col-sm-1">Fee</th>
+									<th class="col-sm-1">V. Fee</th>
+									<th class="col-sm-1">Discount</th>
+									<th class="col-sm-1">Other payment</th>
+									<th class="col-sm-1">Other desc.</th>
+									<th class="col-sm-1">Due Amount</th>
+									<th class="col-sm-1">paid</th>
+									<th class="col-sm-1">Balance</th>
+								</tr>	
+							</thead>
+							<!-- <tbody>
+								<tr role="row"><th rowspan="1" colspan="12" style="width: 100%;">Details since last payment</th></tr>
+							</tbody> -->						
+						</table>
+						<!-- <table class="table" id="fcDT">
+							<thead>
+								<tr>
+									<th class="col-sm-2">Student</th>
+									<th class="col-sm-2">Gaurdian</th>
+									<th class="col-sm-2">School</th>
+									<th class="col-sm-1">Grade</th>
+									<th class="col-sm-1">Fee</th>
+									<th class="col-sm-1">V. Fare</th>
+									<th class="col-sm-1">Discount</th>
+									<th class="col-sm-1">Due Amount</th>
+									<th class="col-sm-2">Due Date</th>
+								</tr>	
+							</thead>
+							<tbody>
+								<tr>
+									<td class="col-sm-2"><div class=" fcDTC" id="fcsn"></div></td>
+									<td class="col-sm-2"><div class=" fcDTC" id="fcgn"></div></td>
+									<td class="col-sm-2"><div class=" fcDTC" id="fcscn"></div></td>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcg"></div></td>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcf"></div></td>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcvf"></div></td>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcd"></div>
+									<td class="col-sm-1"><div class=" fcDTC" id="fcda"></div></td>
+									<td class="col-sm-2"><div class=" fcDTC" id="fcdd"></div></td>
+								</tr>
+							</tbody>
+						</table> -->
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="fcf">Total payment</label>
+						<div class="col-sm-4">
+							<input type="number" class="form-control" id="fcfp" name="fp" onkeyup="getDB()"
+								placeholder=" Enter fee amount " required="required"> 
+						</div>
+						<label class="control-label col-sm-2" for="fcdb">Balance</label>
+						<div class="col-sm-4">
+							<input type="number" class="form-control" id="fcdb" name="db" readonly="readonly"> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="fcod">Other dues</label>
+						<div class="col-sm-4">
+							<input type="number" class="form-control" id="fcod" name="od"
+								placeholder=" Enter other dues "> 
+						</div>
+						<label class="control-label col-sm-2" for="fcodd">Description</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="fcodd" name="odd"
+								placeholder=" Dues descriptions "/> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="fcp">Payer</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="fcp" name="p"
+								placeholder=" Submit By " required="required"/> 
+						</div>
+						<label class="control-label col-sm-2 req" for="fcrb">Payee</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="fcrb" name="rb"
+								placeholder=" Revieved by " required="required"/> 
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="fcri">Recieved In</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="fcri" name="ri" required="required">
+								<option class="dropdown-item" value="">Nothing Selected</option>
+								<option class="dropdown-item" value="Cash">Cash</option>
+								<option class="dropdown-item" value="Check">Check</option>
+							</select>	
+						</div>
+						<div id="cnd">
+							<label class="control-label col-sm-2"  for="cn">Check No</label>
+							<div class="col-sm-4">
+								<input type="text" class="form-control" id="fccn" name="cn"
+									placeholder=" Check number "/> 
+							</div>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="fcpd">Payment date</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="fcpd" name="pdStr"
+								placeholder=" Payment Date"> 
+						</div>
+					</div>
+					<div class="form-group" style="text-align: center;margin-top: 30px;margin-bottom: 0;">
+						<button type="button" id="addFc" class="btn btn-success">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteFc" class="btn btn-danger">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetFc" class="btn btn-warning">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
+					</div>
+				</form>
+				<div>
+					<table id="tableFc" class="table table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="fcId">Id</th>
+								<th class="col-sm-1" data-field="checkfc">Check</th>
+								<th class="col-sm-1" data-field="fcen">Enroll No</th>
 								<th class="col-sm-1">Date</th>
 								<th class="col-sm-2">Payer</th>
 								<th class="col-sm-1">Payee</th>
 								<th class="col-sm-1">Fee</th>
 								<th class="col-sm-1">V. Fee</th>
 								<th class="col-sm-1">Discount</th>
+								<th class="col-sm-1" data-field="fchdt">Discount Type</th>
 								<th class="col-sm-1">Other payment</th>
 								<th class="col-sm-1">Other desc.</th>
 								<th class="col-sm-1">Due Amount</th>
 								<th class="col-sm-1">paid</th>
 								<th class="col-sm-1">Balance</th>
-							</tr>	
-						</thead>
-						<!-- <tbody>
-							<tr role="row"><th rowspan="1" colspan="12" style="width: 100%;">Details since last payment</th></tr>
-						</tbody> -->						
-					</table>
-					<!-- <table class="table" id="fcDT">
-						<thead>
-							<tr>
-								<th class="col-sm-2">Student</th>
-								<th class="col-sm-2">Gaurdian</th>
-								<th class="col-sm-2">School</th>
-								<th class="col-sm-1">Grade</th>
-								<th class="col-sm-1">Fee</th>
-								<th class="col-sm-1">V. Fare</th>
-								<th class="col-sm-1">Discount</th>
-								<th class="col-sm-1">Due Amount</th>
-								<th class="col-sm-2">Due Date</th>
-							</tr>	
-						</thead>
-						<tbody>
-							<tr>
-								<td class="col-sm-2"><div class=" fcDTC" id="fcsn"></div></td>
-								<td class="col-sm-2"><div class=" fcDTC" id="fcgn"></div></td>
-								<td class="col-sm-2"><div class=" fcDTC" id="fcscn"></div></td>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcg"></div></td>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcf"></div></td>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcvf"></div></td>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcd"></div>
-								<td class="col-sm-1"><div class=" fcDTC" id="fcda"></div></td>
-								<td class="col-sm-2"><div class=" fcDTC" id="fcdd"></div></td>
+								<th class="col-sm-1">Due Day</th>
+								<th class="col-sm-1" data-field="fcri">Recieved In.</th>
+								<th class="col-sm-1" data-field="fccn">Check No.</th>
 							</tr>
-						</tbody>
-					</table> -->
+						</thead>
+					</table>
 				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="fcf">Total payment</label>
-					<div class="col-sm-4">
-						<input type="number" class="form-control" id="fcfp" name="fp" onkeyup="getDB()"
-							placeholder=" Enter fee amount " required="required"> 
-					</div>
-					<label class="control-label col-sm-2" for="fcdb">Balance</label>
-					<div class="col-sm-4">
-						<input type="number" class="form-control" id="fcdb" name="db" readonly="readonly"> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="fcod">Other dues</label>
-					<div class="col-sm-4">
-						<input type="number" class="form-control" id="fcod" name="od"
-							placeholder=" Enter other dues "> 
-					</div>
-					<label class="control-label col-sm-2" for="fcodd">Description</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="fcodd" name="odd"
-							placeholder=" Dues descriptions "/> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req" for="fcp">Payer</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="fcp" name="p"
-							placeholder=" Submit By " required="required"/> 
-					</div>
-					<label class="control-label col-sm-2 req" for="fcrb">Payee</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="fcrb" name="rb"
-							placeholder=" Revieved by " required="required"/> 
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="fcri">Recieved In</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="fcri" name="ri" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>
-							<option class="dropdown-item" value="Cash">Cash</option>
-							<option class="dropdown-item" value="Check">Check</option>
-						</select>	
-					</div>
-					<div id="cnd">
-						<label class="control-label col-sm-2"  for="cn">Check No</label>
+			</div>		
+			<div id="FVDiv" class="formDiv">
+				<h4>Fee Vouchers</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="FV" autocomplete="off">
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="fvb">Voucher By</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="fccn" name="cn"
-								placeholder=" Check number "/> 
+							<select class="form-control onChangeSelect selectpicker req" id="fvb" name="vb" required="required" onchange="loadFVIBSDD(this,'fviDD')">
+								<option class="dropdown-item" value='' selected="selected">Not Selected</option>
+								<option class="dropdown-item" value='Students'>Students</option>
+								<option class="dropdown-item" value='Guardians'>Guardians</option>
+								<option class="dropdown-item" value='Grades'>Classes</option>
+								<option class="dropdown-item" value='Schools'>Campuses</option>
+							</select>	
 						</div>
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2" for="fcpd">Payment date</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control datePicker" id="fcpd" name="pdStr"
-							placeholder=" Payment Date"> 
-					</div>
-				</div>
-				<div class="form-group" style="text-align: center;margin-top: 30px;margin-bottom: 0;">
-					<button type="button" id="addFc" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
-					</button>
-					<button type="button" id="deleteFc" class="btn btn-danger">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
-					</button>
-					<button type="reset" id="resetFc" class="btn btn-warning">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
-					</button>
-				</div>
-			</form>
-			<div>
-				<table id="tableFc" class="table table-striped">
-					<thead>
-						<tr>
-							<th class="col-sm-1" data-field="fcId">Id</th>
-							<th class="col-sm-1" data-field="checkfc">Check</th>
-							<th class="col-sm-1" data-field="fcen">Enroll No</th>
-							<th class="col-sm-1">Date</th>
-							<th class="col-sm-2">Payer</th>
-							<th class="col-sm-1">Payee</th>
-							<th class="col-sm-1">Fee</th>
-							<th class="col-sm-1">V. Fee</th>
-							<th class="col-sm-1">Discount</th>
-							<th class="col-sm-1" data-field="fchdt">Discount Type</th>
-							<th class="col-sm-1">Other payment</th>
-							<th class="col-sm-1">Other desc.</th>
-							<th class="col-sm-1">Due Amount</th>
-							<th class="col-sm-1">paid</th>
-							<th class="col-sm-1">Balance</th>
-							<th class="col-sm-1">Due Day</th>
-							<th class="col-sm-1" data-field="fcri">Recieved In.</th>
-							<th class="col-sm-1" data-field="fccn">Check No.</th>
-						</tr>
-					</thead>
-				</table>
-			</div>
-		</div>		
-		<div id="FVDiv" class="formDiv">
-			<h4>Fee Vouchers</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="FV" autocomplete="off">
-				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="fvb">Voucher By</label>
-					<div class="col-sm-4">
-						<select class="form-control onChangeSelect selectpicker req" id="fvb" name="vb" required="required" onchange="loadFVIBSDD(this,'fviDD')">
-							<option class="dropdown-item" value='' selected="selected">Not Selected</option>
-							<option class="dropdown-item" value='Students'>Students</option>
-							<option class="dropdown-item" value='Guardians'>Guardians</option>
-							<option class="dropdown-item" value='Grades'>Classes</option>
-							<option class="dropdown-item" value='Schools'>Campuses</option>
-						</select>	
-					</div>
-					<div id="fvidiv">
 						<label class="control-label col-sm-2 req" for="fvi" th:text="#{label.please.select}">Please Select</label>
-						<div class="col-sm-4">
-							<select required="required" multiple="multiple"
+						<div id="fvidiv" class="col-sm-4">
+							<select onchange="populateArrearsDiv(this)" required="required" multiple="multiple"
 								class="form-control onChangeSelect selectpicker" id="fviDD" name="vi" data-live-search="true">
 							</select>
-<!-- 						
-							<input type="text" class="form-control" id="fvi" name="vi"
-								placeholder=" Enter Id " required="required"> 
- -->
-						</div>					
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="fIssueDate">Issue Date</label>
-					<div class="col-sm-2">
-						<input type="text" class="form-control datePicker" id="fIssueDate" placeholder=" Issue Date" required="required"> 
-					</div>
-					<label class="control-label col-sm-2 req"  for="fDueDate">Due Date</label>
-					<div class="col-sm-2">
-						<input type="text" class="form-control datePicker" id="fDueDate" name="dueDate"
-							placeholder=" Due Date" required="required"> 
-					</div>
-					<label class="control-label col-sm-2 req"  for="fValidDate">Valid Date</label>
-					<div class="col-sm-2">
-						<input type="text" class="form-control datePicker" id="fValidDate" name="validDate"
-							placeholder=" Valid Date" required="required"> 
-					</div>
-				</div>
-<!-- 				<div class="form-group" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
-					<label class="control-label col-sm-2 req"  for="fvp">Period</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="dateRangeDDFV" name="vp" required="required">
-							<option class="dropdown-item" value=0 selected="selected">Current month</option>
-							<option class="dropdown-item" value=1>Custom range</option>
-						</select>	
-					</div>
-					<div id="dateRangeFV" style="display: none">
-						<label class="control-label col-sm-2" for="fvsd">First Month</label>
-						<div class="col-sm-1">
-							<select class="form-control" id="firstMonthDDFV" name="vp" required="required">
-								<option class="dropdown-item" value=1>Jan</option>
-								<option class="dropdown-item" value=2>Feb</option>
-								<option class="dropdown-item" value=3>Mar</option>
-								<option class="dropdown-item" value=4>Apr</option>
-								<option class="dropdown-item" value=5>May</option>
-								<option class="dropdown-item" value=6>Jun</option>
-								<option class="dropdown-item" value=7>Jul</option>
-								<option class="dropdown-item" value=8>Aug</option>
-								<option class="dropdown-item" value=9>Sep</option>
-								<option class="dropdown-item" value=10>Oct</option>
-								<option class="dropdown-item" value=11>Nov</option>
-								<option class="dropdown-item" value=12>Dec</option>
-							</select>	
-						</div>
-						<label class="control-label col-sm-2" for="fvsd">Last Month</label>
-						<div class="col-sm-1">
-							<select class="form-control" id="lastMonthDDFV" name="vp" required="required">
-								<option class="dropdown-item" value=1>Jan</option>
-								<option class="dropdown-item" value=2>Feb</option>
-								<option class="dropdown-item" value=3>Mar</option>
-								<option class="dropdown-item" value=4>Apr</option>
-								<option class="dropdown-item" value=5>May</option>
-								<option class="dropdown-item" value=6>Jun</option>
-								<option class="dropdown-item" value=7>Jul</option>
-								<option class="dropdown-item" value=8>Aug</option>
-								<option class="dropdown-item" value=9>Sep</option>
-								<option class="dropdown-item" value=10>Oct</option>
-								<option class="dropdown-item" value=11>Nov</option>
-								<option class="dropdown-item" value=12>Dec</option>
-							</select>	
 						</div>
 					</div>
-				</div>
- -->				
- 				<div class="form-group" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
-					<label class="control-label col-sm-2 req"  for="fvp">Period</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="dateRangeDDFV" name="vp" required="required">
-							<option class="dropdown-item" value=0 selected="selected">Current month</option>
-							<option class="dropdown-item" value=1>Custom range</option>
-						</select>	
-					</div>
-					<div id="dateRangeFV" style="display: none">
-						<label class="control-label col-sm-2" for="fvsd">Date range</label>
+					<div class="form-group">
 						<div class="col-sm-2">
-							<input type="text" class="form-control datePicker" id="fvsd" name="sdStr"
-								placeholder=" Start Date"> 
+						</div>
+						<div class="col-sm-8" id="arrearsDiv">
 						</div>
 						<div class="col-sm-2">
-							<input type="text" class="form-control datePicker" id="fved" name="edStr"
-								placeholder=" End Date"> 
 						</div>
 					</div>
-				</div>
-				<div class="form-group" style="text-align: center; margin-top: 25px;">
-					<button type="button" id="printFc" onclick="loadFV()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
-						<span class="glyphicon glyphicon-print"></span> Print Voucher
-					</button>
-					<button type="button" id="printFc" onclick="loadFL()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE_')">
-						<span class="glyphicon glyphicon-print"></span> Print Ledger
-					</button>
-				</div>
-			</form>
-		</div>		
-
-		<div id="ADiv" class="formDiv">
-			<h4>Manage Attendance</h4>
-			<br />
- 			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="A" autocomplete="off">
-				<div class="form-group" style="display: none">				
-					<div class="col-sm-6">
-						<input type="text" class="form-control" id="aId" name="id"> 
-					</div>
-					<div class="col-sm-6">
-					</div>
-				</div>				
-				<div>
-					<label class="control-label col-sm-4"  for="cn">Scan Id card with device and make sure, Cursor is in the input field</label>
-					<div class="col-sm-8">
-						<input type="text" class="form-control" id="aen" name="en" oninput="ma(this.value)"
-							placeholder=" place cursor and scan student card " autofocus required="required"/> 
-					</div>
-				</div>
-			</form>			
-			<div>
-				<table id="tableA" class="table table-striped">
-					<thead>
-						<tr>
-							<th class="col-sm-1" data-field="aId">Id</th>
-							<th class="col-sm-1" data-field="aen">Enroll No</th>
-							<th class="col-sm-1" data-field="asn">Student Name</th>
-							<th class="col-sm-1" data-field="agn">Class</th>
-							<th class="col-sm-1" data-field="adt">Date time</th>
-						</tr>
-					</thead>
-				</table>
-			</div>
-		</div>		
-
-		<div id="FRDiv" class="formDiv">
-			<h4>Fee reports</h4>
-			<br />
-			<form action="/" method="POST" class="form-horizontal" role="form"
-				enctype="utf8" id="FR" autocomplete="off">
-				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="frb">Fee By</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="frb" name="rb" required="required">
-							<option class="dropdown-item" value=-1 selected="selected">All</option>
-							<option class="dropdown-item" value=0>Student</option>
-							<option class="dropdown-item" value=1>Guardian</option>
-							<option class="dropdown-item" value=2>Class</option>
-							<option class="dropdown-item" value=3>Campus</option>
-						</select>	
-					</div>
-					<div id="fvidiv">
-						<label class="control-label col-sm-2" for="fri">Enter Id</label>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="fIssueDate">Issue Date</label>
+						<div class="col-sm-2">
+							<input type="text" class="form-control datePickerWithMonthName" id="fIssueDate" placeholder=" Issue Date" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req"  for="fDueDate">Due Date</label>
+						<div class="col-sm-2">
+							<input type="text" class="form-control datePickerWithMonthName" id="fDueDate" name="dueDate"
+								placeholder=" Due Date" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req"  for="fValidDate">Valid Date</label>
+						<div class="col-sm-2">
+							<input type="text" class="form-control datePickerWithMonthName" id="fValidDate" name="validDate"
+								placeholder=" Valid Date" required="required"> 
+						</div>
+					</div>			
+	 				<div class="form-group" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
+						<label class="control-label col-sm-2 req"  for="fvp">Period</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="fri" name="ri"
-								placeholder=" Enter Id "> 
-						</div>					
-					</div>					
-				</div>
-				<div class="form-group">
-					<label class="control-label col-sm-2 req"  for="frbs">Status By</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="frbs" name="rbs" required="required">
-							<option class="dropdown-item" value="" selected="selected">All</option>
-							<option class="dropdown-item" value="Active">Active</option>
-							<option class="dropdown-item" value="Inactive">Inactive</option>
-						</select>	
+							<select class="form-control" id="dateRangeDDFV" name="vp" required="required">
+								<option class="dropdown-item" value=0 selected="selected">Current month</option>
+								<option class="dropdown-item" value=1>Custom range</option>
+							</select>	
+						</div>
+						<div id="dateRangeFV" style="display: none">
+							<label class="control-label col-sm-2" for="fvsd">Month range</label>
+							<div class="col-sm-2">
+								<input type="text" class="form-control monthYearDatePicker" id="fvsd" name="sdStr"
+									placeholder=" Start Date"> 
+							</div>
+							<div class="col-sm-2">
+								<input type="text" class="form-control monthYearDatePicker" id="fved" name="edStr"
+									placeholder=" End Date"> 
+							</div>
+						</div>
 					</div>
-					<label class="control-label col-sm-2 req"  for="frp">Period</label>
-					<div class="col-sm-4">
-						<select class="form-control" id="dateRangeDDFR" name="rp" required="required">
-							<option class="dropdown-item" value=0 selected="selected">Current month</option>
-							<option class="dropdown-item" value=1>Custom range</option>
-						</select>	
+					<div class="form-group" style="text-align: center; margin-top: 25px;">
+						<button type="button" id="printFc" onclick="loadFV()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
+							<span class="glyphicon glyphicon-print"></span> Print Voucher
+						</button>
+						<button type="button" id="printFc" onclick="loadFL()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE_')">
+							<span class="glyphicon glyphicon-print"></span> Print Ledger
+						</button>
 					</div>
-				</div>
-				<div class="form-group">
-					<div id="dateRangeFR" style="display: none">
+				</form>
+			</div>		
+	
+			<div id="ADiv" class="formDiv">
+				<h4>Manage Attendance</h4>
+				<br />
+	 			<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="A" autocomplete="off">
+					<div class="form-group" style="display: none">				
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="aId" name="id"> 
+						</div>
 						<div class="col-sm-6">
 						</div>
-						<label class="control-label col-sm-2" for="frsd">Date Range</label>
-						<div class="col-sm-2">
-							<input type="text" class="form-control datePicker" id="frsd" name="sdStr"
-								placeholder=" Start Date"> 
-						</div>
-						<div class="col-sm-2">
-							<input type="text" class="form-control datePicker" id="fred" name="edStr"
-								placeholder=" End Date"> 
+					</div>				
+					<div>
+						<label class="control-label col-sm-4"  for="cn">Scan Id card with device and make sure, Cursor is in the input field</label>
+						<div class="col-sm-8">
+							<input type="text" class="form-control" id="aen" name="en" oninput="ma(this.value)"
+								placeholder=" place cursor and scan student card " autofocus required="required"/> 
 						</div>
 					</div>
+				</form>			
+				<div>
+					<table id="tableA" class="table table-striped">
+						<thead>
+							<tr>
+								<th class="col-sm-1" data-field="aId">Id</th>
+								<th class="col-sm-1" data-field="aen">Enroll No</th>
+								<th class="col-sm-1" data-field="asn">Student Name</th>
+								<th class="col-sm-1" data-field="agn">Class</th>
+								<th class="col-sm-1" data-field="adt">Date time</th>
+							</tr>
+						</thead>
+					</table>
 				</div>
-				<div class="form-group" style="text-align: center; margin-top: 25px;">
-					<button type="button" id="printFc" onclick="loadFR()" class="btn btn-success">
-						<span class="glyphicon glyphicon-sunglasses"></span> View
-					</button>
+			</div>		
+	
+			<div id="FRDiv" class="formDiv">
+		<h4>Fee reports</h4>
+		<br />
+		<form action="/" method="POST" class="form-horizontal" role="form"
+			enctype="utf8" id="FR" autocomplete="off">
+			<div class="form-group">
+				<label class="control-label col-sm-2 req"  for="frb">Fee By</label>
+				<div class="col-sm-4">
+					<select class="form-control" id="frb" name="rb" required="required">
+						<option class="dropdown-item" value=-1 selected="selected">All</option>
+						<option class="dropdown-item" value=0>Student</option>
+						<option class="dropdown-item" value=1>Guardian</option>
+						<option class="dropdown-item" value=2>Class</option>
+						<option class="dropdown-item" value=3>Campus</option>
+					</select>	
 				</div>
-			</form>
-			<table id="tableFeeReport" class="table table-striped">
-		        <thead>
-		            <tr>
-						<th class="col-sm-1">Campus</th>
-						<th class="col-sm-1">Class</th>
-						<th class="col-sm-1">Guardian</th>
-						<th class="col-sm-1">Student</th>
-						<th class="col-sm-1">Fee</th>
-						<th class="col-sm-1">Others</th>
-						<th class="col-sm-1">Desc.</th>
-						<th class="col-sm-1">Discount</th>
-						<th class="col-sm-1">Payer</th>
-						<th class="col-sm-1">Payee</th>
-						<th class="col-sm-1">Date</th>
-						<th class="col-sm-1">Due</th>
-						<th class="col-sm-1">Paid</th>
-						<th class="col-sm-1">Balance</th>
-		            </tr>
-		        </thead>
-				<tfoot>
-		            <tr>
-		                <th>Totals:</th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		                <th></th>
-		            </tr>
-		        </tfoot>
-   		    </table>
-   		    
-			<form th:action="@{/impStudents}" method="post" enctype="multipart/form-data">
-			
-			    <input type="file" th:name="file">
-			
-			<input th:type="submit" value="Import" />   		    
-		</div>		
-
+				<div id="fvidiv">
+					<label class="control-label col-sm-2" for="fri">Enter Id</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="fri" name="ri"
+							placeholder=" Enter Id "> 
+					</div>					
+				</div>					
+			</div>
+			<div class="form-group">
+				<label class="control-label col-sm-2 req"  for="frbs">Status By</label>
+				<div class="col-sm-4">
+					<select class="form-control" id="frbs" name="rbs" required="required">
+						<option class="dropdown-item" value="" selected="selected">All</option>
+						<option class="dropdown-item" value="Active">Active</option>
+						<option class="dropdown-item" value="Inactive">Inactive</option>
+					</select>	
+				</div>
+				<label class="control-label col-sm-2 req"  for="frp">Period</label>
+				<div class="col-sm-4">
+					<select class="form-control" id="dateRangeDDFR" name="rp" required="required">
+						<option class="dropdown-item" value=0 selected="selected">Current month</option>
+						<option class="dropdown-item" value=1>Custom range</option>
+					</select>	
+				</div>
+			</div>
+			<div class="form-group">
+				<div id="dateRangeFR" style="display: none">
+					<div class="col-sm-6">
+					</div>
+					<label class="control-label col-sm-2" for="frsd">Date Range</label>
+					<div class="col-sm-2">
+						<input type="text" class="form-control datePicker" id="frsd" name="sdStr"
+							placeholder=" Start Date"> 
+					</div>
+					<div class="col-sm-2">
+						<input type="text" class="form-control datePicker" id="fred" name="edStr"
+							placeholder=" End Date"> 
+					</div>
+				</div>
+			</div>
+			<div class="form-group" style="text-align: center; margin-top: 25px;">
+				<button type="button" id="printFc" onclick="loadFR()" class="btn btn-success">
+					<span class="glyphicon glyphicon-sunglasses"></span> View
+				</button>
+			</div>
+		</form>
+		<table id="tableFeeReport" class="table table-striped">
+	        <thead>
+	            <tr>
+					<th class="col-sm-1">Campus</th>
+					<th class="col-sm-1">Class</th>
+					<th class="col-sm-1">Guardian</th>
+					<th class="col-sm-1">Student</th>
+					<th class="col-sm-1">Fee</th>
+					<th class="col-sm-1">Others</th>
+					<th class="col-sm-1">Desc.</th>
+					<th class="col-sm-1">Discount</th>
+					<th class="col-sm-1">Payer</th>
+					<th class="col-sm-1">Payee</th>
+					<th class="col-sm-1">Date</th>
+					<th class="col-sm-1">Due</th>
+					<th class="col-sm-1">Paid</th>
+					<th class="col-sm-1">Balance</th>
+	            </tr>
+	        </thead>
+			<tfoot>
+	            <tr>
+	                <th>Totals:</th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	                <th></th>
+	            </tr>
+	        </tfoot>
+  		    </table>
+  		    
+		<form th:action="@{/impStudents}" method="post" enctype="multipart/form-data">
+		
+		    <input type="file" th:name="file">
+		
+		<input th:type="submit" value="Import" />   		    
+	</div>		
+		</div>
+	    <div th:replace="footer :: footer"/>		
 	</div>
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>
-	<div th:replace="footer :: footer" />
+	<!-- <div th:replace="footer :: footer" /> -->
 </body>
 </html>

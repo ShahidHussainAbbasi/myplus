@@ -3,8 +3,8 @@
 <head>
 </head>
 <!-- Footer -->
-<footer  th:fragment="footer" class="footer-cls">
-		<nav class="container" style="padding-bottom: 10px;">
+<footer id="footer" th:fragment="footer">
+		<nav>
 			<div class="text-center text-md-left">
 				<!-- Footer links -->
 				<div class="row text-center text-md-left mt-3 pb-3">
@@ -18,13 +18,7 @@
 						<p>
 							<a th:href="@{/services}" th:text="#{label.services}">Our Services</a>
 						</p>
-<!-- 						<p>
-							<a th:href="@{/services.html}" th:text="#{label.form.appointment}">Services</a>
-						</p>
-						<p>
-							<a th:href="@{/aboutus.html}" th:text="#{label.form.appointment}">About Us</a>
-						</p>
- -->					</div>
+					</div>
 					<div class="col-md-4 col-lg-3 col-xl-3 mx-auto mt-3">
 						<h5 class="text-uppercase mb-4 font-weight-bold">Contact Us</h5>
 						<p>
@@ -34,37 +28,9 @@
 					<!-- Grid column -->
 				</div>
 			</div>
-		<!-- Footer links -->
-		<!-- Social buttons 
-		<ul class="list-unstyled list-inline text-center">
-			<li class="list-inline-item"><a
-				class="btn-floating btn-fb mx-1"> <i class="fa fa-facebook">
-				</i>
-			</a></li>
-			<li class="list-inline-item"><a
-				class="btn-floating btn-tw mx-1"> <i class="fa fa-twitter">
-				</i>
-			</a></li>
-			<li class="list-inline-item"><a
-				class="btn-floating btn-gplus mx-1"> <i
-					class="fa fa-google-plus"> </i>
-			</a></li>
-			<li class="list-inline-item"><a
-				class="btn-floating btn-li mx-1"> <i class="fa fa-linkedin">
-				</i>
-			</a></li>
-			<li class="list-inline-item"><a
-				class="btn-floating btn-dribbble mx-1"> <i
-					class="fa fa-dribbble"> </i>
-			</a></li>
-		</ul>
-		 Social buttons -->
-		<!-- Copyright -->
-		<br>
 			<div class="footer-copyright text-center py-3">
-				© 2019 Copyright: <a href="https://maxtheservice.com/myplus/">maxtheservice.com</a>
+				© 2019 Copyright: <a href="https://maxtheservice.com/myplus/home">maxtheservice.com</a>
 			</div>
-		<!-- Copyright -->	
 		</nav>		
 </footer>
 

@@ -35,14 +35,14 @@ public class Donator {
 	private LocalDateTime updated;
 	private Boolean showMe = null;
 
-	public Donator(Long id2, String userType2, String name2) {
-		this.userId = id2;
-		this.userType=userType2;
-		this.name=name2;
-	}
-	
-	public Donator() {
-	}
+//	public Donator(Long id2, String userType2, String name2) {
+//		this.userId = id2;
+//		this.userType=userType2;
+//		this.name=name2;
+//	}
+//	
+//	public Donator() {
+//	}
 
 	public Long getId() {
 		return id;

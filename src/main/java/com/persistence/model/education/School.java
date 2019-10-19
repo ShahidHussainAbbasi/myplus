@@ -63,17 +63,6 @@ public class School implements Serializable {
 	@JoinTable(name = "schools_owners", joinColumns = @JoinColumn(name = "school_id", referencedColumnName = "school_id"), inverseJoinColumns = @JoinColumn(name = "owner_id", referencedColumnName = "owner_id"))
 	private Set<Owner> owners;
 
-//	@ManyToMany(mappedBy = "schools")
-//	@NotFound(action = NotFoundAction.IGNORE)
-//	private Set<Staff> staffs;
-
-//	@OneToOne(mappedBy="school",cascade = CascadeType.ALL)
-//	private Student student;
-//
-	// bi-directional one-to-many association to Vehicle
-//	@OneToMany(fetch = FetchType.LAZY)
-//	@NotFound(action = NotFoundAction.IGNORE)
-//	private Set<Vehicle> vehicles;
 
 	/**
 	 * @return the name

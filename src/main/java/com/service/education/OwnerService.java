@@ -14,15 +14,11 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.education.OwnerRepo;
 import com.persistence.model.education.Owner;
-import com.service.UserService;
 
 @Service
 @Transactional
 public class OwnerService implements IOwnerService {
 
-    @Autowired
-    UserService userService;
-    
     @Autowired
     OwnerRepo ownerRepo;
 

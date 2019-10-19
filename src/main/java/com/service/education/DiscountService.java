@@ -14,15 +14,11 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.education.DiscountRepo;
 import com.persistence.model.education.Discount;
-import com.service.UserService;
 
 @Service
 @Transactional
 public class DiscountService implements IDiscountService {
 
-    @Autowired
-    UserService userService;
-    
     @Autowired
     DiscountRepo discountRepo;
 

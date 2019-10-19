@@ -15,14 +15,10 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.education.GuardianRepo;
 import com.persistence.model.education.Guardian;
-import com.service.UserService;
 
 @Service
 @Transactional
 public class GuardianService implements IGuardianService {
-
-    @Autowired
-    UserService userService;
 
     @Autowired
     GuardianRepo guardianRepo;

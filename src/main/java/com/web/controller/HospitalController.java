@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.persistence.model.Geolocation;
-import com.security.ActiveUserStore;
 import com.service.IGeoLocationService;
 import com.service.IHospitalService;
 import com.web.dto.HospitalDto;
@@ -34,8 +33,6 @@ public class HospitalController {
 	 private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	    @Autowired
 	    private MessageSource messages;
-    @Autowired
-    ActiveUserStore activeUserStore;
 
     @Autowired
     IHospitalService hospitalService;

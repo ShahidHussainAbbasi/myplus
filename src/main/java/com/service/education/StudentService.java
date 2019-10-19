@@ -14,16 +14,12 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.education.StudentRepo;
 import com.persistence.model.education.Student;
-import com.service.UserService;
 
 @Service
 @Transactional
 public class StudentService implements IStudentService {
 
 
-    @Autowired
-    UserService userService;
-    
     @Autowired
     StudentRepo studentRepo;
     

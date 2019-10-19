@@ -13,15 +13,15 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.CompanyRepo;
-import com.persistence.model.business.Company;
-import com.service.UserService;
+import com.persistence.model.Company;
+import com.service.IUserService;
 
 @Service
 @Transactional
 public class CompanyService implements ICompanyService {
 
     @Autowired
-    UserService userService;
+    IUserService userService;
     
     @Autowired
     CompanyRepo companyRepo;

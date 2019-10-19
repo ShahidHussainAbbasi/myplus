@@ -37,8 +37,8 @@ public class AppointmentService extends AppointmentValidater implements IAppoint
     @Autowired
     DoctorRepository doctorRepo;
 
-    @Autowired
-    UserService userService;
+//    @Autowired
+//    IUserService userService;
 
     @Autowired
     private AppUtil appUtil;  

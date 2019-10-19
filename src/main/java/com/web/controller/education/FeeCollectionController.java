@@ -216,19 +216,20 @@ public class FeeCollectionController {
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			List<GenericResponse> ML = new ArrayList();
 			List<Long> SIDs = new ArrayList<Long>();
+			List<Long> ids = new ArrayList<Long>();
 			User user = requestUtil.getCurrentUser();
 			Iterable<String> list = Stream.of(dto.getVi().split(",")).collect(Collectors.toList());
 			list.forEach(id ->{	
-				SIDs.add(Long.valueOf(id));
+				ids.add(Long.valueOf(id));
 			});
 			if(dto.getVb().equals(STUDENTS)) {
-				SIDs.addAll(studentService.findStudentsByStudentIdsAndUserId(user.getId(), SIDs,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				SIDs.addAll(studentService.findStudentsByStudentIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
 			}else if(dto.getVb().equals(GUARDIANS)) {
-				SIDs.addAll(studentService.findStudentsByGuardianIdsAndUserId(user.getId(), SIDs,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				SIDs.addAll(studentService.findStudentsByGuardianIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
 			}else if(dto.getVb().equals(GRADES)) {
-				SIDs.addAll(studentService.findStudentsByGradeIdsAndUserId(user.getId(), SIDs,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				SIDs.addAll(studentService.findStudentsByGradeIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
 			}else if(dto.getVb().equals(SCHOOLS)) {
-				SIDs.addAll(studentService.findStudentsByCampusIdsAndUserId(user.getId(), SIDs,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				SIDs.addAll(studentService.findStudentsByCampusIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
 			}
 	        //getting student detail
 			if(appUtil.isEmptyOrNull(SIDs))

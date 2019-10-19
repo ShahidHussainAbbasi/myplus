@@ -19,7 +19,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.persistence.model.User;
-import com.service.UserService;
+import com.service.IUserService;
 
 
 @Component
@@ -28,7 +28,7 @@ public class RequestUtil {
     public static final Map<String,Object> userProperties = new HashMap<String,Object>();
 
 	@Autowired
-	UserService userService;
+	IUserService userService;
 
 //    public RequestContext getRequestContext() {
 //        HttpServletRequest request = getCurrentHttpRequest();

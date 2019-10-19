@@ -14,15 +14,11 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.education.VehicleRepo;
 import com.persistence.model.education.Vehicle;
-import com.service.UserService;
 
 @Service
 @Transactional
 public class VehicleService implements IVehicleService {
 
-    @Autowired
-    UserService userService;
-    
     @Autowired
     VehicleRepo vehicleRepo;
 

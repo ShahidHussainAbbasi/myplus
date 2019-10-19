@@ -95,10 +95,10 @@ public class PersistenceJPAConfig {
         return jpaProperties;
     }
     
-//    protected Properties additionalProperties() {
-//        final Properties hibernateProperties = new Properties();
-////        hibernateProperties.setProperty("hibernate.hbm2ddl.auto", env.getProperty("hibernate.hbm2ddl.auto"));
-//        return hibernateProperties;
-//    }
+    protected Properties additionalProperties() {
+        final Properties hibernateProperties = new Properties();
+        hibernateProperties.setProperty("hibernate.hbm2ddl.auto", env.getProperty("hibernate.hbm2ddl.auto"));
+        return hibernateProperties;
+    }
 
 }

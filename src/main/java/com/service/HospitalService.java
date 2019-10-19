@@ -22,7 +22,7 @@ public class HospitalService implements IHospitalService {
     private HospitalRepository repository;
     
     @Autowired
-    UserService userService;
+    IUserService userService;
     
     @Autowired
     private AppUtil appUtil;  

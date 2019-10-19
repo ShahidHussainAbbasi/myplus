@@ -14,14 +14,14 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.ItemTypeRepo;
 import com.persistence.model.business.ItemType;
-import com.service.UserService;
+import com.service.IUserService;
 
 @Service
 @Transactional
 public class ItemTypeService implements IItemTypeService {
 
     @Autowired
-    UserService userService;
+    IUserService userService;
     
     @Autowired
     ItemTypeRepo itemTypeRepo;

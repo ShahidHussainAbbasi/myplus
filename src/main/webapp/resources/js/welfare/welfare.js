@@ -271,7 +271,6 @@ function loadDataTable(){
 }
 
 function getAllDonators() {	
-	debugger;
 	$("#donationDonatorDD").empty();
     $("#donationDonatorDD").append("<option value = ''> Please wait....  </option>");
     

@@ -26,7 +26,7 @@ public class DoctorService implements IDoctorService {
     private DoctorRepository repository;
 
     @Autowired
-    UserService userService;
+    IUserService userService;
 
     @Autowired
     private AppUtil appUtil;  

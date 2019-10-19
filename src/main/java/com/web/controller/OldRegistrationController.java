@@ -47,7 +47,6 @@ public class OldRegistrationController {
     @Autowired
     private MessageSource messages;
 
-    @Autowired
     private JavaMailSender mailSender;
 
     @Autowired

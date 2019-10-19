@@ -53,23 +53,24 @@ function resetForm(){
 }
 
 function validateForm(){
-    formValidated = false;
+    formValidated = true;
     var form = document.getElementsByClassName('form-horizontal')[tableV];
-    if(!form || !form.checkValidity())
-    	return alert("Not valid form!");
-    
-    formFields = form.length-2;
-	event.preventDefault();
-	event.stopPropagation();
-	// Loop over them and prevent submission
-	for(var i=0; i<formFields; i++){
-		if(form[i].id && form[i].validity.valid){
-			document.getElementById(form[i].id).style.borderColor = "";
-		}else if(form[i].id){
-			document.getElementById(form[i].id).style.borderColor = "red";
+    if(form && !form.checkValidity()){
+	    formFields = form.length-2;
+	    console.log(formFields)
+		event.preventDefault();
+		event.stopPropagation();
+		// Loop over them and prevent submission
+		for(var i=0; i<formFields; i++){
+			if(form[i].id && form[i].validity.valid){
+				document.getElementById(form[i].id).style.borderColor = "";
+			}else if(form[i].id){
+				document.getElementById(form[i].id).style.borderColor = "red";
+				document.getElementById(form[i].id).focus();
+			}
 		}
-	}
-	formValidated = true;
+		formValidated = false;
+    }
 }
 
 $(document).ready(function() {
@@ -92,6 +93,7 @@ $(document).ready(function() {
 	$(".glyphicon-dashboard").click(function (){
 		$('.formDiv').hide();
 		$("#DashboardDiv").show();
+		getDashboardData();
 	});
 	
 	$("#paBtn").click(function (event) {
@@ -140,7 +142,23 @@ $(document).ready(function() {
 		showClose:true
 	});
 	
-    $(".datetimepicker").datetimepicker({
+	$(".datePickerWithMonthName").datetimepicker({
+		useCurrent: true,
+		format : 'DD-MMM-YYYY',
+		showTodayButton: true,
+		showClear:true,
+		showClose:true
+	});
+
+	$(".monthYearDatePicker").datetimepicker({
+		useCurrent: true,
+		format : 'MM-YYYY',
+//		showTodayButton: true,
+		showClear:true,
+		showClose:true
+	});
+
+	$(".datetimepicker").datetimepicker({
 		useCurrent: true,
 		format : 'DD-MM-YYYY HH:mm:ss',
 		showTodayButton: true,
@@ -308,7 +326,7 @@ $(document).ready(function() {
 			}else{
 				if(tableV!="Sell"){					
 					var html = datatable.row(this).data();// .selector.rows.innerHTML;
-					var doc = new DOMParser().parseFromString(html, "text/html");
+					var doc = getDocument(html);
 					editRecord(doc);
 				}
 			}
@@ -418,7 +436,6 @@ function jsonPost(method,data) {
 	      data : JSON.stringify(data),
 	      dataType : 'json',			
 	      success : function(data) {
-	    	  debugger;
 			if(data.status!="SUCCESS"){
 				alert("Insertion error");
 			}
@@ -457,19 +474,24 @@ function editRecord(doc){
 	edit = true;
 	for(var i=0; i<(formFields); i++){
 		if(doc.getElementById(form[i].id)){
+			if(doc.getElementById(form[i].id).type == 'checkbox'){
+				$("#"+form[i].id).val(doc.getElementById(form[i].id).value*ONE);
+				continue;
+			}
 			var text = doc.getElementById(form[i].id).textContent;
 			if(form[i].tagName=="SELECT"){
 				var labels = text.split(",");
 				labels.forEach(function(entry) {
 					$("#"+form[i].id+" option").each(function() {
-						if(text.indexOf(($(this).text()).split("-")[0]) > -1) {
+						if(text === (($(this).text()).split("-")[0])) {
 							$(this).prop('selected', true);
 						}else{
 							$(this).prop('selected', false);
-						}                      
+						}  
 					});
 				});
 			}else{
+				text = (text == "null"?"":text);
 				$("#"+form[i].id).val(text);
 			}
 			// Handled bootstrap drop down
@@ -703,3 +725,6 @@ function loadBSDD(remoteMethod,DDID) {
 	});
 }
 
+function getDocument(html){
+	return new DOMParser().parseFromString(html, "text/html");
+}

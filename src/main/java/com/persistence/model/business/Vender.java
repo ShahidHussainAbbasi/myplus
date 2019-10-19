@@ -7,15 +7,17 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
+
+import com.persistence.model.Company;
 
 /**
  * The persistent class for the doctor database table.
@@ -27,7 +29,8 @@ public class Vender implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "vender_gen", sequenceName = "vender_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "vender_gen")	
 	@Column(name = "vender_id", unique = true, nullable = false)
 	private Long id;
 

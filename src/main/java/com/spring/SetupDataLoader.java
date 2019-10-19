@@ -148,6 +148,9 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
 //    		
 //    	}
     	
+        rb = ResourceBundle.getBundle("role_privileges_business");
+    	createUserIfNotFound("user@business.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(superRole)),rb.getString("business.user.type"));
+    	
     	//2. create role & privilege of education
         rb = ResourceBundle.getBundle("role_privileges_education");
     	//adding privileges
@@ -273,6 +276,9 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
 //    		}
 //    	}
 //  
+    	rb = ResourceBundle.getBundle("role_privileges_welfare");
+        createUserIfNotFound("user@welfare.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(superRole)),rb.getString("welfare.user.type"));
+
     	//4. create role & privilege of Agriculture
         rb = ResourceBundle.getBundle("role_privileges_agriculture");
         //Adding general user for Agriculture

@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 import com.persistence.Repo.business.SellRepo;
 import com.persistence.model.business.Item;
 import com.persistence.model.business.Sell;
-import com.service.UserService;
+import com.service.IUserService;
 import com.web.util.AppUtil;
 import com.web.util.RequestUtil;
 
@@ -37,7 +37,7 @@ import com.web.util.RequestUtil;
 public class SellService implements ISellService {
 
 	@Autowired
-	UserService userService;
+	IUserService userService;
 
 	@Autowired
 	SellRepo sellRepo;

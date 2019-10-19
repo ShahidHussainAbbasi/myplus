@@ -1008,7 +1008,7 @@ function loadFV(){
 					o.da=tf;
 					o.d=d;
 					o.dd = s2n(o.dd);
-					if(o.userId == 1426 || o.userId == 1829 || o.userId == 1427){
+					if(o.userId == 1426 || o.userId == 16 || o.userId == 1429){
 						var logo_url = serverContext+"resources/img/logos/ll_logo.jpg";
 						toDataURL(logo_url, function(dataUrl) {
 							PFV_3ColumBy3(data.collection,logo_url,3,6,15,15,dataUrl,getLLInst());//print fee voucher//PFV_1by4
@@ -1485,6 +1485,8 @@ function PFV_1by4(o,logo_url,X,Y,W,H,dataUrl,insts){
 */
 
 function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
+	var monthOption = $("#dateRangeDDFV")[0].selectedOptions[0].value;
+	
 //	var doc = new jsPDF('landscape');
 	var orientation = "landscape"//,portrait
 	var unit = "mm"//,mm,cm,in
@@ -1500,24 +1502,36 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 		total++;
 	}
 	for(var i=0; i<total;i++){
+
 		var L = 15;
 		var n = 0;
 		doc.line(L-3, 250, L-3, 6);
 		var xLineStart = 15;
 		var xLineEnd = 93;
-//		Sorting on enrolled no in asc order
+//		Sorting on enrolled No in ASC order
 		collection.sort(function(a, b) {
 			  return a.object.en - b.object.en;
 		});
+		
 		while(collection.length>0){
-//			var endMonth = $("#lastMonthDDFV")[0].selectedOptions[0].value*ONE;
-			var endMonth = $("#fved")[0].value;
-			var startMonth = $("#fvsd")[0].value; 
-//			if(endMonth<startMonth){
-//				alert("Fist Month can not be greater than last month");
-//				return false;
-//			}
-			var monthOption = $("#dateRangeDDFV")[0].selectedOptions[0].value;
+			//check if month range is valid
+			var firstYear = $("#fvsd")[0].value; 
+			var lastYear = $("#fved")[0].value;
+			if(monthOption !="0"){
+				var parts =firstYear.split('-');
+				firstYear = new Date(parts[1], parts[0] - 1, 1); 
+				firstYear = Date.parse(firstYear);
+				
+				parts =lastYear.split('-');
+				lastYear = new Date(parts[1], parts[0] - 1, 1); 
+				lastYear = Date.parse(lastYear);
+				
+				if(Date.compare(firstYear, lastYear) > 0){
+					alert("Fist Month can not be greater than last month");
+					return false;
+				}
+			}
+								
 			var T = 7;
 			var o = collection[0].object;
 			var sfd = obj.collection;
@@ -1646,9 +1660,7 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 			L =L-pageLeftRight;//5
 			var totalFee = 0;
 			if(monthOption==="0"){
-				var parts =startMonth.split('-');
-				var mydate = new Date(parts[2], parts[1] - 1, parts[0]); 
-				var month =getMonthYear(mydate);
+				var month =getMonthYear(new Date());
 				doc.text(month, L, T);
 				L =L+28;//35
 				doc.text("Monthly fee", L, T);
@@ -1659,15 +1671,9 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 				T = T+3.5;//72
 				L =L-pageLeftRight;//5
 			}else{
-				var parts =startMonth.split('-');
-				var mydate = new Date(parts[2], parts[1] - 1, parts[0]); 
-				startMonth = Date.parse(mydate);
-				parts =endMonth.split('-');
-				mydate = new Date(parts[2], parts[1] - 1, parts[0]); 
-				endMonth = Date.parse(mydate);
-				var monthDiff = Date.monthDiff(startMonth,endMonth)+2;
+				var monthDiff = Date.monthDiff(firstYear,lastYear)+2;
 				for(var m=1;m<=monthDiff;m++){
-					var month =getMonthYear(startMonth);
+					var month =getMonthYear(firstYear);
 					doc.text(month, L, T);
 					L =L+28;//35
 					doc.text("Monthly fee", L, T);
@@ -1677,10 +1683,13 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 					T = T+1;//78
 					T = T+3.5;//72
 					L =L-pageLeftRight;//5
-					startMonth = Date.addMonths(startMonth,m);
+					firstYear = Date.addMonths(firstYear,1);
 				}
 			}
+
 			doc.text("Arrears", L, T);
+			var manualArear = getManualArrears(o.en);
+			o.db = o.db+manualArear;
 			if(o.db && o.db >0){
 				L =L+pageLeftRight;
 				doc.text(o.db+"", L, T);
@@ -1705,14 +1714,17 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 			L =L+pageLeftRight;//35
 			doc.text((totalFee+payableAfterValidity)+"", L, T);
 
-			T = T+45;//78
+//			T = T+45;//78
+			
+			var width = doc.internal.pageSize.width;
+			var height = doc.internal.pageSize.height;
+			T = height - 25;
 			L =L-pageLeftRight;//5
 			doc.setFontSize(12);
 			doc.setFontType('bold');
 			doc.text("Instuctions for Guardians", L, T);
 			doc.setFontSize(8);
-			
-			T = T+2;//78
+			T = T+1;//78
 			insts.forEach(function(inst,i){
 				T = T+4;//78
 				doc.text(inst, L, T);
@@ -1737,7 +1749,6 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 			}else{
 				doc.line(L-3, 250, L-3, 4);				
 			}
-			debugger;
 			xLineStart =xLineEnd+ 11;
 			xLineEnd += 89;
 			
@@ -1752,6 +1763,16 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 	return;
 }
 
+function getManualArrears(en){
+	var arear=0;
+	arrears.forEach(function(obj){
+		if(obj.en == en){
+			arear = obj[en];
+			return;
+		}
+	});	
+	return arear;
+}
 function PFV_3ColumBy3_backup3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 //	var V = ["School","Guardian","Bank"]
 	var doc = new jsPDF('landscape');
@@ -2517,14 +2538,7 @@ function printFc2(){
 //create standard voucher
 function CSV(url){
  let mywindow = window.open('', 'PRINT', 'height=650,width=900,top=100,left=150');
-
-// mywindow.document.write(`<html><head><title>${title}</title>`);
  mywindow.document.write('</head><body >');
-// $("#campusName").src = serverContext+"resources/ASL_logo.jpg";
- /*var ld = document.getElementById("logoDiv");
- var img = document.createElement("img");
- img.src = serverContext+"resources/ASL_logo.jpg";
- ld.appendChild(img);*/
  
  mywindow.document.write(document.getElementById("logoDiv").innerHTML);
  $("#campusName").empty().append(o.sn);
@@ -2544,8 +2558,59 @@ function CSV(url){
 function loadFVIBSDD(element,destinationId){
 //	var lable  = $(element)[0].selectedOptions[0].text;
 	var value  = $(element)[0].selectedOptions[0].value;
+	$("#arrearsDiv").hide();
 	if(!value || value == '')
 		return false;
+	if(value === "Students")
+		$("#arrearsDiv").show();
+	
 	loadBSDD("getUser"+value.trim(),destinationId);
 	
+}
+
+var arrears = [];
+function populateArrearsDiv(element){
+	arrears = [];
+	$("#arrearsDiv").empty();
+	var span ="<p class='h5 text-info'>Please specify arrears below for individuals</p>";
+	var table = span+"<table id='tableArrears'>";
+	var tr ="<tr role='row'>";
+	var n = 0
+	$("#"+element.id+" option:selected").each(function() {
+		var en = $(this).text().split("-")[1];
+		var obj = {en:en};
+		arrears.push(obj);
+
+		n++;
+		var td ="<td>";
+		td += "<label class='control-label'>"+$(this).text()+"</label>";
+		td += "<div>";
+		td += "<input id='arrear_"+en+"' type='text' onkeyup=populateArrearsMap('"+en+"') class='form-control' placeholder=' Arrears '>";
+		td += "</div>";
+		td +="</td>"
+		tr +=td;
+		if(n==4){
+			tr +="</tr>";
+			table+=tr;
+			n=0;
+			tr ="<tr role='row'>";
+		}
+			
+	});
+	tr +="</tr>";
+	table+=tr;
+	table += "</table></div>"
+	$("#arrearsDiv").append(table);
+	
+}
+
+function populateArrearsMap(en){
+	var arrear = $("#arrear_"+en).val()*ONE;
+	if(!arrear && arrear.length < 0)
+		return;
+	
+	arrears.forEach(function(obj){
+		if(obj.en == en)
+			obj[en] = arrear;
+	});
 }

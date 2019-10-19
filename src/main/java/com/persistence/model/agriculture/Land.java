@@ -27,10 +27,6 @@ public class Land implements Serializable {
 		
 	}
 	
-	public Land(Long userId) {
-		this.userId = userId;
-	}
-	
 	@Id
 	@SequenceGenerator(name = "mySeqGen", sequenceName = "myDbSeq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "mySeqGen")	
@@ -38,6 +34,8 @@ public class Land implements Serializable {
 	@Setter @Getter	
 	private Long id;
 
+//	@ManyToOne(optional = false)
+//	@JoinColumn(name = "user")
 	@Column(name = "user_id")
 	@Setter @Getter	
 	private Long userId;
@@ -54,7 +52,8 @@ public class Land implements Serializable {
 	@Setter @Getter	
 	private String totalLandUnit;
 
-	@Column(name = "land_name")
+	
+	@Column(name="land_name",nullable = false)	
 	@Setter @Getter	
 	private String landName;
 

@@ -6,14 +6,24 @@
 	<title th:text="#{label.pages.home.title}">Title</title>
 </head>
 <body>
-	<div th:fragment="header" class="navbar-default hdr-cls">
-		<nav class="container">
+   	<div id="container">
+		<nav th:fragment="header" class="navbar-inverse">
+			<div class="container-fluid">
+				<ul class="nav navbar-nav navbar-right">
+		            <li th:if="${#authorization.expression('!isAuthenticated()')}">
+		              <a href="/login" th:href="@{/login}">
+		                <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>&nbsp;login
+		              </a>
+		            </li>
+				</ul>
+			</div>
 		</nav>
-	</div>
-    <div class="container content-cls">
-	    <h1 class="alert alert-danger" th:text="#{message.sessionExpired}">expired</h1>
-	    <a class="btn btn-info btn-cls" th:href="@{/login}" th:text="#{label.form.loginLink}">login</a>
-    </div>
-    <div th:replace="footer :: footer"/>
+	    <div id="content">
+		    <div id="content-wrap">
+			    <h3 class="alert alert-danger" th:text="#{message.sessionExpired}">expired</h3>
+		   </div>
+	    </div>
+	    <div th:replace="footer :: footer"/>
+	  </div> 
 </body>
 </html>

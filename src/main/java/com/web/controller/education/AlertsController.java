@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+
 import com.persistence.Repo.education.AlertChannelRepo;
 import com.persistence.model.User;
 import com.persistence.model.education.AlertChannel;
@@ -97,8 +98,8 @@ public class AlertsController {
 			objs.forEach(obj ->{
 				AlertsDTO dto = new AlertsDTO();
 				dto = modelMapper.map(obj, AlertsDTO.class);
-				dto.setSdStr(appUtil.getLoaclDateStr(obj.getSd()));
-				dto.setEdStr(appUtil.getLoaclDateStr(obj.getEd()));
+				dto.setSdStr(appUtil.getLocalDateStr(obj.getSd()));
+				dto.setEdStr(appUtil.getLocalDateStr(obj.getEd()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -346,7 +347,7 @@ public class AlertsController {
 	public GenericResponse sendPA(@Validated final AlertChannelDTO dto,final HttpServletRequest request){
 		try {
 			List<AlertChannel> emails = new ArrayList<>();
-			List<AlertChannel> mobiles = new ArrayList<>();
+//			List<AlertChannel> mobiles = new ArrayList<>();
 			AlertChannel ac = new AlertChannel();
 			User user = requestUtil.getCurrentUser();
 			ac.setUId(user.getId());
@@ -362,7 +363,7 @@ public class AlertsController {
 		        Example<AlertChannel> example = Example.of(ac);
 				List<AlertChannel> objs = alertChannelRepo.findAll(example);
 				emails = objs.stream().filter(o -> "Email".equals(o.getCn())).collect(Collectors.toList()); 
-				mobiles = objs.stream().filter(o -> "Mobile".equals(o.getCn())).collect(Collectors.toList()); 
+//				mobiles = objs.stream().filter(o -> "Mobile".equals(o.getCn())).collect(Collectors.toList()); 
 			}
 			emails.forEach(o -> {
 		        final String recipientAddress = o.getC();

@@ -3,6 +3,7 @@
  */
 package com.web.controller.agriculture;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -63,20 +64,26 @@ public class AgricultureExpenseController {
 	@ResponseBody
 	public GenericResponse addAgricultureExpense(final AgricultureExpenseDTO dto, final HttpServletRequest request){
 		try {
-//			dto.setDatedStr(appUtil.todayDateStr());
-			AgricultureExpense e = modelMapper.map(dto, AgricultureExpense.class);
-			e.setUserId(requestUtil.getCurrentUser().getId());
-			e.setDated(appUtil.getDateTime(dto.getDatedStr()));
-			e.setUpdated(appUtil.getDateTime(dto.getUpdatedStr()));
+			AgricultureExpense obj = new AgricultureExpense(requestUtil.getCurrentUser().getId(),dto.getExpenseName());
+			if(appUtil.isEmptyOrNull(dto.getId())) {
+				Example<AgricultureExpense> example = Example.of(obj);
+				if(service.exists(example))				
+					return new GenericResponse(appUtil.INVALID,messages.getMessage("The Expense "+dto.getExpenseName()+" exist or invalid", null, request.getLocale()));
+			}
+
+			obj = modelMapper.map(dto, AgricultureExpense.class);
+			obj.setUserId(requestUtil.getCurrentUser().getId());
+			obj.setDated(LocalDateTime.now());
+			obj.setUpdated(appUtil.getDateTime(dto.getUpdatedStr()));
 			//update with land name
 			Optional<Land> optional = landService.findById(dto.getLandId());
 			if(optional.isPresent()) {
 				Land land = optional.get();
-				e.setLandId(land.getId());
-				e.setLandName(land.getLandName());
+				obj.setLandId(land.getId());
+				obj.setLandName(land.getLandName());
 			}
 			
-			if(service.save(e).getId()>0)
+			if(service.save(obj).getId()>0)
 				return new GenericResponse("Expense added successfully");
 			else
 				return new GenericResponse("Sorry, Your expense not submitted");
@@ -146,9 +153,9 @@ public class AgricultureExpenseController {
 		}
 	}
 	
-	@RequestMapping(value = "/loadLastCropAttached", method = RequestMethod.GET)
+	@RequestMapping(value = "/expense/loadLastCropAttached", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse loadLastCropAttached(@RequestParam Long landId,final HttpServletRequest request) {
+	public GenericResponse loadLastExpenseCropAttached(@RequestParam Long landId,final HttpServletRequest request) {
 		AgricultureExpenseDTO dto = null;
 		try {
 			AgricultureExpense agricultureExpense = new AgricultureExpense(requestUtil.getCurrentUser().getId());
@@ -168,7 +175,7 @@ public class AgricultureExpenseController {
 
 	@RequestMapping(value = "/deleteAgricultureExpense", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse deleteDonator( HttpServletRequest request){
+	public GenericResponse deleteAgricultureExpense( HttpServletRequest request){
 		try {
 		String ids = request.getParameter("checked");
 			if(StringUtils.isEmpty(ids)) 
@@ -176,7 +183,8 @@ public class AgricultureExpenseController {
 				
 			String idList[] = ids.split(",");
 			for(String id:idList){
-				service.deleteById(Long.valueOf(id));
+				if(!StringUtils.isEmpty(id)) 
+					service.deleteById(Long.valueOf(id));
 			}
 			return new GenericResponse(appUtil.SUCCESS,messages.getMessage("message.delete.success", null, request.getLocale()));
 		} catch (Exception e) {
