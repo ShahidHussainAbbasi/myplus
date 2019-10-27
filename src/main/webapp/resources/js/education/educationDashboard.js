@@ -11,7 +11,7 @@ function getDashboardData(){
         	var obj = data.object;
             $("#studentDiv").text(obj.freshStudent+" / "+obj.allStudent);
             var percent = obj.freshStudent > 0?(obj.freshStudent*ONE / obj.allStudent*ONE * 100):0;
-            $("#percentDiv").text(Math.round(percent)+"%");
+            $("#percentDiv").text(Math.round(percent).toFixed(2)+"%");
 //            $("#allStudentDiv").text(obj.allStudent);
     	}else{
         	alert(data.message);

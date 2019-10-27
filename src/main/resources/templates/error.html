@@ -1,15 +1,28 @@
 <!DOCTYPE html>
-
-<html lang="en">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <!-- <link rel="stylesheet" type="text/css" href="css/bootstrap.css" /> -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="./resources/main.css" />
+	<title th:text="#{label.pages.home.title}">Title</title>
 </head>
 <body>
-	<div class="container">
-	    <div class="jumbotron alert-danger">
+   	<div id="container">
+		<nav th:fragment="header" class="navbar-inverse">
+			<div class="container-fluid">
+				<ul class="nav navbar-nav navbar-right">
+		            <li th:if="${#authorization.expression('!isAuthenticated()')}">
+		              <a href="/login" th:href="@{/login}">
+		                <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>&nbsp;login
+		              </a>
+		            </li>
+				</ul>
+			</div>
+		</nav>
+	    <div id="content" class="jumbotron alert-danger">
 			<h1>Oops. Something went wrong</h1>
 			<h2>${status} ${error}</h2>
 	    </div>
+	    <div th:replace="footer :: footer"/>
 	</div>
 </body>
 

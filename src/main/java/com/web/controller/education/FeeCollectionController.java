@@ -280,7 +280,7 @@ public class FeeCollectionController {
 			        if(dto.getVp().intValue() == CURRENT_MONTH.intValue()) {
 			        	fcList = feeCollectionService.findFCByDates(s.getEnrollNo(), appUtil.firstDateOfMonth(), appUtil.lastDateOfMonth(), user.getId());
 			        }else if(!appUtil.isEmptyOrNull(dto.getSdStr()) && !appUtil.isEmptyOrNull(dto.getEdStr())) {
-			        	fcList = feeCollectionService.findFCByDates(s.getEnrollNo(), appUtil.getLocalDate(dto.getSdStr()), appUtil.getLocalDate(dto.getEdStr()), user.getId());
+			        	fcList = feeCollectionService.findFCByDates(s.getEnrollNo(), appUtil.getLocalDateByMonthYear(dto.getSdStr()), appUtil.getLocalDateByMonthYear(dto.getEdStr()), user.getId());
 			        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && appUtil.isEmptyOrNull(dto.getEd())) {
 			        	fcList = feeCollectionService.findFCByStartDate(s.getEnrollNo(), appUtil.getLocalDate(dto.getSdStr()), user.getId());
 			        }else if(appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {

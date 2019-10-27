@@ -30,9 +30,8 @@ public class Owner implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_owner_gen", sequenceName = "agri_owner_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_owner_gen")	
-//	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "owner_gen", sequenceName = "owner_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "owner_gen")	
 	@Column(name = "owner_id", unique = true, nullable = false)
 	private Long id;
 

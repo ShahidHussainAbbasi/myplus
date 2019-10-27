@@ -25,9 +25,8 @@ public class Student implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_student_gen", sequenceName = "agri_student_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_student_gen")	
-//	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "student_gen", sequenceName = "student_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "student_gen")	
 	@Column(name = "student_id", unique = true, nullable = false)
 	private Long id;
 

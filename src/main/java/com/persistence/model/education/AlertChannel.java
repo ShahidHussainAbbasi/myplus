@@ -24,8 +24,8 @@ public class AlertChannel implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_alertChan_gen", sequenceName = "agri_alertChan_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_alertChan_gen")	
+	@SequenceGenerator(name = "alertChan_gen", sequenceName = "alertChan_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "alertChan_gen")	
 //	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "alert_channel_id", unique = true, nullable = false)
 	@Getter@Setter

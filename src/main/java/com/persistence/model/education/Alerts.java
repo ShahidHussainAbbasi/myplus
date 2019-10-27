@@ -21,8 +21,8 @@ public class Alerts implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_alert_gen", sequenceName = "agri_alert_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_alert_gen")	
+	@SequenceGenerator(name = "alert_gen", sequenceName = "alert_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "alert_gen")	
 	@Column(name = "alert_id", unique = true, nullable = false)
 	private Long id;
 

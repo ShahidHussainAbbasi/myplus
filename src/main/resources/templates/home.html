@@ -5,35 +5,38 @@
 <div th:replace="header :: header-css" />
 </head>
 <body>
-	<nav class="navbar navbar-inverse">
-		<div class="container-fluid">
-			<div class="navbar-header active">
-				<img th:src="@{/resources/favicon.png}" height="50" width="42" title="Maximize your services"/>
-				<!-- <a class="navbar-brand" href="#">Maximize your services</a> -->
-			</div>
-			<ul class="nav navbar-nav navbar-right">
-	            <li th:if="${#authorization.expression('!isAuthenticated()')}">
-	              <a href="/login" th:href="@{/login}">
-	                <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>&nbsp;Sign in
-	              </a>
-	            </li>
-				<li th:if="${#authorization.expression('!isAuthenticated()')}">
-					<a	th:href="@{/registration.html}">
-						<span class="glyphicon glyphicon-user" aria-hidden="true"></span>&nbsp;SignUp
-					</a>
-				</li>
-			
-	            <li th:if="${#authorization.expression('isAuthenticated()')}">
-		            <a href="/logout" th:href="@{#}" onclick="$('#form').submit();">
-			            <span class="glyphicon glyphicon-log-out" aria-hidden="true"></span>&nbsp;Logout
-		            </a>
-		            <form style="visibility: hidden" id="form" method="post" action="#" th:action="@{/logout}"></form>
-	            </li>
-			</ul>
+   	<div id="container" class="wrapper">
+		<div class="content">
+			<nav class="navbar navbar-inverse">
+				<div class="container-fluid">
+					<div class="navbar-header active">
+						<img th:src="@{/resources/favicon.png}" height="50" width="42" title="Maximize your services"/>
+						<!-- <a class="navbar-brand" href="#">Maximize your services</a> -->
+					</div>
+					<ul class="nav navbar-nav navbar-right">
+			            <li th:if="${#authorization.expression('!isAuthenticated()')}">
+			              <a href="/login" th:href="@{/login}">
+			                <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>&nbsp;Sign in
+			              </a>
+			            </li>
+						<li th:if="${#authorization.expression('!isAuthenticated()')}">
+							<a	th:href="@{/registration.html}">
+								<span class="glyphicon glyphicon-user" aria-hidden="true"></span>&nbsp;SignUp
+							</a>
+						</li>
+					
+			            <li th:if="${#authorization.expression('isAuthenticated()')}">
+				            <a href="/logout" th:href="@{#}" onclick="$('#form').submit();">
+					            <span class="glyphicon glyphicon-log-out" aria-hidden="true"></span>&nbsp;Logout
+				            </a>
+				            <form style="visibility: hidden" id="form" method="post" action="#" th:action="@{/logout}"></form>
+			            </li>
+					</ul>
+				</div>
+			</nav>
 		</div>
-	</nav>
-	<div class="container content-cls"></div>
-	<div th:replace="footer :: footer"></div>
+		<div th:replace="footer :: footer"></div>
+	</div>
 </body>
 </html>
 

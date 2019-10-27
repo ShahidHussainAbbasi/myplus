@@ -1,7 +1,7 @@
 package com.persistence.model.agriculture;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -67,11 +67,11 @@ public class Land implements Serializable {
 
 	@Column(name="dated", updatable=false)
 	@Setter @Getter	
-	private LocalDateTime dated;
+	private LocalDate dated;
 
 	@Column(name="updated")
 	@Setter @Getter	
-	private LocalDateTime updated;
+	private LocalDate updated;
 	
 
 	/**

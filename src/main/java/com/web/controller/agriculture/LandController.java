@@ -3,7 +3,7 @@
  */
 package com.web.controller.agriculture;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -65,8 +65,8 @@ public class LandController {
 			}
 
 			obj = modelMapper.map(dto, Land.class);
-			obj.setDated(LocalDateTime.now());
-			obj.setUpdated(appUtil.getDateTime(dto.getUpdatedStr()));
+			obj.setDated(LocalDate.now());
+			obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
 			if(service.save(obj).getId()>0)
 				return new GenericResponse("Land added successfully");
 			else
@@ -92,8 +92,8 @@ public class LandController {
 			for(Land obj: objs) {
 				dto = new LandDTO();
 				dto  = modelMapper.map(obj, LandDTO.class);
-				dto.setDatedStr(appUtil.getDateTimeStr(obj.getDated()));
-				dto.setUpdatedStr(appUtil.getDateTimeStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getLocalDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getLocalDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			}
 			return new GenericResponse("SUCCESS",dtos);

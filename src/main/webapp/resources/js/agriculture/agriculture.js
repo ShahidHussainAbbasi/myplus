@@ -151,8 +151,14 @@ function loadLastCropAttached(destinationId){
     	  controller = "income";
 	
     $.get(serverContext+""+controller+"/loadLastCropAttached?landId="+value ,function(data){
+		if(data.status === "NOT_FOUND"){
+			$(this).prop('selected', false);
+			$("#"+controller+"CropNameDD").prop('selectedIndex',0);
+			$("#"+controller+"CropType")[0].value = "";
+			return;
+		}
 		$("#"+controller+"CropNameDD  option").each(function() {
-			if(data.object.cropName.indexOf($(this).text()) > -1) {
+			if(data.object.cropName && data.object.cropName.indexOf($(this).text()) > -1) {
 				$(this).prop('selected', true);
 			}else{
 				$(this).prop('selected', false);

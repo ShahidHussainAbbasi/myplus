@@ -1614,25 +1614,61 @@
 				</div>
 			</div>		
 			<div id="FVDiv" class="formDiv">
-				<h4>Fee Vouchers</h4>
-				<br />
+				<h3>Fee Vouchers</h3>
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="FV" autocomplete="off">
+	 				<div class="form-group" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
+						<label class="control-label col-sm-2 req"  for="fvp">Period</label>
+						<div class="col-sm-2">
+							<select class="form-control" id="dateRangeDDFV" name="vp" required="required">
+								<option class="dropdown-item" value=0 selected="selected">Current month</option>
+								<option class="dropdown-item" value=1>Custom range</option>
+							</select>	
+						</div>
+						<div id="dateRangeFV" style="display: none">
+							<label class="control-label col-sm-2" for="fvsd">From</label>
+							<div class="col-sm-2">
+								<input type="text" class="form-control monthYearDatePicker" id="fvsd" name="sdStr"
+									placeholder=" Start Date"> 
+							</div>
+							<label class="control-label col-sm-2" for="fved">To</label>
+							<div class="col-sm-2">
+								<input type="text" class="form-control monthYearDatePicker" id="fved" name="edStr"
+									placeholder=" End Date"> 
+							</div>
+						</div>
+					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="fvb">Voucher By</label>
-						<div class="col-sm-4">
-							<select class="form-control onChangeSelect selectpicker req" id="fvb" name="vb" required="required" onchange="loadFVIBSDD(this,'fviDD')">
-								<option class="dropdown-item" value='' selected="selected">Not Selected</option>
+						<label class="control-label col-sm-2 req"  for="fIssueDate">Issue date</label>
+						<div class="col-sm-2">
+							<input type="text" class="form-control datePickerWithMonthName" id="fIssueDate" placeholder=" Issue Date" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req"  for="fDueDate">Due date</label>
+						<div class="col-sm-2">
+							<input type="text" class="form-control datePickerWithMonthName" id="fDueDate" name="dueDate"
+								placeholder=" Due Date" required="required"> 
+						</div>
+						<label class="control-label col-sm-2 req"  for="fValidDate">Valid date</label>
+						<div class="col-sm-2">
+							<input type="text" class="form-control datePickerWithMonthName" id="fValidDate" name="validDate"
+								placeholder=" Valid Date" required="required"> 
+						</div>
+					</div>			
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="fvb">Voucher by</label>
+						<div class="col-sm-2">
+							<select class="onChangeSelect selectpicker req" id="fvb" name="vb" required="required" onchange="loadFVIBSDD(this,'fviDD')">
+								<option class="dropdown-item" value='' selected="selected">Not selected</option>
 								<option class="dropdown-item" value='Students'>Students</option>
 								<option class="dropdown-item" value='Guardians'>Guardians</option>
 								<option class="dropdown-item" value='Grades'>Classes</option>
 								<option class="dropdown-item" value='Schools'>Campuses</option>
 							</select>	
 						</div>
-						<label class="control-label col-sm-2 req" for="fvi" th:text="#{label.please.select}">Please Select</label>
-						<div id="fvidiv" class="col-sm-4">
+						<label class="control-label col-sm-2 req" for="fvi" th:text="#{label.please.select}">Please select</label>
+						<div id="fvidiv" class="col-sm-6">
 							<select onchange="populateArrearsDiv(this)" required="required" multiple="multiple"
-								class="form-control onChangeSelect selectpicker" id="fviDD" name="vi" data-live-search="true">
+								class="onChangeSelect selectpicker" id="fviDD" name="vi" data-live-search="true">
 							</select>
 						</div>
 					</div>
@@ -1642,42 +1678,6 @@
 						<div class="col-sm-8" id="arrearsDiv">
 						</div>
 						<div class="col-sm-2">
-						</div>
-					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="fIssueDate">Issue Date</label>
-						<div class="col-sm-2">
-							<input type="text" class="form-control datePickerWithMonthName" id="fIssueDate" placeholder=" Issue Date" required="required"> 
-						</div>
-						<label class="control-label col-sm-2 req"  for="fDueDate">Due Date</label>
-						<div class="col-sm-2">
-							<input type="text" class="form-control datePickerWithMonthName" id="fDueDate" name="dueDate"
-								placeholder=" Due Date" required="required"> 
-						</div>
-						<label class="control-label col-sm-2 req"  for="fValidDate">Valid Date</label>
-						<div class="col-sm-2">
-							<input type="text" class="form-control datePickerWithMonthName" id="fValidDate" name="validDate"
-								placeholder=" Valid Date" required="required"> 
-						</div>
-					</div>			
-	 				<div class="form-group" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
-						<label class="control-label col-sm-2 req"  for="fvp">Period</label>
-						<div class="col-sm-4">
-							<select class="form-control" id="dateRangeDDFV" name="vp" required="required">
-								<option class="dropdown-item" value=0 selected="selected">Current month</option>
-								<option class="dropdown-item" value=1>Custom range</option>
-							</select>	
-						</div>
-						<div id="dateRangeFV" style="display: none">
-							<label class="control-label col-sm-2" for="fvsd">Month range</label>
-							<div class="col-sm-2">
-								<input type="text" class="form-control monthYearDatePicker" id="fvsd" name="sdStr"
-									placeholder=" Start Date"> 
-							</div>
-							<div class="col-sm-2">
-								<input type="text" class="form-control monthYearDatePicker" id="fved" name="edStr"
-									placeholder=" End Date"> 
-							</div>
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center; margin-top: 25px;">
@@ -1727,112 +1727,113 @@
 			</div>		
 	
 			<div id="FRDiv" class="formDiv">
-		<h4>Fee reports</h4>
-		<br />
-		<form action="/" method="POST" class="form-horizontal" role="form"
-			enctype="utf8" id="FR" autocomplete="off">
-			<div class="form-group">
-				<label class="control-label col-sm-2 req"  for="frb">Fee By</label>
-				<div class="col-sm-4">
-					<select class="form-control" id="frb" name="rb" required="required">
-						<option class="dropdown-item" value=-1 selected="selected">All</option>
-						<option class="dropdown-item" value=0>Student</option>
-						<option class="dropdown-item" value=1>Guardian</option>
-						<option class="dropdown-item" value=2>Class</option>
-						<option class="dropdown-item" value=3>Campus</option>
-					</select>	
-				</div>
-				<div id="fvidiv">
-					<label class="control-label col-sm-2" for="fri">Enter Id</label>
-					<div class="col-sm-4">
-						<input type="text" class="form-control" id="fri" name="ri"
-							placeholder=" Enter Id "> 
-					</div>					
-				</div>					
-			</div>
-			<div class="form-group">
-				<label class="control-label col-sm-2 req"  for="frbs">Status By</label>
-				<div class="col-sm-4">
-					<select class="form-control" id="frbs" name="rbs" required="required">
-						<option class="dropdown-item" value="" selected="selected">All</option>
-						<option class="dropdown-item" value="Active">Active</option>
-						<option class="dropdown-item" value="Inactive">Inactive</option>
-					</select>	
-				</div>
-				<label class="control-label col-sm-2 req"  for="frp">Period</label>
-				<div class="col-sm-4">
-					<select class="form-control" id="dateRangeDDFR" name="rp" required="required">
-						<option class="dropdown-item" value=0 selected="selected">Current month</option>
-						<option class="dropdown-item" value=1>Custom range</option>
-					</select>	
-				</div>
-			</div>
-			<div class="form-group">
-				<div id="dateRangeFR" style="display: none">
-					<div class="col-sm-6">
+				<h4>Fee reports</h4>
+				<br />
+				<form action="/" method="POST" class="form-horizontal" role="form"
+					enctype="utf8" id="FR" autocomplete="off">
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="frb">Fee By</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="frb" name="rb" required="required">
+								<option class="dropdown-item" value=-1 selected="selected">All</option>
+								<option class="dropdown-item" value=0>Student</option>
+								<option class="dropdown-item" value=1>Guardian</option>
+								<option class="dropdown-item" value=2>Class</option>
+								<option class="dropdown-item" value=3>Campus</option>
+							</select>	
+						</div>
+						<div id="fvidiv">
+							<label class="control-label col-sm-2" for="fri">Enter Id</label>
+							<div class="col-sm-4">
+								<input type="text" class="form-control" id="fri" name="ri"
+									placeholder=" Enter Id "> 
+							</div>					
+						</div>					
 					</div>
-					<label class="control-label col-sm-2" for="frsd">Date Range</label>
-					<div class="col-sm-2">
-						<input type="text" class="form-control datePicker" id="frsd" name="sdStr"
-							placeholder=" Start Date"> 
+					<div class="form-group">
+						<label class="control-label col-sm-2 req"  for="frbs">Status By</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="frbs" name="rbs" required="required">
+								<option class="dropdown-item" value="" selected="selected">All</option>
+								<option class="dropdown-item" value="Active">Active</option>
+								<option class="dropdown-item" value="Inactive">Inactive</option>
+							</select>	
+						</div>
+						<label class="control-label col-sm-2 req"  for="frp">Period</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="dateRangeDDFR" name="rp" required="required">
+								<option class="dropdown-item" value=0 selected="selected">Current month</option>
+								<option class="dropdown-item" value=1>Custom range</option>
+							</select>	
+						</div>
 					</div>
-					<div class="col-sm-2">
-						<input type="text" class="form-control datePicker" id="fred" name="edStr"
-							placeholder=" End Date"> 
+					<div class="form-group">
+						<div id="dateRangeFR" style="display: none">
+							<div class="col-sm-6">
+							</div>
+							<label class="control-label col-sm-2" for="frsd">Date Range</label>
+							<div class="col-sm-2">
+								<input type="text" class="form-control datePicker" id="frsd" name="sdStr"
+									placeholder=" Start Date"> 
+							</div>
+							<div class="col-sm-2">
+								<input type="text" class="form-control datePicker" id="fred" name="edStr"
+									placeholder=" End Date"> 
+							</div>
+						</div>
 					</div>
-				</div>
-			</div>
-			<div class="form-group" style="text-align: center; margin-top: 25px;">
-				<button type="button" id="printFc" onclick="loadFR()" class="btn btn-success">
-					<span class="glyphicon glyphicon-sunglasses"></span> View
-				</button>
-			</div>
-		</form>
-		<table id="tableFeeReport" class="table table-striped">
-	        <thead>
-	            <tr>
-					<th class="col-sm-1">Campus</th>
-					<th class="col-sm-1">Class</th>
-					<th class="col-sm-1">Guardian</th>
-					<th class="col-sm-1">Student</th>
-					<th class="col-sm-1">Fee</th>
-					<th class="col-sm-1">Others</th>
-					<th class="col-sm-1">Desc.</th>
-					<th class="col-sm-1">Discount</th>
-					<th class="col-sm-1">Payer</th>
-					<th class="col-sm-1">Payee</th>
-					<th class="col-sm-1">Date</th>
-					<th class="col-sm-1">Due</th>
-					<th class="col-sm-1">Paid</th>
-					<th class="col-sm-1">Balance</th>
-	            </tr>
-	        </thead>
-			<tfoot>
-	            <tr>
-	                <th>Totals:</th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	                <th></th>
-	            </tr>
-	        </tfoot>
-  		    </table>
-  		    
-		<form th:action="@{/impStudents}" method="post" enctype="multipart/form-data">
-		
-		    <input type="file" th:name="file">
-		
-		<input th:type="submit" value="Import" />   		    
-	</div>		
+					<div class="form-group" style="text-align: center; margin-top: 25px;">
+						<button type="button" id="printFc" onclick="loadFR()" class="btn btn-success">
+							<span class="glyphicon glyphicon-sunglasses"></span> View
+						</button>
+					</div>
+					<div class="form-group">
+						<table id="tableFeeReport" class="table table-striped">
+					        <thead>
+					            <tr>
+									<th class="col-sm-1">Campus</th>
+									<th class="col-sm-1">Class</th>
+									<th class="col-sm-1">Guardian</th>
+									<th class="col-sm-1">Student</th>
+									<th class="col-sm-1">Fee</th>
+									<th class="col-sm-1">Others</th>
+									<th class="col-sm-1">Desc.</th>
+									<th class="col-sm-1">Discount</th>
+									<th class="col-sm-1">Payer</th>
+									<th class="col-sm-1">Payee</th>
+									<th class="col-sm-1">Date</th>
+									<th class="col-sm-1">Due</th>
+									<th class="col-sm-1">Paid</th>
+									<th class="col-sm-1">Balance</th>
+					            </tr>
+					        </thead>
+							<tfoot>
+					            <tr>
+					                <th>Totals:</th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					                <th></th>
+					            </tr>
+					        </tfoot>
+				  		</table>
+					</div>
+				</form>
+			</div>		
+			<form th:action="@{/impStudents}" method="post" enctype="multipart/form-data" style="display: none">
+			    <input type="file" th:name="file">
+			
+				<input th:type="submit" value="Import" />  
+			</form> 		    
 		</div>
 	    <div th:replace="footer :: footer"/>		
 	</div>

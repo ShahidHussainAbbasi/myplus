@@ -13,6 +13,7 @@
  <title th:text="#{label.app.title}">Title</title>
 </head>
 <body>
+	<div id="container">
 		<nav th:fragment="header" class="navbar-inverse">
 		  <div class="container-fluid">
 		    <div class="navbar-header active">
@@ -26,12 +27,13 @@
 		    </ul>
 		  </div>
 		</nav>
-		<div class="container content-cls">
         <h1 id="error" class="alert alert-danger" th:if="${session[SPRING_SECURITY_LAST_EXCEPTION]}" th:text="#{message.logoutError}">error</h1>
                 
         <h1 id="success" class="alert alert-info" th:if="${param.logSucc}" th:text="#{message.logoutSucc}"> success</h1>
         <br/><br/>
+	    <div id="content">
+	    </div>
+	    <div th:replace="footer :: footer"/>
     </div>
-    <div th:replace="footer :: footer"/>
 </body>
 </html>

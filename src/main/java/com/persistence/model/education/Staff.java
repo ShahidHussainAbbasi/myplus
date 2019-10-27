@@ -33,9 +33,8 @@ public class Staff implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_staff_gen", sequenceName = "agri_staff_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_staff_gen")	
-//	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "staff_gen", sequenceName = "staff_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "staff_gen")	
 	@Column(name = "staff_id", unique = true, nullable = false)
 	private Long id;
 

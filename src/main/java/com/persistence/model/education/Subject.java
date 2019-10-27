@@ -29,9 +29,8 @@ public class Subject implements Serializable {
 	private String name;
 
 	@Id
-	@SequenceGenerator(name = "agri_subject_gen", sequenceName = "agri_subject_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_subject_gen")	
-//	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "subject_gen", sequenceName = "subject_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "subject_gen")	
 	@Column(name = "subject_id", nullable = false)
 	private Long id;
 

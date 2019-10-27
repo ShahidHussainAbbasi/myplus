@@ -1,7 +1,7 @@
 package com.persistence.model.agriculture;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -30,9 +30,11 @@ public class AgricultureIncome implements Serializable {
 		this.userId = userId;
 	}
 	
-	public AgricultureIncome(Long userId, String incomeName) {
+	public AgricultureIncome(Long userId,Long landId, String incomeName,LocalDate updated) {
 		this.userId = userId;
+		this.landId = landId;
 		this.incomeName = incomeName;
+		this.updated = updated;
 	}
 
 	@Id
@@ -92,11 +94,11 @@ public class AgricultureIncome implements Serializable {
 
 	@Column(name="dated", updatable=false)
 	@Setter @Getter	
-	private LocalDateTime dated;
+	private LocalDate dated;
 
 	@Column(name="updated")
 	@Setter @Getter	
-	private LocalDateTime updated;
+	private LocalDate updated;
 	
 
 	/**

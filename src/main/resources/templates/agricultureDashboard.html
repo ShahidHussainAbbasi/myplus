@@ -32,7 +32,6 @@
 			</nav>
 			<div id="agricultureExpenseDiv" class="formDiv" style="display:none">
 				<h4 th:text="#{label.expense.form.heading}">Expense Form</h4>
-				<br />
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="AgricultureExpense" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -136,14 +135,14 @@
 					</div>
 					<div class="form-group">
 						<label class="control-label col-lg-2" th:text="#{label.amount}" for="expenseAmount">Amount</label> 
-						<span class="col-lg-10">
+						<div class="col-lg-10">
 							<input id="expenseAmount" class="form-control" type="number" name="amount" value="" required="required" />
-						</span> 
+						</div> 
 					</div>
 					<div class="form-group">
 						<label class="control-label col-lg-2" th:text="#{label.date}"  for="expenseUpdatedStr">Expense Date</label>
 						<div class="col-lg-10">
-							<input type="text" class="form-control datetimepicker" id="expenseUpdatedStr" name="updatedStr">
+							<input type="text" class="form-control datePicker" id="expenseUpdatedStr" name="updatedStr">
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center">
@@ -192,8 +191,7 @@
 				</form>
 			</div>
 			<div id="agricultureIncomeDiv" class="formDiv" style="display:none">
-				<h3 th:text="#{label.income.form.heading}">Income Form</h3>
-				<br />
+				<h4 th:text="#{label.income.form.heading}">Income Form</h4>
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="AgricultureIncome" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -299,14 +297,14 @@
 					</div>
 					<div class="form-group">
 						<label class="control-label col-lg-2" th:text="#{label.amount}" for="incomeAmount">Amount</label> 
-						<span class="col-lg-10">
+						<div class="col-lg-10">
 							<input id="incomeAmount" class="form-control" type="number" name="amount" value="" required="required" />
-						</span> 
+						</div> 
 					</div>
 					<div class="form-group">
 						<label class="control-label col-lg-2" th:text="#{label.date}"  for="incomeUpdatedStr">Expense Date</label>
 						<div class="col-lg-10">
-							<input type="text" class="form-control datetimepicker" id="incomeUpdatedStr" name="updatedStr">
+							<input type="text" class="form-control datePicker" id="incomeUpdatedStr" name="updatedStr">
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center">
@@ -354,8 +352,7 @@
 				</form>
 			</div>
 			<div id="landDiv" class="formDiv" style="display:none">
-				<h3 th:text="#{label.land.registration.form.heading}">Land Registration</h3>
-				<br />
+				<h4 th:text="#{label.land.registration.form.heading}">Land Registration</h4>
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Land" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -401,7 +398,7 @@
 					<div class="form-group">
 						<label class="control-label col-lg-2" th:text="#{label.date}"  for="landUpdatedStr">Date</label>
 						<div class="col-lg-10">
-							<input type="text" class="form-control datetimepicker" id="landUpdatedStr" name="updatedStr">
+							<input type="text" class="form-control datePicker" id="landUpdatedStr" name="updatedStr">
 						</div>
 					</div>
 					<div class="form-group">

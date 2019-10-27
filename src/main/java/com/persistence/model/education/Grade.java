@@ -32,8 +32,8 @@ public class Grade implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_grade_gen", sequenceName = "agri_grade_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_grade_gen")	
+	@SequenceGenerator(name = "grade_gen", sequenceName = "grade_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "grade_gen")	
 //	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "grade_id", unique = true, nullable = false)
 	private Long id;

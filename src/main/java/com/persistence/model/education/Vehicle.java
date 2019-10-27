@@ -21,9 +21,8 @@ public class Vehicle implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_vehicle_gen", sequenceName = "agri_vehicle_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_vehicle_gen")	
-//	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "vehicle_gen", sequenceName = "vehicle_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "vehicle_gen")	
 	@Column(name = "vehicle_id", unique = true, nullable = false)
 	private Long id;
 

@@ -3,8 +3,9 @@
  */
 package com.web.controller.agriculture;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,7 +15,6 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -58,16 +58,17 @@ public class AgricultureIncomeController {
 	@ResponseBody
 	public GenericResponse addAgricultureIncome(final AgricultureIncomeDTO dto, final HttpServletRequest request){
 		try {
-			dto.setUserId(requestUtil.getCurrentUser().getId());
-			AgricultureIncome obj = new AgricultureIncome(dto.getUserId(),dto.getIncomeName());
+			AgricultureIncome obj = null;
 			if(appUtil.isEmptyOrNull(dto.getId())) {
+				obj = new AgricultureIncome(dto.getUserId(),dto.getLandId(),dto.getIncomeName(),appUtil.getLocalDate(dto.getUpdatedStr()));
 				Example<AgricultureIncome> example = Example.of(obj);
 				if(service.exists(example))				
 					return new GenericResponse(appUtil.INVALID,messages.getMessage("The Income "+dto.getIncomeName()+" exist or invalid", null, request.getLocale()));
 			}
 			obj  = modelMapper.map(dto, AgricultureIncome.class);
-			obj.setDated(LocalDateTime.now());
-			obj.setUpdated(appUtil.getDateTime(dto.getUpdatedStr()));
+			obj.setUserId(requestUtil.getCurrentUser().getId());
+			obj.setDated(LocalDate.now());
+			obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
 			//update with land name
 			Optional<Land> optional = landService.findById(dto.getLandId());
 			if(optional.isPresent()) {
@@ -101,8 +102,8 @@ public class AgricultureIncomeController {
 			for(AgricultureIncome obj: objs) {
 				dto = new AgricultureIncomeDTO();
 				dto  = modelMapper.map(obj, AgricultureIncomeDTO.class);
-				dto.setDatedStr(appUtil.getDateTimeStr(obj.getDated()));
-				dto.setUpdatedStr(appUtil.getDateTimeStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getLocalDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getLocalDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			}
 			return new GenericResponse("SUCCESS",dtos);
@@ -119,14 +120,17 @@ public class AgricultureIncomeController {
 			AgricultureIncome obj = new AgricultureIncome(requestUtil.getCurrentUser().getId());
 			obj.setLandId(landId);
 			Example<AgricultureIncome> example = Example.of(obj);
-			obj = service.findAll(example, new Sort(Sort.Direction.DESC, "updated")).get(0);
-			if(appUtil.isEmptyOrNull(obj))
+			List<AgricultureIncome> objs = service.findAll(example);
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("message.no.data.found", null, request.getLocale()));
 		
-			return new GenericResponse("SUCCESS",obj);
+			objs.sort(Comparator.comparing(AgricultureIncome::getUpdated).reversed());
+			obj = objs.get(0);
+			AgricultureIncomeDTO dto = modelMapper.map(obj, AgricultureIncomeDTO.class);
+			return new GenericResponse("SUCCESS",dto);
 		} catch (Exception e) {
 			appUtil.le(this.getClass(), e);
-			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()));
+			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()),landId);
 		}
 	}
 	

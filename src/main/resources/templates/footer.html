@@ -4,34 +4,36 @@
 </head>
 <!-- Footer -->
 <footer id="footer" th:fragment="footer">
-		<nav>
-			<div class="text-center text-md-left">
-				<!-- Footer links -->
-				<div class="row text-center text-md-left mt-3 pb-3">
-					<!-- Grid column -->
-					<div class="col-md-3 col-lg-3 col-xl-3 mx-auto mt-3">
-						<h5 class="text-uppercase mb-4 font-weight-bold">Company name</h5>
-						<p>maxtheservice</p>
-					</div>
-					<div class="col-md-3 col-lg-2 col-xl-2 mx-auto mt-3">
-						<h5 class="text-uppercase mb-4 font-weight-bold">Useful links</h5>
-						<p>
-							<a th:href="@{/services}" th:text="#{label.services}">Our Services</a>
-						</p>
-					</div>
-					<div class="col-md-4 col-lg-3 col-xl-3 mx-auto mt-3">
-						<h5 class="text-uppercase mb-4 font-weight-bold">Contact Us</h5>
-						<p>
-							<i class="fa fa-envelope mr-3">Email: maxtheservice@gmail.com</i>
-						</p>
-					</div>
-					<!-- Grid column -->
+	<nav role="row">
+		<div class="text-center">
+			<!-- Footer links -->
+			<div class="text-center">
+				<!-- Grid column -->
+				<div class="col-lg-4 mx-auto mt-3">
+					<h5 class="text-uppercase mb-4 font-weight-bold">Company name</h5>
+					<p>maxtheservice</p>
+				</div>
+				<div class="col-lg-4 mx-auto mt-3">
+					<h5 class="text-uppercase mb-4 font-weight-bold">Useful links</h5>
+					<p>
+						<a th:href="@{/services}" th:text="#{label.services}">Our Services</a>
+					</p>
+				</div>
+				<div class="col-lg-4 mx-auto mt-3">
+					<h5 class="text-uppercase mb-4 font-weight-bold">Contact Us</h5>
+					<p>
+						<i class="fa fa-envelope mr-3">Email: maxtheservice@gmail.com</i>
+					</p>
+				</div>
+				<!-- Grid column -->
+			</div>
+			<div class="text-center">
+				<div class="footer-copyright text-center py-3">
+					© 2019 Copyright <a href="https://maxtheservice.com/myplus/home"> maxtheservice.com</a>
 				</div>
 			</div>
-			<div class="footer-copyright text-center py-3">
-				© 2019 Copyright: <a href="https://maxtheservice.com/myplus/home">maxtheservice.com</a>
-			</div>
-		</nav>		
+		</div>
+	</nav>		
 </footer>
 
 </html>

@@ -21,8 +21,8 @@ public class FeeCollection implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_feeCollec_gen", sequenceName = "agri_feeCollec_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_feeCollec_gen")	
+	@SequenceGenerator(name = "feeCollec_gen", sequenceName = "feeCollec_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "feeCollec_gen")	
 //	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "fc_id", unique = true, nullable = false)
 	private Long id;

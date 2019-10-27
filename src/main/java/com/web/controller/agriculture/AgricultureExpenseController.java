@@ -3,7 +3,7 @@
  */
 package com.web.controller.agriculture;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -64,8 +64,9 @@ public class AgricultureExpenseController {
 	@ResponseBody
 	public GenericResponse addAgricultureExpense(final AgricultureExpenseDTO dto, final HttpServletRequest request){
 		try {
-			AgricultureExpense obj = new AgricultureExpense(requestUtil.getCurrentUser().getId(),dto.getExpenseName());
+			AgricultureExpense obj = null;
 			if(appUtil.isEmptyOrNull(dto.getId())) {
+				obj = new AgricultureExpense(requestUtil.getCurrentUser().getId(),dto.getLandId(),dto.getExpenseName(),appUtil.getLocalDate(dto.getUpdatedStr()));
 				Example<AgricultureExpense> example = Example.of(obj);
 				if(service.exists(example))				
 					return new GenericResponse(appUtil.INVALID,messages.getMessage("The Expense "+dto.getExpenseName()+" exist or invalid", null, request.getLocale()));
@@ -73,8 +74,8 @@ public class AgricultureExpenseController {
 
 			obj = modelMapper.map(dto, AgricultureExpense.class);
 			obj.setUserId(requestUtil.getCurrentUser().getId());
-			obj.setDated(LocalDateTime.now());
-			obj.setUpdated(appUtil.getDateTime(dto.getUpdatedStr()));
+			obj.setDated(LocalDate.now());
+			obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
 			//update with land name
 			Optional<Land> optional = landService.findById(dto.getLandId());
 			if(optional.isPresent()) {
@@ -142,8 +143,8 @@ public class AgricultureExpenseController {
 				dto = modelMapper.map(obj, AgricultureExpenseDTO.class);//new AgricultureExpenseDTO();
 //				dto.setId(obj.getId());
 //				dto.setAmount(obj.getAmount());
-				dto.setDatedStr(appUtil.getDateTimeStr(obj.getDated()));
-				dto.setUpdatedStr(appUtil.getDateTimeStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getLocalDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getLocalDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			}
 			return new GenericResponse("SUCCESS",dtos);
@@ -156,20 +157,20 @@ public class AgricultureExpenseController {
 	@RequestMapping(value = "/expense/loadLastCropAttached", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse loadLastExpenseCropAttached(@RequestParam Long landId,final HttpServletRequest request) {
-		AgricultureExpenseDTO dto = null;
 		try {
-			AgricultureExpense agricultureExpense = new AgricultureExpense(requestUtil.getCurrentUser().getId());
-			agricultureExpense.setLandId(landId);
-			Example<AgricultureExpense> example = Example.of(agricultureExpense);
-			AgricultureExpense obj = service.findAll(example, new Sort(Sort.Direction.DESC, "updated")).get(0);
-			if(appUtil.isEmptyOrNull(obj))
+			AgricultureExpense obj = new AgricultureExpense(requestUtil.getCurrentUser().getId());
+			obj.setLandId(landId);
+			Example<AgricultureExpense> example = Example.of(obj);
+			List<AgricultureExpense> objs = service.findAll(example, new Sort(Sort.Direction.DESC, "updated"));//.get(0);
+			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("message.no.data.found", null, request.getLocale()));
 			
-		
-			return new GenericResponse("SUCCESS",obj);
+			obj = objs.get(0);
+			AgricultureExpenseDTO dto = modelMapper.map(obj,AgricultureExpenseDTO.class);
+			return new GenericResponse("SUCCESS",dto);
 		} catch (Exception e) {
 			appUtil.le(this.getClass(), e);
-			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()),dto);
+			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()),landId);
 		}
 	}
 

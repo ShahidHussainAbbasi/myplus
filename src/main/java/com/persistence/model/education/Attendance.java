@@ -25,9 +25,8 @@ public class Attendance implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_attendance_gen", sequenceName = "agri_attendance_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_attendance_gen")	
-//	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "attendance_gen", sequenceName = "attendance_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "attendance_gen")	
 	@Column(name = "attendance_id", unique = true, nullable = false)
 	@Getter@Setter
 	private Long id;

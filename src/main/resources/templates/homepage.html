@@ -3,35 +3,11 @@
 <head>
 <div th:replace="header :: header-css"/>
 </head>
-
 <body>
-	<div th:replace="header :: header" />
-		<div class="container">
-<!-- 			<div id="abbasiWelfare" sec:authorize="hasAuthority('WRITE_PRIVILEGE')">
-				<a th:href="@{/donator.html}" th:text="#{label.abbasiWelfare.donation}">Flahey Abbasia Welfare</a>
-			</div>
- -->		</div>
-		<!-- 	<div class="container">
-		<div sec:authorize="hasAuthority('WRITE_PRIVILEGE')"
-			th:text="#{label.pages.user.message}">user</div>
-
-		<div sec:authorize="hasAuthority('WRITE_PRIVILEGE')"
-			th:text="#{label.pages.admin.message}"></div>
-
-		<p th:if="${param.user} != null" th:text="${param.user[0]}">user</p>
-
-		<a class="btn btn-default" th:href="@{/admin.html}" th:text="#{label.pages.admin}">admin</a>
-		<br /> <br /> <a th:href="@{/addHospital}"
-			th:text="#{label.hospital.add}">Add Hospital</a> <br /> <a
-			th:href="@{/addDoctor}" th:text="#{label.doctor.add}">Add Doctor</a>
-		<br />
-		  <a th:href="@{/loggedUsers}" th:text="#{label.pages.users.message}">View logged in users</a>
-		<br />	    
-	    <a th:href="@{/loggedUsersFromSessionRegistry}" th:text="#{label.pages.users.sessionregistry.message}">View logged in users</a>
-
-	</div> -->
-	<div class="container content-cls">
+	<div id="container">
+		<div th:replace="header :: header" />
+		<div id="content"/>
+		<div th:replace="footer :: footer"/>
 	</div>
-	<div th:replace="footer :: footer"></div>
 </body>
 </html>

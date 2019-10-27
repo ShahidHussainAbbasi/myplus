@@ -9,6 +9,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Collection;
@@ -132,8 +133,8 @@ public class AppUtil {
     	return dateTimeFormatter.format(date);
     }
 
-    //Get current date time
-    public Date getDate(String date) throws ParseException {
+    //Get current date
+    public Date date(String date) throws ParseException {
     	if(StringUtils.isEmpty(date))
     		return new Date();
     	return dateFormat.parse(date);
@@ -150,8 +151,19 @@ public class AppUtil {
     public LocalDate getLocalDate(String dateStr) throws ParseException {
     	if(StringUtils.isEmpty(dateStr))
     		return LocalDate.now();
-    	LocalDate dateTime = LocalDate.parse(dateStr, dateformatter);
-    	return dateTime;
+    	LocalDate date = LocalDate.parse(dateStr, dateformatter);
+    	return date;
+    }
+   	//Get current Month
+    public LocalDate getLocalDateByMonthYear(String monthYearStr) throws ParseException {
+    	if(StringUtils.isEmpty(monthYearStr))
+    		return LocalDate.now();
+    	
+    	DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM-yyyy");
+    	YearMonth ym = YearMonth.parse("09-2017", fmt);
+    	return ym.atDay(1);    	
+//    	LocalDate dateTime = LocalDate.parse(monthYearStr, DateTimeFormatter.ofPattern("MM-yyyy"));
+//    	return dateTime;
     }
    	//Get date time str
     public String getDateTimeStr(LocalDateTime dateTime){

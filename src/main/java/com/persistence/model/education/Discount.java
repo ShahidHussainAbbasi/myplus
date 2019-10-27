@@ -21,8 +21,8 @@ public class Discount implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_discount_gen", sequenceName = "agri_discount_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_discount_gen")	
+	@SequenceGenerator(name = "discount_gen", sequenceName = "discount_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "discount_gen")	
 //	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "discount_id", unique = true, nullable = false)
 	private Long id;

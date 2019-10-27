@@ -25,7 +25,7 @@
 	background-color: #90caf9;
 }
 .formDiv {
-  padding: 1em;
+  padding: 2em;
   color: black;
   display: none;
  /*  font-size: x-small; */
@@ -35,25 +35,26 @@
 .form-divider{
 	height: 25px;background-color: lightskyblue;margin: 20px;font-size: initial;font-family: initial;padding-left: 5px;
 }
-.form-control {
+
+/* .form-control {
     display: block;
     width: 100%;
     height: 26px;
     padding: 3px 3px;
     font-size: 12px;
  }
-
+ */
 .btn {
     font-size: 10px;
 }
 
 .table{
 	font-size: x-small;
-	background-color: #FAEBD7;
+	background-color: #f6f6f6;
 }
 
 .table thead {
-  background-color: #B8860B;
+  background-color: #06578a;
 }
 
 .control-label.req:after {
@@ -145,7 +146,7 @@ body {
    height:100%;
 }
 #container {
-   min-height:97%;
+   min-height:86%;
    position:relative;
 }
 
@@ -158,10 +159,23 @@ body {
    position:absolute;
    bottom:0;
    width:100%;
-   height:65px;   /* Height of the footer */
+   height:0%;   /* Height of the footer */
  /*   background-color: #f9f9f9; */
 }
 
 #footer nav{
-	background-color: #f9f9f9;
+	padding:10px;
+	background-color: #06578a;
+}
+
+select option {
+    margin: 40px;
+    background: #06578a;
+    color: #fff;
+    text-shadow: 0 1px 0 #87CEFA;
+}
+
+.navbar-inverse {
+    background-color: #06578a;
+    border-color: #080808;
 }

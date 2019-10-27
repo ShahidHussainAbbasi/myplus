@@ -1008,7 +1008,7 @@ function loadFV(){
 					o.da=tf;
 					o.d=d;
 					o.dd = s2n(o.dd);
-					if(o.userId == 1426 || o.userId == 16 || o.userId == 1429){
+					if(o.userId == 1426 || o.userId == 16 || o.userId == 1829){
 						var logo_url = serverContext+"resources/img/logos/ll_logo.jpg";
 						toDataURL(logo_url, function(dataUrl) {
 							PFV_3ColumBy3(data.collection,logo_url,3,6,15,15,dataUrl,getLLInst());//print fee voucher//PFV_1by4
@@ -1695,6 +1695,7 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 				doc.text(o.db+"", L, T);
 				L =L-pageLeftRight;
 			}
+			totalFee = totalFee + o.db;
 			T = T+2;//78
 			doc.line(xLineStart, T, xLineEnd, T);
 			T = T+3.5;//80

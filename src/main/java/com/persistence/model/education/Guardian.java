@@ -21,9 +21,8 @@ public class Guardian implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@SequenceGenerator(name = "agri_guardian_gen", sequenceName = "agri_guardian_seq",initialValue = 1, allocationSize = 1)
-	@GeneratedValue(generator = "agri_guardian_gen")	
-//	@GeneratedValue(strategy = GenerationType.AUTO)
+	@SequenceGenerator(name = "guardian_gen", sequenceName = "guardian_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "guardian_gen")	
 	@Column(name = "guardian_id", unique = true, nullable = false)
 	private Long id;
 
