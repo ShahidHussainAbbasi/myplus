@@ -2,7 +2,7 @@ package com.web.controller.business;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collector;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -23,23 +23,29 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.persistence.model.User;
 import com.persistence.model.business.Item;
+import com.persistence.model.business.Stock;
 import com.persistence.model.business.Vender;
 import com.service.business.ICompanyService;
 import com.service.business.IItemService;
 import com.service.business.IItemTypeService;
 import com.service.business.IItemUnitService;
+import com.service.business.IStockService;
 import com.service.business.IVenderService;
 import com.web.dto.business.ItemDTO;
+import com.web.dto.business.StockDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
 import com.web.util.RequestUtil;
 
 @RestController
-public class ItemController {
+public class StockController {
 
 	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
+
+	@Autowired
+	IStockService service;
 
 	@Autowired
 	IItemService itemService;
@@ -64,7 +70,7 @@ public class ItemController {
     
 	ModelMapper modelMapper = new ModelMapper();
 
-	@RequestMapping(value = "/getUserItem", method = RequestMethod.GET)
+	@RequestMapping(value = "/getUserStock", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserItem(final HttpServletRequest request) {
 		try {
@@ -100,12 +106,9 @@ public class ItemController {
 					dto.setCompanyName(obj.getCompany().getName());
 				}
 				if(!appUtil.isEmptyOrNull(dto.getVenderId())) {
-					Optional<Vender> vender = venderService.findById(dto.getVenderId());
-					if(vender.isPresent()) {
-						final Vender o = vender.get();
-						dto.setVenderId(o.getId());
-						dto.setVenderName(o.getName());
-					}
+					Vender vender = venderService.getOne(dto.getVenderId());
+					dto.setVenderId(vender.getId());
+					dto.setVenderName(vender.getName());
 				}
 //				if(!AppUtil.isEmptyOrNull(obj.getItemType())) {
 //					dto.setItemTypeId(obj.getItemType().getId());
@@ -137,7 +140,7 @@ public class ItemController {
 		}
 	}
 
-	@RequestMapping(value = "/getUserItems", method = RequestMethod.GET)
+	@RequestMapping(value = "/getUserStocks", method = RequestMethod.GET)
 	@ResponseBody
 	public String getUserItems(final HttpServletRequest request) {
 		StringBuffer sb = new StringBuffer();
@@ -159,14 +162,39 @@ public class ItemController {
 		}
 	}
 
-	@RequestMapping(value = "/getItem", method = RequestMethod.GET)
+	@RequestMapping(value = "/getStock", method = RequestMethod.GET)
 	@ResponseBody
-	public Item getItem(@RequestParam final Long itemId) {
+	public StockDTO getStock(@RequestParam final Long itemId) {
 		try {
 			if(appUtil.isEmptyOrNull(itemId))
 				return null;
 			
-			return itemService.findById(itemId).get();
+			Stock obj = new Stock();
+//			obj.setBatchNo(batchNo);
+			obj.setItemId(itemId);
+			Example<Stock> example = Example.of(obj) ;
+			List<Stock> stocks = service.findAll(example);
+			StockDTO dto = new StockDTO();
+			Float stock=0.0F;
+			if(!appUtil.isEmptyOrNull(stocks)) {
+//				return stock.get();
+				for(Stock s:stocks){
+					stock +=s.getStock();
+				}
+				//if sell is item base not batch base then populate first item from the list
+				Stock s = stocks.get(0);
+				dto = modelMapper.map(s, StockDTO.class);
+//				dto.setBpurchaseDiscountType(stocks.get(0).getBpurchaseDiscountType());
+//				dto.setBpurchaseDiscount(stocks.get(0).getBpurchaseDiscount());
+				
+				dto.setStock(stock);
+			}else {
+				dto.setBpurchaseDiscountType("%");
+				dto.setBpurchaseDiscount(0.0F);
+				dto.setStock(0.0F);
+			}
+				
+			return dto;
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
@@ -174,9 +202,9 @@ public class ItemController {
 		}
 	}
 
-	@RequestMapping(value = "/getAllItem", method = RequestMethod.GET)
+	@RequestMapping(value = "/getAllStock", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getAllItem(final HttpServletRequest request) {
+	public GenericResponse getAllStock(final HttpServletRequest request) {
 		try {
 			List<Item> objs = itemService.findAll();
 			if (appUtil.isEmptyOrNull(objs))
@@ -216,9 +244,9 @@ public class ItemController {
 		}
 	}
 
-	@RequestMapping(value = "/addItem", method = RequestMethod.POST)
+	@RequestMapping(value = "/addStock", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse addItem(@Validated final ItemDTO dto, final HttpServletRequest request) {
+	public GenericResponse addStock(@Validated final ItemDTO dto, final HttpServletRequest request) {
 		try {
 			Item obj= new Item();
 //			LocalDateTime dated = LocalDateTime.now();
@@ -289,9 +317,9 @@ public class ItemController {
 		}
 	}
 
-	@RequestMapping(value = "/deleteItem", method = RequestMethod.POST)
+	@RequestMapping(value = "/deleteStock", method = RequestMethod.POST)
 	@ResponseBody
-	public boolean deleteItem(HttpServletRequest req, HttpServletResponse resp) {
+	public boolean deleteStock(HttpServletRequest req, HttpServletResponse resp) {
 		try {
 			String ids = req.getParameter("checked");
 			if (!StringUtils.isEmpty(ids)) {

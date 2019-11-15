@@ -1,10 +1,12 @@
 package com.service.business;
 
+import java.text.ParseException;
 import java.util.List;
 import java.util.Optional;
 
 import javax.transaction.Transactional;
 
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
@@ -14,7 +16,11 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.PurchaseRepo;
 import com.persistence.model.business.Purchase;
+import com.persistence.model.business.Stock;
 import com.service.IUserService;
+import com.web.dto.business.PurchaseDTO;
+import com.web.util.AppUtil;
+import com.web.util.RequestUtil;
 
 @Service
 @Transactional
@@ -26,6 +32,20 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     PurchaseRepo purchaseRepo;
 
+    @Autowired
+    IStockService stockService;
+    
+    @Autowired
+    IBatchService batchService;
+
+    @Autowired
+    RequestUtil requestUtil;
+    
+    @Autowired
+    AppUtil appUtil;
+
+    ModelMapper modelMapper = new ModelMapper();
+    
 	@Override
 	public List<Purchase> findAll() {
 		// TODO Auto-generated method stub
@@ -170,6 +190,20 @@ public class PurchaseService implements IPurchaseService{
 	public <S extends Purchase> boolean exists(Example<S> example) {
 		// TODO Auto-generated method stub
 		return purchaseRepo.exists(example);
+	}
+
+	@Override
+	@Transactional
+	public Purchase addPurchase(PurchaseDTO dto) throws ParseException {
+		Stock stock = stockService.updateStock(dto);
+		stockService.save(stock);
+		modelMapper.addConverter(appUtil.stringToLocalDateTime);
+		modelMapper.addConverter(appUtil.stringToLocalDate);
+		Purchase obj = modelMapper.map(dto, Purchase.class);
+		obj.setStock(stock);
+		obj.setUserId(requestUtil.getCurrentUser().getId());
+		stockService.save(stock);
+		return this.save(obj);
 	}
 
 }

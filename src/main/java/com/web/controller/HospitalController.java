@@ -98,7 +98,7 @@ public class HospitalController {
 		sb.append("<option value='-1'> Select State </option>");
 		items.forEach(d -> {
 			if(d!=null)
-				sb.append("<option value="+d+">"+((d!=null && d!="")?d:"-")+"</option>");
+				sb.append("<option value="+d+">"+((d!=null && d!="")?d:" ~ ")+"</option>");
 			
 		});
 	    return sb.toString();
@@ -112,7 +112,7 @@ public class HospitalController {
 		sb.append("<option value='-1'> Select City </option>");
 		cities.forEach(d -> {
 			if(d!=null)
-				sb.append("<option value='"+d.getId()+"'>"+(d.getCity()!=null?d.getCity():"-")+"</option>");
+				sb.append("<option value='"+d.getId()+"'>"+(d.getCity()!=null?d.getCity():" ~ ")+"</option>");
 			
 		});
 	    return sb.toString();

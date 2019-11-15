@@ -3,19 +3,31 @@ package com.persistence.model.business;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
+
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
+
+import com.persistence.model.Doctor;
+
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
-@Entity
+@Entity(name="purchase")
 @Table(name = "purchase", uniqueConstraints = { @UniqueConstraint(columnNames = "purchase_id") })
 public class Purchase implements Serializable {
 	private static final long serialVersionUID = 1L;
@@ -24,18 +36,35 @@ public class Purchase implements Serializable {
 	@SequenceGenerator(name = "purch_gen", sequenceName = "purch_seq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "purch_gen")	
 	@Column(name = "purchase_id", unique = true, nullable = false)
-	private Long id;
+	@Getter@Setter
+	private Long purchaseId;
 
 	@Column(name = "user_id")
+	@Getter@Setter
 	private Long userId;
 
 	@Column(name = "user_type")
+	@Getter@Setter
 	private String userType;
 
+/*	@ManyToOne(fetch = FetchType.EAGER,cascade=CascadeType.ALL)
+//	@JoinColumn(name="COUNTRY_ID", nullable=false) 	
 //	@OneToOne(fetch = FetchType.EAGER, optional = false)
-//	@JoinColumn(name = "item_id")
-	private Long itemId;
+	@JoinColumn(name = "stock_id", nullable=true,unique=false)
+	@Getter@Setter
+	private Stock stock;*/
+	
+	@ManyToOne(fetch = FetchType.LAZY, optional = true)
+	@NotFound(action = NotFoundAction.IGNORE)
+	@JoinColumn(name="stock_id")
+	@Getter@Setter
+	private Stock stock;
+	
 
+//	@Column(name = "stock_batchNo")
+//	@Getter@Setter
+//	private String sbatchNO;
+	
 //	@OneToOne(fetch = FetchType.LAZY, optional = false)
 //	@JoinColumn(name = "company_id")
 //	private Company Company;
@@ -52,260 +81,48 @@ public class Purchase implements Serializable {
 //	@JoinColumn(name = "item_unit_id")
 //	private ItemUnit itemUnit;
 
+	@Getter@Setter
 	private Float quantity;
 
-	@Column(name = "purchase_rate")
-	private Float purchaseRate;
+//	@Column(name = "purchase_rate")
+//	@Getter@Setter
+//	private Float purchaseRate;
+//
+//	@Column(name = "sell_rate")
+//	private Float sellRate;
 
-	@Column(name = "sell_rate")
-	private Float sellRate;
+//	private Float discount;
 
-	private Float discount = null;
+//	@Getter@Setter
+//	@Column(name = "disc_type")
+//	private String discountType;
 
 	@Column(name = "total_amount")
+	@Getter@Setter
 	private Float totalAmount;
 
 	@Column(name = "net_amount")
+	@Getter@Setter
 	private Float netAmount = null;
 
-	private Float stock;
-
 	@Column(name = "purchase_expense")
+	@Getter@Setter
 	private Float purchaseExpense;
 
 	@Column(name = "purchase_expense_desc")
+	@Getter@Setter
 	private String purchaseExpenseDesc;
 
+	@Getter@Setter
 	private String description;
 
 	@Column(updatable=false)
+	@Getter@Setter
 	private LocalDateTime dated;
 
+	@Getter@Setter
 	private LocalDateTime updated;
 
-	/**
-	 * @return the id
-	 */
-	public Long getId() {
-		return id;
-	}
-
-	/**
-	 * @param id the id to set
-	 */
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	/**
-	 * @return the userId
-	 */
-	public Long getUserId() {
-		return userId;
-	}
-
-	/**
-	 * @param userId the userId to set
-	 */
-	public void setUserId(Long userId) {
-		this.userId = userId;
-	}
-
-	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
-
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
-	}
-
-	/**
-	 * @return the item
-	 */
-	public Long getItemId() {
-		return itemId;
-	}
-
-	/**
-	 * @param item the item to set
-	 */
-	public void setItemId(Long itemId) {
-		this.itemId = itemId;
-	}
-
-	/**
-	 * @return the quantity
-	 */
-	public Float getQuantity() {
-		return quantity;
-	}
-
-	/**
-	 * @param quantity the quantity to set
-	 */
-	public void setQuantity(Float quantity) {
-		this.quantity = quantity;
-	}
-
-	/**
-	 * @return the purchaseRate
-	 */
-	public Float getPurchaseRate() {
-		return purchaseRate;
-	}
-
-	/**
-	 * @param purchaseRate the purchaseRate to set
-	 */
-	public void setPurchaseRate(Float purchaseRate) {
-		this.purchaseRate = purchaseRate;
-	}
-
-	/**
-	 * @return the sellRate
-	 */
-	public Float getSellRate() {
-		return sellRate;
-	}
-
-	/**
-	 * @param sellRate the sellRate to set
-	 */
-	public void setSellRate(Float sellRate) {
-		this.sellRate = sellRate;
-	}
-
-	/**
-	 * @return the discount
-	 */
-	public Float getDiscount() {
-		return discount;
-	}
-
-	/**
-	 * @param discount the discount to set
-	 */
-	public void setDiscount(Float discount) {
-		this.discount = discount;
-	}
-
-	/**
-	 * @return the totalAmount
-	 */
-	public Float getTotalAmount() {
-		return totalAmount;
-	}
-
-	/**
-	 * @param totalAmount the totalAmount to set
-	 */
-	public void setTotalAmount(Float totalAmount) {
-		this.totalAmount = totalAmount;
-	}
-
-	/**
-	 * @return the netAmount
-	 */
-	public Float getNetAmount() {
-		return netAmount;
-	}
-
-	/**
-	 * @param netAmount the netAmount to set
-	 */
-	public void setNetAmount(Float netAmount) {
-		this.netAmount = netAmount;
-	}
-
-	/**
-	 * @return the stock
-	 */
-	public Float getStock() {
-		return stock;
-	}
-
-	/**
-	 * @param stock the stock to set
-	 */
-	public void setStock(Float stock) {
-		this.stock = stock;
-	}
-
-	/**
-	 * @return the purchaseExpense
-	 */
-	public Float getPurchaseExpense() {
-		return purchaseExpense;
-	}
-
-	/**
-	 * @param purchaseExpense the purchaseExpense to set
-	 */
-	public void setPurchaseExpense(Float purchaseExpense) {
-		this.purchaseExpense = purchaseExpense;
-	}
-
-	/**
-	 * @return the purchaseExpenseDesc
-	 */
-	public String getPurchaseExpenseDesc() {
-		return purchaseExpenseDesc;
-	}
-
-	/**
-	 * @param purchaseExpenseDesc the purchaseExpenseDesc to set
-	 */
-	public void setPurchaseExpenseDesc(String purchaseExpenseDesc) {
-		this.purchaseExpenseDesc = purchaseExpenseDesc;
-	}
-
-	/**
-	 * @return the description
-	 */
-	public String getDescription() {
-		return description;
-	}
-
-	/**
-	 * @param description the description to set
-	 */
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	/**
-	 * @return the dated
-	 */
-	public LocalDateTime getDated() {
-		return dated;
-	}
-
-	/**
-	 * @param dated the dated to set
-	 */
-	public void setDated(LocalDateTime dated) {
-		this.dated = dated;
-	}
-
-	/**
-	 * @return the updated
-	 */
-	public LocalDateTime getUpdated() {
-		return updated;
-	}
-
-	/**
-	 * @param updated the updated to set
-	 */
-	public void setUpdated(LocalDateTime updated) {
-		this.updated = updated;
-	}
 
 	/**
 	 * @return the serialversionuid

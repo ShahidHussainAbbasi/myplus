@@ -14,7 +14,11 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.ItemRepo;
 import com.persistence.model.business.Item;
+import com.persistence.model.business.Stock;
 import com.service.IUserService;
+import com.web.dto.business.PurchaseDTO;
+import com.web.util.AppUtil;
+import com.web.util.RequestUtil;
 
 @Service
 @Transactional
@@ -26,6 +30,15 @@ public class ItemService implements IItemService {
     @Autowired
     ItemRepo itemRepo;
 
+    @Autowired
+    private AppUtil appUtil;  
+    
+	@Autowired
+	RequestUtil requestUtil;
+    
+	@Autowired
+	IPurchaseService purchaseService;
+	
 	@Override
 	public List<Item> findAll() {
 		// TODO Auto-generated method stub
@@ -172,4 +185,30 @@ public class ItemService implements IItemService {
 		return itemRepo.exists(example);
 	}
 
-}
+	
+/*
+	@Override
+	public void updateItemStock(PurchaseDTO dto) {
+		Item item = this.getOne(dto.getItemId());
+    	Float stock = item.getStock()+dto.getQuantity();
+		if(!appUtil.isEmptyOrNull(dto.getId())){
+			Purchase obj = new Purchase();
+			obj.setUserId(requestUtil.getCurrentUser().getId());
+			obj.setItemId(dto.getItemId());
+			obj.setIbatchNo(dto.getIbatchNo());
+	        Example<Purchase> example = Example.of(obj);
+			Optional<Purchase> optional = purchaseService.findOne(example);
+			if(optional.isPresent()) {
+				Purchase objTemp = optional.get(); //purchaseService.getOne(dto.getId());
+				if(objTemp.getQuantity() > dto.getQuantity()) {
+					stock = item.getStock() + (dto.getQuantity() - objTemp.getQuantity());
+				}else {
+					stock = item.getStock() - (objTemp.getQuantity() - dto.getQuantity());
+				}
+//				item.setStock(stock);	
+			}
+		}
+		item.setStock(stock);
+		this.save(item);
+	}
+*/}

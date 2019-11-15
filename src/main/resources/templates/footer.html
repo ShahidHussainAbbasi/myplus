@@ -3,12 +3,12 @@
 <head>
 </head>
 <!-- Footer -->
-<footer id="footer" th:fragment="footer">
+<!-- <footer id="footer" th:fragment="footer">
 	<nav role="row">
 		<div class="text-center">
-			<!-- Footer links -->
+			Footer links
 			<div class="text-center">
-				<!-- Grid column -->
+				Grid column
 				<div class="col-lg-4 mx-auto mt-3">
 					<h5 class="text-uppercase mb-4 font-weight-bold">Company name</h5>
 					<p>maxtheservice</p>
@@ -25,7 +25,7 @@
 						<i class="fa fa-envelope mr-3">Email: maxtheservice@gmail.com</i>
 					</p>
 				</div>
-				<!-- Grid column -->
+				Grid column
 			</div>
 			<div class="text-center">
 				<div class="footer-copyright text-center py-3">
@@ -35,6 +35,31 @@
 		</div>
 	</nav>		
 </footer>
-
+ -->
+ <footer id="footer" th:fragment="footer">
+	<nav role="row text-center">
+		<div class="col-sm-4 mx-auto text-center">
+			<h5 class="text-uppercase font-weight-bold">Company</h5>
+				<p>
+		 			<div class="footer-copyright text-center py-3">
+						© 2019 Copyright <a href="https://maxtheservice.com/myplus/home"> maxtheservice.com</a>
+					</div>
+				</p>	
+ 		</div>
+		<div class="col-sm-4 mx-auto text-center">
+			<h5 class="text-uppercase font-weight-bold">Contact</h5>
+			<p>
+				<i class="fa fa-envelope mr-3">Email: maxtheservice@gmail.com</i>
+			</p>
+		</div>
+		<div class="col-sm-4 mx-auto text-center">
+			<h5 class="text-uppercase font-weight-bold">Useful links</h5>
+			<p>
+				<a th:href="@{/services}" th:text="#{label.services}">Our Services</a>
+			</p>
+		</div>
+	</nav>		
+</footer>
+ 
 </html>
 

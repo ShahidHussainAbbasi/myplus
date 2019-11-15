@@ -49,6 +49,11 @@ public class EmptyValidator implements ConstraintValidator<ValidateEmpty, Object
 		    	return false;
 		    else
 		    	return true;
+    	else if(instance instanceof Object)
+		    if(instance==null || instance.toString().length()==0)
+		    	return false;
+		    else
+		    	return true;
 	    else
 	    	return false;
     }

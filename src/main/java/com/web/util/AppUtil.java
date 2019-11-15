@@ -22,6 +22,8 @@ import java.util.regex.Pattern;
 
 import javax.annotation.PostConstruct;
 
+import org.modelmapper.Converter;
+import org.modelmapper.spi.MappingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +73,7 @@ public class AppUtil {
 	public final String INACTIVE = "Inactive";
 	public final String SUCCESS = "SUCCESS";
 	public final String FAILURE = "FAILURE";
+	public final String FAILED = "FAILED";
 	public final String FOUND = "FOUND";
 	public final String NOT_FOUND = "NOT_FOUND";
 	public final String ERROR = "ERROR";
@@ -228,6 +231,51 @@ public class AppUtil {
 		return false;
 	}
 
+	public boolean notEmptyNorNull( Object instance ){
+    	if(instance instanceof Long)
+		    if(instance==null || ((Long)instance)<=0)
+		    	return false;
+		    else
+		    	return true;
+    	else if(instance instanceof Integer)
+		    if(instance==null || ((Integer)instance)<=0)
+		    	return false;
+		    else
+		    	return true;
+    	else if(instance instanceof Float)
+		    if(instance==null || ((Float)instance)<=0)
+		    	return false;
+		    else
+		    	return true;
+    	else if(instance instanceof Double)
+		    if(instance==null || ((Double)instance)<=0)
+		    	return false;
+		    else
+		    	return true;
+    	else if(instance instanceof String)
+		    if(instance==null || ((String)instance).length()==0)
+		    	return false;
+		    else
+		    	return true;
+    	else if(instance instanceof Collection<?>)
+		    if(instance==null || instance.toString().length()==0)
+		    	return false;
+		    else
+		    	return true;
+    	else if(instance instanceof Date)
+		    if(instance==null || instance.toString().length()==0)
+		    	return false;
+		    else
+		    	return true;
+    	else if(instance instanceof Object)
+		    if(instance==null || instance.toString().length()==0)
+		    	return false;
+		    else
+		    	return true;
+	    else
+	    	return false;
+	}
+	
 	/**
 	 * This method returns true if the input array is null or its length is zero.
 	 * @param array
@@ -360,4 +408,93 @@ public class AppUtil {
         return matcher.matches();
     }
     
+    public Converter<String, LocalDate> stringToLocalDate = new Converter<String, LocalDate>() {
+
+    	@Override
+    	public LocalDate convert(MappingContext<String, LocalDate> arg0) {
+			if(isEmptyOrNull(arg0.getSource())) {
+		        return LocalDate.now();
+			}
+	    	return LocalDate.parse(arg0.getSource().toString(), dateformatter);//dateformatter.parse(arg0.getSource().toString());
+    	}
+	};    
+    
+    public Converter<String, LocalDate> stringToLocalDateIgnoreEmptyOrNull = new Converter<String, LocalDate>() {
+
+    	@Override
+    	public LocalDate convert(MappingContext<String, LocalDate> arg0) {
+			if(isEmptyOrNull(arg0.getSource())) {
+		        return null;
+			}
+	    	return LocalDate.parse(arg0.getSource().toString(), dateformatter);//dateformatter.parse(arg0.getSource().toString());
+    	}
+	};    
+
+	public Converter<LocalDate,String> localDateToString = new Converter<LocalDate,String>() {
+    	@Override
+    	public String convert(MappingContext<LocalDate,String> arg0) {
+    		return isEmptyOrNull(arg0.getSource())? LocalDate.now().format(dateformatter) : dateformatter.format(arg0.getSource());
+    	}
+	};    
+
+	public Converter<LocalDate,String> localDateToStringIgnoreEmptyOrNull = new Converter<LocalDate,String>() {
+    	@Override
+    	public String convert(MappingContext<LocalDate,String> arg0) {
+    		return isEmptyOrNull(arg0.getSource())? null : dateformatter.format(arg0.getSource());
+    	}
+	};    
+
+	public Converter<String, LocalDateTime> stringToLocalDateTime = new Converter<String, LocalDateTime>() {
+    	@Override
+    	public LocalDateTime convert(MappingContext<String, LocalDateTime> arg0) {
+			if(isEmptyOrNull(arg0.getSource())) {
+		        return LocalDateTime.now();
+			}
+	    	return LocalDateTime.parse(arg0.getSource().toString(), dateTimeFormatter);//dateformatter.parse(arg0.getSource().toString());
+    	}
+	}; 
+	
+	public Converter<String, LocalDateTime> stringToLocalDateTimeIgnoreEmptyOrNull = new Converter<String, LocalDateTime>() {
+    	@Override
+    	public LocalDateTime convert(MappingContext<String, LocalDateTime> arg0) {
+			if(isEmptyOrNull(arg0.getSource())) {
+		        return null;
+			}
+	    	return LocalDateTime.parse(arg0.getSource().toString(), dateTimeFormatter);//dateformatter.parse(arg0.getSource().toString());
+    	}
+	}; 
+
+	public Converter<LocalDateTime,String> localDateTimeToString = new Converter<LocalDateTime,String>() {
+    	@Override
+    	public String convert(MappingContext<LocalDateTime,String> arg0) {
+    		return isEmptyOrNull(arg0.getSource()) ? LocalDateTime.now().format(dateTimeFormatter) : dateTimeFormatter.format(arg0.getSource());//arg0.getSource().toUppercase();
+    	}
+	}; 
+
+	public Converter<LocalDateTime,String> localDateTimeToStringIgnoreEmptyOrNull = new Converter<LocalDateTime,String>() {
+    	@Override
+    	public String convert(MappingContext<LocalDateTime,String> arg0) {
+    		return isEmptyOrNull(arg0.getSource()) ? null : dateTimeFormatter.format(arg0.getSource());//arg0.getSource().toUppercase();
+    	}
+	}; 
+	
+/*	public Converter<String, LocalDateTime> stringToDate = new Converter<String, LocalDateTime>() {
+
+		@Override
+		public LocalDateTime convert(MappingContext<String, LocalDateTime> arg0) {
+			DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+//		sdf1.applyPattern("dd-MM-yyyy HH:mm:ss");
+		LocalDateTime date =null;
+		try {
+			if(arg0.getSource()==null) {
+		        return LocalDateTime.now();
+			}
+				
+		date = (LocalDateTime) dateTimeFormatter.parse(arg0.getSource().toString());
+		} catch (Exception e) {
+		e.printStackTrace();
+		}
+		return date;
+		}
+		};*/
 }

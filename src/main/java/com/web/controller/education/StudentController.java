@@ -167,7 +167,7 @@ public class StudentController {
 			sb.append("<option value=''> Nothing Selected </option>");
 			objs.forEach(d -> {
 				if(d!=null && d.getId()!=null)
-					sb.append("<option value="+d.getId()+">"+d.getName()+"-"+d.getEnrollNo()+"</option>");
+					sb.append("<option value="+d.getId()+">"+d.getName()+" ~ "+d.getEnrollNo()+"</option>");
 			});
 		    return sb.toString();
 		} catch (Exception e) {

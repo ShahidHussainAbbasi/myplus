@@ -149,8 +149,15 @@ $(document).ready(function() {
         var column = datatable.column( $(this).attr('data-column') );
  
         // Toggle the visibility
-        if(column.visible()){
+/*        if(column.visible()){
             column.visible( ! column.visible() );
+        }
+*/
+        column.visible( ! column.visible() );
+        if(column.visible()){
+        	$(this).css("color", "#337ab7");
+        }else{
+        	$(this).css("color", "#727374");
         }
     } );
     
@@ -229,18 +236,16 @@ $(document).ready(function() {
     	validateForm();
         if(formValidated){
         	var obj  = formToJSON("Sell");
+//        	obj = populateFormData();
         	
         	obj.name = $( "#sellItemDD :selected" ).text();
         	data.push(obj);
 			var arr = [
-				obj.itemId,$( "#sellItemDD :selected" ).text(),obj.quantity,obj.sellRate,obj.discount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
-				//,"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
+				obj.itemId,$( "#sellItemDD :selected" ).text(),obj.quantity,obj.stockDTO.bsellRate,obj.stockDTO.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
 			resetForm();
-			//$("#sellItems").val("");
 			resetBSDD('sellItemDD');
-			//CIT(data);//calculate invoice totals
         }else{
         	alert("Please make sure you have entered valid values");
         	return false;
@@ -255,15 +260,14 @@ function UIT(id){
 			data.splice(i,1);
 		}
 	});
-	//CIT(data)
 }
 
 function CIT(data){
 	var q=ZERO,sr=ZERO,dis=ZERO,t=ZERO;
 	data.forEach(function(d){
 		q=d.quantity*ONE+q;
-		sr=d.sellRate*ONE+sr;
-		dis=d.discount*ONE+dis;
+		sr=d.stockDTO.bsellRate*ONE+sr;
+		dis=d.stockDTO.bsellDiscount*ONE+dis;
 		t=d.totalAmount*ONE+t;
 	});
 	$("#itq").text(q);
@@ -300,9 +304,10 @@ function loadDataTable(){
 		dom: 'Bfrtip',
         buttons: [
         	'pageLength',
-            { extend: 'copyHtml5', footer: true },
+/*            { extend: 'copyHtml5', footer: true },
             { extend: 'csvHtml5', footer: true },
-            { extend: 'excelHtml5', footer: true },
+*/            
+        	{ extend: 'excelHtml5', footer: true },
             {extend:'print', footer: true },
         	{
                 extend: 'pdfHtml5',
@@ -325,14 +330,17 @@ function loadDataTable(){
 					loadUserItems(table);
 					reload=tableV;
 				}
+				var arr = [" No Data Found "];
 				var collections = data.collection;
-				if(data.collection.length<=0)
+				if(!collections || collections.length<=0){
+					datatable.columns( [0] ).visible( false );
+					$(".dataTables_empty")[0].innerHTML = "No Data Found";
 					return false;
+				}
 				
 				userId = collections[0].userId;
 				datatable.columns( [0] ).visible( false );
 				console.log("getUser : "+getAll+" collections : "+collections);
-				var arr = [" No Data Found "];
 				if (getAll === "Company") {
 					$.each(collections, function(ind, obj) {
 						arr = [
@@ -372,40 +380,47 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=itemId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							 "<div id=itemName>"+obj.name+"</div>", "<div id=itemDesc>"+obj.desc+"</div>",
-							"<div id=itemCompanyDD>"+obj.companyName+"</div>",  "<div id=itemVenderDD>"+obj.venderName+"</div>", 
-							"<div id=itemPurchaseAmount>"+obj.purchaseAmount+"</div>","<div id=itemSellAmount>"+obj.sellAmount+"</div>",
-							"<div id=discountTypeDD>"+obj.discountType+"</div>","<div id=itemDiscount>"+obj.discount+"</div>",/* "<div id=itemNet>"+obj.net+"</div>",*/
-							"<div id=itemExpDate>"+obj.expDateStr+"</div>","<div id=itemStock>"+obj.stock+"</div>"
-							,"<div id=itemBN>"+obj.bn+"</div>",obj.updatedStr
+							"<div id=itemCompanyDD>"+obj.companyName+"</div>", "<div id=itemVenderDD>"+obj.venderName+"</div>", "<div id=itemName>"+obj.iname+"</div>",
+							"<div id=itemCode>"+obj.icode+"</div>", "<div id=itemDesc>"+obj.idesc+"</div>",
+							 /*"<div id=itemVenderDD>"+obj.venderName+"</div>", */
+							/*"<div id=itemPurchaseAmount>"+obj.purchaseAmount+"</div>","<div id=itemSellAmount>"+obj.sellAmount+"</div>",*/
+							/*"<div id=discountTypeDD>"+obj.discountType+"</div>","<div id=itemDiscount>"+obj.discount+"</div>", "<div id=itemNet>"+obj.net+"</div>",
+							"<div id=itemExpDate>"+obj.expDateStr+"</div>","<div id=batchStock>"+obj.stock+"</div>"
+							,"<div id=itemBN>"+obj.bn+"</div>",*/obj.updated
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Purchase") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=purchaseId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=purchaseItemDD>"+obj.itemName+"</div>", "<div id=purchaseQuantity>"+obj.quantity+"</div>", 
-							"<div id=purchaseSellRate>"+obj.sellRate+"</div>",  "<div id=purchasePurchaseRate>"+obj.purchaseRate+"</div>", 
-							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>","<div id=purchaseDiscount>"+obj.discount+"</div>",
-							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>", "<div id=purchaseStock>"+obj.stock+"</div>",obj.updatedStr
+							"<div id=purchaseId>"+obj.purchaseId+"</div>", "<input type='checkbox' value="+ obj.purchaseId+ ">",
+							"<div id=purchaseItemDD>"+obj.icode+"</div>","<div id=purchaseItemName>"+obj.iname+"</div>",
+							"<div id=purchaseQuantity>"+obj.quantity+"</div>",/* "<div id=purchaseStock>"+obj.stockDTO.stock+"</div>",*/
+							"<div id=purchaseBatchNo>"+obj.stockDTO.batchNo+"</div>","<div id=purchaseExpiry>"+obj.stockDTO.bexpDate+"</div>", 
+							"<div id=purchasePurchaseRate>"+obj.stockDTO.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stockDTO.bsellRate+"</div>", 
+							"<div id=discountTypeDD>"+obj.stockDTO.bpdiscountType+"</div>", 
+							"<div id=purchaseDiscount>"+obj.stockDTO.bpdiscount+"</div>","<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
+							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Sell") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=sellId>"+obj.id+"</div>","<div id=sellItemDD>"+obj.itemName+"</div>", 
+							"<div id=sellId>"+obj.sellId+"</div>", "<input type='checkbox' value="+ obj.sellId+ ">",
+							"<div id=sellItemDD>"+obj.itemCode+"</div>","<div id=sellItemName>"+obj.itemName+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
-							"<div id=sellStock>"+obj.stock+"</div>","<div id=sellSellRate>"+obj.sellRate+"</div>", 
-							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellDiscount>"+obj.discount+" ("+obj.dt+")</div>",
-							/*"<div id=selldtDD>"+obj.dt+"</div>",*/"<div id=sellCN>"+obj.cn+"</div>","<div id=sellCC>"+obj.cc+"</div>",
-							"<div id=sellPurchaseRate>"+obj.purchaseRate+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
+							"<div id=sellItemBatchNo>"+obj.stockDTO.batchNo+"</div>","<div id=sellItemExpiry>"+obj.stockDTO.bexpDate+"</div>", 
+							"<div id=sellPurchaseRate>"+obj.stockDTO.bsurchaseRate+"</div>","<div id=sellSellRate>"+obj.stockDTO.bsellRate+"</div>",
+							"<div id=sellDiscountTypeDD>"+obj.stockDTO.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stockDTO.bsellDiscount+"</div>",
+							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
+							"<div id=sellCC>"+obj.cc+"</div>","<div id=sellCN>"+obj.cn+"</div>",
+							
 							/*"<div id=sellsrp>"+obj.srp+"</div>","<div id=sellRe>"+obj.re+"</div>",*/
-							obj.updatedStr
+							obj.updated
 							];
 						datatable.row.add(arr).draw();
-						datatable.columns( [10,11] ).visible( false );
+//						datatable.columns( [10,11] ).visible( false );
 					});
 				}
 			},
@@ -427,7 +442,16 @@ function loadDataTable(){
 	$("select[name='tableSell_length']").change(function(){
 		loadDataTable();
 	});
-
+	 
+ /*   $('a.toggle-vis').on( 'click', function (e) {
+        e.preventDefault();
+ 
+        // Get the column API object
+        var column = datatable.column($(this).attr('data-column') );
+ 
+        // Toggle the visibility
+        column.visible( ! column.visible() );
+    } );*/
 }
 
 function loadUserCompanies(table) {	
@@ -513,10 +537,16 @@ function calculateNet(val){
 	}
 }
 
-var itemStock = 0;
+var batchStock = 0;
 var discountType = "";
 var discountValue = "0";
-function laodItems(label,value){
+function laodStock(label,value){
+	bpurchaseDiscount: 0
+	bpurchaseDiscountType: "%"
+	bpurchaseRate: 0
+	bsellDiscount: 0
+	bsellDiscountType: "%"
+	bsellRate: 0
 	edit = false;
 	$("#purchasePurchaseRate").val("");
 	$("#purchaseSellRate").val("")
@@ -524,33 +554,33 @@ function laodItems(label,value){
 	$("#sellSellRate").val("")
 	$("#sellItems").removeClass("alert-danger");
 	$("pdt").html("      ");
-    $.get(serverContext+ "getItem?itemId="+value,function(data){
+    $.get(serverContext+ "getStock?itemId="+value,function(data){
     	if(data){
-	    	discountValue = data.discount;
-	    	discountType = data.discountType;
-    		$("#selldtDD").val(discountType);
-	    	itemStock = data.stock;
+	    	discountValue = data.bsellDiscount;
+	    	discountType = data.bsellDiscountType;
+	    	batchStock = data.stock;
     		if(value && tableV=="Purchase"){
-    			$("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val():0;
-		    	$("#purchasePurchaseRate").val(data.purchaseAmount);
-		    	$("#purchaseSellRate").val(data.sellAmount)
-		    	$("#purchaseDiscount").val(0);
+        		$("#discountTypeDD").val(discountType);    			
+    			$("#purchaseDiscount").val(discountValue);//*1>0?$("#bpurchaseDiscount").val():0;
+		    	$("#purchasePurchaseRate").val(data.bpurchaseRate);
+		    	$("#purchaseSellRate").val(data.bsellRate)
 		    	if($("#purchaseQuantity").val()*1<=0){
 		    		$("#purchaseQuantity").val(1);
 		    	}
 		    	$("#pdt").html(discountType+" Discount");
 		    	calculateNetPurchase();
     		}else if(value && tableV=="Sell"){
-	    		if(itemStock <= 0){
+        		$("#sellDiscountTypeDD").val(discountType);
+	    		if(batchStock <= 0){
 	    			$("#sellItems").addClass("alert-danger");
 	    			alert("No more items are available, Please purchase or select some other item to sell.");
 	    			$(".form-control").val("");
 	    			return false;
 	    		}
-	    		$("#sellStock").val(itemStock);
+	    		$("#sellStock").val(batchStock);
 	    		$("#sellItemDesc").val(data.desc);
-	    		$("#sellPurchaseRate").val(data.purchaseAmount);
-		    	$("#sellSellRate").val(data.sellAmount)
+	    		$("#sellPurchaseRate").val(data.bpurchaseRate);
+		    	$("#sellSellRate").val(data.bsellRate)
 		    	$("#sellDiscount").val(discountValue);
 		    	if($("#sellItems").val()*1<=0){
 		    		$("#sellItems").val(1);
@@ -570,8 +600,8 @@ function calculateNetPurchase(){
 	var s= $("#purchaseSellRate").val()*ONE;
 	var qty= $("#purchaseQuantity").val()*ONE;
 	var purchaseDiscount = $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val()*ONE:0;
-	var purchaseTotalAmount = $($("#totalAmount").val(parseFloat(qty * p).toFixed(2))).val();
-	$("#stok").val(itemStock);
+	var purchaseTotalAmount = $($("#purchaseTotalAmount").val(parseFloat(qty * p).toFixed(2))).val();
+	$("#purchaseStock").val(batchStock);
 	if(discountType == "%"){
 		//Discount  =  List Price Ã— Discount Rate 
 		purchaseDiscount = purchaseTotalAmount * (purchaseDiscount*1 / 100);
@@ -579,10 +609,13 @@ function calculateNetPurchase(){
 		purchaseDiscount = purchaseDiscount * qty;
 		$("#purchaseDiscount").val(purchaseDiscount);
 	}
-
-	$("#netAmount").val(parseFloat((qty * s - purchaseTotalAmount) + purchaseDiscount).toFixed(2));
-	$("#purchaseTotalAmount").val(parseFloat(purchaseTotalAmount).toFixed(2));
-	$("#purchaseNetAmount").val($("#netAmount").val());
+	if(s>0){
+		$("#purchaseNetAmount").val(parseFloat((qty * s - purchaseTotalAmount) + purchaseDiscount).toFixed(2));
+	}else{
+		$("#purchaseNetAmount").val(0);
+	}
+//	$("#purchaseTotalAmount").val(parseFloat(purchaseTotalAmount).toFixed(2));
+/*	$("#purchaseNetAmount").val($("#netAmount").val());*/
 }
 
 function calculateNetSell(){
@@ -590,12 +623,12 @@ function calculateNetSell(){
 	var s= $("#sellSellRate").val()*ONE;
 	$("#sellItems").removeClass("alert-danger");
 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
-	discountType = $("#selldtDD :selected").val();
+	discountType = $("#sellDiscountTypeDD :selected").val();
 	if(edit){
-		itemStock = $("#sellStock").val()*ONE;
+		batchStock = $("#sellStock").val()*ONE;
 	}
-	$("#sellStock").val(itemStock);
-	if(itemStock < qty){
+	$("#sellStock").val(batchStock);
+	if(batchStock < qty){
 		$("#sellItems").addClass("alert-danger");
 		alert("You can not select more item than availabe in stock, Please purchase or select some other item to sell.")
 		$(".form-control").val("");

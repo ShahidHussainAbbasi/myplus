@@ -104,7 +104,7 @@ public class GradeController {
 			sb.append("<option value=''>Nothing Selected</option>");
 			grades.forEach(d -> {
 				if(d!=null && d.getId()!=null)
-					sb.append("<option value="+d.getId()+">"+d.getName()+"-"+d.getId()+"</option>");
+					sb.append("<option value="+d.getId()+">"+d.getName()+" ~ "+d.getId()+"</option>");
 			});
 		    return sb.toString();
 		} catch (Exception e) {

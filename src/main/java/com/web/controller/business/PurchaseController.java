@@ -1,6 +1,5 @@
 package com.web.controller.business;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -29,8 +28,10 @@ import com.service.business.IItemService;
 import com.service.business.IItemTypeService;
 import com.service.business.IItemUnitService;
 import com.service.business.IPurchaseService;
+import com.service.business.IStockService;
 import com.service.business.IVenderService;
 import com.web.dto.business.PurchaseDTO;
+import com.web.dto.business.StockDTO;
 import com.web.util.AppUtil;
 import com.web.util.GenericResponse;
 import com.web.util.RequestUtil;
@@ -58,6 +59,9 @@ public class PurchaseController {
 	IItemService itemService;
 
 	@Autowired
+	IStockService stockService;
+
+	@Autowired
 	IVenderService venderService;
 
 	@Autowired
@@ -82,21 +86,31 @@ public class PurchaseController {
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
 			objs.forEach(o ->{
+				modelMapper.addConverter(appUtil.localDateTimeToString);
+				modelMapper.addConverter(appUtil.localDateToString);
 				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
-//				dto.setItemUnitId(obj.getItemUnit().getId());
-//				dto.setItemUnitName(obj.getItemUnit().getName());
-//				dto.setItemTypeId(obj.getItemType().getId());
-//				dto.setItemTypeName(obj.getItemType().getName());
-				Optional<Item> option = itemService.findById(dto.getItemId());
-				if(option.isPresent()) {
-					Item item  = option.get();
-					dto.setItemId(item.getId());
-					dto.setItemName(item.getName());
-					dto.setStock(item.getStock());
+				if(appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) {
+					Optional<Item> option = itemService.findById(o.getStock().getItemId());
+					if(option.isPresent()) {
+						Item item  = option.get();
+						dto.setItemId(item.getId());
+						dto.setIname(item.getIname());
+						dto.setIcode(item.getIcode());
+//						dto.setStock(item.getStock());
+					}
+//					Optional<Stock> option2 = stockService.findById(dto.getStockDTO()());
+					if(o.getStock()!=null) {
+						modelMapper.addConverter(appUtil.localDateToString);
+						modelMapper.addConverter(appUtil.localDateTimeToString);
+						StockDTO stockDTO = modelMapper.map(o.getStock(), StockDTO.class);
+						dto.setStockDTO(stockDTO);
+					}
+					
+//					dto.setDatedStr(appUtil.getDateStr(o.getDated()));
+//					dto.setUpdated(appUtil.getDateStr(o.getUpdated()));
+//					dto.setIExpiry(appUtil.getLocalDateStr(o.getIExpiry()));
+					dtos.add(dto);
 				}
-				dto.setDatedStr(appUtil.getDateStr(o.getDated()));
-				dto.setUpdatedStr(appUtil.getDateStr(o.getUpdated()));
-				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
@@ -122,8 +136,8 @@ public class PurchaseController {
 //				dto.setItemUnitName(obj.getItemUnit().getName());
 //				dto.setItemTypeId(obj.getItemType().getId());
 //				dto.setItemTypeName(obj.getItemType().getName());
-				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
+//				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+//				dto.setUpdated(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			if(appUtil.isEmptyOrNull(objs)){
@@ -143,42 +157,23 @@ public class PurchaseController {
 	@ResponseBody
 	public GenericResponse addPurchase(@Validated final PurchaseDTO dto, final HttpServletRequest request) {
 		try {
-			Purchase obj= new Purchase();
-			LocalDateTime dated = LocalDateTime.now();
-			User user = requestUtil.getCurrentUser();
-			obj = modelMapper.map(dto, Purchase.class);
-			obj.setUserId(user.getId());
-
-			obj.setDated(dated);
-			obj.setUpdated(dated);
-			
-			obj.setItemId(dto.getItemId());
-			//if update
-			Item item = itemService.getOne(dto.getItemId());
-        	Float stock = item.getStock()+dto.getQuantity();
-			if(!appUtil.isEmptyOrNull(dto.getId())){
-				Purchase objTemp = purchaseService.getOne(dto.getId());
-				if(objTemp.getQuantity() > dto.getQuantity())
-					stock = item.getStock() + (dto.getQuantity() - objTemp.getQuantity());
-				else
-					stock = item.getStock() - (objTemp.getQuantity() - dto.getQuantity());
-				
-				item.setStock(stock);	
-			}
-			item.setStock(stock);
-			//updating stock
-	        itemService.save(item);
-			obj.setStock(stock);
-			obj = purchaseService.save(obj);
-			if(appUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
+			if(appUtil.isEmptyOrNull(purchaseService.addPurchase(dto))) {
+				if(appUtil.isEmptyOrNull(dto.getPurchaseId())) {
+					return new GenericResponse(appUtil.FAILED,messages.getMessage(appUtil.FAILED, null,"msg.purchase.save.error", request.getLocale()));
+				}else {
+					return new GenericResponse(appUtil.FAILED,messages.getMessage(appUtil.FAILED,null,"msg.purchase.update.error",  request.getLocale()));
+				}
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				if(appUtil.isEmptyOrNull(dto.getPurchaseId())) {
+					return new GenericResponse(appUtil.SUCCESS,messages.getMessage(appUtil.SUCCESS, null,"msg.purchase.saved", request.getLocale()));
+				}else {
+					return new GenericResponse(appUtil.SUCCESS,messages.getMessage(appUtil.SUCCESS,null, "msg.purchase.updated", request.getLocale()));
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause());			
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
+			return new GenericResponse("ERROR",messages.getMessage(appUtil.ERROR,null,"message.error_system_error"+e.getMessage(), request.getLocale()),
 					e.getCause().toString());
 		}
 	}

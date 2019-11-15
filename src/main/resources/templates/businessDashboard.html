@@ -68,15 +68,15 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="companyName">Name:</label>
+						<label class="control-label col-sm-2 req" for="companyName">Name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="companyName" name="name"
 								placeholder="Company Name" required="required"> 
 						</div>
-						<label class="control-label col-sm-2 req" for="companyPhone">Phone:</label>
+						<label class="control-label col-sm-2" for="companyPhone">Contact</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="companyPhone" name="phone"
-								placeholder="Phone Number" required="required"> 
+								placeholder="Phone Number"> 
 						</div>
 					</div>
 					<div class="form-group">
@@ -85,20 +85,20 @@
 							<input type="text" class="form-control" id="companyEmail"
 								name="email" placeholder="Email Address">
 						</div>
-						<label class="control-label col-sm-2 req" for="address">Address:</label>
+						<label class="control-label col-sm-2" for="address">Address:</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="companyAddress"
-								name="address" placeholder="Complete Address" required="required">
+								name="address" placeholder="Complete Address">
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center;">
+					<div class="form-group text-center">
 						<button type="button" id="addCompany" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteCompany" class="btn btn-warning">
+						<button type="button" id="deleteCompany" class="btn btn-danger">
 							<span class="glyphicon glyphicon-minus-sign"></span> Delete
 						</button>
-						<button type="reset" id="resetItem" class="btn btn-primary">
+						<button type="reset" id="resetItem" class="btn btn-warning">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
 					</div>
@@ -107,13 +107,13 @@
 					<table id="tableCompany" class="table table-bordered table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="companyId">ID</th>
-								<th class="col-sm-1" data-field="checkDelete"></th>
-								<th class="col-sm-3" data-field="companyName">Name</th>
-								<th class="col-sm-1" data-field="companyPhone">Phone</th>
-								<th class="col-sm-2" data-field="companyEmail">Email</th>
-								<th class="col-sm-3" data-field="companyAddress">Address</th>
-								<th class="col-sm-1" data-field="companyDated">Dated</th>
+								<th data-field="companyId">ID</th>
+								<th data-field="checkDelete"></th>
+								<th data-field="companyName">Name</th>
+								<th data-field="companyPhone">Phone</th>
+								<th data-field="companyEmail">Email</th>
+								<th data-field="companyAddress">Address</th>
+								<th data-field="companyDated">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -130,9 +130,9 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" th:text="#{label.company}">Select	Company</label> 
+						<label class="control-label col-sm-2 req" th:text="#{label.company}">Select	Company</label> 
 						<div class="col-sm-4">
-							<select	class="form-control" id="venderCompanyDD" name="companyId">
+							<select	class="form-control" id="venderCompanyDD" name="companyId" required="required">
 							</select>
 						</div>
 						<label class="control-label col-sm-2 req" for="name">Name:</label>
@@ -165,14 +165,14 @@
 								name="address" placeholder="Complete Address"> 
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center;">
+					<div class="form-group text-center">
 						<button type="button" id="addVender" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteVender" class="btn btn-warning">
+						<button type="button" id="deleteVender" class="btn btn-danger">
 							<span class="glyphicon glyphicon-minus-sign"></span> Delete
 						</button>
-						<button type="reset" id="resetItem" class="btn btn-primary">
+						<button type="reset" id="resetItem" class="btn btn-warning">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
 					</div>
@@ -181,15 +181,15 @@
 					<table id="tableVender" class="table table-bordered table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="venderId">ID</th>
-								<th class="col-sm-1" data-field="checkDelete"></th>
-								<th class="col-sm-2" data-field="venderName">Name</th>
-								<th class="col-sm-2" data-field="venderCompany">Company</th>
-								<th class="col-sm-1" data-field="venderPhone">Phone</th>
-								<th class="col-sm-1" data-field="venderMobile">Mobile</th>
-								<th class="col-sm-1" data-field="venderEemail">Email</th>
-								<th class="col-sm-2" data-field="venderAddress">Address</th>
-								<th class="col-sm-1" data-field="dated">Dated</th>
+								<th data-field="venderId">ID</th>
+								<th data-field="checkDelete"></th>
+								<th data-field="venderName">Name</th>
+								<th data-field="venderCompany">Company</th>
+								<th data-field="venderPhone">Phone</th>
+								<th data-field="venderMobile">Mobile</th>
+								<th data-field="venderEemail">Email</th>
+								<th data-field="venderAddress">Address</th>
+								<th data-field="dated">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -204,107 +204,116 @@
 							<input type="number" class="form-control" id="itemId" name="id" readonly="readonly"/> 
 						</div>
 					</div>
-					<div class="form-group" id="Item">
-						<label class="control-label col-sm-2 req" for="itemName">Full name / Code:</label>
-						<div class="col-sm-4">
-							<input type="text" class="form-control" id="itemName" name="name"
-								placeholder="Item Name" required="required">
-						</div>
-						<label class="control-label col-sm-2 req" for="itemPurchaseAmount">Purchase/Unit price</label>
-						<div class="col-sm-4">
-							<input type="number" step="any" class="form-control" id="itemPurchaseAmount"
-								name="purchaseAmount" placeholder=" Purchase Amount 0.0" onblur="calculateNet()" onkeyup="calculateNet()" required="required">
-						</div>
-					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="itemDesc">Description:</label>
-						<div class="col-sm-4">
-							<input type="text" class="form-control" id="itemDesc" name="desc"
-								placeholder="Item desciption">
-						</div>
-						<label class="control-label col-sm-2" for="itemStock">Stock In Hand</label>
-						<div class="col-sm-2">
-							<input type="number" step="any" min="1" class="form-control" id="itemStock"
-								name="stock" placeholder="Stock in hand">
-						</div>
-						<div class="col-sm-2">
-							<input type="text"class="form-control" id="itemBN"
-								name="bn" placeholder="Batch #">
-						</div>
-					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" th:text="#{label.company}">Select
 							Company</label> <span class="col-sm-4"> <select
 							class="form-control" id="itemCompanyDD" name="companyId">
 						</select>
 						</span>
-						<label class="control-label col-sm-2" th:text="#{label.vender}">Select
+ 						<label class="control-label col-sm-2" th:text="#{label.vender}">Select
 							Vender</label> <span class="col-sm-4"> <select
 							class="form-control" id="itemVenderDD" name="venderId">
 						</select>
-						</span>
+ 						</span>
 					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="discountTypeDD">Discount Type</label>
+					<div class="form-group" id="Item">
+						<label class="control-label col-sm-2" for="itemCode">Code</label>
 						<div class="col-sm-4">
-							<select name="discountType" id="discountTypeDD" class="form-control" onchange="calculateNet()">
-								<option class="dropdown-item" value="" >Default is %</option>
-								<option class="dropdown-item" value="%" selected="selected">%</option>
-								<option class="dropdown-item" value="amount">amount</option>
-							</select>
+							<input type="text" class="form-control" id="itemCode" name="icode"
+								placeholder="Item Code">
 						</div>
-						<label class="control-label col-sm-2" for="itemDiscount">Fix discount</label>
+						<label class="control-label col-sm-2" for="itemName">Name</label>
 						<div class="col-sm-4">
-							<input type="number" step="any" class="form-control" id="itemDiscount"
-								name="discount" placeholder=" Discount 0.0" onblur="calculateNet()" onkeyup="calculateNet()">
+							<input type="text" class="form-control" id="itemName" name="iname"
+								placeholder="Item Name">
 						</div>
 					</div>
 					<div class="form-group">
+						<label class="control-label col-sm-2" for="itemDesc">Description</label>
+						<div class="col-sm-10">
+							<input type="text" class="form-control" id="itemDesc" name="idesc"
+								placeholder="Item desciption">
+						</div>
+					</div>
+<!--  
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="itemPurchaseAmount">Purchase Price/Unit</label>
+						<div class="col-sm-4">
+							<input type="number" step="any" class="form-control" id="itemPurchaseAmount"
+								name="purchaseAmount" placeholder=" Purchase Amount 0.0" onblur="calculateNet()" onkeyup="calculateNet()" disabled="disabled">
+						</div>
 						<label class="control-label col-sm-2" for="itemSellAmount">Sell/Unit price</label>
 						<div class="col-sm-4">
 							<input type="number" step="any" min="0" class="form-control" id="itemSellAmount"
 								name="sellAmount" placeholder=" Sell Amount 0.0" onblur="calculateNet()" onkeyup="calculateNet()">
 						</div>
+					</div>					
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="itemDiscountTypeDD">Discount Type</label>
+						<div class="col-sm-4">
+							<select name="discountType" id="itemDiscountTypeDD" class="form-control" onchange="calculateNet()">
+								<option class="dropdown-item" value="" >Default is %</option>
+								<option class="dropdown-item" value="%" selected="selected">%</option>
+								<option class="dropdown-item" value="amount">amount</option>
+							</select>
+						</div>
+						<label class="control-label col-sm-2" for="itemDiscount">Discount Amount</label>
+						<div class="col-sm-4">
+							<input type="number" step="any" class="form-control" id="itemDiscount"
+								name="discount" placeholder=" Discount 0.0" onblur="calculateNet()" onkeyup="calculateNet()">
+						</div>
+					</div>
+ 					<div class="form-group">
+						<label class="control-label col-sm-2" for="itemStock">Stock In Hand</label>
+						<div class="col-sm-2">
+							<input type="number" step="any" min="0" class="form-control" id="itemStock"
+								name="stock" placeholder="Stock in hand" disabled="disabled">
+						</div>
+						<div class="col-sm-2">
+							<input type="text"class="form-control" id="itemBN"
+								name="bn" placeholder="Batch #" disabled="disabled">
+						</div>
 						<label class="control-label col-sm-2" for="itemExpDate">Expiration Date</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="itemExpDate" name="expDateStr"
-								placeholder=" Expiry Date "> 
+								placeholder=" Expiry Date " disabled="disabled"> 
 						</div>
-					</div>
-					<div class="form-group" style="text-align: center;">
+					</div>	
+-->						
+ 					<div class="form-group text-center">
 						<button type="button" id="addItem" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteItem" class="btn btn-warning">
+						<button type="button" id="deleteItem" class="btn btn-danger">
 							<span class="glyphicon glyphicon-minus-sign"></span> Delete
 						</button>
-						<button type="reset" id="resetItem" class="btn btn-primary">
+						<button type="reset" id="resetItem" class="btn btn-warning">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
 					</div>
-				</form>
-				<div>
 					<table id="tableItem" class="table table-bordered table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="itemId">ID</th>
-								<th class="col-sm-1" data-field="checkDelete"></th>
-								<th class="col-sm-1" data-field="itemName">Item Name/Code</th>
-								<th class="col-sm-1" data-field="itemDesc">Description</th>
-								<th class="col-sm-1" data-field="itemCompanyDD">Company</th>
-								<th class="col-sm-1" data-field="itemVenderDD">Vender</th>
-								<th class="col-sm-1" data-field="itemPurchaseAmount">P/U Price</th>
-								<th class="col-sm-1" data-field="itemSnellAmount">S/U Price</th>
-								<th class="col-sm-1" data-field="discountTypeDD">Disc Type</th>
-								<th class="col-sm-1" data-field="itemDiscount">Discount</th>
-								<th class="col-sm-1" data-field="itemExpDate">Exp. Date</th>
-								<th class="col-sm-1" data-field="itemStock">Stock</th>
-								<th class="col-sm-1" data-field="itemBN">Batch #</th>
-								<th class="col-sm-1" data-field="dated">Dated</th>
+								<th data-field="itemId">ID</th>
+								<th data-field="checkDelete">Mark</th>
+								<th data-field="itemCompanyDD">Company</th>
+								<th data-field="itemVenderDD">Vender/Supplier</th>
+								<th data-field="itemName">Name</th>
+								<th data-field="itemCode">Code</th>
+								<th data-field="itemDesc">Description</th>
+<!-- 								<th data-field="itemVenderDD">Vender</th> 
+								<th data-field="itemPurchaseAmount">P/U Price</th>
+								<th data-field="itemSnellAmount">S/U Price</th>
+								<!-- <th data-field="discountTypeDD">Disc Type</th> -->
+								<!-- <th data-field="itemDiscount">Discount</th> -->
+<!-- 								<th data-field="itemExpDate">Exp. Date</th>
+								<th data-field="itemStock">Stock</th>
+								<th data-field="itemBN">Batch #</th>
+ -->								<th data-field="dated">Dated</th>
 							</tr>
 						</thead>
 					</table>
-				</div>
+				</form>
 			</div>
 	
 			<div id="purchaseDiv" class="formDiv">
@@ -314,88 +323,123 @@
 					enctype="utf8" id="Purchase" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-12">
-							<input type="number" class="form-control" id="purchaseId" name="id" readonly="readonly"/> 
+							<input type="number" class="form-control" id="purchaseId" name="purchaseId" readonly="readonly"/> 
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" th:text="#{label.item}">Select Item</label> 
-						<div class="col-sm-4">
+						<div class="col-sm-10">
 							<select
-								class="form-control onChangeSelect" id="purchaseItemDD" name="itemId" required="required">
+								class="form-control onChangeSelect selectpicker" id="purchaseItemDD" name="itemId" data-live-search="true" required="required">
 							</select>
 						</div>
-						<label class="control-label col-sm-2" for="purchaseQuantity">QTY:</label>
-						<div class="col-sm-4">
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="purchaseQuantity">QTY</label>
+						<div class="col-lg-4">
 							<input type="number" step="any" min="0" placeholder=" Enter total item" class="form-control" id="purchaseQuantity" 
 							name="quantity" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()" required="required"/>
 						</div>
+						<label class="control-label col-sm-2" for="purchaseStock">Stock In Hand</label>
+						<div class="col-lg-4">
+							<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stockDTO.stock"  disabled="disabled"/>
+						</div>						
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="purchaseSellAmount">S/U Price:</label>
+						<label class="control-label col-sm-2" for="purchaseBatchNo">Batch No</label>
 						<div class="col-sm-4">
-							<input type="number" step="any" class="form-control" id="purchaseSellRate"
-								name="sellRate" placeholder=" Sell Amount 0.0" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
+							<input type="text" class="form-control" id="purchaseBatchNo" 
+							name="stockDTO.batchNo" placeholder="Batch number"/>
 						</div>
-						<label class="control-label col-sm-2 req" for="purchasePurchaseRate">P/U Price:</label>
+						<label class="control-label col-sm-2" for="purchaseExpiry">Expiry</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="purchaseExpiry" 
+							name="stockDTO.bexpDate" placeholder="Expiry date"/>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="purchasePurchaseRate">P/U Price</label>
 						<div class="col-sm-4">
 							<input type="number" step="any" class="form-control" id="purchasePurchaseRate"
-								name="purchaseRate" placeholder=" Purchase Amount 0.0" required="required" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
+								name="stockDTO.bpurchaseRate" placeholder=" Purchase Amount 0.0" required="required" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
+						</div>
+						<label class="control-label col-sm-2" for="purchaseSellAmount">S/U Price</label>
+						<div class="col-sm-4">
+							<input type="number" step="any" class="form-control" id="purchaseSellRate"
+								name="stockDTO.bsellRate" placeholder=" Sell Amount 0.0" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="purchaseTotalAmount">Total:</label>
+						<label class="control-label col-sm-2" for="discountTypeDD">Select discount</label>
 						<div class="col-sm-4">
-							<input type="number" step="any" class="form-control" id="purchaseTotalAmount" name="totalAmount" style="display: none">
-							<output class="form-control" id="totalAmount">
+							<select name="stockDTO.bpurchaseDiscountType" id="discountTypeDD" class="form-control" onchange="calculateNetPurchase">
+								<option class="dropdown-item" value="" >Default is %</option>
+								<option class="dropdown-item" value="%" selected="selected">%</option>
+								<option class="dropdown-item" value="amount">amount</option>
+							</select>
 						</div>
-						<label class="control-label col-sm-2" for="purchaseDiscount" id="pdt">Discount:</label>
+						<label class="control-label col-sm-2" for="purchaseDiscount">Discount</label>
 						<div class="col-sm-4">
 							<input type="number" step=any class="form-control" id="purchaseDiscount"
-								name="discount" placeholder=" Discount 0.0" onkeyup="calculateNetPurchase()">
+								name="stockDTO.bpurchaseDiscount" placeholder=" Discount 0.0" onkeyup="calculateNetPurchase()">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="net">Profit:</label>
+						<label class="control-label col-sm-2" for="purchaseTotalAmount">Total</label>
 						<div class="col-sm-4">
-							<input type="number" step=any class="form-control" id="purchaseNetAmount" name="netAmount" style="display: none">
-							<output class="form-control" id="netAmount">
+							<input type="number" step="any" class="form-control" id="purchaseTotalAmount" name="totalAmount" disabled="disabled">
+							<!-- <output class="form-control" id="purchaseTotalAmountOut"> -->
 						</div>
-						<label class="control-label col-sm-2" for="purchaseStock">Stock In Hand:</label>
+						<label class="control-label col-sm-2" for="net">Profit</label>
 						<div class="col-sm-4">
-							<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stock" style="display: none"/>
-							<output class="form-control" id="stok"/>
+							<input type="number" step=any class="form-control" id="purchaseNetAmount" name="netAmount" disabled="disabled">
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center;">
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="purchaseDate">Date</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datetimepicker" id="purchaseDate" name="updated" required="required"/> 
+						</div>
+					</div>
+					<div class="form-group text-center">
 						<button type="button" id="addPurchase" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deletePurchase" class="btn btn-warning">
+						<button type="button" id="deletePurchase" class="btn btn-danger">
 							<span class="glyphicon glyphicon-minus-sign"></span> Delete
 						</button>
-						<button type="reset" id="resetPurchase" class="btn btn-primary">
+						<button type="reset" id="resetPurchase" class="btn btn-warning">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
 					</div>
 				</form>
+				<div>
+					Toggle column: <a class="toggle-vis" data-column="2">Code</a> - <a class="toggle-vis" data-column="3">Name</a>
+					  - <a class="toggle-vis" data-column="4">QTY</a> - <a class="toggle-vis" data-column="5">Stock</a>
+					  - <a class="toggle-vis" data-column="6">Batch #</a> - <a class="toggle-vis" data-column="7">Expiry</a>
+					  - <a class="toggle-vis" data-column="8">P/U price</a> - <a class="toggle-vis" data-column="9">S/U price</a>
+					  - <a class="toggle-vis" data-column="10">Disc type</a> - <a class="toggle-vis" data-column="11">Discount</a>
+					  - <a class="toggle-vis" data-column="12">Total</a> - <a class="toggle-vis" data-column="13">Profit</a>
+					  - <a class="toggle-vis" data-column="14">DateTime</a>
+				</div>
 				<table id="tablePurchase" class="table table-bordered table-striped">
 					<thead>
 						<tr>
-							<th class="col-sm-1" data-field="purchaseId">ID</th>
-							<th class="col-sm-1" data-field="checkDelete"></th>
-							<!-- <th class="col-sm-1" data-field="purchaseItemId">Item ID</th> -->
-							<th class="col-sm-2" data-field="purchaseItemName">Name</th>
-							<th class="col-sm-1" data-field="purchaseQuantity">Qty</th>
-							<th class="col-sm-1" data-field="purchaseSellRate">S/U Price</th>
-							<th class="col-sm-1" data-field="purchasePurchaseRate">P/U Price</th>
-	<!-- 						<th class="col-sm-1" data-field="purchaseExpense">P Exp</th>
-							<th class="col-sm-1" data-field="purchaseExpenseDesc">P Exp Desc</th>
-	 -->
-							<th class="col-sm-1" data-field="purchaseTotalAmount">Total</th>
-							<th class="col-sm-1" data-field="purchaseDiscount">Discount</th>
-							<th class="col-sm-1" data-field="purchaseNetAmount">Profit</th>
-							<th class="col-sm-1" data-field="purchaseStock">Stock</th>
-							<th class="col-sm-1" data-field="dated">Dated</th>
+							<th data-field="purchaseId">ID</th>
+							<th data-field="checkDelete"></th>
+							<th data-field="purchaseItemCode">Code</th>
+							<th data-field="purchaseItemName">Name</th>
+							<th data-field="purchaseQuantity">QTY</th>
+							<!-- <th data-field="purchaseStock">Stock</th> -->
+							<th data-field="purchaseBatchNo">Batch #</th>
+							<th data-field="purchaseExpiry">Expiry</th>
+							<th data-field="purchasePurchaseRate">P/U Price</th>
+							<th data-field="purchaseSellRate">S/U Price</th>
+							<th data-field="discountTypeDD">Disc Type</th>
+		 					<th data-field="purchaseDiscount">Discount</th>
+							<th data-field="purchaseTotalAmount">Total</th>
+							<th data-field="purchaseNetAmount">Profit</th>
+							<th data-field="purchaseDate">DateTime</th>
 						</tr>
 					</thead>
 				</table>
@@ -433,14 +477,14 @@
 						</div>
 						<label class="control-label col-sm-2" for="sellStock">Stock In Hand:</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="sellStock" name="stock" readonly="readonly"/>
+							<input type="text" class="form-control" id="sellStock" name="stockDTO.stock" readonly="readonly"/>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="sellSellAmount">S/U Price:</label>
+						<label class="control-label col-sm-2 req" for="sellSellRate">S/U Price:</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellSellRate"
-								name="sellRate" placeholder=" Sell Amount " onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required">
+								name="stockDTO.bsellRate" placeholder=" Sell Amount " onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required">
 						</div>
 						<label class="control-label col-sm-2" for="sellTotalAmount">Total:</label>
 						<div class="col-sm-4">
@@ -451,10 +495,10 @@
 						<label class="control-label col-sm-2" for="sellDiscount" id="sdt">Discount:</label>
 						<div class="col-sm-2">
 							<input type="text" class="form-control" id="sellDiscount"
-								name="discount" placeholder=" Discount 0.0" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
+								name="stockDTO.bsellDiscount" placeholder=" Discount 0.0" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
 						</div>
 						<div class="col-sm-2">
-							<select id="selldtDD" name="dt" class="form-control" onchange="calculateNetSell()" required="required">
+							<select id="sellDiscountTypeDD" name="stockDTO.bsellDiscountType" class="form-control" onchange="calculateNetSell()" required="required">
 								<option class="dropdown-item" value="amount" selected="selected">amount</option>
 								<option class="dropdown-item" value="%">%</option>
 							</select>
@@ -468,9 +512,9 @@
 						<label class="control-label col-sm-2" for="sellPurchaseRate">P/U Price:</label>
 						<div class="col-sm-4">
 							<input type="number" class="form-control" id="sellPurchaseRate"
-								name="purchaseRate" placeholder=" Purchase Amount " required="required" onblur="calculateNetSell()" onkeyup="calculateNetSell()" readonly="readonly">
+								name="stockDTO.bpurchaseRate" placeholder=" Purchase Amount " required="required" onblur="calculateNetSell()" onkeyup="calculateNetSell()" readonly="readonly">
 						</div>
-						<label class="control-label col-sm-2" for="net">Profit</label>
+						<label class="control-label col-sm-2" for="sellNetAmount">Profit</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellNetAmount" name="netAmount" readonly="readonly"/>
 						</div>
@@ -494,7 +538,7 @@
 							<input type="text" placeholder="Remarks" class="form-control" id="sellRemarks" name="remarks"/>
 						</div>
 	 -->				</div>
-					<div class="form-group" style="text-align: center;">
+					<div class="form-group text-center">
 						<button type="button" id="addInviceItem" class="btn btn-success">
 							<span class="glyphicon glyphicon-shopping-cart"></span> Add to Cart
 						</button>
@@ -511,7 +555,7 @@
 					</div>
 				</form>
 				<br>
-				<div id="iDiv" style="text-align: center;" class="col-sm-12">
+				<div id="iDiv" class="form-group col-sm-12  text-center">
 					<div class="col-sm-3"></div>
 					<div class="table-bordered table-striped col-sm-6">
 						<table id="tablesi" class="display" style="width:100%">
@@ -538,16 +582,6 @@
 					            </tr>
 					        </tfoot>
 						</table>
-	<!-- 					<hr>
-						<div id="tdiv">
-							<div class="col-sm-3" id="it">Total</div>
-							<div class="col-sm-2" id="itq"></div>
-							<div class="col-sm-2" id="itp"></div>
-							<div class="col-sm-2" id="itd"></div>
-							<div class="col-sm-2" id="itt"></div>
-							<div class="col-sm-1" id="action"></div>				
-						</div>
-	 -->		
 	 				<div class="form-group" style="padding-top: 15px;padding-bottom: 25px;">
 						<div class="col-sm-3">
 							<input type="text" class="form-control" id="sellCN"
@@ -568,40 +602,50 @@
 	 				</div>	
 					<div class="col-sm-3"></div>
 				</div>
-				<br>
-				<div class="form-group" style="text-align: center;padding-top: 5px;">
+				<div class="form-group text-center">
 					<button type="button" id="addSell" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Sell
 					</button>
-					<input type="checkbox" checked="checked" name="print" id="sellP"><span  class="glyphicon glyphicon-print"></span></input>
+					<!-- <input type="checkbox" checked="checked" name="print" id="sellP"><span  class="glyphicon glyphicon-print"></span></input> -->
 					<button type="button" id="resetItem" class="btn btn-warning" onclick="resetCart()">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel Cart
+						<span class="glyphicon glyphicon-shopping-cart"></span> Delete cart
 					</button>
 	<!-- 				<button type="button" id="addSell" class="btn btn-success">print and submit
 						<span class="glyphicon glyphicon-print"></span> Sell & Print
 					</button>					
-	 -->			</div>			
-				<div style="display: none">Toggle column: <a class="toggle-vis" data-column="10">P/U Price</a> - <a class="toggle-vis" data-column="11">Profit</a></div>
-				<table id="tableSell" class="table table-bordered table-striped" style="width:100%">
+	 -->			
+	 			</div>			
+				<div>
+					Toggle column: <a class="toggle-vis" data-column="2">Code</a> - <a class="toggle-vis" data-column="3">Name</a>
+					  - <a class="toggle-vis" data-column="4">QTY</a>
+					  - <a class="toggle-vis" data-column="5">BatchNo</a> - <a class="toggle-vis" data-column="6">Expiry</a>
+					  - <a class="toggle-vis" data-column="7">P/U price</a> - <a class="toggle-vis" data-column="8">S/U price</a>
+					  - <a class="toggle-vis" data-column="9">Disc type</a> - <a class="toggle-vis" data-column="10">Discount</a>
+					  - <a class="toggle-vis" data-column="11">Total</a> - <a class="toggle-vis" data-column="12">Profit</a>
+					  - <a class="toggle-vis" data-column="13">Customer Name</a> - <a class="toggle-vis" data-column="14">Customer Contact</a>
+					  - <a class="toggle-vis" data-column="15">DateTime</a>
+				</div>
+				<table id="tableSell" class="table table-bordered table-striped">
 					<thead>
 						<tr>
-							<th class="col-sm-1" data-field="sellId">ID</th>
-							<th class="col-sm-1" data-field="sellItemDD">Item detail/Code</th>
-							<th class="col-sm-1" data-field="sellItems">Qty</th>
-							<th class="col-sm-1" data-field="sellStock">Stock</th>
-							<th class="col-sm-1" data-field="sellSellRate">S/U Price</th>
-							<th class="col-sm-1" data-field="sellTotalAmount">Total</th>
-							<th class="col-sm-1" data-field="sellDiscount">Discount(type)</th>
-							<!-- <th class="col-sm-1" data-field="selldtDD">Type</th> -->
-	<!-- 						<th class="col-sm-1" data-field="sellR">Received</th>
-							<th class="col-sm-1" data-field="sellB">Balance</th>
-	 -->						<th class="col-sm-1" data-field="sellCN">Customer Name</th>
-							<th class="col-sm-1" data-field="sellCC">Customer Contact</th>
-							<th class="col-sm-1" data-field="sellPurchaseRate">P/U Price</th>
-							<th class="col-sm-1" data-field="sellNetAmount">Profit</th>
-	<!-- 						<th class="col-sm-1" data-field="sellsrp">Return profit</th>
-							<th class="col-sm-1" data-field="sellRe">Return reason</th>
-	 -->						<th class="col-sm-1" data-field="dated">Dated</th>
+							<th data-field="sellId">ID</th>
+							<th data-field="checkDelete"></th>
+							<th data-field="sellItemDD">Code</th>
+							<th data-field="sellItemName">Name</th>
+							<th data-field="sellItems">QTY</th>
+							<th data-field="sellItemBatchNo">BatchNo</th>
+							<th data-field="sellItemExpiry">Expiry</th>
+							<th data-field="sellPurchaseRate">P/U Price</th>
+							<th data-field="sellSellRate">S/U Price</th>
+							<th data-field="sellDiscountTypeDD">Disc Type</th>
+							<th data-field="sellDiscount">Discount</th>
+							<th data-field="sellTotalAmount">Total</th>
+							<th data-field="sellNetAmount">Profit</th>
+							<th data-field="sellCN">Customer Name</th>
+							<th data-field="sellCC">Customer Contact</th>
+	<!-- 						<th data-field="sellsrp">Return profit</th>
+							<th data-field="sellRe">Return reason</th>
+	 -->						<th data-field="updated">DateTime</th>
 						</tr>
 					</thead>
 				</table>
@@ -664,13 +708,13 @@
 							</div>
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center;">
+					<div class="form-group text-center">
 						<button type="button" onclick="loadSR()" class="btn btn-success">
 							<span class="glyphicon glyphicon-sunglasses"></span> View
 						</button>
 					</div>
 				</form>
-				<table id="tableSellReport" class="table table-striped" style="text-align: center;">
+				<table id="tableSellReport" class="table table-striped text-center">
 			        <thead>
 			            <tr>
 							<th>Item detail/Code</th>

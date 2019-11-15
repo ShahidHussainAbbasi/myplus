@@ -26,29 +26,24 @@ public class CompanyDTO implements Serializable {
 	private String name;
 //    @Getter@Setter
 //	private String brands;
-	@ValidMobileNumber
-    @Getter@Setter
-	private String mobile;
-	@ValidateEmpty
+//	@ValidMobileNumber
+//    @Getter@Setter
+//	private String mobile;
     @Getter@Setter
 	private String phone;
-	@ValidateEmpty
     @Getter@Setter
 	private String address;
     @Getter@Setter
 	private String website;
     @Getter@Setter
     private String wattsApp;
-
     @Getter@Setter
     private String faceBook;
-
     @Getter@Setter
     private String company;
     
     @Getter@Setter
     private MultipartFile logo;
-	
 	@ValidEmail
     @Getter@Setter
 	private String email;
@@ -61,8 +56,8 @@ public class CompanyDTO implements Serializable {
 
     @Override
 	public String toString() {
-		return "CompanyDTO [id=" + id + ", userId=" + userId + ", userType=" + userType + ", name=" + name + ", mobile="
-				+ mobile + ", phone=" + phone + ", address=" + address + ", website=" + website + ", wattsApp="
+		return "CompanyDTO [id=" + id + ", userId=" + userId + ", userType=" + userType + ", name=" + name + 
+				", phone=" + phone + ", address=" + address + ", website=" + website + ", wattsApp="
 				+ wattsApp + ", faceBook=" + faceBook + ", company=" + company + ", logo=" + logo + ", email=" + email
 				+ ", datedStr=" + datedStr + ", updatedStr=" + updatedStr + "]";
 	}

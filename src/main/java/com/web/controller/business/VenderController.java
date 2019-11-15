@@ -65,8 +65,10 @@ public class VenderController {
 			List<VenderDTO> dtos=new ArrayList<VenderDTO>(); 
 			objs.forEach(obj ->{
 				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
-				dto.setCompanyId(obj.getCompany().getId());
-				dto.setCompanyName(obj.getCompany().getName());
+				if(!appUtil.isEmptyOrNull(obj.getCompany())) {
+					dto.setCompanyId(obj.getCompany().getId());
+					dto.setCompanyName(obj.getCompany().getName());
+				}
 				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);

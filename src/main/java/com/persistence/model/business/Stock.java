@@ -1,20 +1,21 @@
 package com.persistence.model.business;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToOne;
+import javax.persistence.OneToMany;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * The persistent class for the doctor database table.
@@ -22,168 +23,86 @@ import org.hibernate.annotations.NotFoundAction;
  */
 @Entity
 @Table(name = "stock", uniqueConstraints = { @UniqueConstraint(columnNames = "stock_id") })
-
 public class Stock implements Serializable {
+
+	public Stock() {
+	}
+
 	private static final long serialVersionUID = 1L;
 
+
+	
 	@Id
 	@SequenceGenerator(name = "stock_gen", sequenceName = "stock_seq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "stock_gen")	
 	@Column(name = "stock_id", unique = true, nullable = false)
-	private Long id;
+	@Getter@Setter
+	private Long stockId;
 
-	@Column(name = "user_id")
+	@Column(name = "batch_no")
+	@Getter@Setter
+	private String batchNo;
+
+	@Column(name = "user_id", nullable = false)
+	@Getter@Setter
 	private Long userId;
 
 	@Column(name = "user_type")
+	@Getter@Setter
 	private String userType;
 
-	@OneToOne(optional = false)
-	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "item_id")
-	private Item item;
+	@Column(name = "item_id", nullable = false)
+	@Getter@Setter
+	private Long itemId;
 
-	private Long purchased;
+	@Getter@Setter
+	@Column(name = "stock")
+	private Float stock;
 
-	private Long sold;
+	@Getter@Setter
+	@Column(name = "batch_purchase_rate")
+	private Float bpurchaseRate;
+	
+	@Getter@Setter
+	@Column(name = "batch_sale_rate")
+	private Long bsellRate;
+	
+	@Getter@Setter
+	@Column(name = "batch_purchaseDiscountType")
+	private String bpurchaseDiscountType;
+	
+	@Getter@Setter
+	@Column(name = "batch_saleDiscountType")
+	private String bsellDiscountType;
+	
+	@Getter@Setter
+	@Column(name = "batch_purchaseDiscount")
+	private Float bpurchaseDiscount;
+	
+	@Getter@Setter
+	@Column(name = "batch_saleDiscount")
+	private Float bsellDiscount;
 
-	private Long balance;
+	@Getter@Setter
+	@Column(name = "bmfg_date")
+	private LocalDate bmfgDate;
+	
+	@Getter@Setter
+	@Column(name = "bexp_date")
+	private LocalDate bexpDate;
 
-	private LocalDateTime dated;
+	@Getter@Setter
+	private LocalDate dated;
 
-	private LocalDateTime updated;
-
-	/**
-	 * @return the id
-	 */
-	public Long getId() {
-		return id;
-	}
-
-	/**
-	 * @param id the id to set
-	 */
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	/**
-	 * @return the userId
-	 */
-	public Long getUserId() {
-		return userId;
-	}
-
-	/**
-	 * @param userId the userId to set
-	 */
-	public void setUserId(Long userId) {
-		this.userId = userId;
-	}
-
-	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
-
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
-	}
-
-	/**
-	 * @return the item
-	 */
-	public Item getItem() {
-		return item;
-	}
-
-	/**
-	 * @param item the item to set
-	 */
-	public void setItem(Item item) {
-		this.item = item;
-	}
-
-	/**
-	 * @return the purchased
-	 */
-	public Long getPurchased() {
-		return purchased;
-	}
-
-	/**
-	 * @param purchased the purchased to set
-	 */
-	public void setPurchased(Long purchased) {
-		this.purchased = purchased;
-	}
-
-	/**
-	 * @return the sold
-	 */
-	public Long getSold() {
-		return sold;
-	}
-
-	/**
-	 * @param sold the sold to set
-	 */
-	public void setSold(Long sold) {
-		this.sold = sold;
-	}
-
-	/**
-	 * @return the balance
-	 */
-	public Long getBalance() {
-		return balance;
-	}
-
-	/**
-	 * @param balance the balance to set
-	 */
-	public void setBalance(Long balance) {
-		this.balance = balance;
-	}
-
-	/**
-	 * @return the dated
-	 */
-	public LocalDateTime getDated() {
-		return dated;
-	}
-
-	/**
-	 * @param dated the dated to set
-	 */
-	public void setDated(LocalDateTime dated) {
-		this.dated = dated;
-	}
-
-	/**
-	 * @return the updated
-	 */
-	public LocalDateTime getUpdated() {
-		return updated;
-	}
-
-	/**
-	 * @param updated the updated to set
-	 */
-	public void setUpdated(LocalDateTime updated) {
-		this.updated = updated;
-	}
-
-	/**
-	 * @return the serialversionuid
-	 */
-	public static long getSerialversionuid() {
-		return serialVersionUID;
-	}
+	@Getter@Setter
+	private LocalDate updated;
+	
+	@OneToMany(mappedBy="stock")
+	private List<Purchase> purchases;
+	
+	
+	@OneToMany(mappedBy="stock")
+//	@JoinColumn(name = "sell_id", referencedColumnName = "sell_id")
+	private List<Sell> sales = new ArrayList<>();	
 
 }

@@ -158,14 +158,26 @@ $(document).ready(function() {
 		showClose:true
 	});
 
-	$(".datetimepicker").datetimepicker({
+/*	$(".datetimepicker").datetimepicker({
 		useCurrent: true,
 		format : 'DD-MM-YYYY HH:mm:ss',
 		showTodayButton: true,
 		showClear:true,
 		showClose:true
-	});
+	});*/
     
+	$('.datetimepicker').datetimepicker({
+	   format: 'DD-MM-YYYY HH:mm:ss',
+	   useCurrent: false,
+		showTodayButton: true,
+		showClear:true,
+		showClose:true,
+		toolbarPlacement: 'top'
+	   }).on('dp.show', function() {
+	   if($(this).data("DateTimePicker").date() === null)
+	     $(this).data("DateTimePicker").date(moment());
+	 });
+	
     $('input.timepicker').timepicker({ 
     	timeFormat: 'HH:mm',
         defaultTime: '8',
@@ -181,8 +193,8 @@ $(document).ready(function() {
     	if(tableV=="FV"){
 //    		loadFVIBSDD(label,value); 
 //    		loadBSDD("getUser"+lable.trim(),"fviDD");
-    	}else{
-    		laodItems(label,value);    		
+    	}else if(tableV=="Purchase" || tableV =="Sell"){
+    		laodStock(label,value);    		
     	}
     });
     
@@ -217,7 +229,8 @@ $(document).ready(function() {
 			if(buttonV=="Sell"){
 	    		document.getElementById("sellRec").style.borderColor = "";
 				if(data && data.length>0 && $("#sellRec").val()*ONE>0){
-					jsonPost("addSelling",data);
+					jsonPost("addSell",data);
+//					$(this).callAjax("add" + buttonV,populateFormData());
 			    }else{
 			    	alert("Please make sure you have entered valid values");
 			    	if($("#sellRec").val()*ONE<=0){
@@ -433,20 +446,20 @@ function jsonPost(method,data) {
 	      type : "POST",
 	      contentType : "application/json",
 	      url : serverContext + method,
-	      data : JSON.stringify(data),
+	      data : JSON.stringify(data),//populateFormData()
 	      dataType : 'json',			
 	      success : function(data) {
 			if(data.status!="SUCCESS"){
 				alert("Insertion error");
 			}
-			if($("#sellP")[0].checked){
+/*			if($("#sellP")[0].checked){
 				// pGarmtsInv(printData);
 		    	var mylink = document.getElementById("MyLink");
 		    	mylink.setAttribute("href", "../");
 		        mylink.setAttribute("href", ".."+serverContext+"reports/createdocument.docx");
 		        mylink.click();
 			}
-			loadDataTable();
+*/			loadDataTable();
 			resetCart();
 		}, fail: function(data, textStatus, errorThrown) {
 			alert("There is some problem in the request "+errorThrown);
@@ -483,7 +496,8 @@ function editRecord(doc){
 				var labels = text.split(",");
 				labels.forEach(function(entry) {
 					$("#"+form[i].id+" option").each(function() {
-						if(text === (($(this).text()).split("-")[0])) {
+						if(text === (($(this).text()).split(" ~ ")[0])) {
+							text = $(this).text();//update text if it is with siplitter
 							$(this).prop('selected', true);
 						}else{
 							$(this).prop('selected', false);
@@ -596,9 +610,21 @@ function formToJSON(formId){
 	var myForm = document.getElementById(formId);
     var formData = new FormData(myForm),
     obj = {};
+    stockDTO = {};
     for (var entry of formData.entries()){
-    	obj[entry[0]] = $.trim(entry[1]);
+    	var key = entry[0];
+    	var val = entry[1];
+    	if(key && key.indexOf(".")>0){
+    		var mainKey = key.split('.')[0];
+    		var keyVal = key.split('.')[1];
+    		stockDTO[keyVal] = $.trim(val);
+    	}else{
+        	obj[key] = $.trim(val);
+    	}
     }
+    if(mainKey)
+    	obj[mainKey] = stockDTO;
+
     return obj;
 }
 

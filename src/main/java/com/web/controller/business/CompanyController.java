@@ -61,8 +61,8 @@ public class CompanyController {
 			List<CompanyDTO> dtos=new ArrayList<CompanyDTO>(); 
 			objs.forEach(obj ->{
 				CompanyDTO dto = modelMapper.map(obj, CompanyDTO.class);
-				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
+				dto.setDatedStr(appUtil.getLocalDateTimeStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getLocalDateTimeStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);

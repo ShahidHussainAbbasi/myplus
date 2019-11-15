@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,6 +19,7 @@ import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
@@ -28,7 +30,9 @@ import org.springframework.stereotype.Service;
 import com.persistence.Repo.business.SellRepo;
 import com.persistence.model.business.Item;
 import com.persistence.model.business.Sell;
+import com.persistence.model.business.Stock;
 import com.service.IUserService;
+import com.web.dto.business.SellDTO;
 import com.web.util.AppUtil;
 import com.web.util.RequestUtil;
 
@@ -36,8 +40,13 @@ import com.web.util.RequestUtil;
 @Transactional
 public class SellService implements ISellService {
 
+	ModelMapper modelMapper = new ModelMapper();
+	
 	@Autowired
 	IUserService userService;
+	
+	@Autowired
+	IStockService stockService;
 
 	@Autowired
 	SellRepo sellRepo;
@@ -50,6 +59,8 @@ public class SellService implements ISellService {
 
 	@Autowired
 	private AppUtil appUtil;
+
+	private XWPFDocument document;
 
 	@Override
 	public List<Sell> findAll() {
@@ -216,10 +227,30 @@ public class SellService implements ISellService {
 	}
 
 	@Override
+	@Transactional
+	public List<Sell> addSell(List<SellDTO> dtos) {
+		List<Sell> objs = new ArrayList<>();
+		if(!appUtil.isEmptyOrNull(dtos)) {
+			dtos.forEach(dto ->{
+				Stock stock = stockService.updateStock(dto);
+				if(!appUtil.isEmptyOrNull(stock)) {
+					modelMapper.addConverter(appUtil.stringToLocalDateTime);
+					modelMapper.addConverter(appUtil.stringToLocalDate);
+					Sell obj = modelMapper.map(dto, Sell.class);
+			//		Stock stock = modelMapper.map(dto.getStockDTO(), Stock.class);
+					obj.setStock(stock);
+					obj.setUserId(requestUtil.getCurrentUser().getId());
+					stockService.save(stock);
+					objs.add(this.save(obj));
+				}
+			});
+		}
+		return objs;
+	}
+	
+	@Override
 	public String createReport(List<Sell> objs) throws FileNotFoundException {
-		// TODO Auto-generated method stub
-		// Blank Document
-		XWPFDocument document = new XWPFDocument();
+		document = new XWPFDocument();
 		DecimalFormat df = new DecimalFormat("#.##");
 		// Write the Document in file system
 		FileOutputStream out = null;
@@ -314,7 +345,7 @@ public class SellService implements ISellService {
 				}
 				Item item = itemService.getOne(obj.getItemId());
 				row.getCell(0).setWidth("1200");
-				row.getCell(0).setText(" "+item.getName());
+				row.getCell(0).setText(" "+item.getIname());
 				row.getCell(1).setWidth("300");
 				row.getCell(1).setText(" "+obj.getQuantity());
 				row.getCell(2).setWidth("300");
@@ -413,6 +444,12 @@ public class SellService implements ISellService {
 		System.out.println("createdocument.docx written successully");
 		return appUtil.SUCCESS;
 
+	}
+
+	@Override
+	public Stock updateStock(SellDTO dto) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

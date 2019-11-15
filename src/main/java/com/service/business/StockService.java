@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import javax.transaction.Transactional;
 
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
@@ -14,6 +15,10 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.StockRepo;
 import com.persistence.model.business.Stock;
+import com.web.dto.business.PurchaseDTO;
+import com.web.dto.business.SellDTO;
+import com.web.util.AppUtil;
+import com.web.util.RequestUtil;
 
 @Service
 @Transactional
@@ -22,6 +27,18 @@ public class StockService implements IStockService {
     @Autowired
     StockRepo stockRepo;
 
+    @Autowired
+    BatchService batchService;
+
+	@Autowired
+	RequestUtil requestUtil;
+
+	@Autowired
+	AppUtil appUtil;
+	
+	ModelMapper modelMapper = new ModelMapper();
+    
+    
 	@Override
 	public List<Stock> findAll() {
 		// TODO Auto-generated method stub
@@ -168,4 +185,157 @@ public class StockService implements IStockService {
 		return stockRepo.exists(example);
 	}
 
+/*	@Override
+	public void updateStock(PurchaseDTO dto) {
+		Stock obj = new Stock();
+		Long userId = requestUtil.getCurrentUser().getId();
+		obj.setUserId(userId);
+		obj.setBatchNo(dto.getBatchNo());
+		obj.setSitemId(dto.getItemId());
+        Example<Stock> example = Example.of(obj);
+		Optional<Stock> optional = this.findOne(example);
+		if(optional.isPresent()) {
+			Float balance = optional.get().getBalance(); //purchaseService.getOne(dto.getId());
+			obj.setBalance(balance + dto.getQuantity());
+//			if(objTemp.getBalance() > dto.getQuantity()) {
+//				balance = item.getBalance() + (dto.getQuantity() - objTemp.getBalance());
+//			}else {
+//				balance = item.getStock() - (objTemp.getBalance() - dto.getQuantity());
+//			}
+		}else {
+			obj.setBalance(dto.getQuantity());
+		}
+		obj.setPurchased(dto.getQuantity());
+		obj.setSold(null);
+		obj.setDated(LocalDateTime.now());
+		obj.setUserId(requestUtil.getCurrentUser().getId());
+		this.save(obj);
+	}
+*/
+	@Override
+	public Stock updateStock(PurchaseDTO dto) {
+		Float stock = dto.getQuantity();
+		Long stockId = null;
+		Stock obj = new Stock();		
+		obj.setUserId(requestUtil.getCurrentUser().getId());
+		obj.setBatchNo(appUtil.isEmptyOrNull(dto.getStockDTO().getBatchNo())?"":dto.getStockDTO().getBatchNo());
+		obj.setItemId(dto.getItemId());
+        Example<Stock> example = Example.of(obj);
+		Optional<Stock> optional = this.findOne(example);
+		if(optional.isPresent()) {
+			Stock stockTemp = optional.get();
+			stockId = stockTemp.getStockId(); //purchaseService.getOne(dto.getId());
+			if(appUtil.isEmptyOrNull(dto.getPurchaseId())) {//mean new purchase
+				stock = stockTemp.getStock() + stock;//5 2
+			}else {
+				if(stockTemp.getStock() > stock) {
+					stock = stockTemp.getStock() + (stock - stockTemp.getStock());//5.2-2
+				}else {
+					stock = stockTemp.getStock() - (stockTemp.getStock() - stock);//5.2-2
+//					stock = stockTemp.getStock() + stock;//5.2-2
+				}
+			}
+		}
+		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
+		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
+		obj = modelMapper.map(dto.getStockDTO(), Stock.class);
+		obj.toString();
+		obj.setUserId(requestUtil.getCurrentUser().getId());
+		obj.setStockId(stockId);
+		obj.setItemId(dto.getItemId());
+		obj.setStock(stock);
+		return obj;
+//		if(optional.isPresent()) {
+//			Stock objTemp = optional.get(); //purchaseService.getOne(dto.getId());
+//			if(objTemp.getBstock() > dto.getQuantity()) {
+//				stock = item.getStock() + (dto.getQuantity() - objTemp.getBstock());
+//			}else {
+//				stock = item.getStock() - (objTemp.getBstock() - dto.getQuantity());
+//			}
+////			item.setStock(stock);	
+//		}
+
+//			dto.setStockDTO(modelMapper.map(obj, StockDTO.class));
+////			this.save(obj);
+//			dto.setPstockId(obj.getStockId());
+		}
+
+	@Override
+	public Stock updateStock(SellDTO dto) {
+		Float stock = dto.getQuantity();
+		Long stockId = null;
+		Stock obj = new Stock();
+		
+		obj.setUserId(requestUtil.getCurrentUser().getId());
+		obj.setBatchNo(dto.getStockDTO().getBatchNo());
+		if(!appUtil.isEmptyOrNull(dto.getStockDTO().getBatchNo())) {
+			obj.setBatchNo(dto.getStockDTO().getBatchNo());
+		}
+		obj.setItemId(dto.getItemId());
+        Example<Stock> example = Example.of(obj);
+		Stock stockTemp = this.findAll(example).get(0);
+		if(!appUtil.isEmptyOrNull(stockTemp)) {
+//			Stock stockTemp = optional.get();
+			stockId = stockTemp.getStockId(); //purchaseService.getOne(dto.getId());
+			if(appUtil.isEmptyOrNull(dto.getSellId())) {//mean new purchase
+				stock = stockTemp.getStock() - stock;//5 2
+			}else {
+				if(stockTemp.getStock() > stock) {
+					stock = stockTemp.getStock() - (stockTemp.getStock() - stock);//5.2-2
+				}else {
+					stock = stockTemp.getStock() + stock;//5.2-2
+				}
+			}
+		}
+		modelMapper.addConverter(appUtil.stringToLocalDate);
+		modelMapper.addConverter(appUtil.stringToLocalDateTime);
+		obj = modelMapper.map(dto.getStockDTO(), Stock.class);
+		obj.setUserId(requestUtil.getCurrentUser().getId());
+		obj.setStockId(stockId);
+		obj.setItemId(dto.getItemId());
+		obj.setStock(stock);
+		return obj;
+	}
+	
+/*	@Override
+	public List<Stock> updateStock(List<SellDTO> dtos) {
+		List<Stock> stocks = new ArrayList<>();
+		if(!appUtil.isEmptyOrNull(dtos)) {
+			dtos.forEach(dto ->{
+				Float stock = dto.getQuantity();
+				Long stockId = null;
+				Stock obj = new Stock();
+				
+				obj.setUserId(requestUtil.getCurrentUser().getId());
+				obj.setBatchNo(dto.getStockDTO().getBatchNo());
+				obj.setItemId(dto.getItemId());
+		        Example<Stock> example = Example.of(obj);
+				Optional<Stock> optional = this.findOne(example);
+				if(optional.isPresent()) {
+					Stock stockTemp = optional.get();
+					stockId = stockTemp.getStockId(); //purchaseService.getOne(dto.getId());
+					if(appUtil.isEmptyOrNull(dto.getSellId())) {//mean new purchase
+						stock = stockTemp.getStock() - stock;//5 2
+					}else {
+						if(stockTemp.getStock() > stock) {
+							stock = stockTemp.getStock() - (stockTemp.getStock() - stock);//5.2-2
+						}else {
+							stock = stockTemp.getStock() + stock;//5.2-2
+						}
+					}
+				}
+				modelMapper.addConverter(appUtil.stringToLocalDate);
+				modelMapper.addConverter(appUtil.stringToLocalDateTime);
+				obj = modelMapper.map(dto.getStockDTO(), Stock.class);
+				obj.setUserId(requestUtil.getCurrentUser().getId());
+				obj.setStockId(stockId);
+				obj.setItemId(dto.getItemId());
+				obj.setStock(stock);
+				stocks.add(obj);
+			});
+				
+		}
+		return stocks;
+	}
+*/	
 }
