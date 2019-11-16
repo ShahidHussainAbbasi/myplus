@@ -3,6 +3,17 @@ var tablesi;
 var removed = false;
 var tableSellReport;
 
+var initDates = function(){
+	var dateTimeInputs = $('.datetimepicker');
+	for(var i=0; i<dateTimeInputs.length;i++){
+		dateTimeInputs[i].value= moment().format('DD-MM-YYYY HH:mm:ss');
+	}
+	var dateInputs = $('.datePicker');
+	for(var i=0; i<dateInputs.length;i++){
+		dateInputs[i].value= moment().format('DD-MM-YYYY');
+	}	
+}
+
 $(document).ready(function() {
     tableSellReport = $('#tableSellReport').DataTable( {
         dom: 'Bfrtip',
@@ -407,11 +418,14 @@ function loadDataTable(){
 				} else if (getAll === "Sell") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=sellId>"+obj.sellId+"</div>", "<input type='checkbox' value="+ obj.sellId+ ">",
+							"<div id=sellId>"+obj.sellId+"</div>",
+							"<button type='button' id='saleReturn' class='btn btn-danger' onclick=saleReturn("+obj.sellId+","+obj.stockDTO.stockId+","+obj.quantity+")><span class='glyphicon glyphicon-remove-sign'></span> Return</button>",
+//							"<button type='button' id='saleReturn' class='btn btn-danger' onclick=saleReturn("+obj.sellId,obj.stockId,obj.quantity+")>"+
+//							"<span class='glyphicon glyphicon-remove-sign'></span> Return </button>",
 							"<div id=sellItemDD>"+obj.itemCode+"</div>","<div id=sellItemName>"+obj.itemName+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
 							"<div id=sellItemBatchNo>"+obj.stockDTO.batchNo+"</div>","<div id=sellItemExpiry>"+obj.stockDTO.bexpDate+"</div>", 
-							"<div id=sellPurchaseRate>"+obj.stockDTO.bsurchaseRate+"</div>","<div id=sellSellRate>"+obj.stockDTO.bsellRate+"</div>",
+							"<div id=sellPurchaseRate>"+obj.stockDTO.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stockDTO.bsellRate+"</div>",
 							"<div id=sellDiscountTypeDD>"+obj.stockDTO.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stockDTO.bsellDiscount+"</div>",
 							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
 							"<div id=sellCC>"+obj.cc+"</div>","<div id=sellCN>"+obj.cn+"</div>",
@@ -540,7 +554,7 @@ function calculateNet(val){
 var batchStock = 0;
 var discountType = "";
 var discountValue = "0";
-function laodStock(label,value){
+function loadStock(label,value){
 	bpurchaseDiscount: 0
 	bpurchaseDiscountType: "%"
 	bpurchaseRate: 0
@@ -575,6 +589,7 @@ function laodStock(label,value){
 	    			$("#sellItems").addClass("alert-danger");
 	    			alert("No more items are available, Please purchase or select some other item to sell.");
 	    			$(".form-control").val("");
+	    			resetBSDD('sellItemDD');
 	    			return false;
 	    		}
 	    		$("#sellStock").val(batchStock);
@@ -585,6 +600,7 @@ function laodStock(label,value){
 		    	if($("#sellItems").val()*1<=0){
 		    		$("#sellItems").val(1);
 		    	}
+		    	$("#sellItemDesc").val(data.idesc);
 		    	calculateNetSell();
     		}
     	}
@@ -599,6 +615,7 @@ function calculateNetPurchase(){
 	var p = $("#purchasePurchaseRate").val()*ONE;
 	var s= $("#purchaseSellRate").val()*ONE;
 	var qty= $("#purchaseQuantity").val()*ONE;
+	discountType = $("#discountTypeDD :selected").val();
 	var purchaseDiscount = $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val()*ONE:0;
 	var purchaseTotalAmount = $($("#purchaseTotalAmount").val(parseFloat(qty * p).toFixed(2))).val();
 	$("#purchaseStock").val(batchStock);
@@ -705,3 +722,38 @@ function loadSR(){
         }
 	});
 }
+
+function resetPurchaseForm(){
+	resetBSDD('purchaseItemDD');
+}
+
+function saleReturn(sellId,stockId,qty){
+	var r = confirm("Are you sure, Do you want to revert this sale?");
+	if (r != true)
+		return false;
+	
+	$.ajax({
+        type:'POST',
+        url:serverContext+ "saleReturn",
+        dataType : "json",
+        data:{'sellId':sellId,'sellSId':stockId,'quantity':qty},
+            success:function(data){
+        		datatable.clear().draw();
+        		datatable.ajax.reload();		
+	        },
+		    error: function (e) {
+		        alert(e)
+		    }
+        });
+    
+//	$.get(serverContext+ "saleReturn?itemId="+itemId+"&stockId="+stockId+"&qty="+qty,function(data){
+//		datatable.clear().draw();
+//		datatable.ajax.reload();		
+//    })
+//	.fail(function(data) {
+//		alert(data);
+//	});
+//	resetForm();
+//	$("#globalError").empty();
+}
+

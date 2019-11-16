@@ -372,7 +372,7 @@
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="discountTypeDD">Select discount</label>
 						<div class="col-sm-4">
-							<select name="stockDTO.bpurchaseDiscountType" id="discountTypeDD" class="form-control" onchange="calculateNetPurchase">
+							<select name="stockDTO.bpurchaseDiscountType" id="discountTypeDD" class="form-control" onchange="calculateNetPurchase()">
 								<option class="dropdown-item" value="" >Default is %</option>
 								<option class="dropdown-item" value="%" selected="selected">%</option>
 								<option class="dropdown-item" value="amount">amount</option>
@@ -408,7 +408,7 @@
 						<button type="button" id="deletePurchase" class="btn btn-danger">
 							<span class="glyphicon glyphicon-minus-sign"></span> Delete
 						</button>
-						<button type="reset" id="resetPurchase" class="btn btn-warning">
+						<button type="reset" id="resetPurchase" class="btn btn-warning" onclick="resetBSDD('purchaseItemDD')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
 					</div>
@@ -463,9 +463,9 @@
 							</select>
 						</div>
 						<div>
-							<label class="control-label col-sm-2" for="sellItemDesc">Detail</label> 
+							<label class="control-label col-sm-2" for="sellItemDesc">Description</label> 
 							<div class="col-sm-4">
-								<input type="text" placeholder="Item detail" class="form-control" id="sellItemDesc" name="desc" readonly="readonly"/>
+								<input type="text" placeholder="Item detail" class="form-control" id="sellItemDesc" name="description" readonly="readonly"/>
 							</div>
 						</div>
 					</div>

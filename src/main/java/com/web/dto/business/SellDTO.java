@@ -88,6 +88,8 @@ public class SellDTO implements Serializable {
 	//StockDTO table
 	private StockDTO stockDTO;
 	
+	private Long sellSId;
+
 	/**
 	 * @return the serialversionuid
 	 */

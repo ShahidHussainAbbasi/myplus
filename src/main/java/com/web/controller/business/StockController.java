@@ -2,7 +2,7 @@ package com.web.controller.business;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collector;
+import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -192,6 +192,13 @@ public class StockController {
 				dto.setBpurchaseDiscountType("%");
 				dto.setBpurchaseDiscount(0.0F);
 				dto.setStock(0.0F);
+			}
+			//fetch item description
+			Optional<Item> itemOpt = itemService.findById(itemId);
+			if(itemOpt.isPresent()) {
+				dto.setIDesc(itemOpt.get().getIdesc());
+			}else {
+				dto.setIDesc("Item not registered");
 			}
 				
 			return dto;

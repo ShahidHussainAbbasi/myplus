@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.transaction.Transactional;
 
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -16,22 +17,26 @@ import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.persistence.model.User;
 import com.persistence.model.business.Item;
 import com.persistence.model.business.Sell;
+import com.persistence.model.business.Stock;
 import com.service.business.ICustomerService;
 import com.service.business.IItemService;
 import com.service.business.IItemTypeService;
 import com.service.business.IItemUnitService;
 import com.service.business.IPurchaseService;
 import com.service.business.ISellService;
+import com.service.business.IStockService;
 import com.web.dto.business.SellDTO;
 import com.web.dto.business.StockDTO;
 import com.web.util.AppUtil;
@@ -70,6 +75,9 @@ public class SellController {
 	
 	@Autowired
 	ObjectMapperUtils objectMapperUtils;
+	
+	@Autowired
+	IStockService stockService;
 
     @Autowired
     private AppUtil appUtil;  
@@ -109,6 +117,7 @@ public class SellController {
 						dto.setItemId(item.getId());
 						dto.setItemName(item.getIname());
 						dto.setItemCode(item.getIcode());
+						dto.setDescription(item.getIdesc());
 	//					dto.setStock(item.getStock());
 					}
 	//				Optional<Stock> option2 = stockService.findById(dto.getStockDTO()());
@@ -374,7 +383,7 @@ public class SellController {
 					e.getCause().toString());
 		}
 	}
-
+	
 	@RequestMapping(value = "/deleteSell", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteSell( HttpServletRequest req, HttpServletResponse resp ){
@@ -393,6 +402,35 @@ public class SellController {
 			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
+		}
+	}
+
+	@PostMapping(value = "/saleReturn")
+	@ResponseBody
+	@Transactional
+	public GenericResponse saleReturn(final SellDTO dto, final HttpServletRequest request) {	
+//	public GenericResponse saleReturn(@RequestParam final Long saleId,@RequestParam final Long stockId,@RequestParam final Float qty) {
+		try {
+			if(appUtil.isEmptyOrNull(dto.getSellId()) || appUtil.isEmptyOrNull(dto.getSellSId())) 
+				return new GenericResponse("NOT_FOUND");;
+			
+			Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());
+			if(stockOpt.isPresent()) {
+				Stock stock = stockOpt.get();
+				stock.setStock(stock.getStock() + dto.getQuantity());
+				
+				stockService.save(stock);
+				if(appUtil.isEmptyOrNull(stock)) {
+					return new GenericResponse("FAILED",messages.getMessage(appUtil.FAILED,null,"Sale returned Fail",requestUtil.getCurrentHttpRequest().getLocale()));
+				}
+			}			
+			sellService.deleteById(dto.getSellId());
+			return new GenericResponse("SUCCESS",messages.getMessage(appUtil.SUCCESS,null,"Sale return successfully", requestUtil.getCurrentHttpRequest().getLocale()));
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
+			return new GenericResponse("FAILED",messages.getMessage(appUtil.ERROR,null,"Sale return Fail", requestUtil.getCurrentHttpRequest().getLocale()));
 		}
 	}
 }

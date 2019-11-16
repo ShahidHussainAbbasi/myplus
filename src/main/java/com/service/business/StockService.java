@@ -239,7 +239,7 @@ public class StockService implements IStockService {
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
 		obj = modelMapper.map(dto.getStockDTO(), Stock.class);
-		obj.toString();
+//		obj.toString();
 		obj.setUserId(requestUtil.getCurrentUser().getId());
 		obj.setStockId(stockId);
 		obj.setItemId(dto.getItemId());
@@ -263,7 +263,7 @@ public class StockService implements IStockService {
 	@Override
 	public Stock updateStock(SellDTO dto) {
 		Float stock = dto.getQuantity();
-		Long stockId = null;
+//		Long stockId = null;
 		Stock obj = new Stock();
 		
 		obj.setUserId(requestUtil.getCurrentUser().getId());
@@ -276,7 +276,7 @@ public class StockService implements IStockService {
 		Stock stockTemp = this.findAll(example).get(0);
 		if(!appUtil.isEmptyOrNull(stockTemp)) {
 //			Stock stockTemp = optional.get();
-			stockId = stockTemp.getStockId(); //purchaseService.getOne(dto.getId());
+//			stockId = stockTemp.getStockId(); //purchaseService.getOne(dto.getId());
 			if(appUtil.isEmptyOrNull(dto.getSellId())) {//mean new purchase
 				stock = stockTemp.getStock() - stock;//5 2
 			}else {
@@ -286,15 +286,20 @@ public class StockService implements IStockService {
 					stock = stockTemp.getStock() + stock;//5.2-2
 				}
 			}
+			stockTemp.setStock(stock);
+			return stockTemp;
+		}else {
+			obj.setStock(stock);
+			return obj;
 		}
-		modelMapper.addConverter(appUtil.stringToLocalDate);
-		modelMapper.addConverter(appUtil.stringToLocalDateTime);
-		obj = modelMapper.map(dto.getStockDTO(), Stock.class);
-		obj.setUserId(requestUtil.getCurrentUser().getId());
-		obj.setStockId(stockId);
-		obj.setItemId(dto.getItemId());
-		obj.setStock(stock);
-		return obj;
+//		modelMapper.addConverter(appUtil.stringToLocalDate);
+//		modelMapper.addConverter(appUtil.stringToLocalDateTime);
+//		obj = modelMapper.map(dto.getStockDTO(), Stock.class);
+//		obj.setUserId(requestUtil.getCurrentUser().getId());
+//		obj.setStockId(stockId);
+//		obj.setItemId(dto.getItemId());
+//		obj.setStock(stock);
+//		return obj;
 	}
 	
 /*	@Override

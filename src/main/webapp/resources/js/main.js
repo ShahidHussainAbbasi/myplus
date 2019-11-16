@@ -134,14 +134,6 @@ $(document).ready(function() {
 	    });
 	});	
 
-	$(".datePicker").datetimepicker({
-		useCurrent: true,
-		format : 'DD-MM-YYYY',
-		showTodayButton: true,
-		showClear:true,
-		showClose:true
-	});
-	
 	$(".datePickerWithMonthName").datetimepicker({
 		useCurrent: true,
 		format : 'DD-MMM-YYYY',
@@ -166,6 +158,14 @@ $(document).ready(function() {
 		showClose:true
 	});*/
     
+	$(".datePicker").datetimepicker({
+		useCurrent: true,
+		format : 'DD-MM-YYYY',
+		showTodayButton: true,
+		showClear:true,
+		showClose:true
+	});
+	
 	$('.datetimepicker').datetimepicker({
 	   format: 'DD-MM-YYYY HH:mm:ss',
 	   useCurrent: false,
@@ -187,14 +187,14 @@ $(document).ready(function() {
     });
 	
     $(".onChangeSelect").change(function(){
+    	initDates();
     	var label = $(this).text();
     	var value = $(this).val();
-    	
     	if(tableV=="FV"){
 //    		loadFVIBSDD(label,value); 
 //    		loadBSDD("getUser"+lable.trim(),"fviDD");
     	}else if(tableV=="Purchase" || tableV =="Sell"){
-    		laodStock(label,value);    		
+    		loadStock(label,value);    		
     	}
     });
     
@@ -400,6 +400,9 @@ $(document).ready(function() {
 			hideWait();
 			alert("Please recheck inputs or contact with the system administrator.");
 		});
+		if(tableV=="Purchase"){	
+			resetPurchaseForm();
+		}
 		edit = false;// when add/update & delete done
 	}	
 });
