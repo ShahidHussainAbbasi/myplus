@@ -1666,10 +1666,18 @@
 							</select>	
 						</div>
 						<label class="control-label col-sm-2 req" for="fvi" th:text="#{label.please.select}">Please select</label>
-						<div id="fvidiv" class="col-sm-6">
-							<select onchange="populateArrearsDiv(this)" required="required" multiple="multiple"
+						<div id="fvidiv" class="col-sm-2">
+							<select onchange="populateArrearsDiv('fviDD')" required="required" multiple="multiple"
 								class="onChangeSelect selectpicker" id="fviDD" name="vi" data-live-search="true">
 							</select>
+						</div>
+						<label class="control-label col-sm-2" for="incl_excl_selected" th:text="#{label.incl_excl_selected}">Incl/Excl</label>
+						<div class="col-sm-2">
+							<select class="onChangeSelect selectpicker" id="incl_excl_selected" name="inclExclSelected"  onchange="populateArrearsDiv('fviDD')">
+								<option class="dropdown-item" selected="selected">Default All</option>
+								<option class="dropdown-item" value='include'>Include Selected</option>
+								<option class="dropdown-item" value='exclude'>Exclude Selected</option>
+							</select>	
 						</div>
 					</div>
 					<div class="form-group">
@@ -1835,8 +1843,8 @@
 				<input th:type="submit" value="Import" />  
 			</form> 		    
 		</div>
-	    <div th:replace="footer :: footer"/>		
-	</div>
+<!-- 	    <div th:replace="footer :: footer"/>		
+ -->	</div>
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>

@@ -3,16 +3,6 @@ var tablesi;
 var removed = false;
 var tableSellReport;
 
-var initDates = function(){
-	var dateTimeInputs = $('.datetimepicker');
-	for(var i=0; i<dateTimeInputs.length;i++){
-		dateTimeInputs[i].value= moment().format('DD-MM-YYYY HH:mm:ss');
-	}
-	var dateInputs = $('.datePicker');
-	for(var i=0; i<dateInputs.length;i++){
-		dateInputs[i].value= moment().format('DD-MM-YYYY');
-	}	
-}
 
 $(document).ready(function() {
     tableSellReport = $('#tableSellReport').DataTable( {
@@ -409,8 +399,11 @@ function loadDataTable(){
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>",/* "<div id=purchaseStock>"+obj.stockDTO.stock+"</div>",*/
 							"<div id=purchaseBatchNo>"+obj.stockDTO.batchNo+"</div>","<div id=purchaseExpiry>"+obj.stockDTO.bexpDate+"</div>", 
 							"<div id=purchasePurchaseRate>"+obj.stockDTO.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stockDTO.bsellRate+"</div>", 
-							"<div id=discountTypeDD>"+obj.stockDTO.bpdiscountType+"</div>", 
-							"<div id=purchaseDiscount>"+obj.stockDTO.bpdiscount+"</div>","<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
+							"<div id=purchaseDiscountTypeDD>"+obj.stockDTO.bpurchaseDiscountType+"</div>", 
+							"<div id=purchaseDiscount>"+obj.stockDTO.bpurchaseDiscount+"</div>",
+							"<div id=purchaseSellDiscountTypeDD>"+obj.stockDTO.bsellDiscountType+"</div>", 
+							"<div id=purchaseSellDiscount>"+obj.stockDTO.bsellDiscount+"</div>",
+							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
 							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"
 							];
 						datatable.row.add(arr).draw();
@@ -581,6 +574,7 @@ function loadStock(label,value){
 		    	if($("#purchaseQuantity").val()*1<=0){
 		    		$("#purchaseQuantity").val(1);
 		    	}
+		    	$("#purchaseItemDesc").val(data.idesc);
 		    	$("#pdt").html(discountType+" Discount");
 		    	calculateNetPurchase();
     		}else if(value && tableV=="Sell"){
@@ -611,7 +605,6 @@ function loadStock(label,value){
 }
 
 function calculateNetPurchase(){
-	console.log(1)
 	var p = $("#purchasePurchaseRate").val()*ONE;
 	var s= $("#purchaseSellRate").val()*ONE;
 	var qty= $("#purchaseQuantity").val()*ONE;
@@ -624,15 +617,12 @@ function calculateNetPurchase(){
 		purchaseDiscount = purchaseTotalAmount * (purchaseDiscount*1 / 100);
 	}else{
 		purchaseDiscount = purchaseDiscount * qty;
-		$("#purchaseDiscount").val(purchaseDiscount);
 	}
 	if(s>0){
 		$("#purchaseNetAmount").val(parseFloat((qty * s - purchaseTotalAmount) + purchaseDiscount).toFixed(2));
 	}else{
 		$("#purchaseNetAmount").val(0);
 	}
-//	$("#purchaseTotalAmount").val(parseFloat(purchaseTotalAmount).toFixed(2));
-/*	$("#purchaseNetAmount").val($("#netAmount").val());*/
 }
 
 function calculateNetSell(){
@@ -657,7 +647,7 @@ function calculateNetSell(){
 		//Discount  =  List Price Ã— Discount Rate 
 		sellDiscount =  sellTotalAmount * (sellDiscount*1 / 100);
 	}else{
-		//sellDiscount = sellDiscount * qty;
+		sellDiscount = sellDiscount * qty;
 		//$("#sellDiscount").val(sellDiscount);
 	}
 	var profit = parseFloat(sellTotalAmount- (p*qty) - sellDiscount).toFixed(2);

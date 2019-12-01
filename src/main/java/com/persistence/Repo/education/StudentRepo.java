@@ -35,8 +35,14 @@ public interface StudentRepo extends JpaRepository<Student, Long>,QueryByExample
 	@Query(value = "Select * from student s where s.user_id = :userId and s.grade_id in :gradeIds AND s.status =:status", nativeQuery = true)
 	List<Student> findStudentsByGradeIdsAndUserId(@Param("userId") Long userId,@Param("gradeIds") List<Long> gradeIds,@Param("status") String status);
 
-	@Query(value = "Select * from student s where s.user_id = :userId and s.student_id in :studentIds AND s.status =:status", nativeQuery = true)
+	@Query(value = "Select * from student s where s.user_id = :userId AND s.status =:status", nativeQuery = true)
+	List<Student> findStudentsByUserId(Long userId, String status);
+
+	@Query(value = "Select * from student s where s.user_id = :userId and s.student_id IN :studentIds AND s.status =:status", nativeQuery = true)
 	List<Student> findStudentsByStudentIdsAndUserId(Long userId, List<Long> studentIds, String status);
+	
+	@Query(value = "Select * from student s where s.user_id = :userId and s.student_id NOT IN :studentIds AND s.status =:status", nativeQuery = true)
+	List<Student> findStudentsByUserIdAndNotStudentIds(Long userId, List<Long> studentIds, String status);
 
 	@Query(value = "Select * from student s where s.user_id = :userId and s.student_id in :campusIds AND s.status =:status", nativeQuery = true)
 	List<Student> findStudentsByCampusIdsAndUserId(Long userId, List<Long> campusIds, String status);

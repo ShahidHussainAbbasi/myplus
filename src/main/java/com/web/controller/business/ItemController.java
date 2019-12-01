@@ -221,23 +221,16 @@ public class ItemController {
 	public GenericResponse addItem(@Validated final ItemDTO dto, final HttpServletRequest request) {
 		try {
 			Item obj= new Item();
-//			LocalDateTime dated = LocalDateTime.now();
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
-			obj.setUserId(user.getId());
-//			if(appUtil.isEmptyOrNull(dto.getStock()))
-//				dto.setStock(0F);
-//			if(appUtil.isEmptyOrNull(dto.getDiscountType()))
-//				dto.setDiscountType("%");
-			
+			obj.setUserId(user.getId());			
 			if(appUtil.isEmptyOrNull(dto.getId())){
 //				obj.setUserId(user.getId());
-				obj.setIname(dto.getIname());
-/*				if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
-					obj.setItemType(itemTypeService.getOne(dto.getItemTypeId()));
-				if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
-					obj.setItemUnit(itemUnitService.getOne(dto.getItemUnitId()));
-*/				
+				if(appUtil.notEmptyNorNull(dto.getIcode())){
+					obj.setIcode(dto.getIcode());
+				}else {
+					obj.setIname(dto.getIname());
+				}
 				Example<Item> example = Example.of(obj);
 				if(itemService.exists(example))
 					return new GenericResponse("FOUND",messages.getMessage("The Item "+dto.getIname()+" already exist", null, request.getLocale()));
@@ -246,32 +239,6 @@ public class ItemController {
 			modelMapper.addConverter(appUtil.stringToLocalDate);
 			modelMapper.addConverter(appUtil.stringToLocalDateTime);
 			obj = modelMapper.map(dto, Item.class);
-//			if(!appUtil.isEmptyOrNull(dto.getExpDateStr()))
-//				obj.setExpDate(appUtil.getLocalDate(dto.getExpDateStr()));
-			
-//			obj.setDated(dated);
-//			obj.setUpdated(dated);
-			// add company
-			// add company
-//			if (!AppUtil.isEmptyOrNull(dto.getCompanyId()))
-//				obj.setCompany(companyService.getOne(dto.getCompanyId()));
-//			else
-//				obj.setCompany(null);
-			// add vender
-//			if (!AppUtil.isEmptyOrNull(dto.getVenderId()))
-//				obj.setVender(venderService.getOne(dto.getVenderId()));
-//			else
-//				obj.setVender(null);
-
-//			if (!AppUtil.isEmptyOrNull(dto.getItemTypeIds()))
-//				obj.setItemTypes(itemTypeService.findAllById(dto.getItemTypeIds()));
-//			else
-//				obj.setItemTypes(null);
-
-//			if (!AppUtil.isEmptyOrNull(dto.getItemUnitIds()))
-//				obj.setItemUnits(itemUnitService.findAllById(dto.getItemUnitIds()));
-//			else
-//				obj.setItemUnits(null);
 
 			obj = itemService.save(obj);
 			if (appUtil.isEmptyOrNull(obj.getId())) {

@@ -1322,168 +1322,6 @@ function PFV_2Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 	return;
 }
 
-/*
-function PFV_1by4(o,logo_url,X,Y,W,H,dataUrl,insts){
-	var L = 3;
-	var T = 5;
-	var V = 4;
-	var doc = new jsPDF('a4');
-//	var doc = new jsPDF("p", "pt", "a4");
-	for(i=0;i<V;i++){
-		if(i===2){
-			T=T+100;
-			L = 3;
-			doc.line(2, T-5, 300, T-5);
-		}
-		if(i===3){
-			T=T+100;
-			L = 108;
-		}
-			
-		
-		console.log(L,T);
-		doc.addImage(dataUrl, "JPEG", L+X, T, W, H);
-		T = T+2;//20
-		console.log(L,T);
-		doc.setFontSize(9);
-		doc.setFont("arial");
-		doc.setFontType('bold');
-//		L = L+40;//25
-		doc.text("Learning Links School System", L, T);
-		T = T+5;//40
-//		L = L+20;//5
-		doc.setFontSize(7);
-		doc.setFont("arial");
-		doc.text("Fee Challan ", L, T);
-//		L = L-75;//60
-//		doc.text(V[i]+" copy", L, T);
-		T = T+28;//46
-		doc.text("Issue date: "+dateToDMY(new Date()), L, T);
-		L = L+35;//37
-		var ld = Date.today().clearTime().moveToLastDayOfMonth();
-		var lastday = ld.toString("MM-dd-yyyy");
-		doc.text("Valid date: "+dateToDMY(Date.today().clearTime().moveToLastDayOfMonth()), L, T);
-		L = L+35;//69
-		if(o.dd===0)
-			o.dd=10;
-		
-		doc.text("Due date: "+currentdateByDay(o.dd), L, T);
-//		L = L+75;//5
-		T= T+1;//44
-		doc.setFontType('normal');
-		doc.line(2, T, 300, T);
-		doc.setFontType('bold');
-		T+=3;//54
-		L =L-70;//5
-		doc.setFontSize(9);
-		doc.setFont("arial");
-//		doc.text("Guardian: "+o.gn, L, T);
-//		L +=82;//69
-////		T+=10;//54
-//		doc.text("Guardian No: "+o.gid, L, T);
-//		T+=1;//55
-////		doc.line(2, T, 300, T);
-//		T+=10;//54
-//		L =L-82;//5
-		doc.text("Name: "+o.sn, L, T);
-		L +=70;//69
-		doc.text("GR No: "+o.en, L, T);
-		T+=1;//55
-		doc.setFontType('normal');
-		doc.line(2, T, 300, T);
-		doc.setFontType('bold');
-		T+=3;//57
-		L =L-70;//5
-		doc.text("Grade: "+o.g, L, T);
-		L +=70;//66
-		doc.text("Section: "+o.g, L, T);
-		L +=9;//69
-		
-		T = T+5;//70
-		doc.setFontSize(7);
-		L =L-79;//5
-		doc.setFontSize(9);
-		doc.text("Date: ", L, T);
-		L =L+35;//35
-		doc.text("Description: ", L, T);
-		L =L+35;//70
-		doc.text("Fee: ", L, T);
-
-		doc.setFontSize(8);
-		T = T+1;//71
-		doc.line(2, T, 300, T);
-		T = T+3;//72
-		L =L-70;//5
-		doc.text(getMonthYear(new Date())+"", L, T);
-		L =L+35;//35
-		doc.text("Monthly fee", L, T);
-		L =L+35;//70
-		doc.text(o.f+"", L, T);
-		
-		T = T+3;//75
-		L =L-70;//5
-		doc.text(getMonthYear(new Date())+"", L, T);
-		L =L+35;//35
-		doc.text("Arrears", L, T);
-		L =L+35;//70
-		doc.text(0+"", L, T);
-
-//		T = T+3;//76
-		L =L-35;//5
-//		doc.text(getMonthYear(new Date())+"", L, T);
-//		L =L+40;//35
-//		doc.text("Vehicle Fee", L, T);
-//		L =L+35;//70
-//		doc.text(o.vf+"", L, T);
-		
-		T = T+1;//78
-//		doc.addFont("ConsolasHex.ttf", "ConsolasHex", "Bold");
-//		doc.setFont("ConsolasHex","Bold");		
-//		doc.setFontType('helvetica');
-		doc.line(2, T, 300, T);
-//		doc.setFontType('bold');
-		T = T+3;//80
-		L =L-35	;//5
-//		doc.setFontSize(9);
-		doc.text("Payable before due date", L, T);
-		L =L+70;//35
-		doc.text(o.da+"", L, T);
-
-		T = T+3;//80
-		L =L-70	;//5
-		doc.text("Payable after due date", L, T);
-		L =L+70;//35
-		doc.text((o.da+500)+"", L, T);
-
-		T = T+10;//78
-		L =L-70;//5
-		doc.setFontSize(8);
-		doc.setFontType('italic');
-		doc.text("Instuctions for Guardians", L, T);
-		doc.setFontSize(7);
-		
-		T = T+2;//78
-		insts.forEach(function(inst,i){
-			T = T+3;//78
-			doc.text(inst, L, T);
-		});
-		
-		console.log(L,T);
-		L =L+105;//35
-		T = 5;
-		
-	}
-	doc.line(105, 300, 105, 0);
-//	doc.addPage()
-//	doc.text('I am on page 3', 10, 10)
-//	doc.setPage(1)
-//	doc.text('I am on page 1', 10, 10)
-	doc.autoPrint({variant: "non-conform"});
-	doc.save(o.sn+"("+o.en+") fee voucher.pdf");
-	return;
-}
-*/
-
 function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 	var monthOption = $("#dateRangeDDFV")[0].selectedOptions[0].value;
 	
@@ -1671,8 +1509,10 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 				T = T+3.5;//72
 				L =L-pageLeftRight;//5
 			}else{
-				var monthDiff = Date.monthDiff(firstYear,lastYear)+2;
-				for(var m=1;m<=monthDiff;m++){
+				var monthDiff = DateDiff.inMonths(firstYear,lastYear);
+				//monthDiff = lastYear.getMonth() - firstYear.getMonth()
+				
+				for(var m=0;m<=monthDiff;m++){
 					var month =getMonthYear(firstYear);
 					doc.text(month, L, T);
 					L =L+28;//35
@@ -1689,6 +1529,9 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 
 			doc.text("Arrears", L, T);
 			var manualArear = getManualArrears(o.en);
+			if(manualArear === undefined)
+				manualArear = 0;
+			
 			o.db = o.db+manualArear;
 			if(o.db && o.db >0){
 				L =L+pageLeftRight;
@@ -1774,6 +1617,7 @@ function getManualArrears(en){
 	});	
 	return arear;
 }
+/*
 function PFV_3ColumBy3_backup3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 //	var V = ["School","Guardian","Bank"]
 	var doc = new jsPDF('landscape');
@@ -2409,7 +2253,7 @@ function PFV_3ColumBy3_backup(collection,logo_url,X,Y,W,H,dataUrl,insts){
 	doc.save("LL_Fee Vouchers.pdf");
 	return;
 }
-
+*/
 
 function getLLInst(){
 	var inst = [];
@@ -2447,7 +2291,7 @@ function getASLInst(){
 	inst.push("7. Fee will not be accepted without FEE VOUCHER.");
 	return inst;
 }
-
+/*
 function PFV_back(o,sfds,V,logo_url,X,Y,dataUrl){
 		var L = 40;
 		var T = 10;
@@ -2492,7 +2336,8 @@ function PFV_back(o,sfds,V,logo_url,X,Y,dataUrl){
 		doc.save(o.sn+"("+o.en+") fee voucher.pdf");
 		return;
 }
-
+*/
+/*
 function printFc2(){
 	if(!fvObj)
 		return alert("No data available to print, Do a search first");
@@ -2534,8 +2379,8 @@ function printFc2(){
 	
 //	doc.save("file.pdf")
 	
-}
-
+}*/
+/*
 //create standard voucher
 function CSV(url){
  let mywindow = window.open('', 'PRINT', 'height=650,width=900,top=100,left=150');
@@ -2549,12 +2394,12 @@ function CSV(url){
 
  mywindow.document.close(); // necessary for IE >= 10
  mywindow.focus(); // necessary for IE >= 10*/
-
+/*
  mywindow.print();
  mywindow.close();
 
  return true;
-}
+}*/
 
 function loadFVIBSDD(element,destinationId){
 //	var lable  = $(element)[0].selectedOptions[0].text;
@@ -2570,23 +2415,28 @@ function loadFVIBSDD(element,destinationId){
 }
 
 var arrears = [];
-function populateArrearsDiv(element){
+function populateArrearsDiv(id){
+	//if option is exclude selected
 	arrears = [];
 	$("#arrearsDiv").empty();
+	if($("#incl_excl_selected").val() == 'exclude'){
+		return;
+	}
+
 	var span ="<p class='h5 text-info'>Please specify arrears below for individuals</p>";
 	var table = span+"<table id='tableArrears'>";
 	var tr ="<tr role='row'>";
 	var n = 0
-	$("#"+element.id+" option:selected").each(function() {
-		var en = $(this).text().split("-")[1];
+	$("#"+id+" option:selected").each(function(ind,selected) {
+		var en = selected.text.split("~")[1].trim();
 		var obj = {en:en};
 		arrears.push(obj);
 
 		n++;
 		var td ="<td>";
-		td += "<label class='control-label'>"+$(this).text()+"</label>";
+		td += "<label class='control-label'>"+selected.text+"</label>";
 		td += "<div>";
-		td += "<input id='arrear_"+en+"' type='text' onkeyup=populateArrearsMap('"+en+"') class='form-control' placeholder=' Arrears '>";
+		td += "<input id='arrear_"+en+"' type='number' onkeyup=populateArrearsMap('"+en+"') class='form-control' placeholder=' Arrears '>";
 		td += "</div>";
 		td +="</td>"
 		tr +=td;

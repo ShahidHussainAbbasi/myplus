@@ -28,8 +28,8 @@
   padding: 2em;
   color: black;
   display: none;
- /*  font-size: x-small;*/
-  overflow: auto; 
+ /*  font-size: x-small;
+  overflow: auto; */
 }
 
 .tableOuterDiv{

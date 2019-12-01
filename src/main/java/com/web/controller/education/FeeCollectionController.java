@@ -223,7 +223,13 @@ public class FeeCollectionController {
 				ids.add(Long.valueOf(id));
 			});
 			if(dto.getVb().equals(STUDENTS)) {
-				SIDs.addAll(studentService.findStudentsByStudentIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				if(dto.getInclExclSelected().equals("Default All")) {
+					SIDs.addAll(studentService.findStudentsByUserId(user.getId(),appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				}else if(dto.getInclExclSelected().equals("include")) {
+					SIDs.addAll(studentService.findStudentsByStudentIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				}else {
+					SIDs.addAll(studentService.findStudentsByUserIdAndNotStudentIds(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				}
 			}else if(dto.getVb().equals(GUARDIANS)) {
 				SIDs.addAll(studentService.findStudentsByGuardianIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
 			}else if(dto.getVb().equals(GRADES)) {

@@ -174,8 +174,18 @@ public class StudentService implements IStudentService {
 	}
 
 	@Override
+	public List<Student> findStudentsByUserId(Long userId,String status){
+		return studentRepo.findStudentsByUserId(userId, status);
+	}
+
+	@Override
 	public List<Student> findStudentsByStudentIdsAndUserId(Long userId,List<Long> studentIds,String status){
 		return studentRepo.findStudentsByStudentIdsAndUserId(userId, studentIds, status);
+	}
+
+	@Override
+	public List<Student> findStudentsByUserIdAndNotStudentIds(Long userId,List<Long> studentIds,String status){
+		return studentRepo.findStudentsByUserIdAndNotStudentIds(userId, studentIds, status);
 	}
 
 	@Override

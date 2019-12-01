@@ -96,6 +96,7 @@ public class PurchaseController {
 						dto.setItemId(item.getId());
 						dto.setIname(item.getIname());
 						dto.setIcode(item.getIcode());
+						dto.setDescription(item.getIdesc());
 //						dto.setStock(item.getStock());
 					}
 //					Optional<Stock> option2 = stockService.findById(dto.getStockDTO()());
