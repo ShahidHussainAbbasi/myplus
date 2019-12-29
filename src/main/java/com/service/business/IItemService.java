@@ -1,10 +1,10 @@
 package com.service.business;
 
 import com.persistence.Repo.business.ItemRepo;
-import com.web.dto.business.PurchaseDTO;
 
 public interface IItemService extends ItemRepo{
 
+// Here DSL queries can be tried
 //	void updateItemStock(PurchaseDTO dto);
 
 

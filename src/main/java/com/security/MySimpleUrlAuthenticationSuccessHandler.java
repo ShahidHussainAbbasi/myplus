@@ -19,8 +19,6 @@ import org.springframework.stereotype.Component;
 import com.persistence.model.User;
 import com.web.util.AppUtil;
 
-import net.logstash.logback.encoder.org.apache.commons.lang.StringUtils;
-
 @Component("myAuthenticationSuccessHandler")
 public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
     private final Logger logger = LoggerFactory.getLogger(getClass());

@@ -11,4 +11,6 @@ public interface IStockService extends StockRepo {
 	
 	Stock updateStock(PurchaseDTO dto);
 
+//	Set<Item> getItemBatch(Long id, Long itemId);
+
 }

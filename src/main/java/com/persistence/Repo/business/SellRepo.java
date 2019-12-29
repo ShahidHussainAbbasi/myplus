@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.query.QueryByExampleExecutor;
+import org.springframework.stereotype.Repository;
 
 import com.persistence.model.business.Sell;
 
@@ -17,6 +18,7 @@ import com.persistence.model.business.Sell;
  * @author sabbasi
  *
  */
+@Repository
 public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecutor<Sell> {
 	
 

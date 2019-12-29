@@ -2,6 +2,7 @@ package com.service.business;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import javax.transaction.Transactional;
 
@@ -25,10 +26,7 @@ import com.web.util.RequestUtil;
 public class StockService implements IStockService {
 
     @Autowired
-    StockRepo stockRepo;
-
-    @Autowired
-    BatchService batchService;
+    StockRepo repo;
 
 	@Autowired
 	RequestUtil requestUtil;
@@ -42,147 +40,147 @@ public class StockService implements IStockService {
 	@Override
 	public List<Stock> findAll() {
 		// TODO Auto-generated method stub
-		return stockRepo.findAll();
+		return repo.findAll();
 	}
 
 	@Override
 	public List<Stock> findAll(Sort sort) {
 		// TODO Auto-generated method stub
-		return stockRepo.findAll(sort);
+		return repo.findAll(sort);
 	}
 
 	@Override
 	public List<Stock> findAllById(Iterable<Long> ids) {
 		// TODO Auto-generated method stub
-		return stockRepo.findAllById(ids);
+		return repo.findAllById(ids);
 	}
 
 	@Override
 	public <S extends Stock> List<S> saveAll(Iterable<S> entities) {
 		// TODO Auto-generated method stub
-		return stockRepo.saveAll(entities);
+		return repo.saveAll(entities);
 	}
 
 	@Override
 	public void flush() {
 		// TODO Auto-generated method stub
-		stockRepo.flush();
+		repo.flush();
 	}
 
 	@Override
 	public <S extends Stock> S saveAndFlush(S entity) {
 		// TODO Auto-generated method stub
-		return stockRepo.saveAndFlush(entity);
+		return repo.saveAndFlush(entity);
 	}
 
 	@Override
 	public void deleteInBatch(Iterable<Stock> entities) {
 		// TODO Auto-generated method stub
-		stockRepo.deleteInBatch(entities);
+		repo.deleteInBatch(entities);
 	}
 
 	@Override
 	public void deleteAllInBatch() {
 		// TODO Auto-generated method stub
-		stockRepo.deleteAllInBatch();
+		repo.deleteAllInBatch();
 	}
 
 	@Override
 	public Stock getOne(Long id) {
 		// TODO Auto-generated method stub
-		return stockRepo.getOne(id);
+		return repo.getOne(id);
 	}
 
 	@Override
 	public <S extends Stock> List<S> findAll(Example<S> example) {
 		// TODO Auto-generated method stub
-		return stockRepo.findAll(example);
+		return repo.findAll(example);
 	}
 
 	@Override
 	public <S extends Stock> List<S> findAll(Example<S> example, Sort sort) {
 		// TODO Auto-generated method stub
-		return stockRepo.findAll(example,sort);
+		return repo.findAll(example,sort);
 	}
 
 	@Override
 	public Page<Stock> findAll(Pageable pageable) {
 		// TODO Auto-generated method stub
-		return stockRepo.findAll(pageable);
+		return repo.findAll(pageable);
 	}
 
 	@Override
 	public <S extends Stock> S save(S entity) {
 		// TODO Auto-generated method stub
-		return stockRepo.save(entity);
+		return repo.save(entity);
 	}
 
 	@Override
 	public Optional<Stock> findById(Long id) {
 		// TODO Auto-generated method stub
-		return stockRepo.findById(id);
+		return repo.findById(id);
 	}
 
 	@Override
 	public boolean existsById(Long id) {
 		// TODO Auto-generated method stub
-		return stockRepo.existsById(id);
+		return repo.existsById(id);
 	}
 
 	@Override
 	public long count() {
 		// TODO Auto-generated method stub
-		return stockRepo.count();
+		return repo.count();
 	}
 
 	@Override
 	public void deleteById(Long id) {
 		// TODO Auto-generated method stub
-		stockRepo.deleteById(id);
+		repo.deleteById(id);
 		
 	}
 
 	@Override
 	public void delete(Stock entity) {
 		// TODO Auto-generated method stub
-		stockRepo.delete(entity);
+		repo.delete(entity);
 		
 	}
 
 	@Override
 	public void deleteAll(Iterable<? extends Stock> entities) {
 		// TODO Auto-generated method stub
-		stockRepo.deleteAll(entities);
+		repo.deleteAll(entities);
 	}
 
 	@Override
 	public void deleteAll() {
 		// TODO Auto-generated method stub
-		stockRepo.deleteAll();
+		repo.deleteAll();
 	}
 
 	@Override
 	public <S extends Stock> Optional<S> findOne(Example<S> example) {
 		// TODO Auto-generated method stub
-		return stockRepo.findOne(example);
+		return repo.findOne(example);
 	}
 
 	@Override
 	public <S extends Stock> Page<S> findAll(Example<S> example, Pageable pageable) {
 		// TODO Auto-generated method stub
-		return stockRepo.findAll(example, pageable);
+		return repo.findAll(example, pageable);
 	}
 
 	@Override
 	public <S extends Stock> long count(Example<S> example) {
 		// TODO Auto-generated method stub
-		return stockRepo.count(example);
+		return repo.count(example);
 	}
 
 	@Override
 	public <S extends Stock> boolean exists(Example<S> example) {
 		// TODO Auto-generated method stub
-		return stockRepo.exists(example);
+		return repo.exists(example);
 	}
 
 /*	@Override
@@ -300,6 +298,12 @@ public class StockService implements IStockService {
 //		obj.setItemId(dto.getItemId());
 //		obj.setStock(stock);
 //		return obj;
+	}
+
+	@Override
+	public Set<String> getItemBatch(Long userId, Long itemId) {
+		// TODO Auto-generated method stub
+		return repo.getItemBatch(userId, itemId);
 	}
 	
 /*	@Override

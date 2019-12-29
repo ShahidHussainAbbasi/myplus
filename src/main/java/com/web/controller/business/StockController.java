@@ -3,6 +3,7 @@ package com.web.controller.business;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -207,6 +208,50 @@ public class StockController {
 			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
 			return null;
 		}
+	}
+
+	@RequestMapping(value = "/getStockByBatch", method = RequestMethod.GET)
+	@ResponseBody
+	public Stock getStockByBatch(@RequestParam final String batchNo) {
+			if(appUtil.isEmptyOrNull(batchNo))
+				return null;
+			
+			try {
+				Stock filterBy = new Stock();
+				User user = requestUtil.getCurrentUser();
+				filterBy.setUserId(user.getId());
+				filterBy.setBatchNo(batchNo);
+				Example<Stock> example = Example.of(filterBy) ;
+				return service.findOne(example).get();
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+				LOGGER.error(this.getClass().getName() + " > getStockByBatch " + e.getCause());
+			}
+			return null;
+	}
+
+	@RequestMapping(value = "/getBatchesByItem", method = RequestMethod.GET)
+	@ResponseBody
+	public String getBatchesByItem(@RequestParam final Long itemId) {
+			if(appUtil.isEmptyOrNull(itemId))
+				return null;
+			
+			StringBuffer sb = new StringBuffer();
+			try {
+				User user = requestUtil.getCurrentUser();
+				Set<String> batches = service.getItemBatch(user.getId(), itemId);
+				sb.append("<option value=''> Nothing Selected </option>");
+				sb.append("<option value='0'> Default </option>");
+				batches.forEach(batch -> {
+					sb.append("<option value='" + batch + "'>" + batch + "</option>");
+				});
+				return sb.toString();
+			} catch (Exception e) {
+				e.printStackTrace();
+				LOGGER.error(this.getClass().getName() + " > getItemBatch " + e.getCause());
+				return (sb.append("<option value=''> Unable to find item batch </option>")).toString();
+			}
 	}
 
 	@RequestMapping(value = "/getAllStock", method = RequestMethod.GET)

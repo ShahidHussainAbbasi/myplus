@@ -35,9 +35,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     IStockService stockService;
     
-    @Autowired
+/*    @Autowired
     IBatchService batchService;
-
+*/
     @Autowired
     RequestUtil requestUtil;
     

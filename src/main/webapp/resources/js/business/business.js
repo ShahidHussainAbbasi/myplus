@@ -397,14 +397,15 @@ function loadDataTable(){
 							"<div id=purchaseId>"+obj.purchaseId+"</div>", "<input type='checkbox' value="+ obj.purchaseId+ ">",
 							"<div id=purchaseItemDD>"+obj.icode+"</div>","<div id=purchaseItemName>"+obj.iname+"</div>",
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>",/* "<div id=purchaseStock>"+obj.stockDTO.stock+"</div>",*/
-							"<div id=purchaseBatchNo>"+obj.stockDTO.batchNo+"</div>","<div id=purchaseExpiry>"+obj.stockDTO.bexpDate+"</div>", 
+							"<div id=purchaseBatchNo>"+obj.stockDTO.batchNo+"</div>", 
 							"<div id=purchasePurchaseRate>"+obj.stockDTO.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stockDTO.bsellRate+"</div>", 
 							"<div id=purchaseDiscountTypeDD>"+obj.stockDTO.bpurchaseDiscountType+"</div>", 
 							"<div id=purchaseDiscount>"+obj.stockDTO.bpurchaseDiscount+"</div>",
 							"<div id=purchaseSellDiscountTypeDD>"+obj.stockDTO.bsellDiscountType+"</div>", 
 							"<div id=purchaseSellDiscount>"+obj.stockDTO.bsellDiscount+"</div>",
 							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
-							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"
+							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
+							"<div id=purchaseExpiry>"+obj.stockDTO.bexpDate+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -417,7 +418,7 @@ function loadDataTable(){
 //							"<span class='glyphicon glyphicon-remove-sign'></span> Return </button>",
 							"<div id=sellItemDD>"+obj.itemCode+"</div>","<div id=sellItemName>"+obj.itemName+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
-							"<div id=sellItemBatchNo>"+obj.stockDTO.batchNo+"</div>","<div id=sellItemExpiry>"+obj.stockDTO.bexpDate+"</div>", 
+							"<div id=sellBatchNo>"+obj.stockDTO.batchNo+"</div>","<div id=sellItemExpiry>"+obj.stockDTO.bexpDate+"</div>", 
 							"<div id=sellPurchaseRate>"+obj.stockDTO.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stockDTO.bsellRate+"</div>",
 							"<div id=sellDiscountTypeDD>"+obj.stockDTO.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stockDTO.bsellDiscount+"</div>",
 							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
@@ -432,8 +433,6 @@ function loadDataTable(){
 				}
 			},
 			 error: function(jqXHR, textStatus, errorThrown) {
-//				 	window.location.href = serverContext + "login?message=" + data.responseJSON.message;
-//	                alert('An error occurred... Look at the console (F12 or Ctrl+Shift+I, Console tab) for more information!');
 	                console.log('jqXHR:');
 	                console.log(jqXHR);
 	                console.log('textStatus:');
@@ -444,21 +443,9 @@ function loadDataTable(){
 	            }
 		}
 	});
-//	$(".dataTables_length").hide();
-	//register and call when show entries drop down changes
 	$("select[name='tableSell_length']").change(function(){
 		loadDataTable();
 	});
-	 
- /*   $('a.toggle-vis').on( 'click', function (e) {
-        e.preventDefault();
- 
-        // Get the column API object
-        var column = datatable.column($(this).attr('data-column') );
- 
-        // Toggle the visibility
-        column.visible( ! column.visible() );
-    } );*/
 }
 
 function loadUserCompanies(table) {	
@@ -585,23 +572,105 @@ function loadStock(label,value){
 	    			$(".form-control").val("");
 	    			resetBSDD('sellItemDD');
 	    			return false;
+	    		}else{
+		    		$("#sellStock").val(batchStock);
+		    		$("#sellItemDesc").val(data.desc);
+			    	$("#bexpDate").val(data.bexpDate);
+		    		$("#sellPurchaseRate").val(data.bpurchaseRate);
+			    	$("#sellSellRate").val(data.bsellRate)
+			    	$("#sellDiscount").val(discountValue);
+			    	if($("#sellItems").val()*1<=0){
+			    		$("#sellItems").val(1);
+			    	}
+			    	$("#sellItemDesc").val(data.idesc);
+			    	calculateNetSell();
 	    		}
-	    		$("#sellStock").val(batchStock);
-	    		$("#sellItemDesc").val(data.desc);
-	    		$("#sellPurchaseRate").val(data.bpurchaseRate);
-		    	$("#sellSellRate").val(data.bsellRate)
-		    	$("#sellDiscount").val(discountValue);
-		    	if($("#sellItems").val()*1<=0){
-		    		$("#sellItems").val(1);
-		    	}
-		    	$("#sellItemDesc").val(data.idesc);
-		    	calculateNetSell();
     		}
     	}
     })
 	.fail(function(data) {
 		console.log(data);
 	});
+}
+
+function getBatchesByItem(itemId){
+	 if (!itemId || itemId == '' || itemId.length <= 0){
+		 return
+	 }
+	 loadBSDD("getBatchesByItem?itemId="+itemId,tableV.to+'itemBatchDD');
+}
+
+//"getBatchesByItem(this.value);"
+function getStockByBatch(batchNo){
+	$("#"+tableV.toLowerCase()+'BatchNo').val('');
+	 if (!batchNo || batchNo == '' || batchNo.length <= 0){
+		 return
+	 }else if(batchNo*ONE === 0){
+		var purchaseItemDD = document.getElementById("purchaseItemDD");
+		var itemId = purchaseItemDD.options[purchaseItemDD.selectedIndex].value;		
+		var now = new Date();
+    	$("#"+tableV.toLowerCase()+'BatchNo').val(itemId+""+now.getMonth()+""+now.getDate()+""+now.getFullYear());
+    	return;
+	 } else {
+	    	
+		$("#"+tableV.toLowerCase()+'BatchNo').val(batchNo);
+		bpurchaseDiscount: 0
+		bpurchaseDiscountType: "%"
+		bpurchaseRate: 0
+		bsellDiscount: 0
+		bsellDiscountType: "%"
+		bsellRate: 0
+		edit = false;
+		$("#purchasePurchaseRate").val("");
+		$("#purchaseSellRate").val("")
+		$("#sellPurchaseRate").val("");
+		$("#sellSellRate").val("")
+		$("#sellItems").removeClass("alert-danger");
+		$("pdt").html("      ");
+		$.get(serverContext+ "getStockByBatch?batchNo="+batchNo,function(data){
+	    	if(data){
+		    	discountValue = data.bsellDiscount;
+		    	discountType = data.bsellDiscountType;
+		    	batchStock = data.stock;
+	    		if(tableV=="Purchase"){
+	        		$("#discountTypeDD").val(discountType);    			
+	    			$("#purchaseDiscount").val(discountValue);//*1>0?$("#bpurchaseDiscount").val():0;
+			    	$("#purchasePurchaseRate").val(data.bpurchaseRate);
+			    	$("#purchaseSellRate").val(data.bsellRate)
+			    	if($("#purchaseQuantity").val()*1<=0){
+			    		$("#purchaseQuantity").val(1);
+			    	}
+			    	$("#purchaseItemDesc").val(data.idesc);
+			    	$("#pdt").html(discountType+" Discount");
+			    	calculateNetPurchase();
+	    		}else if(tableV=="Sell"){
+	        		$("#sellDiscountTypeDD").val(discountType);
+		    		if(batchStock <= 0){
+		    			$("#sellItems").addClass("alert-danger");
+		    			alert("No more items are available, Please purchase or select some other item to sell.");
+		    			$(".form-control").val("");
+		    			resetBSDD('sellItemDD');
+		    			return false;
+		    		}else{
+			    		$("#sellStock").val(batchStock);
+			    		$("#sellItemDesc").val(data.desc);
+				    	$("#bexpDate").val(data.bexpDate);
+			    		$("#sellPurchaseRate").val(data.bpurchaseRate);
+				    	$("#sellSellRate").val(data.bsellRate)
+				    	$("#sellDiscount").val(discountValue);
+				    	if($("#sellItems").val()*1<=0){
+				    		$("#sellItems").val(1);
+				    	}
+				    	$("#sellItemDesc").val(data.idesc);
+				    	calculateNetSell();
+		    		}
+	    		}
+	    	}
+	    })
+		.fail(function(data) {
+			console.log(data);
+		});
+	 }
 }
 
 function calculateNetPurchase(){
@@ -662,7 +731,6 @@ function calculateNetSell(){
 }
 
 function calculateSRP(){
-	console.log(2)
 	var s= $("#sellSellRate").val()*ONE;
 	if(!s || s<=0){
 		alert("Please select valid item's record to return sold");
@@ -685,7 +753,6 @@ function calculateChange(){
 }
 
 function loadSR(){
-	console.log(11)
 	tableSellReport.clear().draw();
 	$.ajax({
 		type : "POST",

@@ -39,7 +39,7 @@ public class Owner implements Serializable {
 	private Long userId;
 
 	@ValidateEmpty
-	@Column(name = "name", unique = true, nullable = false)
+	@Column(name = "name", nullable = false)
 	private String name;
 
 	@ValidEmail

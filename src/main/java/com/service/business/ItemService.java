@@ -14,10 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.ItemRepo;
 import com.persistence.model.business.Item;
-import com.persistence.model.business.Stock;
 import com.service.IUserService;
-import com.web.dto.business.PurchaseDTO;
-import com.web.util.AppUtil;
 import com.web.util.RequestUtil;
 
 @Service
@@ -30,9 +27,6 @@ public class ItemService implements IItemService {
     @Autowired
     ItemRepo itemRepo;
 
-    @Autowired
-    private AppUtil appUtil;  
-    
 	@Autowired
 	RequestUtil requestUtil;
     

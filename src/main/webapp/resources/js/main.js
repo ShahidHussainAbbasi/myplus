@@ -43,12 +43,15 @@ function resetForm(){
 	// Reset error Form's error classes and values
 	form = document.getElementsByClassName('form-horizontal')[tableV];
 	if(form){
-		formFields = form.length-2;// -2 mean we don't need to loop over
+		$(".resetForm").click();
+		return;
+		
+/*		formFields = form.length-2;// -2 mean we don't need to loop over
 									// buttons (Add & Delete)
 		for(var i=0; i<formFields; i++){
 			// $("#"+form[i].id).removeClass("alert-danger");
 		}
-		$(".form-control").val("");
+*///		$(".form-control").val("");
 	}
 }
 
@@ -57,9 +60,6 @@ function validateForm(){
     var form = document.getElementsByClassName('form-horizontal')[tableV];
     if(form && !form.checkValidity()){
 	    formFields = form.length-2;
-	    console.log(formFields)
-		event.preventDefault();
-		event.stopPropagation();
 		// Loop over them and prevent submission
 		for(var i=0; i<formFields; i++){
 			if(form[i].id && form[i].validity.valid){
@@ -71,6 +71,7 @@ function validateForm(){
 		}
 		formValidated = false;
     }
+    formFields = form.length-2;
 }
 
 var initDates = function(){
@@ -134,8 +135,6 @@ $(document).ready(function() {
 	        cache: false,
 // timeout: 600000,
 	        success: function (data) {
-// $("#result").text(data);
-	            console.log("SUCCESS : ", data);
 	            $("#paBtn").prop("disabled", false);
 	            loadDataTable();
 	        },
@@ -205,7 +204,8 @@ $(document).ready(function() {
 //    		loadFVIBSDD(label,value); 
 //    		loadBSDD("getUser"+lable.trim(),"fviDD");
     	}else if(tableV=="Purchase" || tableV =="Sell"){
-    		loadStock(label,value);    		
+    		loadStock(label,value);  
+    		loadBSDD("getBatchesByItem?itemId="+value,tableV.toLowerCase()+'BatchDD');    		
     	}
     });
     
@@ -219,7 +219,6 @@ $(document).ready(function() {
 		resetForm();
 
 	    $("#dateRangeDD"+tableV).change(function(){
-	    	console.log(1)
 	    	if($(this).val()=="0"){
 	    		$("#dateRange"+tableV).hide();
 	    	}else{
@@ -704,7 +703,6 @@ function handleTabKey(event,action,elementId)
 
 function handleKey(event,action,elementId)
 {
-	console.log(window.location.href)
 	if (event.keyCode === 105 &&  action == "click") {
         $("#"+elementId+".div.button").click();
 	}else if (event.keyCode === 73 &&  action == "focus") {

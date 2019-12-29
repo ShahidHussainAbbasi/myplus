@@ -179,9 +179,9 @@ public class SchoolController {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+//			e.printStackTrace();
 			appUtil.le(this.getClass(), e);
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
+			return new GenericResponse("ERROR",messages.getMessage(e.getCause().getCause().toString(), null, request.getLocale()),
 					e.getCause().toString());
 		}
 	}
