@@ -3,7 +3,6 @@ package com.persistence.model.business;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -17,8 +16,6 @@ import javax.persistence.UniqueConstraint;
 
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
-
-import com.persistence.model.Doctor;
 
 import lombok.Getter;
 import lombok.Setter;

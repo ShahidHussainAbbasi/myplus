@@ -325,7 +325,7 @@
 							<input type="text" class="form-control" id="gradeId" name="id"> 
 						</div>
 						<div class="col-sm-6">
-							<input type="text" class="form-control" id="schoolDated" name="datedStr"> 
+							<input type="text" class="form-control" id="gradeDated" name="datedStr"> 
 						</div>
 					</div>				
 					<div class="form-group">
@@ -405,7 +405,7 @@
 								<th class="col-sm-1" data-field="timeToStr">Time To</th>
 								<th class="col-sm-1" data-field="room">Room</th>
 								<th class="col-sm-1" data-field="gradeStatus">Status</th>
-								<th class="col-sm-1" data-field="schoolDated">Dated</th>
+								<th class="col-sm-1" data-field="gradeDated">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -1260,7 +1260,7 @@
 					enctype="utf8" id="Alerts" autocomplete="off">
 					<div class="form-group" style="display: none">				
 						<div class="col-sm-6">
-							<input type="text" class="form-control" id="aId" name="id"> 
+							<input type="text" class="form-control" id="alertId" name="id"> 
 						</div>
 						<div class="col-sm-6">
 						</div>
@@ -1393,7 +1393,7 @@
 					<table id="tableAlerts" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="aId">Id</th>
+								<th class="col-sm-1" data-field="alertId">Id</th>
 								<th class="col-sm-1" data-field="checkAlerts">Check</th>
 								<th class="col-sm-1" data-field="acdd">Consumer</th>
 								<th class="col-sm-1" data-field="atdd">Type</th>
@@ -1701,12 +1701,13 @@
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center; margin-top: 25px;">
-						<button type="button" id="printFc" onclick="loadFV()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
+						<button type="button" id="printFV" onclick="loadFV()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
 							<span class="glyphicon glyphicon-print"></span> Print Voucher
 						</button>
-						<button type="button" id="printFc" onclick="loadFL()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE_')">
+						<button type="button" id="printFL" onclick="loadFL()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE_')">
 							<span class="glyphicon glyphicon-print"></span> Print Ledger
 						</button>
+						<button type="reset" class="resetForm"/>
 					</div>
 				</form>
 			</div>		
@@ -1803,7 +1804,7 @@
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center; margin-top: 25px;">
-						<button type="button" id="printFc" onclick="loadFR()" class="btn btn-success">
+						<button type="button" id="printFR" onclick="loadFR()" class="btn btn-success">
 							<span class="glyphicon glyphicon-sunglasses"></span> View
 						</button>
 					</div>

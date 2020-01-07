@@ -375,7 +375,7 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<div id=aId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=alertId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
 							"<div id=acdd>"+obj.c+"</div>","<div id=atdd>"+obj.at+"</div>",
 							"<div id=adcdd>"+obj.dc+"</div>","<div id=adpdd>"+obj.dp+"</div>",
 							"<div id=adtdd>"+obj.dt+"</div>","<div id=ast>"+obj.st+"</div>",
@@ -961,8 +961,9 @@ function PFL(o,sfds,logo_url,X,Y,dataUrl){
 }
 
 function loadFV(){
-	//var formData = $("form").serialize();
-	//formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
+	validateForm();
+//	var formData = $("form").serialize();
+//	formData = formData.replace(/[^&]+=\.?(?:&|$)/g, "");
 
 	$.ajax({
 		type : "POST",
@@ -2414,6 +2415,44 @@ function loadFVIBSDD(element,destinationId){
 	
 }
 
+/*
+
+var arrears = [];
+function populateArrearsDiv(element){
+	arrears = [];
+	$("#arrearsDiv").empty();
+	var span ="<p class='h5 text-info'>Please specify arrears below for individuals</p>";
+	var table = span+"<table id='tableArrears'>";
+	var tr ="<tr role='row'>";
+	var n = 0
+	$("#"+element.id+" option:selected").each(function() {
+		var en = $(this).text().split("-")[1];
+		var obj = {en:en};
+		arrears.push(obj);
+
+		n++;
+		var td ="<td>";
+		td += "<label class='control-label'>"+$(this).text()+"</label>";
+		td += "<div>";
+		td += "<input id='arrear_"+en+"' type='text' onkeyup=populateArrearsMap('"+en+"') class='form-control' placeholder=' Arrears '>";
+		td += "</div>";
+		td +="</td>"
+		tr +=td;
+		if(n==4){
+			tr +="</tr>";
+			table+=tr;
+			n=0;
+			tr ="<tr role='row'>";
+		}
+			
+	});
+	tr +="</tr>";
+	table+=tr;
+	table += "</table></div>"
+	$("#arrearsDiv").append(table);
+	
+}
+*/
 var arrears = [];
 function populateArrearsDiv(id){
 	//if option is exclude selected

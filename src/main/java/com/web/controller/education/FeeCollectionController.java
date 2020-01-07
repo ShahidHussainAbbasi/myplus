@@ -218,24 +218,28 @@ public class FeeCollectionController {
 			List<Long> SIDs = new ArrayList<Long>();
 			List<Long> ids = new ArrayList<Long>();
 			User user = requestUtil.getCurrentUser();
-			Iterable<String> list = Stream.of(dto.getVi().split(",")).collect(Collectors.toList());
-			list.forEach(id ->{	
-				ids.add(Long.valueOf(id));
-			});
-			if(dto.getVb().equals(STUDENTS)) {
-				if(dto.getInclExclSelected().equals("Default All")) {
-					SIDs.addAll(studentService.findStudentsByUserId(user.getId(),appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
-				}else if(dto.getInclExclSelected().equals("include")) {
-					SIDs.addAll(studentService.findStudentsByStudentIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
-				}else {
-					SIDs.addAll(studentService.findStudentsByUserIdAndNotStudentIds(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+			if(appUtil.notEmptyNorNull(dto.getVi())) {
+				Iterable<String> list = Stream.of(dto.getVi().split(",")).collect(Collectors.toList());
+				list.forEach(id ->{	
+					ids.add(Long.valueOf(id));
+				});
+			}
+			if(appUtil.notEmptyNorNull(dto.getVb())) {
+				if(dto.getVb().equals(STUDENTS)) {
+					if(dto.getInclExclSelected().equals("Default All")) {
+						SIDs.addAll(studentService.findStudentsByUserId(user.getId(),appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+					}else if(dto.getInclExclSelected().equals("include")) {
+						SIDs.addAll(studentService.findStudentsByStudentIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+					}else {
+						SIDs.addAll(studentService.findStudentsByUserIdAndNotStudentIds(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+					}
+				}else if(dto.getVb().equals(GUARDIANS)) {
+					SIDs.addAll(studentService.findStudentsByGuardianIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				}else if(dto.getVb().equals(GRADES)) {
+					SIDs.addAll(studentService.findStudentsByGradeIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
+				}else if(dto.getVb().equals(SCHOOLS)) {
+					SIDs.addAll(studentService.findStudentsByCampusIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
 				}
-			}else if(dto.getVb().equals(GUARDIANS)) {
-				SIDs.addAll(studentService.findStudentsByGuardianIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
-			}else if(dto.getVb().equals(GRADES)) {
-				SIDs.addAll(studentService.findStudentsByGradeIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
-			}else if(dto.getVb().equals(SCHOOLS)) {
-				SIDs.addAll(studentService.findStudentsByCampusIdsAndUserId(user.getId(), ids,appUtil.ACTIVE).stream().map(Student::getId).collect(Collectors.toSet()));
 			}
 	        //getting student detail
 			if(appUtil.isEmptyOrNull(SIDs))
