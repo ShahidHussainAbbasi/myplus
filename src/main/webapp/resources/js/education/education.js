@@ -1356,7 +1356,7 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 			//check if month range is valid
 			var firstYear = $("#fvsd")[0].value; 
 			var lastYear = $("#fved")[0].value;
-			if(monthOption !="0"){
+			if(monthOption ==="1"){
 				var parts =firstYear.split('-');
 				firstYear = new Date(parts[1], parts[0] - 1, 1); 
 				firstYear = Date.parse(firstYear);
@@ -1510,21 +1510,39 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 				T = T+3.5;//72
 				L =L-pageLeftRight;//5
 			}else{
-				var monthDiff = DateDiff.inMonths(firstYear,lastYear);
-				//monthDiff = lastYear.getMonth() - firstYear.getMonth()
-				
-				for(var m=0;m<=monthDiff;m++){
-					var month =getMonthYear(firstYear);
-					doc.text(month, L, T);
-					L =L+28;//35
-					doc.text("Monthly fee", L, T);
-					L =L+27;//70
-					doc.text(o.f+"", L, T);
-					totalFee +=o.f;
-					T = T+1;//78
-					T = T+3.5;//72
-					L =L-pageLeftRight;//5
-					firstYear = Date.addMonths(firstYear,1);
+				if(monthOption==="2"){
+					var selectedYear = $("#fvYearDD :selected").val();
+					$("#fvMonthsDD option:selected").each(function() {
+						var month = $(this).val();
+						var date = new Date(selectedYear, month - 1, 1);
+						var month =getMonthYear(date);
+						console.log(month);
+						doc.text(month, L, T);
+						L =L+28;//35
+						doc.text("Monthly fee", L, T);
+						L =L+27;//70
+						doc.text(o.f+"", L, T);
+						totalFee +=o.f;
+						T = T+1;//78
+						T = T+3.5;//72
+						L =L-pageLeftRight;//5
+					});
+				}else{
+					var monthDiff = DateDiff.inMonths(firstYear,lastYear);
+					for(var m=0;m<=monthDiff;m++){
+						var month =getMonthYear(firstYear);
+						console.log(month);
+						doc.text(month, L, T);
+						L =L+28;//35
+						doc.text("Monthly fee", L, T);
+						L =L+27;//70
+						doc.text(o.f+"", L, T);
+						totalFee +=o.f;
+						T = T+1;//78
+						T = T+3.5;//72
+						L =L-pageLeftRight;//5
+						firstYear = Date.addMonths(firstYear,1);
+					}
 				}
 			}
 

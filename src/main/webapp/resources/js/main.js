@@ -219,10 +219,13 @@ $(document).ready(function() {
 		resetForm();
 
 	    $("#dateRangeDD"+tableV).change(function(){
-	    	if($(this).val()=="0"){
-	    		$("#dateRange"+tableV).hide();
-	    	}else{
+    		$("#dateRange"+tableV).hide();
+    		$("#custom"+tableV).hide();
+    		if($(this).val()=="1"){
 	    		$("#dateRange"+tableV).show();
+	    	}else if($(this).val()=="2"){
+	    		$("#custom"+tableV).show();
+	    		
 	    	}
 	    });    
 				

@@ -1634,8 +1634,37 @@
 						<div class="col-sm-2">
 							<select class="form-control" id="dateRangeDDFV" name="vp" required="required">
 								<option class="dropdown-item" value=0 selected="selected">Current month</option>
-								<option class="dropdown-item" value=1>Custom range</option>
+								<option class="dropdown-item" value=1>Date Range</option>
+								<option class="dropdown-item" value=2>Custom</option>
 							</select>	
+						</div>
+						<div id="customFV" style="display: none">
+							<label class="control-label col-sm-2" for="fvYearDD">Year</label>
+							<div class="col-sm-2">
+							<select class="form-control" id="fvYearDD" required="required">
+								<option class="dropdown-item" value=2020 selected="selected">2020</option>
+								<option class="dropdown-item" value=2021>2021</option>
+								<option class="dropdown-item" value=2022>2022</option>
+							</select>	
+							</div>
+							<label class="control-label col-sm-2" for="fvMonthsDD">Months</label>
+							<div class="col-sm-2">
+							<select multiple="multiple" class="selectpicker" id="fvMonthsDD" required="required">
+								<option class="dropdown-item" value=0 selected="selected">Nothing selected</option>
+								<option class="dropdown-item" value=1>January</option>
+								<option class="dropdown-item" value=2>February</option>
+								<option class="dropdown-item" value=3>March</option>
+								<option class="dropdown-item" value=4>April</option>
+								<option class="dropdown-item" value=5>May</option>
+								<option class="dropdown-item" value=6>June</option>
+								<option class="dropdown-item" value=7>July</option>
+								<option class="dropdown-item" value=8>August</option>
+								<option class="dropdown-item" value=9>September</option>
+								<option class="dropdown-item" value=10>October</option>
+								<option class="dropdown-item" value=11>November</option>
+								<option class="dropdown-item" value=12>December</option>
+							</select>	
+							</div>
 						</div>
 						<div id="dateRangeFV" style="display: none">
 							<label class="control-label col-sm-2" for="fvsd">From</label>
