@@ -26,7 +26,7 @@ import com.persistence.model.User;
 @Component
 public class SetupDataLoader implements ApplicationListener<ContextRefreshedEvent> {
 
-    private boolean alreadySetup = true;
+    private boolean alreadySetup = false;
 
     @Autowired
     private UserRepository userRepository;
@@ -173,6 +173,7 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
         //Adding general user for education
         createUserIfNotFound("super@edu.com", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(superRole)),rb.getString("education.user.type"));        
         createUserIfNotFound("learninglinksss@gmail.com", "Nida", "Ali", "03362120333", new ArrayList<Role>(Arrays.asList(superRole)),rb.getString("education.user.type"));        
+        createUserIfNotFound("pakistanyouthforum@gmail.com", "Fahad", "Ali", "03313098333", new ArrayList<Role>(Arrays.asList(adminRole)),rb.getString("education.user.type"));        
     	//adding roles
     	for(String key:rb.keySet()) {
 //    		Role role = null;

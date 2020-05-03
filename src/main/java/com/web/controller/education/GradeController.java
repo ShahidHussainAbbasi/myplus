@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -69,9 +70,12 @@ public class GradeController {
 			objs.forEach(obj->{
 				GradeDTO dto = new GradeDTO();
 				dto = modelMapper.map(obj, GradeDTO.class);
-				if(!appUtil.isEmptyOrNull(obj.getSchool())) {
-					dto.setSchoolId(obj.getSchool().getId());
-					dto.setSchoolName(obj.getSchool().getBranchName());
+				if(!appUtil.isEmptyOrNull(obj.getSchoolId())) {
+					Optional<School> school = schoolService.findById(dto.getSchoolId());
+					if(school.isPresent()) {
+						dto.setSchoolId(school.get().getId());
+						dto.setSchoolName(school.get().getBranchName());
+					}
 				}else {
 					dto.setSchoolName("");
 				}
@@ -141,7 +145,7 @@ public class GradeController {
 			if(appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
-				obj.setSchool(schoolService.getOne(dto.getSchoolId()));
+				obj.setSchoolId(dto.getSchoolId());
 				Example<Grade> example = Example.of(obj);
 				if(gradeService.exists(example))
 					return new GenericResponse("FOUND",messages.getMessage("The Grade "+dto.getName()+" already exist", null, request.getLocale()));
@@ -154,8 +158,8 @@ public class GradeController {
 				obj.setTimeFrom(LocalTime.parse(dto.getTimeFromStr()));
 			if(!appUtil.isEmptyOrNull(dto.getTimeToStr()))
 				obj.setTimeTo(LocalTime.parse(dto.getTimeToStr()));
-			School school = schoolService.getOne(dto.getSchoolId()); 
-			obj.setSchool(school);
+//			School school = schoolService.getOne(dto.getSchoolId()); 
+//			obj.setSchoolId(dto.getSchoolId());
 			
 			Grade schoolOwnerTemp = gradeService.save(obj);
 			if(appUtil.isEmptyOrNull(schoolOwnerTemp)) {

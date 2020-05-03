@@ -243,7 +243,7 @@ public class FeeCollectionController {
 			}
 	        //getting student detail
 			if(appUtil.isEmptyOrNull(SIDs))
-				return new GenericResponse("FAILURE","Invalid input");
+				return new GenericResponse("FAILURE","No data found");
 				
 			List<Student> objs = studentService.findAllById(SIDs);
 			objs.forEach(s ->{		
@@ -266,10 +266,15 @@ public class FeeCollectionController {
 					if(grade.isPresent()) {
 						resDTO.setGrId(grade.get().getId());
 						resDTO.setG(grade.get().getName());
+						if (s.getFee() == null || s.getFee() <= 0) {
+							resDTO.setF(grade.get().getFee());
+						} else {
+							resDTO.setF(s.getFee());
+						}
+
 					}
 				}
 				resDTO.setVf(s.getVf()==null?0:s.getVf());
-				resDTO.setF(s.getFee());
 				resDTO.setDd(s.getDueDay());
 				if(!appUtil.isEmptyOrNull(s.getDiscountId())) {
 					Optional<Discount> d = discountService.findById(s.getDiscountId());

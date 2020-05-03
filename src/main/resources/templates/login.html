@@ -45,9 +45,20 @@ label{padding-left:0 !important}
 		<div th:if="${param.error != null}" class="alert alert-danger" th:text="${session[SPRING_SECURITY_LAST_EXCEPTION]}">error</div>
     	<nav class="navbar navbar-inverse">
 			<div class="container-fluid">
-				<div class="navbar-header active">
-					<img th:src="@{/resources/favicon.png}" height="50" width="42" title="Maximize your services"/>
-					<!-- <a class="navbar-brand" href="#">Maximize your services</a> -->
+				<div>
+					<ul class="nav navbar-nav">
+						<li>
+							<div class="navbar-header active">
+								<img th:src="@{/resources/favicon.png}" height="50" width="42" title="Maximize your services"/>
+								<!-- <a class="navbar-brand" href="#">Maximize your services</a> -->
+							</div>
+						</li>
+						<li>
+							<a th:href="@{/islamicChannels}">
+								<span class="text-uppercase" aria-hidden="true"  th:text="#{label.islamic.channels}">&nbsp;Islamic Channels</span>
+							</a>
+						</li>
+					</ul>
 				</div>
 			</div>
 		</nav>

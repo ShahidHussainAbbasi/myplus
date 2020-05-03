@@ -501,6 +501,8 @@ const nonCapitalize = (s) => {
 
 function editRecord(doc){
 	edit = true;
+    var form = document.getElementsByClassName('form-horizontal')[tableV];
+    formFields = form.length-2;
 	for(var i=0; i<(formFields); i++){
 		if(doc.getElementById(form[i].id)){
 			if(doc.getElementById(form[i].id).type == 'checkbox'){

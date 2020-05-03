@@ -31,27 +31,27 @@
 		 -->					<li>
 								<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
 									<option class="dropdown-item" value="">Manage Registrations</option>
-									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="OwnerDiv">Owners</option>
-									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="SchoolDiv">Campus</option>
-									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="VehicleDiv">Vehicles</option>
-									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="GradeDiv">Classes</option>
-									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="StaffDiv">Employee</option>
-				 					<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="SubjectDiv">Subjects</option>
+									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="OwnerDiv">Owners</option>
+									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="SchoolDiv">Campus</option>
+									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="VehicleDiv">Vehicles</option>
+									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="GradeDiv">Classes</option>
+									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="StaffDiv">Employee</option>
+				 					<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="SubjectDiv">Subjects</option>
 			<!-- 
 									<option class="dropdown-item" value="NewDiscountDiv">Discounts</option>
 									<option class="dropdown-item" value="NewChargesDiv">Charges</option>
 			 -->
-									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DiscountDiv">Manage Discounts/Charges</option>
-									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="GuardianDiv">Guardians</option>						
-									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="StudentDiv">Manage Students</option>
+									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="DiscountDiv">Manage Discounts/Charges</option>
+									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="GuardianDiv">Guardians</option>						
+									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="StudentDiv">Manage Students</option>
 								</select>
 							</li>
 						<!-- </security:authorize> -->
 						<li>
 							<select name="feeType" id="feeType" class="dropdown show panel-heading">
 								<option class="dropdown-item" value="">Manage Fee</option>
-								<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="FcDiv">Fee Collection</option>
-								<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="FVDiv">Fee Voucher/Ledger</option>
+								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="FcDiv">Fee Collection</option>
+								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')" class="dropdown-item" value="FVDiv">Fee Voucher/Ledger</option>
 		<!-- 						<option class="dropdown-item" value="">Salary Distribution</option>
 								<option class="dropdown-item" value="">Miscellaneous</option>
 		 -->					</select>
@@ -59,20 +59,20 @@
 						<li>
 							<select name="reportType" id="reportType" class="dropdown show panel-heading">
 								<option class="dropdown-item" value="">View Reports</option>
-								<option sec:authorize="hasAuthority('FEE_REPORT,SUPER_PRIVILEGE')" class="dropdown-item" value="FRDiv">Fee Report</option>
+								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,FEE_REPORT,SUPER_PRIVILEGE')" class="dropdown-item" value="FRDiv">Fee Report</option>
 							</select>
 						</li>
 						<li>
 							<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading">
 								<option class="dropdown-item" value="">Manage Attendance</option>
-								<option sec:authorize="hasAuthority('MANAGE_ATTENDANCE,SUPER_PRIVILEGE')" class="dropdown-item" value="ADiv">Attendance</option>
+								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,MANAGE_ATTENDANCE,SUPER_PRIVILEGE')" class="dropdown-item" value="ADiv">Attendance</option>
 							</select>
 						</li>
 						<li>
 							<select name="communicationType" id="communicationType" class="dropdown show panel-heading">
 								<option class="dropdown-item" value="">Manage Alerts</option>
-								<option sec:authorize="hasAuthority('PUBLIC_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="PADiv">Public Alerts</option>
-								<option sec:authorize="hasAuthority('SYSTEM_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="AlertsDiv">System Alerts</option>
+								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,PUBLIC_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="PADiv">Public Alerts</option>
+								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SYSTEM_ALERTS,SUPER_PRIVILEGE')" class="dropdown-item" value="AlertsDiv">System Alerts</option>
 							</select>
 						</li>
 					</ul>					
@@ -344,9 +344,9 @@
 						<div class="col-sm-4">
 							<input id="gradeCode" class="form-control" type="text"	name="code"/>
 						</div>
-						<label class="control-label col-sm-2 req" for="gradeFee">Fee</label> 
+						<label class="control-label col-sm-2" for="gradeFee">Fee</label> 
 						<div class="col-sm-4">
-							<input id="gradeFee" class="form-control" type="number" step="any" min="0"	name="fee" placeholder="Enter fee" required="required"/>
+							<input id="gradeFee" class="form-control" type="number" step="any" min="0"	name="fee" placeholder="Enter fee"/>
 						</div>
 					</div>
 					<div class="form-group">
@@ -461,15 +461,15 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 required req" for="staffDesignation">Designation</label>
+						<label class="control-label col-sm-2 required" for="staffDesignation">Designation</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="staffDesignation" name="designation"
-								placeholder="Designation" required="required"> 
+								placeholder="Designation"> 
 						</div>
-						<label class="control-label col-sm-2 req" for="staffQualification">Qualification</label>
+						<label class="control-label col-sm-2" for="staffQualification">Qualification</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="staffQualification"
-								name="qualification" placeholder="Qualification" required="required">
+								name="qualification" placeholder="Qualification">
 						</div>
 					</div>
 	 				<div class="form-group">
@@ -491,10 +491,10 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="staffDOB">Date of Birth</label>
+						<label class="control-label col-sm-2" for="staffDOB">Date of Birth</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="staffDOB" name="staffDOB"
-								placeholder="Select DOB" required="required"> 
+								placeholder="Select DOB"> 
 						</div>					
 						<label class="control-label col-sm-2" th:text="#{label.select.martial.status}" for="staffMartialStatus">Martial Status</label>
 						<div class="col-sm-4">
@@ -514,10 +514,10 @@
 	 -->					
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" th:text="#{label.address}" for="staffAddress">Address</label>
+						<label class="control-label col-sm-2" th:text="#{label.address}" for="staffAddress">Address</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="staffAddress"
-								name="address" placeholder="Complete Address" required="required">
+								name="address" placeholder="Complete Address">
 						</div>
 	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="staffStatus">Status</label>
 						<div class="col-sm-4">
@@ -1642,6 +1642,7 @@
 							<label class="control-label col-sm-2" for="fvYearDD">Year</label>
 							<div class="col-sm-2">
 							<select class="form-control" id="fvYearDD" required="required">
+								<option class="dropdown-item" value=2019>2019</option>
 								<option class="dropdown-item" value=2020 selected="selected">2020</option>
 								<option class="dropdown-item" value=2021>2021</option>
 								<option class="dropdown-item" value=2022>2022</option>
@@ -1650,7 +1651,6 @@
 							<label class="control-label col-sm-2" for="fvMonthsDD">Months</label>
 							<div class="col-sm-2">
 							<select multiple="multiple" class="selectpicker" id="fvMonthsDD" required="required">
-								<option class="dropdown-item" value=0 selected="selected">Nothing selected</option>
 								<option class="dropdown-item" value=1>January</option>
 								<option class="dropdown-item" value=2>February</option>
 								<option class="dropdown-item" value=3>March</option>
@@ -1722,6 +1722,18 @@
 						</div>
 					</div>
 					<div class="form-group">
+						<label class="control-label col-sm-2" for="fOthers">Others</label>
+						<div class="col-sm-2">
+							<input type="text" class="form-control" id="fOthers"
+								placeholder=" Enter name "> 
+						</div>
+						<label class="control-label col-sm-2"  for="fCharges">Charges</label>
+						<div class="col-sm-2">
+							<input type="number" class="form-control" id="fCharges"
+								placeholder=" Enter value " required="required"> 
+						</div>
+					</div>			
+					<div class="form-group">
 						<div class="col-sm-2">
 						</div>
 						<div class="col-sm-8" id="arrearsDiv">
@@ -1730,10 +1742,10 @@
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center; margin-top: 25px;">
-						<button type="button" id="printFV" onclick="loadFV()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
+						<button type="button" id="printFV" onclick="loadFV()" class="btn btn-success" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE')">
 							<span class="glyphicon glyphicon-print"></span> Print Voucher
 						</button>
-						<button type="button" id="printFL" onclick="loadFL()" class="btn btn-success" sec:authorize="hasAuthority('SUPER_PRIVILEGE_')">
+						<button type="button" id="printFL" onclick="loadFL()" class="btn btn-success" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE,SUPER_PRIVILEGE_')">
 							<span class="glyphicon glyphicon-print"></span> Print Ledger
 						</button>
 						<button type="reset" class="resetForm"/>

@@ -29,6 +29,5 @@ public class FeeVoucherDTO {
 	private String edStr = null;
 	private LocalDate sd = LocalDate.now();
 	private LocalDate ed = LocalDate.now();
-
 	
 }

@@ -1514,6 +1514,9 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 					var selectedYear = $("#fvYearDD :selected").val();
 					$("#fvMonthsDD option:selected").each(function() {
 						var month = $(this).val();
+						if(month === "0")
+							return;
+						
 						var date = new Date(selectedYear, month - 1, 1);
 						var month =getMonthYear(date);
 						console.log(month);
@@ -1546,6 +1549,23 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 				}
 			}
 
+			var others = $("#fOthers").val();
+			var charges = $("#fCharges").val()*ONE;
+			if ((others !== undefined && others !== '') || (charges !== undefined && charges !== '')) {
+				T = T+2;//78
+				doc.text('---', L, T);
+				L =L+28;//35
+				doc.text(others, L, T);
+				L =L+27;//70
+				doc.text(charges+"", L, T);
+				if (charges !== undefined && charges !== '') {
+					totalFee = totalFee + charges;
+				}
+				T = T+1;//78
+				T = T+3.5;//72
+				L =L-pageLeftRight;//5
+			}
+			
 			doc.text("Arrears", L, T);
 			var manualArear = getManualArrears(o.en);
 			if(manualArear === undefined)
@@ -1564,6 +1584,7 @@ function PFV_3ColumBy3(collection,logo_url,X,Y,W,H,dataUrl,insts){
 			doc.text("Payable before due date", L, T);
 			L =L+pageLeftRight;//35
 			doc.text(totalFee+"", L, T);
+
 
 			T = T+4;//80
 			L =L-pageLeftRight	;//5
