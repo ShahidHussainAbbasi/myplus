@@ -15,8 +15,7 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build:
-
+  build-deploy:
     runs-on: ubuntu-latest
 
     env:
