@@ -44,9 +44,6 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Checkout code
-      uses: actions/checkout@v2
-      
     - name: Start MySQL
       run: |
         udo /etc/init.d/mysql start
