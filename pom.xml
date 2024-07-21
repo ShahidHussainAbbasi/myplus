@@ -9,7 +9,7 @@
 	<version>1.0.1-SNAPSHOT</version>
 
 	<name>myplus</name>
-	<packaging>war</packaging>
+	<packaging>jar</packaging>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
