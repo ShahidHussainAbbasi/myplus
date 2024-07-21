@@ -19,6 +19,21 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    envi:
+        DB_DATABASE: myplusdb
+        DB_USER: root
+        DB_PASSWORD: root
+
+    steps:
+      - name: Checkout code
+      - uses: actions/checkout@v2
+
+      - name: Start MySQL
+        run: |
+          sudo /etc/init.d/mysql start
+          mysql -e "CREATE DATABASE IF NOT EXISTS $DB_DATABASE;" -u$DB_USER -p$DB_PASSWORD
+          # Add more steps for testing and other tasks
+
     steps:
     - uses: actions/checkout@v4
     - name: Set up JDK 8
@@ -39,20 +54,6 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-      env:
-        DB_DATABASE: myplusdb
-        DB_USER: root
-        DB_PASSWORD: root
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Start MySQL
-        run: |
-          sudo /etc/init.d/mysql start
-          mysql -e "CREATE DATABASE IF NOT EXISTS $DB_DATABASE;" -u$DB_USER -p$DB_PASSWORD
-          # Add more steps for testing and other tasks
         
     # - uses: actions/checkout@v4
     # - uses: shogo82148/actions-setup-mysql@v1
