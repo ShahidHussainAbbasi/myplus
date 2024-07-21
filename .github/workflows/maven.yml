@@ -19,7 +19,7 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    envi:
+    env:
         DB_DATABASE: myplusdb
         DB_USER: root
         DB_PASSWORD: root
