@@ -18,6 +18,21 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    services:
+          mysql:
+            image: mysql:8.0
+            env:
+              # The MySQL docker container requires these environment variables to be set
+              # so we can create and migrate the test database.
+              # See: https://hub.docker.com/_/mysql
+              MYSQL_DATABASE: myplusdb
+              MYSQL_ROOT_PASSWORD: root
+            ports:
+              # Opens port 3306 on service container and host
+              # https://docs.github.com/en/actions/using-containerized-services/about-service-containers
+              - 3306:3306
+              # Before continuing, verify the mysql container is reachable from the ubuntu host
+            options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
     - uses: actions/checkout@v4
@@ -38,18 +53,13 @@ jobs:
         dockerfile: Dockerfile
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - uses: mirromutth/mysql-action@v1.1
-      with:
-        host port: 3306 # Optional, default value is 3306. The port of host
-        container port: 3307 # Optional, default value is 3306. The port of container
-        character set server: 'utf8' # Optional, default value is 'utf8mb4'. The '--character-set-server' option for mysqld
-        collation server: 'utf8_general_ci' # Optional, default value is 'utf8mb4_general_ci'. The '--collation-server' option for mysqld
-        mysql version: '8.0' # Optional, default value is "latest". The version of the MySQL
-        mysql database: 'myplusdb' # Optional, default value is "test". The specified database which will be create
-        mysql root password: root # ${{ secrets.RootPassword }} # Required if "mysql user" is empty, default is empty. The root superuser password
-        mysql user: 'root' # Required if "mysql root password" is empty, default is empty. The superuser for the specified database. Can use secrets, too
-        mysql password: root # ${{ secrets.DatabasePassword }} # Required if "mysql user" exists. The password for the "mysql user"     
+    - name: Run tests
+        # These environment variables will take precedence over the ones in the Django settings file
+      env:
+        DATABASE_NAME: myplusdb
+        DATABASE_USERNAME: root          
+        DATABASE_PASSWORD: root          
+        DATABASE_ENDPOINT: 127.0.0.1 # Will not work with 'localhost', since that will try a Unix socket connection (!)
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph
