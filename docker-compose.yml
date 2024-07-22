@@ -35,7 +35,7 @@ services:
       - MYSQL_PORT=3306
 
 networks:
-  bored-network:
+  myplus-network:
     name: myplus-network
 
 volumes:
