@@ -28,7 +28,7 @@ public class Test {
 	} 
 	public static Connection getConnection() throws Exception {
 	    String driver = "com.mysql.cj.jdbc.Driver";
-	    String url = "jdbc:mysql://localhost:3306/myplusdb";
+	    String url = "jdbc:mysql://mysqlservice:3306/myplusdb";
 	    String username = "root";
 	    String password = "root";
 

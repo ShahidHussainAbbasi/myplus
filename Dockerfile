@@ -1,13 +1,10 @@
 FROM adoptopenjdk/openjdk8:alpine-slim
-WORKDIR /myplus
-VOLUME /myplus
-COPY target/myplus.jar myplus.jar
-# ADD target/myplus.jar myplus.jar
-# ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom","-jar","/myplus.jar"]
+VOLUME /tmp
+COPY target/myplus.war myplus.war
+ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom","-jar","/myplus.war"]
 
-EXPOSE 8080
-
-ENTRYPOINT ["java", "-jar", "myplus.jar"]
-# # RUN mvn clean install -DskipTests
+# WORKDIR /bezkoder-app
+# COPY . .
+# RUN mvn clean install
 
 # CMD mvn spring-boot:run

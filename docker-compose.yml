@@ -1,11 +1,12 @@
 version: '3.9'
 
 services:
-  mysql:
-    image: mysql:8.0.28
-    container_name: mysql
+  mysqlservice:
+    image: mysql:latest
+    container_name: mysqlservice
     restart: always
     environment:
+      MYSQL_ROOT_USER: root
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: myplusdb
     ports:
@@ -13,13 +14,13 @@ services:
     volumes:
       - ./mysql-data:/var/lib/mysql
       - ./mysql-scripts:/docker-entrypoint-initdb.d
-  myapp:
+  myplus:
     build:
       context: .
       dockerfile: Dockerfile
     image: myplus
     container_name: myplus
     depends_on:
-      - mysql
+      - mysqlservice
     ports:
       - "8080:8080"
