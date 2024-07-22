@@ -6,6 +6,6 @@ RUN --mount=type=cache,target=/root/.m2 mvn -f /myplus/pom.xml clean package -Ds
 
 #Run
 FROM openjdk:8-jre
-COPY --from=builder /myplus/target/myplus-0.0.1-SNAPSHOT.jar myplus.jar
+COPY --from=builder /myplus/target/myplus.jar myplus.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "myplus.jar"]
