@@ -1,26 +1,42 @@
-version: '3.9'
-
+version: '3.7'
 services:
-  mysqlservice:
+  myplus-db:
+    container_name: myplus-db
     image: mysql:latest
-    container_name: mysqlservice
-    restart: always
+    networks:
+      - myplus-network
     environment:
-      MYSQL_ROOT_USER: root
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: myplusdb
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root
+      - MYSQL_DATABASE=myplusdb
+      - MYSQL_ROOT_PASSWORD=root
+    volumes:
+      - dbvol:/var/lib/mysql
     ports:
       - "3306:3306"
-    volumes:
-      - ./mysql-data:/var/lib/mysql
-      - ./mysql-scripts:/docker-entrypoint-initdb.d
-  myplus:
+    restart: always
+
+  myplus-app:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: myplus
-    container_name: myplus
-    depends_on:
-      - mysqlservice
+    container_name: myplus-spring
+    image: shahidhussainabbasi/myplusrepo:latest
     ports:
       - "8080:8080"
+    networks:
+      - myplus-network
+    depends_on:
+      - myplusdb
+    environment:
+      - MYSQL_HOST=myplus-db
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=root
+      - MYSQL_DATABASE=myplusdb
+      - MYSQL_PORT=3306
+
+networks:
+  bored-network:
+    name: myplus-network
+
+volumes:
+  dbvol:

@@ -38,6 +38,14 @@ jobs:
         dockerfile: Dockerfile
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
+        script: |
+          cd /myplus
+          docker-compose stop myplus-app
+          docker rm myplus-spring
+          docker pull shahidhussainabbasi/myplusrepo:latest
+          docker-compose up -d myplus-app
+          docker ps -a          
+
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph
