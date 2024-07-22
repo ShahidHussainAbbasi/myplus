@@ -55,7 +55,7 @@ jobs:
       run: |
         docker-compose -f "docker-compose.yml" up -d --build
         docker ps -a
-        docker pull shahidhussainabbasi/myplusrepo:latest
+        docker pull shahidhussainabbasi/myplusrepo/myplus:v1.0.0
 
     - name: Start MySQL
       run: |
