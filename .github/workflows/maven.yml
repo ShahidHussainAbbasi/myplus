@@ -55,4 +55,10 @@ jobs:
       run: |
         docker-compose -f "docker-compose.yml" up -d --build
         docker ps -a
-        docker pull shahidhussainabbasi/myplusrepo
+        docker pull shahidhussainabbasi/myplusrepo:latest
+
+    - name: Start MySQL
+      run: |
+        sudo /etc/init.d/mysql start
+        mysql -e "CREATE DATABASE IF NOT EXISTS $DB_DATABASE;" -u$DB_USER -p$DB_PASSWORD
+      # Add more steps for testing and other tasks
