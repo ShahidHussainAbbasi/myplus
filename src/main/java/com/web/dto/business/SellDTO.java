@@ -15,19 +15,19 @@ import lombok.Data;
 public class SellDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	private Long sellId;
+	private Long sellId = 0L;
 
-	private Long userId;
+	private Long userId = 0L;
 
 	private String userType;
 
-	private Long itemId;
+	private Long itemId = 0L;
 
 	private String itemName;
 	
 	private String itemCode;	
 
-	private Long customerId;
+	// private Long customerId = 0L;
 
 	private String customerName;
 
@@ -88,7 +88,7 @@ public class SellDTO implements Serializable {
 	//StockDTO table
 	private StockDTO stockDTO;
 	
-	private Long sellSId;
+	private Long sellSId = 0L;
 
 	/**
 	 * @return the serialversionuid

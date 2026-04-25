@@ -161,7 +161,9 @@ public class AgricultureExpenseController {
 			AgricultureExpense obj = new AgricultureExpense(requestUtil.getCurrentUser().getId());
 			obj.setLandId(landId);
 			Example<AgricultureExpense> example = Example.of(obj);
-			List<AgricultureExpense> objs = service.findAll(example, new Sort(Sort.Direction.DESC, "updated"));//.get(0);
+			Sort sort = Sort.by("id").descending();
+			List<AgricultureExpense> objs = service.findAll(example, sort);
+			// List<AgricultureExpense> objs = service.findAll(example, new Sort(Sort.Direction.DESC, "updated"));//.get(0);
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("message.no.data.found", null, request.getLocale()));
 			

@@ -25,7 +25,7 @@ import com.persistence.model.business.Item;
 import com.persistence.model.business.Purchase;
 import com.service.business.ICompanyService;
 import com.service.business.IItemService;
-import com.service.business.IItemTypeService;
+// import com.service.business.IItemTypeService;
 import com.service.business.IItemUnitService;
 import com.service.business.IPurchaseService;
 import com.service.business.IStockService;
@@ -49,8 +49,8 @@ public class PurchaseController {
 	@Autowired
 	ICompanyService companyService;
 
-	@Autowired
-	IItemTypeService itemTypeService;
+	// @Autowired
+	// IItemTypeService itemTypeService;
 
 	@Autowired
 	IItemUnitService itemUnitService;

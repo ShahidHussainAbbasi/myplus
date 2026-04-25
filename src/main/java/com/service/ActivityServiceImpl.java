@@ -50,7 +50,8 @@ public class ActivityServiceImpl implements ActivityService {
     @SuppressWarnings("deprecation")
 	@Override
     public Page<Activity> findByUser(User user, int page, int size) {
-        return this.activityRepo.findByUser(user, new PageRequest(page, size, Sort.Direction.DESC, "id"));
+        return null;
+        // return this.activityRepo.findByUser(user, new PageRequest(page, size, Sort.Direction.DESC, "id"));
     }
 
     @Override

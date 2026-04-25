@@ -1,8 +1,8 @@
-package com.service.business;
+// package com.service.business;
 
-import com.persistence.Repo.business.ItemTypeRepo;
+// import com.persistence.Repo.business.ItemTypeRepo;
 
-public interface IItemTypeService extends ItemTypeRepo{
+// public interface IItemTypeService extends ItemTypeRepo{
 
 
-}
+// }

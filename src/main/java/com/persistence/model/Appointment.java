@@ -16,7 +16,7 @@ public class Appointment implements Serializable {
 	@Id
 	@GeneratedValue(strategy=GenerationType.AUTO)
 	@Column(name="appointment_id")
-	private int appointmentId;
+	private Long appointmentId;
 
 	@Column(name="appointment_fee")
 	private String appointmentFee;
@@ -56,11 +56,11 @@ public class Appointment implements Serializable {
 	public Appointment() {
 	}
 
-	public int getAppointmentId() {
+	public Long getAppointmentId() {
 		return this.appointmentId;
 	}
 
-	public void setAppointmentId(int appointmentId) {
+	public void setAppointmentId(Long appointmentId) {
 		this.appointmentId = appointmentId;
 	}
 

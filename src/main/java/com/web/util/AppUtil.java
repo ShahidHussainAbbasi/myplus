@@ -308,28 +308,32 @@ public class AppUtil {
 
 	public Sort orderByDESC(String f) {
 		// TODO Auto-generated method stub
-		return new Sort(Sort.Direction.DESC, f);
-//		return Sort.by(f).descending();
+		// return new Sort(Sort.Direction.DESC, f);
+		return Sort.by(f).descending();
 	}
 
 	public Sort orderByASC(String f1, String f2) {
 		// TODO Auto-generated method stub
-		return new Sort(Sort.Direction.ASC, f1).and(new Sort(Sort.Direction.ASC,f2));
+		// return new Sort(Sort.Direction.ASC, f1).and(new Sort(Sort.Direction.ASC,f2));
+		return Sort.by(f1).descending().and(Sort.by(f2).descending());
 	}
 
 	public Sort orderByDESC(String f1, String f2) {
 		// TODO Auto-generated method stub
-		return new Sort(Sort.Direction.DESC, f1).and(new Sort(Sort.Direction.DESC,f2));
+		// return new Sort(Sort.Direction.DESC, f1).and(new Sort(Sort.Direction.DESC,f2));
+		return Sort.by(f1).descending().and(Sort.by(f2).descending());
 	}
 
 	public Sort orderByASCDESC(String f1, String f2) {
 		// TODO Auto-generated method stub
-		return new Sort(Sort.Direction.ASC, f1).and(new Sort(Sort.Direction.DESC,f2));
+		// return new Sort(Sort.Direction.ASC, f1).and(new Sort(Sort.Direction.DESC,f2));
+		return Sort.by(f1).descending().and(Sort.by(f2).descending());
 	}
 
 	public Sort orderByDESCASC(String f1, String f2) {
 		// TODO Auto-generated method stub
-		return new Sort(Sort.Direction.DESC, f1).and(new Sort(Sort.Direction.ASC,f2));
+		// return new Sort(Sort.Direction.DESC, f1).and(new Sort(Sort.Direction.ASC,f2));
+		return Sort.by(f1).descending().and(Sort.by(f2).descending());
 	}
 	
 	public Sort createDynamicSort(String[] arrayOrdre) {

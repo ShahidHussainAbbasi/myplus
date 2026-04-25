@@ -45,7 +45,8 @@ public class Sell implements Serializable {
 
 	private Long itemId;
 
-	private Long customerId;
+	// @Setter@Getter
+	// private Long customerId = 0L;
 
 //	@OneToOne(fetch = FetchType.EAGER, optional = false)
 //	@JoinColumn(name = "item_type_id")
@@ -55,6 +56,7 @@ public class Sell implements Serializable {
 //	@JoinColumn(name = "item_unit_id")
 //	private ItemUnit itemUnit;
 
+	@Setter@Getter
 	private Float quantity;
 
 	@Column(name = "purchase_rate")
@@ -63,6 +65,7 @@ public class Sell implements Serializable {
 	@Column(name = "sell_rate")
 	private Float sellRate;
 
+	@Setter@Getter
 	private Float discount;
 
 	@Column(name = "total_amount")

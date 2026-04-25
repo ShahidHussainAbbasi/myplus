@@ -79,74 +79,75 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
     	Role guestRole = createRoleIfNotFound(rb.getString("guest.role").trim(), guestPrivileges);
     	
 //    	// == create initial business role & privileges
-//    	ArrayList<Privilege> privileges = new ArrayList<>();
-//        rb = ResourceBundle.getBundle("role_privileges_business");
-//    	//adding privileges
-//    	for(String key:rb.keySet()) {
-//    		System.out.println(key);
-//    		System.out.println(rb.getString(key));
-//    		if(key.startsWith("general.privilege")) {
-//    			generalPrivileges.add(createPrivilegeIfNotFound(rb.getString(key)));
-//    		}else if(key.startsWith("admin.business.privilege")){
-//    			adminPrivileges.add(createPrivilegeIfNotFound(rb.getString(key)));
-//    		}else if(key.startsWith("user.business.privilege")){
-//    			userPrivileges.add(createPrivilegeIfNotFound(rb.getString(key)));
-//    		}else if(key.startsWith("super.business.privilege")){
-//    			superPrivileges.add(createPrivilegeIfNotFound(rb.getString(key)));
-//    		}else if(key.startsWith("user.privilege")){
-//    			privileges.add(createPrivilegeIfNotFound(rb.getString(key)));
-//    		}
-//    		rb.keySet().remove(key);
-//    	}
-//    	//adding roles
-//    	for(String key:rb.keySet()) {
-//    		Role role = null;
-//    		if(key.startsWith("general.role")) {
-//    			role = createRoleIfNotFound(rb.getString(key), generalPrivileges);
-//    		}else if(key.startsWith("business.role.guest")) {
-//    			role = createRoleIfNotFound(rb.getString(key), generalPrivileges);
-//    		}else if(key.startsWith("business.role.user")) {
-//    			userPrivileges.addAll(generalPrivileges);
-//    			role = createRoleIfNotFound(rb.getString(key), userPrivileges);
-//    		}else if(key.startsWith("business.role.admin")) {
-//    			adminPrivileges.addAll(generalPrivileges);
-//    			adminPrivileges.addAll(userPrivileges);
-//    			role = createRoleIfNotFound(rb.getString(key), adminPrivileges);
-//    		}else if(key.startsWith("business.role.super")) {
-//    			superPrivileges.addAll(generalPrivileges);
-//    			superPrivileges.addAll(userPrivileges);
-//    			superPrivileges.addAll(adminPrivileges);
-//    			role = createRoleIfNotFound(rb.getString(key), superPrivileges);
-//    		}else if(key.startsWith("user.role")) {
-//    			privileges.addAll(generalPrivileges);
-//    			privileges.addAll(userPrivileges);
-//    			privileges.addAll(adminPrivileges);
-//    			privileges.addAll(superPrivileges);
-//    			role = createRoleIfNotFound(rb.getString(key), privileges);
-//    		}
-//    		if(key.startsWith("general.role")) {
-//    			createRoleIfNotFound(rb.getString(key), generalPrivileges);
-//    	        createUserIfNotFound("guest@guest.com", "Guest", "Guest", "guest", new ArrayList<Role>(Arrays.asList(role)),rb.getString("guest.user.type"));
-//    		}else if(key.startsWith("business.role.guest")) {
-//    			createRoleIfNotFound(rb.getString(key), generalPrivileges);
-//    	        createUserIfNotFound("general@general.com", "General", "General", "test", new ArrayList<Role>(Arrays.asList(role)),rb.getString("general.user.type"));
-//    		}else if(key.startsWith("business.role.user")) {
-//    			createRoleIfNotFound(rb.getString(key), privileges);
-//    	        createUserIfNotFound("uncer_sh@yahoo.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
-//    		}else if(key.startsWith("business.role.admin")) {
-//    			createRoleIfNotFound(rb.getString(key), adminPrivileges);
-//    	        createUserIfNotFound("email2uncer@gmail.com", "Shahid", "Hussain", "admin", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
-//    	        createUserIfNotFound("sameerfaisal29@gmail.com", "Faisal", "Sameer", "03453176525", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
-//    	        createUserIfNotFound("Haidergarmentskpr@gmail.com","Irfan","Shabir", "03053939495", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
-//    		}else if(key.startsWith("business.role.super")) {
-//    			createRoleIfNotFound(rb.getString(key), superPrivileges);
-//    	        createUserIfNotFound("maxtheservice@gmail.com", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
-//    		}else if(key.startsWith("user.role")) {
-//    			createRoleIfNotFound(rb.getString(key), privileges);
-//    	        createUserIfNotFound("user@user.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
-//    		}
-//    		
-//    	}
+   	ArrayList<Privilege> privileges = new ArrayList<>();
+    ArrayList<Privilege> generalPrivileges = new ArrayList<>();
+       rb = ResourceBundle.getBundle("role_privileges_business");
+   	//adding privileges
+   	for(String key:rb.keySet()) {
+   		System.out.println(key);
+   		System.out.println(rb.getString(key));
+   		if(key.startsWith("general.privilege")) {
+   			generalPrivileges.add(createPrivilegeIfNotFound(rb.getString(key)));
+   		}else if(key.startsWith("admin.business.privilege")){
+   			adminPrivileges.add(createPrivilegeIfNotFound(rb.getString(key)));
+   		}else if(key.startsWith("user.business.privilege")){
+   			userPrivileges.add(createPrivilegeIfNotFound(rb.getString(key)));
+   		}else if(key.startsWith("super.business.privilege")){
+   			superPrivileges.add(createPrivilegeIfNotFound(rb.getString(key)));
+   		}else if(key.startsWith("user.privilege")){
+   			privileges.add(createPrivilegeIfNotFound(rb.getString(key)));
+   		}
+   		rb.keySet().remove(key);
+   	}
+   	//adding roles
+   	for(String key:rb.keySet()) {
+   		Role role = null;
+   		if(key.startsWith("general.role")) {
+   			role = createRoleIfNotFound(rb.getString(key), generalPrivileges);
+   		}else if(key.startsWith("business.role.guest")) {
+   			role = createRoleIfNotFound(rb.getString(key), generalPrivileges);
+   		}else if(key.startsWith("business.role.user")) {
+   			userPrivileges.addAll(generalPrivileges);
+   			role = createRoleIfNotFound(rb.getString(key), userPrivileges);
+   		}else if(key.startsWith("business.role.admin")) {
+   			adminPrivileges.addAll(generalPrivileges);
+   			adminPrivileges.addAll(userPrivileges);
+   			role = createRoleIfNotFound(rb.getString(key), adminPrivileges);
+   		}else if(key.startsWith("business.role.super")) {
+   			superPrivileges.addAll(generalPrivileges);
+   			superPrivileges.addAll(userPrivileges);
+   			superPrivileges.addAll(adminPrivileges);
+   			role = createRoleIfNotFound(rb.getString(key), superPrivileges);
+   		}else if(key.startsWith("user.role")) {
+   			privileges.addAll(generalPrivileges);
+   			privileges.addAll(userPrivileges);
+   			privileges.addAll(adminPrivileges);
+   			privileges.addAll(superPrivileges);
+   			role = createRoleIfNotFound(rb.getString(key), privileges);
+   		}
+   		if(key.startsWith("general.role")) {
+   			createRoleIfNotFound(rb.getString(key), generalPrivileges);
+   	        createUserIfNotFound("guest@guest.com", "Guest", "Guest", "guest", new ArrayList<Role>(Arrays.asList(role)),rb.getString("guest.user.type"));
+   		}else if(key.startsWith("business.role.guest")) {
+   			createRoleIfNotFound(rb.getString(key), generalPrivileges);
+   	        createUserIfNotFound("general@general.com", "General", "General", "test", new ArrayList<Role>(Arrays.asList(role)),rb.getString("general.user.type"));
+   		}else if(key.startsWith("business.role.user")) {
+   			createRoleIfNotFound(rb.getString(key), privileges);
+   	        createUserIfNotFound("uncer_sh@yahoo.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
+   		}else if(key.startsWith("business.role.admin")) {
+   			createRoleIfNotFound(rb.getString(key), adminPrivileges);
+   	        createUserIfNotFound("email2uncer@gmail.com", "Shahid", "Hussain", "admin", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
+   	        createUserIfNotFound("sameerfaisal29@gmail.com", "Faisal", "Sameer", "03453176525", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
+   	        createUserIfNotFound("Haidergarmentskpr@gmail.com","Irfan","Shabir", "03053939495", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
+   		}else if(key.startsWith("business.role.super")) {
+   			createRoleIfNotFound(rb.getString(key), superPrivileges);
+   	        createUserIfNotFound("maxtheservice@gmail.com", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
+   		}else if(key.startsWith("user.role")) {
+   			createRoleIfNotFound(rb.getString(key), privileges);
+   	        createUserIfNotFound("user@user.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
+   		}
+   		
+   	}
     	
         rb = ResourceBundle.getBundle("role_privileges_business");
     	createUserIfNotFound("user@business.com", "Shahid", "Hussain", "user", new ArrayList<Role>(Arrays.asList(superRole)),rb.getString("business.user.type"));

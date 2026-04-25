@@ -754,6 +754,7 @@ function calculateChange(){
 
 function loadSR(){
 	tableSellReport.clear().draw();
+	validateForm();
 	$.ajax({
 		type : "POST",
 		url : serverContext + "loadSR",

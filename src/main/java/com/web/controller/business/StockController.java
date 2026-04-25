@@ -28,7 +28,7 @@ import com.persistence.model.business.Stock;
 import com.persistence.model.business.Vender;
 import com.service.business.ICompanyService;
 import com.service.business.IItemService;
-import com.service.business.IItemTypeService;
+// import com.service.business.IItemTypeService;
 import com.service.business.IItemUnitService;
 import com.service.business.IStockService;
 import com.service.business.IVenderService;
@@ -54,8 +54,8 @@ public class StockController {
 	@Autowired
 	ICompanyService companyService;
 
-	@Autowired
-	IItemTypeService itemTypeService;
+	// @Autowired
+	// IItemTypeService itemTypeService;
 
 	@Autowired
 	IItemUnitService itemUnitService;

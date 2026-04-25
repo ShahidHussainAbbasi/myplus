@@ -15,7 +15,7 @@ public class Geolocation implements Serializable {
 
 	@Id
 	@GeneratedValue(strategy=GenerationType.AUTO)
-	private String id;
+	private Long id;
 
 	private String address;
 
@@ -44,11 +44,11 @@ public class Geolocation implements Serializable {
 	public Geolocation() {
 	}
 
-	public String getId() {
+	public Long getId() {
 		return this.id;
 	}
 
-	public void setId(String id) {
+	public void setId(Long id) {
 		this.id = id;
 	}
 

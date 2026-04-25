@@ -23,7 +23,7 @@ public class Patient implements Serializable {
 	@Id
 	@GeneratedValue(strategy=GenerationType.AUTO)
 	@Column(name="patient_id")
-	private int patientId;
+	private Long patientId;
 
 	private String address;
 
@@ -44,11 +44,11 @@ public class Patient implements Serializable {
 	public Patient() {
 	}
 
-	public int getPatientId() {
+	public Long getPatientId() {
 		return this.patientId;
 	}
 
-	public void setPatientId(int patientId) {
+	public void setPatientId(Long patientId) {
 		this.patientId = patientId;
 	}
 

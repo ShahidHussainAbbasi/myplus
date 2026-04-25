@@ -1,8 +1,8 @@
-package com.service.business;
+// package com.service.business;
 
-import com.persistence.Repo.business.CustomerRepo;
+// import com.persistence.Repo.business.CustomerRepo;
 
-public interface ICustomerService extends CustomerRepo{
+// public interface ICustomerService extends CustomerRepo{
 
 
-}
+// }

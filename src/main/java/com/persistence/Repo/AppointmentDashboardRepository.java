@@ -24,13 +24,13 @@ import com.persistence.model.Hospital;
 @Repository
 public interface AppointmentDashboardRepository extends PagingAndSortingRepository<Appointment,Long>, CrudRepository<Appointment, Long> {
 	
-	@Query(value="select * from appointment t where t.hospital in :hospital",nativeQuery=true)
+	@Query(value="select * from appointment t where t.hospital in (:hospital)",nativeQuery=true)
 	List<Appointment> findByHospitalIds(@Param("hospital") List<Hospital> hospital);
 	
-	@Query(value="select * from appointment t where t.FK_hospital_id in :hospital" ,nativeQuery=true)
+	@Query(value="select * from appointment t where t.FK_hospital_id in (:hospital)" ,nativeQuery=true)
 	Page<Appointment> findByHospitalIds2(@Param("hospital") List<Hospital> hospital,Pageable pageRequest);
 	
-	@Query(value="select * from appointment t where t.FK_hospital_id in :hospital" ,nativeQuery=true)
+	@Query(value="select * from appointment t where t.FK_hospital_id in (:hospital)" ,nativeQuery=true)
 	List<Appointment> findAppointmentsByHospitalIds(@Param("hospital") List<Hospital> hospital);
 	
 }

@@ -30,9 +30,9 @@ import com.persistence.model.User;
 import com.persistence.model.business.Item;
 import com.persistence.model.business.Sell;
 import com.persistence.model.business.Stock;
-import com.service.business.ICustomerService;
+// import com.service.business.ICustomerService;
 import com.service.business.IItemService;
-import com.service.business.IItemTypeService;
+// import com.service.business.IItemTypeService;
 import com.service.business.IItemUnitService;
 import com.service.business.IPurchaseService;
 import com.service.business.ISellService;
@@ -55,11 +55,11 @@ public class SellController {
 	@Autowired
 	ISellService sellService;
 	
-	@Autowired
-	ICustomerService customerService;
+	// @Autowired
+	// ICustomerService customerService;
 
-	@Autowired
-	IItemTypeService itemTypeService;
+	// @Autowired
+	// IItemTypeService itemTypeService;
 
 	@Autowired
 	IItemUnitService itemUnitService;
