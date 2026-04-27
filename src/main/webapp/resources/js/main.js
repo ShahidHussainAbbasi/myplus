@@ -502,15 +502,18 @@ const nonCapitalize = (s) => {
 function editRecord(doc){
 	edit = true;
     var form = document.getElementsByClassName('form-horizontal')[tableV];
+	if (!form || form.length<=2) {
+		return false;
+	}
     formFields = form.length-2;
-	for(var i=0; i<(formFields); i++){
-		if(doc.getElementById(form[i].id)){
-			if(doc.getElementById(form[i].id).type == 'checkbox'){
-				$("#"+form[i].id).val(doc.getElementById(form[i].id).value*ONE);
+	for(var i=0; i<(formFields); i++) {
+		if(form[i].id) {
+			const element = doc.getElementById(form[i].id);
+			if (!element) {
 				continue;
 			}
-			var text = doc.getElementById(form[i].id).textContent;
-			if(form[i].tagName=="SELECT"){
+			var text = element.textContent;
+			if(form[i].tagName=="SELECT") {
 				var labels = text.split(",");
 				labels.forEach(function(entry) {
 					$("#"+form[i].id+" option").each(function() {
@@ -527,7 +530,7 @@ function editRecord(doc){
 				$("#"+form[i].id).val(text);
 			}
 			// Handled bootstrap drop down
-			if(form[i].className.indexOf("selectpicker")>-1){
+			if(form[i].className.indexOf("selectpicker")>-1) {
 				$( "#"+form[i].id+" :selected" ).text(text);
 				$("#"+form[i].id).selectpicker('refresh');
 			}

@@ -101,6 +101,10 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/resources/**").addResourceLocations("/", "/resources/");
     }
 
+    // @Override
+    // public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    //     registry.addResourceHandler("/**").addResourceLocations("classpath:/static/", "classpath:/public/");
+    // }    
     @Override
     public void addInterceptors(final InterceptorRegistry registry) {
         final LocaleChangeInterceptor localeChangeInterceptor = new LocaleChangeInterceptor();

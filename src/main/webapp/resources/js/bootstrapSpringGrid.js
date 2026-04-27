@@ -424,7 +424,7 @@ function loadDataTable(){
 					//load dropdowns for user
 					loadUserCompanies();
 					loadUserVenders();
-					laodUserItemTypes();
+					// laodUserItemTypes();
 					loadUserItemUnits();
 				}
 			},

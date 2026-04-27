@@ -20,6 +20,7 @@ import org.hibernate.annotations.NotFoundAction;
 
 import com.persistence.model.Company;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -27,6 +28,7 @@ import lombok.Setter;
  * The persistent class for the doctor database table.
  * 
  */
+@Data
 @Entity
 @Table(name = "item")
 public class Item implements Serializable {
@@ -36,48 +38,48 @@ public class Item implements Serializable {
 	@SequenceGenerator(name = "item_gen", sequenceName = "item_seq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "item_gen")	
 	@Column(name = "item_id", unique = true, nullable = false)
-	@Getter@Setter
+	// @Getter@Setter
 	private Long id;
 
 	@Column(name = "user_id")
-	@Getter@Setter
+	// @Getter@Setter
 	private Long userId;
 
 	@Column(name = "user_type")
 	@Getter@Setter
 	private String userType;
 
-	@Getter@Setter
+	// @Getter@Setter
 	private String iname;
 
-	@Getter@Setter
+	// @Getter@Setter
 	private String icode;
 
 	@Column(name = "description")
-	@Getter@Setter
+	// @Getter@Setter
 	private String idesc;
 
 	@Column(name = "purchase_amount")
-	@Getter@Setter
+	// @Getter@Setter
 	private Float purchaseAmount;
 
 	@Column(name = "sell_amount")
-	@Getter@Setter
+	// @Getter@Setter
 	private Float sellAmount;
 
-	@Getter@Setter
+	// @Getter@Setter
 	private Float discount;
 
-	@Getter@Setter
+	// @Getter@Setter
 	private String discountType;
 
-	@Getter@Setter
+	// @Getter@Setter
 	private Float net;
 
-	@Getter@Setter
+	// @Getter@Setter
 	private LocalDate expDate;
 
-	@Getter@Setter
+	// @Getter@Setter
 	private Float stock;
 
 //	@OneToMany(cascade= CascadeType.REFRESH)
@@ -104,7 +106,7 @@ public class Item implements Serializable {
 	@OneToOne(fetch = FetchType.EAGER)
 	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinColumn(name = "company_id")
-	@Getter@Setter
+	// @Getter@Setter
 	private Company company;
 
 //	@OneToOne(fetch = FetchType.LAZY)
@@ -113,17 +115,17 @@ public class Item implements Serializable {
 //	@MapsId
 //	@OneToOne(fetch = FetchType.LAZY)
 //	@MapsId
-	@Getter@Setter
+	// @Getter@Setter
 	private Long venderId;
 
 	@Column(updatable = false)
-	@Getter@Setter
+	// @Getter@Setter
 	private LocalDateTime dated;
 
-	@Getter@Setter
+	// @Getter@Setter
 	private LocalDateTime updated;
 	
-	@Getter@Setter
+	// @Getter@Setter
 	@JoinColumn(name = "batch_number")
 	private String bn;
 

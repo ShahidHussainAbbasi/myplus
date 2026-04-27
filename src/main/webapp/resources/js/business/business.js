@@ -326,7 +326,7 @@ function loadDataTable(){
 					var table = tableV.toLowerCase();
 					loadUserCompanies(table);
 					loadUserVenders(table);
-					laodUserItemTypes(table);
+					// laodUserItemTypes(table);
 					loadUserItemUnits(table);
 					loadUserItems(table);
 					reload=tableV;
@@ -640,7 +640,7 @@ function getStockByBatch(batchNo){
 			    	if($("#purchaseQuantity").val()*1<=0){
 			    		$("#purchaseQuantity").val(1);
 			    	}
-			    	$("#purchaseItemDesc").val(data.idesc);
+			    	// $("#purchaseItemDesc").val(data.idesc);
 			    	$("#pdt").html(discountType+" Discount");
 			    	calculateNetPurchase();
 	    		}else if(tableV=="Sell"){
@@ -653,7 +653,7 @@ function getStockByBatch(batchNo){
 		    			return false;
 		    		}else{
 			    		$("#sellStock").val(batchStock);
-			    		$("#sellItemDesc").val(data.desc);
+			    		// $("#sellItemDesc").val(data.desc);
 				    	$("#bexpDate").val(data.bexpDate);
 			    		$("#sellPurchaseRate").val(data.bpurchaseRate);
 				    	$("#sellSellRate").val(data.bsellRate)
@@ -661,7 +661,7 @@ function getStockByBatch(batchNo){
 				    	if($("#sellItems").val()*1<=0){
 				    		$("#sellItems").val(1);
 				    	}
-				    	$("#sellItemDesc").val(data.idesc);
+				    	// $("#sellItemDesc").val(data.idesc);
 				    	calculateNetSell();
 		    		}
 	    		}

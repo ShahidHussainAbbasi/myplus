@@ -19,10 +19,13 @@ import org.hibernate.annotations.NotFoundAction;
 
 import com.persistence.model.Company;
 
+import lombok.Data;
+
 /**
  * The persistent class for the doctor database table.
  * 
  */
+@Data
 @Entity
 @Table(name = "vender", uniqueConstraints = { @UniqueConstraint(columnNames = "vender_id") })
 public class Vender implements Serializable {
@@ -47,194 +50,202 @@ public class Vender implements Serializable {
 	@JoinColumn(name = "company_id")
 	private Company company;
 
+	
+	@Column(name = "mobile")
 	private String mobile;
 
+	@Column(name = "phone")
 	private String phone;
 
+	@Column(name = "address")
 	private String address;
 
+	@Column(name = "email")
 	private String email;
 
+	@Column(name = "description")
 	private String description;
 
+	@Column(name = "dated")
 	private LocalDateTime dated;
 
+	@Column(name = "updated")
 	private LocalDateTime updated;
 
-	/**
-	 * @return the id
-	 */
-	public Long getId() {
-		return id;
-	}
+	// /**
+	//  * @return the id
+	//  */
+	// public Long getId() {
+	// 	return id;
+	// }
 
-	/**
-	 * @param id the id to set
-	 */
-	public void setId(Long id) {
-		this.id = id;
-	}
+	// /**
+	//  * @param id the id to set
+	//  */
+	// public void setId(Long id) {
+	// 	this.id = id;
+	// }
 
-	/**
-	 * @return the userId
-	 */
-	public Long getUserId() {
-		return userId;
-	}
+	// /**
+	//  * @return the userId
+	//  */
+	// public Long getUserId() {
+	// 	return userId;
+	// }
 
-	/**
-	 * @param userId the userId to set
-	 */
-	public void setUserId(Long userId) {
-		this.userId = userId;
-	}
+	// /**
+	//  * @param userId the userId to set
+	//  */
+	// public void setUserId(Long userId) {
+	// 	this.userId = userId;
+	// }
 
-	/**
-	 * @return the name
-	 */
-	public String getName() {
-		return name;
-	}
+	// /**
+	//  * @return the name
+	//  */
+	// public String getName() {
+	// 	return name;
+	// }
 
-	/**
-	 * @param name the name to set
-	 */
-	public void setName(String name) {
-		this.name = name;
-	}
+	// /**
+	//  * @param name the name to set
+	//  */
+	// public void setName(String name) {
+	// 	this.name = name;
+	// }
 
-	/**
-	 * @return the company
-	 */
-	public Company getCompany() {
-		return company;
-	}
+	// /**
+	//  * @return the company
+	//  */
+	// public Company getCompany() {
+	// 	return company;
+	// }
 
-	/**
-	 * @param company the company to set
-	 */
-	public void setCompany(Company company) {
-		this.company = company;
-	}
+	// /**
+	//  * @param company the company to set
+	//  */
+	// public void setCompany(Company company) {
+	// 	this.company = company;
+	// }
 
-	/**
-	 * @return the description
-	 */
-	public String getDescription() {
-		return description;
-	}
+	// /**
+	//  * @return the description
+	//  */
+	// public String getDescription() {
+	// 	return description;
+	// }
 
-	/**
-	 * @param description the description to set
-	 */
-	public void setDescription(String description) {
-		this.description = description;
-	}
+	// /**
+	//  * @param description the description to set
+	//  */
+	// public void setDescription(String description) {
+	// 	this.description = description;
+	// }
 
-	/**
-	 * @return the mobile
-	 */
-	public String getMobile() {
-		return mobile;
-	}
+	// /**
+	//  * @return the mobile
+	//  */
+	// public String getMobile() {
+	// 	return mobile;
+	// }
 
-	/**
-	 * @param mobile the mobile to set
-	 */
-	public void setMobile(String mobile) {
-		this.mobile = mobile;
-	}
+	// /**
+	//  * @param mobile the mobile to set
+	//  */
+	// public void setMobile(String mobile) {
+	// 	this.mobile = mobile;
+	// }
 
-	/**
-	 * @return the phone
-	 */
-	public String getPhone() {
-		return phone;
-	}
+	// /**
+	//  * @return the phone
+	//  */
+	// public String getPhone() {
+	// 	return phone;
+	// }
 
-	/**
-	 * @param phone the phone to set
-	 */
-	public void setPhone(String phone) {
-		this.phone = phone;
-	}
+	// /**
+	//  * @param phone the phone to set
+	//  */
+	// public void setPhone(String phone) {
+	// 	this.phone = phone;
+	// }
 
-	/**
-	 * @return the address
-	 */
-	public String getAddress() {
-		return address;
-	}
+	// /**
+	//  * @return the address
+	//  */
+	// public String getAddress() {
+	// 	return address;
+	// }
 
-	/**
-	 * @param address the address to set
-	 */
-	public void setAddress(String address) {
-		this.address = address;
-	}
+	// /**
+	//  * @param address the address to set
+	//  */
+	// public void setAddress(String address) {
+	// 	this.address = address;
+	// }
 
-	/**
-	 * @return the email
-	 */
-	public String getEmail() {
-		return email;
-	}
+	// /**
+	//  * @return the email
+	//  */
+	// public String getEmail() {
+	// 	return email;
+	// }
 
-	/**
-	 * @param email the email to set
-	 */
-	public void setEmail(String email) {
-		this.email = email;
-	}
+	// /**
+	//  * @param email the email to set
+	//  */
+	// public void setEmail(String email) {
+	// 	this.email = email;
+	// }
 
-	/**
-	 * @return the dated
-	 */
-	public LocalDateTime getDated() {
-		return dated;
-	}
+	// /**
+	//  * @return the dated
+	//  */
+	// public LocalDateTime getDated() {
+	// 	return dated;
+	// }
 
-	/**
-	 * @param dated the dated to set
-	 */
-	public void setDated(LocalDateTime dated) {
-		this.dated = dated;
-	}
+	// /**
+	//  * @param dated the dated to set
+	//  */
+	// public void setDated(LocalDateTime dated) {
+	// 	this.dated = dated;
+	// }
 
-	/**
-	 * @return the updated
-	 */
-	public LocalDateTime getUpdated() {
-		return updated;
-	}
+	// /**
+	//  * @return the updated
+	//  */
+	// public LocalDateTime getUpdated() {
+	// 	return updated;
+	// }
 
-	/**
-	 * @param updated the updated to set
-	 */
-	public void setUpdated(LocalDateTime updated) {
-		this.updated = updated;
-	}
+	// /**
+	//  * @param updated the updated to set
+	//  */
+	// public void setUpdated(LocalDateTime updated) {
+	// 	this.updated = updated;
+	// }
 
-	/**
-	 * @return the serialversionuid
-	 */
-	public static long getSerialversionuid() {
-		return serialVersionUID;
-	}
+	// /**
+	//  * @return the serialversionuid
+	//  */
+	// public static long getSerialversionuid() {
+	// 	return serialVersionUID;
+	// }
 
-	/**
-	 * @return the userType
-	 */
-	public String getUserType() {
-		return userType;
-	}
+	// /**
+	//  * @return the userType
+	//  */
+	// public String getUserType() {
+	// 	return userType;
+	// }
 
-	/**
-	 * @param userType the userType to set
-	 */
-	public void setUserType(String userType) {
-		this.userType = userType;
-	}
+	// /**
+	//  * @param userType the userType to set
+	//  */
+	// public void setUserType(String userType) {
+	// 	this.userType = userType;
+	// }
 
 	/*
 	 * (non-Javadoc)

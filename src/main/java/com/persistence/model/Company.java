@@ -12,6 +12,7 @@ import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -19,6 +20,7 @@ import lombok.Setter;
  * The persistent class for the doctor database table.
  * 
  */
+@Data
 @Entity
 @Table(name = "company", uniqueConstraints = { @UniqueConstraint(columnNames = "company_id") })
 
@@ -29,54 +31,54 @@ public class Company implements Serializable {
 	@SequenceGenerator(name = "comp_gen", sequenceName = "comp_seq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "comp_gen")	
 	@Column(name = "company_id", unique = true, nullable = false)
-    @Getter@Setter
+    // @Getter@Setter
 	private Long id;
 
 	@Column(name = "user_id", nullable = false)
-    @Getter@Setter
+    // @Getter@Setter
 	private Long userId;
 
 	@Column(name = "user_type")
-    @Getter@Setter
+    // @Getter@Setter
 	private String userType;
 
 	@Column(name = "name", nullable = false)
-    @Getter@Setter
+    // @Getter@Setter
 	private String name;
 
 	@Column(name = "email")
-    @Getter@Setter
+    // @Getter@Setter
 	private String email;
 
-    @Getter@Setter
+    // @Getter@Setter
 	private String mobile;
 
-    @Getter@Setter
+    // @Getter@Setter
 	private String phone;
 
-    @Getter@Setter
+    // @Getter@Setter
 	private String address;
 
-    @Getter@Setter
+    // @Getter@Setter
     private String wattsApp;
 
-    @Getter@Setter
+    // @Getter@Setter
     private String faceBook;
 
-    @Getter@Setter
+    // @Getter@Setter
 	private String website;
 
     @Lob
-    @Getter@Setter
+    // @Getter@Setter
     private byte[] logo;
 
-    @Getter@Setter
+    // @Getter@Setter
 	private String description;
 
-    @Getter@Setter
+    // @Getter@Setter
     private LocalDateTime dated;
 
-    @Getter@Setter
+    // @Getter@Setter
 	private LocalDateTime updated;
 
 

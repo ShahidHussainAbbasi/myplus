@@ -204,7 +204,7 @@ public class PurchaseService implements IPurchaseService{
 		Purchase obj = modelMapper.map(dto, Purchase.class);
 		obj.setStock(stock);
 		obj.setUserId(requestUtil.getCurrentUser().getId());
-		stockService.save(stock);
+		// stockService.save(stock);
 		return this.save(obj);
 	}
 

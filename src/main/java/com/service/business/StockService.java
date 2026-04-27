@@ -216,25 +216,12 @@ public class StockService implements IStockService {
 	public Stock updateStock(PurchaseDTO dto) {
 		Float stock = dto.getQuantity();
 		Long stockId = null;
-		Stock obj = new Stock();		
-		obj.setUserId(requestUtil.getCurrentUser().getId());
-		obj.setBatchNo(appUtil.isEmptyOrNull(dto.getStockDTO().getBatchNo())?"":dto.getStockDTO().getBatchNo());
-		obj.setItemId(dto.getItemId());
-        Example<Stock> example = Example.of(obj);
-		Optional<Stock> optional = this.findOne(example);
+		Stock obj = new Stock();
+		Optional<Stock> optional = this.checkStock(obj, dto);
 		if(optional.isPresent()) {
 			Stock stockTemp = optional.get();
-			stockId = stockTemp.getStockId(); //purchaseService.getOne(dto.getId());
-			if(appUtil.isEmptyOrNull(dto.getPurchaseId())) {//mean new purchase
-				stock = stockTemp.getStock() + stock;//5 2
-			}else {
-				if(stockTemp.getStock() > stock) {
-					stock = stockTemp.getStock() + (stock - stockTemp.getStock());//5.2-2
-				}else {
-					stock = stockTemp.getStock() - (stockTemp.getStock() - stock);//5.2-2
-//					stock = stockTemp.getStock() + stock;//5.2-2
-				}
-			}
+			stockId = stockTemp.getStockId();
+			stock = stockTemp.getStock() + stock;
 		}
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
@@ -244,26 +231,22 @@ public class StockService implements IStockService {
 		obj.setStockId(stockId);
 		obj.setItemId(dto.getItemId());
 		obj.setStock(stock);
+		this.save(obj);
 		return obj;
-//		if(optional.isPresent()) {
-//			Stock objTemp = optional.get(); //purchaseService.getOne(dto.getId());
-//			if(objTemp.getBstock() > dto.getQuantity()) {
-//				stock = item.getStock() + (dto.getQuantity() - objTemp.getBstock());
-//			}else {
-//				stock = item.getStock() - (objTemp.getBstock() - dto.getQuantity());
-//			}
-////			item.setStock(stock);	
-//		}
+	}	
 
-//			dto.setStockDTO(modelMapper.map(obj, StockDTO.class));
-////			this.save(obj);
-//			dto.setPstockId(obj.getStockId());
-		}
+	@SuppressWarnings("null")
+	private Optional<Stock> checkStock(Stock obj, PurchaseDTO dto) {
+		obj.setUserId(requestUtil.getCurrentUser().getId());
+		obj.setBatchNo(appUtil.isEmptyOrNull(dto.getStockDTO().getBatchNo())?"":dto.getStockDTO().getBatchNo());
+		obj.setItemId(dto.getItemId());
+        Example<Stock> example = Example.of(obj);
+		return Optional.ofNullable(this.findOne(example).orElse(new Stock()));
+	}
 
 	@Override
 	public Stock updateStock(SellDTO dto) {
 		Float stock = dto.getQuantity();
-//		Long stockId = null;
 		Stock obj = new Stock();
 		
 		obj.setUserId(requestUtil.getCurrentUser().getId());
@@ -275,31 +258,12 @@ public class StockService implements IStockService {
         Example<Stock> example = Example.of(obj);
 		Stock stockTemp = this.findAll(example).get(0);
 		if(!appUtil.isEmptyOrNull(stockTemp)) {
-//			Stock stockTemp = optional.get();
-//			stockId = stockTemp.getStockId(); //purchaseService.getOne(dto.getId());
-			if(appUtil.isEmptyOrNull(dto.getSellId())) {//mean new purchase
-				stock = stockTemp.getStock() - stock;//5 2
-			}else {
-				if(stockTemp.getStock() > stock) {
-					stock = stockTemp.getStock() - (stockTemp.getStock() - stock);//5.2-2
-				}else {
-					stock = stockTemp.getStock() + stock;//5.2-2
-				}
-			}
-			stockTemp.setStock(stock);
-			return stockTemp;
-		}else {
-			obj.setStock(stock);
-			return obj;
+			stock = stockTemp.getStock() - stock;
 		}
-//		modelMapper.addConverter(appUtil.stringToLocalDate);
-//		modelMapper.addConverter(appUtil.stringToLocalDateTime);
-//		obj = modelMapper.map(dto.getStockDTO(), Stock.class);
-//		obj.setUserId(requestUtil.getCurrentUser().getId());
-//		obj.setStockId(stockId);
-//		obj.setItemId(dto.getItemId());
-//		obj.setStock(stock);
-//		return obj;
+		stockTemp.setStock(stock);
+		this.save(stockTemp);
+		return stockTemp;
+		
 	}
 
 	@Override
