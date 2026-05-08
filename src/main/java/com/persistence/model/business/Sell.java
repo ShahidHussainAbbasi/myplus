@@ -10,6 +10,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
@@ -18,16 +19,15 @@ import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
-@Entity
-@Table(name = "sell", uniqueConstraints = { @UniqueConstraint(columnNames = "sell_id") })
 @Data
+ @Entity
+@Table(name = "sell", uniqueConstraints = { @UniqueConstraint(columnNames = "sell_id") })
+
 public class Sell implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -43,10 +43,11 @@ public class Sell implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
-	private Long itemId;
+	@OneToOne(fetch = FetchType.LAZY, optional = true)
+	@NotFound(action = NotFoundAction.IGNORE)
+	@JoinColumn(name = "item_id")
+	private Item item;
 
-	// @Setter@Getter
-	// private Long customerId = 0L;
 
 //	@OneToOne(fetch = FetchType.EAGER, optional = false)
 //	@JoinColumn(name = "item_type_id")
@@ -56,16 +57,11 @@ public class Sell implements Serializable {
 //	@JoinColumn(name = "item_unit_id")
 //	private ItemUnit itemUnit;
 
-	@Setter@Getter
 	private Float quantity;
-
-	@Column(name = "purchase_rate")
-	private Float purchaseRate;
 
 	@Column(name = "sell_rate")
 	private Float sellRate;
 
-	@Setter@Getter
 	private Float discount;
 
 	@Column(name = "total_amount")
@@ -86,25 +82,8 @@ public class Sell implements Serializable {
 	private LocalDateTime dated;
 
 	private LocalDateTime updated;
-
-//	@Column(name = "received")
-//	@Getter@Setter
-//	private String R;
-//	
-//	@Column(name = "balance")
-//	@Getter@Setter
-//	private String B;
-	
-	@Column(name = "customer_name")
-	@Getter@Setter
-	private String cn;
-	
-	@Column(name = "customer_contact")
-	@Getter@Setter
-	private String cc;
 	
 	@Column(name = "return_reason")
-	@Getter@Setter
 	private Float re;
 
 //	@ManyToOne(fetch = FetchType.EAGER,cascade=CascadeType.ALL)
@@ -113,9 +92,16 @@ public class Sell implements Serializable {
 	@ManyToOne(fetch = FetchType.LAZY, optional = true)
 	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinColumn(name="stock_id")
-	@Getter@Setter
 	private Stock stock;	
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer  customer;
+
+	@ManyToOne (fetch = FetchType.LAZY) // ← Must have this field
+    @JoinColumn(name = "customer_history_id")
+    private CustomerHistory customerHistory;  // ← Field name must match mappedBy
+    	
 	/**
 	 * @return the serialversionuid
 	 */

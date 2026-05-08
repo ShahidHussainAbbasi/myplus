@@ -127,8 +127,9 @@ public class CompanyController {
 			if(appUtil.isEmptyOrNull(dto.getId())){
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
-				if(companyService.exists(example))
-					return new GenericResponse("FOUND",messages.getMessage("The Company "+dto.getName()+" already exist", null, request.getLocale()));				
+				if(companyService.exists(example)) {
+					return new GenericResponse("FOUND",messages.getMessage("The Company "+dto.getName()+" already exist", null, request.getLocale()));		
+				}		
 			}
 			
 			obj = modelMapper.map(dto, Company.class);

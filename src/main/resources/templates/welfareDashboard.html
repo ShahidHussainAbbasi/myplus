@@ -1,25 +1,15 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="icon" type="image/jpg" sizes="60x50" href="resources/favicon.jpeg"/>
-<div th:replace="header :: header-css" />
+<link rel="icon" type="image/jpg" sizes="60x50" th:href="@{favicon.jpeg}"/>
+<th:block th:replace="~{fragments/header :: header-css}" />
 
-<!-- <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.css"/> 
-<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.js"></script>
 
-<script src="resources/js/bootstrap/js/bootstrap.js"></script>
-<script src="resources/bootstrap/js/moment.js"></script>
-<script src="resources/bootstrap/js/bootstrap-datetimepicker.js"></script>
-<script src="resources/js/datatables.min.js"></script>
-<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.12/datatables.min.js"></script>
-<link rel="stylesheet" href="resources/js/bootstrap/css/bootstrap.min.css">
-<link rel="stylesheet"	href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css">
- --><script src="resources/js/welfare/welfare.js"></script>
-<!-- <script src="resources/js/datatables.min.js"></script> -->
+
 
 </head>
 <body>
-	<div th:replace="header :: header" />
+	<th:block th:replace="header :: header" />
 	<nav class="subnav" id="nav-subheader">
 		<div class="container-fluid">
 			<ul class="nav navbar-nav">
@@ -190,6 +180,7 @@
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>
-	<div th:replace="footer :: footer" />
+	<script th:src="@{/js/welfare/welfare.js}"></script>
+	<th:block th:replace="~{fragments/footer :: footer}"/>
 </body>
 </html>

@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-  <link rel="stylesheet" type="text/css" href="./resources/main.css" />
+  <link rel="stylesheet" type="text/css" th:href="@{/main.css}" />
 	<title th:text="#{label.pages.home.title}">Title</title>
 </head>
 <body>
@@ -23,7 +23,7 @@
 			    <h3 class="alert alert-danger" th:text="#{message.sessionExpired}">expired</h3>
 		   </div>
 	    </div>
-	    <div th:replace="footer :: footer"/>
+	    <th:block th:replace="footer :: footer"/>
 	  </div> 
 </body>
 </html>

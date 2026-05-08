@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="icon" type="image/jpg" sizes="60x50" href="resources/favicon.jpeg"/>
-<div th:replace="header :: header-css" />
-	<script src="resources/js/agriculture/agriculture.js"></script>
+	<link rel="icon" type="image/jpg" sizes="60x50" th:href="@{favicon.jpeg}"/>
+	<th:block th:replace="~{fragments/header :: header-css}"></th:block>
 </head>
 <body>
    	<div id="container" class="wrapper">
-		<div th:replace="header :: header"/>
+		<th:block th:replace="~{fragments/header :: header}"/>
 	    <div id="content">
 			<nav class="subnav" id="nav-subheader">
 				<div class="container-fluid">
@@ -457,10 +456,18 @@
 				</div> -->
 			</div>
 		</div>
-		<div th:replace="footer :: footer" />
+		<th:block th:replace="footer :: footer" />
 	</div>
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>
+
+    <!-- STEP 1: jQuery + all plugins -->
+    <th:block th:replace="~{fragments/header :: header-js}"></th:block>
+
+    <!-- STEP 2: page-specific JS — AFTER jQuery -->
+    <script type="text/javascript" th:src="@{/js/jspdf.min.js}"></script>
+    <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
+	<script th:src="@{/js/agriculture/agriculture.js}"></script>
 </body>
 </html>

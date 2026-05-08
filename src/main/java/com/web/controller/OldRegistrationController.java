@@ -95,7 +95,7 @@ public class OldRegistrationController {
         user.setEnabled(true);
         userService.saveRegisteredUser(user);
         model.addAttribute("message", messages.getMessage("message.accountVerified", null, locale));
-        return "redirect:/login.html?lang=" + locale.getLanguage();
+        return "redirect:/login?lang=" + locale.getLanguage();
     }
 
     @RequestMapping(value = "/user/registration", method = RequestMethod.POST)
@@ -132,10 +132,10 @@ public class OldRegistrationController {
         } catch (final Exception e) {
             LOGGER.debug(e.getLocalizedMessage(), e);
             model.addAttribute("message", e.getLocalizedMessage());
-            return "redirect:/login.html?lang=" + locale.getLanguage();
+            return "redirect:/login?lang=" + locale.getLanguage();
         }
         model.addAttribute("message", messages.getMessage("message.resendToken", null, locale));
-        return "redirect:/login.html?lang=" + locale.getLanguage();
+        return "redirect:/login?lang=" + locale.getLanguage();
     }
 
     @RequestMapping(value = "/user/resetPassword", method = RequestMethod.POST)
@@ -143,7 +143,7 @@ public class OldRegistrationController {
         final User user = userService.findUserByEmail(userEmail);
         if (user == null) {
             model.addAttribute("message", messages.getMessage("message.userNotFound", null, request.getLocale()));
-            return "redirect:/login.html?lang=" + request.getLocale().getLanguage();
+            return "redirect:/login?lang=" + request.getLocale().getLanguage();
         }
 
         final String token = UUID.randomUUID().toString();
@@ -158,10 +158,10 @@ public class OldRegistrationController {
         } catch (final Exception e) {
             LOGGER.debug(e.getLocalizedMessage(), e);
             model.addAttribute("message", e.getLocalizedMessage());
-            return "redirect:/login.html?lang=" + request.getLocale().getLanguage();
+            return "redirect:/login?lang=" + request.getLocale().getLanguage();
         }
         model.addAttribute("message", messages.getMessage("message.resetPasswordEmail", null, request.getLocale()));
-        return "redirect:/login.html?lang=" + request.getLocale().getLanguage();
+        return "redirect:/login?lang=" + request.getLocale().getLanguage();
     }
 
     @RequestMapping(value = "/user/changePassword", method = RequestMethod.GET)
@@ -173,13 +173,13 @@ public class OldRegistrationController {
         if ((passToken == null) || (user.getId() != id)) {
             final String message = messages.getMessage("auth.message.invalidToken", null, locale);
             model.addAttribute("message", message);
-            return "redirect:/login.html?lang=" + locale.getLanguage();
+            return "redirect:/login?lang=" + locale.getLanguage();
         }
 
         final Calendar cal = Calendar.getInstance();
         if ((passToken.getExpiryDate().getTime() - cal.getTime().getTime()) <= 0) {
             model.addAttribute("message", messages.getMessage("auth.message.expired", null, locale));
-            return "redirect:/login.html?lang=" + locale.getLanguage();
+            return "redirect:/login?lang=" + locale.getLanguage();
         }
 
         final Authentication auth = new UsernamePasswordAuthenticationToken(user, null, userDetailsService.loadUserByUsername(user.getEmail()).getAuthorities());
@@ -196,7 +196,7 @@ public class OldRegistrationController {
         final User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         userService.changeUserPassword(user, password);
         model.addAttribute("message", messages.getMessage("message.resetPasswordSuc", null, locale));
-        return "redirect:/login.html?lang=" + locale;
+        return "redirect:/login?lang=" + locale;
     }
 
     // NON-API

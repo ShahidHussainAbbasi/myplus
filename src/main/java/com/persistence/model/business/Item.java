@@ -109,6 +109,12 @@ public class Item implements Serializable {
 	// @Getter@Setter
 	private Company company;
 
+	@OneToOne(fetch = FetchType.EAGER)
+	@NotFound(action = NotFoundAction.IGNORE)
+	@JoinColumn(name = "sell_id")
+	private Sell sell;
+
+
 //	@OneToOne(fetch = FetchType.LAZY)
 //	@NotFound(action = NotFoundAction.IGNORE)
 //	@JoinColumn(name = "vender_id")

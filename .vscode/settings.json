@@ -1,5 +1,19 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
     "java.configuration.updateBuildConfiguration": "automatic",
-    "java.debug.settings.onBuildFailureProceed": true
+    "java.debug.settings.onBuildFailureProceed": true,
+    "java.format.settings.url": ".vscode/java-formatter.xml",
+    "java.autobuild.enabled": false,
+    "java.configuration.runtimes": [
+        // {
+        //     "name": "JavaSE-1.8",
+        //     "path": "C:/Program Files/Java/jdk1.8.0_202"
+        // },
+        {
+            "name": "JavaSE-17",
+            "path": "C:/Program Files/Java/jdk-17",
+            "default": true
+        }
+    ],
+    "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx2G -Xms100m -Xlog:disable"
 }

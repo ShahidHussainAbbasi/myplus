@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-	<div th:replace="header :: header-css" />
+	<th:block th:replace="~{fragments/header :: header-css}" />
 	<title th:text="#{label.app.title}">Title</title>
 </head>
 <body>
@@ -23,7 +23,7 @@
 	</nav>
 	<div class="container content-cls">
 		<div class="col-xs-6 col-sm-4 info-box">
-			<a href="/dashboard-examples/finance/"> <img th:src="@{/resources/img/Finance2.png}"
+			<a href="/dashboard-examples/finance/"> <img th:src="@{/img/Finance2.png}"
 				alt="Finance Dashboard Examples">
 				<h4>
 					<strong>Finance</strong>
@@ -33,7 +33,7 @@
 		</div>
 		<div class="col-xs-6 col-sm-4 info-box">
 			<a href="/dashboard-examples/corporate-social-responsibility/">
-				<img th:src="@{/resources/img/Social_Responsibility1.png}"
+				<img th:src="@{/img/Social_Responsibility1.png}"
 				alt="Social Dashboard Examples">
 				<h4>
 					<strong>Social Responsibility</strong>
@@ -42,7 +42,7 @@
 			</a>
 		</div>
 		<div class="col-xs-6 col-sm-4 info-box">
-			<a href="/dashboard-examples/healthcare/"> <img th:src="@{/resources/img/Healtcare2.png}"
+			<a href="/dashboard-examples/healthcare/"> <img th:src="@{/img/Healthcare2.png}"
 				alt="Healthcare Dashboard Examples">
 				<h4>
 					<strong>Healthcare</strong>
@@ -51,7 +51,7 @@
 			</a>
 		</div>
 		<div class="col-xs-6 col-sm-4 info-box">
-			<a href="/dashboard-examples/human-resources/"> <img th:src="@{/resources/img/HR2.png}"
+			<a href="/dashboard-examples/human-resources/"> <img th:src="@{/img/HR2.png}"
 				alt="HR Dashboard Examples">
 				<h4>
 					<strong>Human Resources</strong>
@@ -61,7 +61,7 @@
 			</a>
 		</div>
 		<div class="col-xs-6 col-sm-4 info-box">
-			<a href="/dashboard-examples/retail/"> <img th:src="@{/resources/img/Retail3.png}"
+			<a href="/dashboard-examples/retail/"> <img th:src="@{/img/Retail3.png}"
 				alt="Retail Dashboard Examples">
 				<h4>
 					<strong>Retail / eCommerce</strong>
@@ -70,7 +70,7 @@
 			</a>
 		</div>
 		<div class="col-xs-6 col-sm-4 info-box">
-			<a href="/dashboard-examples/education/"> <img th:src="@{/resources/img/Education2.png}"
+			<a href="/dashboard-examples/education/"> <img th:src="@{/img/Education2.png}"
 				alt="Education Dashboard Examples">
 				<h4>
 					<strong>Education</strong>
@@ -79,7 +79,7 @@
 			</a>
 		</div>
 		<div class="col-xs-6 col-sm-4 info-box">
-			<a href="/dashboard-examples/performance/"> <img th:src="@{/resources/img/Line-Chart3.png}"
+			<a href="/dashboard-examples/performance/"> <img th:src="@{/img/Line-Chart3.png}"
 				alt="Performance Dashboard Examples">
 				<h4>
 					<strong>Performance</strong>
@@ -98,6 +98,6 @@ $(document).ready(function () {
 });
 
 </script>
-	<div th:replace="footer :: footer" />
+	<th:block th:replace="footer :: footer" />
 </body>
 </html>

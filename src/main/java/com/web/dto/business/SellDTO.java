@@ -27,25 +27,9 @@ public class SellDTO implements Serializable {
 	
 	private String itemCode;	
 
-	// private Long customerId = 0L;
-
-	private String customerName;
-
-//	private Long itemTypeId;
-//
-//	private String itemTypeName;
-//
-//	private Long itemUnitId;
-//
-//	private String itemUnitName;
+	// private String customerName;
 
 	private Float quantity=1F;
-
-//	private Float purchaseRate=0.0F;
-
-//	private Float sellRate=0.0F;
-
-//	private Float discount=0.0F;
 
 	private Float totalAmount=0.0F;
 
@@ -55,24 +39,12 @@ public class SellDTO implements Serializable {
 	
 	private Float stock=0.0F;
 
-//	private Float sellExpense;
-//
-//	private String sellExpenseDesc;
-
 	private String description;
 
 	private String dated;
 
 	private String updated;
 
-//	private String dt="Rs";
-	
-//	@Getter@Setter
-//	private String R;
-//	
-//	@Getter@Setter
-//	private String B;
-	
 	private String cc="";
 	
 	private String cn="";
@@ -90,6 +62,11 @@ public class SellDTO implements Serializable {
 	
 	private Long sellSId = 0L;
 
+	private Integer due_days = 0;
+
+	private CustomerDTO customerDTO;
+
+	private CustomerHistoryDTO customerHistoryDTO;
 	/**
 	 * @return the serialversionuid
 	 */

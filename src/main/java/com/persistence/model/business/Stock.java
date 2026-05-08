@@ -101,8 +101,5 @@ public class Stock implements Serializable {
 	private List<Purchase> purchases;
 	
 	
-	@OneToMany(mappedBy="stock")
-//	@JoinColumn(name = "sell_id", referencedColumnName = "sell_id")
-	private List<Sell> sales = new ArrayList<>();	
 
 }

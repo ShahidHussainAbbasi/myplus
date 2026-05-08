@@ -27,7 +27,7 @@
         <intercept-url pattern="/user/savePassword*" access="isAuthenticated()"/>
 
         <intercept-url pattern="/emailError*" access="permitAll"/>
-        <intercept-url pattern="/resources/**" access="permitAll"/>
+        <intercept-url pattern="/static/**" access="permitAll"/>
         <intercept-url pattern="/invalidSession*" access="isAnonymous()"/>
         <intercept-url pattern="/**" access="isAuthenticated()"/>
         

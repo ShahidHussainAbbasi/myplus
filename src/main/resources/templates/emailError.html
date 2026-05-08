@@ -1,6 +1,6 @@
 <html>
 <head>
-	<div th:replace="header :: header-css" />
+	<th:block th:replace="~{fragments/header :: header-css}" />
 	<title th:text="#{label.pages.home.title}">home</title>
 </head>
 <body>

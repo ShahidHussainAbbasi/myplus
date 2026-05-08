@@ -17,9 +17,9 @@ import org.springframework.data.repository.query.FluentQuery.FetchableFluentQuer
 import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.StockRepo;
+import com.persistence.model.business.Sell;
 import com.persistence.model.business.Stock;
 import com.web.dto.business.PurchaseDTO;
-import com.web.dto.business.SellDTO;
 import com.web.util.AppUtil;
 import com.web.util.RequestUtil;
 
@@ -90,7 +90,7 @@ public class StockService implements IStockService {
 	@Override
 	public Stock getOne(Long id) {
 		// TODO Auto-generated method stub
-		return repo.getOne(id);
+		return repo.getReferenceById(id);
 	}
 
 	@Override
@@ -212,8 +212,10 @@ public class StockService implements IStockService {
 		this.save(obj);
 	}
 */
-	@Override
 	public Stock updateStock(PurchaseDTO dto) {
+		if (appUtil.isEmptyOrNull(dto))
+			return new Stock();
+
 		Float stock = dto.getQuantity();
 		Long stockId = null;
 		Stock obj = new Stock();
@@ -221,7 +223,7 @@ public class StockService implements IStockService {
 		if(optional.isPresent()) {
 			Stock stockTemp = optional.get();
 			stockId = stockTemp.getStockId();
-			stock = stockTemp.getStock() + stock;
+			stock = stockTemp.getStock()==null? stock : stockTemp.getStock() + stock;
 		}
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
@@ -244,22 +246,23 @@ public class StockService implements IStockService {
 		return Optional.ofNullable(this.findOne(example).orElse(new Stock()));
 	}
 
-	@Override
-	public Stock updateStock(SellDTO dto) {
+	public Stock updateStock(Sell dto) {
 		Float stock = dto.getQuantity();
 		Stock obj = new Stock();
 		
 		obj.setUserId(requestUtil.getCurrentUser().getId());
-		obj.setBatchNo(dto.getStockDTO().getBatchNo());
-		if(!appUtil.isEmptyOrNull(dto.getStockDTO().getBatchNo())) {
-			obj.setBatchNo(dto.getStockDTO().getBatchNo());
+		obj.setBatchNo(dto.getStock().getBatchNo());
+		if(!appUtil.isEmptyOrNull(dto.getStock().getBatchNo())) {
+			obj.setBatchNo(dto.getStock().getBatchNo());
 		}
-		obj.setItemId(dto.getItemId());
+		obj.setItemId(dto.getItem().getId());
         Example<Stock> example = Example.of(obj);
 		Stock stockTemp = this.findAll(example).get(0);
-		if(!appUtil.isEmptyOrNull(stockTemp)) {
-			stock = stockTemp.getStock() - stock;
+		if(appUtil.isEmptyOrNull(stockTemp) || stockTemp.getStock() == null || stockTemp.getStock() < stock || stockTemp.getStock() <= 0) {
+			// logger.error("Stock is not available for item id: " + dto.getItem().getId() + " and batch no: " + dto.getStock().getBatchNo());
+			throw new RuntimeException("Stock is not available for item id: " + dto.getItem().getId());
 		}
+		stock = stockTemp.getStock() - stock;
 		stockTemp.setStock(stock);
 		this.save(stockTemp);
 		return stockTemp;
@@ -312,6 +315,13 @@ public class StockService implements IStockService {
 	public <S extends Stock, R> R findBy(Example<S> example, Function<FetchableFluentQuery<S>, R> queryFunction) {
 		// TODO Auto-generated method stub
 		throw new UnsupportedOperationException("Unimplemented method 'findBy'");
+	}
+
+
+	@Override
+	public Stock updateStock(Stock dto) {
+		repo.save(dto);
+		return dto;
 	}
 	
 /*	@Override

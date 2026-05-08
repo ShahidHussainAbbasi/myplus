@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<div th:replace="header :: header-css"/>
+<th:block th:replace="~{fragments/header :: header-css}" />
 </head>
 <body>
 	<div id="container">
-		<div th:replace="header :: header" />
+		<th:block th:replace="~{fragments/header :: header}" />
 		<div id="content"/>
-		<div th:replace="footer :: footer"/>
+		<th:block th:replace="~{fragments/footer :: footer}"/>
 	</div>
 </body>
 </html>

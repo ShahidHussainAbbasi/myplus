@@ -1,17 +1,11 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="icon" type="image/jpg" sizes="60x50" href="resources/favicon.jpeg"/>
-	<div th:replace="header :: header-css" />
-	
-	<script type="text/javascript" src="resources/js/jspdf.min.js"></script>
-	<script type="text/javascript" src="resources/js/jspdf.plugin.autotable.js"></script>
-	
-	<script src="resources/js/business/business.js"></script>
-	<script src="resources/js/business/businessInvoicePrint.js"></script>
+<link rel="icon" type="image/jpg" sizes="60x50" th:href="@{favicon.jpeg}"/>
+	<th:block th:replace="~{fragments/header :: header-css}"></th:block>
 </head>
 <body onkeypress="handleKey(event,'click','sellItemDD')">
 	<div id="container">
-		<div th:replace="header :: header" />
+		<th:block th:replace="~{fragments/header :: header}" />
 		<div id="content">
 			<nav class="subnav" id="nav-subheader">
 				<div class="container-fluid">
@@ -221,7 +215,7 @@
  						</span>
 					</div>
 					<div class="form-group" id="Item">
-						<label class="control-label col-sm-2" for="itemCode">Code</label>
+						<label class="control-label col-sm-2" for="itemCode">Code/Batch</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="itemCode" name="icode"
 								placeholder="Item Code">
@@ -339,7 +333,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="form-group">
+					<!-- <div class="form-group">
 						<label class="control-label col-sm-2 req" th:text="#{label.itemBatch}">Select Batch</label> 
 						<div class="col-sm-4">
 							<select
@@ -351,7 +345,7 @@
 							<input type="text" class="form-control" id="purchaseBatchNo" 
 							name="stockDTO.batchNo" placeholder="Batch number"/>
 						</div>
-					</div>
+					</div> -->
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="purchaseQuantity">QTY</label>
 						<div class="col-lg-4">
@@ -486,7 +480,7 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req">Item Name/Code</label> 
+						<label class="control-label col-sm-2 req">Item</label> 
 						<div class="col-sm-4">
 							<select required="required"
 								class="form-control onChangeSelect selectpicker" id="sellItemDD" name="itemId" data-live-search="true">
@@ -499,19 +493,13 @@
 							</div>
 						</div>
 					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2 req" th:text="#{label.itemBatch}">Select Batch</label> 
-						<div class="col-sm-4">
-							<select
-								class="form-control selectpicker" id="sellBatchDD" required="required" onchange="getStockByBatch(this.value);">
-							</select>
-						</div>
+					<!-- <div class="form-group">
 						<label class="control-label col-sm-2" for="sellBatchNo">New Batch</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellBatchNo" 
 							name="stockDTO.batchNo" placeholder="Batch number"/>
 						</div>
-					</div>
+					</div> -->
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="sellItems">QTY</label>
 						<div class="col-sm-4">
@@ -545,11 +533,11 @@
 						</div>
 						<div class="col-sm-2">
 							<select id="sellDiscountTypeDD" name="stockDTO.bsellDiscountType" class="selectpicker" onchange="calculateNetSell()">
-								<option class="dropdown-item" selected="selected">amount</option>
-								<option class="dropdown-item" value="%">%</option>
+								<option class="dropdown-item" selected="selected" value="0">amount</option>
+								<option class="dropdown-item" value="1">Percent %</option>
 							</select>
 						</div>					
-	 					<label class="control-label col-sm-2" for="sellrm">To Receive</label>
+	 					<label class="control-label col-sm-2" for="sellrm">Receiveable</label>
 	 					<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellrm" readonly="readonly"/>
 						</div>
@@ -605,7 +593,7 @@
 				<br>
 				<div id="iDiv" class="form-group col-sm-12  text-center">
 					<div class="col-sm-3"></div>
-					<div class="table-bordered table-striped col-sm-6">
+					<div class="table-bordered table-striped col-sm-8">
 						<table id="tablesi" class="display" style="width:100%">
 							<thead>
 								<tr>
@@ -630,22 +618,29 @@
 					            </tr>
 					        </tfoot>
 						</table>
-	 				<div class="form-group" style="padding-top: 15px;padding-bottom: 25px;">
-						<div class="col-sm-3">
-							<input type="text" class="form-control" id="sellCN"
-								name="cn" placeholder=" Customer name ">
+						<div class="form-group" style="padding-top: 15px;padding-bottom: 25px;">
+							<div class="col-sm-3">
+								<input type="text" class="form-control" id="sellCN"
+									name="cn" placeholder=" Customer name ">
+							</div>
+							<div class="col-sm-3">
+								<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number"/>
+							</div>
+							<div class="col-sm-2">
+								<input type="number" step="any" min="0" class="form-control" id="sellRec"
+									name="cn" placeholder=" Received " onkeyup="calculateChange()">
+							</div>
+							<div class="col-sm-2">
+								<input type="number" step="any" min="0" class="form-control" id="sellCh" readonly="readonly" placeholder="Change">
+							</div>
+							<div class="col-sm-3">
+								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control" placeholder="dd/mm/yyyy"/>
+								<input type="hidden" id="dueDate" name="dueDate"/>
+								<!-- <input type="date" id="dueDateTemp" class="form-control datePicker"/> -->
+								<!-- <input type="text" class="form-control datePicker" id="dueDate" name="dueDate"
+									placeholder=" Due Date">  -->
+							</div>
 						</div>
-						<div class="col-sm-3">
-							<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number"/>
-						</div>
-						<div class="col-sm-3">
-							<input type="number" step="any" min="0" class="form-control" id="sellRec"
-								name="cn" placeholder=" Received " onkeyup="calculateChange()">
-						</div>
-						<div class="col-sm-3">
-							<input type="number" step="any" min="0" class="form-control" id="sellCh" readonly="readonly" placeholder="Change">
-						</div>
-					</div>
 	 		
 	 				</div>	
 					<div class="col-sm-3"></div>
@@ -658,20 +653,16 @@
 					<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart()">
 						<span class="glyphicon glyphicon-shopping-cart"></span> Delete cart
 					</button>
-	<!-- 				<button type="button" id="addSell" class="btn btn-success">print and submit
-						<span class="glyphicon glyphicon-print"></span> Sell & Print
-					</button>					
-	 -->			
 	 			</div>			
 				<div>
 					Toggle column: <a class="toggle-vis" data-column="2">Code</a> - <a class="toggle-vis" data-column="3">Name</a>
 					  - <a class="toggle-vis" data-column="4">QTY</a>
-					  - <a class="toggle-vis" data-column="5">BatchNo</a> - <a class="toggle-vis" data-column="6">Expiry</a>
+					  - <a class="toggle-vis" data-column="6">Expiry</a>
 					  - <a class="toggle-vis" data-column="7">P/U price</a> - <a class="toggle-vis" data-column="8">S/U price</a>
 					  - <a class="toggle-vis" data-column="9">Disc type</a> - <a class="toggle-vis" data-column="10">Discount</a>
 					  - <a class="toggle-vis" data-column="11">Total</a> - <a class="toggle-vis" data-column="12">Profit</a>
-					  - <a class="toggle-vis" data-column="13">Customer Name</a> - <a class="toggle-vis" data-column="14">Customer Contact</a>
-					  - <a class="toggle-vis" data-column="15">DateTime</a>
+					  <!-- - <a class="toggle-vis" data-column="13">Customer Name</a> - <a class="toggle-vis" data-column="14">Customer Contact</a> -->
+					  - <a class="toggle-vis" data-column="15">DateTime</a> - <a class="toggle-vis" data-column="16">DateTime</a>
 				</div>
 				<table id="tableSell" class="table table-bordered table-striped">
 					<thead>
@@ -681,7 +672,7 @@
 							<th data-field="sellItemDD">Code</th>
 							<th data-field="sellItemName">Name</th>
 							<th data-field="sellItems">QTY</th>
-							<th data-field="sellBatchNo">BatchNo</th>
+							<!-- <th data-field="sellBatchNo">BatchNo</th> -->
 							<th data-field="sellItemExpiry">Expiry</th>
 							<th data-field="sellPurchaseRate">P/U Price</th>
 							<th data-field="sellSellRate">S/U Price</th>
@@ -689,8 +680,9 @@
 							<th data-field="sellDiscount">Discount</th>
 							<th data-field="sellTotalAmount">Total</th>
 							<th data-field="sellNetAmount">Profit</th>
-							<th data-field="sellCN">Customer Name</th>
-							<th data-field="sellCC">Customer Contact</th>
+							<!-- <th data-field="sellCN">Customer Name</th> -->
+							<!-- <th data-field="sellCC">Customer Contact</th> -->
+							<!-- <th data-field="sellDuedays">Due Days</th> -->
 	<!-- 						<th data-field="sellsrp">Return profit</th>
 							<th data-field="sellRe">Return reason</th>
 	 -->						<th data-field="updated">DateTime</th>
@@ -765,7 +757,7 @@
 				<table id="tableSellReport" class="table table-striped text-center">
 			        <thead>
 			            <tr>
-							<th>Item detail/Code</th>
+							<th>Item</th>
 							<th>Stock</th>
 							<th>P/U Price</th>
 							<th>S/U Price</th>
@@ -776,8 +768,9 @@
 							<th>Profit</th>
 							<th>Customer Name</th>
 							<th>Customer Contact</th>
-							<th>Return profit</th>
-							<th>Return reason</th>
+							<th>Return Profit</th>
+							<th>Return Reason</th>
+							<th>Due Days</th>
 							<th>Dated</th>
 			            </tr>
 			        </thead>
@@ -797,15 +790,25 @@
 			                <th></th>
 			                <th></th>
 			                <th></th>
+							<th></th>
 			            </tr>
 			        </tfoot>
 	   		    </table>
 			</div>		
 		</div>
-		<!-- <div th:replace="footer :: footer" /> -->
+		<!-- <th:block th:replace="footer :: footer" /> -->
 	</div>	
 	<script th:inline="javascript">
-var serverContext = [[@{/}]];
-	</script>
+        var serverContext = [[@{/}]];
+    </script>
+
+    <!-- STEP 1: jQuery + all plugins -->
+    <th:block th:replace="~{fragments/header :: header-js}"></th:block>
+
+    <!-- STEP 2: page-specific JS — AFTER jQuery -->
+    <script type="text/javascript" th:src="@{/js/jspdf.min.js}"></script>
+    <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
+    <script th:src="@{/js/business/business.js}"></script>
+    <script th:src="@{/js/business/businessInvoicePrint.js}"></script>
 </body>
 </html>

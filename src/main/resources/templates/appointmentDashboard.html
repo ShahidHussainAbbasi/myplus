@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<div th:replace="header :: header-css" />
+<th:block th:replace="~{fragments/header :: header-css}" />
 <style>
 .password-verdict {
 	color: #000;
@@ -26,7 +26,7 @@
 </head>
 <body>
 
-	<div th:replace="header :: header"/>
+	<th:block th:replace="~{fragments/header :: header}"/>
 
 	<div class="container content-cls">
 		<table class="table datatable">
@@ -118,6 +118,6 @@
 		}
 		/*]]>*/
 	</script>
-	<div th:replace="footer :: footer"></div>
+	<th:block th:replace="footer :: footer"></div>
 </body>
 </html>

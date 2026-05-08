@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<div th:replace="header :: header-css" />
+<th:block th:replace="~{fragments/header :: header-css}" />
 </head>
 <body>
 	<div class="container content-cls">
@@ -121,6 +121,6 @@ function addDonation(event){
 
 
 </script>
-<div th:replace="footer :: footer"/>
+<th:block th:replace="footer :: footer"/>
 </body>
 </html>

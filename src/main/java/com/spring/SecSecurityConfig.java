@@ -65,53 +65,64 @@ public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
         auth.authenticationProvider(authProvider());
     }
 
-    @Override
+   @Override
     public void configure(final WebSecurity web) throws Exception {
-        web.ignoring().antMatchers("/resources/**");
+        web.ignoring().antMatchers(
+            "/css/**",
+            "/js/**",
+            "/images/**",
+            "/webjars/**",
+            "/static/**",
+            "/bootstrap/**",      // ✅ added
+            "/jQExp/**",          // ✅ added
+            "/main.css",          // ✅ added
+            "/*.png",             // ✅ added
+            "/*.ico",             // ✅ added
+            "/*.jpeg"             // ✅ added
+        );
     }
 
     @Override
     protected void configure(final HttpSecurity http) throws Exception {
-        // @formatter:off
         http
-            .csrf().disable()
-            .authorizeRequests()
-                .antMatchers("/home*","/login*", "/logout*", "/signin/**", "/signup/**", "/customLogin",
-                        "/user/registration*", "/registrationConfirm*", "/expiredAccount*", "/registration*",
-                        "/registerHospital*","/appointmentReq","appointmentDashboard","/services","/appointment","/islamicChannels*",
-                        "/loadDoctorsByHospital","/loadDoctorDetails",
-                        "/addDonation",
-                        "/badUser*", "/user/resendRegistrationToken*" ,"/forgetPassword*", "/user/resetPassword*",
-                        "/user/changePassword*", "/emailError*", "/resources/**","/old/user/registration*","/successRegister*","/qrcode*").permitAll()
-                .antMatchers("/invalidSession*","/home*").anonymous()
-//                .antMatchers("/businessDashboard.html").hasRole("BUSINESS_SUPER")
-                .antMatchers("/user/updatePassword*","/user/savePassword*","/updatePassword*").hasAuthority("CHANGE_PASSWORD_PRIVILEGE")
-                .anyRequest().hasAuthority("LOGIN_PRIVILEGE")
-                .and()
-            .formLogin()
-                .loginPage("/home")//.loginPage("/login")
-//                .loginProcessingUrl("/home")
-				.defaultSuccessUrl("/home")
-                .failureUrl("/login?error=true")
-                .successHandler(myAuthenticationSuccessHandler)
-                .failureHandler(authenticationFailureHandler)
-                .authenticationDetailsSource(authenticationDetailsSource)
-            .permitAll()
-                .and()
-            .sessionManagement()
-                .invalidSessionUrl("/invalidSession.html")
-                .maximumSessions(1).sessionRegistry(sessionRegistry()).and()
-                .sessionFixation().none()
-            .and()
-            .logout()
-                .logoutSuccessHandler(myLogoutSuccessHandler)
-                .invalidateHttpSession(false)
-                .logoutSuccessUrl("/logout.html?logSucc=true")
-                .deleteCookies("JSESSIONID")
-                .permitAll()
-             .and()
-                .rememberMe().rememberMeServices(rememberMeServices()).key("theKey");
-    // @formatter:on
+                .csrf(csrf -> csrf.disable())
+                .authorizeRequests(requests -> requests
+                        .antMatchers("/css/**", "/js/**", "/images/**", "/bootstrap/**",
+                                "/jQExp/**", "/webjars/**", "/static/**", "/main.css").permitAll()
+                        .antMatchers("/home*", "/login*", "/logout*", "/signin/**", "/signup/**",
+                                "/customLogin", "/user/registration*", "/registrationConfirm*",
+                                "/expiredAccount*", "/registration*", "/registerHospital*",
+                                "/appointmentReq", "appointmentDashboard", "/services",
+                                "/appointment", "/islamicChannels*", "/loadDoctorsByHospital",
+                                "/loadDoctorDetails", "/addDonation", "/badUser*",
+                                "/user/resendRegistrationToken*", "/forgetPassword*",
+                                "/user/resetPassword*", "/user/changePassword*", "/emailError*",
+                                "/static/**", "/old/user/registration*", "/successRegister*",
+                                "/qrcode*").permitAll()
+                        .antMatchers("/invalidSession*").permitAll()  // ? removed anonymous()
+                        .antMatchers("/user/updatePassword*", "/user/savePassword*",
+                                "/updatePassword*").hasAuthority("CHANGE_PASSWORD_PRIVILEGE")
+                        .anyRequest().hasAuthority("LOGIN_PRIVILEGE"))
+                .formLogin(login -> login
+                        .loginPage("/login")                    // GET /login ? shows login page
+                        .loginProcessingUrl("/login")           // POST /login ? processes credentials
+                        .defaultSuccessUrl("/home")
+                        .failureUrl("/login?error=true")
+                        .successHandler(myAuthenticationSuccessHandler)
+                        .failureHandler(authenticationFailureHandler)
+                        .authenticationDetailsSource(authenticationDetailsSource)
+                        .permitAll())
+                .sessionManagement(management -> management
+                        .invalidSessionUrl("/invalidSession.html")
+                        .maximumSessions(1).sessionRegistry(sessionRegistry()).and()
+                        .sessionFixation().none())
+                .logout(logout -> logout
+                        .logoutSuccessHandler(myLogoutSuccessHandler)
+                        .invalidateHttpSession(false)
+                        .logoutSuccessUrl("/logout.html?logSucc=true")
+                        .deleteCookies("JSESSIONID")
+                        .permitAll())
+                .rememberMe(me -> me.rememberMeServices(rememberMeServices()).key("theKey"));
     }
 
     // beans

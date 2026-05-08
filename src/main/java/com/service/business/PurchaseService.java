@@ -21,6 +21,7 @@ import com.persistence.model.business.Purchase;
 import com.persistence.model.business.Stock;
 import com.service.IUserService;
 import com.web.dto.business.PurchaseDTO;
+import com.web.dto.business.StockDTO;
 import com.web.util.AppUtil;
 import com.web.util.RequestUtil;
 
@@ -197,7 +198,8 @@ public class PurchaseService implements IPurchaseService{
 	@Override
 	@Transactional
 	public Purchase addPurchase(PurchaseDTO dto) throws ParseException {
-		Stock stock = stockService.updateStock(dto);
+		Stock stock = modelMapper.map(dto.getStockDTO(), Stock.class);
+		stock = stockService.updateStock(stock);
 		stockService.save(stock);
 		modelMapper.addConverter(appUtil.stringToLocalDateTime);
 		modelMapper.addConverter(appUtil.stringToLocalDate);

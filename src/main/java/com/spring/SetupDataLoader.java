@@ -138,6 +138,7 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
    			createRoleIfNotFound(rb.getString(key), adminPrivileges);
    	        createUserIfNotFound("email2uncer@gmail.com", "Shahid", "Hussain", "admin", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
    	        createUserIfNotFound("sameerfaisal29@gmail.com", "Faisal", "Sameer", "03453176525", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
+            createUserIfNotFound("raozubair240.422@gmail.com", "Rao", "Zubair", "03002139804", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
    	        createUserIfNotFound("Haidergarmentskpr@gmail.com","Irfan","Shabir", "03053939495", new ArrayList<Role>(Arrays.asList(role)),rb.getString("business.user.type"));
    		}else if(key.startsWith("business.role.super")) {
    			createRoleIfNotFound(rb.getString(key), superPrivileges);

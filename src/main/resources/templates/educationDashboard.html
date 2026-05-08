@@ -1,18 +1,12 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="icon" type="image/jpg" sizes="60x50" href="resources/favicon.jpeg"/>
-<div th:replace="header :: header-css" />
-<script type="text/javascript" src="resources/js/jspdf.min.js"></script>
-<script type="text/javascript" src="resources/js/jspdf.plugin.autotable.js"></script>
-
-<script type="text/javascript" src="resources/js/education/education.js"></script>
-<script type="text/javascript" src="resources/js/education/educationDashboard.js"></script>
-<script type="text/javascript" src="resources/js/date.js"></script>
+<link rel="icon" type="image/jpg" sizes="60x50" th:href="@{/favicon.jpeg}"/>
+<th:block th:replace="~{fragments/header :: header-css}" />
 </head>
 <body>
    	<div id="container" class="wrapper">
-		<div th:replace="header :: header"/>
+		<th:block th:replace="header :: header"/>
 	    <div id="content">
 			<nav class="subnav" id="nav-subheader">
 				<div class="container-fluid">
@@ -1897,11 +1891,16 @@
 				<input th:type="submit" value="Import" />  
 			</form> 		    
 		</div>
-<!-- 	    <div th:replace="footer :: footer"/>		
- -->	</div>
+	    <th:block th:replace="~{fragments/~{fragments/footer :: footer}r}"/>		
+ 	</div>
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>
-	<!-- <div th:replace="footer :: footer" /> -->
+	<script type="text/javascript" th:src="@{/js/jspdf.min.js}"></script>
+	<script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
+
+	<script type="text/javascript" th:src="@{/js/education/education.js}"></script>
+	<script type="text/javascript" th:src="@{/js/education/educationDashboard.js}"></script>
+	<script type="text/javascript" th:src="@{/js/date.js}"></script>
 </body>
 </html>

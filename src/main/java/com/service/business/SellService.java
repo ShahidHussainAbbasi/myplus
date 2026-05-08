@@ -228,18 +228,18 @@ public class SellService implements ISellService {
 		return sellRepo.findSellByDates(sd, ed, userId);
 	}
 
+	@SuppressWarnings("null")
 	@Override
 	@Transactional
-	public List<Sell> addSell(List<SellDTO> dtos) {
+	public List<Sell> addSell(List<Sell> dtos) {
 		List<Sell> objs = new ArrayList<>();
 		if(!appUtil.isEmptyOrNull(dtos)) {
 			dtos.forEach(dto ->{
-				Stock stock = stockService.updateStock(dto);
+				Stock stock = stockService.updateStock(dto.getStock());
 				if(!appUtil.isEmptyOrNull(stock)) {
 					modelMapper.addConverter(appUtil.stringToLocalDateTime);
 					modelMapper.addConverter(appUtil.stringToLocalDate);
 					Sell obj = modelMapper.map(dto, Sell.class);
-			//		Stock stock = modelMapper.map(dto.getStockDTO(), Stock.class);
 					obj.setStock(stock);
 					obj.setUserId(requestUtil.getCurrentUser().getId());
 					stockService.save(stock);
@@ -345,7 +345,7 @@ public class SellService implements ISellService {
 				if (obj.getDt().equals("%")) {
 					dis = obj.getTotalAmount() * dis / 100;
 				}
-				Item item = itemService.getOne(obj.getItemId());
+				Item item = itemService.getReferenceById(obj.getItem().getId());
 				row.getCell(0).setWidth("1200");
 				row.getCell(0).setText(" "+item.getIname());
 				row.getCell(1).setWidth("300");
@@ -446,12 +446,6 @@ public class SellService implements ISellService {
 		System.out.println("createdocument.docx written successully");
 		return appUtil.SUCCESS;
 
-	}
-
-	@Override
-	public Stock updateStock(SellDTO dto) {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 	@Override

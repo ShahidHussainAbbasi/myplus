@@ -422,7 +422,7 @@ function loadDataTable(){
 							"<div id=sellPurchaseRate>"+obj.stockDTO.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stockDTO.bsellRate+"</div>",
 							"<div id=sellDiscountTypeDD>"+obj.stockDTO.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stockDTO.bsellDiscount+"</div>",
 							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
-							"<div id=sellCC>"+obj.cc+"</div>","<div id=sellCN>"+obj.cn+"</div>",
+							"<div id=sellCC>"+obj.cc+"</div>","<div id=sellCN>"+obj.cn+"</div>","<div id=sellDuedays>"+obj.due_days+"</div>",
 							
 							/*"<div id=sellsrp>"+obj.srp+"</div>","<div id=sellRe>"+obj.re+"</div>",*/
 							obj.updated
@@ -712,7 +712,7 @@ function calculateNetSell(){
 	}
 	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val()*ONE:0;
 	sellTotalAmount = parseFloat(qty * s).toFixed(2);
-	if(discountType == "%"){
+	if(discountType*ONE == 1){
 		//Discount  =  List Price Ã— Discount Rate 
 		sellDiscount =  sellTotalAmount * (sellDiscount*1 / 100);
 	}else{
@@ -747,9 +747,16 @@ function calculateSRP(){
 }
 
 function calculateChange(){
+	$("#dueDateTemp").css("visibility", "hidden");
 	var recAm = $("#sellRec").val()*ONE;
 	var sellTotal = $("#sellTotal")[0].innerHTML*ONE;
 	$("#sellCh").val(recAm - sellTotal);
+	if($("#sellCh").val()<0){
+		$("#dueDateTemp").css("visibility", "visible");
+		$("#dueDateTemp").placeholder = "Enter Due Days";
+		// $("#duedays").val(1);
+	}
+	
 }
 
 function loadSR(){
@@ -768,7 +775,7 @@ function loadSR(){
 					return alert("Data not found.");
 
 				$.each(data.collection, function(ind, o) {
-					var row = [o.itemName, o.stock,o.purchaseRate,o.sellRate,o.quantity,o.discount,o.dt,o.totalAmount,o.netAmount,o.cn,o.cc,o.srp,o.re,o.datedStr]
+					var row = [o.itemCode +" - "+o.itemName, o.stock,o.purchaseRate,o.sellRate,o.quantity,o.discount,o.dt,o.totalAmount,o.netAmount,o.cn,o.cc,o.srp,o.re,o.datedStr]
 
 					tableSellReport.row.add(row).draw();
 				});

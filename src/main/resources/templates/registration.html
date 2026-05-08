@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-	<div th:replace="header :: header-css" />
+	<th:block th:replace="~{fragments/header :: header-css}" />
 <style>
 .password-verdict {
 	color: #000;
@@ -9,7 +9,7 @@
 </style>
 <script
 	src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-<script th:src="@{/resources/pwstrength.js}"></script>
+<script th:src="@{/pwstrength.js}"></script>
 <meta http-equiv="Content-Type" content="text/html; charset=US-ASCII" />
 	<title th:text="#{label.pages.home.title}">Title</title>
 </head>
@@ -18,7 +18,7 @@
     	<nav class="navbar navbar-inverse">
 			<div class="container-fluid">
 				<div class="navbar-header active">
-					<img th:src="@{/resources/favicon.png}" height="50" width="42" title="Maximize your services"/>
+					<img th:src="@{/favicon.png}" height="50" width="42" title="Maximize your services"/>
 					<!-- <a class="navbar-brand" href="#">Maximize your services</a> -->
 				</div>
 			</div>
@@ -75,7 +75,7 @@
 			</form>
 			<br /> <a th:href="@{/login}" th:text="#{label.form.loginLink}">login</a>
 		</div>
-		<div th:replace="footer :: footer"/>
+		<th:block th:replace="footer :: footer"/>
 	</div>
 
 	<script th:inline="javascript">

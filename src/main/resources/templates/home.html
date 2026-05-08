@@ -1,41 +1,21 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="icon" type="image/jpg" sizes="60x50" href="resources/favicon.jpeg"/>
-<div th:replace="header :: header-css" />
+    <meta charset="UTF-8">
+    <title>Home</title>
+
+    <!-- ✅ Pulls CSS from fragments/header.html -->
+	<th:block th:replace="~{fragments/header :: header-css}"></th:block>
 </head>
 <body>
-   	<div id="container" class="wrapper">
-		<div class="content">
-			<nav class="navbar navbar-inverse">
-				<div class="container-fluid">
-					<div class="navbar-header active">
-						<img th:src="@{/resources/favicon.png}" height="50" width="42" title="Maximize your services"/>
-						<!-- <a class="navbar-brand" href="#">Maximize your services</a> -->
-					</div>
-					<ul class="nav navbar-nav navbar-right">
-			            <li th:if="${#authorization.expression('!isAuthenticated()')}">
-			              <a href="/login" th:href="@{/login}">
-			                <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>&nbsp;Sign in
-			              </a>
-			            </li>
-						<li th:if="${#authorization.expression('!isAuthenticated()')}">
-							<a	th:href="@{/registration.html}">
-								<span class="glyphicon glyphicon-user" aria-hidden="true"></span>&nbsp;SignUp
-							</a>
-						</li>
-					
-			            <li th:if="${#authorization.expression('isAuthenticated()')}">
-				            <a href="/logout" th:href="@{#}" onclick="$('#form').submit();">
-					            <span class="glyphicon glyphicon-log-out" aria-hidden="true"></span>&nbsp;Logout
-				            </a>
-				            <form style="visibility: hidden" id="form" method="post" action="#" th:action="@{/logout}"></form>
-			            </li>
-					</ul>
-				</div>
-			</nav>
-		</div>
-		<div th:replace="footer :: footer"></div>
-	</div>
+
+    <!-- ✅ Pulls navbar from fragments/header.html -->
+    <th:block th:replace="~{fragments/header :: header}"></div>
+
+    <!-- your page content here -->
+
+    <!-- ✅ Pulls JS from fragments/header.html (at bottom of body) -->
+    <th:block th:replace="~{fragments/header :: header-js}"></th:block>
+
 </body>
 </html>

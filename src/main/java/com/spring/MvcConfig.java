@@ -56,16 +56,16 @@ public class MvcConfig implements WebMvcConfigurer {
 //        registry.addViewController("/").setViewName("forward:/login");
 //        registry.addViewController("/").setViewName("forward:/home");
 //        registry.addViewController("").setViewName("forward:home.html");
-        registry.addViewController("/").setViewName("forward:home.html");
-        registry.addViewController("/home").setViewName("home.html");
-        registry.addViewController("/login").setViewName("/login.html");        
+        registry.addViewController("/").setViewName("forward:home");
+        registry.addViewController("/home").setViewName("home");
+        registry.addViewController("/login").setViewName("login");        
 //        registry.addViewController("/login");
-//        registry.addViewController("/login.html");
+    //    registry.addViewController("/login");
         registry.addViewController("/loginRememberMe");
         registry.addViewController("/customLogin");
         registry.addViewController("/registration.html");
         registry.addViewController("/registrationCaptcha.html");
-        registry.addViewController("/logout").setViewName("logout.html");;
+        registry.addViewController("/logout").setViewName("logout");;
         registry.addViewController("/homepage.html");
         registry.addViewController("/expiredAccount.html");
         registry.addViewController("/badUser.html");
@@ -81,13 +81,13 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/users.html");
         registry.addViewController("/qrcode.html");
         registry.addViewController("/hospital.html");
-        registry.addViewController("/donator").setViewName("donator.html");
-        registry.addViewController("/services").setViewName("services.html");
-        registry.addViewController("/businessDashboard").setViewName("businessDashboard.html");
-        registry.addViewController("/welfareDashboard").setViewName("welfareDashboard.html");
-        registry.addViewController("/educationDashboard").setViewName("educationDashboard.html");
-        registry.addViewController("/agricultureDashboard").setViewName("agricultureDashboard.html");
-        registry.addViewController("/islamicChannels").setViewName("/islamicChannels/islamicChannels.html");
+        registry.addViewController("/donator").setViewName("donator");
+        registry.addViewController("/services").setViewName("services");
+        registry.addViewController("/businessDashboard").setViewName("businessDashboard");
+        registry.addViewController("/welfareDashboard").setViewName("welfareDashboard");
+        registry.addViewController("/educationDashboard").setViewName("educationDashboard");
+        registry.addViewController("/agricultureDashboard").setViewName("agricultureDashboard");
+        registry.addViewController("/islamicChannels").setViewName("/islamicChannels/islamicChannels");
     }
 
     @Override
@@ -96,15 +96,31 @@ public class MvcConfig implements WebMvcConfigurer {
         configurer.enable("default"); 
     }
 
+    // @Override
+    // public void addResourceHandlers(final ResourceHandlerRegistry registry) {
+    //     registry.addResourceHandler("/resources/**").addResourceLocations("/", "/resources/");
+    // }
+
+    private static final String[] CLASSPATH_RESOURCE_LOCATIONS = {
+        "classpath:/META-INF/resources/",
+        "classpath:/resources/",
+        "classpath:/static/",
+        "classpath:/public/"
+    };
+    
     @Override
-    public void addResourceHandlers(final ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/resources/**").addResourceLocations("/", "/resources/");
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        if (!registry.hasMappingForPattern("/**")) {
+            registry.addResourceHandler("/**")
+                    .addResourceLocations(CLASSPATH_RESOURCE_LOCATIONS);
+        }
     }
 
     // @Override
     // public void addResourceHandlers(ResourceHandlerRegistry registry) {
     //     registry.addResourceHandler("/**").addResourceLocations("classpath:/static/", "classpath:/public/");
     // }    
+
     @Override
     public void addInterceptors(final InterceptorRegistry registry) {
         final LocaleChangeInterceptor localeChangeInterceptor = new LocaleChangeInterceptor();
