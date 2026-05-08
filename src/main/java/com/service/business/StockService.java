@@ -212,6 +212,7 @@ public class StockService implements IStockService {
 		this.save(obj);
 	}
 */
+	@Override
 	public Stock updateStock(PurchaseDTO dto) {
 		if (appUtil.isEmptyOrNull(dto))
 			return new Stock();
@@ -246,6 +247,7 @@ public class StockService implements IStockService {
 		return Optional.ofNullable(this.findOne(example).orElse(new Stock()));
 	}
 
+	@Override
 	public Stock updateStock(Sell dto) {
 		Float stock = dto.getQuantity();
 		Stock obj = new Stock();

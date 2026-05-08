@@ -1,7 +1,6 @@
 package com.service.business;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DecimalFormat;
@@ -102,8 +101,8 @@ public class SellService implements ISellService {
 
 	@Override
 	public void deleteInBatch(Iterable<Sell> entities) {
-		// TODO Auto-generated method stub
-		sellRepo.deleteInBatch(entities);
+		// Delegate batch delete to repository
+		sellRepo.deleteAllInBatch(entities);
 	}
 
 	@Override
@@ -251,23 +250,21 @@ public class SellService implements ISellService {
 	}
 	
 	@Override
-	public String createReport(List<Sell> objs) throws FileNotFoundException {
+	public String createReport(List<Sell> objs) throws IOException {
 		document = new XWPFDocument();
 		DecimalFormat df = new DecimalFormat("#.##");
 		// Write the Document in file system
-		FileOutputStream out = null;
-		try {
-			String customDir = "/reports";
-			String path = requestUtil.getPath(customDir);
-//			String path = System.getProperty("user.home") + File.separator + "Documents";
-//			path += File.separator + "sellReport";
-			File file = new File(path + "createdocument.docx");
-			if (file.exists() && file.delete()) {
-				System.out.println("File deleted successfully");
-			} else {
-				System.out.println("Failed to delete the file");
-			}
-			out = new FileOutputStream(new File(path + "createdocument.docx"));
+		String customDir = "/reports";
+		String path = requestUtil.getPath(customDir);
+		File dir = new File(path);
+		if (!dir.exists() && !dir.mkdirs()) {
+			throw new IOException("Unable to create report directory: " + path);
+		}
+		File file = new File(dir, "createdocument.docx");
+		if (file.exists() && !file.delete()) {
+			System.out.println("Failed to delete the existing report file: " + file.getAbsolutePath());
+		}
+		try (FileOutputStream out = new FileOutputStream(file)) {
 
 			// create Paragraph
 			XWPFParagraph paragraph = document.createParagraph();
@@ -437,57 +434,50 @@ public class SellService implements ISellService {
 			e.printStackTrace();
 		} finally {
 			try {
-				out.close();
+				if (document != null) {
+					document.close();
+				}
+			
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
-		System.out.println("createdocument.docx written successully");
 		return appUtil.SUCCESS;
-
 	}
 
 	@Override
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllByIdInBatch'");
+		sellRepo.deleteAllByIdInBatch(ids);
 	}
 
 	@Override
 	public void deleteAllInBatch(Iterable<Sell> entities) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllInBatch'");
+		sellRepo.deleteAllInBatch(entities);
 	}
 
 	@Override
 	public Sell getById(Long id) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getById'");
+		return sellRepo.getById(id);
 	}
 
 	@Override
 	public Sell getReferenceById(Long id) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getReferenceById'");
+		return sellRepo.getReferenceById(id);
 	}
 
 	@Override
 	public <S extends Sell> List<S> saveAllAndFlush(Iterable<S> entities) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'saveAllAndFlush'");
+		return sellRepo.saveAllAndFlush(entities);
 	}
 
 	@Override
 	public void deleteAllById(Iterable<? extends Long> ids) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllById'");
+		sellRepo.deleteAllById(ids);
 	}
 
 	@Override
 	public <S extends Sell, R> R findBy(Example<S> example, Function<FetchableFluentQuery<S>, R> queryFunction) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'findBy'");
+		return sellRepo.findBy(example, queryFunction);
 	}
 
 }

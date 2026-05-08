@@ -21,7 +21,6 @@ import com.persistence.model.business.Purchase;
 import com.persistence.model.business.Stock;
 import com.service.IUserService;
 import com.web.dto.business.PurchaseDTO;
-import com.web.dto.business.StockDTO;
 import com.web.util.AppUtil;
 import com.web.util.RequestUtil;
 
