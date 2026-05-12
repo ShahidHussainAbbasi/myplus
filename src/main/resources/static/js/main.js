@@ -160,13 +160,13 @@ $(document).ready(function() {
 		showClose:true
 	});
 
-/*	$(".datetimepicker").datetimepicker({
+	$(".purchaseDate").datetimepicker({
 		useCurrent: true,
 		format : 'DD-MM-YYYY HH:mm:ss',
 		showTodayButton: true,
 		showClear:true,
 		showClose:true
-	});*/
+	});
     
 	$(".datePicker").datetimepicker({
 		useCurrent: true,
@@ -175,6 +175,7 @@ $(document).ready(function() {
 		showClear:true,
 		showClose:true
 	});
+
 
 	$('#dueDateTemp').datepicker({
 		format: 'dd/mm/yyyy',
@@ -186,6 +187,18 @@ $(document).ready(function() {
 			+ String(d.getMonth() + 1).padStart(2, '0') + '-'
 			+ String(d.getDate()).padStart(2, '0');
 		$('#dueDate').val(formatted);
+	});	
+
+	$('#purchaseExpiry').datepicker({
+		format: 'dd/mm/yyyy',
+		autoclose: true
+	}).on('purchaseExpiry', function(e) {
+		// Write yyyy-MM-dd into the hidden field for form submission
+		var d = e.date;
+		var formatted = d.getFullYear() + '-'
+			+ String(d.getMonth() + 1).padStart(2, '0') + '-'
+			+ String(d.getDate()).padStart(2, '0');
+		$('#purchaseExpiry').val(formatted);
 	});	
 
 	$('.datetimepicker').datetimepicker({
@@ -216,8 +229,11 @@ $(document).ready(function() {
 //    		loadFVIBSDD(label,value); 
 //    		loadBSDD("getUser"+lable.trim(),"fviDD");
     	}else if(tableV=="Purchase" || tableV =="Sell"){
+			if (tableV=="Purchase") {
+				$(purchaseId).val(null); // reset form on item change for purchase form
+			}
     		loadStock(label,value);  
-    		loadBSDD("getBatchesByItem?itemId="+value,tableV.toLowerCase()+'BatchDD');    		
+    		// loadBSDD("getBatchesByItem?itemId="+value,tableV.toLowerCase()+'BatchDD');    		
     	}
     });
     
@@ -254,9 +270,9 @@ $(document).ready(function() {
 			if(buttonV=="Sell"){
 	    		document.getElementById("sellRec").style.borderColor = "";
 				if(data && data.length>0 && $("#sellRec").val()*ONE>0){
-					var customerDTO = {"name":$("#sellCN").val(), "contactNumber":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$("#dueDate").val()};
-					var customerHistoryDTO = {"customerDTO":customerDTO, "sales":data};
-					jsonPost("addSell",customerHistoryDTO);
+					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
+					var customerHistory = {"customer":customer, "sales":data};
+					jsonPost("addSell",customerHistory);
 			    }else{
 			    	alert("Please make sure you have entered valid values");
 			    	if($("#sellRec").val()*ONE<=0){
@@ -447,20 +463,16 @@ function populateFormData(){
 			}else{
 		    	obj[form[i].name] = $.trim(document.getElementById(form[i].id).value);
 			}
-			// Handled bootstrap drop down
-// if(form[i].className.indexOf("selectpicker")>-1){
-// $( "#"+form[i].id+" :selected" ).text(text);
-// $("#"+form[i].id).selectpicker('refresh');
-// }
 		}
 	}
+	// if(buttonV=="Purchase"){
+	// 	var purchaseItemDD = document.getElementById("purchaseItemDD");
+	// 	var itemId = purchaseItemDD.options[purchaseItemDD.selectedIndex].value;		
+	// 	var item = {};
+	// 	item = {"id":itemId};
+	// 	obj['item'] = item
+	// }
 	
-// var myForm = document.getElementById(tableV);
-// var formData = new FormData(myForm),
-// obj = {};
-// for (var entry of formData.entries()){
-// //obj[entry[0]] = $.trim(entry[1]);
-// }
 	return $.param(obj);
 }
 
@@ -549,6 +561,14 @@ function editRecord(doc){
 			}
 		}
 	}
+	// stock should be now quantity for purchase form, so update it
+	if (tableV=="Purchase") {
+		this.updatePurchaseForm($("#purchaseStock").val());
+	}
+}
+
+function updatePurchaseForm(batchStock){
+	($("#purchaseQuantity").val(batchStock));
 }
 
 function resetBSDD(id){
@@ -644,20 +664,20 @@ function formToJSON(formId){
 	var myForm = document.getElementById(formId);
     var formData = new FormData(myForm),
     obj = {};
-    stockDTO = {};
+    stock = {};
     for (var entry of formData.entries()){
     	var key = entry[0];
     	var val = entry[1];
     	if(key && key.indexOf(".")>0){
     		var mainKey = key.split('.')[0];
     		var keyVal = key.split('.')[1];
-    		stockDTO[keyVal] = $.trim(val);
+    		stock[keyVal] = $.trim(val);
     	}else{
         	obj[key] = $.trim(val);
     	}
     }
     if(mainKey)
-    	obj[mainKey] = stockDTO;
+    	obj[mainKey] = stock;
 
     return obj;
 }

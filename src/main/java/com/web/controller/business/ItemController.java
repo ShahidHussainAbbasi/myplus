@@ -226,9 +226,10 @@ public class ItemController {
 			obj.setUserId(user.getId());			
 			if(appUtil.isEmptyOrNull(dto.getId())){
 //				obj.setUserId(user.getId());
-				if(appUtil.notEmptyNorNull(dto.getIcode())){
+				if(appUtil.notEmptyNorNull(dto.getIname())){
 					obj.setIcode(dto.getIcode());
-				}else {
+				}
+				if(appUtil.notEmptyNorNull(dto.getIname())){
 					obj.setIname(dto.getIname());
 				}
 				Example<Item> example = Example.of(obj);
@@ -239,6 +240,7 @@ public class ItemController {
 			modelMapper.addConverter(appUtil.stringToLocalDate);
 			modelMapper.addConverter(appUtil.stringToLocalDateTime);
 			obj = modelMapper.map(dto, Item.class);
+			obj.setUserType(user.getUserType());
 
 			obj = itemService.save(obj);
 			if (appUtil.isEmptyOrNull(obj.getId())) {

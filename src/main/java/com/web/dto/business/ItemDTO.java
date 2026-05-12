@@ -2,6 +2,7 @@ package com.web.dto.business;
 
 import java.io.Serializable;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -10,23 +11,19 @@ import lombok.Setter;
  * 
  */
 
+ @Data
 public class ItemDTO implements Serializable {
 	
 	private static final long serialVersionUID = 1L;
 
-	@Getter@Setter
 	private Long id;
 
-	@Getter@Setter
 	private String icode;
 
-	@Getter@Setter
 	private Long userId;
 
-	@Getter@Setter
 	private String userType;
 
-	@Getter@Setter
 	private String iname;
 
 //	@Getter@Setter
@@ -50,16 +47,12 @@ public class ItemDTO implements Serializable {
 //	@Getter@Setter
 //	private Float stock=0.0F;
 	
-	@Getter@Setter
 	private Long companyId;
 
-	@Getter@Setter
 	private String companyName;
 
-	@Getter@Setter
 	private Long venderId;
 
-	@Getter@Setter
 	private String venderName;
 
 //	@Getter@Setter
@@ -86,15 +79,13 @@ public class ItemDTO implements Serializable {
 //	@Getter@Setter
 //	private Set<String> itemTypeNames;
 
-	@Getter@Setter
 	private String dated;
 
-	@Getter@Setter
 	private String updated;
 	
-	@Getter@Setter
 	private String idesc;
-	
+
+	private StockDTO stock;
 //	@Getter@Setter
 //	private String bn;
 	

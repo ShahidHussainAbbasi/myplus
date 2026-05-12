@@ -3,6 +3,7 @@
  */
 package com.persistence.Repo.business;
 
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,6 +25,8 @@ public interface StockRepo extends JpaRepository<Stock, Long>,QueryByExampleExec
 
 	@Query(value = "SELECT batchNo FROM Stock WHERE userId = :userId AND itemId = :itemId")
 	Set<String> getItemBatch(Long userId, Long itemId);
+
+	Optional<Stock> findByItemId(Long itemId);
 
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "
 //    		+ "p.mobile = :mobile AND a.FK_patient_id = p.patient_id",nativeQuery=true)

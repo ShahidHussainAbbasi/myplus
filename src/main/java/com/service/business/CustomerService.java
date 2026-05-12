@@ -1,5 +1,6 @@
 package com.service.business;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -40,8 +41,8 @@ public class CustomerService implements ICustomerService{
 	@Autowired
 	RequestUtil requestUtil;
 
-	@Autowired
-	ObjectMapperUtils objectMapperUtils;
+	// @Autowired
+	// ObjectMapperUtils objectMapperUtils;
 
 	@Override
 	public List<Customer> findAll() {
@@ -258,29 +259,43 @@ public class CustomerService implements ICustomerService{
 	@Override
 	public Customer saveUpdateCustomer(CustomerHistoryDTO dto) throws Exception {
 
-		Customer customerObj = dto.getCustomerDTO().getId() != null ? this.getReferenceById(dto.getCustomerDTO().getId()) : new Customer();
+		Customer customerObj = dto.getCustomer().getId() != null ? this.getReferenceById(dto.getCustomer().getId()) : new Customer();
 
 		if(appUtil.isEmptyOrNull(customerObj.getId())){
-				Example<Customer> example = Example.of(customerObj);
-				customerObj.setName(dto.getCustomerDTO().getName());
-				User user = requestUtil.getCurrentUser();
-				customerObj.setUserId(user.getId());
-				customerObj.setUserType(user.getUserType());
 
-				if(!this.exists(example)) {
-					customerObj = objectMapperUtils.map(dto.getCustomerDTO(), Customer.class);
+			Example<Customer> example = Example.of(customerObj);
+
+			User user = requestUtil.getCurrentUser();
+			customerObj.setUserId(user.getId());
+			customerObj.setUserType(user.getUserType());
+			customerObj.setContact(dto.getCustomer().getContact());
+
+			customerObj = this.findOne(example).orElse(customerObj);
+
+			if(appUtil.isEmptyOrNull(customerObj.getId())){ 
+				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() +  dto.getCustomer().getDueAmount() );
+				customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
+				if (dto.getCustomer().getDueDate() != null) {
+					customerObj.setDueDate(dto.getCustomer().getDueDate());
 				}
 			} else {
-				customerObj = this.getReferenceById(dto.getCustomerDTO().getId());
+				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() + dto.getCustomer().getDueAmount());
+				customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
 			}
 
-			if (customerObj.getDueAmount() == null && customerObj.getDueAmount() >= 0 ) {
-				customerObj.setPaidAmount(0f);
-			}
-
-			this.save(customerObj);
-
-			return customerObj;
+			customerObj.setName(dto.getCustomer().getName());
+		} else {
+				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() + dto.getCustomer().getDueAmount());
+				customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
+		 }
+		if (customerObj.getDueDate() == null && dto.getCustomer().getDueDate() != null) {
+			customerObj.setDueDate(dto.getCustomer().getDueDate());
+		}
+		customerObj.setDated(LocalDateTime.now());
+		customerObj.setUpdated(LocalDateTime.now());
+		// this.save(customerObj);
+		
+		return customerObj;
 	}
 
 }

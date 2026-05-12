@@ -96,15 +96,15 @@ public class PurchaseController {
 						dto.setItemId(item.getId());
 						dto.setIname(item.getIname());
 						dto.setIcode(item.getIcode());
-						dto.setDescription(item.getIdesc());
+						// dto.setDescription(item.getIdesc());
 //						dto.setStock(item.getStock());
 					}
 //					Optional<Stock> option2 = stockService.findById(dto.getStockDTO()());
 					if(o.getStock()!=null) {
 						modelMapper.addConverter(appUtil.localDateToString);
 						modelMapper.addConverter(appUtil.localDateTimeToString);
-						StockDTO stockDTO = modelMapper.map(o.getStock(), StockDTO.class);
-						dto.setStockDTO(stockDTO);
+						StockDTO stock = modelMapper.map(o.getStock(), StockDTO.class);
+						dto.setStock(stock);
 					}
 					
 //					dto.setDatedStr(appUtil.getDateStr(o.getDated()));

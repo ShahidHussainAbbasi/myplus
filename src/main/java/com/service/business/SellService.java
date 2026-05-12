@@ -230,11 +230,11 @@ public class SellService implements ISellService {
 	@SuppressWarnings("null")
 	@Override
 	@Transactional
-	public List<Sell> addSell(List<Sell> dtos) {
-		List<Sell> objs = new ArrayList<>();
+	public void addSell(List<Sell> dtos) throws Exception {
+		// List<Sell> objs = new ArrayList<>();
 		if(!appUtil.isEmptyOrNull(dtos)) {
 			dtos.forEach(dto ->{
-				Stock stock = stockService.updateStock(dto.getStock());
+				Stock stock = stockService.updateStock(dto);
 				if(!appUtil.isEmptyOrNull(stock)) {
 					modelMapper.addConverter(appUtil.stringToLocalDateTime);
 					modelMapper.addConverter(appUtil.stringToLocalDate);
@@ -242,11 +242,12 @@ public class SellService implements ISellService {
 					obj.setStock(stock);
 					obj.setUserId(requestUtil.getCurrentUser().getId());
 					stockService.save(stock);
-					objs.add(this.save(obj));
+					this.save(obj);
+					// objs.add(this.save(obj));
 				}
 			});
 		}
-		return objs;
+		// return objs;
 	}
 	
 	@Override
@@ -342,7 +343,7 @@ public class SellService implements ISellService {
 				if (obj.getDt().equals("%")) {
 					dis = obj.getTotalAmount() * dis / 100;
 				}
-				Item item = itemService.getReferenceById(obj.getItem().getId());
+				Item item = itemService.getReferenceById(obj.getStock().getItemId());
 				row.getCell(0).setWidth("1200");
 				row.getCell(0).setText(" "+item.getIname());
 				row.getCell(1).setWidth("300");

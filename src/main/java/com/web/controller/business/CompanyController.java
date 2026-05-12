@@ -135,13 +135,13 @@ public class CompanyController {
 			obj = modelMapper.map(dto, Company.class);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
-				obj.setDated(companyService.getOne(dto.getId()).getDated());
+				obj.setDated(companyService.getReferenceById(dto.getId()).getDated());
 //				dated = obj.getDated();
 			}else {
 				obj.setDated(dated);
 			}
 			obj.setUpdated(dated);
-
+			obj.setUserType(user.getUserType());
 			obj = companyService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));

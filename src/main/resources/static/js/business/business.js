@@ -238,11 +238,16 @@ $(document).ready(function() {
         if(formValidated){
         	var obj  = formToJSON("Sell");
 //        	obj = populateFormData();
-        	
-        	obj.name = $( "#sellItemDD :selected" ).text();
+        	obj.itemName = $( "#sellItemDD :selected" ).text();
+			obj.itemId = $("#sellItemDD").val();
+			obj.stock.itemId = obj.itemId;
+			obj.stock.itemName = obj.itemName;
+			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
+			// obj.item = item;
+
         	data.push(obj);
 			var arr = [
-				obj.itemId,$( "#sellItemDD :selected" ).text(),obj.quantity,obj.stockDTO.bsellRate,obj.stockDTO.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
+				obj.itemId,obj.itemName,obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
 			resetForm();
@@ -267,8 +272,8 @@ function CIT(data){
 	var q=ZERO,sr=ZERO,dis=ZERO,t=ZERO;
 	data.forEach(function(d){
 		q=d.quantity*ONE+q;
-		sr=d.stockDTO.bsellRate*ONE+sr;
-		dis=d.stockDTO.bsellDiscount*ONE+dis;
+		sr=d.stock.bsellRate*ONE+sr;
+		dis=d.stock.bsellDiscount*ONE+dis;
 		t=d.totalAmount*ONE+t;
 	});
 	$("#itq").text(q);
@@ -396,16 +401,16 @@ function loadDataTable(){
 						arr = [
 							"<div id=purchaseId>"+obj.purchaseId+"</div>", "<input type='checkbox' value="+ obj.purchaseId+ ">",
 							"<div id=purchaseItemDD>"+obj.icode+"</div>","<div id=purchaseItemName>"+obj.iname+"</div>",
-							"<div id=purchaseQuantity>"+obj.quantity+"</div>",/* "<div id=purchaseStock>"+obj.stockDTO.stock+"</div>",*/
-							"<div id=purchaseBatchNo>"+obj.stockDTO.batchNo+"</div>", 
-							"<div id=purchasePurchaseRate>"+obj.stockDTO.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stockDTO.bsellRate+"</div>", 
-							"<div id=purchaseDiscountTypeDD>"+obj.stockDTO.bpurchaseDiscountType+"</div>", 
-							"<div id=purchaseDiscount>"+obj.stockDTO.bpurchaseDiscount+"</div>",
-							"<div id=purchaseSellDiscountTypeDD>"+obj.stockDTO.bsellDiscountType+"</div>", 
-							"<div id=purchaseSellDiscount>"+obj.stockDTO.bsellDiscount+"</div>",
+							"<div id=purchaseQuantity>"+obj.quantity+"</div>", "<div id=purchaseStock>"+obj.stock.stock+"</div>",
+							// "<div id=purchaseBatchNo>"+obj.stock.batchNo+"</div>", 
+							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>", 
+							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>", 
+							"<div id=purchaseDiscount>"+obj.stock.bpurchaseDiscount+"</div>",
+							"<div id=purchaseSellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>", 
+							"<div id=purchaseSellDiscount>"+obj.stock.bsellDiscount+"</div>",
 							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
 							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
-							"<div id=purchaseExpiry>"+obj.stockDTO.bexpDate+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"
+							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -413,19 +418,17 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=sellId>"+obj.sellId+"</div>",
-							"<button type='button' id='saleReturn' class='btn btn-danger' onclick=saleReturn("+obj.sellId+","+obj.stockDTO.stockId+","+obj.quantity+")><span class='glyphicon glyphicon-remove-sign'></span> Return</button>",
-//							"<button type='button' id='saleReturn' class='btn btn-danger' onclick=saleReturn("+obj.sellId,obj.stockId,obj.quantity+")>"+
-//							"<span class='glyphicon glyphicon-remove-sign'></span> Return </button>",
-							"<div id=sellItemDD>"+obj.itemCode+"</div>","<div id=sellItemName>"+obj.itemName+"</div>",
+							"<button type='button' id='saleReturn' class='btn btn-danger' onclick=saleReturn("+obj.sellId+","+obj.stock.stockId+","+obj.quantity+")><span class='glyphicon glyphicon-remove-sign'></span> Return</button>",
+							// "<div id=sellItemDD>"+obj.stock.itemCode+"</div>",
+							"<div id=sellItemName>"+obj.itemName+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
-							"<div id=sellItemExpiry>"+obj.stockDTO.bexpDate+"</div>", 
-							// "<div id=sellBatchNo>"+obj.stockDTO.batchNo+"</div>","<div id=sellItemExpiry>"+obj.stockDTO.bexpDate+"</div>", 
-							"<div id=sellPurchaseRate>"+obj.stockDTO.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stockDTO.bsellRate+"</div>",
-							"<div id=sellDiscountTypeDD>"+obj.stockDTO.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stockDTO.bsellDiscount+"</div>",
+							"<div id=sellItemExpiry>"+obj.stock.bexpDate+"</div>", 
+							// "<div id=sellBatchNo>"+obj.stock.batchNo+"</div>", 
+							"<div id=sellPurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stock.bsellRate+"</div>",
+							"<div id=sellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stock.bsellDiscount+"</div>",
 							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
-							"<div id=sellCC>"+obj.cc+"</div>","<div id=sellCN>"+obj.cn+"</div>","<div id=sellDueDays>"+obj.due_days+"</div>",
-							
-							/*"<div id=sellsrp>"+obj.srp+"</div>","<div id=sellRe>"+obj.re+"</div>",*/
+							// "<div id=sellCC>"+obj.cc+"</div>","<div id=sellCN>"+obj.cn+"</div>","<div id=sellDueDays>"+obj.due_days+"</div>",
+							// "<div id=sellsrp>"+obj.srp+"</div>","<div id=sellRe>"+obj.re+"</div>",
 							obj.updated
 							];
 						datatable.row.add(arr).draw();
@@ -549,6 +552,7 @@ function loadStock(label,value){
 	$("#sellSellRate").val("")
 	$("#sellItems").removeClass("alert-danger");
 	$("pdt").html("      ");
+	
     $.get(serverContext+ "getStock?itemId="+value,function(data){
     	if(data){
 	    	discountValue = data.bsellDiscount;
@@ -598,7 +602,7 @@ function getBatchesByItem(itemId){
 	 if (!itemId || itemId == '' || itemId.length <= 0){
 		 return
 	 }
-	 loadBSDD("getBatchesByItem?itemId="+itemId,tableV.to+'itemBatchDD');
+	//  loadBSDD("getBatchesByItem?itemId="+itemId,tableV.to+'itemBatchDD');
 }
 
 //"getBatchesByItem(this.value);"
@@ -681,7 +685,9 @@ function calculateNetPurchase(){
 	discountType = $("#discountTypeDD :selected").val();
 	var purchaseDiscount = $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val()*ONE:0;
 	var purchaseTotalAmount = $($("#purchaseTotalAmount").val(parseFloat(qty * p).toFixed(2))).val();
-	$("#purchaseStock").val(batchStock);
+	if (!edit){
+		 $("#purchaseStock").val(batchStock);
+	}
 	if(discountType == "%"){
 		//Discount  =  List Price Ã— Discount Rate 
 		purchaseDiscount = purchaseTotalAmount * (purchaseDiscount*1 / 100);
@@ -717,7 +723,7 @@ function calculateNetSell(){
 		//Discount  =  List Price Ã— Discount Rate 
 		sellDiscount =  sellTotalAmount * (sellDiscount*1 / 100);
 	}else{
-		sellDiscount = sellDiscount * qty;
+		// sellDiscount = sellTotalAmount - sellDiscount;
 		//$("#sellDiscount").val(sellDiscount);
 	}
 	var profit = parseFloat(sellTotalAmount- (p*qty) - sellDiscount).toFixed(2);
@@ -730,6 +736,45 @@ function calculateNetSell(){
 	$("#sellTotalAmount").val(sellTotalAmount);
 	$("#sellrm").val($("#sellTotalAmount").val()-sellDiscount);
 }
+
+// function calculateNetSell(){
+// 	var p = $("#sellPurchaseRate").val()*ONE;
+// 	var s= $("#sellSellRate").val()*ONE;
+// 	$("#sellItems").removeClass("alert-danger");
+// 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
+// 	discountType = $("#sellDiscountTypeDD :selected").val();
+// 	if(edit){
+// 		batchStock = $("#sellStock").val()*ONE;
+// 	}
+// 	$("#sellStock").val(batchStock);
+
+// 	if(batchStock < qty){
+// 		$("#sellItems").addClass("alert-danger");
+// 		alert("You can not select more item than availabe in stock, Please purchase or select some other item to sell.")
+// 		$(".form-control").val("");
+// 		return false;
+// 	}
+
+// 	var sellDiscount= $("#sellDiscount").val()*1 > 0 ? $("#sellDiscount").val()*ONE : 0;
+// 	sellTotalAmount = parseFloat(qty * s).toFixed(2);
+// 	if(discountType*ONE == 1){
+// 		//Discount  =  List Price Ã— Discount Rate 
+// 		sellDiscount =  sellTotalAmount * (sellDiscount*1 / 100);
+// 	}else {
+
+// 		sellDiscount = sellTotalAmount - sellDiscount;
+// 		//$("#sellDiscount").val(sellDiscount);
+// 	}
+// 	var profit = parseFloat(sellTotalAmount- (p*qty) - sellDiscount).toFixed(2);
+// 	$("#sellNetAmount").val(profit);
+// 	if(profit<=0)
+// 		$("#sellNetAmount").addClass("alert-danger");
+// 	else
+// 		$("#sellNetAmount").removeClass("alert-danger");
+	
+// 	$("#sellTotalAmount").val(sellTotalAmount);
+// 	$("#sellrm").val($("#sellTotalAmount").val()-sellDiscount);
+// }
 
 function calculateSRP(){
 	var s= $("#sellSellRate").val()*ONE;
@@ -752,7 +797,7 @@ function calculateChange() {
 	$("#dueDateTemp").hide();
 	$('#displayDateWrapper').hide();
 
-		var recAm = $("#sellRec").val() * ONE;
+	var recAm = $("#sellRec").val() * ONE;
     var sellTotal = $("#sellTotal")[0].innerHTML * ONE;
     var change = recAm - sellTotal;
     

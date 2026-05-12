@@ -35,7 +35,7 @@ public class Owner implements Serializable {
 	@Column(name = "owner_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	@ValidateEmpty

@@ -10,7 +10,7 @@ public interface ISellService extends SellRepo{
 
 	String createReport(List<Sell> objs) throws IOException;
 
-	List<Sell> addSell(List<Sell> dtos);
+	void addSell(List<Sell> dtos) throws Exception;
 	
 
 }

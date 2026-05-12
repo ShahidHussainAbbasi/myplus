@@ -7,11 +7,9 @@ import com.web.dto.business.PurchaseDTO;
 
 public interface IStockService extends StockRepo {
 
-	Stock updateStock(Stock dto);
-
 	Stock updateStock(Sell dto);
 	
-	Stock updateStock(PurchaseDTO dto);
+	Stock updateStock(PurchaseDTO dto) throws Exception;
 
 //	Set<Item> getItemBatch(Long id, Long itemId);
 

@@ -3,6 +3,8 @@ package com.persistence.model.business;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.persistence.Column;
 import javax.persistence.ElementCollection;
@@ -38,53 +40,44 @@ public class Item implements Serializable {
 	@SequenceGenerator(name = "item_gen", sequenceName = "item_seq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "item_gen")	
 	@Column(name = "item_id", unique = true, nullable = false)
-	// @Getter@Setter
 	private Long id;
 
-	@Column(name = "user_id")
-	// @Getter@Setter
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	@Column(name = "user_type")
-	@Getter@Setter
 	private String userType;
 
-	// @Getter@Setter
 	private String iname;
 
-	// @Getter@Setter
 	private String icode;
 
 	@Column(name = "description")
-	// @Getter@Setter
 	private String idesc;
 
-	@Column(name = "purchase_amount")
-	// @Getter@Setter
-	private Float purchaseAmount;
+	private String unit;
 
-	@Column(name = "sell_amount")
-	// @Getter@Setter
-	private Float sellAmount;
+	private String category;
 
-	// @Getter@Setter
-	private Float discount;
+	// @Column(name = "purchase_amount")
+	// private Float purchaseAmount;
 
-	// @Getter@Setter
-	private String discountType;
+	// @Column(name = "sell_amount")
+	// private Float sellAmount;
 
-	// @Getter@Setter
-	private Float net;
+	// private Float discount;
 
-	// @Getter@Setter
-	private LocalDate expDate;
+	// private String discountType;
 
-	// @Getter@Setter
-	private Float stock;
+	// private Float net;
+
+	// private LocalDate expDate;
+
+	// private Float stock;
 
 //	@OneToMany(cascade= CascadeType.REFRESH)
 //	@NotFound(action = NotFoundAction.IGNORE)
-	@ElementCollection
+	// @ElementCollection
 //	@CollectionTable(name ="tracks" , joinColumns=@JoinColumn(name="playlist_id"))
 //	@Column(name="track")
 //	private Set<Long> itemUnitIds = new HashSet<>();
@@ -103,16 +96,28 @@ public class Item implements Serializable {
 //	@JoinColumn(name = "item_unit_id")
 //	private ItemUnit itemUnit;
 
-	@OneToOne(fetch = FetchType.EAGER)
+	@OneToOne(fetch = FetchType.LAZY)
 	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinColumn(name = "company_id")
-	// @Getter@Setter
 	private Company company;
+
+	// @OneToOne(fetch = FetchType.LAZY)
+	// @NotFound(action = NotFoundAction.IGNORE)
+	// @JoinColumn(name = "sell_id")
+	// @ElementCollection
+	// private List<Sell> sales = new ArrayList<>();	
+
+	// @OneToOne(fetch = FetchType.LAZY)
+	// @NotFound(action = NotFoundAction.IGNORE)
+	// @JoinColumn(name = "purchase_id")
+
+	// @ElementCollection
+	// private List<Purchase> purchases = new ArrayList<>();;
 
 	@OneToOne(fetch = FetchType.EAGER)
 	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "sell_id")
-	private Sell sell;
+	@JoinColumn(name = "stock_id")
+	private Stock stock;
 
 
 //	@OneToOne(fetch = FetchType.LAZY)
@@ -125,13 +130,10 @@ public class Item implements Serializable {
 	private Long venderId;
 
 	@Column(updatable = false)
-	// @Getter@Setter
 	private LocalDateTime dated;
 
-	// @Getter@Setter
 	private LocalDateTime updated;
 	
-	// @Getter@Setter
 	@JoinColumn(name = "batch_number")
 	private String bn;
 

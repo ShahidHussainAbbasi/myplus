@@ -29,7 +29,7 @@ public class Guardian implements Serializable {
 	@Column(name = "name", nullable = false)
 	private String name;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	private String email;

@@ -3,8 +3,6 @@ package com.web.dto.business;
 import java.io.Serializable;
 
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 
 /**
  * The persistent class for the doctor database table.
@@ -45,6 +43,8 @@ public class StockDTO implements Serializable {
 	private String updated;
 	
 	private String iDesc;
+
+	private Long itemId;
 
 
 	/* (non-Javadoc)

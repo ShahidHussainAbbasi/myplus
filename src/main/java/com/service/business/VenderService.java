@@ -201,7 +201,7 @@ public class VenderService implements IVenderService {
 	@Override
 	public Vender getReferenceById(Long id) {
 		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getReferenceById'");
+		return venderRepo.getReferenceById(id);
 	}
 
 	@Override

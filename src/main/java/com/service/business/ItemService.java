@@ -183,44 +183,43 @@ public class ItemService implements IItemService {
 
 	@Override
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllByIdInBatch'");
+		itemRepo.deleteAllByIdInBatch(ids);
 	}
 
 	@Override
 	public void deleteAllInBatch(Iterable<Item> entities) {
 		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllInBatch'");
+		itemRepo.deleteAllInBatch(entities);
 	}
 
 	@Override
 	public Item getById(Long id) {
 		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getById'");
+		return itemRepo.getById(id);
 	}
 
 	@Override
 	public Item getReferenceById(Long id) {
 		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getReferenceById'");
+		return itemRepo.getReferenceById(id);
 	}
 
 	@Override
 	public <S extends Item> List<S> saveAllAndFlush(Iterable<S> entities) {
 		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'saveAllAndFlush'");
+		return itemRepo.saveAllAndFlush(entities);
 	}
 
 	@Override
 	public void deleteAllById(Iterable<? extends Long> ids) {
 		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllById'");
+		itemRepo.deleteAllById(ids);
 	}
 
 	@Override
 	public <S extends Item, R> R findBy(Example<S> example, Function<FetchableFluentQuery<S>, R> queryFunction) {
 		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'findBy'");
+		return itemRepo.findBy(example, queryFunction);
 	}
 
 	

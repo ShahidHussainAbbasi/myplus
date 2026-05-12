@@ -372,7 +372,7 @@ function loadDataTable(){
 			"type" : "GET",
 			"success" : function(data) {
 				var collections = data.collection;
-				console.log("getUser : "+getAll+" collections : "+collections);
+				// console.log("getUser : "+getAll+" collections : "+collections);
 				var arr = [" No Data Found "];
 				if (getAll === "Company") {
 					$.each(collections, function(ind, obj) {

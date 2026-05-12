@@ -156,13 +156,14 @@ public class VenderController {
 			obj = modelMapper.map(dto, Vender.class);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
-				obj.setDated(venderService.getOne(dto.getId()).getDated());
+				obj.setDated(venderService.getReferenceById(dto.getId()).getDated());
 			}else {
 				obj.setDated(dated);
 			}
 			obj.setUpdated(dated);
 
-			obj.setCompany(companyService.getOne(dto.getCompanyId()));
+			obj.setCompany(companyService.getReferenceById(dto.getCompanyId()));
+			obj.setUserType(user.getUserType());
 			obj = venderService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));

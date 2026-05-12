@@ -205,7 +205,7 @@ $(document).ready(function() {
 //    		loadBSDD("getUser"+lable.trim(),"fviDD");
     	}else if(tableV=="Purchase" || tableV =="Sell"){
     		loadStock(label,value);  
-    		loadBSDD("getBatchesByItem?itemId="+value,tableV.toLowerCase()+'BatchDD');    		
+    		// loadBSDD("getBatchesByItem?itemId="+value,tableV.toLowerCase()+'BatchDD');    		
     	}
     });
     
@@ -631,20 +631,20 @@ function formToJSON(formId){
 	var myForm = document.getElementById(formId);
     var formData = new FormData(myForm),
     obj = {};
-    stockDTO = {};
+    stock = {};
     for (var entry of formData.entries()){
     	var key = entry[0];
     	var val = entry[1];
     	if(key && key.indexOf(".")>0){
     		var mainKey = key.split('.')[0];
     		var keyVal = key.split('.')[1];
-    		stockDTO[keyVal] = $.trim(val);
+    		stock[keyVal] = $.trim(val);
     	}else{
         	obj[key] = $.trim(val);
     	}
     }
     if(mainKey)
-    	obj[mainKey] = stockDTO;
+    	obj[mainKey] = stock;
 
     return obj;
 }

@@ -1,6 +1,5 @@
 package com.service.business;
 
-import java.text.ParseException;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -17,6 +16,7 @@ import org.springframework.data.repository.query.FluentQuery.FetchableFluentQuer
 import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.PurchaseRepo;
+import com.persistence.model.User;
 import com.persistence.model.business.Purchase;
 import com.persistence.model.business.Stock;
 import com.service.IUserService;
@@ -196,59 +196,53 @@ public class PurchaseService implements IPurchaseService{
 
 	@Override
 	@Transactional
-	public Purchase addPurchase(PurchaseDTO dto) throws ParseException {
-		Stock stock = modelMapper.map(dto.getStockDTO(), Stock.class);
-		stock = stockService.updateStock(stock);
-		stockService.save(stock);
+	public Purchase addPurchase(PurchaseDTO dto) throws Exception {
+		User user = requestUtil.getCurrentUser();
+		dto.setUserId(user.getId());
+		dto.setUserType(user.getUserType());
+
+		Stock stock  = stockService.updateStock(dto);
+
 		modelMapper.addConverter(appUtil.stringToLocalDateTime);
 		modelMapper.addConverter(appUtil.stringToLocalDate);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
 		obj.setStock(stock);
-		obj.setUserId(requestUtil.getCurrentUser().getId());
-		// stockService.save(stock);
 		return this.save(obj);
 	}
 
 	@Override
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllByIdInBatch'");
+		purchaseRepo.deleteAllByIdInBatch(ids);
 	}
 
 	@Override
 	public void deleteAllInBatch(Iterable<Purchase> entities) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllInBatch'");
+		purchaseRepo.deleteAllInBatch(entities);
 	}
 
 	@Override
 	public Purchase getById(Long id) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getById'");
+		return purchaseRepo.getById(id);
 	}
 
 	@Override
 	public Purchase getReferenceById(Long id) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getReferenceById'");
+		return purchaseRepo.getReferenceById(id);
 	}
 
 	@Override
 	public <S extends Purchase> List<S> saveAllAndFlush(Iterable<S> entities) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'saveAllAndFlush'");
+		return purchaseRepo.saveAllAndFlush(entities);
 	}
 
 	@Override
 	public void deleteAllById(Iterable<? extends Long> ids) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllById'");
+		purchaseRepo.deleteAllById(ids);
 	}
 
 	@Override
 	public <S extends Purchase, R> R findBy(Example<S> example, Function<FetchableFluentQuery<S>, R> queryFunction) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'findBy'");
+		return purchaseRepo.findBy(example, queryFunction);
 	}
 
 }

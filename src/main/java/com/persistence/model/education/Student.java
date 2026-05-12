@@ -33,7 +33,7 @@ public class Student implements Serializable {
 	@Column(name = "name", nullable = false)
 	private String name;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	@Column(name = "year_start")

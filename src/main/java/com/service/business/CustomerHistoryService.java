@@ -1,5 +1,7 @@
 package com.service.business;
 
+import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -16,8 +18,14 @@ import org.springframework.stereotype.Service;
 
 import com.persistence.Repo.business.CustomerHistoryRepo;
 import com.persistence.Repo.business.ItemRepo;
+import com.persistence.model.User;
+import com.persistence.model.business.Customer;
 import com.persistence.model.business.CustomerHistory;
+import com.persistence.model.business.Sell;
 import com.service.IUserService;
+import com.web.dto.business.CustomerHistoryDTO;
+import com.web.util.AppUtil;
+import com.web.util.ObjectMapperUtils;
 import com.web.util.RequestUtil;
 
 @Service
@@ -35,6 +43,10 @@ public class CustomerHistoryService implements ICustomerHistoryService {
     
 	@Autowired
 	CustomerHistoryRepo CustomerHistoryRepo;
+
+    @Autowired
+    private AppUtil appUtil;  
+
 
 	@Override
 	public List<CustomerHistory> findAll() {
@@ -187,5 +199,53 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 	public CustomerHistory getById(Long id) {
 		return CustomerHistoryRepo.getById(id);
 	}
+
+	@Override
+	public CustomerHistory saveUpdateCustomerHistory(CustomerHistoryDTO dto) {
+		CustomerHistory customerHistoryObj = dto.getId() != null ? this.getReferenceById(dto.getId()) : new CustomerHistory();
+
+		User user = requestUtil.getCurrentUser();
+		customerHistoryObj.setUserId(user.getId());
+		customerHistoryObj.setUserType(user.getUserType());
+		customerHistoryObj = ObjectMapperUtils.map(dto.getCustomer(), CustomerHistory.class);
+		customerHistoryObj.setDated(LocalDateTime.now());
+		customerHistoryObj.setUpdated(LocalDateTime.now());
+		customerHistoryObj.setDueAmount(dto.getDueAmount() == null ? dto.getCustomer().getDueAmount() : dto.getDueAmount());
+		customerHistoryObj.setDueAmount(dto.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : dto.getPaidAmount());
+		return customerHistoryObj;
+		// if(appUtil.isEmptyOrNull(customerHistoryObj.getId())){
+
+		// 	Example<CustomerHistory> example = Example.of(customerObj);
+
+		// 	User user = requestUtil.getCurrentUser();
+		// 	customerObj.setUserId(user.getId());
+		// 	customerObj.setUserType(user.getUserType());
+
+		// 	customerObj = this.findOne(example).orElse(customerObj);
+
+		// 	customerObj = ObjectMapperUtils.map(dto.getCustomer(), CustomerHistory.class);
+
+		// 	if(appUtil.isEmptyOrNull(customerObj.getId())) { 
+		// 		customerObj.setDueAmount(dto.getDueAmount());
+		// 		customerObj.setPaidAmount(dto.getPaidAmount());
+		// 		if (dto.getDueDate() == null) {
+		// 			customerObj.setDueDate(dto.getDueDate());
+		// 		}
+		// 	} else {
+		// 		customerObj.setDueAmount(dto.getDueAmount());
+		// 		customerObj.setPaidAmount(dto.getPaidAmount());
+		// 	}
+		// } else {
+		// 		customerObj.setDueAmount(dto.getDueAmount());
+		// 		customerObj.setPaidAmount(dto.getPaidAmount());
+		//  }
+		// if (dto.getDueDate() == null) {
+		// 	customerObj.setDueDate(dto.getDueDate());
+		// }
+
+
+		// this.save(customerObj);
+		
+		}
 	
 	}

@@ -14,6 +14,8 @@ import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
+import org.hibernate.annotations.NaturalId;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -51,7 +53,8 @@ public class Stock implements Serializable {
 	@Getter@Setter
 	private String userType;
 
-	@Column(name = "item_id", nullable = false)
+	@NaturalId
+	@Column(name = "item_id", unique = true, nullable = false)
 	@Getter@Setter
 	private Long itemId;
 
@@ -65,7 +68,7 @@ public class Stock implements Serializable {
 	
 	@Getter@Setter
 	@Column(name = "batch_sale_rate")
-	private Long bsellRate;
+	private Float bsellRate;
 	
 	@Getter@Setter
 	@Column(name = "batch_purchaseDiscountType")

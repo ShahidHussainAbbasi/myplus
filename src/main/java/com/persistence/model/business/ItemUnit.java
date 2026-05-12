@@ -28,7 +28,7 @@ public class ItemUnit implements Serializable {
 	@Column(name = "item_unit_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	@Column(name = "user_type")

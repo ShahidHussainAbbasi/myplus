@@ -44,7 +44,7 @@ public class Vehicle implements Serializable {
 	@Column(name = "owner_mobile")
 	private String ownerMobile;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	private String status="Active";

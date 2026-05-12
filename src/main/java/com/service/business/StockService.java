@@ -213,60 +213,75 @@ public class StockService implements IStockService {
 	}
 */
 	@Override
-	public Stock updateStock(PurchaseDTO dto) {
-		if (appUtil.isEmptyOrNull(dto))
+	public Stock updateStock(PurchaseDTO dto) throws Exception {
+ 
+		Optional<Stock> optional = this.checkStock(dto.getItemId());
+		if(!optional.isPresent()) {
 			return new Stock();
-
-		Float stock = dto.getQuantity();
-		Long stockId = null;
-		Stock obj = new Stock();
-		Optional<Stock> optional = this.checkStock(obj, dto);
-		if(optional.isPresent()) {
-			Stock stockTemp = optional.get();
-			stockId = stockTemp.getStockId();
-			stock = stockTemp.getStock()==null? stock : stockTemp.getStock() + stock;
 		}
+	
+		Stock stock = optional.get();
+
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
-		obj = modelMapper.map(dto.getStockDTO(), Stock.class);
-//		obj.toString();
-		obj.setUserId(requestUtil.getCurrentUser().getId());
-		obj.setStockId(stockId);
-		obj.setItemId(dto.getItemId());
-		obj.setStock(stock);
-		this.save(obj);
-		return obj;
-	}	
+		stock = modelMapper.map(dto.getStock(), Stock.class);
+		stock.setUserId(dto.getUserId());
+		stock.setUserType(dto.getUserType());
+		stock.setItemId(dto.getItemId());
 
-	@SuppressWarnings("null")
-	private Optional<Stock> checkStock(Stock obj, PurchaseDTO dto) {
-		obj.setUserId(requestUtil.getCurrentUser().getId());
-		obj.setBatchNo(appUtil.isEmptyOrNull(dto.getStockDTO().getBatchNo())?"":dto.getStockDTO().getBatchNo());
-		obj.setItemId(dto.getItemId());
-        Example<Stock> example = Example.of(obj);
+
+		Optional<Stock> existing = this.findByItemId(dto.getItemId());
+    	if (existing.isPresent()) {
+        	stock.setStockId(existing.get().getStockId());
+    	}
+
+		if (appUtil.isEmptyOrNull(dto.getPurchaseId()) || dto.getPurchaseId() <= 0) {
+			stock.setStock(stock.getStock()==null? dto.getQuantity() : stock.getStock() + dto.getQuantity()); // only stock need to update
+		} else {
+			stock.setStock(dto.getQuantity());
+		}
+
+		this.saveAndFlush(stock);
+
+		return stock;
+	}		
+
+	private Optional<Stock> checkStock(long itemId) {
+		Stock stock = new Stock();
+		stock.setUserId(requestUtil.getCurrentUser().getId());
+		stock.setItemId(itemId);
+        Example<Stock> example = Example.of(stock);
 		return Optional.ofNullable(this.findOne(example).orElse(new Stock()));
 	}
 
 	@Override
 	public Stock updateStock(Sell dto) {
-		Float stock = dto.getQuantity();
+		Float quantity = dto.getQuantity();
 		Stock obj = new Stock();
 		
 		obj.setUserId(requestUtil.getCurrentUser().getId());
-		obj.setBatchNo(dto.getStock().getBatchNo());
+		// obj.setBatchNo(dto.getStock().getBatchNo());
 		if(!appUtil.isEmptyOrNull(dto.getStock().getBatchNo())) {
 			obj.setBatchNo(dto.getStock().getBatchNo());
 		}
-		obj.setItemId(dto.getItem().getId());
+		obj.setItemId(dto.getStock().getItemId());
         Example<Stock> example = Example.of(obj);
 		Stock stockTemp = this.findAll(example).get(0);
-		if(appUtil.isEmptyOrNull(stockTemp) || stockTemp.getStock() == null || stockTemp.getStock() < stock || stockTemp.getStock() <= 0) {
-			// logger.error("Stock is not available for item id: " + dto.getItem().getId() + " and batch no: " + dto.getStock().getBatchNo());
-			throw new RuntimeException("Stock is not available for item id: " + dto.getItem().getId());
+		if(appUtil.isEmptyOrNull(stockTemp) || stockTemp.getStock() == null || stockTemp.getStock() < quantity || stockTemp.getStock() <= 0) {
+			// logger.error("Stock is not available for item id: " + dto.getStock().getItemId() + " and batch no: " + dto.getStock().getBatchNo());
+			throw new RuntimeException("Stock is not available for item id: " + dto.getStock().getItemId());
 		}
-		stock = stockTemp.getStock() - stock;
-		stockTemp.setStock(stock);
-		this.save(stockTemp);
+		stockTemp = modelMapper.map(dto.getStock(), Stock.class);
+		quantity = stockTemp.getStock() - quantity;
+		stockTemp.setStock(quantity);
+		stockTemp.setUserId(requestUtil.getCurrentUser().getId());
+		
+		stockTemp.setItemId(dto.getStock().getItemId());
+		Optional<Stock> existing = this.findByItemId(dto.getStock().getItemId());
+    	if (existing.isPresent()) {
+        	stockTemp.setStockId(existing.get().getStockId());
+    	}
+		// this.save(stockTemp);
 		return stockTemp;
 		
 	}
@@ -319,12 +334,11 @@ public class StockService implements IStockService {
 		throw new UnsupportedOperationException("Unimplemented method 'findBy'");
 	}
 
-
 	@Override
-	public Stock updateStock(Stock dto) {
-		repo.save(dto);
-		return dto;
+	public Optional<Stock> findByItemId(Long itemId) {
+        return repo.findByItemId(itemId);
 	}
+
 	
 /*	@Override
 	public List<Stock> updateStock(List<SellDTO> dtos) {

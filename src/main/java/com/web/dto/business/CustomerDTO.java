@@ -11,8 +11,11 @@ import javax.persistence.Enumerated;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToOne;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.persistence.model.business.Sell;
 import com.persistence.model.business.enums.CustomerType;
+import com.validation.ValidMobileNumber;
+import com.validation.ValidateEmpty;
 
 import lombok.Data;
 
@@ -21,19 +24,23 @@ import lombok.Data;
  * 
  */
 @Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class CustomerDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private Long id;
 
+	@ValidateEmpty(message = "Customer name is required")
 	private String name;
 
 	private CustomerType customerType;	
 
+	@ValidMobileNumber(message = "Invalid contact number")
 	private String contact;
 
 	private String address;
 
+	@ValidateEmpty(message = "Paid amount is required")
 	private Float paidAmount;
 
     private Float dueAmount;

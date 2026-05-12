@@ -34,7 +34,7 @@ public class Subject implements Serializable {
 	@Column(name = "subject_id", nullable = false)
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	private String code;

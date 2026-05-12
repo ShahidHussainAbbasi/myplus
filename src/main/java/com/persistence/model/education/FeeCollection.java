@@ -27,7 +27,7 @@ public class FeeCollection implements Serializable {
 	@Column(name = "fc_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	@Column(name = "enroll_no")

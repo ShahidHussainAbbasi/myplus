@@ -195,7 +195,8 @@ public class CompanyService implements ICompanyService {
 	@Override
 	public Company getReferenceById(Long id) {
 		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getReferenceById'");
+		return companyRepo.getReferenceById(id);
+		// throw new UnsupportedOperationException("Unimplemented method 'getReferenceById'");
 	}
 
 	@Override

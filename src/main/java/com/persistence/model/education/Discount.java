@@ -27,7 +27,7 @@ public class Discount implements Serializable {
 	@Column(name = "discount_id", unique = true, nullable = false)
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	private String name;

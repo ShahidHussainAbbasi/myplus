@@ -9,6 +9,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.transaction.Transactional;
 
+import org.apache.http.HttpStatus;
+import org.apache.http.protocol.HTTP;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +47,7 @@ import com.service.business.ISellService;
 import com.service.business.IStockService;
 import com.web.dto.business.CustomerDTO;
 import com.web.dto.business.CustomerHistoryDTO;
+import com.web.dto.business.ItemDTO;
 import com.web.dto.business.SellDTO;
 import com.web.dto.business.StockDTO;
 import com.web.util.AppUtil;
@@ -95,6 +98,53 @@ public class SellController {
 
 	ModelMapper modelMapper = new ModelMapper();
 	
+
+// In SellService — map Sell to SellDTO manually
+// public SellDTO toDTO(Sell sell) {
+//     SellDTO dto = new SellDTO();
+//     // dto.setSrp(sell.getSellId());
+//     dto.setQuantity(sell.getQuantity());
+//     // dto.setSellRate(sell.getSellRate());
+//     // dto.setDiscount(sell.getDiscount());
+//     dto.setTotalAmount(sell.getTotalAmount());
+//     dto.setNetAmount(sell.getNetAmount());
+//     dto.setUpdated(""+sell.getDated());
+
+//     // Map stock — only simple fields, no deep nesting
+//     if (sell.getStock() != null) {
+//         StockDTO stockDTO = new StockDTO();
+//         stockDTO.setStockId(sell.getStock().getStockId());
+//         stockDTO.setBsellRate(sell.getStock().getBsellRate());
+//         stockDTO.setBpurchaseRate(sell.getStock().getBpurchaseRate());
+//         dto.setStockDTO(stockDTO);
+//     }
+
+//     // Map customerHistory — stop at one level deep
+//     if (sell.getCustomerHistory() != null) {
+//         CustomerHistoryDTO chDTO = new CustomerHistoryDTO();
+//         chDTO.setId(sell.getCustomerHistory().getId());
+//         chDTO.setDated(sell.getCustomerHistory().getDated());
+//         chDTO.setPaidAmount(sell.getCustomerHistory().getPaidAmount());
+//         chDTO.setDueAmount(sell.getCustomerHistory().getDueAmount());
+//         chDTO.setDueDate(sell.getCustomerHistory().getDueDate());
+
+//         // Map customer inside history — stop here, don't go back to history
+//         if (sell.getCustomerHistory().getCustomer() != null) {
+//             CustomerDTO customerDTO = new CustomerDTO();
+//             customerDTO.setId(sell.getCustomerHistory().getCustomer().getId());
+//             customerDTO.setName(sell.getCustomerHistory().getCustomer().getName());
+//             customerDTO.setContact(sell.getCustomerHistory().getCustomer().getContact());
+//             customerDTO.setDueAmount(sell.getCustomerHistory().getCustomer().getDueAmount());
+// 			customerDTO.setPaidAmount(sell.getCustomerHistory().getCustomer().getPaidAmount());
+// 			customerDTO.setDueAmount(sell.getCustomerHistory().getCustomer().getDueAmount());
+// 			customerDTO.setDueDate(sell.getCustomerHistory().getCustomer().getDueDate());
+//             chDTO.setCustomerDTO(customerDTO);
+//         }
+//         dto.setCustomerHistory(chDTO);
+//     }
+
+//     return dto;
+// }	
 	@RequestMapping(value = "/getUserSell", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserSell(final HttpServletRequest request) {
@@ -118,6 +168,7 @@ public class SellController {
 			objs.forEach(o ->{
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
+				// SellDTO dto = appUtil.objTodtoConverter(o);
 				SellDTO dto = modelMapper.map(o, SellDTO.class);
 				if(appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) {
 					Optional<Item> option = itemService.findById(o.getStock().getItemId());
@@ -131,10 +182,21 @@ public class SellController {
 					if(o.getStock() != null) {
 						modelMapper.addConverter(appUtil.localDateToString);
 						modelMapper.addConverter(appUtil.localDateTimeToString);
-						StockDTO stockDTO = modelMapper.map(o.getStock(), StockDTO.class);
-						dto.setStockDTO(stockDTO);
+						StockDTO stock = modelMapper.map(o.getStock(), StockDTO.class);
+						dto.setStock(stock);
 					}
 					
+					if (o.getCustomerHistory() != null) {
+						CustomerHistoryDTO customerHistoryDTO = modelMapper.map(o.getCustomerHistory(), CustomerHistoryDTO.class);
+						dto.setCustomerHistory(customerHistoryDTO);
+
+						if (o.getCustomerHistory().getCustomer() != null) {
+							CustomerDTO customerDTO = modelMapper.map(o.getCustomerHistory().getCustomer(), CustomerDTO.class);
+							dto.setCustomer(customerDTO);
+						}
+					}
+
+
 					dtos.add(dto);
 				}
 			});
@@ -173,13 +235,17 @@ public class SellController {
 
 			List<SellDTO> dtos=new ArrayList<SellDTO>(); 
 			objs.forEach(obj ->{
-				Optional<Item> option = itemService.findById(obj.getItem().getId());
+				Optional<Item> option = itemService.findById(obj.getStock().getItemId());
 				SellDTO dtotemp = modelMapper.map(obj, SellDTO.class);
 				if(option.isPresent()) {
 					Item item  = option.get();
+					obj.getStock().setItemId(item.getId());
 					dtotemp.setItemId(item.getId());
 					dtotemp.setItemName(item.getIname());
-					dtotemp.setStock(item.getStock());
+					dtotemp.setItemCode(item.getIcode());
+					dtotemp.setDescription(item.getIdesc());
+					dtotemp.setItemStock(item.getStock().getStock());
+					// dtotemp.setSrp(item.getStock().getSrp());
 				}
 				dtotemp.setDated(appUtil.getDateStr(obj.getDated()));
 				dtotemp.setUpdated(appUtil.getDateStr(obj.getUpdated()));
@@ -226,34 +292,31 @@ public class SellController {
 	@ResponseBody
 	public GenericResponse addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
 		try {
-
+			User user = requestUtil.getCurrentUser();
+			dto.setUserId(user.getId());
+			dto.setUserType(user.getUserType());
+			
 			Customer customerObj = customerService.saveUpdateCustomer(dto);
+			dto.setCustomer(modelMapper.map(customerObj, CustomerDTO.class));
 
-			List<Sell> sells = objectMapperUtils.mapAll(dto.getSales(), Sell.class);
-			for (Sell sell : sells) {
-				sell.setCustomer(customerObj);
+			CustomerHistory customerHistory =   customerHistoryService.saveUpdateCustomerHistory(dto);
+
+			if (appUtil.isEmptyOrNull(customerObj.getName()) || appUtil.isEmptyOrNull(customerObj.getContact()) ) {
+				dto.setCustomer(null);
+			} else {
+				customerService.save(customerObj);
+				customerHistory.setCustomer(customerObj);
 			}
-
-			sellService.addSell(sells);
-
-			CustomerHistory customerHistory = objectMapperUtils.map(dto, CustomerHistory.class);
-			customerHistory.setCustomer(customerObj);
-			customerHistory.setSales(sells);
 			customerHistoryService.save(customerHistory);
 
-			// if(appUtil.isEmptyOrNull(sellService.addSell(sells))) {
-			// 	if(appUtil.isEmptyOrNull(sells)) {
-			// 		return new GenericResponse(appUtil.FAILED,messages.getMessage(appUtil.FAILED, null,"msg.purchase.save.error", request.getLocale()));
-			// 	}else {
-			// 		return new GenericResponse(appUtil.FAILED,messages.getMessage(appUtil.FAILED,null,"msg.purchase.update.error",  request.getLocale()));
-			// 	}
-			// }else {
-			// 	if(appUtil.isEmptyOrNull(sells)) {
-			// 		return new GenericResponse(appUtil.SUCCESS,messages.getMessage(appUtil.SUCCESS, null,"msg.purchase.saved", request.getLocale()));
-			// 	}else {
-			// 		return new GenericResponse(appUtil.SUCCESS,messages.getMessage(appUtil.SUCCESS,null, "msg.purchase.updated", request.getLocale()));
-			// 	}
-			// }
+			List<SellDTO> sells = ObjectMapperUtils.mapAll(dto.getSales(), SellDTO.class);
+			for (SellDTO sell : sells) {
+				sell.setCustomerHistory(modelMapper.map(customerHistory, CustomerHistoryDTO.class));
+				// sell.setCustomerHistory(dto);
+			}
+
+			sellService.addSell(ObjectMapperUtils.mapAll(sells, Sell.class));
+
 			return new GenericResponse(appUtil.SUCCESS,messages.getMessage(appUtil.SUCCESS, null,"msg.sale.saved", request.getLocale()));
 			
 		} catch (Exception e) {
@@ -320,19 +383,19 @@ public class SellController {
 			objs.forEach(obj ->{
 				obj.setUserId(user.getId());
 				//if update
-				Item item = itemService.getReferenceById(obj.getItem().getId());
-	        	Float stock = item.getStock()-obj.getQuantity();
+				Item item = itemService.getReferenceById(obj.getStock().getItemId());
+	        	Float stock = item.getStock().getStock() - obj.getQuantity();
 				if(!appUtil.isEmptyOrNull(obj.getSellId())){
 					Sell objTemp = sellService.getReferenceById(obj.getSellId());
 					if(objTemp.getQuantity() > obj.getQuantity())
-						stock = item.getStock() - (obj.getQuantity() - objTemp.getQuantity());
+						stock = item.getStock().getStock() - (obj.getQuantity() - objTemp.getQuantity());
 					else
-						stock = item.getStock() + (objTemp.getQuantity() - obj.getQuantity());
+						stock = item.getStock().getStock() + (objTemp.getQuantity() - obj.getQuantity());
 					
-					item.setStock(stock);	
+					item.getStock().setStock(stock);
 				}
 				//updating stock
-				item.setStock(stock);
+				item.getStock().setStock(stock);
 		        itemService.save(item);
 	//			//updating stock
 //		        obj.setStock(stock);
@@ -341,8 +404,8 @@ public class SellController {
 	
 				obj = sellService.save(obj);
 			});
-			String status = sellService.createReport(objs);
-			return new GenericResponse(status,messages.getMessage("message.userNotFound", null, request.getLocale()));
+			// String status = sellService.createReport(objs);
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 		} catch (Exception e) {
 			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
@@ -363,17 +426,17 @@ public class SellController {
 			if(appUtil.isEmptyOrNull(dto.getSellId()))
 				return new GenericResponse("NOT_FOUND");
 				
-			Optional<Item> o = itemService.findById(dto.getItemId());
+			Optional<Item> o = itemService.findById(dto.getStock().getItemId());
 			if(!o.isPresent())
 				return new GenericResponse("NOT_FOUND");
 			
 			Item item = o.get();
-        	Float stock = Float.sum(item.getStock(),dto.getQuantity());
+        	Float stock = Float.sum(item.getStock().getStock(),dto.getQuantity());
 			//updating stock
-			item.setStock(stock);
+			item.getStock().setStock(stock);
 	        itemService.save(item);
 	        
-	        Sell s = sellService.getOne(dto.getSellId());
+	        Sell s = sellService.getReferenceById(dto.getSellId());
 	        
 //			obj.setDiscount(s.getDiscount() - dto.getStock().getse);
 			obj.setNetAmount(s.getNetAmount() - dto.getNetAmount());

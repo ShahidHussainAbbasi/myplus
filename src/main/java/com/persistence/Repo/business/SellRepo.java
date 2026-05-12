@@ -6,6 +6,7 @@ package com.persistence.Repo.business;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -28,10 +29,16 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
     @Query(value = "SELECT * FROM sell s where s.dated <= :ed AND s.user_Id=:userId",nativeQuery=true)
     public List<Sell> findSellByEndDate(@Param("ed") LocalDateTime ed,@Param("userId") Long userId);
 
-    @Query(value = "SELECT * FROM sell s where s.dated >= :sd AND s.dated <= :ed AND s.user_Id=:userId",nativeQuery=true)
-    public List<Sell> findSellByDates(@Param("sd") LocalDateTime sd,@Param("ed") LocalDateTime ed,@Param("userId") Long userId);
+    // @Query(value = "SELECT * FROM sell s where s.dated >= :sd AND s.dated <= :ed AND s.user_Id=:userId",nativeQuery=true)
+    // public List<Sell> findSellByDates(@Param("sd") LocalDateTime sd,@Param("ed") LocalDateTime ed,@Param("userId") Long userId);
 
-
+    @EntityGraph(attributePaths = {"stock", "customer"})
+    @Query("SELECT s FROM Sell s WHERE s.dated >= :sd AND s.dated <= :ed AND s.userId = :userId")
+    List<Sell> findSellByDates(
+        @Param("sd") LocalDateTime sd,
+        @Param("ed") LocalDateTime ed,
+        @Param("userId") Long userId
+    );
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "
 //    		+ "p.mobile = :mobile AND a.FK_patient_id = p.patient_id",nativeQuery=true)
 //    Optional<Appointment> isPatientAppointed(@Param("doctor_id") Long doctor_id, @Param("date") String date, @Param("mobile") String mobile);

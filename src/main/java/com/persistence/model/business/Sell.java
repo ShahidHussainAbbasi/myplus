@@ -3,6 +3,7 @@ package com.persistence.model.business;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -37,16 +38,16 @@ public class Sell implements Serializable {
 	@Column(name = "sell_id", unique = true, nullable = false)
 	private Long sellId;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	@Column(name = "user_type")
 	private String userType;
 
-	@OneToOne(fetch = FetchType.LAZY, optional = true)
-	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "item_id")
-	private Item item;
+	// @OneToOne(fetch = FetchType.LAZY, optional = true)
+	// @NotFound(action = NotFoundAction.IGNORE)
+	// @JoinColumn(name = "item_id")
+	// private Item item;
 
 
 //	@OneToOne(fetch = FetchType.EAGER, optional = false)
@@ -86,22 +87,14 @@ public class Sell implements Serializable {
 	@Column(name = "return_reason")
 	private Float re;
 
-//	@ManyToOne(fetch = FetchType.EAGER,cascade=CascadeType.ALL)
-//	@JoinColumn(name = "stock_id")
-//	private Stock stock;
-	@ManyToOne(fetch = FetchType.LAZY, optional = true)
-	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name="stock_id")
-	private Stock stock;	
+	@ManyToOne(fetch = FetchType.EAGER,cascade=CascadeType.ALL)
+	@JoinColumn(name = "stock_id")
+	private Stock stock;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id")
-    private Customer  customer;
-
-	@ManyToOne (fetch = FetchType.LAZY) // ← Must have this field
+    @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
     @JoinColumn(name = "customer_history_id")
-    private CustomerHistory customerHistory;  // ← Field name must match mappedBy
-    	
+    private CustomerHistory  customerHistory;
+
 	/**
 	 * @return the serialversionuid
 	 */

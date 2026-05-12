@@ -36,7 +36,7 @@ public class Land implements Serializable {
 
 //	@ManyToOne(optional = false)
 //	@JoinColumn(name = "user")
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	@Setter @Getter	
 	private Long userId;
 

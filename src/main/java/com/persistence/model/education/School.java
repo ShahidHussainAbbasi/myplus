@@ -36,7 +36,7 @@ public class School implements Serializable {
 
 	private String name;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	private String email;

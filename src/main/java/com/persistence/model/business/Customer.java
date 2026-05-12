@@ -3,18 +3,25 @@ package com.persistence.model.business;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
+import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
+
+import org.hibernate.annotations.NaturalId;
 
 import com.persistence.model.business.enums.CustomerType;
 
@@ -36,12 +43,15 @@ public class Customer implements Serializable {
 	@Column(name = "customer_id", unique = true, nullable = false)
 	private Long id;
 
+	@Column(name = "name", nullable = false)
 	private String name;
 
-	@Enumerated(EnumType.STRING) 
-	@Column(name = "customer_type")
-	private CustomerType customerType;	
+	// @Enumerated(EnumType.STRING) 
+	// @Column(name = "customer_type")
+	// private CustomerType customerType;	
 
+	@NaturalId
+	@Column(name = "contact", unique = true, nullable = false)
 	private String contact;
 
 	private String address;
@@ -55,15 +65,15 @@ public class Customer implements Serializable {
     @Column(name = "due_date")
     private LocalDate dueDate;
 	
+	@Column(name = "dated", updatable = false)
 	private LocalDateTime dated;
 
 	private LocalDateTime updated;
 
-	@OneToOne(fetch = javax.persistence.FetchType.LAZY)
-	@JoinColumn(name = "customer_history_id", referencedColumnName = "customer_history_id")
-	private CustomerHistory customerHistory;
+    // @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    // private List<CustomerHistory> customerHistory = new ArrayList<>();
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
 	@Column(name = "user_type")

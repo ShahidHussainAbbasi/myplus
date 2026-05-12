@@ -343,7 +343,7 @@
 						<label class="control-label col-sm-2" for="purchaseBatchNo">New Batch</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="purchaseBatchNo" 
-							name="stockDTO.batchNo" placeholder="Batch number"/>
+							name="stock.batchNo" placeholder="Batch number"/>
 						</div>
 					</div> -->
 					<div class="form-group">
@@ -354,25 +354,25 @@
 						</div>
 						<label class="control-label col-sm-2" for="purchaseStock">Stock In Hand</label>
 						<div class="col-lg-4">
-							<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stockDTO.stock"  disabled="disabled"/>
+							<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stock.stock"  disabled="disabled"/>
 						</div>						
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="purchasePurchaseRate">P/U Price</label>
 						<div class="col-sm-4">
 							<input type="number" step="any" class="form-control" id="purchasePurchaseRate"
-								name="stockDTO.bpurchaseRate" placeholder=" Purchase Amount 0.0" required="required" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
+								name="stock.bpurchaseRate" placeholder=" Purchase Amount 0.0" required="required" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
 						</div>
 						<label class="control-label col-sm-2" for="purchaseSellAmount">S/U Price</label>
 						<div class="col-sm-4">
 							<input type="number" step="any" class="form-control" id="purchaseSellRate"
-								name="stockDTO.bsellRate" placeholder=" Sell Amount 0.0" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
+								name="stock.bsellRate" placeholder=" Sell Amount 0.0" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="discountTypeDD">Set P/U Discount</label>
 						<div class="col-sm-4">
-							<select name="stockDTO.bpurchaseDiscountType" id="discountTypeDD" class="form-control" onchange="calculateNetPurchase()">
+							<select name="stock.bpurchaseDiscountType" id="discountTypeDD" class="form-control" onchange="calculateNetPurchase()">
 								<option class="dropdown-item" value="%" >Default is %</option>
 								<option class="dropdown-item" value="%" selected="selected">%</option>
 								<option class="dropdown-item" value="amount">amount</option>
@@ -381,13 +381,13 @@
 						<label class="control-label col-sm-2" for="purchaseDiscount">Discount</label>
 						<div class="col-sm-4">
 							<input type="number" step=any class="form-control" id="purchaseDiscount"
-								name="stockDTO.bpurchaseDiscount" placeholder=" Discount 0.0" onkeyup="calculateNetPurchase()">
+								name="stock.bpurchaseDiscount" placeholder=" Discount 0.0" onkeyup="calculateNetPurchase()">
 						</div>
 					</div>
-					<div class="form-group">
+					<!-- <div class="form-group">
 						<label class="control-label col-sm-2">Set S/U Discount</label>
 						<div class="col-sm-4">
-							<select name="stockDTO.bsellDiscountType" id="purchaseSellDiscountTypeDD" class="form-control">
+							<select name="stock.bsellDiscountType" id="purchaseSellDiscountTypeDD" class="form-control">
 								<option class="dropdown-item" value="%" >Default is %</option>
 								<option class="dropdown-item" value="%" selected="selected">%</option>
 								<option class="dropdown-item" value="amount">amount</option>
@@ -396,9 +396,9 @@
 						<label class="control-label col-sm-2">Discount</label>
 						<div class="col-sm-4">
 							<input type="number" step=any class="form-control" id="purchaseSellDiscount"
-								name="stockDTO.bsellDiscount" placeholder=" Sale discount">
+								name="stock.bsellDiscount" placeholder=" Sale discount">
 						</div>
-					</div>
+					</div> -->
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="purchaseTotalAmount">Total</label>
 						<div class="col-sm-4">
@@ -414,7 +414,7 @@
 						<label class="control-label col-sm-2" for="purchaseExpiry">Expire Date</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="purchaseExpiry" 
-							name="stockDTO.bexpDate" placeholder="Expiry date"/>
+							name="stock.bexpDate" placeholder="Expiry date"/>
 						</div>
 						<label class="control-label col-sm-2" for="purchaseDate">Purchase Date</label>
 						<div class="col-sm-4">
@@ -437,12 +437,14 @@
 				<div>
 					Toggle column: <a class="toggle-vis" data-column="2">Code</a> - <a class="toggle-vis" data-column="3">Name</a>
 					  - <a class="toggle-vis" data-column="4">QTY</a> <!-- - <a class="toggle-vis" data-column="5">Stock</a> -->
-					  - <a class="toggle-vis" data-column="5">Batch #</a>
+					  <!-- - <a class="toggle-vis" data-column="5">Batch #</a> 
 					  - <a class="toggle-vis" data-column="6">P/U price</a> - <a class="toggle-vis" data-column="7">S/U price</a>
 					  - <a class="toggle-vis" data-column="8">P/U Disc type</a> - <a class="toggle-vis" data-column="9">P/U Discount</a>
-					  - <a class="toggle-vis" data-column="10">S/U Disc type</a> - <a class="toggle-vis" data-column="11">S/U Discount</a>
+					  - <a class="toggle-vis" data-column="10">S/U Disc type</a> - <a class="toggle-vis" data-column="11">S/U Discount</a>-->
 					  - <a class="toggle-vis" data-column="12">Total</a> - <a class="toggle-vis" data-column="13">Profit</a>
-					  - <a class="toggle-vis" data-column="14">Expire Date</a> - <a class="toggle-vis" data-column="15">DateTime</a>
+					  <!-- - <a class="toggle-vis" data-column="14">Expire Date</a>  -->
+					  - <a class="toggle-vis" data-column="15">DateTime</a>
+
 				</div>
 				<table id="tablePurchase" class="table table-bordered table-striped">
 					<thead>
@@ -452,17 +454,17 @@
 							<th data-field="purchaseItemCode">Code</th>
 							<th data-field="purchaseItemName">Name</th>
 							<th data-field="purchaseQuantity">QTY</th>
-							<!-- <th data-field="purchaseStock">Stock</th> -->
-							<th data-field="purchaseBatchNo">Batch #</th>
+							<th data-field="purchaseStock">Stock</th> 
+							<!-- <th data-field="purchaseBatchNo">Batch #</th> -->
 							<th data-field="purchasePurchaseRate">P/U Price</th>
 							<th data-field="purchaseSellRate">S/U Price</th>
 							<th data-field="purchaseDiscountTypeDD">P/U Disc Type</th>
 		 					<th data-field="purchaseDiscount">P/U Discount</th>
-							<th data-field="sellDiscountTypeDD">S/U Disc Type</th>
-		 					<th data-field="sellDiscount">S/U Discount</th>
+							<!-- <th data-field="sellDiscountTypeDD">S/U Disc Type</th> -->
+		 					<!-- <th data-field="sellDiscount">S/U Discount</th> -->
 							<th data-field="purchaseTotalAmount">Total</th>
 							<th data-field="purchaseNetAmount">Profit</th>
-							<th data-field="purchaseExpiry">Expire Date</th>
+						 	<th data-field="purchaseExpiry">Expire Date</th> 
 							<th data-field="purchaseDate">DateTime</th>
 						</tr>
 					</thead>
@@ -497,7 +499,7 @@
 						<label class="control-label col-sm-2" for="sellBatchNo">New Batch</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellBatchNo" 
-							name="stockDTO.batchNo" placeholder="Batch number"/>
+							name="stock.batchNo" placeholder="Batch number"/>
 						</div>
 					</div> -->
 					<div class="form-group">
@@ -508,7 +510,7 @@
 						</div>
 						<label class="control-label col-sm-2" for="sellStock">Stock</label>
 						<div class="col-sm-2">
-							<input type="text" class="form-control" id="sellStock" name="stockDTO.stock" readonly="readonly"/>
+							<input type="text" class="form-control" id="sellStock" name="stock.stock" readonly="readonly"/>
 						</div>
 						<div class="col-sm-2">
 							<input type="text" class="form-control" id="bexpDate" name="bexpDate" readonly="readonly"/>
@@ -518,7 +520,7 @@
 						<label class="control-label col-sm-2 req" for="sellSellRate">S/U Price</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellSellRate"
-								name="stockDTO.bsellRate" placeholder=" Sell Amount " onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required">
+								name="stock.bsellRate" placeholder=" Sell Amount " onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required">
 						</div>
 						<label class="control-label col-sm-2" for="sellTotalAmount">Total</label>
 						<div class="col-sm-4">
@@ -529,10 +531,10 @@
 						<label class="control-label col-sm-2" for="sellDiscount" id="sdt">Discount</label>
 						<div class="col-sm-2">
 							<input type="text" class="form-control" id="sellDiscount"
-								name="stockDTO.bsellDiscount" placeholder=" Discount 0.0" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
+								name="stock.bsellDiscount" placeholder=" Discount 0.0" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
 						</div>
 						<div class="col-sm-2">
-							<select id="sellDiscountTypeDD" name="stockDTO.bsellDiscountType" class="selectpicker" onchange="calculateNetSell()">
+							<select id="sellDiscountTypeDD" name="stock.bsellDiscountType" class="selectpicker" onchange="calculateNetSell()">
 								<option class="dropdown-item" selected="selected" value="0">amount</option>
 								<option class="dropdown-item" value="1">Percent %</option>
 							</select>
@@ -546,7 +548,7 @@
 						<label class="control-label col-sm-2" for="sellPurchaseRate">P/U Price</label>
 						<div class="col-sm-4">
 							<input type="number" class="form-control" id="sellPurchaseRate"
-								name="stockDTO.bpurchaseRate" placeholder=" Purchase Amount " required="required" onblur="calculateNetSell()" onkeyup="calculateNetSell()" readonly="readonly">
+								name="stock.bpurchaseRate" placeholder=" Purchase Amount " required="required" onblur="calculateNetSell()" onkeyup="calculateNetSell()" readonly="readonly">
 						</div>
 						<label class="control-label col-sm-2" for="sellNetAmount">Profit</label>
 						<div class="col-sm-4">
@@ -592,7 +594,7 @@
 				</form>
 				<br>
 				<div id="iDiv" class="form-group col-sm-12  text-center">
-					<div class="col-sm-3"></div>
+					<div class="col-sm-2"></div>
 					<div class="table-bordered table-striped col-sm-8">
 						<table id="tablesi" class="display" style="width:100%">
 							<thead>
@@ -633,7 +635,7 @@
 							<div class="col-sm-2">
 								<input type="number" step="any" min="0" class="form-control" id="sellCh" readonly="readonly" placeholder="Change">
 							</div>
-							<div class="col-sm-3">
+							<div class="col-sm-2">
 								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control" placeholder="dd/mm/yyyy"/>
 								<input type="hidden" id="dueDate" name="dueDate"/>
 								<!-- <input type="date" id="dueDateTemp" class="form-control datePicker"/> -->
@@ -655,21 +657,24 @@
 					</button>
 	 			</div>			
 				<div>
-					Toggle column: <a class="toggle-vis" data-column="2">Code</a> - <a class="toggle-vis" data-column="3">Name</a>
+					Toggle column: 
+					   <!-- <a class="toggle-vis" data-column="2">Code</a>  -->
+					  - <a class="toggle-vis" data-column="3">Name</a>
 					  - <a class="toggle-vis" data-column="4">QTY</a>
 					  - <a class="toggle-vis" data-column="6">Expiry</a>
 					  - <a class="toggle-vis" data-column="7">P/U price</a> - <a class="toggle-vis" data-column="8">S/U price</a>
 					  - <a class="toggle-vis" data-column="9">Disc type</a> - <a class="toggle-vis" data-column="10">Discount</a>
 					  - <a class="toggle-vis" data-column="11">Total</a> - <a class="toggle-vis" data-column="12">Profit</a>
 					  <!-- - <a class="toggle-vis" data-column="13">Customer Name</a> - <a class="toggle-vis" data-column="14">Customer Contact</a> -->
-					  - <a class="toggle-vis" data-column="15">DateTime</a> - <a class="toggle-vis" data-column="16">DateTime</a>
+					  - <a class="toggle-vis" data-column="15">Dated</a> 
+					  <!-- - <a class="toggle-vis" data-column="16">DateTime</a> -->
 				</div>
 				<table id="tableSell" class="table table-bordered table-striped">
 					<thead>
 						<tr>
 							<th data-field="sellId">ID</th>
 							<th data-field="checkDelete"></th>
-							<th data-field="sellItemDD">Code</th>
+							<!-- <th data-field="sellItemDD">Code</th> -->
 							<th data-field="sellItemName">Name</th>
 							<th data-field="sellItems">QTY</th>
 							<!-- <th data-field="sellBatchNo">BatchNo</th> -->
@@ -685,7 +690,7 @@
 							<!-- <th data-field="sellDuedays">Due Days</th> -->
 	<!-- 						<th data-field="sellsrp">Return profit</th>
 							<th data-field="sellRe">Return reason</th>
-	 -->						<th data-field="updated">DateTime</th>
+	 -->						<th data-field="updated">Dated</th>
 						</tr>
 					</thead>
 				</table>
@@ -768,9 +773,9 @@
 							<th>Profit</th>
 							<th>Customer Name</th>
 							<th>Customer Contact</th>
-							<th>Return Profit</th>
-							<th>Return Reason</th>
-							<th>Due Days</th>
+							<!-- <th>Return Profit</th> -->
+							<!-- <th>Return Reason</th> -->
+							<th>Due date</th>
 							<th>Dated</th>
 			            </tr>
 			        </thead>
@@ -788,8 +793,8 @@
 			                <th></th>
 			                <th></th>
 			                <th></th>
-			                <th></th>
-			                <th></th>
+			                <!-- <th></th> -->
+			                <!-- <th></th> -->
 							<th></th>
 			            </tr>
 			        </tfoot>

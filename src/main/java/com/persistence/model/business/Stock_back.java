@@ -31,7 +31,7 @@ public class Stock_back implements Serializable {
 	@Getter@Setter
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	@Getter@Setter
 	private Long userId;
 

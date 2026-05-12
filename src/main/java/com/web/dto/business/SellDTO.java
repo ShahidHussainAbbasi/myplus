@@ -3,6 +3,7 @@ package com.web.dto.business;
 import java.io.Serializable;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.persistence.model.business.Item;
 
 import lombok.Data;
 
@@ -21,11 +22,14 @@ public class SellDTO implements Serializable {
 
 	private String userType;
 
+	// private ItemDTO item;
 	private Long itemId = 0L;
 
 	private String itemName;
 	
 	private String itemCode;	
+
+	private String description;
 
 	// private String customerName;
 
@@ -37,9 +41,7 @@ public class SellDTO implements Serializable {
 
 	private Float srp=0.0F;
 	
-	private Float stock=0.0F;
-
-	private String description;
+	private Float itemStock=0.0F;
 
 	private String dated;
 
@@ -58,15 +60,15 @@ public class SellDTO implements Serializable {
 	private Integer rp;
 	
 	//StockDTO table
-	private StockDTO stockDTO;
+	private StockDTO stock;
 	
 	private Long sellSId = 0L;
 
 	private Integer due_days = 0;
 
-	private CustomerDTO customerDTO;
+	private CustomerDTO customer;
 
-	private CustomerHistoryDTO customerHistoryDTO;
+	private CustomerHistoryDTO customerHistory;
 	/**
 	 * @return the serialversionuid
 	 */

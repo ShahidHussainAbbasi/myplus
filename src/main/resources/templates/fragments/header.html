@@ -64,13 +64,13 @@
                         <span class="glyphicon glyphicon-log-in"></span>&nbsp;Sign in
                     </a>
                 </li>
-                <li th:if="${#authorization.expression('isAuthenticated()')}">
+                <!-- <li th:if="${#authorization.expression('isAuthenticated()')}">
                     <form id="logoutForm" method="post" th:action="@{/logout}" style="display:inline;">
                         <button type="submit" class="btn btn-link navbar-btn">
                             <span class="glyphicon glyphicon-log-out"></span>&nbsp;Logout temp
                         </button>
                     </form>
-                </li>                
+                </li>                 -->
                 <li th:if="${#authorization.expression('isAuthenticated()')}">
                     <a href="#" onclick="$('#logoutForm').submit();">
                         <span class="glyphicon glyphicon-log-out"></span>&nbsp;Logout

@@ -8,7 +8,7 @@ import com.web.dto.business.PurchaseDTO;
 
 public interface IPurchaseService extends PurchaseRepo{
 
-	Purchase addPurchase(PurchaseDTO dto) throws ParseException;
+	Purchase addPurchase(PurchaseDTO dto) throws ParseException, Exception;
 
 
 }

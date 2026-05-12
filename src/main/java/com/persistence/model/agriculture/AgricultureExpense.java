@@ -43,7 +43,7 @@ public class AgricultureExpense implements Serializable {
 	@Setter @Getter	
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", nullable = false)
 	@Setter @Getter	
 	private Long userId;
 
