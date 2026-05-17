@@ -269,7 +269,30 @@ $(document).ready(function() {
 		    // If all form's required fields are filled
 			if(buttonV=="Sell"){
 	    		document.getElementById("sellRec").style.borderColor = "";
-				if(data && data.length>0 && $("#sellRec").val()*ONE>0){
+				var error = false;
+				if(data && data.length>0 && $("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0){
+					if ($("#sellCh").val()*ONE < 0) {
+						if ($("#sellCN").val().trim() == "") {
+							document.getElementById("sellCN").style.borderColor = "red";
+							error = true;
+							document.getElementById("sellCN").focus();
+						} else if($("#sellCC").val().trim() == ""){
+							document.getElementById("sellCC").style.borderColor = "red";
+							document.getElementById("sellCC").focus();
+							error = true;
+						} else if ($("#sellCN").val().trim() == "" && $("#sellCC").val().trim() == "") {
+							document.getElementById("sellCN").style.borderColor = "red";
+							document.getElementById("sellCC").style.borderColor = "red";
+							document.getElementById("sellCN").focus();
+							error = true;
+						}
+						if (error) {
+							alert("Please make sure you have entered valid values");
+							return
+						}
+					}
+
+
 					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
 					var customerHistory = {"customer":customer, "sales":data};
 					jsonPost("addSell",customerHistory);

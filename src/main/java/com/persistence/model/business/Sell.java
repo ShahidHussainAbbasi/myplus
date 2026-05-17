@@ -91,8 +91,8 @@ public class Sell implements Serializable {
 	@JoinColumn(name = "stock_id")
 	private Stock stock;
 
-    @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
-    @JoinColumn(name = "customer_history_id")
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JoinColumn(name = "customer_history_id", nullable = true)
     private CustomerHistory  customerHistory;
 
 	/**

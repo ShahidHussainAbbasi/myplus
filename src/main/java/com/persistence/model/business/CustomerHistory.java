@@ -3,26 +3,18 @@ package com.persistence.model.business;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
-import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.OneToOne;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
-import com.persistence.model.business.enums.SaleType;
 
 import lombok.Data;
 
@@ -53,30 +45,20 @@ public class CustomerHistory implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
-	@ManyToOne(fetch = javax.persistence.FetchType.EAGER, cascade = CascadeType.PERSIST)
-	@JoinColumn(name = "customer_id", referencedColumnName = "customer_id")
+	@ManyToOne(fetch = javax.persistence.FetchType.LAZY, cascade = CascadeType.PERSIST)
+	@JoinColumn(name = "customer_id", referencedColumnName = "customer_id", nullable = true)
 	private Customer customer;
 
-	
-	// @OneToMany(mappedBy="customerHistory")
-//	@OneToMany(cascade= CascadeType.REFRESH)
-//	@NotFound(action = NotFoundAction.IGNORE)
-	// @ElementCollection
-	// private List<Sell> sales = new ArrayList<>();	
 
-	// @Enumerated(EnumType.STRING) 
-	// @Column(name = "sale_type")
-	// private SaleType saleType;
+    @Column(name = "paid_amount")
+    private Float paidAmount;
 
-	@Column(name = "paid_amount")
-	private Float paidAmount;
 
     @Column(name = "due_amount")
     private Float dueAmount;
 
     @Column(name = "due_date")
     private LocalDate dueDate;
-	
 
 	/**
 	 * @return the serialversionuid

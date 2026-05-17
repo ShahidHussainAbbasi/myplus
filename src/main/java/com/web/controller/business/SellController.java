@@ -290,6 +290,7 @@ public class SellController {
 	
 	@RequestMapping(value = "/addSell", method = RequestMethod.POST)
 	@ResponseBody
+	@Transactional
 	public GenericResponse addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
 		try {
 			User user = requestUtil.getCurrentUser();

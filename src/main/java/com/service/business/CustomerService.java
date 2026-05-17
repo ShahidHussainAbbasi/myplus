@@ -268,25 +268,37 @@ public class CustomerService implements ICustomerService{
 			User user = requestUtil.getCurrentUser();
 			customerObj.setUserId(user.getId());
 			customerObj.setUserType(user.getUserType());
-			customerObj.setContact(dto.getCustomer().getContact());
+			if (dto.getCustomer().getContact() != null) {
+				customerObj.setContact(dto.getCustomer().getContact());
+			}
+			if (dto.getCustomer().getName() != null) {
+				customerObj.setName(dto.getCustomer().getName());
+			}
 
 			customerObj = this.findOne(example).orElse(customerObj);
 
+			// set the due amount 0 if it is negative
+			if (dto.getCustomer().getDueAmount() != null && dto.getCustomer().getDueAmount() < 0) {
+				dto.getCustomer().setDueAmount(dto.getCustomer().getDueAmount() * -1);
+			} else {
+				dto.getCustomer().setDueAmount(0.0F);
+			}
+
 			if(appUtil.isEmptyOrNull(customerObj.getId())){ 
 				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() +  dto.getCustomer().getDueAmount() );
-				customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
+				// customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
 				if (dto.getCustomer().getDueDate() != null) {
 					customerObj.setDueDate(dto.getCustomer().getDueDate());
 				}
 			} else {
 				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() + dto.getCustomer().getDueAmount());
-				customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
+				// customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
 			}
 
-			customerObj.setName(dto.getCustomer().getName());
+			// customerObj.setName(dto.getCustomer().getName());
 		} else {
 				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() + dto.getCustomer().getDueAmount());
-				customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
+				// customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
 		 }
 		if (customerObj.getDueDate() == null && dto.getCustomer().getDueDate() != null) {
 			customerObj.setDueDate(dto.getCustomer().getDueDate());

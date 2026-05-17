@@ -211,7 +211,7 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 		customerHistoryObj.setDated(LocalDateTime.now());
 		customerHistoryObj.setUpdated(LocalDateTime.now());
 		customerHistoryObj.setDueAmount(dto.getDueAmount() == null ? dto.getCustomer().getDueAmount() : dto.getDueAmount());
-		customerHistoryObj.setDueAmount(dto.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : dto.getPaidAmount());
+		customerHistoryObj.setPaidAmount(dto.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : dto.getPaidAmount());
 		return customerHistoryObj;
 		// if(appUtil.isEmptyOrNull(customerHistoryObj.getId())){
 

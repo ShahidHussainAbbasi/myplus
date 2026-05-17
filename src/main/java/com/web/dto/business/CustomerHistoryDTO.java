@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.persistence.Column;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import lombok.Data;
@@ -28,14 +30,14 @@ public class CustomerHistoryDTO {
 
 	private CustomerDTO customer;
 
+	private Float receivedAmount;
+
+    private Float changeAmount;
+
 	private List<SellDTO> sales = new ArrayList<>();	
 
-	// private SaleType saleType;	
-	
 	private Float paidAmount;
 
     private Float dueAmount;
 
-    private LocalDate dueDate;
-
-}
+    private LocalDate dueDate;}

@@ -285,7 +285,7 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
     	//4. create role & privilege of Agriculture
         rb = ResourceBundle.getBundle("role_privileges_agriculture");
         //Adding general user for Agriculture
-        createUserIfNotFound("super@agriculture.com", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(superRole)),rb.getString("agriculture.user.type"));        
+        createUserIfNotFound("2", "Shahid", "Hussain", "super", new ArrayList<Role>(Arrays.asList(superRole)),rb.getString("agriculture.user.type"));        
         createUserIfNotFound("9star@agriculture.com", "Afzal", "Jameel", "03002110127", new ArrayList<Role>(Arrays.asList(superRole)),rb.getString("agriculture.user.type"));        
 //    	for(String key:rb.keySet()) {
 //    		if(key.startsWith("agriculture.privilege")) {

@@ -56,8 +56,8 @@ public class Customer implements Serializable {
 
 	private String address;
 
-	@Column(name = "paid_amount")
-	private Float paidAmount;
+	// @Column(name = "paid_amount")
+	// private Float paidAmount;
 
     @Column(name = "due_amount")
     private Float dueAmount;
