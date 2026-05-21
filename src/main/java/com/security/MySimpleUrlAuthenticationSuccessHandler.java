@@ -99,7 +99,7 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
         	 if(!appUtil.isEmptyOrNull(user) && !appUtil.isEmptyOrNull(user.getUserType())){
         		 return "/"+user.getUserType().toLowerCase()+"Dashboard";
             }else {
-                return "/services";
+                return "/";
             }
         } else {
             throw new IllegalStateException();

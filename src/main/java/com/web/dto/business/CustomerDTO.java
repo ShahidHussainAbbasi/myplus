@@ -28,7 +28,7 @@ import lombok.Data;
 public class CustomerDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	private Long id;
+	private Long customerId;
 
 	@ValidateEmpty(message = "Customer name is required")
 	private String name;
@@ -37,6 +37,9 @@ public class CustomerDTO implements Serializable {
 
 	@ValidMobileNumber(message = "Invalid contact number")
 	private String contact;
+
+	@ValidateEmpty(message = "Customer email is required")
+	private String email;
 
 	private String address;
 

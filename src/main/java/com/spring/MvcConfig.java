@@ -56,7 +56,7 @@ public class MvcConfig implements WebMvcConfigurer {
 //        registry.addViewController("/").setViewName("forward:/login");
 //        registry.addViewController("/").setViewName("forward:/home");
 //        registry.addViewController("").setViewName("forward:home.html");
-        registry.addViewController("/").setViewName("forward:home");
+
         registry.addViewController("/home").setViewName("home");
         registry.addViewController("/login").setViewName("login");        
 //        registry.addViewController("/login");
@@ -82,7 +82,7 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/qrcode.html");
         registry.addViewController("/hospital.html");
         registry.addViewController("/donator").setViewName("donator");
-        registry.addViewController("/services").setViewName("services");
+        registry.addViewController("/services").setViewName("maxtheservice_dashboard");
         registry.addViewController("/businessDashboard").setViewName("businessDashboard");
         registry.addViewController("/welfareDashboard").setViewName("welfareDashboard");
         registry.addViewController("/educationDashboard").setViewName("educationDashboard");

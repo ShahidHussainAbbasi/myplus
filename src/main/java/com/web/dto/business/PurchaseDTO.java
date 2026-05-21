@@ -73,6 +73,8 @@ public class PurchaseDTO implements Serializable {
 
 	private StockDTO stock;
 
+	private String purchaseInvoiceNo;
+
 	// private ItemDTO item;
 	
 //	@Getter@Setter

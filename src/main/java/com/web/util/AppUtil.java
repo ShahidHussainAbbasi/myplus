@@ -488,49 +488,49 @@ public class AppUtil {
     	}
 	};
 
-	public SellDTO objTodtoConverter(Sell sell) {
-		SellDTO dto = new SellDTO();
-		dto.setSellId(sell.getSellId());
-		dto.setQuantity(sell.getQuantity());
-		dto.setSrp(sell.getSellRate());
-		// dto.setSd(sell.getDiscount());
-		dto.setTotalAmount(sell.getTotalAmount());
-		dto.setNetAmount(sell.getNetAmount());
-		// dto.setDated(sell.getDated());
+	// public SellDTO objTodtoConverter(Sell sell) {
+	// 	SellDTO dto = new SellDTO();
+	// 	dto.setSellId(sell.getSellId());
+	// 	dto.setQuantity(sell.getQuantity());
+	// 	dto.setSrp(sell.getSellRate());
+	// 	// dto.setSd(sell.getDiscount());
+	// 	dto.setTotalAmount(sell.getTotalAmount());
+	// 	dto.setNetAmount(sell.getNetAmount());
+	// 	// dto.setDated(sell.getDated());
 
-		// Map stock — only simple fields, no deep nesting
-		if (sell.getStock() != null) {
-			StockDTO stockDTO = new StockDTO();
-			stockDTO.setStockId(sell.getStock().getStockId());
-			stockDTO.setBsellRate(sell.getStock().getBsellRate());
-			stockDTO.setBpurchaseRate(sell.getStock().getBpurchaseRate());
-			dto.setStock(stockDTO);
-		}
+	// 	// Map stock — only simple fields, no deep nesting
+	// 	if (sell.getStock() != null) {
+	// 		StockDTO stockDTO = new StockDTO();
+	// 		stockDTO.setStockId(sell.getStock().getStockId());
+	// 		stockDTO.setBsellRate(sell.getStock().getBsellRate());
+	// 		stockDTO.setBpurchaseRate(sell.getStock().getBpurchaseRate());
+	// 		dto.setStock(stockDTO);
+	// 	}
 
-		// Map customerHistory — stop at one level deep
-		if (sell.getCustomerHistory() != null) {
-			CustomerHistoryDTO chDTO = new CustomerHistoryDTO();
-			chDTO.setId(sell.getCustomerHistory().getId());
-			chDTO.setDated(sell.getCustomerHistory().getDated());
-			chDTO.setPaidAmount(sell.getCustomerHistory().getPaidAmount());
-			chDTO.setDueAmount(sell.getCustomerHistory().getDueAmount());
+	// 	// Map customerHistory — stop at one level deep
+	// 	if (sell.getCustomerHistory() != null) {
+	// 		CustomerHistoryDTO chDTO = new CustomerHistoryDTO();
+	// 		chDTO.setId(sell.getCustomerHistory().getId());
+	// 		chDTO.setDated(sell.getCustomerHistory().getDated());
+	// 		chDTO.setPaidAmount(sell.getCustomerHistory().getPaidAmount());
+	// 		chDTO.setDueAmount(sell.getCustomerHistory().getDueAmount());
 
-			// Map customer inside history — stop here, don't go back to history
-			if (sell.getCustomerHistory().getCustomer() != null) {
-				CustomerDTO customerDTO = new CustomerDTO();
-				customerDTO.setId(sell.getCustomerHistory().getCustomer().getId());
-				customerDTO.setName(sell.getCustomerHistory().getCustomer().getName());
-				customerDTO.setContact(sell.getCustomerHistory().getCustomer().getContact());
-				customerDTO.setDueAmount(sell.getCustomerHistory().getCustomer().getDueAmount());
-				chDTO.setCustomer(customerDTO);
-			}
-			dto.setCustomerHistory(chDTO);
-		}
+	// 		// Map customer inside history — stop here, don't go back to history
+	// 		if (sell.getCustomerHistory().getCustomer() != null) {
+	// 			CustomerDTO customerDTO = new CustomerDTO();
+	// 			customerDTO.setCustomerId(sell.getCustomerHistory().getCustomer().getCustomerId());
+	// 			customerDTO.setName(sell.getCustomerHistory().getCustomer().getName());
+	// 			customerDTO.setContact(sell.getCustomerHistory().getCustomer().getContact());
+	// 			customerDTO.setDueAmount(sell.getCustomerHistory().getCustomer().getDueAmount());
+	// 			chDTO.setCustomer(customerDTO);
+	// 		}
+	// 		dto.setCustomerHistory(chDTO);
+	// 	}
 
-		return dto;
+	// 	return dto;
 		
 
-	} 
+	// } 
 	
 /*	public Converter<String, LocalDateTime> stringToDate = new Converter<String, LocalDateTime>() {
 

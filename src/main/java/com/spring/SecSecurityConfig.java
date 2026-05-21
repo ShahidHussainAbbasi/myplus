@@ -89,7 +89,7 @@ public class SecSecurityConfig extends WebSecurityConfigurerAdapter {
                 .authorizeRequests(requests -> requests
                         .antMatchers("/css/**", "/js/**", "/images/**", "/bootstrap/**",
                                 "/jQExp/**", "/webjars/**", "/static/**", "/main.css").permitAll()
-                        .antMatchers("/home*", "/login*", "/logout*", "/signin/**", "/signup/**",
+                        .antMatchers("/", "/home*", "/login*", "/logout*", "/signin/**", "/signup/**",
                                 "/customLogin", "/user/registration*", "/registrationConfirm*",
                                 "/expiredAccount*", "/registration*", "/registerHospital*",
                                 "/appointmentReq", "appointmentDashboard", "/services",

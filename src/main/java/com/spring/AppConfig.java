@@ -40,5 +40,6 @@ public class AppConfig {
         List<Resource> locations = Arrays.asList(classPathResource);
         requestHandler.setLocations(locations);
         return requestHandler;
-    }    
+    }   
+     
 }

@@ -21,8 +21,6 @@ import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
-import org.hibernate.annotations.NaturalId;
-
 import com.persistence.model.business.enums.CustomerType;
 
 import lombok.Data;
@@ -41,7 +39,7 @@ public class Customer implements Serializable {
 	@SequenceGenerator(name = "cust_gen", sequenceName = "cust_seq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "cust_gen")	
 	@Column(name = "customer_id", unique = true, nullable = false)
-	private Long id;
+	private Long customerId;
 
 	@Column(name = "name", nullable = false)
 	private String name;
@@ -50,9 +48,11 @@ public class Customer implements Serializable {
 	// @Column(name = "customer_type")
 	// private CustomerType customerType;	
 
-	@NaturalId
 	@Column(name = "contact", unique = true, nullable = false)
 	private String contact;
+
+	@Column(name = "email", unique = true, nullable = true)
+	private String email;
 
 	private String address;
 

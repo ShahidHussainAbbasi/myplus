@@ -366,6 +366,15 @@ function loadDataTable(){
 							];
 						datatable.row.add(arr).draw();
 					});
+				} else if (getAll === "Customer") {
+					$.each(collections, function(ind, obj) {
+						arr = [
+							"<div id=customerId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
+							"<div id=customerName>"+obj.name+"</div>", "<div id=customerContact>"+obj.customerContact+"</div>",
+							"<div id=customerEmail>"+obj.email+"</div>","<div id=customerAddress>"+obj.address+"</div>",obj.updatedStr
+							];
+						datatable.row.add(arr).draw();
+					});
 				} else if (getAll === "ItemType") {
 					$.each(collections, function(ind, obj) {
 						arr = [
@@ -400,7 +409,7 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=purchaseId>"+obj.purchaseId+"</div>", "<input type='checkbox' value="+ obj.purchaseId+ ">",
-							"<div id=purchaseItemDD>"+obj.icode+"</div>","<div id=purchaseItemName>"+obj.iname+"</div>",
+							"<div id=purchaseItemDD>"+obj.purchaseInvoiceNo+"</div>","<div id=purchaseItemName>"+obj.iname+"</div>",
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>", "<div id=purchaseStock>"+obj.stock.stock+"</div>",
 							// "<div id=purchaseBatchNo>"+obj.stock.batchNo+"</div>", 
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>", 

@@ -259,9 +259,9 @@ public class CustomerService implements ICustomerService{
 	@Override
 	public Customer saveUpdateCustomer(CustomerHistoryDTO dto) throws Exception {
 
-		Customer customerObj = dto.getCustomer().getId() != null ? this.getReferenceById(dto.getCustomer().getId()) : new Customer();
+		Customer customerObj = dto.getCustomer().getCustomerId() != null ? this.getReferenceById(dto.getCustomer().getCustomerId()) : new Customer();
 
-		if(appUtil.isEmptyOrNull(customerObj.getId())){
+		if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){
 
 			Example<Customer> example = Example.of(customerObj);
 
@@ -284,7 +284,7 @@ public class CustomerService implements ICustomerService{
 				dto.getCustomer().setDueAmount(0.0F);
 			}
 
-			if(appUtil.isEmptyOrNull(customerObj.getId())){ 
+			if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){ 
 				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() +  dto.getCustomer().getDueAmount() );
 				// customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
 				if (dto.getCustomer().getDueDate() != null) {

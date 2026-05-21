@@ -19,13 +19,16 @@ import javax.persistence.UniqueConstraint;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
+
+// import lombok.Getter;
+// import lombok.Setter;
 
 /**
  * The persistent class for the doctor database table.
  * 
  */
+@Data
 @Entity(name="purchase")
 @Table(name = "purchase", uniqueConstraints = { @UniqueConstraint(columnNames = "purchase_id") })
 public class Purchase implements Serializable {
@@ -35,20 +38,16 @@ public class Purchase implements Serializable {
 	@SequenceGenerator(name = "purch_gen", sequenceName = "purch_seq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "purch_gen")	
 	@Column(name = "purchase_id", unique = true, nullable = false)
-	@Getter@Setter
 	private Long purchaseId;
 
 	@Column(name = "user_id", nullable = false)
-	@Getter@Setter
 	private Long userId;
 
 	@Column(name = "user_type")
-	@Getter@Setter
 	private String userType;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = true)
 	@JoinColumn(name = "stock_id", nullable=true,unique=false)
-	@Getter@Setter
 	private Stock stock;
 	
 	// @OneToOne(fetch = FetchType.EAGER, optional = true)
@@ -78,7 +77,6 @@ public class Purchase implements Serializable {
 //	@JoinColumn(name = "item_unit_id")
 //	private ItemUnit itemUnit;
 
-	@Getter@Setter
 	private Float quantity;
 
 //	@Column(name = "purchase_rate")
@@ -95,31 +93,26 @@ public class Purchase implements Serializable {
 //	private String discountType;
 
 	@Column(name = "total_amount")
-	@Getter@Setter
 	private Float totalAmount;
 
 	@Column(name = "net_amount")
-	@Getter@Setter
 	private Float netAmount = null;
 
 	@Column(name = "purchase_expense")
-	@Getter@Setter
 	private Float purchaseExpense;
 
 	@Column(name = "purchase_expense_desc")
-	@Getter@Setter
 	private String purchaseExpenseDesc;
 
-	@Getter@Setter
 	private String description;
 
 	@Column(updatable=false)
-	@Getter@Setter
 	private LocalDateTime dated;
 
-	@Getter@Setter
 	private LocalDateTime updated;
 
+	@Column(name = "purchase_invoice_no")
+	private String purchaseInvoiceNo;
 
 	/**
 	 * @return the serialversionuid
