@@ -116,7 +116,7 @@
 		<dependency>
 			<groupId>com.mysql</groupId>
 			<artifactId>mysql-connector-j</artifactId>
-			<version>8.2.0</version>
+			<version>9.1.0</version>
 			<scope>runtime</scope>
 		</dependency>
 
@@ -169,29 +169,7 @@
 			</dependency> <dependency> <groupId>org.thymeleaf</groupId> <artifactId>thymeleaf-spring5</artifactId> 
 			</dependency> -->
 
-		<!-- Optional, for bootstrap -->
-		<!-- WebJars -->
-		<dependency>
-			<groupId>org.webjars</groupId>
-			<artifactId>jquery</artifactId>
-			<version>2.1.0-2</version>
-		</dependency>
-		<dependency>
-			<groupId>org.webjars</groupId>
-			<artifactId>angular-ui-router</artifactId>
-			<version>0.2.8</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.webjars</groupId>
-			<artifactId>angularjs</artifactId>
-			<version>1.3.8</version>
-		</dependency>
-		<dependency>
-			<groupId>org.webjars</groupId>
-			<artifactId>bootstrap</artifactId>
-			<version>3.3.7</version>
-		</dependency>
+		<!-- WebJars removed — app serves its own bundled static files -->
 
 		<dependency>
 			<groupId>com.maxmind.geoip2</groupId>
@@ -202,7 +180,7 @@
 		<dependency>
 			<groupId>org.modelmapper</groupId>
 			<artifactId>modelmapper</artifactId>
-			<version>2.3.0</version>
+			<version>3.2.0</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->
 		<dependency>
@@ -216,7 +194,7 @@
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
-			<version>5.2.5</version>
+			<version>5.3.0</version>
 		</dependency>
 
 <dependency>
@@ -225,15 +203,9 @@
 </dependency>
 
 <dependency>
-  <groupId>org.hibernate</groupId>
+  <groupId>org.hibernate.validator</groupId>
   <artifactId>hibernate-validator</artifactId>
-  <version>6.0.11.Final</version> <!-- or whatever you use -->
-  <exclusions>
-    <exclusion>
-      <groupId>org.openjfx</groupId>
-      <artifactId>javafx.base</artifactId>
-    </exclusion>
-  </exclusions>
+  <!-- version managed by Spring Boot BOM (6.2.x) -->
 </dependency>
 
 <dependency>
@@ -382,9 +354,9 @@
 		<javax.servlet.jsp-api.version>2.3.2-b01</javax.servlet.jsp-api.version>
 		<javax.el.version>2.2</javax.el.version>
 		<jstl.version>1.2</jstl.version>
-		<guava.version>20.0</guava.version>
+		<guava.version>33.3.1-jre</guava.version>
 		<passay.version>1.0</passay.version>
-		<logstash-logback-encoder.version>4.8</logstash-logback-encoder.version>
+		<logstash-logback-encoder.version>7.4</logstash-logback-encoder.version>
 		<aerogear.version>1.0.0</aerogear.version>
 	</properties>
 
