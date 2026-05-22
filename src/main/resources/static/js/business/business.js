@@ -285,10 +285,12 @@ function CIT(data){
 function resetCart(){
 	data = [];
 	tablesi.clear().draw();
-	//CIT(data)
+	onCustomerModeChange('select');
+	$('input[name="customerInputMode"][value="select"]').prop('checked', true);
 }
 function loadDataTable(){
 	tableSellReport.clear().draw();
+	var table = tableV.toLowerCase();
 	//check if data table exist destroy it
 	var offset = $( "select[name='tableSell_length']" ).val();
 	if(!offset)
@@ -328,12 +330,8 @@ function loadDataTable(){
 			"success" : function(data) {
 				if(reload != tableV){
 					//don't want to load ever DD for every row update on table
-					var table = tableV.toLowerCase();
-					loadUserCompanies(table);
-					loadUserVenders(table);
 					// laodUserItemTypes(table);
-					loadUserItemUnits(table);
-					loadUserItems(table);
+					// loadUserItemUnits(table);
 					reload=tableV;
 				}
 				var arr = [" No Data Found "];
@@ -366,12 +364,16 @@ function loadDataTable(){
 							];
 						datatable.row.add(arr).draw();
 					});
+					loadUserCompanies(table);
+					// loadUserVenders(table);
+					// loadUserItems(table);
 				} else if (getAll === "Customer") {
+					// loadUserCustomers(table);
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=customerId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=customerName>"+obj.name+"</div>", "<div id=customerContact>"+obj.customerContact+"</div>",
-							"<div id=customerEmail>"+obj.email+"</div>","<div id=customerAddress>"+obj.address+"</div>",obj.updatedStr
+							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value="+ obj.customerId+ ">",
+							"<div id=name>"+obj.name+"</div>", "<div id=contact>"+obj.contact+"</div>",
+							"<div id=email>"+obj.email+"</div>","<div id=address>"+obj.address+"</div>",obj.updated
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -392,6 +394,8 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Item") {
+					loadUserCompanies(table);
+					loadUserVenders(table);
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=itemId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
@@ -406,10 +410,12 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Purchase") {
+					loadUserItems(table);
 					$.each(collections, function(ind, obj) {
 						arr = [
+							
 							"<div id=purchaseId>"+obj.purchaseId+"</div>", "<input type='checkbox' value="+ obj.purchaseId+ ">",
-							"<div id=purchaseItemDD>"+obj.purchaseInvoiceNo+"</div>","<div id=purchaseItemName>"+obj.iname+"</div>",
+							"<div id=purchaseInvoiceNo>"+obj.purchaseInvoiceNo+"</div>","<div id=purchaseItemDD>"+obj.iname+"</div>",
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>", "<div id=purchaseStock>"+obj.stock.stock+"</div>",
 							// "<div id=purchaseBatchNo>"+obj.stock.batchNo+"</div>", 
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>", 
@@ -424,6 +430,8 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Sell") {
+					loadUserItems(table);
+					loadSellCustomers();
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=sellId>"+obj.sellId+"</div>",
@@ -456,9 +464,65 @@ function loadDataTable(){
 	            }
 		}
 	});
+
 	$("select[name='tableSell_length']").change(function(){
 		loadDataTable();
 	});
+}
+
+function loadUserCustomers(table) {
+    $.get(serverContext+ "getUserCustomers",function(data){
+		console.log("User customers loaded successfully: "+data);
+    })
+	.fail(function(data) {
+		console.log("Error while loading user customers : "+data);
+	});
+}
+
+function loadSellCustomers() {
+	var dd = $("#sellCustomerDD");
+	dd.empty().append('<option value="">-- Select Customer (Optional) --</option>');
+	$.get(serverContext + "getUserCustomer", function(res) {
+		if (res && res.collection) {
+			$.each(res.collection, function(i, c) {
+				dd.append('<option value="' + c.customerId + '" data-contact="' + (c.contact || '') + '">' + c.name + '</option>');
+			});
+		}
+	}).fail(function() {
+		console.log("Error loading customers for sell dropdown");
+	});
+}
+
+function onSellCustomerSelect(sel) {
+	var opt = $(sel).find(':selected');
+	var customerId = opt.val();
+	if (customerId) {
+		$("#sellCN").val(opt.text());
+		$("#sellCC").val(opt.data('contact') || '');
+	} else {
+		$("#sellCN").val('');
+		$("#sellCC").val('');
+	}
+}
+
+function onCustomerModeChange(mode) {
+	if (mode === 'select') {
+		$('#customerSelectMode').show();
+		$('#customerManualMode').hide();
+		$('#sellCustomerDD').val('');
+		$('#sellCN').val('');
+		$('#sellCC').val('');
+		$('#btnModeSelect').addClass('active');
+		$('#btnModeManual').removeClass('active');
+	} else {
+		$('#customerSelectMode').hide();
+		$('#customerManualMode').show();
+		$('#sellCustomerDD').val('');
+		$('#sellCN').val('');
+		$('#sellCC').val('');
+		$('#btnModeManual').addClass('active');
+		$('#btnModeSelect').removeClass('active');
+	}
 }
 
 function loadUserCompanies(table) {	

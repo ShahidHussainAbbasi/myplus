@@ -50,7 +50,7 @@
  */ }
  
 .btn {
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .table{
@@ -68,7 +68,6 @@
   color:red;
 }
 
- */
 option:hover {
     color: white;
     background: #0000FF;
@@ -139,7 +138,7 @@ option:hover {
 .dashbo{
 	background-color: #87CEFA;
 	display: block;
-	min-width: fit-content;
+	min-width: 0;
 	padding-top: 15px;
 }
 
@@ -187,4 +186,74 @@ select option {
 }
 .resetForm{
 	display: none;
+}
+
+/* ── Responsive overrides (mobile-first fixes) ──────────────────────────── */
+
+/* Tables: horizontal scroll on small screens instead of breaking layout */
+.table-bordered,
+.table-striped {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+/* Restore table display on medium+ so desktop layout is unaffected */
+@media (min-width: 768px) {
+    .table-bordered,
+    .table-striped {
+        display: table;
+        overflow-x: visible;
+    }
+}
+
+@media (max-width: 767px) {
+    /* Subnav selects: wrap instead of overflowing */
+    .subnav .nav,
+    .subnav ul.nav {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 4px 0;
+    }
+    .subnav .nav > li {
+        flex: 0 0 auto;
+        margin: 2px 4px;
+    }
+    .subnav select {
+        max-width: 180px;
+    }
+
+    /* Form labels: left-align on small screens */
+    .form-horizontal .control-label {
+        text-align: left;
+        padding-top: 0;
+        margin-bottom: 4px;
+    }
+
+    /* Forms: tighter padding on small screens */
+    .formDiv {
+        padding: 0.75em;
+    }
+
+    /* Buttons: larger touch targets */
+    .btn {
+        font-size: 13px;
+        min-height: 36px;
+    }
+
+    /* Dashboard cards: stack to single column */
+    .card-row {
+        flex-direction: column;
+    }
+    .card {
+        min-width: 0 !important;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    /* Content padding */
+    #content {
+        padding-right: 6px;
+        padding-left: 6px;
+    }
 }

@@ -22,7 +22,6 @@ import com.persistence.model.business.Customer;
 import com.service.IUserService;
 import com.web.dto.business.CustomerHistoryDTO;
 import com.web.util.AppUtil;
-import com.web.util.ObjectMapperUtils;
 import com.web.util.RequestUtil;
 
 @Service
@@ -46,214 +45,180 @@ public class CustomerService implements ICustomerService{
 
 	@Override
 	public List<Customer> findAll() {
-		// TODO Auto-generated method stub
-		return customerRepo.findAll();
+return customerRepo.findAll();
 	}
 
 	@Override
 	public List<Customer> findAll(Sort sort) {
-		// TODO Auto-generated method stub
-		return customerRepo.findAll(sort);
+return customerRepo.findAll(sort);
 	}
 
 	@Override
 	public List<Customer> findAllById(Iterable<Long> ids) {
-		// TODO Auto-generated method stub
-		return customerRepo.findAllById(ids);
+return customerRepo.findAllById(ids);
 	}
 
 	@Override
 	public <S extends Customer> List<S> saveAll(Iterable<S> entities) {
-		// TODO Auto-generated method stub
-		return customerRepo.saveAll(entities);
+return customerRepo.saveAll(entities);
 	}
 
 	@Override
 	public void flush() {
-		// TODO Auto-generated method stub
-		customerRepo.flush();
+customerRepo.flush();
 	}
 
 	@Override
 	public <S extends Customer> S saveAndFlush(S entity) {
-		// TODO Auto-generated method stub
-		return customerRepo.saveAndFlush(entity);
+return customerRepo.saveAndFlush(entity);
 	}
 
 	@Override
 	public void deleteInBatch(Iterable<Customer> entities) {
-		// TODO Auto-generated method stub
-		customerRepo.deleteInBatch(entities);
+customerRepo.deleteInBatch(entities);
 	}
 
 	@Override
 	public void deleteAllInBatch() {
-		// TODO Auto-generated method stub
-		customerRepo.deleteAllInBatch();
+customerRepo.deleteAllInBatch();
 	}
 
 	@Override
 	public Customer getOne(Long id) {
-		// TODO Auto-generated method stub
-		return customerRepo.getOne(id);
+return customerRepo.getOne(id);
 	}
 
 	@Override
 	public <S extends Customer> List<S> findAll(Example<S> example) {
-		// TODO Auto-generated method stub
-		return customerRepo.findAll(example);
+return customerRepo.findAll(example);
 	}
 
 	@Override
 	public <S extends Customer> List<S> findAll(Example<S> example, Sort sort) {
-		// TODO Auto-generated method stub
-		return customerRepo.findAll(example,sort);
+return customerRepo.findAll(example,sort);
 	}
 
 	@Override
 	public Page<Customer> findAll(Pageable pageable) {
-		// TODO Auto-generated method stub
-		return customerRepo.findAll(pageable);
+return customerRepo.findAll(pageable);
 	}
 
 	@Override
 	public <S extends Customer> S save(S entity) {
-		// TODO Auto-generated method stub
-		return customerRepo.save(entity);
+return customerRepo.save(entity);
 	}
 
 	@Override
 	public Optional<Customer> findById(Long id) {
-		// TODO Auto-generated method stub
-		return customerRepo.findById(id);
+return customerRepo.findById(id);
 	}
 
 	@Override
 	public boolean existsById(Long id) {
-		// TODO Auto-generated method stub
-		return customerRepo.existsById(id);
+return customerRepo.existsById(id);
 	}
 
 	@Override
 	public long count() {
-		// TODO Auto-generated method stub
-		return customerRepo.count();
+return customerRepo.count();
 	}
 
 	@Override
 	public void deleteById(Long id) {
-		// TODO Auto-generated method stub
-		customerRepo.deleteById(id);
+customerRepo.deleteById(id);
 		
 	}
 
 	@Override
 	public void delete(Customer entity) {
-		// TODO Auto-generated method stub
-		customerRepo.delete(entity);
+customerRepo.delete(entity);
 		
 	}
 
 	@Override
 	public void deleteAll(Iterable<? extends Customer> entities) {
-		// TODO Auto-generated method stub
-		customerRepo.deleteAll(entities);
+customerRepo.deleteAll(entities);
 	}
 
 	@Override
 	public void deleteAll() {
-		// TODO Auto-generated method stub
-		customerRepo.deleteAll();
+customerRepo.deleteAll();
 	}
 
 	@Override
 	public <S extends Customer> Optional<S> findOne(Example<S> example) {
-		// TODO Auto-generated method stub
-		return customerRepo.findOne(example);
+return customerRepo.findOne(example);
 	}
 
 	@Override
 	public <S extends Customer> Page<S> findAll(Example<S> example, Pageable pageable) {
-		// TODO Auto-generated method stub
-		return customerRepo.findAll(example, pageable);
+return customerRepo.findAll(example, pageable);
 	}
 
 	@Override
 	public <S extends Customer> long count(Example<S> example) {
-		// TODO Auto-generated method stub
-		return customerRepo.count(example);
+return customerRepo.count(example);
 	}
 
 	@Override
 	public <S extends Customer> boolean exists(Example<S> example) {
-		// TODO Auto-generated method stub
-		return customerRepo.exists(example);
+return customerRepo.exists(example);
 	}
 
 	@Override
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllByIdInBatch'");
+		customerRepo.deleteAllByIdInBatch(ids);
 	}
 
 	@Override
 	public void deleteAllInBatch(Iterable<Customer> entities) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllInBatch'");
+				customerRepo.deleteAllInBatch(entities);
+
 	}
 
 	@Override
 	public Customer getById(Long id) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getById'");
+		return customerRepo.getReferenceById(id);
 	}
 
 	@Override
 	public Customer getReferenceById(Long id) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'getReferenceById'");
+		return customerRepo.getReferenceById(id);
 	}
 
 	@Override
 	public <S extends Customer> List<S> saveAllAndFlush(Iterable<S> entities) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'saveAllAndFlush'");
+		return customerRepo.saveAllAndFlush(entities);
 	}
 
 	@Override
 	public void deleteAllById(Iterable<? extends Long> ids) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'deleteAllById'");
+		customerRepo.deleteAllById(ids);
 	}
 
 	@Override
 	public <S extends Customer, R> R findBy(Example<S> example, Function<FetchableFluentQuery<S>, R> queryFunction) {
-		// TODO Auto-generated method stub
-		throw new UnsupportedOperationException("Unimplemented method 'findBy'");
+		return customerRepo.findBy(example, queryFunction);
 	}
 
     @Override
     public Optional<Appointment> isPatientAppointed(Long doctor_id, String date, String mobile) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'isPatientAppointed'");
+        return customerRepo.isPatientAppointed(doctor_id, date, mobile);
     }
 
     @Override
     public Optional<Appointment> findByPatient(Long patient_id) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findByPatient'");
+        return customerRepo.findByPatient(patient_id);
     }
 
     @Override
     public List<Appointment> findByDoctor(Long doctor_id) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findByDoctor'");
+        return customerRepo.findByDoctor(doctor_id);
     }
 
     @Override
     public Appointment getLastAppointment(Long FK_hospital_id, Long doctor_id, String date) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getLastAppointment'");
+        return customerRepo.getLastAppointment(FK_hospital_id, doctor_id, date);
     }
 
 	@Override

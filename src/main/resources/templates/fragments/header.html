@@ -3,6 +3,8 @@
 <head>
     <!-- CSS Fragment — included in <head> of every page -->
     <th:block th:fragment="header-css">
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-datepicker.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-select.min.css}"/>
@@ -38,47 +40,51 @@
     <nav th:fragment="header" id="header" class="navbar navbar-inverse">
         <div class="container-fluid">
             <div class="navbar-header">
+                <!-- Hamburger toggle — collapses nav on mobile -->
+                <button type="button" class="navbar-toggle collapsed"
+                        data-toggle="collapse" data-target="#main-navbar-collapse"
+                        aria-expanded="false" aria-controls="main-navbar-collapse">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
                 <p style="color: lightskyblue; padding-top: 17px"
                    class="glyphicon glyphicon-user"
                    th:if="${param.user} != null"
                    th:text="${param.user[0]}">User</p>
             </div>
-            <ul class="nav navbar-nav">
-                <li>
-                    <img th:src="@{/favicon.png}" height="50" width="42"/>
-                </li>
-                <li>
-                    <a th:href="@{/home}">
-                        <span class="glyphicon glyphicon-home">&nbsp;Home</span>
-                    </a>
-                </li>
-                <li>
-                    <a th:href="@{/}">
-                        <span class="glyphicon glyphicon-dashboard">&nbsp;Dashboard</span>
-                    </a>
-                </li>
-            </ul>
-            <ul class="nav navbar-nav navbar-right">
-                <li th:if="${#authorization.expression('!isAuthenticated()')}">
-                    <a th:href="@{/login}">
-                        <span class="glyphicon glyphicon-log-in"></span>&nbsp;Sign in
-                    </a>
-                </li>
-                <!-- <li th:if="${#authorization.expression('isAuthenticated()')}">
-                    <form id="logoutForm" method="post" th:action="@{/logout}" style="display:inline;">
-                        <button type="submit" class="btn btn-link navbar-btn">
-                            <span class="glyphicon glyphicon-log-out"></span>&nbsp;Logout temp
-                        </button>
-                    </form>
-                </li>                 -->
-                <li th:if="${#authorization.expression('isAuthenticated()')}">
-                    <a href="#" onclick="$('#logoutForm').submit();">
-                        <span class="glyphicon glyphicon-log-out"></span>&nbsp;Logout
-                    </a>
-                    <form style="visibility:hidden" id="logoutForm"
-                          method="post" th:action="@{/logout}"></form>
-                </li>
-            </ul>
+            <div class="collapse navbar-collapse" id="main-navbar-collapse">
+                <ul class="nav navbar-nav">
+                    <li>
+                        <img th:src="@{/favicon.png}" height="50" width="42"/>
+                    </li>
+                    <li>
+                        <a th:href="@{/home}">
+                            <span class="glyphicon glyphicon-home">&nbsp;Home</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a th:href="@{/}">
+                            <span class="glyphicon glyphicon-dashboard">&nbsp;Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+                <ul class="nav navbar-nav navbar-right">
+                    <li th:if="${#authorization.expression('!isAuthenticated()')}">
+                        <a th:href="@{/login}">
+                            <span class="glyphicon glyphicon-log-in"></span>&nbsp;Sign in
+                        </a>
+                    </li>
+                    <li th:if="${#authorization.expression('isAuthenticated()')}">
+                        <a href="#" onclick="$('#logoutForm').submit();">
+                            <span class="glyphicon glyphicon-log-out"></span>&nbsp;Logout
+                        </a>
+                        <form style="visibility:hidden" id="logoutForm"
+                              method="post" th:action="@{/logout}"></form>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 </head>

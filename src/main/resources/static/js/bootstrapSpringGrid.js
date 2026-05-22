@@ -393,7 +393,16 @@ function loadDataTable(){
 							];
 						datatable.row.add(arr).draw();
 					});
-					loadUserCompanies();
+				} else if (getAll === "Customer") {
+					$.each(collections, function(ind, obj) {
+						arr = [
+							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value='"+ obj.customerId+ "' id='abc'>",
+							"<div id=customerName>"+obj.name+"</div>", "<div id=customerCompany>"+obj.contact+"</div>", "<div id=customerEmail>"+obj.email+"</div>",
+							"<div id=customerAddress>"+obj.email+"</div>", "<div id=customerDescription>"+obj.address+"</div>",obj.dated
+							];
+						datatable.row.add(arr).draw();
+					});
+					// loadUserCompanies();
 				} else if (getAll === "ItemType") {
 					$.each(collections, function(ind, obj) {
 						arr = [
@@ -422,11 +431,12 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 					//load dropdowns for user
-					loadUserCompanies();
-					loadUserVenders();
-					// laodUserItemTypes();
-					loadUserItemUnits();
+					// loadUserCompanies();
+					// loadUserVenders();
+					// // laodUserItemTypes();
+					// loadUserItemUnits();
 				}
+				loadUserData(getAll);
 			},
 			 error: function(jqXHR, textStatus, errorThrown) {
 //				 	window.location.href = serverContext + "login?message=" + data.responseJSON.message;

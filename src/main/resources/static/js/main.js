@@ -547,6 +547,7 @@ const nonCapitalize = (s) => {
   		return s.charAt(0).toLowerCase() + s.slice(1)
 }
 
+// This is a helper function to extract text from the datatable row's HTML and populate the form for editing
 function editRecord(doc){
 	edit = true;
     var form = document.getElementsByClassName('form-horizontal')[tableV];

@@ -3,16 +3,8 @@ package com.web.dto.business;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.persistence.Column;
-import javax.persistence.Enumerated;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToOne;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.persistence.model.business.Sell;
 import com.persistence.model.business.enums.CustomerType;
 import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
@@ -24,7 +16,7 @@ import lombok.Data;
  * 
  */
 @Data
-@JsonInclude(JsonInclude.Include.NON_NULL)
+// @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CustomerDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -43,7 +35,7 @@ public class CustomerDTO implements Serializable {
 
 	private String address;
 
-	@ValidateEmpty(message = "Paid amount is required")
+	// @ValidateEmpty(message = "Paid amount is required")
 	private Float paidAmount;
 
     private Float dueAmount;

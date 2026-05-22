@@ -12,6 +12,7 @@ import javax.transaction.Transactional;
 import org.apache.http.HttpStatus;
 import org.apache.http.protocol.HTTP;
 import org.modelmapper.ModelMapper;
+import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -97,7 +98,10 @@ public class SellController {
 	ICustomerHistoryService customerHistoryService;
 
 	ModelMapper modelMapper = new ModelMapper();
-	
+	{
+		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+	}
+
 
 // In SellService — map Sell to SellDTO manually
 // public SellDTO toDTO(Sell sell) {
@@ -293,10 +297,13 @@ public class SellController {
 	@Transactional
 	public GenericResponse addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
 		try {
+			if (dto == null || appUtil.isEmptyOrNull(dto.getSales()))
+				return new GenericResponse("ERROR", "No sales data provided");
+
 			User user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getId());
 			dto.setUserType(user.getUserType());
-			
+
 			Customer customerObj = customerService.saveUpdateCustomer(dto);
 			dto.setCustomer(modelMapper.map(customerObj, CustomerDTO.class));
 
@@ -322,9 +329,10 @@ public class SellController {
 			
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addSell "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > addSell "+e.getCause());
+			String cause = e.getCause() != null ? e.getCause().toString() : e.getMessage();
 			return new GenericResponse("ERROR",messages.getMessage(appUtil.ERROR,null,"message.error_system_error"+e.getMessage(), request.getLocale()),
-					e.getCause().toString());
+					cause);
 		}
 	}
 		

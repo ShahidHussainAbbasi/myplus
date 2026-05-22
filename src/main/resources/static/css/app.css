@@ -4,7 +4,7 @@ body, #mainWrapper {
 }
 
 body, .form-control{
-	font-size:12px!important;
+	font-size:14px!important;
 }
 
 .floatRight{
@@ -17,10 +17,9 @@ body, .form-control{
 }
 
 .generic-container {
-  width:80%;
-  margin-left: 20px;
-  margin-top: 20px;
-  margin-bottom: 20px;
+  max-width: 900px;
+  width: calc(100% - 40px);
+  margin: 20px auto;
   padding: 20px;
   background-color: #EAE7E7;
   border: 1px solid #ddd;

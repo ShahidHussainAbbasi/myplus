@@ -316,7 +316,7 @@
 					enctype="utf8" id="Customer" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-6">
-							<input type="number" class="form-control" id="customerId" name="id" readonly="readonly"/> 
+							<input type="number" class="form-control" id="customerId" name="customerId" readonly="readonly"/> 
 						</div>
 					</div>
 					<div class="form-group">
@@ -357,15 +357,15 @@
 					</div>
 				</form>
 				<div>
-					<table id="tableVender" class="table table-bordered table-striped">
+					<table id="tableCustomer" class="table table-bordered table-striped">
 						<thead>
 							<tr>
-								<th data-field="venderId">ID</th>
+								<th data-field="customerId">ID</th>
 								<th data-field="checkDelete"></th>
-								<th data-field="venderName">Name</th>
-								<th data-field="venderCompany">Contact</th>
-								<th data-field="venderEemail">Email</th>
-								<th data-field="venderAddress">Address</th>
+								<th data-field="customerName">Name</th>
+								<th data-field="customerContact">Contact</th>
+								<th data-field="customerEmail">Email</th>
+								<th data-field="customerAddress">Address</th>
 								<th data-field="dated">Dated</th>
 							</tr>
 						</thead>
@@ -692,27 +692,51 @@
 					            </tr>
 					        </tfoot>
 						</table>
-						<div class="form-group" style="padding-top: 15px;padding-bottom: 25px;">
-							<div class="col-sm-3">
+						<!-- Customer mode toggle -->
+						<div class="form-group" style="padding-top: 12px; padding-bottom: 4px;">
+							<div class="col-sm-12">
+								<div class="btn-group" data-toggle="buttons">
+									<label class="btn btn-default btn-sm active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
+										<input type="radio" name="customerInputMode" value="select" checked>
+										<span class="glyphicon glyphicon-search"></span> Select Customer
+									</label>
+									<label class="btn btn-default btn-sm" id="btnModeManual" onclick="onCustomerModeChange('manual')">
+										<input type="radio" name="customerInputMode" value="manual">
+										<span class="glyphicon glyphicon-pencil"></span> Enter Manually
+									</label>
+								</div>
+							</div>
+						</div>
+						<!-- Select mode: pick from existing customers -->
+						<div class="form-group" id="customerSelectMode">
+							<div class="col-sm-5">
+								<select class="form-control" id="sellCustomerDD" onchange="onSellCustomerSelect(this)">
+									<option value="">-- Select Customer --</option>
+								</select>
+							</div>
+						</div>
+						<!-- Manual mode: type name + contact -->
+						<div class="form-group" id="customerManualMode" style="display: none;">
+							<div class="col-sm-4">
 								<input type="text" class="form-control" id="sellCN"
 									name="cn" placeholder=" Customer name ">
 							</div>
-							<div class="col-sm-3">
+							<div class="col-sm-4">
 								<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number"/>
 							</div>
-							<div class="col-sm-2">
+						</div>
+						<!-- Payment row — always visible -->
+						<div class="form-group" style="padding-top: 8px; padding-bottom: 25px;">
+							<div class="col-sm-3">
 								<input type="number" step="any" min="0" class="form-control" id="sellRec"
 									name="cn" placeholder=" Received " onkeyup="calculateChange()">
 							</div>
-							<div class="col-sm-2">
+							<div class="col-sm-3">
 								<input type="number" step="any" min="0" class="form-control" id="sellCh" readonly="readonly" placeholder="Change">
 							</div>
-							<div class="col-sm-2">
+							<div class="col-sm-3">
 								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control" placeholder="dd/mm/yyyy"/>
 								<input type="hidden" id="dueDate" name="dueDate"/>
-								<!-- <input type="date" id="dueDateTemp" class="form-control datePicker"/> -->
-								<!-- <input type="text" class="form-control datePicker" id="dueDate" name="dueDate"
-									placeholder=" Due Date">  -->
 							</div>
 						</div>
 	 		

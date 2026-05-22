@@ -34,22 +34,22 @@
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="AgricultureExpense" autocomplete="off">
 					<div class="form-group" style="display: none">
-						<label class="control-label col-lg-2" for="expenseId">Id:</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="expenseId">Id:</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="expenseId" name="id"/> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2 req" for="expenseLandNameDD">Land</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2 req" for="expenseLandNameDD">Land</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<select name="landId" id="expenseLandNameDD" class="show form-control" required="required" onchange="loadLastCropAttached(this.id)">
 								<option class="dropdown-item" value="">Nothing Selected</option>
 							</select>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="expenseCropNameDD">Crop Name</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="expenseCropNameDD">Crop Name</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<select name="cropName" id="expenseCropNameDD" class="show form-control" required="required">
 								<option class="dropdown-item" value="">Nothing Selected</option>
 								<option class="dropdown-item" value="Sugarcane">Sugarcane</option><!-- Kammad / Ganna / Sugarcane -->
@@ -77,15 +77,15 @@
 						</div>
 					</div>
 					<div class="form-group">						
-						<label class="control-label col-lg-2" for="expenseCropType">Crop Type</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="expenseCropType">Crop Type</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="expenseCropType" name="cropType"
 								placeholder="Crop Type"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="expenseNameDD">Expense Name</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="expenseNameDD">Expense Name</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<select name="expenseName" id="expenseNameDD" class="show form-control" required="required">
 								<option class="dropdown-item" value="">Nothing Selected</option>
 								<option class="dropdown-item" value="Cultivators">Cultivators</option>
@@ -119,28 +119,28 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="expenseDescription">Description</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="expenseDescription">Description</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="expenseDescription"
 								name="description" placeholder="Description">
 						</div>
 	<!-- 
-						<label class="control-label col-lg-2" for="expenseType">Expense Type</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="expenseType">Expense Type</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="expenseType" name="expenseType"
 								placeholder="Expense name"> 
 						</div>
 	 -->
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" th:text="#{label.amount}" for="expenseAmount">Amount</label> 
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" th:text="#{label.amount}" for="expenseAmount">Amount</label> 
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input id="expenseAmount" class="form-control" type="number" name="amount" value="" required="required" />
 						</div> 
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" th:text="#{label.date}"  for="expenseUpdatedStr">Expense Date</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" th:text="#{label.date}"  for="expenseUpdatedStr">Expense Date</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control datePicker" id="expenseUpdatedStr" name="updatedStr">
 						</div>
 					</div>
@@ -194,27 +194,27 @@
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="AgricultureIncome" autocomplete="off">
 					<div class="form-group" style="display: none">
-						<label class="control-label col-lg-2" for="incomeId">Id:</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="incomeId">Id:</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="incomeId" name="id"/> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="incomeLandNameDD">Land</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="incomeLandNameDD">Land</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<select name="landId" id="incomeLandNameDD" class="show form-control" required="required" onchange="loadLastCropAttached(this.id)">
 								<option class="dropdown-item" value="">Nothing Selected</option>
 							</select>
 						</div>
-						<!-- <label class="control-label col-lg-2" for="incomeTotalLandUnit">Total Land Units</label>
-						<div class="col-lg-10">
+						<!-- <label class="control-label col-xs-12 col-sm-3 col-lg-2" for="incomeTotalLandUnit">Total Land Units</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="incomeTotalLandUnit" name="totalLandUnit"
 								placeholder="Total of units" required="required"> 
 						</div> -->
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="incomeCropNameDD">Crop Name</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="incomeCropNameDD">Crop Name</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<select name="cropName" id="incomeCropNameDD" class="show form-control" required="required">
 								<option class="dropdown-item" value="">Nothing Selected</option>
 								<option class="dropdown-item" value="Sugarcane">Sugarcane</option><!-- Kammad / Ganna / Sugarcane -->
@@ -248,15 +248,15 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="incomeVropType">Crop Type</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="incomeVropType">Crop Type</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="incomeCropType" name="cropType"
 								placeholder="Crop Type"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="incomeNameDD">Income Name</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="incomeNameDD">Income Name</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<select name="incomeName" id="incomeNameDD" class="show form-control" required="required">
 								<option class="dropdown-item" value="">Nothing Selected</option>
 								<option class="dropdown-item" value="Cultivators">Cultivators</option>
@@ -288,21 +288,21 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="incomeDescription">Description</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="incomeDescription">Description</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="incomeDescription"
 								name="description" placeholder="Description">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" th:text="#{label.amount}" for="incomeAmount">Amount</label> 
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" th:text="#{label.amount}" for="incomeAmount">Amount</label> 
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input id="incomeAmount" class="form-control" type="number" name="amount" value="" required="required" />
 						</div> 
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" th:text="#{label.date}"  for="incomeUpdatedStr">Expense Date</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" th:text="#{label.date}"  for="incomeUpdatedStr">Expense Date</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control datePicker" id="incomeUpdatedStr" name="updatedStr">
 						</div>
 					</div>
@@ -355,14 +355,14 @@
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Land" autocomplete="off">
 					<div class="form-group" style="display: none">
-						<label class="control-label col-lg-2" for="landId">Id:</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="landId">Id:</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="landId" name="id"/> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2 req" for="landUnitDD">Land type</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2 req" for="landUnitDD">Land type</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<select name="landUnit" id="landUnitDD" class="show form-control" required="required">
 								<option class="dropdown-item" value="">Nothing Selected</option>
 								<option class="dropdown-item" value="Acre">Acre</option>
@@ -374,35 +374,35 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2 req" for="totalLandUnitOf">Total of</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2 req" for="totalLandUnitOf">Total of</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="totalLandUnitOf" name="totalLandUnit"
 								placeholder="Enter total of selected land unit" required="required"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="landName">Land Name</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="landName">Land Name</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="landName" name="landName"
 								placeholder="Enter name" required="required"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="landType">Land Type</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="landType">Land Type</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="landType" name="landType"
 								placeholder="Enter type"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" th:text="#{label.date}"  for="landUpdatedStr">Date</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" th:text="#{label.date}"  for="landUpdatedStr">Date</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control datePicker" id="landUpdatedStr" name="updatedStr">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-lg-2" for="description">Description</label>
-						<div class="col-lg-10">
+						<label class="control-label col-xs-12 col-sm-3 col-lg-2" for="description">Description</label>
+						<div class="col-xs-12 col-sm-9 col-lg-10">
 							<input type="text" class="form-control" id="description"
 								name="description" placeholder="Description">
 						</div>
