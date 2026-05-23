@@ -146,7 +146,19 @@ footer a{color:var(--brand);text-decoration:none;font-weight:600}
 .empty i{font-size:40px;display:block;margin-bottom:0.75rem;opacity:0.5}
 .empty p{font-size:14px}
 
-@media(max-width:600px){.feat-grid{grid-template-columns:1fr}.hero-stats{flex-wrap:wrap}.hstat{flex:1;min-width:80px}}
+/* ABOUT SECTION */
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;max-width:860px;margin:0 auto}
+.about-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:1.75rem}
+.about-card h3{font-family:'Cabinet Grotesk',sans-serif;font-size:17px;font-weight:800;letter-spacing:-0.02em;color:var(--txt);margin-bottom:0.6rem;display:flex;align-items:center;gap:9px}
+.about-card h3 i{font-size:20px;color:var(--brand)}
+.about-card p{font-size:13.5px;color:var(--txt2);line-height:1.7;font-weight:400}
+.contact-list{list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:0.5rem}
+.contact-list li{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--txt2)}
+.contact-list li i{font-size:17px;color:var(--brand);width:20px;flex-shrink:0}
+.demo-cta{margin-top:1.25rem;display:inline-flex;align-items:center;gap:7px;background:var(--brand);color:#fff;border:none;border-radius:var(--rs);padding:11px 22px;font-size:13.5px;font-weight:600;font-family:'Satoshi',sans-serif;cursor:none;text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;letter-spacing:-0.01em}
+.demo-cta:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(67,56,202,0.28)}
+
+@media(max-width:600px){.feat-grid{grid-template-columns:1fr}.hero-stats{flex-wrap:wrap}.hstat{flex:1;min-width:80px}.about-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -157,16 +169,18 @@ footer a{color:var(--brand);text-decoration:none;font-weight:600}
 
 <nav id="nav">
   <a href="#" class="logo">
-    <span class="logo-gem">
-      <i class="" aria-hidden="true"><div class="navbar-header active">
-                            <img src="/favicon.png" height="50" width="42" title="Maximize your services">
-                        </div></i>
-    </span>
+    <!-- <span class="logo-gem"> -->
+      <i class="" aria-hidden="true">
+        <div class="navbar-header active">
+          <img src="/favicon.png" height="50" width="42" title="Maximize your services">
+        </div>
+      </i>
+    <!-- </span> -->
     MaxTheService
   </a>
   <div class="nav-links">
     <a href="#services">Services</a>
-    <a href="#contact">About</a>
+    <a href="#about">About</a>
     <span class="nav-divider" aria-hidden="true"></span>
     <a href="/login" class="nav-login"><i class="ti ti-login" aria-hidden="true"></i> Sign In</a>
     <a href="#contact" class="nav-cta">Book a Demo &rarr;</a>
@@ -187,7 +201,7 @@ footer a{color:var(--brand);text-decoration:none;font-weight:600}
     <a href="#contact" class="btn-o"><i class="ti ti-player-play" aria-hidden="true"></i> Watch Demo</a>
   </div>
   <div class="hero-stats">
-    <div class="hstat"><div class="hstat-v" data-cnt="8">0</div><div class="hstat-l">Modules</div></div>
+    <div class="hstat"><div class="hstat-v" data-cnt="11">0</div><div class="hstat-l">Modules</div></div>
     <div class="hstat"><div class="hstat-v" data-cnt="100">0</div><div class="hstat-l">Clients</div></div>
     <div class="hstat"><div class="hstat-v">99.9%</div><div class="hstat-l">Uptime</div></div>
     <div class="hstat"><div class="hstat-v">24/7</div><div class="hstat-l">Support</div></div>
@@ -211,14 +225,85 @@ footer a{color:var(--brand);text-decoration:none;font-weight:600}
       <button class="pill" data-f="Enterprise">Enterprise</button>
       <button class="pill" data-f="HR">HR</button>
       <button class="pill" data-f="Marketing">Marketing</button>
+      <button class="pill" data-f="Healthcare">Healthcare</button>
+      <button class="pill" data-f="Marketplace">Marketplace</button>
     </div>
   </div>
-  <div class="count-label" id="cntLabel">8 services</div>
+  <div class="count-label" id="cntLabel">11 services</div>
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty"><i class="ti ti-ghost"></i><p>No services match — try a different search.</p></div>
 </section>
 
-<footer id="contact">
+<section class="section" id="about" style="padding-top:1rem">
+  <div class="section-header">
+    <h2 class="section-title">About MaxTheService</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <!-- Story banner -->
+  <div style="max-width:860px;margin:0 auto 2rem;background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:2rem 2.25rem;display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap">
+    <div style="width:52px;height:52px;background:#EEEDFE;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="ti ti-rocket" style="font-size:26px;color:var(--brand)" aria-hidden="true"></i>
+    </div>
+    <div style="flex:1;min-width:240px">
+      <h3 style="font-family:'Cabinet Grotesk',sans-serif;font-size:19px;font-weight:900;letter-spacing:-0.03em;color:var(--txt);margin-bottom:0.6rem">One platform. Every business need.</h3>
+      <p style="font-size:14px;color:var(--txt2);line-height:1.75;font-weight:300">MaxTheService was founded with a single conviction: every business — whether a single-room school in Karachi or a multi-branch pharmaceutical distributor — deserves enterprise-grade tools without enterprise-grade price tags. We build deeply integrated, cloud-ready software on Java Spring Boot that replaces a dozen scattered spreadsheets and paper ledgers with one intelligent, role-aware platform. From the day a student enrolls to the day a shipment clears the warehouse, we keep every record, every transaction, and every decision in one place — secure, auditable, and accessible from any device.</p>
+    </div>
+  </div>
+
+  <div class="about-grid">
+    <div class="about-card">
+      <h3><i class="ti ti-building-community" aria-hidden="true"></i> Who we are</h3>
+      <p>We are a Karachi-based product engineering team specialising in business management software for South Asia's growing SME market. Our engineers, designers, and implementation specialists have delivered solutions across education, retail, healthcare, agriculture, and welfare sectors.</p>
+      <p style="margin-top:0.75rem">Our technology stack — Java 17, Spring Boot 2.7, Spring Security, MySQL, and Thymeleaf — is chosen for reliability, long-term support, and ease of deployment on any cloud or on-premise server. We ship multi-tenant systems with privilege-based access control so a single installation can safely host hundreds of independent businesses.</p>
+    </div>
+    <div class="about-card">
+      <h3><i class="ti ti-target" aria-hidden="true"></i> Our mission &amp; values</h3>
+      <p>We remove the complexity, cut the cost, and hand businesses a platform that simply works — so owners and operators can focus on growth rather than paperwork.</p>
+      <ul class="contact-list" style="margin-top:1rem">
+        <li><i class="ti ti-check" aria-hidden="true"></i> <strong>Affordability</strong> — enterprise power at SME pricing</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i> <strong>Integration</strong> — 11+ modules, one login, zero silos</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i> <strong>Security</strong> — privilege-based access, encrypted data</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i> <strong>Scalability</strong> — from one branch to a nationwide chain</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i> <strong>Local support</strong> — real humans, in your time zone</li>
+      </ul>
+    </div>
+    <div class="about-card">
+      <h3><i class="ti ti-stack-2" aria-hidden="true"></i> What we build</h3>
+      <p>Our platform spans every major vertical a growing business touches:</p>
+      <ul class="contact-list" style="margin-top:0.75rem">
+        <li><i class="ti ti-school" style="color:#4338CA" aria-hidden="true"></i> School &amp; fee management (Education)</li>
+        <li><i class="ti ti-device-tablet" style="color:#185FA5" aria-hidden="true"></i> POS &amp; inventory (Retail)</li>
+        <li><i class="ti ti-pill" style="color:#0E7490" aria-hidden="true"></i> Pharmacy &amp; Pharmaceutical (Healthcare)</li>
+        <li><i class="ti ti-shopping-cart" style="color:#D97706" aria-hidden="true"></i> Online marketplace (B2B &amp; B2C)</li>
+        <li><i class="ti ti-building-factory" style="color:#993C1D" aria-hidden="true"></i> ERP, HRM &amp; Analytics (Enterprise)</li>
+        <li><i class="ti ti-leaf" style="color:#3B6D11" aria-hidden="true"></i> Agriculture income &amp; expense tracking</li>
+      </ul>
+    </div>
+    <div class="about-card" id="contact">
+      <h3><i class="ti ti-phone" aria-hidden="true"></i> Get in touch</h3>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:0.85rem">We're happy to walk you through the platform, answer technical questions, or put together a custom quote for your organisation.</p>
+      <ul class="contact-list">
+        <li><i class="ti ti-map-pin" aria-hidden="true"></i> Karachi, Sindh, Pakistan</li>
+        <li><i class="ti ti-mail" aria-hidden="true"></i> <a href="mailto:info@maxtheservice.com" style="color:var(--brand);text-decoration:none;font-weight:500">maxtheservice@gmail.com</a></li>
+        <li><i class="ti ti-world" aria-hidden="true"></i> <a href="https://maxtheservice.com" style="color:var(--brand);text-decoration:none;font-weight:500">maxtheservice.com</a></li>
+        <li><i class="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp +92 333 0933338 support available</li>
+        <li><i class="ti ti-clock" aria-hidden="true"></i> Mon – Fri, 9 AM – 6 PM PKT</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Demo CTA strip -->
+  <div style="max-width:860px;margin:1.5rem auto 0;background:var(--brand);border-radius:var(--r);padding:1.75rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:1.25rem;flex-wrap:wrap">
+    <div>
+      <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:-0.02em;margin-bottom:4px">Ready to see it in action?</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.75);font-weight:300">30-minute live demo. No commitment. No credit card.</div>
+    </div>
+    <a href="mailto:info@maxtheservice.com?subject=Demo Request — MaxTheService" class="demo-cta" style="background:#fff;color:var(--brand);flex-shrink:0"><i class="ti ti-calendar-event" aria-hidden="true"></i> Book a free demo</a>
+  </div>
+</section>
+
+<footer>
   <div class="foot-logo">MaxTheService</div>
   <p>&copy; 2026 <a href="https://maxtheservice.com">maxtheservice.com</a> &bull; Built on Java / Spring Boot &bull; Karachi, Pakistan</p>
 </footer>
@@ -239,7 +324,10 @@ const SVCS=[
   {id:'hrm',tag:'HR',ac:'#7C3AED',ibg:'#F0EBFF',ic:'#4C1D95',icon:'ti-id-badge',name:'HRM',short:'Human resource management',desc:'Automate your full HR lifecycle — hiring, onboarding, payroll, leave management, appraisals, and compliance tracking for Pakistan SMEs.',feats:[{i:'ti-user-plus',t:'Employee onboarding'},{i:'ti-moneybag',t:'Payroll & tax slips'},{i:'ti-beach',t:'Leave management'},{i:'ti-fingerprint',t:'Attendance & overtime'},{i:'ti-star',t:'Performance appraisals'},{i:'ti-file-certificate',t:'Document management'}]},
   {id:'cam',tag:'Marketing',ac:'#3B6D11',ibg:'#EAF3DE',ic:'#173404',icon:'ti-speakerphone',name:'Campaign Management',short:'Marketing & outreach tools',desc:'Plan, execute, and track email and SMS campaigns with audience segmentation, scheduling, open-rate tracking, and ROI dashboards.',feats:[{i:'ti-mail',t:'Email campaign builder'},{i:'ti-message',t:'SMS bulk messaging'},{i:'ti-users-group',t:'Audience segmentation'},{i:'ti-timeline',t:'Campaign scheduling'},{i:'ti-eye',t:'Open & click tracking'},{i:'ti-chart-line',t:'ROI analytics'}]},
   {id:'rep',tag:'Enterprise',ac:'#B45309',ibg:'#FEF3C7',ic:'#412402',icon:'ti-chart-pie',name:'Analytics & Reports',short:'Data-driven decisions',desc:'Beautiful real-time dashboards and scheduled reports across every module — with PDF/Excel export and cross-module business insights.',feats:[{i:'ti-layout-dashboard',t:'Live dashboards'},{i:'ti-file-spreadsheet',t:'Excel & PDF exports'},{i:'ti-chart-bar',t:'Trend & growth charts'},{i:'ti-filter',t:'Custom report filters'},{i:'ti-bell',t:'Automated report emails'},{i:'ti-database',t:'Cross-module insights'}]},
-  {id:'apt',tag:'Enterprise',ac:'#A32D2D',ibg:'#FCEBEB',ic:'#501313',icon:'ti-calendar-plus',name:'Appointment System',short:'Smart booking & scheduling',desc:'Let clients self-book online, receive SMS/email reminders, and manage your staff calendar — ready for clinics, salons, and service businesses.',feats:[{i:'ti-world',t:'Online self-booking'},{i:'ti-bell-ringing',t:'SMS & email reminders'},{i:'ti-calendar',t:'Staff calendar view'},{i:'ti-clock-cancel',t:'Cancellation handling'},{i:'ti-repeat',t:'Recurring appointments'},{i:'ti-stethoscope',t:'Clinic & salon ready'}]}
+  {id:'apt',tag:'Enterprise',ac:'#A32D2D',ibg:'#FCEBEB',ic:'#501313',icon:'ti-calendar-plus',name:'Appointment System',short:'Smart booking & scheduling',desc:'Let clients self-book online, receive SMS/email reminders, and manage your staff calendar — ready for clinics, salons, and service businesses.',feats:[{i:'ti-world',t:'Online self-booking'},{i:'ti-bell-ringing',t:'SMS & email reminders'},{i:'ti-calendar',t:'Staff calendar view'},{i:'ti-clock-cancel',t:'Cancellation handling'},{i:'ti-repeat',t:'Recurring appointments'},{i:'ti-stethoscope',t:'Clinic & salon ready'}]},
+  {id:'phm',tag:'Healthcare',ac:'#0E7490',ibg:'#E0F7FA',ic:'#06414F',icon:'ti-pill',name:'Pharmacy POS',short:'Medical store management',desc:'Complete pharmacy management system with prescription tracking, medicine inventory, expiry date alerts, supplier management, and detailed sales reporting — purpose-built for medical stores and pharmacies.',feats:[{i:'ti-file-medical',t:'Prescription management'},{i:'ti-package',t:'Medicine inventory'},{i:'ti-alert-triangle',t:'Expiry date alerts'},{i:'ti-truck',t:'Supplier & purchases'},{i:'ti-receipt',t:'Fast billing & receipts'},{i:'ti-report',t:'Sales & stock reports'}]},
+  {id:'phr',tag:'Healthcare',ac:'#6D28D9',ibg:'#F3EEFF',ic:'#3B0764',icon:'ti-medicine-syrup',name:'Pharmaceutical',short:'Drug supply chain & distribution',desc:'End-to-end pharmaceutical supply chain management covering drug procurement, batch & lot tracking, cold-chain monitoring, distribution to retailers, and full regulatory compliance reporting.',feats:[{i:'ti-clipboard-list',t:'Drug procurement & orders'},{i:'ti-fingerprint',t:'Batch & lot tracking'},{i:'ti-snowflake',t:'Cold-chain monitoring'},{i:'ti-truck',t:'Distribution management'},{i:'ti-shield-check',t:'Regulatory compliance'},{i:'ti-chart-bar',t:'Sales & margin analytics'}]},
+  {id:'mkt',tag:'Marketplace',ac:'#D97706',ibg:'#FEF3C7',ic:'#78350F',icon:'ti-shopping-cart',name:'Online Marketplace',short:'Buy, sell & grow online',desc:'Launch your own online store or list products on the MaxTheService marketplace. Buyers can browse and purchase services and products; sellers manage listings, orders, payments, and delivery tracking — all from one dashboard.',feats:[{i:'ti-storefront',t:'Seller storefront & listings'},{i:'ti-credit-card',t:'Secure online payments'},{i:'ti-package',t:'Order & delivery tracking'},{i:'ti-star',t:'Ratings & reviews'},{i:'ti-chart-line',t:'Seller analytics dashboard'},{i:'ti-users',t:'Buyer & seller accounts'}]}
 ];
 
 let filter='all',search='',modalOpen=null;
@@ -362,7 +450,7 @@ function countUp(){document.querySelectorAll('[data-cnt]').forEach(el=>{const t=
 setTimeout(countUp,700);
 
 // TYPEWRITER
-const phrases=['Every business.','Every school.','Every retailer.','Every clinic.','Every enterprise.'];
+const phrases=['Every Education.','Every Retail.','Every Healthcare.','Every B2B/B2C.','Every Enterprise.','Every Agriculture.','Income & Expense Tracking.'];
 let pi=0,ci=0,deleting=false,paused=false;
 const tgt=document.getElementById('typeTarget');
 function type(){
