@@ -294,6 +294,7 @@ function resetCart(){
 }
 function loadDataTable(){
 	tableSellReport.clear().draw();
+
 	var table = tableV.toLowerCase();
 	//check if data table exist destroy it
 	var offset = $( "select[name='tableSell_length']" ).val();
@@ -338,6 +339,20 @@ function loadDataTable(){
 					// loadUserItemUnits(table);
 					reload=tableV;
 				}
+				//preloading dropdown list in start as these were not populated in case of No Data Found
+				if (getAll == "Vender") {
+					loadUserCompanies(table);
+				} else if (getAll == "Item") {
+					loadUserCompanies(table);
+					loadUserVenders(table);
+					
+				} else if (getAll == "Purchase") {
+					loadUserItems(table);		
+				} else if (getAll == "Sell") {
+					loadUserItems(table);
+					loadSellCustomers();
+				}
+
 				var arr = [" No Data Found "];
 				var collections = data.collection;
 				if(!collections || collections.length<=0){
@@ -348,7 +363,7 @@ function loadDataTable(){
 				
 				userId = collections[0].userId;
 				datatable.columns( [0] ).visible( false );
-				console.log("getUser : "+getAll+" collections : "+collections);
+				console.log("getUser calling of : "+getAll+" collections : "+collections);
 				if (getAll === "Company") {
 					$.each(collections, function(ind, obj) {
 						arr = [
@@ -368,7 +383,7 @@ function loadDataTable(){
 							];
 						datatable.row.add(arr).draw();
 					});
-					loadUserCompanies(table);
+					// loadUserCompanies(table);
 					// loadUserVenders(table);
 					// loadUserItems(table);
 				} else if (getAll === "Customer") {
@@ -398,8 +413,6 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Item") {
-					loadUserCompanies(table);
-					loadUserVenders(table);
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=itemId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
@@ -414,7 +427,7 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Purchase") {
-					loadUserItems(table);
+					// loadUserItems(table);
 					$.each(collections, function(ind, obj) {
 						arr = [
 							
@@ -434,8 +447,8 @@ function loadDataTable(){
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Sell") {
-					loadUserItems(table);
-					loadSellCustomers();
+					// loadUserItems(table);
+					// loadSellCustomers();
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=sellId>"+obj.sellId+"</div>",
@@ -546,59 +559,59 @@ function getDashboardData() {
 }
 
 function loadUserCompanies(table) {	
-	$("#"+table.toLowerCase()+"CompanyDD").empty().append("<option value = ''> Please Select </option>");
+	$("#"+table+"CompanyDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserCompanies",function(data){
-   		$("#"+table.toLowerCase()+"CompanyDD").append(data);
+   		$("#"+table+"CompanyDD").append(data);
     })
 	.fail(function(data) {
-		$("#"+table.toLowerCase()+"Company").empty().append("<option value = ''> System error  </option>");
+		$("#"+table+"Company").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
 function loadUserVenders(table) {	
-	$("#"+table.toLowerCase()+"VenderDD").empty().append("<option value = ''> Please Select </option>");
+	$("#"+table+"VenderDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserVenders",function(data){
-    	$("#"+table.toLowerCase()+"VenderDD").append(data);
+    	$("#"+table+"VenderDD").append(data);
     })
 	.fail(function(data) {
-		$("#"+table.toLowerCase()+"VenderDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table+"VenderDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 function laodUserItemTypes(table) {	
-	$("#"+table.toLowerCase()+"TypeDD").empty().append("<option value = ''> Please Select </option>");
+	$("#"+table+"TypeDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserItemTypes",function(data){
-    	$("#"+table.toLowerCase()+"TypeDD").append(data);
+    	$("#"+table+"TypeDD").append(data);
     })
 	.fail(function(data) {
-		$("#"+table.toLowerCase()+"TypeDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table+"TypeDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 function loadUserItemUnits(table) {	
-	$("#"+table.toLowerCase()+"UnitDD").empty().append("<option value = ''> Please Select </option>");
+	$("#"+table+"UnitDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserItemUnits",function(data){
-    	$("#"+table.toLowerCase()+"UnitDD").append(data);
+    	$("#"+table+"UnitDD").append(data);
     })
 	.fail(function(data) {
-		$("#"+table.toLowerCase()+"UnitDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table+"UnitDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
 function loadUserItems(table) {	
     $.get(serverContext+ "getUserItems",function(data){
-    	$("#"+table.toLowerCase()+"ItemDD").empty().append(data).selectpicker('refresh');
+    	$("#"+table+"ItemDD").empty().append(data).selectpicker('refresh');
     })
 	.fail(function(data) {
-		$("#"+table.toLowerCase()+"ItemDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table+"ItemDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
 function loadUserItem(table) {	
-	$("#"+table.toLowerCase()+"UnitDD").empty().append("<option value = ''> Please Select </option>");
+	$("#"+table+"UnitDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserItemUnits",function(data){
-    	$("#"+table.toLowerCase()+"UnitDD").append(data);
+    	$("#"+table+"UnitDD").append(data);
     })
 	.fail(function(data) {
-		$("#"+table.toLowerCase()+"UnitDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table+"UnitDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
