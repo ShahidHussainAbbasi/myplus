@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.SessionAttributes;
 
 import com.service.UserService;
+import com.web.util.RequestUtil;
 
 
 @Controller
@@ -21,16 +22,19 @@ public class AppController {
 
 	@Autowired
 	UserService userService;
-	
+
 //	@Autowired
 //	UserProfileService userProfileService;
-	
+
 	@Autowired
 	MessageSource messageSource;
 
+	@Autowired
+	RequestUtil requestUtil;
+
 	// @Autowired
 	// PersistentTokenBasedRememberMeServices persistentTokenBasedRememberMeServices;
-	
+
 	// @Autowired
 	// AuthenticationTrustResolver authenticationTrustResolver;
 	
@@ -45,11 +49,27 @@ public class AppController {
 //        return page;
 //    }	
         
-    // In your controller
     @GetMapping("/")
     public String landing() {
         return "maxtheservice_dashboard";
-}
+    }
+
+    @GetMapping("/dashboard")
+    public String dashboard() {
+        try {
+            String userType = requestUtil.getCurrentUser().getUserType();
+            if (userType == null) return "redirect:/";
+            switch (userType.toUpperCase()) {
+                case "BUSINESS":    return "redirect:/businessDashboard";
+                case "EDUCATION":   return "redirect:/educationDashboard";
+                case "WELFARE":     return "redirect:/welfareDashboard";
+                case "AGRICULTURE": return "redirect:/agricultureDashboard";
+                default:            return "redirect:/";
+            }
+        } catch (Exception e) {
+            return "redirect:/";
+        }
+    }
 
 ////	
 ////	/**

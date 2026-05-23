@@ -47,7 +47,48 @@
 				</div>
 			</nav>
 			<div>
-				<div id="globalError" class="alert alert-danger text-center" style="display:none">error</div>	
+				<div id="globalError" class="alert alert-danger text-center" style="display:none">error</div>
+			</div>
+			<div id="DashboardDiv" class="formDiv">
+				<h3 class="text-center" style="color:#06578a; margin-bottom:20px">Business Dashboard</h3>
+				<div class="row">
+					<div class="col-sm-2">
+						<div class="panel panel-primary text-center">
+							<div class="panel-heading"><span class="glyphicon glyphicon-briefcase"></span>&nbsp;Companies</div>
+							<div class="panel-body"><h2 id="dashCompanies" style="margin:5px">-</h2></div>
+						</div>
+					</div>
+					<div class="col-sm-2">
+						<div class="panel panel-success text-center">
+							<div class="panel-heading"><span class="glyphicon glyphicon-grain"></span>&nbsp;Venders</div>
+							<div class="panel-body"><h2 id="dashVenders" style="margin:5px">-</h2></div>
+						</div>
+					</div>
+					<div class="col-sm-2">
+						<div class="panel panel-info text-center">
+							<div class="panel-heading"><span class="glyphicon glyphicon-user"></span>&nbsp;Customers</div>
+							<div class="panel-body"><h2 id="dashCustomers" style="margin:5px">-</h2></div>
+						</div>
+					</div>
+					<div class="col-sm-2">
+						<div class="panel panel-warning text-center">
+							<div class="panel-heading"><span class="glyphicon glyphicon-list-alt"></span>&nbsp;Items</div>
+							<div class="panel-body"><h2 id="dashItems" style="margin:5px">-</h2></div>
+						</div>
+					</div>
+					<div class="col-sm-2">
+						<div class="panel panel-default text-center">
+							<div class="panel-heading"><span class="glyphicon glyphicon-shopping-cart"></span>&nbsp;Sales This Month</div>
+							<div class="panel-body"><h2 id="dashMonthlySales" style="margin:5px">-</h2></div>
+						</div>
+					</div>
+					<div class="col-sm-2">
+						<div class="panel panel-danger text-center">
+							<div class="panel-heading"><span class="glyphicon glyphicon-usd"></span>&nbsp;Revenue This Month</div>
+							<div class="panel-body"><h2 id="dashMonthlyRevenue" style="margin:5px">-</h2></div>
+						</div>
+					</div>
+				</div>
 			</div>
 			<div id="CompanyDiv" class="formDiv">
 				<h3 th:text="#{label.company.form.heading}">Company Registration

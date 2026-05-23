@@ -249,6 +249,8 @@ public class SellService implements ISellService {
 					obj.setStock(stock);
 					obj.setUserId(requestUtil.getCurrentUser().getId());
 					obj.setUserType(requestUtil.getCurrentUser().getUserType());
+					obj.setDated(LocalDateTime.now());
+					obj.setUpdated(LocalDateTime.now());
 					stockService.save(stock);
 					this.save(obj);
 					// objs.add(this.save(obj));

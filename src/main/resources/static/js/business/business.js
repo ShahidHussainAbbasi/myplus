@@ -227,6 +227,10 @@ $(document).ready(function() {
  
     
   //All button get initialized when user switch form
+    // Show dashboard on page load
+    $('#DashboardDiv').show();
+    getDashboardData();
+
     $("#addInviceItem").off().click(function() {
 //    	window.open(window.location.hostname + ':' + window.location.port+""+serverContext+"reports/createdocument.docx");
     //	window.print(window.location.hostname + ':' + window.location.port+""+serverContext+"reports/createdocument.docx");
@@ -523,6 +527,22 @@ function onCustomerModeChange(mode) {
 		$('#btnModeManual').addClass('active');
 		$('#btnModeSelect').removeClass('active');
 	}
+}
+
+function getDashboardData() {
+    $.getJSON(serverContext + 'getBusinessDashboardStats', function(res) {
+        if (res.status === 'SUCCESS' && res.object) {
+            var s = res.object;
+            $('#dashCompanies').text(s.companies);
+            $('#dashVenders').text(s.venders);
+            $('#dashCustomers').text(s.customers);
+            $('#dashItems').text(s.items);
+            $('#dashMonthlySales').text(s.monthlySales);
+            $('#dashMonthlyRevenue').text(s.monthlyRevenue);
+        }
+    }).fail(function() {
+        console.log('Error loading dashboard stats');
+    });
 }
 
 function loadUserCompanies(table) {	

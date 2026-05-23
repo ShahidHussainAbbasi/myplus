@@ -32,8 +32,8 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
     // @Query(value = "SELECT * FROM sell s where s.dated >= :sd AND s.dated <= :ed AND s.user_Id=:userId",nativeQuery=true)
     // public List<Sell> findSellByDates(@Param("sd") LocalDateTime sd,@Param("ed") LocalDateTime ed,@Param("userId") Long userId);
 
-    @EntityGraph(attributePaths = {"stock", "customer"})
-    @Query("SELECT s FROM Sell s WHERE s.dated >= :sd AND s.dated <= :ed AND s.userId = :userId")
+    // @EntityGraph(attributePaths = {"stock", "customerHistory", "customerHistory.customer"})
+    @Query("SELECT s FROM Sell s WHERE s.updated >= :sd AND s.updated <= :ed AND s.userId = :userId")
     List<Sell> findSellByDates(
         @Param("sd") LocalDateTime sd,
         @Param("ed") LocalDateTime ed,

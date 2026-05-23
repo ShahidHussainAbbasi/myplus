@@ -102,10 +102,15 @@ $(document).ready(function() {
 		});
 */	
 
-	$(".glyphicon-dashboard").click(function (){
-		$('.formDiv').hide();
-		$("#DashboardDiv").show();
-		getDashboardData();
+	$(".glyphicon-dashboard").closest('a').on('click', function(e) {
+		if ($("#DashboardDiv").length > 0) {
+			e.preventDefault();
+			$('.formDiv').hide();
+			$("#DashboardDiv").show();
+			if (typeof getDashboardData === 'function') {
+				getDashboardData();
+			} 
+		}
 	});
 	
 	$("#paBtn").click(function (event) {
