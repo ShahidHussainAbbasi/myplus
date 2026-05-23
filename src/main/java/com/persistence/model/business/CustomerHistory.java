@@ -32,7 +32,7 @@ public class CustomerHistory implements Serializable {
 	@SequenceGenerator(name = "cust_gen", sequenceName = "cust_seq",initialValue = 1, allocationSize = 1)
 	@GeneratedValue(generator = "cust_gen")	
 	@Column(name = "customer_history_id", unique = true, nullable = false)
-	private Long id;
+	private Long customer_history_id;
 
 	@Column(updatable = false)
 	private LocalDateTime dated;

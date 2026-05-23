@@ -239,8 +239,16 @@ public class SellService implements ISellService {
 					modelMapper.addConverter(appUtil.stringToLocalDateTime);
 					modelMapper.addConverter(appUtil.stringToLocalDate);
 					Sell obj = modelMapper.map(dto, Sell.class);
+					obj.setSellRate(stock.getBsellRate());
+					obj.setDiscount(stock.getBsellDiscount());
+					obj.setDt(stock.getBsellDiscountType());
+					obj.setSrp(dto.getSrp());
+					obj.setUpdated(dto.getUpdated());
+					obj.setTotalAmount(dto.getTotalAmount());
+					obj.setNetAmount(dto.getNetAmount());
 					obj.setStock(stock);
 					obj.setUserId(requestUtil.getCurrentUser().getId());
+					obj.setUserType(requestUtil.getCurrentUser().getUserType());
 					stockService.save(stock);
 					this.save(obj);
 					// objs.add(this.save(obj));

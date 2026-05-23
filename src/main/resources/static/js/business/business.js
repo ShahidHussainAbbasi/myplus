@@ -421,8 +421,8 @@ function loadDataTable(){
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>", 
 							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>", 
 							"<div id=purchaseDiscount>"+obj.stock.bpurchaseDiscount+"</div>",
-							"<div id=purchaseSellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>", 
-							"<div id=purchaseSellDiscount>"+obj.stock.bsellDiscount+"</div>",
+							// "<div id=purchaseSellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>", 
+							// "<div id=purchaseSellDiscount>"+obj.stock.bsellDiscount+"</div>",
 							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
 							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"

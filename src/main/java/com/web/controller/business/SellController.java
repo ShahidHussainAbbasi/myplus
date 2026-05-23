@@ -305,16 +305,11 @@ public class SellController {
 			dto.setUserType(user.getUserType());
 
 			Customer customerObj = customerService.saveUpdateCustomer(dto);
-			dto.setCustomer(modelMapper.map(customerObj, CustomerDTO.class));
+			customerService.save(customerObj);
 
 			CustomerHistory customerHistory =   customerHistoryService.saveUpdateCustomerHistory(dto);
 
-			if (appUtil.isEmptyOrNull(customerObj.getName()) || appUtil.isEmptyOrNull(customerObj.getContact()) ) {
-				dto.setCustomer(null);
-			} else {
-				customerService.save(customerObj);
-				customerHistory.setCustomer(customerObj);
-			}
+			customerHistory.setCustomer(customerObj);
 			customerHistoryService.save(customerHistory);
 
 			List<SellDTO> sells = ObjectMapperUtils.mapAll(dto.getSales(), SellDTO.class);

@@ -18,7 +18,7 @@ import lombok.Data;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CustomerHistoryDTO {
 
-    private Long id;
+    private Long customer_history_id;
 
 	private LocalDateTime dated;
 
