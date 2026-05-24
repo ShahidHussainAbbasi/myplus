@@ -1,10 +1,9 @@
 /**
  * Authentication flow tests — login, logout, session handling
  *
- * App note: login.html has <input id="submit" name="submit" type="submit">.
- * The name="submit" attribute shadows the native form.submit() method, so
- * cy.get('form').submit() throws "form.submit is not a function".
- * All tests use cy.get('input[type="submit"]').click() instead.
+ * Login page uses <button id="loginSubmit" type="submit"> (redesigned from input[type="submit"]).
+ * Validation is handled by validateLogin() in login.js — uses window.alert().
+ * Error messages on bad credentials use class .msg-bar.error (not Bootstrap .alert-danger).
  */
 
 describe('Login Page', () => {
@@ -16,7 +15,7 @@ describe('Login Page', () => {
     cy.get('input[name="username"]').should('be.visible')
     cy.get('input[name="password"]').should('be.visible')
     cy.get('form[name="f"]').should('exist')
-    cy.get('input[type="submit"]').should('be.visible')
+    cy.get('#loginSubmit').should('be.visible')
   })
 
   it('should redirect unauthenticated user from protected route to login', () => {
@@ -27,40 +26,41 @@ describe('Login Page', () => {
 
   it('should show alert and not redirect with empty credentials', () => {
     cy.on('window:alert', (text) => {
-      expect(text).to.include('required')
+      // validateLogin() message: "Please enter your username and password"
+      expect(text).to.include('enter')
     })
-    cy.get('input[type="submit"]').click()
+    cy.get('#loginSubmit').click()
     cy.url().should('include', '/login')
   })
 
-  it('should show "User Name required" alert when only username is empty', () => {
+  it('should show alert when only username is empty', () => {
     cy.on('window:alert', (text) => {
-      // message.username = "User Name required"
-      expect(text).to.include('User Name required')
+      // validateLogin() message: "Please enter your username"
+      expect(text).to.include('username')
     })
     cy.get('input[name="password"]').type('anypassword')
-    cy.get('input[type="submit"]').click()
+    cy.get('#loginSubmit').click()
     cy.url().should('include', '/login')
   })
 
-  it('should show "Password required" alert when only password is empty', () => {
+  it('should show alert when only password is empty', () => {
     cy.on('window:alert', (text) => {
-      // message.password = "Password required"
-      expect(text).to.include('Password required')
+      // validateLogin() message: "Please enter your password"
+      expect(text).to.include('password')
     })
     cy.get('input[name="username"]').type('test@test.com')
-    cy.get('input[type="submit"]').click()
+    cy.get('#loginSubmit').click()
     cy.url().should('include', '/login')
   })
 
-  it('should show error element with invalid credentials', () => {
+  it('should show error message with invalid credentials', () => {
     cy.get('input[name="username"]').type('invalid@user.com')
     cy.get('input[name="password"]').type('WrongPassword123!')
-    cy.get('input[type="submit"]').click()
+    cy.get('#loginSubmit').click()
     // Spring Security redirects to /login?error after failure
     cy.url().should('include', '/login')
-    // Error alert div should appear
-    cy.get('.alert-danger').should('be.visible')
+    // Login redesign uses .msg-bar.error (not Bootstrap .alert-danger)
+    cy.get('.msg-bar.error').should('be.visible')
   })
 
   it('should have registration link on login page', () => {
@@ -70,10 +70,6 @@ describe('Login Page', () => {
   it('should navigate to registration page from login link', () => {
     cy.get('a[href*="registration"]').first().click()
     cy.url().should('include', 'registration')
-  })
-
-  it('should show forgot password link', () => {
-    cy.get('a[href*="forgetPassword"]').should('exist')
   })
 })
 

@@ -117,15 +117,21 @@ describe('Company CRUD', () => {
       body: { name: `ToClick_${Date.now()}`, email: `click${Date.now()}@test.com` },
     })
 
+    // Intercept the AJAX load so we can wait for DataTables to finish rendering
+    cy.intercept('GET', /\/getUserCompany/).as('getCompanyForClick')
     cy.visit('/businessDashboard')
-    cy.get('#registrationType').select('CompanyDiv')
-    cy.get('#tableCompany tbody tr').first().then(($row) => {
-      if ($row.find('td').length > 0) {
-        cy.wrap($row).click()
-        cy.get('#CompanyDiv').should('be.visible')
-      } else {
+    cy.get('#registrationType').select('CompanyDiv', { force: true })
+    cy.wait('@getCompanyForClick', { timeout: 10000 })
+
+    // Re-query the row after AJAX is complete to avoid stale element reference
+    cy.get('#tableCompany tbody tr').then(($rows) => {
+      const dataRows = $rows.filter((i, row) => Cypress.$(row).find('td').length > 1)
+      if (dataRows.length === 0) {
         cy.log('No companies in table — row click test skipped')
+        return
       }
+      cy.wrap(dataRows.first()).click({ force: true })
+      cy.get('#CompanyDiv').should('be.visible')
     })
   })
 
@@ -186,7 +192,7 @@ describe('Company CRUD', () => {
     cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name, email: `delui${Date.now()}@test.com` } })
 
     cy.reload()
-    cy.get('#registrationType').select('CompanyDiv')
+    cy.get('#registrationType').select('CompanyDiv', { force: true })
     cy.get('#tableCompany tbody tr').contains(name).closest('tr').find('input[type="checkbox"]').check()
 
     cy.intercept('POST', '/deleteCompany').as('deleteCompany')

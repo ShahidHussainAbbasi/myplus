@@ -6,7 +6,7 @@ describe('Purchase Section — Page Rendering', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
     cy.visit('/businessDashboard')
-    cy.get('#purchaseType').select('purchaseDiv')
+    cy.get('#purchaseType').select('purchaseDiv', { force: true })
     cy.get('#purchaseDiv').should('be.visible')
   })
 
@@ -20,7 +20,7 @@ describe('Purchase Section — Page Rendering', () => {
   it('item dropdown loads options from getUserItems AJAX', () => {
     cy.intercept('GET', '/getUserItems').as('getUserItems')
     cy.reload()
-    cy.get('#purchaseType').select('purchaseDiv')
+    cy.get('#purchaseType').select('purchaseDiv', { force: true })
     cy.wait('@getUserItems').then((interception) => {
       expect(interception.response.statusCode).to.eq(200)
     })

@@ -15,7 +15,8 @@ describe('Sell Section — Page Rendering', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('sellDiv')
+    // sellType is off-screen — force:true required
+    cy.get('#sellType').select('sellDiv', { force: true })
     cy.get('#sellDiv').should('be.visible')
   })
 
@@ -65,7 +66,7 @@ describe('Sell Section — AJAX Loading', () => {
   it('item dropdown loads options from getUserItems', () => {
     cy.intercept('GET', '/getUserItems').as('getUserItems')
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('sellDiv')
+    cy.get('#sellType').select('sellDiv', { force: true })
     cy.wait('@getUserItems', { timeout: 10000 }).then((interception) => {
       expect(interception.response.statusCode).to.eq(200)
     })
@@ -75,7 +76,7 @@ describe('Sell Section — AJAX Loading', () => {
     // Use negative lookahead so /getUserCustomers (plural) is not matched
     cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('sellDiv')
+    cy.get('#sellType').select('sellDiv', { force: true })
     cy.wait('@getCustomers', { timeout: 10000 }).then((interception) => {
       expect(interception.response.statusCode).to.eq(200)
       expect(interception.response.body).to.have.property('status')
@@ -92,7 +93,7 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
     cy.loginAsBusiness()
     cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('sellDiv')
+    cy.get('#sellType').select('sellDiv', { force: true })
     cy.get('#sellDiv').should('be.visible')
     cy.wait('@getCustomers', { timeout: 10000 })
   })
@@ -224,7 +225,7 @@ describe('Sell Section — Sale Detail Report', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('SRDiv')
+    cy.get('#sellType').select('SRDiv', { force: true })
     cy.get('#SRDiv').should('be.visible')
   })
 
