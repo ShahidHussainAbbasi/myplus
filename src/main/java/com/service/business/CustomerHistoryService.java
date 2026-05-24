@@ -209,6 +209,11 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 	}
 
 	@Override
+	public List<CustomerHistory> findByUserIdAndDateRange(Long userId, LocalDateTime sd, LocalDateTime ed) {
+		return CustomerHistoryRepo.findByUserIdAndDateRange(userId, sd, ed);
+	}
+
+	@Override
 	public CustomerHistory saveUpdateCustomerHistory(CustomerHistoryDTO dto) {
 		CustomerHistory customerHistoryObj = dto.getCustomer_history_id() != null ? this.getReferenceById(dto.getCustomer_history_id()) : new CustomerHistory();
 

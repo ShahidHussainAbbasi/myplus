@@ -51,7 +51,9 @@
 			</div>
 			<div id="DashboardDiv" class="formDiv">
 				<h3 class="text-center" style="color:#06578a; margin-bottom:20px">Business Dashboard</h3>
-				<div class="row">
+
+				<!-- KPI stat cards -->
+				<div class="row" style="margin-bottom:18px">
 					<div class="col-sm-2">
 						<div class="panel panel-primary text-center">
 							<div class="panel-heading"><span class="glyphicon glyphicon-briefcase"></span>&nbsp;Companies</div>
@@ -86,6 +88,71 @@
 						<div class="panel panel-danger text-center">
 							<div class="panel-heading"><span class="glyphicon glyphicon-usd"></span>&nbsp;Revenue This Month</div>
 							<div class="panel-body"><h2 id="dashMonthlyRevenue" style="margin:5px">-</h2></div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Charts row 1: trend + top items -->
+				<div class="row" style="margin-bottom:18px">
+					<div class="col-sm-8">
+						<div class="panel panel-primary">
+							<div class="panel-heading"><span class="glyphicon glyphicon-signal"></span>&nbsp;Revenue &amp; Sales Trend (Last 6 Months)</div>
+							<div class="panel-body" style="position:relative;height:260px">
+								<canvas id="chartTrend"></canvas>
+							</div>
+						</div>
+					</div>
+					<div class="col-sm-4">
+						<div class="panel panel-warning">
+							<div class="panel-heading"><span class="glyphicon glyphicon-th-list"></span>&nbsp;Top Items This Month (by Qty)</div>
+							<div class="panel-body" style="position:relative;height:260px">
+								<canvas id="chartTopItems"></canvas>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Charts row 2: daily revenue -->
+				<div class="row" style="margin-bottom:18px">
+					<div class="col-sm-12">
+						<div class="panel panel-success">
+							<div class="panel-heading"><span class="glyphicon glyphicon-stats"></span>&nbsp;Daily Revenue This Month</div>
+							<div class="panel-body" style="position:relative;height:220px">
+								<canvas id="chartDaily"></canvas>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Charts row 3: sales by customer + due payments table -->
+				<div class="row">
+					<div class="col-sm-5">
+						<div class="panel panel-info">
+							<div class="panel-heading"><span class="glyphicon glyphicon-user"></span>&nbsp;Sales by Customer This Month</div>
+							<div class="panel-body" style="position:relative;height:280px">
+								<canvas id="chartCustSales"></canvas>
+							</div>
+						</div>
+					</div>
+					<div class="col-sm-7">
+						<div class="panel panel-danger">
+							<div class="panel-heading"><span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;Top Customers with Outstanding Dues</div>
+							<div class="panel-body" style="padding:0">
+								<table class="table table-condensed table-striped" style="margin:0">
+									<thead>
+										<tr>
+											<th>Customer</th>
+											<th>Contact</th>
+											<th>Due Amount</th>
+											<th>Due Date</th>
+											<th>Status</th>
+										</tr>
+									</thead>
+									<tbody id="dueCustTableBody">
+										<tr><td colspan="5" class="text-center text-muted">Loading...</td></tr>
+									</tbody>
+								</table>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -950,6 +1017,7 @@
     <!-- STEP 2: page-specific JS — AFTER jQuery -->
     <script type="text/javascript" th:src="@{/js/jspdf.min.js}"></script>
     <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <script th:src="@{/js/business/businessInvoicePrint.js}"></script>
 </body>

@@ -556,6 +556,209 @@ function getDashboardData() {
     }).fail(function() {
         console.log('Error loading dashboard stats');
     });
+    loadDashboardCharts();
+}
+
+var _chartTrend = null, _chartDaily = null, _chartTopItems = null, _chartCustSales = null;
+
+function loadDashboardCharts() {
+    $.getJSON(serverContext + 'getDashboardChartData', function(res) {
+        if (res.status !== 'SUCCESS' || !res.object) return;
+        var d = res.object;
+
+        // destroy existing chart instances before redraw
+        if (_chartTrend)     { _chartTrend.destroy();     _chartTrend = null; }
+        if (_chartDaily)     { _chartDaily.destroy();     _chartDaily = null; }
+        if (_chartTopItems)  { _chartTopItems.destroy();  _chartTopItems = null; }
+        if (_chartCustSales) { _chartCustSales.destroy(); _chartCustSales = null; }
+
+        // --- Revenue & Sales Trend (dual-axis line) ---
+        var ctxTrend = document.getElementById('chartTrend');
+        if (ctxTrend) {
+            _chartTrend = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: d.monthLabels,
+                    datasets: [
+                        {
+                            label: 'Revenue',
+                            data: d.monthRevenue,
+                            borderColor: '#337ab7',
+                            backgroundColor: 'rgba(51,122,183,0.12)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'yRev',
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'Sales Count',
+                            data: d.monthSalesCount,
+                            borderColor: '#5cb85c',
+                            backgroundColor: 'rgba(92,184,92,0.12)',
+                            fill: false,
+                            tension: 0.4,
+                            yAxisID: 'yCnt',
+                            borderDash: [5, 3],
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.label + ': ' + (ctx.dataset.yAxisID === 'yRev'
+                                    ? ctx.parsed.y.toLocaleString() : ctx.parsed.y);
+                            }
+                        }}
+                    },
+                    scales: {
+                        yRev: { type: 'linear', position: 'left',  title: { display: true, text: 'Revenue' }, beginAtZero: true },
+                        yCnt: { type: 'linear', position: 'right', title: { display: true, text: 'Sales' },   beginAtZero: true, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+
+        // --- Daily Revenue Bar ---
+        var ctxDaily = document.getElementById('chartDaily');
+        if (ctxDaily) {
+            _chartDaily = new Chart(ctxDaily, {
+                type: 'bar',
+                data: {
+                    labels: d.dayLabels,
+                    datasets: [{
+                        label: 'Revenue',
+                        data: d.dailyRevenue,
+                        backgroundColor: d.dailyRevenue.map(function(v) {
+                            return v > 0 ? 'rgba(92,184,92,0.75)' : 'rgba(200,200,200,0.4)';
+                        }),
+                        borderColor: d.dailyRevenue.map(function(v) {
+                            return v > 0 ? '#3c763d' : '#aaa';
+                        }),
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { title: { display: true, text: 'Day of Month' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Revenue' } }
+                    }
+                }
+            });
+        }
+
+        // --- Top Items Horizontal Bar ---
+        var ctxTop = document.getElementById('chartTopItems');
+        if (ctxTop) {
+            var palette = ['#337ab7','#5cb85c','#f0ad4e','#d9534f','#9b59b6'];
+            _chartTopItems = new Chart(ctxTop, {
+                type: 'bar',
+                data: {
+                    labels: d.topItemNames.length > 0 ? d.topItemNames : ['No data'],
+                    datasets: [{
+                        label: 'Qty Sold',
+                        data: d.topItemQtys.length > 0 ? d.topItemQtys : [0],
+                        backgroundColor: palette,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, title: { display: true, text: 'Quantity' } }
+                    }
+                }
+            });
+        }
+
+        // --- Sales by Customer (doughnut) ---
+        var ctxCust = document.getElementById('chartCustSales');
+        if (ctxCust) {
+            var custPalette = ['#337ab7','#5cb85c','#f0ad4e','#d9534f','#9b59b6','#1abc9c','#e67e22','#e74c3c'];
+            var custLabels = d.custSalesNames && d.custSalesNames.length > 0 ? d.custSalesNames : ['No sales'];
+            var custData   = d.custSalesAmounts && d.custSalesAmounts.length > 0 ? d.custSalesAmounts : [0];
+            _chartCustSales = new Chart(ctxCust, {
+                type: 'doughnut',
+                data: {
+                    labels: custLabels,
+                    datasets: [{
+                        data: custData,
+                        backgroundColor: custPalette.slice(0, custLabels.length),
+                        borderWidth: 2,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
+                        tooltip: { callbacks: {
+                            label: function(ctx) {
+                                var total = ctx.dataset.data.reduce(function(a,b){ return a+b; }, 0);
+                                var pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                                return ' ' + ctx.label + ': ' + ctx.parsed.toLocaleString() + ' (' + pct + '%)';
+                            }
+                        }}
+                    }
+                }
+            });
+        }
+
+        // --- Top customers with due payments (table) ---
+        var tbody = document.getElementById('dueCustTableBody');
+        if (tbody) {
+            var dueList = d.dueCustomers || [];
+            if (dueList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No outstanding dues</td></tr>';
+            } else {
+                var today = new Date(); today.setHours(0,0,0,0);
+                var rows = dueList.map(function(c) {
+                    var dueDate = c.dueDate ? new Date(c.dueDate) : null;
+                    var statusHtml;
+                    if (!dueDate || isNaN(dueDate.getTime())) {
+                        statusHtml = '<span class="label label-default">No date</span>';
+                    } else if (dueDate < today) {
+                        var days = Math.floor((today - dueDate) / 86400000);
+                        statusHtml = '<span class="label label-danger">Overdue ' + days + 'd</span>';
+                    } else {
+                        var days = Math.floor((dueDate - today) / 86400000);
+                        statusHtml = days === 0
+                            ? '<span class="label label-warning">Due today</span>'
+                            : '<span class="label label-info">In ' + days + 'd</span>';
+                    }
+                    var dueDateStr = dueDate && !isNaN(dueDate.getTime())
+                        ? dueDate.toLocaleDateString() : '—';
+                    return '<tr>'
+                        + '<td><strong>' + (c.name || '') + '</strong></td>'
+                        + '<td>' + (c.contact || '') + '</td>'
+                        + '<td><strong class="text-danger">' + parseFloat(c.due || 0).toLocaleString() + '</strong></td>'
+                        + '<td>' + dueDateStr + '</td>'
+                        + '<td>' + statusHtml + '</td>'
+                        + '</tr>';
+                });
+                tbody.innerHTML = rows.join('');
+            }
+        }
+
+    }).fail(function() {
+        console.log('Error loading dashboard charts');
+    });
 }
 
 function loadUserCompanies(table) {	
