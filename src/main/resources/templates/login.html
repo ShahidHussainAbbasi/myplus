@@ -1,100 +1,129 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title th:text="#{label.pages.home.title}">Title</title>
-
-    <link rel="icon" type="image/jpg" sizes="60x50" th:href="@{/favicon.jpeg}"/>
-
-    <!-- ✅ th:href on all CSS links -->
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Sign In — MyPlus</title>
+    <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
-    <link rel="stylesheet" th:href="@{/main.css}"/>
-
-
-    <style type="text/css">
-        .wrapper { max-width: 450px; margin-left: auto; margin-right: auto; padding-top: 50px; }
-        label { padding-left: 0 !important }
-    </style>
-
-    <script th:inline="javascript">
-        function validate() {
-            if (document.f.username.value == "" && document.f.password.value == "") {
-                alert(/*[[#{message.username} + #{message.password}]]*/);
-                document.f.username.focus();
-                return false;
-            }
-            if (document.f.username.value == "") {
-                alert(/*[[#{message.username}]]*/);
-                document.f.username.focus();
-                return false;
-            }
-            if (document.f.password.value == "") {
-                alert(/*[[#{message.password}]]*/);
-                document.f.password.focus();
-                return false;
-            }
-        }
-    </script>
+    <link rel="stylesheet" th:href="@{/css/login.css}"/>
 </head>
 <body>
-    <div id="container">
-        <div th:if="${param.message != null}" class="alert alert-info" th:text="${param.message[0]}">message</div>
-        <div th:if="${param.error != null}" class="alert alert-danger" th:text="${session[SPRING_SECURITY_LAST_EXCEPTION]}">error</div>
+<div class="login-wrap">
 
-        <nav class="navbar navbar-inverse">
-            <div class="container-fluid">
-                <ul class="nav navbar-nav">
-                    <li>
-                        <div class="navbar-header active">
-                            <img th:src="@{/favicon.png}" height="50" width="42" title="Maximize your services"/>
-                        </div>
-                    </li>
-                    <li>
-                        <a th:href="@{/home}">
-                            <span class="text-uppercase" th:text="#{label.islamic.channels}">&nbsp;Home</span>
-                        </a>
-                    </li>
-                </ul>
+    <!-- Left brand panel -->
+    <div class="login-left">
+        <div class="brand-area">
+            <a class="brand-logo" th:href="@{/}">
+                <div class="brand-logo-icon">
+                    <img th:src="@{/favicon.png}" alt="MyPlus"/>
+                </div>
+                <span class="brand-name">MyPlus</span>
+            </a>
+            <div class="brand-tagline">One platform.<br/><span>Every business</span> need.</div>
+            <p class="brand-desc">
+                Manage inventory, customers, sales, accounting, education
+                and welfare — all from a single powerful dashboard.
+            </p>
+        </div>
+        <div class="feature-list">
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-briefcase"></span></div>
+                <span class="feature-text">Business POS &amp; Inventory</span>
             </div>
-        </nav>
-
-        <div id="content">
-            <div class="row wrapper">
-                <h1 th:text="#{label.form.loginTitle}">Header</h1>
-                <a href="?lang=en" th:text="#{label.form.loginEnglish}">login</a> |
-                <a href="?lang=es_ES" th:text="#{label.form.loginSpanish}">login</a>
-                <br/><br/>
-
-                <!-- ✅ Form action is correct -->
-                <form name='f' th:action="@{/login}" method='POST' onsubmit="return validate();">
-                    <div class="form-group">
-                        <label th:text="#{label.form.loginEmail}">Email</label>
-                        <input class="form-control" type='text' name='username' value=''/>
-                        <br/>
-                        <label th:text="#{label.form.loginPass}">Password</label>
-                        <input id="lPassword" class="form-control" type='password' name='password'
-                               onkeypress="handleEnterKey(event,'enter','submit')"/>
-                        <br/>
-                        <input id="submit" class="btn btn-default btn-cls" name="submit"
-                               type="submit" th:value="#{label.form.login}"/>
-                        <a class="btn btn-default btn-cls" th:href="@{/registration.html}"
-                           th:text="#{label.form.siguUp}">signup</a>
-                    </div>
-                </form>
-
-                <br/> Current Locale: <span th:text="${#locale}"></span><br/><br/>
-                <a class="btn btn-default btn-cls" th:href="@{/appointment}" th:text="#{label.form.appointment}">Appointment</a>
-                <a class="btn btn-default btn-cls" th:href="@{/forgetPassword.html}" th:text="#{message.resetPassword}">reset</a>
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-user"></span></div>
+                <span class="feature-text">Customer Accounts &amp; Due Tracking</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-stats"></span></div>
+                <span class="feature-text">Live Charts &amp; Revenue Analytics</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-education"></span></div>
+                <span class="feature-text">Education, Welfare &amp; Agriculture Modules</span>
             </div>
         </div>
-
-        <!-- ✅ Fixed footer fragment path -->
-		     <!-- ✅ JS at bottom is better but these are small so ok here -->
-    	<script th:src="@{/js/jquery-3.3.1.js}"></script>
-    	<script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
-
-        <th:block th:replace="~{fragments/footer :: footer}"/>
+        <div class="left-footer">
+            &copy; 2026 MyPlus &mdash; All rights reserved
+        </div>
     </div>
+
+    <!-- Right form panel -->
+    <div class="login-right">
+        <div class="login-card">
+
+            <div th:if="${param.error != null}" class="msg-bar error">
+                <span class="glyphicon glyphicon-exclamation-sign"></span>
+                &nbsp;Invalid username or password. Please try again.
+            </div>
+            <div th:if="${param.message != null}" class="msg-bar info"
+                 th:text="${param.message[0]}"></div>
+
+            <div class="card-header">
+                <h2>Welcome back</h2>
+                <p>Sign in to your MyPlus account</p>
+            </div>
+
+            <div class="locale-row">
+                <span>Language:</span>
+                <a href="?lang=en" class="locale-link" th:text="#{label.form.loginEnglish}">English</a>
+                <span style="color:var(--border)">|</span>
+                <a href="?lang=es_ES" class="locale-link" th:text="#{label.form.loginSpanish}">Español</a>
+            </div>
+
+            <form name="f" th:action="@{/login}" method="POST"
+                  onsubmit="return validateLogin();" autocomplete="off">
+
+                <div class="field-group">
+                    <label class="field-label" for="loginEmail"
+                           th:text="#{label.form.loginEmail}">Email / Username</label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-envelope field-icon"></span>
+                        <input id="loginEmail" class="field-input" type="text"
+                               name="username" autocomplete="username"
+                               placeholder="Enter your username"/>
+                    </div>
+                </div>
+
+                <div class="field-group" style="margin-bottom:24px">
+                    <label class="field-label" for="loginPassword"
+                           th:text="#{label.form.loginPass}">Password</label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-lock field-icon"></span>
+                        <input id="loginPassword" class="field-input" type="password"
+                               name="password" autocomplete="current-password"
+                               onkeypress="handleEnterKey(event,'enter','loginSubmit')"
+                               placeholder="Enter your password"/>
+                    </div>
+                </div>
+
+                <button id="loginSubmit" type="submit" class="btn-signin"
+                        th:text="#{label.form.login}">Sign in</button>
+            </form>
+
+            <div class="divider">
+                <div class="divider-line"></div>
+                <span class="divider-text">or</span>
+                <div class="divider-line"></div>
+            </div>
+
+            <a class="register-link" th:href="@{/registration.html}"
+               th:text="#{label.form.siguUp}">Create an account</a>
+
+            <div class="card-footer-note">
+                Need an appointment?
+                <a class="appt-link" th:href="@{/appointment}"
+                   th:text="#{label.form.appointment}">Book here</a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/jquery-3.3.1.js}"></script>
+<script th:src="@{/js/login.js}"></script>
 </body>
 </html>

@@ -242,23 +242,19 @@ return customerRepo.exists(example);
 
 			customerObj = this.findOne(example).orElse(customerObj);
 
-
 			if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){ 
 				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() +  dto.getCustomer().getDueAmount() );
-				// customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
-				if (dto.getCustomer().getDueDate() != null) {
-					customerObj.setDueDate(dto.getCustomer().getDueDate());
-				}
 			} else {
 				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() + dto.getCustomer().getDueAmount());
-				// customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
 			}
 
-			// customerObj.setName(dto.getCustomer().getName());
+			if (dto.getCustomer().getDueDate() != null) {
+				customerObj.setDueDate(dto.getCustomer().getDueDate());
+			}
 		} else {
 				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() + dto.getCustomer().getDueAmount());
-				// customerObj.setPaidAmount(customerObj.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : customerObj.getPaidAmount() + dto.getCustomer().getPaidAmount());
-		 }
+		}
+
 		// set the due amount 0 if it is negative
 		if (dto.getCustomer().getDueAmount() != null && dto.getCustomer().getDueAmount() < 0) {
 			customerObj.setDueAmount(dto.getCustomer().getDueAmount() * -1);
@@ -266,9 +262,6 @@ return customerRepo.exists(example);
 			customerObj.setDueAmount(0.0F);
 		}
 
-		if (customerObj.getDueDate() == null && dto.getCustomer().getDueDate() != null) {
-			customerObj.setDueDate(dto.getCustomer().getDueDate());
-		}
 		customerObj.setDated(LocalDateTime.now());
 		customerObj.setUpdated(LocalDateTime.now());
 		this.save(customerObj);

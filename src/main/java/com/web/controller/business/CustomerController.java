@@ -59,6 +59,8 @@ public class CustomerController {
 
 			List<CustomerDTO> dtos=new ArrayList<CustomerDTO>(); 
 			objs.forEach(obj ->{
+				modelMapper.addConverter(appUtil.localDateToString);
+				modelMapper.addConverter(appUtil.localDateTimeToString);
 				CustomerDTO dto = modelMapper.map(obj, CustomerDTO.class);
 				// dto.setDatedStr(appUtil.getLocalDateTimeStr(obj.getDated()));
 				// dto.setUpdatedStr(appUtil.getLocalDateTimeStr(obj.getUpdated()));

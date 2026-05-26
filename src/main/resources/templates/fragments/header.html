@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity5">
 <head>
-    <!-- CSS Fragment — included in <head> of every page -->
     <th:block th:fragment="header-css">
         <meta charset="utf-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <link rel="preconnect" href="https://fonts.googleapis.com"/>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-datepicker.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-select.min.css}"/>
@@ -12,10 +14,10 @@
         <link rel="stylesheet" th:href="@{/css/buttons.dataTables.min.css}">
         <link rel="stylesheet" th:href="@{/css/application.css}"/>
         <link rel="stylesheet" th:href="@{/main.css}"/>
+        <link rel="stylesheet" th:href="@{/css/theme.css}"/>
         <link rel="stylesheet" th:href="@{/css/jquery.timepicker.min.css}"/>
     </th:block>
 
-    <!-- JS Fragment — included at bottom of <body> of every page -->
     <th:block th:fragment="header-js">
         <script th:src="@{/js/jquery.min.js}"></script>
         <script th:src="@{/js/jquery-3.3.1.js}"></script>
@@ -32,56 +34,54 @@
         <script th:src="@{/jQExp/buttons.html5.min.js}"></script>
         <script th:src="@{/jQExp/buttons.print.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
-         <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
+        <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
         <script th:src="@{/js/main.js}"></script>
     </th:block>
 
-    <!-- Navbar Fragment -->
+    <!-- ═══ NAVBAR FRAGMENT ═══════════════════════════════════ -->
     <nav th:fragment="header" id="header" class="navbar navbar-inverse">
         <div class="container-fluid">
             <div class="navbar-header">
-                <!-- Hamburger toggle — collapses nav on mobile -->
                 <button type="button" class="navbar-toggle collapsed"
                         data-toggle="collapse" data-target="#main-navbar-collapse"
-                        aria-expanded="false" aria-controls="main-navbar-collapse">
+                        aria-expanded="false">
                     <span class="sr-only">Toggle navigation</span>
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <p style="color: lightskyblue; padding-top: 17px"
-                   class="glyphicon glyphicon-user"
-                   th:if="${param.user} != null"
-                   th:text="${param.user[0]}">User</p>
+                <a class="navbar-brand" th:href="@{/}">
+                    <img th:src="@{/favicon.png}" height="28" width="24" alt="logo"
+                         style="border-radius:6px;margin-right:8px;vertical-align:middle"/>
+                    <span>MyPlus</span>
+                </a>
             </div>
+
             <div class="collapse navbar-collapse" id="main-navbar-collapse">
                 <ul class="nav navbar-nav">
                     <li>
-                        <img th:src="@{/favicon.png}" height="50" width="42"/>
-                    </li>
-                    <li>
                         <a th:href="@{/home}">
-                            <span class="glyphicon glyphicon-home">&nbsp;Home</span>
+                            <span class="glyphicon glyphicon-home"></span> Home
                         </a>
                     </li>
                     <li>
                         <a th:href="@{/dashboard}">
-                            <span class="glyphicon glyphicon-dashboard">&nbsp;Dashboard</span>
+                            <span class="glyphicon glyphicon-dashboard"></span> Dashboard
                         </a>
                     </li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
+                    <li th:if="${#authorization.expression('isAuthenticated()')}">
+                        <a href="#" onclick="document.getElementById('logoutForm').submit(); return false;">
+                            <span class="glyphicon glyphicon-log-out"></span> Logout
+                        </a>
+                        <form style="display:none" id="logoutForm"
+                              method="post" th:action="@{/logout}"></form>
+                    </li>
                     <li th:if="${#authorization.expression('!isAuthenticated()')}">
                         <a th:href="@{/login}">
-                            <span class="glyphicon glyphicon-log-in"></span>&nbsp;Sign in
+                            <span class="glyphicon glyphicon-log-in"></span> Sign in
                         </a>
-                    </li>
-                    <li th:if="${#authorization.expression('isAuthenticated()')}">
-                        <a href="#" onclick="$('#logoutForm').submit();">
-                            <span class="glyphicon glyphicon-log-out"></span>&nbsp;Logout
-                        </a>
-                        <form style="visibility:hidden" id="logoutForm"
-                              method="post" th:action="@{/logout}"></form>
                     </li>
                 </ul>
             </div>

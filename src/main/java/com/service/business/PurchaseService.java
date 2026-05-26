@@ -1,5 +1,6 @@
 package com.service.business;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -203,9 +204,11 @@ public class PurchaseService implements IPurchaseService{
 
 		Stock stock  = stockService.updateStock(dto);
 
-		modelMapper.addConverter(appUtil.stringToLocalDateTime);
-		modelMapper.addConverter(appUtil.stringToLocalDate);
+		// modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
+		// modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
+		obj.setUpdated(appUtil.getLocalDate(dto.getUpdated()));
+		obj.setDated(LocalDateTime.now());
 		obj.setStock(stock);
 		return this.save(obj);
 	}

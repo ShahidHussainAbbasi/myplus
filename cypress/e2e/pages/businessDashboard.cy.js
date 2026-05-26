@@ -60,7 +60,7 @@ describe('Business Dashboard — Navigation Sections', () => {
   it('selecting Customer shows CustomerDiv', () => {
     cy.get('#registrationType').select('CustomerDiv', { force: true })
     cy.get('#CustomerDiv').should('be.visible')
-    cy.get('#name').should('be.visible')
+    cy.get('#customerName').should('be.visible')
     cy.get('#contact').should('be.visible')
   })
 
@@ -198,9 +198,9 @@ describe('Business Dashboard — Form Reset Buttons', () => {
 
   it('Customer Reset button clears form', () => {
     cy.get('#registrationType').select('CustomerDiv', { force: true })
-    cy.get('#name').type('Temp Customer')
+    cy.get('#customerName').type('Temp Customer')
     cy.get('#resetCustomer').click()
-    cy.get('#name').should('have.value', '')
+    cy.get('#customerName').should('have.value', '')
   })
 })
 

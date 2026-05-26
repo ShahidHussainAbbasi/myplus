@@ -248,7 +248,7 @@ public class SellController {
 					dtotemp.setItemName(item.getIname());
 					dtotemp.setItemCode(item.getIcode());
 					dtotemp.setDescription(item.getIdesc());
-					dtotemp.setItemStock(item.getStock().getStock());
+					dtotemp.setItemStock(item.getStock() == null? 0: item.getStock().getStock());
 					// dtotemp.setSrp(item.getStock().getSrp());
 				}
 				dtotemp.setDated(appUtil.getDateStr(obj.getDated()));

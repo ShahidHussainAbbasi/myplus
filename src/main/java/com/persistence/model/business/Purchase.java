@@ -1,6 +1,7 @@
 package com.persistence.model.business;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import javax.persistence.CascadeType;
@@ -109,7 +110,7 @@ public class Purchase implements Serializable {
 	@Column(updatable=false)
 	private LocalDateTime dated;
 
-	private LocalDateTime updated;
+	private LocalDate updated;
 
 	@Column(name = "purchase_invoice_no")
 	private String purchaseInvoiceNo;

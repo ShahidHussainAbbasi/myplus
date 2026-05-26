@@ -1,0 +1,80 @@
+/* Business dashboard — Bold Corporate Blue overrides */
+
+/* ── Stat cards ─────────────────────────────────────── */
+.stat-card{
+  background:#fff;border-radius:10px;padding:20px 22px;
+  border-left:5px solid var(--brand,#1565C0);
+  box-shadow:0 2px 12px rgba(13,35,83,.09);
+  display:flex;align-items:center;gap:16px;
+  transition:box-shadow .18s,transform .18s;
+}
+.stat-card:hover{box-shadow:0 6px 24px rgba(13,35,83,.15);transform:translateY(-2px)}
+.stat-card.green {border-left-color:#2e7d32}
+.stat-card.orange{border-left-color:#e65100}
+.stat-card.red   {border-left-color:#c62828}
+.stat-card.blue  {border-left-color:#1565C0}
+
+.stat-icon{
+  width:48px;height:48px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  font-size:20px;
+}
+.stat-icon.bg-blue  {background:rgba(21,101,192,.12);color:#1565C0}
+.stat-icon.bg-green {background:rgba(46,125,50,.12);color:#2e7d32}
+.stat-icon.bg-orange{background:rgba(230,81,0,.12);color:#e65100}
+.stat-icon.bg-red   {background:rgba(198,40,40,.12);color:#c62828}
+
+.stat-body{}
+.stat-value{font-size:26px;font-weight:800;color:#0f172a;letter-spacing:-0.03em;line-height:1}
+.stat-label{font-size:12px;color:#64748b;font-weight:500;margin-top:3px}
+
+/* ── Chart section headings ──────────────────────────── */
+.section-heading{
+  font-size:15px;font-weight:700;color:#0D3B8C;
+  padding-left:14px;border-left:4px solid #1565C0;
+  margin-bottom:18px;
+}
+
+/* ── Chart cards ─────────────────────────────────────── */
+.chart-card{
+  background:#fff;border-radius:10px;padding:22px 20px;
+  box-shadow:0 2px 12px rgba(13,35,83,.09);margin-bottom:24px;
+}
+.chart-card canvas{max-height:300px}
+
+/* ── Due-customer table ──────────────────────────────── */
+#dueCustTableWrapper{overflow-x:auto}
+#dueCustTable{font-size:13px}
+#dueCustTable thead th{
+  background:#0D3B8C;color:#fff;font-weight:600;
+  padding:10px 12px;border:none;white-space:nowrap;
+}
+#dueCustTable tbody td{padding:9px 12px;vertical-align:middle}
+#dueCustTable tbody tr:hover{background:rgba(21,101,192,.05)}
+
+/* ── Form panel (formDiv) ────────────────────────────── */
+#formDiv .panel{border-top:4px solid #1565C0}
+#formDiv .panel-heading{
+  background:linear-gradient(135deg,#0D3B8C,#1565C0);
+  color:#fff;font-weight:700;
+}
+#formDiv h3,#formDiv h4{
+  font-weight:700;color:#0D3B8C;
+  padding-bottom:10px;border-bottom:2px solid #1565C0;
+  margin-bottom:20px;
+}
+
+/* ── Dashboard tab nav ───────────────────────────────── */
+#dashboardDiv .nav-tabs>li.active>a,
+#dashboardDiv .nav-tabs>li.active>a:hover{
+  background:#1565C0;color:#fff;border-color:#1565C0;
+}
+#dashboardDiv .nav-tabs>li>a{color:#0D3B8C;font-weight:600}
+#dashboardDiv .nav-tabs>li>a:hover{background:rgba(21,101,192,.08)}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media(max-width:767px){
+  .stat-card{padding:15px}
+  .stat-value{font-size:20px}
+  .chart-card{padding:15px 12px}
+}

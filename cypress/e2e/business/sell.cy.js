@@ -219,7 +219,57 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
   })
 })
 
-// ─── 4. Sale Detail Report ───────────────────────────────────────────────────
+// ─── 4. Customer Mandatory Validation ────────────────────────────────────────
+
+describe('Sell Section — Customer Mandatory Validation', () => {
+  beforeEach(() => {
+    cy.loginAsBusiness()
+    cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
+    cy.visit('/businessDashboard')
+    cy.get('#sellType').select('sellDiv', { force: true })
+    cy.get('#sellDiv').should('be.visible')
+    cy.wait('@getCustomers', { timeout: 10000 })
+  })
+
+  it('addSell blocked in Select mode when no customer chosen — dropdown turns red', () => {
+    // Ensure blank dropdown (default state)
+    cy.get('#sellCustomerDD').invoke('val').should('eq', '')
+    cy.get('#addSell').click()
+    cy.get('#sellCustomerDD').should('have.css', 'border-color').and('include', 'rgb(255')
+  })
+
+  it('addSell blocked in Manual mode when sellCN is empty — field turns red', () => {
+    cy.get('#btnModeManual').click()
+    cy.get('#sellCN').should('be.visible').should('have.value', '')
+    cy.get('#addSell').click()
+    cy.get('#sellCN').should('have.css', 'border-color').and('include', 'rgb(255')
+  })
+
+  it('addSell clears dropdown red border once a customer is selected', () => {
+    cy.get('#addSell').click()
+    cy.get('#sellCustomerDD').should('have.css', 'border-color').and('include', 'rgb(255')
+
+    cy.get('#sellCustomerDD option').then(($opts) => {
+      const realOpts = $opts.filter((i, el) => el.value !== '')
+      if (realOpts.length === 0) {
+        cy.log('No customers in DB — border-clear test skipped')
+        return
+      }
+      cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val())
+      cy.get('#sellCustomerDD').should('not.have.css', 'border-color', 'rgb(255, 0, 0)')
+    })
+  })
+
+  it('addSell clears manual red border once sellCN is filled', () => {
+    cy.get('#btnModeManual').click()
+    cy.get('#addSell').click()
+    cy.get('#sellCN').should('have.css', 'border-color').and('include', 'rgb(255')
+    cy.get('#sellCN').clear().type('Walk-in Customer')
+    cy.get('#sellCN').should('not.have.css', 'border-color', 'rgb(255, 0, 0)')
+  })
+})
+
+// ─── 6. Sale Detail Report ───────────────────────────────────────────────────
 
 describe('Sell Section — Sale Detail Report', () => {
   beforeEach(() => {
@@ -236,7 +286,7 @@ describe('Sell Section — Sale Detail Report', () => {
   })
 })
 
-// ─── 5. API Endpoints ────────────────────────────────────────────────────────
+// ─── 7. API Endpoints ────────────────────────────────────────────────────────
 
 describe('Sell API Endpoints', () => {
   beforeEach(() => {

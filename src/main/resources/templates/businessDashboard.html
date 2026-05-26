@@ -1,111 +1,182 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="icon" type="image/jpg" sizes="60x50" th:href="@{favicon.jpeg}"/>
+<link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+<title>Business Dashboard — MyPlus</title>
 	<th:block th:replace="~{fragments/header :: header-css}"></th:block>
+    <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
+<style>
+#dueCustTableBody tr td:nth-child(3){font-weight:700;color:#c62828}
+#DashboardDiv canvas{display:block}
+.dataTables_wrapper{padding:0}
+.dataTables_wrapper .row:first-child{margin-bottom:10px}
+.dataTables_wrapper .row:last-child{margin-top:10px}
+</style>
 </head>
 <body onkeypress="handleKey(event,'click','sellItemDD')">
-	<div id="container">
-		<th:block th:replace="~{fragments/header :: header}" />
-		<div id="content">
-			<nav class="subnav" id="nav-subheader">
-				<div class="container-fluid">
-					<ul class="nav navbar-nav">
-						<div class="navbar-header active">
-							<p style="color: lightskyblue; padding-top: 17px"
-								class="glyphicon glyphicon-user" th:if="${param.user} != null"
-								th:text="${param.user[0]}">User</p>
+<div id="container">
+	<th:block th:replace="~{fragments/header :: header}" />
+	<div id="content">
+		<!-- Nav selects: off-screen so main.js events fire and Cypress can reach them -->
+		<div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+			<select name="registrationType" id="registrationType" class="dropdown show panel-heading" tabindex="-1">
+				<option value="">Register</option>
+				<option value="CompanyDiv">Company</option>
+				<option value="VenderDiv">Vender/Supplier</option>
+				<option value="CustomerDiv">Customer</option>
+				<option value="itemDiv">Item</option>
+			</select>
+			<select name="purchaseType" id="purchaseType" class="dropdown show panel-heading" tabindex="-1">
+				<option value="">Purchase</option>
+				<option value="purchaseDiv">New Purchase</option>
+			</select>
+			<select name="sellType" id="sellType" class="dropdown show panel-heading" tabindex="-1">
+				<option value="">Sale</option>
+				<option value="sellDiv">New Sale</option>
+				<option value="SRDiv">Sale Detail Report</option>
+			</select>
+		</div>
+		<nav class="subnav" id="nav-subheader">
+			<div class="container-fluid">
+				<div class="snav-inner">
+					<div class="snav-left">
+						<span class="subnav-user" th:if="${param.user} != null">
+							<span class="glyphicon glyphicon-user" style="margin-right:6px"></span><span th:text="${param.user[0]}">User</span>
+						</span>
+					</div>
+					<div class="snav-actions">
+						<button class="snav-btn snav-home-btn" onclick="snavHome()">
+							<span class="glyphicon glyphicon-dashboard"></span>
+							<span>Dashboard</span>
+						</button>
+						<div class="snav-dd" id="snavRegister">
+							<button class="snav-btn" onclick="snavToggle(event,'snavRegister')">
+								<span class="glyphicon glyphicon-pencil"></span>
+								<span>Register</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li><a onclick="snavGo('registrationType','CompanyDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> Company</a></li>
+								<li><a onclick="snavGo('registrationType','VenderDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> Vender / Supplier</a></li>
+								<li><a onclick="snavGo('registrationType','CustomerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Customer</a></li>
+								<li><a onclick="snavGo('registrationType','itemDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> Item</a></li>
+							</ul>
 						</div>
-						<li>
-							<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
-								<option class="dropdown-item" value="">Register</option>
-								<option class="dropdown-item" value="CompanyDiv">Company</option>
-								<option class="dropdown-item" value="VenderDiv">Vender/Supplier</option>
-								<option class="dropdown-item" value="CustomerDiv">Customer</option>
-		<!-- 						<option class="dropdown-item" value="ItemTypeDiv">Item Type</option>
-								<option class="dropdown-item" value="ItemUnitDiv">Item Unit</option>
-		 -->						
-		 						<option class="dropdown-item" value="itemDiv">Item</option>
-								<!-- <option class="dropdown-item" value="Customer">Customer</option> -->
-							</select>
-						</li>
-						<li>
-							<select name="purchaseType" id="purchaseType" class="dropdown show panel-heading">
-								<option class="dropdown-item" value="">Purchase</option>
-								<option class="dropdown-item" value="purchaseDiv"> New Purchase </option>
-		<!-- 						<option class="dropdown-item" value="purchaseReturnDiv"> Manage Purchase </option>
-								<option class="dropdown-item" value="PurchaseInvoice"> Purchase Invoice </option>
-		 -->					</select>
-						</li>
-						<li>
-							<select name="sellType" id="sellType" class="dropdown show panel-heading">
-								<option class="dropdown-item" value="">Sale</option>
-								<option class="dropdown-item" value="sellDiv"> New Sale </option>
-		 						<option class="dropdown-item" value="SRDiv"> Sale detail report</option>
-							</select>
-						</li>
-					</ul>					
+						<div class="snav-dd" id="snavPurchase">
+							<button class="snav-btn" onclick="snavToggle(event,'snavPurchase')">
+								<span class="glyphicon glyphicon-shopping-cart"></span>
+								<span>Purchase</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li><a onclick="snavGo('purchaseType','purchaseDiv','snavPurchase')"><span class="glyphicon glyphicon-plus-sign"></span> New Purchase</a></li>
+							</ul>
+						</div>
+						<div class="snav-dd" id="snavSell">
+							<button class="snav-btn" onclick="snavToggle(event,'snavSell')">
+								<span class="glyphicon glyphicon-tag"></span>
+								<span>Sale</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li><a onclick="snavGo('sellType','sellDiv','snavSell')"><span class="glyphicon glyphicon-plus-sign"></span> New Sale</a></li>
+								<li><a onclick="snavGo('sellType','SRDiv','snavSell')"><span class="glyphicon glyphicon-list"></span> Sale Detail Report</a></li>
+							</ul>
+						</div>
+					</div>
 				</div>
-			</nav>
-			<div>
-				<div id="globalError" class="alert alert-danger text-center" style="display:none">error</div>
 			</div>
+		</nav>
+		<div>
+			<div id="globalError" class="alert alert-danger text-center" style="display:none">error</div>
+		</div>
 			<div id="DashboardDiv" class="formDiv">
-				<h3 class="text-center" style="color:#06578a; margin-bottom:20px">Business Dashboard</h3>
+
+				<!-- Page header -->
+				<div class="dash-page-header">
+					<div>
+						<h2 class="dash-page-title">Business Overview</h2>
+						<p class="dash-page-sub" id="dashDateLabel"></p>
+					</div>
+				</div>
 
 				<!-- KPI stat cards -->
-				<div class="row" style="margin-bottom:18px">
-					<div class="col-sm-2">
-						<div class="panel panel-primary text-center">
-							<div class="panel-heading"><span class="glyphicon glyphicon-briefcase"></span>&nbsp;Companies</div>
-							<div class="panel-body"><h2 id="dashCompanies" style="margin:5px">-</h2></div>
+				<div class="row" style="margin-bottom:22px">
+					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+						<div class="kpi-card kpi-blue">
+							<div class="kpi-icon"><span class="glyphicon glyphicon-briefcase"></span></div>
+							<div class="kpi-body">
+								<div class="kpi-value" id="dashCompanies">-</div>
+								<div class="kpi-label">Companies</div>
+							</div>
 						</div>
 					</div>
-					<div class="col-sm-2">
-						<div class="panel panel-success text-center">
-							<div class="panel-heading"><span class="glyphicon glyphicon-grain"></span>&nbsp;Venders</div>
-							<div class="panel-body"><h2 id="dashVenders" style="margin:5px">-</h2></div>
+					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+						<div class="kpi-card kpi-green">
+							<div class="kpi-icon"><span class="glyphicon glyphicon-grain"></span></div>
+							<div class="kpi-body">
+								<div class="kpi-value" id="dashVenders">-</div>
+								<div class="kpi-label">Venders</div>
+							</div>
 						</div>
 					</div>
-					<div class="col-sm-2">
-						<div class="panel panel-info text-center">
-							<div class="panel-heading"><span class="glyphicon glyphicon-user"></span>&nbsp;Customers</div>
-							<div class="panel-body"><h2 id="dashCustomers" style="margin:5px">-</h2></div>
+					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+						<div class="kpi-card kpi-teal">
+							<div class="kpi-icon"><span class="glyphicon glyphicon-user"></span></div>
+							<div class="kpi-body">
+								<div class="kpi-value" id="dashCustomers">-</div>
+								<div class="kpi-label">Customers</div>
+							</div>
 						</div>
 					</div>
-					<div class="col-sm-2">
-						<div class="panel panel-warning text-center">
-							<div class="panel-heading"><span class="glyphicon glyphicon-list-alt"></span>&nbsp;Items</div>
-							<div class="panel-body"><h2 id="dashItems" style="margin:5px">-</h2></div>
+					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+						<div class="kpi-card kpi-amber">
+							<div class="kpi-icon"><span class="glyphicon glyphicon-list-alt"></span></div>
+							<div class="kpi-body">
+								<div class="kpi-value" id="dashItems">-</div>
+								<div class="kpi-label">Items</div>
+							</div>
 						</div>
 					</div>
-					<div class="col-sm-2">
-						<div class="panel panel-default text-center">
-							<div class="panel-heading"><span class="glyphicon glyphicon-shopping-cart"></span>&nbsp;Sales This Month</div>
-							<div class="panel-body"><h2 id="dashMonthlySales" style="margin:5px">-</h2></div>
+					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+						<div class="kpi-card kpi-purple">
+							<div class="kpi-icon"><span class="glyphicon glyphicon-shopping-cart"></span></div>
+							<div class="kpi-body">
+								<div class="kpi-value" id="dashMonthlySales">-</div>
+								<div class="kpi-label">Sales This Month</div>
+							</div>
 						</div>
 					</div>
-					<div class="col-sm-2">
-						<div class="panel panel-danger text-center">
-							<div class="panel-heading"><span class="glyphicon glyphicon-usd"></span>&nbsp;Revenue This Month</div>
-							<div class="panel-body"><h2 id="dashMonthlyRevenue" style="margin:5px">-</h2></div>
+					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+						<div class="kpi-card kpi-red">
+							<div class="kpi-icon"><span class="glyphicon glyphicon-usd"></span></div>
+							<div class="kpi-body">
+								<div class="kpi-value" id="dashMonthlyRevenue">-</div>
+								<div class="kpi-label">Revenue This Month</div>
+							</div>
 						</div>
 					</div>
 				</div>
 
 				<!-- Charts row 1: trend + top items -->
 				<div class="row" style="margin-bottom:18px">
-					<div class="col-sm-8">
-						<div class="panel panel-primary">
-							<div class="panel-heading"><span class="glyphicon glyphicon-signal"></span>&nbsp;Revenue &amp; Sales Trend (Last 6 Months)</div>
-							<div class="panel-body" style="position:relative;height:260px">
+					<div class="col-sm-8" style="margin-bottom:12px">
+						<div class="chart-panel">
+							<div class="chart-panel-head">
+								<span class="glyphicon glyphicon-signal"></span>
+								Revenue &amp; Sales Trend — Last 6 Months
+							</div>
+							<div class="chart-panel-body" style="position:relative;height:260px">
 								<canvas id="chartTrend"></canvas>
 							</div>
 						</div>
 					</div>
-					<div class="col-sm-4">
-						<div class="panel panel-warning">
-							<div class="panel-heading"><span class="glyphicon glyphicon-th-list"></span>&nbsp;Top Items This Month (by Qty)</div>
-							<div class="panel-body" style="position:relative;height:260px">
+					<div class="col-sm-4" style="margin-bottom:12px">
+						<div class="chart-panel">
+							<div class="chart-panel-head">
+								<span class="glyphicon glyphicon-th-list"></span>
+								Top Items This Month
+							</div>
+							<div class="chart-panel-body" style="position:relative;height:260px">
 								<canvas id="chartTopItems"></canvas>
 							</div>
 						</div>
@@ -115,9 +186,12 @@
 				<!-- Charts row 2: daily revenue -->
 				<div class="row" style="margin-bottom:18px">
 					<div class="col-sm-12">
-						<div class="panel panel-success">
-							<div class="panel-heading"><span class="glyphicon glyphicon-stats"></span>&nbsp;Daily Revenue This Month</div>
-							<div class="panel-body" style="position:relative;height:220px">
+						<div class="chart-panel">
+							<div class="chart-panel-head">
+								<span class="glyphicon glyphicon-stats"></span>
+								Daily Revenue This Month
+							</div>
+							<div class="chart-panel-body" style="position:relative;height:220px">
 								<canvas id="chartDaily"></canvas>
 							</div>
 						</div>
@@ -125,19 +199,25 @@
 				</div>
 
 				<!-- Charts row 3: sales by customer + due payments table -->
-				<div class="row">
-					<div class="col-sm-5">
-						<div class="panel panel-info">
-							<div class="panel-heading"><span class="glyphicon glyphicon-user"></span>&nbsp;Sales by Customer This Month</div>
-							<div class="panel-body" style="position:relative;height:280px">
+				<div class="row" style="margin-bottom:8px">
+					<div class="col-sm-5" style="margin-bottom:12px">
+						<div class="chart-panel">
+							<div class="chart-panel-head">
+								<span class="glyphicon glyphicon-user"></span>
+								Sales by Customer This Month
+							</div>
+							<div class="chart-panel-body" style="position:relative;height:280px">
 								<canvas id="chartCustSales"></canvas>
 							</div>
 						</div>
 					</div>
-					<div class="col-sm-7">
-						<div class="panel panel-danger">
-							<div class="panel-heading"><span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;Top Customers with Outstanding Dues</div>
-							<div class="panel-body" style="padding:0">
+					<div class="col-sm-7" style="margin-bottom:12px">
+						<div class="chart-panel">
+							<div class="chart-panel-head">
+								<span class="glyphicon glyphicon-exclamation-sign"></span>
+								Top Customers with Outstanding Dues
+							</div>
+							<div style="overflow-x:auto">
 								<table class="table table-condensed table-striped" style="margin:0">
 									<thead>
 										<tr>
@@ -158,9 +238,8 @@
 				</div>
 			</div>
 			<div id="CompanyDiv" class="formDiv">
-				<h3 th:text="#{label.company.form.heading}">Company Registration
-					Form</h3>
-				
+				<!-- <h3 th:text="#{label.company.form.heading}">Company Registration Form</h3> -->
+				<h3 class="dash-page-title"> Company Registration</h3>
 				<!-- <form class="form-horizontal" role="form"> -->
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Company" autocomplete="off">
@@ -226,8 +305,8 @@
 				</div>
 			</div>
 			<div id="VenderDiv" class="formDiv">
-				<h3 th:text="#{label.vender.form.heading}">Vender Registration
-					Form</h3>
+				<!-- <h3 th:text="#{label.vender.form.heading}">Vender Registration Form</h3> -->
+				<h3 class="dash-page-title"> Vendor Registration</h3>
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Vender" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -236,15 +315,15 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" th:text="#{label.company}">Select	Company</label> 
-						<div class="col-sm-4">
-							<select	class="form-control" id="venderCompanyDD" name="companyId" required="required">
-							</select>
-						</div>
 						<label class="control-label col-sm-2 req" for="name">Name:</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="venderName" name="name"
 								placeholder="Vender Name" required="required">
+						</div>
+						<label class="control-label col-sm-2 req" th:text="#{label.company}">Select	Company</label> 
+						<div class="col-sm-4">
+							<select	class="form-control" id="venderCompanyDD" name="companyId" required="required">
+							</select>
 						</div>
 					</div>
 					<div class="form-group">
@@ -278,7 +357,7 @@
 						<button type="button" id="deleteVender" class="btn btn-danger">
 							<span class="glyphicon glyphicon-minus-sign"></span> Delete
 						</button>
-						<button type="reset" id="resetVender" class="btn btn-warning">
+						<button type="reset" id="resetVender" class="btn btn-warning" onclick="updateReadOnly(false)">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
 						<button type="reset" class="resetForm"/>						
@@ -303,7 +382,8 @@
 				</div>
 			</div>
 			<div id="itemDiv" class="formDiv">
-				<h4 th:text="#{label.item.form.heading}">Item Registration Form</h4>
+				<!-- <h4 th:text="#{label.item.form.heading}">Item Registration Form</h4> -->
+				<h3 class="dash-page-title"> Item Registration</h3>
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Item" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -394,7 +474,7 @@
 						<button type="button" id="deleteItem" class="btn btn-danger">
 							<span class="glyphicon glyphicon-minus-sign"></span> Delete
 						</button>
-						<button type="reset" id="resetItem" class="btn btn-warning">
+						<button type="reset" id="resetItem" class="btn btn-warning" onclick="updateReadOnly(false)">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
 						<button type="reset" class="resetForm"/>						
@@ -418,8 +498,8 @@
 				</div>					
 			</div>
 			<div id="CustomerDiv" class="formDiv">
-				<h3 th:text="#{label.customer.form.heading}">Customer Registration
-					Form</h3>
+				<!-- <h3 th:text="#{label.customer.form.heading}">Customer Registration Form</h3> -->
+				<h3 class="dash-page-title"> Customer Registration</h3>
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Customer" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -430,7 +510,7 @@
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="name">Name:</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="name" name="name"
+							<input type="text" class="form-control" id="customerName" name="name"
 								placeholder="Customer Name" required="required">
 						</div>
 						<label class="control-label col-sm-2" for="contact">Contact:</label>
@@ -458,7 +538,7 @@
 						<button type="button" id="deleteCustomer" class="btn btn-danger">
 							<span class="glyphicon glyphicon-minus-sign"></span> Delete
 						</button>
-						<button type="reset" id="resetCustomer" class="btn btn-warning">
+						<button type="reset" id="resetCustomer" class="btn btn-warning" onclick="updateReadOnly(false)">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
 						<button type="reset" class="resetForm"/>						
@@ -492,11 +572,9 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<div>
-							<label class="control-label col-sm-2" for="purchaseInvoiceNo">Purchase Invoice #</label> 
-							<div class="col-sm-4">
-								<input type="text" placeholder="Purchase Invoice #" class="form-control" id="purchaseInvoiceNo" name="purchaseInvoiceNo"/>
-							</div>
+						<label class="control-label col-sm-2" for="purchaseInvoiceNo">Purchase Invoice #</label> 
+						<div class="col-sm-4">
+							<input type="text" placeholder="Purchase Invoice #" class="form-control" id="purchaseInvoiceNo" name="purchaseInvoiceNo"/>
 						</div>
 					</div>
 					<div class="form-group">
@@ -591,14 +669,14 @@
 						</div>
 					</div>
 					<div class="form-group">
+						<label class="control-label col-sm-2" for="purchaseDate">Purchase Date</label>
+						<div class="col-sm-4">
+							<input type="text" placeholder="Purchase Date" class="form-control datePicker" id="purchaseDate" name="updated" required="required"/> 
+						</div>
 						<label class="control-label col-sm-2" for="purchaseExpiry">Expire Date</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="purchaseExpiry" 
 							name="stock.bexpDate" placeholder="Expiry date"/>
-						</div>
-						<label class="control-label col-sm-2" for="purchaseDate">Purchase Date</label>
-						<div class="col-sm-4">
-							<input type="text" class="form-control datetimepicker" id="purchaseDate" name="updated" required="required"/> 
 						</div>
 					</div>
 					<div class="form-group text-center">
@@ -772,11 +850,10 @@
 	 -->					
 					</div>
 				</form>
-				<br>
 				<div id="iDiv" class="form-group col-sm-12  text-center">
 					<div class="col-sm-2"></div>
 					<div class="table-bordered table-striped col-sm-8">
-						<table id="tablesi" class="display" style="width:100%">
+						<table id="tablesi" class="display" style="width:100%; background-color: lightskyblue;">
 							<thead>
 								<tr>
 									<th class="col-sm-1">Item id</th>
@@ -791,24 +868,24 @@
 							<tfoot>
 					            <tr>
 					                <th></th>
-					                <th style="text-align: center">Totals:</th>
-					                <th style="text-align: center"></th>
-					                <th style="text-align: center"></th>
-					                <th style="text-align: center"></th>
-					                <th id="sellTotal" style="text-align: center"></th>
+					                <th >Totals:</th>
+					                <th ></th>
+					                <th ></th>
+					                <th ></th>
+					                <th id="sellTotal" ></th>
 					                <th></th>
 					            </tr>
 					        </tfoot>
 						</table>
 						<!-- Customer mode toggle -->
-						<div class="form-group" style="padding-top: 12px; padding-bottom: 4px;">
+						<div class="form-group" style="padding-top: 15px;">
 							<div class="col-sm-12">
 								<div class="btn-group" data-toggle="buttons">
-									<label class="btn btn-default btn-sm active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
+									<label style="margin: 10px;" class="btn btn-default btn-sm active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
 										<input type="radio" name="customerInputMode" value="select" checked>
 										<span class="glyphicon glyphicon-search"></span> Select Customer
 									</label>
-									<label class="btn btn-default btn-sm" id="btnModeManual" onclick="onCustomerModeChange('manual')">
+									<label style="margin: 10px;" class="btn btn-default btn-sm" id="btnModeManual" onclick="onCustomerModeChange('manual')">
 										<input type="radio" name="customerInputMode" value="manual">
 										<span class="glyphicon glyphicon-pencil"></span> Enter Manually
 									</label>
@@ -817,7 +894,7 @@
 						</div>
 						<!-- Select mode: pick from existing customers -->
 						<div class="form-group" id="customerSelectMode">
-							<div class="col-sm-5">
+							<div class="col-sm-2">
 								<select class="form-control" id="sellCustomerDD" onchange="onSellCustomerSelect(this)">
 									<option value="">-- Select Customer --</option>
 								</select>
@@ -827,22 +904,23 @@
 						<div class="form-group" id="customerManualMode" style="display: none;">
 							<div class="col-sm-4">
 								<input type="text" class="form-control" id="sellCN"
-									name="cn" placeholder=" Customer name ">
+									name="cn" placeholder=" Customer name "
+									oninput="this.style.removeProperty('border-color')">
 							</div>
-							<div class="col-sm-4">
+							<div class="col-sm-2">
 								<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number"/>
 							</div>
 						</div>
 						<!-- Payment row — always visible -->
 						<div class="form-group" style="padding-top: 8px; padding-bottom: 25px;">
-							<div class="col-sm-3">
+							<div class="col-sm-2">
 								<input type="number" step="any" min="0" class="form-control" id="sellRec"
 									name="sellRec" placeholder=" Received " onkeyup="calculateChange()">
 							</div>
-							<div class="col-sm-3">
+							<div class="col-sm-2">
 								<input type="number" step="any" min="0" class="form-control" id="sellCh" name="sellCh" readonly="readonly" placeholder="Change">
 							</div>
-							<div class="col-sm-3">
+							<div class="col-sm-2">
 								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control" placeholder="dd/mm/yyyy"/>
 								<input type="hidden" id="dueDate" name="dueDate"/>
 							</div>
@@ -877,7 +955,7 @@
 					<thead>
 						<tr>
 							<th data-field="sellId">ID</th>
-							<th data-field="checkDelete"></th>
+							<!-- <th data-field="checkDelete"></th> -->
 							<!-- <th data-field="sellItemDD">Code</th> -->
 							<th data-field="sellItemName">Name</th>
 							<th data-field="sellItems">QTY</th>
@@ -1003,10 +1081,10 @@
 			            </tr>
 			        </tfoot>
 	   		    </table>
-			</div>		
+			</div>
 		</div>
 		<!-- <th:block th:replace="footer :: footer" /> -->
-	</div>	
+	</div>
 	<script th:inline="javascript">
         var serverContext = [[@{/}]];
     </script>
@@ -1017,8 +1095,43 @@
     <!-- STEP 2: page-specific JS — AFTER jQuery -->
     <script type="text/javascript" th:src="@{/js/jspdf.min.js}"></script>
     <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script th:src="@{/js/business/chart.umd.min.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <script th:src="@{/js/business/businessInvoicePrint.js}"></script>
+    <script>
+    /* ── Subnav custom dropdown bridge ───────────────────── */
+    function snavToggle(e, id) {
+        e.stopPropagation();
+        var d = document.getElementById(id);
+        var was = d.classList.contains('snav-open');
+        document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });
+        if (!was) d.classList.add('snav-open');
+    }
+    function snavGo(sel, val, ddId) {
+        document.querySelectorAll('.snav-btn').forEach(function(el) { el.classList.remove('snav-active'); });
+        var btn = document.querySelector('#' + ddId + ' > .snav-btn');
+        if (btn) btn.classList.add('snav-active');
+        $('#' + sel).val(val).trigger('change');
+        document.getElementById(ddId).classList.remove('snav-open');
+    }
+    function snavHome() {
+        document.querySelectorAll('.snav-btn').forEach(function(el) { el.classList.remove('snav-active'); });
+        document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });
+        $('.formDiv').hide();
+        $('#DashboardDiv').show();
+        $('select.dropdown').each(function() { this.selectedIndex = 0; });
+    }
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.snav-dd'))
+            document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });
+    });
+    /* ── Dashboard date label ─────────────────────────────── */
+    (function() {
+        var d = new Date();
+        var opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        var el = document.getElementById('dashDateLabel');
+        if (el) el.textContent = d.toLocaleDateString(undefined, opts);
+    })();
+    </script>
 </body>
 </html>

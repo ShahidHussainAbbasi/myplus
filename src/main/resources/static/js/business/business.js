@@ -383,6 +383,8 @@ function loadDataTable(){
 							];
 						datatable.row.add(arr).draw();
 					});
+					$("#venderName").prop("readonly",false);	
+
 					// loadUserCompanies(table);
 					// loadUserVenders(table);
 					// loadUserItems(table);
@@ -391,7 +393,7 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value="+ obj.customerId+ ">",
-							"<div id=name>"+obj.name+"</div>", "<div id=contact>"+obj.contact+"</div>",
+							"<div id=customerName>"+obj.name+"</div>", "<div id=contact>"+obj.contact+"</div>",
 							"<div id=email>"+obj.email+"</div>","<div id=address>"+obj.address+"</div>",obj.updated
 							];
 						datatable.row.add(arr).draw();
@@ -452,7 +454,7 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=sellId>"+obj.sellId+"</div>",
-							"<button type='button' id='saleReturn' class='btn btn-danger' onclick=saleReturn("+obj.sellId+","+obj.stock.stockId+","+obj.quantity+")><span class='glyphicon glyphicon-remove-sign'></span> Return</button>",
+							// "<button type='button' id='saleReturn' class='btn btn-danger' onclick=saleReturn("+obj.sellId+","+obj.stock.stockId+","+obj.quantity+")><span class='glyphicon glyphicon-remove-sign'></span> Return</button>",
 							// "<div id=sellItemDD>"+obj.stock.itemCode+"</div>",
 							"<div id=sellItemName>"+obj.itemName+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
@@ -485,6 +487,7 @@ function loadDataTable(){
 	$("select[name='tableSell_length']").change(function(){
 		loadDataTable();
 	});
+	updateReadOnly(false);
 }
 
 function loadUserCustomers(table) {
@@ -498,7 +501,7 @@ function loadUserCustomers(table) {
 
 function loadSellCustomers() {
 	var dd = $("#sellCustomerDD");
-	dd.empty().append('<option value="">-- Select Customer (Optional) --</option>');
+	dd.empty().append('<option value=""> Select Customer </option>');
 	$.get(serverContext + "getUserCustomer", function(res) {
 		if (res && res.collection) {
 			$.each(res.collection, function(i, c) {
@@ -516,6 +519,7 @@ function onSellCustomerSelect(sel) {
 	if (customerId) {
 		$("#sellCN").val(opt.text());
 		$("#sellCC").val(opt.data('contact') || '');
+		document.getElementById("sellCustomerDD").style.removeProperty('border-color');
 	} else {
 		$("#sellCN").val('');
 		$("#sellCC").val('');

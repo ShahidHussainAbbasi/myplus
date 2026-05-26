@@ -27,10 +27,10 @@ public class CustomerDTO implements Serializable {
 
 	private CustomerType customerType;	
 
-	@ValidMobileNumber(message = "Invalid contact number")
+	// @ValidMobileNumber(message = "Invalid contact number")
 	private String contact;
 
-	@ValidateEmpty(message = "Customer email is required")
+	// @ValidateEmpty(message = "Customer email is required")
 	private String email;
 
 	private String address;

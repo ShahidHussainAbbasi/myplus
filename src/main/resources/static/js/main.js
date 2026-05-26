@@ -1,4 +1,4 @@
-var userId = -1;
+﻿var userId = -1;
 var month = new Array();
 month[0] = "Jan";
 month[1] = "Feb";
@@ -44,6 +44,7 @@ function resetForm(){
 	form = document.getElementsByClassName('form-horizontal')[tableV];
 	if(form){
 		$(".resetForm").click();
+		updateReadOnly(false);
 		return;
 		
 /*		formFields = form.length-2;// -2 mean we don't need to loop over
@@ -194,8 +195,20 @@ $(document).ready(function() {
 		$('#dueDate').val(formatted);
 	});	
 
+	$('#purchaseDate').datepicker({
+		format: 'dd-mm-yyyy',
+		autoclose: true
+	}).on('purchaseDate', function(e) {
+		// Write yyyy-MM-dd into the hidden field for form submission
+		var d = e.date;
+		var formatted = d.getFullYear() + '-'
+			+ String(d.getMonth() + 1).padStart(2, '0') + '-'
+			+ String(d.getDate()).padStart(2, '0');
+		$('#purchaseDate').val(formatted);
+	});	
+
 	$('#purchaseExpiry').datepicker({
-		format: 'dd/mm/yyyy',
+		format: 'dd-mm-yyyy',
 		autoclose: true
 	}).on('purchaseExpiry', function(e) {
 		// Write yyyy-MM-dd into the hidden field for form submission
@@ -275,20 +288,28 @@ $(document).ready(function() {
 			if(buttonV=="Sell"){
 	    		document.getElementById("sellRec").style.borderColor = "";
 				var error = false;
+
+				// Customer is mandatory regardless of payment mode
+				var isSelectMode = $('#btnModeSelect').hasClass('active');
+				if (isSelectMode) {
+					if (!$("#sellCustomerDD").val()) {
+						document.getElementById("sellCustomerDD").style.setProperty('border-color', 'red', 'important');
+						return;
+					}
+					document.getElementById("sellCustomerDD").style.removeProperty('border-color');
+				} else {
+					if ($("#sellCN").val().trim() == "") {
+						document.getElementById("sellCN").style.setProperty('border-color', 'red', 'important');
+						return;
+					}
+					document.getElementById("sellCN").style.removeProperty('border-color');
+				}
+
 				if(data && data.length>0 && $("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0){
 					if ($("#sellCh").val()*ONE < 0) {
-						if ($("#sellCN").val().trim() == "") {
-							document.getElementById("sellCN").style.borderColor = "red";
-							error = true;
-							document.getElementById("sellCN").focus();
-						} else if($("#sellCC").val().trim() == ""){
+						if($("#sellCC").val().trim() == ""){
 							document.getElementById("sellCC").style.borderColor = "red";
 							document.getElementById("sellCC").focus();
-							error = true;
-						} else if ($("#sellCN").val().trim() == "" && $("#sellCC").val().trim() == "") {
-							document.getElementById("sellCN").style.borderColor = "red";
-							document.getElementById("sellCC").style.borderColor = "red";
-							document.getElementById("sellCN").focus();
 							error = true;
 						}
 						if (error) {
@@ -589,6 +610,9 @@ function editRecord(doc){
 				$("#"+form[i].id).selectpicker('refresh');
 			}
 		}
+
+		// make readonly the key fields when user edit the records
+		updateReadOnly(true);
 	}
 	// stock should be now quantity for purchase form, so update it
 	if (tableV=="Purchase") {
@@ -596,11 +620,46 @@ function editRecord(doc){
 	}
 }
 
+
+$('#reset').on('click', function() {
+	updateReadOnly(false);
+    // Reset all form fields
+    // $('#yourFormId')[0].reset();
+    
+    // // Clear any validation errors
+    // $('.error-message').hide();
+    // $('.has-error').removeClass('has-error');
+    
+    // // Clear any success/error alerts
+    // $('.alert').hide();
+    
+    // // Reset select dropdowns if using custom selects
+    // $('select').val('');
+    
+    // // Clear any dynamic content
+    // $('#someResultDiv').empty();
+});
+
+function updateReadOnly(flag) {
+	if (tableV) {
+		$("#"+tableV.toLowerCase()+"Name").prop("readonly", flag);
+	}
+	if (tableV == "Purchase") {
+		$("#purchaseInvoiceNo").prop("readonly", flag);
+		$('#purchaseItemDD').prop('disabled', flag);
+	}
+	// } else if (tableV == "Customer") {
+	// 	$("#name").prop("readonly", flag);
+	// } else if (tableV == "Item") {
+	// 	$("#itemName").prop("readonly", flag);
+	// }
+}
 function updatePurchaseForm(batchStock){
 	($("#purchaseQuantity").val(batchStock));
 }
 
 function resetBSDD(id){
+	updateReadOnly(false);
 	edit = false;// when reset boot strap drill down
 	$("#"+id).val('default').selectpicker("refresh");
 }
