@@ -150,9 +150,9 @@ public class VenderController {
 				obj.setName(dto.getName());
 				Example<Vender> example = Example.of(obj);
 				if(venderService.exists(example))
-					return new GenericResponse("FOUND",messages.getMessage("The Vender "+dto.getName()+" already exist", null, request.getLocale()));
+					return new GenericResponse("FOUND", "Vender '" + dto.getName() + "' already exists.");
 			}
-			
+
 			obj = modelMapper.map(dto, Vender.class);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
@@ -166,15 +166,14 @@ public class VenderController {
 			obj.setUserType(user.getUserType());
 			obj = venderService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("FAILED", "Failed to save vender. Please try again.");
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("SUCCESS", "Vender saved successfully.");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addVender "+e.getCause());			
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
+			LOGGER.error(this.getClass().getName()+" > addVender "+e.getCause());
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
 	

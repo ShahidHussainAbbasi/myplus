@@ -129,15 +129,14 @@ public class CustomerController {
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				if(customerService.exists(example)) {
-					return new GenericResponse("FOUND",messages.getMessage("The Customer "+dto.getName()+" already exist", null, request.getLocale()));		
-				}		
+					return new GenericResponse("FOUND", "Customer '" + dto.getName() + "' already exists.");
+				}
 			}
-			
+
 			obj = modelMapper.map(dto, Customer.class);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getCustomerId())) {
 				obj.setDated(customerService.getReferenceById(dto.getCustomerId()).getDated());
-//				dated = obj.getDated();
 			}else {
 				obj.setDated(dated);
 			}
@@ -145,15 +144,14 @@ public class CustomerController {
 			obj.setUserType(user.getUserType());
 			obj = customerService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("FAILED", "Failed to save customer. Please try again.");
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("SUCCESS", "Customer saved successfully.");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addCustomer "+e.getCause());			
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
+			LOGGER.error(this.getClass().getName()+" > addCustomer "+e.getCause());
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
 	

@@ -137,7 +137,7 @@ public class ItemUnitController {
 				obj.setName(dto.getName());
 				Example<ItemUnit> example = Example.of(obj);
 				if(itemUnitService.exists(example))
-					return new GenericResponse("FOUND",messages.getMessage("The Item Unit "+dto.getName()+" already exist", null, request.getLocale()));
+					return new GenericResponse("FOUND", "Item unit '" + dto.getName() + "' already exists.");
 			}
 			
 			obj = modelMapper.map(dto, ItemUnit.class);
@@ -151,15 +151,14 @@ public class ItemUnitController {
 
 			obj = itemUnitService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("FAILED", "Failed to save item unit. Please try again.");
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("SUCCESS", "Item unit saved successfully.");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause());
-			return new GenericResponse("ERROR", messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
+			LOGGER.error(this.getClass().getName() + " > addItemUnit " + e.getCause());
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
 

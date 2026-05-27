@@ -128,15 +128,14 @@ public class CompanyController {
 				obj.setUserId(user.getId());
 				obj.setName(dto.getName());
 				if(companyService.exists(example)) {
-					return new GenericResponse("FOUND",messages.getMessage("The Company "+dto.getName()+" already exist", null, request.getLocale()));		
-				}		
+					return new GenericResponse("FOUND", "Company '" + dto.getName() + "' already exists.");
+				}
 			}
-			
+
 			obj = modelMapper.map(dto, Company.class);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setDated(companyService.getReferenceById(dto.getId()).getDated());
-//				dated = obj.getDated();
 			}else {
 				obj.setDated(dated);
 			}
@@ -144,15 +143,14 @@ public class CompanyController {
 			obj.setUserType(user.getUserType());
 			obj = companyService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("FAILED", "Failed to save company. Please try again.");
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("SUCCESS", "Company saved successfully.");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addCompany "+e.getCause());			
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
+			LOGGER.error(this.getClass().getName()+" > addCompany "+e.getCause());
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
 	

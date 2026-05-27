@@ -1,4 +1,4 @@
-﻿var userId = -1;
+var userId = -1;
 var month = new Array();
 month[0] = "Jan";
 month[1] = "Feb";
@@ -36,7 +36,24 @@ var s2n = function(v){
 
 function resetGlobalError(){
     $(".alert").html("").hide();
-    $(".error-list").html("");	
+    $(".error-list").html("");
+}
+
+function showFormError(msg) {
+    var el = document.getElementById('globalError');
+    if (el) {
+        el.textContent = msg;
+        el.style.display = 'block';
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function clearFormError() {
+    var el = document.getElementById('globalError');
+    if (el) {
+        el.textContent = '';
+        el.style.display = 'none';
+    }
 }
 
 function resetForm(){
@@ -60,19 +77,28 @@ function validateForm(){
     formValidated = true;
     var form = document.getElementsByClassName('form-horizontal')[tableV];
     if(form && !form.checkValidity()){
-	    formFields = form.length-2;
-		// Loop over them and prevent submission
-		for(var i=0; i<formFields; i++){
-			if(form[i].id && form[i].validity.valid){
-				document.getElementById(form[i].id).style.borderColor = "";
-			}else if(form[i].id){
-				document.getElementById(form[i].id).style.borderColor = "red";
-				document.getElementById(form[i].id).focus();
-			}
-		}
-		formValidated = false;
+        var missing = [];
+        formFields = form.length - 2;
+        for(var i = 0; i < formFields; i++){
+            if(!form[i].id) continue;
+            var el = document.getElementById(form[i].id);
+            if(form[i].validity.valid){
+                el.style.removeProperty('border-color');
+            } else {
+                el.style.setProperty('border-color', 'red', 'important');
+                var label = $('label[for="' + form[i].id + '"]').text().replace(/\s*\*\s*$/, '').replace('req','').trim()
+                    || el.placeholder || el.name || form[i].id;
+                missing.push(label);
+            }
+        }
+        formValidated = false;
+        if(missing.length > 0){
+            showFormError('Please fill in the required fields: ' + missing.join(', '));
+        }
+    } else {
+        clearFormError();
     }
-    formFields = form.length-2;
+    if(form) formFields = form.length - 2;
 }
 
 var initDates = function(){
@@ -88,7 +114,12 @@ var initDates = function(){
 
 $(document).ready(function() {
 
-//	
+	// Clear red border on any required field as soon as the user interacts with it
+	$(document).on('input change', '[required]', function() {
+		this.style.removeProperty('border-color');
+	});
+
+//
 //	$(".onChangeSelect").hover(function(){
 //		var dropdownMenu = $(this).children(".dropdown-menu");
 //		if(dropdownMenu.is(":visible")){
@@ -277,8 +308,8 @@ $(document).ready(function() {
 				
 		// All button get initialized when user switch form
 		$("#find"+buttonV).off().click(function() {
-			if(!$("#input"+buttonV).val())
-				return alert("Please enter valid input. ");
+				if(!$("#input"+buttonV).val()){ showFormError('Please enter a search value.'); return false; }
+
 			findBy("find" + buttonV,"input="+$("#input"+buttonV).val());
 		});
 
@@ -308,13 +339,12 @@ $(document).ready(function() {
 				if(data && data.length>0 && $("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0){
 					if ($("#sellCh").val()*ONE < 0) {
 						if($("#sellCC").val().trim() == ""){
-							document.getElementById("sellCC").style.borderColor = "red";
-							document.getElementById("sellCC").focus();
+							document.getElementById("sellCC").style.setProperty('border-color', 'red', 'important');
 							error = true;
 						}
 						if (error) {
-							alert("Please make sure you have entered valid values");
-							return
+							showFormError('Customer has a due amount — please enter their mobile number.');
+							return;
 						}
 					}
 
@@ -323,18 +353,18 @@ $(document).ready(function() {
 					var customerHistory = {"customer":customer, "sales":data};
 					jsonPost("addSell",customerHistory);
 			    }else{
-			    	alert("Please make sure you have entered valid values");
-			    	if($("#sellRec").val()*ONE<=0){
-			    		document.getElementById("sellRec").style.borderColor = "red";
-			    		document.getElementById("sellRec").focus();
-			    	}
-			    }
+					    	document.getElementById("sellRec").style.setProperty('border-color', 'red', 'important');
+					    	showFormError('Please add items to the cart and enter a valid payment amount.');
+
+
+
+
 			}else{	
 				validateForm();
 			    if(formValidated){
 					$(this).callAjax("add" + buttonV,populateFormData());
 			    }else{
-			    	alert("Please make sure you have entered valid values");
+				    	return false;
 			    	return false;
 			    }
 			}
@@ -354,7 +384,7 @@ $(document).ready(function() {
 				$(this).callAjax("revert" + buttonV,populateFormData());
 				loadDataTable();
 		    }else{
-		    	alert("Please make sure you have entered valid values");
+				return false;
 		    	return false;
 		    }
 		});
@@ -365,8 +395,8 @@ $(document).ready(function() {
 			}).get().join(",");
 			
 			if (ids == null || ids == "") {
-				alert("Please select at least one record to delete");
-				return false;
+			\tshowFormError('Please select at least one record to delete.');
+			\treturn false;
 			}
 			var r = confirm("Are you sure you want to delete?");
 			if (r != true)
@@ -385,7 +415,7 @@ $(document).ready(function() {
 		    if(formValidated){
 				$(this).callAjax("send" + buttonV,populateFormData());
 		    }else{
-		    	alert("Please make sure you have entered valid values");
+				return false;
 		    	return false;
 		    }
 		});
@@ -425,7 +455,7 @@ $(document).ready(function() {
 				}).get().join(",");
 				if(!ids && ids.lenght>0){
 					removeTableBody();
-					alert("Edit/Update is not allowed, You can delete and submit new one only");
+			\tshowFormError('Edit is not allowed. Please delete and submit a new record.');
 				}
 			}else{
 				if(tableV!="Sell"){					
@@ -449,21 +479,25 @@ $(document).ready(function() {
 			success : function(data) {
 				hideWait();
 				if(data.status==="FOUND"){
-					alert("Already exist");
+					showFormError(data.message || 'This record already exists.');
 					return false;
 				}else if(data.status==="ERROR"){
-					return alert(data.message);
+					showFormError(data.message || 'An error occurred. Please try again.');
+					return false;
+				}else if(data.status==="FAILED"){
+					showFormError(data.message || 'Failed to save. Please try again.');
+					return false;
 				}
 				if(method!=="sendAlerts"){
 					datatable.clear().draw();
 					datatable.ajax.reload();
 					resetForm();
-					$("#globalError").empty();
+					clearFormError();
 				}
 				return false;
 			}, fail: function(data, textStatus, errorThrown) {
 				hideWait();
-				alert("There is some problem in the request "+errorThrown);
+	\t\tshowFormError('Network error. Please check your connection and try again.');
 			}, error: function(data, textStatus, errorThrown) {
 				hideWait();
 				resetGlobalError();
@@ -489,7 +523,7 @@ $(document).ready(function() {
             }
 		}).fail(function(data) {
 			hideWait();
-			alert("Please recheck inputs or contact with the system administrator.");
+	\t\tshowFormError('Request failed. Please recheck inputs or contact the system administrator.');
 		});
 		if(tableV=="Purchase"){	
 			resetPurchaseForm();
@@ -540,10 +574,10 @@ function jsonPost(method,data) {
 	      dataType : 'json',			
 	      success : function(data) {
 			if(data.status!="SUCCESS"){
-				alert("Insertion error");
+				showFormError(data.message || 'Sale could not be completed. Please check all fields and try again.');
+				return;
 			}
-/*			if($("#sellP")[0].checked){
-				// pGarmtsInv(printData);
+			clearFormError();
 		    	var mylink = document.getElementById("MyLink");
 		    	mylink.setAttribute("href", "../");
 		        mylink.setAttribute("href", ".."+serverContext+"reports/createdocument.docx");
@@ -552,13 +586,13 @@ function jsonPost(method,data) {
 */			loadDataTable();
 			resetCart();
 		}, fail: function(data, textStatus, errorThrown) {
-			alert("There is some problem in the request "+errorThrown);
+	\t\tshowFormError('Network error. Please check your connection and try again.');
 		}, error: function(data, textStatus, errorThrown) {
 			resetGlobalError();
         	window.location.href = serverContext + "login?message=" + errorThrown;			
        	}
 	}).fail(function(data) {
-		alert("Please recheck inputs or contact with the system administrator.");
+	\t\tshowFormError('Request failed. Please recheck inputs or contact the system administrator.');
 	});
 	edit = false;// when add/update & delete done
 }
@@ -789,8 +823,7 @@ function checkfile(file) {
     var fileExt = $("#csvFile").val();
     fileExt = fileExt.substring(fileExt.lastIndexOf('.'));
     if (validExts.indexOf(fileExt) < 0) {
-      alert("Invalid file selected, valid file is of " +
-               validExts.toString() + " type");
+      showFormError("Invalid file selected. Allowed types: " + validExts.toString());
       return false;
     }
     else return true;

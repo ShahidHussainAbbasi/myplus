@@ -234,7 +234,7 @@ public class ItemController {
 				}
 				Example<Item> example = Example.of(obj);
 				if(itemService.exists(example))
-					return new GenericResponse("FOUND",messages.getMessage("The Item "+dto.getIname()+" already exist", null, request.getLocale()));
+					return new GenericResponse("FOUND", "Item '" + dto.getIname() + "' already exists.");
 			}
 
 			modelMapper.addConverter(appUtil.stringToLocalDate);
@@ -244,17 +244,14 @@ public class ItemController {
 
 			obj = itemService.save(obj);
 			if (appUtil.isEmptyOrNull(obj.getId())) {
-				return new GenericResponse("FAILED",
-						messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("FAILED", "Failed to save item. Please try again.");
 			} else {
-				return new GenericResponse("SUCCESS",
-						messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("SUCCESS", "Item saved successfully.");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause());
-			return new GenericResponse("ERROR", messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
 

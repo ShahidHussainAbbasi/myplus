@@ -222,7 +222,7 @@ describe('Negative — Auth: Protected Endpoints Reject Unauthenticated Requests
   })
 
   it('/getUserSell without session returns redirect or 4xx', () => {
-    cy.request({ url: '/getUserSell', failOnStatusCode: false }).then((res) => {
+    cy.request({ url: '/getUserSell', failOnStatusCode: false, followRedirect: false }).then((res) => {
       expect([302, 401, 403]).to.include(res.status)
     })
   })
@@ -234,13 +234,14 @@ describe('Negative — Auth: Protected Endpoints Reject Unauthenticated Requests
       body: {},
       headers: { 'Content-Type': 'application/json' },
       failOnStatusCode: false,
+      followRedirect: false,
     }).then((res) => {
       expect([302, 401, 403]).to.include(res.status)
     })
   })
 
   it('/getUserCustomer without session returns redirect or 4xx', () => {
-    cy.request({ url: '/getUserCustomer', failOnStatusCode: false }).then((res) => {
+    cy.request({ url: '/getUserCustomer', failOnStatusCode: false, followRedirect: false }).then((res) => {
       expect([302, 401, 403]).to.include(res.status)
     })
   })

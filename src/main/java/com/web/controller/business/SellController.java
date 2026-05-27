@@ -320,14 +320,12 @@ public class SellController {
 
 			sellService.addSell(ObjectMapperUtils.mapAll(sells, Sell.class));
 
-			return new GenericResponse(appUtil.SUCCESS,messages.getMessage(appUtil.SUCCESS, null,"msg.sale.saved", request.getLocale()));
-			
+			return new GenericResponse("SUCCESS", "Sale recorded successfully.");
+
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > addSell "+e.getCause());
-			String cause = e.getCause() != null ? e.getCause().toString() : e.getMessage();
-			return new GenericResponse("ERROR",messages.getMessage(appUtil.ERROR,null,"message.error_system_error"+e.getMessage(), request.getLocale()),
-					cause);
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
 		
@@ -409,15 +407,14 @@ public class SellController {
 				obj = sellService.save(obj);
 			});
 			// String status = sellService.createReport(objs);
-			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+			return new GenericResponse("SUCCESS", "Sale recorded successfully.");
 		} catch (Exception e) {
 			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
-	
+
 	@RequestMapping(value = "/revertSell", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse reverSell(@Validated final SellDTO dto, final HttpServletRequest request) {
@@ -454,19 +451,17 @@ public class SellController {
 
 			obj = sellService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("FAILED", "Failed to revert sale. Please try again.");
 			}else {
-				
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
+				return new GenericResponse("SUCCESS", "Sale reverted successfully.");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
-	
+
 	@RequestMapping(value = "/deleteSell", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteSell( HttpServletRequest req, HttpServletResponse resp ){
@@ -504,16 +499,16 @@ public class SellController {
 				
 				stockService.save(stock);
 				if(appUtil.isEmptyOrNull(stock)) {
-					return new GenericResponse("FAILED",messages.getMessage(appUtil.FAILED,null,"Sale returned Fail",requestUtil.getCurrentHttpRequest().getLocale()));
+					return new GenericResponse("FAILED", "Sale return failed. Please try again.");
 				}
-			}			
+			}
 			sellService.deleteById(dto.getSellId());
-			return new GenericResponse("SUCCESS",messages.getMessage(appUtil.SUCCESS,null,"Sale return successfully", requestUtil.getCurrentHttpRequest().getLocale()));
-			
+			return new GenericResponse("SUCCESS", "Sale returned successfully.");
+
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
-			return new GenericResponse("FAILED",messages.getMessage(appUtil.ERROR,null,"Sale return Fail", requestUtil.getCurrentHttpRequest().getLocale()));
+			LOGGER.error(this.getClass().getName() + " > saleReturn " + e.getCause());
+			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");
 		}
 	}
 }

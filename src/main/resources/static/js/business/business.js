@@ -257,7 +257,7 @@ $(document).ready(function() {
 			resetForm();
 			resetBSDD('sellItemDD');
         }else{
-        	alert("Please make sure you have entered valid values");
+        	showFormError('Please select an item and enter a valid quantity.');
         	return false;
         }
     });
@@ -886,7 +886,7 @@ function loadStock(label,value){
         		$("#sellDiscountTypeDD").val(discountType);
 	    		if(batchStock <= 0){
 	    			$("#sellItems").addClass("alert-danger");
-	    			alert("No more items are available, Please purchase or select some other item to sell.");
+ 	    			showFormError('No stock available. Please purchase this item first.');
 	    			$(".form-control").val("");
 	    			resetBSDD('sellItemDD');
 	    			return false;
@@ -965,7 +965,7 @@ function getStockByBatch(batchNo){
 	        		$("#sellDiscountTypeDD").val(discountType);
 		    		if(batchStock <= 0){
 		    			$("#sellItems").addClass("alert-danger");
-		    			alert("No more items are available, Please purchase or select some other item to sell.");
+ 		    			showFormError('No stock available. Please purchase this item first.');
 		    			$(".form-control").val("");
 		    			resetBSDD('sellItemDD');
 		    			return false;
@@ -1026,7 +1026,7 @@ function calculateNetSell(){
 	$("#sellStock").val(batchStock);
 	if(batchStock < qty){
 		$("#sellItems").addClass("alert-danger");
-		alert("You can not select more item than availabe in stock, Please purchase or select some other item to sell.")
+ 		showFormError('Quantity exceeds available stock. Please reduce the quantity or purchase more stock.');
 		$(".form-control").val("");
 		return false;
 	}
@@ -1092,7 +1092,7 @@ function calculateNetSell(){
 function calculateSRP(){
 	var s= $("#sellSellRate").val()*ONE;
 	if(!s || s<=0){
-		alert("Please select valid item's record to return sold");
+ 		showFormError('Please select a valid sold item record to return.');
 		return false;
 	}
 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
@@ -1152,10 +1152,10 @@ function loadSR(){
 		data : populateFormData(),
 		success : function(data) {
 			if(data.status!=="SUCCESS"){
-				return alert(data.status+" : "+data.message);
+ 					showFormError((data.status || '') + (data.message ? ': ' + data.message : ''));
 			}else{
 				if(!data || !data.collection)
-					return alert("Data not found.");
+ 					showFormError('Data not found.');
 
 				$.each(data.collection, function(ind, o) {
 					var row = [o.itemCode +" - "+o.itemName, o.stock,o.purchaseRate,o.sellRate,o.quantity,o.discount,o.dt,o.totalAmount,o.netAmount,o.cn,o.cc,o.srp,o.re,o.datedStr]
@@ -1190,7 +1190,7 @@ function saleReturn(sellId,stockId,qty){
         		datatable.ajax.reload();		
 	        },
 		    error: function (e) {
-		        alert(e)
+ 		        showFormError('An error occurred: ' + e);
 		    }
         });
     

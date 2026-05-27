@@ -160,22 +160,21 @@ public class PurchaseController {
 		try {
 			if(appUtil.isEmptyOrNull(purchaseService.addPurchase(dto))) {
 				if(appUtil.isEmptyOrNull(dto.getPurchaseId())) {
-					return new GenericResponse(appUtil.FAILED,messages.getMessage(appUtil.FAILED, null,"msg.purchase.save.error", request.getLocale()));
+					return new GenericResponse("FAILED", "Failed to save purchase. Please try again.");
 				}else {
-					return new GenericResponse(appUtil.FAILED,messages.getMessage(appUtil.FAILED,null,"msg.purchase.update.error",  request.getLocale()));
+					return new GenericResponse("FAILED", "Failed to update purchase. Please try again.");
 				}
 			}else {
 				if(appUtil.isEmptyOrNull(dto.getPurchaseId())) {
-					return new GenericResponse(appUtil.SUCCESS,messages.getMessage(appUtil.SUCCESS, null,"msg.purchase.saved", request.getLocale()));
+					return new GenericResponse("SUCCESS", "Purchase saved successfully.");
 				}else {
-					return new GenericResponse(appUtil.SUCCESS,messages.getMessage(appUtil.SUCCESS,null, "msg.purchase.updated", request.getLocale()));
+					return new GenericResponse("SUCCESS", "Purchase updated successfully.");
 				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause());			
-			return new GenericResponse("ERROR",messages.getMessage(appUtil.ERROR,null,"message.error_system_error"+e.getMessage(), request.getLocale()),
-					e.getCause().toString());
+			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause());
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
 	
