@@ -107,7 +107,8 @@ describe('Vender CRUD', () => {
     // This test only verifies the click fires without crashing the page.
     cy.get('#tableVender tbody tr').first().then(($row) => {
       if ($row.find('td').length > 0) {
-        cy.wrap($row).click()
+        // Re-query by index to avoid DataTable re-render detaching the cached reference
+        cy.get('#tableVender tbody tr').first().click()
         cy.get('#VenderDiv').should('be.visible')
       } else {
         cy.log('No venders in table — row click test skipped')
