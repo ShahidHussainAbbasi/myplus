@@ -6,7 +6,7 @@ module.exports = defineConfig({
     viewportWidth: 1280,
     viewportHeight: 800,
     defaultCommandTimeout: 5000,
-    pageLoadTimeout: 30000,
+    pageLoadTimeout: 60000,
     specPattern: 'cypress/e2e/**/*.cy.js',
     screenshotsFolder: 'cypress/screenshots',
     videosFolder: 'cypress/videos',

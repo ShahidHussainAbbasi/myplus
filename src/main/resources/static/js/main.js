@@ -355,17 +355,13 @@ $(document).ready(function() {
 			    }else{
 					    	document.getElementById("sellRec").style.setProperty('border-color', 'red', 'important');
 					    	showFormError('Please add items to the cart and enter a valid payment amount.');
-
-
-
-
-			}else{	
+					    }
+			}else{
 				validateForm();
 			    if(formValidated){
 					$(this).callAjax("add" + buttonV,populateFormData());
 			    }else{
 				    	return false;
-			    	return false;
 			    }
 			}
 		});
@@ -395,8 +391,8 @@ $(document).ready(function() {
 			}).get().join(",");
 			
 			if (ids == null || ids == "") {
-			\tshowFormError('Please select at least one record to delete.');
-			\treturn false;
+				showFormError('Please select at least one record to delete.');
+				return false;
 			}
 			var r = confirm("Are you sure you want to delete?");
 			if (r != true)
@@ -455,7 +451,7 @@ $(document).ready(function() {
 				}).get().join(",");
 				if(!ids && ids.lenght>0){
 					removeTableBody();
-			\tshowFormError('Edit is not allowed. Please delete and submit a new record.');
+				showFormError('Edit is not allowed. Please delete and submit a new record.');
 				}
 			}else{
 				if(tableV!="Sell"){					
@@ -497,7 +493,7 @@ $(document).ready(function() {
 				return false;
 			}, fail: function(data, textStatus, errorThrown) {
 				hideWait();
-	\t\tshowFormError('Network error. Please check your connection and try again.');
+			showFormError('Network error. Please check your connection and try again.');
 			}, error: function(data, textStatus, errorThrown) {
 				hideWait();
 				resetGlobalError();
@@ -523,7 +519,7 @@ $(document).ready(function() {
             }
 		}).fail(function(data) {
 			hideWait();
-	\t\tshowFormError('Request failed. Please recheck inputs or contact the system administrator.');
+			showFormError('Request failed. Please recheck inputs or contact the system administrator.');
 		});
 		if(tableV=="Purchase"){	
 			resetPurchaseForm();
@@ -578,21 +574,23 @@ function jsonPost(method,data) {
 				return;
 			}
 			clearFormError();
+/*
 		    	var mylink = document.getElementById("MyLink");
 		    	mylink.setAttribute("href", "../");
 		        mylink.setAttribute("href", ".."+serverContext+"reports/createdocument.docx");
 		        mylink.click();
 			}
-*/			loadDataTable();
+*/
+			loadDataTable();
 			resetCart();
 		}, fail: function(data, textStatus, errorThrown) {
-	\t\tshowFormError('Network error. Please check your connection and try again.');
+			showFormError('Network error. Please check your connection and try again.');
 		}, error: function(data, textStatus, errorThrown) {
 			resetGlobalError();
         	window.location.href = serverContext + "login?message=" + errorThrown;			
        	}
 	}).fail(function(data) {
-	\t\tshowFormError('Request failed. Please recheck inputs or contact the system administrator.');
+			showFormError('Request failed. Please recheck inputs or contact the system administrator.');
 	});
 	edit = false;// when add/update & delete done
 }

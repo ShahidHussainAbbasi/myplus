@@ -7,6 +7,14 @@ Cypress.Commands.add('loginAsBusiness', (email = 'sameerfaisal29@gmail.com', pas
     // Login redesign uses <button id="loginSubmit" type="submit"> (not <input type="submit">)
     cy.get('#loginSubmit').click()
     cy.url().should('not.include', '/login')
+  }, {
+    validate: () => {
+      // Re-login if the session was invalidated (e.g. after a server restart).
+      // followRedirect:false ensures an expired session returns 302 (not 200 login page).
+      cy.request({ url: '/getBusinessDashboardStats', failOnStatusCode: false, followRedirect: false }).then((res) => {
+        expect(res.status).to.eq(200)
+      })
+    },
   })
 })
 

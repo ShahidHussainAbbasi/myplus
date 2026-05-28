@@ -965,21 +965,12 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   /* Content padding */
   #content { padding: 10px; }
 
-  /* Subnav: horizontal scroll so all buttons stay accessible */
+  /* Subnav: wrap buttons to 2 rows — NO overflow:auto, which clips dropdown menus */
   #nav-subheader .container-fluid { padding: 0 8px; }
-  .snav-inner {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    flex-wrap: nowrap;
-    padding: 6px 0;
-    gap: 6px;
-    min-height: 46px;
-    scrollbar-width: none;
-  }
-  .snav-inner::-webkit-scrollbar { display: none; }
-  .snav-actions { flex-wrap: nowrap; min-width: max-content; }
-  .snav-btn { height: 30px; font-size: 12px; padding: 0 10px; white-space: nowrap; }
-  .snav-left { flex-shrink: 0; }
+  .snav-inner { flex-wrap: wrap; padding: 4px 0; gap: 4px; min-height: auto; }
+  .snav-actions { flex-wrap: wrap; gap: 4px; }
+  .snav-btn { height: 28px; font-size: 11.5px; padding: 0 9px; }
+  .snav-left { flex-shrink: 0; width: 100%; }
 
   /* Form horizontal: left-align labels on mobile */
   .form-horizontal .control-label { text-align: left; padding-top: 0; margin-bottom: 4px; }
@@ -1000,17 +991,12 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   .chart-panel-body { padding: 10px; }
   .chart-panel-head { padding: 10px 14px; }
 
-  /* Tables — ensure horizontal scroll everywhere */
+  /* Tables: scroll only the table wrapper, never the whole section */
   .tableOuterDiv,
-  .table-responsive,
-  #iDiv > div { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-  /* Button groups — allow wrap on very small screens */
-  .btn-group { flex-wrap: wrap; }
-
-  /* Sell section: customer + payment inputs full-width on mobile */
-  #customerSelectMode .form-control,
-  #customerManualMode .form-control { width: 100%; }
+  /* Sell cart table: scoped to its own wrapper div, not the parent */
+  #sellCartScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 
 /* Small phones (≤ 480px) */

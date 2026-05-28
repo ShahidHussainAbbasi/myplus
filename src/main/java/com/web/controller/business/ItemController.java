@@ -149,7 +149,8 @@ public class ItemController {
 			List<Item> objs = itemService.findAll(example);
 			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
-				sb.append("<option value=" + d.getId() + ">" +d.getIcode()+" ~ "+d.getIname() + "</option>");
+				sb.append("<option value=" + d.getId() + ">" +d.getIname() + "</option>");
+				// sb.append("<option value=" + d.getId() + ">" +d.getIcode()+" ~ "+d.getIname() + "</option>");
 			});
 			return sb.toString();
 		} catch (Exception e) {

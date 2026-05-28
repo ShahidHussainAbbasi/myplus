@@ -204,10 +204,10 @@ public class PurchaseService implements IPurchaseService{
 
 		Stock stock  = stockService.updateStock(dto);
 
-		// modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
-		// modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
+		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
+		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
-		obj.setUpdated(appUtil.getLocalDate(dto.getUpdated()));
+		obj.setDated(appUtil.getDateTime(null));
 		obj.setDated(LocalDateTime.now());
 		obj.setStock(stock);
 		return this.save(obj);

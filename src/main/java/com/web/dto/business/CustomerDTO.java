@@ -42,9 +42,9 @@ public class CustomerDTO implements Serializable {
 
     private LocalDate dueDate;
 	
-	private LocalDateTime dated;
+	private String dated;
 
-	private LocalDateTime updated;
+	private String updated;
 
 	private CustomerHistoryDTO customerHistory;
 
