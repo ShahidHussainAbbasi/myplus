@@ -85,10 +85,18 @@ public class CompanyController {
 	        Example<Company> example = Example.of(filterBy);
 			List<Company> objs = companyService.findAll(example);
 			
+			// objs.forEach(d -> {
+			// 	sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
+			// });
+		    // return sb.toString();
+
+			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
-				sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
+				sb.append("<option value=" + d.getId() + ">" +d.getName() + "</option>");
+				// sb.append("<option value=" + d.getId() + ">" +d.getIcode()+" ~ "+d.getIname() + "</option>");
 			});
-		    return sb.toString();
+			return sb.toString();
+
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getUserCompanies "+e.getCause());			

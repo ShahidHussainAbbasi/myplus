@@ -356,7 +356,8 @@ function loadDataTable(){
 						arr = [
 							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
 							"<div id=venderName>"+obj.name+"</div>", "<div id=venderCompanyDD>"+obj.companyName+"</div>",
-							"<div id=venderPhone>"+obj.phone+"</div>", "<div id=venderMobile>"+obj.mobile+"</div>",
+							// "<div id=venderPhone>"+obj.phone+"</div>",
+							 "<div id=venderMobile>"+obj.mobile+"</div>",
 							"<div id=venderEmail>"+obj.email+"</div>","<div id=venderAddress>"+obj.address+"</div>",obj.datedStr
 							];
 						datatable.row.add(arr).draw();
@@ -449,24 +450,44 @@ function loadDataTable(){
 }
 
 function loadUserCompanies(table) {	
-	$("#"+table.toLowerCase()+"CompanyDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserCompanies",function(data){
-   		$("#"+table.toLowerCase()+"CompanyDD").append(data);
+    	$("#"+table.toLowerCase()+"CompanyDD").empty().append(data).selectpicker('refresh');
     })
 	.fail(function(data) {
-		$("#"+table.toLowerCase()+"Company").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"CompanyDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
+
+// function loadUserCompanies(table) {	
+// 	$("#"+table.toLowerCase()+"CompanyDD").empty().append("<option value = ''> Please Select </option>");
+//     $.get(serverContext+ "getUserCompanies",function(data){
+//    		$("#"+table.toLowerCase()+"CompanyDD").append(data);
+//     })
+// 	.fail(function(data) {
+// 		$("#"+table.toLowerCase()+"Company").empty().append("<option value = ''> System error  </option>");
+// 	});
+// }
+
 function loadUserVenders(table) {	
-	$("#"+table.toLowerCase()+"VenderDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserVenders",function(data){
-    	$("#"+table.toLowerCase()+"VenderDD").append(data);
+    	$("#"+table.toLowerCase()+"VenderDD").empty().append(data).selectpicker('refresh');
     })
 	.fail(function(data) {
 		$("#"+table.toLowerCase()+"VenderDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
+
+// function loadUserVenders(table) {	
+// 	$("#"+table.toLowerCase()+"VenderDD").empty().append("<option value = ''> Please Select </option>");
+//     $.get(serverContext+ "getUserVenders",function(data){
+//     	$("#"+table.toLowerCase()+"VenderDD").append(data);
+//     })
+// 	.fail(function(data) {
+// 		$("#"+table.toLowerCase()+"VenderDD").empty().append("<option value = ''> System error  </option>");
+// 	});
+// }
+
 function laodUserItemTypes(table) {	
 	$("#"+table.toLowerCase()+"TypeDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserItemTypes",function(data){

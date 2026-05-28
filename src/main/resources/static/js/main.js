@@ -1,4 +1,4 @@
-var userId = -1;
+﻿var userId = -1;
 var month = new Array();
 month[0] = "Jan";
 month[1] = "Feb";
@@ -82,10 +82,14 @@ function validateForm(){
         for(var i = 0; i < formFields; i++){
             if(!form[i].id) continue;
             var el = document.getElementById(form[i].id);
+            // bootstrap-select inserts the wrapper as the NEXT sibling of the hidden <select>
+            var visualEl = $(el).hasClass('selectpicker')
+                ? ($(el).next('.bootstrap-select')[0] || el)
+                : el;
             if(form[i].validity.valid){
-                el.style.removeProperty('border-color');
+                visualEl.style.removeProperty('border-color');
             } else {
-                el.style.setProperty('border-color', 'red', 'important');
+                visualEl.style.setProperty('border-color', 'red', 'important');
                 var label = $('label[for="' + form[i].id + '"]').text().replace(/\s*\*\s*$/, '').replace('req','').trim()
                     || el.placeholder || el.name || form[i].id;
                 missing.push(label);
@@ -116,7 +120,26 @@ $(document).ready(function() {
 
 	// Clear red border on any required field as soon as the user interacts with it
 	$(document).on('input change', '[required]', function() {
-		this.style.removeProperty('border-color');
+		var visualEl = $(this).hasClass('selectpicker')
+			? ($(this).next('.bootstrap-select')[0] || this)
+			: this;
+		visualEl.style.removeProperty('border-color');
+	});
+
+	// On form reset (button type="reset" or programmatic): clear validation state
+	$(document).on('reset', 'form.form-horizontal', function() {
+		var $form = $(this);
+		// Remove red borders from all fields, including selectpicker wrappers
+		$form.find('[required], .selectpicker').each(function() {
+			var visualEl = $(this).hasClass('selectpicker')
+				? ($(this).next('.bootstrap-select')[0] || this)
+				: this;
+			visualEl.style.removeProperty('border-color');
+		});
+		// Refresh selectpicker display after native reset clears its value
+		$form.find('.selectpicker').selectpicker('refresh');
+		clearFormError();
+		updateReadOnly(false);
 	});
 
 //
@@ -272,6 +295,7 @@ $(document).ready(function() {
 	
     $(".onChangeSelect").change(function(){
     	initDates();
+		clearFormError();
     	var label = $(this).text();
     	var value = $(this).val();
     	if(tableV=="FV"){
@@ -608,6 +632,8 @@ const nonCapitalize = (s) => {
 // This is a helper function to extract text from the datatable row's HTML and populate the form for editing
 function editRecord(doc){
 	edit = true;
+	resetGlobalError();
+	clearFormError();
     var form = document.getElementsByClassName('form-horizontal')[tableV];
 	if (!form || form.length<=2) {
 		return false;

@@ -44,10 +44,10 @@
 						</span>
 					</div>
 					<div class="snav-actions">
-						<button class="snav-btn snav-home-btn" onclick="snavHome()">
+						<!-- <button class="snav-btn snav-home-btn" onclick="snavHome()">
 							<span class="glyphicon glyphicon-dashboard"></span>
 							<span>Dashboard</span>
-						</button>
+						</button> -->
 						<div class="snav-dd" id="snavRegister">
 							<button class="snav-btn" onclick="snavToggle(event,'snavRegister')">
 								<span class="glyphicon glyphicon-pencil"></span>
@@ -322,8 +322,12 @@
 						</div>
 						<label class="control-label col-sm-2 req" th:text="#{label.company}">Select	Company</label> 
 						<div class="col-sm-4">
-							<select	class="form-control" id="venderCompanyDD" name="companyId" required="required">
+							<!-- <select	class="form-control" id="venderCompanyDD" name="companyId" required="required">
+							</select> -->
+							<select required="required"
+								class="form-control onChangeSelect selectpicker" id="venderCompanyDD" name="companyId" data-live-search="true">
 							</select>
+
 						</div>
 					</div>
 					<div class="form-group">
@@ -393,26 +397,29 @@
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" th:text="#{label.company}">Select
-							Company</label> <span class="col-sm-4"> <select
-							class="form-control" id="itemCompanyDD" name="companyId">
+							Company</label> <span class="col-sm-4"> 
+						<!-- <select class="form-control" id="itemCompanyDD" name="companyId"></select> -->
+						<select class="form-control onChangeSelect selectpicker" id="itemCompanyDD" name="companyId" data-live-search="true">
 						</select>
+
 						</span>
  						<label class="control-label col-sm-2" th:text="#{label.vender}">Select
-							Vender</label> <span class="col-sm-4"> <select
-							class="form-control" id="itemVenderDD" name="venderId">
+							Vender</label> <span class="col-sm-4"> 
+							<!-- <select class="form-control" id="itemVenderDD" name="venderId"></select> -->
+						<select class="form-control onChangeSelect selectpicker" id="itemVenderDD" name="venderId" data-live-search="true">
 						</select>
  						</span>
 					</div>
 					<div class="form-group" id="Item">
+						<label class="control-label col-sm-2 req" for="itemName">Name</label>
+						<div class="col-sm-4">
+							<input required="required" type="text" class="form-control" id="itemName" name="iname"
+								placeholder="Item Name">
+						</div>
 						<label class="control-label col-sm-2" for="itemCode">Code/Batch</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="itemCode" name="icode"
 								placeholder="Item Code">
-						</div>
-						<label class="control-label col-sm-2" for="itemName">Name</label>
-						<div class="col-sm-4">
-							<input type="text" class="form-control" id="itemName" name="iname"
-								placeholder="Item Name">
 						</div>
 					</div>
 					<div class="form-group">
@@ -1116,13 +1123,15 @@
         $('#' + sel).val(val).trigger('change');
         document.getElementById(ddId).classList.remove('snav-open');
     }
-    function snavHome() {
-        document.querySelectorAll('.snav-btn').forEach(function(el) { el.classList.remove('snav-active'); });
-        document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });
-        $('.formDiv').hide();
-        $('#DashboardDiv').show();
-        $('select.dropdown').each(function() { this.selectedIndex = 0; });
-    }
+
+    // function snavHome() {
+    //     document.querySelectorAll('.snav-btn').forEach(function(el) { el.classList.remove('snav-active'); });
+    //     document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });
+    //     $('.formDiv').hide();
+    //     $('#DashboardDiv').show();
+    //     $('select.dropdown').each(function() { this.selectedIndex = 0; });
+    // }
+	
     document.addEventListener('click', function(e) {
         if (!e.target.closest('.snav-dd'))
             document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });

@@ -296,195 +296,154 @@ function loadDataTable(){
 	tableSellReport.clear().draw();
 
 	var table = tableV.toLowerCase();
-	//check if data table exist destroy it
-	var offset = $( "select[name='tableSell_length']" ).val();
-	if(!offset)
-		offset = 5;
-	
-	var pl = offset;
-	if(pl==-1)
-		pl=100;
-	if (datatable!=null){
+	// Read current page length from the active DataTable for this entity (not hardcoded to Sell)
+	var offset = $("select[name='table" + tableV + "_length']").val();
+	if(!offset) offset = 5;
+
+	if (datatable != null){
 		datatable.destroy();
 		datatable = null;
 	}
 	datatable = $("#table" + tableV).DataTable({
-		lengthMenu:[[5, 20, 50,100, -1 ],[ '5', '20', '50', '100', 'All' ]],
+		lengthMenu: [[5, 20, 50, 100, -1], ['5', '20', '50', '100', 'All']],
 		"iDisplayLength": offset,
-		"pageLength": pl,
-		"order": [[ 0, "desc" ]],
-		"autoWidth" : true,
+		"pageLength": (offset == -1 ? 100 : Number(offset)),
+		"order": [[0, "desc"]],
+		"autoWidth": true,
 		dom: 'Bfrtip',
-        buttons: [
-        	'pageLength',
-/*            { extend: 'copyHtml5', footer: true },
-            { extend: 'csvHtml5', footer: true },
-*/            
-        	{ extend: 'excelHtml5', footer: true },
-            {extend:'print', footer: true },
-        	{
-                extend: 'pdfHtml5',
-                orientation: 'landscape',
-                pageSize: 'LEGAL',
-                footer: true
-            }
-        ],
-		"ajax" : {
-			"url" : serverContext + "getUser" + getAll+"?q="+offset,
-			"type" : "GET",
-			"success" : function(data) {
-				if(reload != tableV){
-					//don't want to load ever DD for every row update on table
-					// laodUserItemTypes(table);
-					// loadUserItemUnits(table);
-					reload=tableV;
-				}
-				//preloading dropdown list in start as these were not populated in case of No Data Found
+		buttons: [
+			'pageLength',
+			{extend: 'excelHtml5', footer: true},
+			{extend: 'print', footer: true},
+			{
+				extend: 'pdfHtml5',
+				orientation: 'landscape',
+				pageSize: 'LEGAL',
+				footer: true
+			}
+		],
+		"ajax": {
+			// Load ALL records so DataTables handles Next/Back pagination and search locally.
+			// Search: DataTables filters the loaded set first; re-open the section to refresh from DB.
+			"url": serverContext + "getUser" + getAll + "?q=-1",
+			"type": "GET",
+			"success": function(data) {
+				if(reload != tableV) reload = tableV;
+
+				// Preload associated dropdowns once per entity type
 				if (getAll == "Vender") {
 					loadUserCompanies(table);
 				} else if (getAll == "Item") {
 					loadUserCompanies(table);
 					loadUserVenders(table);
-					
 				} else if (getAll == "Purchase") {
-					loadUserItems(table);		
+					loadUserItems(table);
 				} else if (getAll == "Sell") {
 					loadUserItems(table);
 					loadSellCustomers();
 				}
 
-				var arr = [" No Data Found "];
 				var collections = data.collection;
-				if(!collections || collections.length<=0){
-					datatable.columns( [0] ).visible( false );
+				if(!collections || collections.length <= 0){
+					datatable.columns([0]).visible(false);
 					$(".dataTables_empty")[0].innerHTML = "No Data Found";
 					return false;
 				}
-				
+
 				userId = collections[0].userId;
-				datatable.columns( [0] ).visible( false );
-				console.log("getUser calling of : "+getAll+" collections : "+collections);
+				datatable.columns([0]).visible(false);
+
+				// Build all rows first, then add in one shot so draw() fires only once
+				var allRows = [];
 				if (getAll === "Company") {
 					$.each(collections, function(ind, obj) {
-						arr = [
-								"<div id=companyId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-								"<div id=companyName>"+obj.name+"</div>", "<div id=companyPhone>"+obj.phone+"</div>", 
-								"<div id=companyEmail>"+obj.email+"</div>","<div id=companyAddress>"+obj.address+"</div>",obj.updatedStr
-							];
-						datatable.row.add(arr).draw();
+						allRows.push([
+							"<div id=companyId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
+							"<div id=companyName>"+obj.name+"</div>","<div id=companyPhone>"+obj.phone+"</div>",
+							"<div id=companyEmail>"+obj.email+"</div>","<div id=companyAddress>"+obj.address+"</div>",obj.updatedStr
+						]);
 					});
 				} else if (getAll === "Vender") {
 					$.each(collections, function(ind, obj) {
-						arr = [
+						allRows.push([
 							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=venderName>"+obj.name+"</div>", "<div id=venderCompanyDD>"+obj.companyName+"</div>",
-							"<div id=venderPhone>"+obj.phone+"</div>", "<div id=venderMobile>"+obj.mobile+"</div>",
+							"<div id=venderName>"+obj.name+"</div>",
+							"<div id=venderCompanyDD>"+obj.companyName+"</div>",
+							"<div id=venderPhone>"+obj.phone+"</div>","<div id=venderMobile>"+obj.mobile+"</div>",
 							"<div id=venderEmail>"+obj.email+"</div>","<div id=venderAddress>"+obj.address+"</div>",obj.datedStr
-							];
-						datatable.row.add(arr).draw();
+						]);
 					});
-					$("#venderName").prop("readonly",false);	
-
-					// loadUserCompanies(table);
-					// loadUserVenders(table);
-					// loadUserItems(table);
+					$("#venderName").prop("readonly", false);
 				} else if (getAll === "Customer") {
-					// loadUserCustomers(table);
 					$.each(collections, function(ind, obj) {
-						arr = [
+						allRows.push([
 							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value="+ obj.customerId+ ">",
-							"<div id=customerName>"+obj.name+"</div>", "<div id=contact>"+obj.contact+"</div>",
+							"<div id=customerName>"+obj.name+"</div>","<div id=contact>"+obj.contact+"</div>",
 							"<div id=email>"+obj.email+"</div>","<div id=address>"+obj.address+"</div>",obj.updated
-							];
-						datatable.row.add(arr).draw();
+						]);
 					});
 				} else if (getAll === "ItemType") {
 					$.each(collections, function(ind, obj) {
-						arr = [
+						allRows.push([
 							"<div id=itemTypeId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
 							"<div id=itemTypeName>"+obj.name+"</div>","<div id=itemTypeDescription>"+obj.description+"</div>",obj.datedStr
-							];
-						datatable.row.add(arr).draw();
+						]);
 					});
 				} else if (getAll === "ItemUnit") {
 					$.each(collections, function(ind, obj) {
-						arr = [
-							"<div id=itemUnitId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=itemUnitName>"+obj.name+"</div>", "<div id=itemUnitDescription>"+obj.description+"</div>",obj.datedStr
-							];
-						datatable.row.add(arr).draw();
+						allRows.push([
+							"<div id=itemUnitId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
+							"<div id=itemUnitName>"+obj.name+"</div>","<div id=itemUnitDescription>"+obj.description+"</div>",obj.datedStr
+						]);
 					});
 				} else if (getAll === "Item") {
 					$.each(collections, function(ind, obj) {
-						arr = [
+						allRows.push([
 							"<div id=itemId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=itemCompanyDD>"+obj.companyName+"</div>", "<div id=itemVenderDD>"+obj.venderName+"</div>", "<div id=itemName>"+obj.iname+"</div>",
-							"<div id=itemCode>"+obj.icode+"</div>", "<div id=itemDesc>"+obj.idesc+"</div>",
-							 /*"<div id=itemVenderDD>"+obj.venderName+"</div>", */
-							/*"<div id=itemPurchaseAmount>"+obj.purchaseAmount+"</div>","<div id=itemSellAmount>"+obj.sellAmount+"</div>",*/
-							/*"<div id=discountTypeDD>"+obj.discountType+"</div>","<div id=itemDiscount>"+obj.discount+"</div>", "<div id=itemNet>"+obj.net+"</div>",
-							"<div id=itemExpDate>"+obj.expDateStr+"</div>","<div id=batchStock>"+obj.stock+"</div>"
-							,"<div id=itemBN>"+obj.bn+"</div>",*/obj.updated
-							];
-						datatable.row.add(arr).draw();
+							"<div id=itemCompanyDD>"+obj.companyName+"</div>","<div id=itemVenderDD>"+obj.venderName+"</div>","<div id=itemName>"+obj.iname+"</div>",
+							"<div id=itemCode>"+obj.icode+"</div>","<div id=itemDesc>"+obj.idesc+"</div>",obj.updated
+						]);
 					});
 				} else if (getAll === "Purchase") {
-					// loadUserItems(table);
 					$.each(collections, function(ind, obj) {
-						arr = [
-							
-							"<div id=purchaseId>"+obj.purchaseId+"</div>", "<input type='checkbox' value="+ obj.purchaseId+ ">",
+						allRows.push([
+							"<div id=purchaseId>"+obj.purchaseId+"</div>","<input type='checkbox' value="+ obj.purchaseId+ ">",
 							"<div id=purchaseInvoiceNo>"+obj.purchaseInvoiceNo+"</div>","<div id=purchaseItemDD>"+obj.iname+"</div>",
-							"<div id=purchaseQuantity>"+obj.quantity+"</div>", "<div id=purchaseStock>"+obj.stock.stock+"</div>",
-							// "<div id=purchaseBatchNo>"+obj.stock.batchNo+"</div>", 
-							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>", 
-							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>", 
+							"<div id=purchaseQuantity>"+obj.quantity+"</div>","<div id=purchaseStock>"+obj.stock.stock+"</div>",
+							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
+							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>",
 							"<div id=purchaseDiscount>"+obj.stock.bpurchaseDiscount+"</div>",
-							// "<div id=purchaseSellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>", 
-							// "<div id=purchaseSellDiscount>"+obj.stock.bsellDiscount+"</div>",
 							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
 							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"
-							];
-						datatable.row.add(arr).draw();
+						]);
 					});
 				} else if (getAll === "Sell") {
-					// loadUserItems(table);
-					// loadSellCustomers();
 					$.each(collections, function(ind, obj) {
-						arr = [
+						allRows.push([
 							"<div id=sellId>"+obj.sellId+"</div>",
-							// "<button type='button' id='saleReturn' class='btn btn-danger' onclick=saleReturn("+obj.sellId+","+obj.stock.stockId+","+obj.quantity+")><span class='glyphicon glyphicon-remove-sign'></span> Return</button>",
-							// "<div id=sellItemDD>"+obj.stock.itemCode+"</div>",
 							"<div id=sellItemName>"+obj.itemName+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
-							"<div id=sellItemExpiry>"+obj.stock.bexpDate+"</div>", 
-							// "<div id=sellBatchNo>"+obj.stock.batchNo+"</div>", 
+							"<div id=sellItemExpiry>"+obj.stock.bexpDate+"</div>",
 							"<div id=sellPurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stock.bsellRate+"</div>",
 							"<div id=sellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stock.bsellDiscount+"</div>",
 							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
-							// "<div id=sellCC>"+obj.cc+"</div>","<div id=sellCN>"+obj.cn+"</div>","<div id=sellDueDays>"+obj.due_days+"</div>",
-							// "<div id=sellsrp>"+obj.srp+"</div>","<div id=sellRe>"+obj.re+"</div>",
 							obj.updated
-							];
-						datatable.row.add(arr).draw();
-//						datatable.columns( [10,11] ).visible( false );
+						]);
 					});
 				}
+				// Single draw — much faster than calling draw() on every row.add()
+				datatable.rows.add(allRows).draw();
 			},
-			 error: function(jqXHR, textStatus, errorThrown) {
-	                console.log('jqXHR:');
-	                console.log(jqXHR);
-	                console.log('textStatus:');
-	                console.log(textStatus);
-	                console.log('errorThrown:');
-	                console.log(errorThrown);
-				 	window.location.href = serverContext + "login?message=" + errorThrown;
-	            }
+			error: function(jqXHR, textStatus, errorThrown) {
+				console.log(jqXHR, textStatus, errorThrown);
+				window.location.href = serverContext + "login?message=" + errorThrown;
+			}
 		}
 	});
 
-	$("select[name='tableSell_length']").change(function(){
+	// Re-bind length-change for whichever table is currently active
+	$("select[name='table" + tableV + "_length']").change(function(){
 		loadDataTable();
 	});
 	updateReadOnly(false);
@@ -766,24 +725,23 @@ function loadDashboardCharts() {
 }
 
 function loadUserCompanies(table) {	
-	$("#"+table+"CompanyDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserCompanies",function(data){
-   		$("#"+table+"CompanyDD").append(data);
+    	$("#"+table.toLowerCase()+"CompanyDD").empty().append(data).selectpicker('refresh');
     })
 	.fail(function(data) {
-		$("#"+table+"Company").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"CompanyDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
 
 function loadUserVenders(table) {	
-	$("#"+table+"VenderDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserVenders",function(data){
-    	$("#"+table+"VenderDD").append(data);
+    	$("#"+table.toLowerCase()+"VenderDD").empty().append(data).selectpicker('refresh');
     })
 	.fail(function(data) {
-		$("#"+table+"VenderDD").empty().append("<option value = ''> System error  </option>");
+		$("#"+table.toLowerCase()+"VenderDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
+
 function laodUserItemTypes(table) {	
 	$("#"+table+"TypeDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserItemTypes",function(data){
@@ -887,7 +845,6 @@ function loadStock(label,value){
 	    		if(batchStock <= 0){
 	    			$("#sellItems").addClass("alert-danger");
  	    			showFormError('No stock available. Please purchase this item first.');
-	    			$(".form-control").val("");
 	    			resetBSDD('sellItemDD');
 	    			return false;
 	    		}else{
@@ -966,7 +923,6 @@ function getStockByBatch(batchNo){
 		    		if(batchStock <= 0){
 		    			$("#sellItems").addClass("alert-danger");
  		    			showFormError('No stock available. Please purchase this item first.');
-		    			$(".form-control").val("");
 		    			resetBSDD('sellItemDD');
 		    			return false;
 		    		}else{
@@ -1027,7 +983,6 @@ function calculateNetSell(){
 	if(batchStock < qty){
 		$("#sellItems").addClass("alert-danger");
  		showFormError('Quantity exceeds available stock. Please reduce the quantity or purchase more stock.');
-		$(".form-control").val("");
 		return false;
 	}
 	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val()*ONE:0;

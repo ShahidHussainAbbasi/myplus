@@ -388,7 +388,8 @@ function loadDataTable(){
 						arr = [
 							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='abc'>",
 							"<div id=venderName>"+obj.name+"</div>", "<div id=venderCompany>"+obj.companyName+"</div>", "<div id=venderEmail>"+obj.email+"</div>",
-							"<div id=venderPhone>"+obj.phone+"</div>", "<div id=venderMobile>"+obj.mobile+"</div>",
+							// "<div id=venderPhone>"+obj.phone+"</div>", 
+							"<div id=venderMobile>"+obj.mobile+"</div>",
 							"<div id=venderAddress>"+obj.address+"</div>", "<div id=venderDescription>"+obj.description+"</div>",obj.dated
 							];
 						datatable.row.add(arr).draw();

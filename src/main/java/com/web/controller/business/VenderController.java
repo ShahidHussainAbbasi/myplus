@@ -93,12 +93,20 @@ public class VenderController {
 	        Example<Vender> example = Example.of(filterBy);
 			List<Vender> objs = venderService.findAll(example);
 				
+			// objs.forEach(d -> {
+			// 	if(d!=null && d.getId()!=null) {
+			// 		sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
+			// 	}
+			// });
+		    // return sb.toString();
+
+			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
-				if(d!=null && d.getId()!=null) {
-					sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
-				}
+				sb.append("<option value=" + d.getId() + ">" +d.getName() + "</option>");
+				// sb.append("<option value=" + d.getId() + ">" +d.getIcode()+" ~ "+d.getIname() + "</option>");
 			});
-		    return sb.toString();
+			return sb.toString();
+
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getUserVenders "+e.getCause());			
