@@ -382,6 +382,7 @@ public class SellController {
 			List<Sell> objs = ObjectMapperUtils.mapAll(dtos, Sell.class);
 			objs.forEach(obj ->{
 				obj.setUserId(user.getUserId());
+				if(obj.getStock() == null) return;
 				//if update
 				Item item = itemService.getReferenceById(obj.getStock().getItemId());
 	        	Float stock = item.getStock().getStock() - obj.getQuantity();

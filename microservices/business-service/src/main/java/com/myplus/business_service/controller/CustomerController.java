@@ -137,7 +137,8 @@ public class CustomerController {
 			obj = modelMapper.map(dto, Customer.class);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getCustomerId())) {
-				obj.setDated(customerService.getReferenceById(dto.getCustomerId()).getDated());
+				Customer existing = customerService.findById(dto.getCustomerId()).orElse(null);
+				if(existing != null) obj.setDated(existing.getDated());
 			}else {
 				obj.setDated(dated);
 			}

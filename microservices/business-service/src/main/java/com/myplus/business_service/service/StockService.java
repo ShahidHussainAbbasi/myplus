@@ -228,11 +228,13 @@ public class StockService implements IStockService {
 	}
 
 	public Stock updateStock(Sell dto) {
+		if(dto.getStock() == null) {
+			throw new RuntimeException("Sell record has no associated stock");
+		}
 		Float quantity = dto.getQuantity();
 		Stock obj = new Stock();
-		
+
 		obj.setUserId(requestUtil.getCurrentUser().getUserId());
-		// obj.setBatchNo(dto.getStock().getBatchNo());
 		if(!appUtil.isEmptyOrNull(dto.getStock().getBatchNo())) {
 			obj.setBatchNo(dto.getStock().getBatchNo());
 		}

@@ -199,6 +199,7 @@ public class SellService implements ISellService {
 		// List<Sell> objs = new ArrayList<>();
 		if(!appUtil.isEmptyOrNull(dtos)) {
 			dtos.forEach(dto ->{
+				if(dto.getStock() == null) return;
 				Stock stock = stockService.updateStock(dto);
 				if(!appUtil.isEmptyOrNull(stock)) {
 					modelMapper.addConverter(appUtil.stringToLocalDateTime);

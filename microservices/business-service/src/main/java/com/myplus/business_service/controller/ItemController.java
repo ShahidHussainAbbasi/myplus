@@ -168,7 +168,7 @@ public class ItemController {
 			if(appUtil.isEmptyOrNull(itemId))
 				return null;
 			
-			return itemService.findById(itemId).get();
+			return itemService.findById(itemId).orElse(null);
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());

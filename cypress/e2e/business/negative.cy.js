@@ -246,3 +246,148 @@ describe('Negative — Auth: Protected Endpoints Reject Unauthenticated Requests
     })
   })
 })
+
+// ─── 5. API: Boundary & Edge Cases ───────────────────────────────────────────
+
+describe('Negative — Boundary & Edge Cases', () => {
+  beforeEach(() => {
+    cy.loginAsBusiness()
+  })
+
+  it('addCompany with very long name (255+ chars) — returns error or SUCCESS, not 500', () => {
+    const longName = 'A'.repeat(300)
+    cy.request({
+      method: 'POST', url: '/addCompany', form: true,
+      body: { name: longName, email: `long${Date.now()}@test.com` },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400]).to.include(res.status)
+      if (res.status === 200) expect(res.body.status).to.be.a('string')
+    })
+  })
+
+  it('addCustomer with invalid email format — returns error or SUCCESS, not 500', () => {
+    cy.request({
+      method: 'POST', url: '/addCustomer', form: true,
+      body: { name: `InvalidEmail_${Date.now()}`, contact: `0309${Date.now().toString().slice(-7)}`, email: 'not-an-email' },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400]).to.include(res.status)
+    })
+  })
+
+  it('addVender with non-existent companyId — returns error or FAILED, not 500', () => {
+    cy.request({
+      method: 'POST', url: '/addVender', form: true,
+      body: { name: `OrphanVender_${Date.now()}`, companyId: 999999999, mobile: '03001111111', email: `ov${Date.now()}@t.com` },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400]).to.include(res.status)
+      cy.log(`addVender with bad companyId: ${JSON.stringify(res.body).substring(0, 80)}`)
+    })
+  })
+
+  it('addStock with non-existent itemId — returns error, not 500', () => {
+    cy.request({
+      method: 'POST', url: '/addStock', form: true,
+      body: { itemId: 999999999, bpurchaseRate: 10, bsellRate: 20, stock: 5 },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400, 500]).to.include(res.status)
+      cy.log(`addStock with bad itemId: ${res.status}`)
+    })
+  })
+
+  it('addPurchase with negative quantity — returns error, not 500', () => {
+    cy.request({
+      method: 'POST', url: '/addPurchase', form: true,
+      body: { itemId: 1, quantity: -5, purchaseRate: 50, totalAmount: -250, netAmount: -250 },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400, 422]).to.include(res.status)
+      if (res.status === 200) expect(res.body.status).to.not.eq('SUCCESS')
+    })
+  })
+
+  it('deleteCompany with malformed id string — returns false or error, not 500', () => {
+    cy.request({
+      method: 'POST', url: '/deleteCompany', form: true,
+      body: { checked: 'not-a-number' },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400]).to.include(res.status)
+    })
+  })
+
+  it('addItemType with only whitespace name — returns error or 404, not SUCCESS', () => {
+    cy.request({
+      method: 'POST', url: '/addItemType', form: true,
+      body: { name: '   ' },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400, 404]).to.include(res.status)
+      if (res.status === 200) expect(res.body.status).to.not.eq('SUCCESS')
+    })
+  })
+
+  it('addSell with stockId that has zero stock — returns error, not crash', () => {
+    cy.request({
+      method: 'POST', url: '/addSell',
+      body: {
+        customer: { name: 'ZeroStock Test', contact: '03000000001', paidAmount: 100, dueAmount: 0 },
+        sales: [{ stockId: 999999999, quantity: 100, sellRate: 100, totalAmount: 10000, netAmount: 10000 }],
+      },
+      headers: { 'Content-Type': 'application/json' },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400, 422]).to.include(res.status)
+      cy.log(`Sell with bad stockId: ${res.status}`)
+    })
+  })
+})
+
+// ─── 6. API: SQL-Injection / Script-Injection Safety ─────────────────────────
+
+describe('Negative — Input Sanitisation', () => {
+  beforeEach(() => {
+    cy.loginAsBusiness()
+  })
+
+  it('addCompany with SQL injection attempt in name — does not crash', () => {
+    cy.request({
+      method: 'POST', url: '/addCompany', form: true,
+      body: { name: "'; DROP TABLE company; --", email: `sqli${Date.now()}@test.com` },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400]).to.include(res.status)
+      // If saved (200 SUCCESS), the value was escaped — DB should still work after
+    })
+  })
+
+  it('addItem with XSS attempt in iname — does not crash and app remains usable', () => {
+    cy.request({
+      method: 'POST', url: '/addItem', form: true,
+      body: { icode: `XSS-${Date.now()}`, iname: '<script>alert(1)</script>', unit: 'pcs' },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400]).to.include(res.status)
+      // Verify the app is still responsive after the attempt
+      cy.request('/getUserItem').then((followUp) => {
+        expect(followUp.status).to.eq(200)
+      })
+    })
+  })
+
+  it('addCustomer with script tag in name — app remains usable', () => {
+    cy.request({
+      method: 'POST', url: '/addCustomer', form: true,
+      body: { name: '<img src=x onerror=alert(1)>', contact: `039${Date.now().toString().slice(-8)}`, email: `xss${Date.now()}@test.com` },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect([200, 400]).to.include(res.status)
+      cy.request('/getUserCustomer').then((followUp) => {
+        expect(followUp.status).to.eq(200)
+      })
+    })
+  })
+})

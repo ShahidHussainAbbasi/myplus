@@ -144,7 +144,8 @@ public class CompanyController {
 			obj = modelMapper.map(dto, Company.class);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
-				obj.setDated(companyService.getReferenceById(dto.getId()).getDated());
+				Company existing = companyService.findById(dto.getId()).orElse(null);
+				if(existing != null) obj.setDated(existing.getDated());
 			}else {
 				// obj.setCreatedAt handled by @PrePersist
 			}
