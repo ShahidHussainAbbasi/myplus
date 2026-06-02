@@ -47,7 +47,7 @@ public class Purchase implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = true)
+	@ManyToOne(fetch = FetchType.EAGER, optional = true)
 	@JoinColumn(name = "stock_id", nullable=true,unique=false)
 	private Stock stock;
 	
