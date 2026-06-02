@@ -1,0 +1,61 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.5.0)
+
+2026-05-31T18:49:00.494+05:00  INFO 41636 --- [config-server] [           main] c.myplus.config.ConfigServerApplication  : Starting ConfigServerApplication v1.0.0-SNAPSHOT using Java 25.0.3 with PID 41636 (C:\Users\HP\Shahid\software\myplus\microservices\config-server\target\config-server-1.0.0-SNAPSHOT.jar started by HP in C:\Users\HP\Shahid\software\myplus\microservices\config-server)
+2026-05-31T18:49:00.501+05:00  INFO 41636 --- [config-server] [           main] c.myplus.config.ConfigServerApplication  : The following 1 profile is active: "native"
+2026-05-31T18:49:02.613+05:00  INFO 41636 --- [config-server] [           main] o.s.cloud.context.scope.GenericScope     : BeanFactory id=902e6e21-e50c-3bd1-8060-0af889245ed3
+2026-05-31T18:49:03.212+05:00  INFO 41636 --- [config-server] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8888 (http)
+2026-05-31T18:49:03.239+05:00  INFO 41636 --- [config-server] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-31T18:49:03.240+05:00  INFO 41636 --- [config-server] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.41]
+2026-05-31T18:49:03.317+05:00  INFO 41636 --- [config-server] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-05-31T18:49:03.319+05:00  INFO 41636 --- [config-server] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2714 ms
+2026-05-31T18:49:05.417+05:00  INFO 41636 --- [config-server] [           main] DiscoveryClientOptionalArgsConfiguration : Eureka HTTP Client uses RestTemplate.
+2026-05-31T18:49:05.742+05:00  WARN 41636 --- [config-server] [           main] iguration$LoadBalancerCaffeineWarnLogger : Spring Cloud LoadBalancer is currently working with the default cache. While this cache implementation is useful for development and tests, it's recommended to use Caffeine cache in production.You can switch to using Caffeine cache, by adding it and org.springframework.cache.caffeine.CaffeineCacheManager to the classpath.
+2026-05-31T18:49:05.755+05:00  INFO 41636 --- [config-server] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-05-31T18:49:05.838+05:00  INFO 41636 --- [config-server] [           main] o.s.c.n.eureka.InstanceInfoFactory       : Setting initial instance status as: STARTING
+2026-05-31T18:49:05.877+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Initializing Eureka in region us-east-1
+2026-05-31T18:49:05.884+05:00  INFO 41636 --- [config-server] [           main] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-05-31T18:49:05.896+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Disable delta property : false
+2026-05-31T18:49:05.897+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Single vip registry refresh property : null
+2026-05-31T18:49:05.898+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Force full registry fetch : false
+2026-05-31T18:49:05.898+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Application is null : false
+2026-05-31T18:49:05.899+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Registered Applications size is zero : true
+2026-05-31T18:49:05.899+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Application version is -1: true
+2026-05-31T18:49:05.900+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Getting all instance registry info from the eureka server
+2026-05-31T18:49:06.610+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : The response status is 200
+2026-05-31T18:49:06.611+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Starting heartbeat executor: renew interval is: 30
+2026-05-31T18:49:06.613+05:00  INFO 41636 --- [config-server] [           main] c.n.discovery.InstanceInfoReplicator     : InstanceInfoReplicator onDemand update allowed rate per min is 4
+2026-05-31T18:49:06.615+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Discovery Client initialized at timestamp 1780235346615 with initial instances count: 0
+2026-05-31T18:49:06.619+05:00  INFO 41636 --- [config-server] [           main] o.s.c.n.e.s.EurekaServiceRegistry        : Registering application CONFIG-SERVER with eureka with status UP
+2026-05-31T18:49:06.620+05:00  INFO 41636 --- [config-server] [           main] com.netflix.discovery.DiscoveryClient    : Saw local status change event StatusChangeEvent [timestamp=1780235346620, current=UP, previous=STARTING]
+2026-05-31T18:49:06.622+05:00  INFO 41636 --- [config-server] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_CONFIG-SERVER/YDU7000424LT.mshome.net:config-server:8888: registering service...
+2026-05-31T18:49:06.651+05:00  INFO 41636 --- [config-server] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8888 (http) with context path '/'
+2026-05-31T18:49:06.653+05:00  INFO 41636 --- [config-server] [           main] .s.c.n.e.s.EurekaAutoServiceRegistration : Updating port to 8888
+2026-05-31T18:49:06.693+05:00  INFO 41636 --- [config-server] [           main] c.myplus.config.ConfigServerApplication  : Started ConfigServerApplication in 7.281 seconds (process running for 8.263)
+2026-05-31T18:49:06.812+05:00  INFO 41636 --- [config-server] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_CONFIG-SERVER/YDU7000424LT.mshome.net:config-server:8888 - registration status: 204
+2026-05-31T18:49:18.475+05:00  INFO 41636 --- [config-server] [nio-8888-exec-3] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-05-31T18:49:18.476+05:00  INFO 41636 --- [config-server] [nio-8888-exec-3] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-05-31T18:49:18.478+05:00  INFO 41636 --- [config-server] [nio-8888-exec-3] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2026-05-31T18:49:18.625+05:00  INFO 41636 --- [config-server] [nio-8888-exec-2] o.s.c.c.s.e.NativeEnvironmentRepository  : Adding property source: Config resource 'class path resource [configs/application.yml]' via location 'classpath:/configs/'
+2026-05-31T18:49:18.628+05:00  INFO 41636 --- [config-server] [nio-8888-exec-3] o.s.c.c.s.e.NativeEnvironmentRepository  : Adding property source: Config resource 'class path resource [configs/education-service.yml]' via location 'classpath:/configs/'
+2026-05-31T18:49:18.629+05:00  INFO 41636 --- [config-server] [io-8888-exec-10] o.s.c.c.s.e.NativeEnvironmentRepository  : Adding property source: Config resource 'class path resource [configs/auth-service.yml]' via location 'classpath:/configs/'
+2026-05-31T18:49:18.630+05:00  INFO 41636 --- [config-server] [nio-8888-exec-3] o.s.c.c.s.e.NativeEnvironmentRepository  : Adding property source: Config resource 'class path resource [configs/application.yml]' via location 'classpath:/configs/'
+2026-05-31T18:49:18.630+05:00  INFO 41636 --- [config-server] [io-8888-exec-10] o.s.c.c.s.e.NativeEnvironmentRepository  : Adding property source: Config resource 'class path resource [configs/application.yml]' via location 'classpath:/configs/'
+2026-05-31T18:49:18.636+05:00  INFO 41636 --- [config-server] [nio-8888-exec-5] o.s.c.c.s.e.NativeEnvironmentRepository  : Adding property source: Config resource 'class path resource [configs/business-service.yml]' via location 'classpath:/configs/'
+2026-05-31T18:49:18.638+05:00  INFO 41636 --- [config-server] [nio-8888-exec-5] o.s.c.c.s.e.NativeEnvironmentRepository  : Adding property source: Config resource 'class path resource [configs/application.yml]' via location 'classpath:/configs/'
+2026-05-31T18:49:36.613+05:00  INFO 41636 --- [config-server] [reshExecutor-%d] com.netflix.discovery.DiscoveryClient    : Disable delta property : false
+2026-05-31T18:49:36.615+05:00  INFO 41636 --- [config-server] [reshExecutor-%d] com.netflix.discovery.DiscoveryClient    : Single vip registry refresh property : null
+2026-05-31T18:49:36.619+05:00  INFO 41636 --- [config-server] [reshExecutor-%d] com.netflix.discovery.DiscoveryClient    : Force full registry fetch : false
+2026-05-31T18:49:36.620+05:00  INFO 41636 --- [config-server] [reshExecutor-%d] com.netflix.discovery.DiscoveryClient    : Application is null : false
+2026-05-31T18:49:36.625+05:00  INFO 41636 --- [config-server] [reshExecutor-%d] com.netflix.discovery.DiscoveryClient    : Registered Applications size is zero : true
+2026-05-31T18:49:36.626+05:00  INFO 41636 --- [config-server] [reshExecutor-%d] com.netflix.discovery.DiscoveryClient    : Application version is -1: false
+2026-05-31T18:49:36.627+05:00  INFO 41636 --- [config-server] [reshExecutor-%d] com.netflix.discovery.DiscoveryClient    : Getting all instance registry info from the eureka server
+2026-05-31T18:49:36.689+05:00  INFO 41636 --- [config-server] [reshExecutor-%d] com.netflix.discovery.DiscoveryClient    : The response status is 200
+2026-05-31T18:50:12.327+05:00  INFO 41636 --- [config-server] [nio-8888-exec-7] o.s.c.c.s.e.NativeEnvironmentRepository  : Adding property source: Config resource 'class path resource [configs/application.yml]' via location 'classpath:/configs/'

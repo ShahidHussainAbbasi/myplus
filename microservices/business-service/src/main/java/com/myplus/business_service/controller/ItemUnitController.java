@@ -1,0 +1,188 @@
+package com.myplus.business_service.controller;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
+import org.springframework.data.domain.Example;
+import org.springframework.stereotype.Controller;
+import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.myplus.business_service.security.AuthenticatedUser;
+import com.myplus.business_service.entity.ItemUnit;
+import com.myplus.business_service.service.IItemUnitService;
+import com.myplus.business_service.dto.ItemUnitDTO;
+import com.myplus.business_service.util.AppUtil;
+import com.myplus.business_service.util.GenericResponse;
+import com.myplus.business_service.util.RequestUtil;
+
+@Controller
+public class ItemUnitController {
+
+	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
+	@Autowired
+	private MessageSource messages;
+
+	@Autowired
+	IItemUnitService itemUnitService;
+
+	@Autowired
+	RequestUtil requestUtil;
+
+    @Autowired
+    private AppUtil appUtil;  
+    
+	ModelMapper modelMapper = new ModelMapper();
+
+	@RequestMapping(value = "/getUserItemUnit", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getUserItemUnit(final HttpServletRequest request) {
+		try {
+			ItemUnit filterBy = new ItemUnit();
+			AuthenticatedUser user = requestUtil.getCurrentUser();
+			filterBy.setUserId(user.getUserId());
+			Example<ItemUnit> example = Example.of(filterBy);
+			List<ItemUnit> objs = itemUnitService.findAll(example);
+
+			List<ItemUnitDTO> dtos = new ArrayList<ItemUnitDTO>();
+			objs.forEach(obj -> {
+				ItemUnitDTO dto = modelMapper.map(obj, ItemUnitDTO.class);
+				dto.setName(obj.getName());
+				dto.setDescription(obj.getDescription());
+
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
+				dtos.add(dto);
+			});
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error(this.getClass().getName() + " > getUserItemUnit " + e.getCause());
+			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),e.getCause().toString());
+		}
+	}
+
+	@RequestMapping(value = "/getUserItemUnits", method = RequestMethod.GET)
+	@ResponseBody
+	public String getUserItemUnits(final HttpServletRequest request) {
+		StringBuffer sb = new StringBuffer();
+		try {
+			ItemUnit filterBy = new ItemUnit();
+			AuthenticatedUser user = requestUtil.getCurrentUser();
+			filterBy.setUserId(user.getUserId());
+			Example<ItemUnit> example = Example.of(filterBy);
+			List<ItemUnit> objs = itemUnitService.findAll(example);
+
+			objs.forEach(d -> {
+				sb.append("<option value=" + d.getId() + ">" + d.getName() + "</option>");
+			});
+			return sb.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
+			return (sb.append("<option value=''> Item not available </option>")).toString();
+		}
+	}
+
+	@RequestMapping(value = "/getAllItemUnit", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getAllItemUnit(final HttpServletRequest request) {
+		try {
+			List<ItemUnit> objs = itemUnitService.findAll();
+			if (appUtil.isEmptyOrNull(objs))
+				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
+
+			List<ItemUnitDTO> dtos = new ArrayList<ItemUnitDTO>();
+			objs.forEach(obj -> {
+				ItemUnitDTO dto = modelMapper.map(obj, ItemUnitDTO.class);
+				dto.setName(obj.getName());
+				dto.setDescription(obj.getDescription());
+
+				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
+				dtos.add(dto);
+			});
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause());
+			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
+					e.getCause().toString());
+		}
+	}
+
+	@RequestMapping(value = "/addItemUnit", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse addItemUnit(@Validated final ItemUnitDTO dto, final HttpServletRequest request) {
+		try {
+			ItemUnit obj= new ItemUnit();
+			LocalDateTime dated = LocalDateTime.now();
+			AuthenticatedUser user = requestUtil.getCurrentUser();
+			dto.setUserId(user.getUserId());
+			obj.setUserId(user.getUserId());
+			if(appUtil.isEmptyOrNull(dto.getId())){
+				obj.setUserId(user.getUserId());
+				obj.setName(dto.getName());
+				Example<ItemUnit> example = Example.of(obj);
+				if(itemUnitService.exists(example))
+					return new GenericResponse("FOUND", "Item unit '" + dto.getName() + "' already exists.");
+			}
+			
+			obj = modelMapper.map(dto, ItemUnit.class);
+			//if it is update
+			if(!appUtil.isEmptyOrNull(dto.getId())) {
+				obj.setDated(itemUnitService.getOne(dto.getId()).getDated());
+			}else {
+				obj.setDated(dated);
+			}
+			obj.setUpdated(dated);
+
+			obj = itemUnitService.save(obj);
+			if(appUtil.isEmptyOrNull(obj)) {
+				return new GenericResponse("FAILED", "Failed to save item unit. Please try again.");
+			}else {
+				return new GenericResponse("SUCCESS", "Item unit saved successfully.");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error(this.getClass().getName() + " > addItemUnit " + e.getCause());
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
+		}
+	}
+
+	@RequestMapping(value = "/deleteItemUnit", method = RequestMethod.POST)
+	@ResponseBody
+	public boolean deleteItemUnit(HttpServletRequest req, HttpServletResponse resp) {
+		try {
+			String ids = req.getParameter("checked");
+			if (!StringUtils.isEmpty(ids)) {
+				String idList[] = ids.split(",");
+				for (String id : idList) {
+					itemUnitService.deleteById(Long.valueOf(id));
+				}
+				return true;// new GenericResponse(messages.getMessage("message.userNotFound", null,
+							// request.getLocale()),"SUCCESS");
+			} else {
+				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null,
+								// request.getLocale()),"SUCCESS");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error(this.getClass().getName() + " > deleteItem " + e.getCause());
+			return false;// new GenericResponse(messages.getMessage("message.userNotFound", null,
+							// request.getLocale()),
+		}
+	}
+}

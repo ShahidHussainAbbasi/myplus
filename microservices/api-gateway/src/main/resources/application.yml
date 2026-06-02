@@ -1,0 +1,101 @@
+server:
+  port: 8765
+
+spring:
+  main:
+    web-application-type: reactive
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/**
+          filters:
+            - name: JwtAuthenticationFilter
+        - id: business-service
+          uri: lb://business-service
+          predicates:
+            - Path=/api/business/**
+          filters:
+            - name: JwtAuthenticationFilter
+        - id: education-service
+          uri: lb://education-service
+          predicates:
+            - Path=/api/education/**
+          filters:
+            - name: JwtAuthenticationFilter
+        - id: welfare-service
+          uri: lb://welfare-service
+          predicates:
+            - Path=/api/welfare/**
+          filters:
+            - name: JwtAuthenticationFilter
+        - id: agriculture-service
+          uri: lb://agriculture-service
+          predicates:
+            - Path=/api/agriculture/**
+          filters:
+            - name: JwtAuthenticationFilter
+        - id: pharma-service
+          uri: lb://pharma-service
+          predicates:
+            - Path=/api/pharma/**
+          filters:
+            - name: JwtAuthenticationFilter
+        - id: marketplace-service
+          uri: lb://marketplace-service
+          predicates:
+            - Path=/api/marketplace/**
+          filters:
+            - name: JwtAuthenticationFilter
+        - id: campaign-service
+          uri: lb://campaign-service
+          predicates:
+            - Path=/api/campaign/**
+          filters:
+            - name: JwtAuthenticationFilter
+        - id: analytics-service
+          uri: lb://analytics-service
+          predicates:
+            - Path=/api/analytics/**
+          filters:
+            - name: JwtAuthenticationFilter
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  secret: ${JWT_SECRET:bXlwbHVzU3VwZXJTZWNyZXRLZXlGb3JKd3RUb2tlbkdlbmVyYXRpb25BbmRWYWxpZGF0aW9uMjAyNQ==}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,metrics
