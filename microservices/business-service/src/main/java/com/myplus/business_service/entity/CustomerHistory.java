@@ -45,7 +45,7 @@ public class CustomerHistory implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
-	@ManyToOne(fetch = jakarta.persistence.FetchType.LAZY, cascade = CascadeType.PERSIST)
+	@ManyToOne(fetch = jakarta.persistence.FetchType.EAGER, cascade = CascadeType.PERSIST)
 	@JoinColumn(name = "customer_id", referencedColumnName = "customer_id", nullable = true)
 	private Customer customer;
 
