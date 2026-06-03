@@ -87,11 +87,11 @@ public class Sell implements Serializable {
 	@Column(name = "return_reason")
 	private Float re;
 
-	@ManyToOne(fetch = FetchType.EAGER,cascade=CascadeType.ALL)
+	@ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
 	@JoinColumn(name = "stock_id")
 	private Stock stock;
 
-    @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+    @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
     @JoinColumn(name = "customer_history_id", nullable = true)
     private CustomerHistory  customerHistory;
 
