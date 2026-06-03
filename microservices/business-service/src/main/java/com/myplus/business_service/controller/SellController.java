@@ -7,7 +7,6 @@ import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.transaction.Transactional;
 
 import org.apache.http.HttpStatus;
 import org.apache.http.protocol.HTTP;
@@ -294,7 +293,6 @@ public class SellController {
 	
 	@RequestMapping(value = "/addSell", method = RequestMethod.POST)
 	@ResponseBody
-	@Transactional
 	public GenericResponse addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
 		try {
 			if (dto == null || appUtil.isEmptyOrNull(dto.getSales()))
@@ -484,8 +482,7 @@ public class SellController {
 
 	@PostMapping(value = "/saleReturn")
 	@ResponseBody
-	@Transactional
-	public GenericResponse saleReturn(final SellDTO dto, final HttpServletRequest request) {	
+	public GenericResponse saleReturn(final SellDTO dto, final HttpServletRequest request) {
 //	public GenericResponse saleReturn(@RequestParam final Long saleId,@RequestParam final Long stockId,@RequestParam final Float qty) {
 		try {
 			if(appUtil.isEmptyOrNull(dto.getSellId()) || appUtil.isEmptyOrNull(dto.getSellSId())) 
