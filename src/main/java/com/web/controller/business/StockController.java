@@ -1,395 +1,119 @@
 package com.web.controller.business;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.Collections;
+import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.MessageSource;
-import org.springframework.data.domain.Example;
-import org.springframework.util.StringUtils;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.persistence.model.User;
-import com.persistence.model.business.Item;
-import com.persistence.model.business.Stock;
-import com.persistence.model.business.Vender;
-import com.service.business.ICompanyService;
-import com.service.business.IItemService;
-// import com.service.business.IItemTypeService;
-import com.service.business.IItemUnitService;
-import com.service.business.IStockService;
-import com.service.business.IVenderService;
-import com.web.dto.business.ItemDTO;
-import com.web.dto.business.StockDTO;
-import com.web.util.AppUtil;
-import com.web.util.GenericResponse;
-import com.web.util.RequestUtil;
+import com.web.util.BusinessRestClient;
 
 @RestController
 public class StockController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
-	@Autowired
-	private MessageSource messages;
-
-	@Autowired
-	IStockService service;
-
-	@Autowired
-	IItemService itemService;
-
-	@Autowired
-	ICompanyService companyService;
-
-	// @Autowired
-	// IItemTypeService itemTypeService;
-
-	@Autowired
-	IItemUnitService itemUnitService;
-
-	@Autowired
-	IVenderService venderService;
-
-	@Autowired
-	RequestUtil requestUtil;
+    private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 
     @Autowired
-    private AppUtil appUtil;  
-    
-	ModelMapper modelMapper = new ModelMapper();
+    private BusinessRestClient client;
 
-	@RequestMapping(value = "/getUserStock", method = RequestMethod.GET)
-	@ResponseBody
-	public GenericResponse getUserItem(final HttpServletRequest request) {
-		try {
-			Item filterBy = new Item();
-			User user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getId());
-			Example<Item> example = Example.of(filterBy);
-			List<Item> objs = itemService.findAll(example);
-			if (appUtil.isEmptyOrNull(objs))
-				return new GenericResponse("NOT_FOUND",
-						messages.getMessage("message.userNotFound", null, request.getLocale()));
+    @RequestMapping(value = "/getUserStock", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getUserItem(final HttpServletRequest request) {
+        try {
+            return client.get("/getUserStock");
+        } catch (Exception e) {
+            LOGGER.error("getUserStock proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
 
-			List<ItemDTO> dtos = new ArrayList<ItemDTO>();
-			objs.forEach(obj -> {
-				modelMapper.addConverter(appUtil.localDateToString);
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				ItemDTO dto = modelMapper.map(obj, ItemDTO.class);
-				
-//				dto.setVenderId(obj.getVender().getId());
-//				dto.setVenderName(obj.getVender().getName());
-//				dto.setVenderIds(obj.getVenders().stream().map(Vender::getId).collect(Collectors.toSet()));
-//				dto.setVenderNames(obj.getVenders().stream().map(Vender::getName).collect(Collectors.toSet()));
-//				dto.setItemUnitIds(obj.getItemUnits().stream().map(ItemUnit::getId).collect(Collectors.toSet()));
-//				dto.setItemUnitNames(obj.getItemUnits().stream().map(ItemUnit::getName).collect(Collectors.toSet()));
-//				dto.setItemTypeIds(obj.getItemTypes().stream().map(ItemType::getId).collect(Collectors.toSet()));
-//				dto.setItemTypeNames(obj.getItemTypes().stream().map(ItemType::getName).collect(Collectors.toSet()));
+    @RequestMapping(value = "/getUserStocks", method = RequestMethod.GET)
+    @ResponseBody
+    public String getUserItems(final HttpServletRequest request) {
+        try {
+            return client.getString("/getUserStocks");
+        } catch (Exception e) {
+            LOGGER.error("getUserStocks proxy error", e);
+            return "<option value=''> Item not available </option>";
+        }
+    }
 
-//				Company company = companyService.getOne(dto.getCompanyId());
-//				dto.setCompanyId(company.getId());
-//				dto.setCompanyName(company.getName());
-				if(!appUtil.isEmptyOrNull(obj.getCompany())) {
-					dto.setCompanyId(obj.getCompany().getId());
-					dto.setCompanyName(obj.getCompany().getName());
-				}
-				if(!appUtil.isEmptyOrNull(dto.getVenderId())) {
-					Vender vender = venderService.getOne(dto.getVenderId());
-					dto.setVenderId(vender.getId());
-					dto.setVenderName(vender.getName());
-				}
-//				if(!AppUtil.isEmptyOrNull(obj.getItemType())) {
-//					dto.setItemTypeId(obj.getItemType().getId());
-//					dto.setItemTypeName(obj.getItemType().getName());
-//				}
-//				if(!AppUtil.isEmptyOrNull(obj.getItemUnit())) {
-//					dto.setItemUnitId(obj.getItemUnit().getId());
-//					dto.setItemUnitName(obj.getItemUnit().getName());
-//				}
-//				Collection<ItemType> itemTypes = itemTypeService.findAllById(dto.getItemTypeIds()); 
-//				dto.setItemTypeIds(itemTypes.stream().map(ItemType::getId).collect(Collectors.toSet()));
-//				dto.setItemTypeNames(itemTypes.stream().map(ItemType::getName).collect(Collectors.toSet()));
-//				Collection<ItemUnit> itemUnits = itemUnitService.findAllById(dto.getItemUnitIds()); 
-//				dto.setItemUnitIds(itemUnits.stream().map(ItemUnit::getId).collect(Collectors.toSet()));
-//				dto.setItemUnitNames(itemUnits.stream().map(ItemUnit::getName).collect(Collectors.toSet()));
-				
-//				dto.setExpDateStr(appUtil.getLocalDateStr(obj.getExpDate()));
-//				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
-//				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
-				dtos.add(dto);
-			});
-			return new GenericResponse("SUCCESS",
-					messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItem " + e.getCause());
-			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
-		}
-	}
+    @RequestMapping(value = "/getStock", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getStock(@RequestParam final Long itemId) {
+        try {
+            return client.get("/getStock", "itemId=" + itemId);
+        } catch (Exception e) {
+            LOGGER.error("getStock proxy error", e);
+            return null;
+        }
+    }
 
-	@RequestMapping(value = "/getUserStocks", method = RequestMethod.GET)
-	@ResponseBody
-	public String getUserItems(final HttpServletRequest request) {
-		StringBuffer sb = new StringBuffer();
-		try {
-			Item filterBy = new Item();
-			User user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getId());
-			Example<Item> example = Example.of(filterBy);
-			List<Item> objs = itemService.findAll(example);
-			sb.append("<option value=''>Nothing Selected</option>");
-			objs.forEach(d -> {
-				sb.append("<option value=" + d.getId() + ">" +d.getIcode()+" ~ "+d.getIname() + "</option>");
-			});
-			return sb.toString();
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
-			return (sb.append("<option value=''> Item not available </option>")).toString();
-		}
-	}
+    @RequestMapping(value = "/getStockByBatch", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getStockByBatch(@RequestParam final String batchNo) {
+        try {
+            return client.get("/getStockByBatch", "batchNo=" + batchNo);
+        } catch (Exception e) {
+            LOGGER.error("getStockByBatch proxy error", e);
+            return null;
+        }
+    }
 
-	@RequestMapping(value = "/getStock", method = RequestMethod.GET)
-	@ResponseBody
-	public StockDTO getStock(@RequestParam final Long itemId) {
-		try {
-			if(appUtil.isEmptyOrNull(itemId))
-				return null;
-			
-			Stock obj = new Stock();
-//			obj.setBatchNo(batchNo);
-			obj.setItemId(itemId);
-			Example<Stock> example = Example.of(obj) ;
-			List<Stock> stocks = service.findAll(example);
-			StockDTO dto = new StockDTO();
-			Float stock=0.0F;
-			if(!appUtil.isEmptyOrNull(stocks)) {
-//				return stock.get();
-				for(Stock s:stocks){
-					stock +=s.getStock();
-				}
-				//if sell is item base not batch base then populate first item from the list
-				Stock s = stocks.get(0);
-				dto = modelMapper.map(s, StockDTO.class);
-//				dto.setBpurchaseDiscountType(stocks.get(0).getBpurchaseDiscountType());
-//				dto.setBpurchaseDiscount(stocks.get(0).getBpurchaseDiscount());
-				
-				dto.setStock(stock);
-			}else {
-				dto.setBpurchaseDiscountType("%");
-				dto.setBpurchaseDiscount(0.0F);
-				dto.setStock(0.0F);
-			}
-			//fetch item description
-			Optional<Item> itemOpt = itemService.findById(itemId);
-			if(itemOpt.isPresent()) {
-				dto.setIDesc(itemOpt.get().getIdesc());
-			}else {
-				dto.setIDesc("Item not registered");
-			}
-				
-			return dto;
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
-			return null;
-		}
-	}
+    @RequestMapping(value = "/getBatchesByItem", method = RequestMethod.GET)
+    @ResponseBody
+    public String getBatchesByItem(@RequestParam final Long itemId, final HttpServletRequest request) {
+        try {
+            return client.getString("/getBatchesByItem", "itemId=" + itemId);
+        } catch (Exception e) {
+            LOGGER.error("getBatchesByItem proxy error", e);
+            return "<option value=''> Unable to find item batch </option>";
+        }
+    }
 
-	@RequestMapping(value = "/getStockByBatch", method = RequestMethod.GET)
-	@ResponseBody
-	public Stock getStockByBatch(@RequestParam final String batchNo) {
-			if(appUtil.isEmptyOrNull(batchNo))
-				return null;
-			
-			try {
-				Stock filterBy = new Stock();
-				User user = requestUtil.getCurrentUser();
-				filterBy.setUserId(user.getId());
-				filterBy.setBatchNo(batchNo);
-				Example<Stock> example = Example.of(filterBy) ;
-				return service.findOne(example).get();
-				
-			} catch (Exception e) {
-				e.printStackTrace();
-				LOGGER.error(this.getClass().getName() + " > getStockByBatch " + e.getCause());
-			}
-			return null;
-	}
+    @RequestMapping(value = "/getAllStock", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getAllStock(final HttpServletRequest request) {
+        try {
+            return client.get("/getAllStock");
+        } catch (Exception e) {
+            LOGGER.error("getAllStock proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
 
-	@RequestMapping(value = "/getBatchesByItem", method = RequestMethod.GET)
-	@ResponseBody
-	public String getBatchesByItem(@RequestParam final Long itemId) {
-			if(appUtil.isEmptyOrNull(itemId))
-				return null;
-			
-			StringBuffer sb = new StringBuffer();
-			try {
-				User user = requestUtil.getCurrentUser();
-				Set<String> batches = service.getItemBatch(user.getId(), itemId);
-				sb.append("<option value=''> Nothing Selected </option>");
-				sb.append("<option value='0'> Default </option>");
-				batches.forEach(batch -> {
-					sb.append("<option value='" + batch + "'>" + batch + "</option>");
-				});
-				return sb.toString();
-			} catch (Exception e) {
-				e.printStackTrace();
-				LOGGER.error(this.getClass().getName() + " > getItemBatch " + e.getCause());
-				return (sb.append("<option value=''> Unable to find item batch </option>")).toString();
-			}
-	}
+    @RequestMapping(value = "/addStock", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> addStock(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/addStock", params);
+        } catch (Exception e) {
+            LOGGER.error("addStock proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
 
-	@RequestMapping(value = "/getAllStock", method = RequestMethod.GET)
-	@ResponseBody
-	public GenericResponse getAllStock(final HttpServletRequest request) {
-		try {
-			List<Item> objs = itemService.findAll();
-			if (appUtil.isEmptyOrNull(objs))
-				return new GenericResponse("NOT_FOUND",
-						messages.getMessage("message.userNotFound", null, request.getLocale()));
-
-			List<ItemDTO> dtos = new ArrayList<ItemDTO>();
-			objs.forEach(obj -> {
-				modelMapper.addConverter(appUtil.localDateToString);
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				ItemDTO dto = modelMapper.map(obj, ItemDTO.class);
-//				dto.setCompanyId(obj.getCompany().getId());
-//				dto.setCompanyName(obj.getCompany().getName());
-//				dto.setVenderId(obj.getVender().getId());
-//				dto.setVenderName(obj.getVender().getName());
-//				dto.setItemUnitIds(obj.getItemUnits().stream().map(ItemUnit::getId).collect(Collectors.toSet()));
-//				dto.setItemUnitNames(obj.getItemUnits().stream().map(ItemUnit::getName).collect(Collectors.toSet()));
-//				dto.setItemTypeIds(obj.getItemTypes().stream().map(ItemType::getId).collect(Collectors.toSet()));
-//				dto.setItemTypeNames(obj.getItemTypes().stream().map(ItemType::getName).collect(Collectors.toSet()));
-//				dto.setExpDateStr(appUtil.getLocalDateStr(obj.getExpDate()));
-//				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
-//				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
-				dtos.add(dto);
-			});
-			if (appUtil.isEmptyOrNull(objs)) {
-				return new GenericResponse("NOT_FOUND",
-						messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
-			} else {
-				return new GenericResponse("SUCCESS",
-						messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause());
-			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
-		}
-	}
-
-	@RequestMapping(value = "/addStock", method = RequestMethod.POST)
-	@ResponseBody
-	public GenericResponse addStock(@Validated final ItemDTO dto, final HttpServletRequest request) {
-		try {
-			Item obj= new Item();
-//			LocalDateTime dated = LocalDateTime.now();
-			User user = requestUtil.getCurrentUser();
-			dto.setUserId(user.getId());
-			obj.setUserId(user.getId());
-//			if(appUtil.isEmptyOrNull(dto.getStock()))
-//				dto.setStock(0F);
-//			if(appUtil.isEmptyOrNull(dto.getDiscountType()))
-//				dto.setDiscountType("%");
-			
-			if(appUtil.isEmptyOrNull(dto.getId())){
-//				obj.setUserId(user.getId());
-				obj.setIname(dto.getIname());
-/*				if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
-					obj.setItemType(itemTypeService.getOne(dto.getItemTypeId()));
-				if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
-					obj.setItemUnit(itemUnitService.getOne(dto.getItemUnitId()));
-*/				
-				Example<Item> example = Example.of(obj);
-				if(itemService.exists(example))
-					return new GenericResponse("FOUND",messages.getMessage("The Item "+dto.getIname()+" already exist", null, request.getLocale()));
-			}
-
-			modelMapper.addConverter(appUtil.stringToLocalDate);
-			modelMapper.addConverter(appUtil.stringToLocalDateTime);
-			obj = modelMapper.map(dto, Item.class);
-//			if(!appUtil.isEmptyOrNull(dto.getExpDateStr()))
-//				obj.setExpDate(appUtil.getLocalDate(dto.getExpDateStr()));
-			
-//			obj.setDated(dated);
-//			obj.setUpdated(dated);
-			// add company
-			// add company
-//			if (!AppUtil.isEmptyOrNull(dto.getCompanyId()))
-//				obj.setCompany(companyService.getOne(dto.getCompanyId()));
-//			else
-//				obj.setCompany(null);
-			// add vender
-//			if (!AppUtil.isEmptyOrNull(dto.getVenderId()))
-//				obj.setVender(venderService.getOne(dto.getVenderId()));
-//			else
-//				obj.setVender(null);
-
-//			if (!AppUtil.isEmptyOrNull(dto.getItemTypeIds()))
-//				obj.setItemTypes(itemTypeService.findAllById(dto.getItemTypeIds()));
-//			else
-//				obj.setItemTypes(null);
-
-//			if (!AppUtil.isEmptyOrNull(dto.getItemUnitIds()))
-//				obj.setItemUnits(itemUnitService.findAllById(dto.getItemUnitIds()));
-//			else
-//				obj.setItemUnits(null);
-
-			obj = itemService.save(obj);
-			if (appUtil.isEmptyOrNull(obj.getId())) {
-				return new GenericResponse("FAILED",
-						messages.getMessage("message.userNotFound", null, request.getLocale()));
-			} else {
-				return new GenericResponse("SUCCESS",
-						messages.getMessage("message.userNotFound", null, request.getLocale()));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause());
-			return new GenericResponse("ERROR", messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
-		}
-	}
-
-	@RequestMapping(value = "/deleteStock", method = RequestMethod.POST)
-	@ResponseBody
-	public boolean deleteStock(HttpServletRequest req, HttpServletResponse resp) {
-		try {
-			String ids = req.getParameter("checked");
-			if (!StringUtils.isEmpty(ids)) {
-				String idList[] = ids.split(",");
-				for (String id : idList) {
-					itemService.deleteById(Long.valueOf(id));
-				}
-				return true;// new GenericResponse(messages.getMessage("message.userNotFound", null,
-							// request.getLocale()),"SUCCESS");
-			} else {
-				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null,
-								// request.getLocale()),"SUCCESS");
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > deleteItem " + e.getCause());
-			return false;// new GenericResponse(messages.getMessage("message.userNotFound", null,
-							// request.getLocale()),
-		}
-	}
+    @RequestMapping(value = "/deleteStock", method = RequestMethod.POST)
+    @ResponseBody
+    public Boolean deleteStock(HttpServletRequest req, HttpServletResponse resp) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            params.put("checked", req.getParameter("checked"));
+            return client.postFormBoolean("/deleteStock", params);
+        } catch (Exception e) {
+            LOGGER.error("deleteStock proxy error", e);
+            return false;
+        }
+    }
 }

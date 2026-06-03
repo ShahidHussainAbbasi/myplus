@@ -1,0 +1,166 @@
+name: MyPlus Microservices CI/CD
+
+on:
+  push:
+    branches: [ feature/microservices, main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  JAVA_VERSION: '25'
+  AWS_REGION: us-east-1
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      eureka: ${{ steps.changes.outputs.eureka }}
+      config: ${{ steps.changes.outputs.config }}
+      gateway: ${{ steps.changes.outputs.gateway }}
+      auth: ${{ steps.changes.outputs.auth }}
+      inventory: ${{ steps.changes.outputs.inventory }}
+      business: ${{ steps.changes.outputs.business }}
+      education: ${{ steps.changes.outputs.education }}
+      welfare: ${{ steps.changes.outputs.welfare }}
+      agriculture: ${{ steps.changes.outputs.agriculture }}
+      pharma: ${{ steps.changes.outputs.pharma }}
+      marketplace: ${{ steps.changes.outputs.marketplace }}
+      campaign: ${{ steps.changes.outputs.campaign }}
+      analytics: ${{ steps.changes.outputs.analytics }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            eureka:
+              - 'microservices/eureka-server/**'
+            config:
+              - 'microservices/config-server/**'
+            gateway:
+              - 'microservices/api-gateway/**'
+            auth:
+              - 'microservices/auth-service/**'
+            inventory:
+              - 'microservices/inventory-service/**'
+            business:
+              - 'microservices/business-service/**'
+            education:
+              - 'microservices/education-service/**'
+            welfare:
+              - 'microservices/welfare-service/**'
+            agriculture:
+              - 'microservices/agriculture-service/**'
+            pharma:
+              - 'microservices/pharma-service/**'
+            marketplace:
+              - 'microservices/marketplace-service/**'
+            campaign:
+              - 'microservices/campaign-service/**'
+            analytics:
+              - 'microservices/analytics-service/**'
+
+  build-eureka:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.eureka == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/build-service.yml
+    with:
+      service-name: eureka-server
+      service-port: '8761'
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+  build-config:
+    needs: [detect-changes, build-eureka]
+    if: needs.detect-changes.outputs.config == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/build-service.yml
+    with:
+      service-name: config-server
+      service-port: '8888'
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+  build-gateway:
+    needs: [detect-changes, build-config]
+    if: needs.detect-changes.outputs.gateway == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/build-service.yml
+    with:
+      service-name: api-gateway
+      service-port: '8765'
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+  build-auth:
+    needs: [detect-changes, build-gateway]
+    if: needs.detect-changes.outputs.auth == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/build-service.yml
+    with:
+      service-name: auth-service
+      service-port: '8081'
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+  build-domain-services:
+    needs: [detect-changes, build-auth]
+    if: always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    strategy:
+      matrix:
+        include:
+          - service: inventory-service
+            port: '8082'
+            changed: ${{ needs.detect-changes.outputs.inventory }}
+          - service: business-service
+            port: '8083'
+            changed: ${{ needs.detect-changes.outputs.business }}
+          - service: education-service
+            port: '8084'
+            changed: ${{ needs.detect-changes.outputs.education }}
+          - service: welfare-service
+            port: '8085'
+            changed: ${{ needs.detect-changes.outputs.welfare }}
+          - service: agriculture-service
+            port: '8086'
+            changed: ${{ needs.detect-changes.outputs.agriculture }}
+          - service: pharma-service
+            port: '8087'
+            changed: ${{ needs.detect-changes.outputs.pharma }}
+          - service: marketplace-service
+            port: '8088'
+            changed: ${{ needs.detect-changes.outputs.marketplace }}
+          - service: campaign-service
+            port: '8089'
+            changed: ${{ needs.detect-changes.outputs.campaign }}
+          - service: analytics-service
+            port: '8090'
+            changed: ${{ needs.detect-changes.outputs.analytics }}
+    uses: ./.github/workflows/build-service.yml
+    with:
+      service-name: ${{ matrix.service }}
+      service-port: ${{ matrix.port }}
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+  notify-success:
+    needs: [build-domain-services]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify deployment success
+        run: echo "All services deployed successfully to AWS ECS!"

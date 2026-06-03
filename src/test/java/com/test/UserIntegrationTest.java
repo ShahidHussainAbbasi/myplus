@@ -4,8 +4,8 @@
 
 // import java.util.UUID;
 
-// import javax.persistence.EntityManager;
-// import javax.persistence.PersistenceContext;
+// import jakarta.persistence.EntityManager;
+// import jakarta.persistence.PersistenceContext;
 
 // import com.persistence.Repo.UserRepository;
 // import com.persistence.Repo.VerificationTokenRepository;

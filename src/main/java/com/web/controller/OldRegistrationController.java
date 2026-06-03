@@ -4,8 +4,8 @@ import java.util.Calendar;
 import java.util.Locale;
 import java.util.UUID;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 
 import com.persistence.model.PasswordResetToken;
 import com.persistence.model.User;

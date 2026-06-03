@@ -6,15 +6,16 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToMany;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
 
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
@@ -88,7 +89,11 @@ public class Staff implements Serializable {
 //
     @ManyToMany(fetch = FetchType.EAGER)
 	@NotFound(action=NotFoundAction.IGNORE)
-	@JoinColumn(name = "grade_Ids")
+	@JoinTable(
+		name = "staff_grades",
+		joinColumns = @JoinColumn(name = "staff_id"),
+		inverseJoinColumns = @JoinColumn(name = "grade_id")
+	)
 	private List<Grade> grades;
 
 	// Bi-directional on-to-many association to subject

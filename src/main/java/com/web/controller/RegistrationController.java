@@ -6,9 +6,9 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 
 import com.persistence.model.Privilege;
 import com.persistence.model.User;

@@ -2,7 +2,7 @@ package com.web.dto;
 
 import java.util.List;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import com.persistence.model.Appointment;
 import com.persistence.model.Doctor;

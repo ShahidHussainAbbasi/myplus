@@ -1,6 +1,6 @@
 package com.web.dto;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import com.validation.ValidEmail;
 import com.validation.ValidMobileNumber;

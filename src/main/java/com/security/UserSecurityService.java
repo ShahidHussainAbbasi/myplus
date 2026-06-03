@@ -3,7 +3,7 @@ package com.security;
 import java.util.Arrays;
 import java.util.Calendar;
 
-import javax.transaction.Transactional;
+import jakarta.transaction.Transactional;
 
 import com.persistence.Repo.PasswordResetTokenRepository;
 import com.persistence.model.PasswordResetToken;

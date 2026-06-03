@@ -4,21 +4,26 @@ import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
+// import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.servlet.HandlerInterceptor; // Use interface instead
+import org.springframework.web.servlet.ModelAndView;
+
 
 import com.persistence.model.Activity;
 import com.persistence.model.User;
 import com.service.ActivityService;
 
 @Component
-public class ActivityInterceptor extends HandlerInterceptorAdapter {
+public class ActivityInterceptor implements HandlerInterceptor {
 
     private final ActivityService activityService;
 

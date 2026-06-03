@@ -1,7 +1,7 @@
 package com.persistence.model;
 
 import java.io.Serializable;
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 /**
  * The primary key class for the hospital database table.

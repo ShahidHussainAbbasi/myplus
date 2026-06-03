@@ -19,9 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import org.modelmapper.Converter;
 import org.modelmapper.spi.MappingContext;
@@ -38,13 +37,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.persistence.model.Geolocation;
-import com.persistence.model.business.Sell;
 import com.service.IGeoLocationService;
-import com.web.dto.business.CustomerDTO;
-import com.web.dto.business.CustomerHistoryDTO;
-import com.web.dto.business.SellDTO;
-import com.web.dto.business.StockDTO;
-
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -65,6 +58,7 @@ public class AppUtil {
 
 
 	final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
     final DateTimeFormatter dateformatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     final DateTimeFormatter dateformatterForDB = DateTimeFormatter.ofPattern("yyyy-MM-dd");

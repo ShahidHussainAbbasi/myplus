@@ -92,3 +92,10 @@ Optional Google Authenticator 2FA is handled by `CustomAuthenticationProvider` +
 ### Testing
 
 Tests in `src/test/` use H2 in-memory DB (`TestDbConfig`) and a test-specific Spring context (`TestIntegrationConfig`). Files matching `*IntegrationTest` and `*LiveTest` are excluded from the default `mvn test` run.
+
+## Development Environment
+- OS: Windows 10.0.19045
+- Shell: Git Bash
+- Path format: Windows (use forward slashes in Git Bash)
+- File system: Case-insensitive
+- Line endings: CRLF (configure Git autocrlf)

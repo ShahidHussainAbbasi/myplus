@@ -4,17 +4,18 @@ import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
+import org.hibernate.annotations.NotFound;
 
 import lombok.Data;
 
@@ -45,7 +46,8 @@ public class CustomerHistory implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
-	@ManyToOne(fetch = javax.persistence.FetchType.LAZY, cascade = CascadeType.PERSIST)
+	@ManyToOne(fetch = jakarta.persistence.FetchType.LAZY, cascade = CascadeType.PERSIST)
+	@NotFound(action = org.hibernate.annotations.NotFoundAction.IGNORE)
 	@JoinColumn(name = "customer_id", referencedColumnName = "customer_id", nullable = true)
 	private Customer customer;
 

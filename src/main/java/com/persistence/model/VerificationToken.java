@@ -3,7 +3,7 @@ package com.persistence.model;
 import java.util.Calendar;
 import java.util.Date;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "verification_Token")

@@ -98,10 +98,10 @@ class VenderServiceTest {
         noCompanyVender.setName("No Company Vender");
         noCompanyVender.setCompany(null);
 
-        when(venderRepo.save(noCompanyVender)).thenThrow(new javax.validation.ConstraintViolationException(
+        when(venderRepo.save(noCompanyVender)).thenThrow(new jakarta.validation.ConstraintViolationException(
                 "company_id cannot be null", null));
 
-        assertThrows(javax.validation.ConstraintViolationException.class,
+        assertThrows(jakarta.validation.ConstraintViolationException.class,
                 () -> venderService.save(noCompanyVender));
     }
 
