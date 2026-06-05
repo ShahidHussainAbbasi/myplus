@@ -26,7 +26,7 @@ import com.myplus.business_service.util.GenericResponse;
 import com.myplus.business_service.service.ICompanyService;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.RequestUtil;
-import com.myplus.business_service.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 
 @Controller
 public class CompanyController {

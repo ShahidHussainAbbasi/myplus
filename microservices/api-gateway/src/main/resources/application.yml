@@ -35,54 +35,63 @@ spring:
             - Path=/api/inventory/**
           filters:
             - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: business-service
           uri: lb://business-service
           predicates:
             - Path=/api/business/**
           filters:
             - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: education-service
           uri: lb://education-service
           predicates:
             - Path=/api/education/**
           filters:
             - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: welfare-service
           uri: lb://welfare-service
           predicates:
             - Path=/api/welfare/**
           filters:
             - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: agriculture-service
           uri: lb://agriculture-service
           predicates:
             - Path=/api/agriculture/**
           filters:
             - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: pharma-service
           uri: lb://pharma-service
           predicates:
             - Path=/api/pharma/**
           filters:
             - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: marketplace-service
           uri: lb://marketplace-service
           predicates:
             - Path=/api/marketplace/**
           filters:
             - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: campaign-service
           uri: lb://campaign-service
           predicates:
             - Path=/api/campaign/**
           filters:
             - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: analytics-service
           uri: lb://analytics-service
           predicates:
             - Path=/api/analytics/**
           filters:
             - name: JwtAuthenticationFilter
+            - StripPrefix=2
 
 eureka:
   client:

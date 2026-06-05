@@ -91,15 +91,7 @@ public class AuthService {
         String accessToken = jwtService.generateAccessToken(userDetails, claims);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
-                .tokenType("Bearer")
-                .userId(user.getId())
-                .email(user.getEmail())
-                .roles(CustomUserDetailsService.getRoleNames(user.getRoles()))
-                .twoFactorRequired(false)
-                .build();
+        return buildAuthResponse(user, accessToken, refreshToken.getToken());
     }
 
     @Transactional
@@ -147,15 +139,7 @@ public class AuthService {
         String accessToken = jwtService.generateAccessToken(userDetails, claims);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
-                .tokenType("Bearer")
-                .userId(user.getId())
-                .email(user.getEmail())
-                .roles(CustomUserDetailsService.getRoleNames(user.getRoles()))
-                .twoFactorRequired(false)
-                .build();
+        return buildAuthResponse(user, accessToken, refreshToken.getToken());
     }
 
     @Transactional
@@ -167,13 +151,23 @@ public class AuthService {
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String accessToken = jwtService.generateAccessToken(userDetails, buildClaims(user));
 
+        return buildAuthResponse(user, accessToken, token.getToken());
+    }
+
+    /** Build the standard login/refresh response, including roles + flattened privileges (Model A). */
+    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
         return AuthResponse.builder()
                 .accessToken(accessToken)
-                .refreshToken(token.getToken())
+                .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .userId(user.getId())
                 .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .userType(user.getUserType())
                 .roles(CustomUserDetailsService.getRoleNames(user.getRoles()))
+                .privileges(CustomUserDetailsService.getPrivilegeNames(user.getRoles()))
+                .twoFactorRequired(false)
                 .build();
     }
 
@@ -247,6 +241,9 @@ public class AuthService {
         claims.put("userId", user.getId());
         claims.put("email", user.getEmail());
         claims.put("roles", new ArrayList<>(CustomUserDetailsService.getRoleNames(user.getRoles())));
+        // Privilege-level authorities so privilege-based consumers (the monolith's
+        // @PreAuthorize / sec:authorize checks) can rebuild their authority set from the token.
+        claims.put("privileges", new ArrayList<>(CustomUserDetailsService.getPrivilegeNames(user.getRoles())));
         return claims;
     }
 }

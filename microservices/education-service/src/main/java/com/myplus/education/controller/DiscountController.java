@@ -2,7 +2,7 @@ package com.myplus.education.controller;
 
 import com.myplus.education.dto.ApiResponse;
 import com.myplus.education.dto.EducationDTOs.DiscountDTO;
-import com.myplus.education.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.education.service.DiscountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;

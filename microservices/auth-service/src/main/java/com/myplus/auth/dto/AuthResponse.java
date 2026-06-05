@@ -18,6 +18,13 @@ public class AuthResponse {
     private String tokenType = "Bearer";
     private Long userId;
     private String email;
+    private String firstName;
+    private String lastName;
+    // Drives dashboard routing in the monolith front-end (BUSINESS/EDUCATION/WELFARE/AGRICULTURE).
+    private String userType;
     private Set<String> roles;
+    // Flattened privileges (Model A) so privilege-based clients (the monolith) can rebuild
+    // their authority set directly from the login response without parsing the JWT.
+    private Set<String> privileges;
     private boolean twoFactorRequired;
 }

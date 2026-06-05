@@ -50,4 +50,12 @@ public class CustomUserDetailsService implements UserDetailsService {
     public static Set<String> getRoleNames(Set<Role> roles) {
         return roles.stream().map(Role::getName).collect(Collectors.toSet());
     }
+
+    /** Flattened privilege names across all of the user's roles (e.g. LOGIN_PRIVILEGE, ADD_ITEM). */
+    public static Set<String> getPrivilegeNames(Set<Role> roles) {
+        return roles.stream()
+                .flatMap(role -> role.getPrivileges().stream())
+                .map(Privilege::getName)
+                .collect(Collectors.toSet());
+    }
 }

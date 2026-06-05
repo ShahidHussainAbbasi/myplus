@@ -4,7 +4,7 @@ import com.myplus.analytics.dto.ApiResponse;
 import com.myplus.analytics.dto.PageResponse;
 import com.myplus.analytics.dto.ReportDefinitionDTO;
 import com.myplus.analytics.dto.ReportExecutionDTO;
-import com.myplus.analytics.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.analytics.service.ReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

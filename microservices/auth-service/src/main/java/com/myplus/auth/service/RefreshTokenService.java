@@ -29,13 +29,13 @@ public class RefreshTokenService {
     public RefreshToken createRefreshToken(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
-        refreshTokenRepository.findByUser(user).ifPresent(refreshTokenRepository::delete);
-
-        RefreshToken token = RefreshToken.builder()
-                .user(user)
-                .token(UUID.randomUUID().toString() + "-" + UUID.randomUUID())
-                .expiryDate(Instant.now().plusMillis(refreshTokenExpirationMs))
-                .build();
+        // One refresh token per user (unique user_id). Reuse the existing row and update it in
+        // place — a delete+insert in the same transaction can be reordered by Hibernate into
+        // insert-before-delete, which violates the unique key on a repeat login.
+        RefreshToken token = refreshTokenRepository.findByUser(user)
+                .orElseGet(() -> RefreshToken.builder().user(user).build());
+        token.setToken(UUID.randomUUID().toString() + "-" + UUID.randomUUID());
+        token.setExpiryDate(Instant.now().plusMillis(refreshTokenExpirationMs));
         return refreshTokenRepository.save(token);
     }
 

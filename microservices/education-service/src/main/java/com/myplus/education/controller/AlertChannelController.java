@@ -2,7 +2,7 @@ package com.myplus.education.controller;
 
 import com.myplus.education.dto.ApiResponse;
 import com.myplus.education.dto.EducationDTOs.AlertChannelDTO;
-import com.myplus.education.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.education.service.AlertChannelService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;

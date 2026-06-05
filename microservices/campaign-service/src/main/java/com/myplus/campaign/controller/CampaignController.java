@@ -4,7 +4,7 @@ import com.myplus.campaign.dto.ApiResponse;
 import com.myplus.campaign.dto.CampaignDTO;
 import com.myplus.campaign.dto.CampaignStatsDTO;
 import com.myplus.campaign.dto.PageResponse;
-import com.myplus.campaign.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.campaign.service.CampaignService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

@@ -1,3 +1,18 @@
+# =============================================================================
+# Phase 4 — network isolation + internal-secret enforcement.
+#
+# Only EDGE components publish host ports: mysql (3306, for the external monolith
+# + migration), eureka (8761), config-server (8888) and the api-gateway (8765).
+# The resource services and auth-service use `expose` only, so they are reachable
+# ONLY from inside the private `myplus-net` network (i.e. via the gateway) and
+# cannot be hit directly from the host to forge X-User-* headers.
+#
+# INTERNAL_SECRET is the shared gateway<->service trust token. The gateway stamps
+# X-Internal-Secret; each service's HeaderAuthFilter rejects identity headers that
+# don't carry it. Override per environment; the default below is for local stacks.
+# NOTE: this stack assumes the monolith runs with auth.mode=server (calls flow
+# through the gateway). Legacy direct calls would be rejected once enforced.
+# =============================================================================
 version: '3.8'
 
 services:
@@ -14,6 +29,7 @@ services:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     ports:
       - "3306:3306"
+    networks: [myplus-net]
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pTechnology@2025!"]
       interval: 10s
@@ -26,6 +42,7 @@ services:
     restart: unless-stopped
     ports:
       - "8761:8761"
+    networks: [myplus-net]
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
       interval: 15s
@@ -40,6 +57,7 @@ services:
       - "8888:8888"
     environment:
       EUREKA_URI: http://eureka-server:8761/eureka
+    networks: [myplus-net]
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -59,6 +77,8 @@ services:
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       JWT_SECRET: myplus-super-secret-jwt-key-2025-must-be-at-least-256-bits-long
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       config-server:
         condition: service_healthy
@@ -67,8 +87,8 @@ services:
     build: ./auth-service
     container_name: myplus-auth
     restart: unless-stopped
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
@@ -80,6 +100,7 @@ services:
       SPRING_MAIL_PORT: 587
       SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-email2uncer@gmail.com}
       SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD:-changeme}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
@@ -90,14 +111,16 @@ services:
     build: ./inventory-service
     container_name: myplus-inventory
     restart: unless-stopped
-    ports:
-      - "8082:8082"
+    expose:
+      - "8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_inventory?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Technology@2025!
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
@@ -108,14 +131,16 @@ services:
     build: ./business-service
     container_name: myplus-business
     restart: unless-stopped
-    ports:
-      - "8083:8083"
+    expose:
+      - "8083"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Technology@2025!
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
@@ -126,14 +151,16 @@ services:
     build: ./education-service
     container_name: myplus-education
     restart: unless-stopped
-    ports:
-      - "8084:8084"
+    expose:
+      - "8084"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_education?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Technology@2025!
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
@@ -144,14 +171,16 @@ services:
     build: ./welfare-service
     container_name: myplus-welfare
     restart: unless-stopped
-    ports:
-      - "8085:8085"
+    expose:
+      - "8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_welfare?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Technology@2025!
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
@@ -162,14 +191,16 @@ services:
     build: ./agriculture-service
     container_name: myplus-agriculture
     restart: unless-stopped
-    ports:
-      - "8086:8086"
+    expose:
+      - "8086"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_agriculture?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Technology@2025!
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
@@ -180,14 +211,16 @@ services:
     build: ./pharma-service
     container_name: myplus-pharma
     restart: unless-stopped
-    ports:
-      - "8087:8087"
+    expose:
+      - "8087"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_pharma?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Technology@2025!
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
@@ -198,14 +231,16 @@ services:
     build: ./marketplace-service
     container_name: myplus-marketplace
     restart: unless-stopped
-    ports:
-      - "8088:8088"
+    expose:
+      - "8088"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_marketplace?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Technology@2025!
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
@@ -216,14 +251,16 @@ services:
     build: ./campaign-service
     container_name: myplus-campaign
     restart: unless-stopped
-    ports:
-      - "8089:8089"
+    expose:
+      - "8089"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_campaign?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Technology@2025!
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
@@ -234,19 +271,25 @@ services:
     build: ./analytics-service
     container_name: myplus-analytics
     restart: unless-stopped
-    ports:
-      - "8090:8090"
+    expose:
+      - "8090"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_analytics?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Technology@2025!
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-myplus-internal-trust-secret-2025}
+    networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
       config-server:
         condition: service_healthy
+
+networks:
+  myplus-net:
+    driver: bridge
 
 volumes:
   mysql-data:

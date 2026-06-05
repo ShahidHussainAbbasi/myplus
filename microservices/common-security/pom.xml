@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>common-security</artifactId>
+  <name>common-security</name>
+  <description>Shared gateway-trusted header authentication for all servlet services.</description>
+
+  <!-- Compile-only: every consumer is a Boot web+security service that already supplies these
+       at runtime, so they are 'provided' here and never leak transitively. -->
+  <dependencies>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><optional>true</optional></dependency>
+  </dependencies>
+</project>

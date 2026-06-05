@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.myplus.business_service.repository.CustomerHistoryRepo;
 import com.myplus.business_service.repository.VenderRepo;
-import com.myplus.business_service.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Company;
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;

@@ -9,7 +9,9 @@ spring:
     port: ${MAIL_PORT:465}
     protocol: ${MAIL_PROTOCOL:smtps}
     username: ${MAIL_USER:maxtheservice@gmail.com}
-    password: "${MAIL_PASSWORD:UNC333er!}"
+    # Gmail requires an app-specific password (not the account password). This is the working
+    # value from the monolith's spring.mail.password; override via MAIL_PASSWORD env in prod.
+    password: "${MAIL_PASSWORD:cablbimiovkcqqxy}"
     properties:
       mail:
         transport:

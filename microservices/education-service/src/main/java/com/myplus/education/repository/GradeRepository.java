@@ -11,6 +11,7 @@ import java.util.List;
 @Repository
 public interface GradeRepository extends JpaRepository<Grade, Long> {
     Page<Grade> findByUserId(Long userId, Pageable pageable);
+    List<Grade> findByUserId(Long userId);
     List<Grade> findBySchoolId(Long schoolId);
     long countByUserId(Long userId);
 }

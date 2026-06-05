@@ -6,7 +6,7 @@ import com.myplus.education.repository.GuardianRepository;
 import com.myplus.education.repository.SchoolRepository;
 import com.myplus.education.repository.StaffRepository;
 import com.myplus.education.repository.StudentRepository;
-import com.myplus.education.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;

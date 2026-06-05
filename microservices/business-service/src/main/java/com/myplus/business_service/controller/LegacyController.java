@@ -1,7 +1,7 @@
 // package com.myplus.business_service.controller;
 
 // import com.myplus.business_service.dto.BusinessDTOs.*;
-// import com.myplus.business_service.security.AuthenticatedUser;
+// import com.myplus.common.security.AuthenticatedUser;
 // import com.myplus.business_service.service.*;
 // import lombok.RequiredArgsConstructor;
 // import org.springframework.data.domain.PageRequest;

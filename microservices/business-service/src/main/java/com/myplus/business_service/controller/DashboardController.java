@@ -1,7 +1,7 @@
 package com.myplus.business_service.controller;
 
 import com.myplus.business_service.dto.ApiResponse;
-import com.myplus.business_service.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

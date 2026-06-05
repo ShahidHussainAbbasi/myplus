@@ -20,7 +20,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
-    show-sql: false
+    show-sql: ${JPA_SHOW_SQL:true}
     open-in-view: false
 
 management:
@@ -37,7 +37,23 @@ jwt:
   access-token-expiration-ms: 900000
   refresh-token-expiration-ms: 604800000
 
+# Internal trust secret (Phase 4). The gateway stamps X-Internal-Secret on every authenticated
+# request; each service's HeaderAuthFilter trusts the X-User-* identity headers ONLY when it
+# matches. Empty default = NOT enforced, so adding this config breaks nothing on its own; set the
+# INTERNAL_SECRET env (same value on the gateway and every service) to turn enforcement on. Only
+# enable it once the monolith is on auth.mode=server, otherwise its legacy direct-to-service calls
+# (which carry no secret) will be rejected.
+gateway:
+  internal-secret: ${INTERNAL_SECRET:}
+service:
+  internal-secret: ${INTERNAL_SECRET:}
+
 logging:
   level:
     com.myplus: DEBUG
     org.springframework.web: INFO
+    # SQL + DDL query logging for every config-client service (dev defaults ON;
+    # set these envs to a higher level, e.g. WARN, to quiet them in production).
+    org.hibernate.SQL: ${SQL_LOG_LEVEL:DEBUG}            # DML statements
+    org.hibernate.orm.jdbc.bind: ${SQL_BIND_LOG_LEVEL:TRACE}   # bound parameter values
+    org.hibernate.tool.schema: ${DDL_LOG_LEVEL:DEBUG}   # DDL (create/alter from ddl-auto)

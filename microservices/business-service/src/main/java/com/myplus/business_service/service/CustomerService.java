@@ -16,7 +16,7 @@ import org.springframework.data.repository.query.FluentQuery.FetchableFluentQuer
 import org.springframework.stereotype.Service;
 
 import com.myplus.business_service.repository.CustomerRepo;
-import com.myplus.business_service.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Customer;
 
 import com.myplus.business_service.dto.CustomerHistoryDTO;

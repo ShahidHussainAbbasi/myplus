@@ -29,25 +29,54 @@ public class SetupDataLoader {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void onStart() {
-        log.info("SetupDataLoader: seeding default roles, privileges, and admin user...");
+        log.info("SetupDataLoader: seeding roles, privileges, and admin user...");
 
-        Privilege loginPriv = createPrivilegeIfNotExists("LOGIN_PRIVILEGE");
-        Privilege adminPriv = createPrivilegeIfNotExists("ADMIN_PRIVILEGE");
-        Privilege readPriv = createPrivilegeIfNotExists("READ_PRIVILEGE");
-        Privilege writePriv = createPrivilegeIfNotExists("WRITE_PRIVILEGE");
-        Privilege deletePriv = createPrivilegeIfNotExists("DELETE_PRIVILEGE");
+        // ---- Privilege catalog: mirrors the monolith's role_privileges_*.properties so the JWT
+        //      carries exactly the authorities the monolith (@PreAuthorize / sec:authorize) and the
+        //      microservices check. (Model A: privileges live here and travel in the token.) ----
+        Map<String, Privilege> p = new HashMap<>();
+        for (String name : Arrays.asList(
+                "LOGIN_PRIVILEGE", "READ_PRIVILEGE", "WRITE_PRIVILEGE", "UPDATE_PRIVILEGE",
+                "DELETE_PRIVILEGE", "CHANGE_PASSWORD_PRIVILEGE",
+                "SUPER_PRIVILEGE", "ADMIN_PRIVILEGE", "USER_PRIVILEGE", "GUEST_PRIVILEGE",
+                "GET_COMPANY", "GET_VENDER", "GET_ITEM", "GET_ITEM_TYPE", "GET_ITEM_UNIT",
+                "ADD_COMPANY", "ADD_VENDER", "ADD_ITEM", "ADD_ITEM_TYPE", "ADD_ITEM_UNIT",
+                "UPDATE_COMPANY", "UPDATE_VENDER", "UPDATE_ITEM", "UPDATE_ITEM_TYPE", "UPDATE_ITEM_UNIT",
+                "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT")) {
+            p.put(name, createPrivilegeIfNotExists(name));
+        }
 
-        Set<Privilege> adminPrivileges = new HashSet<>(Arrays.asList(loginPriv, adminPriv, readPriv, writePriv, deletePriv));
-        Set<Privilege> userPrivileges = new HashSet<>(Arrays.asList(loginPriv, readPriv, writePriv));
+        // ---- Privilege groups (cumulative: guest ⊂ user ⊂ admin ⊂ super) ----
+        Set<Privilege> guest = pick(p, "LOGIN_PRIVILEGE", "READ_PRIVILEGE", "GUEST_PRIVILEGE");
+        Set<Privilege> user = new HashSet<>(guest);
+        user.addAll(pick(p, "CHANGE_PASSWORD_PRIVILEGE", "WRITE_PRIVILEGE", "UPDATE_PRIVILEGE", "USER_PRIVILEGE",
+                "GET_COMPANY", "GET_VENDER", "GET_ITEM", "GET_ITEM_TYPE", "GET_ITEM_UNIT",
+                "ADD_COMPANY", "ADD_VENDER", "ADD_ITEM", "ADD_ITEM_TYPE", "ADD_ITEM_UNIT",
+                "UPDATE_COMPANY", "UPDATE_VENDER", "UPDATE_ITEM", "UPDATE_ITEM_TYPE", "UPDATE_ITEM_UNIT"));
+        Set<Privilege> adminPrivileges = new HashSet<>(user);
+        adminPrivileges.addAll(pick(p, "DELETE_PRIVILEGE", "ADMIN_PRIVILEGE",
+                "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT"));
+        Set<Privilege> superSet = new HashSet<>(adminPrivileges);
+        superSet.addAll(pick(p, "SUPER_PRIVILEGE"));
 
-        Role adminRole = createRoleIfNotExists("ROLE_ADMIN", adminPrivileges);
-        createRoleIfNotExists("ROLE_BUSINESS_USER", userPrivileges);
-        createRoleIfNotExists("ROLE_EDUCATION_USER", userPrivileges);
-        createRoleIfNotExists("ROLE_WELFARE_USER", userPrivileges);
-        createRoleIfNotExists("ROLE_AGRICULTURE_USER", userPrivileges);
-        createRoleIfNotExists("ROLE_PHARMA_USER", userPrivileges);
-        createRoleIfNotExists("ROLE_MARKETPLACE_BUYER", userPrivileges);
-        createRoleIfNotExists("ROLE_MARKETPLACE_SELLER", userPrivileges);
+        // ---- Roles: monolith names + existing auth-service names. Privilege sets are refreshed on
+        //      every startup so catalog changes propagate. Re-linking in migration is BY NAME, so all
+        //      monolith role names must exist here (see migrate_monolith_users.sql verification). ----
+        for (String r : Arrays.asList("GUEST_ROLE", "ROLE_BUSINESS_GUEST", "ROLE_GENERAL")) {
+            createOrUpdateRole(r, guest);
+        }
+        for (String r : Arrays.asList("USER_ROLE", "ROLE_USER", "ROLE_BUSINESS_USER", "ROLE_EDUCATION_USER",
+                "ROLE_WELFARE_USER", "ROLE_AGRICULTURE_USER", "ROLE_PHARMA_USER",
+                "ROLE_MARKETPLACE_BUYER", "ROLE_MARKETPLACE_SELLER")) {
+            createOrUpdateRole(r, user);
+        }
+        for (String r : Arrays.asList("ADMIN_ROLE", "ROLE_BUSINESS_ADMIN")) {
+            createOrUpdateRole(r, adminPrivileges);
+        }
+        for (String r : Arrays.asList("SUPER_ROLE", "ROLE_BUSINESS_SUPER")) {
+            createOrUpdateRole(r, superSet);
+        }
+        Role adminRole = createOrUpdateRole("ROLE_ADMIN", superSet);
 
         if (userRepository.findByEmail("admin@myplus.com").isEmpty()) {
             User admin = User.builder()
@@ -71,8 +100,18 @@ public class SetupDataLoader {
                 .orElseGet(() -> privilegeRepository.save(Privilege.builder().name(name).build()));
     }
 
-    private Role createRoleIfNotExists(String name, Set<Privilege> privileges) {
-        return roleRepository.findByName(name)
-                .orElseGet(() -> roleRepository.save(Role.builder().name(name).privileges(privileges).build()));
+    /** Create the role if missing, and (re)assign its privilege set on every run so the catalog stays in sync. */
+    private Role createOrUpdateRole(String name, Set<Privilege> privileges) {
+        Role role = roleRepository.findByName(name).orElseGet(() -> Role.builder().name(name).build());
+        role.setPrivileges(new HashSet<>(privileges));
+        return roleRepository.save(role);
+    }
+
+    private Set<Privilege> pick(Map<String, Privilege> catalog, String... names) {
+        Set<Privilege> set = new HashSet<>();
+        for (String n : names) {
+            set.add(catalog.get(n));
+        }
+        return set;
     }
 }

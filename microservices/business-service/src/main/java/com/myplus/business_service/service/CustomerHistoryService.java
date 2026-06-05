@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 
 import com.myplus.business_service.repository.CustomerHistoryRepo;
 import com.myplus.business_service.repository.ItemRepo;
-import com.myplus.business_service.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
 import com.myplus.business_service.entity.Sell;

@@ -2,7 +2,7 @@ package com.myplus.analytics.controller;
 
 import com.myplus.analytics.dto.ApiResponse;
 import com.myplus.analytics.dto.DashboardWidgetDTO;
-import com.myplus.analytics.security.AuthenticatedUser;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.analytics.service.DashboardService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

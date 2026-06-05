@@ -30,6 +30,12 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     @Value("${jwt.secret}")
     private String jwtSecret;
 
+    // Shared secret stamped on every authenticated request the gateway forwards. Downstream
+    // services trust X-User-* headers only when this matches, so a leaked network position
+    // cannot forge identity headers by hitting a service directly. Empty = not enforced yet.
+    @Value("${gateway.internal-secret:}")
+    private String internalSecret;
+
     private SecretKey signingKey;
 
     private static final List<String> OPEN_API_ENDPOINTS = List.of(
@@ -87,12 +93,21 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 String email = claims.getSubject();
                 Object rolesObj = claims.get("roles");
                 String roles = rolesObj != null ? rolesObj.toString() : "";
+                Object privilegesObj = claims.get("privileges");
+                String privileges = privilegesObj != null ? privilegesObj.toString() : "";
 
-                ServerHttpRequest mutated = request.mutate()
+                ServerHttpRequest.Builder builder = request.mutate()
+                        // Drop any client-supplied secret before stamping our own, so it can
+                        // never be spoofed through the gateway.
+                        .headers(h -> h.remove("X-Internal-Secret"))
                         .header("X-User-Id", userId)
                         .header("X-User-Email", email != null ? email : "")
                         .header("X-User-Roles", roles)
-                        .build();
+                        .header("X-User-Privileges", privileges);
+                if (internalSecret != null && !internalSecret.isEmpty()) {
+                    builder.header("X-Internal-Secret", internalSecret);
+                }
+                ServerHttpRequest mutated = builder.build();
 
                 return chain.filter(exchange.mutate().request(mutated).build());
             } catch (Exception ex) {

@@ -1,50 +1,156 @@
 package com.myplus.education.controller;
 
-import com.myplus.education.dto.ApiResponse;
-import com.myplus.education.dto.EducationDTOs.OwnerDTO;
-import com.myplus.education.security.AuthenticatedUser;
-import com.myplus.education.service.OwnerService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
-@RestController
-@RequestMapping("/api/education/owners")
-@RequiredArgsConstructor
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.myplus.common.security.AuthenticatedUser;
+import com.myplus.education.dto.OwnerDTO;
+import com.myplus.education.entity.Owner;
+import com.myplus.education.repository.OwnerRepository;
+import com.myplus.education.util.AppUtil;
+import com.myplus.education.util.GenericResponse;
+import com.myplus.education.util.RequestUtil;
+
+/** Flat (legacy) Owner endpoints for the monolith education pages. userId-scoped. */
+@Controller
 public class OwnerController {
 
-    private final OwnerService ownerService;
+    @Autowired
+    private OwnerRepository ownerRepository;
+    @Autowired
+    private RequestUtil requestUtil;
+    @Autowired
+    private AppUtil appUtil;
 
-    @GetMapping
-    public ApiResponse<?> getAll(@AuthenticationPrincipal AuthenticatedUser user,
-                                  @RequestParam(defaultValue = "0") int page,
-                                  @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(ownerService.getByUser(user.getUserId(), PageRequest.of(page, size)));
+    private Long userId() {
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        return u == null ? null : u.getUserId();
     }
 
-    @GetMapping("/{id}")
-    public ApiResponse<?> get(@PathVariable Long id) {
-        return ApiResponse.success(ownerService.get(id));
+    private OwnerDTO toDto(Owner o) {
+        OwnerDTO dto = new OwnerDTO();
+        dto.setId(o.getId());
+        dto.setUserId(o.getUserId());
+        dto.setName(o.getName());
+        dto.setEmail(o.getEmail());
+        dto.setMobile(o.getMobile());
+        dto.setAddress(o.getAddress());
+        dto.setStatus(o.getStatus());
+        dto.setDatedStr(appUtil.getDateStr(o.getDated()));
+        dto.setUpdatedStr(appUtil.getDateStr(o.getUpdated()));
+        return dto;
     }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<?> create(@RequestBody OwnerDTO dto,
-                                  @AuthenticationPrincipal AuthenticatedUser user) {
-        dto.setUserId(user.getUserId());
-        return ApiResponse.success(ownerService.create(dto));
+    @RequestMapping(value = "/getUserOwner", method = RequestMethod.GET)
+    @ResponseBody
+    public GenericResponse getUserOwner(final HttpServletRequest request) {
+        try {
+            List<Owner> objs = ownerRepository.findByUserId(userId());
+            if (appUtil.isEmptyOrNull(objs)) {
+                return new GenericResponse("NOT_FOUND", "");
+            }
+            return new GenericResponse("SUCCESS", "", objs.stream().map(this::toDto).collect(Collectors.toList()));
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return new GenericResponse("ERROR", e.getMessage());
+        }
     }
 
-    @PutMapping("/{id}")
-    public ApiResponse<?> update(@PathVariable Long id, @RequestBody OwnerDTO dto) {
-        return ApiResponse.success(ownerService.update(id, dto));
+    @RequestMapping(value = "/getUserOwners", method = RequestMethod.GET)
+    @ResponseBody
+    public String getUserOwners(final HttpServletRequest request) {
+        StringBuffer sb = new StringBuffer();
+        try {
+            List<Owner> objs = ownerRepository.findByUserId(userId());
+            sb.append("<option value=''>Nothing Selected</option>");
+            objs.forEach(d -> {
+                if (d != null && d.getId() != null) {
+                    sb.append("<option value=" + d.getId() + ">" + d.getName() + "</option>");
+                }
+            });
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+        }
+        return sb.toString();
     }
 
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        ownerService.delete(id);
+    @RequestMapping(value = "/getAllOwner", method = RequestMethod.GET)
+    @ResponseBody
+    public GenericResponse getAllOwner(final HttpServletRequest request) {
+        try {
+            List<Owner> all = ownerRepository.findAll();
+            if (appUtil.isEmptyOrNull(all)) {
+                return new GenericResponse("NOT_FOUND", "");
+            }
+            return new GenericResponse("SUCCESS", "", all.stream().map(this::toDto).collect(Collectors.toList()));
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return new GenericResponse("ERROR", e.getMessage());
+        }
+    }
+
+    @RequestMapping(value = "/addOwner", method = RequestMethod.POST)
+    @ResponseBody
+    public GenericResponse addOwner(final OwnerDTO dto, final HttpServletRequest request) {
+        try {
+            Long userId = userId();
+            if (appUtil.isEmptyOrNull(dto.getId())) {
+                boolean exists = ownerRepository.findByUserId(userId).stream()
+                        .anyMatch(o -> o.getName() != null && o.getName().equalsIgnoreCase(dto.getName()));
+                if (exists) {
+                    return new GenericResponse("FOUND", "The Owner '" + dto.getName() + "' already exists");
+                }
+            }
+            Owner obj = (dto.getId() != null)
+                    ? ownerRepository.findById(dto.getId()).orElseGet(Owner::new)
+                    : new Owner();
+            obj.setUserId(userId);
+            obj.setName(dto.getName());
+            obj.setEmail(dto.getEmail());
+            obj.setMobile(dto.getMobile());
+            obj.setAddress(dto.getAddress());
+            obj.setStatus(dto.getStatus());
+            if (obj.getDated() == null) {
+                obj.setDated(LocalDateTime.now());
+            }
+            obj.setUpdated(LocalDateTime.now());
+            Owner saved = ownerRepository.save(obj);
+            return appUtil.isEmptyOrNull(saved)
+                    ? new GenericResponse("FAILED", "")
+                    : new GenericResponse("SUCCESS", "");
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return new GenericResponse("ERROR", e.getMessage());
+        }
+    }
+
+    @RequestMapping(value = "/deleteOwner", method = RequestMethod.POST)
+    @ResponseBody
+    public boolean deleteOwner(HttpServletRequest req) {
+        try {
+            String ids = req.getParameter("checked");
+            if (!StringUtils.isEmpty(ids)) {
+                for (String id : ids.split(",")) {
+                    if (!StringUtils.isEmpty(id)) {
+                        ownerRepository.deleteById(Long.valueOf(id));
+                    }
+                }
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return false;
+        }
     }
 }
