@@ -75,7 +75,7 @@
 			</form>
 			<br /> <a th:href="@{/login}" th:text="#{label.form.loginLink}">login</a>
 		</div>
-		<th:block th:replace="footer :: footer"/>
+		<th:block th:replace="~{footer :: footer}"/>
 	</div>
 
 	<script th:inline="javascript">

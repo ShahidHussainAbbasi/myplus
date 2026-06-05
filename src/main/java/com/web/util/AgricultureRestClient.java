@@ -11,17 +11,15 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 /**
- * Facade for business-module calls. All transport, authentication (Bearer/JWT or legacy X-User-*
- * headers) and token refresh live in {@link GatewayClient}; this class only contributes the
- * {@code /api/business} gateway prefix, the legacy direct base URL, and the method shapes the
- * controllers already use.
+ * Facade for agriculture-module calls. Transport/auth/refresh live in {@link GatewayClient}; this
+ * class supplies the {@code /api/agriculture} gateway prefix and the legacy direct base URL.
  */
 @Component
-public class BusinessRestClient {
+public class AgricultureRestClient {
 
-    private static final String PREFIX = "/api/business";
+    private static final String PREFIX = "/api/agriculture";
 
-    @Value("${business.service.url:http://localhost:8083}")
+    @Value("${agriculture.service.url:http://localhost:8086}")
     private String directBaseUrl;
 
     @Autowired
@@ -39,40 +37,20 @@ public class BusinessRestClient {
         return formData;
     }
 
-    /** GET — returns raw Map (GenericResponse body). */
     public Map<String, Object> get(String path) {
         return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.GET, null, null);
     }
 
-    /** GET with query string appended. */
     public Map<String, Object> get(String path, String queryString) {
         return gateway.forMap(PREFIX, directBaseUrl, withQuery(path, queryString), HttpMethod.GET, null, null);
     }
 
-    /** GET — returns plain String (for HTML option-list endpoints). */
     public String getString(String path) {
         return gateway.forString(PREFIX, directBaseUrl, path, HttpMethod.GET, null, null);
     }
 
-    /** GET — returns plain String with query string. */
-    public String getString(String path, String queryString) {
-        return gateway.forString(PREFIX, directBaseUrl, withQuery(path, queryString), HttpMethod.GET, null, null);
-    }
-
-    /** POST with form params (application/x-www-form-urlencoded). */
     public Map<String, Object> postForm(String path, Map<String, String> params) {
         return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.POST, form(params),
                 MediaType.APPLICATION_FORM_URLENCODED);
-    }
-
-    /** POST with form params — returns boolean. */
-    public Boolean postFormBoolean(String path, Map<String, String> params) {
-        return gateway.forBoolean(PREFIX, directBaseUrl, path, HttpMethod.POST, form(params),
-                MediaType.APPLICATION_FORM_URLENCODED);
-    }
-
-    /** POST with JSON body. */
-    public Map<String, Object> postJson(String path, Object body) {
-        return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.POST, body, MediaType.APPLICATION_JSON);
     }
 }

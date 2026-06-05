@@ -3,7 +3,6 @@ package com.web.dto.business;
 import java.io.Serializable;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.persistence.model.business.Item;
 
 import lombok.Data;
 

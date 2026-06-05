@@ -55,9 +55,13 @@
     <div class="login-right">
         <div class="login-card">
 
+            <div th:if="${param.twofa != null}" class="msg-bar info">
+                <span class="glyphicon glyphicon-qrcode"></span>&nbsp;
+                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Enter the verification code from your authenticator app.'">Enter the verification code from your authenticator app.</span>
+            </div>
             <div th:if="${param.error != null}" class="msg-bar error">
-                <span class="glyphicon glyphicon-exclamation-sign"></span>
-                &nbsp;Invalid username or password. Please try again.
+                <span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;
+                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Invalid username or password. Please try again.'">Invalid username or password. Please try again.</span>
             </div>
             <div th:if="${param.message != null}" class="msg-bar info"
                  th:text="${param.message[0]}"></div>
@@ -84,6 +88,7 @@
                         <span class="glyphicon glyphicon-envelope field-icon"></span>
                         <input id="loginEmail" class="field-input" type="text"
                                name="username" autocomplete="username"
+                               th:value="${session.LAST_USERNAME}"
                                placeholder="Enter your username"/>
                     </div>
                 </div>
@@ -97,6 +102,19 @@
                                name="password" autocomplete="current-password"
                                onkeypress="handleEnterKey(event,'enter','loginSubmit')"
                                placeholder="Enter your password"/>
+                    </div>
+                </div>
+
+                <div class="field-group" style="margin-bottom:24px">
+                    <label class="field-label" for="loginCode">
+                        Authenticator code <span style="opacity:.6">(only if 2FA is enabled)</span>
+                    </label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-qrcode field-icon"></span>
+                        <input id="loginCode" class="field-input" type="text"
+                               name="code" inputmode="numeric" autocomplete="one-time-code"
+                               th:autofocus="${param.twofa != null}"
+                               placeholder="6-digit code"/>
                     </div>
                 </div>
 

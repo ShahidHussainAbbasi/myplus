@@ -23,9 +23,16 @@ import org.springframework.security.web.authentication.RememberMeServices;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationProvider;
+
+import com.security.AuthServerAuthenticationProvider;
 import com.security.CustomRememberMeServices;
+import com.security.RevokeTokenLogoutHandler;
+import com.security.TokenStore;
 import com.security.google2fa.CustomAuthenticationProvider;
 import com.security.google2fa.CustomWebAuthenticationDetailsSource;
+import com.web.util.AuthServerClient;
 
 import java.util.List;
 
@@ -49,6 +56,19 @@ public class SecSecurityConfig {
 
     @Autowired
     private CustomWebAuthenticationDetailsSource authenticationDetailsSource;
+
+    @Autowired
+    private AuthServerClient authServerClient;
+
+    @Autowired
+    private TokenStore tokenStore;
+
+    @Autowired
+    private RevokeTokenLogoutHandler revokeTokenLogoutHandler;
+
+    // 'local' = verify credentials against the local DB (legacy); 'server' = delegate to auth-service JWT.
+    @Value("${auth.mode:local}")
+    private String authMode;
 
     public SecSecurityConfig() {
         super();
@@ -112,6 +132,8 @@ public class SecSecurityConfig {
             //     .sessionFixation(fixation -> fixation.none())
             // )
             .logout(logout -> logout
+                // Revoke the JWT at the auth-service before the session is torn down (server mode).
+                .addLogoutHandler(revokeTokenLogoutHandler)
                 .logoutSuccessHandler(myLogoutSuccessHandler)
                 .invalidateHttpSession(false)
                 .logoutSuccessUrl("/logout.html?logSucc=true")
@@ -129,15 +151,15 @@ public class SecSecurityConfig {
     // Bean Declarations
 
     @Bean
-    public DaoAuthenticationProvider authProvider() {
-        // final CustomAuthenticationProvider authProvider = new CustomAuthenticationProvider();
-        // authProvider.setUserDetailsService(userDetailsService);
-        // authProvider.setPasswordEncoder(encoder());
-        // return authProvider;
-
+    public AuthenticationProvider authProvider() {
+        // Phase 2: delegate to the auth-service (JWT IdP) when auth.mode=server; otherwise keep
+        // verifying credentials against the local DB.
+        if ("server".equalsIgnoreCase(authMode)) {
+            return new AuthServerAuthenticationProvider(authServerClient, tokenStore);
+        }
         final CustomAuthenticationProvider authProvider = new CustomAuthenticationProvider(userDetailsService);
-            authProvider.setPasswordEncoder(encoder());
-            return authProvider;
+        authProvider.setPasswordEncoder(encoder());
+        return authProvider;
     }
 
     @Bean
