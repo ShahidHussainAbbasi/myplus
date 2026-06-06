@@ -180,6 +180,7 @@
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>
+	<script th:src="@{/js/common/dom-safe.js}"></script>
 	<script th:src="@{/js/welfare/welfare.js}"></script>
 	<th:block th:replace="~{fragments/footer :: footer}"/>
 </body>

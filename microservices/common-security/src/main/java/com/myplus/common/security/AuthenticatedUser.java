@@ -17,4 +17,6 @@ public class AuthenticatedUser {
     private Long userId;
     private String email;
     private List<SimpleGrantedAuthority> authorities;
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). May be null. */
+    private Long organizationId;
 }

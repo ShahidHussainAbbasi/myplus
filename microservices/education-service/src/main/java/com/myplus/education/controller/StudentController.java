@@ -50,6 +50,12 @@ public class StudentController {
         return u == null ? null : u.getUserId();
     }
 
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId() {
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        return u == null ? null : u.getOrganizationId();
+    }
+
     private StudentDTO toDto(Student s) {
         StudentDTO dto = new StudentDTO();
         dto.setId(s.getId());
@@ -91,7 +97,7 @@ public class StudentController {
     @ResponseBody
     public GenericResponse getUserStudent(final HttpServletRequest request) {
         try {
-            List<Student> objs = studentRepository.findByUserId(userId());
+            List<Student> objs = studentRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -107,7 +113,7 @@ public class StudentController {
     public String getUserStudents(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Student> objs = studentRepository.findByUserId(userId());
+            List<Student> objs = studentRepository.findScoped(orgId(), userId());
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -124,7 +130,8 @@ public class StudentController {
     @ResponseBody
     public GenericResponse getAllStudent(final HttpServletRequest request) {
         try {
-            List<Student> all = studentRepository.findAll();
+            // Tenant-scoped: "all" means all students in the active organization, not every tenant's.
+            List<Student> all = studentRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -140,8 +147,9 @@ public class StudentController {
     public GenericResponse addStudent(final StudentDTO dto, final HttpServletRequest request) {
         try {
             Long userId = userId();
+            Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId()) && !appUtil.isEmptyOrNull(dto.getEnrollNo())) {
-                boolean exists = studentRepository.findByUserId(userId).stream()
+                boolean exists = studentRepository.findScoped(orgId, userId).stream()
                         .anyMatch(s -> s.getEnrollNo() != null && s.getEnrollNo().equalsIgnoreCase(dto.getEnrollNo()));
                 if (exists) {
                     return new GenericResponse("FOUND", "A student with enroll no '" + dto.getEnrollNo() + "' already exists");
@@ -150,7 +158,8 @@ public class StudentController {
             Student obj = (dto.getId() != null)
                     ? studentRepository.findById(dto.getId()).orElseGet(Student::new)
                     : new Student();
-            obj.setUserId(userId);
+            obj.setUserId(userId);              // audit: who created/edited
+            obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
             obj.setEnrollNo(dto.getEnrollNo());
             obj.setFeeMode(dto.getFeeMode());

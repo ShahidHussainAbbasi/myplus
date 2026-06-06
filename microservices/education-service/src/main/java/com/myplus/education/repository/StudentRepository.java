@@ -4,6 +4,8 @@ import com.myplus.education.entity.Student;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -15,4 +17,9 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     Page<Student> findBySchoolId(Long schoolId, Pageable pageable);
     Page<Student> findByGradeId(Long gradeId, Pageable pageable);
     long countByUserId(Long userId);
+
+    /** Tenant-scoped read: active org rows + caller's not-yet-migrated (NULL-org) rows. See 01-school. */
+    @Query("select s from Student s where s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId)")
+    List<Student> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 }

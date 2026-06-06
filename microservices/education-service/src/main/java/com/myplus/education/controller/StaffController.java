@@ -44,6 +44,12 @@ public class StaffController {
         return u == null ? null : u.getUserId();
     }
 
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId() {
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        return u == null ? null : u.getOrganizationId();
+    }
+
     private StaffDTO toDto(Staff s) {
         StaffDTO dto = new StaffDTO();
         dto.setId(s.getId());
@@ -74,7 +80,7 @@ public class StaffController {
     @ResponseBody
     public GenericResponse getUserStaff(final HttpServletRequest request) {
         try {
-            List<Staff> objs = staffRepository.findByUserId(userId());
+            List<Staff> objs = staffRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -90,7 +96,7 @@ public class StaffController {
     public String getUserStaffs(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Staff> objs = staffRepository.findByUserId(userId());
+            List<Staff> objs = staffRepository.findScoped(orgId(), userId());
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -107,7 +113,8 @@ public class StaffController {
     @ResponseBody
     public GenericResponse getAllStaff(final HttpServletRequest request) {
         try {
-            List<Staff> all = staffRepository.findAll();
+            // Tenant-scoped: "all" means all staff in the active organization, not every tenant's.
+            List<Staff> all = staffRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -123,8 +130,9 @@ public class StaffController {
     public GenericResponse addStaff(final StaffDTO dto, final HttpServletRequest request) {
         try {
             Long userId = userId();
+            Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = staffRepository.findByUserId(userId).stream()
+                boolean exists = staffRepository.findScoped(orgId, userId).stream()
                         .anyMatch(s -> s.getName() != null && s.getName().equalsIgnoreCase(dto.getName()));
                 if (exists) {
                     return new GenericResponse("FOUND", "The Staff '" + dto.getName() + "' already exists");
@@ -133,7 +141,8 @@ public class StaffController {
             Staff obj = (dto.getId() != null)
                     ? staffRepository.findById(dto.getId()).orElseGet(Staff::new)
                     : new Staff();
-            obj.setUserId(userId);
+            obj.setUserId(userId);              // audit: who created/edited
+            obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
             obj.setEmail(dto.getEmail());
             obj.setMobile(dto.getMobile());

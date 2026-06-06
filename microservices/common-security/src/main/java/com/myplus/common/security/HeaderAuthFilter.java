@@ -48,6 +48,7 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
         String email = request.getHeader("X-User-Email");
         String rolesHeader = request.getHeader("X-User-Roles");
         String privilegesHeader = request.getHeader("X-User-Privileges");
+        String orgIdHeader = request.getHeader("X-Org-Id");
 
         if (userId != null && !userId.isBlank() && !"null".equals(userId)) {
             Set<SimpleGrantedAuthority> deduped = new LinkedHashSet<>();
@@ -55,7 +56,8 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
             deduped.addAll(parseAuthorities(privilegesHeader));
             List<SimpleGrantedAuthority> authorities = new ArrayList<>(deduped);
             try {
-                AuthenticatedUser principal = new AuthenticatedUser(Long.valueOf(userId), email, authorities);
+                Long organizationId = parseLongOrNull(orgIdHeader);
+                AuthenticatedUser principal = new AuthenticatedUser(Long.valueOf(userId), email, authorities, organizationId);
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
                 // Also store in request attributes as a reliable fallback.
@@ -64,6 +66,18 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    /** Parse a numeric header into a Long, or null when absent/blank/non-numeric. */
+    private Long parseLongOrNull(String value) {
+        if (value == null || value.isBlank() || "null".equals(value)) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     /** Parse a comma-separated header (tolerating [ ] and quotes) into granted authorities. */

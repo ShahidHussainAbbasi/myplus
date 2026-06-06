@@ -95,15 +95,18 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 String roles = rolesObj != null ? rolesObj.toString() : "";
                 Object privilegesObj = claims.get("privileges");
                 String privileges = privilegesObj != null ? privilegesObj.toString() : "";
+                Object orgObj = claims.get("activeOrgId");
+                String orgId = orgObj != null ? String.valueOf(orgObj) : "";
 
                 ServerHttpRequest.Builder builder = request.mutate()
-                        // Drop any client-supplied secret before stamping our own, so it can
-                        // never be spoofed through the gateway.
-                        .headers(h -> h.remove("X-Internal-Secret"))
+                        // Drop any client-supplied identity/secret headers before stamping our own,
+                        // so they can never be spoofed through the gateway.
+                        .headers(h -> { h.remove("X-Internal-Secret"); h.remove("X-Org-Id"); })
                         .header("X-User-Id", userId)
                         .header("X-User-Email", email != null ? email : "")
                         .header("X-User-Roles", roles)
-                        .header("X-User-Privileges", privileges);
+                        .header("X-User-Privileges", privileges)
+                        .header("X-Org-Id", orgId);
                 if (internalSecret != null && !internalSecret.isEmpty()) {
                     builder.header("X-Internal-Secret", internalSecret);
                 }

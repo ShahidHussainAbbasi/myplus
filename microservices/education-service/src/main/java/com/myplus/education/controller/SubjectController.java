@@ -42,6 +42,12 @@ public class SubjectController {
         return u == null ? null : u.getUserId();
     }
 
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId() {
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        return u == null ? null : u.getOrganizationId();
+    }
+
     private SubjectDTO toDto(Subject s) {
         SubjectDTO dto = new SubjectDTO();
         dto.setId(s.getId());
@@ -65,7 +71,7 @@ public class SubjectController {
     @Transactional(readOnly = true)
     public GenericResponse getUserSubject(final HttpServletRequest request) {
         try {
-            List<Subject> objs = subjectRepository.findByUserId(userId());
+            List<Subject> objs = subjectRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "", new java.util.ArrayList<SubjectDTO>());
             }
@@ -81,7 +87,7 @@ public class SubjectController {
     public String getUserSubjects(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Subject> objs = subjectRepository.findByUserId(userId());
+            List<Subject> objs = subjectRepository.findScoped(orgId(), userId());
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -99,7 +105,8 @@ public class SubjectController {
     @Transactional(readOnly = true)
     public GenericResponse getAllSubject(final HttpServletRequest request) {
         try {
-            List<Subject> all = subjectRepository.findAll();
+            // Tenant-scoped: "all" means all subjects in the active organization, not every tenant's.
+            List<Subject> all = subjectRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "", new java.util.ArrayList<SubjectDTO>());
             }
@@ -116,8 +123,9 @@ public class SubjectController {
     public GenericResponse addSubject(final SubjectDTO dto, final HttpServletRequest request) {
         try {
             Long userId = userId();
+            Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = subjectRepository.findByUserId(userId).stream()
+                boolean exists = subjectRepository.findScoped(orgId, userId).stream()
                         .anyMatch(s -> s.getName() != null && s.getName().equalsIgnoreCase(dto.getName()));
                 if (exists) {
                     return new GenericResponse("FOUND", "The Subject '" + dto.getName() + "' already exists");
@@ -126,7 +134,8 @@ public class SubjectController {
             Subject obj = (dto.getId() != null)
                     ? subjectRepository.findById(dto.getId()).orElseGet(Subject::new)
                     : new Subject();
-            obj.setUserId(userId);
+            obj.setUserId(userId);              // audit: who created/edited
+            obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
             obj.setCode(dto.getCode());
             obj.setPublisher(dto.getPublisher());

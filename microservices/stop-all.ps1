@@ -1,5 +1,10 @@
 # MyPlus Microservices - Stop Services
-# Finds and kills the java processes running the selected myplus JARs.
+# Stops the selected services regardless of HOW they were launched:
+#   * java -jar <service>-1.0.0-SNAPSHOT.jar   (start-all.ps1 style)
+#   * mvn spring-boot:run                       (forks a java app on the service port)
+#   * IDE / debug runs
+# It works by finding the process that OWNS the service's port, plus a jar-name
+# fallback, and also cleans up the parent Maven wrapper when present.
 #
 # Usage (from microservices\ folder):
 #   .\stop-all.ps1 all                          # stop every service
@@ -13,13 +18,23 @@ param(
     [string[]]$Services
 )
 
-# Known services (jar name = <service>-1.0.0-SNAPSHOT.jar)
-$order = @(
-    'eureka-server', 'config-server', 'api-gateway', 'auth-service',
-    'inventory-service', 'business-service', 'education-service',
-    'welfare-service', 'agriculture-service', 'pharma-service',
-    'marketplace-service', 'campaign-service', 'analytics-service'
-)
+# Service -> port (must match start-all.ps1). Order = canonical start order.
+$catalog = [ordered]@{
+    'eureka-server'       = 8761
+    'config-server'       = 8888
+    'api-gateway'         = 8765
+    'auth-service'        = 8081
+    'inventory-service'   = 8082
+    'business-service'    = 8083
+    'education-service'   = 8084
+    'welfare-service'     = 8085
+    'agriculture-service' = 8086
+    'pharma-service'      = 8087
+    'marketplace-service' = 8088
+    'campaign-service'    = 8089
+    'analytics-service'   = 8090
+}
+$order = @($catalog.Keys)
 
 # --- Resolve the requested selection ---
 if (-not $Services -or $Services.Count -eq 0) {
@@ -52,32 +67,64 @@ if (-not $selected -or $selected.Count -eq 0) {
 Write-Host "`n=== Stopping MyPlus Microservices ===" -ForegroundColor Magenta
 Write-Host ("Stopping: {0}" -f ($selected -join ', ')) -ForegroundColor White
 
-# Get-CimInstance works on both Windows PowerShell 5.1 and PowerShell 7+.
+# Snapshot all java processes once (for jar-name fallback + parent lookups).
 $javaProcs = Get-CimInstance Win32_Process -Filter "Name = 'java.exe'" -ErrorAction SilentlyContinue
-if (-not $javaProcs) {
-    Write-Host "No java processes found." -ForegroundColor Yellow
-    exit 0
+
+# Find the PID listening on a TCP port (or $null).
+function Get-PortOwnerPid {
+    param([int]$Port)
+    try {
+        $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop |
+                Select-Object -First 1
+        if ($conn) { return [int]$conn.OwningProcess }
+    } catch { }
+    return $null
 }
 
-# Build the set of jar markers we want to stop.
-$jars = $selected | ForEach-Object { "$_-1.0.0-SNAPSHOT.jar" }
+# Accumulate "pid -> reason" so we kill each process once.
+$toKill = @{}
 
-$stopped = 0
-foreach ($proc in $javaProcs) {
-    $cmdLine = $proc.CommandLine
-    if (-not $cmdLine) { continue }
-    foreach ($jar in $jars) {
-        if ($cmdLine -like "*$jar*") {
-            Write-Host "  Stopping PID $($proc.ProcessId) ($jar) ..." -ForegroundColor Cyan
-            Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
-            $stopped++
-            break
+foreach ($name in $selected) {
+    $jar  = "$name-1.0.0-SNAPSHOT.jar"
+    $port = $catalog[$name]
+
+    # 1) Whoever owns the service port (covers mvn spring-boot:run, jar, IDE runs).
+    $ownerPid = Get-PortOwnerPid -Port $port
+    if ($ownerPid) {
+        $toKill[$ownerPid] = "$name (port $port)"
+
+        # If its parent is the Maven 'spring-boot:run' wrapper, stop that too so
+        # Maven doesn't linger or try to restart the fork.
+        $owner = $javaProcs | Where-Object { $_.ProcessId -eq $ownerPid } | Select-Object -First 1
+        if (-not $owner) {
+            $owner = Get-CimInstance Win32_Process -Filter "ProcessId = $ownerPid" -ErrorAction SilentlyContinue
+        }
+        if ($owner -and $owner.ParentProcessId) {
+            $parent = Get-CimInstance Win32_Process -Filter "ProcessId = $($owner.ParentProcessId)" -ErrorAction SilentlyContinue
+            if ($parent -and $parent.CommandLine -and $parent.CommandLine -like '*spring-boot:run*') {
+                $toKill[[int]$parent.ProcessId] = "$name (mvn spring-boot:run wrapper)"
+            }
+        }
+    }
+
+    # 2) Fallback: jar-name match on the command line (start-all.ps1 style).
+    foreach ($proc in $javaProcs) {
+        if ($proc.CommandLine -and $proc.CommandLine -like "*$jar*") {
+            $toKill[[int]$proc.ProcessId] = "$name ($jar)"
         }
     }
 }
 
-if ($stopped -eq 0) {
+if ($toKill.Count -eq 0) {
     Write-Host "No matching MyPlus service processes found for the selection." -ForegroundColor Yellow
-} else {
-    Write-Host "`nStopped $stopped service(s)." -ForegroundColor Green
+    exit 0
 }
+
+$stopped = 0
+foreach ($procId in $toKill.Keys) {
+    Write-Host ("  Stopping PID {0} - {1} ..." -f $procId, $toKill[$procId]) -ForegroundColor Cyan
+    Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+    if ($?) { $stopped++ }
+}
+
+Write-Host "`nStopped $stopped process(es)." -ForegroundColor Green

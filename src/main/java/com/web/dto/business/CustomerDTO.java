@@ -3,6 +3,7 @@ package com.web.dto.business;
 import java.io.Serializable;
 import java.time.LocalDate;
 import com.validation.ValidateEmpty;
+import com.security.SafeText;
 
 import lombok.Data;
 
@@ -18,16 +19,20 @@ public class CustomerDTO implements Serializable {
 	private Long customerId;
 
 	@ValidateEmpty(message = "Customer name is required")
+	@SafeText
 	private String name;
 
-	private String customerType;	
+	private String customerType;
 
 	// @ValidMobileNumber(message = "Invalid contact number")
+	@SafeText
 	private String contact;
 
 	// @ValidateEmpty(message = "Customer email is required")
+	@SafeText
 	private String email;
 
+	@SafeText
 	private String address;
 
 	// @ValidateEmpty(message = "Paid amount is required")

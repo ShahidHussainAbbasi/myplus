@@ -94,10 +94,10 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
 
     //Navigate user to the dash board on the base of user type 
     protected String determineTargetUrl(final Authentication authentication) {
-         if (authentication.getPrincipal() instanceof User) {
+             if (authentication.getPrincipal() instanceof User) {
         	 User user = ((User)authentication.getPrincipal());
         	 if(!appUtil.isEmptyOrNull(user) && !appUtil.isEmptyOrNull(user.getUserType())){
-        		 return "/"+user.getUserType().toLowerCase()+"Dashboard";
+            		 return "/"+user.getUserType().toLowerCase()+"Dashboard";
             }else {
                 return "/";
             }

@@ -157,7 +157,7 @@ $(document).ready(function() {
 	            		$("#"+tableV.toLowerCase()+capitalize(item.field)).addClass("alert-danger");
 	            	}
 	            	else {
-	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
+	            		$("#globalError").show().append(escHtml(item.defaultMessage)+"<br/>");
 	            	}
 	         	});
             }
@@ -227,8 +227,8 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=donationId>"+ obj.id+ "</div>","<input type='checkbox' value='"+ obj.id+ "' id='abc'>",
-							"<div id=donationDonatorDD>"+obj.donatorName+"</div>", "<div id=donationAmount>"+obj.amount+"</div>", 
-							"<div id=donationReceivedBy>"+obj.receivedBy+"</div>", "<div id=donationDated>"+obj.datedStr+"</div>"
+							"<div id=donationDonatorDD>"+escHtml(obj.donatorName)+"</div>", "<div id=donationAmount>"+escHtml(obj.amount)+"</div>", 
+							"<div id=donationReceivedBy>"+escHtml(obj.receivedBy)+"</div>", "<div id=donationDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -237,9 +237,9 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=donatorId>"+ obj.id+ "</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=donatorName>"+obj.name+"</div>", "<div id=donatorFName>"+obj.fName+"</div>",
-							"<div id=donatorMobile>"+obj.mobile+"</div>", "<div id=donatorAddress>"+obj.address+"</div>",
-							"<div id=donatorDated>"+obj.datedStr+"</div>"
+							"<div id=donatorName>"+escHtml(obj.name)+"</div>", "<div id=donatorFName>"+escHtml(obj.fName)+"</div>",
+							"<div id=donatorMobile>"+escHtml(obj.mobile)+"</div>", "<div id=donatorAddress>"+escHtml(obj.address)+"</div>",
+							"<div id=donatorDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -248,10 +248,10 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<div id=donationsId>"+ obj.id+ "</div>","<div id=donationsrName>"+obj.name+"</div>", "<div id=donationsFName>"+obj.fName+"</div>",
-							"<div id=donationsMobile>"+obj.mobile+"</div>", "<div id=donationsAddress>"+obj.address+"</div>", 
-							"<div id=donationsAmount>"+obj.amount+"</div>", "<div id=donationsReceivedBy>"+obj.receivedBy+"</div>",
-							"<div id=donationsDated>"+obj.datedStr+"</div>"
+							"<div id=donationsId>"+ obj.id+ "</div>","<div id=donationsrName>"+escHtml(obj.name)+"</div>", "<div id=donationsFName>"+escHtml(obj.fName)+"</div>",
+							"<div id=donationsMobile>"+escHtml(obj.mobile)+"</div>", "<div id=donationsAddress>"+escHtml(obj.address)+"</div>", 
+							"<div id=donationsAmount>"+escHtml(obj.amount)+"</div>", "<div id=donationsReceivedBy>"+escHtml(obj.receivedBy)+"</div>",
+							"<div id=donationsDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});

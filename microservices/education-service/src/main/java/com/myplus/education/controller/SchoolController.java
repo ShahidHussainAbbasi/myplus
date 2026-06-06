@@ -49,6 +49,12 @@ public class SchoolController {
         return user == null ? null : user.getUserId();
     }
 
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId() {
+        AuthenticatedUser user = requestUtil.getCurrentUser();
+        return user == null ? null : user.getOrganizationId();
+    }
+
     private SchoolDTO toDto(School s, boolean withOwners) {
         SchoolDTO dto = new SchoolDTO();
         dto.setId(s.getId());
@@ -72,7 +78,7 @@ public class SchoolController {
     @ResponseBody
     public String getMainBranchName() {
         try {
-            List<School> objs = schoolRepository.findByUserId(userId());
+            List<School> objs = schoolRepository.findScoped(orgId(), userId());
             return appUtil.isEmptyOrNull(objs) ? "" : objs.get(0).getName();
         } catch (Exception e) {
             appUtil.le(getClass(), e);
@@ -85,7 +91,7 @@ public class SchoolController {
     @Transactional(readOnly = true)
     public GenericResponse getUserSchool(final HttpServletRequest request) {
         try {
-            List<School> objs = schoolRepository.findByUserId(userId());
+            List<School> objs = schoolRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -102,7 +108,7 @@ public class SchoolController {
     public String getUserSchools(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<School> schools = schoolRepository.findByUserId(userId());
+            List<School> schools = schoolRepository.findScoped(orgId(), userId());
             if (!appUtil.isEmptyOrNull(schools) && schools.size() > 1) {
                 sb.append("<option value=''>Nothing Selected</option>");
             }
@@ -122,7 +128,8 @@ public class SchoolController {
     @Transactional(readOnly = true)
     public GenericResponse getAllSchool(final HttpServletRequest request) {
         try {
-            List<School> all = schoolRepository.findAll();
+            // Tenant-scoped: "all" means all branches in the active organization, not every tenant's.
+            List<School> all = schoolRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "", new ArrayList<SchoolDTO>());
             }
@@ -140,9 +147,10 @@ public class SchoolController {
     public GenericResponse addSchool(final SchoolDTO dto, final HttpServletRequest request) {
         try {
             Long userId = userId();
-            // Duplicate branch check on create.
+            Long orgId = orgId();
+            // Duplicate branch check on create — scoped to the active tenant.
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = schoolRepository.findByUserId(userId).stream()
+                boolean exists = schoolRepository.findScoped(orgId, userId).stream()
                         .anyMatch(s -> s.getBranchName() != null && s.getBranchName().equalsIgnoreCase(dto.getBranchName()));
                 if (exists) {
                     return new GenericResponse("FOUND", "The School branch '" + dto.getBranchName() + "' already exists");
@@ -152,7 +160,8 @@ public class SchoolController {
             School obj = (dto.getId() != null)
                     ? schoolRepository.findById(dto.getId()).orElseGet(School::new)
                     : new School();
-            obj.setUserId(userId);
+            obj.setUserId(userId);          // audit: who created/edited
+            obj.setOrganizationId(orgId);   // tenant scope
             obj.setName(dto.getName());
             obj.setBranchName(dto.getBranchName());
             obj.setEmail(dto.getEmail());

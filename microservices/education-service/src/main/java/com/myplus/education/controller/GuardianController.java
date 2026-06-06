@@ -37,6 +37,12 @@ public class GuardianController {
         return u == null ? null : u.getUserId();
     }
 
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId() {
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        return u == null ? null : u.getOrganizationId();
+    }
+
     private GuardianDTO toDto(Guardian g) {
         GuardianDTO dto = new GuardianDTO();
         dto.setId(g.getId());
@@ -61,7 +67,7 @@ public class GuardianController {
     @ResponseBody
     public GenericResponse getUserGuardian(final HttpServletRequest request) {
         try {
-            List<Guardian> objs = guardianRepository.findByUserId(userId());
+            List<Guardian> objs = guardianRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -77,7 +83,7 @@ public class GuardianController {
     public String getUserGuardians(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Guardian> objs = guardianRepository.findByUserId(userId());
+            List<Guardian> objs = guardianRepository.findScoped(orgId(), userId());
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -94,7 +100,8 @@ public class GuardianController {
     @ResponseBody
     public GenericResponse getAllGuardian(final HttpServletRequest request) {
         try {
-            List<Guardian> all = guardianRepository.findAll();
+            // Tenant-scoped: "all" means all guardians in the active organization, not every tenant's.
+            List<Guardian> all = guardianRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -110,8 +117,9 @@ public class GuardianController {
     public GenericResponse addGuardian(final GuardianDTO dto, final HttpServletRequest request) {
         try {
             Long userId = userId();
+            Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = guardianRepository.findByUserId(userId).stream()
+                boolean exists = guardianRepository.findScoped(orgId, userId).stream()
                         .anyMatch(g -> g.getName() != null && g.getName().equalsIgnoreCase(dto.getName())
                                 && g.getCnic() != null && g.getCnic().equalsIgnoreCase(dto.getCnic()));
                 if (exists) {
@@ -121,7 +129,8 @@ public class GuardianController {
             Guardian obj = (dto.getId() != null)
                     ? guardianRepository.findById(dto.getId()).orElseGet(Guardian::new)
                     : new Guardian();
-            obj.setUserId(userId);
+            obj.setUserId(userId);              // audit: who created/edited
+            obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
             obj.setEmail(dto.getEmail());
             obj.setMobile(dto.getMobile());

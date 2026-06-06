@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.myplus.business_service.entity.enums.CustomerType;
 import com.myplus.business_service.validation.ValidMobileNumber;
 import com.myplus.business_service.validation.ValidateEmpty;
+import com.myplus.common.security.SafeText;
 
 import lombok.Data;
 
@@ -23,16 +24,20 @@ public class CustomerDTO implements Serializable {
 	private Long customerId;
 
 	@ValidateEmpty(message = "Customer name is required")
+	@SafeText
 	private String name;
 
-	private CustomerType customerType;	
+	private CustomerType customerType;
 
 	// @ValidMobileNumber(message = "Invalid contact number")
+	@SafeText
 	private String contact;
 
 	// @ValidateEmpty(message = "Customer email is required")
+	@SafeText
 	private String email;
 
+	@SafeText
 	private String address;
 
 	// @ValidateEmpty(message = "Paid amount is required")

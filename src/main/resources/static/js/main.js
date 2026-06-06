@@ -532,11 +532,11 @@ $(document).ready(function() {
 	         	$.each( errors, function( index,item ){
 	            	if (item.field){
 	            		$("[name="+item.field+"]").addClass("alert-danger");
-	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
+	            		$("#globalError").show().append(escHtml(item.defaultMessage)+"<br/>");
 	            		$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
 	            	}
 	            	else {
-	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
+	            		$("#globalError").show().append(escHtml(item.defaultMessage)+"<br/>");
 	            		$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
 	            	}
 	         	});

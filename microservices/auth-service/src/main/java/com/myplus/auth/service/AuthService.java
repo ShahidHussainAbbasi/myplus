@@ -34,6 +34,7 @@ public class AuthService {
     private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
+    private final OrganizationService organizationService;
 
     @Value("${app.verification-token-expiry-hours:24}")
     private int verificationTokenExpiryHours;
@@ -244,6 +245,10 @@ public class AuthService {
         // Privilege-level authorities so privilege-based consumers (the monolith's
         // @PreAuthorize / sec:authorize checks) can rebuild their authority set from the token.
         claims.put("privileges", new ArrayList<>(CustomUserDetailsService.getPrivilegeNames(user.getRoles())));
+        // Active tenant: every user is their own tenant ("tenant #1") until multi-org join flows exist.
+        // Auto-creates the org + OWNER membership on first login so domain data has a home once
+        // domains move from userId- to org-scoping.
+        claims.put("activeOrgId", organizationService.getOrCreatePrimaryOrg(user).getId());
         return claims;
     }
 }

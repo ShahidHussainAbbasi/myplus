@@ -41,6 +41,12 @@ public class GradeController {
         return u == null ? null : u.getUserId();
     }
 
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId() {
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        return u == null ? null : u.getOrganizationId();
+    }
+
     private GradeDTO toDto(Grade g) {
         GradeDTO dto = new GradeDTO();
         dto.setId(g.getId());
@@ -67,7 +73,7 @@ public class GradeController {
     @ResponseBody
     public GenericResponse getUserGrade(final HttpServletRequest request) {
         try {
-            List<Grade> objs = gradeRepository.findByUserId(userId());
+            List<Grade> objs = gradeRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -83,7 +89,7 @@ public class GradeController {
     public String getUserGrades(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Grade> objs = gradeRepository.findByUserId(userId());
+            List<Grade> objs = gradeRepository.findScoped(orgId(), userId());
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -100,7 +106,8 @@ public class GradeController {
     @ResponseBody
     public GenericResponse getAllGrade(final HttpServletRequest request) {
         try {
-            List<Grade> all = gradeRepository.findAll();
+            // Tenant-scoped: "all" means all grades in the active organization, not every tenant's.
+            List<Grade> all = gradeRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -116,8 +123,9 @@ public class GradeController {
     public GenericResponse addGrade(final GradeDTO dto, final HttpServletRequest request) {
         try {
             Long userId = userId();
+            Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = gradeRepository.findByUserId(userId).stream().anyMatch(g ->
+                boolean exists = gradeRepository.findScoped(orgId, userId).stream().anyMatch(g ->
                         g.getName() != null && g.getName().equalsIgnoreCase(dto.getName())
                                 && java.util.Objects.equals(g.getSchoolId(), dto.getSchoolId()));
                 if (exists) {
@@ -127,7 +135,8 @@ public class GradeController {
             Grade obj = (dto.getId() != null)
                     ? gradeRepository.findById(dto.getId()).orElseGet(Grade::new)
                     : new Grade();
-            obj.setUserId(userId);
+            obj.setUserId(userId);              // audit: who created/edited
+            obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
             obj.setCode(dto.getCode());
             obj.setSection(dto.getSection());

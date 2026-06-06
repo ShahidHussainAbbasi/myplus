@@ -247,51 +247,51 @@ function loadDataTable(){
 				if (getAll === "Owner") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=ownerId>"+obj.id+"</div>",
-							"<input type='checkbox' value='"+ obj.id+ "' id='abc'>","<div id=ownerName>"+obj.name+"</div>", 
-							"<div id=ownerMobile>"+obj.mobile+"</div>","<div id=ownerAddress>"+obj.address+"</div>",
-							"<div id=ownerEmail>"+obj.email+"</div>", "<div id=ownerStatus>"+obj.status+"</div>",
-							"<div id=ownerDated>"+obj.datedStr+"</div>"
+							"<div id=ownerId>"+escHtml(obj.id)+"</div>",
+							"<input type='checkbox' value='"+ obj.id+ "' id='abc'>","<div id=ownerName>"+escHtml(obj.name)+"</div>", 
+							"<div id=ownerMobile>"+escHtml(obj.mobile)+"</div>","<div id=ownerAddress>"+escHtml(obj.address)+"</div>",
+							"<div id=ownerEmail>"+escHtml(obj.email)+"</div>", "<div id=ownerStatus>"+escHtml(obj.status)+"</div>",
+							"<div id=ownerDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "School") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=schoolId>"+obj.id+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=schoolOwnerDD>"+obj.ownerNames+"</div>","<div id=schoolAddress>"+obj.address+"</div>",/*"<div id=schoolName>"+obj.name+"</div>",*/
-							"<div id=schoolBranchName>"+obj.branchName+"</div>","<div id=schoolPhone>"+obj.phone+"</div>",
-							"<div id=schoolEmail>"+obj.email+"</div>",
-							"<div id=schoolStatus>"+obj.status+"</div>",
-							"<div id=schoolDated>"+obj.datedStr+"</div>"
+							"<div id=schoolId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
+							"<div id=schoolOwnerDD>"+escHtml(obj.ownerNames)+"</div>","<div id=schoolAddress>"+escHtml(obj.address)+"</div>",/*"<div id=schoolName>"+escHtml(obj.name)+"</div>",*/
+							"<div id=schoolBranchName>"+escHtml(obj.branchName)+"</div>","<div id=schoolPhone>"+escHtml(obj.phone)+"</div>",
+							"<div id=schoolEmail>"+escHtml(obj.email)+"</div>",
+							"<div id=schoolStatus>"+escHtml(obj.status)+"</div>",
+							"<div id=schoolDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Grade") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=gradeId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=gradeSchoolDD>"+obj.schoolName+"</div>","<div id=gradeName>"+obj.name+"</div>", 
-							"<div id=gradeCode>"+obj.code+"</div>","<div id=gradeFee>"+obj.fee+"</div>",
-							"<div id=gradeTimeFromStr>"+obj.timeFromStr+"</div>", 
-							"<div id=gradeTimeToStr>"+obj.timeToStr+"</div>", "<div id=gradeRoom>"+obj.room+"</div>",
-							"<div id=gradeStatus>"+obj.status+"</div>","<div id=gradeRoomDated>"+obj.datedStr+"</div>"
+							"<div id=gradeId>"+escHtml(obj.id)+"</div>", "<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=gradeSchoolDD>"+escHtml(obj.schoolName)+"</div>","<div id=gradeName>"+escHtml(obj.name)+"</div>", 
+							"<div id=gradeCode>"+escHtml(obj.code)+"</div>","<div id=gradeFee>"+escHtml(obj.fee)+"</div>",
+							"<div id=gradeTimeFromStr>"+escHtml(obj.timeFromStr)+"</div>", 
+							"<div id=gradeTimeToStr>"+escHtml(obj.timeToStr)+"</div>", "<div id=gradeRoom>"+escHtml(obj.room)+"</div>",
+							"<div id=gradeStatus>"+escHtml(obj.status)+"</div>","<div id=gradeRoomDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Staff") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=staffId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=staffName>"+obj.name+"</div>", "<div id=staffEmail>"+obj.email+"</div>",
-							"<div id=staffMobile>"+obj.mobile+"</div>", "<div id=staffPhone>"+obj.phone+"</div>", 
-							"<div id=staffTimeInStr>"+obj.timeInStr+"</div>", "<div id=staffTimeOutStr>"+obj.timeOutStr+"</div>",
-							"<div id=staffDesignation>"+obj.designation+"</div>", "<div id=staffQualification>"+obj.qualification+"</div>",
-							/*"<div id=staffSchoolDD>"+obj.schoolNames+"</div>",*/ 
-							"<div id=staffGradeDD>"+obj.gradeNames+"</div>", "<div id=staffGender>"+obj.gender+"</div>",
-							"<div id=staffDOB>"+obj.staffDOB+"</div>","<div id=staffMartialStatus>"+obj.martialStatus+"</div>",
-							 "<div id=staffAddress>"+obj.address+"</div>","<div id=staffStatus>"+obj.status+"</div>",
-							 "<div id=staffDated>"+obj.datedStr+"</div>"
+							"<div id=staffId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=staffName>"+escHtml(obj.name)+"</div>", "<div id=staffEmail>"+escHtml(obj.email)+"</div>",
+							"<div id=staffMobile>"+escHtml(obj.mobile)+"</div>", "<div id=staffPhone>"+escHtml(obj.phone)+"</div>", 
+							"<div id=staffTimeInStr>"+escHtml(obj.timeInStr)+"</div>", "<div id=staffTimeOutStr>"+escHtml(obj.timeOutStr)+"</div>",
+							"<div id=staffDesignation>"+escHtml(obj.designation)+"</div>", "<div id=staffQualification>"+escHtml(obj.qualification)+"</div>",
+							/*"<div id=staffSchoolDD>"+escHtml(obj.schoolNames)+"</div>",*/ 
+							"<div id=staffGradeDD>"+escHtml(obj.gradeNames)+"</div>", "<div id=staffGender>"+escHtml(obj.gender)+"</div>",
+							"<div id=staffDOB>"+escHtml(obj.staffDOB)+"</div>","<div id=staffMartialStatus>"+escHtml(obj.martialStatus)+"</div>",
+							 "<div id=staffAddress>"+escHtml(obj.address)+"</div>","<div id=staffStatus>"+escHtml(obj.status)+"</div>",
+							 "<div id=staffDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -299,12 +299,12 @@ function loadDataTable(){
 					var i=0;
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=guardianId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=guardianName>"+obj.name+"</div>", "<div id=guardianMobile>"+obj.mobile+"</div>", 
-							"<div id=relationDD>"+obj.relation+"</div>", "<div id=guardianPermAddress>"+obj.permAddress+"</div>",
-							"<div id=guardianEmail>"+obj.email+"</div>", "<div id=guardianPhone>"+obj.phone+"</div>", 
-							"<div id=guardianCNIC>"+obj.cnic+"</div>", "<div id=guardianOccupation>"+obj.occupation+"</div>",
-							"<div id=guardianStatus>"+obj.status+"</div>","<div id=guardianDated>"+obj.datedStr+"</div>"
+							"<div id=guardianId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=guardianName>"+escHtml(obj.name)+"</div>", "<div id=guardianMobile>"+escHtml(obj.mobile)+"</div>", 
+							"<div id=relationDD>"+escHtml(obj.relation)+"</div>", "<div id=guardianPermAddress>"+escHtml(obj.permAddress)+"</div>",
+							"<div id=guardianEmail>"+escHtml(obj.email)+"</div>", "<div id=guardianPhone>"+escHtml(obj.phone)+"</div>", 
+							"<div id=guardianCNIC>"+escHtml(obj.cnic)+"</div>", "<div id=guardianOccupation>"+escHtml(obj.occupation)+"</div>",
+							"<div id=guardianStatus>"+escHtml(obj.status)+"</div>","<div id=guardianDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -315,20 +315,20 @@ function loadDataTable(){
 						en = obj.enrollNo;
 						++i;//Adding new enroll number
 						arr = [
-							"<div id=studentId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=studentEnrollNo>"+obj.enrollNo+"</div>","<div id=studentStatus>"+obj.status+"</div>","<div id=studentEnrollDate>"+obj.enrollDate+"</div>",
-							"<div id=studentName>"+obj.name+"</div>","<div id=studentSchoolDD>"+obj.schoolName+"</div>",
-							"<div id=studentGradeDD>"+obj.gradeName+"</div>","<div id=studentGuardianDD>"+obj.guardianName+"</div>",
-							"<div id=studentGender>"+obj.gender+"</div>","<div id=studentFee>"+obj.fee+"</div>","<div id=studentFeeMode>"+obj.feeMode+"</div>",
-							"<div id=studentMN>"+obj.mn+"</div>","<div id=studentBloodBroup>"+obj.bloodGroup+"</div>",
-							"<div id=studentVehicleDD>"+obj.vehicleName+"</div>","<div id=studentvf>"+obj.vf+"</div>",
-							"<div id=studentDateOfBirth>"+obj.dateOfBirth+"</div>","<div id=studentPOB>"+obj.pob+"</div>",
-							"<div id=studentDiscountDD>"+obj.discountName+"</div>","<div id=studentND>"+obj.nd+"</div>",
-							"<div id=studentDIDD>"+obj.di+"</div>","<div id=studentDueDay>"+obj.dueDay+"</div>",
-							"<div id=studentMobile>"+obj.mobile+"</div>","<div id=studentWA>"+obj.wa+"</div>",
-							"<div id=studentEmail>"+obj.email+"</div>","<div id=studentAddress>"+obj.address+"</div>",
-							"<div id=studentDated>"+obj.updatedStr+"</div>",
-							"<div id=studentYS>"+obj.ys+"</div>","<div id=studentYE>"+obj.ye+"</div>"
+							"<div id=studentId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=studentEnrollNo>"+escHtml(obj.enrollNo)+"</div>","<div id=studentStatus>"+escHtml(obj.status)+"</div>","<div id=studentEnrollDate>"+escHtml(obj.enrollDate)+"</div>",
+							"<div id=studentName>"+escHtml(obj.name)+"</div>","<div id=studentSchoolDD>"+escHtml(obj.schoolName)+"</div>",
+							"<div id=studentGradeDD>"+escHtml(obj.gradeName)+"</div>","<div id=studentGuardianDD>"+escHtml(obj.guardianName)+"</div>",
+							"<div id=studentGender>"+escHtml(obj.gender)+"</div>","<div id=studentFee>"+escHtml(obj.fee)+"</div>","<div id=studentFeeMode>"+escHtml(obj.feeMode)+"</div>",
+							"<div id=studentMN>"+escHtml(obj.mn)+"</div>","<div id=studentBloodBroup>"+escHtml(obj.bloodGroup)+"</div>",
+							"<div id=studentVehicleDD>"+escHtml(obj.vehicleName)+"</div>","<div id=studentvf>"+escHtml(obj.vf)+"</div>",
+							"<div id=studentDateOfBirth>"+escHtml(obj.dateOfBirth)+"</div>","<div id=studentPOB>"+escHtml(obj.pob)+"</div>",
+							"<div id=studentDiscountDD>"+escHtml(obj.discountName)+"</div>","<div id=studentND>"+escHtml(obj.nd)+"</div>",
+							"<div id=studentDIDD>"+escHtml(obj.di)+"</div>","<div id=studentDueDay>"+escHtml(obj.dueDay)+"</div>",
+							"<div id=studentMobile>"+escHtml(obj.mobile)+"</div>","<div id=studentWA>"+escHtml(obj.wa)+"</div>",
+							"<div id=studentEmail>"+escHtml(obj.email)+"</div>","<div id=studentAddress>"+escHtml(obj.address)+"</div>",
+							"<div id=studentDated>"+escHtml(obj.updatedStr)+"</div>",
+							"<div id=studentYS>"+escHtml(obj.ys)+"</div>","<div id=studentYE>"+escHtml(obj.ye)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -339,11 +339,11 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<div id=subjectId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=subjectGradeDD>"+obj.gradeName+"</div>",
-							"<div id=subjectName>"+obj.name+"</div>", "<div id=subjectCode>"+obj.code+"</div>",
-							"<div id=subjectPublisher>"+obj.publisher+"</div>", "<div id=subjectEdition>"+obj.edition+"</div>", 
-							"<div id=subjectStatus>"+obj.status+"</div>","<div id=subjectDated>"+obj.datedStr+"</div>"
+							"<div id=subjectId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=subjectGradeDD>"+escHtml(obj.gradeName)+"</div>",
+							"<div id=subjectName>"+escHtml(obj.name)+"</div>", "<div id=subjectCode>"+escHtml(obj.code)+"</div>",
+							"<div id=subjectPublisher>"+escHtml(obj.publisher)+"</div>", "<div id=subjectEdition>"+escHtml(obj.edition)+"</div>", 
+							"<div id=subjectStatus>"+escHtml(obj.status)+"</div>","<div id=subjectDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -351,12 +351,12 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<div id=vehicleId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=vehicleSchoolDD>"+obj.schoolName+"</div>","<div id=vehicleName>"+obj.name+"</div>",
-							"<div id=vehicleNumber>"+obj.number+"</div>", "<div id=vehicleDriverName>"+obj.driverName+"</div>",
-							"<div id=vehicleDriverMobile>"+obj.driverMobile+"</div>", "<div id=vehicleOwnerName>"+obj.ownerName+"</div>", 
-							"<div id=vehicleOwnerMobile>"+obj.ownerMobile+"</div>", "<div id=vehicleStatus>"+obj.status+"</div>", 
-							"<div id=vehicleDated>"+obj.datedStr+"</div>"
+							"<div id=vehicleId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=vehicleSchoolDD>"+escHtml(obj.schoolName)+"</div>","<div id=vehicleName>"+escHtml(obj.name)+"</div>",
+							"<div id=vehicleNumber>"+escHtml(obj.number)+"</div>", "<div id=vehicleDriverName>"+escHtml(obj.driverName)+"</div>",
+							"<div id=vehicleDriverMobile>"+escHtml(obj.driverMobile)+"</div>", "<div id=vehicleOwnerName>"+escHtml(obj.ownerName)+"</div>", 
+							"<div id=vehicleOwnerMobile>"+escHtml(obj.ownerMobile)+"</div>", "<div id=vehicleStatus>"+escHtml(obj.status)+"</div>", 
+							"<div id=vehicleDated>"+escHtml(obj.datedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -364,10 +364,10 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<div id=discountId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=discountNameDD>"+obj.name+"</div>","<div id=discountTypeDD>"+obj.di+"</div>", 
-							"<div id=discountAmount>"+obj.amount+"</div>","<div id=discountDescription>"+obj.description+"</div>",
-							"<div id=discountStatus>"+obj.status+"</div>"
+							"<div id=discountId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=discountNameDD>"+escHtml(obj.name)+"</div>","<div id=discountTypeDD>"+escHtml(obj.di)+"</div>", 
+							"<div id=discountAmount>"+escHtml(obj.amount)+"</div>","<div id=discountDescription>"+escHtml(obj.description)+"</div>",
+							"<div id=discountStatus>"+escHtml(obj.status)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -375,37 +375,37 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<div id=alertId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=acdd>"+obj.c+"</div>","<div id=atdd>"+obj.at+"</div>",
-							"<div id=adcdd>"+obj.dc+"</div>","<div id=adpdd>"+obj.dp+"</div>",
-							"<div id=adtdd>"+obj.dt+"</div>","<div id=ast>"+obj.st+"</div>",
-							"<div id=asd>"+obj.sdStr+"</div>", "<div id=aed>"+obj.edStr+"</div>", 
-							"<div id=ah>"+obj.ah+"</div>","<div id=am>"+obj.am+"</div>",
-							"<div id=as>"+obj.as+"</div>"
+							"<div id=alertId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=acdd>"+escHtml(obj.c)+"</div>","<div id=atdd>"+escHtml(obj.at)+"</div>",
+							"<div id=adcdd>"+escHtml(obj.dc)+"</div>","<div id=adpdd>"+escHtml(obj.dp)+"</div>",
+							"<div id=adtdd>"+escHtml(obj.dt)+"</div>","<div id=ast>"+escHtml(obj.st)+"</div>",
+							"<div id=asd>"+escHtml(obj.sdStr)+"</div>", "<div id=aed>"+escHtml(obj.edStr)+"</div>", 
+							"<div id=ah>"+escHtml(obj.ah)+"</div>","<div id=am>"+escHtml(obj.am)+"</div>",
+							"<div id=as>"+escHtml(obj.as)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "Fc") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=fcId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=inputFc>"+obj.en+"</div>","<div id=fcpd>"+obj.pdStr+"</div>",
-							"<div id=fcp>"+obj.p+"</div>","<div id=fcrb>"+obj.rb+"</div>",
-							"<div id=fchf>"+obj.f+"</div>","<div id=fchvf>"+obj.vf+"</div>",
-							"<div id=fchd>"+obj.d+"</div>","<div id=fchdt>"+obj.dt+"</div>",
-							"<div id=fcod>"+obj.od+"</div>","<div id=fcodd>"+obj.odd+"</div>",
-							"<div id=fchda>"+obj.da+"</div>","<div id=fcfp>"+obj.fp+"</div>", 
-							"<div id=fcdb>"+obj.db+"</div>","<div id=fchdd>"+obj.dd+"</div>", 
-							"<div id=fcri>"+obj.ri+"</div>","<div id=fccn>"+obj.cn+"</div>"
+							"<div id=fcId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div id=inputFc>"+escHtml(obj.en)+"</div>","<div id=fcpd>"+escHtml(obj.pdStr)+"</div>",
+							"<div id=fcp>"+escHtml(obj.p)+"</div>","<div id=fcrb>"+escHtml(obj.rb)+"</div>",
+							"<div id=fchf>"+escHtml(obj.f)+"</div>","<div id=fchvf>"+escHtml(obj.vf)+"</div>",
+							"<div id=fchd>"+escHtml(obj.d)+"</div>","<div id=fchdt>"+escHtml(obj.dt)+"</div>",
+							"<div id=fcod>"+escHtml(obj.od)+"</div>","<div id=fcodd>"+escHtml(obj.odd)+"</div>",
+							"<div id=fchda>"+escHtml(obj.da)+"</div>","<div id=fcfp>"+escHtml(obj.fp)+"</div>", 
+							"<div id=fcdb>"+escHtml(obj.db)+"</div>","<div id=fchdd>"+escHtml(obj.dd)+"</div>", 
+							"<div id=fcri>"+escHtml(obj.ri)+"</div>","<div id=fccn>"+escHtml(obj.cn)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
 				} else if (getAll === "A") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							"<div id=aId>"+obj.id+"</div>",
-							"<div id=aen>"+obj.en+"</div>","<div id=asn>"+obj.sn+"</div>","<div id=fcdb>"+obj.gn+"</div>",
-							"<div id=fchdt>"+obj.dtStr+"</div>"
+							"<div id=aId>"+escHtml(obj.id)+"</div>",
+							"<div id=aen>"+escHtml(obj.en)+"</div>","<div id=asn>"+escHtml(obj.sn)+"</div>","<div id=fcdb>"+escHtml(obj.gn)+"</div>",
+							"<div id=fchdt>"+escHtml(obj.dtStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -636,10 +636,10 @@ function fd(l){
 	l.forEach(function(obj,i){
 		var t = $("#fcDT").DataTable();
 		t.row.add( [
-			"<div id=fcdpd>"+dateToDMY(new Date(obj.pd))+"</div>","<div id=fcdp>"+obj.p+"</div>","<div id=fcdri>"+obj.rb+"</div>",
-			"<div id=fcdhf>"+obj.f+"</div>","<div id=fcdhvf>"+obj.vf+"</div>","<div id=fcdhd>"+obj.d+"</div>",
-			"<div id=fcdod>"+obj.od+"</div>","<div id=fcdodd>"+obj.odd+"</div>","<div id=fcdhda>"+obj.da+"</div>",
-			"<div id=fcdfp>"+obj.fp+"</div>", "<div id=fcddb>"+obj.db+"</div>",
+			"<div id=fcdpd>"+dateToDMY(new Date(obj.pd))+"</div>","<div id=fcdp>"+escHtml(obj.p)+"</div>","<div id=fcdri>"+escHtml(obj.rb)+"</div>",
+			"<div id=fcdhf>"+escHtml(obj.f)+"</div>","<div id=fcdhvf>"+escHtml(obj.vf)+"</div>","<div id=fcdhd>"+escHtml(obj.d)+"</div>",
+			"<div id=fcdod>"+escHtml(obj.od)+"</div>","<div id=fcdodd>"+escHtml(obj.odd)+"</div>","<div id=fcdhda>"+escHtml(obj.da)+"</div>",
+			"<div id=fcdfp>"+escHtml(obj.fp)+"</div>", "<div id=fcddb>"+escHtml(obj.db)+"</div>",
 		] ).draw( false );			
 	});
 }

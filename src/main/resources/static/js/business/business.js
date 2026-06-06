@@ -251,7 +251,7 @@ $(document).ready(function() {
 
         	data.push(obj);
 			var arr = [
-				obj.itemId,obj.itemName,obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
+				obj.itemId,escHtml(obj.itemName),obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
 			resetForm();
@@ -359,18 +359,18 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=companyId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=companyName>"+obj.name+"</div>","<div id=companyPhone>"+obj.phone+"</div>",
-							"<div id=companyEmail>"+obj.email+"</div>","<div id=companyAddress>"+obj.address+"</div>",obj.updatedStr
+							"<div id=companyName>"+escHtml(obj.name)+"</div>","<div id=companyPhone>"+escHtml(obj.phone)+"</div>",
+							"<div id=companyEmail>"+escHtml(obj.email)+"</div>","<div id=companyAddress>"+escHtml(obj.address)+"</div>",obj.updatedStr
 						]);
 					});
 				} else if (getAll === "Vender") {
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=venderName>"+obj.name+"</div>",
-							"<div id=venderCompanyDD>"+obj.companyName+"</div>",
-							"<div id=venderPhone>"+obj.phone+"</div>","<div id=venderMobile>"+obj.mobile+"</div>",
-							"<div id=venderEmail>"+obj.email+"</div>","<div id=venderAddress>"+obj.address+"</div>",obj.datedStr
+							"<div id=venderName>"+escHtml(obj.name)+"</div>",
+							"<div id=venderCompanyDD>"+escHtml(obj.companyName)+"</div>",
+							"<div id=venderPhone>"+escHtml(obj.phone)+"</div>","<div id=venderMobile>"+escHtml(obj.mobile)+"</div>",
+							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",obj.datedStr
 						]);
 					});
 					$("#venderName").prop("readonly", false);
@@ -378,37 +378,37 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value="+ obj.customerId+ ">",
-							"<div id=customerName>"+obj.name+"</div>","<div id=contact>"+obj.contact+"</div>",
-							"<div id=email>"+obj.email+"</div>","<div id=address>"+obj.address+"</div>",obj.updated
+							"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
+							"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",obj.updated
 						]);
 					});
 				} else if (getAll === "ItemType") {
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=itemTypeId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=itemTypeName>"+obj.name+"</div>","<div id=itemTypeDescription>"+obj.description+"</div>",obj.datedStr
+							"<div id=itemTypeName>"+escHtml(obj.name)+"</div>","<div id=itemTypeDescription>"+escHtml(obj.description)+"</div>",obj.datedStr
 						]);
 					});
 				} else if (getAll === "ItemUnit") {
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=itemUnitId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=itemUnitName>"+obj.name+"</div>","<div id=itemUnitDescription>"+obj.description+"</div>",obj.datedStr
+							"<div id=itemUnitName>"+escHtml(obj.name)+"</div>","<div id=itemUnitDescription>"+escHtml(obj.description)+"</div>",obj.datedStr
 						]);
 					});
 				} else if (getAll === "Item") {
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=itemId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=itemCompanyDD>"+obj.companyName+"</div>","<div id=itemVenderDD>"+obj.venderName+"</div>","<div id=itemName>"+obj.iname+"</div>",
-							"<div id=itemCode>"+obj.icode+"</div>","<div id=itemDesc>"+obj.idesc+"</div>",obj.updated
+							"<div id=itemCompanyDD>"+escHtml(obj.companyName)+"</div>","<div id=itemVenderDD>"+escHtml(obj.venderName)+"</div>","<div id=itemName>"+escHtml(obj.iname)+"</div>",
+							"<div id=itemCode>"+escHtml(obj.icode)+"</div>","<div id=itemDesc>"+escHtml(obj.idesc)+"</div>",obj.updated
 						]);
 					});
 				} else if (getAll === "Purchase") {
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=purchaseId>"+obj.purchaseId+"</div>","<input type='checkbox' value="+ obj.purchaseId+ ">",
-							"<div id=purchaseInvoiceNo>"+obj.purchaseInvoiceNo+"</div>","<div id=purchaseItemDD>"+obj.iname+"</div>",
+							"<div id=purchaseInvoiceNo>"+escHtml(obj.purchaseInvoiceNo)+"</div>","<div id=purchaseItemDD>"+escHtml(obj.iname)+"</div>",
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>","<div id=purchaseStock>"+obj.stock.stock+"</div>",
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
 							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>",
@@ -422,7 +422,7 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=sellId>"+obj.sellId+"</div>",
-							"<div id=sellItemName>"+obj.itemName+"</div>",
+							"<div id=sellItemName>"+escHtml(obj.itemName)+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
 							"<div id=sellItemExpiry>"+obj.stock.bexpDate+"</div>",
 							"<div id=sellPurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stock.bsellRate+"</div>",
@@ -464,7 +464,7 @@ function loadSellCustomers() {
 	$.get(serverContext + "getUserCustomer", function(res) {
 		if (res && res.collection) {
 			$.each(res.collection, function(i, c) {
-				dd.append('<option value="' + c.customerId + '" data-contact="' + (c.contact || '') + '">' + c.name + '</option>');
+				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '">' + escHtml(c.name) + '</option>');
 			});
 		}
 	}).fail(function() {
@@ -708,8 +708,8 @@ function loadDashboardCharts() {
                     var dueDateStr = dueDate && !isNaN(dueDate.getTime())
                         ? dueDate.toLocaleDateString() : '—';
                     return '<tr>'
-                        + '<td><strong>' + (c.name || '') + '</strong></td>'
-                        + '<td>' + (c.contact || '') + '</td>'
+                        + '<td><strong>' + escHtml(c.name || '') + '</strong></td>'
+                        + '<td>' + escHtml(c.contact || '') + '</td>'
                         + '<td><strong class="text-danger">' + parseFloat(c.due || 0).toLocaleString() + '</strong></td>'
                         + '<td>' + dueDateStr + '</td>'
                         + '<td>' + statusHtml + '</td>'

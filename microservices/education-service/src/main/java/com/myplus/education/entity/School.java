@@ -18,8 +18,14 @@ public class School {
 
     private String name;
 
+    // Audit: which user created this row. Kept for "who did it", NOT for data scoping.
     @Column(name = "user_id", nullable = false)
     private Long userId;
+
+    // Tenant scope: which organization this row belongs to. All reads/writes are filtered by this.
+    // Nullable during the userId->org migration; backfilled per-tenant via read-fallback.
+    @Column(name = "organization_id")
+    private Long organizationId;
 
     private String email;
 

@@ -37,6 +37,12 @@ public class OwnerController {
         return u == null ? null : u.getUserId();
     }
 
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId() {
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        return u == null ? null : u.getOrganizationId();
+    }
+
     private OwnerDTO toDto(Owner o) {
         OwnerDTO dto = new OwnerDTO();
         dto.setId(o.getId());
@@ -55,7 +61,7 @@ public class OwnerController {
     @ResponseBody
     public GenericResponse getUserOwner(final HttpServletRequest request) {
         try {
-            List<Owner> objs = ownerRepository.findByUserId(userId());
+            List<Owner> objs = ownerRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -71,7 +77,7 @@ public class OwnerController {
     public String getUserOwners(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Owner> objs = ownerRepository.findByUserId(userId());
+            List<Owner> objs = ownerRepository.findScoped(orgId(), userId());
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -88,7 +94,8 @@ public class OwnerController {
     @ResponseBody
     public GenericResponse getAllOwner(final HttpServletRequest request) {
         try {
-            List<Owner> all = ownerRepository.findAll();
+            // Tenant-scoped: "all" means all owners in the active organization, not every tenant's.
+            List<Owner> all = ownerRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -104,8 +111,9 @@ public class OwnerController {
     public GenericResponse addOwner(final OwnerDTO dto, final HttpServletRequest request) {
         try {
             Long userId = userId();
+            Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = ownerRepository.findByUserId(userId).stream()
+                boolean exists = ownerRepository.findScoped(orgId, userId).stream()
                         .anyMatch(o -> o.getName() != null && o.getName().equalsIgnoreCase(dto.getName()));
                 if (exists) {
                     return new GenericResponse("FOUND", "The Owner '" + dto.getName() + "' already exists");
@@ -114,7 +122,8 @@ public class OwnerController {
             Owner obj = (dto.getId() != null)
                     ? ownerRepository.findById(dto.getId()).orElseGet(Owner::new)
                     : new Owner();
-            obj.setUserId(userId);
+            obj.setUserId(userId);              // audit: who created/edited
+            obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
             obj.setEmail(dto.getEmail());
             obj.setMobile(dto.getMobile());

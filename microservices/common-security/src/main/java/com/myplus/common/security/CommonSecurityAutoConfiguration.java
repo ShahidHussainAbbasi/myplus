@@ -20,4 +20,14 @@ public class CommonSecurityAutoConfiguration {
     public HeaderAuthFilter headerAuthFilter() {
         return new HeaderAuthFilter();
     }
+
+    /**
+     * Server-side XSS input sanitization (defense-in-depth). Auto-registered for every servlet
+     * service on the classpath; a service may override by defining its own bean.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public XssSanitizingFilter xssSanitizingFilter() {
+        return new XssSanitizingFilter();
+    }
 }
