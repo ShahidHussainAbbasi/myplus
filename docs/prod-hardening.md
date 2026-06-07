@@ -174,7 +174,7 @@ sequenceDiagram
 - [x] **P3** `config-server/configs/application-prod.yml` (ddl-auto, logging, actuator, jwt/db/secret no-default, F2 internal-secret)
 - [x] **P3** gateway + monolith `*-prod` profiles (actuator, devtools off, caching on)
 - [x] **P3** multipart limits (F13); admin seed gated + password via env (F15)
-- [ ] **P4** (separate) Flyway baselines per DB → prod `ddl-auto: validate`
+- [x] **P4** Flyway baselines for all 10 service DBs (V1 from live schema, FK-guarded; `baseline-on-migrate` per-service local config). Residual: monolith `myplusdb` → business-service owns it; remove from monolith (decommission)
 - [ ] **P5** (separate) monolith CSRF + token wiring + Cypress
 - [ ] Docs: this file ticked; findings doc extended; runbook updated
 
