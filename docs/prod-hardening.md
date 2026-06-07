@@ -164,16 +164,16 @@ sequenceDiagram
 
 ## 4. Implement — checklist (mirrors §2)
 
-- [ ] **P1** `.gitignore`: `.env`, `microservices/logs/`; `git rm --cached` tracked logs
-- [ ] **P1** `.env.example` (root + `microservices/`) with every secret var as placeholder
-- [ ] **P1** remove real secret defaults from committed configs (monolith + all services + compose)
-- [ ] **P1** `start-all.ps1` loads `.env`
-- [ ] **P2** gateway `discovery.locator.enabled: false` (F1)
-- [ ] **P2** `JwtAuthenticationFilter` strips all inbound `X-User-*`/`X-Org-Id` (F3)
-- [ ] **P2** gateway CORS → `${CORS_ALLOWED_ORIGINS}` allow-list (F4)
-- [ ] **P3** `config-server/configs/application-prod.yml` (ddl-auto, logging, actuator, jwt/db/secret no-default)
-- [ ] **P3** gateway + monolith `*-prod` profiles (CORS, actuator, devtools off, CSRF placeholder)
-- [ ] **P3** multipart limits (F13); seed-users flag off in prod (F15)
+- [x] **P1** `.gitignore`: `.env.local`, `microservices/logs/`; logs untracked
+- [x] **P1** `.env.example` (root + `microservices/`) with every secret var as placeholder
+- [x] **P1** remove real secret defaults from committed configs (monolith + all services + compose); `.env.local` injection
+- [x] **P1** `start-all.ps1` loads `.env.local`; monolith loads it via `spring.config.import`
+- [x] **P2** gateway `discovery.locator.enabled: false` (F1)
+- [x] **P2** `JwtAuthenticationFilter` strips all inbound `X-User-*`/`X-Org-Id` (F3)
+- [x] **P2** gateway CORS → `${CORS_ALLOWED_ORIGINS}` allow-list (F4)
+- [x] **P3** `config-server/configs/application-prod.yml` (ddl-auto, logging, actuator, jwt/db/secret no-default, F2 internal-secret)
+- [x] **P3** gateway + monolith `*-prod` profiles (actuator, devtools off, caching on)
+- [x] **P3** multipart limits (F13); admin seed gated + password via env (F15)
 - [ ] **P4** (separate) Flyway baselines per DB → prod `ddl-auto: validate`
 - [ ] **P5** (separate) monolith CSRF + token wiring + Cypress
 - [ ] Docs: this file ticked; findings doc extended; runbook updated

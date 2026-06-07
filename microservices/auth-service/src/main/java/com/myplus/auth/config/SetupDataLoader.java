@@ -26,6 +26,13 @@ public class SetupDataLoader {
     private final PrivilegeRepository privilegeRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // F15: never seed a known-password admin in prod. Override via env: SEED_ADMIN=false (prod),
+    // or ADMIN_PASSWORD=<strong> if you do seed one.
+    @org.springframework.beans.factory.annotation.Value("${app.seed-admin:true}")
+    private boolean seedAdmin;
+    @org.springframework.beans.factory.annotation.Value("${app.admin-password:Admin@2025!}")
+    private String adminPassword;
+
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void onStart() {
@@ -42,7 +49,8 @@ public class SetupDataLoader {
                 "GET_COMPANY", "GET_VENDER", "GET_ITEM", "GET_ITEM_TYPE", "GET_ITEM_UNIT",
                 "ADD_COMPANY", "ADD_VENDER", "ADD_ITEM", "ADD_ITEM_TYPE", "ADD_ITEM_UNIT",
                 "UPDATE_COMPANY", "UPDATE_VENDER", "UPDATE_ITEM", "UPDATE_ITEM_TYPE", "UPDATE_ITEM_UNIT",
-                "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT")) {
+                "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT",
+                "PUBLIC_ALERTS", "SYSTEM_ALERTS")) {
             p.put(name, createPrivilegeIfNotExists(name));
         }
 
@@ -52,7 +60,8 @@ public class SetupDataLoader {
         user.addAll(pick(p, "CHANGE_PASSWORD_PRIVILEGE", "WRITE_PRIVILEGE", "UPDATE_PRIVILEGE", "USER_PRIVILEGE",
                 "GET_COMPANY", "GET_VENDER", "GET_ITEM", "GET_ITEM_TYPE", "GET_ITEM_UNIT",
                 "ADD_COMPANY", "ADD_VENDER", "ADD_ITEM", "ADD_ITEM_TYPE", "ADD_ITEM_UNIT",
-                "UPDATE_COMPANY", "UPDATE_VENDER", "UPDATE_ITEM", "UPDATE_ITEM_TYPE", "UPDATE_ITEM_UNIT"));
+                "UPDATE_COMPANY", "UPDATE_VENDER", "UPDATE_ITEM", "UPDATE_ITEM_TYPE", "UPDATE_ITEM_UNIT",
+                "PUBLIC_ALERTS", "SYSTEM_ALERTS"));
         Set<Privilege> adminPrivileges = new HashSet<>(user);
         adminPrivileges.addAll(pick(p, "DELETE_PRIVILEGE", "ADMIN_PRIVILEGE",
                 "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT"));
@@ -78,11 +87,11 @@ public class SetupDataLoader {
         }
         Role adminRole = createOrUpdateRole("ROLE_ADMIN", superSet);
 
-        if (userRepository.findByEmail("admin@myplus.com").isEmpty()) {
+        if (seedAdmin && userRepository.findByEmail("admin@myplus.com").isEmpty()) {
             User admin = User.builder()
                     .username("admin")
                     .email("admin@myplus.com")
-                    .password(passwordEncoder.encode("Admin@2025!"))
+                    .password(passwordEncoder.encode(adminPassword))
                     .firstName("Default")
                     .lastName("Admin")
                     .enabled(true)
@@ -91,7 +100,7 @@ public class SetupDataLoader {
                     .roles(new HashSet<>(Collections.singletonList(adminRole)))
                     .build();
             userRepository.save(admin);
-            log.info("Default admin user created: admin@myplus.com / Admin@2025!");
+            log.info("Default admin user created: admin@myplus.com");
         }
     }
 
