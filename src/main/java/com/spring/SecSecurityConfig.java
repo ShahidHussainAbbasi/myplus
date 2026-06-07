@@ -14,6 +14,9 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
@@ -21,6 +24,7 @@ import org.springframework.security.web.authentication.logout.LogoutSuccessHandl
 import org.springframework.security.authentication.AuthenticationProvider;
 
 import com.security.AuthServerAuthenticationProvider;
+import com.security.CsrfCookieFilter;
 import com.security.RevokeTokenLogoutHandler;
 import com.security.TokenStore;
 import com.security.google2fa.CustomWebAuthenticationDetailsSource;
@@ -67,7 +71,21 @@ public class SecSecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            // CSRF ON for the session-based monolith. Token in a JS-readable XSRF-TOKEN cookie
+            // (CsrfCookieFilter materializes it; header.html $.ajaxSetup echoes X-XSRF-TOKEN).
+            // Public, pre-session POST endpoints are exempt (they're anonymous; the reset ones are
+            // already token-credentialed by the auth-service).
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                .ignoringRequestMatchers(
+                    "/login",
+                    "/user/registration*", "/user/registrationCaptcha*", "/old/user/registration*",
+                    "/user/resetPassword*", "/user/savePassword*", "/user/resendRegistrationToken*",
+                    "/addDonation", "/appointmentReq", "/registerHospital*", "/api/demo-request",
+                    "/loadDoctorsByHospital", "/loadDoctorDetails"
+                )
+            )
             .authorizeHttpRequests(auth -> auth
                 // Static Resource Rules (Migrated from WebSecurity ignoring block)
                 .requestMatchers(
@@ -127,7 +145,8 @@ public class SecSecurityConfig {
                 .logoutSuccessUrl("/logout.html?logSucc=true")
                 .deleteCookies("JSESSIONID")
                 .permitAll()
-            );
+            )
+            .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
 
         return http.build();
     }

@@ -36,6 +36,26 @@
         <script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
         <script th:src="@{/js/main.js}"></script>
+        <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing
+             AJAX call, so jQuery $.post/$.ajax pass Spring Security's CSRF check. -->
+        <script>
+        (function () {
+            function readCookie(name) {
+                var m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+                return m ? decodeURIComponent(m[1]) : null;
+            }
+            if (window.jQuery) {
+                // ajaxSend fires for EVERY jQuery request and is not overridden by a per-call
+                // beforeSend, so it reliably stamps the header even on calls with custom options.
+                jQuery(document).ajaxSend(function (event, xhr, settings) {
+                    if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type || 'GET')) {
+                        var token = readCookie('XSRF-TOKEN');
+                        if (token) { xhr.setRequestHeader('X-XSRF-TOKEN', token); }
+                    }
+                });
+            }
+        })();
+        </script>
     </th:block>
 
     <!-- ═══ NAVBAR FRAGMENT ═══════════════════════════════════ -->

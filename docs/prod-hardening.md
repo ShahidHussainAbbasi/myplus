@@ -175,7 +175,7 @@ sequenceDiagram
 - [x] **P3** gateway + monolith `*-prod` profiles (actuator, devtools off, caching on)
 - [x] **P3** multipart limits (F13); admin seed gated + password via env (F15)
 - [x] **P4** Flyway baselines for all 10 service DBs (V1 from live schema, FK-guarded; `baseline-on-migrate` per-service local config). Residual: monolith `myplusdb` → business-service owns it; remove from monolith (decommission)
-- [ ] **P5** (separate) monolith CSRF + token wiring + Cypress
+- [x] **P5** monolith CSRF re-enabled (F12) — cookie recipe + CsrfCookieFilter + global `$(document).ajaxSend` + `cy.request` overwrite. Cypress: all CSRF-relevant specs green (business/education/auth/book-a-demo). See docs/monolith-csrf.md
 - [ ] Docs: this file ticked; findings doc extended; runbook updated
 
 ## 5. Test

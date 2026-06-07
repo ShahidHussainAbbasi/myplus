@@ -1,5 +1,28 @@
 // ─── Shared helpers (single source — avoid duplicating login/nav per module) ───
 
+// CSRF: the monolith uses cookie-based CSRF (XSRF-TOKEN cookie). Browser-driven calls get the token
+// via $.ajaxSetup, but direct cy.request POST/PUT/DELETE/PATCH bypass the browser — so inject the
+// X-XSRF-TOKEN header from the cookie here, once, for every spec.
+Cypress.Commands.overwrite('request', (originalFn, ...args) => {
+  let options;
+  if (args.length === 1 && typeof args[0] === 'object') options = { ...args[0] };
+  else if (args.length === 1) options = { url: args[0] };
+  else if (args.length === 2) options = { method: args[0], url: args[1] };
+  else options = { method: args[0], url: args[1], body: args[2] };
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) return originalFn(options);
+
+  // The .then wrapper would otherwise impose defaultCommandTimeout (5s) on the inner request, which
+  // breaks slow endpoints (e.g. the demo-request email send); give it room.
+  return cy.getCookie('XSRF-TOKEN').then({ timeout: 60000 }, (cookie) => {
+    if (cookie && cookie.value) {
+      options.headers = Object.assign({}, options.headers, { 'X-XSRF-TOKEN': decodeURIComponent(cookie.value) });
+    }
+    return originalFn(options);
+  });
+});
+
 // Generic session-based login. Module helpers below just supply credentials + a
 // validate endpoint, so there is one login implementation for the whole suite.
 Cypress.Commands.add('loginAs', (email, password, validatePath) => {
