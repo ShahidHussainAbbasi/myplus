@@ -21,6 +21,11 @@ public class EmailService {
     @Value("${app.base-url:http://localhost:8765}")
     private String baseUrl;
 
+    // Landing page for the password-reset link. Points at the monolith UI page that renders the
+    // new-password form and posts back through {@code /user/savePassword} -> auth-service reset.
+    @Value("${app.reset-password-url:http://localhost:8080/user/changePassword}")
+    private String resetPasswordUrl;
+
     @Async
     public void sendVerificationEmail(String to, String token) {
         try {
@@ -44,9 +49,9 @@ public class EmailService {
             message.setFrom(fromAddress);
             message.setTo(to);
             message.setSubject("MyPlus - Password Reset");
-            message.setText("To reset your password, use this token:\n\n"
-                    + token
-                    + "\n\nOr click: " + baseUrl + "/reset-password?token=" + token
+            message.setText("To reset your password, click the link below:\n\n"
+                    + resetPasswordUrl + "?token=" + token
+                    + "\n\n(Or paste this token into the reset form: " + token + ")"
                     + "\n\nThe token expires in 1 hour. If you did not request this, ignore this email.");
             mailSender.send(message);
         } catch (Exception ex) {

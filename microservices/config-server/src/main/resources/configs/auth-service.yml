@@ -24,5 +24,7 @@ spring:
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:8765}
+  # Monolith UI page that renders the reset-password form (the emailed link lands here).
+  reset-password-url: ${RESET_PASSWORD_URL:http://localhost:8080/user/changePassword}
   verification-token-expiry-hours: 24
   password-reset-token-expiry-hours: 1

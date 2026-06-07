@@ -1,11 +1,13 @@
 package com.web.util;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -38,6 +40,33 @@ public class AuthServerClient {
         return post("/api/auth/login", body);
     }
 
+    /**
+     * Trigger a password-reset email for {@code email}. The auth-service owns the reset token and
+     * sends the mail; it returns 404 for an unknown address. Callers should swallow failures so the
+     * UI never reveals whether an address is registered.
+     */
+    public void forgotPassword(String email) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        Map<String, String> body = new HashMap<>();
+        body.put("email", email);
+        restTemplate.postForEntity(baseUrl + "/api/auth/forgot-password", new HttpEntity<>(body, headers), Void.class);
+    }
+
+    /**
+     * Complete a password reset using the token from the reset email. Throws
+     * {@link org.springframework.web.client.HttpStatusCodeException} if the token is invalid/expired
+     * or the new password is rejected by the auth-service.
+     */
+    public void resetPassword(String token, String newPassword) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        Map<String, String> body = new HashMap<>();
+        body.put("token", token);
+        body.put("newPassword", newPassword);
+        restTemplate.postForEntity(baseUrl + "/api/auth/reset-password", new HttpEntity<>(body, headers), Void.class);
+    }
+
     /** Exchange a refresh token for a fresh access token. */
     public AuthServerLoginResponse refresh(String refreshToken) {
         Map<String, String> body = new HashMap<>();
@@ -50,6 +79,31 @@ public class AuthServerClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         restTemplate.postForEntity(baseUrl + "/api/auth/logout", new HttpEntity<>(null, headers), Void.class);
+    }
+
+    /** List the organizations the token's user belongs to (each: id, name, role, active). */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> organizations(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        ResponseEntity<Map> resp = restTemplate.exchange(
+                baseUrl + "/api/auth/organizations", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+        Object data = resp.getBody() == null ? null : resp.getBody().get("data");
+        return data instanceof List ? (List<Map<String, Object>>) data : List.of();
+    }
+
+    /** Switch the active organization; returns fresh tokens scoped to {@code organizationId}. */
+    public AuthServerLoginResponse switchOrganization(String accessToken, Long organizationId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        Map<String, Object> body = new HashMap<>();
+        body.put("organizationId", organizationId);
+        ResponseEntity<AuthServerEnvelope> resp = restTemplate.exchange(
+                baseUrl + "/api/auth/switch-organization", HttpMethod.POST,
+                new HttpEntity<>(body, headers), AuthServerEnvelope.class);
+        AuthServerEnvelope envelope = resp.getBody();
+        return envelope == null ? null : envelope.getData();
     }
 
     private AuthServerLoginResponse post(String path, Map<String, String> body) {

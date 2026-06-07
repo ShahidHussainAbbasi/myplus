@@ -3,7 +3,6 @@ package com.web.controller;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import jakarta.servlet.ServletException;
@@ -14,8 +13,8 @@ import com.persistence.model.Privilege;
 import com.persistence.model.User;
 import com.persistence.model.VerificationToken;
 import com.registration.OnRegistrationCompleteEvent;
-import com.security.ISecurityUserService;
 import com.service.IUserService;
+import com.service.PasswordResetFacade;
 import com.web.dto.PasswordDto;
 import com.web.dto.UserDto;
 import com.web.error.InvalidOldPasswordException;
@@ -51,7 +50,7 @@ public class RegistrationController {
     private IUserService userService;
 
     @Autowired
-    private ISecurityUserService securityUserService;
+    private PasswordResetFacade passwordResetFacade;
 
     @Autowired
     private MessageSource messages;
@@ -115,34 +114,26 @@ public class RegistrationController {
         return new GenericResponse(messages.getMessage("message.resendToken", null, request.getLocale()));
     }
 
-    // Reset password
+    // Reset password — delegated to the auth-service (it owns the user store and the reset token).
     @RequestMapping(value = "/user/resetPassword", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse resetPassword(final HttpServletRequest request, @RequestParam("email") final String userEmail) {
-        final User user = userService.findUserByEmail(userEmail);
-        if (user != null) {
-            final String token = UUID.randomUUID().toString();
-            userService.createPasswordResetTokenForUser(user, token);
-            mailSender.send(constructResetTokenEmail(getAppUrl(request), request.getLocale(), token, user));
-        }
+        passwordResetFacade.requestReset(userEmail);
         return new GenericResponse(messages.getMessage("message.resetPasswordEmail", null, request.getLocale()));
     }
 
+    // Landing page from the reset email: render the new-password form carrying the token. The token
+    // itself is the credential — no login/session is required (the auth-service validates it on submit).
     @RequestMapping(value = "/user/changePassword", method = RequestMethod.GET)
-    public String showChangePasswordPage(final Locale locale, final Model model, @RequestParam("id") final long id, @RequestParam("token") final String token) {
-        final String result = securityUserService.validatePasswordResetToken(id, token);
-        if (result != null) {
-            model.addAttribute("message", messages.getMessage("auth.message." + result, null, locale));
-            return "redirect:/login?lang=" + locale.getLanguage();
-        }
-        return "redirect:/updatePassword.html?lang=" + locale.getLanguage();
+    public String showChangePasswordPage(final Model model, @RequestParam("token") final String token) {
+        model.addAttribute("token", token);
+        return "updatePassword";
     }
 
     @RequestMapping(value = "/user/savePassword", method = RequestMethod.POST)
     @ResponseBody
-    public GenericResponse savePassword(final Locale locale, @Valid PasswordDto passwordDto) {
-        final User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        userService.changeUserPassword(user, passwordDto.getNewPassword());
+    public GenericResponse savePassword(final Locale locale, @RequestParam("token") final String token, @Valid PasswordDto passwordDto) {
+        passwordResetFacade.completeReset(token, passwordDto.getNewPassword());
         return new GenericResponse(messages.getMessage("message.resetPasswordSuc", null, locale));
     }
 
@@ -174,12 +165,6 @@ public class RegistrationController {
         final String confirmationUrl = contextPath + "/registrationConfirm.html?token=" + newToken.getToken();
         final String message = messages.getMessage("message.resendToken", null, locale);
         return constructEmail("Resend Registration Token", message + " \r\n" + confirmationUrl, user);
-    }
-
-    private SimpleMailMessage constructResetTokenEmail(final String contextPath, final Locale locale, final String token, final User user) {
-        final String url = contextPath + "/user/changePassword?id=" + user.getId() + "&token=" + token;
-        final String message = messages.getMessage("message.resetPassword", null, locale);
-        return constructEmail("Reset Password", message + " \r\n" + url, user);
     }
 
     private SimpleMailMessage constructEmail(String subject, String body, User user) {

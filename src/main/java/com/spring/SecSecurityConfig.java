@@ -95,15 +95,18 @@ public class SecSecurityConfig {
                     "/customLogin", "/user/registration*", "/registrationConfirm*",
                     "/expiredAccount*", "/registration*", "/registerHospital*",
                     "/appointmentReq", "appointmentDashboard", "/services",
+                    "/api/demo-request",
                     "/appointment", "/islamicChannels*", "/loadDoctorsByHospital",
                     "/loadDoctorDetails", "/addDonation", "/badUser*",
                     "/user/resendRegistrationToken*", "/forgetPassword*",
-                    "/user/resetPassword*", "/user/changePassword*", "/emailError*",
+                    "/user/resetPassword*", "/user/changePassword*", "/user/savePassword*",
+                    "/emailError*",
                     "/old/user/registration*", "/successRegister*", "/qrcode*", "/invalidSession*"
                 ).permitAll()
-                // Privileged Endpoint Rules
+                // Privileged Endpoint Rules — logged-in "change my password" still requires the privilege.
+                // (The forgot/reset flow is token-gated by the auth-service, so it is permitAll above.)
                 .requestMatchers(
-                    "/user/updatePassword*", "/user/savePassword*", "/updatePassword*"
+                    "/user/updatePassword*"
                 ).hasAuthority("CHANGE_PASSWORD_PRIVILEGE")
                 // Secure fallbacks
                 .anyRequest().hasAuthority("LOGIN_PRIVILEGE")
