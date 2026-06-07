@@ -58,7 +58,7 @@ Browser / Client
 
 MySQL must be running on `localhost:3306` with:
 - User: `root`
-- Password: `Technology@2025!`
+- Password: set `DB_PASSWORD` in your git-ignored `.env.local` (see `.env.example`)
 
 **Databases are created automatically** on first service startup via `createDatabaseIfNotExist=true` in each JDBC URL:
 - `myplusdb_auth` (auth-service)
@@ -76,7 +76,7 @@ CREATE DATABASE IF NOT EXISTS myplusdb_education;
 
 Email sending (registration verification, password reset) uses Gmail SMTP.
 
-Configured account: `maxtheservice@gmail.com` / `UNC333er!`
+Configured account: `maxtheservice@gmail.com` — set the app password as `MAIL_PASSWORD` in `.env.local`
 
 > **Important:** If the Gmail account has 2-Step Verification enabled, you must use a **Gmail App Password**, not your regular password. Generate one at: Google Account → Security → App Passwords.
 
@@ -175,10 +175,10 @@ Override any default with these environment variables before running:
 | `DB_HOST` | `localhost` | MySQL host |
 | `DB_PORT` | `3306` | MySQL port |
 | `DB_USER` | `root` | MySQL user |
-| `DB_PASSWORD` | `Technology@2025!` | MySQL password |
+| `DB_PASSWORD` | (set in `.env.local`) | MySQL password |
 | `JWT_SECRET` | (base64 default) | HMAC-SHA signing key |
 | `MAIL_USER` | `maxtheservice@gmail.com` | Gmail sender |
-| `MAIL_PASSWORD` | `UNC333er!` | Gmail app password |
+| `MAIL_PASSWORD` | (set in `.env.local`) | Gmail app password |
 | `APP_BASE_URL` | `http://localhost:8765` | Used in verification email links |
 | `EUREKA_URI` | `http://localhost:8761/eureka` | Eureka server URL |
 | `CONFIG_URI` | `http://localhost:8888` | Config server URL |

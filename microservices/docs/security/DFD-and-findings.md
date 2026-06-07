@@ -119,7 +119,7 @@ Remediation designed in [`docs/prod-hardening.md`](../../../docs/prod-hardening.
 
 | # | Sev | Location | Issue | Fix (phase) |
 |---|-----|----------|-------|-------------|
-| **F8** | **Critical** | every `application.yml`, `persistence.properties`, `application.properties`, `docker-compose.yml` | Beyond F5: **real DB password** (`Technology@2025!`), **Gmail app password** (`cablbimiovkcqqxy`) + a second mail password, **reCAPTCHA secret**, and config/eureka basic-auth are all committed defaults — public on GitHub. | Remove from repo, env injection, **rotate all** (P1). |
+| **F8** | **Critical** | every `application.yml`, `persistence.properties`, `application.properties`, `docker-compose.yml` | Beyond F5: the **real DB password**, **Gmail app password** (+ a second mail password), **reCAPTCHA secret**, and config/eureka basic-auth were all committed defaults — public on GitHub. | Remove from repo, env injection, **rotate all** (P1). |
 | **F9** | **High** | all services + monolith (`ddl-auto: update`, `hbm2ddl.auto=update`) | Hibernate manages prod schema → drift/data-loss risk; no migration history. | Flyway + `ddl-auto: validate` in prod (P3/P4). |
 | **F10** | **Med-High** | gateway `application.yml:110`, auth `SecurityConfig.java:72`, `configs/application.yml:33` | Actuator over-exposed: gateway `gateway` endpoint (route read/modify), auth `permitAll("/actuator/**")`, `health.show-details: always`. | Prod: `health,info` only, details `never`, mgmt off public (P3). |
 | **F11** | **Med** | `configs/application.yml:57-58` | `org.hibernate.orm.jdbc.bind: TRACE` logs **bound parameter values** (PII, credential material during auth) to logs. | Prod logging → `WARN` (P3). |

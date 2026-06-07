@@ -25,12 +25,9 @@ mvn test -Pintegration
 
 App runs on `http://localhost:8080`. Database `myplusdb` auto-creates on first run via `createDatabaseIfNotExist=true` in the JDBC URL.
 
-**MySQL credentials** (configured in `src/main/resources/persistence.properties`):
-- User: `root`
-- Password: `Technology@2025!`
-- DB: `myplusdb` on `localhost:3306`
+**MySQL credentials**: `persistence.properties` reads `${DB_USER}` / `${DB_PASSWORD}` — set them in the git-ignored repo-root `.env.local` (see `.env.example`). DB `myplusdb` on `localhost:3306`.
 
-Email (Gmail SMTP) credentials are in `src/main/resources/application.properties`.
+Email (Gmail SMTP) and reCAPTCHA secrets are read from `.env.local` too (`MAIL_PASSWORD`, `RECAPTCHA_SECRET`).
 
 ## Architecture
 
