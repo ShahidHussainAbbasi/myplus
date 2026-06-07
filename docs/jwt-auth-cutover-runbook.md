@@ -198,7 +198,35 @@ calls) is intact behind the flags, so rollback is a config flip — no redeploy 
 
 ---
 
-## 9. Quick reference
+## 9. Production hardening & secret externalization (pre-AWS)
+
+Design + findings: [`prod-hardening.md`](prod-hardening.md) and
+[`microservices/docs/security/DFD-and-findings.md`](../microservices/docs/security/DFD-and-findings.md).
+
+> **Change from earlier in this runbook:** the committed *default* values for `JWT_SECRET`,
+> `INTERNAL_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD`, and `RECAPTCHA_SECRET` are being **removed**
+> (branch `security/prod-hardening`, phase P1). In the `prod` profile these are now **mandatory** —
+> a service fails fast if they are unset. Dev uses a gitignored `.env` (+ committed `.env.example`).
+
+**Operator actions (owned by you — not in code):**
+- [ ] **Rotate every leaked secret** (they are public in git history): generate a new ≥256-bit
+      `JWT_SECRET`, a new MySQL password, a new Gmail app password, a new reCAPTCHA secret, a strong
+      `INTERNAL_SECRET`. Store in **AWS Secrets Manager / SSM**.
+- [ ] Change the seeded **admin password** (`admin@myplus.com`) — it is no longer hardcoded; supply
+      via env. Disable demo/seed users in prod (`seed-demo-users=false`).
+- [ ] Run with `SPRING_PROFILES_ACTIVE=prod` and the env injected from the secret store.
+
+**Required prod env vars:** `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `INTERNAL_SECRET`,
+`MAIL_PASSWORD`, `RECAPTCHA_SECRET`, `CONFIG_SERVER_PASSWORD`, `EUREKA_PASSWORD`,
+`CORS_ALLOWED_ORIGINS`, `DDL_AUTO` (`update` on first prod boot, then `validate` once Flyway baselines
+land — phase P4).
+
+**What the `prod` profile hardens** (see design doc §2): gateway discovery-locator **off** (F1),
+inbound identity headers fully stripped (F3), CORS allow-list (F4), `ddl-auto=validate` (F9),
+actuator `health,info` only (F10), SQL/bind logging `WARN` (F11), upload size limits (F13), DevTools
+off, seed users off (F15). Monolith CSRF (F12) is a separate later phase (P5).
+
+## 10. Quick reference
 
 | Component | Port (host) | Notes |
 |-----------|-------------|-------|
@@ -213,7 +241,10 @@ calls) is intact behind the flags, so rollback is a config flip — no redeploy 
 `/api/auth/register`, `/api/auth/verify-email`, `/api/auth/forgot-password`,
 `/api/auth/reset-password`.
 
-**Default admin (seeded):** `admin@myplus.com` / `Admin@2025!`.
+**Default admin (seeded):** `admin@myplus.com` / `Admin@2025!` *(dev only — rotate for prod, set via
+env; see §9)*.
 
 **Secrets:** `JWT_SECRET` (gateway + auth-service, ≥256-bit), `INTERNAL_SECRET` (gateway + all
-resource services, identical value).
+resource services, identical value), plus `DB_PASSWORD`, `MAIL_PASSWORD`, `RECAPTCHA_SECRET`,
+`CONFIG_SERVER_PASSWORD`, `EUREKA_PASSWORD`. **All committed defaults removed in prod profile (§9) —
+rotate the leaked values.** Manage via AWS Secrets Manager / SSM.
