@@ -101,7 +101,7 @@ eureka:
     prefer-ip-address: true
 
 jwt:
-  secret: ${JWT_SECRET:bXlwbHVzU3VwZXJTZWNyZXRLZXlGb3JKd3RUb2tlbkdlbmVyYXRpb25BbmRWYWxpZGF0aW9uMjAyNQ==}
+  secret: ${JWT_SECRET:dev-only-insecure-change-me-jwt-secret-min-32-bytes-padding}
 
 management:
   endpoints:

@@ -21,6 +21,25 @@ $ROOT = $PSScriptRoot
 $JAVA = Join-Path $JavaHome "bin\java.exe"
 $LOGS = Join-Path $ROOT "logs"
 
+# --- Load local secrets (DB creds, etc.) from .env.local if present ---
+# .env.local is git-ignored; it keeps real passwords out of tracked config.
+# Service application.yml files read ${DB_USER}/${DB_PASSWORD}; the java.exe
+# child processes inherit whatever we set on Env: here.
+$envFile = Join-Path $ROOT ".env.local"
+if (Test-Path $envFile) {
+    foreach ($raw in (Get-Content $envFile)) {
+        $line = $raw.Trim()
+        if ($line -eq '' -or $line.StartsWith('#')) { continue }
+        $kv = $line -split '=', 2
+        if ($kv.Count -eq 2) {
+            $key = $kv[0].Trim()
+            $val = $kv[1].Trim().Trim('"').Trim("'")
+            Set-Item -Path "Env:$key" -Value $val
+        }
+    }
+    Write-Host "  Loaded secrets from .env.local" -ForegroundColor DarkGray
+}
+
 # Canonical start order: infra first (eureka, config), then gateway, then the services.
 $catalog = [ordered]@{
     'eureka-server'       = 8761
@@ -78,6 +97,20 @@ if (-not $selected -or $selected.Count -eq 0) {
 
 # Preflight: MySQL (only matters for DB-backed services; warn but continue otherwise)
 $needsDb = $selected | Where-Object { $_ -notin @('eureka-server','config-server','api-gateway') }
+
+# Fail fast if a DB-backed service was requested but no password is available.
+# Without this the service silently falls back to the 'changeme' placeholder in
+# application.yml and dies with "Access denied for user 'root'@'localhost'".
+if ($needsDb -and -not $env:DB_PASSWORD) {
+    Write-Host "ERROR: DB_PASSWORD is not set (and .env.local did not provide it)." -ForegroundColor Red
+    Write-Host "       DB-backed services would fall back to the 'changeme' placeholder and fail." -ForegroundColor Yellow
+    Write-Host "       Create microservices\.env.local with:" -ForegroundColor Yellow
+    Write-Host "         DB_USER=root" -ForegroundColor Yellow
+    Write-Host "         DB_PASSWORD=<your-mysql-password>" -ForegroundColor Yellow
+    Write-Host "       (the file is git-ignored), or set `$env:DB_PASSWORD before running." -ForegroundColor Yellow
+    exit 1
+}
+
 try {
     $tcp = New-Object System.Net.Sockets.TcpClient
     $tcp.Connect("localhost", 3306); $tcp.Close()
@@ -145,21 +178,37 @@ foreach ($name in $selected) {
     }
 }
 
+# Poll each service's port until it is up, or until the timeout elapses.
+# DB-backed services can take well over 40s to boot, so wait up to 150s.
+$readyTimeoutSec = 150
 Write-Host ""
-Write-Host "Waiting for services to come online (~40s) ..." -ForegroundColor Yellow
-Start-Sleep -Seconds 40
+Write-Host "Waiting for services to come online (up to ${readyTimeoutSec}s) ..." -ForegroundColor Yellow
+
+$pending = [System.Collections.Generic.List[string]]::new()
+foreach ($name in $selected) { $pending.Add($name) }
+$deadline = (Get-Date).AddSeconds($readyTimeoutSec)
+while ($pending.Count -gt 0 -and (Get-Date) -lt $deadline) {
+    foreach ($name in @($pending)) {
+        $port = $catalog[$name]
+        try {
+            $t = New-Object System.Net.Sockets.TcpClient
+            $t.Connect("localhost", $port); $t.Close()
+            Write-Host ("  {0,-22} port {1}  READY" -f $name, $port) -ForegroundColor Green
+            [void]$pending.Remove($name)
+        } catch { }
+    }
+    if ($pending.Count -gt 0) { Start-Sleep -Seconds 3 }
+}
 
 # Status report (only for the services we started)
 Write-Host ""
 Write-Host "====  Service Status  ====" -ForegroundColor Magenta
 foreach ($name in $selected) {
     $port = $catalog[$name]
-    try {
-        $t = New-Object System.Net.Sockets.TcpClient
-        $t.Connect("localhost", $port); $t.Close()
-        Write-Host ("  {0,-22} port {1}  UP" -f $name, $port) -ForegroundColor Green
-    } catch {
+    if ($pending -contains $name) {
         Write-Host ("  {0,-22} port {1}  DOWN  <-- check logs\{2}.log" -f $name, $port, $name) -ForegroundColor Red
+    } else {
+        Write-Host ("  {0,-22} port {1}  UP" -f $name, $port) -ForegroundColor Green
     }
 }
 

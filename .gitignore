@@ -28,3 +28,10 @@ target/
 # Cypress run artifacts (reproducible via the specs / npm scripts)
 cypress/videos/
 cypress/screenshots/
+
+# Local secrets (DB creds, etc.) — never commit
+.env.local
+*.env.local
+
+# Service runtime logs (not versioned)
+microservices/logs/

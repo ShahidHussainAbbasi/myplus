@@ -151,7 +151,7 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${DB_USER:root}
-    password: ${DB_PASSWORD:Technology@2025!}
+    password: ${DB_PASSWORD:changeme}
   jpa:
     hibernate:
       ddl-auto: update           # auto-creates/updates tables
@@ -160,7 +160,7 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
 
 jwt:
-  secret: ${JWT_SECRET:bXlwbHVzU3VwZXJTZWNyZXRLZXlGb3JKd3RUb2tlbkdlbmVyYXRpb25BbmRWYWxpZGF0aW9uMjAyNQ==}
+  secret: ${JWT_SECRET:dev-only-insecure-change-me-jwt-secret-min-32-bytes-padding}
   access-token-expiration-ms: 900000      # 15 minutes
   refresh-token-expiration-ms: 604800000  # 7 days
 ```
