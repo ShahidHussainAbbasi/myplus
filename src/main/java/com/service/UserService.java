@@ -25,11 +25,9 @@ import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.persistence.Repo.PasswordResetTokenRepository;
 import com.persistence.Repo.RoleRepository;
 import com.persistence.Repo.UserRepository;
 import com.persistence.Repo.VerificationTokenRepository;
-import com.persistence.model.PasswordResetToken;
 import com.persistence.model.User;
 import com.persistence.model.VerificationToken;
 import com.web.dto.UserDto;
@@ -44,9 +42,6 @@ public class UserService implements IUserService {
 
     @Autowired
     private VerificationTokenRepository tokenRepository;
-
-    @Autowired
-    private PasswordResetTokenRepository passwordTokenRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -144,12 +139,6 @@ public class UserService implements IUserService {
             tokenRepository.delete(verificationToken);
         }
 
-        final PasswordResetToken passwordToken = passwordTokenRepository.findByUser(user);
-
-        if (passwordToken != null) {
-            passwordTokenRepository.delete(passwordToken);
-        }
-
         userRepository.delete(user);
     }
 
@@ -169,25 +158,8 @@ public class UserService implements IUserService {
     }
 
     @Override
-    public void createPasswordResetTokenForUser(final User user, final String token) {
-        final PasswordResetToken myToken = new PasswordResetToken(token, user);
-        passwordTokenRepository.save(myToken);
-    }
-
-    @Override
     public User findUserByEmail(final String email) {
         return userRepository.findByEmail(email);
-    }
-
-    @Override
-    public PasswordResetToken getPasswordResetToken(final String token) {
-        return passwordTokenRepository.findByToken(token);
-    }
-
-    @Override
-    public User getUserByPasswordResetToken(final String token) {
-        return passwordTokenRepository.findByToken(token)
-            .getUser();
     }
 
     @Override

@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Optional;
 
 import com.persistence.Repo.UserRepository;
-import com.persistence.model.PasswordResetToken;
 import com.persistence.model.User;
 import com.persistence.model.VerificationToken;
 import com.web.dto.UserDto;
@@ -43,13 +42,7 @@ public interface IUserService extends UserRepository{
 
     VerificationToken generateNewVerificationToken(String token);
 
-    void createPasswordResetTokenForUser(User user, String token);
-
     User findUserByEmail(String email);
-
-    PasswordResetToken getPasswordResetToken(String token);
-
-    User getUserByPasswordResetToken(String token);
 
     Optional<User> getUserByID(long id);
 
