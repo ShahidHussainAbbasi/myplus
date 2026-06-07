@@ -3,6 +3,7 @@ package com.myplus.gateway.filter;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.io.DecodingException;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -56,7 +57,8 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
         byte[] keyBytes;
         try {
             keyBytes = Decoders.BASE64.decode(jwtSecret);
-        } catch (IllegalArgumentException ex) {
+        } catch (DecodingException | IllegalArgumentException ex) {
+            // Not valid base64 (e.g. raw string or base64url with '-'/'_'): use the raw bytes.
             keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         }
         this.signingKey = Keys.hmacShaKeyFor(keyBytes);
@@ -99,9 +101,16 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 String orgId = orgObj != null ? String.valueOf(orgObj) : "";
 
                 ServerHttpRequest.Builder builder = request.mutate()
-                        // Drop any client-supplied identity/secret headers before stamping our own,
-                        // so they can never be spoofed through the gateway.
-                        .headers(h -> { h.remove("X-Internal-Secret"); h.remove("X-Org-Id"); })
+                        // F3: drop ALL client-supplied identity/secret headers before stamping our
+                        // own, so a forged value can never survive (even as a duplicate header).
+                        .headers(h -> {
+                            h.remove("X-Internal-Secret");
+                            h.remove("X-Org-Id");
+                            h.remove("X-User-Id");
+                            h.remove("X-User-Email");
+                            h.remove("X-User-Roles");
+                            h.remove("X-User-Privileges");
+                        })
                         .header("X-User-Id", userId)
                         .header("X-User-Email", email != null ? email : "")
                         .header("X-User-Roles", roles)

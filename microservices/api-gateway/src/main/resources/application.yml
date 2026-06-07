@@ -8,12 +8,15 @@ spring:
     gateway:
       discovery:
         locator:
-          enabled: true
+          # F1: OFF — the locator auto-creates catch-all /{service-id}/** routes that bypass the
+          # per-route JwtAuthenticationFilter. Only the explicit, JWT-filtered routes below exist.
+          enabled: false
           lower-case-service-id: true
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: "*"
+            # F4: explicit allow-list (comma-separated env), never "*" with allowCredentials.
+            allowedOriginPatterns: "${CORS_ALLOWED_ORIGINS:http://localhost:8080}"
             allowedMethods:
               - GET
               - POST
