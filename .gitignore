@@ -24,3 +24,7 @@ target/
 .idea/
 *.iml
 *.iws
+
+# Cypress run artifacts (reproducible via the specs / npm scripts)
+cypress/videos/
+cypress/screenshots/

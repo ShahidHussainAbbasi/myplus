@@ -10,7 +10,8 @@ module.exports = defineConfig({
     specPattern: 'cypress/e2e/**/*.cy.js',
     screenshotsFolder: 'cypress/screenshots',
     videosFolder: 'cypress/videos',
-    video: false,
+    // Off by default (Cypress default); enable per-run with `--config video=true`
+    // (e.g. npm run test:e2e:education:demo).
     screenshotOnRunFailure: true,
     experimentalInteractiveRunEvents: true,
   },
