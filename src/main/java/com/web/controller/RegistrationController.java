@@ -1,46 +1,32 @@
 package com.web.controller;
 
 import java.io.UnsupportedEncodingException;
-import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
 
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
-import com.persistence.model.Privilege;
 import com.persistence.model.User;
-import com.persistence.model.VerificationToken;
-import com.registration.OnRegistrationCompleteEvent;
 import com.service.IUserService;
 import com.service.PasswordResetFacade;
 import com.web.dto.PasswordDto;
 import com.web.dto.UserDto;
 import com.web.error.InvalidOldPasswordException;
+import com.web.error.UserAlreadyExistException;
+import com.web.util.AuthServerClient;
 import com.web.util.GenericResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
-import org.springframework.core.env.Environment;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetails;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.client.HttpStatusCodeException;
 
 @Controller
 public class RegistrationController {
@@ -50,68 +36,32 @@ public class RegistrationController {
     private IUserService userService;
 
     @Autowired
+    private AuthServerClient authServerClient;
+
+    @Autowired
     private PasswordResetFacade passwordResetFacade;
 
     @Autowired
     private MessageSource messages;
 
-    @Autowired
-    private JavaMailSender mailSender;
-
-    @Autowired
-    private ApplicationEventPublisher eventPublisher;
-
-    @Autowired
-    private Environment env;
-
-    @Autowired
-    private AuthenticationManager authenticationManager;
-
     public RegistrationController() {
         super();
     }
 
-    // Registration
+    // Registration — delegated to the auth-service (single identity store). The auth-service
+    // creates the user (disabled until verified) and sends the verification email itself.
     @RequestMapping(value = "/user/registration", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse registerUserAccount(@Valid final UserDto accountDto, final HttpServletRequest request) {
-        LOGGER.debug("Registering user account with information: {}", accountDto);
-
-        final User registered = userService.registerNewUserAccount(accountDto);
-        eventPublisher.publishEvent(new OnRegistrationCompleteEvent(registered, request.getLocale(), getAppUrl(request)));
-        return new GenericResponse("success");
-    }
-
-    @RequestMapping(value = "/registrationConfirm", method = RequestMethod.GET)
-    public String confirmRegistration(final HttpServletRequest request, final Model model, @RequestParam("token") final String token) throws UnsupportedEncodingException {
-        Locale locale = request.getLocale();
-        final String result = userService.validateVerificationToken(token);
-        if (result.equals("valid")) {
-            final User user = userService.getUser(token);
-            // if (user.isUsing2FA()) {
-            // model.addAttribute("qr", userService.generateQRUrl(user));
-            // return "redirect:/qrcode.html?lang=" + locale.getLanguage();
-            // }
-            authWithoutPassword(user);
-            model.addAttribute("message", messages.getMessage("message.accountVerified", null, locale));
-            return "redirect:/console.html?lang=" + locale.getLanguage();
+        LOGGER.debug("Registering user account: {}", accountDto.getEmail());
+        try {
+            authServerClient.register(accountDto.getFirstName(), accountDto.getLastName(),
+                    accountDto.getEmail(), accountDto.getPassword(), null, null);
+        } catch (HttpStatusCodeException ex) {
+            // Most common cause from the form is a duplicate email.
+            throw new UserAlreadyExistException("Registration failed");
         }
-
-        model.addAttribute("message", messages.getMessage("auth.message." + result, null, locale));
-        model.addAttribute("expired", "expired".equals(result));
-        model.addAttribute("token", token);
-        return "redirect:/badUser.html?lang=" + locale.getLanguage();
-    }
-
-    // user activation - verification
-
-    @RequestMapping(value = "/user/resendRegistrationToken", method = RequestMethod.GET)
-    @ResponseBody
-    public GenericResponse resendRegistrationToken(final HttpServletRequest request, @RequestParam("token") final String existingToken) {
-        final VerificationToken newToken = userService.generateNewVerificationToken(existingToken);
-        final User user = userService.getUser(newToken.getToken());
-        mailSender.send(constructResendVerificationTokenEmail(getAppUrl(request), request.getLocale(), newToken, user));
-        return new GenericResponse(messages.getMessage("message.resendToken", null, request.getLocale()));
+        return new GenericResponse("success");
     }
 
     // Reset password — delegated to the auth-service (it owns the user store and the reset token).
@@ -137,7 +87,7 @@ public class RegistrationController {
         return new GenericResponse(messages.getMessage("message.resetPasswordSuc", null, locale));
     }
 
-    // change user password
+    // change user password (logged in)
     @RequestMapping(value = "/user/updatePassword", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse changeUserPassword(final Locale locale, @Valid PasswordDto passwordDto) {
@@ -157,51 +107,5 @@ public class RegistrationController {
             return new GenericResponse(userService.generateQRUrl(user));
         }
         return null;
-    }
-
-    // ============== NON-API ============
-
-    private SimpleMailMessage constructResendVerificationTokenEmail(final String contextPath, final Locale locale, final VerificationToken newToken, final User user) {
-        final String confirmationUrl = contextPath + "/registrationConfirm.html?token=" + newToken.getToken();
-        final String message = messages.getMessage("message.resendToken", null, locale);
-        return constructEmail("Resend Registration Token", message + " \r\n" + confirmationUrl, user);
-    }
-
-    private SimpleMailMessage constructEmail(String subject, String body, User user) {
-        final SimpleMailMessage email = new SimpleMailMessage();
-        email.setSubject(subject);
-        email.setText(body);
-        email.setTo(user.getEmail());
-        email.setFrom(env.getProperty("support.email"));
-        return email;
-    }
-
-    private String getAppUrl(HttpServletRequest request) {
-        return "http://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath();
-    }
-
-    public void authWithHttpServletRequest(HttpServletRequest request, String username, String password) {
-        try {
-            request.login(username, password);
-        } catch (ServletException e) {
-            LOGGER.error("Error while login ", e);
-        }
-    }
-
-    public void authWithAuthManager(HttpServletRequest request, String username, String password) {
-        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(username, password);
-        authToken.setDetails(new WebAuthenticationDetails(request));
-        Authentication authentication = authenticationManager.authenticate(authToken);
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-         request.getSession().setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, SecurityContextHolder.getContext());
-    }
-
-    public void authWithoutPassword(User user) {
-        List<Privilege> privileges = user.getRoles().stream().map(role -> role.getPrivileges()).flatMap(list -> list.stream()).distinct().collect(Collectors.toList());
-        List<GrantedAuthority> authorities = privileges.stream().map(p -> new SimpleGrantedAuthority(p.getName())).collect(Collectors.toList());
-
-        Authentication authentication = new UsernamePasswordAuthenticationToken(user, null, authorities);
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 }

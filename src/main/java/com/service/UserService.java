@@ -25,13 +25,10 @@ import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.persistence.Repo.RoleRepository;
 import com.persistence.Repo.UserRepository;
 import com.persistence.Repo.VerificationTokenRepository;
 import com.persistence.model.User;
 import com.persistence.model.VerificationToken;
-import com.web.dto.UserDto;
-import com.web.error.UserAlreadyExistException;
 
 @Service
 @Transactional
@@ -45,9 +42,6 @@ public class UserService implements IUserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private RoleRepository roleRepository;
 
     @Autowired
     private SessionRegistry sessionRegistry;
@@ -97,41 +91,6 @@ public class UserService implements IUserService {
     }
     
     @Override
-    public User registerNewUserAccount(final UserDto accountDto) {
-       if (emailExist(accountDto.getEmail())) {
-            throw new UserAlreadyExistException("There is an account with that email adress: " + accountDto.getEmail());
-        }
-        final User user = new User();
-
-        user.setFirstName(accountDto.getFirstName());
-        user.setLastName(accountDto.getLastName());
-        user.setPassword(passwordEncoder.encode(accountDto.getPassword()));
-        user.setEmail(accountDto.getEmail());
-        user.setUsing2FA(accountDto.isUsing2FA());
-        user.setRoles(Arrays.asList(roleRepository.findByName("ROLE_USER")));
-        return userRepository.save(user);
-    }
-
-    @Override
-    public User getUser(final String verificationToken) {
-        final VerificationToken token = tokenRepository.findByToken(verificationToken);
-        if (token != null) {
-            return token.getUser();
-        }
-        return null;
-    }
-
-    @Override
-    public VerificationToken getVerificationToken(final String VerificationToken) {
-        return tokenRepository.findByToken(VerificationToken);
-    }
-
-    @Override
-    public void saveRegisteredUser(final User user) {
-        userRepository.save(user);
-    }
-
-    @Override
     public void deleteUser(final User user) {
         final VerificationToken verificationToken = tokenRepository.findByUser(user);
 
@@ -140,21 +99,6 @@ public class UserService implements IUserService {
         }
 
         userRepository.delete(user);
-    }
-
-    @Override
-    public void createVerificationTokenForUser(final User user, final String token) {
-        final VerificationToken myToken = new VerificationToken(token, user);
-        tokenRepository.save(myToken);
-    }
-
-    @Override
-    public VerificationToken generateNewVerificationToken(final String existingVerificationToken) {
-        VerificationToken vToken = tokenRepository.findByToken(existingVerificationToken);
-        vToken.updateToken(UUID.randomUUID()
-            .toString());
-        vToken = tokenRepository.save(vToken);
-        return vToken;
     }
 
     @Override
@@ -176,29 +120,6 @@ public class UserService implements IUserService {
     @Override
     public boolean checkIfValidOldPassword(final User user, final String oldPassword) {
         return passwordEncoder.matches(oldPassword, user.getPassword());
-    }
-
-    @Override
-    public String validateVerificationToken(String token) {
-        final VerificationToken verificationToken = tokenRepository.findByToken(token);
-        if (verificationToken == null) {
-            return TOKEN_INVALID;
-        }
-
-        final User user = verificationToken.getUser();
-        final Calendar cal = Calendar.getInstance();
-        if ((verificationToken.getExpiryDate()
-            .getTime()
-            - cal.getTime()
-                .getTime()) <= 0) {
-            tokenRepository.delete(verificationToken);
-            return TOKEN_EXPIRED;
-        }
-
-        user.setEnabled(true);
-        // tokenRepository.delete(verificationToken);
-        userRepository.save(user);
-        return TOKEN_VALID;
     }
 
     @Override

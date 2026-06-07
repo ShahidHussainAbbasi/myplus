@@ -6,31 +6,23 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.authentication.RememberMeServices;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
-import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationProvider;
 
 import com.security.AuthServerAuthenticationProvider;
-import com.security.CustomRememberMeServices;
 import com.security.RevokeTokenLogoutHandler;
 import com.security.TokenStore;
-import com.security.google2fa.CustomAuthenticationProvider;
 import com.security.google2fa.CustomWebAuthenticationDetailsSource;
 import com.web.util.AuthServerClient;
 
@@ -41,9 +33,6 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity // Replaced legacy @EnableGlobalMethodSecurity
 public class SecSecurityConfig {
-
-    @Autowired
-    private UserDetailsService userDetailsService;
 
     @Autowired
     private AuthenticationSuccessHandler myAuthenticationSuccessHandler;
@@ -65,10 +54,6 @@ public class SecSecurityConfig {
 
     @Autowired
     private RevokeTokenLogoutHandler revokeTokenLogoutHandler;
-
-    // 'local' = verify credentials against the local DB (legacy); 'server' = delegate to auth-service JWT.
-    @Value("${auth.mode:local}")
-    private String authMode;
 
     public SecSecurityConfig() {
         super();
@@ -142,10 +127,6 @@ public class SecSecurityConfig {
                 .logoutSuccessUrl("/logout.html?logSucc=true")
                 .deleteCookies("JSESSIONID")
                 .permitAll()
-            )
-            .rememberMe(me -> me
-                .rememberMeServices(rememberMeServices())
-                .key("theKey")
             );
 
         return http.build();
@@ -155,14 +136,9 @@ public class SecSecurityConfig {
 
     @Bean
     public AuthenticationProvider authProvider() {
-        // Phase 2: delegate to the auth-service (JWT IdP) when auth.mode=server; otherwise keep
-        // verifying credentials against the local DB.
-        if ("server".equalsIgnoreCase(authMode)) {
-            return new AuthServerAuthenticationProvider(authServerClient, tokenStore);
-        }
-        final CustomAuthenticationProvider authProvider = new CustomAuthenticationProvider(userDetailsService);
-        authProvider.setPasswordEncoder(encoder());
-        return authProvider;
+        // Single identity provider: credentials are verified by the auth-service (JWT IdP).
+        // The legacy local-DB provider was removed with the auth/user-store decommission.
+        return new AuthServerAuthenticationProvider(authServerClient, tokenStore);
     }
 
     @Bean
@@ -175,8 +151,4 @@ public class SecSecurityConfig {
         return new SessionRegistryImpl();
     }
 
-    @Bean
-    public RememberMeServices rememberMeServices() {
-        return new CustomRememberMeServices("theKey", userDetailsService, new InMemoryTokenRepositoryImpl());
-    }
 }

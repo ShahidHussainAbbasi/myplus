@@ -67,6 +67,24 @@ public class AuthServerClient {
         restTemplate.postForEntity(baseUrl + "/api/auth/reset-password", new HttpEntity<>(body, headers), Void.class);
     }
 
+    /**
+     * Register a new account at the auth-service (the single identity store). The auth-service
+     * persists the user (disabled until verified) and sends the verification email. Throws
+     * {@link org.springframework.web.client.HttpStatusCodeException} on duplicate email / validation.
+     */
+    public void register(String firstName, String lastName, String email, String password, String phone, String userType) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        Map<String, String> body = new HashMap<>();
+        body.put("firstName", firstName);
+        body.put("lastName", lastName);
+        body.put("email", email);
+        body.put("password", password);
+        if (phone != null) body.put("phone", phone);
+        if (userType != null) body.put("userType", userType);
+        restTemplate.postForEntity(baseUrl + "/api/auth/register", new HttpEntity<>(body, headers), Void.class);
+    }
+
     /** Exchange a refresh token for a fresh access token. */
     public AuthServerLoginResponse refresh(String refreshToken) {
         Map<String, String> body = new HashMap<>();
