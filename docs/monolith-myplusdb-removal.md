@@ -1,7 +1,11 @@
 # Monolith `myplusdb` removal — design
 
-**Status: DESIGN GATE — awaiting review + per-module decisions. No code changes yet.**
+**Status: APPROVED — decisions made. Implementing phase by phase.**
 Branch: `feature/monolith-myplusdb-removal`.
+
+**Decisions:** H = **migrate** to a new `appointment-service` · A = **forward** to `analytics-service`
+· D = **fold** into `campaign-service`. Order: P1 (demo→campaign) → P2 (activity→analytics) →
+P3 (appointment-service, its own slice design) → P4 (User POJO) → P5 (kill datasource).
 
 ## 1. Document — goal & why
 
@@ -71,8 +75,10 @@ flowchart TB
 
 ## 5. Phased plan (each phase = its own commit, compiles, verified)
 
-- **P1 — Book-a-Demo (D):** move `DemoRequest` persistence to the chosen service; monolith `DemoController`
-  proxies. Delete `DemoRequest` entity/repo/service from the monolith.
+- **P1 — Book-a-Demo (D): ✅ DONE.** `DemoRequest` entity/repo/`DemoLeadService`/`DemoLeadController`
+  (`POST /api/campaign/public/demo-request`, public) added to campaign-service + Flyway `V2__demo_request.sql`;
+  gateway drops `StripPrefix` on the campaign route + opens `/api/campaign/public/`; monolith `DemoController`
+  validates then proxies via the gateway; monolith `DemoRequest` entity/repo/service removed (DTO kept).
 - **P2 — Activity (A):** drop the `Activity` entity/service (and the AOP aspect) **or** repoint it to
   `analytics-service`. Remove from `myplusdb`.
 - **P3 — Hospital/Appointment (H):** retire (delete module) **or** migrate to `appointment-service`.

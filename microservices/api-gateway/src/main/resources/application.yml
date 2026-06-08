@@ -85,9 +85,9 @@ spring:
           uri: lb://campaign-service
           predicates:
             - Path=/api/campaign/**
+          # No StripPrefix: campaign-service controllers are mapped at the full /api/campaign/... path.
           filters:
             - name: JwtAuthenticationFilter
-            - StripPrefix=2
         - id: analytics-service
           uri: lb://analytics-service
           predicates:
