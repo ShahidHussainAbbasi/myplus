@@ -21,6 +21,12 @@ variable "project_name" {
   default     = "myplus"
 }
 
+variable "domain_name" {
+  description = "Public hostname for the API gateway ALB. Use a SUBDOMAIN — the live apex stays untouched. DNS is at Hostinger, so cert + alias records are added there manually (see outputs)."
+  type        = string
+  default     = "api.maxtheservice.com"
+}
+
 variable "image_tag" {
   description = "Bootstrap image tag for the initial task definition. The CI then deploys immutable :<sha> revisions (the service ignores task_definition changes), so this is only the first-apply placeholder."
   type        = string
