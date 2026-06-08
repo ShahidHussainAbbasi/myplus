@@ -79,8 +79,11 @@ flowchart TB
   (`POST /api/campaign/public/demo-request`, public) added to campaign-service + Flyway `V2__demo_request.sql`;
   gateway drops `StripPrefix` on the campaign route + opens `/api/campaign/public/`; monolith `DemoController`
   validates then proxies via the gateway; monolith `DemoRequest` entity/repo/service removed (DTO kept).
-- **P2 — Activity (A):** drop the `Activity` entity/service (and the AOP aspect) **or** repoint it to
-  `analytics-service`. Remove from `myplusdb`.
+- **P2 — Activity (A): ✅ DONE — REMOVED (not forwarded).** Discovered activity logging was already
+  **disabled** — `ActivityInterceptor.preHandle` just `return true` (whole body commented out), nothing
+  wrote to `activity`, and no UI used it. So forwarding to analytics-service would be building unused
+  code; instead deleted `Activity` entity/repo, `ActivityService`(+Impl), `ActivityInterceptor`, and
+  unwired it from `MvcConfig`. (If activity tracking is wanted later, it's a fresh feature.)
 - **P3 — Hospital/Appointment (H):** retire (delete module) **or** migrate to `appointment-service`.
   This removes `Hospital/Doctor/Appointment/Patient/GeoLocation` and unblocks the `User` residual
   (AppointmentDashboardController is the last `User` reader).
