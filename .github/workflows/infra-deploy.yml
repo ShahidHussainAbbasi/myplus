@@ -13,9 +13,18 @@ on:
           - apply
           - destroy
 
+permissions:
+  id-token: write   # A7 — OIDC
+  contents: read
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    env:
+      # Required secret tfvars (A1 — no defaults). Set as GitHub Actions secrets.
+      TF_VAR_db_password:     ${{ secrets.DB_PASSWORD }}
+      TF_VAR_jwt_secret:      ${{ secrets.JWT_SECRET }}
+      TF_VAR_internal_secret: ${{ secrets.INTERNAL_SECRET }}
     defaults:
       run:
         working-directory: infrastructure/terraform
@@ -23,11 +32,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (A7 — OIDC role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Setup Terraform

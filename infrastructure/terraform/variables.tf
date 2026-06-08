@@ -21,6 +21,18 @@ variable "project_name" {
   default     = "myplus"
 }
 
+variable "github_repo" {
+  description = "GitHub owner/repo allowed to assume the deploy role via OIDC"
+  type        = string
+  default     = "ShahidHussainAbbasi/myplus"
+}
+
+variable "github_deploy_ref" {
+  description = "Git ref allowed to deploy (OIDC trust subject). Change when you promote to master."
+  type        = string
+  default     = "refs/heads/security/prod-hardening"
+}
+
 variable "domain_name" {
   description = "Public hostname for the API gateway ALB. Use a SUBDOMAIN — the live apex stays untouched. DNS is at Hostinger, so cert + alias records are added there manually (see outputs)."
   type        = string

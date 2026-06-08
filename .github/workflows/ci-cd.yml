@@ -2,13 +2,17 @@ name: MyPlus Microservices CI/CD
 
 on:
   push:
-    branches: [ feature/microservices, main, master ]
+    branches: [ security/prod-hardening, main, master ]
   pull_request:
     branches: [ main, master ]
 
 env:
   JAVA_VERSION: '25'
   AWS_REGION: us-east-1
+
+permissions:
+  id-token: write   # A7 — allow the reusable build jobs to request the OIDC token
+  contents: read
 
 jobs:
   detect-changes:
@@ -64,59 +68,55 @@ jobs:
 
   build-eureka:
     needs: detect-changes
-    if: needs.detect-changes.outputs.eureka == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    if: needs.detect-changes.outputs.eureka == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/security/prod-hardening'
     uses: ./.github/workflows/build-service.yml
     with:
       service-name: eureka-server
       service-port: '8761'
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
   build-config:
     needs: [detect-changes, build-eureka]
-    if: needs.detect-changes.outputs.config == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    if: needs.detect-changes.outputs.config == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/security/prod-hardening'
     uses: ./.github/workflows/build-service.yml
     with:
       service-name: config-server
       service-port: '8888'
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
   build-gateway:
     needs: [detect-changes, build-config]
-    if: needs.detect-changes.outputs.gateway == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    if: needs.detect-changes.outputs.gateway == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/security/prod-hardening'
     uses: ./.github/workflows/build-service.yml
     with:
       service-name: api-gateway
       service-port: '8765'
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
   build-auth:
     needs: [detect-changes, build-gateway]
-    if: needs.detect-changes.outputs.auth == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    if: needs.detect-changes.outputs.auth == 'true' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/security/prod-hardening'
     uses: ./.github/workflows/build-service.yml
     with:
       service-name: auth-service
       service-port: '8081'
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
   build-domain-services:
     needs: [detect-changes, build-auth]
-    if: always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    if: always() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/security/prod-hardening')
     strategy:
       matrix:
         include:
@@ -152,8 +152,7 @@ jobs:
       service-name: ${{ matrix.service }}
       service-port: ${{ matrix.port }}
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
 

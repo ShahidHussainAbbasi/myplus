@@ -14,9 +14,7 @@ on:
         type: string
         default: '25'
     secrets:
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
+      AWS_DEPLOY_ROLE_ARN:
         required: true
       AWS_ACCOUNT_ID:
         required: true
@@ -26,6 +24,9 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # OIDC — request the short-lived token
+      contents: read
     defaults:
       run:
         working-directory: microservices/${{ inputs.service-name }}
@@ -43,11 +44,10 @@ jobs:
       - name: Build & test with Maven (A5 — tests gate the pipeline)
         run: mvn clean package -f pom.xml
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (A7 — OIDC role, no static keys)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
