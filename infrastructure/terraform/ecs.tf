@@ -11,7 +11,7 @@ resource "aws_ecs_cluster" "main" {
 
   setting {
     name  = "containerInsights"
-    value = "enabled"
+    value = var.enable_container_insights ? "enabled" : "disabled"
   }
 
   tags = { Name = "${var.project_name}-cluster", Environment = var.environment }
@@ -155,7 +155,12 @@ resource "aws_ecs_service" "services" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.services[each.key].arn
   desired_count   = each.value.desired_count
-  launch_type     = "FARGATE"
+
+  # Cost: Fargate Spot when var.use_fargate_spot (default true). Flip to false (FARGATE) for steady prod.
+  capacity_provider_strategy {
+    capacity_provider = var.use_fargate_spot ? "FARGATE_SPOT" : "FARGATE"
+    weight            = 100
+  }
 
   network_configuration {
     subnets          = aws_subnet.private[*].id
@@ -176,7 +181,7 @@ resource "aws_ecs_service" "services" {
     registry_arn = aws_service_discovery_service.services[each.key].arn
   }
 
-  depends_on = [aws_iam_role_policy_attachment.ecs_task_execution]
+  depends_on = [aws_iam_role_policy_attachment.ecs_task_execution, aws_ecs_cluster_capacity_providers.main]
   tags       = { Name = each.key, Environment = var.environment }
 
   # A6: the CI deploys immutable :<sha> task-definition revisions; Terraform owns the service but not

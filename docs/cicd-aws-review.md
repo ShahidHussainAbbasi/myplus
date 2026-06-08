@@ -45,8 +45,31 @@ dependency-ordered builds; CloudWatch logs per service; ACM-ready ALB SG (443 op
 - ✅ **A10** — non-root user in all 12 service Dockerfiles.
 - ✅ **A11** (=F17) — Trivy image scan gates the push on CRITICAL.
 - ✅ **A12** — `environment: production` on the deploy job (operator sets required reviewers).
-- ⬜ **A13** — DB-name map per service + monolith deployment target (needs your decision).
+- ✅ **A13** — business-service → `myplusdb` (fixed). **Monolith stays on the existing EC2** (placed in
+  the VPC so it can reach the ALB/gateway + RDS `myplusdb`); not Fargate-ized.
 - ⬜ **A14/A15** — multi-AZ NAT, deploy notification (polish).
+
+## Cost (us-east-1 estimate, 24/7)
+
+The Terraform now defaults to a **cost-optimized** shape via toggles (flip to HA for prod):
+
+| Toggle (variable) | Cost default | Prod/HA |
+|---|---|---|
+| `use_fargate_spot` | `true` (Spot, ~70% off compute) | `false` |
+| `multi_az` (RDS) | `false` (single-AZ) | `true` |
+| `enable_container_insights` | `false` | `true` |
+| api-gateway / auth `desired_count` | `1` | `2` |
+
+| | Cost-optimized default | HA (all toggles on, counts=2) |
+|---|---:|---:|
+| Fargate (15→13 tasks) | ~$70 (Spot) | ~$215 |
+| RDS db.t3.medium | ~$60 (single-AZ) | ~$110 |
+| ALB + NAT + Secrets/ECR | ~$60 | ~$77 |
+| CloudWatch | ~$8 | ~$25 |
+| **≈ total** | **~$200 / mo** | **~$430 / mo** |
+
+EC2-only alternative (one `t3.large` docker-compose + RDS) ≈ $60 + DB — cheapest, but no HA / no
+rolling deploys / manual ops. The monolith reuses your existing EC2 either way.
 
 ## Operator bootstrap checklist (one-time, before the pipeline runs)
 1. Create the S3 backend bucket `myplus-terraform-state` (us-east-1).

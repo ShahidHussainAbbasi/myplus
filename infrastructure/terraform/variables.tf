@@ -39,6 +39,24 @@ variable "domain_name" {
   default     = "api.maxtheservice.com"
 }
 
+variable "multi_az" {
+  description = "RDS Multi-AZ (HA, ~2x DB cost). Off for early-stage cost; turn on for prod."
+  type        = bool
+  default     = false
+}
+
+variable "use_fargate_spot" {
+  description = "Run ECS tasks on Fargate Spot (~70% cheaper, can be reclaimed/restarted). Set false for steady prod."
+  type        = bool
+  default     = true
+}
+
+variable "enable_container_insights" {
+  description = "ECS Container Insights (extra CloudWatch metrics cost)."
+  type        = bool
+  default     = false
+}
+
 variable "image_tag" {
   description = "Bootstrap image tag for the initial task definition. The CI then deploys immutable :<sha> revisions (the service ignores task_definition changes), so this is only the first-apply placeholder."
   type        = string
@@ -77,8 +95,8 @@ variable "services" {
   default = {
     "eureka-server"       = { port = 8761, cpu = 256, memory = 512, desired_count = 1 }
     "config-server"       = { port = 8888, cpu = 256, memory = 512, desired_count = 1 }
-    "api-gateway"         = { port = 8765, cpu = 512, memory = 1024, desired_count = 2 }
-    "auth-service"        = { port = 8081, cpu = 512, memory = 1024, desired_count = 2 }
+    "api-gateway"         = { port = 8765, cpu = 512, memory = 1024, desired_count = 1 }
+    "auth-service"        = { port = 8081, cpu = 512, memory = 1024, desired_count = 1 }
     "inventory-service"   = { port = 8082, cpu = 512, memory = 1024, desired_count = 1 }
     "business-service"    = { port = 8083, cpu = 512, memory = 1024, desired_count = 1 }
     "education-service"   = { port = 8084, cpu = 256, memory = 512, desired_count = 1 }
