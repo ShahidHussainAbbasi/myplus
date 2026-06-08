@@ -21,6 +21,12 @@ variable "project_name" {
   default     = "myplus"
 }
 
+variable "image_tag" {
+  description = "Bootstrap image tag for the initial task definition. The CI then deploys immutable :<sha> revisions (the service ignores task_definition changes), so this is only the first-apply placeholder."
+  type        = string
+  default     = "latest"
+}
+
 # Secret values — NO defaults (never commit secrets). Provide at apply time via a git-ignored
 # terraform.tfvars / TF_VAR_* env (ideally from your secret store). Terraform seeds the initial
 # Secrets Manager version (see secrets.tf); rotate the live value in Secrets Manager afterward.

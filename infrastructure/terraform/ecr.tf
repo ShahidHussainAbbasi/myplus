@@ -5,7 +5,7 @@ locals {
 resource "aws_ecr_repository" "services" {
   for_each             = toset(local.service_names)
   name                 = "myplus/${each.value}"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE" # A9: tags can't be overwritten; CI deploys unique :<sha> tags
 
   image_scanning_configuration {
     scan_on_push = true

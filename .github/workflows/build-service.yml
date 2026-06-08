@@ -40,12 +40,8 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build with Maven (skip tests for speed)
-        run: mvn clean package -DskipTests -f pom.xml
-
-      - name: Run tests
-        run: mvn test -f pom.xml
-        continue-on-error: true
+      - name: Build & test with Maven (A5 — tests gate the pipeline)
+        run: mvn clean package -f pom.xml
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -58,25 +54,29 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push Docker image to ECR
+      - name: Build & push immutable image (A6/A9 — :<sha>, no :latest)
+        id: image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: myplus/${{ inputs.service-name }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy to ECS
+      - name: Deploy new task-def revision and wait for stable (A6)
         env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          ECS_CLUSTER: myplus-cluster
-          ECS_SERVICE: ${{ inputs.service-name }}
+          FAMILY: myplus-${{ inputs.service-name }}
+          CLUSTER: myplus-cluster
+          SERVICE: ${{ inputs.service-name }}
+          IMAGE: ${{ steps.image.outputs.image }}
         run: |
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE \
-            --force-new-deployment \
-            --region $AWS_REGION
+          TASKDEF=$(aws ecs describe-task-definition --task-definition "$FAMILY" --query 'taskDefinition')
+          NEWDEF=$(echo "$TASKDEF" | jq --arg IMG "$IMAGE" \
+            '.containerDefinitions[0].image=$IMG
+             | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)')
+          REV=$(aws ecs register-task-definition --cli-input-json "$NEWDEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --task-definition "$REV"
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"

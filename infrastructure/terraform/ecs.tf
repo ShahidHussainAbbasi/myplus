@@ -103,7 +103,7 @@ resource "aws_ecs_task_definition" "services" {
 
   container_definitions = jsonencode([{
     name  = each.key
-    image = "${var.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/myplus/${each.key}:latest"
+    image = "${var.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/myplus/${each.key}:${var.image_tag}"
     portMappings = [{
       containerPort = each.value.port
       protocol      = "tcp"
@@ -170,4 +170,10 @@ resource "aws_ecs_service" "services" {
 
   depends_on = [aws_iam_role_policy_attachment.ecs_task_execution]
   tags       = { Name = each.key, Environment = var.environment }
+
+  # A6: the CI deploys immutable :<sha> task-definition revisions; Terraform owns the service but not
+  # the running revision, so it doesn't revert deploys on the next apply.
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
 }
