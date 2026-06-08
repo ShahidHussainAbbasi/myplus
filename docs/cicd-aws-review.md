@@ -37,6 +37,30 @@ dependency-ordered builds; CloudWatch logs per service; ACM-ready ALB SG (443 op
 4. **Hardening** — A10, A11, A12, A13.
 5. **HA/polish** — A14, A15.
 
+## Remediation status (branch security/prod-hardening)
+- ✅ **A1/A2/A4/A8** — Secrets Manager + ECS `secrets`/valueFrom + INTERNAL_SECRET injected + scoped IAM.
+- ✅ **A3** — ACM cert (`api.maxtheservice.com`) + HTTPS:443 + HTTP→HTTPS redirect (Hostinger DNS manual).
+- ✅ **A5/A6/A9** — tests gate; immutable `:sha` deploys (register revision + wait-stable); ECR IMMUTABLE.
+- ✅ **A7** — GitHub OIDC role (build + terraform); no static keys; trust scoped to repo + branch.
+- ✅ **A10** — non-root user in all 12 service Dockerfiles.
+- ✅ **A11** (=F17) — Trivy image scan gates the push on CRITICAL.
+- ✅ **A12** — `environment: production` on the deploy job (operator sets required reviewers).
+- ⬜ **A13** — DB-name map per service + monolith deployment target (needs your decision).
+- ⬜ **A14/A15** — multi-AZ NAT, deploy notification (polish).
+
+## Operator bootstrap checklist (one-time, before the pipeline runs)
+1. Create the S3 backend bucket `myplus-terraform-state` (us-east-1).
+2. Create a broad **terraform-deploy** IAM role with the GitHub OIDC trust (repo + branch) — used by
+   `infra-deploy.yml` as `AWS_TERRAFORM_ROLE_ARN`. (Or run the first `terraform apply` locally with admin creds.)
+3. `terraform apply` → creates the OIDC provider, the **build** deploy role (output `github_deploy_role_arn`),
+   Secrets Manager secrets, VPC/RDS/ECS/ALB/ACM. Apply pauses on cert validation — add the
+   `acm_validation_record` CNAME at Hostinger.
+4. Set GitHub **secrets**: `AWS_DEPLOY_ROLE_ARN`, `AWS_TERRAFORM_ROLE_ARN`, `AWS_ACCOUNT_ID`,
+   `AWS_REGION`, `DB_PASSWORD`, `JWT_SECRET`, `INTERNAL_SECRET`.
+5. Configure the GitHub **`production` Environment** (required reviewers) for the deploy gate (A12).
+6. Add the `api.maxtheservice.com` → ALB CNAME at Hostinger (output `app_dns_cname`).
+7. Push to `security/prod-hardening` → pipeline builds, scans, deploys.
+
 ## Decisions needed from the operator (AWS-side)
 - A domain + **ACM certificate** for A3 (or accept ALB DNS over HTTPS with a self-signed/wildcard).
 - An **OIDC IAM role** + GitHub→AWS trust for A7.

@@ -24,6 +24,7 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    environment: production   # A12 — set required reviewers on this GitHub Environment to gate prod deploys
     permissions:
       id-token: write   # OIDC — request the short-lived token
       contents: read
@@ -54,7 +55,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build & push immutable image (A6/A9 — :<sha>, no :latest)
+      - name: Build image (:<sha>)
         id: image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -62,8 +63,19 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Scan image for CRITICAL vulnerabilities (A11/F17 — gate before push)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.image.outputs.image }}
+          format: table
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Push immutable image (A6/A9 — :<sha>, no :latest)
+        run: docker push "${{ steps.image.outputs.image }}"
 
       - name: Deploy new task-def revision and wait for stable (A6)
         env:
