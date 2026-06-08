@@ -112,5 +112,6 @@ variable "services" {
     "marketplace-service" = { port = 8088, cpu = 512, memory = 1024, desired_count = 1 }
     "campaign-service"    = { port = 8089, cpu = 256, memory = 512, desired_count = 1 }
     "analytics-service"   = { port = 8090, cpu = 512, memory = 1024, desired_count = 1 }
+    "appointment-service" = { port = 8091, cpu = 256, memory = 512, desired_count = 1 }
   }
 }

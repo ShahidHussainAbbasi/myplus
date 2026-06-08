@@ -46,7 +46,8 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             "/api/auth/verify-email",
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
-            "/api/campaign/public/"   // public Book-a-Demo lead capture (anonymous)
+            "/api/campaign/public/",  // public Book-a-Demo lead capture (anonymous)
+            "/api/appointment/public/"   // public patient booking (anonymous)
     );
 
     public JwtAuthenticationFilter() {

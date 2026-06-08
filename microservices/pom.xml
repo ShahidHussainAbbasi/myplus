@@ -42,6 +42,7 @@
     <module>marketplace-service</module>
     <module>campaign-service</module>
     <module>analytics-service</module>
+    <module>appointment-service</module>
   </modules>
 
   <dependencyManagement>

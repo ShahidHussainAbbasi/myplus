@@ -315,6 +315,28 @@ services:
       config-server:
         condition: service_healthy
 
+  appointment-service:
+    build: ./appointment-service
+    container_name: myplus-appointment
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8091"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_appointment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
   # The monolith (Thymeleaf UI). Built from the repo root; serves on 8080. Talks to the gateway
   # in-network and to MySQL `myplusdb`. (Build the jar first: from repo root `mvn -DskipTests package`.)
   monolith:

@@ -95,6 +95,13 @@ spring:
           filters:
             - name: JwtAuthenticationFilter
             - StripPrefix=2
+        - id: appointment-service
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/appointment/**
+          # No StripPrefix: appointment-service controllers use the full /api/appointment/... path.
+          filters:
+            - name: JwtAuthenticationFilter
 
 eureka:
   client:
