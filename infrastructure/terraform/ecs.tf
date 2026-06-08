@@ -67,9 +67,22 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_iam_role_policy_attachment" "ecs_secrets_manager" {
-  role       = aws_iam_role.ecs_task_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+# A8: least-privilege — read ONLY the three myplus secrets (not the AWS-managed SecretsManagerReadWrite).
+resource "aws_iam_role_policy" "ecs_secrets_read" {
+  name = "${var.project_name}-ecs-secrets-read"
+  role = aws_iam_role.ecs_task_execution.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = [
+        aws_secretsmanager_secret.db_password.arn,
+        aws_secretsmanager_secret.jwt_secret.arn,
+        aws_secretsmanager_secret.internal_secret.arn
+      ]
+    }]
+  })
 }
 
 resource "aws_cloudwatch_log_group" "services" {
@@ -98,10 +111,15 @@ resource "aws_ecs_task_definition" "services" {
     environment = [
       { name = "SPRING_DATASOURCE_URL", value = "jdbc:mysql://${aws_db_instance.mysql.endpoint}/myplusdb_${replace(each.key, "-service", "")}?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true" },
       { name = "SPRING_DATASOURCE_USERNAME", value = "root" },
-      { name = "SPRING_DATASOURCE_PASSWORD", value = var.db_password },
       { name = "EUREKA_URI", value = "http://eureka-server.${var.project_name}.local:8761/eureka" },
-      { name = "JWT_SECRET", value = var.jwt_secret },
       { name = "SPRING_PROFILES_ACTIVE", value = "prod" }
+    ]
+    # Injected from Secrets Manager at container start (never plaintext in the task def). INTERNAL_SECRET
+    # turns on the gateway<->service trust enforcement (F2).
+    secrets = [
+      { name = "SPRING_DATASOURCE_PASSWORD", valueFrom = aws_secretsmanager_secret.db_password.arn },
+      { name = "JWT_SECRET", valueFrom = aws_secretsmanager_secret.jwt_secret.arn },
+      { name = "INTERNAL_SECRET", valueFrom = aws_secretsmanager_secret.internal_secret.arn }
     ]
     logConfiguration = {
       logDriver = "awslogs"

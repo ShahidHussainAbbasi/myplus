@@ -21,18 +21,25 @@ variable "project_name" {
   default     = "myplus"
 }
 
+# Secret values — NO defaults (never commit secrets). Provide at apply time via a git-ignored
+# terraform.tfvars / TF_VAR_* env (ideally from your secret store). Terraform seeds the initial
+# Secrets Manager version (see secrets.tf); rotate the live value in Secrets Manager afterward.
 variable "db_password" {
-  description = "MySQL RDS password"
+  description = "MySQL RDS master password (>= strong)"
   type        = string
   sensitive   = true
-  default     = "Technology@2025!"
 }
 
 variable "jwt_secret" {
-  description = "JWT secret key"
+  description = "JWT signing secret shared by auth-service + api-gateway (>= 256-bit)"
   type        = string
   sensitive   = true
-  default     = "myplus-super-secret-jwt-key-2025-must-be-at-least-256-bits-long"
+}
+
+variable "internal_secret" {
+  description = "Gateway<->service trust secret (X-Internal-Secret); identical across all services (F2)"
+  type        = string
+  sensitive   = true
 }
 
 variable "services" {

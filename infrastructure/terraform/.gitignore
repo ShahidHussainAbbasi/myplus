@@ -1,0 +1,13 @@
+# Terraform — never commit state (may contain secrets) or real tfvars
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# Keep the provider lock committed (do NOT ignore .terraform.lock.hcl)
