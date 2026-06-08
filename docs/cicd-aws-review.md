@@ -47,7 +47,10 @@ dependency-ordered builds; CloudWatch logs per service; ACM-ready ALB SG (443 op
 - ✅ **A12** — `environment: production` on the deploy job (operator sets required reviewers).
 - ✅ **A13** — business-service → `myplusdb` (fixed). **Monolith stays on the existing EC2** (placed in
   the VPC so it can reach the ALB/gateway + RDS `myplusdb`); not Fargate-ized.
-- ⬜ **A14/A15** — multi-AZ NAT, deploy notification (polish).
+- ✅ **A14** — NAT is a toggle: single (cost default) / one-per-AZ HA via `single_nat_gateway`.
+- ✅ **A15** — deploy verified per service (`aws ecs wait services-stable`) + a success/failure summary job.
+- ✅ **Monolith-on-EC2** documented (`docs/monolith-ec2-deployment.md`) + optional RDS ingress rule
+  (`monolith-ec2.tf`, `var.monolith_security_group_id`).
 
 ## Cost (us-east-1 estimate, 24/7)
 

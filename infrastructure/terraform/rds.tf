@@ -8,21 +8,27 @@ resource "aws_security_group" "rds" {
   name        = "${var.project_name}-rds-sg"
   description = "Security group for RDS MySQL"
   vpc_id      = aws_vpc.main.id
+  tags        = { Name = "${var.project_name}-rds-sg" }
+}
 
-  ingress {
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_tasks.id]
-  }
+# Separate rules (not inline) so monolith-ec2.tf can add a conditional ingress without conflict.
+resource "aws_security_group_rule" "rds_ingress_ecs" {
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = aws_security_group.ecs_tasks.id
+  description              = "MySQL from ECS tasks"
+}
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = { Name = "${var.project_name}-rds-sg" }
+resource "aws_security_group_rule" "rds_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  security_group_id = aws_security_group.rds.id
+  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 resource "aws_db_instance" "mysql" {

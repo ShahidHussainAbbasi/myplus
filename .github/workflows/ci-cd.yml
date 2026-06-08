@@ -156,10 +156,20 @@ jobs:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
-  notify-success:
-    needs: [build-domain-services]
-    if: success()
+  notify:
+    needs: [build-eureka, build-config, build-gateway, build-auth, build-domain-services]
+    if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Notify deployment success
-        run: echo "All services deployed successfully to AWS ECS!"
+      - name: Deploy summary (A15)   # services are verified per-job via `aws ecs wait services-stable`
+        run: |
+          if echo '${{ join(needs.*.result, ",") }}' | grep -qE 'failure|cancelled'; then STATUS=FAILED; else STATUS=SUCCEEDED; fi
+          {
+            echo "## MyPlus deploy: $STATUS"
+            echo "- ref: ${{ github.ref_name }} @ \`${{ github.sha }}\`"
+            echo "- jobs: ${{ join(needs.*.result, ', ') }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Wire a real channel here if wanted, e.g. Slack:
+          # curl -fsSL -X POST -H 'Content-type: application/json' \
+          #   -d "{\"text\":\"MyPlus deploy $STATUS — ${{ github.sha }}\"}" "${{ secrets.SLACK_WEBHOOK_URL }}"
+          [ "$STATUS" = SUCCEEDED ] || exit 1

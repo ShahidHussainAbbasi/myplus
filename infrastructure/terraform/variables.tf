@@ -39,6 +39,12 @@ variable "domain_name" {
   default     = "api.maxtheservice.com"
 }
 
+variable "single_nat_gateway" {
+  description = "One NAT gateway (cheaper, egress SPOF) vs one per AZ (HA, ~2x NAT cost)."
+  type        = bool
+  default     = true
+}
+
 variable "multi_az" {
   description = "RDS Multi-AZ (HA, ~2x DB cost). Off for early-stage cost; turn on for prod."
   type        = bool
