@@ -1,3 +1,11 @@
+locals {
+  # A13: business-service owns the shared `myplusdb` (the monolith is being moved off it); every other
+  # service uses `myplusdb_<name>`. Non-DB services (eureka/config/gateway) get a URL but ignore it.
+  service_db_name = {
+    "business-service" = "myplusdb"
+  }
+}
+
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-cluster"
 
@@ -109,7 +117,7 @@ resource "aws_ecs_task_definition" "services" {
       protocol      = "tcp"
     }]
     environment = [
-      { name = "SPRING_DATASOURCE_URL", value = "jdbc:mysql://${aws_db_instance.mysql.endpoint}/myplusdb_${replace(each.key, "-service", "")}?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true" },
+      { name = "SPRING_DATASOURCE_URL", value = "jdbc:mysql://${aws_db_instance.mysql.endpoint}/${lookup(local.service_db_name, each.key, "myplusdb_${replace(each.key, "-service", "")}")}?createDatabaseIfNotExist=true&useSSL=true&requireSSL=true" },
       { name = "SPRING_DATASOURCE_USERNAME", value = "root" },
       { name = "EUREKA_URI", value = "http://eureka-server.${var.project_name}.local:8761/eureka" },
       { name = "SPRING_PROFILES_ACTIVE", value = "prod" }
