@@ -287,6 +287,33 @@ services:
       config-server:
         condition: service_healthy
 
+  # The monolith (Thymeleaf UI). Built from the repo root; serves on 8080. Talks to the gateway
+  # in-network and to MySQL `myplusdb`. (Build the jar first: from repo root `mvn -DskipTests package`.)
+  monolith:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: myplus-monolith
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DDL_AUTO: update   # monolith has no Flyway baseline; additive schema updates
+      JDBC_URL: jdbc:mysql://mysql:3306/myplusdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      RECAPTCHA_SECRET: ${RECAPTCHA_SECRET:-}
+      AUTH_SERVER_URL: http://api-gateway:8765   # auth.server.url
+      GATEWAY_URL: http://api-gateway:8765        # gateway.url
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      api-gateway:
+        condition: service_started
+
 networks:
   myplus-net:
     driver: bridge
