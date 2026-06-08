@@ -74,15 +74,14 @@ docker compose logs -f monolith
   optionally `/api` → `localhost:8765` (gateway). Then the monolith's public base can be
   `https://app.maxtheservice.com`.
 
-## 8. Memory tuning (important on 16 GB)
-Cap each JVM so 14 of them fit. Either add to each service env, or set once on the box:
-```yaml
-# per service in docker-compose.yml
-    environment:
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=25 -Xss512k"
-# or add mem_limit: 512m  (compose v2: deploy.resources.limits.memory)
-```
-Rule of thumb: ~`384–512 MB` heap cap per service + ~1–2 GB for MySQL.
+## 8. Memory (pre-wired)
+The compose already caps every container so 14 JVMs + MySQL fit ~16 GB:
+- each Java service: `mem_limit: 768m` (monolith `1024m`) + `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=60.0 -Xss512k`
+  (~`460 MB` heap, rest for metaspace/threads),
+- `mysql: 1536m`.
+- **Total ≈ 12.5 GB** of limits → leaves headroom on a 16 GB box. Bump individual `mem_limit`s if a
+  service OOMKills (watch `docker compose stats` / exit code 137). For a smaller box, lower the limits
+  and `MaxRAMPercentage`, or run fewer services.
 
 ## 9. Ops
 ```bash

@@ -20,6 +20,7 @@ services:
     image: mysql:8.0
     container_name: myplus-mysql
     restart: unless-stopped
+    mem_limit: 1536m
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_USER: myplus
@@ -40,6 +41,9 @@ services:
     build: ./eureka-server
     container_name: myplus-eureka
     restart: unless-stopped
+    mem_limit: 768m
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
     ports:
       - "8761:8761"
     networks: [myplus-net]
@@ -53,9 +57,11 @@ services:
     build: ./config-server
     container_name: myplus-config
     restart: unless-stopped
+    mem_limit: 768m
     ports:
       - "8888:8888"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       EUREKA_URI: http://eureka-server:8761/eureka
     networks: [myplus-net]
     depends_on:
@@ -71,9 +77,11 @@ services:
     build: ./api-gateway
     container_name: myplus-gateway
     restart: unless-stopped
+    mem_limit: 768m
     ports:
       - "8765:8765"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       JWT_SECRET: ${JWT_SECRET}
@@ -87,9 +95,11 @@ services:
     build: ./auth-service
     container_name: myplus-auth
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8081"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -111,9 +121,11 @@ services:
     build: ./inventory-service
     container_name: myplus-inventory
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8082"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_inventory?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -131,9 +143,11 @@ services:
     build: ./business-service
     container_name: myplus-business
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8083"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -151,9 +165,11 @@ services:
     build: ./education-service
     container_name: myplus-education
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8084"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_education?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -171,9 +187,11 @@ services:
     build: ./welfare-service
     container_name: myplus-welfare
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8085"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_welfare?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -191,9 +209,11 @@ services:
     build: ./agriculture-service
     container_name: myplus-agriculture
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8086"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_agriculture?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -211,9 +231,11 @@ services:
     build: ./pharma-service
     container_name: myplus-pharma
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8087"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_pharma?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -231,9 +253,11 @@ services:
     build: ./marketplace-service
     container_name: myplus-marketplace
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8088"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_marketplace?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -251,9 +275,11 @@ services:
     build: ./campaign-service
     container_name: myplus-campaign
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8089"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_campaign?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -271,9 +297,11 @@ services:
     build: ./analytics-service
     container_name: myplus-analytics
     restart: unless-stopped
+    mem_limit: 768m
     expose:
       - "8090"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_analytics?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -295,9 +323,11 @@ services:
       dockerfile: Dockerfile
     container_name: myplus-monolith
     restart: unless-stopped
+    mem_limit: 1024m
     ports:
       - "8080:8080"
     environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_PROFILES_ACTIVE: prod
       DDL_AUTO: update   # monolith has no Flyway baseline; additive schema updates
       JDBC_URL: jdbc:mysql://mysql:3306/myplusdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
