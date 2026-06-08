@@ -13,4 +13,14 @@ public class DoctorDTO {
     private String name;
     private String speciality;
     private String fee;
+    private String email;
+    private String mobile;
+    private String address;
+    private String availabe;
+    private String dayFrom;
+    private String dayTo;
+    private String timeIn;
+    private String timeOut;
+    private String appointmentOfferType;
+    private Integer appointmentOfferValue;
 }

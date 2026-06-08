@@ -19,4 +19,9 @@ public class Patient {
     private String name;
     private String phone;
     private String email;
+    private String address;
+    private String cnic;
+
+    @Builder.Default
+    private boolean blocked = false;
 }

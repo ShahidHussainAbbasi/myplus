@@ -22,4 +22,17 @@ public class Doctor {
     private String name;
     private String speciality;
     private String fee;
+    private String email;
+    private String mobile;
+    private String address;
+    private String availabe;
+
+    // Schedule + appointment-capacity (drives the booking calc).
+    private String dayFrom;
+    private String dayTo;
+    private String timeIn;
+    private String timeOut;
+    /** "count" -> fixed slots = offerValue; else time-based = (hours*60)/offerValue. */
+    private String appointmentOfferType;
+    private Integer appointmentOfferValue;
 }

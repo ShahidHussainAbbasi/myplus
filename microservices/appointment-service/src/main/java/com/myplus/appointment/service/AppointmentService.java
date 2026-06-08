@@ -3,10 +3,12 @@ package com.myplus.appointment.service;
 import com.myplus.appointment.dto.AppointmentDTO;
 import com.myplus.appointment.dto.BookingRequest;
 import com.myplus.appointment.entity.Appointment;
+import com.myplus.appointment.entity.Doctor;
 import com.myplus.appointment.entity.Hospital;
 import com.myplus.appointment.entity.Patient;
 import com.myplus.appointment.exception.ResourceNotFoundException;
 import com.myplus.appointment.repository.AppointmentRepository;
+import com.myplus.appointment.repository.DoctorRepository;
 import com.myplus.appointment.repository.HospitalRepository;
 import com.myplus.appointment.repository.PatientRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,8 @@ import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -23,6 +27,7 @@ public class AppointmentService {
     private final AppointmentRepository repo;
     private final HospitalRepository hospitalRepo;
     private final PatientRepository patientRepo;
+    private final DoctorRepository doctorRepo;
     private final ModelMapper mapper;
 
     @Transactional
@@ -54,19 +59,64 @@ public class AppointmentService {
         repo.delete(a);
     }
 
-    /** Anonymous public booking: org is inferred from the target hospital; a Patient is created. */
+    /**
+     * Anonymous public booking. Org is inferred from the target hospital. Replicates the legacy flow:
+     * compute the doctor's daily capacity, assign the next appointment number, enforce the daily limit,
+     * reuse/create the patient (by phone within the org), and reject blocked patients.
+     */
     @Transactional
     public AppointmentDTO bookPublic(BookingRequest req) {
         Hospital h = hospitalRepo.findById(req.getHospitalId())
                 .orElseThrow(() -> new ResourceNotFoundException("Hospital not found: " + req.getHospitalId()));
         Long orgId = h.getOrganizationId();
-        Patient p = patientRepo.save(Patient.builder()
-                .organizationId(orgId).name(req.getPatientName())
-                .phone(req.getPatientPhone()).email(req.getPatientEmail()).build());
+        Doctor d = doctorRepo.findById(req.getDoctorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found: " + req.getDoctorId()));
+
+        Patient patient = patientRepo.findFirstByPhoneAndOrganizationId(req.getPatientPhone(), orgId).orElse(null);
+        if (patient != null && patient.isBlocked()) {
+            throw new IllegalArgumentException("This number is blocked from booking appointments.");
+        }
+
+        int capacity = capacityFor(d);
+        String date = req.getDate() != null ? req.getDate() : LocalDate.now().toString();
+        int lastAppointed = repo.findFirstByHospitalIdAndDoctorIdAndDateOrderByIdDesc(h.getId(), d.getId(), date)
+                .map(a -> a.getPatientsAppointed() == null ? 0 : a.getPatientsAppointed()).orElse(0);
+        int appointed = lastAppointed + 1;
+        if (appointed > capacity) {
+            throw new IllegalArgumentException("Today's appointments reached the limit. Please try again tomorrow.");
+        }
+
+        if (patient == null) {
+            patient = patientRepo.save(Patient.builder()
+                    .organizationId(orgId).name(req.getPatientName()).phone(req.getPatientPhone())
+                    .email(req.getPatientEmail()).address(req.getPatientAddress()).blocked(false).build());
+        }
+
         Appointment a = repo.save(Appointment.builder()
-                .organizationId(orgId).hospitalId(h.getId()).doctorId(req.getDoctorId()).patientId(p.getId())
-                .appointmentType(req.getAppointmentType()).dateTime(req.getDateTime()).date(req.getDate())
-                .patientsToVisit(1).patientsAppointed(1).patientsVisited(0).build());
+                .organizationId(orgId).hospitalId(h.getId()).doctorId(d.getId()).patientId(patient.getId())
+                .appointmentType(req.getAppointmentType())
+                .dateTime(req.getDateTime() != null ? req.getDateTime() : LocalDateTime.now().toString())
+                .date(date)
+                .patientsToVisit(capacity == Integer.MAX_VALUE ? null : capacity)
+                .patientsAppointed(appointed).patientsVisited(0).build());
         return mapper.map(a, AppointmentDTO.class);
+    }
+
+    /** Daily capacity: "count" -> fixed offerValue; time-based -> (hours*60)/offerValue; unknown -> unlimited. */
+    private int capacityFor(Doctor d) {
+        Integer val = d.getAppointmentOfferValue();
+        if (val == null || val <= 0) {
+            return Integer.MAX_VALUE;
+        }
+        if ("count".equalsIgnoreCase(d.getAppointmentOfferType())) {
+            return val;
+        }
+        try {
+            int hours = Integer.parseInt(d.getTimeOut().split(":")[0]) - Integer.parseInt(d.getTimeIn().split(":")[0]);
+            int slots = (hours * 60) / val;
+            return slots > 0 ? slots : Integer.MAX_VALUE;
+        } catch (Exception e) {
+            return Integer.MAX_VALUE;
+        }
     }
 }
