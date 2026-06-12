@@ -20,6 +20,16 @@
   }
   window.showDemoUpsell = showDemoUpsell;
 
+  // "Reset demo" — clear the demo write counters at the gateway so the trial restarts.
+  window.resetDemo = function () {
+    jQuery.post('/demo/reset')
+      .done(function (d) {
+        if (window.toast) { toast((d && d.message) || 'Demo reset.'); }
+        setTimeout(function () { window.location.reload(); }, 600);
+      })
+      .fail(function () { alert('Could not reset the demo right now. Please try again.'); });
+  };
+
   jQuery(document).ajaxError(function (e, xhr) {
     if (xhr && xhr.status === 403) {
       var j = xhr.responseJSON;
