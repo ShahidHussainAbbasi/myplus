@@ -177,6 +177,29 @@ footer a{color:var(--brand);text-decoration:none;font-weight:600}
   .nav-links a:not(.nav-login){display:none}
   .nav-links .nav-login{display:inline-flex}
 }
+/* ---- Book a Demo form ---- */
+.df-head{padding:1.5rem 2rem 0;position:relative}
+.df-head h2{font-family:'Cabinet Grotesk',sans-serif;font-size:22px;font-weight:900;letter-spacing:-0.02em;color:var(--navy);display:flex;align-items:center;gap:10px}
+.df-head p{font-size:13px;color:var(--txt2);font-weight:300;margin-top:6px;line-height:1.6;max-width:90%}
+.df-body{padding:1.25rem 2rem 1.75rem}
+.df-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.df-field{display:flex;flex-direction:column;gap:5px}
+.df-field.full{grid-column:1/-1}
+.df-field label{font-size:12px;font-weight:600;color:var(--txt2);letter-spacing:-0.01em}
+.df-field .req{color:#dc2626}
+.df-field input,.df-field select,.df-field textarea{font-family:'Satoshi',sans-serif;font-size:14px;color:var(--txt);background:#fff;border:1px solid var(--border2);border-radius:var(--rs);padding:10px 12px;outline:none;transition:border-color .15s,box-shadow .15s;width:100%}
+.df-field textarea{resize:vertical;min-height:82px}
+.df-field input:focus,.df-field select:focus,.df-field textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(21,101,192,0.12)}
+.df-field.invalid input,.df-field.invalid select,.df-field.invalid textarea{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,0.1)}
+.df-err{font-size:11px;color:#dc2626;font-weight:500;min-height:13px}
+.df-consent{display:flex;align-items:flex-start;gap:9px;font-size:12px;color:var(--txt2);line-height:1.5;margin-top:8px;cursor:pointer}
+.df-consent input{width:16px;height:16px;margin-top:1px;flex-shrink:0;accent-color:var(--brand)}
+.df-actions{display:flex;align-items:center;gap:14px;margin-top:1.25rem;flex-wrap:wrap}
+.df-actions .btn-p[disabled]{opacity:.65;pointer-events:none}
+.df-note{font-size:11.5px;color:var(--txt3);font-weight:300}
+.df-note a{color:var(--brand);text-decoration:none}
+.df-hp{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden}
+@media(max-width:560px){.df-grid{grid-template-columns:1fr}.df-head,.df-body{padding-left:1.25rem;padding-right:1.25rem}}
 </style>
 </head>
 <body>
@@ -201,7 +224,7 @@ footer a{color:var(--brand);text-decoration:none;font-weight:600}
     <a href="#about">About</a>
     <span class="nav-divider" aria-hidden="true"></span>
     <a href="/login" class="nav-login"><i class="ti ti-login" aria-hidden="true"></i> Sign In</a>
-    <a href="#contact" class="nav-cta">Book a Demo &rarr;</a>
+    <a href="#contact" class="nav-cta" onclick="openDemoModal('nav');return false;">Book a Demo &rarr;</a>
   </div>
 </nav>
 
@@ -216,7 +239,7 @@ footer a{color:var(--brand);text-decoration:none;font-weight:600}
   <p class="hero-sub">Powerful integrated software for schools, retailers, enterprises, and clinics — built for globe and built to scale.</p>
   <div class="hero-btns">
     <a href="#services" class="btn-p"><i class="ti ti-layout-grid" aria-hidden="true"></i> Explore Services</a>
-    <a href="#contact" class="btn-o"><i class="ti ti-player-play" aria-hidden="true"></i> Watch Demo</a>
+    <a href="#contact" class="btn-o" onclick="openDemoModal('hero');return false;"><i class="ti ti-player-play" aria-hidden="true"></i> Watch Demo</a>
   </div>
   <div class="hero-stats">
     <div class="hstat"><div class="hstat-v" data-cnt="11">0</div><div class="hstat-l">Modules</div></div>
@@ -317,7 +340,7 @@ footer a{color:var(--brand);text-decoration:none;font-weight:600}
       <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:-0.02em;margin-bottom:4px">Ready to see it in action?</div>
       <div style="font-size:13px;color:rgba(255,255,255,0.75);font-weight:300">30-minute live demo. No commitment. No credit card.</div>
     </div>
-    <a href="mailto:info@maxtheservice.com?subject=Demo Request — MaxTheService" class="demo-cta" style="background:#fff;color:var(--brand);flex-shrink:0"><i class="ti ti-calendar-event" aria-hidden="true"></i> Book a free demo</a>
+    <a href="mailto:maxtheservice@gmail.com?subject=Demo Request — MaxTheService" class="demo-cta" style="background:#fff;color:var(--brand);flex-shrink:0" onclick="openDemoModal('strip');return false;"><i class="ti ti-calendar-event" aria-hidden="true"></i> Book a free demo</a>
   </div>
 </section>
 
@@ -436,7 +459,7 @@ function openModal(id){
         ${s.feats.map(f=>`<div class="feat" style="--ac:${s.ac}"><i class="ti ${f.i}" style="color:${s.ac}" aria-hidden="true"></i><span>${f.t}</span></div>`).join('')}
       </div>
       <div class="modal-footer">
-        <a href="#contact" class="btn-p" style="background:${s.ac}" onclick="closeModal()"><i class="ti ti-phone" aria-hidden="true"></i> Request Demo</a>
+        <a href="#contact" class="btn-p" style="background:${s.ac}" onclick="openDemoModal('service:'+s.id);return false;"><i class="ti ti-phone" aria-hidden="true"></i> Request Demo</a>
         <button class="btn-o" onclick="copyIt('${s.name}')"><i class="ti ti-copy" aria-hidden="true"></i> Copy Info</button>
         <button class="btn-o" onclick="closeModal()">Close</button>
       </div>
@@ -451,6 +474,121 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalOpen)closeModa
 // TOAST
 function toast(msg){const t=document.getElementById('toast');document.getElementById('tmsg').textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800)}
 function copyIt(name){navigator.clipboard.writeText('MaxTheService — '+name+' | https://maxtheservice.com').then(()=>toast('Copied to clipboard!'))}
+
+// ===== Book a Demo (global-ready lead capture) =====
+const DEMO_COUNTRIES="Afghanistan,Albania,Algeria,Andorra,Angola,Antigua and Barbuda,Argentina,Armenia,Australia,Austria,Azerbaijan,Bahamas,Bahrain,Bangladesh,Barbados,Belarus,Belgium,Belize,Benin,Bhutan,Bolivia,Bosnia and Herzegovina,Botswana,Brazil,Brunei,Bulgaria,Burkina Faso,Burundi,Cambodia,Cameroon,Canada,Cape Verde,Central African Republic,Chad,Chile,China,Colombia,Comoros,Congo,Costa Rica,Croatia,Cuba,Cyprus,Czechia,Denmark,Djibouti,Dominica,Dominican Republic,Ecuador,Egypt,El Salvador,Equatorial Guinea,Eritrea,Estonia,Eswatini,Ethiopia,Fiji,Finland,France,Gabon,Gambia,Georgia,Germany,Ghana,Greece,Grenada,Guatemala,Guinea,Guinea-Bissau,Guyana,Haiti,Honduras,Hungary,Iceland,India,Indonesia,Iran,Iraq,Ireland,Israel,Italy,Ivory Coast,Jamaica,Japan,Jordan,Kazakhstan,Kenya,Kiribati,Kosovo,Kuwait,Kyrgyzstan,Laos,Latvia,Lebanon,Lesotho,Liberia,Libya,Liechtenstein,Lithuania,Luxembourg,Madagascar,Malawi,Malaysia,Maldives,Mali,Malta,Marshall Islands,Mauritania,Mauritius,Mexico,Micronesia,Moldova,Monaco,Mongolia,Montenegro,Morocco,Mozambique,Myanmar,Namibia,Nauru,Nepal,Netherlands,New Zealand,Nicaragua,Niger,Nigeria,North Korea,North Macedonia,Norway,Oman,Pakistan,Palau,Palestine,Panama,Papua New Guinea,Paraguay,Peru,Philippines,Poland,Portugal,Qatar,Romania,Russia,Rwanda,Saint Kitts and Nevis,Saint Lucia,Saint Vincent and the Grenadines,Samoa,San Marino,Sao Tome and Principe,Saudi Arabia,Senegal,Serbia,Seychelles,Sierra Leone,Singapore,Slovakia,Slovenia,Solomon Islands,Somalia,South Africa,South Korea,South Sudan,Spain,Sri Lanka,Sudan,Suriname,Sweden,Switzerland,Syria,Taiwan,Tajikistan,Tanzania,Thailand,Timor-Leste,Togo,Tonga,Trinidad and Tobago,Tunisia,Turkey,Turkmenistan,Tuvalu,Uganda,Ukraine,United Arab Emirates,United Kingdom,United States,Uruguay,Uzbekistan,Vanuatu,Vatican City,Venezuela,Vietnam,Yemen,Zambia,Zimbabwe".split(',');
+const DEMO_INTERESTS=["School Management (Education)","POS & Inventory (Retail)","Pharmacy / Pharmaceutical (Healthcare)","Online Marketplace","ERP / HRM / Analytics (Enterprise)","Agriculture income & expense","Appointments & Scheduling","Campaign / Marketing","Other / Not sure"];
+const DEMO_SIZES=["1–10","11–50","51–200","201–1000","1000+"];
+const DEMO_REQUIRED={fullName:'dmName',workEmail:'dmEmail',company:'dmCompany',country:'dmCountry',consent:'dmConsent'};
+// Public demo accounts (50-entry/module trial). Shown right after a demo request so the visitor can try now.
+const DEMO_PW='Demo@2025!';
+const DEMO_ACCOUNTS={
+  "School Management (Education)":{email:"demo.education@myplus.com",label:"Education demo"},
+  "POS & Inventory (Retail)":{email:"demo.business@myplus.com",label:"Retail / POS demo"},
+  "Appointments & Scheduling":{email:"demo.appointment@myplus.com",label:"Appointments demo"},
+  "Agriculture income & expense":{email:"demo.agriculture@myplus.com",label:"Agriculture demo"}
+};
+function dcCopy(id){var t=document.getElementById(id).textContent;if(navigator.clipboard){navigator.clipboard.writeText(t);toast('Copied');}}
+function openDemoLogin(email){try{sessionStorage.setItem('demoLogin',JSON.stringify({email:email,pw:DEMO_PW}));}catch(e){}window.location.href='/login';}
+function showDemoReady(interest){
+  var m=document.getElementById('modal'); var acc=DEMO_ACCOUNTS[interest];
+  if(!acc){
+    m.innerHTML='<div class="df-head"><h2><i class="ti ti-circle-check" style="color:var(--brand)" aria-hidden="true"></i> Request received</h2>'
+      +'<p>Thanks! We\'ll email you a tailored demo'+(interest?' for <b>'+interest+'</b>':'')+' shortly.</p>'
+      +'<button class="modal-close" onclick="closeModal()" aria-label="Close" style="position:absolute;top:14px;right:14px"><i class="ti ti-x" style="font-size:16px" aria-hidden="true"></i></button></div>'
+      +'<div class="df-body"><div class="df-actions"><button class="btn-p" onclick="closeModal()">Done</button></div></div>';
+    return;
+  }
+  m.innerHTML='<div class="df-head"><h2><i class="ti ti-rocket" style="color:var(--brand)" aria-hidden="true"></i> Your '+acc.label+' is ready</h2>'
+    +'<p>Explore right now with the demo account below — a free <b>50-entry</b> trial per module. Want the full version? <a href="/registration.html">Create a free account</a>.</p>'
+    +'<button class="modal-close" onclick="closeModal()" aria-label="Close" style="position:absolute;top:14px;right:14px"><i class="ti ti-x" style="font-size:16px" aria-hidden="true"></i></button></div>'
+    +'<div class="df-body">'
+    +'<div style="background:#f5f8ff;border:1px solid #dbe6ff;border-radius:12px;padding:16px 18px;margin-bottom:16px">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="min-width:78px;color:var(--txt3);font-size:13px">Email</span>'
+    +'<code id="dcEmail" style="flex:1;font-size:14px;color:#0D3B8C">'+acc.email+'</code>'
+    +'<button type="button" style="padding:5px 12px;border:1px solid var(--brand,#1565C0);background:#fff;color:var(--brand,#1565C0);border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap" onclick="dcCopy(\'dcEmail\')"><i class="ti ti-copy" aria-hidden="true"></i> Copy</button></div>'
+    +'<div style="display:flex;align-items:center;gap:10px"><span style="min-width:78px;color:var(--txt3);font-size:13px">Password</span>'
+    +'<code id="dcPw" style="flex:1;font-size:14px;color:#0D3B8C">'+DEMO_PW+'</code>'
+    +'<button type="button" style="padding:5px 12px;border:1px solid var(--brand,#1565C0);background:#fff;color:var(--brand,#1565C0);border-radius:7px;font-size:12px;cursor:pointer;white-space:nowrap" onclick="dcCopy(\'dcPw\')"><i class="ti ti-copy" aria-hidden="true"></i> Copy</button></div>'
+    +'</div>'
+    +'<div class="df-actions"><button class="btn-p" onclick="openDemoLogin(\''+acc.email+'\')"><i class="ti ti-arrow-right" aria-hidden="true"></i> Open the demo</button>'
+    +'<span class="df-note">50-entry trial · <a href="/registration.html">Get full access →</a></span></div>'
+    +'</div>';
+}
+
+function openDemoModal(source){
+  modalOpen='demo';
+  const ov=document.getElementById('overlay'), m=document.getElementById('modal');
+  const tz=(window.Intl&&Intl.DateTimeFormat&&Intl.DateTimeFormat().resolvedOptions().timeZone)||'';
+  const opt=arr=>arr.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+  m.innerHTML=`
+    <div class="df-head">
+      <h2><i class="ti ti-calendar-event" style="color:var(--brand)" aria-hidden="true"></i> Book a demo</h2>
+      <p>Tell us a little about your organisation and we'll arrange a free 30-minute walkthrough in your timezone — no commitment, no credit card.</p>
+      <button class="modal-close" onclick="closeModal()" aria-label="Close" style="position:absolute;top:14px;right:14px"><i class="ti ti-x" style="font-size:16px" aria-hidden="true"></i></button>
+    </div>
+    <form class="df-body" id="demoForm" autocomplete="on" novalidate onsubmit="return submitDemo(event)">
+      <input type="hidden" id="dmSource" value="${source||'website'}">
+      <input type="hidden" id="dmTz" value="${tz}">
+      <div class="df-hp" aria-hidden="true"><label>Leave this empty<input type="text" id="dmWebsite" tabindex="-1" autocomplete="off"></label></div>
+      <div class="df-grid">
+        <div class="df-field"><label for="dmName">Full name <span class="req">*</span></label><input type="text" id="dmName" required maxlength="120"><div class="df-err" id="err-fullName"></div></div>
+        <div class="df-field"><label for="dmEmail">Work email <span class="req">*</span></label><input type="email" id="dmEmail" required maxlength="160"><div class="df-err" id="err-workEmail"></div></div>
+        <div class="df-field"><label for="dmCompany">Company / Organisation <span class="req">*</span></label><input type="text" id="dmCompany" required maxlength="160"><div class="df-err" id="err-company"></div></div>
+        <div class="df-field"><label for="dmCountry">Country <span class="req">*</span></label><select id="dmCountry" required><option value="" selected disabled>Select your country</option>${opt(DEMO_COUNTRIES)}</select><div class="df-err" id="err-country"></div></div>
+        <div class="df-field"><label for="dmPhone">Phone (with country code)</label><input type="tel" id="dmPhone" placeholder="+1 555 123 4567" maxlength="40"><div class="df-err"></div></div>
+        <div class="df-field"><label for="dmInterest">Interested in</label><select id="dmInterest"><option value="">Choose a module</option>${opt(DEMO_INTERESTS)}</select></div>
+        <div class="df-field"><label for="dmSize">Company size</label><select id="dmSize"><option value="">Select size</option>${opt(DEMO_SIZES)}</select></div>
+        <div class="df-field"><label for="dmDate">Preferred date</label><input type="date" id="dmDate"></div>
+        <div class="df-field full"><label for="dmMsg">Anything specific you'd like to see?</label><textarea id="dmMsg" maxlength="2000" placeholder="e.g. fee management across 3 campuses, multi-currency POS, batch tracking ..."></textarea></div>
+      </div>
+      <label class="df-consent" for="dmConsent"><input type="checkbox" id="dmConsent"><span>I agree to be contacted by MaxTheService about my request. <span style="color:var(--txt3)">We never share your details.</span></span></label>
+      <div class="df-err" id="err-consent"></div>
+      <div class="df-actions">
+        <button type="submit" class="btn-p" id="dmSubmit"><i class="ti ti-send" aria-hidden="true"></i> Request my demo</button>
+        <span class="df-note">Prefer email? <a href="mailto:maxtheservice@gmail.com?subject=Demo%20Request">maxtheservice@gmail.com</a></span>
+      </div>
+    </form>`;
+  ov.classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(()=>{const n=document.getElementById('dmName');if(n)n.focus();},60);
+}
+
+function dmSetErr(field,msg){const e=document.getElementById('err-'+field);if(!e)return;e.textContent=msg||'';const fld=e.closest('.df-field');if(fld)fld.classList.toggle('invalid',!!msg);}
+function dmClearErrors(){Object.keys(DEMO_REQUIRED).forEach(f=>dmSetErr(f,''));}
+
+function submitDemo(ev){
+  if(ev)ev.preventDefault();
+  dmClearErrors();
+  const val=id=>{const el=document.getElementById(id);return el?(el.value||'').trim():'';};
+  const payload={
+    fullName:val('dmName'),workEmail:val('dmEmail'),company:val('dmCompany'),country:val('dmCountry'),
+    phone:val('dmPhone'),interest:val('dmInterest'),companySize:val('dmSize'),message:val('dmMsg'),
+    preferredDate:val('dmDate'),timezone:val('dmTz'),locale:(navigator.language||''),
+    source:val('dmSource'),website:val('dmWebsite'),
+    consent:!!(document.getElementById('dmConsent')||{}).checked
+  };
+  let firstBad=null;const flag=(f,msg)=>{dmSetErr(f,msg);if(!firstBad)firstBad=f;};
+  if(!payload.fullName)flag('fullName','Please enter your name.');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(payload.workEmail))flag('workEmail','Enter a valid work email.');
+  if(!payload.company)flag('company','Please enter your company.');
+  if(!payload.country)flag('country','Please select your country.');
+  if(!payload.consent)flag('consent','Please tick the consent box to continue.');
+  if(firstBad){const f=document.getElementById(DEMO_REQUIRED[firstBad]);if(f)f.focus();return false;}
+
+  const btn=document.getElementById('dmSubmit');const orig=btn.innerHTML;
+  btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" aria-hidden="true"></i> Sending…';
+  fetch('/api/demo-request',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)})
+    .then(r=>r.json().catch(()=>({})).then(d=>({ok:r.ok,d})))
+    .then(({ok,d})=>{
+      if(ok&&d&&d.success){toast(d.message||'Thanks! Your demo is ready.');showDemoReady(payload.interest);return;}
+      if(d&&d.errors){Object.keys(d.errors).forEach(k=>dmSetErr(k,d.errors[k]));}
+      toast((d&&d.message)||'Please review the form and try again.');
+      btn.disabled=false;btn.innerHTML=orig;
+    })
+    .catch(()=>{toast('Network error — please try again, or email maxtheservice@gmail.com.');btn.disabled=false;btn.innerHTML=orig;});
+  return false;
+}
 
 // SEARCH + FILTER
 document.getElementById('srch').addEventListener('input',e=>{search=e.target.value.toLowerCase().trim();render()});

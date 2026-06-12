@@ -143,5 +143,24 @@
 
 <script th:src="@{/js/jquery-3.3.1.js}"></script>
 <script th:src="@{/js/login.js}"></script>
+<script>
+// Pre-fill from a "Try the demo" hand-off (Book-a-Demo). Creds are public demo accounts; we only fill
+// the form (the user still clicks Sign in) and show a small trial hint.
+(function(){
+  try{
+    var s=sessionStorage.getItem('demoLogin'); if(!s)return; sessionStorage.removeItem('demoLogin');
+    var d=JSON.parse(s);
+    var u=document.querySelector('input[name="username"]'), p=document.querySelector('input[name="password"]');
+    if(u)u.value=d.email; if(p)p.value=d.pw;
+    var form=document.querySelector('form[name="f"]');
+    if(form){
+      var hint=document.createElement('div');
+      hint.style.cssText='margin:0 0 14px;padding:10px 14px;border-radius:8px;background:#eef4ff;border:1px solid #cfe0ff;color:#0D3B8C;font-size:13px';
+      hint.innerHTML='<b>Demo mode</b> — a free 50-entry trial. Click <b>Sign in</b> to start.';
+      form.insertBefore(hint, form.firstChild);
+    }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>
