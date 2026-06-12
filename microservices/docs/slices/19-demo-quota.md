@@ -1,7 +1,36 @@
 # Slice 19 — Demo accounts + 50-entry quota (free-trial gate)
 
-**Status: DESIGN — decisions made, implementing.** SaaS free-trial gate ([[feedback-saas-standards]]).
-Then P5. Memory: [[project-demo-quota]].
+**Status: ✅ DONE & VERIFIED (2026-06-12).** SaaS free-trial gate ([[feedback-saas-standards]]).
+Memory: [[project-demo-quota]]. Commits a7aa140 (A/B) · bc125ee (demo-credentials UI) · be6e143 (banner/upsell)
+· bc7e08c (login offering + DemoModelAdvice) · 918dfa5 (creds reveal) · 3582816 (10 demo users + safe landing)
+· ab5ec79 (DEMO_ROLE privileges) · d9d15b9 (header-in-body fix) · 4d81c91 (landing demo section)
+· a4896a9/a3e8684 (navbar user/logout + session page) · 44aa5cf/c6b14e9/b857ffd (Reset demo + purge).
+
+## Built (final shape)
+- **auth-service**: `User.demo`→JWT `demo` claim + `DEMO_PRIVILEGE`; 10 per-microservice demo accounts
+  `demo.<domain>@myplus.com` / `Demo@2025!` on a super-privileged `DEMO_ROLE` (so privilege-gated
+  dashboards work), self-healing in SetupDataLoader (dev seed flag).
+- **gateway**: `JwtAuthenticationFilter` Redis counter `demo:{uid}:{module}:{date}` (TTL→midnight),
+  >50 POST/module → `403 {code:DEMO_LIMIT}`; reads-via-POST + non-demo bypass; fail-open.
+  `DemoResetController POST /demo/reset` clears a demo user's counters.
+- **monolith**: demo banner (`sec:authorize('DEMO_PRIVILEGE')`) + "Reset demo" + Register CTA; navbar
+  user chip + Logout; `GatewayClient`→`DemoLimitException`→`DemoLimitAdvice` surfaces the upsell modal
+  (`js/demo.js`); login + landing self-serve demo (pick module → show creds → launch → /login prefill).
+  `POST /demo/reset` clears counters and (demo principal only) calls the module purge.
+- **purge (Reset demo deletes data)**: appointment-service `DELETE /api/appointment/demo/purge` deletes
+  the caller's org data, **`@PreAuthorize("hasAuthority('DEMO_PRIVILEGE')")`** (real tenants → 403) +
+  monolith routes it only for demo principals (`PURGE_PATHS` by userType). **Only appointment wired**;
+  other demo modules reset the counter only — add their `…/demo/purge` endpoint + a `PURGE_PATHS` line.
+
+## Verified
+- API: 50 creates pass, 51st → DEMO_LIMIT + message; TTL→midnight; non-demo bypass; purge **50→0**;
+  non-demo purge **blocked (403)**.
+- Cypress (headed, all green): `demo.cy.js` (login reveal + banner + upsell), `demo-reset.cy.js`
+  (Reset demo → purge + table empty), plus account/appointment regression (8/8).
+
+----
+### Original design below
+**Status (original): DESIGN — decisions made.**
 
 ## 1. What & why
 A **demo user per module** (business/education/welfare/agriculture/appointment) can create up to **50

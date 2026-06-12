@@ -248,3 +248,36 @@ env; see §9)*.
 resource services, identical value), plus `DB_PASSWORD`, `MAIL_PASSWORD`, `RECAPTCHA_SECRET`,
 `CONFIG_SERVER_PASSWORD`, `EUREKA_PASSWORD`. **All committed defaults removed in prod profile (§9) —
 rotate the leaked values.** Manage via AWS Secrets Manager / SSM.
+
+---
+
+## 11. Demo accounts & free-trial gate (slice 19)
+
+**Demo accounts (seeded by auth-service `SetupDataLoader`, dev seed flag `app.seed-admin`):**
+one per domain microservice — `demo.<domain>@myplus.com` / `Demo@2025!` for
+`business, education, welfare, agriculture, appointment, inventory, pharma, marketplace, campaign, analytics`.
+All carry `demo=true` (JWT claim) and `DEMO_ROLE` = full module privileges + `DEMO_PRIVILEGE`. They log in
+as normal users; `userType` routes each to its module dashboard (the 5 with a monolith dashboard —
+education/business/appointment/agriculture/welfare — are offered on the login + landing "Try a demo"
+selectors; the rest fall back to `/`).
+
+**The 50-entry cap (gateway, Redis):** for a `demo=true` JWT, the gateway counts **create POSTs** per
+`(userId, module)` per day in Redis (`demo:{userId}:{module}:{yyyy-MM-dd}`, TTL → local midnight, so it
+**auto-resets daily**). The 51st → `403 {code:"DEMO_LIMIT", message:"…register at maxtheservice.com…"}`,
+surfaced as an upsell modal (`js/demo.js`). Reads-via-POST (`/get,/load,/list,/search,/report,/find,/view,
+/export`) and non-demo users bypass; **fail-open** on Redis errors.
+
+> **Infra dependency:** the gateway now needs **Redis** (`spring.data.redis`, `REDIS_HOST`/`REDIS_PORT`).
+> Dev: `docker run -d --name myplus-redis -p 6379:6379 redis:7-alpine`. Compose: `redis` service added,
+> gateway `depends_on` it. If Redis is down the cap fails open (creates allowed) — not a hard outage.
+
+**"Reset demo"** (banner button / `POST /demo/reset`): clears the demo user's gateway counters
+(gateway `POST /demo/reset`, Bearer → `DEL demo:{userId}:*`) **and** purges their module data. Data purge
+is **demo-only**: service endpoint `DELETE /api/<module>/demo/purge` is
+`@PreAuthorize("hasAuthority('DEMO_PRIVILEGE')")` (a real tenant → **403**) and the monolith only calls it
+for a demo principal (`DemoResetController.PURGE_PATHS` by `userType`). **Wired for appointment only**; to
+add another module: implement `DELETE /api/<module>/demo/purge` (org-scoped delete, same `@PreAuthorize`)
+and add a `PURGE_PATHS` entry.
+
+**P5 note:** the monolith owns **no database** — `JDBC_URL`/`DB_*` are gone from the monolith; only the
+microservices use `DB_PASSWORD`/MySQL. Identity is the in-memory `User` principal from the JWT.

@@ -100,9 +100,15 @@ flowchart TB
   `Service`/`Type`/`Company`) entities and the `User/Role/Privilege/VerificationToken` repos in both
   `dao/` and `Repo/`. The monolith now has **zero Spring Data repositories and no real JPA entities**.
   Design `docs/monolith-myplusdb-removal-P4.md`; commits `6a0a517` (design), `a6e14cd` (impl).
-- **P5 — Kill the datasource:** remove `PersistenceJPAConfig`, the JPA/Hibernate deps the monolith no
-  longer needs, `persistence.properties`, the `JDBC_URL`/`DB_*` env, and the monolith from any DB
-  health checks. Drop `myplusdb` (business-service still owns its own data).
+- **P5 — Kill the datasource: ✅ DONE & VERIFIED (commit `9ca6a24`).** `Application` excludes
+  `DataSourceAutoConfiguration`/`HibernateJpaAutoConfiguration`/`DataSourceTransactionManagerAutoConfiguration`;
+  deleted `PersistenceJPAConfig` + `persistence.properties`; dropped `JDBC_URL`/`DB_*`/`DDL_AUTO` env and the
+  `mysql` dependency from the compose monolith. **The monolith boots with no DataSource** (verified: up on
+  8080, login + proxied modules work). Inert JPA deps + stray `@Entity` DTOs (`BaseEntity`/`DiscountDTO`/
+  `CustomerHistoryDTO`) remain harmless on the classpath (optional dep cleanup later).
+
+> **✅ myplusdb removal COMPLETE (P1–P5).** The monolith is a pure UI + gateway client with no database;
+> identity is the in-memory `User` principal built from the JWT. All domain data lives in the microservices.
 
 ## 6. Test (per phase)
 - Monolith **compiles** after each phase (`mvn -o compile`).
