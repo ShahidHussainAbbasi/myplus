@@ -80,7 +80,8 @@ public class SetupDataLoader {
         }
         for (String r : Arrays.asList("USER_ROLE", "ROLE_USER", "ROLE_BUSINESS_USER", "ROLE_EDUCATION_USER",
                 "ROLE_WELFARE_USER", "ROLE_AGRICULTURE_USER", "ROLE_PHARMA_USER",
-                "ROLE_MARKETPLACE_BUYER", "ROLE_MARKETPLACE_SELLER")) {
+                "ROLE_MARKETPLACE_BUYER", "ROLE_MARKETPLACE_SELLER",
+                "ROLE_ANALYTICS_USER", "ROLE_CAMPAIGN_USER", "ROLE_INVENTORY_USER")) {
             createOrUpdateRole(r, user);
         }
         for (String r : Arrays.asList("ADMIN_ROLE", "ROLE_BUSINESS_ADMIN")) {
@@ -112,13 +113,18 @@ public class SetupDataLoader {
         // yields a working login. demo=true -> the gateway caps writes at 50/module and the UI shows the
         // "register at maxtheservice.com" upsell. userType routes each to its own module dashboard.
         if (seedAdmin) {
-            // email, userType, roleName
+            // One demo account per domain microservice. email, userType, roleName.
             String[][] demos = {
                     {"demo.business@myplus.com",     "BUSINESS",     "ROLE_BUSINESS_USER"},
                     {"demo.education@myplus.com",    "EDUCATION",    "ROLE_EDUCATION_USER"},
                     {"demo.welfare@myplus.com",      "WELFARE",      "ROLE_WELFARE_USER"},
                     {"demo.agriculture@myplus.com",  "AGRICULTURE",  "ROLE_AGRICULTURE_USER"},
                     {"demo.appointment@myplus.com",  "APPOINTMENT",  "ROLE_APPOINTMENT_USER"},
+                    {"demo.inventory@myplus.com",    "INVENTORY",    "ROLE_INVENTORY_USER"},
+                    {"demo.pharma@myplus.com",       "PHARMA",       "ROLE_PHARMA_USER"},
+                    {"demo.marketplace@myplus.com",  "MARKETPLACE",  "ROLE_MARKETPLACE_BUYER"},
+                    {"demo.campaign@myplus.com",     "CAMPAIGN",     "ROLE_CAMPAIGN_USER"},
+                    {"demo.analytics@myplus.com",    "ANALYTICS",    "ROLE_ANALYTICS_USER"},
             };
             for (String[] d : demos) {
                 final String email = d[0];
