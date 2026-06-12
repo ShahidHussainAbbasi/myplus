@@ -111,7 +111,7 @@
         </div>
     </nav>
     <!-- Demo free-trial banner — shown only for demo accounts (principal.demo from the JWT). -->
-    <div th:if="${#authentication != null and #authentication.principal != null and #authentication.principal.class.simpleName == 'User' and #authentication.principal.demo}"
+    <div th:if="${demoUser}"
          style="background:linear-gradient(90deg,#0D3B8C,#1565C0);color:#fff;padding:8px 16px;text-align:center;font-size:13px">
         <span class="glyphicon glyphicon-info-sign" style="margin-right:5px"></span>
         <b>Demo mode</b> — free trial, up to 50 entries per module.

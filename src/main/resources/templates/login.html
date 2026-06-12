@@ -131,6 +131,24 @@
             <a class="register-link" th:href="@{/registration.html}"
                th:text="#{label.form.siguUp}">Create an account</a>
 
+            <!-- No account? Offer an instant live demo by module (50-entry free trial). -->
+            <div class="demo-try" style="margin-top:18px;padding:16px;border:1px dashed #1565C0;border-radius:12px;background:#f5f8ff">
+                <div style="font-weight:700;color:#0D3B8C;margin-bottom:6px">
+                    <span class="glyphicon glyphicon-flash" style="margin-right:5px"></span>No account? Try a live demo
+                </div>
+                <p style="font-size:12.5px;color:#475569;margin:0 0 10px">Pick a module and explore instantly — a free 50-entry trial, no signup.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <select id="demoDomain" class="field-input" style="flex:1;min-width:160px;height:auto">
+                        <option value="">Choose a module…</option>
+                        <option value="demo.education@myplus.com">School Management (Education)</option>
+                        <option value="demo.business@myplus.com">POS &amp; Inventory (Retail)</option>
+                        <option value="demo.appointment@myplus.com">Appointments &amp; Scheduling</option>
+                        <option value="demo.agriculture@myplus.com">Agriculture income &amp; expense</option>
+                    </select>
+                    <button type="button" id="demoLaunch" class="btn-signin" style="width:auto;padding:0 18px">Launch demo</button>
+                </div>
+            </div>
+
             <div class="card-footer-note">
                 Need an appointment?
                 <a class="appt-link" th:href="@{/appointment}"
@@ -160,6 +178,17 @@
       form.insertBefore(hint, form.firstChild);
     }
   }catch(e){}
+})();
+// "Launch demo": pick a module -> fill the demo account -> sign in (role-based landing to its dashboard).
+(function(){
+  var btn=document.getElementById('demoLaunch'); if(!btn)return;
+  btn.addEventListener('click',function(){
+    var sel=document.getElementById('demoDomain'); var email=sel&&sel.value;
+    if(!email){ if(sel)sel.focus(); return; }
+    var u=document.querySelector('input[name="username"]'), p=document.querySelector('input[name="password"]');
+    if(u)u.value=email; if(p)p.value='Demo@2025!';
+    var f=document.querySelector('form[name="f"]'); if(f)f.submit();
+  });
 })();
 </script>
 </body>
