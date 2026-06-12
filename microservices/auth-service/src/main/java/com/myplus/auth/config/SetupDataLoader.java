@@ -108,20 +108,23 @@ public class SetupDataLoader {
             log.info("Default admin user created: admin@myplus.com");
         }
 
-        if (seedAdmin && userRepository.findByEmail("appointment@myplus.com").isEmpty()) {
-            User appt = User.builder()
-                    .username("appointment")
-                    .email("appointment@myplus.com")
-                    .password(passwordEncoder.encode(appointmentPassword))
-                    .firstName("Appointment")
-                    .lastName("Manager")
-                    .enabled(true)
-                    .accountNonLocked(true)
-                    .userType("APPOINTMENT")
-                    .roles(new HashSet<>(Collections.singletonList(appointmentRole)))
-                    .build();
+        // Demo appointment user — self-healing: on every dev startup ensure it exists AND is in a
+        // known-good login state (reset password, enabled, unlocked, role + userType), so a restart
+        // always repairs it (a prior bad/disabled/locked row no longer blocks login).
+        if (seedAdmin) {
+            User appt = userRepository.findByEmail("appointment@myplus.com")
+                    .orElseGet(() -> User.builder().username("appointment").email("appointment@myplus.com").build());
+            appt.setPassword(passwordEncoder.encode(appointmentPassword));
+            appt.setFirstName("Appointment");
+            appt.setLastName("Manager");
+            appt.setEnabled(true);
+            appt.setAccountNonLocked(true);
+            appt.setFailedLoginAttempts(0);
+            appt.setLockTime(null);
+            appt.setUserType("APPOINTMENT");
+            appt.setRoles(new HashSet<>(Collections.singletonList(appointmentRole)));
             userRepository.save(appt);
-            log.info("Demo appointment user created: appointment@myplus.com (userType=APPOINTMENT)");
+            log.info("Demo appointment user ensured: appointment@myplus.com (userType=APPOINTMENT)");
         }
     }
 
