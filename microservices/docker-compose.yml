@@ -368,18 +368,13 @@ services:
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       SPRING_PROFILES_ACTIVE: prod
-      DDL_AUTO: update   # monolith has no Flyway baseline; additive schema updates
-      JDBC_URL: jdbc:mysql://mysql:3306/myplusdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      DB_USER: root
-      DB_PASSWORD: ${DB_PASSWORD}
+      # P5: the monolith owns no database — no JDBC_URL/DB_* needed. Data lives in the microservices.
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       RECAPTCHA_SECRET: ${RECAPTCHA_SECRET:-}
       AUTH_SERVER_URL: http://api-gateway:8765   # auth.server.url
       GATEWAY_URL: http://api-gateway:8765        # gateway.url
     networks: [myplus-net]
     depends_on:
-      mysql:
-        condition: service_healthy
       api-gateway:
         condition: service_started
 
