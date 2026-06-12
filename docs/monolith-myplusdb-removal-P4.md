@@ -1,6 +1,6 @@
 # P4 — auth residual removal (User → POJO, drop Role/Privilege/VerificationToken JPA)
 
-**Status: DESIGN — decisions made, ready to implement.**
+**Status: ✅ DONE (impl commit `a6e14cd`, BUILD SUCCESS). Runtime verify pending: change-password + 2FA.**
 Branch: `feature/monolith-myplusdb-removal`. Umbrella: `docs/monolith-myplusdb-removal.md` (P4).
 Follows P3 (appointment-service migration, commits `6c11bc0`/`029ecd1`).
 

@@ -92,9 +92,14 @@ flowchart TB
   `Repo/` and `dao/`), `Appointment/Doctor/Hospital/GeoLocation` services (+interfaces), `AppointmentValidater`.
   `AppUtil` country list is now static. This removed `Hospital/Doctor/Appointment/Patient/GeoLocation` from
   `myplusdb` and unblocked the `User` residual.
-- **P4 — Auth residual:** convert `com.persistence.model.User` to a plain POJO principal (it's already
-  built transiently by `AuthServerAuthenticationProvider`); delete `Role`/`Privilege`/`VerificationToken`
-  entities + `User/Role/Privilege/VerificationToken` repos + the `UserService` DB methods.
+- **P4 — Auth residual: ✅ DONE.** `User` is now a plain in-memory POJO principal (JPA stripped, dead
+  `roles` collection removed). Logged-in change-password and 2FA delegated to auth-service
+  (`PUT /api/auth/users/me/password`; `/2fa/setup|verify|disable` with a real QR→verify flow in
+  `console.html`); new `AuthServerClient` methods. `UserService`/`IUserService` slimmed to
+  `getUsersFromSessionRegistry()`. Deleted `Role`/`Privilege`/`VerificationToken` (+ unused
+  `Service`/`Type`/`Company`) entities and the `User/Role/Privilege/VerificationToken` repos in both
+  `dao/` and `Repo/`. The monolith now has **zero Spring Data repositories and no real JPA entities**.
+  Design `docs/monolith-myplusdb-removal-P4.md`; commits `6a0a517` (design), `a6e14cd` (impl).
 - **P5 — Kill the datasource:** remove `PersistenceJPAConfig`, the JPA/Hibernate deps the monolith no
   longer needs, `persistence.properties`, the `JDBC_URL`/`DB_*` env, and the monolith from any DB
   health checks. Drop `myplusdb` (business-service still owns its own data).
