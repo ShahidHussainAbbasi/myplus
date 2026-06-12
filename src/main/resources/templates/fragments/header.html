@@ -96,6 +96,12 @@
                     </li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
+                    <!-- Logged-in user info -->
+                    <li th:if="${#authorization.expression('isAuthenticated()')}" class="navbar-text" style="margin-right:6px;color:#dbe6ff">
+                        <span class="glyphicon glyphicon-user" style="margin-right:6px"></span>
+                        <span style="font-weight:600" th:text="|${#authentication.principal.firstName} ${#authentication.principal.lastName}|">User</span>
+                        <span style="opacity:.75;font-size:12px;margin-left:6px" th:text="${#authentication.principal.email}">email</span>
+                    </li>
                     <li th:if="${#authorization.expression('isAuthenticated()')}">
                         <a href="#" onclick="document.getElementById('logoutForm').submit(); return false;">
                             <span class="glyphicon glyphicon-log-out"></span> Logout
