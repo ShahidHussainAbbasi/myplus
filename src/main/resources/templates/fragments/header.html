@@ -96,14 +96,20 @@
                     </li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
-                    <!-- Logged-in user info -->
-                    <li th:if="${#authorization.expression('isAuthenticated()')}" class="navbar-text" style="margin-right:6px;color:#dbe6ff">
-                        <span class="glyphicon glyphicon-user" style="margin-right:6px"></span>
-                        <span style="font-weight:600" th:text="|${#authentication.principal.firstName} ${#authentication.principal.lastName}|">User</span>
-                        <span style="opacity:.75;font-size:12px;margin-left:6px" th:text="${#authentication.principal.email}">email</span>
-                    </li>
-                    <li th:if="${#authorization.expression('isAuthenticated()')}">
-                        <a href="#" onclick="document.getElementById('logoutForm').submit(); return false;">
+                    <!-- Logged-in user info + logout -->
+                    <li th:if="${#authorization.expression('isAuthenticated()')}"
+                        style="display:flex;align-items:center;gap:12px;padding:9px 4px">
+                        <span style="display:inline-flex;align-items:center;gap:9px;background:rgba(255,255,255,.12);border-radius:100px;padding:5px 14px 5px 6px;color:#fff">
+                            <span style="width:30px;height:30px;border-radius:50%;background:#1565C0;display:inline-flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0">
+                                <span class="glyphicon glyphicon-user" style="font-size:13px"></span>
+                            </span>
+                            <span style="display:flex;flex-direction:column;line-height:1.2">
+                                <span style="font-weight:600;font-size:13px" th:text="|${#authentication.principal.firstName} ${#authentication.principal.lastName}|">User</span>
+                                <span style="opacity:.72;font-size:11px" th:text="${#authentication.principal.email}">email</span>
+                            </span>
+                        </span>
+                        <a href="#" onclick="document.getElementById('logoutForm').submit(); return false;"
+                           style="display:inline-flex;align-items:center;gap:6px;background:#e23b4e;color:#fff;border-radius:9px;padding:8px 16px;font-weight:600;font-size:13px;text-decoration:none;box-shadow:0 2px 8px rgba(226,59,78,.35)">
                             <span class="glyphicon glyphicon-log-out"></span> Logout
                         </a>
                         <form style="display:none" id="logoutForm"
