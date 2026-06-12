@@ -32,6 +32,10 @@ public class SetupDataLoader {
     private boolean seedAdmin;
     @org.springframework.beans.factory.annotation.Value("${app.admin-password:Admin@2025!}")
     private String adminPassword;
+    // Demo per-module login user (dev only — gated by the same seed flag) so role-based landing can be
+    // exercised: userType=APPOINTMENT -> monolith routes to /appointmentDashboard.
+    @org.springframework.beans.factory.annotation.Value("${app.appointment-password:Appoint@2025!}")
+    private String appointmentPassword;
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
@@ -86,6 +90,7 @@ public class SetupDataLoader {
             createOrUpdateRole(r, superSet);
         }
         Role adminRole = createOrUpdateRole("ROLE_ADMIN", superSet);
+        Role appointmentRole = createOrUpdateRole("ROLE_APPOINTMENT_USER", user);
 
         if (seedAdmin && userRepository.findByEmail("admin@myplus.com").isEmpty()) {
             User admin = User.builder()
@@ -101,6 +106,22 @@ public class SetupDataLoader {
                     .build();
             userRepository.save(admin);
             log.info("Default admin user created: admin@myplus.com");
+        }
+
+        if (seedAdmin && userRepository.findByEmail("appointment@myplus.com").isEmpty()) {
+            User appt = User.builder()
+                    .username("appointment")
+                    .email("appointment@myplus.com")
+                    .password(passwordEncoder.encode(appointmentPassword))
+                    .firstName("Appointment")
+                    .lastName("Manager")
+                    .enabled(true)
+                    .accountNonLocked(true)
+                    .userType("APPOINTMENT")
+                    .roles(new HashSet<>(Collections.singletonList(appointmentRole)))
+                    .build();
+            userRepository.save(appt);
+            log.info("Demo appointment user created: appointment@myplus.com (userType=APPOINTMENT)");
         }
     }
 
