@@ -56,6 +56,8 @@ public class HospitalController {
             body.put("city", hospitalDto.getGeoId());
             appointment.postJson("/hospitals", body);
             return new GenericResponse("Hospital registered successfully");
+        } catch (com.web.error.DemoLimitException e) {
+            throw e; // let DemoLimitAdvice return the upsell instead of a generic failure
         } catch (Exception e) {
             LOGGER.error("registerHospital failed", e);
             return new GenericResponse(

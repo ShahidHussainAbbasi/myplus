@@ -54,7 +54,8 @@ public class SetupDataLoader {
                 "ADD_COMPANY", "ADD_VENDER", "ADD_ITEM", "ADD_ITEM_TYPE", "ADD_ITEM_UNIT",
                 "UPDATE_COMPANY", "UPDATE_VENDER", "UPDATE_ITEM", "UPDATE_ITEM_TYPE", "UPDATE_ITEM_UNIT",
                 "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT",
-                "PUBLIC_ALERTS", "SYSTEM_ALERTS")) {
+                "PUBLIC_ALERTS", "SYSTEM_ALERTS",
+                "DEMO_PRIVILEGE")) {
             p.put(name, createPrivilegeIfNotExists(name));
         }
 
@@ -91,7 +92,13 @@ public class SetupDataLoader {
             createOrUpdateRole(r, superSet);
         }
         Role adminRole = createOrUpdateRole("ROLE_ADMIN", superSet);
-        Role appointmentRole = createOrUpdateRole("ROLE_APPOINTMENT_USER", user);
+        createOrUpdateRole("ROLE_APPOINTMENT_USER", user);
+        // Demo accounts get full module privileges (so the privilege-gated dashboards work) plus
+        // DEMO_PRIVILEGE, which the UI uses to show the demo banner. The 50/module write cap is the
+        // only real limit (enforced at the gateway), not the privilege set.
+        Set<Privilege> demoSet = new HashSet<>(superSet);
+        demoSet.add(p.get("DEMO_PRIVILEGE"));
+        Role demoRole = createOrUpdateRole("DEMO_ROLE", demoSet);
 
         if (seedAdmin && userRepository.findByEmail("admin@myplus.com").isEmpty()) {
             User admin = User.builder()
@@ -113,22 +120,22 @@ public class SetupDataLoader {
         // yields a working login. demo=true -> the gateway caps writes at 50/module and the UI shows the
         // "register at maxtheservice.com" upsell. userType routes each to its own module dashboard.
         if (seedAdmin) {
-            // One demo account per domain microservice. email, userType, roleName.
+            // One demo account per domain microservice. email, userType. All get DEMO_ROLE (full module
+            // privileges + DEMO_PRIVILEGE); userType routes each to its own module dashboard.
             String[][] demos = {
-                    {"demo.business@myplus.com",     "BUSINESS",     "ROLE_BUSINESS_USER"},
-                    {"demo.education@myplus.com",    "EDUCATION",    "ROLE_EDUCATION_USER"},
-                    {"demo.welfare@myplus.com",      "WELFARE",      "ROLE_WELFARE_USER"},
-                    {"demo.agriculture@myplus.com",  "AGRICULTURE",  "ROLE_AGRICULTURE_USER"},
-                    {"demo.appointment@myplus.com",  "APPOINTMENT",  "ROLE_APPOINTMENT_USER"},
-                    {"demo.inventory@myplus.com",    "INVENTORY",    "ROLE_INVENTORY_USER"},
-                    {"demo.pharma@myplus.com",       "PHARMA",       "ROLE_PHARMA_USER"},
-                    {"demo.marketplace@myplus.com",  "MARKETPLACE",  "ROLE_MARKETPLACE_BUYER"},
-                    {"demo.campaign@myplus.com",     "CAMPAIGN",     "ROLE_CAMPAIGN_USER"},
-                    {"demo.analytics@myplus.com",    "ANALYTICS",    "ROLE_ANALYTICS_USER"},
+                    {"demo.business@myplus.com",     "BUSINESS"},
+                    {"demo.education@myplus.com",    "EDUCATION"},
+                    {"demo.welfare@myplus.com",      "WELFARE"},
+                    {"demo.agriculture@myplus.com",  "AGRICULTURE"},
+                    {"demo.appointment@myplus.com",  "APPOINTMENT"},
+                    {"demo.inventory@myplus.com",    "INVENTORY"},
+                    {"demo.pharma@myplus.com",       "PHARMA"},
+                    {"demo.marketplace@myplus.com",  "MARKETPLACE"},
+                    {"demo.campaign@myplus.com",     "CAMPAIGN"},
+                    {"demo.analytics@myplus.com",    "ANALYTICS"},
             };
             for (String[] d : demos) {
                 final String email = d[0];
-                Role role = roleRepository.findByName(d[2]).orElse(appointmentRole);
                 User u = userRepository.findByEmail(email)
                         .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
                 u.setPassword(passwordEncoder.encode(demoPassword));
@@ -140,7 +147,7 @@ public class SetupDataLoader {
                 u.setLockTime(null);
                 u.setUserType(d[1]);
                 u.setDemo(true);
-                u.setRoles(new HashSet<>(Collections.singletonList(role)));
+                u.setRoles(new HashSet<>(Collections.singletonList(demoRole)));
                 userRepository.save(u);
             }
             log.info("Demo module users ensured ({} users, demo=true, 50-entry/module cap)", demos.length);

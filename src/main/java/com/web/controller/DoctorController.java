@@ -94,6 +94,8 @@ public class DoctorController {
             body.put("appointmentOfferValue", doctorDto.getAppointmentOfferValue());
             appointment.postJson("/doctors", body);
             return new GenericResponse("Doctor registered successfully");
+        } catch (com.web.error.DemoLimitException e) {
+            throw e; // let DemoLimitAdvice return the upsell instead of a generic failure
         } catch (Exception e) {
             LOGGER.error("registerDoctor failed", e);
             return new GenericResponse(
