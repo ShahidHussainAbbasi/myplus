@@ -73,6 +73,20 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: myplus-redis
+    restart: unless-stopped
+    mem_limit: 256m
+    expose:
+      - "6379"
+    networks: [myplus-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   api-gateway:
     build: ./api-gateway
     container_name: myplus-gateway
@@ -86,9 +100,12 @@ services:
       CONFIG_URI: http://config-server:8888
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_SECRET: ${INTERNAL_SECRET}
+      REDIS_HOST: redis           # spring.data.redis.host — demo-quota counter (slice 19)
     networks: [myplus-net]
     depends_on:
       config-server:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   auth-service:

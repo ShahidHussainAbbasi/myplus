@@ -238,6 +238,12 @@ public class AuthService {
     }
 
     private Map<String, Object> buildClaims(User user) {
+        // Default active tenant: the user's primary org ("tenant #1"), auto-created on first login so
+        // domain data has a home once domains move from userId- to org-scoping.
+        return buildClaims(user, organizationService.getOrCreatePrimaryOrg(user).getId());
+    }
+
+    private Map<String, Object> buildClaims(User user, Long activeOrgId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("email", user.getEmail());
@@ -245,10 +251,27 @@ public class AuthService {
         // Privilege-level authorities so privilege-based consumers (the monolith's
         // @PreAuthorize / sec:authorize checks) can rebuild their authority set from the token.
         claims.put("privileges", new ArrayList<>(CustomUserDetailsService.getPrivilegeNames(user.getRoles())));
-        // Active tenant: every user is their own tenant ("tenant #1") until multi-org join flows exist.
-        // Auto-creates the org + OWNER membership on first login so domain data has a home once
-        // domains move from userId- to org-scoping.
-        claims.put("activeOrgId", organizationService.getOrCreatePrimaryOrg(user).getId());
+        // Active tenant the request is scoped to. The gateway copies this into X-Org-Id.
+        claims.put("activeOrgId", activeOrgId);
+        // Free-trial demo account: the gateway caps writes (50/module) and the UI shows the upsell.
+        claims.put("demo", user.isDemo());
         return claims;
+    }
+
+    /**
+     * Re-issue tokens for {@code userId} scoped to {@code orgId}. Validates the user is a member of the
+     * target org first (so a client can never widen its own scope) — the heart of safe org switching.
+     */
+    @Transactional
+    public AuthResponse switchOrganization(Long userId, Long orgId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ValidationException("Invalid user"));
+        if (!organizationService.isMember(userId, orgId)) {
+            throw new ValidationException("Not a member of the requested organization");
+        }
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        String accessToken = jwtService.generateAccessToken(userDetails, buildClaims(user, orgId));
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
+        return buildAuthResponse(user, accessToken, refreshToken.getToken());
     }
 }

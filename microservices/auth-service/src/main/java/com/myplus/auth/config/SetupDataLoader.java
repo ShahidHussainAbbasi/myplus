@@ -32,10 +32,10 @@ public class SetupDataLoader {
     private boolean seedAdmin;
     @org.springframework.beans.factory.annotation.Value("${app.admin-password:Admin@2025!}")
     private String adminPassword;
-    // Demo per-module login user (dev only — gated by the same seed flag) so role-based landing can be
-    // exercised: userType=APPOINTMENT -> monolith routes to /appointmentDashboard.
-    @org.springframework.beans.factory.annotation.Value("${app.appointment-password:Appoint@2025!}")
-    private String appointmentPassword;
+    // Per-module demo users (dev only — gated by the same seed flag). Free-trial accounts capped at
+    // 50 entries/module by the gateway; userType routes each to its own module dashboard.
+    @org.springframework.beans.factory.annotation.Value("${app.demo-password:Demo@2025!}")
+    private String demoPassword;
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
@@ -108,23 +108,36 @@ public class SetupDataLoader {
             log.info("Default admin user created: admin@myplus.com");
         }
 
-        // Demo appointment user — self-healing: on every dev startup ensure it exists AND is in a
-        // known-good login state (reset password, enabled, unlocked, role + userType), so a restart
-        // always repairs it (a prior bad/disabled/locked row no longer blocks login).
+        // Per-module DEMO users (dev seed flag) — self-healing on every startup so a restart always
+        // yields a working login. demo=true -> the gateway caps writes at 50/module and the UI shows the
+        // "register at maxtheservice.com" upsell. userType routes each to its own module dashboard.
         if (seedAdmin) {
-            User appt = userRepository.findByEmail("appointment@myplus.com")
-                    .orElseGet(() -> User.builder().username("appointment").email("appointment@myplus.com").build());
-            appt.setPassword(passwordEncoder.encode(appointmentPassword));
-            appt.setFirstName("Appointment");
-            appt.setLastName("Manager");
-            appt.setEnabled(true);
-            appt.setAccountNonLocked(true);
-            appt.setFailedLoginAttempts(0);
-            appt.setLockTime(null);
-            appt.setUserType("APPOINTMENT");
-            appt.setRoles(new HashSet<>(Collections.singletonList(appointmentRole)));
-            userRepository.save(appt);
-            log.info("Demo appointment user ensured: appointment@myplus.com (userType=APPOINTMENT)");
+            // email, userType, roleName
+            String[][] demos = {
+                    {"demo.business@myplus.com",     "BUSINESS",     "ROLE_BUSINESS_USER"},
+                    {"demo.education@myplus.com",    "EDUCATION",    "ROLE_EDUCATION_USER"},
+                    {"demo.welfare@myplus.com",      "WELFARE",      "ROLE_WELFARE_USER"},
+                    {"demo.agriculture@myplus.com",  "AGRICULTURE",  "ROLE_AGRICULTURE_USER"},
+                    {"demo.appointment@myplus.com",  "APPOINTMENT",  "ROLE_APPOINTMENT_USER"},
+            };
+            for (String[] d : demos) {
+                final String email = d[0];
+                Role role = roleRepository.findByName(d[2]).orElse(appointmentRole);
+                User u = userRepository.findByEmail(email)
+                        .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
+                u.setPassword(passwordEncoder.encode(demoPassword));
+                u.setFirstName("Demo");
+                u.setLastName(d[1]);
+                u.setEnabled(true);
+                u.setAccountNonLocked(true);
+                u.setFailedLoginAttempts(0);
+                u.setLockTime(null);
+                u.setUserType(d[1]);
+                u.setDemo(true);
+                u.setRoles(new HashSet<>(Collections.singletonList(role)));
+                userRepository.save(u);
+            }
+            log.info("Demo module users ensured ({} users, demo=true, 50-entry/module cap)", demos.length);
         }
     }
 

@@ -54,6 +54,11 @@ public class User {
 
     private String userType;
 
+    // Free-trial demo account: the gateway caps writes (50 entries/module) and the UI shows the
+    // "register at maxtheservice.com" upsell once exceeded. Travels in the JWT as the `demo` claim.
+    @Builder.Default
+    private boolean demo = false;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

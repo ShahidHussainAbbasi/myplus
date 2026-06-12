@@ -11,16 +11,22 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 // import jakarta.crypto.SecretKey;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @Component
@@ -37,6 +43,17 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     @Value("${gateway.internal-secret:}")
     private String internalSecret;
 
+    // Demo free-trial cap: a demo user (JWT demo=true) may create at most this many entries per module
+    // per day; the counter lives in Redis keyed by user+module+date and auto-expires at end of day.
+    @Value("${demo.max-entries:50}")
+    private int demoMaxEntries;
+
+    private final ReactiveStringRedisTemplate redis;
+
+    // POSTs whose path contains a read hint are not "entries" (list/search via POST), so they don't count.
+    private static final List<String> DEMO_READ_HINTS =
+            List.of("/get", "/load", "/list", "/search", "/report", "/find", "/view", "/export");
+
     private SecretKey signingKey;
 
     private static final List<String> OPEN_API_ENDPOINTS = List.of(
@@ -50,8 +67,9 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             "/api/appointment/public/"   // public patient booking (anonymous)
     );
 
-    public JwtAuthenticationFilter() {
+    public JwtAuthenticationFilter(ReactiveStringRedisTemplate redis) {
         super(Config.class);
+        this.redis = redis;
     }
 
     @PostConstruct
@@ -122,13 +140,59 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                     builder.header("X-Internal-Secret", internalSecret);
                 }
                 ServerHttpRequest mutated = builder.build();
+                ServerWebExchange forwarded = exchange.mutate().request(mutated).build();
 
-                return chain.filter(exchange.mutate().request(mutated).build());
+                // Demo free-trial cap: count create POSTs per (demo user, module) per day in Redis.
+                boolean demo = Boolean.TRUE.equals(claims.get("demo", Boolean.class));
+                if (demo && HttpMethod.POST.equals(request.getMethod()) && isCreate(path)) {
+                    String key = "demo:" + userId + ":" + moduleOf(path) + ":" + LocalDate.now();
+                    return redis.opsForValue().increment(key)
+                            .flatMap(count -> (count != null && count == 1L)
+                                    ? redis.expire(key, Duration.ofSeconds(secondsToEndOfDay())).thenReturn(count)
+                                    : Mono.just(count == null ? 0L : count))
+                            .flatMap(count -> (count > demoMaxEntries)
+                                    ? demoLimit(exchange.getResponse())
+                                    : chain.filter(forwarded))
+                            .onErrorResume(e -> {
+                                // Fail-open: never let a Redis hiccup break the request path.
+                                log.warn("demo quota check failed (allowing request): {}", e.getMessage());
+                                return chain.filter(forwarded);
+                            });
+                }
+
+                return chain.filter(forwarded);
             } catch (Exception ex) {
                 log.warn("JWT validation failed: {}", ex.getMessage());
                 return unauthorized(exchange.getResponse(), "Invalid or expired token");
             }
         };
+    }
+
+    /** The module segment of an /api/&lt;module&gt;/... path (so the demo cap is independent per module). */
+    private String moduleOf(String path) {
+        String[] seg = path.split("/");
+        return seg.length > 2 ? seg[2] : "unknown";
+    }
+
+    /** A create-style POST counts toward the demo cap; reads-via-POST (list/search/…) do not. */
+    private boolean isCreate(String path) {
+        String p = path.toLowerCase();
+        return DEMO_READ_HINTS.stream().noneMatch(p::contains);
+    }
+
+    /** Seconds until local midnight — the demo counter expires then, so the cap auto-resets daily. */
+    private long secondsToEndOfDay() {
+        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime endOfDay = now.toLocalDate().plusDays(1).atStartOfDay(now.getZone());
+        return Math.max(60, Duration.between(now, endOfDay).getSeconds());
+    }
+
+    private Mono<Void> demoLimit(ServerHttpResponse response) {
+        response.setStatusCode(HttpStatus.FORBIDDEN);
+        response.getHeaders().add("Content-Type", "application/json");
+        String body = "{\"success\":false,\"code\":\"DEMO_LIMIT\",\"message\":\"You've reached the 50-entry "
+                + "demo limit. Register at maxtheservice.com to unlock the full features.\",\"statusCode\":403}";
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8))));
     }
 
     private Mono<Void> unauthorized(ServerHttpResponse response, String message) {
