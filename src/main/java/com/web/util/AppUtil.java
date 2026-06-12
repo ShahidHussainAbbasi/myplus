@@ -36,8 +36,6 @@ import org.springframework.util.StringUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.persistence.model.Geolocation;
-import com.service.IGeoLocationService;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -50,8 +48,6 @@ public class AppUtil {
 	
 	private final static Logger LOGGER = LoggerFactory.getLogger(AppUtil.class);
 	
-	@Autowired
-	IGeoLocationService geoLocationService;
 
     private static final String EMAIL_PATTERN = "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@" + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
     private static final String MOBILE_NUMBER_PATTERN = "^((\\+923)|(00923)|(03))-{0,1}\\d{2}\\d{7}$";
@@ -183,20 +179,21 @@ public class AppUtil {
 
     @PostConstruct
     void init() {
-    	try {
-			List<Geolocation> countries =  geoLocationService.loadCountries();
-			if(countries==null)
-				return;
-			LOGGER.info("Contries fetched "+countries.size());
-			countryMap = new HashMap<String, String>();
-			countries.forEach(c ->{
-				countryMap.put(c.getCountryCode(),c.getCountry());
-			});
-			LOGGER.info("Contries availabe in map  "+countryMap.size());
-    	}catch(Exception e) {
-    		e.printStackTrace();
-    		LOGGER.info("Contries fetching issues  "+this.getClass().getName()+" : "+e.getCause());
-    	}
+        // Countries are static client-side reference data now (geo moved out of myplusdb).
+        countryMap = new java.util.LinkedHashMap<>();
+        String[][] c = {
+            {"PK","Pakistan"},{"US","United States"},{"GB","United Kingdom"},{"IN","India"},
+            {"AE","United Arab Emirates"},{"SA","Saudi Arabia"},{"CA","Canada"},{"AU","Australia"},
+            {"DE","Germany"},{"FR","France"},{"IT","Italy"},{"ES","Spain"},{"NL","Netherlands"},
+            {"TR","Turkey"},{"MY","Malaysia"},{"ID","Indonesia"},{"BD","Bangladesh"},{"EG","Egypt"},
+            {"ZA","South Africa"},{"NG","Nigeria"},{"BR","Brazil"},{"MX","Mexico"},{"CN","China"},
+            {"JP","Japan"},{"KR","South Korea"},{"SG","Singapore"},{"QA","Qatar"},{"KW","Kuwait"},
+            {"OM","Oman"},{"BH","Bahrain"}
+        };
+        for (String[] e : c) {
+            countryMap.put(e[0], e[1]);
+        }
+        LOGGER.info("Static country map size {}", countryMap.size());
     }
 
   

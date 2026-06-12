@@ -1,9 +1,8 @@
 package com.web.controller;
 
-import java.util.HashSet;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -11,8 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,105 +17,68 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.persistence.model.Geolocation;
-import com.service.IGeoLocationService;
-import com.service.IHospitalService;
 import com.web.dto.HospitalDto;
 import com.web.util.AppUtil;
+import com.web.util.AppointmentRestClient;
 import com.web.util.GenericResponse;
 
+/**
+ * Hospital screens. Proxies to appointment-service via {@link AppointmentRestClient} — no local DB.
+ * Country options come from the static {@link AppUtil#countryMap}; state/city are entered free-form
+ * (geo is static client-side per the slice-17 design).
+ */
 @Controller
 public class HospitalController {
 
-	 private final Logger LOGGER = LoggerFactory.getLogger(getClass());
-	    @Autowired
-	    private MessageSource messages;
+    private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 
     @Autowired
-    IHospitalService hospitalService;
+    private MessageSource messages;
 
     @Autowired
-    AppUtil appUtil;
-    
-	@Autowired
-	IGeoLocationService geoLocationService;
-    
+    private AppointmentRestClient appointment;
+
+    @Autowired
+    private AppUtil appUtil;
+
     @RequestMapping(value = "/registerHospital", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse registerHospital(final HospitalDto hospitalDto, final HttpServletRequest request) {
-    	try {
-        LOGGER.debug("Registering hospital account with information: {}", hospitalDto);
-        UsernamePasswordAuthenticationToken authToken =  (UsernamePasswordAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
-        if (!authToken.isAuthenticated()) 
-        	new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()), "UserNotFound");
-
-        if(hospitalService.findByName(hospitalDto.getName()))
-        	return new GenericResponse(messages.getMessage("message.hospital.exist", null, request.getLocale()), "HospitalAlreadyExist");
-        
-	        hospitalService.registerNewHospital(hospitalDto);
-	        return new GenericResponse("Hospital registered successfully");
-    	}catch(Exception e) {
-    		e.printStackTrace();
-    		return	new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),e.getCause().toString());
-    	}
+        try {
+            LOGGER.debug("Registering hospital: {}", hospitalDto);
+            Map<String, Object> body = new HashMap<>();
+            body.put("name", hospitalDto.getName());
+            body.put("email", hospitalDto.getEmail());
+            body.put("phone", hospitalDto.getPhone());
+            body.put("logoUrl", hospitalDto.getLogoUrl());
+            body.put("country", hospitalDto.getCountryCode());
+            body.put("state", hospitalDto.getState());
+            body.put("city", hospitalDto.getGeoId());
+            appointment.postJson("/hospitals", body);
+            return new GenericResponse("Hospital registered successfully");
+        } catch (Exception e) {
+            LOGGER.error("registerHospital failed", e);
+            return new GenericResponse(
+                    messages.getMessage("message.userNotFound", null, request.getLocale()), "RegisterFailed");
+        }
     }
-    
-//    @RequestMapping(value = "/registerHospital", method = RequestMethod.POST)
-//    public String registerHospital(final Locale locale, final Model model) {
-//    	HospitalDto hospitalDto = (HospitalDto) model;
-//    	hospitalService.registerNewHospital(hospitalDto);
-//    	return "hospital";
-//    }
-    
+
     @RequestMapping(value = "/addHospital", method = RequestMethod.GET)
     public String addHospital(final Locale locale, final Model model) {
-/*    	Map<String,String> coutries = new HashMap<>();
-    	AppUtil.countryMapcountries().forEach(c ->{
-    		String city=c.getCity()!=null?c.getCity():"-";
-    		String state=c.getState()!=null?c.getState():"-";
-    		String country=c.getCountry()!=null?c.getCountry():"-";
-    		coutries.put(c.getCountryCode(),c.getCountry()!=null?c.getCountry():"-");
-    	});
-*/        
-    	model.addAttribute("countries", appUtil.countryMap);
+        model.addAttribute("countries", appUtil.countryMap);
         return "hospital";
     }
 
-	@RequestMapping(value = "/loadStatesByCountry", method = RequestMethod.GET)
-	@ResponseBody
-	public String loadStatesByCountry(@RequestParam String countryCode) {
-		List<Geolocation> states = geoLocationService.loadStatesByCountry(countryCode);
-		Set<String> items = new HashSet<>();  
-		states.forEach(d -> {
-			if(d!=null)
-				items.add(d.getState());
-			
-		});
-		StringBuffer sb = new StringBuffer();
-		sb.append("<option value='-1'> Select State </option>");
-		items.forEach(d -> {
-			if(d!=null)
-				sb.append("<option value="+d+">"+((d!=null && d!="")?d:" ~ ")+"</option>");
-			
-		});
-	    return sb.toString();
-	}	
-    
-	@RequestMapping(value = "/loadCitiesByState", method = RequestMethod.GET)
-	@ResponseBody
-	public String loadCitiesByState(@RequestParam String state) {
-		List<Geolocation> cities = geoLocationService.loadCitiesByState(state);
-		StringBuffer sb = new StringBuffer();
-		sb.append("<option value='-1'> Select City </option>");
-		cities.forEach(d -> {
-			if(d!=null)
-				sb.append("<option value='"+d.getId()+"'>"+(d.getCity()!=null?d.getCity():" ~ ")+"</option>");
-			
-		});
-	    return sb.toString();
-	}	
+    @RequestMapping(value = "/loadStatesByCountry", method = RequestMethod.GET)
+    @ResponseBody
+    public String loadStatesByCountry(@RequestParam String countryCode) {
+        // Geo is static client-side now; states are free-form. Default option only.
+        return "<option value='-1'> Select State </option>";
+    }
 
-	private String getAppUrl(HttpServletRequest request) {
-        return "http://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath();
-    }    
+    @RequestMapping(value = "/loadCitiesByState", method = RequestMethod.GET)
+    @ResponseBody
+    public String loadCitiesByState(@RequestParam String state) {
+        return "<option value='-1'> Select City </option>";
+    }
 }
