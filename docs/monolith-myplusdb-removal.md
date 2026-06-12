@@ -84,9 +84,14 @@ flowchart TB
   wrote to `activity`, and no UI used it. So forwarding to analytics-service would be building unused
   code; instead deleted `Activity` entity/repo, `ActivityService`(+Impl), `ActivityInterceptor`, and
   unwired it from `MvcConfig`. (If activity tracking is wanted later, it's a fresh feature.)
-- **P3 — Hospital/Appointment (H):** retire (delete module) **or** migrate to `appointment-service`.
-  This removes `Hospital/Doctor/Appointment/Patient/GeoLocation` and unblocks the `User` residual
-  (AppointmentDashboardController is the last `User` reader).
+- **P3 — Hospital/Appointment (H): ✅ DONE — MIGRATED.** New org-scoped, JWT `appointment-service`
+  (port 8091, `myplusdb_appointment`; P3a scaffold + P3b-1 enrich to legacy booking behaviour). Monolith
+  `Hospital/Doctor/Appointment/AppointmentDashboard` controllers are now thin proxies over
+  `AppointmentRestClient` (P3b); `AppointmentDashboardController` no longer reads `User`. Deleted the dead
+  monolith JPA island: `Hospital/HospitalPK/Doctor/Appointment/Patient/Geolocation` entities, repos (both
+  `Repo/` and `dao/`), `Appointment/Doctor/Hospital/GeoLocation` services (+interfaces), `AppointmentValidater`.
+  `AppUtil` country list is now static. This removed `Hospital/Doctor/Appointment/Patient/GeoLocation` from
+  `myplusdb` and unblocked the `User` residual.
 - **P4 — Auth residual:** convert `com.persistence.model.User` to a plain POJO principal (it's already
   built transiently by `AuthServerAuthenticationProvider`); delete `Role`/`Privilege`/`VerificationToken`
   entities + `User/Role/Privilege/VerificationToken` repos + the `UserService` DB methods.

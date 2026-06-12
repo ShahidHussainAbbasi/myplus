@@ -1,6 +1,8 @@
 # Slice 17 — appointment-service (P3 of myplusdb removal)
 
-**Status: DESIGN GATE — awaiting review. No code yet.**
+**Status: ✅ DONE.** appointment-service built (P3a) + enriched to legacy booking (P3b-1); monolith
+cut over to proxies and the old hospital/appointment JPA deleted (P3b). Geo = static client-side
+(Decision G). Commits: `f2f0371` (P3a), `6d5f057` (P3b-1), `6c11bc0` (P3b).
 Branch: `feature/monolith-myplusdb-removal`. Umbrella: `docs/monolith-myplusdb-removal.md`.
 
 ## 1. Document — what & why
