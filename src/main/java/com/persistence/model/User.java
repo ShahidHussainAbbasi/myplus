@@ -28,6 +28,8 @@ public class User {
 
     private String secret;
 
+    private boolean demo;
+
     public User() {
         super();
         this.secret = Base32.random();
@@ -110,6 +112,14 @@ public class User {
 
     public void setSecret(String secret) {
         this.secret = secret;
+    }
+
+    public boolean isDemo() {
+        return demo;
+    }
+
+    public void setDemo(boolean demo) {
+        this.demo = demo;
     }
 
     @Override

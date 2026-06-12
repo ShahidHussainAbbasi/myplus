@@ -169,6 +169,7 @@ public class AuthService {
                 .roles(CustomUserDetailsService.getRoleNames(user.getRoles()))
                 .privileges(CustomUserDetailsService.getPrivilegeNames(user.getRoles()))
                 .twoFactorRequired(false)
+                .demo(user.isDemo())
                 .build();
     }
 

@@ -72,6 +72,7 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
         principal.setLastName(response.getLastName());
         principal.setUserType(response.getUserType());
         principal.setEnabled(true);
+        principal.setDemo(response.isDemo());
 
         List<GrantedAuthority> authorities = new ArrayList<>();
         if (response.getPrivileges() != null) {

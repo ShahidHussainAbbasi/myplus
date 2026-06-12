@@ -98,7 +98,22 @@ public class GatewayClient {
                 return restTemplate.exchange(url, method, retry, responseType);
             }
             throw e;
+        } catch (HttpClientErrorException.Forbidden e) {
+            // Demo free-trial cap: surface the gateway's DEMO_LIMIT as a typed exception so the UI shows
+            // the "register at maxtheservice.com" upsell instead of a generic failure.
+            String respBody = e.getResponseBodyAsString();
+            if (respBody != null && respBody.contains("DEMO_LIMIT")) {
+                throw new com.web.error.DemoLimitException(extractDemoMessage(respBody));
+            }
+            throw e;
         }
+    }
+
+    private static String extractDemoMessage(String body) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("\"message\"\\s*:\\s*\"([^\"]*)\"").matcher(body);
+        return m.find() ? m.group(1)
+                : "You've reached the 50-entry demo limit. Register at maxtheservice.com to unlock the full features.";
     }
 
     private HttpHeaders buildHeaders(boolean serverMode, MediaType contentType) {

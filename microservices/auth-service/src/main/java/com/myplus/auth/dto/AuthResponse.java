@@ -27,4 +27,6 @@ public class AuthResponse {
     // their authority set directly from the login response without parsing the JWT.
     private Set<String> privileges;
     private boolean twoFactorRequired;
+    // Free-trial demo session: the front-end shows the demo banner + upsell (gateway caps writes at 50/module).
+    private boolean demo;
 }

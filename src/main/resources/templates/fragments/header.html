@@ -36,6 +36,8 @@
         <script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
         <script th:src="@{/js/main.js}"></script>
+        <!-- Demo free-trial: surfaces the gateway's DEMO_LIMIT (50/module cap) as an upsell prompt. -->
+        <script th:src="@{/js/demo.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing
              AJAX call, so jQuery $.post/$.ajax pass Spring Security's CSRF check. -->
         <script>
@@ -59,7 +61,8 @@
     </th:block>
 
     <!-- ═══ NAVBAR FRAGMENT ═══════════════════════════════════ -->
-    <nav th:fragment="header" id="header" class="navbar navbar-inverse">
+    <th:block th:fragment="header">
+    <nav id="header" class="navbar navbar-inverse">
         <div class="container-fluid">
             <div class="navbar-header">
                 <button type="button" class="navbar-toggle collapsed"
@@ -107,6 +110,14 @@
             </div>
         </div>
     </nav>
+    <!-- Demo free-trial banner — shown only for demo accounts (principal.demo from the JWT). -->
+    <div th:if="${#authentication != null and #authentication.principal != null and #authentication.principal.class.simpleName == 'User' and #authentication.principal.demo}"
+         style="background:linear-gradient(90deg,#0D3B8C,#1565C0);color:#fff;padding:8px 16px;text-align:center;font-size:13px">
+        <span class="glyphicon glyphicon-info-sign" style="margin-right:5px"></span>
+        <b>Demo mode</b> — free trial, up to 50 entries per module.
+        <a href="/registration.html" style="color:#fff;text-decoration:underline;font-weight:600;margin-left:6px">Register for full access &rarr;</a>
+    </div>
+    </th:block>
 </head>
 <body></body>
 </html>

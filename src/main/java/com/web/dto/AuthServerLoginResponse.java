@@ -23,6 +23,7 @@ public class AuthServerLoginResponse {
     private Set<String> roles;
     private Set<String> privileges;
     private boolean twoFactorRequired;
+    private boolean demo;
 
     public String getAccessToken() { return accessToken; }
     public void setAccessToken(String accessToken) { this.accessToken = accessToken; }
@@ -56,4 +57,7 @@ public class AuthServerLoginResponse {
 
     public boolean isTwoFactorRequired() { return twoFactorRequired; }
     public void setTwoFactorRequired(boolean twoFactorRequired) { this.twoFactorRequired = twoFactorRequired; }
+
+    public boolean isDemo() { return demo; }
+    public void setDemo(boolean demo) { this.demo = demo; }
 }
