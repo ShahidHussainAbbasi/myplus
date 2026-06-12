@@ -17,4 +17,9 @@ public class AppointmentDTO {
     private Integer patientsToVisit;
     private Integer patientsAppointed;
     private Integer patientsVisited;
+    // Resolved display names so the dashboard/booking don't need extra lookups.
+    private String patientName;
+    private String patientPhone;
+    private String doctorName;
+    private String hospitalName;
 }

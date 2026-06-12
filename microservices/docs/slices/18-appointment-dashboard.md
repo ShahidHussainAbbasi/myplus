@@ -1,6 +1,13 @@
 # Slice 18 — Appointment module dashboard (own dashboard + role-based landing)
 
-**Status: DESIGN GATE — awaiting go-ahead.**
+**Status: IMPLEMENTED — pending build + runtime verify.** Decisions: userType `APPOINTMENT`; list
+enriched in appointment-service; verify P3/P4 first (separate). Built: appointment-service DTO/service
+name-enrichment; monolith `/loadHospitals` + dashboard controller; `appointmentDashboard.html` rebuilt
+(snav + Hospital/Doctor/Appointments cards, self-contained JS); `appointment.html` restyled + booking
+envelope fix (`AppointmentController` now sets `status=SUCCESS/FAILURE` properly).
+**Follow-ups:** (a) auth-service must issue `userType=APPOINTMENT` for clinic users so the success
+handler auto-lands them on `/appointmentDashboard`; (b) anonymous public booking can't list org-scoped
+hospitals (needs a per-clinic public link / hospital-id param) — a future "public clinic page" slice.
 Branch: `feature/monolith-myplusdb-removal`. Builds on slice 17 (appointment-service) + P3 proxy cutover.
 Standing directive: [[feedback-improve-ui-with-move]] — modernise the monolith UI as the move touches it.
 

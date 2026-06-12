@@ -69,6 +69,29 @@ public class HospitalController {
         return "hospital";
     }
 
+    /** Hospitals for the logged-in org as JSON ({@code [{id,name}]}) — dashboard/booking dropdowns. */
+    @SuppressWarnings("unchecked")
+    @RequestMapping(value = "/loadHospitals", method = RequestMethod.GET)
+    @ResponseBody
+    public java.util.List<Map<String, Object>> loadHospitals() {
+        java.util.List<Map<String, Object>> out = new java.util.ArrayList<>();
+        try {
+            Map<String, Object> resp = appointment.getMap("/hospitals");
+            java.util.List<Map<String, Object>> hospitals = (java.util.List<Map<String, Object>>) resp.get("data");
+            if (hospitals != null) {
+                for (Map<String, Object> h : hospitals) {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", h.get("id"));
+                    item.put("name", h.get("name"));
+                    out.add(item);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("loadHospitals failed", e);
+        }
+        return out;
+    }
+
     @RequestMapping(value = "/loadStatesByCountry", method = RequestMethod.GET)
     @ResponseBody
     public String loadStatesByCountry(@RequestParam String countryCode) {

@@ -1,123 +1,281 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity5">
 <head>
-<th:block th:replace="~{fragments/header :: header-css}" />
+<link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+<title>Appointments — MyPlus</title>
+<th:block th:replace="~{fragments/header :: header-css}"></th:block>
+<link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
 <style>
-.password-verdict {
-	color: #000;
-}
+  #apptContent .formDiv{display:none}
+  .appt-table thead th{background:#0D3B8C;color:#fff;font-weight:600;border:none;white-space:nowrap}
+  .appt-table tbody tr:hover{background:rgba(21,101,192,.05)}
+  .appt-empty{padding:28px;text-align:center;color:#64748b}
 </style>
-
-<style>
-.pagination-centered {
-	text-align: center;
-}
-
-.disabled {
-	pointer-events: none;
-	opacity: 0.5;
-}
-
-.pointer-disabled {
-	pointer-events: none;
-}
-</style>
-
 </head>
 <body>
+  <div id="container">
+    <th:block th:replace="~{fragments/header :: header}" />
+    <div id="content">
+      <!-- Off-screen nav select so the section toggle + Cypress can drive it like the other dashboards -->
+      <div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+        <select name="apptNav" id="apptNav" tabindex="-1">
+          <option value="AppointmentsDiv">Appointments</option>
+          <option value="HospitalDiv">Hospital</option>
+          <option value="DoctorDiv">Doctor</option>
+        </select>
+      </div>
 
-	<th:block th:replace="~{fragments/header :: header}"/>
+      <nav class="subnav" id="nav-subheader">
+        <div class="container-fluid">
+          <div class="snav-inner">
+            <div class="snav-left">
+              <span class="subnav-user"><span class="glyphicon glyphicon-calendar" style="margin-right:6px"></span>Appointments</span>
+            </div>
+            <div class="snav-actions">
+              <div class="snav-dd" id="snavRegister">
+                <button class="snav-btn" onclick="snavToggle(event,'snavRegister')">
+                  <span class="glyphicon glyphicon-pencil"></span><span>Register</span><span class="snav-caret">&#9660;</span>
+                </button>
+                <ul class="snav-menu">
+                  <li><a onclick="snavGo('apptNav','HospitalDiv','snavRegister')"><span class="glyphicon glyphicon-plus"></span> Hospital</a></li>
+                  <li><a onclick="snavGo('apptNav','DoctorDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Doctor</a></li>
+                </ul>
+              </div>
+              <div class="snav-dd" id="snavList">
+                <button class="snav-btn" onclick="snavGo('apptNav','AppointmentsDiv','snavList')">
+                  <span class="glyphicon glyphicon-list-alt"></span><span>Appointments</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
 
-	<div class="container content-cls">
-		<table class="table datatable">
-			<thead>
-				<tr>
-					<th>Name</th>
-					<th>Token</th>
-					<th>Mobile</th>
-					<th>Doctor</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr th:each="clientlist : ${clientlist}">
-					<td th:text="${clientlist.patient.name}" />
-					<td th:text="${clientlist.patientAppointed}" />
-					<td th:text="${clientlist.patient.mobile}" />
-					<td th:text="${clientlist.doctor.name}" />
-					<!-- <td><button type="button"
-							class="btn btn-primary btn-condensed">
-							<i class="glyphicon glyphicon-folder-open"></i>
-						</button></td> -->
-				</tr>
-			</tbody>
-		</table>
-		<div class="row">
-			<div class="form-group col-md-1">
-				<select class="form-control pagination" id="pageSizeSelect">
-					<option th:each="pageSize : ${pageSizes}" th:text="${pageSize}"
-						th:value="${pageSize}"
-						th:selected="${pageSize} == ${selectedPageSize}"></option>
-				</select>
-			</div>
-			<div th:if="${clientlist !=null && clientlist.totalPages !=null && clientlist.totalPages != 1}"
-				class="form-group col-md-11 pagination-centered">
-				<ul class="pagination">
-					<li th:class="${clientlist.number == 0} ? disabled"><a
-						class="pageLink"
-						th:href="@{/(pageSize=${selectedPageSize}, page=1)}">«</a></li>
-					<li th:class="${clientlist.number == 0} ? disabled"><a
-						class="pageLink"
-						th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.number})}">←</a>
-					</li>
-					<li
-						th:class="${clientlist.number == (page - 1)} ? 'active pointer-disabled'"
-						th:each="page : ${#numbers.sequence(pager.startPage, pager.endPage)}">
-						<a class="pageLink"
-						th:href="@{/(pageSize=${selectedPageSize}, page=${page})}"
-						th:text="${page}"></a>
-					</li>
-					<li
-						th:class="${clientlist.totalPages != null && clientlist.number + 1 == clientlist.totalPages} ? disabled">
-						<a class="pageLink"
-						th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.number + 2})}">→</a>
-					</li>
-					<li
-						th:class="${clientlist.number + 1 == clientlist.totalPages} ? disabled">
-						<a class="pageLink"
-						th:href="@{/(pageSize=${selectedPageSize}, page=${clientlist.totalPages})}">»</a>
-					</li>
-				</ul>
-			</div>
-		</div>
-	</div>
-	<!-- END PAGE CONTENT -->
-	<!-- END PAGE CONTAINER -->
-	<script src="https://code.jquery.com/jquery-1.11.1.min.js"
-		integrity="sha256-VAvG3sHdS5LqTT+5A/aeq/bZGa/Uj04xKxY8KM/w9EE="
-		crossorigin="anonymous"></script>
-	<script
-		src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
-		integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
-		crossorigin="anonymous">
-		
-	</script>
+      <div>
+        <div id="apptGlobalMsg" class="alert text-center" style="display:none"></div>
+      </div>
 
-	<script th:inline="javascript">
-		/*<![CDATA[*/
-			var serverContext = [[@{/}]];
-		$(document).ready(function() {
-			changePageAndSize();
-		});
-		function changePageAndSize() {
-			event.preventDefault();
-			$('#pageSizeSelect').change(
-					function(evt) {
-						window.location.replace(serverContext + "?pageSize=" + this.value
-								+ "&page=1");
-					});
-		}
-		/*]]>*/
-	</script>
-	<th:block th:replace="~{footer :: footer}"></div>
+      <div id="apptContent">
+        <!-- ── Appointments list ─────────────────────────────────────── -->
+        <div id="AppointmentsDiv" class="formDiv">
+          <h4>Appointments</h4>
+          <br/>
+          <div style="overflow-x:auto">
+            <table class="table table-striped appt-table">
+              <thead>
+                <tr>
+                  <th>Patient</th><th>Token</th><th>Phone</th><th>Doctor</th><th>Hospital</th><th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="apptTableBody">
+                <tr><td colspan="6" class="appt-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Hospital registration ─────────────────────────────────── -->
+        <div id="HospitalDiv" class="formDiv">
+          <h4>Register Hospital</h4>
+          <br/>
+          <form class="form-horizontal" role="form" id="HospitalForm" autocomplete="off" onsubmit="return false">
+            <div class="form-group">
+              <label class="control-label col-sm-2 req" for="hName">Name</label>
+              <div class="col-sm-4"><input type="text" class="form-control" id="hName" name="name" placeholder="Hospital name" required="required"></div>
+              <label class="control-label col-sm-2 req" for="hPhone">Phone</label>
+              <div class="col-sm-4"><input type="text" class="form-control" id="hPhone" name="phone" placeholder="Phone number" required="required"></div>
+            </div>
+            <div class="form-group">
+              <label class="control-label col-sm-2 req" for="hEmail">Email</label>
+              <div class="col-sm-4"><input type="email" class="form-control" id="hEmail" name="email" placeholder="Email address" required="required"></div>
+              <label class="control-label col-sm-2" for="hHours">Open hours</label>
+              <div class="col-sm-4">
+                <select class="form-control" id="hHours" name="hours">
+                  <option th:each="i : ${#numbers.sequence(1, 24)}" th:value="${i}" th:text="${i}" th:selected="${i==24}"></option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="control-label col-sm-2" for="hCountry">Country</label>
+              <div class="col-sm-4">
+                <select class="form-control" id="hCountry" name="countryCode">
+                  <option value="">Select country</option>
+                  <option th:each="key : ${countries.keySet()}" th:value="${key}" th:text="${countries.get(key)}"></option>
+                </select>
+              </div>
+              <label class="control-label col-sm-2" for="hState">State / City</label>
+              <div class="col-sm-2"><input type="text" class="form-control" id="hState" name="state" placeholder="State"></div>
+              <div class="col-sm-2"><input type="text" class="form-control" id="hCity" name="geoId" placeholder="City"></div>
+            </div>
+            <div class="form-group" style="text-align:center">
+              <button type="button" id="addHospital" class="btn btn-success"><span class="glyphicon glyphicon-plus-sign"></span> Submit</button>
+              <button type="reset" class="btn btn-warning"><span class="glyphicon glyphicon-refresh"></span> Reset</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ── Doctor registration ───────────────────────────────────── -->
+        <div id="DoctorDiv" class="formDiv">
+          <h4>Register Doctor</h4>
+          <br/>
+          <form class="form-horizontal" role="form" id="DoctorForm" autocomplete="off" onsubmit="return false">
+            <div class="form-group">
+              <label class="control-label col-sm-2 req" for="dHospital">Hospital</label>
+              <div class="col-sm-4">
+                <select class="form-control" id="dHospital" name="hospitalId" required="required">
+                  <option value="">Select hospital</option>
+                </select>
+              </div>
+              <label class="control-label col-sm-2 req" for="dName">Name</label>
+              <div class="col-sm-4"><input type="text" class="form-control" id="dName" name="name" placeholder="Doctor name" required="required"></div>
+            </div>
+            <div class="form-group">
+              <label class="control-label col-sm-2" for="dSpeciality">Speciality</label>
+              <div class="col-sm-4"><input type="text" class="form-control" id="dSpeciality" name="speciality" placeholder="e.g. Cardiology"></div>
+              <label class="control-label col-sm-2" for="dMobile">Mobile</label>
+              <div class="col-sm-4"><input type="text" class="form-control" id="dMobile" name="mobile" placeholder="Mobile number"></div>
+            </div>
+            <div class="form-group">
+              <label class="control-label col-sm-2" for="dEmail">Email</label>
+              <div class="col-sm-4"><input type="email" class="form-control" id="dEmail" name="email" placeholder="Email address"></div>
+              <label class="control-label col-sm-2" for="dAddress">Address</label>
+              <div class="col-sm-4"><input type="text" class="form-control" id="dAddress" name="address" placeholder="Clinic address"></div>
+            </div>
+            <div class="form-group">
+              <label class="control-label col-sm-2" for="dDayFrom">Days</label>
+              <div class="col-sm-2"><input type="text" class="form-control" id="dDayFrom" name="dayFrom" placeholder="From e.g. Monday"></div>
+              <div class="col-sm-2"><input type="text" class="form-control" id="dDayTo" name="dayTo" placeholder="To e.g. Friday"></div>
+              <label class="control-label col-sm-2" for="dTimeIn">Time</label>
+              <div class="col-sm-2"><input type="text" class="form-control" id="dTimeIn" name="timeIn" placeholder="In e.g. 09:00"></div>
+              <div class="col-sm-2"><input type="text" class="form-control" id="dTimeOut" name="timeOut" placeholder="Out e.g. 17:00"></div>
+            </div>
+            <div class="form-group">
+              <label class="control-label col-sm-2" for="dOfferType">Capacity by</label>
+              <div class="col-sm-4">
+                <select class="form-control" id="dOfferType" name="appointmentOfferType">
+                  <option value="count">Number of patients/day</option>
+                  <option value="minutes">Minutes per patient</option>
+                </select>
+              </div>
+              <label class="control-label col-sm-2" for="dOfferValue">Value</label>
+              <div class="col-sm-4"><input type="number" min="1" class="form-control" id="dOfferValue" name="appointmentOfferValue" placeholder="e.g. 20"></div>
+            </div>
+            <input type="hidden" id="dAvailabe" name="availabe" value="All"/>
+            <div class="form-group" style="text-align:center">
+              <button type="button" id="addDoctor" class="btn btn-success"><span class="glyphicon glyphicon-plus-sign"></span> Submit</button>
+              <button type="reset" class="btn btn-warning"><span class="glyphicon glyphicon-refresh"></span> Reset</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <th:block th:replace="~{fragments/header :: header-js}"></th:block>
+  <script th:inline="javascript">
+    var serverContext = [[@{/}]];
+
+    function apptMsg(text, ok) {
+      $('#apptGlobalMsg').stop(true, true)
+        .removeClass('alert-success alert-danger')
+        .addClass(ok ? 'alert-success' : 'alert-danger')
+        .text(text).show().delay(2500).fadeOut(400);
+    }
+
+    function showSection(id) {
+      $('#apptContent .formDiv').hide();
+      $('#' + id).show();
+    }
+
+    // ── snav (shared pattern) ──────────────────────────────────────────
+    function snavToggle(e, id) {
+      e.stopPropagation();
+      var d = document.getElementById(id);
+      var was = d.classList.contains('snav-open');
+      document.querySelectorAll('.snav-dd').forEach(function (el) { el.classList.remove('snav-open'); });
+      if (!was) d.classList.add('snav-open');
+    }
+    function snavGo(sel, val, ddId) {
+      document.querySelectorAll('.snav-btn').forEach(function (el) { el.classList.remove('snav-active'); });
+      var btn = document.querySelector('#' + ddId + ' > .snav-btn');
+      if (btn) btn.classList.add('snav-active');
+      $('#' + sel).val(val).trigger('change');
+      document.getElementById(ddId).classList.remove('snav-open');
+    }
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('.snav-dd'))
+        document.querySelectorAll('.snav-dd').forEach(function (el) { el.classList.remove('snav-open'); });
+    });
+
+    // ── data loaders ───────────────────────────────────────────────────
+    function loadHospitalsInto(selectId, keep) {
+      return $.get(serverContext + 'loadHospitals', function (list) {
+        var $s = $('#' + selectId);
+        var cur = keep ? $s.val() : '';
+        $s.find('option:not([value=""])').remove();
+        (list || []).forEach(function (h) {
+          $s.append($('<option>').val(h.id).text(h.name));
+        });
+        if (cur) $s.val(cur);
+      });
+    }
+
+    function loadAppointments() {
+      $.ajax({ url: serverContext + 'loadAppointments', method: 'GET' })
+        .done(function (rows, status, xhr) {
+          var $b = $('#apptTableBody').empty();
+          if (xhr.status === 204 || !rows || !rows.length) {
+            $b.append('<tr><td colspan="6" class="appt-empty">No appointments yet.</td></tr>');
+            return;
+          }
+          rows.forEach(function (a) {
+            $b.append('<tr>' +
+              '<td>' + esc(a.patientName) + '</td>' +
+              '<td>' + esc(a.patientsAppointed) + '</td>' +
+              '<td>' + esc(a.patientPhone) + '</td>' +
+              '<td>' + esc(a.doctorName) + '</td>' +
+              '<td>' + esc(a.hospitalName) + '</td>' +
+              '<td>' + esc(a.date || a.dateTime) + '</td>' +
+              '</tr>');
+          });
+        })
+        .fail(function () {
+          $('#apptTableBody').empty().append('<tr><td colspan="6" class="appt-empty">No appointments yet.</td></tr>');
+        });
+    }
+
+    function esc(v) {
+      if (v === null || v === undefined) return '';
+      return $('<div>').text(String(v)).html();
+    }
+
+    // ── submit handlers ────────────────────────────────────────────────
+    $(document).ready(function () {
+      $('#apptNav').on('change', function () { showSection($(this).val()); });
+      showSection('AppointmentsDiv');
+      loadAppointments();
+      loadHospitalsInto('dHospital', false);
+
+      $('#addHospital').click(function () {
+        if (!$('#hName').val() || !$('#hPhone').val() || !$('#hEmail').val()) { apptMsg('Name, phone and email are required.', false); return; }
+        $.post(serverContext + 'registerHospital', $('#HospitalForm').serialize(), function (data) {
+          if (data && data.error === 'RegisterFailed') { apptMsg(data.message || 'Could not register hospital.', false); return; }
+          apptMsg('Hospital registered.', true);
+          $('#HospitalForm')[0].reset();
+          loadHospitalsInto('dHospital', true);
+        }).fail(function () { apptMsg('Could not register hospital.', false); });
+      });
+
+      $('#addDoctor').click(function () {
+        if (!$('#dHospital').val() || !$('#dName').val()) { apptMsg('Hospital and doctor name are required.', false); return; }
+        $.post(serverContext + 'registerDoctor', $('#DoctorForm').serialize(), function (data) {
+          if (data && data.error === 'RegisterFailed') { apptMsg(data.message || 'Could not register doctor.', false); return; }
+          apptMsg('Doctor registered.', true);
+          $('#DoctorForm')[0].reset();
+        }).fail(function () { apptMsg('Could not register doctor.', false); });
+      });
+    });
+  </script>
 </body>
 </html>

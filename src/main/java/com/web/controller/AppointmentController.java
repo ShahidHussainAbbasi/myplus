@@ -60,20 +60,28 @@ public class AppointmentController {
                     appntmntNo = ((Number) n).intValue();
                 }
             }
-            GenericResponse genericResponse = new GenericResponse("Appointment registered successfully");
+            GenericResponse genericResponse = new GenericResponse();
+            genericResponse.setStatus("SUCCESS");
             if (appntmntNo != null) {
-                genericResponse.setMessage("Dear " + appointmentDTO.getName() + " Your appointment number "
-                        + appntmntNo + " has been registered for " + appointmentDTO.getMobile());
+                genericResponse.setMessage("Dear " + appointmentDTO.getName() + ", your appointment number "
+                        + appntmntNo + " is registered. We will contact you on " + appointmentDTO.getMobile() + ".");
+            } else {
+                genericResponse.setMessage("Appointment registered successfully.");
             }
             return genericResponse;
         } catch (HttpStatusCodeException e) {
             // appointment-service returns 400 with a business message (blocked / daily limit reached).
             String msg = extractMessage(e.getResponseBodyAsString());
-            return new GenericResponse(msg != null ? msg : "Could not book the appointment.", "BookingFailed");
+            GenericResponse fail = new GenericResponse();
+            fail.setStatus("FAILURE");
+            fail.setError(msg != null ? msg : "Could not book the appointment.");
+            return fail;
         } catch (Exception e) {
             LOGGER.error("appointmentReq failed", e);
-            return new GenericResponse(
-                    messages.getMessage("message.userNotFound", null, request.getLocale()), "BookingFailed");
+            GenericResponse fail = new GenericResponse();
+            fail.setStatus("FAILURE");
+            fail.setError(messages.getMessage("message.userNotFound", null, request.getLocale()));
+            return fail;
         }
     }
 

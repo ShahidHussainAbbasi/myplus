@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,17 +41,37 @@ public class AppointmentService {
     }
 
     public List<AppointmentDTO> list(Long orgId) {
-        return repo.findByOrganizationId(orgId).stream().map(a -> mapper.map(a, AppointmentDTO.class)).toList();
+        return enrich(repo.findByOrganizationId(orgId), orgId);
     }
 
     public List<AppointmentDTO> listByHospital(Long hospitalId, Long orgId) {
-        return repo.findByHospitalIdAndOrganizationId(hospitalId, orgId).stream()
-                .map(a -> mapper.map(a, AppointmentDTO.class)).toList();
+        return enrich(repo.findByHospitalIdAndOrganizationId(hospitalId, orgId), orgId);
     }
 
     public AppointmentDTO get(Long id, Long orgId) {
-        return repo.findByIdAndOrganizationId(id, orgId).map(a -> mapper.map(a, AppointmentDTO.class))
+        Appointment a = repo.findByIdAndOrganizationId(id, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + id));
+        return enrich(List.of(a), orgId).get(0);
+    }
+
+    /** Map appointments to DTOs and resolve doctor/hospital/patient display names (org-scoped, one query each). */
+    private List<AppointmentDTO> enrich(List<Appointment> appts, Long orgId) {
+        Map<Long, Doctor> docs = doctorRepo.findByOrganizationId(orgId).stream()
+                .collect(Collectors.toMap(Doctor::getId, d -> d, (a, b) -> a));
+        Map<Long, Hospital> hosps = hospitalRepo.findByOrganizationId(orgId).stream()
+                .collect(Collectors.toMap(Hospital::getId, h -> h, (a, b) -> a));
+        Map<Long, Patient> pats = patientRepo.findByOrganizationId(orgId).stream()
+                .collect(Collectors.toMap(Patient::getId, p -> p, (a, b) -> a));
+        return appts.stream().map(a -> {
+            AppointmentDTO dto = mapper.map(a, AppointmentDTO.class);
+            Doctor d = a.getDoctorId() == null ? null : docs.get(a.getDoctorId());
+            Hospital h = a.getHospitalId() == null ? null : hosps.get(a.getHospitalId());
+            Patient p = a.getPatientId() == null ? null : pats.get(a.getPatientId());
+            if (d != null) dto.setDoctorName(d.getName());
+            if (h != null) dto.setHospitalName(h.getName());
+            if (p != null) { dto.setPatientName(p.getName()); dto.setPatientPhone(p.getPhone()); }
+            return dto;
+        }).toList();
     }
 
     @Transactional
@@ -99,7 +121,12 @@ public class AppointmentService {
                 .date(date)
                 .patientsToVisit(capacity == Integer.MAX_VALUE ? null : capacity)
                 .patientsAppointed(appointed).patientsVisited(0).build());
-        return mapper.map(a, AppointmentDTO.class);
+        AppointmentDTO dto = mapper.map(a, AppointmentDTO.class);
+        dto.setDoctorName(d.getName());
+        dto.setHospitalName(h.getName());
+        dto.setPatientName(patient.getName());
+        dto.setPatientPhone(patient.getPhone());
+        return dto;
     }
 
     /** Daily capacity: "count" -> fixed offerValue; time-based -> (hours*60)/offerValue; unknown -> unlimited. */
