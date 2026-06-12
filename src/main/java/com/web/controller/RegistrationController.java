@@ -1,13 +1,11 @@
 package com.web.controller;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Locale;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
-import com.persistence.model.User;
-import com.service.IUserService;
+import com.security.TokenStore;
 import com.service.PasswordResetFacade;
 import com.web.dto.PasswordDto;
 import com.web.dto.UserDto;
@@ -19,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,10 +30,10 @@ public class RegistrationController {
     private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 
     @Autowired
-    private IUserService userService;
+    private AuthServerClient authServerClient;
 
     @Autowired
-    private AuthServerClient authServerClient;
+    private TokenStore tokenStore;
 
     @Autowired
     private PasswordResetFacade passwordResetFacade;
@@ -87,25 +84,61 @@ public class RegistrationController {
         return new GenericResponse(messages.getMessage("message.resetPasswordSuc", null, locale));
     }
 
-    // change user password (logged in)
+    // change user password (logged in) — delegated to the auth-service (it owns the identity store).
     @RequestMapping(value = "/user/updatePassword", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse changeUserPassword(final Locale locale, @Valid PasswordDto passwordDto) {
-        final User user = userService.findUserByEmail(((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getEmail());
-        if (!userService.checkIfValidOldPassword(user, passwordDto.getOldPassword())) {
+        try {
+            authServerClient.changePassword(tokenStore.getAccessToken(), passwordDto.getOldPassword(), passwordDto.getNewPassword());
+        } catch (HttpStatusCodeException e) {
+            // auth-service returns 4xx when the current password is wrong / new password rejected.
             throw new InvalidOldPasswordException();
         }
-        userService.changeUserPassword(user, passwordDto.getNewPassword());
-        return new GenericResponse(messages.getMessage("message.updatePasswordSuc", null, locale));
+        GenericResponse response = new GenericResponse();
+        response.setMessage(messages.getMessage("message.updatePasswordSuc", null, locale));
+        return response;
     }
 
-    @RequestMapping(value = "/user/update/2fa", method = RequestMethod.POST)
+    // 2FA enrolment (setup -> scan QR -> verify) and disable, all delegated to the auth-service.
+    @RequestMapping(value = "/user/2fa/setup", method = RequestMethod.POST)
     @ResponseBody
-    public GenericResponse modifyUser2FA(@RequestParam("use2FA") final boolean use2FA) throws UnsupportedEncodingException {
-        final User user = userService.updateUser2FA(use2FA);
-        if (use2FA) {
-            return new GenericResponse(userService.generateQRUrl(user));
+    public GenericResponse setup2FA() {
+        // message carries the otpauth:// provisioning URI; the page renders it as a QR for the authenticator app.
+        GenericResponse response = new GenericResponse();
+        response.setMessage(authServerClient.setup2fa(tokenStore.getAccessToken()));
+        return response;
+    }
+
+    @RequestMapping(value = "/user/2fa/verify", method = RequestMethod.POST)
+    @ResponseBody
+    public GenericResponse verify2FA(final Locale locale, @RequestParam("code") final String code) {
+        GenericResponse response = new GenericResponse();
+        if (!authServerClient.verify2fa(tokenStore.getAccessToken(), code)) {
+            response.setError("Invalid2FACode");
+            response.setMessage(messages.getMessage("message.error", null, "Invalid code", locale));
+            return response;
         }
-        return null;
+        markPrincipal2FA(true);
+        response.setMessage(messages.getMessage("message.updateUser2faSuccess", null, "Two-step verification enabled", locale));
+        return response;
+    }
+
+    @RequestMapping(value = "/user/2fa/disable", method = RequestMethod.POST)
+    @ResponseBody
+    public GenericResponse disable2FA() {
+        authServerClient.disable2fa(tokenStore.getAccessToken());
+        markPrincipal2FA(false);
+        GenericResponse response = new GenericResponse();
+        response.setMessage("success");
+        return response;
+    }
+
+    /** Reflect the 2FA change on the in-session principal so the console renders the right state without re-login. */
+    private void markPrincipal2FA(boolean using2FA) {
+        Object principal = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication().getPrincipal();
+        if (principal instanceof com.persistence.model.User u) {
+            u.setUsing2FA(using2FA);
+        }
     }
 }

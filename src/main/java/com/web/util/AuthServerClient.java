@@ -110,6 +110,55 @@ public class AuthServerClient {
         return data instanceof List ? (List<Map<String, Object>>) data : List.of();
     }
 
+    /**
+     * Change the logged-in user's password (auth-service owns the identity store). Bearer-authenticated;
+     * auth-service resolves the user from the token. Throws
+     * {@link org.springframework.web.client.HttpStatusCodeException} if the current password is wrong
+     * or the new password is rejected.
+     */
+    public void changePassword(String accessToken, String currentPassword, String newPassword) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        Map<String, String> body = new HashMap<>();
+        body.put("currentPassword", currentPassword);
+        body.put("newPassword", newPassword);
+        restTemplate.exchange(baseUrl + "/api/auth/users/me/password", HttpMethod.PUT,
+                new HttpEntity<>(body, headers), Void.class);
+    }
+
+    /** Begin 2FA enrolment; returns the {@code otpauth://} provisioning URI to render as a QR code. */
+    @SuppressWarnings("unchecked")
+    public String setup2fa(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        ResponseEntity<Map> resp = restTemplate.exchange(
+                baseUrl + "/api/auth/2fa/setup", HttpMethod.POST, new HttpEntity<>(headers), Map.class);
+        Object data = resp.getBody() == null ? null : resp.getBody().get("data");
+        return data instanceof Map ? (String) ((Map<String, Object>) data).get("qrUrl") : null;
+    }
+
+    /** Verify the authenticator code during 2FA enrolment; {@code true} if it matches. */
+    @SuppressWarnings("unchecked")
+    public boolean verify2fa(String accessToken, String code) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        Map<String, String> body = new HashMap<>();
+        body.put("code", code);
+        ResponseEntity<Map> resp = restTemplate.exchange(
+                baseUrl + "/api/auth/2fa/verify", HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+        Object data = resp.getBody() == null ? null : resp.getBody().get("data");
+        return data instanceof Map && Boolean.TRUE.equals(((Map<String, Object>) data).get("verified"));
+    }
+
+    /** Disable 2FA for the logged-in user. */
+    public void disable2fa(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        restTemplate.exchange(baseUrl + "/api/auth/2fa/disable", HttpMethod.DELETE, new HttpEntity<>(headers), Void.class);
+    }
+
     /** Switch the active organization; returns fresh tokens scoped to {@code organizationId}. */
     public AuthServerLoginResponse switchOrganization(String accessToken, Long organizationId) {
         HttpHeaders headers = new HttpHeaders();

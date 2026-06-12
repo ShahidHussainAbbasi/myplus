@@ -14,7 +14,6 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 
-import com.persistence.model.Role;
 import com.persistence.model.User;
 import com.security.google2fa.CustomWebAuthenticationDetails;
 import com.web.dto.AuthServerLoginResponse;
@@ -73,7 +72,6 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
         principal.setLastName(response.getLastName());
         principal.setUserType(response.getUserType());
         principal.setEnabled(true);
-        principal.setRoles(new ArrayList<Role>());
 
         List<GrantedAuthority> authorities = new ArrayList<>();
         if (response.getPrivileges() != null) {

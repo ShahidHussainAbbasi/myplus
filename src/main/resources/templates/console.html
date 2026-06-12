@@ -40,30 +40,49 @@
       
       <br/>
       <div id="qr" style="display:none;">
-          <p>Scan this Barcode using Google Authenticator app on your phone 
-                 <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2">Android</a> and 
-                 <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605">iPhone</a>
-          </p>
+          <p>Scan this barcode with the Google Authenticator app
+                 (<a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2">Android</a> /
+                 <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605">iPhone</a>),
+                 then enter the 6-digit code to confirm.</p>
+          <div id="qrcode"></div>
+          <p><small>Can't scan? Enter this key manually: <code id="otpauth"></code></small></p>
+          <div class="form-inline">
+              <input type="text" id="twofaCode" class="form-control" placeholder="6-digit code" maxlength="6" autocomplete="off"/>
+              <button class="btn btn-success" onclick="verify2FA()">Verify &amp; enable</button>
+          </div>
+          <p id="twofaMsg"></p>
       </div>
   </div>
-  
+
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="text/javascript">
+// 2FA is delegated to the auth-service: setup returns an otpauth:// URI -> render QR -> verify the code.
 function enable2FA(){
-    set2FA(true);
+    $.post("/user/2fa/setup", function(data){
+        var otpauth = data.message;
+        $("#qrcode").empty();
+        new QRCode(document.getElementById("qrcode"), { text: otpauth, width: 200, height: 200 });
+        $("#otpauth").text(otpauth);
+        $("#twofaMsg").text("");
+        $("#qr").show();
+    });
+}
+
+function verify2FA(){
+    $.post("/user/2fa/verify", { code: $("#twofaCode").val() }, function(data){
+        if(data.error){
+            $("#twofaMsg").attr("class", "text-danger").text(data.message);
+        }else{
+            $("#twofaMsg").attr("class", "text-success").text(data.message);
+            setTimeout(function(){ window.location.reload(); }, 1000);
+        }
+    });
 }
 
 function disable2FA(){
-    set2FA(false);
-}
-
-function set2FA(use2FA){
-    $.post( "/user/update/2fa", { use2FA: use2FA } , function( data ) {
-        if(use2FA){
-        	$("#qr").append('<img src="'+data.message+'" />').show();
-        }else{
-            window.location.reload();
-        }
+    $.post("/user/2fa/disable", function(){
+        window.location.reload();
     });
 }
 </script>

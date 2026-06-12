@@ -8,7 +8,6 @@ import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,16 +18,12 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.persistence.model.User;
-import com.service.IUserService;
 
 
 @Component
 public class RequestUtil {
 
     public static final Map<String,Object> userProperties = new HashMap<String,Object>();
-
-	@Autowired
-	IUserService userService;
 
 //    public RequestContext getRequestContext() {
 //        HttpServletRequest request = getCurrentHttpRequest();
@@ -57,12 +52,6 @@ public class RequestUtil {
 			return principal.toString();
     	}  
     	return null;
-    }
-
-    @Nullable
-    public User getRequestUser() {
-    	this.getCurrentUser();
-        return (User)userService.findUserByEmail(this.getRequestUserName());
     }
 
     @Nullable

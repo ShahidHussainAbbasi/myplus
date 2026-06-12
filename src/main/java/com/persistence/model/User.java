@@ -1,41 +1,25 @@
 package com.persistence.model;
 
-import java.util.Collection;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.Table;
-
-import org.hibernate.annotations.Fetch;
-import org.hibernate.annotations.FetchMode;
 import org.jboss.aerogear.security.otp.api.Base32;
 
-@Entity
-@Table(name = "user_account")
+/**
+ * In-memory principal for the logged-in user. No longer a JPA entity — the monolith does not own an
+ * identity store; this is built transiently from the auth-service login response by
+ * {@link com.security.AuthServerAuthenticationProvider} and held as the Spring Security principal.
+ * Authorities (privileges/roles) live on the {@code Authentication}, not here.
+ */
 public class User {
 
-    @Id
-    @Column(unique = true, nullable = false)
-    @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
-    
-    @Column(name="user_type")
+
     private String userType;
-    
+
     private String firstName;
 
     private String lastName;
 
     private String email;
 
-    @Column(length = 60)
     private String password;
 
     private boolean enabled;
@@ -43,18 +27,6 @@ public class User {
     private boolean isUsing2FA;
 
     private String secret;
-
-    //
-
-    @ManyToMany(fetch = FetchType.EAGER)
-    @Fetch(value = FetchMode.SUBSELECT)
-    @JoinTable(name = "users_roles", joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "id"), inverseJoinColumns = @JoinColumn(name = "role_id", referencedColumnName = "id"))
-    private Collection<Role> roles;
-
-//    @ManyToMany(fetch = FetchType.EAGER)
-//    @Fetch(value = FetchMode.SUBSELECT)
-//    @JoinTable(name = "users_types", joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "id"), inverseJoinColumns = @JoinColumn(name = "type_id", referencedColumnName = "id"))
-//    private Collection<Type> types;
 
     public User() {
         super();
@@ -102,14 +74,6 @@ public class User {
         this.password = password;
     }
 
-    public Collection<Role> getRoles() {
-        return roles;
-    }
-
-    public void setRoles(final Collection<Role> roles) {
-        this.roles = roles;
-    }
-
     /**
 	 * @return the userType
 	 */
@@ -124,14 +88,6 @@ public class User {
 		this.userType = userType;
 	}
 
-//    public void setTypes(final Collection<Type> types) {
-//        this.types = types;
-//    }
-//
-//    public Collection<Type> getTypes() {
-//        return types;
-//    }
-//
     public boolean isEnabled() {
         return enabled;
     }
@@ -179,7 +135,6 @@ public class User {
         if (!email.equals(user.email)) {
             return false;
         }
-      //Set logger
         return true;
     }
 
@@ -189,10 +144,7 @@ public class User {
 	@Override
 	public String toString() {
 		return "User [id=" + id + ", firstName=" + firstName + ", lastName=" + lastName + ", email=" + email
-				+ ", password=" + password + ", enabled=" + enabled + ", isUsing2FA=" + isUsing2FA + ", secret="
-				+ secret + ", roles=" + roles + "]";
+				+ ", enabled=" + enabled + ", isUsing2FA=" + isUsing2FA + "]";
 	}
-
-
 
 }
