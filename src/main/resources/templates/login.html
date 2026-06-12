@@ -145,7 +145,21 @@
                         <option value="demo.appointment@myplus.com">Appointments &amp; Scheduling</option>
                         <option value="demo.agriculture@myplus.com">Agriculture income &amp; expense</option>
                     </select>
-                    <button type="button" id="demoLaunch" class="btn-signin" style="width:auto;padding:0 18px">Launch demo</button>
+                    <button type="button" id="demoLaunch" class="btn-signin" style="width:auto;padding:0 18px" disabled>Launch demo</button>
+                </div>
+                <!-- After the visitor picks a module we reveal the demo login details so they can start working. -->
+                <div id="demoCreds" style="display:none;margin-top:12px;padding:10px 12px;border:1px solid #dbe6ff;border-radius:8px;background:#fff;font-size:12.5px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+                        <span style="min-width:64px;color:#64748b">Email</span>
+                        <code id="demoCredEmail" style="flex:1;color:#0D3B8C"></code>
+                        <button type="button" id="demoCopyEmail" style="padding:3px 10px;border:1px solid #1565C0;background:#fff;color:#1565C0;border-radius:6px;font-size:11px;cursor:pointer">Copy</button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="min-width:64px;color:#64748b">Password</span>
+                        <code id="demoCredPw" style="flex:1;color:#0D3B8C">Demo@2025!</code>
+                        <button type="button" id="demoCopyPw" style="padding:3px 10px;border:1px solid #1565C0;background:#fff;color:#1565C0;border-radius:6px;font-size:11px;cursor:pointer">Copy</button>
+                    </div>
+                    <div style="color:#475569;margin-top:7px">Sign in with these, or click <b>Launch demo</b> to enter now.</div>
                 </div>
             </div>
 
@@ -179,12 +193,22 @@
     }
   }catch(e){}
 })();
-// "Launch demo": pick a module -> fill the demo account -> sign in (role-based landing to its dashboard).
+// Demo offering: pick a module -> show its demo login details -> "Launch demo" fills + signs in
+// (role-based landing to that module's dashboard).
 (function(){
-  var btn=document.getElementById('demoLaunch'); if(!btn)return;
+  var sel=document.getElementById('demoDomain'), btn=document.getElementById('demoLaunch'),
+      box=document.getElementById('demoCreds'), emailEl=document.getElementById('demoCredEmail');
+  if(!sel||!btn)return;
+  function copy(txt){ if(navigator.clipboard)navigator.clipboard.writeText(txt); }
+  sel.addEventListener('change',function(){
+    var email=sel.value;
+    if(email){ emailEl.textContent=email; box.style.display='block'; btn.disabled=false; }
+    else { box.style.display='none'; btn.disabled=true; }
+  });
+  var ce=document.getElementById('demoCopyEmail'); if(ce)ce.addEventListener('click',function(){copy(emailEl.textContent);this.textContent='Copied';});
+  var cp=document.getElementById('demoCopyPw'); if(cp)cp.addEventListener('click',function(){copy('Demo@2025!');this.textContent='Copied';});
   btn.addEventListener('click',function(){
-    var sel=document.getElementById('demoDomain'); var email=sel&&sel.value;
-    if(!email){ if(sel)sel.focus(); return; }
+    var email=sel.value; if(!email){ sel.focus(); return; }
     var u=document.querySelector('input[name="username"]'), p=document.querySelector('input[name="password"]');
     if(u)u.value=email; if(p)p.value='Demo@2025!';
     var f=document.querySelector('form[name="f"]'); if(f)f.submit();

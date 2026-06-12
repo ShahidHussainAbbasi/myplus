@@ -6,11 +6,18 @@
  * Requires the stack up (monolith + auth-service + the module service); demo users are seeded by auth-service.
  */
 describe('Slice-19 — demo trial UX', () => {
-  it('offers a demo on the login page and lands on the module dashboard with the banner', () => {
+  it('reveals demo login details on module select, then lands on the dashboard with the banner', () => {
     cy.visit('/login')
     cy.contains('No account? Try a live demo').should('be.visible')
+    // Before selecting, the details are hidden and Launch is disabled.
+    cy.get('#demoCreds').should('not.be.visible')
+    cy.get('#demoLaunch').should('be.disabled')
+    // Pick a module -> the demo login details appear so the user can start working.
     cy.get('#demoDomain').select('demo.appointment@myplus.com', { force: true })
-    cy.get('#demoLaunch').click()
+    cy.get('#demoCreds').should('be.visible')
+    cy.get('#demoCredEmail').should('have.text', 'demo.appointment@myplus.com')
+    cy.get('#demoCredPw').should('contain', 'Demo@2025!')
+    cy.get('#demoLaunch').should('not.be.disabled').click()
     cy.url().should('include', '/appointmentDashboard')
     cy.contains('Demo mode').should('be.visible')
     cy.contains('Register for full access').should('be.visible')
