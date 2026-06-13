@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -50,6 +51,33 @@ public class OrganizationService {
 
     public List<Membership> membershipsOf(Long userId) {
         return membershipRepository.findByUserId(userId);
+    }
+
+    /** Whether the user belongs to the given organization (gate for org switching). */
+    public boolean isMember(Long userId, Long orgId) {
+        return membershipRepository.findByUserIdAndOrganizationId(userId, orgId).isPresent();
+    }
+
+    /** The organizations the user belongs to, with role + which one is currently active. */
+    @Transactional
+    public List<OrgView> listForUser(Long userId, Long activeOrgId) {
+        List<OrgView> views = new ArrayList<>();
+        for (Membership m : membershipRepository.findByUserId(userId)) {
+            Organization org = organizationRepository.findById(m.getOrganizationId()).orElse(null);
+            if (org == null) {
+                continue;
+            }
+            views.add(new OrgView(
+                    org.getId(),
+                    org.getName(),
+                    m.getRole(),
+                    org.getId().equals(activeOrgId)));
+        }
+        return views;
+    }
+
+    /** Lightweight view of an organization for the switcher UI. */
+    public record OrgView(Long id, String name, String role, boolean active) {
     }
 
     private String defaultOrgName(User user) {
