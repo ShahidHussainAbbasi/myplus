@@ -1,6 +1,8 @@
 # Slice 24 — Pagination for business-service list reads
 
-Status: **DESIGN → implementing** 🔨. Tech-debt #4 (🟠). Follows the slice cadence.
+Status: **DONE + VERIFIED** ✅ (2026-06-13). Tech-debt #4 (🟠). Build ✓, headed Cypress
+sell/customer/item/flow 73/73 (backward-compatible, no regression). UI follow-up (server-side
+DataTables) still open. Follows the slice cadence.
 
 ## Document — what & why
 `findScoped` / `getAll*` return a tenant's **entire** table in one response. For a busy org this loads

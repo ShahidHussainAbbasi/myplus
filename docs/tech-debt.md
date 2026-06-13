@@ -21,10 +21,11 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   shows that shop. Source it from the org/`Company` profile.
 - [x] 🟠 **`e.getCause().toString()` NPE pattern** — DONE 2026-06-13: replaced all 22 occurrences across
   the 9 business-service controllers with NPE-safe `e.getMessage()`. (No occurrences remain in any service.)
-- [~] 🟠 **Unbounded reads** — slice 24 (awaiting build): added backward-compatible optional `page`/`size`
-  to `getUserCustomer`/`getUserItem`/`getUserSell` (paged `findScoped(...,Pageable)` overloads through
-  repo→service→controller). Absent params = full list (preserves client-side DataTables UI). **Follow-up:**
-  wire monolith to server-side DataTables to actually bound default UI loads. _Design: slices/24-pagination.md._
+- [x] 🟠 **Unbounded reads** — DONE + VERIFIED 2026-06-13, slice 24: backward-compatible optional
+  `page`/`size` on `getUserCustomer`/`getUserItem`/`getUserSell` (paged `findScoped(...,Pageable)`
+  through repo→service→controller). Absent params = full list (preserves client-side DataTables UI).
+  Build ✓, headed Cypress sell/customer/item/flow 73/73 (no regression). **Follow-up:** wire monolith to
+  server-side DataTables to bound default UI loads. _Design: slices/24-pagination.md._
 - [ ] 🟠 **N+1 query in `getUserSell`** — per-row `itemService.findById` (SellController.java:179). Batch
   fetch or join.
 - [ ] 🟡 **Audit legacy `Example.of(obj)` dup-check probes** — partly cleaned in slice 21 (business);
