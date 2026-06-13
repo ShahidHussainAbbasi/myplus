@@ -30,14 +30,16 @@
       <br/>
       <br/>
       
+      <!-- Two-step authentication — shown only when 2FA is enabled by config (app.twofa.enabled). -->
+      <div th:if="${twoFaEnabled}">
       <div th:if="${#authentication.principal.using2FA}">
-        You are using Two-step authentication <a href="#" class="btn btn-info btn-cls" onclick="disable2FA()">Disable 2FA</a> 
+        You are using Two-step authentication <a href="#" class="btn btn-info btn-cls" onclick="disable2FA()">Disable 2FA</a>
       </div>
-        
+
       <div th:if="${! #authentication.principal.using2FA}">
-        You are not using Two-step authentication <a href="#" class="btn btn-info btn-cls" onclick="enable2FA()">Enable 2FA</a> 
+        You are not using Two-step authentication <a href="#" class="btn btn-info btn-cls" onclick="enable2FA()">Enable 2FA</a>
       </div>
-      
+
       <br/>
       <div id="qr" style="display:none;">
           <p>Scan this barcode with the Google Authenticator app
@@ -51,6 +53,7 @@
               <button class="btn btn-success" onclick="verify2FA()">Verify &amp; enable</button>
           </div>
           <p id="twofaMsg"></p>
+      </div>
       </div>
   </div>
 

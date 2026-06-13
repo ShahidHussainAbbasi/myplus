@@ -41,6 +41,9 @@ public class RegistrationController {
     @Autowired
     private MessageSource messages;
 
+    @Autowired
+    private com.captcha.ICaptchaService captchaService;
+
     public RegistrationController() {
         super();
     }
@@ -50,6 +53,7 @@ public class RegistrationController {
     @RequestMapping(value = "/user/registration", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse registerUserAccount(@Valid final UserDto accountDto, final HttpServletRequest request) {
+        captchaService.processResponse(request.getParameter("g-recaptcha-response")); // no-op when captcha disabled
         LOGGER.debug("Registering user account: {}", accountDto.getEmail());
         try {
             authServerClient.register(accountDto.getFirstName(), accountDto.getLastName(),
@@ -65,6 +69,7 @@ public class RegistrationController {
     @RequestMapping(value = "/user/resetPassword", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse resetPassword(final HttpServletRequest request, @RequestParam("email") final String userEmail) {
+        captchaService.processResponse(request.getParameter("g-recaptcha-response")); // no-op when captcha disabled
         passwordResetFacade.requestReset(userEmail);
         return new GenericResponse(messages.getMessage("message.resetPasswordEmail", null, request.getLocale()));
     }

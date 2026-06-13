@@ -29,10 +29,13 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
 
     private final AuthServerClient authServerClient;
     private final TokenStore tokenStore;
+    private final com.captcha.ICaptchaService captchaService;
 
-    public AuthServerAuthenticationProvider(AuthServerClient authServerClient, TokenStore tokenStore) {
+    public AuthServerAuthenticationProvider(AuthServerClient authServerClient, TokenStore tokenStore,
+                                            com.captcha.ICaptchaService captchaService) {
         this.authServerClient = authServerClient;
         this.tokenStore = tokenStore;
+        this.captchaService = captchaService;
     }
 
     @Override
@@ -40,8 +43,17 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
         String email = authentication.getName();
         String password = authentication.getCredentials() == null ? null : authentication.getCredentials().toString();
         String verificationCode = null;
+        String captchaResponse = null;
         if (authentication.getDetails() instanceof CustomWebAuthenticationDetails details) {
             verificationCode = details.getVerificationCode();
+            captchaResponse = details.getCaptchaResponse();
+        }
+
+        // Verify the login captcha first (no-op when captcha is disabled by config).
+        try {
+            captchaService.processResponse(captchaResponse);
+        } catch (RuntimeException ce) {
+            throw new BadCredentialsException("Captcha verification failed");
         }
 
         AuthServerLoginResponse response;

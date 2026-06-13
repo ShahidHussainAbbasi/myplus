@@ -105,7 +105,7 @@
                     </div>
                 </div>
 
-                <div class="field-group" style="margin-bottom:24px">
+                <div class="field-group" style="margin-bottom:24px" th:if="${twoFaEnabled}">
                     <label class="field-label" for="loginCode">
                         Authenticator code <span style="opacity:.6">(only if 2FA is enabled)</span>
                     </label>
@@ -117,6 +117,8 @@
                                placeholder="6-digit code"/>
                     </div>
                 </div>
+
+                <div th:if="${captchaEnabled}" class="g-recaptcha" th:attr="data-sitekey=${captchaSiteKey}" style="margin:0 0 18px"></div>
 
                 <button id="loginSubmit" type="submit" class="btn-signin"
                         th:text="#{label.form.login}">Sign in</button>
@@ -174,6 +176,7 @@
     </div>
 </div>
 
+<script th:if="${captchaEnabled}" src="https://www.google.com/recaptcha/api.js" async defer></script>
 <script th:src="@{/js/jquery-3.3.1.js}"></script>
 <script th:src="@{/js/login.js}"></script>
 <script>

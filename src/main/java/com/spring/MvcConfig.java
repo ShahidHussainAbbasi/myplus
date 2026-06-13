@@ -114,11 +114,16 @@ public class MvcConfig implements WebMvcConfigurer {
     //     registry.addResourceHandler("/**").addResourceLocations("classpath:/static/", "classpath:/public/");
     // }    
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.web.util.FeatureFlagsInterceptor featureFlagsInterceptor;
+
     @Override
     public void addInterceptors(final InterceptorRegistry registry) {
         final LocaleChangeInterceptor localeChangeInterceptor = new LocaleChangeInterceptor();
         localeChangeInterceptor.setParamName("lang");
         registry.addInterceptor(localeChangeInterceptor);
+        // Expose captcha/2FA feature flags to every view (incl. static view-controllers).
+        registry.addInterceptor(featureFlagsInterceptor);
     }
 
     // beans
