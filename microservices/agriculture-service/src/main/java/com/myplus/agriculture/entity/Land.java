@@ -32,6 +32,10 @@ public class Land implements Serializable {
     @Setter @Getter
     private Long userId;
 
+    @Column(name = "organization_id")
+    @Setter @Getter
+    private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
     @Column(name = "user_type")
     @Setter @Getter
     private String userType;

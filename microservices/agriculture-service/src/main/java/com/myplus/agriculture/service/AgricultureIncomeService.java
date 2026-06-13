@@ -30,6 +30,11 @@ public class AgricultureIncomeService implements IAgricultureIncomeService {
     }
 
     @Override
+    public List<AgricultureIncome> findScoped(Long orgId, Long userId) {
+        return incomeRepo.findScoped(orgId, userId);
+    }
+
+    @Override
     public boolean exists(Example<AgricultureIncome> example) {
         return incomeRepo.exists(example);
     }

@@ -30,6 +30,11 @@ public class LandService implements ILandService {
     }
 
     @Override
+    public List<Land> findScoped(Long orgId, Long userId) {
+        return landRepo.findScoped(orgId, userId);
+    }
+
+    @Override
     public boolean exists(Example<Land> example) {
         return landRepo.exists(example);
     }

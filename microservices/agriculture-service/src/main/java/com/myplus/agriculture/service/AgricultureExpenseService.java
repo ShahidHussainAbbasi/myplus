@@ -30,6 +30,11 @@ public class AgricultureExpenseService implements IAgricultureExpenseService {
     }
 
     @Override
+    public List<AgricultureExpense> findScoped(Long orgId, Long userId) {
+        return expenseRepo.findScoped(orgId, userId);
+    }
+
+    @Override
     public boolean exists(Example<AgricultureExpense> example) {
         return expenseRepo.exists(example);
     }

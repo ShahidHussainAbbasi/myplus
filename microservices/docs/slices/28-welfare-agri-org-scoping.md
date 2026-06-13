@@ -1,6 +1,6 @@
 # Slice 28 — Welfare + Agriculture org-scoping (multi-tenant)
 
-Status: **IN PROGRESS** 🔨. Tech-debt #18 (🟠). Applies the slice-21 recipe to the last two
+Status: **IMPLEMENTED — awaiting build** 🔨 (welfare + agriculture both done). Tech-debt #18 (🟠). Applies the slice-21 recipe to the last two
 `userId`-only services. **No Cypress specs exist for welfare/agri** (deferred) → verification is
 compile + (optional) manual; that test gap is itself tech-debt.
 
@@ -29,8 +29,11 @@ dup-checks scoped within the tenant. No global unique constraints to drop (Land'
 
 ## Implement (checklist)
 - [x] Welfare: entities, repos, services, controller
-- [ ] Agriculture: Income, Expense, Land (entities, repos, services, controllers)
-- [ ] build welfare-service + agriculture-service (no Cypress — compile gate)
+- [x] Agriculture: Income, Expense, Land — entities +org_id; repos findScoped; ifaces+impls; controllers
+  reads→findScoped (incl. getAllLand leak), writes stamp org, deletes org-checked (income/expense via
+  findScoped membership set, land via findById), loadLastCropAttached scoped + landId filter. Kept the
+  user-scoped Example dup-checks (existence probes include userId — not a leak).
+- [ ] build welfare-service + agriculture-service (no Cypress — compile gate) — **awaiting build**
 
 ## Test
 - Compile both services (Hibernate adds `organization_id`).

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.agriculture.dto.AgricultureIncomeDTO;
 import com.myplus.agriculture.entity.AgricultureIncome;
 import com.myplus.agriculture.entity.Land;
@@ -41,6 +42,14 @@ public class AgricultureIncomeController {
 
     private final ModelMapper modelMapper = new ModelMapper();
 
+    private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+    private boolean inMyTenant(Long rowOrg, Long rowUser) {
+        return (rowOrg != null && rowOrg.equals(orgId()))
+            || (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+    }
+
     @RequestMapping(value = "/addAgricultureIncome", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse addAgricultureIncome(final AgricultureIncomeDTO dto, final HttpServletRequest request) {
@@ -55,7 +64,8 @@ public class AgricultureIncomeController {
                 }
             }
             obj = modelMapper.map(dto, AgricultureIncome.class);
-            obj.setUserId(userId);
+            obj.setUserId(userId);                 // audit
+            obj.setOrganizationId(orgId());        // tenant scope
             obj.setDated(LocalDate.now());
             obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
             Optional<Land> optional = landService.findById(dto.getLandId());
@@ -79,9 +89,7 @@ public class AgricultureIncomeController {
     public GenericResponse getUserAgricultureIncome(final HttpServletRequest request) {
         try {
             List<AgricultureIncomeDTO> dtos = new ArrayList<>();
-            AgricultureIncome filterBy = new AgricultureIncome(requestUtil.getCurrentUser().getUserId());
-            Example<AgricultureIncome> example = Example.of(filterBy);
-            List<AgricultureIncome> objs = service.findAll(example);
+            List<AgricultureIncome> objs = service.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse(appUtil.NOT_FOUND, "No data found", objs);
             }
@@ -102,10 +110,9 @@ public class AgricultureIncomeController {
     @ResponseBody
     public GenericResponse loadLastIncomeCropAttached(@RequestParam Long landId, final HttpServletRequest request) {
         try {
-            AgricultureIncome filterBy = new AgricultureIncome(requestUtil.getCurrentUser().getUserId());
-            filterBy.setLandId(landId);
-            Example<AgricultureIncome> example = Example.of(filterBy);
-            List<AgricultureIncome> objs = service.findAll(example);
+            List<AgricultureIncome> objs = service.findScoped(orgId(), userId()).stream()
+                    .filter(o -> java.util.Objects.equals(o.getLandId(), landId))
+                    .collect(java.util.stream.Collectors.toList());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse(appUtil.NOT_FOUND, "No data found");
             }
@@ -126,8 +133,11 @@ public class AgricultureIncomeController {
             if (StringUtils.isEmpty(ids)) {
                 return new GenericResponse(appUtil.SUCCESS, "Invalid input");
             }
+            java.util.Set<Long> owned = service.findScoped(orgId(), userId()).stream()
+                    .map(AgricultureIncome::getId).collect(java.util.stream.Collectors.toSet());
             for (String id : ids.split(",")) {
-                service.deleteById(Long.valueOf(id));
+                Long iid = Long.valueOf(id);
+                if (owned.contains(iid)) service.deleteById(iid);   // anti-IDOR
             }
             return new GenericResponse(appUtil.SUCCESS, "Deleted successfully");
         } catch (Exception e) {

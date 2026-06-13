@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.agriculture.dto.AgricultureExpenseDTO;
 import com.myplus.agriculture.entity.AgricultureExpense;
 import com.myplus.agriculture.entity.Land;
@@ -41,6 +42,14 @@ public class AgricultureExpenseController {
 
     private final ModelMapper modelMapper = new ModelMapper();
 
+    private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+    private boolean inMyTenant(Long rowOrg, Long rowUser) {
+        return (rowOrg != null && rowOrg.equals(orgId()))
+            || (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+    }
+
     @RequestMapping(value = "/addAgricultureExpense", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse addAgricultureExpense(final AgricultureExpenseDTO dto, final HttpServletRequest request) {
@@ -55,7 +64,8 @@ public class AgricultureExpenseController {
                 }
             }
             obj = modelMapper.map(dto, AgricultureExpense.class);
-            obj.setUserId(userId);
+            obj.setUserId(userId);                 // audit
+            obj.setOrganizationId(orgId());        // tenant scope
             obj.setDated(LocalDate.now());
             obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
             Optional<Land> optional = landService.findById(dto.getLandId());
@@ -79,9 +89,7 @@ public class AgricultureExpenseController {
     public GenericResponse getUserAgricultureExpense(final HttpServletRequest request) {
         try {
             List<AgricultureExpenseDTO> dtos = new ArrayList<>();
-            AgricultureExpense filterBy = new AgricultureExpense(requestUtil.getCurrentUser().getUserId());
-            Example<AgricultureExpense> example = Example.of(filterBy);
-            List<AgricultureExpense> objs = service.findAll(example);
+            List<AgricultureExpense> objs = service.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse(appUtil.NOT_FOUND, "No data found", objs);
             }
@@ -102,11 +110,10 @@ public class AgricultureExpenseController {
     @ResponseBody
     public GenericResponse loadLastExpenseCropAttached(@RequestParam Long landId, final HttpServletRequest request) {
         try {
-            AgricultureExpense filterBy = new AgricultureExpense(requestUtil.getCurrentUser().getUserId());
-            filterBy.setLandId(landId);
-            Example<AgricultureExpense> example = Example.of(filterBy);
-            Sort sort = Sort.by("id").descending();
-            List<AgricultureExpense> objs = service.findAll(example, sort);
+            List<AgricultureExpense> objs = service.findScoped(orgId(), userId()).stream()
+                    .filter(o -> java.util.Objects.equals(o.getLandId(), landId))
+                    .sorted(java.util.Comparator.comparing(AgricultureExpense::getId).reversed())
+                    .collect(java.util.stream.Collectors.toList());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse(appUtil.NOT_FOUND, "No data found");
             }
@@ -126,9 +133,12 @@ public class AgricultureExpenseController {
             if (StringUtils.isEmpty(ids)) {
                 return new GenericResponse(appUtil.SUCCESS, "Invalid input");
             }
+            java.util.Set<Long> owned = service.findScoped(orgId(), userId()).stream()
+                    .map(AgricultureExpense::getId).collect(java.util.stream.Collectors.toSet());
             for (String id : ids.split(",")) {
                 if (!StringUtils.isEmpty(id)) {
-                    service.deleteById(Long.valueOf(id));
+                    Long iid = Long.valueOf(id);
+                    if (owned.contains(iid)) service.deleteById(iid);   // anti-IDOR
                 }
             }
             return new GenericResponse(appUtil.SUCCESS, "Deleted successfully");

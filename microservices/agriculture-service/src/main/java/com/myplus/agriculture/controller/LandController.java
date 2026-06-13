@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.agriculture.dto.LandDTO;
 import com.myplus.agriculture.entity.Land;
 import com.myplus.agriculture.service.ILandService;
@@ -34,6 +35,14 @@ public class LandController {
 
     private final ModelMapper modelMapper = new ModelMapper();
 
+    private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+    private boolean inMyTenant(Long rowOrg, Long rowUser) {
+        return (rowOrg != null && rowOrg.equals(orgId()))
+            || (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+    }
+
     @RequestMapping(value = "/addLand", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse addLand(final LandDTO dto, final HttpServletRequest request) {
@@ -49,6 +58,7 @@ public class LandController {
                 }
             }
             obj = modelMapper.map(dto, Land.class);
+            obj.setOrganizationId(orgId());        // tenant scope (user_id already set from dto)
             obj.setDated(LocalDate.now());
             obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
             if (service.save(obj).getId() > 0) {
@@ -66,10 +76,7 @@ public class LandController {
     public GenericResponse getUserLand(final HttpServletRequest request) {
         try {
             List<LandDTO> dtos = new ArrayList<>();
-            Land filterBy = new Land();
-            filterBy.setUserId(requestUtil.getCurrentUser().getUserId());
-            Example<Land> example = Example.of(filterBy);
-            List<Land> objs = service.findAll(example);
+            List<Land> objs = service.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse(appUtil.NOT_FOUND, "No data found", objs);
             }
@@ -91,10 +98,7 @@ public class LandController {
     public String getUserLands(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            Land filterBy = new Land();
-            filterBy.setUserId(requestUtil.getCurrentUser().getUserId());
-            Example<Land> example = Example.of(filterBy);
-            List<Land> objs = service.findAll(example);
+            List<Land> objs = service.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 sb.append("<option class='dropdown-item' value=''> No Data </option>");
             } else {
@@ -116,7 +120,8 @@ public class LandController {
     @ResponseBody
     public GenericResponse getAllLand(final HttpServletRequest request) {
         try {
-            List<Land> objs = service.findAll();
+            // was findAll() — cross-tenant leak; now scoped to the active org.
+            List<Land> objs = service.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse(appUtil.NOT_FOUND);
             }
@@ -136,7 +141,10 @@ public class LandController {
                 return new GenericResponse(appUtil.SUCCESS, "Invalid input");
             }
             for (String id : ids.split(",")) {
-                service.deleteById(Long.valueOf(id));
+                Long lid = Long.valueOf(id);
+                Land existing = service.findById(lid).orElse(null);
+                if (existing != null && inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+                    service.deleteById(lid);
             }
             return new GenericResponse(appUtil.SUCCESS, "Deleted successfully");
         } catch (Exception e) {

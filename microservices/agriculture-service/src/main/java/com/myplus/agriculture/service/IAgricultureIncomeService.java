@@ -10,6 +10,8 @@ import com.myplus.agriculture.entity.AgricultureIncome;
 public interface IAgricultureIncomeService {
     List<AgricultureIncome> findAll(Example<AgricultureIncome> example);
     List<AgricultureIncome> findAll(Example<AgricultureIncome> example, Sort sort);
+    /** Tenant-scoped income (own org + caller's pre-migration org-NULL rows). */
+    List<AgricultureIncome> findScoped(Long orgId, Long userId);
     boolean exists(Example<AgricultureIncome> example);
     AgricultureIncome save(AgricultureIncome income);
     void deleteById(Long id);
