@@ -51,6 +51,11 @@ public class PurchaseService implements IPurchaseService{
 		return purchaseRepo.findAll();
 	}
 
+	@Override
+	public List<Purchase> findScoped(Long orgId, Long userId) {
+		return purchaseRepo.findScoped(orgId, userId);
+	}
+
 	public List<Purchase> findAll(Sort sort) {
 		// TODO Auto-generated method stub
 		return purchaseRepo.findAll(sort);
@@ -181,6 +186,8 @@ public class PurchaseService implements IPurchaseService{
 		obj.setDated(appUtil.getDateTime(null));
 		obj.setDated(LocalDateTime.now());
 		obj.setStock(stock);
+		obj.setUserId(user.getUserId());                  // audit
+		obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 		return this.save(obj);
 	}
 

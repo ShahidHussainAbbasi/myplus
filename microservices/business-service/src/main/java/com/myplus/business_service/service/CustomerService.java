@@ -170,6 +170,11 @@ return customerRepo.exists(example);
 		return customerRepo.findByUserId(userId);
 	}
 
+	@Override
+	public List<Customer> findScoped(Long orgId, Long userId) {
+		return customerRepo.findScoped(orgId, userId);
+	}
+
 
 	public Customer saveUpdateCustomer(CustomerHistoryDTO dto) throws Exception {
 
@@ -212,8 +217,13 @@ return customerRepo.exists(example);
 
 		customerObj.setDated(LocalDateTime.now());
 		customerObj.setUpdated(LocalDateTime.now());
+		AuthenticatedUser actor = requestUtil.getCurrentUser();
+		if (actor != null) {
+			if (customerObj.getUserId() == null) customerObj.setUserId(actor.getUserId()); // audit
+			customerObj.setOrganizationId(actor.getOrganizationId());                       // tenant scope
+		}
 		this.save(customerObj);
-		
+
 		return customerObj;
 	}
 

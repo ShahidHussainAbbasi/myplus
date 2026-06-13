@@ -91,7 +91,7 @@ public class BusinessDashboardController {
 
             LocalDateTime startOfMonth = appUtil.firstDateTimeOfMonth();
             LocalDateTime endOfMonth = appUtil.lastDateTimeOfMonth();
-            List<Sell> monthlySells = sellService.findSellByDates(startOfMonth, endOfMonth, userId);
+            List<Sell> monthlySells = sellService.findSellByDates(startOfMonth, endOfMonth, user.getOrganizationId(), userId);
             long sellCount = monthlySells.size();
             double monthlyRevenue = monthlySells.stream()
                 .mapToDouble(s -> s.getNetAmount() != null ? s.getNetAmount().doubleValue() : 0.0)
@@ -135,7 +135,7 @@ public class BusinessDashboardController {
             }
             LocalDateTime sixMonthsAgoStart = now.minusMonths(5)
                 .withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-            List<Sell> trendSells = sellService.findSellByDates(sixMonthsAgoStart, appUtil.lastDateTimeOfMonth(), userId);
+            List<Sell> trendSells = sellService.findSellByDates(sixMonthsAgoStart, appUtil.lastDateTimeOfMonth(), user.getOrganizationId(), userId);
             for (Sell s : trendSells) {
                 if (s.getUpdated() != null) {
                     String key = s.getUpdated().format(monthKey);
@@ -149,7 +149,7 @@ public class BusinessDashboardController {
             // --- daily revenue this month ---
             LocalDateTime startOfMonth = appUtil.firstDateTimeOfMonth();
             LocalDateTime endOfMonth = appUtil.lastDateTimeOfMonth();
-            List<Sell> monthlySells = sellService.findSellByDates(startOfMonth, endOfMonth, userId);
+            List<Sell> monthlySells = sellService.findSellByDates(startOfMonth, endOfMonth, user.getOrganizationId(), userId);
             int daysInMonth = now.toLocalDate().lengthOfMonth();
             double[] dailyRev = new double[daysInMonth];
             for (Sell s : monthlySells) {

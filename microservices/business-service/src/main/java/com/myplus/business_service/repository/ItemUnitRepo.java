@@ -3,7 +3,11 @@
  */
 package com.myplus.business_service.repository;
 
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.query.QueryByExampleExecutor;
 
 import com.myplus.business_service.entity.ItemUnit;
@@ -13,8 +17,12 @@ import com.myplus.business_service.entity.ItemUnit;
  *
  */
 public interface ItemUnitRepo extends JpaRepository<ItemUnit, Long>,QueryByExampleExecutor<ItemUnit> {
-	
-	
+
+   // Tenant-scoped read with NULL-fallback (own org + caller's pre-migration org-NULL rows).
+   @Query("select u from ItemUnit u where u.organizationId = :orgId "
+        + "or (u.organizationId is null and u.userId = :userId)")
+   List<ItemUnit> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "
 //    		+ "p.mobile = :mobile AND a.FK_patient_id = p.patient_id",nativeQuery=true)
 //    Optional<Appointment> isPatientAppointed(@Param("doctor_id") Long doctor_id, @Param("date") String date, @Param("mobile") String mobile);

@@ -79,6 +79,9 @@ public class Customer implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
+	@Column(name = "organization_id")
+	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
 	/**
 	 * @return the serialversionuid
 	 */

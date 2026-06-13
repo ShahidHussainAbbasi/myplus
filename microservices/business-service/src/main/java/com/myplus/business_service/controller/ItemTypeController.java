@@ -46,15 +46,19 @@ public class ItemTypeController {
     
 	ModelMapper modelMapper = new ModelMapper();
 
+	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+	private boolean inMyTenant(Long rowOrg, Long rowUser) {
+		return (rowOrg != null && rowOrg.equals(orgId()))
+			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+	}
+
 	@RequestMapping(value = "/getUserItemType", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserItemType(final HttpServletRequest request) {
 		try {
-			ItemType filterBy = new ItemType();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-			Example<ItemType> example = Example.of(filterBy);
-			List<ItemType> objs = itemTypeService.findAll(example);
+			List<ItemType> objs = itemTypeService.findScoped(orgId(), userId());
 
 			List<ItemTypeDTO> dtos = new ArrayList<ItemTypeDTO>();
 			objs.forEach(obj -> {
@@ -79,11 +83,7 @@ public class ItemTypeController {
 	public String getUserItemTypes(final HttpServletRequest request) {
 		StringBuffer sb = new StringBuffer();
 		try {
-			ItemType filterBy = new ItemType();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-			Example<ItemType> example = Example.of(filterBy);
-			List<ItemType> objs = itemTypeService.findAll(example);
+			List<ItemType> objs = itemTypeService.findScoped(orgId(), userId());
 
 			objs.forEach(d -> {
 				sb.append("<option value=" + d.getId() + ">" + d.getName() + "</option>");
@@ -100,7 +100,8 @@ public class ItemTypeController {
 	@ResponseBody
 	public GenericResponse getAllItemType(final HttpServletRequest request) {
 		try {
-			List<ItemType> objs = itemTypeService.findAll();
+			// was findAll() — cross-tenant leak; now scoped to the active org.
+			List<ItemType> objs = itemTypeService.findScoped(orgId(), userId());
 			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
@@ -134,13 +135,13 @@ public class ItemTypeController {
 			dto.setUserId(user.getUserId());
 			obj.setUserId(user.getUserId());
 			if(appUtil.isEmptyOrNull(dto.getId())){
-				obj.setUserId(user.getUserId());
-				obj.setName(dto.getName());
-				Example<ItemType> example = Example.of(obj);
-				if(itemTypeService.exists(example))
-					return new GenericResponse("FOUND",messages.getMessage("The Vender "+dto.getName()+" already exist", null, request.getLocale()));
+				// dup-name check within the active tenant (was a userId-only Example probe)
+				boolean exists = itemTypeService.findScoped(orgId(), userId()).stream()
+						.anyMatch(t -> t.getName()!=null && t.getName().equalsIgnoreCase(dto.getName()));
+				if(exists)
+					return new GenericResponse("FOUND", "The Item Type '"+dto.getName()+"' already exists.");
 			}
-			
+
 			obj = modelMapper.map(dto, ItemType.class);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
@@ -149,6 +150,8 @@ public class ItemTypeController {
 				obj.setDated(dated);
 			}
 			obj.setUpdated(dated);
+			obj.setUserId(user.getUserId());                  // audit
+			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 
 			obj = itemTypeService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
@@ -172,7 +175,11 @@ public class ItemTypeController {
 			if (!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for (String id : idList) {
-					itemTypeService.deleteById(Long.valueOf(id));
+					Long tid = Long.valueOf(id);
+					ItemType existing = itemTypeService.findById(tid).orElse(null);
+					if (existing == null) continue;
+					if (inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+						itemTypeService.deleteById(tid);
 				}
 				return true;// new GenericResponse(messages.getMessage("message.userNotFound", null,
 							// request.getLocale()),"SUCCESS");

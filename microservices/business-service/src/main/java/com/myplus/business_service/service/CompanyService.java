@@ -30,6 +30,11 @@ public class CompanyService implements ICompanyService {
 		return companyRepo.findAll();
 	}
 
+	@Override
+	public List<Company> findScoped(Long orgId, Long userId) {
+		return companyRepo.findScoped(orgId, userId);
+	}
+
 	public List<Company> findAll(Sort sort) {
 		// TODO Auto-generated method stub
 		return companyRepo.findAll(sort);

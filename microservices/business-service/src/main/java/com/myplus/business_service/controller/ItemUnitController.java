@@ -46,15 +46,19 @@ public class ItemUnitController {
     
 	ModelMapper modelMapper = new ModelMapper();
 
+	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+	private boolean inMyTenant(Long rowOrg, Long rowUser) {
+		return (rowOrg != null && rowOrg.equals(orgId()))
+			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+	}
+
 	@RequestMapping(value = "/getUserItemUnit", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserItemUnit(final HttpServletRequest request) {
 		try {
-			ItemUnit filterBy = new ItemUnit();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-			Example<ItemUnit> example = Example.of(filterBy);
-			List<ItemUnit> objs = itemUnitService.findAll(example);
+			List<ItemUnit> objs = itemUnitService.findScoped(orgId(), userId());
 
 			List<ItemUnitDTO> dtos = new ArrayList<ItemUnitDTO>();
 			objs.forEach(obj -> {
@@ -79,11 +83,7 @@ public class ItemUnitController {
 	public String getUserItemUnits(final HttpServletRequest request) {
 		StringBuffer sb = new StringBuffer();
 		try {
-			ItemUnit filterBy = new ItemUnit();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-			Example<ItemUnit> example = Example.of(filterBy);
-			List<ItemUnit> objs = itemUnitService.findAll(example);
+			List<ItemUnit> objs = itemUnitService.findScoped(orgId(), userId());
 
 			objs.forEach(d -> {
 				sb.append("<option value=" + d.getId() + ">" + d.getName() + "</option>");
@@ -100,7 +100,8 @@ public class ItemUnitController {
 	@ResponseBody
 	public GenericResponse getAllItemUnit(final HttpServletRequest request) {
 		try {
-			List<ItemUnit> objs = itemUnitService.findAll();
+			// was findAll() — cross-tenant leak; now scoped to the active org.
+			List<ItemUnit> objs = itemUnitService.findScoped(orgId(), userId());
 			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -133,13 +134,13 @@ public class ItemUnitController {
 			dto.setUserId(user.getUserId());
 			obj.setUserId(user.getUserId());
 			if(appUtil.isEmptyOrNull(dto.getId())){
-				obj.setUserId(user.getUserId());
-				obj.setName(dto.getName());
-				Example<ItemUnit> example = Example.of(obj);
-				if(itemUnitService.exists(example))
+				// dup-name check within the active tenant (was a userId-only Example probe)
+				boolean exists = itemUnitService.findScoped(orgId(), userId()).stream()
+						.anyMatch(u -> u.getName()!=null && u.getName().equalsIgnoreCase(dto.getName()));
+				if(exists)
 					return new GenericResponse("FOUND", "Item unit '" + dto.getName() + "' already exists.");
 			}
-			
+
 			obj = modelMapper.map(dto, ItemUnit.class);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
@@ -148,6 +149,8 @@ public class ItemUnitController {
 				obj.setDated(dated);
 			}
 			obj.setUpdated(dated);
+			obj.setUserId(user.getUserId());                  // audit
+			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 
 			obj = itemUnitService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
@@ -170,7 +173,11 @@ public class ItemUnitController {
 			if (!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for (String id : idList) {
-					itemUnitService.deleteById(Long.valueOf(id));
+					Long uid = Long.valueOf(id);
+					ItemUnit existing = itemUnitService.findById(uid).orElse(null);
+					if (existing == null) continue;
+					if (inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+						itemUnitService.deleteById(uid);
 				}
 				return true;// new GenericResponse(messages.getMessage("message.userNotFound", null,
 							// request.getLocale()),"SUCCESS");

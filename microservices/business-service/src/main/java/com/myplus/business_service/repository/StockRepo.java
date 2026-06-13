@@ -8,6 +8,7 @@ import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.query.QueryByExampleExecutor;
 import org.springframework.stereotype.Repository;
 
@@ -25,6 +26,15 @@ public interface StockRepo extends JpaRepository<Stock, Long>,QueryByExampleExec
 
 	@Query(value = "SELECT batchNo FROM Stock WHERE userId = :userId AND itemId = :itemId")
 	Set<String> getItemBatch(Long userId, Long itemId);
+
+	// Tenant-scoped variants (own org + caller's pre-migration org-NULL rows).
+	@Query("SELECT s.batchNo FROM Stock s WHERE s.itemId = :itemId "
+	     + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
+	Set<String> getItemBatchScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, @Param("itemId") Long itemId);
+
+	@Query("SELECT s FROM Stock s WHERE s.batchNo = :batchNo "
+	     + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
+	Optional<Stock> findByBatchScoped(@Param("batchNo") String batchNo, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
 	Optional<Stock> findByItemId(Long itemId);
 

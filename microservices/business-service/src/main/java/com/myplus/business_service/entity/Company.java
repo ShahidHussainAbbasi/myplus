@@ -19,6 +19,7 @@ public class Company {
     private String email;
     private String address;
     private Long userId;
+    private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
 
     @Column(updatable = false)
     private LocalDateTime createdAt;

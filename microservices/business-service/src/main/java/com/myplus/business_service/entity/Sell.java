@@ -44,6 +44,9 @@ public class Sell implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
+	@Column(name = "organization_id")
+	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
 	// @OneToOne(fetch = FetchType.LAZY, optional = true)
 	// @NotFound(action = NotFoundAction.IGNORE)
 	// @JoinColumn(name = "item_id")

@@ -65,15 +65,19 @@ public class ItemController {
     
 	ModelMapper modelMapper = new ModelMapper();
 
+	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+	private boolean inMyTenant(Long rowOrg, Long rowUser) {
+		return (rowOrg != null && rowOrg.equals(orgId()))
+			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+	}
+
 	@RequestMapping(value = "/getUserItem", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserItem(final HttpServletRequest request) {
 		try {
-			Item filterBy = new Item();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-			Example<Item> example = Example.of(filterBy);
-			List<Item> objs = itemService.findAll(example);
+			List<Item> objs = itemService.findScoped(orgId(), userId());
 			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
@@ -143,11 +147,7 @@ public class ItemController {
 	public String getUserItems(final HttpServletRequest request) {
 		StringBuffer sb = new StringBuffer();
 		try {
-			Item filterBy = new Item();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-			Example<Item> example = Example.of(filterBy);
-			List<Item> objs = itemService.findAll(example);
+			List<Item> objs = itemService.findScoped(orgId(), userId());
 			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
 				sb.append("<option value=" + d.getId() + ">" +d.getIname() + "</option>");
@@ -167,8 +167,10 @@ public class ItemController {
 		try {
 			if(appUtil.isEmptyOrNull(itemId))
 				return null;
-			
-			return itemService.findById(itemId).orElse(null);
+
+			Item item = itemService.findById(itemId).orElse(null);
+			// anti-IDOR: only return the item if it belongs to the caller's tenant
+			return (item != null && inMyTenant(item.getOrganizationId(), item.getUserId())) ? item : null;
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
@@ -180,7 +182,8 @@ public class ItemController {
 	@ResponseBody
 	public GenericResponse getAllItem(final HttpServletRequest request) {
 		try {
-			List<Item> objs = itemService.findAll();
+			// was findAll() — cross-tenant leak; now scoped to the active org.
+			List<Item> objs = itemService.findScoped(orgId(), userId());
 			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
@@ -225,23 +228,20 @@ public class ItemController {
 			Item obj= new Item();
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getUserId());
-			obj.setUserId(user.getUserId());			
+			obj.setUserId(user.getUserId());
 			if(appUtil.isEmptyOrNull(dto.getId())){
-//				obj.setUserId(user.getUserId());
-				if(appUtil.notEmptyNorNull(dto.getIname())){
-					obj.setIcode(dto.getIcode());
-				}
-				if(appUtil.notEmptyNorNull(dto.getIname())){
-					obj.setIname(dto.getIname());
-				}
-				Example<Item> example = Example.of(obj);
-				if(itemService.exists(example))
+				// dup-name check within the active tenant (was a userId-only Example probe)
+				boolean exists = itemService.findScoped(orgId(), userId()).stream()
+						.anyMatch(i -> i.getIname()!=null && i.getIname().equalsIgnoreCase(dto.getIname()));
+				if(exists)
 					return new GenericResponse("FOUND", "Item '" + dto.getIname() + "' already exists.");
 			}
 
 			modelMapper.addConverter(appUtil.stringToLocalDate);
 			modelMapper.addConverter(appUtil.stringToLocalDateTime);
 			obj = modelMapper.map(dto, Item.class);
+			obj.setUserId(user.getUserId());                  // audit
+			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 			obj = itemService.save(obj);
 			if (appUtil.isEmptyOrNull(obj.getId())) {
 				return new GenericResponse("FAILED", "Failed to save item. Please try again.");
@@ -263,7 +263,11 @@ public class ItemController {
 			if (!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for (String id : idList) {
-					itemService.deleteById(Long.valueOf(id));
+					Long iid = Long.valueOf(id);
+					Item existing = itemService.findById(iid).orElse(null);
+					if (existing == null) continue;
+					if (inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+						itemService.deleteById(iid);
 				}
 				return true;// new GenericResponse(messages.getMessage("message.userNotFound", null,
 							// request.getLocale()),"SUCCESS");

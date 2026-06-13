@@ -56,6 +56,22 @@ function clearFormError() {
     }
 }
 
+// slice 22: transient confirmation showing the system-generated invoice number after a sale.
+function showSaleSuccess(msg) {
+    var el = document.getElementById('saleSuccess');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'saleSuccess';
+        el.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#0a7d33;color:#fff;'
+            + 'padding:12px 18px;border-radius:8px;font-size:14px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.25)';
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.style.display = 'none'; }, 6000);
+}
+
 function resetForm(){
 	// Reset error Form's error classes and values
 	form = document.getElementsByClassName('form-horizontal')[tableV];
@@ -598,6 +614,8 @@ function jsonPost(method,data) {
 				return;
 			}
 			clearFormError();
+			// slice 22: show the system-generated per-org invoice number returned by addSell
+			if (data.object) { showSaleSuccess('Sale recorded — Invoice ' + data.object); }
 /*
 		    	var mylink = document.getElementById("MyLink");
 		    	mylink.setAttribute("href", "../");

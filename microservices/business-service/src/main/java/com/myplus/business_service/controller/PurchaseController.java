@@ -71,16 +71,20 @@ public class PurchaseController {
     private AppUtil appUtil;  
     
 	ModelMapper modelMapper = new ModelMapper();
-	
+
+	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+	private boolean inMyTenant(Long rowOrg, Long rowUser) {
+		return (rowOrg != null && rowOrg.equals(orgId()))
+			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+	}
+
 	@RequestMapping(value = "/getUserPurchase", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserPurchase(final HttpServletRequest request) {
 		try {
-			Purchase obj = new Purchase();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			obj.setUserId(user.getUserId());
-	        Example<Purchase> example = Example.of(obj);
-			List<Purchase> objs = purchaseService.findAll(example);
+			List<Purchase> objs = purchaseService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -126,11 +130,12 @@ public class PurchaseController {
 	@ResponseBody
 	public GenericResponse getAllPurchase(final HttpServletRequest request) {
 		try {
-			List<Purchase> objs = purchaseService.findAll();
+			// was findAll() — cross-tenant leak; now scoped to the active org.
+			List<Purchase> objs = purchaseService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
-			
-			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
+
+			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(obj ->{
 				PurchaseDTO dto = modelMapper.map(obj, PurchaseDTO.class);
 //				dto.setItemUnitId(obj.getItemUnit().getId());
@@ -186,7 +191,11 @@ public class PurchaseController {
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					purchaseService.deleteById(Long.valueOf(id));
+					Long pid = Long.valueOf(id);
+					Purchase existing = purchaseService.findById(pid).orElse(null);
+					if(existing == null) continue;
+					if(inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+						purchaseService.deleteById(pid);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

@@ -49,6 +49,10 @@ public class Stock implements Serializable {
 	@Getter@Setter
 	private Long userId;
 
+	@Column(name = "organization_id")
+	@Getter@Setter
+	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
 	@Column(name = "user_type")
 	@Getter@Setter
 	private String userType;

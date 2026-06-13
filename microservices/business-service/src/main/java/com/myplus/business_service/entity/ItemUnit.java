@@ -18,7 +18,7 @@ import jakarta.persistence.UniqueConstraint;
  */
 @Entity
 @Table(name = "item_unit", uniqueConstraints = { @UniqueConstraint(columnNames = "item_unit_id"),
-		@UniqueConstraint(columnNames = "name") })
+		@UniqueConstraint(columnNames = {"organization_id", "name"}) })  // per-tenant unique (was global on name)
 public class ItemUnit implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -34,7 +34,10 @@ public class ItemUnit implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
-	@Column(name = "name", unique = true, nullable = false)
+	@Column(name = "organization_id")
+	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
+	@Column(name = "name", nullable = false)   // global unique dropped → now per-tenant via @Table
 	private String name;
 
 	private String description;
@@ -69,6 +72,14 @@ public class ItemUnit implements Serializable {
 	 */
 	public void setUserId(Long userId) {
 		this.userId = userId;
+	}
+
+	public Long getOrganizationId() {
+		return organizationId;
+	}
+
+	public void setOrganizationId(Long organizationId) {
+		this.organizationId = organizationId;
 	}
 
 	/**

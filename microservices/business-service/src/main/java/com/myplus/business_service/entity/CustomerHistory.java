@@ -24,7 +24,9 @@ import lombok.Data;
  */
 @Data
 @Entity
-@Table(name = "customer_history", uniqueConstraints = { @UniqueConstraint(columnNames = "customer_history_id") })
+@Table(name = "customer_history", uniqueConstraints = {
+		@UniqueConstraint(columnNames = "customer_history_id"),
+		@UniqueConstraint(name = "uq_ch_org_invoice_seq", columnNames = {"organization_id", "invoice_seq"}) })  // per-org invoice series
 public class CustomerHistory implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -44,6 +46,15 @@ public class CustomerHistory implements Serializable {
 
 	@Column(name = "user_type")
 	private String userType;
+
+	@Column(name = "organization_id")
+	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
+	@Column(name = "invoice_seq")
+	private Long invoiceSeq;           // per-org running number (1,2,3…); ordering/uniqueness key
+
+	@Column(name = "invoice_no")
+	private String invoiceNo;          // display form, e.g. INV-000123
 
 	@ManyToOne(fetch = jakarta.persistence.FetchType.EAGER, cascade = CascadeType.MERGE)
 	@JoinColumn(name = "customer_id", referencedColumnName = "customer_id", nullable = true)

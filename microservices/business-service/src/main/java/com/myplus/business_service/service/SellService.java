@@ -23,6 +23,7 @@ import org.springframework.data.repository.query.FluentQuery.FetchableFluentQuer
 import org.springframework.stereotype.Service;
 
 import com.myplus.business_service.repository.SellRepo;
+import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.Sell;
 import com.myplus.business_service.entity.Stock;
@@ -177,19 +178,21 @@ public class SellService implements ISellService {
 		return sellRepo.exists(example);
 	}
 
-	public List<Sell> findSellByStartDate(LocalDateTime sd, Long userId) {
-		// TODO Auto-generated method stub
-		return sellRepo.findSellByStartDate(sd, userId);
+	@Override
+	public List<Sell> findScoped(Long orgId, Long userId) {
+		return sellRepo.findScoped(orgId, userId);
 	}
 
-	public List<Sell> findSellByEndDate(LocalDateTime ed, Long userId) {
-		// TODO Auto-generated method stub
-		return sellRepo.findSellByEndDate(ed, userId);
+	public List<Sell> findSellByStartDate(LocalDateTime sd, Long orgId, Long userId) {
+		return sellRepo.findSellByStartDate(sd, orgId, userId);
 	}
 
-	public List<Sell> findSellByDates(LocalDateTime sd, LocalDateTime ed, Long userId) {
-		// TODO Auto-generated method stub
-		return sellRepo.findSellByDates(sd, ed, userId);
+	public List<Sell> findSellByEndDate(LocalDateTime ed, Long orgId, Long userId) {
+		return sellRepo.findSellByEndDate(ed, orgId, userId);
+	}
+
+	public List<Sell> findSellByDates(LocalDateTime sd, LocalDateTime ed, Long orgId, Long userId) {
+		return sellRepo.findSellByDates(sd, ed, orgId, userId);
 	}
 
 	@SuppressWarnings("null")
@@ -215,7 +218,9 @@ public class SellService implements ISellService {
 					obj.setTotalAmount(dto.getTotalAmount());
 					obj.setNetAmount(dto.getNetAmount());
 					obj.setStock(stock);
-					obj.setUserId(requestUtil.getCurrentUser().getUserId());
+					AuthenticatedUser actor = requestUtil.getCurrentUser();
+					obj.setUserId(actor.getUserId());                       // audit: who sold
+					obj.setOrganizationId(actor.getOrganizationId());       // tenant scope
 					obj.setDated(LocalDateTime.now());
 					obj.setUpdated(LocalDateTime.now());
 					stockService.save(stock);

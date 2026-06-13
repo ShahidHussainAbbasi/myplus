@@ -182,11 +182,22 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 		
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		customerHistoryObj = ObjectMapperUtils.map(dto.getCustomer(), CustomerHistory.class);
-		customerHistoryObj.setUserId(user.getUserId());
+		customerHistoryObj.setUserId(user.getUserId());                       // audit
+		customerHistoryObj.setOrganizationId(user.getOrganizationId());       // tenant scope
 		customerHistoryObj.setDated(LocalDateTime.now());
 		customerHistoryObj.setUpdated(LocalDateTime.now());
 		customerHistoryObj.setDueAmount(dto.getDueAmount() == null ? dto.getCustomer().getDueAmount() : dto.getDueAmount());
 		customerHistoryObj.setPaidAmount(dto.getPaidAmount() == null ? dto.getCustomer().getPaidAmount() : dto.getPaidAmount());
+
+		// Assign a per-org invoice number for a NEW sale (slice 22). MAX+1 within the addSell @Transactional;
+		// unique(organization_id, invoice_seq) guarantees no duplicate can commit. Skip if no active org.
+		if (customerHistoryObj.getCustomer_history_id() == null
+				&& customerHistoryObj.getInvoiceSeq() == null
+				&& user.getOrganizationId() != null) {
+			long seq = CustomerHistoryRepo.maxInvoiceSeqForOrg(user.getOrganizationId()) + 1;
+			customerHistoryObj.setInvoiceSeq(seq);
+			customerHistoryObj.setInvoiceNo("INV-" + String.format("%06d", seq));
+		}
 
 		// this.save(customerHistoryObj);
 

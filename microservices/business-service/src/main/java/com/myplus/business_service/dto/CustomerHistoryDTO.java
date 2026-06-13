@@ -40,4 +40,9 @@ public class CustomerHistoryDTO {
 
     private Float dueAmount;
 
-    private LocalDate dueDate;}
+    private LocalDate dueDate;
+
+    private Long invoiceSeq;     // per-org running number (slice 22)
+
+    private String invoiceNo;    // display invoice number, e.g. INV-000123
+}

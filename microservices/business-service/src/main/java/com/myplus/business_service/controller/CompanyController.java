@@ -45,17 +45,20 @@ public class CompanyController {
 	RequestUtil requestUtil;
 
 	ModelMapper modelMapper = new ModelMapper();
-	
+
+	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+	private boolean inMyTenant(Long rowOrg, Long rowUser) {
+		return (rowOrg != null && rowOrg.equals(orgId()))
+			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+	}
+
 	@RequestMapping(value = "/getUserCompany", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserCompany(final HttpServletRequest request) {
 		try {
-			Company filterBy = new Company();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-	        Example<Company
-			> example = Example.of(filterBy);
-			List<Company> objs = companyService.findAll(example);
+			List<Company> objs = companyService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -80,12 +83,8 @@ public class CompanyController {
 	public String getUserCompanies(final HttpServletRequest request) {
 		StringBuffer sb = new StringBuffer();
 		try {
-			Company filterBy = new Company();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-	        Example<Company> example = Example.of(filterBy);
-			List<Company> objs = companyService.findAll(example);
-			
+			List<Company> objs = companyService.findScoped(orgId(), userId());
+
 			// objs.forEach(d -> {
 			// 	sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
 			// });
@@ -109,7 +108,8 @@ public class CompanyController {
 	@ResponseBody
 	public GenericResponse getAllCompany(final HttpServletRequest request) {
 		try {
-			List<Company> objs = companyService.findAll();
+			// was findAll() — cross-tenant leak; now scoped to the active org.
+			List<Company> objs = companyService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
@@ -128,15 +128,14 @@ public class CompanyController {
 	public GenericResponse addOwner(@Validated final CompanyDTO dto, final HttpServletRequest request) {
 		try {
 			Company obj= new Company();
-			LocalDateTime dated = LocalDateTime.now();
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getUserId());
-			
-			Example<Company> example = Example.of(obj);
+
 			if(appUtil.isEmptyOrNull(dto.getId())){
-				obj.setUserId(user.getUserId());
-				obj.setName(dto.getName());
-				if(companyService.exists(example)) {
+				// dup-name check within the active tenant (was a userId-only Example probe)
+				boolean exists = companyService.findScoped(orgId(), userId()).stream()
+						.anyMatch(c -> c.getName()!=null && c.getName().equalsIgnoreCase(dto.getName()));
+				if(exists) {
 					return new GenericResponse("FOUND", "Company '" + dto.getName() + "' already exists.");
 				}
 			}
@@ -149,6 +148,8 @@ public class CompanyController {
 			}else {
 				// obj.setCreatedAt handled by @PrePersist
 			}
+			obj.setUserId(user.getUserId());                  // audit
+			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 			// obj.setUpdatedAt handled by @PreUpdate
 			obj = companyService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
@@ -171,7 +172,11 @@ public class CompanyController {
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					companyService.deleteById(Long.valueOf(id));
+					Long cid = Long.valueOf(id);
+					Company existing = companyService.findById(cid).orElse(null);
+					if(existing == null) continue;
+					if(inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+						companyService.deleteById(cid);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

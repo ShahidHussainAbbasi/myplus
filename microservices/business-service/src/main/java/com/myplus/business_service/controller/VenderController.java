@@ -49,16 +49,20 @@ public class VenderController {
 	RequestUtil requestUtil;
 
 	ModelMapper modelMapper = new ModelMapper();
-	
+
+	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+	private boolean inMyTenant(Long rowOrg, Long rowUser) {
+		return (rowOrg != null && rowOrg.equals(orgId()))
+			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+	}
+
 	@RequestMapping(value = "/getUserVender", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserVender(final HttpServletRequest request) {
 		try {
-			Vender filterBy = new Vender();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-	        Example<Vender> example = Example.of(filterBy);
-			List<Vender> objs = venderService.findAll(example);
+			List<Vender> objs = venderService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -87,12 +91,8 @@ public class VenderController {
 	public String getUserVenders(final HttpServletRequest request) {
 		StringBuffer sb = new StringBuffer();
 		try {
-			Vender filterBy = new Vender();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-	        Example<Vender> example = Example.of(filterBy);
-			List<Vender> objs = venderService.findAll(example);
-				
+			List<Vender> objs = venderService.findScoped(orgId(), userId());
+
 			// objs.forEach(d -> {
 			// 	if(d!=null && d.getId()!=null) {
 			// 		sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
@@ -118,11 +118,12 @@ public class VenderController {
 	@ResponseBody
 	public GenericResponse getAllVender(final HttpServletRequest request) {
 		try {
-			List<Vender> objs = venderService.findAll();
+			// was findAll() — cross-tenant leak; now scoped to the active org.
+			List<Vender> objs = venderService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
-			
-			List<VenderDTO> dtos=new ArrayList<VenderDTO>(); 
+
+			List<VenderDTO> dtos=new ArrayList<VenderDTO>();
 			objs.forEach(obj ->{
 				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
 				if(obj.getCompany() != null) {
@@ -156,10 +157,10 @@ public class VenderController {
 			dto.setUserId(user.getUserId());
 			obj.setUserId(user.getUserId());
 			if(appUtil.isEmptyOrNull(dto.getId())){
-				obj.setUserId(user.getUserId());
-				obj.setName(dto.getName());
-				Example<Vender> example = Example.of(obj);
-				if(venderService.exists(example))
+				// dup-name check within the active tenant (was a userId-only Example probe)
+				boolean exists = venderService.findScoped(orgId(), userId()).stream()
+						.anyMatch(v -> v.getName()!=null && v.getName().equalsIgnoreCase(dto.getName()));
+				if(exists)
 					return new GenericResponse("FOUND", "Vender '" + dto.getName() + "' already exists.");
 			}
 
@@ -172,6 +173,8 @@ public class VenderController {
 				obj.setDated(dated);
 			}
 			obj.setUpdated(dated);
+			obj.setUserId(user.getUserId());                  // audit
+			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 
 			obj.setCompany(companyService.getReferenceById(dto.getCompanyId()));
 			obj = venderService.save(obj);
@@ -195,7 +198,11 @@ public class VenderController {
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					venderService.deleteById(Long.valueOf(id));
+					Long vid = Long.valueOf(id);
+					Vender existing = venderService.findById(vid).orElse(null);
+					if(existing == null) continue;
+					if(inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+						venderService.deleteById(vid);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {

@@ -103,6 +103,15 @@ public class SellController {
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
 	}
 
+	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+	/** True if a row (by its org/user) belongs to the caller's tenant, incl. their pre-migration org-NULL rows. */
+	private boolean inMyTenant(Long rowOrg, Long rowUser) {
+		return (rowOrg != null && rowOrg.equals(orgId()))
+			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+	}
+
 
 // In SellService — map Sell to SellDTO manually
 // public SellDTO toDTO(Sell sell) {
@@ -155,16 +164,12 @@ public class SellController {
 	public GenericResponse getUserSell(final HttpServletRequest request) {
 		try {
 			String offset = request.getParameter("q");
-			Sell filterBy = new Sell();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-	        Example<Sell> example = Example.of(filterBy);
-	        
-	        List<Sell> objs;
-	        if(appUtil.isEmptyOrNull(offset) || offset.equals("-1"))
-				objs = sellService.findAll(example);
-	        else
-	        	objs = sellService.findAll(example,appUtil.getPageRequest(0,Integer.valueOf(offset),appUtil.orderByDESC("sellId"))).getContent();
+			// tenant-scoped, newest-first; apply the "recent N" cap in memory when an offset is given
+			List<Sell> objs = sellService.findScoped(orgId(), userId());
+			if(!(appUtil.isEmptyOrNull(offset) || offset.equals("-1"))) {
+				int limit = Integer.valueOf(offset);
+				if(objs.size() > limit) objs = new ArrayList<>(objs.subList(0, limit));
+			}
 
 			if(appUtil.isEmptyOrNull(objs)){	
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
@@ -222,13 +227,13 @@ public class SellController {
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 	        List<Sell> objs=null;
 	        if(dto.getRp() == CURRENT_MONTH) {
-	        	objs = sellService.findSellByDates(appUtil.firstDateTimeOfMonth(),appUtil.lastDateTimeOfMonth(), user.getUserId());
+	        	objs = sellService.findSellByDates(appUtil.firstDateTimeOfMonth(),appUtil.lastDateTimeOfMonth(), user.getOrganizationId(), user.getUserId());
 	        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
-	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.getDateTime(dto.getEd()), user.getUserId());
+	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.getDateTime(dto.getEd()), user.getOrganizationId(), user.getUserId());
 	        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && appUtil.isEmptyOrNull(dto.getEd())) {
-	        	objs = sellService.findSellByStartDate(appUtil.getDateTime(dto.getSd()), user.getUserId());
+	        	objs = sellService.findSellByStartDate(appUtil.getDateTime(dto.getSd()), user.getOrganizationId(), user.getUserId());
 	        }else if(appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
-	        	objs = sellService.findSellByEndDate(appUtil.getDateTime(dto.getEd()), user.getUserId());
+	        	objs = sellService.findSellByEndDate(appUtil.getDateTime(dto.getEd()), user.getOrganizationId(), user.getUserId());
 //	        }else {
 //	        	//current month
 //	        	
@@ -269,11 +274,12 @@ public class SellController {
 	@ResponseBody
 	public GenericResponse getAllSell(final HttpServletRequest request) {
 		try {
-			List<Sell> objs = sellService.findAll();
+			// was findAll() — cross-tenant leak; now scoped to the active org.
+			List<Sell> objs = sellService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
-			
-			List<SellDTO> dtos=new ArrayList<SellDTO>(); 
+
+			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(obj ->{
 				SellDTO dto = modelMapper.map(obj, SellDTO.class);
 				dto.setDated(appUtil.getDateStr(obj.getDated()));
@@ -319,7 +325,11 @@ public class SellController {
 
 			sellService.addSell(ObjectMapperUtils.mapAll(sells, Sell.class));
 
-			return new GenericResponse("SUCCESS", "Sale recorded successfully.");
+			// slice 22: surface the generated per-org invoice number to the cashier/receipt
+			String invoiceNo = customerHistory.getInvoiceNo();
+			return new GenericResponse("SUCCESS",
+					invoiceNo != null ? "Sale recorded successfully. Invoice " + invoiceNo : "Sale recorded successfully.",
+					invoiceNo);
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -394,7 +404,8 @@ public class SellController {
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			List<Sell> objs = ObjectMapperUtils.mapAll(dtos, Sell.class);
 			objs.forEach(obj ->{
-				obj.setUserId(user.getUserId());
+				obj.setUserId(user.getUserId());                       // audit
+				obj.setOrganizationId(user.getOrganizationId());       // tenant scope
 				if(obj.getStock() == null) return;
 				//if update
 				Item item = itemService.getReferenceById(obj.getStock().getItemId());
@@ -435,7 +446,8 @@ public class SellController {
 			LocalDateTime dated = LocalDateTime.now();
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			obj = modelMapper.map(dto, Sell.class);
-			obj.setUserId(user.getUserId());
+			obj.setUserId(user.getUserId());                       // audit
+			obj.setOrganizationId(user.getOrganizationId());       // tenant scope
 			if(appUtil.isEmptyOrNull(dto.getSellId()))
 				return new GenericResponse("NOT_FOUND");
 				
@@ -482,7 +494,11 @@ public class SellController {
 			if(!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for(String id:idList){
-					sellService.deleteById(Long.valueOf(id));
+					Long sid = Long.valueOf(id);
+					Sell existing = sellService.findById(sid).orElse(null);
+					if(existing == null) continue;
+					if(inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+						sellService.deleteById(sid);
 				}
 				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}else {
@@ -500,9 +516,14 @@ public class SellController {
 	public GenericResponse saleReturn(final SellDTO dto, final HttpServletRequest request) {
 //	public GenericResponse saleReturn(@RequestParam final Long saleId,@RequestParam final Long stockId,@RequestParam final Float qty) {
 		try {
-			if(appUtil.isEmptyOrNull(dto.getSellId()) || appUtil.isEmptyOrNull(dto.getSellSId())) 
+			if(appUtil.isEmptyOrNull(dto.getSellId()) || appUtil.isEmptyOrNull(dto.getSellSId()))
 				return new GenericResponse("NOT_FOUND");;
-			
+
+			// anti-IDOR: only let the caller return a sale that belongs to their tenant
+			Sell existingSell = sellService.findById(dto.getSellId()).orElse(null);
+			if(existingSell == null || !inMyTenant(existingSell.getOrganizationId(), existingSell.getUserId()))
+				return new GenericResponse("NOT_FOUND");
+
 			Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());
 			if(stockOpt.isPresent()) {
 				Stock stock = stockOpt.get();

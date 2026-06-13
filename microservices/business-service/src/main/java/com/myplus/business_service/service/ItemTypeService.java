@@ -33,6 +33,11 @@ public class ItemTypeService implements IItemTypeService {
 	}
 
 	@Override
+	public List<ItemType> findScoped(Long orgId, Long userId) {
+		return itemTypeRepo.findScoped(orgId, userId);
+	}
+
+	@Override
 	public List<ItemType> findAll(Sort sort) {
 		// TODO Auto-generated method stub
 		return itemTypeRepo.findAll(sort);

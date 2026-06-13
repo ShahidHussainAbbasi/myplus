@@ -13,6 +13,11 @@ public interface IStockService extends org.springframework.data.jpa.repository.J
 
 	java.util.Set<String> getItemBatch(Long userId, Long itemId);
 
+	/** Tenant-scoped batch list / single-batch lookup (own org + caller's pre-migration org-NULL rows). */
+	java.util.Set<String> getItemBatchScoped(Long orgId, Long userId, Long itemId);
+
+	java.util.Optional<Stock> findByBatchScoped(String batchNo, Long orgId, Long userId);
+
 	java.util.Optional<Stock> findByItemId(Long itemId);
 
 }

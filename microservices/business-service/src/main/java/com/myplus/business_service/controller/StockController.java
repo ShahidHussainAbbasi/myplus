@@ -71,15 +71,19 @@ public class StockController {
     
 	ModelMapper modelMapper = new ModelMapper();
 
+	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+	private boolean inMyTenant(Long rowOrg, Long rowUser) {
+		return (rowOrg != null && rowOrg.equals(orgId()))
+			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+	}
+
 	@RequestMapping(value = "/getUserStock", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserItem(final HttpServletRequest request) {
 		try {
-			Item filterBy = new Item();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-			Example<Item> example = Example.of(filterBy);
-			List<Item> objs = itemService.findAll(example);
+			List<Item> objs = itemService.findScoped(orgId(), userId());
 			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
@@ -146,11 +150,7 @@ public class StockController {
 	public String getUserItems(final HttpServletRequest request) {
 		StringBuffer sb = new StringBuffer();
 		try {
-			Item filterBy = new Item();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-			Example<Item> example = Example.of(filterBy);
-			List<Item> objs = itemService.findAll(example);
+			List<Item> objs = itemService.findScoped(orgId(), userId());
 			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
 				sb.append("<option value=" + d.getId() + ">" +d.getIcode()+" ~ "+d.getIname() + "</option>");
@@ -169,7 +169,12 @@ public class StockController {
 		try {
 			if(appUtil.isEmptyOrNull(itemId))
 				return null;
-			
+
+			// anti-IDOR: only expose stock for an item that belongs to the caller's tenant
+			Item ownerItem = itemService.findById(itemId).orElse(null);
+			if(ownerItem == null || !inMyTenant(ownerItem.getOrganizationId(), ownerItem.getUserId()))
+				return null;
+
 			Stock obj = new Stock();
 //			obj.setBatchNo(batchNo);
 			obj.setItemId(itemId);
@@ -217,13 +222,9 @@ public class StockController {
 				return null;
 			
 			try {
-				Stock filterBy = new Stock();
-				AuthenticatedUser user = requestUtil.getCurrentUser();
-				filterBy.setUserId(user.getUserId());
-				filterBy.setBatchNo(batchNo);
-				Example<Stock> example = Example.of(filterBy) ;
-				return service.findOne(example).get();
-				
+				// tenant-scoped batch lookup (own org + caller's pre-migration org-NULL rows)
+				return service.findByBatchScoped(batchNo, orgId(), userId()).orElse(null);
+
 			} catch (Exception e) {
 				e.printStackTrace();
 				LOGGER.error(this.getClass().getName() + " > getStockByBatch " + e.getCause());
@@ -239,8 +240,8 @@ public class StockController {
 			
 			StringBuffer sb = new StringBuffer();
 			try {
-				AuthenticatedUser user = requestUtil.getCurrentUser();
-				Set<String> batches = service.getItemBatch(user.getUserId(), itemId);
+				// tenant-scoped batches (own org + caller's pre-migration org-NULL rows)
+				Set<String> batches = service.getItemBatchScoped(orgId(), userId(), itemId);
 				sb.append("<option value=''> Nothing Selected </option>");
 				sb.append("<option value='0'> Default </option>");
 				batches.forEach(batch -> {
@@ -258,7 +259,8 @@ public class StockController {
 	@ResponseBody
 	public GenericResponse getAllStock(final HttpServletRequest request) {
 		try {
-			List<Item> objs = itemService.findAll();
+			// was findAll() — cross-tenant leak; now scoped to the active org.
+			List<Item> objs = itemService.findScoped(orgId(), userId());
 			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
@@ -311,21 +313,18 @@ public class StockController {
 //				dto.setDiscountType("%");
 			
 			if(appUtil.isEmptyOrNull(dto.getId())){
-//				obj.setUserId(user.getUserId());
-				obj.setIname(dto.getIname());
-/*				if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
-					obj.setItemType(itemTypeService.getOne(dto.getItemTypeId()));
-				if(!AppUtil.isEmptyOrNull(dto.getItemTypeId()))
-					obj.setItemUnit(itemUnitService.getOne(dto.getItemUnitId()));
-*/				
-				Example<Item> example = Example.of(obj);
-				if(itemService.exists(example))
-					return new GenericResponse("FOUND",messages.getMessage("The Item "+dto.getIname()+" already exist", null, request.getLocale()));
+				// dup-name check within the active tenant (was a userId-only Example probe)
+				boolean exists = itemService.findScoped(orgId(), userId()).stream()
+						.anyMatch(i -> i.getIname()!=null && i.getIname().equalsIgnoreCase(dto.getIname()));
+				if(exists)
+					return new GenericResponse("FOUND", "The Item '"+dto.getIname()+"' already exists.");
 			}
 
 			modelMapper.addConverter(appUtil.stringToLocalDate);
 			modelMapper.addConverter(appUtil.stringToLocalDateTime);
 			obj = modelMapper.map(dto, Item.class);
+			obj.setUserId(user.getUserId());                  // audit
+			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 //			if(!appUtil.isEmptyOrNull(dto.getExpDateStr()))
 //				obj.setExpDate(appUtil.getLocalDate(dto.getExpDateStr()));
 			
@@ -377,7 +376,11 @@ public class StockController {
 			if (!StringUtils.isEmpty(ids)) {
 				String idList[] = ids.split(",");
 				for (String id : idList) {
-					itemService.deleteById(Long.valueOf(id));
+					Long iid = Long.valueOf(id);
+					Item existing = itemService.findById(iid).orElse(null);
+					if (existing == null) continue;
+					if (inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+						itemService.deleteById(iid);
 				}
 				return true;// new GenericResponse(messages.getMessage("message.userNotFound", null,
 							// request.getLocale()),"SUCCESS");

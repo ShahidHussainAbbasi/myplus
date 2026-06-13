@@ -45,16 +45,16 @@ public class CustomerController {
 	RequestUtil requestUtil;
 
 	ModelMapper modelMapper = new ModelMapper();
-	
+
+	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+
 	@RequestMapping(value = "/getUserCustomer", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserCustomer(final HttpServletRequest request) {
 		try {
-			Customer filterBy = new Customer();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-	        Example<Customer> example = Example.of(filterBy);
-			List<Customer> objs = customerService.findAll(example);
+			List<Customer> objs = customerService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -81,12 +81,8 @@ public class CustomerController {
 	public String getUserCustomers(final HttpServletRequest request) {
 		StringBuffer sb = new StringBuffer();
 		try {
-			Customer filterBy = new Customer();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getUserId());
-	        Example<Customer> example = Example.of(filterBy);
-			List<Customer> objs = customerService.findAll(example);
-			
+			List<Customer> objs = customerService.findScoped(orgId(), userId());
+
 			objs.forEach(d -> {
 				sb.append("<option value="+d.getCustomerId()+">"+d.getName()+"</option>");
 			});
@@ -102,7 +98,8 @@ public class CustomerController {
 	@ResponseBody
 	public GenericResponse getAllCustomer(final HttpServletRequest request) {
 		try {
-			List<Customer> objs = customerService.findAll();
+			// was findAll() — cross-tenant leak; now scoped to the active org.
+			List<Customer> objs = customerService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
@@ -124,12 +121,12 @@ public class CustomerController {
 			LocalDateTime dated = LocalDateTime.now();
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getUserId());
-			
-			Example<Customer> example = Example.of(obj);
+
+			// dup-name check within the active tenant (was a userId-only Example probe)
 			if(appUtil.isEmptyOrNull(dto.getCustomerId())){
-				obj.setUserId(user.getUserId());
-				obj.setName(dto.getName());
-				if(customerService.exists(example)) {
+				boolean exists = customerService.findScoped(orgId(), userId()).stream()
+						.anyMatch(c -> c.getName()!=null && c.getName().equalsIgnoreCase(dto.getName()));
+				if(exists) {
 					return new GenericResponse("FOUND", "Customer '" + dto.getName() + "' already exists.");
 				}
 			}
@@ -143,6 +140,8 @@ public class CustomerController {
 				obj.setDated(dated);
 			}
 			obj.setUpdated(dated);
+			obj.setUserId(user.getUserId());                  // audit: who created it
+			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 			obj = customerService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED", "Failed to save customer. Please try again.");
@@ -164,7 +163,13 @@ public class CustomerController {
 			if (!appUtil.isEmptyOrNull(ids)) {
 				String[] idList = ids.split(",");
 				for (String id : idList) {
-					customerService.deleteById(Long.valueOf(id));
+					Long cid = Long.valueOf(id);
+					Customer existing = customerService.findById(cid).orElse(null);
+					if (existing == null) continue;
+					// anti-IDOR: only delete rows in the caller's tenant (or their pre-migration org-NULL rows)
+					boolean ownTenant = (existing.getOrganizationId() != null && existing.getOrganizationId().equals(orgId()))
+							|| (existing.getOrganizationId() == null && existing.getUserId() != null && existing.getUserId().equals(userId()));
+					if (ownTenant) customerService.deleteById(cid);
 				}
 				return true;
 			} else {

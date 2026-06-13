@@ -39,6 +39,11 @@ public class VenderService implements IVenderService {
 		return venderRepo.findAll();
 	}
 
+	@Override
+	public List<Vender> findScoped(Long orgId, Long userId) {
+		return venderRepo.findScoped(orgId, userId);
+	}
+
 	public List<Vender> findAll(Sort sort) {
 		// TODO Auto-generated method stub
 		return venderRepo.findAll(sort);

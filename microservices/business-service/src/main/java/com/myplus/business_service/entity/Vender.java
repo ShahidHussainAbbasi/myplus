@@ -43,6 +43,9 @@ public class Vender implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
+	@Column(name = "organization_id")
+	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
 	private String name;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)

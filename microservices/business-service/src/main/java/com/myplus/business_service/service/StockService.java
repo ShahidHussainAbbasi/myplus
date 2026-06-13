@@ -199,7 +199,8 @@ public class StockService implements IStockService {
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
 		stock = modelMapper.map(dto.getStock(), Stock.class);
-		stock.setUserId(dto.getUserId());
+		stock.setUserId(dto.getUserId());                                         // audit
+		stock.setOrganizationId(requestUtil.getCurrentUser().getOrganizationId()); // tenant scope
 		stock.setItemId(dto.getItemId());
 
 
@@ -248,8 +249,9 @@ public class StockService implements IStockService {
 		stockTemp = modelMapper.map(dto.getStock(), Stock.class);
 		quantity = stockTemp.getStock() - quantity;
 		stockTemp.setStock(quantity);
-		stockTemp.setUserId(requestUtil.getCurrentUser().getUserId());
-		
+		stockTemp.setUserId(requestUtil.getCurrentUser().getUserId());             // audit
+		stockTemp.setOrganizationId(requestUtil.getCurrentUser().getOrganizationId()); // tenant scope
+
 		stockTemp.setItemId(dto.getStock().getItemId());
 		Optional<Stock> existing = this.findByItemId(dto.getStock().getItemId());
     	if (existing.isPresent()) {
@@ -264,6 +266,16 @@ public class StockService implements IStockService {
 	public Set<String> getItemBatch(Long userId, Long itemId) {
 		// TODO Auto-generated method stub
 		return repo.getItemBatch(userId, itemId);
+	}
+
+	@Override
+	public Set<String> getItemBatchScoped(Long orgId, Long userId, Long itemId) {
+		return repo.getItemBatchScoped(orgId, userId, itemId);
+	}
+
+	@Override
+	public Optional<Stock> findByBatchScoped(String batchNo, Long orgId, Long userId) {
+		return repo.findByBatchScoped(batchNo, orgId, userId);
 	}
 
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {

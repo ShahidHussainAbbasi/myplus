@@ -17,7 +17,13 @@ import com.myplus.business_service.entity.Customer;
  *
  */
 public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExampleExecutor<Customer> {
-	
+
 
    List<Customer> findByUserId(Long userId);
+
+   // Tenant-scoped read with NULL-fallback: own org's rows, plus pre-migration rows (org NULL) that
+   // belong to the caller. The NULL set drains as those rows are re-saved with an organization_id.
+   @Query("select c from Customer c where c.organizationId = :orgId "
+        + "or (c.organizationId is null and c.userId = :userId)")
+   List<Customer> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 }

@@ -23,20 +23,27 @@ import com.myplus.business_service.entity.Sell;
 public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecutor<Sell> {
 	
 
-    @Query(value = "SELECT * FROM sell s where s.dated >= :sd AND s.user_Id=:userId",nativeQuery=true)
-    public List<Sell> findSellByStartDate(@Param("sd") LocalDateTime sd,@Param("userId") Long userId);
+    // Tenant-scoped read with NULL-fallback (own org's rows + caller's pre-migration org-NULL rows),
+    // newest first. Replaces the Example-by-userId reads.
+    @Query("select s from Sell s where s.organizationId = :orgId "
+         + "or (s.organizationId is null and s.userId = :userId) order by s.sellId desc")
+    List<Sell> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
-    @Query(value = "SELECT * FROM sell s where s.dated <= :ed AND s.user_Id=:userId",nativeQuery=true)
-    public List<Sell> findSellByEndDate(@Param("ed") LocalDateTime ed,@Param("userId") Long userId);
+    @Query("SELECT s FROM Sell s WHERE s.dated >= :sd "
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
+    public List<Sell> findSellByStartDate(@Param("sd") LocalDateTime sd, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
-    // @Query(value = "SELECT * FROM sell s where s.dated >= :sd AND s.dated <= :ed AND s.user_Id=:userId",nativeQuery=true)
-    // public List<Sell> findSellByDates(@Param("sd") LocalDateTime sd,@Param("ed") LocalDateTime ed,@Param("userId") Long userId);
+    @Query("SELECT s FROM Sell s WHERE s.dated <= :ed "
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
+    public List<Sell> findSellByEndDate(@Param("ed") LocalDateTime ed, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
     // @EntityGraph(attributePaths = {"stock", "customerHistory", "customerHistory.customer"})
-    @Query("SELECT s FROM Sell s WHERE s.updated >= :sd AND s.updated <= :ed AND s.userId = :userId")
+    @Query("SELECT s FROM Sell s WHERE s.updated >= :sd AND s.updated <= :ed "
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
     List<Sell> findSellByDates(
         @Param("sd") LocalDateTime sd,
         @Param("ed") LocalDateTime ed,
+        @Param("orgId") Long orgId,
         @Param("userId") Long userId
     );
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "

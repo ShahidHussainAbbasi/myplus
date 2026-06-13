@@ -17,4 +17,8 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
         @Param("sd") LocalDateTime sd,
         @Param("ed") LocalDateTime ed
     );
+
+    // Highest invoice number issued for an org (0 if none) — the per-org invoice series counter.
+    @Query("SELECT COALESCE(MAX(ch.invoiceSeq), 0) FROM CustomerHistory ch WHERE ch.organizationId = :orgId")
+    Long maxInvoiceSeqForOrg(@Param("orgId") Long orgId);
 }

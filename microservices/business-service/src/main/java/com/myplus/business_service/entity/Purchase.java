@@ -47,6 +47,9 @@ public class Purchase implements Serializable {
 	@Column(name = "user_type")
 	private String userType;
 
+	@Column(name = "organization_id")
+	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
 	@ManyToOne(fetch = FetchType.EAGER, optional = true)
 	@JoinColumn(name = "stock_id", nullable=true,unique=false)
 	private Stock stock;

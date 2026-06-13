@@ -12,10 +12,13 @@ public interface ISellService extends org.springframework.data.jpa.repository.Jp
 
 	void addSell(List<Sell> dtos) throws Exception;
 
-	List<Sell> findSellByDates(LocalDateTime sd, LocalDateTime ed, Long userId);
+	/** Tenant-scoped sells (own org + caller's pre-migration org-NULL rows), newest first. */
+	List<Sell> findScoped(Long orgId, Long userId);
 
-	List<Sell> findSellByStartDate(LocalDateTime sd, Long userId);
+	List<Sell> findSellByDates(LocalDateTime sd, LocalDateTime ed, Long orgId, Long userId);
 
-	List<Sell> findSellByEndDate(LocalDateTime ed, Long userId);
+	List<Sell> findSellByStartDate(LocalDateTime sd, Long orgId, Long userId);
+
+	List<Sell> findSellByEndDate(LocalDateTime ed, Long orgId, Long userId);
 
 }
