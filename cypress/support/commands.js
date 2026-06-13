@@ -44,14 +44,29 @@ Cypress.Commands.add('loginAs', (email, password, validatePath) => {
   })
 })
 
-Cypress.Commands.add('loginAsBusiness', (email = 'sameerfaisal29@gmail.com', password = '03453176525') => {
+// Per-service DEMO accounts (seeded, each with its own organization) — reliable logins for the suite.
+// Hardcoded personal accounts were flaky and lacked a clean org context after org-scoping.
+const DEMO_PW = 'Demo@2025!';
+
+Cypress.Commands.add('loginAsBusiness', (email = 'demo.business@myplus.com', password = DEMO_PW) => {
   cy.loginAs(email, password, '/getBusinessDashboardStats')
 })
 
-// Education (SMS) — seeded EDUCATION super user; routes to /educationDashboard.
-// (verified: super@edu.com / super → 302 /educationDashboard)
-Cypress.Commands.add('loginAsEducation', (email = 'super@edu.com', password = 'super') => {
+// Education — seeded EDUCATION demo user; routes to /educationDashboard.
+Cypress.Commands.add('loginAsEducation', (email = 'demo.education@myplus.com', password = DEMO_PW) => {
   cy.loginAs(email, password, '/getDashboardData')
+})
+
+Cypress.Commands.add('loginAsWelfare', (email = 'demo.welfare@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/welfareDashboard')
+})
+
+Cypress.Commands.add('loginAsAgriculture', (email = 'demo.agriculture@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/agricultureDashboard')
+})
+
+Cypress.Commands.add('loginAsAppointment', (email = 'demo.appointment@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/appointmentDashboard')
 })
 
 // Show a registration section on a dashboard (business by default). Both dashboards use the

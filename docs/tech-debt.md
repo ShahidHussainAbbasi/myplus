@@ -50,7 +50,8 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 - [ ] 🟠 **Real schema migrations** — dev uses `ddl-auto: update` + manual `migrations.md`; prod is
   `validate` but there are **no full Flyway scripts** (only `baseline-on-migrate`). Author versioned
   **Flyway** migrations per service so prod-on-`validate` boots from a known schema.
-- [~] 🟠 **API gateway resilience** — slice 27 (awaiting build): per-route Resilience4j **circuit
+- [x] 🟠 **API gateway resilience** — DONE + VERIFIED 2026-06-14 (Cypress green through the gateway):
+  per-route Resilience4j **circuit
   breaker** (own name each → per-service isolation, `forward:/fallback` → 503 JSON) + **httpclient
   timeouts** (connect 5s, response 20s; timelimiter raised 1s→20s). **Follow-up:** per-user **rate
   limiting** (deferred — all gateway traffic is one monolith IP, so it must key on `X-User-Id` after the
@@ -58,7 +59,7 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 - [ ] 🟠 **Dependency vulnerabilities** — GitHub Dependabot reports **234** on the default branch
   (42 critical / 103 high / 77 moderate / 12 low). Triage & upgrade; add OWASP Dependency-Check +
   SpotBugs to CI and fail builds on new criticals (complements the existing Trivy image scan).
-- [~] 🟡 **Bean Validation** — slice 26 (awaiting build): `@NotBlank` on the required name of
+- [x] 🟡 **Bean Validation** — DONE + VERIFIED 2026-06-14 (Cypress green): `@NotBlank` on the required name of
   Customer/ItemType/ItemUnit/Vender/Company DTOs; `GlobalExceptionHandler` now maps form-bind/validation
   failures to the flat `GenericResponse("ERROR", …)` (200) so the monolith shows them (was falling to a
   500). `ItemDTO.iname` left unconstrained (shared by addStock) — groups follow-up. _slices/26-bean-validation.md._

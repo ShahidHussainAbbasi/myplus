@@ -1,6 +1,6 @@
 # Slice 26 — Bean Validation at the edge (business-service)
 
-Status: **IMPLEMENTED — awaiting build + Cypress** 🔨. Tech-debt #15 (🟡).
+Status: **DONE + VERIFIED** ✅ (2026-06-14, Cypress green). Tech-debt #15 (🟡).
 
 ## Document — what & why
 DTOs had no Bean Validation constraints; the `add*` controllers already carried `@Validated` but had

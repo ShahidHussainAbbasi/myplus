@@ -1,7 +1,9 @@
 # Slice 27 — API-gateway resilience (timeouts + circuit breaker)
 
-Status: **IMPLEMENTED — awaiting build + Cypress** 🔨. Tech-debt #14 (🟠). Rate limiting split to a
-follow-up (see end).
+Status: **DONE + VERIFIED** ✅ (2026-06-14, Cypress green through the gateway). Tech-debt #14 (🟠). Rate
+limiting split to a follow-up (see end). NOTE: right after a business-service restart with a flaky DB
+window, the breaker can open on slow calls → transient fallback ERRORs; let the service warm up before
+running the suite (self-recovers once the DB settles).
 
 ## Document — what & why
 The gateway has no timeouts and no circuit breaking: a single slow/hung downstream service can tie up
