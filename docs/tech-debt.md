@@ -55,8 +55,10 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 - [ ] 🟠 **Dependency vulnerabilities** — GitHub Dependabot reports **234** on the default branch
   (42 critical / 103 high / 77 moderate / 12 low). Triage & upgrade; add OWASP Dependency-Check +
   SpotBugs to CI and fail builds on new criticals (complements the existing Trivy image scan).
-- [ ] 🟡 **Bean Validation thin** — DTOs largely lack `@NotNull/@Size/@Email/@Positive`; only ~9
-  controllers use `@Validated`. Validate consistently at the edge.
+- [~] 🟡 **Bean Validation** — slice 26 (awaiting build): `@NotBlank` on the required name of
+  Customer/ItemType/ItemUnit/Vender/Company DTOs; `GlobalExceptionHandler` now maps form-bind/validation
+  failures to the flat `GenericResponse("ERROR", …)` (200) so the monolith shows them (was falling to a
+  500). `ItemDTO.iname` left unconstrained (shared by addStock) — groups follow-up. _slices/26-bean-validation.md._
 - [ ] 🟡 **Observability** — no distributed tracing (add Micrometer Tracing + OTel/Zipkin).
   _(Correction: actuator surface is already hardened in prod — `application-prod.yml` sets
   `show-details: never` + `include: health,info` + probes; the `always` is dev-only shared config. So

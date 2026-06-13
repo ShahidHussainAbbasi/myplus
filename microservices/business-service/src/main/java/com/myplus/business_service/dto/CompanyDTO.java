@@ -9,6 +9,7 @@ import lombok.Builder;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class CompanyDTO {
     private Long id;
+    @jakarta.validation.constraints.NotBlank(message = "name is required")
     private String name;
     private String phone;
     private String email;

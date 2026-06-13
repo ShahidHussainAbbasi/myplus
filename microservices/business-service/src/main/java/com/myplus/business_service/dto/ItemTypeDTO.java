@@ -15,6 +15,7 @@ public class ItemTypeDTO implements Serializable {
 
 	private String userType;
 
+	@jakarta.validation.constraints.NotBlank(message = "name is required")
 	private String name;
 	private String description;
 	private String datedStr;

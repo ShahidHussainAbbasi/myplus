@@ -18,6 +18,7 @@ public class VenderDTO implements Serializable {
 	private Long id;
 	private Long userId;
 	private String userType;
+	@jakarta.validation.constraints.NotBlank(message = "name is required")
 	private String name;
 	private Long companyId;
 	private String companyName;

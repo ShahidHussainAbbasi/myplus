@@ -26,6 +26,7 @@ public class CustomerDTO implements Serializable {
 
 	@ValidateEmpty(message = "Customer name is required")
 	@SafeText
+	@jakarta.validation.constraints.NotBlank(message = "name is required")
 	private String name;
 
 	private CustomerType customerType;

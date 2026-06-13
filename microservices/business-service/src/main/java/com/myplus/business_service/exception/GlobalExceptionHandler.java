@@ -1,9 +1,11 @@
 package com.myplus.business_service.exception;
 
 import com.myplus.business_service.dto.ApiResponse;
+import com.myplus.business_service.util.GenericResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -32,12 +34,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error("Access denied", 403));
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationErrors(MethodArgumentNotValidException ex) {
+    // Bean Validation failures on the flat (monolith-facing) endpoints. MethodArgumentNotValidException
+    // (@RequestBody) extends BindException (@ModelAttribute/form), so this one handler covers both.
+    // Returns the flat GenericResponse("ERROR", …) envelope at HTTP 200 so the monolith JS shows the
+    // message via its normal error path (instead of a raw 400/500 the UI can't read).
+    @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
+    public GenericResponse handleValidationErrors(BindException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .collect(Collectors.joining("; "));
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(message, 400));
+        return new GenericResponse("ERROR", message.isEmpty() ? "Validation failed" : message);
     }
 
     @ExceptionHandler(Exception.class)
