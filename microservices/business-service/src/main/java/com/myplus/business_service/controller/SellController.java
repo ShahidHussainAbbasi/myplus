@@ -17,8 +17,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -293,6 +295,7 @@ public class SellController {
 	
 	@RequestMapping(value = "/addSell", method = RequestMethod.POST)
 	@ResponseBody
+	@Transactional
 	public GenericResponse addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
 		try {
 			if (dto == null || appUtil.isEmptyOrNull(dto.getSales()))
@@ -321,8 +324,20 @@ public class SellController {
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > addSell "+e.getCause());
-			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
+			// Propagate past the @Transactional boundary so customer + history + sell roll back
+			// together (all-or-nothing); handleUncaught() rebuilds the ERROR envelope.
+			throw new RuntimeException("An unexpected error occurred. Please contact support.", e);
 		}
+	}
+
+	/**
+	 * Rebuilds the GenericResponse("ERROR", …) envelope for an exception that propagated out of a
+	 * @Transactional endpoint (addSell). By the time this runs the transaction has rolled back, so the
+	 * multi-write (customer + customer-history + sell/stock) is all-or-nothing.
+	 */
+	@ExceptionHandler(Exception.class)
+	public GenericResponse handleUncaught(Exception e) {
+		return new GenericResponse("ERROR", e.getMessage());
 	}
 		
 /*	@RequestMapping(value = "/addSell", method = RequestMethod.POST)

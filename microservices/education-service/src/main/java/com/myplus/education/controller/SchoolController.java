@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -197,20 +198,25 @@ public class SchoolController {
     @ResponseBody
     @Transactional
     public boolean deleteSchool(HttpServletRequest req) {
-        try {
-            String ids = req.getParameter("checked");
-            if (!StringUtils.isEmpty(ids)) {
-                for (String id : ids.split(",")) {
-                    if (!StringUtils.isEmpty(id)) {
-                        schoolRepository.deleteById(Long.valueOf(id));
-                    }
-                }
-                return true;
+        String ids = req.getParameter("checked");
+        if (StringUtils.isEmpty(ids)) return false;
+        // No internal catch: propagate so @Transactional rolls back the whole multi-row delete.
+        for (String id : ids.split(",")) {
+            if (!StringUtils.isEmpty(id)) {
+                schoolRepository.deleteById(Long.valueOf(id));
             }
-            return false;
-        } catch (Exception e) {
-            appUtil.le(getClass(), e);
-            return false;
         }
+        return true;
+    }
+
+    /**
+     * Turns an uncaught exception from a transactional write (deleteSchool) back into the
+     * GenericResponse("ERROR", …) envelope; the @Transactional method has already rolled back.
+     */
+    @ExceptionHandler(Exception.class)
+    @ResponseBody
+    public GenericResponse handleUncaught(Exception e) {
+        appUtil.le(getClass(), e);
+        return new GenericResponse("ERROR", e.getMessage());
     }
 }

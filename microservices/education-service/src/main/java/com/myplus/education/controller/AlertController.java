@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -111,17 +112,14 @@ public class AlertController {
     @ResponseBody
     @Transactional
     public boolean deleteAlerts(HttpServletRequest req) {
-        try {
-            String ids = req.getParameter("checked");
-            if (StringUtils.isEmpty(ids)) return false;
-            for (String id : ids.split(",")) {
-                if (!StringUtils.isEmpty(id)) alertsRepository.deleteById(Long.valueOf(id));
-            }
-            return true;
-        } catch (Exception e) {
-            appUtil.le(getClass(), e);
-            return false;
+        String ids = req.getParameter("checked");
+        if (StringUtils.isEmpty(ids)) return false;
+        // No internal catch: a failure mid-loop must propagate so @Transactional rolls back the
+        // whole multi-row delete (all-or-nothing). handleUncaught() turns it into an ERROR envelope.
+        for (String id : ids.split(",")) {
+            if (!StringUtils.isEmpty(id)) alertsRepository.deleteById(Long.valueOf(id));
         }
+        return true;
     }
 
     @RequestMapping(value = "/sendAlerts", method = RequestMethod.POST)
@@ -196,7 +194,9 @@ public class AlertController {
             }
         } catch (Exception e) {
             appUtil.le(getClass(), e);
-            return new GenericResponse("ERROR", e.getMessage());
+            // Propagate so the whole @Transactional import rolls back (no partial import);
+            // handleUncaught() rebuilds the GenericResponse("ERROR", …) envelope.
+            throw new RuntimeException(e.getMessage(), e);
         }
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("created", created);
@@ -222,6 +222,18 @@ public class AlertController {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
         }
+    }
+
+    /**
+     * Turns an uncaught exception from a transactional write (deleteAlerts, importCSV) back into the
+     * GenericResponse("ERROR", …) envelope. The @Transactional method has already exited via exception,
+     * so its transaction is rolled back — the write is all-or-nothing.
+     */
+    @ExceptionHandler(Exception.class)
+    @ResponseBody
+    public GenericResponse handleUncaught(Exception e) {
+        appUtil.le(getClass(), e);
+        return new GenericResponse("ERROR", e.getMessage());
     }
 
     // ---- helpers ----
