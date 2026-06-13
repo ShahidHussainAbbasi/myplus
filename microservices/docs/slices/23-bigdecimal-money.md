@@ -1,7 +1,9 @@
 # Slice 23 — BigDecimal money migration (business-service)
 
-Status: **DESIGN — awaiting go** ⏳. Tech-debt tracker item #1 (🔴). Follows the slice cadence
-(Document → Design → Implement → Test). Needs a build + a column-type DB migration + headed Cypress.
+Status: **DONE + VERIFIED** ✅ (2026-06-13). Tech-debt tracker item #1 (🔴). Build ✓, migration #3 ✓,
+headed Cypress sell/flow/purchase/stock 85/85 ✓ (incl. slice-22 invoice + slice-21 Purchase, no
+regression). Cleanup noted: `stock` has legacy orphan money columns (`bpurchase_rate`/`bsell_rate`
+decimal(38,2), `batch_purchase_discount`/`batch_sale_discount` float) unused by the current entity.
 
 ## Document — what & why
 All monetary values in business-service are stored and computed as `Float`/`Double`

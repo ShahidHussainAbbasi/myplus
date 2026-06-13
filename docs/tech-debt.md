@@ -11,11 +11,11 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 
 ## 🐞 Bugs & correctness / security (fix first)
 
-- [x] 🔴 **Money stored as `Float`/`Double`** — DONE (code) 2026-06-13, slice 23: business-service money
-  fields/DTOs → `BigDecimal` (`@Column(precision=19, scale=2)`, HALF_UP intent); arithmetic in
+- [x] 🔴 **Money stored as `Float`/`Double`** — DONE + VERIFIED 2026-06-13, slice 23: business-service
+  money fields/DTOs → `BigDecimal` (`@Column(precision=19, scale=2)`); arithmetic in
   CustomerService/SellController converted; dead `createReport` gutted; dashboard sums use `doubleValue()`.
-  **Pending: build + migration #3 (`ALTER … DECIMAL(19,2)`) + headed Cypress.** Quantities kept `Float`
-  (follow-up). _Design: `microservices/docs/slices/23-bigdecimal-money.md`._
+  Build ✓, migration #3 (`ALTER … DECIMAL(19,2)`) ✓, headed Cypress sell/flow/purchase/stock 85/85 ✓.
+  Quantities kept `Float` (follow-up). _Design: `microservices/docs/slices/23-bigdecimal-money.md`._
 - [ ] 🔴 **Hardcoded shop identity on every receipt** — `SellService.createReport()` hardcodes
   "Haider Garments" / address / phone (SellService.java:257-263). Multi-tenant: every tenant's receipt
   shows that shop. Source it from the org/`Company` profile.
