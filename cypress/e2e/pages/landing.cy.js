@@ -100,3 +100,20 @@ describe('Public API Accessibility', () => {
     })
   })
 })
+
+describe('Home — live demo CTA (same offering as login)', () => {
+  it('shows the "No account? Try a live demo" offering and reveals demo creds on module select', () => {
+    cy.visit('/')
+    cy.get('#try-demo').scrollIntoView()
+    cy.get('#try-demo').should('contain', 'No account? Try a live demo')
+    // Launch is disabled and creds hidden until a module is picked
+    cy.get('#landingDemoLaunch').should('be.disabled')
+    cy.get('#landingDemoCreds').should('not.be.visible')
+    // Picking a module reveals the demo email/password and enables Launch
+    cy.get('#landingDemoDomain').select('demo.education@myplus.com')
+    cy.get('#landingDemoCreds').should('be.visible')
+    cy.get('#landingDemoEmail').should('have.text', 'demo.education@myplus.com')
+    cy.get('#landingDemoPw').should('have.text', 'Demo@2025!')
+    cy.get('#landingDemoLaunch').should('not.be.disabled')
+  })
+})
