@@ -18,6 +18,8 @@ public class Donator {
     private String name = null;
 
     private Long userId = null;
+    @jakarta.persistence.Column(name = "organization_id")
+    private Long organizationId = null;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
     private String userType = null;
     private String mobile = null;
     private String fName = null;
@@ -33,6 +35,9 @@ public class Donator {
 
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
+
+    public Long getOrganizationId() { return organizationId; }
+    public void setOrganizationId(Long organizationId) { this.organizationId = organizationId; }
 
     public String getUserType() { return userType; }
     public void setUserType(String userType) { this.userType = userType; }

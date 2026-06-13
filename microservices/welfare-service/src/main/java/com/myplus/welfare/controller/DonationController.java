@@ -45,12 +45,21 @@ public class DonationController {
 
     private final ModelMapper modelMapper = new ModelMapper();
 
+    private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+    private boolean inMyTenant(Long rowOrg, Long rowUser) {
+        return (rowOrg != null && rowOrg.equals(orgId()))
+            || (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+    }
+
     @RequestMapping(value = "/getUserDonations", method = RequestMethod.GET)
     @ResponseBody
     public GenericResponse getUserDonations(final HttpServletRequest request) {
         try {
             List<DonatorDTO> dtos = new ArrayList<>();
-            List<Donation> objs = donationService.findAll();
+            // was findAll() — cross-tenant leak; now scoped to the active org.
+            List<Donation> objs = donationService.findScoped(orgId(), userId());
             for (Donation obj : objs) {
                 if (appUtil.isEmptyOrNull(obj)) {
                     continue;
@@ -87,11 +96,7 @@ public class DonationController {
     public GenericResponse getUserDonation(final HttpServletRequest request) {
         try {
             List<DonationDTO> dtos = new ArrayList<>();
-            Donation filterBy = new Donation();
-            AuthenticatedUser user = requestUtil.getCurrentUser();
-            filterBy.setUserId(user.getUserId());
-            Example<Donation> example = Example.of(filterBy);
-            List<Donation> objs = donationService.findAll(example);
+            List<Donation> objs = donationService.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "", dtos);
             }
@@ -112,11 +117,7 @@ public class DonationController {
     @ResponseBody
     public GenericResponse getUserDonator(final HttpServletRequest request) {
         try {
-            Donator filterBy = new Donator();
-            AuthenticatedUser user = requestUtil.getCurrentUser();
-            filterBy.setUserId(user.getUserId());
-            Example<Donator> example = Example.of(filterBy);
-            List<Donator> objs = donatorService.findAll(example);
+            List<Donator> objs = donatorService.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -139,11 +140,7 @@ public class DonationController {
     public String getAllDonators() {
         StringBuffer sb = new StringBuffer();
         try {
-            Donator filterBy = new Donator();
-            AuthenticatedUser user = requestUtil.getCurrentUser();
-            filterBy.setUserId(user.getUserId());
-            Example<Donator> example = Example.of(filterBy);
-            List<Donator> donators = donatorService.findAll(example);
+            List<Donator> donators = donatorService.findScoped(orgId(), userId());
             sb.append("<option data-tokens=''> Nothing Selected </option>");
             donators.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -162,20 +159,22 @@ public class DonationController {
         try {
             AuthenticatedUser user = requestUtil.getCurrentUser();
             LocalDateTime dated = LocalDateTime.now();
-            Donator obj = new Donator();
-            obj.setUserId(user.getUserId());
-            obj.setName(dto.getName());
-            Example<Donator> example = Example.of(obj);
-            if (appUtil.isEmptyOrNull(dto.getId()) && donatorService.exists(example)) {
-                return new GenericResponse("FOUND", "The Donator " + dto.getName() + " already exists");
-            } else if (!appUtil.isEmptyOrNull(dto.getId())) {
+            if (appUtil.isEmptyOrNull(dto.getId())) {
+                // dup-name check within the active tenant (was a userId-only Example probe)
+                boolean exists = donatorService.findScoped(orgId(), userId()).stream()
+                        .anyMatch(d -> d.getName() != null && d.getName().equalsIgnoreCase(dto.getName()));
+                if (exists) {
+                    return new GenericResponse("FOUND", "The Donator " + dto.getName() + " already exists");
+                }
+            } else {
                 Donator existing = donatorService.getOne(dto.getId());
                 if (existing != null) {
                     dated = existing.getDated();
                 }
             }
-            obj = modelMapper.map(dto, Donator.class);
-            obj.setUserId(user.getUserId());
+            Donator obj = modelMapper.map(dto, Donator.class);
+            obj.setUserId(user.getUserId());                  // audit
+            obj.setOrganizationId(user.getOrganizationId());  // tenant scope
             obj.setDated(dated);
             obj.setUpdated(LocalDateTime.now());
 
@@ -208,7 +207,8 @@ public class DonationController {
             if (!appUtil.isEmptyOrNull(dto.getId())) {
                 obj.setId(dto.getId());
             }
-            obj.setUserId(user.getUserId());
+            obj.setUserId(user.getUserId());                  // audit
+            obj.setOrganizationId(user.getOrganizationId());  // tenant scope
             Donator donator = donatorService.getOne(dto.getDonatorId());
             obj.setDonator(donator);
             obj.setDated(dated);
@@ -232,7 +232,9 @@ public class DonationController {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
                 for (String id : ids.split(",")) {
-                    donatorService.deleteById(Long.valueOf(id));
+                    Donator existing = donatorService.getOne(Long.valueOf(id));
+                    if (existing != null && inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+                        donatorService.deleteById(Long.valueOf(id));
                 }
                 return true;
             }
@@ -250,7 +252,9 @@ public class DonationController {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
                 for (String id : ids.split(",")) {
-                    donationService.deleteById(Long.valueOf(id));
+                    Donation existing = donationService.getOne(Long.valueOf(id));
+                    if (existing != null && inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
+                        donationService.deleteById(Long.valueOf(id));
                 }
                 return true;
             }

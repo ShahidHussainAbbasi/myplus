@@ -24,6 +24,11 @@ public class DonatorService implements IDonatorService {
     }
 
     @Override
+    public List<Donator> findScoped(Long orgId, Long userId) {
+        return donatorRepo.findScoped(orgId, userId);
+    }
+
+    @Override
     public boolean exists(Example<Donator> example) {
         return donatorRepo.exists(example);
     }

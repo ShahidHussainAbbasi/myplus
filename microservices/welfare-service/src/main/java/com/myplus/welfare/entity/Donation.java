@@ -29,6 +29,8 @@ public class Donation {
     private Donator donator;
 
     private Long userId;
+    @Column(name = "organization_id")
+    private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
     @Column(name = "donator_name")
     private String name = null;
     private Float amount = null;
@@ -41,6 +43,9 @@ public class Donation {
 
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
+
+    public Long getOrganizationId() { return organizationId; }
+    public void setOrganizationId(Long organizationId) { this.organizationId = organizationId; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

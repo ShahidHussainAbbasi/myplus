@@ -29,6 +29,11 @@ public class DonationService implements IDonationService {
     }
 
     @Override
+    public List<Donation> findScoped(Long orgId, Long userId) {
+        return donationRepo.findScoped(orgId, userId);
+    }
+
+    @Override
     public Donation getOne(Long id) {
         return donationRepo.findById(id).orElse(null);
     }
