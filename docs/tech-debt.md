@@ -67,7 +67,8 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   _(Correction: actuator surface is already hardened in prod — `application-prod.yml` sets
   `show-details: never` + `include: health,info` + probes; the `always` is dev-only shared config. So
   only the tracing gap remains.)_
-- [~] 🟡 **Finish org-scoping** — slice 28 (awaiting build): welfare (Donation/Donator) + agriculture
+- [x] 🟡 **Finish org-scoping** — DONE + VERIFIED 2026-06-14 (build ✓ + service-level smoke ✓, no 500s):
+  slice 28: welfare (Donation/Donator) + agriculture
   (Income/Expense/Land) org-scoped via the slice-21 recipe (org_id, findScoped NULL-fallback, scoped
   reads incl. getAll* leak, stamped writes, anti-IDOR deletes). All 4 business domains now multi-tenant.
   **No Cypress for welfare/agri** → compile-gated; adding those specs is its own tech-debt. _slices/28._

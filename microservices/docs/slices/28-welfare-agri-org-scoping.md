@@ -1,6 +1,8 @@
 # Slice 28 — Welfare + Agriculture org-scoping (multi-tenant)
 
-Status: **IMPLEMENTED — awaiting build** 🔨 (welfare + agriculture both done). Tech-debt #18 (🟠). Applies the slice-21 recipe to the last two
+Status: **DONE + VERIFIED** ✅ (2026-06-14). Build ✓; service-level smoke ✓ — welfare getUserDonation(s),
+agri getUserAgricultureIncome/getUserLand/getAllLand all 200 (org-scoped findScoped executes, no 500;
+getAllLand leak closed). No Cypress (welfare/agri have none). Tech-debt #18 (🟠). Applies the slice-21 recipe to the last two
 `userId`-only services. **No Cypress specs exist for welfare/agri** (deferred) → verification is
 compile + (optional) manual; that test gap is itself tech-debt.
 
