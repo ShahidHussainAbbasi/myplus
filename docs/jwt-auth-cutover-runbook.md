@@ -272,12 +272,17 @@ surfaced as an upsell modal (`js/demo.js`). Reads-via-POST (`/get,/load,/list,/s
 > gateway `depends_on` it. If Redis is down the cap fails open (creates allowed) — not a hard outage.
 
 **"Reset demo"** (banner button / `POST /demo/reset`): clears the demo user's gateway counters
-(gateway `POST /demo/reset`, Bearer → `DEL demo:{userId}:*`) **and** purges their module data. Data purge
-is **demo-only**: service endpoint `DELETE /api/<module>/demo/purge` is
-`@PreAuthorize("hasAuthority('DEMO_PRIVILEGE')")` (a real tenant → **403**) and the monolith only calls it
-for a demo principal (`DemoResetController.PURGE_PATHS` by `userType`). **Wired for appointment only**; to
-add another module: implement `DELETE /api/<module>/demo/purge` (org-scoped delete, same `@PreAuthorize`)
-and add a `PURGE_PATHS` entry.
+(gateway `POST /demo/reset`, Bearer → `DEL demo:{userId}:*`) **and** purges their module data. The purge is
+ONE shared implementation in the **`common-service`** library (`DemoPurgeController`, auto-applied to every
+JPA service via `service-parent`): `DELETE /demo/purge` deletes the caller's rows by whichever tenancy
+column each entity has (`organizationId`/`userId`), **demo-only** two ways
+(`@PreAuthorize("hasAuthority('DEMO_PRIVILEGE')")` + explicit authority check → real tenant **403**). The
+monolith calls it only for a demo principal (`DemoResetController.PURGE_PATHS` by `userType` → all 5
+dashboard modules). Gateway routes `/api/<module>/demo/**` → `/demo/purge` (StripPrefix). `auth-service` is
+not a `service-parent` child, so it never receives the purge.
+
+> **`common-service`** is the home for future cross-cutting platform code (auto-configured like
+> `common-security`): add a shared bean there and it lights up in every JPA service.
 
 **P5 note:** the monolith owns **no database** — `JDBC_URL`/`DB_*` are gone from the monolith; only the
 microservices use `DB_PASSWORD`/MySQL. Identity is the in-memory `User` principal from the JWT.

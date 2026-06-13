@@ -17,10 +17,15 @@ Memory: [[project-demo-quota]]. Commits a7aa140 (A/B) · bc125ee (demo-credentia
   user chip + Logout; `GatewayClient`→`DemoLimitException`→`DemoLimitAdvice` surfaces the upsell modal
   (`js/demo.js`); login + landing self-serve demo (pick module → show creds → launch → /login prefill).
   `POST /demo/reset` clears counters and (demo principal only) calls the module purge.
-- **purge (Reset demo deletes data)**: appointment-service `DELETE /api/appointment/demo/purge` deletes
-  the caller's org data, **`@PreAuthorize("hasAuthority('DEMO_PRIVILEGE')")`** (real tenants → 403) +
-  monolith routes it only for demo principals (`PURGE_PATHS` by userType). **Only appointment wired**;
-  other demo modules reset the counter only — add their `…/demo/purge` endpoint + a `PURGE_PATHS` line.
+- **purge (Reset demo deletes data)**: a SINGLE shared `DemoPurgeController` in the new **`common-service`**
+  library (sibling of common-security), auto-applied to every JPA service (`CommonServiceAutoConfiguration`,
+  `@ConditionalOnBean(EntityManagerFactory)`, via service-parent). `DELETE /demo/purge` deletes the caller's
+  rows scoped by whichever tenancy column each entity has (`organizationId` *or* `userId`), demo-guarded
+  two ways (`@PreAuthorize("hasAuthority('DEMO_PRIVILEGE')")` + explicit authority check → real tenants 403),
+  FK-safe. Gateway routes `/api/<module>/demo/**` → `/demo/purge` (StripPrefix; appointment gets an extra
+  stripped route since it otherwise doesn't strip). Monolith `PURGE_PATHS` routes
+  APPOINTMENT/EDUCATION/BUSINESS/WELFARE/AGRICULTURE for the demo principal's own module. auth-service is NOT
+  a service-parent child, so it never gets the purge.
 
 ## Verified
 - API: 50 creates pass, 51st → DEMO_LIMIT + message; TTL→midnight; non-demo bypass; purge **50→0**;
