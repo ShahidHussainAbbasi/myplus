@@ -9,5 +9,4 @@ import java.util.Optional;
 public interface HospitalRepository extends JpaRepository<Hospital, Long> {
     List<Hospital> findByOrganizationId(Long organizationId);
     Optional<Hospital> findByIdAndOrganizationId(Long id, Long organizationId);
-    long deleteByOrganizationId(Long organizationId);
 }

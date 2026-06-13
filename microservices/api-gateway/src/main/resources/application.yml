@@ -100,6 +100,15 @@ spring:
           filters:
             - name: JwtAuthenticationFilter
             - StripPrefix=2
+        # Shared demo purge (common-service) is mapped at /demo/** — strip for appointment so it matches.
+        # Must precede the general appointment route below.
+        - id: appointment-demo
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/appointment/demo/**
+          filters:
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: appointment-service
           uri: lb://appointment-service
           predicates:

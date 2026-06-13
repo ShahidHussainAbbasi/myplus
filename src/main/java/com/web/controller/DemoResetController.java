@@ -39,10 +39,15 @@ public class DemoResetController {
 
     private final RestTemplate rest = new RestTemplate();
 
-    // userType -> the module service's demo purge endpoint (only modules with one are listed; the
-    // endpoints are themselves guarded to DEMO_PRIVILEGE server-side, so this is purely a router).
+    // userType -> the module service's demo purge endpoint (shared common-service DemoPurgeController,
+    // reached at /api/<module>/demo/purge). The endpoints are guarded to DEMO_PRIVILEGE server-side, so
+    // this is purely a router for the demo principal's own module.
     private static final Map<String, String> PURGE_PATHS = Map.of(
-            "APPOINTMENT", "/api/appointment/demo/purge");
+            "APPOINTMENT", "/api/appointment/demo/purge",
+            "EDUCATION", "/api/education/demo/purge",
+            "BUSINESS", "/api/business/demo/purge",
+            "WELFARE", "/api/welfare/demo/purge",
+            "AGRICULTURE", "/api/agriculture/demo/purge");
 
     @RequestMapping(value = "/demo/reset", method = RequestMethod.POST)
     @ResponseBody
