@@ -19,6 +19,10 @@ spring:
       idle-timeout: 300000               # close idle connections after 5 min
       max-lifetime: 1500000              # recycle a connection at 25 min (< MySQL wait_timeout)
       leak-detection-threshold: 30000    # log a warning if a connection is held > 30s (likely a leak)
+      # On a cold start-all the DB-backed services hit MySQL at once; let the pool RETRY its first
+      # connection for 60s instead of fail-fast (default ~1ms) so a momentarily-busy MySQL doesn't
+      # abort boot via Hikari checkFailFast (the Hibernate path; Flyway has its own connect-retries).
+      initialization-fail-timeout: ${DB_INIT_FAIL_TIMEOUT_MS:60000}
       data-source-properties:
         # MySQL handshake/socket timeouts. On a cold start all 11 services open ~88 connections at
         # once; a slow handshake otherwise surfaces as server error 1159 "Got timeout reading

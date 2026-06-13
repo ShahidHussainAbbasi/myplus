@@ -178,6 +178,10 @@ foreach ($name in $selected) {
     } elseif ($name -eq 'config-server') {
         Wait-Port 8888 'config-server' 60 | Out-Null
         Start-Sleep -Seconds 3
+    } else {
+        # Stagger DB-backed services so they don't open their pools against MySQL all at once
+        # (cold-start handshake burst → server error 1159 "Got timeout reading communication packets").
+        Start-Sleep -Seconds 2
     }
 }
 
