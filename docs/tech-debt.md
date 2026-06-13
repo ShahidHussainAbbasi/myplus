@@ -49,9 +49,12 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   `CustomerRepoScopingTest` locks in the `findScoped` tenant-isolation + NULL-fallback contract.
   `@Testcontainers(disabledWithoutDocker=true)` so Docker-less builds aren't broken. **Follow-up:**
   expand (Sell/Item, addSell atomicity, invoice) + other services + CI wiring. _slices/29._
-- [ ] 🟠 **Real schema migrations** — dev uses `ddl-auto: update` + manual `migrations.md`; prod is
-  `validate` but there are **no full Flyway scripts** (only `baseline-on-migrate`). Author versioned
-  **Flyway** migrations per service so prod-on-`validate` boots from a known schema.
+- [~] 🟠 **Real schema migrations** — slice 30 (awaiting build): each service already had `V1__baseline`
+  + baseline-on-migrate, but no forward scripts for the slice 21–28 changes (prod-on-`validate` would
+  miss them). Authored idempotent business-service `V2__slice21_28_org_money_invoice.sql` (org_id on 10
+  tables + invoice cols + money→DECIMAL; guarded so it's a no-op where ddl-auto already applied them).
+  Policy: structural changes via Flyway henceforth; target ddl-auto→validate. **Follow-up:** V2 for
+  education/welfare/agriculture, then flip to validate. _slices/30._
 - [x] 🟠 **API gateway resilience** — DONE + VERIFIED 2026-06-14 (Cypress green through the gateway):
   per-route Resilience4j **circuit
   breaker** (own name each → per-service isolation, `forward:/fallback` → 503 JSON) + **httpclient
