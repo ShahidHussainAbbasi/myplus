@@ -18,8 +18,8 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 - [ ] 🔴 **Hardcoded shop identity on every receipt** — `SellService.createReport()` hardcodes
   "Haider Garments" / address / phone (SellService.java:257-263). Multi-tenant: every tenant's receipt
   shows that shop. Source it from the org/`Company` profile.
-- [ ] 🟠 **`e.getCause().toString()` NPE pattern (9×)** — throws NPE when the exception has no cause,
-  masking the real error. Use `e.getMessage()` / log the exception object. _business-service controllers._
+- [x] 🟠 **`e.getCause().toString()` NPE pattern** — DONE 2026-06-13: replaced all 22 occurrences across
+  the 9 business-service controllers with NPE-safe `e.getMessage()`. (No occurrences remain in any service.)
 - [ ] 🟠 **Unbounded reads** — `findScoped` / `getAll*` return the whole tenant table (only 1 controller
   uses `Pageable`). Add server-side pagination to list endpoints.
 - [ ] 🟠 **N+1 query in `getUserSell`** — per-row `itemService.findById` (SellController.java:179). Batch

@@ -72,7 +72,7 @@ public class CustomerController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getUserCustomer "+e.getCause());
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 	
@@ -109,7 +109,7 @@ public class CustomerController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getAllCustomer "+e.getCause());			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 	

@@ -138,7 +138,7 @@ public class ItemController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > getUserItem " + e.getCause());
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 
@@ -217,7 +217,7 @@ public class ItemController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause());
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 

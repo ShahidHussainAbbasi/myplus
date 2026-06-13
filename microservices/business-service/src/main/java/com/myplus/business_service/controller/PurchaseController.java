@@ -122,7 +122,7 @@ public class PurchaseController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getUserPurchase "+e.getCause());
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 	
@@ -155,7 +155,7 @@ public class PurchaseController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getAllPurchase "+e.getCause());			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 	

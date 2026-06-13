@@ -74,7 +74,7 @@ public class ItemUnitController {
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > getUserItemUnit " + e.getCause());
-			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),e.getCause().toString());
+			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),e.getMessage());
 		}
 	}
 
@@ -120,7 +120,7 @@ public class ItemUnitController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause());
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 

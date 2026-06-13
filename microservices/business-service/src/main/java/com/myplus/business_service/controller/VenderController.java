@@ -82,7 +82,7 @@ public class VenderController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getUserVender "+e.getCause());
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 	
@@ -143,7 +143,7 @@ public class VenderController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getAllVender "+e.getCause());			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 	

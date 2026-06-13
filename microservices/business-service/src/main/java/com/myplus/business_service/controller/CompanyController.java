@@ -74,7 +74,7 @@ public class CompanyController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getUserCompany "+e.getCause());
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 	
@@ -119,7 +119,7 @@ public class CompanyController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName()+" > getAllCompany "+e.getCause());			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 	

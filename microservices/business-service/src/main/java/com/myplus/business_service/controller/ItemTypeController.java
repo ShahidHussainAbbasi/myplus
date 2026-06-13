@@ -74,7 +74,7 @@ public class ItemTypeController {
 		} catch (Exception e) {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > getUserItemType " + e.getCause());
-			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),e.getCause().toString());
+			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),e.getMessage());
 		}
 	}
 
@@ -121,7 +121,7 @@ public class ItemTypeController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause());
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 
@@ -163,7 +163,7 @@ public class ItemTypeController {
 			e.printStackTrace();
 			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause());
 			return new GenericResponse("ERROR", messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
+					e.getMessage());
 		}
 	}
 
