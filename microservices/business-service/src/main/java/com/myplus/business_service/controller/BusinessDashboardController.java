@@ -192,8 +192,8 @@ public class BusinessDashboardController {
             for (CustomerHistory ch : custHistories) {
                 String custName = (ch.getCustomer() != null && ch.getCustomer().getName() != null)
                     ? ch.getCustomer().getName() : "Walk-in";
-                double amount = (ch.getPaidAmount() != null ? ch.getPaidAmount() : 0f)
-                              + (ch.getDueAmount()  != null ? ch.getDueAmount()  : 0f);
+                double amount = (ch.getPaidAmount() != null ? ch.getPaidAmount().doubleValue() : 0d)
+                              + (ch.getDueAmount()  != null ? ch.getDueAmount().doubleValue()  : 0d);
                 salesByCustMap.merge(custName, amount, Double::sum);
             }
             List<Map.Entry<String, Double>> topCustSales = salesByCustMap.entrySet().stream()
@@ -212,10 +212,12 @@ public class BusinessDashboardController {
             dueFilter.setUserId(userId);
             List<Customer> allCustomers = customerService.findAll(Example.of(dueFilter));
             List<Map<String, Object>> dueCustomers = allCustomers.stream()
-                .filter(c -> c.getDueAmount() != null && c.getDueAmount() > 0)
-                .sorted((a, b) -> Float.compare(
-                    b.getDueAmount() != null ? b.getDueAmount() : 0f,
-                    a.getDueAmount() != null ? a.getDueAmount() : 0f))
+                .filter(c -> c.getDueAmount() != null && c.getDueAmount().compareTo(java.math.BigDecimal.ZERO) > 0)
+                .sorted((a, b) -> {
+                    java.math.BigDecimal bd = b.getDueAmount() != null ? b.getDueAmount() : java.math.BigDecimal.ZERO;
+                    java.math.BigDecimal ad = a.getDueAmount() != null ? a.getDueAmount() : java.math.BigDecimal.ZERO;
+                    return bd.compareTo(ad);
+                })
                 .limit(10)
                 .map(c -> {
                     Map<String, Object> row = new LinkedHashMap<>();

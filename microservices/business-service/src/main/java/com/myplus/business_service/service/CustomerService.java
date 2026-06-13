@@ -196,23 +196,23 @@ return customerRepo.exists(example);
 			customerObj = this.findOne(example).orElse(customerObj);
 
 			if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){ 
-				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() +  dto.getCustomer().getDueAmount() );
+				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount().add(dto.getCustomer().getDueAmount()) );
 			} else {
-				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() + dto.getCustomer().getDueAmount());
+				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount().add(dto.getCustomer().getDueAmount()));
 			}
 
 			if (dto.getCustomer().getDueDate() != null) {
 				customerObj.setDueDate(dto.getCustomer().getDueDate());
 			}
 		} else {
-				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount() + dto.getCustomer().getDueAmount());
+				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount().add(dto.getCustomer().getDueAmount()));
 		}
 
 		// set the due amount 0 if it is negative
-		if (dto.getCustomer().getDueAmount() != null && dto.getCustomer().getDueAmount() < 0) {
-			customerObj.setDueAmount(dto.getCustomer().getDueAmount() * -1);
+		if (dto.getCustomer().getDueAmount() != null && dto.getCustomer().getDueAmount().compareTo(java.math.BigDecimal.ZERO) < 0) {
+			customerObj.setDueAmount(dto.getCustomer().getDueAmount().negate());
 		} else {
-			customerObj.setDueAmount(0.0F);
+			customerObj.setDueAmount(java.math.BigDecimal.ZERO);
 		}
 
 		customerObj.setDated(LocalDateTime.now());

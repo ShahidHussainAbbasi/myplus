@@ -196,7 +196,7 @@ public class StockController {
 				dto.setStock(stock);
 			}else {
 				dto.setBpurchaseDiscountType("%");
-				dto.setBpurchaseDiscount(0.0F);
+				dto.setBpurchaseDiscount(java.math.BigDecimal.ZERO);
 				dto.setStock(0.0F);
 			}
 			//fetch item description

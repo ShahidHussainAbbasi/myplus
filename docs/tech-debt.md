@@ -11,10 +11,11 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 
 ## 🐞 Bugs & correctness / security (fix first)
 
-- [ ] 🔴 **Money stored as `Float`/`Double`** — `Sell`, `Purchase`, `CustomerHistory`, `Customer`, `Stock`
-  amounts/rates/discounts. Binary floats can't represent decimal currency → rounding drift on totals,
-  dues, reports. **Migrate to `BigDecimal`** (`@Column(precision, scale=2)`). Schema + code change →
-  follow slice cadence (design → migrate → verify). _Files: `business-service/.../entity/*.java`._
+- [x] 🔴 **Money stored as `Float`/`Double`** — DONE (code) 2026-06-13, slice 23: business-service money
+  fields/DTOs → `BigDecimal` (`@Column(precision=19, scale=2)`, HALF_UP intent); arithmetic in
+  CustomerService/SellController converted; dead `createReport` gutted; dashboard sums use `doubleValue()`.
+  **Pending: build + migration #3 (`ALTER … DECIMAL(19,2)`) + headed Cypress.** Quantities kept `Float`
+  (follow-up). _Design: `microservices/docs/slices/23-bigdecimal-money.md`._
 - [ ] 🔴 **Hardcoded shop identity on every receipt** — `SellService.createReport()` hardcodes
   "Haider Garments" / address / phone (SellService.java:257-263). Multi-tenant: every tenant's receipt
   shows that shop. Source it from the org/`Company` profile.

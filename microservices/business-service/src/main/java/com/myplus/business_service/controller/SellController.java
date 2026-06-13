@@ -464,8 +464,8 @@ public class SellController {
 	        Sell s = sellService.getReferenceById(dto.getSellId());
 	        
 //			obj.setDiscount(s.getDiscount() - dto.getStock().getse);
-			obj.setNetAmount(s.getNetAmount() - dto.getNetAmount());
-			obj.setTotalAmount(s.getTotalAmount() - dto.getTotalAmount());
+			obj.setNetAmount(s.getNetAmount().subtract(dto.getNetAmount()));
+			obj.setTotalAmount(s.getTotalAmount().subtract(dto.getTotalAmount()));
 			obj.setQuantity(s.getQuantity() - dto.getQuantity());
 			
 			//rollback stock

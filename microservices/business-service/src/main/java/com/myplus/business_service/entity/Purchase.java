@@ -1,4 +1,5 @@
 package com.myplus.business_service.entity;
+import java.math.BigDecimal;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -96,11 +97,11 @@ public class Purchase implements Serializable {
 //	@Column(name = "disc_type")
 //	private String discountType;
 
-	@Column(name = "total_amount")
-	private Float totalAmount;
+	@Column(name = "total_amount", precision = 19, scale = 2)
+	private BigDecimal totalAmount;
 
-	@Column(name = "net_amount")
-	private Float netAmount = null;
+	@Column(name = "net_amount", precision = 19, scale = 2)
+	private BigDecimal netAmount = null;
 
 	@Column(name = "purchase_expense")
 	private Float purchaseExpense;

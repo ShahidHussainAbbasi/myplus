@@ -1,4 +1,5 @@
 package com.myplus.business_service.dto;
+import java.math.BigDecimal;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -41,9 +42,9 @@ public class CustomerDTO implements Serializable {
 	private String address;
 
 	// @ValidateEmpty(message = "Paid amount is required")
-	private Float paidAmount;
+	private BigDecimal paidAmount;
 
-    private Float dueAmount;
+    private BigDecimal dueAmount;
 
     private LocalDate dueDate;
 	

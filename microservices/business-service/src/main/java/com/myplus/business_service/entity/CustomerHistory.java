@@ -1,4 +1,5 @@
 package com.myplus.business_service.entity;
+import java.math.BigDecimal;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -61,12 +62,12 @@ public class CustomerHistory implements Serializable {
 	private Customer customer;
 
 
-    @Column(name = "paid_amount")
-    private Float paidAmount;
+    @Column(name = "paid_amount", precision = 19, scale = 2)
+    private BigDecimal paidAmount;
 
 
-    @Column(name = "due_amount")
-    private Float dueAmount;
+    @Column(name = "due_amount", precision = 19, scale = 2)
+    private BigDecimal dueAmount;
 
     @Column(name = "due_date")
     private LocalDate dueDate;

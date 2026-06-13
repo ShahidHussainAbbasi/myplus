@@ -1,4 +1,5 @@
 package com.myplus.business_service.dto;
+import java.math.BigDecimal;
 
 import java.io.Serializable;
 
@@ -54,9 +55,9 @@ public class PurchaseDTO implements Serializable {
 //	@Getter@Setter
 //	private Float pdiscount=0F;
 
-	private Float totalAmount;
+	private BigDecimal totalAmount;
 
-	private Float netAmount;
+	private BigDecimal netAmount;
 
 	private Float purchaseExpense;
 

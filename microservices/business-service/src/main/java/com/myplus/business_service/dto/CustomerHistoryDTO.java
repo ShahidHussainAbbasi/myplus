@@ -1,4 +1,5 @@
 package com.myplus.business_service.dto;
+import java.math.BigDecimal;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,9 +37,9 @@ public class CustomerHistoryDTO {
 
 	private List<SellDTO> sales = new ArrayList<>();	
 
-	private Float paidAmount;
+	private BigDecimal paidAmount;
 
-    private Float dueAmount;
+    private BigDecimal dueAmount;
 
     private LocalDate dueDate;
 

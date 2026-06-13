@@ -1,4 +1,5 @@
 package com.myplus.business_service.entity;
+import java.math.BigDecimal;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -67,12 +68,12 @@ public class Stock implements Serializable {
 	private Float stock;
 
 	@Getter@Setter
-	@Column(name = "batch_purchase_rate")
-	private Float bpurchaseRate;
+	@Column(name = "batch_purchase_rate", precision = 19, scale = 2)
+	private BigDecimal bpurchaseRate;
 	
 	@Getter@Setter
-	@Column(name = "batch_sale_rate")
-	private Float bsellRate;
+	@Column(name = "batch_sale_rate", precision = 19, scale = 2)
+	private BigDecimal bsellRate;
 	
 	@Getter@Setter
 	@Column(name = "batch_purchaseDiscountType")
@@ -83,12 +84,12 @@ public class Stock implements Serializable {
 	private String bsellDiscountType;
 	
 	@Getter@Setter
-	@Column(name = "batch_purchaseDiscount")
-	private Float bpurchaseDiscount;
+	@Column(name = "batch_purchaseDiscount", precision = 19, scale = 2)
+	private BigDecimal bpurchaseDiscount;
 	
 	@Getter@Setter
-	@Column(name = "batch_saleDiscount")
-	private Float bsellDiscount;
+	@Column(name = "batch_saleDiscount", precision = 19, scale = 2)
+	private BigDecimal bsellDiscount;
 
 	@Getter@Setter
 	@Column(name = "bmfg_date")
