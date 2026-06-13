@@ -18,6 +18,9 @@ public class AlertChannel {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "organization_id")
+    private Long organizationId;
+
     @Column(name = "channel", nullable = false)
     private String c;
 
