@@ -30,8 +30,11 @@ cypress/videos/
 cypress/screenshots/
 
 # Local secrets (DB creds, etc.) — never commit
+.env
 .env.local
+*.env
 *.env.local
+!.env.example
 
 # Service runtime logs (not versioned)
 microservices/logs/
