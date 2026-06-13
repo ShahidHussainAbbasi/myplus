@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -242,8 +243,22 @@ public class AttendanceController {
             return new GenericResponse("SUCCESS", saved + " record(s) saved");
         } catch (Exception e) {
             appUtil.le(getClass(), e);
-            return new GenericResponse("ERROR", e.getMessage());
+            // Propagate past the @Transactional proxy so the partial batch is rolled back
+            // (returning ERROR here would commit it). bulkErrorHandler() rebuilds the envelope.
+            throw new RuntimeException(e.getMessage(), e);
         }
+    }
+
+    /**
+     * Turns an uncaught exception from a transactional write (e.g. markAttendanceBulk) back into the
+     * GenericResponse("ERROR", …) envelope. By the time this runs the @Transactional method has already
+     * exited via exception, so its transaction has been rolled back — the write is all-or-nothing.
+     */
+    @ExceptionHandler(Exception.class)
+    @ResponseBody
+    public GenericResponse handleUncaught(Exception e) {
+        appUtil.le(getClass(), e);
+        return new GenericResponse("ERROR", e.getMessage());
     }
 
     private String gradeName(Long gradeId) {

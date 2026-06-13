@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.myplus.education.entity.Discount;
 import com.myplus.education.entity.FeeCollection;
@@ -109,6 +110,7 @@ public class FeeService {
      * Stored as an unpaid row (fp=0) so the student shows as owing; carried balance (db) stays 0 so
      * the voucher's aging doesn't double-count.
      */
+    @Transactional
     public void registerOpeningDue(Long orgId, Long userId, Student s) {
         if (s == null || s.getEnrollNo() == null || s.getEnrollNo().isBlank()) return;
         List<FeeCollection> existing = feeCollectionRepository

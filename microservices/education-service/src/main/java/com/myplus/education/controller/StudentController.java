@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -162,6 +163,7 @@ public class StudentController {
 
     @RequestMapping(value = "/addStudent", method = RequestMethod.POST)
     @ResponseBody
+    @Transactional
     public GenericResponse addStudent(final StudentDTO dto, final HttpServletRequest request) {
         try {
             Long userId = userId();
@@ -211,21 +213,19 @@ public class StudentController {
             obj.setUpdated(LocalDateTime.now());
             Student saved = studentRepository.save(obj);
             // On new registration, auto-register the opening due if the org's fee policy says so.
-            if (appUtil.isEmptyOrNull(dto.getId()) && !appUtil.isEmptyOrNull(saved)) {
-                try {
-                    if (Boolean.TRUE.equals(feeService.settingFor(orgId, userId).getAutoRegisterDues())) {
-                        feeService.registerOpeningDue(orgId, userId, saved);
-                    }
-                } catch (Exception ex) {
-                    appUtil.le(getClass(), ex); // dues registration is best-effort; don't fail the student save
-                }
+            // Runs in the same transaction as the student save (@Transactional): if the due fails,
+            // the student is rolled back too — the two writes are atomic.
+            if (appUtil.isEmptyOrNull(dto.getId()) && !appUtil.isEmptyOrNull(saved)
+                    && Boolean.TRUE.equals(feeService.settingFor(orgId, userId).getAutoRegisterDues())) {
+                feeService.registerOpeningDue(orgId, userId, saved);
             }
             return appUtil.isEmptyOrNull(saved)
                     ? new GenericResponse("FAILED", "")
                     : new GenericResponse("SUCCESS", "");
         } catch (Exception e) {
             appUtil.le(getClass(), e);
-            return new GenericResponse("ERROR", e.getMessage());
+            // Propagate so @Transactional rolls back (student + due); handleUncaught() rebuilds the envelope.
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
@@ -307,19 +307,33 @@ public class StudentController {
                 Student saved = studentRepository.save(s);
                 existing.add(enrollNo.toLowerCase());
                 if (autoDues) {
-                    try { feeService.registerOpeningDue(org, uid, saved); } catch (Exception ignore) { }
+                    feeService.registerOpeningDue(org, uid, saved);
                 }
                 created++;
             }
         } catch (Exception e) {
             appUtil.le(getClass(), e);
-            return new GenericResponse("ERROR", e.getMessage());
+            // Propagate so the whole @Transactional import rolls back (no partial import);
+            // handleUncaught() rebuilds the GenericResponse("ERROR", …) envelope.
+            throw new RuntimeException(e.getMessage(), e);
         }
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("created", created);
         summary.put("skipped", skipped);
         summary.put("errors", errors);
         return new GenericResponse("SUCCESS", "Imported " + created + " student(s)", summary);
+    }
+
+    /**
+     * Turns an uncaught exception from a transactional write (addStudent, impStudents) back into the
+     * GenericResponse("ERROR", …) envelope. The @Transactional method has already exited via exception,
+     * so its transaction is rolled back — the write is all-or-nothing.
+     */
+    @ExceptionHandler(Exception.class)
+    @ResponseBody
+    public GenericResponse handleUncaught(Exception e) {
+        appUtil.le(getClass(), e);
+        return new GenericResponse("ERROR", e.getMessage());
     }
 
     private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
