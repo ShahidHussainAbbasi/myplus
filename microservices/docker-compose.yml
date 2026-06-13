@@ -20,6 +20,8 @@ services:
     image: mysql:8.0
     container_name: myplus-mysql
     restart: unless-stopped
+    # Headroom above the combined service pools (11 services × 8 = 88) so admin/replication/spikes fit.
+    command: ["--max-connections=200"]
     mem_limit: 1536m
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}

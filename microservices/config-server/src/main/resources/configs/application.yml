@@ -11,8 +11,14 @@ spring:
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:changeme}
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      # 11 DB-backed services share one MySQL. Keep each pool small so the total stays well under
+      # MySQL max_connections (default 151; docker sets 200): 11 × 8 = 88. Env-overridable for prod.
+      maximum-pool-size: ${DB_POOL_MAX:8}
+      minimum-idle: ${DB_POOL_MIN:2}
+      connection-timeout: 20000          # fail fast (20s) when the pool is exhausted instead of hanging
+      idle-timeout: 300000               # close idle connections after 5 min
+      max-lifetime: 1500000              # recycle a connection at 25 min (< MySQL wait_timeout)
+      leak-detection-threshold: 30000    # log a warning if a connection is held > 30s (likely a leak)
   jpa:
     hibernate:
       ddl-auto: update
