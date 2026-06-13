@@ -183,6 +183,11 @@ public class SellService implements ISellService {
 		return sellRepo.findScoped(orgId, userId);
 	}
 
+	@Override
+	public List<Sell> findScoped(Long orgId, Long userId, org.springframework.data.domain.Pageable pageable) {
+		return sellRepo.findScoped(orgId, userId, pageable);
+	}
+
 	public List<Sell> findSellByStartDate(LocalDateTime sd, Long orgId, Long userId) {
 		return sellRepo.findSellByStartDate(sd, orgId, userId);
 	}

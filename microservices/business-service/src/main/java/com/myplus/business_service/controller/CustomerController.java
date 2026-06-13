@@ -17,6 +17,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.myplus.common.security.AuthenticatedUser;
@@ -52,9 +53,13 @@ public class CustomerController {
 
 	@RequestMapping(value = "/getUserCustomer", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getUserCustomer(final HttpServletRequest request) {
+	public GenericResponse getUserCustomer(@RequestParam(required=false) Integer page,
+			@RequestParam(required=false) Integer size, final HttpServletRequest request) {
 		try {
-			List<Customer> objs = customerService.findScoped(orgId(), userId());
+			// optional pagination (slice 24): when page&size are sent return that page; else full list (UI contract)
+			List<Customer> objs = (page != null && size != null)
+					? customerService.findScoped(orgId(), userId(), org.springframework.data.domain.PageRequest.of(page, size))
+					: customerService.findScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 

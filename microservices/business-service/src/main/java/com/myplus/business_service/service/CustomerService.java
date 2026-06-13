@@ -175,6 +175,11 @@ return customerRepo.exists(example);
 		return customerRepo.findScoped(orgId, userId);
 	}
 
+	@Override
+	public List<Customer> findScoped(Long orgId, Long userId, org.springframework.data.domain.Pageable pageable) {
+		return customerRepo.findScoped(orgId, userId, pageable);
+	}
+
 
 	public Customer saveUpdateCustomer(CustomerHistoryDTO dto) throws Exception {
 

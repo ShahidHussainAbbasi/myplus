@@ -5,6 +5,7 @@ package com.myplus.business_service.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,4 +27,9 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
    @Query("select c from Customer c where c.organizationId = :orgId "
         + "or (c.organizationId is null and c.userId = :userId)")
    List<Customer> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   // Paged overload (slice 24) — LIMIT/OFFSET via Pageable, no count query.
+   @Query("select c from Customer c where c.organizationId = :orgId "
+        + "or (c.organizationId is null and c.userId = :userId)")
+   List<Customer> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 }

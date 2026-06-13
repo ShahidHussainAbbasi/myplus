@@ -6,6 +6,7 @@ package com.myplus.business_service.repository;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -28,6 +29,11 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
     @Query("select s from Sell s where s.organizationId = :orgId "
          + "or (s.organizationId is null and s.userId = :userId) order by s.sellId desc")
     List<Sell> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // Paged overload (slice 24) — newest first, LIMIT/OFFSET via Pageable.
+    @Query("select s from Sell s where s.organizationId = :orgId "
+         + "or (s.organizationId is null and s.userId = :userId) order by s.sellId desc")
+    List<Sell> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
     @Query("SELECT s FROM Sell s WHERE s.dated >= :sd "
          + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")

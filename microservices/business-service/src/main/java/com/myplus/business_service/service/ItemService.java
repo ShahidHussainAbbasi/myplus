@@ -44,6 +44,11 @@ public class ItemService implements IItemService {
 	}
 
 	@Override
+	public List<Item> findScoped(Long orgId, Long userId, org.springframework.data.domain.Pageable pageable) {
+		return itemRepo.findScoped(orgId, userId, pageable);
+	}
+
+	@Override
 	public List<Item> findAll(Sort sort) {
 		// TODO Auto-generated method stub
 		return itemRepo.findAll(sort);

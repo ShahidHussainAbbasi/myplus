@@ -75,9 +75,13 @@ public class ItemController {
 
 	@RequestMapping(value = "/getUserItem", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getUserItem(final HttpServletRequest request) {
+	public GenericResponse getUserItem(@RequestParam(required=false) Integer page,
+			@RequestParam(required=false) Integer size, final HttpServletRequest request) {
 		try {
-			List<Item> objs = itemService.findScoped(orgId(), userId());
+			// optional pagination (slice 24): page&size -> that page; else full list (UI contract)
+			List<Item> objs = (page != null && size != null)
+					? itemService.findScoped(orgId(), userId(), org.springframework.data.domain.PageRequest.of(page, size))
+					: itemService.findScoped(orgId(), userId());
 			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));

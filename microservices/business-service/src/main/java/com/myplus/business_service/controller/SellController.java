@@ -161,12 +161,15 @@ public class SellController {
 // }	
 	@RequestMapping(value = "/getUserSell", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getUserSell(final HttpServletRequest request) {
+	public GenericResponse getUserSell(@RequestParam(required=false) Integer page,
+			@RequestParam(required=false) Integer size, final HttpServletRequest request) {
 		try {
 			String offset = request.getParameter("q");
-			// tenant-scoped, newest-first; apply the "recent N" cap in memory when an offset is given
-			List<Sell> objs = sellService.findScoped(orgId(), userId());
-			if(!(appUtil.isEmptyOrNull(offset) || offset.equals("-1"))) {
+			// tenant-scoped, newest-first. slice 24: page&size -> DB page; else legacy "recent N" offset cap.
+			List<Sell> objs = (page != null && size != null)
+					? sellService.findScoped(orgId(), userId(), org.springframework.data.domain.PageRequest.of(page, size))
+					: sellService.findScoped(orgId(), userId());
+			if((page == null || size == null) && !(appUtil.isEmptyOrNull(offset) || offset.equals("-1"))) {
 				int limit = Integer.valueOf(offset);
 				if(objs.size() > limit) objs = new ArrayList<>(objs.subList(0, limit));
 			}

@@ -15,6 +15,9 @@ public interface ISellService extends org.springframework.data.jpa.repository.Jp
 	/** Tenant-scoped sells (own org + caller's pre-migration org-NULL rows), newest first. */
 	List<Sell> findScoped(Long orgId, Long userId);
 
+	/** Paged tenant-scoped sells (slice 24), newest first. */
+	List<Sell> findScoped(Long orgId, Long userId, org.springframework.data.domain.Pageable pageable);
+
 	List<Sell> findSellByDates(LocalDateTime sd, LocalDateTime ed, Long orgId, Long userId);
 
 	List<Sell> findSellByStartDate(LocalDateTime sd, Long orgId, Long userId);
