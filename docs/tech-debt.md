@@ -44,9 +44,11 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 
 ## 🏛️ Industry-standard gaps still to implement
 
-- [ ] 🔴 **No unit/integration tests in microservices** — business/education/auth/gateway have **0 JUnit
-  files**; coverage is monolith Cypress E2E only. Add service + slice tests with **Testcontainers-MySQL**
-  (real dialect, not H2). Biggest standards gap.
+- [~] 🔴 **No unit/integration tests in microservices** — slice 29 (awaiting build): JUnit5 +
+  **Testcontainers-MySQL** foundation on business-service (real dialect, not H2); first test
+  `CustomerRepoScopingTest` locks in the `findScoped` tenant-isolation + NULL-fallback contract.
+  `@Testcontainers(disabledWithoutDocker=true)` so Docker-less builds aren't broken. **Follow-up:**
+  expand (Sell/Item, addSell atomicity, invoice) + other services + CI wiring. _slices/29._
 - [ ] 🟠 **Real schema migrations** — dev uses `ddl-auto: update` + manual `migrations.md`; prod is
   `validate` but there are **no full Flyway scripts** (only `baseline-on-migrate`). Author versioned
   **Flyway** migrations per service so prod-on-`validate` boots from a known schema.
