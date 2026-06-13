@@ -50,8 +50,11 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 - [ ] 🟠 **Real schema migrations** — dev uses `ddl-auto: update` + manual `migrations.md`; prod is
   `validate` but there are **no full Flyway scripts** (only `baseline-on-migrate`). Author versioned
   **Flyway** migrations per service so prod-on-`validate` boots from a known schema.
-- [ ] 🟠 **API gateway resilience** — no rate limiting / circuit breaking. Add `RequestRateLimiter`
-  (Redis) + Resilience4j circuit breakers + timeouts so one slow service can't cascade.
+- [~] 🟠 **API gateway resilience** — slice 27 (awaiting build): per-route Resilience4j **circuit
+  breaker** (own name each → per-service isolation, `forward:/fallback` → 503 JSON) + **httpclient
+  timeouts** (connect 5s, response 20s; timelimiter raised 1s→20s). **Follow-up:** per-user **rate
+  limiting** (deferred — all gateway traffic is one monolith IP, so it must key on `X-User-Id` after the
+  JWT filter; Redis dep present but not guaranteed in local dev). _slices/27-gateway-resilience.md._
 - [ ] 🟠 **Dependency vulnerabilities** — GitHub Dependabot reports **234** on the default branch
   (42 critical / 103 high / 77 moderate / 12 low). Triage & upgrade; add OWASP Dependency-Check +
   SpotBugs to CI and fail builds on new criticals (complements the existing Trivy image scan).
