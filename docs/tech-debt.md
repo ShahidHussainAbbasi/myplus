@@ -53,8 +53,10 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   SpotBugs to CI and fail builds on new criticals (complements the existing Trivy image scan).
 - [ ] 🟡 **Bean Validation thin** — DTOs largely lack `@NotNull/@Size/@Email/@Positive`; only ~9
   controllers use `@Validated`. Validate consistently at the edge.
-- [ ] 🟡 **Observability** — no distributed tracing (add Micrometer Tracing + OTel/Zipkin); set
-  `management.endpoint.health.show-details` to `when-authorized` in prod (currently `always`).
+- [ ] 🟡 **Observability** — no distributed tracing (add Micrometer Tracing + OTel/Zipkin).
+  _(Correction: actuator surface is already hardened in prod — `application-prod.yml` sets
+  `show-details: never` + `include: health,info` + probes; the `always` is dev-only shared config. So
+  only the tracing gap remains.)_
 - [ ] 🟡 **Finish org-scoping** — welfare + agriculture services are still `userId`-only (deferred); same
   cross-tenant `getAll*` leak class slice 21 fixed for business. (education + business now done.)
 - [ ] 🟢 **Finance hardening** — beyond `BigDecimal`: immutable audit trail + a proper invoice/ledger model
