@@ -40,6 +40,12 @@ public class FeeCollectionController {
         return u == null ? null : u.getUserId();
     }
 
+    /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
+    private Long orgId() {
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        return u == null ? null : u.getOrganizationId();
+    }
+
     private FeeCollectionDTO toDto(FeeCollection o) {
         FeeCollectionDTO dto = new FeeCollectionDTO();
         dto.setId(o.getId());
@@ -64,7 +70,7 @@ public class FeeCollectionController {
     @ResponseBody
     public GenericResponse getUserFc(final HttpServletRequest request) {
         try {
-            List<FeeCollection> objs = feeCollectionRepository.findByUserId(userId());
+            List<FeeCollection> objs = feeCollectionRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -79,7 +85,8 @@ public class FeeCollectionController {
     @ResponseBody
     public GenericResponse getAllFc(final HttpServletRequest request) {
         try {
-            List<FeeCollection> all = feeCollectionRepository.findAll();
+            // Tenant-scoped: "all" means all fee records in the active organization, not every tenant's.
+            List<FeeCollection> all = feeCollectionRepository.findScoped(orgId(), userId());
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -98,7 +105,8 @@ public class FeeCollectionController {
             FeeCollection obj = (dto.getId() != null)
                     ? feeCollectionRepository.findById(dto.getId()).orElseGet(FeeCollection::new)
                     : new FeeCollection();
-            obj.setUserId(userId);
+            obj.setUserId(userId);              // audit: who created/edited
+            obj.setOrganizationId(orgId());     // tenant scope
             obj.setEn(dto.getEn());
             obj.setDt(dto.getDt());
             obj.setD(dto.getD());

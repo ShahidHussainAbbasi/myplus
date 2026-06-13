@@ -1,25 +1,41 @@
 package com.myplus.education.controller;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.education.dto.StudentDTO;
+import com.myplus.education.entity.Grade;
+import com.myplus.education.entity.Guardian;
 import com.myplus.education.entity.Student;
 import com.myplus.education.repository.GradeRepository;
 import com.myplus.education.repository.GuardianRepository;
 import com.myplus.education.repository.SchoolRepository;
 import com.myplus.education.repository.StudentRepository;
+import com.myplus.education.service.FeeService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
@@ -40,6 +56,8 @@ public class StudentController {
     private GradeRepository gradeRepository;
     @Autowired
     private GuardianRepository guardianRepository;
+    @Autowired
+    private FeeService feeService;
     @Autowired
     private RequestUtil requestUtil;
     @Autowired
@@ -192,6 +210,16 @@ public class StudentController {
             }
             obj.setUpdated(LocalDateTime.now());
             Student saved = studentRepository.save(obj);
+            // On new registration, auto-register the opening due if the org's fee policy says so.
+            if (appUtil.isEmptyOrNull(dto.getId()) && !appUtil.isEmptyOrNull(saved)) {
+                try {
+                    if (Boolean.TRUE.equals(feeService.settingFor(orgId, userId).getAutoRegisterDues())) {
+                        feeService.registerOpeningDue(orgId, userId, saved);
+                    }
+                } catch (Exception ex) {
+                    appUtil.le(getClass(), ex); // dues registration is best-effort; don't fail the student save
+                }
+            }
             return appUtil.isEmptyOrNull(saved)
                     ? new GenericResponse("FAILED", "")
                     : new GenericResponse("SUCCESS", "");
@@ -219,5 +247,102 @@ public class StudentController {
             appUtil.le(getClass(), e);
             return false;
         }
+    }
+
+    // ---- Slice 15: CSV bulk import ----
+    // Header: enrollNo,name,gradeName,gender,guardianName,mobile,status
+    @RequestMapping(value = "/impStudents", method = RequestMethod.POST)
+    @ResponseBody
+    @Transactional
+    public GenericResponse impStudents(@RequestParam("file") MultipartFile file) {
+        List<String> errors = new ArrayList<>();
+        int created = 0, skipped = 0;
+        try {
+            if (file == null || file.isEmpty()) {
+                return new GenericResponse("INVALID", "No file uploaded");
+            }
+            Long org = orgId(), uid = userId();
+            Set<String> existing = studentRepository.findScoped(org, uid).stream()
+                    .map(Student::getEnrollNo).filter(Objects::nonNull)
+                    .map(String::toLowerCase).collect(Collectors.toCollection(java.util.HashSet::new));
+            Map<String, Long> gradeByName = gradeRepository.findScoped(org, uid).stream()
+                    .filter(g -> g.getName() != null)
+                    .collect(Collectors.toMap(g -> g.getName().toLowerCase(), Grade::getId, (a, b) -> a));
+            Map<String, Long> guardianByName = guardianRepository.findScoped(org, uid).stream()
+                    .filter(g -> g.getName() != null)
+                    .collect(Collectors.toMap(g -> g.getName().toLowerCase(), Guardian::getId, (a, b) -> a));
+            boolean autoDues = Boolean.TRUE.equals(feeService.settingFor(org, uid).getAutoRegisterDues());
+
+            BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
+            String line;
+            int n = 0;
+            String[] header = null;
+            while ((line = br.readLine()) != null) {
+                n++;
+                if (line.trim().isEmpty()) continue;
+                String[] cols = splitCsv(line);
+                if (header == null) { header = lower(cols); continue; }
+                Map<String, String> row = rowMap(header, cols);
+                String enrollNo = row.get("enrollno");
+                String name = row.get("name");
+                if (isBlank(enrollNo) || isBlank(name)) {
+                    errors.add("row " + n + ": enrollNo and name are required"); skipped++; continue;
+                }
+                if (existing.contains(enrollNo.toLowerCase())) {
+                    errors.add("row " + n + ": enrollNo '" + enrollNo + "' already exists"); skipped++; continue;
+                }
+                Student s = new Student();
+                s.setOrganizationId(org);   // tenant scope
+                s.setUserId(uid);           // audit
+                s.setEnrollNo(enrollNo.trim());
+                s.setName(name.trim());
+                s.setGender(row.get("gender"));
+                s.setMobile(row.get("mobile"));
+                s.setStatus(isBlank(row.get("status")) ? "ACTIVE" : row.get("status"));
+                String gradeName = row.get("gradename");
+                if (!isBlank(gradeName)) s.setGradeId(gradeByName.get(gradeName.toLowerCase()));
+                String guardianName = row.get("guardianname");
+                if (!isBlank(guardianName)) s.setGuardianId(guardianByName.get(guardianName.toLowerCase()));
+                s.setEnrollDate(LocalDate.now());
+                Student saved = studentRepository.save(s);
+                existing.add(enrollNo.toLowerCase());
+                if (autoDues) {
+                    try { feeService.registerOpeningDue(org, uid, saved); } catch (Exception ignore) { }
+                }
+                created++;
+            }
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return new GenericResponse("ERROR", e.getMessage());
+        }
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("created", created);
+        summary.put("skipped", skipped);
+        summary.put("errors", errors);
+        return new GenericResponse("SUCCESS", "Imported " + created + " student(s)", summary);
+    }
+
+    private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
+
+    private String[] splitCsv(String line) {
+        String[] parts = line.split(",", -1);
+        for (int i = 0; i < parts.length; i++) {
+            parts[i] = parts[i].trim().replaceAll("^\"|\"$", "").trim();
+        }
+        return parts;
+    }
+
+    private String[] lower(String[] cols) {
+        String[] out = new String[cols.length];
+        for (int i = 0; i < cols.length; i++) out[i] = cols[i] == null ? "" : cols[i].toLowerCase();
+        return out;
+    }
+
+    private Map<String, String> rowMap(String[] header, String[] cols) {
+        Map<String, String> m = new HashMap<>();
+        for (int i = 0; i < header.length; i++) {
+            m.put(header[i], i < cols.length ? cols[i] : "");
+        }
+        return m;
     }
 }
