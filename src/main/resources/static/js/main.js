@@ -397,6 +397,18 @@ $(document).ready(function() {
 					    	showFormError('Please add items to the cart and enter a valid payment amount.');
 					    }
 			}else{
+				// Purchase: block client-side when no item is selected or quantity <= 0
+				// (a "0" passes the generic required-field check, which only tests for non-empty).
+				if(buttonV=="Purchase"){
+					var pItem = $("#purchaseItemDD").val();
+					var pQty = $("#purchaseQuantity").val()*1;
+					if(!pItem || !(pQty > 0)){
+						$("#purchaseQuantity").css('border-color','red');
+						showFormError('Select an item and enter a quantity greater than 0.');
+						return false;
+					}
+					$("#purchaseQuantity").css('border-color','');
+				}
 				validateForm();
 			    if(formValidated){
 					$(this).callAjax("add" + buttonV,populateFormData());
