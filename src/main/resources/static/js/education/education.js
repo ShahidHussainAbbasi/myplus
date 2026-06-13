@@ -11,7 +11,33 @@ var reload="";
 var tableFeeReport;
 	
 $(document).ready(function() {
-	
+
+	// Active-organization (tenant) switcher.
+	loadMyOrganizations();
+	$(document).on('change', '#orgSwitcher', switchOrganization);
+
+	// Attendance roster: populate the class dropdown + default the date to today.
+	if ($("#aGradeDD").length) {
+		getUserGrades("a");
+		var _t = new Date();
+		$("#aDate").val(_t.getFullYear() + "-" + ("0"+(_t.getMonth()+1)).slice(-2) + "-" + ("0"+_t.getDate()).slice(-2));
+	}
+
+	// Fee settings: load current org policy into the form.
+	if ($("#fsPaymentMode").length) {
+		loadFeeSetting();
+	}
+
+	// Alerts module (slice 16).
+	if ($("#Alerts").length) {
+		$("#addAlerts").off("click").on("click", submitAlert);
+		$("#deleteAlerts").off("click").on("click", deleteSelectedAlerts);
+		$("#sendAlerts").off("click").on("click", sendAlert);
+	}
+	if ($("#PA").length) {
+		$("#sendPA").off("click").on("click", sendPublicAlert);
+	}
+
     tableFeeReport = $('#tableFeeReport').DataTable( {
         dom: 'Bfrtip',
 		lengthMenu: [
@@ -376,12 +402,12 @@ function loadDataTable(){
 						i++;
 						arr = [
 							"<div id=alertId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=acdd>"+escHtml(obj.c)+"</div>","<div id=atdd>"+escHtml(obj.at)+"</div>",
-							"<div id=adcdd>"+escHtml(obj.dc)+"</div>","<div id=adpdd>"+escHtml(obj.dp)+"</div>",
-							"<div id=adtdd>"+escHtml(obj.dt)+"</div>","<div id=ast>"+escHtml(obj.st)+"</div>",
-							"<div id=asd>"+escHtml(obj.sdStr)+"</div>", "<div id=aed>"+escHtml(obj.edStr)+"</div>", 
-							"<div id=ah>"+escHtml(obj.ah)+"</div>","<div id=am>"+escHtml(obj.am)+"</div>",
-							"<div id=as>"+escHtml(obj.as)+"</div>"
+							"<div id=acdd>"+escHtml(obj.consumers)+"</div>","<div id=atdd>"+escHtml(obj.alertType)+"</div>",
+							"<div id=adcdd>"+escHtml(obj.deliveryChannel)+"</div>","<div id=adpdd>"+escHtml(obj.deliveryPeriod)+"</div>",
+							"<div id=adtdd>"+escHtml(obj.deliveryType)+"</div>","<div id=ast>"+escHtml(obj.status)+"</div>",
+							"<div id=asd>"+escHtml(obj.startDateStr)+"</div>", "<div id=aed>"+escHtml(obj.endDateStr)+"</div>",
+							"<div id=ah>"+escHtml(obj.heading)+"</div>","<div id=am>"+escHtml(obj.message)+"</div>",
+							"<div id=as>"+escHtml(obj.signature)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -412,10 +438,9 @@ function loadDataTable(){
 				} else if (getAll === "PA") {
 					$.each(collections, function(ind, obj) {
 						arr = [
-							obj.id,obj.dtStr,obj.cn,obj.c,obj.s
+							escHtml(obj.id),escHtml(obj.datedStr),escHtml(obj.channel),escHtml(obj.target),escHtml(obj.status)
 							];
 						datatable.row.add(arr).draw();
-						datatable.columns( [0] ).visible( false );
 					});
 				}
 			},
@@ -429,6 +454,118 @@ function loadDataTable(){
 				 	window.location.href = serverContext + "login?message=" + errorThrown;
 	            }
 		}
+	});
+}
+
+// ---- Active organization (tenant) switcher ----
+function loadMyOrganizations() {
+	$.get(serverContext + "getMyOrganizations", function(res) {
+		var $sel = $("#orgSwitcher");
+		if (!res || res.status !== "SUCCESS" || !res.collection || res.collection.length === 0) {
+			// No tenant context (legacy mode / no orgs) — hide the switcher.
+			$("#orgSwitcherLi").hide();
+			return;
+		}
+		$sel.empty();
+		$.each(res.collection, function(i, org) {
+			var sel = org.active ? " selected" : "";
+			$sel.append("<option value='" + org.id + "'" + sel + ">"
+				+ escHtml(org.name) + "</option>");
+		});
+		// A single org is just context; show it but no point switching.
+		$("#orgSwitcherLi").show();
+	}).fail(function() {
+		$("#orgSwitcherLi").hide();
+	});
+}
+
+function switchOrganization() {
+	var orgId = $("#orgSwitcher").val();
+	if (!orgId) { return; }
+	$.ajax({
+		url: serverContext + "switchOrganization",
+		type: "POST",
+		data: { organizationId: orgId },
+		success: function(res) {
+			if (res && res.status === "SUCCESS") {
+				// Token now scoped to the new tenant — reload so every section refetches.
+				window.location.reload();
+			} else {
+				alert((res && res.message) ? res.message : "Could not switch organization");
+				loadMyOrganizations();
+			}
+		},
+		error: function() {
+			alert("Could not switch organization");
+			loadMyOrganizations();
+		}
+	});
+}
+
+// ---- Attendance: class-roster marking (slice 13) ----
+function aDateStr() {
+	var v = $("#aDate").val();
+	var d = v ? new Date(v) : new Date();
+	return ("0"+d.getDate()).slice(-2) + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + d.getFullYear();
+}
+
+function aRosterRow(r) {
+	var en = escHtml(r.enrollNo == null ? "" : r.enrollNo);
+	var status = r.status || "Present";
+	function opt(v) { return "<option value='"+v+"'"+(status===v?" selected":"")+">"+v+"</option>"; }
+	return "<tr data-enroll='"+en+"'>"
+		+ "<td>"+en+"</td>"
+		+ "<td>"+escHtml(r.studentName == null ? "" : r.studentName)+"</td>"
+		+ "<td><select class='form-control aStatus'>"+opt("Present")+opt("Absent")+opt("Late")+"</select></td>"
+		+ "<td><input type='time' class='form-control aIn' value='"+escHtml(r.timeInStr||"")+"'></td>"
+		+ "<td><input type='time' class='form-control aOut' value='"+escHtml(r.timeOutStr||"")+"'></td>"
+		+ "<td><input type='text' class='form-control aRem' value='"+escHtml(r.remark||"")+"'></td>"
+		+ "</tr>";
+}
+
+function loadClassRoster() {
+	var gradeId = $("#aGradeDD").val();
+	if (!gradeId) { alert("Please select a class"); return; }
+	$.get(serverContext + "getClassRoster?gradeId=" + encodeURIComponent(gradeId)
+			+ "&dateStr=" + encodeURIComponent(aDateStr()), function(res) {
+		var $body = $("#aRosterBody").empty();
+		if (!res || res.status !== "SUCCESS" || !res.collection || res.collection.length === 0) {
+			$("#aRosterWrap").hide();
+			$("#aRosterEmpty").show().text(res && res.message ? res.message : "No students found for this class.");
+			return;
+		}
+		$.each(res.collection, function(i, r) { $body.append(aRosterRow(r)); });
+		$("#aRosterEmpty").hide();
+		$("#aRosterWrap").show();
+	}).fail(function() { alert("Could not load roster"); });
+}
+
+function aMarkAll(status) {
+	$("#aRosterBody .aStatus").val(status);
+}
+
+function saveAttendance() {
+	var rows = [];
+	$("#aRosterBody tr").each(function() {
+		var $t = $(this);
+		rows.push({
+			enrollNo: $t.attr("data-enroll"),
+			status: $t.find(".aStatus").val(),
+			timeInStr: $t.find(".aIn").val(),
+			timeOutStr: $t.find(".aOut").val(),
+			remark: $t.find(".aRem").val()
+		});
+	});
+	if (rows.length === 0) { alert("Nothing to save"); return; }
+	$.ajax({
+		url: serverContext + "markAttendanceBulk",
+		type: "POST",
+		contentType: "application/json",
+		data: JSON.stringify({ gradeId: $("#aGradeDD").val(), dateStr: aDateStr(), rows: rows }),
+		success: function(res) {
+			alert(res && res.message ? res.message : (res && res.status === "SUCCESS" ? "Saved" : "Save failed"));
+		},
+		error: function() { alert("Save failed"); }
 	});
 }
 
@@ -2542,4 +2679,203 @@ function populateArrearsMap(en){
 		if(obj.en == en)
 			obj[en] = arrear;
 	});
+}
+
+// ===== Slice 14: Fee report / ledger / voucher / settings (clean rebuild; overrides legacy) =====
+function dmy(v){
+	if(!v) return "";
+	var d = new Date(v);
+	return ("0"+d.getDate()).slice(-2) + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + d.getFullYear();
+}
+
+function loadFR(){
+	var data = {
+		by: $("#frScope").val(),
+		id: $("#frId").val(),
+		fromStr: dmy($("#frFrom").val()),
+		toStr: dmy($("#frTo").val())
+	};
+	$.post(serverContext + "loadFR", data, function(res){
+		var $b = $("#frBody").empty();
+		$("#frTotals").empty();
+		if(!res || res.status !== "SUCCESS" || !res.collection){
+			return alert(res && res.message ? res.message : "No fee records");
+		}
+		res.collection.forEach(function(r){
+			$b.append("<tr><td>"+escHtml(r.enrollNo||"")+"</td><td>"+escHtml(r.studentName||"")
+				+"</td><td>"+escHtml(r.gradeName||"")+"</td><td>"+escHtml(r.schoolName||"")
+				+"</td><td>"+escHtml(r.paymentDateStr||"")+"</td><td>"+escHtml(r.payee||"")
+				+"</td><td>"+escHtml(r.receivedBy||"")+"</td><td>"+r.fee+"</td><td>"+r.discount
+				+"</td><td>"+r.otherDues+"</td><td>"+r.dueAmount+"</td><td>"+r.feePaid+"</td><td>"+r.balance+"</td></tr>");
+		});
+		var t = res.object || {};
+		$("#frTotals").html("<th colspan='7'>Totals ("+(t.count||0)+")</th><th>"+(t.fee||0)+"</th><th>"
+			+(t.discount||0)+"</th><th>"+(t.otherDues||0)+"</th><th>"+(t.dueAmount||0)+"</th><th>"
+			+(t.feePaid||0)+"</th><th>"+(t.balance||0)+"</th>");
+	}).fail(function(){ alert("Could not load report"); });
+}
+
+function loadFV(){
+	var en = $("#fvEnroll").val();
+	if(!en){ return alert("Enter a student enroll no"); }
+	$.get(serverContext + "loadFV?enrollNo=" + encodeURIComponent(en), function(res){
+		var $v = $("#fvVoucher");
+		if(!res || res.status !== "SUCCESS" || !res.object){
+			$v.hide();
+			return alert(res && res.message ? res.message : "Voucher not found");
+		}
+		var o = res.object;
+		$v.html(
+			"<div class='panel panel-default' style='max-width:480px'>"
+			+ "<div class='panel-heading'><b>Fee Voucher</b></div>"
+			+ "<div class='panel-body'>"
+			+ "<p><b>Student:</b> "+escHtml(o.studentName||"")+" ("+escHtml(o.enrollNo||"")+")</p>"
+			+ "<p><b>Class:</b> "+escHtml(o.gradeName||"")+" &nbsp; <b>Campus:</b> "+escHtml(o.schoolName||"")+"</p>"
+			+ "<p><b>Guardian:</b> "+escHtml(o.guardianName||"")+"</p><hr/>"
+			+ "<p>Monthly due: <b>"+o.monthlyDue+"</b></p>"
+			+ "<p>Due months: <b>"+o.dueMonths+"</b></p>"
+			+ "<p>Previous balance: <b>"+o.previousBalance+"</b></p>"
+			+ "<h4>Total payable: <b>"+o.totalDue+"</b></h4>"
+			+ "<button class='btn btn-default btn-sm' onclick='window.print()'><span class='glyphicon glyphicon-print'></span> Print</button>"
+			+ "</div></div>"
+		).show();
+		$("#flLedgerWrap").hide();
+	}).fail(function(){ alert("Could not load voucher"); });
+}
+
+function loadFL(){
+	var en = $("#fvEnroll").val();
+	if(!en){ return alert("Enter a student enroll no"); }
+	$.get(serverContext + "loadFL?enrollNo=" + encodeURIComponent(en), function(res){
+		var $b = $("#flBody").empty();
+		if(!res || res.status !== "SUCCESS" || !res.collection){
+			$("#flLedgerWrap").hide();
+			return alert(res && res.message ? res.message : "No fee records");
+		}
+		var h = res.object || {};
+		$("#flHeader").text((h.studentName||"") + " (" + (h.enrollNo||"") + ") — " + (h.gradeName||"")
+			+ "  |  Paid: " + (h.totalPaid||0) + " / Fee: " + (h.totalFee||0) + "  |  Balance: " + (h.balance||0));
+		res.collection.forEach(function(r){
+			$b.append("<tr><td>"+escHtml(r.paymentDateStr||"")+"</td><td>"+r.fee+"</td><td>"+r.discount
+				+"</td><td>"+r.otherDues+"</td><td>"+r.dueAmount+"</td><td>"+r.feePaid+"</td><td>"+r.balance
+				+"</td><td>"+escHtml(r.payee||"")+"</td><td>"+escHtml(r.receivedBy||"")+"</td><td>"+escHtml(r.receivedIn||"")+"</td></tr>");
+		});
+		$("#fvVoucher").hide();
+		$("#flLedgerWrap").show();
+	}).fail(function(){ alert("Could not load ledger"); });
+}
+
+// ===== Slice 15: Student CSV import =====
+function downloadStudentTemplate(){
+	var csv = "enrollNo,name,gradeName,gender,guardianName,mobile,status\n"
+		+ "ENR-100,John Doe,Grade 1,Male,Mr Khan,03001234567,ACTIVE\n";
+	var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+	var url = URL.createObjectURL(blob);
+	var a = document.createElement("a");
+	a.href = url; a.download = "students-template.csv";
+	document.body.appendChild(a); a.click();
+	document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function importStudents(){
+	var input = document.getElementById("impStudentsFile");
+	if (!input || !input.files || input.files.length === 0) { return alert("Choose a CSV file first"); }
+	var fd = new FormData();
+	fd.append("file", input.files[0]);
+	$("#impStudentsSummary").html("<span class='text-muted'>Importing…</span>");
+	$.ajax({
+		url: serverContext + "impStudents",
+		type: "POST",
+		data: fd,
+		processData: false,
+		contentType: false,
+		success: function(res){
+			if (!res || res.status !== "SUCCESS" || !res.object) {
+				$("#impStudentsSummary").html("<span class='text-danger'>" + escHtml(res && res.message ? res.message : "Import failed") + "</span>");
+				return;
+			}
+			var o = res.object;
+			var html = "<div class='alert alert-success' style='margin-bottom:8px'>Created: <b>" + (o.created||0)
+				+ "</b> &nbsp; Skipped: <b>" + (o.skipped||0) + "</b></div>";
+			if (o.errors && o.errors.length) {
+				html += "<ul class='text-danger'>";
+				o.errors.forEach(function(e){ html += "<li>" + escHtml(e) + "</li>"; });
+				html += "</ul>";
+			}
+			$("#impStudentsSummary").html(html);
+		},
+		error: function(){ $("#impStudentsSummary").html("<span class='text-danger'>Import failed</span>"); }
+	});
+}
+
+function loadFeeSetting(){
+	$.get(serverContext + "getFeeSetting", function(res){
+		if(!res || res.status !== "SUCCESS" || !res.object) return;
+		var o = res.object;
+		$("#fsPaymentMode").val(o.paymentMode || "BOTH");
+		$("#fsAutoRegister").prop("checked", !!o.autoRegisterDues);
+		$("#fsAging").prop("checked", !!o.agingEnabled);
+		$("#fsDueDay").val(o.dueDay != null ? o.dueDay : 10);
+	});
+}
+
+function saveFeeSetting(){
+	$.post(serverContext + "saveFeeSetting", {
+		paymentMode: $("#fsPaymentMode").val(),
+		autoRegisterDues: $("#fsAutoRegister").is(":checked"),
+		agingEnabled: $("#fsAging").is(":checked"),
+		dueDay: $("#fsDueDay").val()
+	}, function(res){
+		alert(res && res.message ? res.message : (res && res.status === "SUCCESS" ? "Saved" : "Save failed"));
+	}).fail(function(){ alert("Save failed"); });
+}
+
+// ===== Slice 16: Alerts module =====
+// Tables (#tableAlerts / #tablePA) render through the shared loadDataTable() path
+// (getAll "Alerts" / "PA"); these handlers own create/delete/send/import only.
+function submitAlert(e){
+	if (e) e.preventDefault();
+	$.post(serverContext + "addAlerts", $("#Alerts").serialize(), function(res){
+		alert(res && res.message ? res.message : "Saved");
+		loadDataTable();
+	}).fail(function(){ alert("Could not save alert"); });
+}
+
+function deleteSelectedAlerts(e){
+	if (e) e.preventDefault();
+	var ids = $("#tableAlerts input[type='checkbox']:checked").map(function(){ return $(this).val(); }).get().join(",");
+	if (!ids) { return alert("Select alert(s) to delete"); }
+	$.post(serverContext + "deleteAlerts", { checked: ids }, function(){ loadDataTable(); })
+		.fail(function(){ alert("Could not delete"); });
+}
+
+function sendAlert(e){
+	if (e) e.preventDefault();
+	$.post(serverContext + "sendAlerts", $("#Alerts").serialize(), function(res){
+		alert(res && res.message ? res.message : "Sent");
+	}).fail(function(){ alert("Could not send alert"); });
+}
+
+// Public-alert contacts CSV import (bound to the PADiv Import button onclick="return checkfile()").
+function checkfile(){
+	var input = document.getElementById("csvFile");
+	if (!input || !input.files || input.files.length === 0) { alert("Choose a CSV file first"); return false; }
+	var fd = new FormData();
+	fd.append("file", input.files[0]);
+	$.ajax({
+		url: serverContext + "importCSV", type: "POST", data: fd, processData: false, contentType: false,
+		success: function(res){
+			alert(res && res.message ? res.message : "Imported");
+			loadDataTable();
+		},
+		error: function(){ alert("Import failed"); }
+	});
+	return false;
+}
+
+function sendPublicAlert(e){
+	if (e) e.preventDefault();
+	$.post(serverContext + "sendPA", $("#PA").serialize(), function(res){
+		alert(res && res.message ? res.message : "Sent");
+	}).fail(function(){ alert("Could not send"); });
 }

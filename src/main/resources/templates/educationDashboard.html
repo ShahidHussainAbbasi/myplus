@@ -10,68 +10,123 @@
    	<div id="container">
 		<th:block th:replace="~{fragments/header :: header}" />
 	    <div id="content">
+			<!-- Nav selects: off-screen so main.js change events fire and Cypress can reach them -->
+			<div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+				<select name="registrationType" id="registrationType" class="dropdown show panel-heading" tabindex="-1">
+					<option value="">Manage Registrations</option>
+					<option value="OwnerDiv">Owners</option>
+					<option value="SchoolDiv">Campus</option>
+					<option value="VehicleDiv">Vehicles</option>
+					<option value="GradeDiv">Classes</option>
+					<option value="StaffDiv">Employee</option>
+					<option value="SubjectDiv">Subjects</option>
+					<option value="DiscountDiv">Manage Discounts/Charges</option>
+					<option value="GuardianDiv">Guardians</option>
+					<option value="StudentDiv">Manage Students</option>
+				</select>
+				<select name="feeType" id="feeType" class="dropdown show panel-heading" tabindex="-1">
+					<option value="">Manage Fee</option>
+					<option value="FcDiv">Fee Collection</option>
+					<option value="FVDiv">Fee Voucher/Ledger</option>
+					<option value="FRDiv">Fee Report</option>
+					<option value="FeeSettingDiv">Fee Settings</option>
+				</select>
+				<select name="reportType" id="reportType" class="dropdown show panel-heading" tabindex="-1">
+					<option value="">View Reports</option>
+					<option value="FRDiv">Fee Report</option>
+				</select>
+				<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading" tabindex="-1">
+					<option value="">Manage Attendance</option>
+					<option value="ADiv">Attendance</option>
+				</select>
+				<select name="communicationType" id="communicationType" class="dropdown show panel-heading" tabindex="-1">
+					<option value="">Manage Alerts</option>
+					<option value="PADiv">Public Alerts</option>
+					<option value="AlertsDiv">System Alerts</option>
+				</select>
+			</div>
 			<nav class="subnav" id="nav-subheader">
 				<div class="container-fluid">
-					<ul class="nav navbar-nav">
-						<div class="navbar-header active">
-							<p style="color: lightskyblue; padding-top: 17px"
-								class="glyphicon glyphicon-user" th:if="${param.user} != null"
-								th:text="${param.user[0]}">User</p>
+					<div class="snav-inner">
+						<div class="snav-left">
+							<span class="subnav-user" th:if="${param.user} != null">
+								<span class="glyphicon glyphicon-user" style="margin-right:6px"></span><span th:text="${param.user[0]}">User</span>
+							</span>
 						</div>
-						<!-- <security:authorize access="hasRole('SUPER_ROLE')"> -->
-		<!-- 					<li>
-								<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
-									<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DashboardDiv">Dashboard</option>
+						<div class="snav-actions">
+							<div class="snav-dd" id="snavRegister">
+								<button class="snav-btn" onclick="snavToggle(event,'snavRegister')">
+									<span class="glyphicon glyphicon-pencil"></span>
+									<span>Register</span>
+									<span class="snav-caret">&#9660;</span>
+								</button>
+								<ul class="snav-menu">
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','OwnerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Owners</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SchoolDiv','snavRegister')"><span class="glyphicon glyphicon-home"></span> Campus</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','VehicleDiv','snavRegister')"><span class="glyphicon glyphicon-road"></span> Vehicles</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradeDiv','snavRegister')"><span class="glyphicon glyphicon-th-large"></span> Classes</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> Employee</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> Subjects</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> Manage Discounts/Charges</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GuardianDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Guardians</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StudentDiv','snavRegister')"><span class="glyphicon glyphicon-education"></span> Manage Students</a></li>
+								</ul>
+							</div>
+							<div class="snav-dd" id="snavFee">
+								<button class="snav-btn" onclick="snavToggle(event,'snavFee')">
+									<span class="glyphicon glyphicon-usd"></span>
+									<span>Fee</span>
+									<span class="snav-caret">&#9660;</span>
+								</button>
+								<ul class="snav-menu">
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FcDiv','snavFee')"><span class="glyphicon glyphicon-plus-sign"></span> Fee Collection</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FVDiv','snavFee')"><span class="glyphicon glyphicon-list-alt"></span> Fee Voucher/Ledger</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','FEE_REPORT','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FRDiv','snavFee')"><span class="glyphicon glyphicon-stats"></span> Fee Report</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FeeSettingDiv','snavFee')"><span class="glyphicon glyphicon-cog"></span> Fee Settings</a></li>
+								</ul>
+							</div>
+							<div class="snav-dd" id="snavReport">
+								<button class="snav-btn" onclick="snavToggle(event,'snavReport')">
+									<span class="glyphicon glyphicon-stats"></span>
+									<span>Reports</span>
+									<span class="snav-caret">&#9660;</span>
+								</button>
+								<ul class="snav-menu">
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','FEE_REPORT','SUPER_PRIVILEGE')"><a onclick="snavGo('reportType','FRDiv','snavReport')"><span class="glyphicon glyphicon-file"></span> Fee Report</a></li>
+								</ul>
+							</div>
+							<div class="snav-dd" id="snavAttendance">
+								<button class="snav-btn" onclick="snavToggle(event,'snavAttendance')">
+									<span class="glyphicon glyphicon-check"></span>
+									<span>Attendance</span>
+									<span class="snav-caret">&#9660;</span>
+								</button>
+								<ul class="snav-menu">
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','MANAGE_ATTENDANCE','SUPER_PRIVILEGE')"><a onclick="snavGo('attendanceType','ADiv','snavAttendance')"><span class="glyphicon glyphicon-ok"></span> Attendance</a></li>
+								</ul>
+							</div>
+							<div class="snav-dd" id="snavAlerts">
+								<button class="snav-btn" onclick="snavToggle(event,'snavAlerts')">
+									<span class="glyphicon glyphicon-bell"></span>
+									<span>Alerts</span>
+									<span class="snav-caret">&#9660;</span>
+								</button>
+								<ul class="snav-menu">
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','PUBLIC_ALERTS','SUPER_PRIVILEGE')"><a onclick="snavGo('communicationType','PADiv','snavAlerts')"><span class="glyphicon glyphicon-bullhorn"></span> Public Alerts</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SYSTEM_ALERTS','SUPER_PRIVILEGE')"><a onclick="snavGo('communicationType','AlertsDiv','snavAlerts')"><span class="glyphicon glyphicon-envelope"></span> System Alerts</a></li>
+								</ul>
+							</div>
+							<!-- Active-organization (tenant) switcher. Populated from /getMyOrganizations;
+							     changing it re-issues the session JWT scoped to the chosen org. -->
+							<span id="orgSwitcherLi" class="snav-org">
+								<select name="orgSwitcher" id="orgSwitcher" title="Active organization"
+									class="snav-org-select"
+									style="height:32px;border-radius:6px;border:none;padding:0 8px;margin-left:8px;">
+									<option value="">Organization…</option>
 								</select>
-							</li>
-		 -->					<li>
-								<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
-									<option class="dropdown-item" value="">Manage Registrations</option>
-									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="OwnerDiv">Owners</option>
-									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="SchoolDiv">Campus</option>
-									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="VehicleDiv">Vehicles</option>
-									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="GradeDiv">Classes</option>
-									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="StaffDiv">Employee</option>
-				 					<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="SubjectDiv">Subjects</option>
-			<!-- 
-									<option class="dropdown-item" value="NewDiscountDiv">Discounts</option>
-									<option class="dropdown-item" value="NewChargesDiv">Charges</option>
-			 -->
-									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="DiscountDiv">Manage Discounts/Charges</option>
-									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="GuardianDiv">Guardians</option>						
-									<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="StudentDiv">Manage Students</option>
-								</select>
-							</li>
-						<!-- </security:authorize> -->
-						<li>
-							<select name="feeType" id="feeType" class="dropdown show panel-heading">
-								<option class="dropdown-item" value="">Manage Fee</option>
-								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="FcDiv">Fee Collection</option>
-								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" class="dropdown-item" value="FVDiv">Fee Voucher/Ledger</option>
-		<!-- 						<option class="dropdown-item" value="">Salary Distribution</option>
-								<option class="dropdown-item" value="">Miscellaneous</option>
-		 -->					</select>
-						</li>
-						<li>
-							<select name="reportType" id="reportType" class="dropdown show panel-heading">
-								<option class="dropdown-item" value="">View Reports</option>
-								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','FEE_REPORT','SUPER_PRIVILEGE')" class="dropdown-item" value="FRDiv">Fee Report</option>
-							</select>
-						</li>
-						<li>
-							<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading">
-								<option class="dropdown-item" value="">Manage Attendance</option>
-								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','MANAGE_ATTENDANCE','SUPER_PRIVILEGE')" class="dropdown-item" value="ADiv">Attendance</option>
-							</select>
-						</li>
-						<li>
-							<select name="communicationType" id="communicationType" class="dropdown show panel-heading">
-								<option class="dropdown-item" value="">Manage Alerts</option>
-								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','PUBLIC_ALERTS','SUPER_PRIVILEGE')" class="dropdown-item" value="PADiv">Public Alerts</option>
-								<option sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SYSTEM_ALERTS','SUPER_PRIVILEGE')" class="dropdown-item" value="AlertsDiv">System Alerts</option>
-							</select>
-						</li>
-					</ul>					
+							</span>
+						</div>
+					</div>
 				</div>
 			</nav>
 			<div>
@@ -672,6 +727,22 @@
 			</div>		
 			<div id="StudentDiv" class="formDiv">
 				<h4 th:text="#{label.student.form.heading}">Student Registration</h4>
+				<br />
+				<!-- Bulk CSV import (slice 15): download a template, upload a filled CSV, see a summary. -->
+				<div class="panel panel-default" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+					<div class="panel-heading"><b>Import Students (CSV)</b></div>
+					<div class="panel-body form-inline">
+						<button type="button" class="btn btn-link" onclick="downloadStudentTemplate()">
+							<span class="glyphicon glyphicon-download-alt"></span> Download template
+						</button>
+						<input type="file" id="impStudentsFile" accept=".csv" class="form-control" style="display:inline-block;width:auto;margin:0 8px"/>
+						<button type="button" class="btn btn-primary" onclick="importStudents()">
+							<span class="glyphicon glyphicon-upload"></span> Import
+						</button>
+						<span class="text-muted" style="margin-left:8px">Columns: enrollNo, name, gradeName, gender, guardianName, mobile, status</span>
+						<div id="impStudentsSummary" style="margin-top:12px"></div>
+					</div>
+				</div>
 				<br />
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Student" autocomplete="off">
@@ -1622,9 +1693,27 @@
 				</div>
 			</div>		
 			<div id="FVDiv" class="formDiv">
-				<h3>Fee Vouchers</h3>
+				<h4>Fee Voucher &amp; Ledger</h4>
+				<br/>
+				<div class="form-inline" style="margin-bottom:14px">
+					<div class="form-group">
+						<label class="control-label" for="fvEnroll">Student (enroll no)</label>
+						<input type="text" class="form-control" id="fvEnroll" placeholder="e.g. ENR-001" style="margin:0 8px"/>
+					</div>
+					<button type="button" class="btn btn-primary" onclick="loadFV()"><span class="glyphicon glyphicon-list-alt"></span> Generate Voucher</button>
+					<button type="button" class="btn btn-default" onclick="loadFL()"><span class="glyphicon glyphicon-th-list"></span> Show Ledger</button>
+				</div>
+				<div id="fvVoucher" style="display:none;margin-bottom:18px"></div>
+				<div id="flLedgerWrap" style="display:none">
+					<h5 id="flHeader"></h5>
+					<table class="table table-striped">
+						<thead><tr><th>Date</th><th>Fee</th><th>Discount</th><th>Other</th><th>Due</th><th>Paid</th><th>Balance</th><th>Payee</th><th>Received By</th><th>Mode</th></tr></thead>
+						<tbody id="flBody"></tbody>
+					</table>
+				</div>
+				<!-- legacy voucher form retained (hidden) to avoid disturbing other logic -->
 				<form action="/" method="POST" class="form-horizontal" role="form"
-					enctype="utf8" id="FV" autocomplete="off">
+					enctype="utf8" id="FV" autocomplete="off" style="display:none">
 	 				<div class="form-group" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
 						<label class="control-label col-sm-2 req"  for="fvp">Period</label>
 						<div class="col-sm-2">
@@ -1750,45 +1839,77 @@
 			</div>		
 	
 			<div id="ADiv" class="formDiv">
-				<h4>Manage Attendance</h4>
+				<h4>Attendance</h4>
 				<br />
-	 			<form action="/" method="POST" class="form-horizontal" role="form"
-					enctype="utf8" id="A" autocomplete="off">
-					<div class="form-group" style="display: none">				
-						<div class="col-sm-6">
-							<input type="text" class="form-control" id="aId" name="id"> 
-						</div>
-						<div class="col-sm-6">
-						</div>
-					</div>				
-					<div>
-						<label class="control-label col-sm-4"  for="cn">Scan Id card with device and make sure, Cursor is in the input field</label>
-						<div class="col-sm-8">
-							<input type="text" class="form-control" id="aen" name="en" oninput="ma(this.value)"
-								placeholder=" place cursor and scan student card " autofocus required="required"/> 
-						</div>
+				<!-- Class-roster marking: pick a class + date, load the roster, mark, and save in one go. -->
+				<div class="form-inline" style="margin-bottom:16px">
+					<div class="form-group">
+						<label class="control-label" for="aGradeDD">Class</label>
+						<select class="form-control" id="aGradeDD" name="gradeId" style="margin:0 10px"></select>
 					</div>
-				</form>			
-				<div>
-					<table id="tableA" class="table table-striped">
+					<div class="form-group">
+						<label class="control-label" for="aDate">Date</label>
+						<input type="date" class="form-control" id="aDate" style="margin:0 10px"/>
+					</div>
+					<button type="button" class="btn btn-primary" onclick="loadClassRoster()">Load Roster</button>
+				</div>
+				<div id="aRosterWrap" style="display:none">
+					<div style="margin-bottom:10px;overflow:hidden">
+						<button type="button" class="btn btn-default btn-sm" onclick="aMarkAll('Present')">Mark all Present</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="aMarkAll('Absent')">Mark all Absent</button>
+						<button type="button" class="btn btn-success" style="float:right" onclick="saveAttendance()">Save Attendance</button>
+					</div>
+					<table class="table table-striped" id="aRosterTable">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="aId">Id</th>
-								<th class="col-sm-1" data-field="aen">Enroll No</th>
-								<th class="col-sm-1" data-field="asn">Student Name</th>
-								<th class="col-sm-1" data-field="agn">Class</th>
-								<th class="col-sm-1" data-field="adt">Date time</th>
+								<th>Enroll No</th><th>Student</th><th>Status</th>
+								<th>Time In</th><th>Time Out</th><th>Remark</th>
 							</tr>
 						</thead>
+						<tbody id="aRosterBody"></tbody>
 					</table>
 				</div>
-			</div>		
+				<div id="aRosterEmpty" class="text-muted" style="display:none">No students found for this class.</div>
+			</div>
 	
 			<div id="FRDiv" class="formDiv">
-				<h4>Fee reports</h4>
-				<br />
+				<h4>Fee Report</h4>
+				<br/>
+				<div class="form-inline" style="margin-bottom:14px">
+					<div class="form-group">
+						<label class="control-label" for="frScope">Scope</label>
+						<select class="form-control" id="frScope" style="margin:0 8px">
+							<option value="ALL" selected="selected">All</option>
+							<option value="STUDENT">Student (enroll no)</option>
+							<option value="GUARDIAN">Guardian (id)</option>
+							<option value="CLASS">Class (id)</option>
+							<option value="CAMPUS">Campus (id)</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label class="control-label" for="frId">Id</label>
+						<input type="text" class="form-control" id="frId" placeholder="(when not All)" style="margin:0 8px"/>
+					</div>
+					<div class="form-group">
+						<label class="control-label" for="frFrom">From</label>
+						<input type="date" class="form-control" id="frFrom" style="margin:0 8px"/>
+						<label class="control-label" for="frTo">To</label>
+						<input type="date" class="form-control" id="frTo" style="margin:0 8px"/>
+					</div>
+					<button type="button" class="btn btn-primary" onclick="loadFR()"><span class="glyphicon glyphicon-sunglasses"></span> View</button>
+				</div>
+				<table id="frTable" class="table table-striped">
+					<thead><tr>
+						<th>Enroll No</th><th>Student</th><th>Class</th><th>Campus</th><th>Date</th>
+						<th>Payee</th><th>Received By</th><th>Fee</th><th>Discount</th><th>Other</th>
+						<th>Due</th><th>Paid</th><th>Balance</th>
+					</tr></thead>
+					<tbody id="frBody"></tbody>
+					<tfoot><tr id="frTotals"></tr></tfoot>
+				</table>
+				<!-- legacy report form retained (hidden) to avoid disturbing other logic -->
 				<form action="/" method="POST" class="form-horizontal" role="form"
-					enctype="utf8" id="FR" autocomplete="off">
+					enctype="utf8" id="FR" autocomplete="off" style="display:none">
 					<div class="form-group">
 						<label class="control-label col-sm-2 req"  for="frb">Fee By</label>
 						<div class="col-sm-4">
@@ -1887,11 +2008,44 @@
 					</div>
 				</form>
 			</div>		
+			<div id="FeeSettingDiv" class="formDiv">
+				<h4>Fee Settings</h4>
+				<p class="text-muted">Controls how dues are registered at student registration and how guardians pay. Applies to this organization and can be changed anytime.</p>
+				<div class="form-horizontal" style="max-width:560px">
+					<div class="form-group">
+						<label class="control-label col-sm-5" for="fsPaymentMode">Payment mode</label>
+						<div class="col-sm-6">
+							<select class="form-control" id="fsPaymentMode">
+								<option value="BOTH">Both (guardian voucher or independent)</option>
+								<option value="GUARDIAN_VOUCHER">Guardian voucher (consolidated)</option>
+								<option value="INDEPENDENT">Independent (per student)</option>
+							</select>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-5" for="fsAutoRegister">Auto-register dues at registration</label>
+						<div class="col-sm-6"><input type="checkbox" id="fsAutoRegister"/></div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-5" for="fsAging">Multi-month aging</label>
+						<div class="col-sm-6"><input type="checkbox" id="fsAging"/></div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-5" for="fsDueDay">Due day of month</label>
+						<div class="col-sm-6"><input type="number" min="1" max="28" class="form-control" id="fsDueDay"/></div>
+					</div>
+					<div class="form-group">
+						<div class="col-sm-offset-5 col-sm-6">
+							<button type="button" class="btn btn-success" onclick="saveFeeSetting()"><span class="glyphicon glyphicon-floppy-disk"></span> Save Settings</button>
+						</div>
+					</div>
+				</div>
+			</div>
 			<form th:action="@{/impStudents}" method="post" enctype="multipart/form-data" style="display: none">
 			    <input type="file" th:name="file">
-			
-				<input th:type="submit" value="Import" />  
-			</form> 		    
+
+				<input th:type="submit" value="Import" />
+			</form>
 		</div>
 	    <th:block th:replace="~{fragments/header :: header-js}"></th:block>		
  	</div>
@@ -1905,5 +2059,26 @@ var serverContext = [[@{/}]];
 	<script type="text/javascript" th:src="@{/js/education/education.js}"></script>
 	<script type="text/javascript" th:src="@{/js/education/educationDashboard.js}"></script>
 	<script type="text/javascript" th:src="@{/js/date.js}"></script>
+	<script type="text/javascript">
+		// Subnav button-dropdown behaviour — same pattern as businessDashboard for a consistent look.
+		function snavToggle(e, id) {
+			e.stopPropagation();
+			var d = document.getElementById(id);
+			var was = d.classList.contains('snav-open');
+			document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });
+			if (!was) d.classList.add('snav-open');
+		}
+		function snavGo(sel, val, ddId) {
+			document.querySelectorAll('.snav-btn').forEach(function(el) { el.classList.remove('snav-active'); });
+			var btn = document.querySelector('#' + ddId + ' > .snav-btn');
+			if (btn) btn.classList.add('snav-active');
+			$('#' + sel).val(val).trigger('change');
+			document.getElementById(ddId).classList.remove('snav-open');
+		}
+		document.addEventListener('click', function(e) {
+			if (!e.target.closest('.snav-dd'))
+				document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });
+		});
+	</script>
 </body>
 </html>

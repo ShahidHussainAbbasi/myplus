@@ -5,8 +5,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.web.util.EducationRestClient;
@@ -55,5 +57,22 @@ public class AttendaceController {
     @ResponseBody
     public ResponseEntity<String> deleteA(HttpServletRequest request) {
         return educationClient.post("/deleteA", request, requestUtil.getCurrentUser().getId());
+    }
+
+    // ---- Slice 13: class-roster marking ----
+
+    @RequestMapping(value = "/getClassRoster", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<String> getClassRoster(@RequestParam(value = "gradeId", required = false) String gradeId,
+                                                 @RequestParam(value = "dateStr", required = false) String dateStr) {
+        String path = "/getClassRoster?gradeId=" + (gradeId == null ? "" : gradeId)
+                + "&dateStr=" + (dateStr == null ? "" : dateStr);
+        return educationClient.get(path, requestUtil.getCurrentUser().getId());
+    }
+
+    @RequestMapping(value = "/markAttendanceBulk", method = RequestMethod.POST)
+    @ResponseBody
+    public ResponseEntity<String> markAttendanceBulk(@RequestBody String body) {
+        return educationClient.postJson("/markAttendanceBulk", body);
     }
 }

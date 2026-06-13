@@ -53,6 +53,12 @@ public class EducationRestClient {
                 MediaType.APPLICATION_FORM_URLENCODED);
     }
 
+    /** Forward a raw JSON body (e.g. bulk attendance) to the gateway as application/json. */
+    public ResponseEntity<String> postJson(String path, String jsonBody) {
+        return gateway.forStringEntity(PREFIX, directBaseUrl, path, HttpMethod.POST, jsonBody,
+                MediaType.APPLICATION_JSON);
+    }
+
     public ResponseEntity<String> postMultipart(String path, MultipartFile file, HttpServletRequest request, Long userId)
             throws IOException {
         ByteArrayResource fileResource = new ByteArrayResource(file.getBytes()) {

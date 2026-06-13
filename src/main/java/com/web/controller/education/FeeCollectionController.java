@@ -34,22 +34,38 @@ public class FeeCollectionController {
         return educationClient.get("/findFc?input=" + request.getParameter("input"), requestUtil.getCurrentUser().getId());
     }
 
-    @RequestMapping(value = "/loadFV", method = RequestMethod.POST)
+    @RequestMapping(value = "/loadFV", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<String> loadFV(HttpServletRequest request) {
-        return educationClient.post("/loadFV", request, requestUtil.getCurrentUser().getId());
+        String en = request.getParameter("enrollNo");
+        String gid = request.getParameter("guardianId");
+        String path = "/loadFV?enrollNo=" + (en == null ? "" : en) + "&guardianId=" + (gid == null ? "" : gid);
+        return educationClient.get(path, requestUtil.getCurrentUser().getId());
     }
 
-    @RequestMapping(value = "/loadFL", method = RequestMethod.POST)
+    @RequestMapping(value = "/loadFL", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<String> loadFL(HttpServletRequest request) {
-        return educationClient.post("/loadFL", request, requestUtil.getCurrentUser().getId());
+        String en = request.getParameter("enrollNo");
+        return educationClient.get("/loadFL?enrollNo=" + (en == null ? "" : en), requestUtil.getCurrentUser().getId());
     }
 
     @RequestMapping(value = "/loadFR", method = RequestMethod.POST)
     @ResponseBody
     public ResponseEntity<String> loadFR(HttpServletRequest request) {
         return educationClient.post("/loadFR", request, requestUtil.getCurrentUser().getId());
+    }
+
+    @RequestMapping(value = "/getFeeSetting", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<String> getFeeSetting() {
+        return educationClient.get("/getFeeSetting", requestUtil.getCurrentUser().getId());
+    }
+
+    @RequestMapping(value = "/saveFeeSetting", method = RequestMethod.POST)
+    @ResponseBody
+    public ResponseEntity<String> saveFeeSetting(HttpServletRequest request) {
+        return educationClient.post("/saveFeeSetting", request, requestUtil.getCurrentUser().getId());
     }
 
     @RequestMapping(value = "/getAllFc", method = RequestMethod.GET)
