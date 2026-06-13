@@ -74,17 +74,13 @@ describe('Subnav — Sale Menu', () => {
   })
 })
 
-describe('Subnav — Dashboard Home Button', () => {
-  it('clicking Dashboard button shows DashboardDiv', () => {
+describe('Subnav — Dashboard Home View', () => {
+  it('DashboardDiv is the default home view on load', () => {
+    // The subnav home button (.snav-home-btn / snavHome()) was intentionally removed;
+    // DashboardDiv is now the default section shown when the dashboard loads.
     cy.loginAsBusiness()
     cy.visit('/businessDashboard')
-    cy.get('#registrationType').select('CompanyDiv', { force: true })
-    cy.get('#CompanyDiv').should('be.visible')
-
-    // Dashboard home button (glyphicon-dashboard closest a)
-    cy.get('.snav-home-btn').click()
     cy.get('#DashboardDiv').should('be.visible')
-    cy.get('#CompanyDiv').should('not.be.visible')
   })
 })
 

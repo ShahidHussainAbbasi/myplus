@@ -58,8 +58,11 @@ describe('Error Pages', () => {
   })
 
   it('should handle bad user page without crashing', () => {
-    cy.visit('/badUser', { failOnStatusCode: false })
-    cy.get('body').should('be.visible')
+    // Unknown routes resolve to a Spring Boot 3 ProblemDetail (application/problem+json),
+    // which cy.visit() rejects because it requires text/html. The intent here is "the server
+    // does not crash", so assert via cy.request that we get a client 4xx (not a 5xx).
+    cy.request({ url: '/badUser', failOnStatusCode: false })
+      .its('status').should('be.gte', 400).and('be.lt', 500)
   })
 
   it('should redirect /educationDashboard to login when not authenticated', () => {
