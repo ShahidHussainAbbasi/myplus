@@ -33,6 +33,7 @@ $catalog = [ordered]@{
     'marketplace-service' = 8088
     'campaign-service'    = 8089
     'analytics-service'   = 8090
+    'appointment-service' = 8091
 }
 $order = @($catalog.Keys)
 

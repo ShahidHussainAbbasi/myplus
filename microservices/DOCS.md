@@ -50,7 +50,7 @@ Browser / Client
 
 | Software | Version | Notes |
 |----------|---------|-------|
-| JDK | 25.x | Set `JAVA_HOME=C:\Program Files\Java\jdk-25.0.3` |
+| JDK | 25.x | Set `JAVA_HOME=C:\Program Files\Java\jdk-21.0.10` |
 | Maven | 3.9+ | Bundled `mvnw` can also be used |
 | MySQL | 8.x | Must be running before starting services |
 
@@ -171,7 +171,7 @@ Override any default with these environment variables before running:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `JAVA_HOME` | `C:\Program Files\Java\jdk-25.0.3` | JDK path |
+| `JAVA_HOME` | `C:\Program Files\Java\jdk-21.0.10` | JDK path |
 | `DB_HOST` | `localhost` | MySQL host |
 | `DB_PORT` | `3306` | MySQL port |
 | `DB_USER` | `root` | MySQL user |
@@ -198,7 +198,7 @@ mvn package -DskipTests -pl config-server
 ### Environment Setup
 
 ```powershell
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-25.0.3"
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-21.0.10"
 $env:PATH = "$env:JAVA_HOME\bin;" + $env:PATH
 java -version   # should print: java version "25.0.3"
 ```
@@ -285,7 +285,7 @@ Get-WmiObject Win32_Process -Filter "Name = 'java.exe'" |
 # Replace "education-service" with the service you want to start
 $svc = "education-service"
 $ROOT = "C:\Users\HP\Shahid\software\myplus\microservices"
-$JAVA = "C:\Program Files\Java\jdk-25.0.3\bin\java.exe"
+$JAVA = "C:\Program Files\Java\jdk-21.0.10\bin\java.exe"
 $jar  = "$ROOT\$svc\target\$svc-1.0.0-SNAPSHOT.jar"
 $log  = "$ROOT\logs\$svc.log"
 
@@ -304,7 +304,7 @@ Write-Host "Started $svc — tail log: $log"
 # Set the service name once
 $svc  = "education-service"
 $ROOT = "C:\Users\HP\Shahid\software\myplus\microservices"
-$JAVA = "C:\Program Files\Java\jdk-25.0.3\bin\java.exe"
+$JAVA = "C:\Program Files\Java\jdk-21.0.10\bin\java.exe"
 $jar  = "$ROOT\$svc\target\$svc-1.0.0-SNAPSHOT.jar"
 $log  = "$ROOT\logs\$svc.log"
 
@@ -333,7 +333,7 @@ Write-Host "Started $svc — tail log: $log"
 
 ```powershell
 $ROOT = "C:\Users\HP\Shahid\software\myplus"
-$JAVA = "C:\Program Files\Java\jdk-25.0.3\bin\java.exe"
+$JAVA = "C:\Program Files\Java\jdk-21.0.10\bin\java.exe"
 
 # Stop
 Get-WmiObject Win32_Process -Filter "Name = 'java.exe'" |
@@ -836,7 +836,7 @@ mvn package -DskipTests -pl config-server
 # 3. Restart config-server
 $svc  = "config-server"
 $ROOT = "C:\Users\HP\Shahid\software\myplus\microservices"
-$JAVA = "C:\Program Files\Java\jdk-25.0.3\bin\java.exe"
+$JAVA = "C:\Program Files\Java\jdk-21.0.10\bin\java.exe"
 $jar  = "$ROOT\$svc\target\$svc-1.0.0-SNAPSHOT.jar"
 $log  = "$ROOT\logs\$svc.log"
 Get-WmiObject Win32_Process -Filter "Name = 'java.exe'" |
@@ -866,7 +866,7 @@ Login → accessToken (15 min) + refreshToken (7 days)
 ### Build All JARs for Production
 
 ```powershell
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-25.0.3"
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-21.0.10"
 $env:PATH = "$env:JAVA_HOME\bin;" + $env:PATH
 cd C:\Users\HP\Shahid\software\myplus\microservices
 mvn clean package -DskipTests
@@ -919,7 +919,7 @@ DB_PORT=3306
 DB_USER=your-db-user
 DB_PASSWORD=your-db-password
 JWT_SECRET=<strong-base64-encoded-256-bit-key>
-MAIL_USER=maxtheservice@gmail.com
+MAIL_USER=your-gmail-address@gmail.com
 MAIL_PASSWORD=your-gmail-app-password
 APP_BASE_URL=https://your-domain.com
 EUREKA_URI=http://your-eureka-host:8761/eureka

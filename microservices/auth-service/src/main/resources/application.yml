@@ -20,6 +20,7 @@ spring:
   # Flyway: baseline the existing (ddl-auto-created) schema at V1 and skip it; a fresh DB runs
   # V1__baseline.sql. Local copy so it applies without a config-server rebuild.
   flyway:
+    enabled: true
     baseline-on-migrate: true
     baseline-version: 1
 

@@ -6,7 +6,7 @@
 #   .\start-all.ps1 auth-service,business-service   # start a list
 #   .\start-all.ps1 auth-service business-service   # space-separated also works
 #   .\start-all.ps1                             # no arg -> prompts for a list
-#   .\start-all.ps1 all -JavaHome "C:\Program Files\Java\jdk-25.0.3"
+#   .\start-all.ps1 all -JavaHome "C:\Program Files\Java\jdk-21.0.10"
 #
 # Logs written to: logs\<service>.log  (created automatically)
 # To stop services: .\stop-all.ps1
@@ -14,18 +14,20 @@
 param(
     [Parameter(Position = 0)]
     [string[]]$Services,
-    [string]$JavaHome = "C:\Program Files\Java\jdk-25.0.3"
+    [string]$JavaHome = "C:\Program Files\Java\jdk-21.0.10"
 )
 
 $ROOT = $PSScriptRoot
 $JAVA = Join-Path $JavaHome "bin\java.exe"
 $LOGS = Join-Path $ROOT "logs"
 
-# --- Load local secrets (DB creds, etc.) from .env.local if present ---
-# .env.local is git-ignored; it keeps real passwords out of tracked config.
-# Service application.yml files read ${DB_USER}/${DB_PASSWORD}; the java.exe
-# child processes inherit whatever we set on Env: here.
-$envFile = Join-Path $ROOT ".env.local"
+# --- Load local secrets (DB creds, etc.) from the env file if present ---
+# Canonical file is `.env` (also the one docker-compose auto-reads); `.env.local`
+# is kept as a fallback for backward compat. Both are git-ignored, keeping real
+# passwords out of tracked config. Service application.yml files read
+# ${DB_USER}/${DB_PASSWORD}; the java.exe child processes inherit what we set on Env:.
+$envFile = Join-Path $ROOT ".env"
+if (-not (Test-Path $envFile)) { $envFile = Join-Path $ROOT ".env.local" }
 if (Test-Path $envFile) {
     foreach ($raw in (Get-Content $envFile)) {
         $line = $raw.Trim()
@@ -37,7 +39,7 @@ if (Test-Path $envFile) {
             Set-Item -Path "Env:$key" -Value $val
         }
     }
-    Write-Host "  Loaded secrets from .env.local" -ForegroundColor DarkGray
+    Write-Host ("  Loaded secrets from {0}" -f (Split-Path $envFile -Leaf)) -ForegroundColor DarkGray
 }
 
 # Canonical start order: infra first (eureka, config), then gateway, then the services.
@@ -55,6 +57,7 @@ $catalog = [ordered]@{
     'marketplace-service' = 8088
     'campaign-service'    = 8089
     'analytics-service'   = 8090
+    'appointment-service' = 8091
 }
 $order = @($catalog.Keys)
 
@@ -102,11 +105,11 @@ $needsDb = $selected | Where-Object { $_ -notin @('eureka-server','config-server
 # Without this the service silently falls back to the 'changeme' placeholder in
 # application.yml and dies with "Access denied for user 'root'@'localhost'".
 if ($needsDb -and -not $env:DB_PASSWORD) {
-    Write-Host "ERROR: DB_PASSWORD is not set (and .env.local did not provide it)." -ForegroundColor Red
+    Write-Host "ERROR: DB_PASSWORD is not set (and .env / .env.local did not provide it)." -ForegroundColor Red
     Write-Host "       DB-backed services would fall back to the 'changeme' placeholder and fail." -ForegroundColor Yellow
-    Write-Host "       Create microservices\.env.local with:" -ForegroundColor Yellow
+    Write-Host "       Create microservices\.env (copy from .env.example) with:" -ForegroundColor Yellow
     Write-Host "         DB_USER=root" -ForegroundColor Yellow
-    Write-Host "         DB_PASSWORD=<your-mysql-password>" -ForegroundColor Yellow
+    Write-Host "         DB_PASSWORD=<your-mysql-root-password>" -ForegroundColor Yellow
     Write-Host "       (the file is git-ignored), or set `$env:DB_PASSWORD before running." -ForegroundColor Yellow
     exit 1
 }
