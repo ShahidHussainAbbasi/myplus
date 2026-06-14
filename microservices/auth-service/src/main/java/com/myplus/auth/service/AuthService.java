@@ -79,6 +79,11 @@ public class AuthService {
                 .build();
         user = userRepository.save(user);
 
+        // Provision the tenant atomically with the user (slice 32): one transaction yields user +
+        // organization + OWNER membership. A self-signup org starts on a time-boxed TRIAL.
+        Organization org = organizationService.createTenant(
+                user, request.getOrganizationName(), userType, "TRIAL");
+
         VerificationToken vt = VerificationToken.builder()
                 .user(user)
                 .token(UUID.randomUUID().toString())
@@ -88,11 +93,66 @@ public class AuthService {
         emailService.sendVerificationEmail(user.getEmail(), vt.getToken());
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        Map<String, Object> claims = buildClaims(user);
+        Map<String, Object> claims = buildClaims(user, org);
         String accessToken = jwtService.generateAccessToken(userDetails, claims);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
 
         return buildAuthResponse(user, accessToken, refreshToken.getToken());
+    }
+
+    /**
+     * Operator-only: create a client tenant (owner user + organization) without a redeploy — the
+     * replacement for seeding customers in SetupDataLoader. No known password is ever issued; the owner
+     * sets their own via the password-reset email. Authorized at the controller (SUPER/ADMIN).
+     */
+    @Transactional
+    public Map<String, Object> provisionTenant(ProvisionTenantRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new DuplicateResourceException("Email already registered");
+        }
+        String username = request.getEmail().split("@")[0] + "_" + System.currentTimeMillis() % 10000;
+        if (userRepository.existsByUsername(username)) {
+            username = username + "_" + UUID.randomUUID().toString().substring(0, 4);
+        }
+
+        String userType = request.getUserType() != null ? request.getUserType().toUpperCase() : "BUSINESS";
+        String roleName = "ROLE_" + userType + "_USER";
+        Role defaultRole = roleRepository.findByName(roleName)
+                .orElseGet(() -> roleRepository.findByName("ROLE_BUSINESS_USER")
+                        .orElseThrow(() -> new ResourceNotFoundException("Default role not found")));
+        Set<Role> roles = new HashSet<>();
+        roles.add(defaultRole);
+
+        String plan = (request.getPlan() == null || request.getPlan().isBlank())
+                ? "PRO" : request.getPlan().toUpperCase();
+
+        User user = User.builder()
+                .username(username)
+                .email(request.getEmail())
+                // Throwaway secret — the owner sets a real password via the reset email below.
+                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .phone(request.getPhone())
+                .userType(userType)
+                .enabled(true)
+                .accountNonLocked(true)
+                .twoFactorEnabled(false)
+                .roles(roles)
+                .build();
+        user = userRepository.save(user);
+
+        Organization org = organizationService.createTenant(user, request.getOrganizationName(), userType, plan);
+        // Owner sets their own password via the reset link (no operator-known credential).
+        sendPasswordResetEmail(user.getEmail());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("userId", user.getId());
+        result.put("email", user.getEmail());
+        result.put("organizationId", org.getId());
+        result.put("organizationName", org.getName());
+        result.put("plan", org.getPlan());
+        return result;
     }
 
     @Transactional
@@ -117,6 +177,12 @@ public class AuthService {
             }
             userRepository.save(user);
             throw new ValidationException("Invalid credentials");
+        }
+
+        // Email-verification gate (slice 32): a registered-but-unverified account cannot log in. Checked
+        // after the password match so we never reveal account/verification state without the credential.
+        if (!user.isEnabled()) {
+            throw new ValidationException("Account not verified. Please check your email to verify your account.");
         }
 
         if (user.isTwoFactorEnabled()) {
@@ -240,11 +306,16 @@ public class AuthService {
 
     private Map<String, Object> buildClaims(User user) {
         // Default active tenant: the user's primary org ("tenant #1"), auto-created on first login so
-        // domain data has a home once domains move from userId- to org-scoping.
-        return buildClaims(user, organizationService.getOrCreatePrimaryOrg(user).getId());
+        // domain data has a home (legacy safety net — new signups create the tenant at registration).
+        return buildClaims(user, organizationService.getOrCreatePrimaryOrg(user));
     }
 
+    /** Overload used by {@link #switchOrganization}: resolve the org by id, then build claims. */
     private Map<String, Object> buildClaims(User user, Long activeOrgId) {
+        return buildClaims(user, organizationService.findById(activeOrgId));
+    }
+
+    private Map<String, Object> buildClaims(User user, Organization activeOrg) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("email", user.getEmail());
@@ -253,7 +324,18 @@ public class AuthService {
         // @PreAuthorize / sec:authorize checks) can rebuild their authority set from the token.
         claims.put("privileges", new ArrayList<>(CustomUserDetailsService.getPrivilegeNames(user.getRoles())));
         // Active tenant the request is scoped to. The gateway copies this into X-Org-Id.
-        claims.put("activeOrgId", activeOrgId);
+        claims.put("activeOrgId", activeOrg != null ? activeOrg.getId() : null);
+        // Tenant entitlement (slice 32): the plan is the source of truth for limits; trialEndsAt time-boxes
+        // a TRIAL. The gateway will move from the demo boolean to these without a breaking change.
+        if (activeOrg != null) {
+            claims.put("plan", activeOrg.getPlan());
+            if (activeOrg.getTrialEndsAt() != null) {
+                claims.put("trialEndsAt", activeOrg.getTrialEndsAt().toString());
+            }
+            if (activeOrg.getEntryCap() != null) {
+                claims.put("entryCap", activeOrg.getEntryCap());
+            }
+        }
         // Free-trial demo account: the gateway caps writes (50/module) and the UI shows the upsell.
         claims.put("demo", user.isDemo());
         return claims;

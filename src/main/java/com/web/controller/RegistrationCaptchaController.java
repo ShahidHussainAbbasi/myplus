@@ -41,7 +41,7 @@ public class RegistrationCaptchaController {
         LOGGER.debug("Registering user account: {}", accountDto.getEmail());
         try {
             authServerClient.register(accountDto.getFirstName(), accountDto.getLastName(),
-                    accountDto.getEmail(), accountDto.getPassword(), null, null);
+                    accountDto.getEmail(), accountDto.getPassword(), null, null, accountDto.getOrganizationName());
         } catch (HttpStatusCodeException ex) {
             throw new UserAlreadyExistException("Registration failed");
         }

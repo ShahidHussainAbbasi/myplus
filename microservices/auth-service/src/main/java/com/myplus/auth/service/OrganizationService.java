@@ -6,9 +6,11 @@ import com.myplus.auth.entity.User;
 import com.myplus.auth.repository.MembershipRepository;
 import com.myplus.auth.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +26,42 @@ public class OrganizationService {
 
     private final OrganizationRepository organizationRepository;
     private final MembershipRepository membershipRepository;
+
+    @Value("${app.trial-days:14}")
+    private int trialDays;
+
+    /**
+     * Create a new tenant for {@code owner} with an OWNER membership, applying the plan's entitlement
+     * policy: TRIAL is time-boxed ({@code trialEndsAt = now + app.trial-days}, uncapped); DEMO sandboxes
+     * get a 50/module cap; FREE/PRO are uncapped with no expiry. This is the signup/provisioning path —
+     * {@link #getOrCreatePrimaryOrg} remains only as a legacy safety net.
+     */
+    @Transactional
+    public Organization createTenant(User owner, String name, String type, String plan) {
+        LocalDateTime trialEnds = "TRIAL".equals(plan) ? LocalDateTime.now().plusDays(trialDays) : null;
+        Integer entryCap = "DEMO".equals(plan) ? 50 : null;
+        Organization org = organizationRepository.save(Organization.builder()
+                .name((name == null || name.isBlank()) ? defaultOrgName(owner) : name.trim())
+                .type(type)
+                .ownerUserId(owner.getId())
+                .plan(plan)
+                .trialEndsAt(trialEnds)
+                .entryCap(entryCap)
+                .status("ACTIVE")
+                .build());
+        membershipRepository.save(Membership.builder()
+                .userId(owner.getId())
+                .organizationId(org.getId())
+                .role("OWNER")
+                .status("ACTIVE")
+                .build());
+        return org;
+    }
+
+    /** Look up an organization by id (used to enrich JWT claims with plan/trial). */
+    public Organization findById(Long id) {
+        return organizationRepository.findById(id).orElse(null);
+    }
 
     /** Return the user's primary organization, creating it (+ OWNER membership) if none exists. */
     @Transactional

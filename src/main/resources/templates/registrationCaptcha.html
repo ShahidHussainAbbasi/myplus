@@ -32,10 +32,16 @@ color:#000;
                     
                 </div>
                 <div class="form-group row">
+                    <label class="col-sm-3" th:text="#{label.user.organizationName}">organization</label>
+                    <span class="col-sm-5"><input class="form-control" name="organizationName" value="" required="required" placeholder="e.g. Beacon Rise Grammar School"/></span>
+                    <span id="organizationNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
+
+                </div>
+                <div class="form-group row">
                     <label class="col-sm-3" th:text="#{label.user.email}">email</label>
-                    <span class="col-sm-5"><input type="email" class="form-control" name="email" value="" required="required"/></span>                    
+                    <span class="col-sm-5"><input type="email" class="form-control" name="email" value="" required="required"/></span>
                     <span id="emailError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                    
+
                 </div>
                 <div class="form-group row">
                     <label class="col-sm-3" th:text="#{label.user.password}">password</label>

@@ -29,6 +29,11 @@ public class UserDto {
     @Size(min = 1, message = "{Size.userDto.email}")
     private String email;
 
+    // Slice 32: the tenant (organization) the owner names at signup; passed through to the auth-service.
+    @NotNull
+    @Size(min = 1, message = "{Size.userDto.organizationName}")
+    private String organizationName;
+
     private boolean isUsing2FA;
 
     public String getEmail() {
@@ -37,6 +42,14 @@ public class UserDto {
 
     public void setEmail(final String email) {
         this.email = email;
+    }
+
+    public String getOrganizationName() {
+        return organizationName;
+    }
+
+    public void setOrganizationName(final String organizationName) {
+        this.organizationName = organizationName;
     }
 
     private Integer role;
@@ -92,7 +105,7 @@ public class UserDto {
     @Override
     public String toString() {
         final StringBuilder builder = new StringBuilder();
-        builder.append("UserDto [firstName=").append(firstName).append(", lastName=").append(lastName).append(", password=").append(password).append(", matchingPassword=").append(matchingPassword).append(", email=").append(email).append(", isUsing2FA=")
+        builder.append("UserDto [firstName=").append(firstName).append(", lastName=").append(lastName).append(", password=").append(password).append(", matchingPassword=").append(matchingPassword).append(", email=").append(email).append(", organizationName=").append(organizationName).append(", isUsing2FA=")
                 .append(isUsing2FA).append(", role=").append(role).append("]");
         return builder.toString();
     }

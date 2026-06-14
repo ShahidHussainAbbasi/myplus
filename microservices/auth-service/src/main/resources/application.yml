@@ -40,6 +40,11 @@ app:
   base-url: ${APP_BASE_URL:http://localhost:8765}
   verification-token-expiry-hours: 24
   password-reset-token-expiry-hours: 1
+  # Bootstrap seeding (dev defaults true). In prod set BOTH to false (env APP_SEED_ADMIN / APP_SEED_DEMO)
+  # so no known-password admin and no shared demo users are created. Real customers come only through
+  # signup (/api/auth/register) — never seeded. See slice 32.
+  seed-admin: ${APP_SEED_ADMIN:true}
+  seed-demo: ${APP_SEED_DEMO:true}
 
 management:
   endpoints:

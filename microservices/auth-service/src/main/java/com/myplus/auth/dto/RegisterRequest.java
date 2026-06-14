@@ -26,4 +26,7 @@ public class RegisterRequest {
     private String password;
     private String phone;
     private String userType;
+    /** Name of the organization (tenant) to create for this owner at signup (slice 32). */
+    @NotBlank
+    private String organizationName;
 }

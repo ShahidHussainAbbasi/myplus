@@ -72,7 +72,7 @@ public class AuthServerClient {
      * persists the user (disabled until verified) and sends the verification email. Throws
      * {@link org.springframework.web.client.HttpStatusCodeException} on duplicate email / validation.
      */
-    public void register(String firstName, String lastName, String email, String password, String phone, String userType) {
+    public void register(String firstName, String lastName, String email, String password, String phone, String userType, String organizationName) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         Map<String, String> body = new HashMap<>();
@@ -82,6 +82,7 @@ public class AuthServerClient {
         body.put("password", password);
         if (phone != null) body.put("phone", phone);
         if (userType != null) body.put("userType", userType);
+        if (organizationName != null) body.put("organizationName", organizationName);
         restTemplate.postForEntity(baseUrl + "/api/auth/register", new HttpEntity<>(body, headers), Void.class);
     }
 

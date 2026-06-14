@@ -7,6 +7,7 @@ import com.myplus.auth.service.AuthService;
 import com.myplus.auth.service.TwoFactorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +33,14 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success(authService.login(request), "Login successful"));
+    }
+
+    // Operator onboarding (SUPER/ADMIN): create a client tenant without a redeploy — the SaaS replacement
+    // for seeding customers. The owner receives a password-reset email to set their own credential.
+    @PostMapping("/admin/provision-tenant")
+    @PreAuthorize("hasAnyAuthority('SUPER_PRIVILEGE','ADMIN_PRIVILEGE')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> provisionTenant(@Valid @RequestBody ProvisionTenantRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(authService.provisionTenant(request), "Tenant provisioned"));
     }
 
     @PostMapping("/refresh")

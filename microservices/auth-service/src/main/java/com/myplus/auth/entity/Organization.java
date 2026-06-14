@@ -35,6 +35,22 @@ public class Organization {
     @Builder.Default
     private String status = "ACTIVE";
 
+    /**
+     * Billing/entitlement plan — the tenant-level source of truth for limits (slice 32).
+     * TRIAL (self-signup default, time-boxed by {@link #trialEndsAt}) · FREE · PRO · DEMO (shared sandbox).
+     * Legacy/auto-created orgs default to FREE so they are neither capped nor trial-expired.
+     */
+    @Builder.Default
+    private String plan = "FREE";
+
+    /** When a TRIAL ends (now + 14d at signup). Null for non-trial plans. Trial is time-boxed, not capped. */
+    @Column(name = "trial_ends_at")
+    private LocalDateTime trialEndsAt;
+
+    /** Per-module write cap; null = unlimited. DEMO sandbox tenants → 50; TRIAL/FREE/PRO → null. */
+    @Column(name = "entry_cap")
+    private Integer entryCap;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
