@@ -205,3 +205,8 @@ management:
     web:
       exposure:
         include: health,info,gateway,metrics
+  health:
+    # Redis is only required for the (opt-in) Redis-backed rate limiter and the demo-quota compose;
+    # local start-all has no Redis, so its health indicator would force /actuator/health to DOWN (503).
+    redis:
+      enabled: false

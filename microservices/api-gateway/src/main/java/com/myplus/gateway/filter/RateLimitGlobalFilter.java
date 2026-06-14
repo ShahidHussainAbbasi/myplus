@@ -28,7 +28,10 @@ import reactor.core.publisher.Mono;
 @Component
 public class RateLimitGlobalFilter implements GlobalFilter, Ordered {
 
-    @Value("${gateway.ratelimit.enabled:true}")
+    // Opt-in (default OFF): all gateway traffic originates from the single monolith client, so a
+    // bearer/IP-keyed bucket collapses to one shared counter that a normal dashboard fan-out exceeds.
+    // Enable only with a per-user (X-User-Id, post-JWT) keying + tuned limit in a multi-client deploy.
+    @Value("${gateway.ratelimit.enabled:false}")
     private boolean enabled;
 
     @Value("${gateway.ratelimit.requests-per-second:100}")
