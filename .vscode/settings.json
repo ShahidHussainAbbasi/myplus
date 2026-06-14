@@ -3,7 +3,7 @@
     "java.configuration.updateBuildConfiguration": "automatic",
     "java.debug.settings.onBuildFailureProceed": true,
     "java.format.settings.url": ".vscode/java-formatter.xml",
-    "java.autobuild.enabled": true,
+    "java.autobuild.enabled": false,
     "java.configuration.runtimes": [
 
         // {
@@ -11,8 +11,8 @@
         //     "path": "C:/Program Files/Java/jdk1.8.0_202"
         // },
         {
-            "name": "JavaSE-25",
-            "path": "C:/Program Files/Java/jdk-25.0.3",
+            "name": "JavaSE-21",
+            "path": "C:/Program Files/Java/jdk-21.0.10",
             "default": true
         }
     ],
