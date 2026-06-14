@@ -35,8 +35,10 @@ first test — it locks in the tenant-isolation invariant the org-scoping slices
 - [x] expanded: `SellInvoiceMoneyRepoTest` — Sell findScoped isolation+ordering, paged overload (#24),
   `maxInvoiceSeqForOrg` per-org counter (#22), money DECIMAL(19,2) round-trip (#23). Full suite green:
   `CustomerRepoScopingTest` 1/1 + `SellInvoiceMoneyRepoTest` 4/4 = 5 tests, 0 failures (real MySQL).
-- [ ] (follow-up) controller/atomicity test for addSell (@SpringBootTest + security context);
-  education/welfare/agriculture repo tests; wire into CI
+- [x] `AddSellAtomicityTest` (@SpringBootTest + real MySQL): mocked ISellService throws on the sale
+  write → asserts the Customer written earlier in the same `@Transactional` rolls back (slices
+  1182dca/4c4d428). business-service suite = **8 tests across 3 classes, all green**.
+- [ ] (follow-up) education/welfare/agriculture repo tests; wire into CI (Docker-capable runner)
 
 ## Test
 - With Docker: `mvn -pl microservices/business-service test` → `CustomerRepoScopingTest` green.
