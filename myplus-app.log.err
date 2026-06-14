@@ -1,5 +1,0 @@
-22:30:56,010 |-WARN in ch.qos.logback.core.joran.action.ConversionRuleAction - [converterClass] attribute is deprecated and replaced by [class]. See element [conversionRule] near line 3
-WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
-WARNING: sun.misc.Unsafe::staticFieldOffset has been called by org.modelmapper.internal.typetools.TypeResolver (jar:nested:/C:/Users/HP/Shahid/software/myplus/target/myplus.jar/!BOOT-INF/lib/modelmapper-3.2.0.jar!/)
-WARNING: Please consider reporting this to the maintainers of class org.modelmapper.internal.typetools.TypeResolver
-WARNING: sun.misc.Unsafe::staticFieldOffset will be removed in a future release

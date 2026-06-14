@@ -1,3 +1,10 @@
+# Node / npm (Cypress tooling) — never commit vendored deps
+node_modules/
+
+# Application logs (root + per-service)
+*.log
+*.log.err
+
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
@@ -38,3 +45,4 @@ cypress/screenshots/
 
 # Service runtime logs (not versioned)
 microservices/logs/
+node_modules
