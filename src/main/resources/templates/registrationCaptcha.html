@@ -1,66 +1,175 @@
 <!DOCTYPE html>
-<html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-<style>
-.password-verdict{
-color:#000;
-}
-</style>
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-
-<script src='https://www.google.com/recaptcha/api.js'></script>
-<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII"/>
-<title th:text="#{label.form.title}">form</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="#{label.form.title}">Create your account — MyPlus</title>
+    <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" th:href="@{/css/login.css}"/>
+    <script src='https://www.google.com/recaptcha/api.js'></script>
+    <style>
+        /* Registration-specific tweaks layered on the shared login split-panel design */
+        .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        .reg-err{display:block;margin:7px 0 0;padding:0;background:none;border:none;
+                 color:#b91c1c;font-size:12.5px;font-weight:500;line-height:1.4}
+        /* Password-strength meter (pwstrength) sits right under the password field */
+        .password-verdict{color:var(--txt2);font-size:12px;font-weight:600}
+        .field-group .progress{height:6px;border-radius:100px;margin:8px 0 0;box-shadow:none;background:var(--border)}
+        .field-group .progress-bar{font-size:0;line-height:6px}
+        .g-recaptcha{margin:4px 0 0}
+        @media(max-width:520px){.field-grid{grid-template-columns:1fr}}
+    </style>
 </head>
 <body>
-    <div class="container">
-        <div >
-            <h1 th:text="#{label.form.title}">form</h1>
-            <br/>
-            <form action="/" method="POST" enctype="utf8">
-                <div class="form-group row" >
-                    <label class="col-sm-3" th:text="#{label.user.firstName}">first</label>
-                    <span class="col-sm-5"><input class="form-control" name="firstName" value="" required="required"/></span>
-                    <span id="firstNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                    
+<div class="login-wrap">
+
+    <!-- Left brand panel -->
+    <div class="login-left">
+        <div class="brand-area">
+            <a class="brand-logo" th:href="@{/}">
+                <div class="brand-logo-icon">
+                    <img th:src="@{/favicon.png}" alt="MyPlus"/>
                 </div>
-                <div class="form-group row">
-                    <label class="col-sm-3" th:text="#{label.user.lastName}">last</label>
-                    <span class="col-sm-5"><input class="form-control" name="lastName" value="" required="required"/></span>
-                    <span id="lastNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                    
-                </div>
-                <div class="form-group row">
-                    <label class="col-sm-3" th:text="#{label.user.email}">email</label>
-                    <span class="col-sm-5"><input type="email" class="form-control" name="email" value="" required="required"/></span>                    
-                    <span id="emailError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                    
-                </div>
-                <div class="form-group row">
-                    <label class="col-sm-3" th:text="#{label.user.password}">password</label>
-                    <span class="col-sm-5"><input id="password" class="form-control" name="password" value="" type="password" required="required"/></span>
-                    <span id="passwordError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                </div>
-                <div class="form-group row">
-                    <label class="col-sm-3" th:text="#{label.user.confirmPass}">confirm</label>
-                    <span class="col-sm-5"><input id="matchPassword" class="form-control" name="matchingPassword" value="" type="password" required="required"/></span>
-                    <span id="globalError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                </div>
-                <div class="form-group row">
-                    <!-- to enable captcha uncomment the keys in application.properties -->
-                    <label class="col-sm-3">Captcha</label>
-                    <div class="g-recaptcha col-sm-5" th:attr="data-sitekey=${@captchaService.getReCaptchaSite()}" data-callback="onReCaptchaSuccess" data-expired-callback="onReCaptchaExpired"></div>
-                    <span id="captchaError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                </div>
-                <br/>
-                <button type="submit" class="btn btn-primary" th:text="#{label.form.submit}">submit</button>
-            </form>
-            <br/> 
-            <a th:href="@{/login}" th:text="#{label.form.loginLink}">login</a>
+                <span class="brand-name">MyPlus</span>
+            </a>
+            <div class="brand-tagline">Start in minutes.<br/><span>Grow without limits.</span></div>
+            <p class="brand-desc">
+                Create your organization account and unlock inventory, point-of-sale,
+                customer accounts, education, welfare and agriculture — all in one place.
+            </p>
+        </div>
+        <div class="feature-list">
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-flash"></span></div>
+                <span class="feature-text">Free trial — no credit card required</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-lock"></span></div>
+                <span class="feature-text">Bank-grade security &amp; encrypted data</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-th-large"></span></div>
+                <span class="feature-text">Business, Education, Welfare &amp; Agriculture modules</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-stats"></span></div>
+                <span class="feature-text">Live charts &amp; revenue analytics</span>
+            </div>
+        </div>
+        <div class="left-footer">
+            &copy; 2026 MyPlus &mdash; All rights reserved
         </div>
     </div>
 
+    <!-- Right form panel -->
+    <div class="login-right">
+        <div class="login-card">
+
+            <div class="card-header">
+                <h2 th:text="#{label.form.title}">Create your account</h2>
+                <p>Set up your organization in just a few steps</p>
+            </div>
+
+            <form action="/" method="POST" enctype="utf8" autocomplete="off">
+
+                <div class="field-grid">
+                    <div class="field-group">
+                        <label class="field-label" for="firstName"
+                               th:text="#{label.user.firstName}">First name</label>
+                        <div class="field-wrap">
+                            <span class="glyphicon glyphicon-user field-icon"></span>
+                            <input id="firstName" class="field-input" name="firstName"
+                                   value="" required="required" placeholder="Jane"/>
+                        </div>
+                        <span id="firstNameError" class="alert reg-err" style="display:none"></span>
+                    </div>
+
+                    <div class="field-group">
+                        <label class="field-label" for="lastName"
+                               th:text="#{label.user.lastName}">Last name</label>
+                        <div class="field-wrap">
+                            <span class="glyphicon glyphicon-user field-icon"></span>
+                            <input id="lastName" class="field-input" name="lastName"
+                                   value="" required="required" placeholder="Doe"/>
+                        </div>
+                        <span id="lastNameError" class="alert reg-err" style="display:none"></span>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label" for="organizationName"
+                           th:text="#{label.user.organizationName}">Organization</label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-briefcase field-icon"></span>
+                        <input id="organizationName" class="field-input" name="organizationName"
+                               value="" required="required"
+                               placeholder="e.g. Beacon Rise Grammar School"/>
+                    </div>
+                    <span id="organizationNameError" class="alert reg-err" style="display:none"></span>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label" for="email"
+                           th:text="#{label.user.email}">Email</label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-envelope field-icon"></span>
+                        <input id="email" type="email" class="field-input" name="email"
+                               value="" required="required" placeholder="you@company.com"/>
+                    </div>
+                    <span id="emailError" class="alert reg-err" style="display:none"></span>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label" for="password"
+                           th:text="#{label.user.password}">Password</label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-lock field-icon"></span>
+                        <input id="password" class="field-input" name="password" value=""
+                               type="password" required="required" placeholder="Create a strong password"/>
+                    </div>
+                    <span id="passwordError" class="alert reg-err" style="display:none"></span>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label" for="matchPassword"
+                           th:text="#{label.user.confirmPass}">Confirm password</label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-ok-circle field-icon"></span>
+                        <input id="matchPassword" class="field-input" name="matchingPassword"
+                               value="" type="password" required="required"
+                               placeholder="Re-enter your password"/>
+                    </div>
+                    <span id="globalError" class="alert reg-err" style="display:none"></span>
+                </div>
+
+                <div class="field-group" style="margin-bottom:24px">
+                    <label class="field-label">Captcha</label>
+                    <!-- to enable captcha uncomment the keys in application.properties -->
+                    <div class="g-recaptcha" th:attr="data-sitekey=${@captchaService.getReCaptchaSite()}"
+                         data-callback="onReCaptchaSuccess" data-expired-callback="onReCaptchaExpired"></div>
+                    <span id="captchaError" class="alert reg-err" style="display:none"></span>
+                </div>
+
+                <button type="submit" class="btn-signin" th:text="#{label.form.submit}">Create account</button>
+            </form>
+
+            <div class="divider">
+                <div class="divider-line"></div>
+                <span class="divider-text">already a member?</span>
+                <div class="divider-line"></div>
+            </div>
+
+            <a class="register-link" th:href="@{/login}" th:text="#{label.form.loginLink}">Sign in instead</a>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<script th:src="@{/pwstrength.js}"></script>
 <script th:inline="javascript">
 var serverContext = [[@{/}]];
 
@@ -68,7 +177,7 @@ $(document).ready(function () {
 	$('form').submit(function(event) {
 		register(event);
 	});
-	
+
 	$(":password").keyup(function(){
 		if($("#password").val() != $("#matchPassword").val()){
 	        $("#globalError").show().html(/*[[#{PasswordMatches.user}]]*/);
@@ -76,7 +185,7 @@ $(document).ready(function () {
 	    	$("#globalError").html("").hide();
 	    }
 	});
-	
+
 	options = {
 		    common: {minChar:8},
 		    ui: {
@@ -116,7 +225,7 @@ function register(event){
         if(data.message == "success"){
             window.location.href = serverContext + "successRegister.html";
         }
-        
+
     })
     .fail(function(data) {
         grecaptcha.reset();
@@ -156,7 +265,5 @@ var onReCaptchaExpired = function(response) {
     grecaptcha.reset();
 };
 </script>
-<script th:src="@{/pwstrength.js}"></script>
 </body>
-
 </html>

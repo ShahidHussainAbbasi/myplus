@@ -35,6 +35,7 @@ target/
 # Cypress run artifacts (reproducible via the specs / npm scripts)
 cypress/videos/
 cypress/screenshots/
+cypress/downloads/
 
 # Local secrets (DB creds, etc.) — never commit
 .env

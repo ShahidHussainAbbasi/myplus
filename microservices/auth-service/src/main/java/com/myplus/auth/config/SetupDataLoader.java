@@ -26,14 +26,17 @@ public class SetupDataLoader {
     private final PrivilegeRepository privilegeRepository;
     private final PasswordEncoder passwordEncoder;
 
-    // F15: never seed a known-password admin in prod. Override via env: SEED_ADMIN=false (prod),
-    // or ADMIN_PASSWORD=<strong> if you do seed one.
+    // F15: never seed a known-password admin in prod. Override via env: APP_SEED_ADMIN=false (prod),
+    // or APP_ADMIN_PASSWORD=<strong> if you do seed one.
     @org.springframework.beans.factory.annotation.Value("${app.seed-admin:true}")
     private boolean seedAdmin;
     @org.springframework.beans.factory.annotation.Value("${app.admin-password:Admin@2025!}")
     private String adminPassword;
-    // Per-module demo users (dev only — gated by the same seed flag). Free-trial accounts capped at
-    // 50 entries/module by the gateway; userType routes each to its own module dashboard.
+    // Per-module demo (sandbox) users — gated by its OWN flag so prod can keep an admin without ever
+    // seeding shared demo accounts (set APP_SEED_DEMO=false in prod). DEMO tenants are capped at 50
+    // entries/module by the gateway; userType routes each to its own module dashboard.
+    @org.springframework.beans.factory.annotation.Value("${app.seed-demo:true}")
+    private boolean seedDemo;
     @org.springframework.beans.factory.annotation.Value("${app.demo-password:Demo@2025!}")
     private String demoPassword;
 
@@ -119,7 +122,7 @@ public class SetupDataLoader {
         // Per-module DEMO users (dev seed flag) — self-healing on every startup so a restart always
         // yields a working login. demo=true -> the gateway caps writes at 50/module and the UI shows the
         // "register at maxtheservice.com" upsell. userType routes each to its own module dashboard.
-        if (seedAdmin) {
+        if (seedDemo) {
             // One demo account per domain microservice. email, userType. All get DEMO_ROLE (full module
             // privileges + DEMO_PRIVILEGE); userType routes each to its own module dashboard.
             String[][] demos = {
@@ -153,24 +156,9 @@ public class SetupDataLoader {
             log.info("Demo module users ensured ({} users, demo=true, 50-entry/module cap)", demos.length);
         }
 
-        // Client user — find-or-create so restarts don't re-INSERT (was crashing boot with a duplicate
-        // email on the unique idx_users_email). Only seeded when missing; an existing row (incl. its
-        // password) is left untouched.
-        if (userRepository.findByEmail("beconrisegrammarschool@gmail.com").isEmpty()) {
-            User admin = User.builder()
-                    .username("beeconrise")
-                    .email("beconrisegrammarschool@gmail.com")
-                    .password(passwordEncoder.encode(adminPassword))
-                    .firstName("beeconrise")
-                    .lastName("Admin")
-                    .enabled(true)
-                    .accountNonLocked(true)
-                    .userType("EDUCATION")
-                    .roles(new HashSet<>(Collections.singletonList(adminRole)))
-                    .build();
-            userRepository.save(admin);
-            log.info("Client user created: beconrisegrammarschool@gmail.com");
-        }
+        // NOTE: real customers are NEVER seeded here. A client is onboarded through self-service signup
+        // (POST /api/auth/register) or the operator endpoint (POST /api/auth/admin/provision-tenant) —
+        // see slice 32. Seeding a known-password customer row used to run in prod; that has been removed.
     }
 
     private Privilege createPrivilegeIfNotExists(String name) {

@@ -5,6 +5,35 @@
 <title>Education Dashboard — MyPlus</title>
 <th:block th:replace="~{fragments/header :: header-css}"></th:block>
 <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
+<style>
+/* ===== Owner analytics dashboard (slice 22) ===== */
+#DashboardDiv.dashbo{padding:18px 20px}
+.an-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.an-title{margin:0;font-weight:800;font-size:22px;color:#0D2353}
+.an-sub{font-size:13px;color:#64748b;margin-top:2px}
+.an-btn{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;color:#334155;cursor:pointer}
+.an-btn:hover{border-color:#1565C0;color:#1565C0}
+.an-error{background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px}
+.an-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:4px}
+.an-kpi{background:#fff;border:1px solid #e8edf5;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(13,35,83,.05)}
+.an-kpi-l{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#64748b;display:flex;align-items:center;gap:7px}
+.an-kpi-l .glyphicon{font-size:13px;top:1px}
+.an-kpi-v{font-size:26px;font-weight:800;color:#0D2353;margin-top:6px;line-height:1.1}
+.an-kpi-sub{font-size:12px;color:#64748b;margin-top:4px}
+.an-kpi-sub .up{color:#15803d;font-weight:700}.an-kpi-sub .down{color:#b91c1c;font-weight:700}
+.an-kpi.accent-fin{border-top:3px solid #1565C0}.an-kpi.accent-stu{border-top:3px solid #7C3AED}
+.an-kpi.accent-att{border-top:3px solid #0E7490}.an-kpi.accent-staff{border-top:3px solid #B45309}
+.an-section-title{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;color:#0D2353;margin:24px 0 12px}
+.an-section-title .dot{width:10px;height:10px;border-radius:50%}
+.dot-fin{background:#1565C0}.dot-stu{background:#7C3AED}.dot-att{background:#0E7490}.dot-staff{background:#B45309}
+.an-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.an-panel{background:#fff;border:1px solid #e8edf5;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(13,35,83,.05);min-width:0}
+.an-panel.an-wide{grid-column:span 2}
+@media(max-width:780px){.an-panel.an-wide{grid-column:span 1}}
+.an-panel-h{font-size:13px;font-weight:700;color:#334155;margin-bottom:10px}
+.an-canvas-wrap{position:relative;height:260px}
+.an-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px}
+</style>
 </head>
 <body>
    	<div id="container">
@@ -133,85 +162,78 @@
 				<div id="globalError" class="alert alert-danger text-center" style="display:none">error</div>	
 			</div>
 			<div id="DashboardDiv" class="formDiv dashbo">
-	          <div class="card-row"> 
-	             <div class="card col-sm-3">
-	               <div class="card-body">
-	                 <div class="card-top">
-	                   <div class="card-col">
-	                     <h4 class="card-title text-uppercase text-muted">Students</h4>
-	                     <span class="h4 font-weight-bold"><div id="studentDiv"></div></span>
-	                   </div>
-	                   <div class="card-col">
-	                     <div class="icon icon-shape bg-warning text-white rounded-circle shadow">
-	                       <i class="fas fa-chart-pie"></i>
-	                     </div>
-	                   </div>
-	                 </div>
-	                 <div class="card-bottom text-muted text-sm">
-	                   <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i><div id="percentDiv"></div></span>
-	                   <span class="text-nowrap">By last month</span>
-	                 </div>
-	               </div>
-	            </div>
-	             <div class="card col-sm-3">
-	               <div class="card-body">
-	                 <div class="card-top">
-	                   <div class="card-col">
-	                     <h4 class="card-title text-uppercase text-muted">Attendance</h4>
-	                     <span class="h3 font-weight-bold">0/0</span>
-	                   </div>
-	                   <div class="card-col">
-	                     <div class="icon icon-shape bg-warning text-white rounded-circle shadow">
-	                       <i class="fas fa-chart-pie"></i>
-	                     </div>
-	                   </div>
-	                 </div>
-	                 <div class="card-bottom text-muted text-sm">
-	                   <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i> 0%</span>
-	                   <span class="text-nowrap">By last month</span>
-	                 </div>
-	               </div>
-	            </div>
-	            <div class="card col-sm-3">
-	               <div class="card-body">
-	                 <div class="card-top">
-	                   <div class="card-col">
-	                     <h4 class="card-title text-uppercase text-muted">Collection</h4>
-	                     <span class="h3 font-weight-bold">0/0</span>
-	                   </div>
-	                   <div class="card-col">
-	                     <div class="icon icon-shape bg-yellow text-white rounded-circle shadow">
-	                       <i class="fas fa-users"></i>
-	                     </div>
-	                   </div>
-	                 </div>
-	                 <div class="card-bottom text-muted text-sm">
-	                   <span class="text-warning mr-2"><i class="fas fa-arrow-down"></i> 0%</span>
-	                   <span class="text-nowrap">By last month</span>
-	                 </div>
-	               </div>
-	            </div>            
-	             <div class="card col-sm-3">
-	               <div class="card-body">
-	                 <div class="card-top">
-	                   <div class="card-col">
-	                     <h4 class="card-title text-uppercase text-muted">Expense</h4>
-	                     <span class="h3 font-weight-bold">0/0</span>
-	                   </div>
-	                   <div class="col-auto">
-	                     <div class="icon icon-shape bg-info text-white rounded-circle shadow">
-	                       <i class="fas fa-percent"></i>
-	                     </div>
-	                   </div>
-	                 </div>
-	                 <div class="card-bottom text-muted text-sm">
-	                   <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 0%</span>
-	                   <span class="text-nowrap">By last month</span>
-	                 </div>
-	               </div>
-	            </div>            
-	          </div>
-	  		</div>
+				<div class="an-head">
+					<div>
+						<h3 class="an-title">School Analytics</h3>
+						<div class="an-sub">Business, performance &amp; operations — at a glance</div>
+					</div>
+					<button id="anRefresh" class="an-btn" type="button"><span class="glyphicon glyphicon-refresh"></span> Refresh</button>
+				</div>
+				<div id="anError" class="an-error" style="display:none">error</div>
+
+				<!-- KPI headlines (populated by educationDashboard.js) -->
+				<div class="an-kpis" id="anKpis"></div>
+
+				<!-- FINANCE -->
+				<div class="an-section-title"><span class="dot dot-fin"></span> Finance &amp; Fee Collection</div>
+				<div class="an-grid">
+					<div class="an-panel an-wide">
+						<div class="an-panel-h">Monthly collection vs due — last 12 months</div>
+						<div class="an-canvas-wrap"><canvas id="chFeeTrend"></canvas></div>
+					</div>
+					<div class="an-panel">
+						<div class="an-panel-h">Payment methods</div>
+						<div class="an-canvas-wrap"><canvas id="chPayModes"></canvas></div>
+					</div>
+					<div class="an-panel">
+						<div class="an-panel-h">Collection by class</div>
+						<div class="an-canvas-wrap"><canvas id="chCollClass"></canvas></div>
+					</div>
+				</div>
+
+				<!-- STUDENTS -->
+				<div class="an-section-title"><span class="dot dot-stu"></span> Students &amp; Enrollment</div>
+				<div class="an-grid">
+					<div class="an-panel an-wide">
+						<div class="an-panel-h">Enrollment trend — last 12 months</div>
+						<div class="an-canvas-wrap"><canvas id="chEnrollTrend"></canvas></div>
+					</div>
+					<div class="an-panel">
+						<div class="an-panel-h">Students per class</div>
+						<div class="an-canvas-wrap"><canvas id="chStudentsClass"></canvas></div>
+					</div>
+					<div class="an-panel">
+						<div class="an-panel-h">Gender split</div>
+						<div class="an-canvas-wrap"><canvas id="chGender"></canvas></div>
+					</div>
+					<div class="an-panel">
+						<div class="an-panel-h">Student status</div>
+						<div class="an-canvas-wrap"><canvas id="chStatus"></canvas></div>
+					</div>
+				</div>
+
+				<!-- ATTENDANCE -->
+				<div class="an-section-title"><span class="dot dot-att"></span> Attendance &amp; Performance</div>
+				<div class="an-grid">
+					<div class="an-panel an-wide">
+						<div class="an-panel-h">Attendance rate — recent days</div>
+						<div class="an-canvas-wrap"><canvas id="chAttTrend"></canvas></div>
+					</div>
+					<div class="an-panel">
+						<div class="an-panel-h">Attendance rate by class</div>
+						<div class="an-canvas-wrap"><canvas id="chAttClass"></canvas></div>
+					</div>
+				</div>
+
+				<!-- STAFF -->
+				<div class="an-section-title"><span class="dot dot-staff"></span> Staff &amp; HR</div>
+				<div class="an-grid">
+					<div class="an-panel">
+						<div class="an-panel-h">Staff by designation</div>
+						<div class="an-canvas-wrap"><canvas id="chStaffDesig"></canvas></div>
+					</div>
+				</div>
+			</div>
 			<div id="OwnerDiv" class="formDiv">
 				<h4 th:text="#{label.owner.form.heading}">Owner Registration</h4>
 				<br />
@@ -2056,6 +2078,7 @@ var serverContext = [[@{/}]];
 	<script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
 
 	<script th:src="@{/js/common/dom-safe.js}"></script>
+	<script type="text/javascript" th:src="@{/js/lib/chart.umd.min.js}"></script>
 	<script type="text/javascript" th:src="@{/js/education/education.js}"></script>
 	<script type="text/javascript" th:src="@{/js/education/educationDashboard.js}"></script>
 	<script type="text/javascript" th:src="@{/js/date.js}"></script>

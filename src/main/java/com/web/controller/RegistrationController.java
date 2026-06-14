@@ -57,7 +57,7 @@ public class RegistrationController {
         LOGGER.debug("Registering user account: {}", accountDto.getEmail());
         try {
             authServerClient.register(accountDto.getFirstName(), accountDto.getLastName(),
-                    accountDto.getEmail(), accountDto.getPassword(), null, null);
+                    accountDto.getEmail(), accountDto.getPassword(), null, null, accountDto.getOrganizationName());
         } catch (HttpStatusCodeException ex) {
             // Most common cause from the form is a duplicate email.
             throw new UserAlreadyExistException("Registration failed");

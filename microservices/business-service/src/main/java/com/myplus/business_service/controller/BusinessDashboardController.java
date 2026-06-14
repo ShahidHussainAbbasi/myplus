@@ -198,7 +198,7 @@ public class BusinessDashboardController {
             }
 
             // --- top customers with outstanding dues --- (org-scoped, was userId-only Example probe)
-            List<Customer> allCustomers = customerService.findScoped(orgId, userId);
+            List<Customer> allCustomers = customerService.findScoped(user.getOrganizationId(), userId);
             List<Map<String, Object>> dueCustomers = allCustomers.stream()
                 .filter(c -> c.getDueAmount() != null && c.getDueAmount().compareTo(java.math.BigDecimal.ZERO) > 0)
                 .sorted((a, b) -> {

@@ -142,20 +142,38 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 ServerHttpRequest mutated = builder.build();
                 ServerWebExchange forwarded = exchange.mutate().request(mutated).build();
 
-                // Demo free-trial cap: count create POSTs per (demo user, module) per day in Redis.
+                // Tenant entitlement enforcement (slice 32). Plan/cap/trial come from the JWT; the legacy
+                // `demo` boolean still caps already-issued tokens and seeded demo users (non-breaking).
                 boolean demo = Boolean.TRUE.equals(claims.get("demo", Boolean.class));
-                if (demo && HttpMethod.POST.equals(request.getMethod()) && isCreate(path)) {
+                String plan = claims.get("plan", String.class);
+                Integer entryCap = claims.get("entryCap", Integer.class);
+                // Effective per-module write cap: an explicit tenant cap (DEMO tenants) wins; otherwise the
+                // legacy demo flag still enforces the default. null => uncapped (FREE/PRO/active TRIAL).
+                Integer cap = entryCap;
+                if (cap == null && demo) {
+                    cap = demoMaxEntries;
+                }
+                boolean writeAttempt = HttpMethod.POST.equals(request.getMethod()) && isCreate(path);
+
+                // A TRIAL whose window has closed blocks writes (reads still flow so they can view + upgrade).
+                if (writeAttempt && isTrialExpired(plan, claims.get("trialEndsAt", String.class))) {
+                    return trialExpired(exchange.getResponse());
+                }
+
+                // Capped plans (DEMO / legacy demo): count create POSTs per (user, module) per day in Redis.
+                if (cap != null && writeAttempt) {
+                    final int limit = cap;
                     String key = "demo:" + userId + ":" + moduleOf(path) + ":" + LocalDate.now();
                     return redis.opsForValue().increment(key)
                             .flatMap(count -> (count != null && count == 1L)
                                     ? redis.expire(key, Duration.ofSeconds(secondsToEndOfDay())).thenReturn(count)
                                     : Mono.just(count == null ? 0L : count))
-                            .flatMap(count -> (count > demoMaxEntries)
-                                    ? demoLimit(exchange.getResponse())
+                            .flatMap(count -> (count > limit)
+                                    ? capLimit(exchange.getResponse(), limit)
                                     : chain.filter(forwarded))
                             .onErrorResume(e -> {
                                 // Fail-open: never let a Redis hiccup break the request path.
-                                log.warn("demo quota check failed (allowing request): {}", e.getMessage());
+                                log.warn("entry quota check failed (allowing request): {}", e.getMessage());
                                 return chain.filter(forwarded);
                             });
                 }
@@ -187,11 +205,35 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
         return Math.max(60, Duration.between(now, endOfDay).getSeconds());
     }
 
-    private Mono<Void> demoLimit(ServerHttpResponse response) {
+    /** A TRIAL whose {@code trialEndsAt} is in the past; reads still flow, writes are blocked. Fail-open on parse. */
+    private boolean isTrialExpired(String plan, String trialEndsAt) {
+        if (!"TRIAL".equals(plan) || trialEndsAt == null) {
+            return false;
+        }
+        try {
+            return java.time.LocalDateTime.parse(trialEndsAt).isBefore(java.time.LocalDateTime.now());
+        } catch (Exception e) {
+            return false; // unparseable timestamp -> don't block
+        }
+    }
+
+    // Keeps the literal DEMO_LIMIT code so the monolith's GatewayClient/DemoLimitAdvice relays it as the
+    // upsell modal (it matches the substring + extracts "message"); the message carries the actual cap.
+    private Mono<Void> capLimit(ServerHttpResponse response, int cap) {
         response.setStatusCode(HttpStatus.FORBIDDEN);
         response.getHeaders().add("Content-Type", "application/json");
-        String body = "{\"success\":false,\"code\":\"DEMO_LIMIT\",\"message\":\"You've reached the 50-entry "
-                + "demo limit. Register at maxtheservice.com to unlock the full features.\",\"statusCode\":403}";
+        String body = "{\"success\":false,\"code\":\"DEMO_LIMIT\",\"message\":\"You've reached the " + cap
+                + "-entry limit. Register at maxtheservice.com to unlock the full features.\",\"statusCode\":403}";
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8))));
+    }
+
+    // Trial-window close. Reuses the DEMO_LIMIT code (so the existing UI upsell fires without a monolith
+    // change) but carries a trial-specific message + reason for future differentiation.
+    private Mono<Void> trialExpired(ServerHttpResponse response) {
+        response.setStatusCode(HttpStatus.FORBIDDEN);
+        response.getHeaders().add("Content-Type", "application/json");
+        String body = "{\"success\":false,\"code\":\"DEMO_LIMIT\",\"reason\":\"TRIAL_EXPIRED\",\"message\":\""
+                + "Your free trial has ended. Upgrade at maxtheservice.com to continue.\",\"statusCode\":403}";
         return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8))));
     }
 
