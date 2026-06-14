@@ -41,7 +41,10 @@ first test — it locks in the tenant-isolation invariant the org-scoping slices
 - [x] CI wired: `.github/workflows/microservice-tests.yml` runs `mvn test -f microservices/pom.xml` on
   push (master/main/chore/feature/security) + PR; ubuntu runner has Docker so Testcontainers executes;
   uploads surefire reports. (`pr-validation.yml` also runs `mvn test` on PRs.)
-- [ ] (follow-up) education/welfare/agriculture repo tests
+- [x] welfare + agriculture repo tests: `DonationRepoScopingTest` (Donator/Donation findScoped) +
+  `AgricultureRepoScopingTest` (Income/Land findScoped) — 2+2 green on real MySQL. Suite now 12 tests
+  across 3 services (business 8, welfare 2, agri 2).
+- [ ] (follow-up) education repo tests
 
 ## Test
 - With Docker: `mvn -pl microservices/business-service test` → `CustomerRepoScopingTest` green.
