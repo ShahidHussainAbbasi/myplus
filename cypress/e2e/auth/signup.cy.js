@@ -119,3 +119,66 @@ describe('Signup — email verification gate', () => {
     cy.url().should('include', '/login')
   })
 })
+
+describe('Signup — redesigned split-panel UI (registration.html)', () => {
+  beforeEach(() => {
+    cy.clearCookies()
+    cy.visit('/registration.html', { failOnStatusCode: false })
+  })
+
+  it('renders the shared login.css split-panel card and brand', () => {
+    cy.get('.login-wrap').should('exist')
+    cy.get('.login-left .brand-name').should('contain.text', 'MyPlus')
+    cy.get('.login-card').should('be.visible')
+    cy.get('.card-header h2').should('be.visible')
+  })
+
+  it('wires the branded submit button and "sign in" link to /login', () => {
+    cy.get('button.btn-signin[type="submit"]').should('be.visible')
+    cy.get('a.register-link').should('have.attr', 'href').and('match', /\/login$/)
+  })
+
+  it('lays out first/last name in the responsive grid', () => {
+    cy.get('.field-grid input[name="firstName"]').should('exist')
+    cy.get('.field-grid input[name="lastName"]').should('exist')
+  })
+})
+
+describe('Signup — client-side validation (negative)', () => {
+  beforeEach(() => {
+    cy.clearCookies()
+    cy.intercept('POST', '/user/registration').as('reg')
+    cy.visit('/registration.html', { failOnStatusCode: false })
+  })
+
+  it('blocks submit and shows #globalError when passwords do not match', () => {
+    cy.get('input[name="firstName"]').type('Mis')
+    cy.get('input[name="lastName"]').type('Match')
+    cy.get('input[name="organizationName"]').type('Mismatch Org')
+    cy.get('input[name="email"]').type(`mismatch_${Date.now()}@example.com`)
+    cy.get('#password').type('Test@2025!')
+    cy.get('#matchPassword').type('Different@2025!')
+    cy.get('button[type="submit"]').click({ force: true })
+    // register() returns early on mismatch: the error is shown and no POST is made.
+    cy.get('#globalError').should('be.visible').and('not.have.text', '')
+    cy.get('@reg.all').should('have.length', 0)
+  })
+
+  it('does not POST when required fields are empty (HTML5 required)', () => {
+    cy.get('button[type="submit"]').click({ force: true })
+    cy.get('input[name="firstName"]:invalid').should('exist')
+    cy.get('@reg.all').should('have.length', 0)
+  })
+
+  it('does not POST when the email is malformed (HTML5 type=email)', () => {
+    cy.get('input[name="firstName"]').type('Bad')
+    cy.get('input[name="lastName"]').type('Email')
+    cy.get('input[name="organizationName"]').type('Bad Email Org')
+    cy.get('input[name="email"]').type('not-an-email')
+    cy.get('#password').type('Test@2025!')
+    cy.get('#matchPassword').type('Test@2025!')
+    cy.get('button[type="submit"]').click({ force: true })
+    cy.get('input[name="email"]:invalid').should('exist')
+    cy.get('@reg.all').should('have.length', 0)
+  })
+})
