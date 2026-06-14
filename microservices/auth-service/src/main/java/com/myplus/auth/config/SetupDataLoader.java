@@ -152,6 +152,25 @@ public class SetupDataLoader {
             }
             log.info("Demo module users ensured ({} users, demo=true, 50-entry/module cap)", demos.length);
         }
+
+        // Client user — find-or-create so restarts don't re-INSERT (was crashing boot with a duplicate
+        // email on the unique idx_users_email). Only seeded when missing; an existing row (incl. its
+        // password) is left untouched.
+        if (userRepository.findByEmail("beconrisegrammarschool@gmail.com").isEmpty()) {
+            User admin = User.builder()
+                    .username("beeconrise")
+                    .email("beconrisegrammarschool@gmail.com")
+                    .password(passwordEncoder.encode(adminPassword))
+                    .firstName("beeconrise")
+                    .lastName("Admin")
+                    .enabled(true)
+                    .accountNonLocked(true)
+                    .userType("EDUCATION")
+                    .roles(new HashSet<>(Collections.singletonList(adminRole)))
+                    .build();
+            userRepository.save(admin);
+            log.info("Client user created: beconrisegrammarschool@gmail.com");
+        }
     }
 
     private Privilege createPrivilegeIfNotExists(String name) {
