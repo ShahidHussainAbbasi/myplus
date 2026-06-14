@@ -64,6 +64,8 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   Policy: structural changes via Flyway henceforth; target ddl-auto→validate. **Follow-up:** V2 for
   education/welfare/agriculture, then flip to validate. _slices/30._
 - [x] 🟠 **API gateway resilience** — DONE + VERIFIED 2026-06-14 (Cypress green through the gateway):
+  per-user rate limiting added too (RateLimitGlobalFilter — in-memory, bearer-keyed, 429 over
+  gateway.ratelimit.requests-per-second default 100, togglable; awaiting gateway build/restart).
   per-route Resilience4j **circuit
   breaker** (own name each → per-service isolation, `forward:/fallback` → 503 JSON) + **httpclient
   timeouts** (connect 5s, response 20s; timelimiter raised 1s→20s). **Follow-up:** per-user **rate

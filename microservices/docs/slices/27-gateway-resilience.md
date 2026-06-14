@@ -27,7 +27,13 @@ slow-call-duration 18s. Per-service names: `auth-service`, `business-service`, �
 > Per-route names matter: a shared circuit breaker would open for *all* routes when one service fails —
 > worse than none. So the breaker is added per route, not via `default-filters`.
 
-### Why not now: rate limiting
+### Rate limiting (DONE — follow-up)
+`RateLimitGlobalFilter`: in-memory per-user fixed-window limiter keyed on the caller's bearer token
+(falls back to client IP), 429 above `gateway.ratelimit.requests-per-second` (default 100), togglable
+via `gateway.ratelimit.enabled`. Keying on the incoming bearer avoids the JWT-filter-ordering problem
+below. Per-instance; swap to Redis `RequestRateLimiter` (dep present) for a multi-instance gateway.
+
+### Original deferral note: rate limiting
 All gateway traffic comes from the **monolith** (one source IP), so IP-keyed limiting is a single bucket.
 Correct per-tenant limiting must key on the `X-User-Id` the `JwtAuthenticationFilter` stamps — i.e. the
 limiter must run **after** that per-route filter (a `GlobalFilter` ordered after routing-filters, or a
