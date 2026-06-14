@@ -32,8 +32,11 @@ first test — it locks in the tenant-isolation invariant the org-scoping slices
 - [x] test `bootstrap.yml` (config-server off in tests)
 - [x] `CustomerRepoScopingTest` (findScoped isolation + NULL-fallback)
 - [ ] `mvn test` with Docker up → green (auto-skips without Docker) — **awaiting build**
-- [ ] (follow-up) replicate the pattern: Sell/Item findScoped, addSell atomicity, invoice numbering;
-  then education/welfare/agriculture; eventually wire into CI
+- [x] expanded: `SellInvoiceMoneyRepoTest` — Sell findScoped isolation+ordering, paged overload (#24),
+  `maxInvoiceSeqForOrg` per-org counter (#22), money DECIMAL(19,2) round-trip (#23). Full suite green:
+  `CustomerRepoScopingTest` 1/1 + `SellInvoiceMoneyRepoTest` 4/4 = 5 tests, 0 failures (real MySQL).
+- [ ] (follow-up) controller/atomicity test for addSell (@SpringBootTest + security context);
+  education/welfare/agriculture repo tests; wire into CI
 
 ## Test
 - With Docker: `mvn -pl microservices/business-service test` → `CustomerRepoScopingTest` green.
