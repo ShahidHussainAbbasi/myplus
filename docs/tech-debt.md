@@ -34,7 +34,8 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   up-front and batch-fetch via `itemService.findAllById(...)` into a `Map<Long,Item>`, then look up per row.
   One item query per request instead of one per Sell row (SellController.getUserSell). Headed Cypress
   sell 28/28 + flow 19/19 (no regression — identical DTO output).
-- [~] 🟡 **Audit legacy `Example.of(obj)` dup-check probes** — DONE (awaiting build+Cypress). Findings:
+- [x] 🟡 **Audit legacy `Example.of(obj)` dup-check probes** — DONE + VERIFIED 2026-06-14 (build ✓ +
+  headed Cypress customer/sell/flow 61/61; dashboard stats exercised on every login). Findings:
   welfare has none; agriculture (Income/Expense/Land) builds a **fresh** `userId`-scoped probe → safe
   (intentional user-scoped dup-check, no cross-tenant match); business `ItemService`/`StockController`
   probes are user-scoped (StockController also tenant-checks the item first via anti-IDOR). Two fixes:
