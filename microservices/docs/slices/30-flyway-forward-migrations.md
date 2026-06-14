@@ -31,8 +31,9 @@ that by authoring Flyway forward migrations, starting with business-service as t
 ## Implement (checklist)
 - [x] business-service `V2__slice21_28_org_money_invoice.sql` (idempotent)
 - [ ] build/restart business-service → Flyway applies V2 (no-op on dev) — **awaiting build**
-- [ ] (follow-up) author V2 for education / welfare / agriculture (their org_id columns), then flip
-      services to `ddl-auto: validate`
+- [x] welfare V2 (donation, donator) + agriculture V2 (income, expense, land) — idempotent org_id adds,
+      mirroring business V2 (awaiting restart to apply, no-op on dev)
+- [ ] (follow-up) education V2 (org_id across its ~13 tables), then flip services to `ddl-auto: validate`
 
 ## Test / rollout note
 - On the dev DB (baselined V1, columns already present), V2 applies as a no-op and records a V2 row.
