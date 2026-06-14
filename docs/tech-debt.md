@@ -16,9 +16,13 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   CustomerService/SellController converted; dead `createReport` gutted; dashboard sums use `doubleValue()`.
   Build ✓, migration #3 (`ALTER … DECIMAL(19,2)`) ✓, headed Cypress sell/flow/purchase/stock 85/85 ✓.
   Quantities kept `Float` (follow-up). _Design: `microservices/docs/slices/23-bigdecimal-money.md`._
-- [ ] 🔴 **Hardcoded shop identity on every receipt** — `SellService.createReport()` hardcodes
-  "Haider Garments" / address / phone (SellService.java:257-263). Multi-tenant: every tenant's receipt
-  shows that shop. Source it from the org/`Company` profile.
+- [x] 🔴 **Hardcoded shop identity on every receipt** — RESOLVED 2026-06-14: the offending code is gone.
+  The hardcoded "Haider Garments" identity lived in `SellService.createReport()`, which was already
+  gutted to a no-op stub during the BigDecimal slice (its only caller was commented out). Removed the
+  dead stub + its `ISellService` declaration + commented caller + the now-unused `File`/`FileOutputStream`/
+  `IOException`/`DecimalFormat` imports. **When receipt/PDF generation is rebuilt, it MUST source the shop
+  identity from the org/`Company` profile (not a constant)** — captured here so the multi-tenant rule isn't
+  lost. (Unrelated `createReport` in analytics-service is a different feature.)
 - [x] 🟠 **`e.getCause().toString()` NPE pattern** — DONE 2026-06-13: replaced all 22 occurrences across
   the 9 business-service controllers with NPE-safe `e.getMessage()`. (No occurrences remain in any service.)
 - [x] 🟠 **Unbounded reads** — DONE + VERIFIED 2026-06-13, slice 24: backward-compatible optional

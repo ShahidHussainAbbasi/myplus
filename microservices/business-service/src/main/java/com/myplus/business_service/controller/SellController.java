@@ -439,7 +439,6 @@ public class SellController {
 	
 				obj = sellService.save(obj);
 			});
-			// String status = sellService.createReport(objs);
 			return new GenericResponse("SUCCESS", "Sale recorded successfully.");
 		} catch (Exception e) {
 			e.printStackTrace();

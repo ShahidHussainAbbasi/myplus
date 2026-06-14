@@ -1,9 +1,5 @@
 package com.myplus.business_service.service;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -237,11 +233,6 @@ public class SellService implements ISellService {
 		// return objs;
 	}
 	
-	@Override
-	public String createReport(List<Sell> objs) throws IOException {
-		return appUtil.SUCCESS;
-	}
-
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {
 		sellRepo.deleteAllByIdInBatch(ids);
 	}
