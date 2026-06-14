@@ -57,8 +57,9 @@ Cypress.Commands.add('loginAsEducation', (email = 'demo.education@myplus.com', p
   cy.loginAs(email, password, '/getDashboardData')
 })
 
+// Validate via an AJAX endpoint (not the dashboard HTML page) so login is independent of template state.
 Cypress.Commands.add('loginAsWelfare', (email = 'demo.welfare@myplus.com', password = DEMO_PW) => {
-  cy.loginAs(email, password, '/welfareDashboard')
+  cy.loginAs(email, password, '/getUserDonator')
 })
 
 Cypress.Commands.add('loginAsAgriculture', (email = 'demo.agriculture@myplus.com', password = DEMO_PW) => {
