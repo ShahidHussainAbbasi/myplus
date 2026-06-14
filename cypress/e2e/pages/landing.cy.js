@@ -101,19 +101,15 @@ describe('Public API Accessibility', () => {
   })
 })
 
-describe('Home — live demo CTA (same offering as login)', () => {
-  it('shows the "No account? Try a live demo" offering and reveals demo creds on module select', () => {
+describe('Home — live demo bar (always-visible try-a-demo)', () => {
+  it('shows the sticky demo bar and enables Launch once a module is picked', () => {
     cy.visit('/')
-    cy.get('#try-demo').scrollIntoView()
-    cy.get('#try-demo').should('contain', 'No account? Try a live demo')
-    // Launch is disabled and creds hidden until a module is picked
-    cy.get('#landingDemoLaunch').should('be.disabled')
-    cy.get('#landingDemoCreds').should('not.be.visible')
-    // Picking a module reveals the demo email/password and enables Launch
-    cy.get('#landingDemoDomain').select('demo.education@myplus.com')
-    cy.get('#landingDemoCreds').should('be.visible')
-    cy.get('#landingDemoEmail').should('have.text', 'demo.education@myplus.com')
-    cy.get('#landingDemoPw').should('have.text', 'Demo@2025!')
-    cy.get('#landingDemoLaunch').should('not.be.disabled')
+    // The slim demo bar is docked under the nav and always present (label wording may vary)
+    cy.get('#demobar').should('exist').and('contain', 'demo')
+    // Launch is disabled until a module is chosen
+    cy.get('#barDemoLaunch').should('be.disabled')
+    // Picking a module enables Launch
+    cy.get('#barDemoDomain').select('demo.education@myplus.com')
+    cy.get('#barDemoLaunch').should('not.be.disabled')
   })
 })
