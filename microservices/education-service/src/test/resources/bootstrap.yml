@@ -1,0 +1,6 @@
+# Tests must not reach the config-server (bootstrap phase). Datasource props come from Testcontainers.
+spring:
+  cloud:
+    config:
+      enabled: false
+      fail-fast: false

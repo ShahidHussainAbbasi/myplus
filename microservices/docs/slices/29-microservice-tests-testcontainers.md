@@ -44,7 +44,8 @@ first test — it locks in the tenant-isolation invariant the org-scoping slices
 - [x] welfare + agriculture repo tests: `DonationRepoScopingTest` (Donator/Donation findScoped) +
   `AgricultureRepoScopingTest` (Income/Land findScoped) — 2+2 green on real MySQL. Suite now 12 tests
   across 3 services (business 8, welfare 2, agri 2).
-- [ ] (follow-up) education repo tests
+- [x] education repo tests: `SchoolGradeRepoScopingTest` (School/Grade findScoped) — 2 green. **All 4
+  org-scoped services now covered: 14 tests** (business 8, welfare 2, agri 2, education 2).
 
 ## Test
 - With Docker: `mvn -pl microservices/business-service test` → `CustomerRepoScopingTest` green.
