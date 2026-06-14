@@ -120,10 +120,11 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   reads incl. getAll* leak, stamped writes, anti-IDOR deletes). All 4 business domains now multi-tenant.
   **Cypress for welfare/agri** added 2026-06-14 (`cypress/e2e/welfare/welfare.cy.js`,
   `cypress/e2e/agriculture/agriculture.cy.js`): dashboard-load + org-scoped reads + write round-trips
-  through the monolith→gateway→service chain. agriculture **8/8** green. welfare **5/6** (API all green);
-  the audit surfaced + fixed a real bug — `welfareDashboard.html` used `~{header :: header}` (a
-  non-existent root template → 500) vs every other dashboard's `~{fragments/header :: header}`; the 6th
-  test goes green once the monolith is rebuilt. _slices/28._
+  through the monolith→gateway→service chain. agriculture **8/8** + welfare **6/6** green (2026-06-14).
+  The audit surfaced + fixed **two** real welfare-dashboard bugs (it was fully broken in-browser):
+  (1) `~{header :: header}` referenced a non-existent root template → 500 (every other dashboard uses
+  `~{fragments/header :: header}`); (2) the dashboard never included `~{fragments/header :: header-js}`
+  so jQuery/DataTables were missing → `$ is not defined`. Both fixed + rebuilt + verified. _slices/28._
 - [ ] 🟢 **Finance hardening** — beyond `BigDecimal`: immutable audit trail + a proper invoice/ledger model
   (org-scoping + `user_id` audit added in slices 21–22 is the start).
 
