@@ -45,8 +45,10 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 ## 🏛️ Industry-standard gaps still to implement
 
 - [~] 🔴 **No unit/integration tests in microservices** — foundation DONE+VERIFIED 2026-06-14:
-  `CustomerRepoScopingTest` ran green against real MySQL via Testcontainers (1/1, 0 skipped). Expand to
-  more tests/services next. slice 29: JUnit5 +
+  business-service suite = 8 green Testcontainers tests (repo scoping/paging/invoice/money + addSell
+  atomicity), all ran against real MySQL. CI wired: `.github/workflows/microservice-tests.yml` runs
+  `mvn test` on push/PR (ubuntu Docker → Testcontainers executes). Follow-up: tests for
+  education/welfare/agriculture. slice 29: JUnit5 +
   **Testcontainers-MySQL** foundation on business-service (real dialect, not H2); first test
   `CustomerRepoScopingTest` locks in the `findScoped` tenant-isolation + NULL-fallback contract.
   `@Testcontainers(disabledWithoutDocker=true)` so Docker-less builds aren't broken. **Follow-up:**

@@ -1,0 +1,45 @@
+name: Microservice Tests
+
+# Runs the JUnit + Testcontainers suite (real MySQL) on every push/PR that touches the services.
+# GitHub-hosted ubuntu runners ship with Docker, so the @Testcontainers tests execute here
+# (they self-skip only where Docker is absent — e.g. a developer's machine without Docker).
+
+on:
+  push:
+    branches: [ master, main, "chore/**", "feature/**", "security/**" ]
+    paths:
+      - "microservices/**"
+      - ".github/workflows/microservice-tests.yml"
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - "microservices/**"
+
+concurrency:
+  group: ms-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: mvn test (Testcontainers MySQL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run microservice tests
+        run: mvn -B test -f microservices/pom.xml
+
+      - name: Publish test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports/*.txt'
+          if-no-files-found: ignore

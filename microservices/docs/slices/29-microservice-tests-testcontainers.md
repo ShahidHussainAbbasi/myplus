@@ -38,7 +38,10 @@ first test — it locks in the tenant-isolation invariant the org-scoping slices
 - [x] `AddSellAtomicityTest` (@SpringBootTest + real MySQL): mocked ISellService throws on the sale
   write → asserts the Customer written earlier in the same `@Transactional` rolls back (slices
   1182dca/4c4d428). business-service suite = **8 tests across 3 classes, all green**.
-- [ ] (follow-up) education/welfare/agriculture repo tests; wire into CI (Docker-capable runner)
+- [x] CI wired: `.github/workflows/microservice-tests.yml` runs `mvn test -f microservices/pom.xml` on
+  push (master/main/chore/feature/security) + PR; ubuntu runner has Docker so Testcontainers executes;
+  uploads surefire reports. (`pr-validation.yml` also runs `mvn test` on PRs.)
+- [ ] (follow-up) education/welfare/agriculture repo tests
 
 ## Test
 - With Docker: `mvn -pl microservices/business-service test` → `CustomerRepoScopingTest` green.
