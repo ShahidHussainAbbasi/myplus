@@ -99,13 +99,18 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   timeouts** (connect 5s, response 20s; timelimiter raised 1s→20s). **Follow-up:** per-user **rate
   limiting** (deferred — all gateway traffic is one monolith IP, so it must key on `X-User-Id` after the
   JWT filter; Redis dep present but not guaranteed in local dev). _slices/27-gateway-resilience.md._
-- [~] 🟠 **Dependency vulnerabilities** — **234** alerts (42 critical / 103 high / 77 moderate / 12 low).
-  Added `.github/dependabot.yml` (maven root + microservices, npm, github-actions; grouped weekly bump
-  PRs) so updates are auto-proposed and gated by the new Microservice Tests + PR-validation CI. Monolith
-  is already on Spring Boot 3.5.0, so remaining CVEs are transitive/npm → best remediated via the
-  reviewable Dependabot PRs rather than blind bumps. **Manual step:** enable "Dependabot security
-  updates" in repo Settings → Code security (targets the open alerts directly). **Follow-up:** OWASP
-  Dependency-Check + SpotBugs in CI to fail on new criticals (NVD API key needed; complements Trivy).
+- [x] 🟠 **Dependency vulnerabilities** — DONE 2026-06-14 (236 → 12 open; will reach ~3 once merged to master).
+  Root-caused: **224 of 236 were a STALE Spring Boot 2.x CI dependency-submission snapshot** (manifest
+  `home/runner/.../pom.xml`) produced by the legacy `maven.yml` (JDK-8 build + personal Docker Hub push) —
+  deps not present in current code (Boot 3.5/4.1). Fix: **deleted `maven.yml`** (superseded by
+  build-service.yml/ci-cd.yml) and **bulk-dismissed all 224** as `not_used` via the Dependabot API.
+  Real code/CI fixes: api-gateway dropped pinned `actuator 3.1.6`→BOM; POI `5.3.0→5.4.0` (monolith +
+  microservices); `trivy-action 0.28.0→0.35.0`; removed 3 vendored jsPDF-1.3.2 `package.json` (build-only
+  `rollup` devDep, never shipped). The remaining 12 open are these same fixes (close on merge to master)
+  plus `qs`/`tmp`/`uuid` — **cypress dev-only transitives** fixable only by a forced cypress-major bump
+  (risks the suite; no prod exposure) → left as won't-fix. `.github/dependabot.yml` stays for ongoing
+  grouped weekly bump PRs. **Manual step:** enable "Dependabot security updates" in repo Settings → Code
+  security. **Follow-up:** OWASP Dependency-Check + SpotBugs in CI (complements Trivy).
 - [x] 🟡 **Bean Validation** — DONE + VERIFIED 2026-06-14 (Cypress green): `@NotBlank` on the required name of
   Customer/ItemType/ItemUnit/Vender/Company DTOs; `GlobalExceptionHandler` now maps form-bind/validation
   failures to the flat `GenericResponse("ERROR", …)` (200) so the monolith shows them (was falling to a
