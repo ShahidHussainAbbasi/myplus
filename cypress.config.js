@@ -35,6 +35,9 @@ module.exports = defineConfig({
     defaultCommandTimeout: 5000,
     pageLoadTimeout: 60000,
     specPattern: 'cypress/e2e/**/*.cy.js',
+    // education/demo.cy.js is a manual MP4 documentation walkthrough (run via test:e2e:education:demo),
+    // not a regression test — it requires a fully seeded org (Grade 1, ENR-001/002). Exclude from `cypress run`.
+    excludeSpecPattern: ['cypress/e2e/education/demo.cy.js'],
     screenshotsFolder: 'cypress/screenshots',
     videosFolder: 'cypress/videos',
     // Off by default (Cypress default); enable per-run with `--config video=true`
