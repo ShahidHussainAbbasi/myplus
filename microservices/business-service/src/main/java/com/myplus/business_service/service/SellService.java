@@ -32,7 +32,7 @@ import com.myplus.business_service.util.RequestUtil;
 @Transactional
 public class SellService implements ISellService {
 
-	ModelMapper modelMapper = new ModelMapper();
+	@Autowired ModelMapper modelMapper;
 	
 	@Autowired
 	IStockService stockService;
@@ -206,8 +206,6 @@ public class SellService implements ISellService {
 				if(dto.getStock() == null) return;
 				Stock stock = stockService.updateStock(dto);
 				if(!appUtil.isEmptyOrNull(stock)) {
-					modelMapper.addConverter(appUtil.stringToLocalDateTime);
-					modelMapper.addConverter(appUtil.stringToLocalDate);
 					Sell obj = modelMapper.map(dto, Sell.class);
 					if(obj.getSellId() != null && obj.getSellId() == 0) obj.setSellId(null);
 					obj.setCustomerHistory(null);

@@ -36,7 +36,7 @@ public class StockService implements IStockService {
 	@Autowired
 	AppUtil appUtil;
 	
-	ModelMapper modelMapper = new ModelMapper();
+	@Autowired ModelMapper modelMapper;
     
     
 	public List<Stock> findAll() {
@@ -196,8 +196,6 @@ public class StockService implements IStockService {
 	
 		Stock stock = optional.get();
 
-		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
-		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
 		stock = modelMapper.map(dto.getStock(), Stock.class);
 		stock.setUserId(dto.getUserId());                                         // audit
 		stock.setOrganizationId(requestUtil.getCurrentUser().getOrganizationId()); // tenant scope
@@ -344,8 +342,6 @@ public class StockService implements IStockService {
 						}
 					}
 				}
-				modelMapper.addConverter(appUtil.stringToLocalDate);
-				modelMapper.addConverter(appUtil.stringToLocalDateTime);
 				obj = modelMapper.map(dto.getStockDTO(), Stock.class);
 				obj.setUserId(requestUtil.getCurrentUser().getUserId());
 				obj.setStockId(stockId);

@@ -63,7 +63,7 @@ public class ItemController {
     @Autowired
     private AppUtil appUtil;  
     
-	ModelMapper modelMapper = new ModelMapper();
+	@Autowired ModelMapper modelMapper;
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -88,8 +88,6 @@ public class ItemController {
 
 			List<ItemDTO> dtos = new ArrayList<ItemDTO>();
 			objs.forEach(obj -> {
-				modelMapper.addConverter(appUtil.localDateToString);
-				modelMapper.addConverter(appUtil.localDateTimeToString);
 				ItemDTO dto = modelMapper.map(obj, ItemDTO.class);
 				
 //				dto.setVenderId(obj.getVender().getId());
@@ -191,8 +189,6 @@ public class ItemController {
 
 			List<ItemDTO> dtos = new ArrayList<ItemDTO>();
 			objs.forEach(obj -> {
-				modelMapper.addConverter(appUtil.localDateToString);
-				modelMapper.addConverter(appUtil.localDateTimeToString);
 				ItemDTO dto = modelMapper.map(obj, ItemDTO.class);
 //				dto.setCompanyId(obj.getCompany().getId());
 //				dto.setCompanyName(obj.getCompany().getName());
@@ -237,8 +233,6 @@ public class ItemController {
 					return new GenericResponse("FOUND", "Item '" + dto.getIname() + "' already exists.");
 			}
 
-			modelMapper.addConverter(appUtil.stringToLocalDate);
-			modelMapper.addConverter(appUtil.stringToLocalDateTime);
 			obj = modelMapper.map(dto, Item.class);
 			obj.setUserId(user.getUserId());                  // audit
 			obj.setOrganizationId(user.getOrganizationId());  // tenant scope

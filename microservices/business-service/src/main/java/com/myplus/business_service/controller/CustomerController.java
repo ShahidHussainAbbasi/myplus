@@ -45,7 +45,7 @@ public class CustomerController {
 	@Autowired
 	RequestUtil requestUtil;
 
-	ModelMapper modelMapper = new ModelMapper();
+	@Autowired ModelMapper modelMapper;
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -65,8 +65,6 @@ public class CustomerController {
 
 			List<CustomerDTO> dtos=new ArrayList<CustomerDTO>(); 
 			objs.forEach(obj ->{
-				modelMapper.addConverter(appUtil.localDateToString);
-				modelMapper.addConverter(appUtil.localDateTimeToString);
 				CustomerDTO dto = modelMapper.map(obj, CustomerDTO.class);
 				// dto.setDatedStr(appUtil.getLocalDateTimeStr(obj.getDated()));
 				// dto.setUpdatedStr(appUtil.getLocalDateTimeStr(obj.getUpdated()));

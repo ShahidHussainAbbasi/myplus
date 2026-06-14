@@ -70,7 +70,7 @@ public class PurchaseController {
     @Autowired
     private AppUtil appUtil;  
     
-	ModelMapper modelMapper = new ModelMapper();
+	@Autowired ModelMapper modelMapper;
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -90,8 +90,6 @@ public class PurchaseController {
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
 			objs.forEach(o ->{
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				modelMapper.addConverter(appUtil.localDateToString);
 				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
 				if(appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) {
 					Optional<Item> option = itemService.findById(o.getStock().getItemId());
@@ -105,8 +103,6 @@ public class PurchaseController {
 					}
 //					Optional<Stock> option2 = stockService.findById(dto.getStockDTO()());
 					if(o.getStock()!=null) {
-						modelMapper.addConverter(appUtil.localDateToString);
-						modelMapper.addConverter(appUtil.localDateTimeToString);
 						StockDTO stock = modelMapper.map(o.getStock(), StockDTO.class);
 						dto.setStock(stock);
 					}

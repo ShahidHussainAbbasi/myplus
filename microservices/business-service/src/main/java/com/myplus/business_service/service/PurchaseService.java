@@ -44,7 +44,7 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     AppUtil appUtil;
 
-    ModelMapper modelMapper = new ModelMapper();
+    @Autowired ModelMapper modelMapper;
     
 	public List<Purchase> findAll() {
 		// TODO Auto-generated method stub
@@ -180,8 +180,6 @@ public class PurchaseService implements IPurchaseService{
 		dto.setUserId(user.getUserId());
 		Stock stock = stockService.updateStock(dto);
 
-		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
-		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
 		obj.setDated(appUtil.getDateTime(null));
 		obj.setDated(LocalDateTime.now());

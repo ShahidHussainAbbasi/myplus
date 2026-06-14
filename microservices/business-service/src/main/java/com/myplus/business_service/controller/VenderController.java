@@ -48,7 +48,7 @@ public class VenderController {
 	@Autowired
 	RequestUtil requestUtil;
 
-	ModelMapper modelMapper = new ModelMapper();
+	@Autowired ModelMapper modelMapper;
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */

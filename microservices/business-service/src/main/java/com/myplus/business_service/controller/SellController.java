@@ -98,10 +98,7 @@ public class SellController {
 	@Autowired
 	ICustomerHistoryService customerHistoryService;
 
-	ModelMapper modelMapper = new ModelMapper();
-	{
-		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-	}
+	@Autowired ModelMapper modelMapper;
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -187,8 +184,6 @@ public class SellController {
 					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				modelMapper.addConverter(appUtil.localDateToString);
 				// SellDTO dto = appUtil.objTodtoConverter(o);
 				SellDTO dto = modelMapper.map(o, SellDTO.class);
 				if(appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) {
@@ -200,8 +195,6 @@ public class SellController {
 						dto.setDescription(item.getIdesc());
 					}
 					if(o.getStock() != null) {
-						modelMapper.addConverter(appUtil.localDateToString);
-						modelMapper.addConverter(appUtil.localDateTimeToString);
 						StockDTO stock = modelMapper.map(o.getStock(), StockDTO.class);
 						dto.setStock(stock);
 					}

@@ -23,7 +23,7 @@ import com.myplus.business_service.util.RequestUtil;
 @Transactional
 public class BatchService implements IBatchService {
 	
-	ModelMapper modelMapper = new ModelMapper();
+	@Autowired ModelMapper modelMapper;
 
     @Autowired
     BatchRepo batchRepo;
@@ -173,8 +173,6 @@ public class BatchService implements IBatchService {
 //					obj.setBstock(dto.getQuantity());
 //			}
 //		}
-//		modelMapper.addConverter(appUtil.localDateTimeToString);
-//		modelMapper.addConverter(appUtil.localDateToString);
 //		Stock obj = modelMapper.map(dto, Stock.class);
 //		obj.setBitemId(dto.getItemId());
 //		this.save(obj);

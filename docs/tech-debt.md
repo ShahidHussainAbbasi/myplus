@@ -45,7 +45,16 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   `LOGGER.error(...+e.getCause())` lines to pass the throwable (`, e`) and `AppUtil.le(...)` (SellController's
   9 catches) to `log.error(msg, e)` — full stack trace via the logger, levels/aggregation apply. Build ✓ +
   headed Cypress sell 28/28 + flow 19/19 (no regression).
-- [ ] 🟡 **`new ModelMapper()` per controller (9×)** — make a single `@Bean` (thread-safe, expensive to build).
+- [~] 🟡 **`new ModelMapper()` per controller (9×)** — DONE (awaiting build+Cypress), branch
+  `refactor/modelmapper-typemaps`: single STRICT `@Bean` in `config/ModelMapperConfig` with explicit
+  **TypeMaps** (5 entity→DTO output + 4 DTO→entity input), each date field wired via `.using(converter)`
+  so converters are property-scoped — no global collision, safe on a singleton. Replaced 13
+  `new ModelMapper()` (9 controllers + BatchService/PurchaseService/SellService/StockService) with
+  `@Autowired`, removed ~30 per-request `addConverter` calls + the old `BusinessServiceApplication` bean.
+  Empty-date semantics preserved exactly (Stock/Purchase input = IGNORE→null; Item/Sell = plain→now,
+  overwritten in controllers anyway). The plain Stock variant turned out to be dead/commented code.
+  Standardised matching on STRICT (was: only SellController STRICT, rest STANDARD) — needs full business
+  Cypress (item/itemtype/itemunit/customer/vender/company/purchase/stock/sell/flow).
 - [ ] 🟡 **Service-layer boilerplate** — each `*Service` re-implements ~30 `JpaRepository` passthrough
   methods. Inject the repository directly or use a thin generic base.
 - [ ] 🟢 **Dead code on classpath** — `Stock_back`, `BaseEntity`, stray `@Entity` DTOs, large commented
