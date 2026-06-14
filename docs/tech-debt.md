@@ -45,7 +45,8 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   `LOGGER.error(...+e.getCause())` lines to pass the throwable (`, e`) and `AppUtil.le(...)` (SellController's
   9 catches) to `log.error(msg, e)` — full stack trace via the logger, levels/aggregation apply. Build ✓ +
   headed Cypress sell 28/28 + flow 19/19 (no regression).
-- [~] 🟡 **`new ModelMapper()` per controller (9×)** — DONE (awaiting build+Cypress), branch
+- [x] 🟡 **`new ModelMapper()` per controller (9×)** — DONE + VERIFIED 2026-06-14 (full business Cypress
+  **160/160**: item/itemtype/itemunit/customer/vender/company/purchase/stock/sell/flow), branch
   `refactor/modelmapper-typemaps`: single STRICT `@Bean` in `config/ModelMapperConfig` with explicit
   **TypeMaps** (5 entity→DTO output + 4 DTO→entity input), each date field wired via `.using(converter)`
   so converters are property-scoped — no global collision, safe on a singleton. Replaced 13
