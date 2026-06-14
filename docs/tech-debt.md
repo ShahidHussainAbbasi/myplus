@@ -48,7 +48,8 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 - [ ] 🟡 **`new ModelMapper()` per controller (9×)** — make a single `@Bean` (thread-safe, expensive to build).
 - [ ] 🟡 **Service-layer boilerplate** — each `*Service` re-implements ~30 `JpaRepository` passthrough
   methods. Inject the repository directly or use a thin generic base.
-- [~] 🟢 **Dead code on classpath** — DONE (awaiting build+Cypress): deleted `Stock_back` (an `@Entity`
+- [x] 🟢 **Dead code on classpath** — DONE + VERIFIED 2026-06-14 (build ✓ + headed Cypress stock/sell/flow
+  66/66): deleted `Stock_back` (an `@Entity`
   redundantly mapped to the **same** `stock` table as `Stock` — a duplicate Hibernate mapping; table
   unaffected, owned by `Stock`) and `ItemDTcopy` (dead DTO copy). Both had zero references anywhere.
   `BaseEntity` / stray `@Entity` DTOs from the original note don't exist in this codebase. Large commented
