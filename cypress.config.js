@@ -45,10 +45,31 @@ module.exports = defineConfig({
     screenshotOnRunFailure: true,
     experimentalInteractiveRunEvents: true,
     setupNodeEvents(on) {
+      const { execSync } = require('child_process')
       on('task', {
         // Compute the current authenticator code from an otpauth:// secret (2FA verify test).
         totp({ secret }) {
           return totp(secret)
+        },
+        // Clear the gateway's demo write-counters (Redis `demo:*` rate-limit keys) so the seeded
+        // demo accounts' 50-create/module/day cap never blocks a create mid-suite. This is COUNTER-ONLY
+        // — it does NOT purge any module data (unlike the monolith's /demo/reset). Fail-open: if Redis
+        // isn't reachable (e.g. CI without the container) just no-op so the run still proceeds.
+        clearDemoCaps() {
+          try {
+            // NB: double-quote the glob — single quotes are passed literally by Windows cmd.exe
+            // (Node spawns execSync via cmd), so 'demo:*' would match nothing and never clear.
+            const keys = execSync(
+              'docker exec myplus-redis redis-cli --scan --pattern "demo:*"',
+              { encoding: 'utf8' }
+            ).split('\n').map(k => k.trim()).filter(Boolean)
+            if (keys.length) {
+              execSync(`docker exec myplus-redis redis-cli DEL ${keys.join(' ')}`, { stdio: 'ignore' })
+            }
+            return keys.length
+          } catch (e) {
+            return null // Redis/docker unavailable — don't fail the run
+          }
         },
       })
     },
