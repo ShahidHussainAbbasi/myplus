@@ -24,7 +24,13 @@
 	ready(function () {
 		var btn = document.getElementById('anRefresh');
 		if (btn) btn.addEventListener('click', loadAnalytics);
-		if (document.getElementById('DashboardDiv')) loadAnalytics();
+		var dash = document.getElementById('DashboardDiv');
+		if (dash) {
+			// .formDiv is display:none by default; make the analytics the landing view (like
+			// business.js does for its dashboard) so charts get real canvas dimensions to draw into.
+			dash.style.display = 'block';
+			loadAnalytics();
+		}
 	});
 
 	function loadAnalytics() {
