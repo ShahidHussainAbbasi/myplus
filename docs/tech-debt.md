@@ -26,8 +26,9 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   through repo→service→controller). Absent params = full list (preserves client-side DataTables UI).
   Build ✓, headed Cypress sell/customer/item/flow 73/73 (no regression). **Follow-up:** wire monolith to
   server-side DataTables to bound default UI loads. _Design: slices/24-pagination.md._
-- [ ] 🟠 **N+1 query in `getUserSell`** — per-row `itemService.findById` (SellController.java:179). Batch
-  fetch or join.
+- [x] 🟠 **N+1 query in `getUserSell`** — DONE 2026-06-14: collect the distinct `stock.itemId`s up-front and
+  batch-fetch via `itemService.findAllById(...)` into a `Map<Long,Item>`, then look up per row. One item
+  query per request instead of one per Sell row (SellController.getUserSell). Awaiting build + Cypress.
 - [ ] 🟡 **Audit legacy `Example.of(obj)` dup-check probes** — partly cleaned in slice 21 (business);
   verify the same stale-probe pattern isn't present in welfare/agriculture/other services.
 

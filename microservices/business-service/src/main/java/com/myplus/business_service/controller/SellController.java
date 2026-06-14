@@ -174,19 +174,26 @@ public class SellController {
 				if(objs.size() > limit) objs = new ArrayList<>(objs.subList(0, limit));
 			}
 
-			if(appUtil.isEmptyOrNull(objs)){	
+			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
-			List<SellDTO> dtos=new ArrayList<SellDTO>(); 
+			// Batch-fetch the referenced items in ONE query (was an N+1: itemService.findById per Sell row).
+			java.util.List<Long> itemIds = objs.stream()
+					.filter(s -> s.getStock() != null && s.getStock().getItemId() != null)
+					.map(s -> s.getStock().getItemId())
+					.distinct()
+					.collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
+					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				// SellDTO dto = appUtil.objTodtoConverter(o);
 				SellDTO dto = modelMapper.map(o, SellDTO.class);
 				if(appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) {
-					Optional<Item> option = itemService.findById(o.getStock().getItemId());
-					if(option.isPresent()) {
-						Item item = option.get();
+					Item item = itemsById.get(o.getStock().getItemId());
+					if(item != null) {
 						dto.setItemId(item.getId());
 						dto.setItemName(item.getIname());
 						dto.setItemCode(item.getIcode());
