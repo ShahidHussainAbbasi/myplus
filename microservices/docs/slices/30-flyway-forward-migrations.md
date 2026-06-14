@@ -1,6 +1,8 @@
 # Slice 30 — Flyway forward migrations (tech-debt #13)
 
-Status: **business-service V2 authored — awaiting build** 🔨.
+Status: **business-service V2 DONE + VERIFIED** ✅ (2026-06-14) — Flyway applied V2 on restart
+(`flyway_schema_history`: `2 | slice21 28 org money invoice | SQL | success=1`), idempotent no-op on the
+already-migrated dev DB. Follow-up: V2 for education/welfare/agriculture, then flip to `validate`.
 
 ## Document — what & why
 Each service already has a `V1__baseline.sql` and dev DBs are **baselined at V1**

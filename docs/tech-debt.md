@@ -44,12 +44,16 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 
 ## 🏛️ Industry-standard gaps still to implement
 
-- [~] 🔴 **No unit/integration tests in microservices** — slice 29 (awaiting build): JUnit5 +
+- [~] 🔴 **No unit/integration tests in microservices** — foundation DONE+VERIFIED 2026-06-14:
+  `CustomerRepoScopingTest` ran green against real MySQL via Testcontainers (1/1, 0 skipped). Expand to
+  more tests/services next. slice 29: JUnit5 +
   **Testcontainers-MySQL** foundation on business-service (real dialect, not H2); first test
   `CustomerRepoScopingTest` locks in the `findScoped` tenant-isolation + NULL-fallback contract.
   `@Testcontainers(disabledWithoutDocker=true)` so Docker-less builds aren't broken. **Follow-up:**
   expand (Sell/Item, addSell atomicity, invoice) + other services + CI wiring. _slices/29._
-- [~] 🟠 **Real schema migrations** — slice 30 (awaiting build): each service already had `V1__baseline`
+- [~] 🟠 **Real schema migrations** — business-service DONE+VERIFIED 2026-06-14 (Flyway V2 applied on
+  restart, `flyway_schema_history` success=1); education/welfare/agri V2 still to author, then flip to
+  `validate`. slice 30: each service already had `V1__baseline`
   + baseline-on-migrate, but no forward scripts for the slice 21–28 changes (prod-on-`validate` would
   miss them). Authored idempotent business-service `V2__slice21_28_org_money_invoice.sql` (org_id on 10
   tables + invoice cols + money→DECIMAL; guarded so it's a no-op where ddl-auto already applied them).

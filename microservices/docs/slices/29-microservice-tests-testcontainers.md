@@ -1,6 +1,10 @@
 # Slice 29 — Microservice tests (JUnit + Testcontainers)
 
-Status: **PATTERN ESTABLISHED — awaiting build** 🔨. Tech-debt #12 (🔴). First service-level test infra.
+Status: **DONE + VERIFIED** ✅ (2026-06-14). Tech-debt #12 (🔴). First service-level test infra.
+`CustomerRepoScopingTest` ran green against real MySQL via Testcontainers (`Tests run: 1, Failures: 0,
+Skipped: 0`, ~235s incl. image pull). Skips cleanly when Docker is absent. NOTE: a benign Surefire
+"kill self fork JVM after 30s" warning appears on teardown (slow container shutdown) — not a failure;
+could be quieted later with `forkedProcessExitTimeoutInSeconds`.
 
 ## Document — what & why
 The microservices had **zero** JUnit/integration tests (coverage was monolith Cypress only). Stand up a
