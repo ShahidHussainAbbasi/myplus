@@ -67,9 +67,13 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   timeouts** (connect 5s, response 20s; timelimiter raised 1s→20s). **Follow-up:** per-user **rate
   limiting** (deferred — all gateway traffic is one monolith IP, so it must key on `X-User-Id` after the
   JWT filter; Redis dep present but not guaranteed in local dev). _slices/27-gateway-resilience.md._
-- [ ] 🟠 **Dependency vulnerabilities** — GitHub Dependabot reports **234** on the default branch
-  (42 critical / 103 high / 77 moderate / 12 low). Triage & upgrade; add OWASP Dependency-Check +
-  SpotBugs to CI and fail builds on new criticals (complements the existing Trivy image scan).
+- [~] 🟠 **Dependency vulnerabilities** — **234** alerts (42 critical / 103 high / 77 moderate / 12 low).
+  Added `.github/dependabot.yml` (maven root + microservices, npm, github-actions; grouped weekly bump
+  PRs) so updates are auto-proposed and gated by the new Microservice Tests + PR-validation CI. Monolith
+  is already on Spring Boot 3.5.0, so remaining CVEs are transitive/npm → best remediated via the
+  reviewable Dependabot PRs rather than blind bumps. **Manual step:** enable "Dependabot security
+  updates" in repo Settings → Code security (targets the open alerts directly). **Follow-up:** OWASP
+  Dependency-Check + SpotBugs in CI to fail on new criticals (NVD API key needed; complements Trivy).
 - [x] 🟡 **Bean Validation** — DONE + VERIFIED 2026-06-14 (Cypress green): `@NotBlank` on the required name of
   Customer/ItemType/ItemUnit/Vender/Company DTOs; `GlobalExceptionHandler` now maps form-bind/validation
   failures to the flat `GenericResponse("ERROR", …)` (200) so the monolith shows them (was falling to a
