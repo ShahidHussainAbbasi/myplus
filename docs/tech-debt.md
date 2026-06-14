@@ -39,7 +39,11 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
 
 ## 🔧 Improvements (quality / maintainability / perf)
 
-- [ ] 🟡 **`printStackTrace()` (11×) → SLF4J** — route through the logger so levels/aggregation apply.
+- [x] 🟡 **`printStackTrace()` → SLF4J** — DONE 2026-06-14: removed all 52 `e.printStackTrace()` in
+  business-service controllers (+1 in `AppUtil.init`) — business-service was the only microservice with
+  any. Each catch already had a follow-up log line, so the traces now route through SLF4J: enhanced the 45
+  `LOGGER.error(...+e.getCause())` lines to pass the throwable (`, e`) and `AppUtil.le(...)` (SellController's
+  9 catches) to `log.error(msg, e)` — full stack trace via the logger, levels/aggregation apply. Awaiting build.
 - [ ] 🟡 **`new ModelMapper()` per controller (9×)** — make a single `@Bean` (thread-safe, expensive to build).
 - [ ] 🟡 **Service-layer boilerplate** — each `*Service` re-implements ~30 `JpaRepository` passthrough
   methods. Inject the repository directly or use a thin generic base.

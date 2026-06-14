@@ -72,8 +72,7 @@ public class ItemUnitController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItemUnit " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getUserItemUnit " + e.getCause(), e);
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),e.getMessage());
 		}
 	}
@@ -90,8 +89,7 @@ public class ItemUnitController {
 			});
 			return sb.toString();
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause(), e);
 			return (sb.append("<option value=''> Item not available </option>")).toString();
 		}
 	}
@@ -117,8 +115,7 @@ public class ItemUnitController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause(), e);
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -159,8 +156,7 @@ public class ItemUnitController {
 				return new GenericResponse("SUCCESS", "Item unit saved successfully.");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > addItemUnit " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > addItemUnit " + e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
@@ -186,8 +182,7 @@ public class ItemUnitController {
 								// request.getLocale()),"SUCCESS");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > deleteItem " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > deleteItem " + e.getCause(), e);
 			return false;// new GenericResponse(messages.getMessage("message.userNotFound", null,
 							// request.getLocale()),
 		}

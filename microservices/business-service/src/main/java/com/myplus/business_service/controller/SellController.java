@@ -222,7 +222,6 @@ public class SellController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
-			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
@@ -273,7 +272,6 @@ public class SellController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
-			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
@@ -302,7 +300,6 @@ public class SellController {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
@@ -342,8 +339,7 @@ public class SellController {
 					invoiceNo);
 
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addSell "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > addSell "+e.getCause(), e);
 			// Propagate past the @Transactional boundary so customer + history + sell roll back
 			// together (all-or-nothing); handleUncaught() rebuilds the ERROR envelope.
 			throw new RuntimeException("An unexpected error occurred. Please contact support.", e);
@@ -396,7 +392,6 @@ public class SellController {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getMessage());
@@ -441,7 +436,6 @@ public class SellController {
 			});
 			return new GenericResponse("SUCCESS", "Sale recorded successfully.");
 		} catch (Exception e) {
-			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
@@ -489,7 +483,6 @@ public class SellController {
 				return new GenericResponse("SUCCESS", "Sale reverted successfully.");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
@@ -514,7 +507,6 @@ public class SellController {
 				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
 			appUtil.le(this.getClass(),e);
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
@@ -547,8 +539,7 @@ public class SellController {
 			return new GenericResponse("SUCCESS", "Sale returned successfully.");
 
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > saleReturn " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > saleReturn " + e.getCause(), e);
 			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");
 		}
 	}

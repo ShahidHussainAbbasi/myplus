@@ -72,8 +72,7 @@ public class ItemTypeController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItemType " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getUserItemType " + e.getCause(), e);
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),e.getMessage());
 		}
 	}
@@ -90,8 +89,7 @@ public class ItemTypeController {
 			});
 			return sb.toString();
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause(), e);
 			return (sb.append("<option value=''> Item not available </option>")).toString();
 		}
 	}
@@ -118,8 +116,7 @@ public class ItemTypeController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause(), e);
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -160,8 +157,7 @@ public class ItemTypeController {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause(), e);
 			return new GenericResponse("ERROR", messages.getMessage(e.getMessage(), null, request.getLocale()),
 					e.getMessage());
 		}
@@ -188,8 +184,7 @@ public class ItemTypeController {
 								// request.getLocale()),"SUCCESS");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > deleteItem " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > deleteItem " + e.getCause(), e);
 			return false;// new GenericResponse(messages.getMessage("message.userNotFound", null,
 							// request.getLocale()),
 		}

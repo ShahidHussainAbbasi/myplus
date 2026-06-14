@@ -74,8 +74,7 @@ public class CustomerController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserCustomer "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > getUserCustomer "+e.getCause(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -93,8 +92,7 @@ public class CustomerController {
 			});
 		    return sb.toString();
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserCustomers "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > getUserCustomers "+e.getCause(), e);			
 			return (sb.append("<option value=''>No Data found</option>")).toString();
 		}
 	}
@@ -111,8 +109,7 @@ public class CustomerController {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getAllCustomer "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > getAllCustomer "+e.getCause(), e);			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -154,8 +151,7 @@ public class CustomerController {
 				return new GenericResponse("SUCCESS", "Customer saved successfully.");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addCustomer "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > addCustomer "+e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
@@ -181,8 +177,7 @@ public class CustomerController {
 				return false;
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > deleteCustomer " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > deleteCustomer " + e.getCause(), e);
 			return false;
 		}
 	}

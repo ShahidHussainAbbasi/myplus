@@ -119,8 +119,7 @@ public class PurchaseController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserPurchase "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > getUserPurchase "+e.getCause(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -152,8 +151,7 @@ public class PurchaseController {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getAllPurchase "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > getAllPurchase "+e.getCause(), e);			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -177,8 +175,7 @@ public class PurchaseController {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
@@ -202,8 +199,7 @@ public class PurchaseController {
 				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > deletePurchase "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > deletePurchase "+e.getCause(), e);			
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}

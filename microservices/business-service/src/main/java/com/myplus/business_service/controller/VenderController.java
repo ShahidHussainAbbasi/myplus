@@ -79,8 +79,7 @@ public class VenderController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserVender "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > getUserVender "+e.getCause(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -108,8 +107,7 @@ public class VenderController {
 			return sb.toString();
 
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserVenders "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > getUserVenders "+e.getCause(), e);			
 			return (sb.append("<option value=''>No Data found</option>")).toString();
 		}
 	}
@@ -140,8 +138,7 @@ public class VenderController {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getAllVender "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > getAllVender "+e.getCause(), e);			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -184,8 +181,7 @@ public class VenderController {
 				return new GenericResponse("SUCCESS", "Vender saved successfully.");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addVender "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > addVender "+e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
@@ -209,8 +205,7 @@ public class VenderController {
 				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > deleteVender "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > deleteVender "+e.getCause(), e);			
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}

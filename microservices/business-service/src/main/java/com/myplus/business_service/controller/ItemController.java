@@ -139,8 +139,7 @@ public class ItemController {
 			return new GenericResponse("SUCCESS",
 					messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItem " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getUserItem " + e.getCause(), e);
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -159,8 +158,7 @@ public class ItemController {
 			});
 			return sb.toString();
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause(), e);
 			return (sb.append("<option value=''> Item not available </option>")).toString();
 		}
 	}
@@ -176,8 +174,7 @@ public class ItemController {
 			// anti-IDOR: only return the item if it belongs to the caller's tenant
 			return (item != null && inMyTenant(item.getOrganizationId(), item.getUserId())) ? item : null;
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause(), e);
 			return null;
 		}
 	}
@@ -218,8 +215,7 @@ public class ItemController {
 						messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause(), e);
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -253,8 +249,7 @@ public class ItemController {
 				return new GenericResponse("SUCCESS", "Item saved successfully.");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
@@ -280,8 +275,7 @@ public class ItemController {
 								// request.getLocale()),"SUCCESS");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName() + " > deleteItem " + e.getCause());
+			LOGGER.error(this.getClass().getName() + " > deleteItem " + e.getCause(), e);
 			return false;// new GenericResponse(messages.getMessage("message.userNotFound", null,
 							// request.getLocale()),
 		}

@@ -189,7 +189,7 @@ public class AppUtil {
     	try {
     		log.info("AppUtil initialized");
     	}catch(Exception e) {
-    		e.printStackTrace();
+    		log.error("AppUtil init failed", e);
     	}
     }
 
@@ -343,7 +343,7 @@ public class AppUtil {
     }
 
     public void le(Class<?> c,Exception e) {
-		log.error(c.getName()+"  >>>  "+e.getMessage());
+		log.error(c.getName()+"  >>>  "+e.getMessage(), e);
     }
     public void li(Class<?> c,String s) {
 		log.info(c.getName()+"  >>>  "+s);

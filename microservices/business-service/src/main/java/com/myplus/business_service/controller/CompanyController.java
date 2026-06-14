@@ -71,8 +71,7 @@ public class CompanyController {
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserCompany "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > getUserCompany "+e.getCause(), e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -98,8 +97,7 @@ public class CompanyController {
 			return sb.toString();
 
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserCompanies "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > getUserCompanies "+e.getCause(), e);			
 			return (sb.append("<option value=''>No Data found</option>")).toString();
 		}
 	}
@@ -116,8 +114,7 @@ public class CompanyController {
 				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getAllCompany "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > getAllCompany "+e.getCause(), e);			
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
 					e.getMessage());
 		}
@@ -158,8 +155,7 @@ public class CompanyController {
 				return new GenericResponse("SUCCESS", "Company saved successfully.");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addCompany "+e.getCause());
+			LOGGER.error(this.getClass().getName()+" > addCompany "+e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
@@ -183,8 +179,7 @@ public class CompanyController {
 				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > deleteCompany "+e.getCause());			
+			LOGGER.error(this.getClass().getName()+" > deleteCompany "+e.getCause(), e);			
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
 	}
