@@ -43,7 +43,8 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   business-service controllers (+1 in `AppUtil.init`) — business-service was the only microservice with
   any. Each catch already had a follow-up log line, so the traces now route through SLF4J: enhanced the 45
   `LOGGER.error(...+e.getCause())` lines to pass the throwable (`, e`) and `AppUtil.le(...)` (SellController's
-  9 catches) to `log.error(msg, e)` — full stack trace via the logger, levels/aggregation apply. Awaiting build.
+  9 catches) to `log.error(msg, e)` — full stack trace via the logger, levels/aggregation apply. Build ✓ +
+  headed Cypress sell 28/28 + flow 19/19 (no regression).
 - [ ] 🟡 **`new ModelMapper()` per controller (9×)** — make a single `@Bean` (thread-safe, expensive to build).
 - [ ] 🟡 **Service-layer boilerplate** — each `*Service` re-implements ~30 `JpaRepository` passthrough
   methods. Inject the repository directly or use a thin generic base.
