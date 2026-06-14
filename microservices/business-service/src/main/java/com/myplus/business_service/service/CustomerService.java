@@ -187,8 +187,6 @@ return customerRepo.exists(example);
 
 		if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){
 
-			Example<Customer> example = Example.of(customerObj);
-
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			customerObj.setUserId(user.getUserId());
 			if (dto.getCustomer().getContact() != null) {
@@ -198,6 +196,9 @@ return customerRepo.exists(example);
 				customerObj.setName(dto.getCustomer().getName());
 			}
 
+			// build the dup-check probe from the fully-populated object (was constructed above before
+			// these setters ran — worked only because Example holds a live reference; brittle).
+			Example<Customer> example = Example.of(customerObj);
 			customerObj = this.findOne(example).orElse(customerObj);
 
 			if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){ 

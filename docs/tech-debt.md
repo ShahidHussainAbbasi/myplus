@@ -34,8 +34,16 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   up-front and batch-fetch via `itemService.findAllById(...)` into a `Map<Long,Item>`, then look up per row.
   One item query per request instead of one per Sell row (SellController.getUserSell). Headed Cypress
   sell 28/28 + flow 19/19 (no regression — identical DTO output).
-- [ ] 🟡 **Audit legacy `Example.of(obj)` dup-check probes** — partly cleaned in slice 21 (business);
-  verify the same stale-probe pattern isn't present in welfare/agriculture/other services.
+- [~] 🟡 **Audit legacy `Example.of(obj)` dup-check probes** — DONE (awaiting build+Cypress). Findings:
+  welfare has none; agriculture (Income/Expense/Land) builds a **fresh** `userId`-scoped probe → safe
+  (intentional user-scoped dup-check, no cross-tenant match); business `ItemService`/`StockController`
+  probes are user-scoped (StockController also tenant-checks the item first via anti-IDOR). Two fixes:
+  (1) **`CustomerService` stale-probe** — `Example.of(customerObj)` was built *before* the setters ran
+  (worked only via Example's live reference); moved it to after the object is populated.
+  (2) **`BusinessDashboardController` counts** — company/vender/customer/item counts + the dues list used
+  `userId`-only Example probes, inconsistent with the org-scoped `findScoped` lists (wrong after an
+  org-switch / missing teammates' rows). Switched all to `findScoped(orgId, userId)`; removed 5
+  `Example.of` calls + now-unused imports.
 
 ## 🔧 Improvements (quality / maintainability / perf)
 

@@ -15,7 +15,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Example;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.myplus.business_service.repository.CustomerHistoryRepo;
 import com.myplus.business_service.repository.VenderRepo;
 import com.myplus.common.security.AuthenticatedUser;
-import com.myplus.business_service.entity.Company;
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
 import com.myplus.business_service.entity.Item;
@@ -72,22 +70,14 @@ public class BusinessDashboardController {
         try {
             AuthenticatedUser user = requestUtil.getCurrentUser();
             Long userId = user.getUserId();
+            Long orgId = user.getOrganizationId();
 
-            Company companyFilter = new Company();
-            companyFilter.setUserId(userId);
-            long companyCount = companyService.count(Example.of(companyFilter));
-
-            Vender venderFilter = new Vender();
-            venderFilter.setUserId(userId);
-            long venderCount = venderRepo.count(Example.of(venderFilter));
-
-            Customer customerFilter = new Customer();
-            customerFilter.setUserId(userId);
-            long customerCount = customerService.count(Example.of(customerFilter));
-
-            Item itemFilter = new Item();
-            itemFilter.setUserId(userId);
-            long itemCount = itemService.count(Example.of(itemFilter));
+            // org-scoped counts (consistent with the findScoped lists; were userId-only Example probes
+            // that ignored the active tenant — wrong after an org-switch / for a teammate's rows).
+            long companyCount  = companyService.findScoped(orgId, userId).size();
+            long venderCount   = venderRepo.findScoped(orgId, userId).size();
+            long customerCount = customerService.findScoped(orgId, userId).size();
+            long itemCount     = itemService.findScoped(orgId, userId).size();
 
             LocalDateTime startOfMonth = appUtil.firstDateTimeOfMonth();
             LocalDateTime endOfMonth = appUtil.lastDateTimeOfMonth();
@@ -207,10 +197,8 @@ public class BusinessDashboardController {
                 custSalesAmounts.add(Math.round(e.getValue() * 100.0) / 100.0);
             }
 
-            // --- top customers with outstanding dues ---
-            Customer dueFilter = new Customer();
-            dueFilter.setUserId(userId);
-            List<Customer> allCustomers = customerService.findAll(Example.of(dueFilter));
+            // --- top customers with outstanding dues --- (org-scoped, was userId-only Example probe)
+            List<Customer> allCustomers = customerService.findScoped(orgId, userId);
             List<Map<String, Object>> dueCustomers = allCustomers.stream()
                 .filter(c -> c.getDueAmount() != null && c.getDueAmount().compareTo(java.math.BigDecimal.ZERO) > 0)
                 .sorted((a, b) -> {
