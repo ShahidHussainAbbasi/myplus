@@ -1,9 +1,12 @@
 package com.myplus.business_service.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.util.List;
+
+import jakarta.persistence.PersistenceException;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +21,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.myplus.business_service.entity.CustomerHistory;
+import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.Sell;
 
 /**
@@ -52,6 +56,8 @@ class SellInvoiceMoneyRepoTest {
     private SellRepo sellRepo;
     @Autowired
     private CustomerHistoryRepo chRepo;
+    @Autowired
+    private ItemRepo itemRepo;
     @Autowired
     private TestEntityManager em;
 
@@ -110,5 +116,31 @@ class SellInvoiceMoneyRepoTest {
         em.clear();
         Sell reloaded = sellRepo.findById(s.getSellId()).orElseThrow();
         assertThat(reloaded.getTotalAmount()).isEqualByComparingTo("99.99");
+    }
+
+    @Test
+    void invoice_seq_is_unique_per_org_at_the_db_level() {
+        invoice(1L, 5L);                                  // org1, seq 5
+        invoice(2L, 5L);                                  // org2, seq 5 — allowed (different org)
+        // same (org, seq) must be rejected by unique(organization_id, invoice_seq)
+        assertThatThrownBy(() -> invoice(1L, 5L)).isInstanceOf(PersistenceException.class);
+    }
+
+    @Test
+    void itemFindScoped_isolates_by_org() {
+        Item a = item(1L, 1L, "Item-A");
+        Item other = item(2L, 9L, "Item-Other");
+
+        List<Item> scoped = itemRepo.findScoped(1L, 1L);
+
+        assertThat(scoped).extracting(Item::getId).contains(a.getId()).doesNotContain(other.getId());
+    }
+
+    private Item item(Long org, Long user, String name) {
+        Item i = new Item();
+        i.setUserId(user);
+        i.setOrganizationId(org);
+        i.setIname(name);
+        return em.persistAndFlush(i);
     }
 }
