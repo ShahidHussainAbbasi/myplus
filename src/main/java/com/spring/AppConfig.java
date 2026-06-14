@@ -11,6 +11,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.web.servlet.handler.SimpleUrlHandlerMapping;
 import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.security.ActiveUserStore;
 
 @Configuration
@@ -35,11 +37,19 @@ public class AppConfig {
     protected ResourceHttpRequestHandler faviconRequestHandler() {
         ResourceHttpRequestHandler requestHandler
           = new ResourceHttpRequestHandler();
-        ClassPathResource classPathResource 
-          = new ClassPathResource("images");
+        ClassPathResource classPathResource
+          = new ClassPathResource("images/");
         List<Resource> locations = Arrays.asList(classPathResource);
         requestHandler.setLocations(locations);
         return requestHandler;
     }   
-     
+    
+  @Bean
+  public ObjectMapper objectMapper() {
+      ObjectMapper mapper = new ObjectMapper();
+      mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+      mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+      return mapper;
+  }
+    
 }

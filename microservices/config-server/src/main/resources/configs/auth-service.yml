@@ -1,0 +1,30 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/myplusdb_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:465}
+    protocol: ${MAIL_PROTOCOL:smtps}
+    username: ${MAIL_USER:maxtheservice@gmail.com}
+    # Gmail requires an app-specific password (not the account password). This is the working
+    # value from the monolith's spring.mail.password; override via MAIL_PASSWORD env in prod.
+    password: "${MAIL_PASSWORD:}"
+    properties:
+      mail:
+        transport:
+          protocol: smtps
+        smtps:
+          auth: true
+          starttls:
+            enable: true
+          timeout: 8000
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8765}
+  # Monolith UI page that renders the reset-password form (the emailed link lands here).
+  reset-password-url: ${RESET_PASSWORD_URL:http://localhost:8080/user/changePassword}
+  verification-token-expiry-hours: 24
+  password-reset-token-expiry-hours: 1

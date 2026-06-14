@@ -1,100 +1,223 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title th:text="#{label.pages.home.title}">Title</title>
-
-    <link rel="icon" type="image/jpg" sizes="60x50" th:href="@{/favicon.jpeg}"/>
-
-    <!-- ✅ th:href on all CSS links -->
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Sign In — MyPlus</title>
+    <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
-    <link rel="stylesheet" th:href="@{/main.css}"/>
-
-
-    <style type="text/css">
-        .wrapper { max-width: 450px; margin-left: auto; margin-right: auto; padding-top: 50px; }
-        label { padding-left: 0 !important }
-    </style>
-
-    <script th:inline="javascript">
-        function validate() {
-            if (document.f.username.value == "" && document.f.password.value == "") {
-                alert(/*[[#{message.username} + #{message.password}]]*/);
-                document.f.username.focus();
-                return false;
-            }
-            if (document.f.username.value == "") {
-                alert(/*[[#{message.username}]]*/);
-                document.f.username.focus();
-                return false;
-            }
-            if (document.f.password.value == "") {
-                alert(/*[[#{message.password}]]*/);
-                document.f.password.focus();
-                return false;
-            }
-        }
-    </script>
+    <link rel="stylesheet" th:href="@{/css/login.css}"/>
 </head>
 <body>
-    <div id="container">
-        <div th:if="${param.message != null}" class="alert alert-info" th:text="${param.message[0]}">message</div>
-        <div th:if="${param.error != null}" class="alert alert-danger" th:text="${session[SPRING_SECURITY_LAST_EXCEPTION]}">error</div>
+<div class="login-wrap">
 
-        <nav class="navbar navbar-inverse">
-            <div class="container-fluid">
-                <ul class="nav navbar-nav">
-                    <li>
-                        <div class="navbar-header active">
-                            <img th:src="@{/favicon.png}" height="50" width="42" title="Maximize your services"/>
-                        </div>
-                    </li>
-                    <li>
-                        <a th:href="@{/home}">
-                            <span class="text-uppercase" th:text="#{label.islamic.channels}">&nbsp;Home</span>
-                        </a>
-                    </li>
-                </ul>
+    <!-- Left brand panel -->
+    <div class="login-left">
+        <div class="brand-area">
+            <a class="brand-logo" th:href="@{/}">
+                <div class="brand-logo-icon">
+                    <img th:src="@{/favicon.png}" alt="MyPlus"/>
+                </div>
+                <span class="brand-name">MyPlus</span>
+            </a>
+            <div class="brand-tagline">One platform.<br/><span>Every business</span> need.</div>
+            <p class="brand-desc">
+                Manage inventory, customers, sales, accounting, education
+                and welfare — all from a single powerful dashboard.
+            </p>
+        </div>
+        <div class="feature-list">
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-briefcase"></span></div>
+                <span class="feature-text">Business POS &amp; Inventory</span>
             </div>
-        </nav>
-
-        <div id="content">
-            <div class="row wrapper">
-                <h1 th:text="#{label.form.loginTitle}">Header</h1>
-                <a href="?lang=en" th:text="#{label.form.loginEnglish}">login</a> |
-                <a href="?lang=es_ES" th:text="#{label.form.loginSpanish}">login</a>
-                <br/><br/>
-
-                <!-- ✅ Form action is correct -->
-                <form name='f' th:action="@{/login}" method='POST' onsubmit="return validate();">
-                    <div class="form-group">
-                        <label th:text="#{label.form.loginEmail}">Email</label>
-                        <input class="form-control" type='text' name='username' value=''/>
-                        <br/>
-                        <label th:text="#{label.form.loginPass}">Password</label>
-                        <input id="lPassword" class="form-control" type='password' name='password'
-                               onkeypress="handleEnterKey(event,'enter','submit')"/>
-                        <br/>
-                        <input id="submit" class="btn btn-default btn-cls" name="submit"
-                               type="submit" th:value="#{label.form.login}"/>
-                        <a class="btn btn-default btn-cls" th:href="@{/registration.html}"
-                           th:text="#{label.form.siguUp}">signup</a>
-                    </div>
-                </form>
-
-                <br/> Current Locale: <span th:text="${#locale}"></span><br/><br/>
-                <a class="btn btn-default btn-cls" th:href="@{/appointment}" th:text="#{label.form.appointment}">Appointment</a>
-                <a class="btn btn-default btn-cls" th:href="@{/forgetPassword.html}" th:text="#{message.resetPassword}">reset</a>
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-user"></span></div>
+                <span class="feature-text">Customer Accounts &amp; Due Tracking</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-stats"></span></div>
+                <span class="feature-text">Live Charts &amp; Revenue Analytics</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon"><span class="glyphicon glyphicon-education"></span></div>
+                <span class="feature-text">Education, Welfare &amp; Agriculture Modules</span>
             </div>
         </div>
-
-        <!-- ✅ Fixed footer fragment path -->
-		     <!-- ✅ JS at bottom is better but these are small so ok here -->
-    	<script th:src="@{/js/jquery-3.3.1.js}"></script>
-    	<script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
-
-        <th:block th:replace="~{fragments/footer :: footer}"/>
+        <div class="left-footer">
+            &copy; 2026 MyPlus &mdash; All rights reserved
+        </div>
     </div>
+
+    <!-- Right form panel -->
+    <div class="login-right">
+        <div class="login-card">
+
+            <div th:if="${param.twofa != null}" class="msg-bar info">
+                <span class="glyphicon glyphicon-qrcode"></span>&nbsp;
+                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Enter the verification code from your authenticator app.'">Enter the verification code from your authenticator app.</span>
+            </div>
+            <div th:if="${param.error != null}" class="msg-bar error">
+                <span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;
+                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Invalid username or password. Please try again.'">Invalid username or password. Please try again.</span>
+            </div>
+            <div th:if="${param.message != null}" class="msg-bar info"
+                 th:text="${param.message[0]}"></div>
+
+            <div class="card-header">
+                <h2>Welcome back</h2>
+                <p>Sign in to your MyPlus account</p>
+            </div>
+
+            <div class="locale-row">
+                <span>Language:</span>
+                <a href="?lang=en" class="locale-link" th:text="#{label.form.loginEnglish}">English</a>
+                <span style="color:var(--border)">|</span>
+                <a href="?lang=es_ES" class="locale-link" th:text="#{label.form.loginSpanish}">Español</a>
+            </div>
+
+            <form name="f" th:action="@{/login}" method="POST"
+                  onsubmit="return validateLogin();" autocomplete="off">
+
+                <div class="field-group">
+                    <label class="field-label" for="loginEmail"
+                           th:text="#{label.form.loginEmail}">Email / Username</label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-envelope field-icon"></span>
+                        <input id="loginEmail" class="field-input" type="text"
+                               name="username" autocomplete="username"
+                               th:value="${session.LAST_USERNAME}"
+                               placeholder="Enter your username"/>
+                    </div>
+                </div>
+
+                <div class="field-group" style="margin-bottom:24px">
+                    <label class="field-label" for="loginPassword"
+                           th:text="#{label.form.loginPass}">Password</label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-lock field-icon"></span>
+                        <input id="loginPassword" class="field-input" type="password"
+                               name="password" autocomplete="current-password"
+                               onkeypress="handleEnterKey(event,'enter','loginSubmit')"
+                               placeholder="Enter your password"/>
+                    </div>
+                </div>
+
+                <div class="field-group" style="margin-bottom:24px" th:if="${twoFaEnabled}">
+                    <label class="field-label" for="loginCode">
+                        Authenticator code <span style="opacity:.6">(only if 2FA is enabled)</span>
+                    </label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-qrcode field-icon"></span>
+                        <input id="loginCode" class="field-input" type="text"
+                               name="code" inputmode="numeric" autocomplete="one-time-code"
+                               th:autofocus="${param.twofa != null}"
+                               placeholder="6-digit code"/>
+                    </div>
+                </div>
+
+                <div th:if="${captchaEnabled}" class="g-recaptcha" th:attr="data-sitekey=${captchaSiteKey}" style="margin:0 0 18px"></div>
+
+                <button id="loginSubmit" type="submit" class="btn-signin"
+                        th:text="#{label.form.login}">Sign in</button>
+            </form>
+
+            <div class="divider">
+                <div class="divider-line"></div>
+                <span class="divider-text">or</span>
+                <div class="divider-line"></div>
+            </div>
+
+            <a class="register-link" th:href="@{/registration.html}"
+               th:text="#{label.form.siguUp}">Create an account</a>
+
+            <!-- No account? Offer an instant live demo by module (50-entry free trial). -->
+            <div class="demo-try" style="margin-top:18px;padding:16px;border:1px dashed #1565C0;border-radius:12px;background:#f5f8ff">
+                <div style="font-weight:700;color:#0D3B8C;margin-bottom:6px">
+                    <span class="glyphicon glyphicon-flash" style="margin-right:5px"></span>No account? Try a live demo
+                </div>
+                <p style="font-size:12.5px;color:#475569;margin:0 0 10px">Pick a module and explore instantly — a free 50-entry trial, no signup.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <select id="demoDomain" class="field-input" style="flex:1;min-width:160px;height:auto">
+                        <option value="">Choose a module…</option>
+                        <option value="demo.education@myplus.com">School Management (Education)</option>
+                        <option value="demo.business@myplus.com">POS &amp; Inventory (Retail)</option>
+                        <option value="demo.appointment@myplus.com">Appointments &amp; Scheduling</option>
+                        <option value="demo.agriculture@myplus.com">Agriculture income &amp; expense</option>
+                        <option value="demo.welfare@myplus.com">Welfare / Donations</option>
+                    </select>
+                    <button type="button" id="demoLaunch" class="btn-signin" style="width:auto;padding:0 18px" disabled>Launch demo</button>
+                </div>
+                <!-- After the visitor picks a module we reveal the demo login details so they can start working. -->
+                <div id="demoCreds" style="display:none;margin-top:12px;padding:10px 12px;border:1px solid #dbe6ff;border-radius:8px;background:#fff;font-size:12.5px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+                        <span style="min-width:64px;color:#64748b">Email</span>
+                        <code id="demoCredEmail" style="flex:1;color:#0D3B8C"></code>
+                        <button type="button" id="demoCopyEmail" style="padding:3px 10px;border:1px solid #1565C0;background:#fff;color:#1565C0;border-radius:6px;font-size:11px;cursor:pointer">Copy</button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="min-width:64px;color:#64748b">Password</span>
+                        <code id="demoCredPw" style="flex:1;color:#0D3B8C">Demo@2025!</code>
+                        <button type="button" id="demoCopyPw" style="padding:3px 10px;border:1px solid #1565C0;background:#fff;color:#1565C0;border-radius:6px;font-size:11px;cursor:pointer">Copy</button>
+                    </div>
+                    <div style="color:#475569;margin-top:7px">Sign in with these, or click <b>Launch demo</b> to enter now.</div>
+                </div>
+            </div>
+
+            <div class="card-footer-note">
+                Need an appointment?
+                <a class="appt-link" th:href="@{/appointment}"
+                   th:text="#{label.form.appointment}">Book here</a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script th:if="${captchaEnabled}" src="https://www.google.com/recaptcha/api.js" async defer></script>
+<script th:src="@{/js/jquery-3.3.1.js}"></script>
+<script th:src="@{/js/login.js}"></script>
+<script>
+// Pre-fill from a "Try the demo" hand-off (Book-a-Demo). Creds are public demo accounts; we only fill
+// the form (the user still clicks Sign in) and show a small trial hint.
+(function(){
+  try{
+    var s=sessionStorage.getItem('demoLogin'); if(!s)return; sessionStorage.removeItem('demoLogin');
+    var d=JSON.parse(s);
+    var u=document.querySelector('input[name="username"]'), p=document.querySelector('input[name="password"]');
+    if(u)u.value=d.email; if(p)p.value=d.pw;
+    var form=document.querySelector('form[name="f"]');
+    if(form){
+      var hint=document.createElement('div');
+      hint.style.cssText='margin:0 0 14px;padding:10px 14px;border-radius:8px;background:#eef4ff;border:1px solid #cfe0ff;color:#0D3B8C;font-size:13px';
+      hint.innerHTML='<b>Demo mode</b> — a free 50-entry trial. Click <b>Sign in</b> to start.';
+      form.insertBefore(hint, form.firstChild);
+    }
+  }catch(e){}
+})();
+// Demo offering: pick a module -> show its demo login details -> "Launch demo" fills + signs in
+// (role-based landing to that module's dashboard).
+(function(){
+  var sel=document.getElementById('demoDomain'), btn=document.getElementById('demoLaunch'),
+      box=document.getElementById('demoCreds'), emailEl=document.getElementById('demoCredEmail');
+  if(!sel||!btn)return;
+  function copy(txt){ if(navigator.clipboard)navigator.clipboard.writeText(txt); }
+  sel.addEventListener('change',function(){
+    var email=sel.value;
+    if(email){ emailEl.textContent=email; box.style.display='block'; btn.disabled=false; }
+    else { box.style.display='none'; btn.disabled=true; }
+  });
+  var ce=document.getElementById('demoCopyEmail'); if(ce)ce.addEventListener('click',function(){copy(emailEl.textContent);this.textContent='Copied';});
+  var cp=document.getElementById('demoCopyPw'); if(cp)cp.addEventListener('click',function(){copy('Demo@2025!');this.textContent='Copied';});
+  btn.addEventListener('click',function(){
+    var email=sel.value; if(!email){ sel.focus(); return; }
+    var u=document.querySelector('input[name="username"]'), p=document.querySelector('input[name="password"]');
+    if(u)u.value=email; if(p)p.value='Demo@2025!';
+    var f=document.querySelector('form[name="f"]'); if(f)f.submit();
+  });
+})();
+</script>
 </body>
 </html>

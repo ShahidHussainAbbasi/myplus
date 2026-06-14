@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>service-parent</artifactId>
+  <packaging>pom</packaging>
+  <name>service-parent</name>
+  <description>Parent for resource services. Inherits shared security so every current and
+    future servlet service trusts gateway-authenticated requests with no per-service code.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.myplus</groupId>
+      <artifactId>common-security</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>com.myplus</groupId>
+      <artifactId>common-service</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+  </dependencies>
+</project>

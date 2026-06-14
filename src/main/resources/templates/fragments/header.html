@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity5">
 <head>
-    <!-- CSS Fragment — included in <head> of every page -->
     <th:block th:fragment="header-css">
         <meta charset="utf-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <link rel="preconnect" href="https://fonts.googleapis.com"/>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-datepicker.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-select.min.css}"/>
@@ -12,10 +14,10 @@
         <link rel="stylesheet" th:href="@{/css/buttons.dataTables.min.css}">
         <link rel="stylesheet" th:href="@{/css/application.css}"/>
         <link rel="stylesheet" th:href="@{/main.css}"/>
+        <link rel="stylesheet" th:href="@{/css/theme.css}"/>
         <link rel="stylesheet" th:href="@{/css/jquery.timepicker.min.css}"/>
     </th:block>
 
-    <!-- JS Fragment — included at bottom of <body> of every page -->
     <th:block th:fragment="header-js">
         <script th:src="@{/js/jquery.min.js}"></script>
         <script th:src="@{/js/jquery-3.3.1.js}"></script>
@@ -32,61 +34,106 @@
         <script th:src="@{/jQExp/buttons.html5.min.js}"></script>
         <script th:src="@{/jQExp/buttons.print.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
-         <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
+        <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
         <script th:src="@{/js/main.js}"></script>
+        <!-- Demo free-trial: surfaces the gateway's DEMO_LIMIT (50/module cap) as an upsell prompt. -->
+        <script th:src="@{/js/demo.js}"></script>
+        <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing
+             AJAX call, so jQuery $.post/$.ajax pass Spring Security's CSRF check. -->
+        <script>
+        (function () {
+            function readCookie(name) {
+                var m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+                return m ? decodeURIComponent(m[1]) : null;
+            }
+            if (window.jQuery) {
+                // ajaxSend fires for EVERY jQuery request and is not overridden by a per-call
+                // beforeSend, so it reliably stamps the header even on calls with custom options.
+                jQuery(document).ajaxSend(function (event, xhr, settings) {
+                    if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type || 'GET')) {
+                        var token = readCookie('XSRF-TOKEN');
+                        if (token) { xhr.setRequestHeader('X-XSRF-TOKEN', token); }
+                    }
+                });
+            }
+        })();
+        </script>
     </th:block>
+</head>
+<body>
 
-    <!-- Navbar Fragment -->
-    <nav th:fragment="header" id="header" class="navbar navbar-inverse">
+    <!-- ═══ NAVBAR FRAGMENT ═══════════════════════════════════ -->
+    <th:block th:fragment="header">
+    <nav id="header" class="navbar navbar-inverse">
         <div class="container-fluid">
             <div class="navbar-header">
-                <!-- Hamburger toggle — collapses nav on mobile -->
                 <button type="button" class="navbar-toggle collapsed"
                         data-toggle="collapse" data-target="#main-navbar-collapse"
-                        aria-expanded="false" aria-controls="main-navbar-collapse">
+                        aria-expanded="false">
                     <span class="sr-only">Toggle navigation</span>
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <p style="color: lightskyblue; padding-top: 17px"
-                   class="glyphicon glyphicon-user"
-                   th:if="${param.user} != null"
-                   th:text="${param.user[0]}">User</p>
+                <a class="navbar-brand" th:href="@{/}">
+                    <img th:src="@{/favicon.png}" height="28" width="24" alt="logo"
+                         style="border-radius:6px;margin-right:8px;vertical-align:middle"/>
+                    <span>MyPlus</span>
+                </a>
             </div>
+
             <div class="collapse navbar-collapse" id="main-navbar-collapse">
                 <ul class="nav navbar-nav">
                     <li>
-                        <img th:src="@{/favicon.png}" height="50" width="42"/>
-                    </li>
-                    <li>
                         <a th:href="@{/home}">
-                            <span class="glyphicon glyphicon-home">&nbsp;Home</span>
+                            <span class="glyphicon glyphicon-home"></span> Home
                         </a>
                     </li>
                     <li>
                         <a th:href="@{/dashboard}">
-                            <span class="glyphicon glyphicon-dashboard">&nbsp;Dashboard</span>
+                            <span class="glyphicon glyphicon-dashboard"></span> Dashboard
                         </a>
                     </li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
+                    <!-- Logged-in user info + logout -->
+                    <li th:if="${#authorization.expression('isAuthenticated()')}"
+                        style="display:flex;align-items:center;gap:12px;padding:9px 4px">
+                        <span style="display:inline-flex;align-items:center;gap:9px;background:rgba(255,255,255,.12);border-radius:100px;padding:5px 14px 5px 6px;color:#fff">
+                            <span style="width:30px;height:30px;border-radius:50%;background:#1565C0;display:inline-flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0">
+                                <span class="glyphicon glyphicon-user" style="font-size:13px"></span>
+                            </span>
+                            <span style="display:flex;flex-direction:column;line-height:1.2">
+                                <span style="font-weight:600;font-size:13px" th:text="|${#authentication.principal.firstName} ${#authentication.principal.lastName}|">User</span>
+                                <span style="opacity:.72;font-size:11px" th:text="${#authentication.principal.email}">email</span>
+                            </span>
+                        </span>
+                        <a href="#" onclick="document.getElementById('logoutForm').submit(); return false;"
+                           style="display:inline-flex;align-items:center;gap:6px;background:#e23b4e;color:#fff;border-radius:9px;padding:8px 16px;font-weight:600;font-size:13px;text-decoration:none;box-shadow:0 2px 8px rgba(226,59,78,.35)">
+                            <span class="glyphicon glyphicon-log-out"></span> Logout
+                        </a>
+                        <form style="display:none" id="logoutForm"
+                              method="post" th:action="@{/logout}"></form>
+                    </li>
                     <li th:if="${#authorization.expression('!isAuthenticated()')}">
                         <a th:href="@{/login}">
-                            <span class="glyphicon glyphicon-log-in"></span>&nbsp;Sign in
+                            <span class="glyphicon glyphicon-log-in"></span> Sign in
                         </a>
-                    </li>
-                    <li th:if="${#authorization.expression('isAuthenticated()')}">
-                        <a href="#" onclick="$('#logoutForm').submit();">
-                            <span class="glyphicon glyphicon-log-out"></span>&nbsp;Logout
-                        </a>
-                        <form style="visibility:hidden" id="logoutForm"
-                              method="post" th:action="@{/logout}"></form>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
-</head>
-<body></body>
+    <!-- Demo free-trial banner — shown only for demo accounts (DEMO_PRIVILEGE in the JWT). -->
+    <div sec:authorize="hasAuthority('DEMO_PRIVILEGE')"
+         style="background:linear-gradient(90deg,#0D3B8C,#1565C0);color:#fff;padding:8px 16px;text-align:center;font-size:13px">
+        <span class="glyphicon glyphicon-info-sign" style="margin-right:5px"></span>
+        <b>Demo mode</b> — free trial, up to 50 entries per module.
+        <button type="button" onclick="resetDemo()" style="margin-left:10px;background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:3px 12px;font-size:12px;cursor:pointer">
+            <span class="glyphicon glyphicon-refresh"></span> Reset demo
+        </button>
+        <a href="/registration.html" style="color:#fff;text-decoration:underline;font-weight:600;margin-left:10px">Register for full access &rarr;</a>
+    </div>
+    </th:block>
+</body>
 </html>

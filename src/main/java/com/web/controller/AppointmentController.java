@@ -1,101 +1,118 @@
 package com.web.controller;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
-import org.springframework.security.authentication.AuthenticationTrustResolver;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.servlet.ModelAndView;
 
-import com.persistence.Repo.DoctorRepository;
-import com.persistence.Repo.HospitalRepository;
-import com.persistence.model.Hospital;
-import com.security.ActiveUserStore;
-import com.service.IAppointmentService;
 import com.web.dto.AppointmentDTO;
+import com.web.util.AppointmentRestClient;
 import com.web.util.GenericResponse;
 
+/** Appointment screens. Public booking + hospital list proxy to appointment-service — no local DB. */
 @Controller
 public class AppointmentController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
-	@Autowired
-	private MessageSource messages;
-	@Autowired
-	ActiveUserStore activeUserStore;
+    private final Logger LOGGER = LoggerFactory.getLogger(getClass());
+    private static final Pattern MESSAGE = Pattern.compile("\"message\"\\s*:\\s*\"([^\"]*)\"");
 
-	@Autowired
-	IAppointmentService appointmentService;
+    @Autowired
+    private MessageSource messages;
 
-	@Autowired
-	HospitalRepository hospitalRepository;
-	
-	@Autowired
-	DoctorRepository doctorRepository;
-	
-	@Autowired
-	AuthenticationTrustResolver authenticationTrustResolver;
-	
-	@RequestMapping(value = "/appointmentReq", method = RequestMethod.POST)
-	@ResponseBody
-	public GenericResponse appointmentReq(@Validated final AppointmentDTO appointmentDTO, final HttpServletRequest request) {
-		try {
-			
-/*			String ipAddress = request.getHeader("X-FORWARDED-FOR");
-			String ip = request.getRemoteAddr();
-			LOGGER.debug("ipAddress: "+ipAddress+" ip: "+ip);		
-					
-*/			LOGGER.debug("Registering hospital account with information: {}", appointmentDTO);
-//			Principal principal = request.getUserPrincipal();
-		    final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-			if (!authenticationTrustResolver.isAnonymous(authentication)) 
-				return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"NotSupported");
-			
-			if (appointmentService.isBlocked(appointmentDTO.getMobile()))
-				return new GenericResponse(messages.getMessage("Hospital"+"already.exist", null, request.getLocale()),
-						"HospitalAlreadyExist");
+    @Autowired
+    private AppointmentRestClient appointment;
 
-			GenericResponse genericResponse =  appointmentService.registerNewAppointment(appointmentDTO);
-			if(appointmentDTO.getAppntmntNo()!=null)
-				genericResponse.setMessage("Dear "+appointmentDTO.getName()+" Your appointment number "+appointmentDTO.getAppntmntNo()+" has been registered for "+appointmentDTO.getMobile());
-			return genericResponse;
-//        eventPublisher.publishEvent(new OnRegistrationCompleteEvent(hospital, request.getLocale(), getAppUrl(request)));
-		} catch (Exception e) {
-			e.printStackTrace();
-			return new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
-		}
-//		return new GenericResponse("success");
-	}
+    @RequestMapping(value = "/appointmentReq", method = RequestMethod.POST)
+    @ResponseBody
+    public GenericResponse appointmentReq(@Validated final AppointmentDTO appointmentDTO, final HttpServletRequest request) {
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("hospitalId", appointmentDTO.getHospitalId());
+            body.put("doctorId", appointmentDTO.getDoctorId());
+            body.put("patientName", appointmentDTO.getName());
+            body.put("patientPhone", appointmentDTO.getMobile());
+            body.put("patientEmail", appointmentDTO.getEmail());
+            body.put("patientAddress", appointmentDTO.getAddress());
 
-    @RequestMapping(value = "/appointment", method = RequestMethod.GET)
-    public ModelAndView appointment(final Locale locale, final Model model) {
-    	List<Hospital> hospitals  = hospitalRepository.findAll();
-//    	AppointmentDTO appointmentDTO = new AppointmentDTO();
-//    	for(Hospital hospital: hospitals) {
-//    		doctorDTO.getHospitals().put(hospital.getHospitalId(), hospital.getName());
-//    	}
-//    	List<Doctor> doctors  = doctorRepository.findAll();
-//    	for(Doctor doctor: doctors) {
-//    		doctorDTO.getdos().put(doctor.getDoctorId(), doctor.getName());
-//    	}
-    	model.addAttribute("hospitals", hospitals);
-//    	model.addAttribute("doctors", doctors);
-		return new ModelAndView("appointment");
+            Map<String, Object> resp = appointment.postPublic("/public/appointment-request", body);
+            Object data = resp != null ? resp.get("data") : null;
+            Integer appntmntNo = null;
+            if (data instanceof Map) {
+                Object n = ((Map<?, ?>) data).get("patientsAppointed");
+                if (n instanceof Number) {
+                    appntmntNo = ((Number) n).intValue();
+                }
+            }
+            GenericResponse genericResponse = new GenericResponse();
+            genericResponse.setStatus("SUCCESS");
+            if (appntmntNo != null) {
+                genericResponse.setMessage("Dear " + appointmentDTO.getName() + ", your appointment number "
+                        + appntmntNo + " is registered. We will contact you on " + appointmentDTO.getMobile() + ".");
+            } else {
+                genericResponse.setMessage("Appointment registered successfully.");
+            }
+            return genericResponse;
+        } catch (HttpStatusCodeException e) {
+            // appointment-service returns 400 with a business message (blocked / daily limit reached).
+            String msg = extractMessage(e.getResponseBodyAsString());
+            GenericResponse fail = new GenericResponse();
+            fail.setStatus("FAILURE");
+            fail.setError(msg != null ? msg : "Could not book the appointment.");
+            return fail;
+        } catch (Exception e) {
+            LOGGER.error("appointmentReq failed", e);
+            GenericResponse fail = new GenericResponse();
+            fail.setStatus("FAILURE");
+            fail.setError(messages.getMessage("message.userNotFound", null, request.getLocale()));
+            return fail;
+        }
     }
 
-    
+    @SuppressWarnings("unchecked")
+    @RequestMapping(value = "/appointment", method = RequestMethod.GET)
+    public ModelAndView appointment(final Locale locale, final Model model) {
+        java.util.List<Map<String, Object>> hospitalList = new java.util.ArrayList<>();
+        try {
+            Map<String, Object> resp = appointment.getMap("/hospitals");
+            List<Map<String, Object>> hospitals = (List<Map<String, Object>>) resp.get("data");
+            if (hospitals != null) {
+                for (Map<String, Object> h : hospitals) {
+                    // expose legacy property names the template reads (hospital.hospitalId, hospital.name)
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("hospitalId", h.get("id"));
+                    item.put("name", h.get("name"));
+                    hospitalList.add(item);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("appointment hospital load failed", e);
+        }
+        model.addAttribute("hospitals", hospitalList);
+        return new ModelAndView("appointment");
+    }
+
+    private static String extractMessage(String body) {
+        if (body == null) {
+            return null;
+        }
+        Matcher m = MESSAGE.matcher(body);
+        return m.find() ? m.group(1) : null;
+    }
 }

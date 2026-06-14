@@ -1,0 +1,392 @@
+# =============================================================================
+# Phase 4 — network isolation + internal-secret enforcement.
+#
+# Only EDGE components publish host ports: mysql (3306, for the external monolith
+# + migration), eureka (8761), config-server (8888) and the api-gateway (8765).
+# The resource services and auth-service use `expose` only, so they are reachable
+# ONLY from inside the private `myplus-net` network (i.e. via the gateway) and
+# cannot be hit directly from the host to forge X-User-* headers.
+#
+# INTERNAL_SECRET is the shared gateway<->service trust token. The gateway stamps
+# X-Internal-Secret; each service's HeaderAuthFilter rejects identity headers that
+# don't carry it. Override per environment; the default below is for local stacks.
+# NOTE: this stack assumes the monolith runs with auth.mode=server (calls flow
+# through the gateway). Legacy direct calls would be rejected once enforced.
+# =============================================================================
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: myplus-mysql
+    restart: unless-stopped
+    # Headroom above the combined service pools (11 services × 8 = 88) so admin/replication/spikes fit.
+    command: ["--max-connections=200"]
+    mem_limit: 1536m
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: myplus
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "3306:3306"
+    networks: [myplus-net]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  eureka-server:
+    build: ./eureka-server
+    container_name: myplus-eureka
+    restart: unless-stopped
+    mem_limit: 768m
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+    ports:
+      - "8761:8761"
+    networks: [myplus-net]
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  config-server:
+    build: ./config-server
+    container_name: myplus-config
+    restart: unless-stopped
+    mem_limit: 768m
+    ports:
+      - "8888:8888"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      EUREKA_URI: http://eureka-server:8761/eureka
+    networks: [myplus-net]
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8888/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: myplus-redis
+    restart: unless-stopped
+    mem_limit: 256m
+    expose:
+      - "6379"
+    networks: [myplus-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: myplus-gateway
+    restart: unless-stopped
+    mem_limit: 768m
+    ports:
+      - "8765:8765"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+      REDIS_HOST: redis           # spring.data.redis.host — demo-quota counter (slice 19)
+    networks: [myplus-net]
+    depends_on:
+      config-server:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  auth-service:
+    build: ./auth-service
+    container_name: myplus-auth
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8081"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      JWT_SECRET: ${JWT_SECRET}
+      SPRING_MAIL_HOST: smtp.gmail.com
+      SPRING_MAIL_PORT: 587
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-email2uncer@gmail.com}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  inventory-service:
+    build: ./inventory-service
+    container_name: myplus-inventory
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8082"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_inventory?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  business-service:
+    build: ./business-service
+    container_name: myplus-business
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8083"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  education-service:
+    build: ./education-service
+    container_name: myplus-education
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8084"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_education?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-email2uncer@gmail.com}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  welfare-service:
+    build: ./welfare-service
+    container_name: myplus-welfare
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8085"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_welfare?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  agriculture-service:
+    build: ./agriculture-service
+    container_name: myplus-agriculture
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8086"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_agriculture?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  pharma-service:
+    build: ./pharma-service
+    container_name: myplus-pharma
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8087"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_pharma?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  marketplace-service:
+    build: ./marketplace-service
+    container_name: myplus-marketplace
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8088"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_marketplace?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  campaign-service:
+    build: ./campaign-service
+    container_name: myplus-campaign
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8089"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_campaign?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-email2uncer@gmail.com}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  analytics-service:
+    build: ./analytics-service
+    container_name: myplus-analytics
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8090"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_analytics?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  appointment-service:
+    build: ./appointment-service
+    container_name: myplus-appointment
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8091"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_appointment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  # The monolith (Thymeleaf UI). Built from the repo root; serves on 8080. Talks to the gateway
+  # in-network and to MySQL `myplusdb`. (Build the jar first: from repo root `mvn -DskipTests package`.)
+  monolith:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: myplus-monolith
+    restart: unless-stopped
+    mem_limit: 1024m
+    ports:
+      - "8080:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_PROFILES_ACTIVE: prod
+      # P5: the monolith owns no database — no JDBC_URL/DB_* needed. Data lives in the microservices.
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      RECAPTCHA_SECRET: ${RECAPTCHA_SECRET:-}
+      AUTH_SERVER_URL: http://api-gateway:8765   # auth.server.url
+      GATEWAY_URL: http://api-gateway:8765        # gateway.url
+    networks: [myplus-net]
+    depends_on:
+      api-gateway:
+        condition: service_started
+
+networks:
+  myplus-net:
+    driver: bridge
+
+volumes:
+  mysql-data:

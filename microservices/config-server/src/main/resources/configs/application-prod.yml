@@ -1,0 +1,56 @@
+# Shared PROD hardening for every config-client microservice.
+# Active only when the service runs with SPRING_PROFILES_ACTIVE=prod, so local dev (default
+# profile) is unaffected. Overrides the base configs/application.yml. See docs/prod-hardening.md (P3).
+spring:
+  datasource:
+    # No default in prod — fail fast at startup if the secret isn't injected.
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      # F9: 'update' on the very first prod boot (creates schema), then 'validate' once the
+      # Flyway baselines land (phase P4). Never let Hibernate mutate a live prod schema silently.
+      ddl-auto: ${DDL_AUTO:validate}
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  servlet:
+    multipart:
+      # F13: cap uploads (CSV import etc.) to avoid unbounded-upload DoS.
+      max-file-size: ${MAX_FILE_SIZE:10MB}
+      max-request-size: ${MAX_REQUEST_SIZE:12MB}
+
+# F10: minimal actuator surface in prod; no detailed health, add k8s/ECS probes.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+jwt:
+  secret: ${JWT_SECRET}            # no default in prod
+
+# F15: in prod don't seed the known-password admin; set ADMIN_PASSWORD if you intentionally seed one.
+app:
+  seed-admin: ${SEED_ADMIN:false}
+  admin-password: ${ADMIN_PASSWORD:}
+
+# F2: enforce the gateway↔service internal trust secret in prod.
+gateway:
+  internal-secret: ${INTERNAL_SECRET}
+service:
+  internal-secret: ${INTERNAL_SECRET}
+
+# F11: no SQL / bound-parameter logging in prod (it leaks PII / credential material).
+logging:
+  level:
+    com.myplus: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+    org.hibernate.tool.schema: WARN

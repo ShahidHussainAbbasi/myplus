@@ -1,0 +1,7 @@
+# Tests must not reach the config-server (bootstrap phase). Datasource/JPA props are supplied per-test
+# via @DynamicPropertySource from the Testcontainers MySQL.
+spring:
+  cloud:
+    config:
+      enabled: false
+      fail-fast: false

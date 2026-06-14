@@ -80,12 +80,12 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							/*"<div id='expenseId'>"+ obj.id+ "</div>",*/"<input id='expenseId' type='checkbox' value='"+ obj.id+ "'>",
-							"<div id='expenseLandNameDD'>"+obj.landName+"</div>",/* "<div id='landName'>"+obj.landName+"</div>", */
-							"<div id='expenseCropNameDD'>"+obj.cropName+"</div>", "<div id='expenseCropType'>"+obj.cropType+"</div>",
-							 "<div id='expenseNameDD'>"+obj.expenseName+"</div>","<div id='expenseDescription'>"+obj.description+"</div>",
-							 /*"<div id='expenseTypeDD'>"+obj.expenseType+"</div>",*/
-							"<div id='expenseAmount'>"+obj.amount+"</div>", "<div id='expenseDatedStr'>"+obj.datedStr+"</div>", 
-							"<div id='expenseUpdatedStr'>"+obj.updatedStr+"</div>"
+							"<div id='expenseLandNameDD'>"+escHtml(obj.landName)+"</div>",/* "<div id='landName'>"+escHtml(obj.landName)+"</div>", */
+							"<div id='expenseCropNameDD'>"+escHtml(obj.cropName)+"</div>", "<div id='expenseCropType'>"+escHtml(obj.cropType)+"</div>",
+							 "<div id='expenseNameDD'>"+escHtml(obj.expenseName)+"</div>","<div id='expenseDescription'>"+escHtml(obj.description)+"</div>",
+							 /*"<div id='expenseTypeDD'>"+escHtml(obj.expenseType)+"</div>",*/
+							"<div id='expenseAmount'>"+escHtml(obj.amount)+"</div>", "<div id='expenseDatedStr'>"+escHtml(obj.datedStr)+"</div>", 
+							"<div id='expenseUpdatedStr'>"+escHtml(obj.updatedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -94,11 +94,11 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							/*"<div id='incomeId'>"+ obj.id+ "</div>",*/"<input id='incomeId' type='checkbox' value='"+ obj.id+ "'>",
-							"<div id='incomeLandNameDD'>"+obj.landName+"</div>",/* "<div id='landName'>"+obj.landName+"</div>", */ 
-							"<div id='incomeCropNameDD'>"+obj.cropName+"</div>", "<div id='incomeCropType'>"+obj.cropType+"</div>",
-							"<div id='incomeNameDD'>"+obj.incomeName+"</div>","<div id='incomeDescription'>"+obj.description+"</div>",
-							"<div id='incomeAmount'>"+obj.amount+"</div>", "<div id='incomeDatedStr'>"+obj.datedStr+"</div>", 
-							"<div id='incomeUpdatedStr'>"+obj.updatedStr+"</div>"
+							"<div id='incomeLandNameDD'>"+escHtml(obj.landName)+"</div>",/* "<div id='landName'>"+escHtml(obj.landName)+"</div>", */ 
+							"<div id='incomeCropNameDD'>"+escHtml(obj.cropName)+"</div>", "<div id='incomeCropType'>"+escHtml(obj.cropType)+"</div>",
+							"<div id='incomeNameDD'>"+escHtml(obj.incomeName)+"</div>","<div id='incomeDescription'>"+escHtml(obj.description)+"</div>",
+							"<div id='incomeAmount'>"+escHtml(obj.amount)+"</div>", "<div id='incomeDatedStr'>"+escHtml(obj.datedStr)+"</div>", 
+							"<div id='incomeUpdatedStr'>"+escHtml(obj.updatedStr)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -107,10 +107,10 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							/*"<div id='landId'>"+ obj.id+ "</div>",*/
-							"<input id='landId' type='checkbox' value='"+ obj.id+ "'>","<div id='landUnitDD'>"+obj.landUnit+"</div>",
-							"<div id='totalLandUnitOf'>"+obj.totalLandUnit+"</div>", "<div id='landName'>"+obj.landName+"</div>", 
-							"<div id='landType'>"+obj.landType+"</div>", "<div id='landDatedStr'>"+obj.datedStr+"</div>", 
-							"<div id='landUpdatedStr'>"+obj.updatedStr+"</div>","<div id='description'>"+obj.description+"</div>"
+							"<input id='landId' type='checkbox' value='"+ obj.id+ "'>","<div id='landUnitDD'>"+escHtml(obj.landUnit)+"</div>",
+							"<div id='totalLandUnitOf'>"+escHtml(obj.totalLandUnit)+"</div>", "<div id='landName'>"+escHtml(obj.landName)+"</div>", 
+							"<div id='landType'>"+escHtml(obj.landType)+"</div>", "<div id='landDatedStr'>"+escHtml(obj.datedStr)+"</div>", 
+							"<div id='landUpdatedStr'>"+escHtml(obj.updatedStr)+"</div>","<div id='description'>"+escHtml(obj.description)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});

@@ -2,12 +2,8 @@ package com.web.dto.business;
 
 import java.io.Serializable;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.persistence.model.business.enums.CustomerType;
-import com.validation.ValidMobileNumber;
 import com.validation.ValidateEmpty;
+import com.security.SafeText;
 
 import lombok.Data;
 
@@ -23,16 +19,20 @@ public class CustomerDTO implements Serializable {
 	private Long customerId;
 
 	@ValidateEmpty(message = "Customer name is required")
+	@SafeText
 	private String name;
 
-	private CustomerType customerType;	
+	private String customerType;
 
-	@ValidMobileNumber(message = "Invalid contact number")
+	// @ValidMobileNumber(message = "Invalid contact number")
+	@SafeText
 	private String contact;
 
-	@ValidateEmpty(message = "Customer email is required")
+	// @ValidateEmpty(message = "Customer email is required")
+	@SafeText
 	private String email;
 
+	@SafeText
 	private String address;
 
 	// @ValidateEmpty(message = "Paid amount is required")
@@ -42,9 +42,9 @@ public class CustomerDTO implements Serializable {
 
     private LocalDate dueDate;
 	
-	private LocalDateTime dated;
+	private String dated;
 
-	private LocalDateTime updated;
+	private String updated;
 
 	private CustomerHistoryDTO customerHistory;
 

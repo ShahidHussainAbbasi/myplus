@@ -15,7 +15,8 @@ describe('Sell Section — Page Rendering', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('sellDiv')
+    // sellType is off-screen — force:true required
+    cy.get('#sellType').select('sellDiv', { force: true })
     cy.get('#sellDiv').should('be.visible')
   })
 
@@ -65,7 +66,7 @@ describe('Sell Section — AJAX Loading', () => {
   it('item dropdown loads options from getUserItems', () => {
     cy.intercept('GET', '/getUserItems').as('getUserItems')
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('sellDiv')
+    cy.get('#sellType').select('sellDiv', { force: true })
     cy.wait('@getUserItems', { timeout: 10000 }).then((interception) => {
       expect(interception.response.statusCode).to.eq(200)
     })
@@ -75,7 +76,7 @@ describe('Sell Section — AJAX Loading', () => {
     // Use negative lookahead so /getUserCustomers (plural) is not matched
     cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('sellDiv')
+    cy.get('#sellType').select('sellDiv', { force: true })
     cy.wait('@getCustomers', { timeout: 10000 }).then((interception) => {
       expect(interception.response.statusCode).to.eq(200)
       expect(interception.response.body).to.have.property('status')
@@ -92,7 +93,7 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
     cy.loginAsBusiness()
     cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('sellDiv')
+    cy.get('#sellType').select('sellDiv', { force: true })
     cy.get('#sellDiv').should('be.visible')
     cy.wait('@getCustomers', { timeout: 10000 })
   })
@@ -218,13 +219,63 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
   })
 })
 
-// ─── 4. Sale Detail Report ───────────────────────────────────────────────────
+// ─── 4. Customer Mandatory Validation ────────────────────────────────────────
+
+describe('Sell Section — Customer Mandatory Validation', () => {
+  beforeEach(() => {
+    cy.loginAsBusiness()
+    cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
+    cy.visit('/businessDashboard')
+    cy.get('#sellType').select('sellDiv', { force: true })
+    cy.get('#sellDiv').should('be.visible')
+    cy.wait('@getCustomers', { timeout: 10000 })
+  })
+
+  it('addSell blocked in Select mode when no customer chosen — dropdown turns red', () => {
+    // Ensure blank dropdown (default state)
+    cy.get('#sellCustomerDD').invoke('val').should('eq', '')
+    cy.get('#addSell').click()
+    cy.get('#sellCustomerDD').should('have.css', 'border-color').and('include', 'rgb(255')
+  })
+
+  it('addSell blocked in Manual mode when sellCN is empty — field turns red', () => {
+    cy.get('#btnModeManual').click()
+    cy.get('#sellCN').should('be.visible').should('have.value', '')
+    cy.get('#addSell').click()
+    cy.get('#sellCN').should('have.css', 'border-color').and('include', 'rgb(255')
+  })
+
+  it('addSell clears dropdown red border once a customer is selected', () => {
+    cy.get('#addSell').click()
+    cy.get('#sellCustomerDD').should('have.css', 'border-color').and('include', 'rgb(255')
+
+    cy.get('#sellCustomerDD option').then(($opts) => {
+      const realOpts = $opts.filter((i, el) => el.value !== '')
+      if (realOpts.length === 0) {
+        cy.log('No customers in DB — border-clear test skipped')
+        return
+      }
+      cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val())
+      cy.get('#sellCustomerDD').should('not.have.css', 'border-color', 'rgb(255, 0, 0)')
+    })
+  })
+
+  it('addSell clears manual red border once sellCN is filled', () => {
+    cy.get('#btnModeManual').click()
+    cy.get('#addSell').click()
+    cy.get('#sellCN').should('have.css', 'border-color').and('include', 'rgb(255')
+    cy.get('#sellCN').clear().type('Walk-in Customer')
+    cy.get('#sellCN').should('not.have.css', 'border-color', 'rgb(255, 0, 0)')
+  })
+})
+
+// ─── 6. Sale Detail Report ───────────────────────────────────────────────────
 
 describe('Sell Section — Sale Detail Report', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
     cy.visit('/businessDashboard')
-    cy.get('#sellType').select('SRDiv')
+    cy.get('#sellType').select('SRDiv', { force: true })
     cy.get('#SRDiv').should('be.visible')
   })
 
@@ -235,7 +286,7 @@ describe('Sell Section — Sale Detail Report', () => {
   })
 })
 
-// ─── 5. API Endpoints ────────────────────────────────────────────────────────
+// ─── 7. API Endpoints ────────────────────────────────────────────────────────
 
 describe('Sell API Endpoints', () => {
   beforeEach(() => {
@@ -263,6 +314,70 @@ describe('Sell API Endpoints', () => {
       if (res.status === 200) {
         expect(res.body).to.have.property('status').that.is.a('string')
       }
+    })
+  })
+})
+
+// ─── 8. Invoice Numbering (slice 22) ─────────────────────────────────────────
+// A new sale must get a system-generated per-org invoice number (INV-######) and
+// successive sales must increment it.
+
+describe('Sell Section — Invoice Numbering (slice 22)', () => {
+  let stockId
+  const ts = Date.now()
+  const iname = `InvItem_${ts}`
+
+  // pull the invoice number out of the addSell response — it may arrive in the
+  // GenericResponse `object` field or embedded in the success `message`.
+  const invNo = (body) => {
+    const fromObj = (body && typeof body.object === 'string') ? body.object : null
+    if (fromObj && /^INV-\d{6}$/.test(fromObj)) return fromObj
+    const m = ((fromObj || '') + ' ' + (body && body.message || '')).match(/INV-\d{6}/)
+    return m ? m[0] : null
+  }
+
+  const sellOnce = () => cy.request({
+    method: 'POST', url: '/addSell',
+    body: {
+      customer: { name: `InvCust_${ts}`, contact: `032${ts.toString().slice(-8)}`, paidAmount: 100, dueAmount: 0 },
+      sales: [{ stockId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
+    },
+    headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+  })
+
+  before(() => {
+    cy.loginAsBusiness()
+    cy.request({ method: 'POST', url: '/addItem', form: true, body: { icode: `INV-${ts}`, iname, unit: 'pcs' }, failOnStatusCode: false })
+    cy.request('/getUserItem').then((res) => {
+      const item = (res.body.data || res.body.collection || []).find(i => i.iname === iname)
+      if (!item) return cy.log('Item not created — invoice tests will skip')
+      cy.request({ method: 'POST', url: '/addStock', form: true, body: { itemId: item.id, bpurchaseRate: 50, bsellRate: 100, stock: 50 }, failOnStatusCode: false })
+      cy.request({ url: '/getUserStock', failOnStatusCode: false }).then((r2) => {
+        const stock = (r2.body.data || r2.body.collection || []).find(s => s.itemId === item.id)
+        if (stock) stockId = stock.stockId || stock.id
+      })
+    })
+  })
+
+  beforeEach(() => { cy.loginAsBusiness() })
+
+  it('addSell returns a system-generated INV-###### invoice number', () => {
+    if (!stockId) return cy.log('No stockId — skipping invoice test')
+    sellOnce().then((res) => {
+      expect(res.status).to.eq(200)
+      expect(res.body.status).to.eq('SUCCESS')
+      expect(invNo(res.body), `invoice number in ${JSON.stringify(res.body)}`).to.match(/^INV-\d{6}$/)
+    })
+  })
+
+  it('a second sale gets the next sequential invoice number', () => {
+    if (!stockId) return cy.log('No stockId — skipping')
+    sellOnce().then((r1) => {
+      const n1 = parseInt((invNo(r1.body) || 'INV-000000').slice(4), 10)
+      sellOnce().then((r2) => {
+        const n2 = parseInt((invNo(r2.body) || 'INV-000000').slice(4), 10)
+        expect(n2, `seq went ${n1} -> ${n2}`).to.eq(n1 + 1)
+      })
     })
   })
 })

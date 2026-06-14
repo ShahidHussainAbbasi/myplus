@@ -9,7 +9,7 @@
 
 </head>
 <body>
-	<th:block th:replace="header :: header" />
+	<th:block th:replace="~{fragments/header :: header}" />
 	<nav class="subnav" id="nav-subheader">
 		<div class="container-fluid">
 			<ul class="nav navbar-nav">
@@ -180,6 +180,9 @@
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>
+	<!-- header-js loads jQuery + shared libs; must come before dom-safe.js / welfare.js which use $ -->
+	<th:block th:replace="~{fragments/header :: header-js}"></th:block>
+	<script th:src="@{/js/common/dom-safe.js}"></script>
 	<script th:src="@{/js/welfare/welfare.js}"></script>
 	<th:block th:replace="~{fragments/footer :: footer}"/>
 </body>

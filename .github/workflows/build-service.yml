@@ -1,0 +1,94 @@
+name: Build and Test Service
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        required: true
+        type: string
+      service-port:
+        required: true
+        type: string
+      java-version:
+        required: false
+        type: string
+        default: '25'
+    secrets:
+      AWS_DEPLOY_ROLE_ARN:
+        required: true
+      AWS_ACCOUNT_ID:
+        required: true
+      AWS_REGION:
+        required: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    environment: production   # A12 — set required reviewers on this GitHub Environment to gate prod deploys
+    permissions:
+      id-token: write   # OIDC — request the short-lived token
+      contents: read
+    defaults:
+      run:
+        working-directory: microservices/${{ inputs.service-name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ inputs.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build & test with Maven (A5 — tests gate the pipeline)
+        run: mvn clean package -f pom.xml
+
+      - name: Configure AWS credentials (A7 — OIDC role, no static keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build image (:<sha>)
+        id: image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: myplus/${{ inputs.service-name }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Scan image for CRITICAL vulnerabilities (A11/F17 — gate before push)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.image.outputs.image }}
+          format: table
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Push immutable image (A6/A9 — :<sha>, no :latest)
+        run: docker push "${{ steps.image.outputs.image }}"
+
+      - name: Deploy new task-def revision and wait for stable (A6)
+        env:
+          FAMILY: myplus-${{ inputs.service-name }}
+          CLUSTER: myplus-cluster
+          SERVICE: ${{ inputs.service-name }}
+          IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          TASKDEF=$(aws ecs describe-task-definition --task-definition "$FAMILY" --query 'taskDefinition')
+          NEWDEF=$(echo "$TASKDEF" | jq --arg IMG "$IMAGE" \
+            '.containerDefinitions[0].image=$IMG
+             | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)')
+          REV=$(aws ecs register-task-definition --cli-input-json "$NEWDEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --task-definition "$REV"
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"

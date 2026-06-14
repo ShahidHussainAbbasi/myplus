@@ -3,178 +3,141 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-  <link rel="stylesheet" type="text/css" th:href="@{/main.css}" />
-  	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-	<title th:text="#{label.app.title}">Title</title>
+  <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+  <th:block th:replace="~{fragments/header :: header-css}"></th:block>
+  <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
+  <title th:text="#{label.app.title}">Book an appointment</title>
+  <style>
+    body{background:#f1f5f9}
+    .book-wrap{max-width:760px;margin:32px auto;padding:0 14px}
+    .book-card{background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(13,35,83,.10);overflow:hidden}
+    .book-head{background:linear-gradient(135deg,#0D3B8C,#1565C0);color:#fff;padding:22px 26px}
+    .book-head h3{margin:0;font-weight:700}
+    .book-head p{margin:6px 0 0;opacity:.85}
+    .book-body{padding:24px 26px}
+    .book-body .form-group{margin-bottom:16px}
+    .doc-details{font-size:13px;color:#0D3B8C;background:rgba(21,101,192,.07);border-radius:8px;padding:10px 12px}
+    .topbar{background:#0D3B8C;color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center}
+    .topbar a{color:#fff;margin-left:14px;text-decoration:none;font-weight:500}
+  </style>
 </head>
 <body>
-		<nav th:fragment="header" class="navbar-inverse">
-		  <div class="container-fluid">
-		    <div class="navbar-header active">
-		      <a class="navbar-brand" href="#">Maximum your services</a>
-		    </div>
-		    <ul class="nav navbar-nav">
-		    </ul>
-		    <ul class="nav navbar-nav navbar-right">
-		      	<li><a class="glyphicon glyphicon-log-in" th:href="@{/login}" th:text="#{label.form.login}">Login</a></li>
-	        	<li><a class="glyphicon glyphicon-user" th:href="@{/registration.html}" th:text="#{label.form.siguUp}">Sign Up</a></li>
-		    </ul>
-		  </div>
-		</nav>
-    <div class="container content-cls">
-        <div >
-            <h3 th:text="#{label.appointment.heading}">form</h3>
-            <br/>
-            <form action="/" method="POST" enctype="utf8">
-                <div class="form-group row">
-                    <label class="col-sm-3" th:text="#{label.hospital.name}">Hospital Name</label>
-                    <span class="col-sm-5">
-	                    <select class="form-control" id="hospitalId" name="hospitalId" required="required">
-	                         <option value=""> Select Hospital </option>
-	                         <option th:each="hospital : ${hospitals}"
-	                            th:value="${hospital.hospitalId}"
-	                            th:utext="${hospital.name}"/>
-		                  </select>
-	                  </span>
-                </div>
-                <div class="form-group row">
-                	<label class="col-sm-3" th:text="#{label.doctor.name}">Doctor Name</label>
-			        <!-- <select th:field="*{requestModel.region}" class="form-control" id="region"> -->
-			        <span class="col-sm-5">
-				        <select class="form-control" id="doctorId" name="doctorId" required="required">
-				        </select>
-			        </span>
-					<span id="doctorNameError" class="alert alert-danger col-sm-4" style="display:none"></span>
-			    </div>
-					<div class="form-group row" id="doctorDetails">
-                    <label class="col-sm-3" th:text="#{label.appointment.doctor.details}">Available</label>
-                    <span class="col-sm-5" id="doctorDetailSpan">
-                    </span>
-                </div>
-					<div class="form-group row">
-                    <label class="col-sm-3" th:text="#{label.appointment.name}">Patient Name</label>
-                    <span class="col-sm-5"><input class="form-control" name="name" value="" required="required"/></span>
-                    <span id="nameError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                </div>
-                <div class="form-group row">
-                    <label class="col-sm-3" th:text="#{label.mobile}">Mobile</label>
-                    <span class="col-sm-5"><input id="mobile" class="form-control" name="mobile" value="" required="required"/></span>
-                    <span id="mobileError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                </div>
-                <div class="form-group row">
-                    <label class="col-sm-3" th:text="#{label.address}">Address</label>
-                    <span class="col-sm-5"><input id="phone" class="form-control" name="address" value="" required="required"/></span>
-                    <span id="phoneError" class="alert alert-danger col-sm-4" style="display:none"></span>
-                </div>
-                <br/>
-                <div class="form-group row">
-                 	<div class="col-sm-3">
-                		<button type="submit" class="btn btn-info btn-cls" th:text="#{label.form.submit}">submit</button>
-                	</div>
-                	<div id="messageDiv" class="col-sm-5"></div>
-                <!-- Enable when any hospital allow for free -->
-                <!-- <a class="btn btn-default" th:href="@{/registration.html}" th:text="#{label.user.register}">Register</a> -->
-                </div>
-            </form>
-        </div>
+  <div class="topbar">
+    <span><img th:src="@{/favicon.png}" height="24" width="22" style="border-radius:5px;vertical-align:middle;margin-right:8px"/>MyPlus</span>
+    <span>
+      <a th:href="@{/login}"><span class="glyphicon glyphicon-log-in"></span> Login</a>
+      <a th:href="@{/registration.html}"><span class="glyphicon glyphicon-user"></span> Sign Up</a>
+    </span>
+  </div>
+
+  <div class="book-wrap">
+    <div class="book-card">
+      <div class="book-head">
+        <h3 th:text="#{label.appointment.heading}">Book an appointment</h3>
+        <p>Choose a hospital and doctor, then share your details — you'll get an appointment token.</p>
+      </div>
+      <div class="book-body">
+        <div id="messageDiv" class="alert" style="display:none"></div>
+        <form id="bookForm" autocomplete="off" onsubmit="return false">
+          <div class="form-group row">
+            <label class="col-sm-3 control-label" th:text="#{label.hospital.name}">Hospital</label>
+            <div class="col-sm-9">
+              <select class="form-control" id="hospitalId" name="hospitalId" required="required">
+                <option value="">Select hospital</option>
+                <option th:each="hospital : ${hospitals}" th:value="${hospital.hospitalId}" th:utext="${hospital.name}"></option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label class="col-sm-3 control-label" th:text="#{label.doctor.name}">Doctor</label>
+            <div class="col-sm-9">
+              <select class="form-control" id="doctorId" name="doctorId" required="required">
+                <option value="">Select hospital first</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group row" id="doctorDetails" style="display:none">
+            <label class="col-sm-3 control-label" th:text="#{label.appointment.doctor.details}">Availability</label>
+            <div class="col-sm-9"><div class="doc-details" id="doctorDetailSpan"></div></div>
+          </div>
+          <div class="form-group row">
+            <label class="col-sm-3 control-label" th:text="#{label.appointment.name}">Patient name</label>
+            <div class="col-sm-9"><input class="form-control" id="name" name="name" required="required" placeholder="Your full name"/></div>
+          </div>
+          <div class="form-group row">
+            <label class="col-sm-3 control-label" th:text="#{label.mobile}">Mobile</label>
+            <div class="col-sm-9"><input class="form-control" id="mobile" name="mobile" required="required" placeholder="Mobile number"/></div>
+          </div>
+          <div class="form-group row">
+            <label class="col-sm-3 control-label" th:text="#{label.address}">Address</label>
+            <div class="col-sm-9"><input class="form-control" id="address" name="address" placeholder="Address (optional)"/></div>
+          </div>
+          <div class="form-group row">
+            <div class="col-sm-9 col-sm-offset-3">
+              <button type="button" id="bookBtn" class="btn btn-info"><span class="glyphicon glyphicon-ok"></span> Book appointment</button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
-    
+  </div>
 
-<script th:inline="javascript">
-var serverContext = [[@{/}]];
+  <script th:src="@{/js/jquery.min.js}"></script>
+  <script>
+    // CSRF: send the XSRF-TOKEN cookie back as X-XSRF-TOKEN on state-changing calls.
+    (function () {
+      function readCookie(n) { var m = document.cookie.match('(?:^|; )' + n + '=([^;]*)'); return m ? decodeURIComponent(m[1]) : null; }
+      if (window.jQuery) {
+        jQuery(document).ajaxSend(function (e, xhr, s) {
+          if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(s.type || 'GET')) {
+            var t = readCookie('XSRF-TOKEN'); if (t) xhr.setRequestHeader('X-XSRF-TOKEN', t);
+          }
+        });
+      }
+    })();
+  </script>
+  <script th:inline="javascript">
+    var serverContext = [[@{/}]];
 
-$(document).ready(function () {
-	$('form').submit(function(event) {
-		appointmentReq(event);
-	});
-	$("#hospitalId").change(function() {
-        loadDoctorsByHospital();
-    });
-	$("#doctorId").change(function() {
-		loadDoctorDetails();
-    });
-});
-
-function appointmentReq(event){
-	event.preventDefault();
-    $(".alert").html("").hide();
-    $(".error-list").html("");
-    $("#messageDiv").html("");
-    $("#messageDiv").removeClass("alert alert-danger");
-    var formData= $('form').serialize();
-    $.post(serverContext+ "appointmentReq",formData ,function(data){
-        if(data.status == "SUCCESS"){
-        	$("#messageDiv").show().html(data.message);
-        	$("#messageDiv").addClass("alert alert-success");
-        }else if(data.status == "FAILURE"){
-        	$("#messageDiv").show().html(data.error);
-        	$("#messageDiv").addClass("alert alert-danger");
-        }
-    })
-    .fail(function(data) {
-    	//alert("responseJSON exist  "+data.responseJSON.message);
-    	/*
-        if(data.responseJSON.error.indexOf("MailError") > -1)
-        {
-            window.location.href = serverContext + "emailError.html";
-        }
-        else if(data.responseJSON.error == "UserAlreadyExist"){
-            $("#emailError").show().html(data.responseJSON.message);
-        }
-        else if(data.responseJSON.error.indexOf("InternalError") > -1){
-            window.location.href = serverContext + "login?message=" + data.responseJSON.message;
-        }
-        else*/
-        {
-        	var errors = $.parseJSON(data.responseJSON.message);
-            $.each( errors, function( index,item ){
-            	if (item.field){
-            		$("#"+item.field+"Error").show().append(item.defaultMessage+"<br/>");
-            	}
-            	else {
-            		$("#globalError").show().append(item.defaultMessage+"<br/>");
-            	}
-               
-            });
-        }
-    });
-}
-
-function loadDoctorsByHospital() {
-	$("#doctorId").empty();
-    var hospitalId = $("#hospitalId").val();
-    if(hospitalId=="" || hospitalId==null){
-    	$("#doctorId").append("<option value = ''> Please Select Hospitl </option>");
-    	return false;
-    }else{
-    	$("#doctorId").append("<option value = ''> Please wait....  </option>");
+    function bookMsg(html, ok) {
+      $('#messageDiv').removeClass('alert-success alert-danger')
+        .addClass(ok ? 'alert-success' : 'alert-danger').html(html).show();
     }
-    $.get(serverContext+ "loadDoctorsByHospital?hospitalId="+hospitalId ,function(data){
-    	$("#doctorId").empty().append(data);
-    })
-	.fail(function(data) {
-		alert(xhr.responseText);
-	});
-}
 
-function loadDoctorDetails() {
-	$("#doctorDetailSpan").empty();
-    var doctorId = $("#doctorId").val();
-    console.log(doctorId);
-    if(doctorId=="" || doctorId==null)
-    	return false;
-    
-    
-    $.get(serverContext+ "loadDoctorDetails?doctorId="+doctorId ,function(data){
-    	$("#doctorDetailSpan").append(data);
-    })
-	.fail(function(data) {
-		alert(xhr.responseText);
-	});
-}
+    $(document).ready(function () {
+      $('#hospitalId').change(loadDoctorsByHospital);
+      $('#doctorId').change(loadDoctorDetails);
+      $('#bookBtn').click(appointmentReq);
+    });
 
-</script>  
-<th:block th:replace="footer :: footer"/>  
+    function appointmentReq() {
+      $('#messageDiv').hide();
+      $.post(serverContext + 'appointmentReq', $('#bookForm').serialize(), function (data) {
+        if (data.status === 'SUCCESS') { bookMsg(data.message, true); $('#bookForm')[0].reset(); $('#doctorDetails').hide(); }
+        else { bookMsg(data.error || 'Could not book the appointment.', false); }
+      }).fail(function (xhr) {
+        var msg = 'Please complete the form correctly.';
+        try { var j = xhr.responseJSON; if (j && (j.error || j.message)) msg = j.error || j.message; } catch (e) {}
+        bookMsg(msg, false);
+      });
+    }
+
+    function loadDoctorsByHospital() {
+      var hospitalId = $('#hospitalId').val();
+      var $d = $('#doctorId').empty();
+      $('#doctorDetails').hide();
+      if (!hospitalId) { $d.append('<option value="">Select hospital first</option>'); return; }
+      $d.append('<option value="">Loading…</option>');
+      $.get(serverContext + 'loadDoctorsByHospital?hospitalId=' + hospitalId, function (data) { $d.empty().append(data); });
+    }
+
+    function loadDoctorDetails() {
+      var doctorId = $('#doctorId').val();
+      if (!doctorId) { $('#doctorDetails').hide(); return; }
+      $.get(serverContext + 'loadDoctorDetails?doctorId=' + doctorId, function (data) {
+        $('#doctorDetailSpan').html(data); $('#doctorDetails').show();
+      });
+    }
+  </script>
 </body>
 </html>

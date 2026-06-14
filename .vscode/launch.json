@@ -2,6 +2,20 @@
     "configurations": [
         {
             "type": "java",
+            "name": "BusinessServiceApplication",
+            "request": "launch",
+            "mainClass": "BusinessServiceApplication",
+            "projectName": "myplus"
+        },
+        {
+            "type": "java",
+            "name": "EurekaServerApplication",
+            "request": "launch",
+            "mainClass": "EurekaServerApplication",
+            "projectName": "myplus"
+        },
+        {
+            "type": "java",
             "name": "Spring Boot-Application<myplus>",
             "request": "launch",
             "cwd": "${workspaceFolder}",

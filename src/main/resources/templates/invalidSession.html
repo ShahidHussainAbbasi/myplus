@@ -1,29 +1,36 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-  <link rel="stylesheet" type="text/css" th:href="@{/main.css}" />
-	<title th:text="#{label.pages.home.title}">Title</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+  <th:block th:replace="~{fragments/header :: header-css}"></th:block>
+  <title>Session expired — MyPlus</title>
+  <style>
+    body{background:#f1f5f9;font-family:'Inter',sans-serif}
+    .sx-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .sx-card{background:#fff;max-width:460px;width:100%;border-radius:16px;box-shadow:0 14px 44px rgba(13,35,83,.14);overflow:hidden;text-align:center}
+    .sx-head{background:linear-gradient(135deg,#0D3B8C,#1565C0);color:#fff;padding:32px 24px}
+    .sx-icon{width:66px;height:66px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:30px}
+    .sx-head h2{margin:0;font-weight:700;font-size:22px}
+    .sx-body{padding:28px 30px}
+    .sx-body p{color:#475569;line-height:1.65;margin:0 0 24px;font-size:14.5px}
+    .sx-btn{display:inline-flex;align-items:center;gap:8px;background:#1565C0;color:#fff;text-decoration:none;padding:12px 26px;border-radius:10px;font-weight:600;transition:background .15s,transform .15s}
+    .sx-btn:hover{background:#0D3B8C;transform:translateY(-1px);color:#fff;text-decoration:none}
+  </style>
 </head>
 <body>
-   	<div id="container">
-		<nav th:fragment="header" class="navbar-inverse">
-			<div class="container-fluid">
-				<ul class="nav navbar-nav navbar-right">
-		            <li th:if="${#authorization.expression('!isAuthenticated()')}">
-		              <a href="/login" th:href="@{/login}">
-		                <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>&nbsp;login
-		              </a>
-		            </li>
-				</ul>
-			</div>
-		</nav>
-	    <div id="content">
-		    <div id="content-wrap">
-			    <h3 class="alert alert-danger" th:text="#{message.sessionExpired}">expired</h3>
-		   </div>
-	    </div>
-	    <th:block th:replace="footer :: footer"/>
-	  </div> 
+  <div class="sx-wrap">
+    <div class="sx-card">
+      <div class="sx-head">
+        <div class="sx-icon"><span class="glyphicon glyphicon-time" aria-hidden="true"></span></div>
+        <h2 th:text="#{message.sessionExpired}">Session Timed Out</h2>
+      </div>
+      <div class="sx-body">
+        <p>For your security, your session has ended after a period of inactivity. Please sign in again to pick up where you left off — your data is safe.</p>
+        <a class="sx-btn" th:href="@{/login}"><span class="glyphicon glyphicon-log-in" aria-hidden="true"></span> Sign in again</a>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

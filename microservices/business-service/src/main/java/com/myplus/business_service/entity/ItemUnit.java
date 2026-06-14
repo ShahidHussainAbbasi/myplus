@@ -1,0 +1,162 @@
+package com.myplus.business_service.entity;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+
+/**
+ * The persistent class for the doctor database table.
+ * 
+ */
+@Entity
+@Table(name = "item_unit", uniqueConstraints = { @UniqueConstraint(columnNames = "item_unit_id"),
+		@UniqueConstraint(columnNames = {"organization_id", "name"}) })  // per-tenant unique (was global on name)
+public class ItemUnit implements Serializable {
+	private static final long serialVersionUID = 1L;
+
+	@Id
+	@SequenceGenerator(name = "item_unit_gen", sequenceName = "item_unit_seq",initialValue = 1, allocationSize = 1)
+	@GeneratedValue(generator = "item_unit_gen")	
+	@Column(name = "item_unit_id", unique = true, nullable = false)
+	private Long id;
+
+	@Column(name = "user_id", nullable = false)
+	private Long userId;
+
+	@Column(name = "user_type")
+	private String userType;
+
+	@Column(name = "organization_id")
+	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
+	@Column(name = "name", nullable = false)   // global unique dropped → now per-tenant via @Table
+	private String name;
+
+	private String description;
+
+	private LocalDateTime dated;
+
+	private LocalDateTime updated;
+
+	/**
+	 * @return the id
+	 */
+	public Long getId() {
+		return id;
+	}
+
+	/**
+	 * @param id the id to set
+	 */
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	/**
+	 * @return the userId
+	 */
+	public Long getUserId() {
+		return userId;
+	}
+
+	/**
+	 * @param userId the userId to set
+	 */
+	public void setUserId(Long userId) {
+		this.userId = userId;
+	}
+
+	public Long getOrganizationId() {
+		return organizationId;
+	}
+
+	public void setOrganizationId(Long organizationId) {
+		this.organizationId = organizationId;
+	}
+
+	/**
+	 * @return the name
+	 */
+	public String getName() {
+		return name;
+	}
+
+	/**
+	 * @param name the name to set
+	 */
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	/**
+	 * @return the description
+	 */
+	public String getDescription() {
+		return description;
+	}
+
+	/**
+	 * @param description the description to set
+	 */
+	public void setDescription(String description) {
+		this.description = description;
+	}
+
+	/**
+	 * @return the userType
+	 */
+	public String getUserType() {
+		return userType;
+	}
+
+	/**
+	 * @param userType the userType to set
+	 */
+	public void setUserType(String userType) {
+		this.userType = userType;
+	}
+
+	/**
+	 * @return the dated
+	 */
+	public LocalDateTime getDated() {
+		return dated;
+	}
+
+	/**
+	 * @param dated the dated to set
+	 */
+	public void setDated(LocalDateTime dated) {
+		this.dated = dated;
+	}
+
+	/**
+	 * @return the updated
+	 */
+	public LocalDateTime getUpdated() {
+		return updated;
+	}
+
+	/**
+	 * @param updated the updated to set
+	 */
+	public void setUpdated(LocalDateTime updated) {
+		this.updated = updated;
+	}
+
+	/**
+	 * @return the serialversionuid
+	 */
+	public static long getSerialversionuid() {
+		return serialVersionUID;
+	}
+
+}

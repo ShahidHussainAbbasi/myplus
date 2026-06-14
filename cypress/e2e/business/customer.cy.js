@@ -22,7 +22,7 @@ describe('Customer CRUD', () => {
   it('loads the customer section with form and table', () => {
     cy.get('#Customer').should('exist')
     cy.get('#tableCustomer').should('exist')
-    cy.get('#name').should('be.visible')
+    cy.get('#customerName').should('be.visible')
     cy.get('#contact').should('be.visible')
     cy.get('#addCustomer').should('be.visible')
     cy.get('#deleteCustomer').should('be.visible')
@@ -53,7 +53,7 @@ describe('Customer CRUD', () => {
 
   it('fills customer form and submits via UI', () => {
     const contact = `0300${Date.now().toString().slice(-7)}`
-    cy.get('#name').type(`Cypress Customer`)
+    cy.get('#customerName').type(`Cypress Customer`)
     cy.get('#contact').type(contact)
     cy.get('#email').type(`cust${Date.now()}@test.com`)
     cy.get('#address').type('123 Test Lane, Lahore')
@@ -143,7 +143,7 @@ describe('Customer CRUD', () => {
       // match form control IDs (customerId, name, contact, email, address)
       cy.wrap(dataRows.first()).click()
       cy.get('#customerId').should('not.have.value', '')
-      cy.get('#name').should('not.have.value', '')
+      cy.get('#customerName').should('not.have.value', '')
     })
   })
 

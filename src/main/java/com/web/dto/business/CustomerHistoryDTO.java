@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.Column;
+import jakarta.persistence.Column;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

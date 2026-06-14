@@ -1,3 +1,10 @@
+# Node / npm (Cypress tooling) — never commit vendored deps
+node_modules/
+
+# Application logs (root + per-service)
+*.log
+*.log.err
+
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
@@ -24,3 +31,18 @@ target/
 .idea/
 *.iml
 *.iws
+
+# Cypress run artifacts (reproducible via the specs / npm scripts)
+cypress/videos/
+cypress/screenshots/
+
+# Local secrets (DB creds, etc.) — never commit
+.env
+.env.local
+*.env
+*.env.local
+!.env.example
+
+# Service runtime logs (not versioned)
+microservices/logs/
+node_modules

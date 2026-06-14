@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars (git-ignored) and fill in, or pass via TF_VAR_* env / -var.
+# Secrets are seeded into AWS Secrets Manager on first apply; rotate them in Secrets Manager after.
+
+account_id = "730335361891" # your AWS account id
+
+# Secrets — generate strong values (e.g. `openssl rand -base64 48`). NEVER commit real values.
+db_password     = "REPLACE-with-a-strong-rds-master-password"
+jwt_secret      = "REPLACE-with-a-256bit-random-base64-key"
+internal_secret = "REPLACE-with-a-strong-random-string"
+
+# Optional overrides (defaults shown)
+# aws_region  = "us-east-1"
+# environment = "prod"

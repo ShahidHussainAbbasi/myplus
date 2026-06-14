@@ -1,0 +1,22 @@
+CREATE DATABASE IF NOT EXISTS myplusdb_auth;
+CREATE DATABASE IF NOT EXISTS myplusdb_inventory;
+CREATE DATABASE IF NOT EXISTS myplusdb;
+CREATE DATABASE IF NOT EXISTS myplusdb_education;
+CREATE DATABASE IF NOT EXISTS myplusdb_welfare;
+CREATE DATABASE IF NOT EXISTS myplusdb_agriculture;
+CREATE DATABASE IF NOT EXISTS myplusdb_pharma;
+CREATE DATABASE IF NOT EXISTS myplusdb_marketplace;
+CREATE DATABASE IF NOT EXISTS myplusdb_campaign;
+CREATE DATABASE IF NOT EXISTS myplusdb_analytics;
+
+GRANT ALL PRIVILEGES ON myplusdb_auth.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_inventory.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON myplusdb.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_education.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_welfare.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_agriculture.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_pharma.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_marketplace.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_campaign.* TO 'root'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_analytics.* TO 'root'@'%';
+FLUSH PRIVILEGES;

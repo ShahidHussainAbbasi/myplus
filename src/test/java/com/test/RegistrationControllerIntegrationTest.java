@@ -15,8 +15,8 @@
 // import java.util.Date;
 // import java.util.UUID;
 
-// import javax.persistence.EntityManager;
-// import javax.persistence.PersistenceContext;
+// import jakarta.persistence.EntityManager;
+// import jakarta.persistence.PersistenceContext;
 
 // import com.Application;
 // import com.persistence.model.User;

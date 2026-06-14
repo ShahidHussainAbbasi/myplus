@@ -1,179 +1,85 @@
 package com.web.controller.business;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
+import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.MessageSource;
-import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
-import org.springframework.util.StringUtils;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.persistence.model.Company;
-import com.persistence.model.User;
-import com.service.business.ICompanyService;
-import com.web.dto.CompanyDTO;
-import com.web.util.AppUtil;
-import com.web.util.GenericResponse;
-import com.web.util.RequestUtil;
+import com.web.util.BusinessRestClient;
 
 @Controller
 public class CompanyController {
 
-	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
-	@Autowired
-	private MessageSource messages;
+    private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 
-	@Autowired
-	ICompanyService companyService;
+    @Autowired
+    private BusinessRestClient client;
 
-	@Autowired
-	AppUtil appUtil;
-	
-	@Autowired
-	RequestUtil requestUtil;
+    @RequestMapping(value = "/getUserCompany", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getUserCompany(final HttpServletRequest request) {
+        try {
+            return client.get("/getUserCompany");
+        } catch (Exception e) {
+            LOGGER.error("getUserCompany proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
 
-	ModelMapper modelMapper = new ModelMapper();
-	
-	@RequestMapping(value = "/getUserCompany", method = RequestMethod.GET)
-	@ResponseBody
-	public GenericResponse getUserCompany(final HttpServletRequest request) {
-		try {
-			Company filterBy = new Company();
-			User user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getId());
-	        Example<Company> example = Example.of(filterBy);
-			List<Company> objs = companyService.findAll(example);
-			if(appUtil.isEmptyOrNull(objs))
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
+    @RequestMapping(value = "/getUserCompanies", method = RequestMethod.GET)
+    @ResponseBody
+    public String getUserCompanies(final HttpServletRequest request) {
+        try {
+            return client.getString("/getUserCompanies");
+        } catch (Exception e) {
+            LOGGER.error("getUserCompanies proxy error", e);
+            return "<option value=''>No Data found</option>";
+        }
+    }
 
-			List<CompanyDTO> dtos=new ArrayList<CompanyDTO>(); 
-			objs.forEach(obj ->{
-				CompanyDTO dto = modelMapper.map(obj, CompanyDTO.class);
-				dto.setDatedStr(appUtil.getLocalDateTimeStr(obj.getDated()));
-				dto.setUpdatedStr(appUtil.getLocalDateTimeStr(obj.getUpdated()));
-				dtos.add(dto);
-			});
-			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserCompany "+e.getCause());
-			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
-		}
-	}
-	
-	@RequestMapping(value = "/getUserCompanies", method = RequestMethod.GET)
-	@ResponseBody
-	public String getUserCompanies(final HttpServletRequest request) {
-		StringBuffer sb = new StringBuffer();
-		try {
-			Company filterBy = new Company();
-			User user = requestUtil.getCurrentUser();
-			filterBy.setUserId(user.getId());
-	        Example<Company> example = Example.of(filterBy);
-			List<Company> objs = companyService.findAll(example);
-			
-			objs.forEach(d -> {
-				sb.append("<option value="+d.getId()+">"+d.getName()+"</option>");
-			});
-		    return sb.toString();
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getUserCompanies "+e.getCause());			
-			return (sb.append("<option value=''>No Data found</option>")).toString();
-		}
-	}
+    @RequestMapping(value = "/getAllCompany", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getAllCompany(final HttpServletRequest request) {
+        try {
+            return client.get("/getAllCompany");
+        } catch (Exception e) {
+            LOGGER.error("getAllCompany proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
 
-	@RequestMapping(value = "/getAllCompany", method = RequestMethod.GET)
-	@ResponseBody
-	public GenericResponse getAllCompany(final HttpServletRequest request) {
-		try {
-			List<Company> objs = companyService.findAll();
-			if(appUtil.isEmptyOrNull(objs)){
-				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
-			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > getAllCompany "+e.getCause());			
-			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
-					e.getCause().toString());
-		}
-	}
-	
-	@RequestMapping(value = "/addCompany", method = RequestMethod.POST)
-	@ResponseBody
-	public GenericResponse addOwner(@Validated final CompanyDTO dto, final HttpServletRequest request) {
-		try {
-			Company obj= new Company();
-			LocalDateTime dated = LocalDateTime.now();
-			User user = requestUtil.getCurrentUser();
-			dto.setUserId(user.getId());
-			
-			Example<Company> example = Example.of(obj);
-			if(appUtil.isEmptyOrNull(dto.getId())){
-				obj.setUserId(user.getId());
-				obj.setName(dto.getName());
-				if(companyService.exists(example)) {
-					return new GenericResponse("FOUND",messages.getMessage("The Company "+dto.getName()+" already exist", null, request.getLocale()));		
-				}		
-			}
-			
-			obj = modelMapper.map(dto, Company.class);
-			//if it is update
-			if(!appUtil.isEmptyOrNull(dto.getId())) {
-				obj.setDated(companyService.getReferenceById(dto.getId()).getDated());
-//				dated = obj.getDated();
-			}else {
-				obj.setDated(dated);
-			}
-			obj.setUpdated(dated);
-			obj.setUserType(user.getUserType());
-			obj = companyService.save(obj);
-			if(appUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
-			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > addCompany "+e.getCause());			
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getCause().toString());
-		}
-	}
-	
-	@RequestMapping(value = "/deleteCompany", method = RequestMethod.POST)
-	@ResponseBody
-	public boolean deleteCompany( HttpServletRequest req, HttpServletResponse resp ){
-		try {
-		String ids = req.getParameter("checked");
-			if(!StringUtils.isEmpty(ids)) {
-				String idList[] = ids.split(",");
-				for(String id:idList){
-					companyService.deleteById(Long.valueOf(id));
-				}
-				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
-			}else {
-				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error(this.getClass().getName()+" > deleteCompany "+e.getCause());			
-			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
-		}
-	}
+    @RequestMapping(value = "/addCompany", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> addCompany(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/addCompany", params);
+        } catch (Exception e) {
+            LOGGER.error("addCompany proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    @RequestMapping(value = "/deleteCompany", method = RequestMethod.POST)
+    @ResponseBody
+    public Boolean deleteCompany(HttpServletRequest req, HttpServletResponse resp) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            params.put("checked", req.getParameter("checked"));
+            return client.postFormBoolean("/deleteCompany", params);
+        } catch (Exception e) {
+            LOGGER.error("deleteCompany proxy error", e);
+            return false;
+        }
+    }
 }

@@ -2,7 +2,7 @@ package com;
 
 import java.util.List;
 
-import javax.servlet.http.HttpSessionBindingEvent;
+import jakarta.servlet.http.HttpSessionBindingEvent;
 
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;

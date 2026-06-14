@@ -1,0 +1,301 @@
+[1mdiff --git a/src/main/resources/static/js/business/business.js b/src/main/resources/static/js/business/business.js[m
+[1mindex 81486d3..5d9da65 100644[m
+[1m--- a/src/main/resources/static/js/business/business.js[m
+[1m+++ b/src/main/resources/static/js/business/business.js[m
+[36m@@ -296,195 +296,153 @@[m [mfunction loadDataTable(){[m
+ 	tableSellReport.clear().draw();[m
+ [m
+ 	var table = tableV.toLowerCase();[m
+[31m-	//check if data table exist destroy it[m
+[31m-	var offset = $( "select[name='tableSell_length']" ).val();[m
+[31m-	if(!offset)[m
+[31m-		offset = 5;[m
+[31m-	[m
+[31m-	var pl = offset;[m
+[31m-	if(pl==-1)[m
+[31m-		pl=100;[m
+[31m-	if (datatable!=null){[m
+[32m+[m	[32m// Read current page length from the active DataTable for this entity (not hardcoded to Sell)[m
+[32m+[m	[32mvar offset = $("select[name='table" + tableV + "_length']").val();[m
+[32m+[m	[32mif(!offset) offset = 5;[m
+[32m+[m
+[32m+[m	[32mif (datatable != null){[m
+ 		datatable.destroy();[m
+ 		datatable = null;[m
+ 	}[m
+ 	datatable = $("#table" + tableV).DataTable({[m
+[31m-		lengthMenu:[[5, 20, 50,100, -1 ],[ '5', '20', '50', '100', 'All' ]],[m
+[32m+[m		[32mlengthMenu: [[5, 20, 50, 100, -1], ['5', '20', '50', '100', 'All']],[m
+ 		"iDisplayLength": offset,[m
+[31m-		"pageLength": pl,[m
+[31m-		"order": [[ 0, "desc" ]],[m
+[31m-		"autoWidth" : true,[m
+[32m+[m		[32m"pageLength": (offset == -1 ? 100 : Number(offset)),[m
+[32m+[m		[32m"order": [[0, "desc"]],[m
+[32m+[m		[32m"autoWidth": true,[m
+ 		dom: 'Bfrtip',[m
+[31m-        buttons: [[m
+[31m-        	'pageLength',[m
+[31m-/*            { extend: 'copyHtml5', footer: true },[m
+[31m-            { extend: 'csvHtml5', footer: true },[m
+[31m-*/            [m
+[31m-        	{ extend: 'excelHtml5', footer: true },[m
+[31m-            {extend:'print', footer: true },[m
+[31m-        	{[m
+[31m-                extend: 'pdfHtml5',[m
+[31m-                orientation: 'landscape',[m
+[31m-                pageSize: 'LEGAL',[m
+[31m-                footer: true[m
+[31m-            }[m
+[31m-        ],[m
+[31m-		"ajax" : {[m
+[31m-			"url" : serverContext + "getUser" + getAll+"?q="+offset,[m
+[31m-			"type" : "GET",[m
+[31m-			"success" : function(data) {[m
+[31m-				if(reload != tableV){[m
+[31m-					//don't want to load ever DD for every row update on table[m
+[31m-					// laodUserItemTypes(table);[m
+[31m-					// loadUserItemUnits(table);[m
+[31m-					reload=tableV;[m
+[31m-				}[m
+[31m-				//preloading dropdown list in start as these were not populated in case of No Data Found[m
+[32m+[m		[32mbuttons: [[m
+[32m+[m			[32m'pageLength',[m
+[32m+[m			[32m{extend: 'excelHtml5', footer: true},[m
+[32m+[m			[32m{extend: 'print', footer: true},[m
+[32m+[m			[32m{[m
+[32m+[m				[32mextend: 'pdfHtml5',[m
+[32m+[m				[32morientation: 'landscape',[m
+[32m+[m				[32mpageSize: 'LEGAL',[m
+[32m+[m				[32mfooter: true[m
+[32m+[m			[32m}[m
+[32m+[m		[32m],[m
+[32m+[m		[32m"ajax": {[m
+[32m+[m			[32m// Load ALL records so DataTables handles Next/Back pagination and search locally.[m
+[32m+[m			[32m// Search: DataTables filters the loaded set first; re-open the section to refresh from DB.[m
+[32m+[m			[32m"url": serverContext + "getUser" + getAll + "?q=-1",[m
+[32m+[m			[32m"type": "GET",[m
+[32m+[m			[32m"success": function(data) {[m
+[32m+[m				[32mif(reload != tableV) reload = tableV;[m
+[32m+[m
+[32m+[m				[32m// Preload associated dropdowns once per entity type[m
+ 				if (getAll == "Vender") {[m
+ 					loadUserCompanies(table);[m
+ 				} else if (getAll == "Item") {[m
+ 					loadUserCompanies(table);[m
+ 					loadUserVenders(table);[m
+[31m-					[m
+ 				} else if (getAll == "Purchase") {[m
+[31m-					loadUserItems(table);		[m
+[32m+[m					[32mloadUserItems(table);[m
+ 				} else if (getAll == "Sell") {[m
+ 					loadUserItems(table);[m
+ 					loadSellCustomers();[m
+ 				}[m
+ [m
+[31m-				var arr = [" No Data Found "];[m
+ 				var collections = data.collection;[m
+[31m-				if(!collections || collections.length<=0){[m
+[31m-					datatable.columns( [0] ).visible( false );[m
+[32m+[m				[32mif(!collections || collections.length <= 0){[m
+[32m+[m					[32mdatatable.columns([0]).visible(false);[m
+ 					$(".dataTables_empty")[0].innerHTML = "No Data Found";[m
+ 					return false;[m
+ 				}[m
+[31m-				[m
+[32m+[m
+ 				userId = collections[0].userId;[m
+[31m-				datatable.columns( [0] ).visible( false );[m
+[31m-				console.log("getUser calling of : "+getAll+" collections : "+collections);[m
+[32m+[m				[32mdatatable.columns([0]).visible(false);[m
+[32m+[m
+[32m+[m				[32m// Build all rows first, then add in one shot so draw() fires only once[m
+[32m+[m				[32mvar allRows = [];[m
+ 				if (getAll === "Company") {[m
+ 					$.each(collections, function(ind, obj) {[m
+[31m-						arr = [[m
+[31m-								"<div id=companyId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",[m
+[31m-								"<div id=companyName>"+obj.name+"</div>", "<div id=companyPhone>"+obj.phone+"</div>", [m
+[31m-								"<div id=companyEmail>"+obj.email+"</div>","<div id=companyAddress>"+obj.address+"</div>",obj.updatedStr[m
+[31m-							];[m
+[31m-						datatable.row.add(arr).draw();[m
+[32m+[m						[32mallRows.push([[m
+[32m+[m							[32m"<div id=companyId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",[m
+[32m+[m							[32m"<div id=companyName>"+obj.name+"</div>","<div id=companyPhone>"+obj.phone+"</div>",[m
+[32m+[m							[32m"<div id=companyEmail>"+obj.email+"</div>","<div id=companyAddress>"+obj.address+"</div>",obj.updatedStr[m
+[32m+[m						[32m]);[m
+ 					});[m
+ 				} else if (getAll === "Vender") {[m
+ 					$.each(collections, function(ind, obj) {[m
+[31m-						arr = [[m
+[32m+[m						[32mallRows.push([[m
+ 							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",[m
+[31m-							"<div id=venderName>"+obj.name+"</div>", "<div id=venderCompanyDD>"+obj.companyName+"</div>",[m
+[31m-							"<div id=venderPhone>"+obj.phone+"</div>", "<div id=venderMobile>"+obj.mobile+"</div>",[m
+[32m+[m							[32m"<div id=venderName>"+obj.name+"</div>","<div id=venderCompanyDD>"+obj.companyName+"</div>",[m
+[32m+[m							[32m"<div id=venderPhone>"+obj.phone+"</div>","<div id=venderMobile>"+obj.mobile+"</div>",[m
+ 							"<div id=venderEmail>"+obj.email+"</div>","<div id=venderAddress>"+obj.address+"</div>",obj.datedStr[m
+[31m-							];[m
+[31m-						datatable.row.add(arr).draw();[m
+[32m+[m						[32m]);[m
+ 					});[m
+[31m-					$("#venderName").prop("readonly",false);	[m
+[31m-[m
+[31m-					// loadUserCompanies(table);[m
+[31m-					// loadUserVenders(table);[m
+[31m-					// loadUserItems(table);[m
+[32m+[m					[32m$("#venderName").prop("readonly", false);[m
+ 				} else if (getAll === "Customer") {[m
+[31m-					// loadUserCustomers(table);[m
+ 					$.each(collections, function(ind, obj) {[m
+[31m-						arr = [[m
+[32m+[m						[32mallRows.push([[m
+ 							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value="+ obj.customerId+ ">",[m
+[31m-							"<div id=customerName>"+obj.name+"</div>", "<div id=contact>"+obj.contact+"</div>",[m
+[32m+[m							[32m"<div id=customerName>"+obj.name+"</div>","<div id=contact>"+obj.contact+"</div>",[m
+ 							"<div id=email>"+obj.email+"</div>","<div id=address>"+obj.address+"</div>",obj.updated[m
+[31m-							];[m
+[31m-						datatable.row.add(arr).draw();[m
+[32m+[m						[32m]);[m
+ 					});[m
+ 				} else if (getAll === "ItemType") {[m
+ 					$.each(collections, function(ind, obj) {[m
+[31m-						arr = [[m
+[32m+[m						[32mallRows.push([[m
+ 							"<div id=itemTypeId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",[m
+ 							"<div id=itemTypeName>"+obj.name+"</div>","<div id=itemTypeDescription>"+obj.description+"</div>",obj.datedStr[m
+[31m-							];[m
+[31m-						datatable.row.add(arr).draw();[m
+[32m+[m						[32m]);[m
+ 					});[m
+ 				} else if (getAll === "ItemUnit") {[m
+ 					$.each(collections, function(ind, obj) {[m
+[31m-						arr = [[m
+[31m-							"<div id=itemUnitId>"+obj.id+"</div>", "<input type='checkbox' value="+ obj.id+ ">",[m
+[31m-							"<div id=itemUnitName>"+obj.name+"</div>", "<div id=itemUnitDescription>"+obj.description+"</div>",obj.datedStr[m
+[31m-							];[m
+[31m-						datatable.row.add(arr).draw();[m
+[32m+[m						[32mallRows.push([[m
+[32m+[m							[32m"<div id=itemUnitId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",[m
+[32m+[m							[32m"<div id=itemUnitName>"+obj.name+"</div>","<div id=itemUnitDescription>"+obj.description+"</div>",obj.datedStr[m
+[32m+[m						[32m]);[m
+ 					});[m
+ 				} else if (getAll === "Item") {[m
+ 					$.each(collections, function(ind, obj) {[m
+[31m-						arr = [[m
+[32m+[m						[32mallRows.push([[m
+ 							"<div id=itemId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",[m
+[31m-							"<div id=itemCompanyDD>"+obj.companyName+"</div>", "<div id=itemVenderDD>"+obj.venderName+"</div>", "<div id=itemName>"+obj.iname+"</div>",[m
+[31m-							"<div id=itemCode>"+obj.icode+"</div>", "<div id=itemDesc>"+obj.idesc+"</div>",[m
+[31m-							 /*"<div id=itemVenderDD>"+obj.venderName+"</div>", */[m
+[31m-							/*"<div id=itemPurchaseAmount>"+obj.purchaseAmount+"</div>","<div id=itemSellAmount>"+obj.sellAmount+"</div>",*/[m
+[31m-							/*"<div id=discountTypeDD>"+obj.discountType+"</div>","<div id=itemDiscount>"+obj.discount+"</div>", "<div id=itemNet>"+obj.net+"</div>",[m
+[31m-							"<div id=itemExpDate>"+obj.expDateStr+"</div>","<div id=batchStock>"+obj.stock+"</div>"[m
+[31m-							,"<div id=itemBN>"+obj.bn+"</div>",*/obj.updated[m
+[31m-							];[m
+[31m-						datatable.row.add(arr).draw();[m
+[32m+[m							[32m"<div id=itemCompanyDD>"+obj.companyName+"</div>","<div id=itemVenderDD>"+obj.venderName+"</div>","<div id=itemName>"+obj.iname+"</div>",[m
+[32m+[m							[32m"<div id=itemCode>"+obj.icode+"</div>","<div id=itemDesc>"+obj.idesc+"</div>",obj.updated[m
+[32m+[m						[32m]);[m
+ 					});[m
+ 				} else if (getAll === "Purchase") {[m
+[31m-					// loadUserItems(table);[m
+ 					$.each(collections, function(ind, obj) {[m
+[31m-						arr = [[m
+[31m-							[m
+[31m-							"<div id=purchaseId>"+obj.purchaseId+"</div>", "<input type='checkbox' value="+ obj.purchaseId+ ">",[m
+[32m+[m						[32mallRows.push([[m
+[32m+[m							[32m"<div id=purchaseId>"+obj.purchaseId+"</div>","<input type='checkbox' value="+ obj.purchaseId+ ">",[m
+ 							"<div id=purchaseInvoiceNo>"+obj.purchaseInvoiceNo+"</div>","<div id=purchaseItemDD>"+obj.iname+"</div>",[m
+[31m-							"<div id=purchaseQuantity>"+obj.quantity+"</div>", "<div id=purchaseStock>"+obj.stock.stock+"</div>",[m
+[31m-							// "<div id=purchaseBatchNo>"+obj.stock.batchNo+"</div>", [m
+[31m-							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>", [m
+[31m-							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>", [m
+[32m+[m							[32m"<div id=purchaseQuantity>"+obj.quantity+"</div>","<div id=purchaseStock>"+obj.stock.stock+"</div>",[m
+[32m+[m							[32m"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",[m
+[32m+[m							[32m"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>",[m
+ 							"<div id=purchaseDiscount>"+obj.stock.bpurchaseDiscount+"</div>",[m
+[31m-							// "<div id=purchaseSellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>", [m
+[31m-							// "<div id=purchaseSellDiscount>"+obj.stock.bsellDiscount+"</div>",[m
+ 							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",[m
+ 							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>",[m
+ 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"[m
+[31m-							];[m
+[31m-						datatable.row.add(arr).draw();[m
+[32m+[m						[32m]);[m
+ 					});[m
+ 				} else if (getAll === "Sell") {[m
+[31m-					// loadUserItems(table);[m
+[31m-					// loadSellCustomers();[m
+ 					$.each(collections, function(ind, obj) {[m
+[31m-						arr = [[m
+[32m+[m						[32mallRows.push([[m
+ 							"<div id=sellId>"+obj.sellId+"</div>",[m
+[31m-							// "<button type='button' id='saleReturn' class='btn btn-danger' onclick=saleReturn("+obj.sellId+","+obj.stock.stockId+","+obj.quantity+")><span class='glyphicon glyphicon-remove-sign'></span> Return</button>",[m
+[31m-							// "<div id=sellItemDD>"+obj.stock.itemCode+"</div>",[m
+ 							"<div id=sellItemName>"+obj.itemName+"</div>",[m
+ 							"<div id=sellItems>"+obj.quantity+"</div>",[m
+[31m-							"<div id=sellItemExpiry>"+obj.stock.bexpDate+"</div>", [m
+[31m-							// "<div id=sellBatchNo>"+obj.stock.batchNo+"</div>", [m
+[32m+[m							[32m"<div id=sellItemExpiry>"+obj.stock.bexpDate+"</div>",[m
+ 							"<div id=sellPurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stock.bsellRate+"</div>",[m
+ 							"<div id=sellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stock.bsellDiscount+"</div>",[m
+ 							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",[m
+[31m-							// "<div id=sellCC>"+obj.cc+"</div>","<div id=sellCN>"+obj.cn+"</div>","<div id=sellDueDays>"+obj.due_days+"</div>",[m
+[31m-							// "<div id=sellsrp>"+obj.srp+"</div>","<div id=sellRe>"+obj.re+"</div>",[m
+ 							obj.updated[m
+[31m-							];[m
+[31m-						datatable.row.add(arr).draw();[m
+[31m-//						datatable.columns( [10,11] ).visible( false );[m
+[32m+[m						[32m]);[m
+ 					});[m
+ 				}[m
+[32m+[m				[32m// Single draw — much faster than calling draw() on every row.add()[m
+[32m+[m				[32mdatatable.rows.add(allRows).draw();[m
+ 			},[m
+[31m-			 error: function(jqXHR, textStatus, errorThrown) {[m
+[31m-	                console.log('jqXHR:');[m
+[31m-	                console.log(jqXHR);[m
+[31m-	                console.log('textStatus:');[m
+[31m-	                console.log(textStatus);[m
+[31m-	                console.log('errorThrown:');[m
+[31m-	                console.log(errorThrown);[m
+[31m-				 	window.location.href = serverContext + "login?message=" + errorThrown;[m
+[31m-	            }[m
+[32m+[m			[32merror: function(jqXHR, textStatus, errorThrown) {[m
+[32m+[m				[32mconsole.log(jqXHR, textStatus, errorThrown);[m
+[32m+[m				[32mwindow.location.href = serverContext + "login?message=" + errorThrown;[m
+[32m+[m			[32m}[m
+ 		}[m
+ 	});[m
+ [m
+[31m-	$("select[name='tableSell_length']").change(function(){[m
+[32m+[m	[32m// Re-bind length-change for whichever table is currently active[m
+[32m+[m	[32m$("select[name='table" + tableV + "_length']").change(function(){[m
+ 		loadDataTable();[m
+ 	});[m
+ 	updateReadOnly(false);[m
+[36m@@ -887,7 +845,6 @@[m [mfunction loadStock(label,value){[m
+ 	    		if(batchStock <= 0){[m
+ 	    			$("#sellItems").addClass("alert-danger");[m
+  	    			showFormError('No stock available. Please purchase this item first.');[m
+[31m-	    			$(".form-control").val("");[m
+ 	    			resetBSDD('sellItemDD');[m
+ 	    			return false;[m
+ 	    		}else{[m
+[36m@@ -966,7 +923,6 @@[m [mfunction getStockByBatch(batchNo){[m
+ 		    		if(batchStock <= 0){[m
+ 		    			$("#sellItems").addClass("alert-danger");[m
+  		    			showFormError('No stock available. Please purchase this item first.');[m
+[31m-		    			$(".form-control").val("");[m
+ 		    			resetBSDD('sellItemDD');[m
+ 		    			return false;[m
+ 		    		}else{[m
+[36m@@ -1027,7 +983,6 @@[m [mfunction calculateNetSell(){[m
+ 	if(batchStock < qty){[m
+ 		$("#sellItems").addClass("alert-danger");[m
+  		showFormError('Quantity exceeds available stock. Please reduce the quantity or purchase more stock.');[m
+[31m-		$(".form-control").val("");[m
+ 		return false;[m
+ 	}[m
+ 	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val()*ONE:0;[m

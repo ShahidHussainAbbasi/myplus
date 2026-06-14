@@ -1,0 +1,44 @@
+# Dependabot — automated dependency updates (tech-debt #19: 234 alerts on the default branch).
+# Version-updates open grouped, reviewable bump PRs; the Microservice Tests + PR-validation workflows
+# gate them. Also enable "Dependabot security updates" in repo Settings → Code security so the open
+# vulnerability alerts get their own targeted PRs.
+version: 2
+updates:
+  # Monolith (root pom.xml)
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      monolith-maven:
+        patterns: ["*"]
+
+  # Microservices (aggregator pom + modules)
+  - package-ecosystem: "maven"
+    directory: "/microservices"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      microservices-maven:
+        patterns: ["*"]
+
+  # Cypress / Node tooling (package.json)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      npm-deps:
+        patterns: ["*"]
+
+  # Keep GitHub Actions (checkout, setup-java, …) current
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      gha:
+        patterns: ["*"]

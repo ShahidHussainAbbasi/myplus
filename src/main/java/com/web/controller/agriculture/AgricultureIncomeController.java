@@ -1,156 +1,79 @@
-/**
- * 
- */
 package com.web.controller.agriculture;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
-import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.MessageSource;
-import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.persistence.model.agriculture.AgricultureIncome;
-import com.persistence.model.agriculture.Land;
-import com.service.agriculture.IAgricultureIncomeService;
-import com.service.agriculture.ILandService;
-import com.web.dto.agriculture.AgricultureIncomeDTO;
-import com.web.util.AppUtil;
-import com.web.util.GenericResponse;
-import com.web.util.RequestUtil;
+import com.web.util.AgricultureRestClient;
 
-
-/**
- * @author Shahid
- *
- */
-
-//@RequestMapping("/agricultureIncome")
 @Controller
 public class AgricultureIncomeController {
 
+    private final Logger LOGGER = LoggerFactory.getLogger(getClass());
+
     @Autowired
-	private MessageSource messages;    
-	@Autowired
-	IAgricultureIncomeService service;
-	@Autowired
-	ILandService landService;
-	@Autowired
-	RequestUtil requestUtil;
-	@Autowired
-	AppUtil appUtil;
-	
-	private ModelMapper modelMapper = new ModelMapper();
+    private AgricultureRestClient client;
 
-	@RequestMapping(value = "/addAgricultureIncome", method = RequestMethod.POST)
-	@ResponseBody
-	public GenericResponse addAgricultureIncome(final AgricultureIncomeDTO dto, final HttpServletRequest request){
-		try {
-			AgricultureIncome obj = null;
-			if(appUtil.isEmptyOrNull(dto.getId())) {
-				obj = new AgricultureIncome(dto.getUserId(),dto.getLandId(),dto.getIncomeName(),appUtil.getLocalDate(dto.getUpdatedStr()));
-				Example<AgricultureIncome> example = Example.of(obj);
-				if(service.exists(example))				
-					return new GenericResponse(appUtil.INVALID,messages.getMessage("The Income "+dto.getIncomeName()+" exist or invalid", null, request.getLocale()));
-			}
-			obj  = modelMapper.map(dto, AgricultureIncome.class);
-			obj.setUserId(requestUtil.getCurrentUser().getId());
-			obj.setDated(LocalDate.now());
-			obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
-			//update with land name
-			Optional<Land> optional = landService.findById(dto.getLandId());
-			if(optional.isPresent()) {
-				Land land = optional.get();
-				obj.setLandId(land.getId());
-				obj.setLandName(land.getLandName());
-			}
+    private Map<String, String> params(HttpServletRequest request) {
+        Map<String, String> params = new HashMap<>();
+        request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+        return params;
+    }
 
-			if(service.save(obj).getId()>0)
-				return new GenericResponse("Income added successfully");
-			else
-				return new GenericResponse("Sorry, Your Income not submitted");
-		} catch (Exception e) {
-			appUtil.le(this.getClass(), e);
-			return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("Sorry, Your Income not submitted", null, request.getLocale()),dto);
-		}
-	}
-	
-	@RequestMapping(value = "/getUserAgricultureIncome", method = RequestMethod.GET)
-	@ResponseBody
-	public GenericResponse getUserAgricultureIncome(final HttpServletRequest request) {
-		AgricultureIncomeDTO dto = null;
-		try {
-			List<AgricultureIncomeDTO> dtos = new ArrayList<>();
-			AgricultureIncome agricultureIncome = new AgricultureIncome(requestUtil.getCurrentUser().getId());
-			Example<AgricultureIncome> example = Example.of(agricultureIncome);
-			List<AgricultureIncome> objs = service.findAll(example);
-			if(appUtil.isEmptyOrNull(objs))
-				return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("message.no.data.found", null, request.getLocale()),objs);
-			
-			for(AgricultureIncome obj: objs) {
-				dto = new AgricultureIncomeDTO();
-				dto  = modelMapper.map(obj, AgricultureIncomeDTO.class);
-				dto.setDatedStr(appUtil.getLocalDateStr(obj.getDated()));
-				dto.setUpdatedStr(appUtil.getLocalDateStr(obj.getUpdated()));
-				dtos.add(dto);
-			}
-			return new GenericResponse("SUCCESS",dtos);
-		} catch (Exception e) {
-			appUtil.le(this.getClass(), e);
-			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()),dto);
-		}
-	}
-	
-	@RequestMapping(value = "/income/loadLastCropAttached", method = RequestMethod.GET)
-	@ResponseBody
-	public GenericResponse loadLastIncomeCropAttached(@RequestParam Long landId,final HttpServletRequest request) {
-		try {
-			AgricultureIncome obj = new AgricultureIncome(requestUtil.getCurrentUser().getId());
-			obj.setLandId(landId);
-			Example<AgricultureIncome> example = Example.of(obj);
-			List<AgricultureIncome> objs = service.findAll(example);
-			if(appUtil.isEmptyOrNull(objs))
-				return new GenericResponse(appUtil.NOT_FOUND,messages.getMessage("message.no.data.found", null, request.getLocale()));
-		
-			objs.sort(Comparator.comparing(AgricultureIncome::getUpdated).reversed());
-			obj = objs.get(0);
-			AgricultureIncomeDTO dto = modelMapper.map(obj, AgricultureIncomeDTO.class);
-			return new GenericResponse("SUCCESS",dto);
-		} catch (Exception e) {
-			appUtil.le(this.getClass(), e);
-			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()),landId);
-		}
-	}
-	
-	@RequestMapping(value = "/deleteAgricultureIncome", method = RequestMethod.POST)
-	@ResponseBody
-	public GenericResponse deleteDonator( HttpServletRequest request){
-		try {
-		String ids = request.getParameter("checked");
-			if(StringUtils.isEmpty(ids)) 
-				return new GenericResponse(appUtil.SUCCESS,messages.getMessage("message.invalid.input", null, request.getLocale()));
-				
-			String idList[] = ids.split(",");
-			for(String id:idList){
-				service.deleteById(Long.valueOf(id));
-			}
-			return new GenericResponse(appUtil.SUCCESS,messages.getMessage("message.delete.success", null, request.getLocale()));
-		} catch (Exception e) {
-			appUtil.le(this.getClass(), e);
-			return new GenericResponse(appUtil.ERROR,messages.getMessage("message.system_error"+" : "+e.getCause().toString(), null, request.getLocale()));
-		}
-	}
+    @RequestMapping(value = "/addAgricultureIncome", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> addAgricultureIncome(final HttpServletRequest request) {
+        try {
+            return client.postForm("/addAgricultureIncome", params(request));
+        } catch (Exception e) {
+            LOGGER.error("addAgricultureIncome proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
 
+    @RequestMapping(value = "/getUserAgricultureIncome", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getUserAgricultureIncome(final HttpServletRequest request) {
+        try {
+            return client.get("/getUserAgricultureIncome");
+        } catch (Exception e) {
+            LOGGER.error("getUserAgricultureIncome proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    @RequestMapping(value = "/income/loadLastCropAttached", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> loadLastIncomeCropAttached(@RequestParam Long landId, final HttpServletRequest request) {
+        try {
+            return client.get("/income/loadLastCropAttached", "landId=" + landId);
+        } catch (Exception e) {
+            LOGGER.error("income loadLastCropAttached proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    @RequestMapping(value = "/deleteAgricultureIncome", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> deleteAgricultureIncome(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new HashMap<>();
+            params.put("checked", request.getParameter("checked"));
+            return client.postForm("/deleteAgricultureIncome", params);
+        } catch (Exception e) {
+            LOGGER.error("deleteAgricultureIncome proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
 }

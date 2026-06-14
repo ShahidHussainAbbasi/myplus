@@ -10,7 +10,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestOperations;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.regex.Pattern;
 
@@ -30,10 +30,16 @@ public class CaptchaService implements ICaptchaService {
     @Autowired
     private RestOperations restTemplate;
 
+    @org.springframework.beans.factory.annotation.Value("${app.captcha.enabled:false}")
+    private boolean captchaEnabled;
+
     private static final Pattern RESPONSE_PATTERN = Pattern.compile("[A-Za-z0-9_-]+");
 
     @Override
     public void processResponse(final String response) {
+        if (!captchaEnabled) {
+            return; // captcha disabled by config — skip verification
+        }
         LOGGER.debug("Attempting to validate response {}", response);
 
         if (reCaptchaAttemptService.isBlocked(getClientIP())) {

@@ -2,9 +2,9 @@ package com.security;
 
 import java.io.IOException;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,12 +92,20 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
 //        }
 //    }
 
-    //Navigate user to the dash board on the base of user type 
+    // Dashboards that actually exist in the monolith UI. A userType that maps to one of these lands on
+    // its dashboard; any other (e.g. a microservice demo account without a monolith UI yet) falls back
+    // to the landing page so it never 404s.
+    private static final java.util.Set<String> KNOWN_DASHBOARDS = java.util.Set.of(
+            "/businessDashboard", "/educationDashboard", "/welfareDashboard",
+            "/agricultureDashboard", "/appointmentDashboard");
+
+    //Navigate user to the dash board on the base of user type
     protected String determineTargetUrl(final Authentication authentication) {
-         if (authentication.getPrincipal() instanceof User) {
+             if (authentication.getPrincipal() instanceof User) {
         	 User user = ((User)authentication.getPrincipal());
         	 if(!appUtil.isEmptyOrNull(user) && !appUtil.isEmptyOrNull(user.getUserType())){
-        		 return "/"+user.getUserType().toLowerCase()+"Dashboard";
+            		 String dash = "/"+user.getUserType().toLowerCase()+"Dashboard";
+            		 return KNOWN_DASHBOARDS.contains(dash) ? dash : "/";
             }else {
                 return "/";
             }

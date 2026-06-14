@@ -1,4 +1,4 @@
-var userId = -1;
+﻿var userId = -1;
 var month = new Array();
 month[0] = "Jan";
 month[1] = "Feb";
@@ -36,7 +36,40 @@ var s2n = function(v){
 
 function resetGlobalError(){
     $(".alert").html("").hide();
-    $(".error-list").html("");	
+    $(".error-list").html("");
+}
+
+function showFormError(msg) {
+    var el = document.getElementById('globalError');
+    if (el) {
+        el.textContent = msg;
+        el.style.display = 'block';
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function clearFormError() {
+    var el = document.getElementById('globalError');
+    if (el) {
+        el.textContent = '';
+        el.style.display = 'none';
+    }
+}
+
+// slice 22: transient confirmation showing the system-generated invoice number after a sale.
+function showSaleSuccess(msg) {
+    var el = document.getElementById('saleSuccess');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'saleSuccess';
+        el.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;background:#0a7d33;color:#fff;'
+            + 'padding:12px 18px;border-radius:8px;font-size:14px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.25)';
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.style.display = 'none'; }, 6000);
 }
 
 function resetForm(){
@@ -44,6 +77,7 @@ function resetForm(){
 	form = document.getElementsByClassName('form-horizontal')[tableV];
 	if(form){
 		$(".resetForm").click();
+		updateReadOnly(false);
 		return;
 		
 /*		formFields = form.length-2;// -2 mean we don't need to loop over
@@ -59,19 +93,32 @@ function validateForm(){
     formValidated = true;
     var form = document.getElementsByClassName('form-horizontal')[tableV];
     if(form && !form.checkValidity()){
-	    formFields = form.length-2;
-		// Loop over them and prevent submission
-		for(var i=0; i<formFields; i++){
-			if(form[i].id && form[i].validity.valid){
-				document.getElementById(form[i].id).style.borderColor = "";
-			}else if(form[i].id){
-				document.getElementById(form[i].id).style.borderColor = "red";
-				document.getElementById(form[i].id).focus();
-			}
-		}
-		formValidated = false;
+        var missing = [];
+        formFields = form.length - 2;
+        for(var i = 0; i < formFields; i++){
+            if(!form[i].id) continue;
+            var el = document.getElementById(form[i].id);
+            // bootstrap-select inserts the wrapper as the NEXT sibling of the hidden <select>
+            var visualEl = $(el).hasClass('selectpicker')
+                ? ($(el).next('.bootstrap-select')[0] || el)
+                : el;
+            if(form[i].validity.valid){
+                visualEl.style.removeProperty('border-color');
+            } else {
+                visualEl.style.setProperty('border-color', 'red', 'important');
+                var label = $('label[for="' + form[i].id + '"]').text().replace(/\s*\*\s*$/, '').replace('req','').trim()
+                    || el.placeholder || el.name || form[i].id;
+                missing.push(label);
+            }
+        }
+        formValidated = false;
+        if(missing.length > 0){
+            showFormError('Please fill in the required fields: ' + missing.join(', '));
+        }
+    } else {
+        clearFormError();
     }
-    formFields = form.length-2;
+    if(form) formFields = form.length - 2;
 }
 
 var initDates = function(){
@@ -87,7 +134,31 @@ var initDates = function(){
 
 $(document).ready(function() {
 
-//	
+	// Clear red border on any required field as soon as the user interacts with it
+	$(document).on('input change', '[required]', function() {
+		var visualEl = $(this).hasClass('selectpicker')
+			? ($(this).next('.bootstrap-select')[0] || this)
+			: this;
+		visualEl.style.removeProperty('border-color');
+	});
+
+	// On form reset (button type="reset" or programmatic): clear validation state
+	$(document).on('reset', 'form.form-horizontal', function() {
+		var $form = $(this);
+		// Remove red borders from all fields, including selectpicker wrappers
+		$form.find('[required], .selectpicker').each(function() {
+			var visualEl = $(this).hasClass('selectpicker')
+				? ($(this).next('.bootstrap-select')[0] || this)
+				: this;
+			visualEl.style.removeProperty('border-color');
+		});
+		// Refresh selectpicker display after native reset clears its value
+		$form.find('.selectpicker').selectpicker('refresh');
+		clearFormError();
+		updateReadOnly(false);
+	});
+
+//
 //	$(".onChangeSelect").hover(function(){
 //		var dropdownMenu = $(this).children(".dropdown-menu");
 //		if(dropdownMenu.is(":visible")){
@@ -194,8 +265,20 @@ $(document).ready(function() {
 		$('#dueDate').val(formatted);
 	});	
 
+	$('#purchaseDate').datepicker({
+		format: 'dd-mm-yyyy',
+		autoclose: true
+	}).on('purchaseDate', function(e) {
+		// Write yyyy-MM-dd into the hidden field for form submission
+		var d = e.date;
+		var formatted = d.getFullYear() + '-'
+			+ String(d.getMonth() + 1).padStart(2, '0') + '-'
+			+ String(d.getDate()).padStart(2, '0');
+		$('#purchaseDate').val(formatted);
+	});	
+
 	$('#purchaseExpiry').datepicker({
-		format: 'dd/mm/yyyy',
+		format: 'dd-mm-yyyy',
 		autoclose: true
 	}).on('purchaseExpiry', function(e) {
 		// Write yyyy-MM-dd into the hidden field for form submission
@@ -228,6 +311,7 @@ $(document).ready(function() {
 	
     $(".onChangeSelect").change(function(){
     	initDates();
+		clearFormError();
     	var label = $(this).text();
     	var value = $(this).val();
     	if(tableV=="FV"){
@@ -264,8 +348,8 @@ $(document).ready(function() {
 				
 		// All button get initialized when user switch form
 		$("#find"+buttonV).off().click(function() {
-			if(!$("#input"+buttonV).val())
-				return alert("Please enter valid input. ");
+				if(!$("#input"+buttonV).val()){ showFormError('Please enter a search value.'); return false; }
+
 			findBy("find" + buttonV,"input="+$("#input"+buttonV).val());
 		});
 
@@ -275,25 +359,32 @@ $(document).ready(function() {
 			if(buttonV=="Sell"){
 	    		document.getElementById("sellRec").style.borderColor = "";
 				var error = false;
+
+				// Customer is mandatory regardless of payment mode
+				var isSelectMode = $('#btnModeSelect').hasClass('active');
+				if (isSelectMode) {
+					if (!$("#sellCustomerDD").val()) {
+						document.getElementById("sellCustomerDD").style.setProperty('border-color', 'red', 'important');
+						return;
+					}
+					document.getElementById("sellCustomerDD").style.removeProperty('border-color');
+				} else {
+					if ($("#sellCN").val().trim() == "") {
+						document.getElementById("sellCN").style.setProperty('border-color', 'red', 'important');
+						return;
+					}
+					document.getElementById("sellCN").style.removeProperty('border-color');
+				}
+
 				if(data && data.length>0 && $("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0){
 					if ($("#sellCh").val()*ONE < 0) {
-						if ($("#sellCN").val().trim() == "") {
-							document.getElementById("sellCN").style.borderColor = "red";
-							error = true;
-							document.getElementById("sellCN").focus();
-						} else if($("#sellCC").val().trim() == ""){
-							document.getElementById("sellCC").style.borderColor = "red";
-							document.getElementById("sellCC").focus();
-							error = true;
-						} else if ($("#sellCN").val().trim() == "" && $("#sellCC").val().trim() == "") {
-							document.getElementById("sellCN").style.borderColor = "red";
-							document.getElementById("sellCC").style.borderColor = "red";
-							document.getElementById("sellCN").focus();
+						if($("#sellCC").val().trim() == ""){
+							document.getElementById("sellCC").style.setProperty('border-color', 'red', 'important');
 							error = true;
 						}
 						if (error) {
-							alert("Please make sure you have entered valid values");
-							return
+							showFormError('Customer has a due amount — please enter their mobile number.');
+							return;
 						}
 					}
 
@@ -302,19 +393,27 @@ $(document).ready(function() {
 					var customerHistory = {"customer":customer, "sales":data};
 					jsonPost("addSell",customerHistory);
 			    }else{
-			    	alert("Please make sure you have entered valid values");
-			    	if($("#sellRec").val()*ONE<=0){
-			    		document.getElementById("sellRec").style.borderColor = "red";
-			    		document.getElementById("sellRec").focus();
-			    	}
-			    }
-			}else{	
+					    	document.getElementById("sellRec").style.setProperty('border-color', 'red', 'important');
+					    	showFormError('Please add items to the cart and enter a valid payment amount.');
+					    }
+			}else{
+				// Purchase: block client-side when no item is selected or quantity <= 0
+				// (a "0" passes the generic required-field check, which only tests for non-empty).
+				if(buttonV=="Purchase"){
+					var pItem = $("#purchaseItemDD").val();
+					var pQty = $("#purchaseQuantity").val()*1;
+					if(!pItem || !(pQty > 0)){
+						$("#purchaseQuantity").css('border-color','red');
+						showFormError('Select an item and enter a quantity greater than 0.');
+						return false;
+					}
+					$("#purchaseQuantity").css('border-color','');
+				}
 				validateForm();
 			    if(formValidated){
 					$(this).callAjax("add" + buttonV,populateFormData());
 			    }else{
-			    	alert("Please make sure you have entered valid values");
-			    	return false;
+				    	return false;
 			    }
 			}
 		});
@@ -333,7 +432,7 @@ $(document).ready(function() {
 				$(this).callAjax("revert" + buttonV,populateFormData());
 				loadDataTable();
 		    }else{
-		    	alert("Please make sure you have entered valid values");
+				return false;
 		    	return false;
 		    }
 		});
@@ -344,7 +443,7 @@ $(document).ready(function() {
 			}).get().join(",");
 			
 			if (ids == null || ids == "") {
-				alert("Please select at least one record to delete");
+				showFormError('Please select at least one record to delete.');
 				return false;
 			}
 			var r = confirm("Are you sure you want to delete?");
@@ -364,7 +463,7 @@ $(document).ready(function() {
 		    if(formValidated){
 				$(this).callAjax("send" + buttonV,populateFormData());
 		    }else{
-		    	alert("Please make sure you have entered valid values");
+				return false;
 		    	return false;
 		    }
 		});
@@ -404,7 +503,7 @@ $(document).ready(function() {
 				}).get().join(",");
 				if(!ids && ids.lenght>0){
 					removeTableBody();
-					alert("Edit/Update is not allowed, You can delete and submit new one only");
+				showFormError('Edit is not allowed. Please delete and submit a new record.');
 				}
 			}else{
 				if(tableV!="Sell"){					
@@ -428,21 +527,25 @@ $(document).ready(function() {
 			success : function(data) {
 				hideWait();
 				if(data.status==="FOUND"){
-					alert("Already exist");
+					showFormError(data.message || 'This record already exists.');
 					return false;
 				}else if(data.status==="ERROR"){
-					return alert(data.message);
+					showFormError(data.message || 'An error occurred. Please try again.');
+					return false;
+				}else if(data.status==="FAILED"){
+					showFormError(data.message || 'Failed to save. Please try again.');
+					return false;
 				}
 				if(method!=="sendAlerts"){
 					datatable.clear().draw();
 					datatable.ajax.reload();
 					resetForm();
-					$("#globalError").empty();
+					clearFormError();
 				}
 				return false;
 			}, fail: function(data, textStatus, errorThrown) {
 				hideWait();
-				alert("There is some problem in the request "+errorThrown);
+			showFormError('Network error. Please check your connection and try again.');
 			}, error: function(data, textStatus, errorThrown) {
 				hideWait();
 				resetGlobalError();
@@ -457,18 +560,18 @@ $(document).ready(function() {
 	         	$.each( errors, function( index,item ){
 	            	if (item.field){
 	            		$("[name="+item.field+"]").addClass("alert-danger");
-	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
+	            		$("#globalError").show().append(escHtml(item.defaultMessage)+"<br/>");
 	            		$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
 	            	}
 	            	else {
-	            		$("#globalError").show().append(item.defaultMessage+"<br/>");
+	            		$("#globalError").show().append(escHtml(item.defaultMessage)+"<br/>");
 	            		$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
 	            	}
 	         	});
             }
 		}).fail(function(data) {
 			hideWait();
-			alert("Please recheck inputs or contact with the system administrator.");
+			showFormError('Request failed. Please recheck inputs or contact the system administrator.');
 		});
 		if(tableV=="Purchase"){	
 			resetPurchaseForm();
@@ -519,25 +622,29 @@ function jsonPost(method,data) {
 	      dataType : 'json',			
 	      success : function(data) {
 			if(data.status!="SUCCESS"){
-				alert("Insertion error");
+				showFormError(data.message || 'Sale could not be completed. Please check all fields and try again.');
+				return;
 			}
-/*			if($("#sellP")[0].checked){
-				// pGarmtsInv(printData);
+			clearFormError();
+			// slice 22: show the system-generated per-org invoice number returned by addSell
+			if (data.object) { showSaleSuccess('Sale recorded — Invoice ' + data.object); }
+/*
 		    	var mylink = document.getElementById("MyLink");
 		    	mylink.setAttribute("href", "../");
 		        mylink.setAttribute("href", ".."+serverContext+"reports/createdocument.docx");
 		        mylink.click();
 			}
-*/			loadDataTable();
+*/
+			loadDataTable();
 			resetCart();
 		}, fail: function(data, textStatus, errorThrown) {
-			alert("There is some problem in the request "+errorThrown);
+			showFormError('Network error. Please check your connection and try again.');
 		}, error: function(data, textStatus, errorThrown) {
 			resetGlobalError();
         	window.location.href = serverContext + "login?message=" + errorThrown;			
        	}
 	}).fail(function(data) {
-		alert("Please recheck inputs or contact with the system administrator.");
+			showFormError('Request failed. Please recheck inputs or contact the system administrator.');
 	});
 	edit = false;// when add/update & delete done
 }
@@ -555,6 +662,8 @@ const nonCapitalize = (s) => {
 // This is a helper function to extract text from the datatable row's HTML and populate the form for editing
 function editRecord(doc){
 	edit = true;
+	resetGlobalError();
+	clearFormError();
     var form = document.getElementsByClassName('form-horizontal')[tableV];
 	if (!form || form.length<=2) {
 		return false;
@@ -589,6 +698,9 @@ function editRecord(doc){
 				$("#"+form[i].id).selectpicker('refresh');
 			}
 		}
+
+		// make readonly the key fields when user edit the records
+		updateReadOnly(true);
 	}
 	// stock should be now quantity for purchase form, so update it
 	if (tableV=="Purchase") {
@@ -596,11 +708,46 @@ function editRecord(doc){
 	}
 }
 
+
+$('#reset').on('click', function() {
+	updateReadOnly(false);
+    // Reset all form fields
+    // $('#yourFormId')[0].reset();
+    
+    // // Clear any validation errors
+    // $('.error-message').hide();
+    // $('.has-error').removeClass('has-error');
+    
+    // // Clear any success/error alerts
+    // $('.alert').hide();
+    
+    // // Reset select dropdowns if using custom selects
+    // $('select').val('');
+    
+    // // Clear any dynamic content
+    // $('#someResultDiv').empty();
+});
+
+function updateReadOnly(flag) {
+	if (tableV) {
+		$("#"+tableV.toLowerCase()+"Name").prop("readonly", flag);
+	}
+	if (tableV == "Purchase") {
+		$("#purchaseInvoiceNo").prop("readonly", flag);
+		$('#purchaseItemDD').prop('disabled', flag);
+	}
+	// } else if (tableV == "Customer") {
+	// 	$("#name").prop("readonly", flag);
+	// } else if (tableV == "Item") {
+	// 	$("#itemName").prop("readonly", flag);
+	// }
+}
 function updatePurchaseForm(batchStock){
 	($("#purchaseQuantity").val(batchStock));
 }
 
 function resetBSDD(id){
+	updateReadOnly(false);
 	edit = false;// when reset boot strap drill down
 	$("#"+id).val('default').selectpicker("refresh");
 }
@@ -730,8 +877,7 @@ function checkfile(file) {
     var fileExt = $("#csvFile").val();
     fileExt = fileExt.substring(fileExt.lastIndexOf('.'));
     if (validExts.indexOf(fileExt) < 0) {
-      alert("Invalid file selected, valid file is of " +
-               validExts.toString() + " type");
+      showFormError("Invalid file selected. Allowed types: " + validExts.toString());
       return false;
     }
     else return true;

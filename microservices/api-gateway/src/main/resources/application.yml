@@ -1,0 +1,212 @@
+server:
+  port: 8765
+
+spring:
+  main:
+    web-application-type: reactive
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 5000        # ms — fail fast if a service won't accept the connection
+        response-timeout: 20s        # downstream must respond within 20s, else fail (no thread hang)
+      discovery:
+        locator:
+          # F1: OFF — the locator auto-creates catch-all /{service-id}/** routes that bypass the
+          # per-route JwtAuthenticationFilter. Only the explicit, JWT-filtered routes below exist.
+          enabled: false
+          lower-case-service-id: true
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            # F4: explicit allow-list (comma-separated env), never "*" with allowCredentials.
+            allowedOriginPatterns: "${CORS_ALLOWED_ORIGINS:http://localhost:8080}"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      # Each route carries its OWN CircuitBreaker (per-service name) so one failing service can't trip
+      # the others; all share fallbackUri /fallback. (slice 27 / tech-debt #14)
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: auth-service
+                fallbackUri: forward:/fallback
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: inventory-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: business-service
+          uri: lb://business-service
+          predicates:
+            - Path=/api/business/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: business-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: education-service
+          uri: lb://education-service
+          predicates:
+            - Path=/api/education/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: education-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: welfare-service
+          uri: lb://welfare-service
+          predicates:
+            - Path=/api/welfare/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: welfare-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: agriculture-service
+          uri: lb://agriculture-service
+          predicates:
+            - Path=/api/agriculture/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: agriculture-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: pharma-service
+          uri: lb://pharma-service
+          predicates:
+            - Path=/api/pharma/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: pharma-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: marketplace-service
+          uri: lb://marketplace-service
+          predicates:
+            - Path=/api/marketplace/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: marketplace-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: campaign-service
+          uri: lb://campaign-service
+          predicates:
+            - Path=/api/campaign/**
+          # No StripPrefix: campaign-service controllers are mapped at the full /api/campaign/... path.
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: campaign-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+        - id: analytics-service
+          uri: lb://analytics-service
+          predicates:
+            - Path=/api/analytics/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: analytics-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        # Shared demo purge (common-service) is mapped at /demo/** — strip for appointment so it matches.
+        # Must precede the general appointment route below.
+        - id: appointment-demo
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/appointment/demo/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: appointment-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: appointment-service
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/appointment/**
+          # No StripPrefix: appointment-service controllers use the full /api/appointment/... path.
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: appointment-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+
+# Resilience4j backing the per-route CircuitBreaker filters. The `default` config auto-applies to every
+# named breaker (auth-service, business-service, …). NOTE the timelimiter default is 1s — raised to 20s
+# to match the gateway response-timeout so normal calls don't trip the breaker. (slice 27 / tech-debt #14)
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        slowCallDurationThreshold: 18s
+        slowCallRateThreshold: 100
+        permittedNumberOfCallsInHalfOpenState: 5
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 20s
+        cancelRunningFuture: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-only-insecure-change-me-jwt-secret-min-32-bytes-padding}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,metrics
+  health:
+    # Redis is only required for the (opt-in) Redis-backed rate limiter and the demo-quota compose;
+    # local start-all has no Redis, so its health indicator would force /actuator/health to DOWN (503).
+    redis:
+      enabled: false

@@ -22,7 +22,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 
-import com.ActivityInterceptor;
 import com.validation.EmailValidator;
 import com.validation.PasswordMatchesValidator;
 
@@ -35,12 +34,6 @@ public class MvcConfig implements WebMvcConfigurer {
         super();
     }*/
     
-    private final ActivityInterceptor activityInterceptor;
-
-    @Autowired
-    public MvcConfig(ActivityInterceptor activityInterceptor) {
-        this.activityInterceptor = activityInterceptor;
-    }
 
 /*    @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -121,12 +114,16 @@ public class MvcConfig implements WebMvcConfigurer {
     //     registry.addResourceHandler("/**").addResourceLocations("classpath:/static/", "classpath:/public/");
     // }    
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.web.util.FeatureFlagsInterceptor featureFlagsInterceptor;
+
     @Override
     public void addInterceptors(final InterceptorRegistry registry) {
         final LocaleChangeInterceptor localeChangeInterceptor = new LocaleChangeInterceptor();
         localeChangeInterceptor.setParamName("lang");
         registry.addInterceptor(localeChangeInterceptor);
-        registry.addInterceptor(activityInterceptor);
+        // Expose captcha/2FA feature flags to every view (incl. static view-controllers).
+        registry.addInterceptor(featureFlagsInterceptor);
     }
 
     // beans
