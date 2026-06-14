@@ -46,10 +46,11 @@ describe('Signup — happy path provisions a tenant', () => {
     cy.visit('/registration.html', { failOnStatusCode: false })
     fillForm({ org: 'Beacon Rise Grammar School', email })
     cy.get('button[type="submit"]').click({ force: true })
-    // Assert the intercepted response (not redirect timing): the controller returns {message:"success"}.
+    // Assert the intercepted response (not redirect timing): GenericResponse("success") sets status.
     cy.wait('@reg').then(({ response }) => {
       expect(response.statusCode).to.eq(200)
-      expect(response.body).to.have.property('message', 'success')
+      expect(response.body).to.have.property('status', 'success')
+      expect(response.body.error).to.be.null
     })
   })
 })
@@ -103,7 +104,11 @@ describe('Signup — email verification gate', () => {
     cy.visit('/registration.html', { failOnStatusCode: false })
     fillForm({ org: 'Unverified Org', email })
     cy.get('button[type="submit"]').click({ force: true })
-    cy.wait('@reg').its('response.statusCode').should('eq', 200)
+    // Confirm the account was actually created (else the login-block below would be a false positive).
+    cy.wait('@reg').then(({ response }) => {
+      expect(response.statusCode).to.eq(200)
+      expect(response.body).to.have.property('status', 'success')
+    })
 
     // Now attempt to log in with those credentials — should stay on /login (account not yet enabled).
     cy.clearCookies()

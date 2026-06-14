@@ -1,7 +1,7 @@
 # Slice 32 — Self-service SaaS signup & tenant provisioning
 
-**Status: 🚧 IN PROGRESS.** All Implement items DONE & rebuilt; **Cypress signup spec + verification still
-pending**. Bring account creation to SaaS standard
+**Status: ✅ DONE & VERIFIED (2026-06-14).** All Implement items built, rebuilt, and `signup.cy.js` green
+(6/6 headed) — incl. the email-verification gate. Bring account creation to SaaS standard
 ([[feedback-saas-standards]], [[feedback-build-fresh-not-port]]). Memory: [[project-jwt-auth-integration]]
 (register/org bootstrap), [[project-demo-quota]] (demo gate), [[project-prod-hardening]] (seed gating).
 Implements on `chore/tech-debt-plan` (no per-item branches).
@@ -262,4 +262,5 @@ sequenceDiagram
 - Spec: **`cypress/e2e/auth/signup.cy.js` (written)** — org-name field present; happy-path POST asserts the
   intercepted `{message:"success"}`; server-side rejects (missing org name, duplicate email) via `cy.request`;
   verification gate (register → login must stay on `/login`). Run headed; assumes captcha OFF for the test
-  profile. **Not yet run/verified live** (user runs Cypress). welfare/agri still have no specs (compile-gated).
+  profile. **VERIFIED 6/6 green headed (2026-06-14).** Note: success is `GenericResponse.status=="success"`
+  (not `message`). welfare/agri still have no specs (compile-gated).
