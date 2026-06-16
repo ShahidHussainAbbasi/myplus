@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -60,10 +62,19 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
         try {
             response = authServerClient.login(email, password, verificationCode);
         } catch (HttpStatusCodeException e) {
-            // auth-service returns 4xx for invalid credentials / locked account / wrong 2FA code.
-            // If a code was supplied, the failure is most likely the code → give a 2FA-specific message.
+            // auth-service returns 4xx for invalid credentials / unverified / locked / wrong 2FA code.
+            // The specific reason is in the response body ({"message": "..."}); surface it instead of
+            // collapsing everything to "invalid username or password" (which misleads unverified users).
+            final String body = e.getResponseBodyAsString() == null ? "" : e.getResponseBodyAsString().toLowerCase();
             if (verificationCode != null && !verificationCode.isBlank()) {
                 throw new BadCredentialsException("Invalid 2FA code");
+            }
+            if (body.contains("not verified") || body.contains("not enabled") || body.contains("verify your")) {
+                // Registered but the email-verification link hasn't been clicked yet (trial pending).
+                throw new DisabledException("Account not verified");
+            }
+            if (body.contains("locked")) {
+                throw new LockedException("Account is locked. Please try again later.");
             }
             throw new BadCredentialsException("Invalid username or password");
         } catch (RestClientException e) {

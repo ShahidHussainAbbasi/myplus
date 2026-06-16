@@ -90,12 +90,12 @@ public class GatewayClient {
 
         HttpEntity<?> entity = new HttpEntity<>(body, buildHeaders(serverMode, contentType));
         try {
-            return restTemplate.exchange(url, method, entity, responseType);
+            return strip(restTemplate.exchange(url, method, entity, responseType));
         } catch (HttpClientErrorException.Unauthorized e) {
             // Access token likely expired — refresh once and retry (server mode only).
             if (serverMode && refreshAccessToken()) {
                 HttpEntity<?> retry = new HttpEntity<>(body, buildHeaders(true, contentType));
-                return restTemplate.exchange(url, method, retry, responseType);
+                return strip(restTemplate.exchange(url, method, retry, responseType));
             }
             throw e;
         } catch (HttpClientErrorException.Forbidden e) {
@@ -107,6 +107,25 @@ public class GatewayClient {
             }
             throw e;
         }
+    }
+
+    private static final java.util.Set<String> HOP_BY_HOP = java.util.Set.of(
+            "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
+            "te", "trailer", "transfer-encoding", "upgrade", "content-length");
+
+    /**
+     * Drop hop-by-hop headers from a proxied response so the servlet container generates its own
+     * framing. Otherwise the gateway's Transfer-Encoding is relayed verbatim and Tomcat adds a
+     * second one, producing a duplicate Transfer-Encoding header that nginx rejects with 502.
+     */
+    private static <T> ResponseEntity<T> strip(ResponseEntity<T> upstream) {
+        HttpHeaders clean = new HttpHeaders();
+        upstream.getHeaders().forEach((name, values) -> {
+            if (!HOP_BY_HOP.contains(name.toLowerCase())) {
+                clean.put(name, values);
+            }
+        });
+        return new ResponseEntity<>(upstream.getBody(), clean, upstream.getStatusCode());
     }
 
     private static String extractDemoMessage(String body) {

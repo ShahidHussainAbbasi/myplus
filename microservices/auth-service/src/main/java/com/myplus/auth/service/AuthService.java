@@ -45,6 +45,16 @@ public class AuthService {
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final long LOCK_TIME_MINUTES = 30;
 
+    /**
+     * The OWNER role (super user of a single company), seeded in SetupDataLoader. Every self-signup /
+     * provisioned owner gets this so they hold SUPER privileges within their own tenant — and can later
+     * create ADMIN / USER accounts for their company (but not another SUPER) via the user-management form.
+     */
+    private Role ownerRole() {
+        return roleRepository.findByName("ROLE_OWNER")
+                .orElseThrow(() -> new ResourceNotFoundException("Owner role (ROLE_OWNER) is not seeded"));
+    }
+
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -56,13 +66,11 @@ public class AuthService {
         }
 
         String userType = request.getUserType() != null ? request.getUserType().toUpperCase() : "BUSINESS";
-        String roleName = "ROLE_" + userType + "_USER";
-        Role defaultRole = roleRepository.findByName(roleName)
-                .orElseGet(() -> roleRepository.findByName("ROLE_BUSINESS_USER")
-                        .orElseThrow(() -> new ResourceNotFoundException("Default role not found")));
-
+        // The self-signup user is the OWNER (super user) of the company they create — give them
+        // ROLE_OWNER so every feature of their module's dashboard is available. userType still drives
+        // dashboard routing; the role drives privileges. Per-user roles are assigned later by the owner.
         Set<Role> roles = new HashSet<>();
-        roles.add(defaultRole);
+        roles.add(ownerRole());
 
         User user = User.builder()
                 .username(username)
@@ -116,12 +124,9 @@ public class AuthService {
         }
 
         String userType = request.getUserType() != null ? request.getUserType().toUpperCase() : "BUSINESS";
-        String roleName = "ROLE_" + userType + "_USER";
-        Role defaultRole = roleRepository.findByName(roleName)
-                .orElseGet(() -> roleRepository.findByName("ROLE_BUSINESS_USER")
-                        .orElseThrow(() -> new ResourceNotFoundException("Default role not found")));
+        // Operator-provisioned tenants also get an OWNER (super user of that company).
         Set<Role> roles = new HashSet<>();
-        roles.add(defaultRole);
+        roles.add(ownerRole());
 
         String plan = (request.getPlan() == null || request.getPlan().isBlank())
                 ? "PRO" : request.getPlan().toUpperCase();

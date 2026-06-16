@@ -8,8 +8,8 @@ eureka:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${DB_USER:root}
-    password: ${DB_PASSWORD:changeme}
+    username: ${DB_USER:shahid}
+    password: ${DB_PASSWORD:Technology@2025!}
     hikari:
       # 11 DB-backed services share one MySQL. Keep each pool small so the total stays well under
       # MySQL max_connections (default 151; docker sets 200): 11 × 8 = 88. Env-overridable for prod.

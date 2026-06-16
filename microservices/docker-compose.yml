@@ -127,7 +127,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       SPRING_MAIL_HOST: smtp.gmail.com
       SPRING_MAIL_PORT: 587
-      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-email2uncer@gmail.com}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-maxtheservice}
       SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
     networks: [myplus-net]
     depends_on:
@@ -195,7 +195,7 @@ services:
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
-      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-email2uncer@gmail.com}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-maxtheservice}
       SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
     networks: [myplus-net]
     depends_on:
@@ -307,7 +307,7 @@ services:
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
-      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-email2uncer@gmail.com}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-maxtheservice}
       SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
     networks: [myplus-net]
     depends_on:

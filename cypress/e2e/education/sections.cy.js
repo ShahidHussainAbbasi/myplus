@@ -20,6 +20,32 @@ const SECTIONS = [
   { div: 'DiscountDiv', list: '/getUserDiscount', all: '/getAllDiscount', opts: '/getUserDiscounts' },
 ]
 
+// The visible sub-nav menus are privilege-gated server-side (sec:authorize ADMIN/SUPER). A company
+// owner is the SUPER user of their tenant (ROLE_OWNER), and the demo account holds the same super
+// privilege set, so these menus MUST list their items. (A plain ROLE_*_USER would see them empty —
+// that's by design; finer roles are managed by the owner. The section tests below drive the off-screen
+// select directly, so they would NOT catch an empty menu.)
+describe('Education — sub-nav menus list their items (owner/super privilege visibility)', () => {
+  beforeEach(() => {
+    cy.loginAsEducation()
+    cy.visit('/educationDashboard')
+  })
+
+  const MENUS = [
+    { id: 'snavRegister', min: 9 },
+    { id: 'snavFee', min: 4 },
+    { id: 'snavReport', min: 1 },
+    { id: 'snavAttendance', min: 1 },
+    { id: 'snavAlerts', min: 1 },
+  ]
+
+  MENUS.forEach((m) => {
+    it(`${m.id} renders its menu items (not an empty dropdown)`, () => {
+      cy.get(`#${m.id} .snav-menu li`).its('length').should('be.gte', m.min)
+    })
+  })
+})
+
 describe('Education — registration sections', () => {
   before(() => {
     cy.loginAsEducation()

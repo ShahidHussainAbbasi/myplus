@@ -377,7 +377,10 @@ $(document).ready(function() {
 				}
 
 				if(data && data.length>0 && $("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0){
-					if ($("#sellCh").val()*ONE < 0) {
+					// A NEW (manually entered) customer who owes a balance must give a mobile so the due
+					// can be followed up. An existing customer chosen from sellCustomerDD is already on
+					// file (their contact may legitimately be blank) — don't force a mobile in that case.
+					if (!isSelectMode && $("#sellCh").val()*ONE < 0) {
 						if($("#sellCC").val().trim() == ""){
 							document.getElementById("sellCC").style.setProperty('border-color', 'red', 'important');
 							error = true;

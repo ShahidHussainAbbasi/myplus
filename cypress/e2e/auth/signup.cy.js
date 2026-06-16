@@ -12,10 +12,12 @@
 const PW = 'Test@2025!'
 
 // A field-by-field form fill for the live /registration.html (jQuery $.post to /user/registration).
-function fillForm({ first = 'Test', last = 'Owner', org, email, pw = PW } = {}) {
+// userType is now a required selector (the chosen domain sets the role), so always pick one.
+function fillForm({ first = 'Test', last = 'Owner', org, email, pw = PW, userType = 'BUSINESS' } = {}) {
   cy.get('input[name="firstName"]').clear().type(first)
   cy.get('input[name="lastName"]').clear().type(last)
   if (org !== undefined) cy.get('input[name="organizationName"]').clear().type(org)
+  cy.get('select[name="userType"]').select(userType)
   cy.get('input[name="email"]').clear().type(email)
   cy.get('#password').clear().type(pw)
   cy.get('#matchPassword').clear().type(pw)
@@ -53,6 +55,25 @@ describe('Signup — happy path provisions a tenant', () => {
       expect(response.body.error).to.be.null
     })
   })
+
+  // Regression: the success branch checked data.message (always null) instead of data.status, so a
+  // successful registration gave the user NO feedback. It must now redirect to the success page.
+  it('on success redirects to the success page (status-based success check)', () => {
+    const email = `signup_ui_${Date.now()}@example.com`
+    cy.visit('/registration.html', { failOnStatusCode: false })
+    fillForm({ org: 'Beacon Rise Grammar School', email })
+    cy.get('button[type="submit"]').click({ force: true })
+    // The fixed success-check (status === 'success') drives the redirect to the proper success page.
+    cy.url({ timeout: 15000 }).should('include', 'successRegister')
+    cy.contains('Registration successful').should('be.visible')
+  })
+
+  // The global AJAX overlay (/js/common/ajax-overlay.js) is injected app-wide from a single file.
+  it('exposes the single global AJAX overlay element on the page', () => {
+    cy.visit('/registration.html', { failOnStatusCode: false })
+    // It self-injects on load; assert the one shared element exists (no per-page overlay markup).
+    cy.get('#appAjaxOverlay', { timeout: 10000 }).should('exist')
+  })
 })
 
 describe('Signup — validation & duplicate (server-side)', () => {
@@ -87,6 +108,7 @@ describe('Signup — validation & duplicate (server-side)', () => {
       body: {
         firstName: 'Dup', lastName: 'User',
         organizationName: 'Dup Org',
+        userType: 'BUSINESS', // valid so we reach the duplicate-email check (not a validation 400)
         email: 'demo.business@myplus.com', // already exists (seeded demo user)
         password: PW, matchingPassword: PW,
       },
@@ -110,13 +132,16 @@ describe('Signup — email verification gate', () => {
       expect(response.body).to.have.property('status', 'success')
     })
 
-    // Now attempt to log in with those credentials — should stay on /login (account not yet enabled).
+    // Now attempt to log in with those credentials — must NOT reach a dashboard, and must show a
+    // clear "verify your email" message (not the misleading "invalid credentials").
     cy.clearCookies()
     cy.visit('/login')
     cy.get('input[name="username"]').type(email)
     cy.get('input[name="password"]').type(PW)
     cy.get('#loginSubmit').click()
-    cy.url().should('include', '/login')
+    cy.url().should('include', '/login?unverified')
+    cy.get('.msg-bar.info').should('be.visible')
+    cy.contains(/verify|confirmation link|trial account/i).should('be.visible')
   })
 })
 
@@ -142,6 +167,14 @@ describe('Signup — redesigned split-panel UI (registration.html)', () => {
     cy.get('.field-grid input[name="firstName"]').should('exist')
     cy.get('.field-grid input[name="lastName"]').should('exist')
   })
+
+  it('offers a required service/domain selector with the four domains', () => {
+    cy.get('select[name="userType"]').should('exist').and('have.attr', 'required')
+    cy.get('select[name="userType"] option').then(($opts) => {
+      const values = [...$opts].map((o) => o.value)
+      expect(values).to.include.members(['BUSINESS', 'EDUCATION', 'WELFARE', 'AGRICULTURE'])
+    })
+  })
 })
 
 describe('Signup — client-side validation (negative)', () => {
@@ -155,6 +188,7 @@ describe('Signup — client-side validation (negative)', () => {
     cy.get('input[name="firstName"]').type('Mis')
     cy.get('input[name="lastName"]').type('Match')
     cy.get('input[name="organizationName"]').type('Mismatch Org')
+    cy.get('select[name="userType"]').select('BUSINESS')
     cy.get('input[name="email"]').type(`mismatch_${Date.now()}@example.com`)
     cy.get('#password').type('Test@2025!')
     cy.get('#matchPassword').type('Different@2025!')
@@ -174,11 +208,25 @@ describe('Signup — client-side validation (negative)', () => {
     cy.get('input[name="firstName"]').type('Bad')
     cy.get('input[name="lastName"]').type('Email')
     cy.get('input[name="organizationName"]').type('Bad Email Org')
+    cy.get('select[name="userType"]').select('BUSINESS')
     cy.get('input[name="email"]').type('not-an-email')
     cy.get('#password').type('Test@2025!')
     cy.get('#matchPassword').type('Test@2025!')
     cy.get('button[type="submit"]').click({ force: true })
     cy.get('input[name="email"]:invalid').should('exist')
+    cy.get('@reg.all').should('have.length', 0)
+  })
+
+  it('requires choosing a service/domain before submit', () => {
+    cy.get('input[name="firstName"]').type('NoDomain')
+    cy.get('input[name="lastName"]').type('User')
+    cy.get('input[name="organizationName"]').type('No Domain Org')
+    cy.get('input[name="email"]').type(`nodomain_${Date.now()}@example.com`)
+    cy.get('#password').type('Test@2025!')
+    cy.get('#matchPassword').type('Test@2025!')
+    // userType left unselected → HTML5 required blocks submit, no POST.
+    cy.get('button[type="submit"]').click({ force: true })
+    cy.get('select[name="userType"]:invalid').should('exist')
     cy.get('@reg.all').should('have.length', 0)
   })
 })

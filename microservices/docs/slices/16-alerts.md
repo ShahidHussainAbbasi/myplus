@@ -2,7 +2,7 @@
 
 Status: **DONE** (user consented A+B). Built **fresh**, org-scoped. Real email via SMTP (B).
 Verified live: Cypress `alerts.cy.js` 3/3 passing (import→list→send real email; create system alert→list).
-Test/admin recipients always included: `uncer_sh@yahoo.com`, `email2uncer@gmail.com`.
+Test/admin recipients always included: `uncer_sh@yahoo.com`, `maxtheservice`.
 
 ## Document — what & why
 

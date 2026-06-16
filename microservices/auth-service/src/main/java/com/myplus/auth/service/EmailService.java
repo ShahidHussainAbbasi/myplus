@@ -37,8 +37,12 @@ public class EmailService {
                     + baseUrl + "/api/auth/verify-email?token=" + token
                     + "\n\nThe link expires in 24 hours.");
             mailSender.send(message);
+            log.info("Verification email sent to {}", to);
         } catch (Exception ex) {
-            log.warn("Failed to send verification email to {}: {}", to, ex.getMessage());
+            // Loud on failure: a swallowed WARN previously hid SMTP auth/config errors, leaving the
+            // account stuck disabled with no signal. Log the full cause so it's diagnosable.
+            log.error("Failed to send verification email to {} (account stays disabled until verified): {}",
+                    to, ex.getMessage(), ex);
         }
     }
 
@@ -54,8 +58,9 @@ public class EmailService {
                     + "\n\n(Or paste this token into the reset form: " + token + ")"
                     + "\n\nThe token expires in 1 hour. If you did not request this, ignore this email.");
             mailSender.send(message);
+            log.info("Password reset email sent to {}", to);
         } catch (Exception ex) {
-            log.warn("Failed to send password reset email to {}: {}", to, ex.getMessage());
+            log.error("Failed to send password reset email to {}: {}", to, ex.getMessage(), ex);
         }
     }
 }

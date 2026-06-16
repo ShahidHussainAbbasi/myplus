@@ -95,6 +95,12 @@ public class SetupDataLoader {
             createOrUpdateRole(r, superSet);
         }
         Role adminRole = createOrUpdateRole("ROLE_ADMIN", superSet);
+        // Company OWNER = super user of their OWN tenant. Assigned to every self-signup / operator-
+        // provisioned owner so all features of their module's dashboard are available. Deliberately NOT
+        // the platform ROLE_ADMIN, so owners cannot reach operator-only endpoints (e.g. provision-tenant).
+        // Org-scoping (X-Org-Id) keeps each owner's super access confined to their own company's data.
+        // Finer per-user roles are assigned later by the owner via the upcoming user-management form.
+        createOrUpdateRole("ROLE_OWNER", superSet);
         createOrUpdateRole("ROLE_APPOINTMENT_USER", user);
         // Demo accounts get full module privileges (so the privilege-gated dashboards work) plus
         // DEMO_PRIVILEGE, which the UI uses to show the demo banner. The 50/module write cap is the

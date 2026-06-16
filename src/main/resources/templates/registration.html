@@ -20,6 +20,9 @@
         .field-group .progress-bar{font-size:0;line-height:6px}
         .g-recaptcha{margin:4px 0 20px}
         @media(max-width:520px){.field-grid{grid-template-columns:1fr}}
+        /* Success bar shown before the redirect to the success page */
+        .reg-ok{display:none;border-radius:8px;padding:12px 15px;font-size:13px;font-weight:500;
+                margin-bottom:18px;background:#ecfdf5;color:#047857;border-left:4px solid #10b981}
     </style>
 </head>
 <body>
@@ -72,6 +75,11 @@
                 <p>Set up your organization in just a few steps</p>
             </div>
 
+            <div id="registerSuccess" class="reg-ok">
+                <span class="glyphicon glyphicon-ok-circle"></span>&nbsp;
+                Account created — redirecting you to the next step…
+            </div>
+
             <form action="/" method="POST" enctype="utf8" autocomplete="off">
 
                 <div class="field-grid">
@@ -108,6 +116,22 @@
                                placeholder="e.g. Beacon Rise Grammar School"/>
                     </div>
                     <span id="organizationNameError" class="alert reg-err" style="display:none"></span>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label" for="userType"
+                           th:text="#{label.user.userType}">Which service are you signing up for?</label>
+                    <div class="field-wrap">
+                        <span class="glyphicon glyphicon-th-large field-icon"></span>
+                        <select id="userType" name="userType" class="field-input" required="required">
+                            <option value="" disabled selected th:text="#{label.user.userType.choose}">Choose your service…</option>
+                            <option value="BUSINESS">Business — POS &amp; Inventory</option>
+                            <option value="EDUCATION">Education — School Management</option>
+                            <option value="WELFARE">Welfare — Donations</option>
+                            <option value="AGRICULTURE">Agriculture — Income &amp; Expense</option>
+                        </select>
+                    </div>
+                    <span id="userTypeError" class="alert reg-err" style="display:none"></span>
                 </div>
 
                 <div class="field-group">
@@ -163,6 +187,9 @@
 
 <script th:if="${captchaEnabled}" src="https://www.google.com/recaptcha/api.js" async defer></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<!-- Global AJAX waiting overlay (single source for the whole app) — auto-shows while the
+     registration $.post is in flight; no per-page overlay markup needed. -->
+<script th:src="@{/js/common/ajax-overlay.js}"></script>
 <script th:src="@{/pwstrength.js}"></script>
 <script th:inline="javascript">
 var serverContext = [[@{/}]];
@@ -203,44 +230,28 @@ function register(event){
 	event.preventDefault();
     $(".alert").html("").hide();
     $(".error-list").html("");
+    $("#registerSuccess").hide();
     if($("#password").val() != $("#matchPassword").val()){
     	$("#globalError").show().html(/*[[#{PasswordMatches.user}]]*/);
     	return;
     }
     var formData= $('form').serialize();
-    console.log(serverContext);
+    // The global AJAX overlay (/js/common/ajax-overlay.js) blocks interaction while this $.post runs.
     $.post(serverContext + "user/registration",formData ,function(data){
-        if(data.message == "success"){
+        // The controller returns GenericResponse("success") -> status="success" (message stays null),
+        // so check status first; keep message as a fallback for older/other response shapes.
+        if(data && (data.status == "success" || data.message == "success")){
+            $("#registerSuccess").show();
             window.location.href = serverContext + "successRegister.html";
+        } else {
+            $("#globalError").show().html("Something went wrong. Please try again.");
         }
-
     })
-    .fail(function(data) {
-    	 $("#emailError").show().html(data.responseJSON.message);
-/*
-        if(data.responseJSON.error !=null && data.responseJSON.error.indexOf("MailError") > -1)
-        {
-            window.location.href = serverContext + "emailError.html";
-        }
-        else if(data.responseJSON.error !=null && data.responseJSON.error == "UserAlreadyExist"){
-            $("#emailError").show().html(data.responseJSON.message);
-        }
-        else if(data.responseJSON.error !=null && data.responseJSON.error.indexOf("InternalError") > -1){
-            window.location.href = serverContext + "login?message=" + data.responseJSON.message;
-        }
-        else{
-        	var errors = $.parseJSON(data.responseJSON.message);
-            $.each( errors, function( index,item ){
-            	if (item.field){
-            		$("#"+item.field+"Error").show().append(item.defaultMessage+"<br/>");
-            	}
-            	else {
-            		$("#globalError").show().append(item.defaultMessage+"<br/>");
-            	}
-
-            });
-        }
-        */
+    .fail(function(xhr) {
+        var msg = (xhr && xhr.responseJSON && xhr.responseJSON.message)
+            ? xhr.responseJSON.message
+            : "Registration failed. Please check your details and try again.";
+        $("#emailError").show().html(msg);
     });
 }
 

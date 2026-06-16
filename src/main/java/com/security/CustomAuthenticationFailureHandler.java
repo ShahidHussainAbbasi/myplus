@@ -42,6 +42,13 @@ public class CustomAuthenticationFailureHandler extends SimpleUrlAuthenticationF
                 || reason.toLowerCase(locale).contains("verification code")) {
             errorMessage = "Invalid verification code. Please try again.";
             failureUrl = "/login?twofa=true";
+        } else if (reason.toLowerCase(locale).contains("not verified")) {
+            // Registered-but-unverified (trial pending): show a clear, trial-aware message via an
+            // info bar instead of the red "invalid credentials" error.
+            errorMessage = messages.getMessage("auth.message.notVerified", null, locale);
+            failureUrl = "/login?unverified=true";
+        } else if (reason.toLowerCase(locale).contains("locked")) {
+            errorMessage = messages.getMessage("auth.message.locked", null, locale);
         } else if (reason.equalsIgnoreCase("User is disabled")) {
             errorMessage = messages.getMessage("auth.message.disabled", null, locale);
         } else if (reason.equalsIgnoreCase("User account has expired")) {

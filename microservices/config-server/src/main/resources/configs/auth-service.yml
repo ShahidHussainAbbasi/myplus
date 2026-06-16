@@ -11,7 +11,7 @@ spring:
     username: ${MAIL_USER:maxtheservice@gmail.com}
     # Gmail requires an app-specific password (not the account password). This is the working
     # value from the monolith's spring.mail.password; override via MAIL_PASSWORD env in prod.
-    password: "${MAIL_PASSWORD:}"
+    password: "${MAIL_PASSWORD:cablbimiovkcqqxy}"
     properties:
       mail:
         transport:
@@ -21,6 +21,9 @@ spring:
           starttls:
             enable: true
           timeout: 8000
+          # Mirror the monolith's known-working Gmail config — the smtps transport reads the password
+          # from here as well, which is the difference that made the monolith send succeed.
+          password: "${MAIL_PASSWORD:cablbimiovkcqqxy}"
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:8765}

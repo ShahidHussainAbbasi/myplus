@@ -36,6 +36,9 @@
         <script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
         <script th:src="@{/js/main.js}"></script>
+        <!-- Global AJAX waiting overlay — one source for the whole app; blocks interaction while any
+             $.ajax/$.post is in flight (see /js/common/ajax-overlay.js). -->
+        <script th:src="@{/js/common/ajax-overlay.js}"></script>
         <!-- Demo free-trial: surfaces the gateway's DEMO_LIMIT (50/module cap) as an upsell prompt. -->
         <script th:src="@{/js/demo.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing

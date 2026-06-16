@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/myplusdb_education?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: ${DB_USER:root}
-    password: ${DB_PASSWORD:changeme}
+    password: ${DB_PASSWORD:Technology@2025!}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:

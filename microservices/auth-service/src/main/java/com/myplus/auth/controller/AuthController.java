@@ -35,10 +35,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(authService.login(request), "Login successful"));
     }
 
-    // Operator onboarding (SUPER/ADMIN): create a client tenant without a redeploy — the SaaS replacement
+    // Platform-operator onboarding: create a client tenant without a redeploy — the SaaS replacement
     // for seeding customers. The owner receives a password-reset email to set their own credential.
+    // Gated on the platform ROLE_ADMIN *role* (not the SUPER/ADMIN privilege): company owners now hold
+    // SUPER privileges within their own tenant (ROLE_OWNER), so a privilege gate would let any owner
+    // create new tenants. ROLE_ADMIN keeps this to the platform operator (admin@myplus.com).
     @PostMapping("/admin/provision-tenant")
-    @PreAuthorize("hasAnyAuthority('SUPER_PRIVILEGE','ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> provisionTenant(@Valid @RequestBody ProvisionTenantRequest request) {
         return ResponseEntity.ok(ApiResponse.success(authService.provisionTenant(request), "Tenant provisioned"));
     }
