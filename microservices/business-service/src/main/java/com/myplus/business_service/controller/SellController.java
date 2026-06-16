@@ -227,7 +227,72 @@ public class SellController {
 					e.getMessage());
 		}
 	}
-	
+
+	/**
+	 * Load a full sale (invoice) for editing. Given ANY of its line items' sellId, returns the parent
+	 * invoice's customer + amounts + ALL its line items so the cart (iDiv) and sell form can be rebuilt.
+	 * Tenant-scoped (anti-IDOR): a sellId from another org returns NOT_FOUND without revealing it exists.
+	 */
+	@RequestMapping(value = "/getSellInvoice", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getSellInvoice(@RequestParam("sellId") Long sellId, final HttpServletRequest request) {
+		try {
+			Optional<Sell> os = sellService.findById(sellId);
+			if (!os.isPresent()) return new GenericResponse("NOT_FOUND", "Sale not found");
+			Sell clicked = os.get();
+			if (!inMyTenant(clicked.getOrganizationId(), clicked.getUserId()))
+				return new GenericResponse("NOT_FOUND", "Sale not found"); // anti-IDOR
+			if (clicked.getCustomerHistory() == null || clicked.getCustomerHistory().getCustomer_history_id() == null)
+				return new GenericResponse("NOT_FOUND", "This sale has no invoice to edit");
+
+			Long chId = clicked.getCustomerHistory().getCustomer_history_id();
+			List<Sell> lines = sellService.findByInvoiceScoped(chId, orgId(), userId());
+			if (appUtil.isEmptyOrNull(lines)) return new GenericResponse("NOT_FOUND", "No line items found");
+
+			CustomerHistory ch = clicked.getCustomerHistory();
+			CustomerHistoryDTO out = new CustomerHistoryDTO();
+			out.setCustomer_history_id(ch.getCustomer_history_id());
+			out.setInvoiceNo(ch.getInvoiceNo());
+			out.setInvoiceSeq(ch.getInvoiceSeq());
+			out.setPaidAmount(ch.getPaidAmount());
+			out.setDueAmount(ch.getDueAmount());
+			out.setDueDate(ch.getDueDate());
+			if (ch.getCustomer() != null) {
+				out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
+			}
+
+			// Batch-load item names in one query (same approach as getUserSell).
+			java.util.List<Long> itemIds = lines.stream()
+					.filter(s -> s.getStock() != null && s.getStock().getItemId() != null)
+					.map(s -> s.getStock().getItemId()).distinct()
+					.collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
+					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+
+			List<SellDTO> sales = new java.util.ArrayList<>();
+			for (Sell s : lines) {
+				modelMapper.addConverter(appUtil.localDateTimeToString);
+				modelMapper.addConverter(appUtil.localDateToString);
+				SellDTO sd = modelMapper.map(s, SellDTO.class);
+				if (s.getStock() != null) {
+					sd.setStock(modelMapper.map(s.getStock(), StockDTO.class));
+					Item item = itemsById.get(s.getStock().getItemId());
+					if (item != null) {
+						sd.setItemId(item.getId());
+						sd.setItemName(item.getIname());
+						sd.setItemCode(item.getIcode());
+					}
+				}
+				sales.add(sd);
+			}
+			out.setSales(sales);
+			return new GenericResponse("SUCCESS", "Invoice loaded", out);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > getSellInvoice " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load the sale. Please try again.");
+		}
+	}
+
 	@RequestMapping(value = "/loadSR", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse loadSR(final SellDTO dto, final HttpServletRequest request) {
@@ -400,6 +465,109 @@ public class SellController {
 */	
 	
 	
+	/**
+	 * Update an existing sale (invoice) in place — the "edit" counterpart of addSell. Keeps the SAME
+	 * invoice number; adjusts stock by the NET per-item delta (old sold qty given back − new sold qty);
+	 * recomputes the customer due. All-or-nothing (@Transactional). The frontend routes here (instead of
+	 * addSell) when it carries a customer_history_id (an edit in progress).
+	 */
+	@RequestMapping(value = "/updateSell", method = RequestMethod.POST)
+	@ResponseBody
+	@Transactional
+	public GenericResponse updateSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
+		try {
+			if (dto == null || dto.getCustomer_history_id() == null)
+				return new GenericResponse("ERROR", "No invoice id provided for update");
+			if (appUtil.isEmptyOrNull(dto.getSales()))
+				return new GenericResponse("ERROR", "No sales data provided");
+
+			AuthenticatedUser user = requestUtil.getCurrentUser();
+			Long chId = dto.getCustomer_history_id();
+
+			// Anti-IDOR: the invoice must belong to this tenant.
+			Optional<CustomerHistory> chOpt = customerHistoryService.findById(chId);
+			if (!chOpt.isPresent())
+				return new GenericResponse("NOT_FOUND", "Invoice not found");
+			CustomerHistory ch = chOpt.get();
+			if (!inMyTenant(ch.getOrganizationId(), ch.getUserId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found");
+
+			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
+			java.util.Map<Long, Float> delta = new java.util.HashMap<>();
+			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
+			for (Sell o : oldLines) {
+				if (o.getStock() != null && o.getStock().getStockId() != null && o.getQuantity() != null)
+					delta.merge(o.getStock().getStockId(), o.getQuantity(), Float::sum);
+			}
+			for (SellDTO s : dto.getSales()) {
+				Long sid = (s.getStock() != null) ? s.getStock().getStockId() : null;
+				if (sid != null && s.getQuantity() != null)
+					delta.merge(sid, -s.getQuantity(), Float::sum);
+			}
+			// 2) Apply the deltas, rejecting any change that would drive stock negative.
+			for (java.util.Map.Entry<Long, Float> e : delta.entrySet()) {
+				Optional<Stock> so = stockService.findById(e.getKey());
+				if (!so.isPresent()) continue;
+				Stock st = so.get();
+				float now = (st.getStock() == null ? 0f : st.getStock()) + e.getValue();
+				if (now < 0)
+					return new GenericResponse("ERROR", "Not enough stock to apply this change.");
+				st.setStock(now);
+				stockService.save(st);
+			}
+
+			// 3) Delete the original line items (replaced below).
+			for (Sell o : oldLines) sellService.deleteById(o.getSellId());
+
+			// 4) Update customer + invoice header IN PLACE — KEEP invoiceSeq/invoiceNo (no new number).
+			Customer customerObj = customerService.saveUpdateCustomer(dto);
+			customerService.save(customerObj);
+			ch.setCustomer(customerObj);
+			ch.setUserId(user.getUserId());
+			ch.setOrganizationId(user.getOrganizationId());
+			ch.setUpdated(java.time.LocalDateTime.now());
+			java.math.BigDecimal paid = dto.getPaidAmount() != null ? dto.getPaidAmount()
+					: (dto.getCustomer() != null ? dto.getCustomer().getPaidAmount() : null);
+			java.math.BigDecimal due = dto.getDueAmount() != null ? dto.getDueAmount()
+					: (dto.getCustomer() != null ? dto.getCustomer().getDueAmount() : null);
+			if (paid != null) ch.setPaidAmount(paid);
+			if (due != null) ch.setDueAmount(due);
+			if (dto.getDueDate() != null) ch.setDueDate(dto.getDueDate());
+			customerHistoryService.save(ch);
+
+			// 5) Insert the edited line items (stock already adjusted above; rates come from the stock).
+			for (SellDTO s : dto.getSales()) {
+				Sell line = new Sell();
+				line.setUserId(user.getUserId());
+				line.setOrganizationId(user.getOrganizationId());
+				line.setQuantity(s.getQuantity());
+				line.setTotalAmount(s.getTotalAmount());
+				line.setNetAmount(s.getNetAmount());
+				line.setSrp(s.getSrp());
+				line.setDated(java.time.LocalDateTime.now());
+				line.setUpdated(java.time.LocalDateTime.now());
+				line.setCustomerHistory(ch);
+				if (s.getStock() != null && s.getStock().getStockId() != null) {
+					Optional<Stock> so = stockService.findById(s.getStock().getStockId());
+					if (so.isPresent()) {
+						Stock st = so.get();
+						line.setStock(st);
+						line.setSellRate(st.getBsellRate());
+						line.setDiscount(st.getBsellDiscount());
+						line.setDt(st.getBsellDiscountType());
+					}
+				}
+				sellService.save(line);
+			}
+
+			return new GenericResponse("SUCCESS", "Sale updated. Invoice " + ch.getInvoiceNo(), ch.getInvoiceNo());
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > updateSell " + e.getMessage(), e);
+			// Propagate past @Transactional so the whole edit rolls back (all-or-nothing).
+			throw new RuntimeException("Could not update the sale. Please try again.", e);
+		}
+	}
+
 	@PostMapping(value = "/addSelling")
 	@ResponseBody
 	public GenericResponse addSelling(@RequestBody final List<SellDTO> dtos, final HttpServletRequest request) {

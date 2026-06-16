@@ -394,7 +394,14 @@ $(document).ready(function() {
 
 					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
 					var customerHistory = {"customer":customer, "sales":data};
-					jsonPost("addSell",customerHistory);
+					// Editing an existing invoice -> update it in place (same invoice #, stock & dues
+					// adjusted by the deltas); otherwise create a new sale.
+					if (window.editingInvoice && window.editingInvoice.chId) {
+						customerHistory.customer_history_id = window.editingInvoice.chId;
+						jsonPost("updateSell", customerHistory);
+					} else {
+						jsonPost("addSell", customerHistory);
+					}
 			    }else{
 					    	document.getElementById("sellRec").style.setProperty('border-color', 'red', 'important');
 					    	showFormError('Please add items to the cart and enter a valid payment amount.');
@@ -509,10 +516,17 @@ $(document).ready(function() {
 				showFormError('Edit is not allowed. Please delete and submit a new record.');
 				}
 			}else{
-				if(tableV!="Sell"){					
+				if(tableV!="Sell"){
 					var html = datatable.row(this).data();// .selector.rows.innerHTML;
 					var doc = getDocument(html);
 					editRecord(doc);
+				} else {
+					// Sell: a sale is a multi-line invoice — load the WHOLE invoice (all its lines +
+					// customer) into the cart (iDiv) so the user can review/update and save in place.
+					var sdoc = getDocument(datatable.row(this).data());
+					var sidEl = sdoc.getElementById('sellId');
+					if (sidEl && sidEl.textContent.trim() && typeof loadSellForEdit === 'function')
+						loadSellForEdit(sidEl.textContent.trim());
 				}
 			}
 		} );

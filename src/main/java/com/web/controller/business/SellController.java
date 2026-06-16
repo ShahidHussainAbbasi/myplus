@@ -41,6 +41,19 @@ public class SellController {
         }
     }
 
+    // Load a full sale (invoice) for editing — proxies to business-service getSellInvoice.
+    @RequestMapping(value = "/getSellInvoice", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getSellInvoice(final HttpServletRequest request) {
+        try {
+            String sellId = request.getParameter("sellId");
+            return client.get("/getSellInvoice", "sellId=" + sellId);
+        } catch (Exception e) {
+            LOGGER.error("getSellInvoice proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/loadSR", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> loadSR(final SellDTO dto, final HttpServletRequest request) {

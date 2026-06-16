@@ -272,6 +272,82 @@ function UIT(id){
 	});
 }
 
+// ─── Edit an existing sale (invoice) ──────────────────────────────────────────
+// Clicking a row in the Sell report loads that row's WHOLE invoice (all line items + customer +
+// paid/due) back into the cart (iDiv) and the sell form, in an "editing INV-xxxx" state. Saving
+// then routes to updateSell (same invoice #, stock & dues adjusted by the deltas).
+function loadSellForEdit(sellId){
+	$.get(serverContext + "getSellInvoice?sellId=" + encodeURIComponent(sellId), function(resp){
+		if(!resp || resp.status !== "SUCCESS" || !resp.object){
+			showFormError((resp && resp.message) || "Could not load this sale for editing.");
+			return;
+		}
+		var inv = resp.object;
+		// 1) clear the current cart
+		data.length = 0;
+		if(tablesi){ tablesi.clear(); }
+		// 2) rebuild the cart from the invoice's line items
+		(inv.sales || []).forEach(function(line){
+			var stk = line.stock || {};
+			stk.itemId = line.itemId;
+			stk.itemName = line.itemName;
+			var item = {
+				sellId: line.sellId,            // original line — lets updateSell revert the right stock
+				quantity: line.quantity,
+				itemId: line.itemId,
+				itemName: line.itemName,
+				totalAmount: line.totalAmount,
+				netAmount: line.netAmount,
+				sellRate: line.sellRate,
+				discount: line.discount,
+				dt: line.dt,
+				srp: line.srp,
+				stock: stk
+			};
+			data.push(item);
+			tablesi.row.add([
+				item.itemId, escHtml(item.itemName || ''), item.quantity,
+				stk.bsellRate, stk.bsellDiscount, item.totalAmount,
+				"<button id='DII' onclick=UIT(" + item.itemId + ")>Del</button>"
+			]);
+		});
+		if(tablesi){ tablesi.draw(); }
+		// 3) fill the customer form (manual mode shows the name/contact fields)
+		if(typeof onCustomerModeChange === 'function') onCustomerModeChange('manual');
+		$("#sellCN").val(inv.customer ? (inv.customer.name || '') : '');
+		$("#sellCC").val(inv.customer ? (inv.customer.contact || '') : '');
+		$("#sellRec").val(inv.paidAmount != null ? inv.paidAmount : '');
+		// 4) enter edit state + show the banner
+		window.editingInvoice = { chId: inv.customer_history_id, invoiceNo: inv.invoiceNo };
+		showSellEditBanner(inv.invoiceNo);
+		// 5) bring the form into view
+		try { $('html, body').animate({ scrollTop: $('#sellDiv').offset().top }, 300); } catch(e){}
+	}).fail(function(){
+		showFormError("Could not load this sale for editing.");
+	});
+}
+
+function showSellEditBanner(invoiceNo){
+	$('#sellEditBanner').remove();
+	var banner = $(
+		"<div id='sellEditBanner' class='alert alert-info' style='margin:8px 0;display:flex;align-items:center;gap:10px'>"
+		+ "<span class='glyphicon glyphicon-pencil'></span> "
+		+ "<span><b>Editing invoice " + escHtml(invoiceNo || '') + "</b> — change items / amounts, then click <b>Add Sell</b> to update.</span>"
+		+ "<button type='button' id='cancelSellEdit' class='btn btn-xs btn-default' style='margin-left:auto'>Cancel edit</button>"
+		+ "</div>");
+	$('#iDiv').before(banner);
+	$('#cancelSellEdit').off().on('click', cancelSellEdit);
+}
+
+function cancelSellEdit(){
+	window.editingInvoice = null;
+	data.length = 0;
+	if(tablesi){ tablesi.clear().draw(); }
+	$('#sellEditBanner').remove();
+	$("#sellCN,#sellCC,#sellRec").val('');
+	if(typeof resetForm === 'function') resetForm();
+}
+
 function CIT(data){
 	var q=ZERO,sr=ZERO,dis=ZERO,t=ZERO;
 	data.forEach(function(d){
@@ -422,6 +498,7 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=sellId>"+obj.sellId+"</div>",
+							"<div id=sellInvoiceNo>"+escHtml(obj.customerHistory ? (obj.customerHistory.invoiceNo || '') : '')+"</div>",
 							"<div id=sellItemName>"+escHtml(obj.itemName)+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
 							"<div id=sellItemExpiry>"+obj.stock.bexpDate+"</div>",

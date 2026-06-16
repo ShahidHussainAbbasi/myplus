@@ -35,6 +35,13 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
          + "or (s.organizationId is null and s.userId = :userId) order by s.sellId desc")
     List<Sell> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
+    // All line items of one invoice (customer_history), tenant-scoped — used to load a sale for editing
+    // so an invoice is never truncated by the report's pagination/recent-N cap.
+    @Query("select s from Sell s where s.customerHistory.customer_history_id = :chId "
+         + "and (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+         + "order by s.sellId asc")
+    List<Sell> findByInvoiceScoped(@Param("chId") Long chId, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT s FROM Sell s WHERE s.dated >= :sd "
          + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
     public List<Sell> findSellByStartDate(@Param("sd") LocalDateTime sd, @Param("orgId") Long orgId, @Param("userId") Long userId);
