@@ -348,6 +348,62 @@ function cancelSellEdit(){
 	if(typeof resetForm === 'function') resetForm();
 }
 
+// ─── Team / Users (owner-only) ────────────────────────────────────────────────
+// The company SUPER owner manages team members. Uses a custom show (not the generic .dropdown path)
+// so it doesn't trigger loadDataTable for a non-existent "Team" entity.
+function showTeam(){
+	$('.formDiv').hide();
+	$('#TeamDiv').show();
+	$('#teamMsg').hide();
+	loadTeamUsers();
+}
+
+function loadTeamUsers(){
+	$.get(serverContext + "team/users", function(resp){
+		var users = (resp && resp.data) ? resp.data : [];
+		var $tb = $('#tableTeam tbody').empty();
+		if(!users.length){ $tb.append('<tr><td colspan="4" class="text-center">No team members yet.</td></tr>'); return; }
+		users.forEach(function(u){
+			$tb.append('<tr><td>' + escHtml(u.name || '') + '</td><td>' + escHtml(u.email || '')
+				+ '</td><td>' + escHtml(u.role || '') + '</td><td>' + (u.enabled ? 'Active' : 'Pending') + '</td></tr>');
+		});
+	}).fail(function(){
+		$('#tableTeam tbody').html('<tr><td colspan="4" class="text-center">Could not load the team.</td></tr>');
+	});
+}
+
+function addTeamUser(){
+	var body = {
+		firstName: ($('#teamFirstName').val() || '').trim(),
+		lastName:  ($('#teamLastName').val()  || '').trim(),
+		email:     ($('#teamEmail').val()     || '').trim(),
+		role:      $('#teamRole').val()
+	};
+	if(!body.email){ teamMsg('Please enter an email.', true); return; }
+	$.ajax({
+		type: 'POST', url: serverContext + 'team/users', contentType: 'application/json',
+		data: JSON.stringify(body), dataType: 'json',
+		success: function(resp){
+			if(resp && resp.data && resp.data.userId){
+				teamMsg('Team member added — a set-password email was sent to ' + body.email + '.', false);
+				$('#teamFirstName,#teamLastName,#teamEmail').val('');
+				loadTeamUsers();
+			} else {
+				teamMsg((resp && resp.message) || 'Could not add the team member.', true);
+			}
+		},
+		error: function(xhr){
+			var m = (xhr && xhr.responseJSON && xhr.responseJSON.message) || 'Could not add the team member. Please try again.';
+			teamMsg(m, true);
+		}
+	});
+}
+
+function teamMsg(msg, isErr){
+	$('#teamMsg').removeClass('alert-success alert-danger')
+		.addClass(isErr ? 'alert-danger' : 'alert-success').html(escHtml(msg)).show();
+}
+
 function CIT(data){
 	var q=ZERO,sr=ZERO,dis=ZERO,t=ZERO;
 	data.forEach(function(d){

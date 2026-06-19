@@ -160,6 +160,78 @@ public class AuthService {
         return result;
     }
 
+    /**
+     * Owner-only: create a team member (ADMIN or USER — never SUPER/OWNER) inside the caller's OWN
+     * organization. The user is created with no known password and receives a reset email to set one.
+     * Authorized at the controller (SUPER_PRIVILEGE) + confined to {@code callerOrgId}.
+     */
+    @Transactional
+    public Map<String, Object> createOrgUser(String firstName, String lastName, String email,
+                                             String roleChoice, Long callerOrgId, Long callerUserId) {
+        if (email == null || email.isBlank())
+            throw new ValidationException("Email is required");
+        if (userRepository.existsByEmail(email))
+            throw new DuplicateResourceException("Email already registered");
+        String rc = (roleChoice == null ? "USER" : roleChoice.trim().toUpperCase());
+        if (!rc.equals("ADMIN") && !rc.equals("USER"))
+            throw new ValidationException("Role must be ADMIN or USER");
+
+        // New member inherits the owner's module (userType) so they land on the same dashboard.
+        String userType = userRepository.findById(callerUserId)
+                .map(User::getUserType).filter(t -> t != null && !t.isBlank())
+                .map(String::toUpperCase).orElse("BUSINESS");
+        // Global role drives privileges: ADMIN -> ADMIN_ROLE (admin set); USER -> ROLE_<type>_USER.
+        String globalRoleName = rc.equals("ADMIN") ? "ADMIN_ROLE" : ("ROLE_" + userType + "_USER");
+        Role role = roleRepository.findByName(globalRoleName)
+                .orElseGet(() -> roleRepository.findByName("ROLE_BUSINESS_USER")
+                        .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + globalRoleName)));
+
+        String username = email.split("@")[0] + "_" + System.currentTimeMillis() % 10000;
+        if (userRepository.existsByUsername(username))
+            username = username + "_" + UUID.randomUUID().toString().substring(0, 4);
+
+        User user = User.builder()
+                .username(username)
+                .email(email)
+                .password(passwordEncoder.encode(UUID.randomUUID().toString())) // throwaway; set via reset email
+                .firstName(firstName)
+                .lastName(lastName)
+                .userType(userType)
+                .enabled(true)
+                .accountNonLocked(true)
+                .twoFactorEnabled(false)
+                .roles(new HashSet<>(java.util.Collections.singletonList(role)))
+                .build();
+        user = userRepository.save(user);
+
+        organizationService.addMember(user.getId(), callerOrgId, rc);   // join the caller's org
+        sendPasswordResetEmail(user.getEmail());                        // user sets their own password
+
+        Map<String, Object> r = new HashMap<>();
+        r.put("userId", user.getId());
+        r.put("email", user.getEmail());
+        r.put("role", rc);
+        return r;
+    }
+
+    /** Owner-only: list the team (members) of the caller's organization. */
+    public java.util.List<Map<String, Object>> listOrgUsers(Long callerOrgId) {
+        java.util.List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (com.myplus.auth.entity.Membership m : organizationService.membersOf(callerOrgId)) {
+            userRepository.findById(m.getUserId()).ifPresent(u -> {
+                Map<String, Object> row = new HashMap<>();
+                row.put("userId", u.getId());
+                row.put("name", ((u.getFirstName() == null ? "" : u.getFirstName()) + " "
+                        + (u.getLastName() == null ? "" : u.getLastName())).trim());
+                row.put("email", u.getEmail());
+                row.put("role", m.getRole());
+                row.put("enabled", u.isEnabled());
+                out.add(row);
+            });
+        }
+        return out;
+    }
+
     @Transactional
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())

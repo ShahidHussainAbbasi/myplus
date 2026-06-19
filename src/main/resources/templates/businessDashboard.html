@@ -82,6 +82,17 @@
 								<li><a onclick="snavGo('sellType','SRDiv','snavSell')"><span class="glyphicon glyphicon-list"></span> Sale Detail Report</a></li>
 							</ul>
 						</div>
+						<!-- Team management — only the company SUPER owner sees this. -->
+						<div class="snav-dd" id="snavTeam" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
+							<button class="snav-btn" onclick="snavToggle(event,'snavTeam')">
+								<span class="glyphicon glyphicon-user"></span>
+								<span>Team</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li><a onclick="showTeam();document.getElementById('snavTeam').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> Manage Users</a></li>
+							</ul>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -237,6 +248,32 @@
 					</div>
 				</div>
 			</div>
+			<!-- ═══ Team / Users (owner-only) ═══════════════════════════════════════
+			     The company SUPER owner adds ADMIN/USER members (they set their own password via a
+			     reset email) and sees the current team. Server-confined to the owner's org. -->
+			<div id="TeamDiv" class="formDiv" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" style="display:none">
+				<h3 class="dash-page-title">Team &amp; Users</h3>
+				<div id="teamMsg" class="alert" style="display:none"></div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name"/></div>
+					<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name"/></div>
+					<div class="col-sm-3"><input id="teamEmail" type="email" class="form-control" placeholder="Email"/></div>
+					<div class="col-sm-2">
+						<select id="teamRole" class="form-control">
+							<option value="USER">User</option>
+							<option value="ADMIN">Admin</option>
+						</select>
+					</div>
+					<div class="col-sm-1">
+						<button type="button" id="addTeamUser" class="btn btn-success" onclick="addTeamUser()">Add</button>
+					</div>
+				</div>
+				<table id="tableTeam" class="table table-bordered table-striped">
+					<thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+
 			<div id="CompanyDiv" class="formDiv">
 				<!-- <h3 th:text="#{label.company.form.heading}">Company Registration Form</h3> -->
 				<h3 class="dash-page-title"> Company Registration</h3>

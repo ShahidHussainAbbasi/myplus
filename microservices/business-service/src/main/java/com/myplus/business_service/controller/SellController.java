@@ -112,6 +112,14 @@ public class SellController {
 			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
 	}
 
+	/** Role-aware visibility (Phase 7a): a SUPER/owner sees the WHOLE org's data; everyone else sees
+	 *  only their own. SUPER_PRIVILEGE travels in the JWT -> gateway X-User-Privileges -> authorities. */
+	private boolean seesAllOrg() {
+		AuthenticatedUser u = requestUtil.getCurrentUser();
+		return u != null && u.getAuthorities() != null && u.getAuthorities().stream()
+				.anyMatch(a -> "SUPER_PRIVILEGE".equals(a.getAuthority()));
+	}
+
 
 // In SellService — map Sell to SellDTO manually
 // public SellDTO toDTO(Sell sell) {
@@ -168,7 +176,8 @@ public class SellController {
 			// tenant-scoped, newest-first. slice 24: page&size -> DB page; else legacy "recent N" offset cap.
 			List<Sell> objs = (page != null && size != null)
 					? sellService.findScoped(orgId(), userId(), org.springframework.data.domain.PageRequest.of(page, size))
-					: sellService.findScoped(orgId(), userId());
+					: (seesAllOrg() ? sellService.findScoped(orgId(), userId())          // SUPER: whole org
+					                : sellService.findOwnScoped(orgId(), userId()));      // others: own only
 			if((page == null || size == null) && !(appUtil.isEmptyOrNull(offset) || offset.equals("-1"))) {
 				int limit = Integer.valueOf(offset);
 				if(objs.size() > limit) objs = new ArrayList<>(objs.subList(0, limit));
@@ -241,7 +250,10 @@ public class SellController {
 			if (!os.isPresent()) return new GenericResponse("NOT_FOUND", "Sale not found");
 			Sell clicked = os.get();
 			if (!inMyTenant(clicked.getOrganizationId(), clicked.getUserId()))
-				return new GenericResponse("NOT_FOUND", "Sale not found"); // anti-IDOR
+				return new GenericResponse("NOT_FOUND", "Sale not found"); // anti-IDOR (cross-org)
+			// Role-aware: a non-SUPER caller may only open invoices they created.
+			if (!seesAllOrg() && clicked.getUserId() != null && !clicked.getUserId().equals(userId()))
+				return new GenericResponse("NOT_FOUND", "Sale not found");
 			if (clicked.getCustomerHistory() == null || clicked.getCustomerHistory().getCustomer_history_id() == null)
 				return new GenericResponse("NOT_FOUND", "This sale has no invoice to edit");
 
@@ -347,8 +359,9 @@ public class SellController {
 	@ResponseBody
 	public GenericResponse getAllSell(final HttpServletRequest request) {
 		try {
-			// was findAll() — cross-tenant leak; now scoped to the active org.
-			List<Sell> objs = sellService.findScoped(orgId(), userId());
+			// was findAll() — cross-tenant leak; now org-scoped + role-aware (SUPER = org, others = own).
+			List<Sell> objs = seesAllOrg() ? sellService.findScoped(orgId(), userId())
+			                               : sellService.findOwnScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
