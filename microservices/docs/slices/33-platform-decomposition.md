@@ -213,7 +213,14 @@ sequenceDiagram
     ddl-auto). `/api/inventory/products` retired → use `/api/catalog/products`. **Follow-ups:** (i) `StockLevel`
     thresholds (min/max/reorder/costPrice) have no setter endpoint yet → low-stock alerts dormant until set
     (add a StockLevel admin endpoint); (ii) product-existence validation against catalog comes in 5c
-    (CatalogClient). (`mvn -pl inventory-service -am clean install -DskipTests`)
+    (CatalogClient). ✓ **BUILD SUCCESS**. **DONE.**
+  - [x] **5c DONE (awaiting build).** Wired the `CatalogClient` proxy: `CatalogClientConfig` builds it from a
+    `@LoadBalanced RestClient` (base `lb://catalog-service`) + an interceptor that re-propagates the gateway
+    identity headers (X-User-Id/X-Org-Id/X-Internal-Secret/…) onto the outbound call (service-to-service
+    bypasses the gateway, so catalog's HeaderAuthFilter needs them to authenticate+scope). `StockService.addStock`
+    now calls `assertProductExists(productId)` — a catalog 404 → `ValidationException`; other failures (catalog
+    down) propagate, unmasked. Couples addStock to catalog uptime (the accepted cost of the split).
+    (`mvn -pl inventory-service -am clean install -DskipTests`)
 - [ ] **Phase 6 — `trade-service`.** Refactor `business-service` → trade; delegate stock to inventory via the
   reserve/confirm **saga + outbox**.
 - [ ] **Phase 7 — rebase `pharma-service`.** Keep only Medicine clinical + Prescription/Dispensing; delete its
@@ -293,6 +300,14 @@ base `lb://catalog-service`. `StockEntry.product` (JPA FK) becomes `productId` (
 > start-all/route + retire inventory ProductController.
 
 ## Test
+**Standard (per user): every phase ships tests that run on `mvn test`.** Pure-logic = always-run unit tests
+(no Docker); repo/scoping/integration = `@DataJpaTest` + Testcontainers MySQL (`disabledWithoutDocker=true`,
+skips cleanly without Docker, runs in CI `microservice-tests.yml`). Added so far:
+- `commerce-domain`: `InvoiceNumbersTest`, `MoneyTest` — **always run**, no Docker (prove the shared primitives).
+- `catalog-service`: `ProductRepoScopingTest` — findScoped tenant isolation + per-org `existsBySkuScoped` (5a).
+- `inventory-service`: `StockLevelRepoScopingTest` — StockLevel findScoped + findByProductScoped isolation (5b).
+- TODO next phases: StockService/CatalogClient service test (Mockito); the Phase 6 saga reserve→confirm +
+  compensation integration test.
 - Per phase: build the touched modules (user) + existing Cypress suites for affected domains (headed, Chrome).
 - Saga (Phase 6): integration test reserve→confirm happy path + compensation on injected failure
   (Testcontainers, per slice 29 pattern).

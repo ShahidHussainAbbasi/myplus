@@ -1,5 +1,6 @@
 package com.myplus.inventory.service;
 
+import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.inventory.dto.StockDTOs.*;
 import com.myplus.inventory.entity.*;
 import com.myplus.common.security.CurrentUser;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.math.BigDecimal;
 
@@ -27,6 +29,17 @@ public class StockService {
     private final StockEntryRepository stockEntryRepository;
     private final StockAdjustmentRepository stockAdjustmentRepository;
     private final StockTransferRepository stockTransferRepository;
+    private final CatalogClient catalogClient;
+
+    /** Confirm the product exists in catalog before stock first enters inventory for it (anti-orphan).
+     *  A 404 means "no such product"; other failures (catalog down) propagate — we don't mask them. */
+    private void assertProductExists(Long productId) {
+        try {
+            catalogClient.getProduct(productId);
+        } catch (HttpClientErrorException.NotFound nf) {
+            throw new ValidationException("Product not found in catalog: " + productId);
+        }
+    }
 
     /** Find the caller's stock level for a product, or create a fresh zero level stamped to the tenant. */
     private StockLevel levelFor(Long productId, Long orgId, Long userId) {
@@ -40,6 +53,7 @@ public class StockService {
     public StockEntry addStock(StockEntryDTO dto) {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
+        assertProductExists(dto.getProductId());   // catalog is the product system-of-record (Phase 5c)
         Warehouse warehouse = dto.getWarehouseId() != null
                 ? warehouseRepository.findByIdScoped(dto.getWarehouseId(), orgId, userId).orElse(null) : null;
 
