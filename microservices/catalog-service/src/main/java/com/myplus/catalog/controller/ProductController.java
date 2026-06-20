@@ -2,7 +2,11 @@ package com.myplus.catalog.controller;
 
 import com.myplus.common.web.ApiResponse;
 import com.myplus.common.web.PageResponse;
+import com.myplus.common.security.CurrentUser;
 import com.myplus.catalog.dto.ProductDTO;
+import com.myplus.commerce.contracts.dto.ProductImportLine;
+import com.myplus.commerce.contracts.dto.ProductImportResult;
+import com.myplus.catalog.service.ProductImportService;
 import com.myplus.catalog.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/catalog/products")
@@ -17,6 +22,7 @@ import java.math.BigDecimal;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductImportService productImportService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<ProductDTO>>> getAll(Pageable pageable) {
@@ -26,6 +32,13 @@ public class ProductController {
     @PostMapping
     public ResponseEntity<ApiResponse<ProductDTO>> create(@RequestBody ProductDTO dto) {
         return ResponseEntity.ok(ApiResponse.success(productService.create(dto), "Created"));
+    }
+
+    /** Bulk import for the item→product migration (slice 33, U2). Returns the clientRef→productId map. */
+    @PostMapping("/import")
+    public ResponseEntity<ApiResponse<List<ProductImportResult>>> importProducts(@RequestBody List<ProductImportLine> items) {
+        List<ProductImportResult> map = productImportService.importProducts(items, CurrentUser.organizationId(), CurrentUser.userId());
+        return ResponseEntity.ok(ApiResponse.success(map, "Imported " + map.size()));
     }
 
     @GetMapping("/{id}")

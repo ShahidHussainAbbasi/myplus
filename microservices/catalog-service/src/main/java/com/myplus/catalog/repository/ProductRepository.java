@@ -30,6 +30,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT (COUNT(p) > 0) FROM Product p WHERE p.sku = :sku AND " + SCOPE)
     boolean existsBySkuScoped(@Param("sku") String sku, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    @Query("SELECT p FROM Product p WHERE p.sku = :sku AND " + SCOPE)
+    Optional<Product> findBySkuScoped(@Param("sku") String sku, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT p FROM Product p WHERE p.category.id = :categoryId AND " + SCOPE)
     Page<Product> findByCategoryScoped(@Param("categoryId") Long categoryId, @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 

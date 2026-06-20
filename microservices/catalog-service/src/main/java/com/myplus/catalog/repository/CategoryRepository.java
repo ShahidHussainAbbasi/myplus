@@ -21,6 +21,9 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     @Query("SELECT c FROM Category c WHERE c.id = :id AND " + SCOPE)
     Optional<Category> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    @Query("SELECT c FROM Category c WHERE c.name = :name AND " + SCOPE)
+    Optional<Category> findByNameScoped(@Param("name") String name, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT c FROM Category c WHERE c.parentCategory IS NULL AND " + SCOPE)
     List<Category> findRootsScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 

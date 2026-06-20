@@ -1,9 +1,15 @@
 package com.myplus.commerce.contracts.client;
 
+import com.myplus.commerce.contracts.dto.ProductImportLine;
+import com.myplus.commerce.contracts.dto.ProductImportResult;
 import com.myplus.commerce.contracts.dto.ProductRef;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.HttpExchange;
+import org.springframework.web.service.annotation.PostExchange;
+
+import java.util.List;
 
 /**
  * Declarative client for catalog-service product lookups (slice 33). Lets trade/pharma resolve a
@@ -16,4 +22,8 @@ public interface CatalogClient {
     /** Resolve a single product reference by its catalog id (tenant-scoped via propagated headers). */
     @GetExchange("/products/{id}")
     ProductRef getProduct(@PathVariable Long id);
+
+    /** Bulk import products (item→product migration, slice 33 U2). Returns the clientRef→productId map. */
+    @PostExchange("/products/import")
+    List<ProductImportResult> importProducts(@RequestBody List<ProductImportLine> items);
 }

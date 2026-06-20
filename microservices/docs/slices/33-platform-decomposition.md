@@ -352,8 +352,33 @@ This re-scopes Phase 6 into a unification program (touches data + the monolith s
   `iname`→`name`, `idesc`→`description`, `unit` already align; `category` string resolves to a `Category`
   during U2; batch/stock/venderId are inventory/purchasing, not catalog. Nullable; ddl-auto adds the column
   (catalog has no Flyway). No behavior change. (`mvn -pl catalog-service -am clean install -DskipTests`)
-- **U2 — item→product migration:** one-time per-org ETL copying business `Item` rows into catalog `Product`
-  (cross-DB, scripted), recording an `itemId → productId` map for the transition window.
+- **U2 — item→product migration:** one-time per-org ETL copying business `Item` rows into catalog `Product`,
+  recording an `itemId → productId` map for the transition window. **Design (decisions baked, industry-standard):**
+  - **Through the API, not raw SQL.** catalog-service gains a bulk endpoint `POST /api/catalog/products/import`
+    (role-gated) taking `List<ProductImportDTO>` (each carries `clientRef` = source itemId) and returning
+    `List<{clientRef, productId}>`. Enforces catalog's scoping, per-org `sku` uniqueness, and `Category`
+    find-or-create — no bypassing invariants. Transactional batch.
+  - **Trigger = admin endpoint** `POST /api/business/admin/migrate-catalog` (SUPER/ADMIN, per-org or all),
+    not a CommandLineRunner — controlled, observable, returns counts. **Idempotent / re-runnable.**
+  - **Map storage = new `ItemCatalogMap`** entity in the business DB (`itemId, productId, organizationId`);
+    re-runs skip already-mapped items. Survives until U5 (then dropped with `Item`).
+  - **Field rules:** `sku` ← `icode`, fallback `ITEM-<itemId>` when blank, dedup within org by suffix;
+    `name`←`iname`; `description`←`idesc`; `unit`←`unit`; `manufacturer`←`Item.company.name`;
+    `category` (String) → catalog `Category` find-or-create by name per org.
+  - **Stock NOT migrated here (recommended):** U2 is items→products only. A paired **U2b** migrates each
+    Item's local `Stock` → inventory (`StockLevel` + an opening `StockEntry`) so migrated products are
+    sellable — kept separate to bound risk and because it crosses into inventory. (U3 verification can also
+    seed stock directly.) **Tests:** catalog import endpoint (Testcontainers: dedup, category resolve, idempotency);
+    business migration service (Mockito on CatalogClient + map persistence).
+  - **U2 DONE (awaiting build).** Cross-service import DTOs put in **commerce-contracts** (`ProductImportLine`,
+    `ProductImportResult`) so both sides share them; `CatalogClient.importProducts` added to the contract.
+    Catalog side: `ProductRepository.findBySkuScoped`, `CategoryRepository.findByNameScoped`,
+    `ProductImportService` (idempotent sku-reuse, blank→`ITEM-<ref>`, batch+tenant dedup, category
+    find-or-create), `POST /api/catalog/products/import`; test `ProductImportServiceTest` (Testcontainers).
+    Business side: `ItemCatalogMap` entity + repo, `CatalogMigrationService` (per-org, skips already-mapped =
+    idempotent, maps Item→ProductImportLine incl. company→manufacturer/category), admin `POST
+    /api/business/admin/migrate-catalog` (`@PreAuthorize ADD_ITEM`); pure-Mockito `CatalogMigrationServiceTest`
+    (always-run). `item_catalog_map` table via ddl-auto. (`mvn -pl catalog-service,business-service -am clean install -DskipTests`, then `mvn -pl catalog-service,business-service -am test`)
 - **U3 — sell flow on productId:** SellDTO carries catalog `productId`; the flagged saga path resolves price
   from catalog (D1), reserves inventory by `productId`, writes Sell/Invoice PENDING + outbox, confirms; release
   compensation; idempotency. (Inventory stock seeded directly for now — purchase migration still deferred, D3.)
