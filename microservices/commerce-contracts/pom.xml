@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>commerce-contracts</artifactId>
+  <name>commerce-contracts</name>
+  <description>Cross-service commerce contracts (slice 33, Phase 3): the stable shared DTOs and the
+    declarative @HttpExchange client interfaces (the DIP boundary callers depend on). Interfaces only —
+    the load-balanced RestClient proxy beans are wired in the consuming services in Phase 6.</description>
+
+  <!-- spring-web supplies @HttpExchange / @PostExchange and the @RequestBody/@PathVariable annotations.
+       Provided: every consumer is a Boot web service that already has spring-web at runtime. -->
+  <dependencies>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><optional>true</optional></dependency>
+  </dependencies>
+</project>

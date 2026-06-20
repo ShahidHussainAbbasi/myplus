@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>commerce-domain</artifactId>
+  <name>commerce-domain</name>
+  <description>Pure, stateless commerce primitives shared by catalog/inventory/trade/pharma:
+    invoice numbering, null-safe money math, and the tenant-scoping JPA Specification. No Spring web,
+    no service/repo wiring — just reusable logic so domains never re-implement it (slice 33, Phase 2).</description>
+
+  <!-- Spring Data JPA is needed only for the TenantSpecifications helper (Specification + criteria API);
+       every consumer is a JPA service that already supplies it at runtime, so it is 'provided' here. -->
+  <dependencies>
+    <dependency><groupId>org.springframework.data</groupId><artifactId>spring-data-jpa</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>jakarta.persistence</groupId><artifactId>jakarta.persistence-api</artifactId><scope>provided</scope></dependency>
+  </dependencies>
+</project>

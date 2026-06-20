@@ -2,7 +2,7 @@ package com.myplus.inventory.service;
 
 import com.myplus.inventory.dto.SupplierDTO;
 import com.myplus.inventory.entity.Supplier;
-import com.myplus.inventory.exception.ResourceNotFoundException;
+import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.inventory.repository.SupplierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

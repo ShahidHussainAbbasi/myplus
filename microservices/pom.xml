@@ -31,6 +31,9 @@
     <module>config-server</module>
     <module>common-security</module>
     <module>common-service</module>
+    <module>common-web</module>
+    <module>commerce-domain</module>
+    <module>commerce-contracts</module>
     <module>service-parent</module>
     <module>api-gateway</module>
     <module>auth-service</module>

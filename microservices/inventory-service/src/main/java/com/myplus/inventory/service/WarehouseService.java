@@ -3,7 +3,7 @@ package com.myplus.inventory.service;
 import com.myplus.inventory.dto.WarehouseDTO;
 import com.myplus.inventory.entity.StockEntry;
 import com.myplus.inventory.entity.Warehouse;
-import com.myplus.inventory.exception.ResourceNotFoundException;
+import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.inventory.repository.StockEntryRepository;
 import com.myplus.inventory.repository.WarehouseRepository;
 import lombok.RequiredArgsConstructor;

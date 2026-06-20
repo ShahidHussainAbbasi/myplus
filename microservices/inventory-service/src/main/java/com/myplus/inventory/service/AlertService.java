@@ -2,7 +2,7 @@ package com.myplus.inventory.service;
 
 import com.myplus.inventory.entity.Product;
 import com.myplus.inventory.entity.StockAlert;
-import com.myplus.inventory.exception.ResourceNotFoundException;
+import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.inventory.repository.ProductRepository;
 import com.myplus.inventory.repository.StockAlertRepository;
 import lombok.RequiredArgsConstructor;

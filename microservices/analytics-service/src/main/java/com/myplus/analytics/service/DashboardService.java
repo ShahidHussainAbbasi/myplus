@@ -2,7 +2,7 @@ package com.myplus.analytics.service;
 
 import com.myplus.analytics.dto.DashboardWidgetDTO;
 import com.myplus.analytics.entity.DashboardWidget;
-import com.myplus.analytics.exception.ResourceNotFoundException;
+import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.analytics.repository.DashboardWidgetRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;

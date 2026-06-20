@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import com.myplus.business_service.repository.CustomerHistoryRepo;
 import com.myplus.business_service.repository.ItemRepo;
+import com.myplus.commerce.domain.InvoiceNumbers;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
@@ -196,7 +197,7 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 				&& user.getOrganizationId() != null) {
 			long seq = CustomerHistoryRepo.maxInvoiceSeqForOrg(user.getOrganizationId()) + 1;
 			customerHistoryObj.setInvoiceSeq(seq);
-			customerHistoryObj.setInvoiceNo("INV-" + String.format("%06d", seq));
+			customerHistoryObj.setInvoiceNo(InvoiceNumbers.format(seq));
 		}
 
 		// this.save(customerHistoryObj);

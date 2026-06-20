@@ -1,6 +1,6 @@
 package com.myplus.analytics.controller;
 
-import com.myplus.analytics.dto.ApiResponse;
+import com.myplus.common.web.ApiResponse;
 import com.myplus.analytics.dto.MetricDTO;
 import com.myplus.analytics.dto.SalesAnalyticsDTO;
 import com.myplus.analytics.service.SalesAnalyticsService;

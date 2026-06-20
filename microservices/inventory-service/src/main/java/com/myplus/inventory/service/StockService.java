@@ -2,7 +2,7 @@ package com.myplus.inventory.service;
 
 import com.myplus.inventory.dto.StockDTOs.*;
 import com.myplus.inventory.entity.*;
-import com.myplus.inventory.exception.ValidationException;
+import com.myplus.common.web.exception.ValidationException;
 import com.myplus.inventory.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
