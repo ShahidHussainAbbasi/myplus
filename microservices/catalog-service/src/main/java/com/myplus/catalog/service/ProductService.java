@@ -1,14 +1,13 @@
-package com.myplus.inventory.service;
+package com.myplus.catalog.service;
 
-import com.myplus.inventory.dto.ProductDTO;
-import com.myplus.inventory.entity.Category;
-import com.myplus.inventory.entity.Product;
-import com.myplus.common.security.AuthenticatedUser;
+import com.myplus.catalog.dto.ProductDTO;
+import com.myplus.catalog.entity.Category;
+import com.myplus.catalog.entity.Product;
 import com.myplus.common.security.CurrentUser;
 import com.myplus.common.web.exception.DuplicateResourceException;
 import com.myplus.common.web.exception.ResourceNotFoundException;
-import com.myplus.inventory.repository.CategoryRepository;
-import com.myplus.inventory.repository.ProductRepository;
+import com.myplus.catalog.repository.CategoryRepository;
+import com.myplus.catalog.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,8 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -42,7 +39,9 @@ public class ProductService {
             throw new DuplicateResourceException("Product SKU already exists: " + dto.getSku());
         }
         Product p = fromDto(dto, new Product());
-        stampTenant(p);
+        p.setOrganizationId(orgId);
+        p.setUserId(userId);
+        if (p.getCreatedBy() == null) p.setCreatedBy(userId);
         return toDto(productRepository.save(p));
     }
 
@@ -71,20 +70,6 @@ public class ProductService {
         return productRepository.findByCategoryScoped(categoryId, CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
-    public List<ProductDTO> getLowStock() {
-        return productRepository.findLowStockScoped(CurrentUser.organizationId(), CurrentUser.userId()).stream().map(this::toDto).toList();
-    }
-
-    public List<ProductDTO> getOutOfStock() {
-        return productRepository.findOutOfStockScoped(CurrentUser.organizationId(), CurrentUser.userId()).stream().map(this::toDto).toList();
-    }
-
-    public List<ProductDTO> getExpiring(int days) {
-        LocalDate today = LocalDate.now();
-        return productRepository.findExpiringScoped(today, today.plusDays(days),
-                CurrentUser.organizationId(), CurrentUser.userId()).stream().map(this::toDto).toList();
-    }
-
     @Transactional
     public ProductDTO setActive(Long id, boolean active) {
         Product p = getEntity(id);   // scoped — anti-IDOR
@@ -92,20 +77,10 @@ public class ProductService {
         return toDto(productRepository.save(p));
     }
 
-    /** Scoped lookup so one tenant can never read/mutate another's product by id (anti-IDOR). */
+    /** Scoped lookup — anti-IDOR. */
     public Product getEntity(Long id) {
         return productRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
-    }
-
-    /** Stamp the active tenant + actor on a new row (gateway-propagated identity). */
-    private void stampTenant(Product p) {
-        AuthenticatedUser u = CurrentUser.get().orElse(null);
-        if (u != null) {
-            p.setOrganizationId(u.getOrganizationId());
-            p.setUserId(u.getUserId());
-            if (p.getCreatedBy() == null) p.setCreatedBy(u.getUserId());
-        }
     }
 
     public ProductDTO toDto(Product p) {
@@ -117,11 +92,6 @@ public class ProductService {
                 .categoryId(p.getCategory() != null ? p.getCategory().getId() : null)
                 .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
                 .unit(p.getUnit())
-                .minStockLevel(p.getMinStockLevel())
-                .maxStockLevel(p.getMaxStockLevel())
-                .reorderPoint(p.getReorderPoint())
-                .currentStock(p.getCurrentStock())
-                .costPrice(p.getCostPrice())
                 .sellingPrice(p.getSellingPrice())
                 .taxRate(p.getTaxRate())
                 .isActive(p.getIsActive())
@@ -137,16 +107,11 @@ public class ProductService {
         p.setName(dto.getName());
         p.setDescription(dto.getDescription());
         if (dto.getCategoryId() != null) {
-            Category cat = categoryRepository.findById(dto.getCategoryId())
+            Category cat = categoryRepository.findByIdScoped(dto.getCategoryId(), CurrentUser.organizationId(), CurrentUser.userId())
                     .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + dto.getCategoryId()));
             p.setCategory(cat);
         }
         p.setUnit(dto.getUnit());
-        p.setMinStockLevel(dto.getMinStockLevel());
-        p.setMaxStockLevel(dto.getMaxStockLevel());
-        p.setReorderPoint(dto.getReorderPoint());
-        if (dto.getCurrentStock() != null) p.setCurrentStock(dto.getCurrentStock());
-        p.setCostPrice(dto.getCostPrice());
         p.setSellingPrice(dto.getSellingPrice());
         p.setTaxRate(dto.getTaxRate());
         if (dto.getIsActive() != null) p.setIsActive(dto.getIsActive());

@@ -17,13 +17,13 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
 
     String SCOPE = "(se.organizationId = :orgId OR (se.organizationId IS NULL AND se.userId = :userId))";
 
-    @Query("SELECT se FROM StockEntry se WHERE se.product.id = :productId AND " + SCOPE)
+    @Query("SELECT se FROM StockEntry se WHERE se.productId = :productId AND " + SCOPE)
     Page<StockEntry> findByProductScoped(@Param("productId") Long productId, @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
     @Query("SELECT se FROM StockEntry se WHERE se.warehouse.id = :warehouseId AND " + SCOPE)
     Page<StockEntry> findByWarehouseScoped(@Param("warehouseId") Long warehouseId, @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
-    @Query("SELECT se FROM StockEntry se WHERE se.product.id = :productId AND se.warehouse.id = :warehouseId AND " + SCOPE)
+    @Query("SELECT se FROM StockEntry se WHERE se.productId = :productId AND se.warehouse.id = :warehouseId AND " + SCOPE)
     List<StockEntry> findByProductAndWarehouseScoped(@Param("productId") Long productId, @Param("warehouseId") Long warehouseId,
                                                      @Param("orgId") Long orgId, @Param("userId") Long userId);
 

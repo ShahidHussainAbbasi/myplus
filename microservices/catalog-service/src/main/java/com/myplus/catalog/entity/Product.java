@@ -1,4 +1,4 @@
-package com.myplus.inventory.entity;
+package com.myplus.catalog.entity;
 
 import lombok.*;
 
@@ -6,14 +6,18 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * Product master (slice 33, Phase 5) — descriptive attributes only. Quantity/threshold/valuation state
+ * (currentStock, min/max level, reorderPoint, costPrice) lives in inventory-service's StockLevel.
+ */
 @Entity
-@Table(name = "products", indexes = {@Index(columnList = "sku", unique = true)})
+@Table(name = "products", indexes = {@Index(columnList = "sku")})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Product {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String sku;
 
     @Column(nullable = false)
@@ -27,14 +31,6 @@ public class Product {
     private Category category;
 
     private String unit;
-    private Float minStockLevel;
-    private Float maxStockLevel;
-    private Float reorderPoint;
-
-    @Builder.Default
-    private Float currentStock = 0f;
-
-    private BigDecimal costPrice;
     private BigDecimal sellingPrice;
     private BigDecimal taxRate;
 
@@ -44,8 +40,7 @@ public class Product {
     private String imageUrl;
     private Long createdBy;
 
-    // Tenant scope (slice 33, Phase 4.5): organization_id from the gateway X-Org-Id; user_id/user_type
-    // as audit and for the NULL-fallback read of pre-migration rows. All nullable (ddl-auto adds them).
+    // Tenant scope (carried from inventory's Phase 4.5 scoping) — nullable; ddl-auto creates them.
     private Long organizationId;
     private Long userId;
     private String userType;

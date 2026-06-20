@@ -1,19 +1,18 @@
-package com.myplus.inventory.controller;
+package com.myplus.catalog.controller;
 
 import com.myplus.common.web.ApiResponse;
 import com.myplus.common.web.PageResponse;
-import com.myplus.inventory.dto.ProductDTO;
-import com.myplus.inventory.service.ProductService;
+import com.myplus.catalog.dto.ProductDTO;
+import com.myplus.catalog.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @RestController
-@RequestMapping("/api/inventory/products")
+@RequestMapping("/api/catalog/products")
 @RequiredArgsConstructor
 public class ProductController {
 
@@ -54,21 +53,6 @@ public class ProductController {
             Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(
                 PageResponse.of(productService.search(q, category, minPrice, maxPrice, pageable), p -> p)));
-    }
-
-    @GetMapping("/low-stock")
-    public ResponseEntity<ApiResponse<List<ProductDTO>>> lowStock() {
-        return ResponseEntity.ok(ApiResponse.success(productService.getLowStock()));
-    }
-
-    @GetMapping("/out-of-stock")
-    public ResponseEntity<ApiResponse<List<ProductDTO>>> outOfStock() {
-        return ResponseEntity.ok(ApiResponse.success(productService.getOutOfStock()));
-    }
-
-    @GetMapping("/expiring")
-    public ResponseEntity<ApiResponse<List<ProductDTO>>> expiring(@RequestParam(defaultValue = "30") int days) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getExpiring(days)));
     }
 
     @PutMapping("/{id}/activate")

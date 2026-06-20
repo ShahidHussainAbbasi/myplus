@@ -13,27 +13,42 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
+/**
+ * Stock operations (slice 33, Phase 5b). Quantity state lives in {@link StockLevel} (per product); product
+ * master is in catalog-service (referenced by productId). Product-existence validation against catalog is
+ * wired via CatalogClient in Phase 5c.
+ */
 @Service
 @RequiredArgsConstructor
 public class StockService {
 
-    private final ProductRepository productRepository;
+    private final StockLevelRepository stockLevelRepository;
     private final WarehouseRepository warehouseRepository;
     private final StockEntryRepository stockEntryRepository;
     private final StockAdjustmentRepository stockAdjustmentRepository;
     private final StockTransferRepository stockTransferRepository;
 
+    /** Find the caller's stock level for a product, or create a fresh zero level stamped to the tenant. */
+    private StockLevel levelFor(Long productId, Long orgId, Long userId) {
+        return stockLevelRepository.findByProductScoped(productId, orgId, userId)
+                .orElseGet(() -> StockLevel.builder()
+                        .productId(productId).currentStock(0f)
+                        .organizationId(orgId).userId(userId).build());
+    }
+
     @Transactional
     public StockEntry addStock(StockEntryDTO dto) {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
-        Product product = productRepository.findByIdScoped(dto.getProductId(), orgId, userId)
-                .orElseThrow(() -> new ValidationException("Product not found"));
         Warehouse warehouse = dto.getWarehouseId() != null
                 ? warehouseRepository.findByIdScoped(dto.getWarehouseId(), orgId, userId).orElse(null) : null;
 
+        StockLevel level = levelFor(dto.getProductId(), orgId, userId);
+        level.setCurrentStock((level.getCurrentStock() != null ? level.getCurrentStock() : 0f) + dto.getQuantity());
+        stockLevelRepository.save(level);
+
         StockEntry entry = StockEntry.builder()
-                .product(product)
+                .productId(dto.getProductId())
                 .warehouse(warehouse)
                 .quantity(dto.getQuantity())
                 .batchNo(dto.getBatchNo())
@@ -45,9 +60,6 @@ public class StockService {
                 .organizationId(orgId)
                 .userId(userId)
                 .build();
-
-        product.setCurrentStock((product.getCurrentStock() != null ? product.getCurrentStock() : 0f) + dto.getQuantity());
-        productRepository.save(product);
         return stockEntryRepository.save(entry);
     }
 
@@ -55,26 +67,23 @@ public class StockService {
     public StockAdjustment adjustStock(StockAdjustmentDTO dto) {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
-        Product product = productRepository.findByIdScoped(dto.getProductId(), orgId, userId)
-                .orElseThrow(() -> new ValidationException("Product not found"));
         Warehouse warehouse = dto.getWarehouseId() != null
                 ? warehouseRepository.findByIdScoped(dto.getWarehouseId(), orgId, userId).orElse(null) : null;
 
-        float current = product.getCurrentStock() != null ? product.getCurrentStock() : 0f;
+        StockLevel level = levelFor(dto.getProductId(), orgId, userId);
+        float current = level.getCurrentStock() != null ? level.getCurrentStock() : 0f;
         switch (dto.getAdjustmentType()) {
-            case INCREASE -> product.setCurrentStock(current + dto.getQuantity());
+            case INCREASE -> level.setCurrentStock(current + dto.getQuantity());
             case DECREASE -> {
                 if (current < dto.getQuantity()) throw new ValidationException("Insufficient stock");
-                product.setCurrentStock(current - dto.getQuantity());
+                level.setCurrentStock(current - dto.getQuantity());
             }
-            case TRANSFER -> {
-                // Transfer handled via StockTransfer
-            }
+            case TRANSFER -> { /* handled via StockTransfer */ }
         }
-        productRepository.save(product);
+        stockLevelRepository.save(level);
 
         StockAdjustment adj = StockAdjustment.builder()
-                .product(product)
+                .productId(dto.getProductId())
                 .warehouse(warehouse)
                 .adjustmentType(dto.getAdjustmentType())
                 .quantity(dto.getQuantity())
@@ -89,15 +98,13 @@ public class StockService {
     public StockTransfer transferStock(StockTransferDTO dto) {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
-        Product product = productRepository.findByIdScoped(dto.getProductId(), orgId, userId)
-                .orElseThrow(() -> new ValidationException("Product not found"));
         Warehouse from = warehouseRepository.findByIdScoped(dto.getFromWarehouseId(), orgId, userId)
                 .orElseThrow(() -> new ValidationException("Source warehouse not found"));
         Warehouse to = warehouseRepository.findByIdScoped(dto.getToWarehouseId(), orgId, userId)
                 .orElseThrow(() -> new ValidationException("Destination warehouse not found"));
 
         StockTransfer transfer = StockTransfer.builder()
-                .product(product)
+                .productId(dto.getProductId())
                 .fromWarehouse(from)
                 .toWarehouse(to)
                 .quantity(dto.getQuantity())
@@ -109,8 +116,8 @@ public class StockService {
     }
 
     public Float getCurrentStock(Long productId) {
-        return productRepository.findByIdScoped(productId, CurrentUser.organizationId(), CurrentUser.userId())
-                .map(Product::getCurrentStock).orElse(0f);
+        return stockLevelRepository.findByProductScoped(productId, CurrentUser.organizationId(), CurrentUser.userId())
+                .map(StockLevel::getCurrentStock).orElse(0f);
     }
 
     public Page<StockEntry> getHistory(Long productId, Pageable pageable) {
@@ -120,12 +127,12 @@ public class StockService {
     public StockSummaryDTO getSummary() {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
-        long totalProducts = productRepository.countScoped(orgId, userId);
-        long lowStockCount = productRepository.findLowStockScoped(orgId, userId).size();
-        long outOfStockCount = productRepository.findOutOfStockScoped(orgId, userId).size();
-        BigDecimal totalValue = productRepository.findAllScoped(orgId, userId).stream()
-                .filter(p -> p.getCurrentStock() != null && p.getCostPrice() != null)
-                .map(p -> p.getCostPrice().multiply(BigDecimal.valueOf(p.getCurrentStock())))
+        long totalProducts = stockLevelRepository.countScoped(orgId, userId);
+        long lowStockCount = stockLevelRepository.findLowStockScoped(orgId, userId).size();
+        long outOfStockCount = stockLevelRepository.findOutOfStockScoped(orgId, userId).size();
+        BigDecimal totalValue = stockLevelRepository.findScoped(orgId, userId).stream()
+                .filter(sl -> sl.getCurrentStock() != null && sl.getCostPrice() != null)
+                .map(sl -> sl.getCostPrice().multiply(BigDecimal.valueOf(sl.getCurrentStock())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return StockSummaryDTO.builder()
                 .totalProducts(totalProducts)

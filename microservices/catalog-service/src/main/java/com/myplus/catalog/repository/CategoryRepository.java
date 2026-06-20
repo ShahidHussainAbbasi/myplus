@@ -1,6 +1,6 @@
-package com.myplus.inventory.repository;
+package com.myplus.catalog.repository;
 
-import com.myplus.inventory.entity.Category;
+import com.myplus.catalog.entity.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
-/** Tenant-scoped reads (slice 33, Phase 4.5). */
+/** Tenant-scoped reads (slice 33). */
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long> {
 

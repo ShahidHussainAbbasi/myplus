@@ -23,9 +23,9 @@ public class StockTransfer {
     @JoinColumn(name = "to_warehouse_id")
     private Warehouse toWarehouse;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    // Product master lives in catalog-service (slice 33, Phase 5b) — referenced by id.
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
 
     @Column(nullable = false)
     private Float quantity;

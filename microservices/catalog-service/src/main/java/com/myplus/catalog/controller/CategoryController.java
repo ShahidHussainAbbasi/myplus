@@ -1,8 +1,8 @@
-package com.myplus.inventory.controller;
+package com.myplus.catalog.controller;
 
 import com.myplus.common.web.ApiResponse;
-import com.myplus.inventory.dto.CategoryDTO;
-import com.myplus.inventory.service.CategoryService;
+import com.myplus.catalog.dto.CategoryDTO;
+import com.myplus.catalog.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/inventory/categories")
+@RequestMapping("/api/catalog/categories")
 @RequiredArgsConstructor
 public class CategoryController {
 

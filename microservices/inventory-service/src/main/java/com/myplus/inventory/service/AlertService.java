@@ -1,10 +1,10 @@
 package com.myplus.inventory.service;
 
-import com.myplus.inventory.entity.Product;
 import com.myplus.inventory.entity.StockAlert;
+import com.myplus.inventory.entity.StockLevel;
 import com.myplus.common.web.exception.ResourceNotFoundException;
-import com.myplus.inventory.repository.ProductRepository;
 import com.myplus.inventory.repository.StockAlertRepository;
+import com.myplus.inventory.repository.StockLevelRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -17,20 +17,20 @@ import java.util.List;
 public class AlertService {
 
     private final StockAlertRepository alertRepository;
-    private final ProductRepository productRepository;
+    private final StockLevelRepository stockLevelRepository;
 
     @Scheduled(fixedDelay = 3600000) // hourly
     @Transactional
     public void checkAndCreateAlerts() {
-        List<Product> lowStock = productRepository.findLowStockProducts();
-        for (Product p : lowStock) {
+        // Scheduled job: no security context -> deliberately cross-tenant scan of all stock levels.
+        List<StockLevel> lowStock = stockLevelRepository.findLowStock();
+        for (StockLevel sl : lowStock) {
+            boolean out = sl.getCurrentStock() != null && sl.getCurrentStock() <= 0;
             StockAlert alert = StockAlert.builder()
-                    .product(p)
-                    .alertType(p.getCurrentStock() <= 0
-                            ? StockAlert.AlertType.OUT_OF_STOCK
-                            : StockAlert.AlertType.LOW_STOCK)
-                    .message("Product " + p.getName() + " is " +
-                            (p.getCurrentStock() <= 0 ? "out of stock" : "low on stock: " + p.getCurrentStock()))
+                    .productId(sl.getProductId())
+                    .alertType(out ? StockAlert.AlertType.OUT_OF_STOCK : StockAlert.AlertType.LOW_STOCK)
+                    .message("Product #" + sl.getProductId() + " is "
+                            + (out ? "out of stock" : "low on stock: " + sl.getCurrentStock()))
                     .build();
             alertRepository.save(alert);
         }

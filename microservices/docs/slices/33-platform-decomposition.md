@@ -192,7 +192,28 @@ sequenceDiagram
   `StockAdjustment`/`StockTransfer`/`StockAlert` entities don't yet carry `organization_id` (the Product they
   touch is already scoped, so no cross-tenant mutation; only the movement-log rows lack a tenant tag). —
   **awaiting build** (`mvn -pl inventory-service -am clean install -DskipTests`).
-- [ ] **Phase 5 — `catalog-service`.** Carve Product/Category/Unit/Manufacturer out (low coupling).
+- [ ] **Phase 5 — `catalog-service` (DESIGN DONE; see section below).** Split decided. Field-ownership split:
+  catalog owns descriptive Product/Category; inventory keeps quantity state in a new `StockLevel`. Sub-steps:
+  5a scaffold catalog-service (Product/Category moved + Phase-4.5 scoping) → 5b inventory `StockLevel` +
+  `StockEntry.productId` + StockService rewrite + drop inventory Product/Category → 5c wire `CatalogClient`
+  for display names → 5d gateway route + start-all + retire inventory `ProductController`. Build checkpoint each.
+  - [x] **5a DONE (awaiting build).** New `catalog-service` (port 8092, DB `myplusdb_catalog`, no Flyway —
+    fresh DB via ddl-auto): `Product` (descriptive only — quantity fields omitted), `Category`, scoped
+    repos/services/controllers at `/api/catalog/**`, DTOs, SecurityConfig, `catalog-service.yml`, parent-pom
+    module. Org-scoping (CurrentUser + findScoped + stamped + anti-IDOR) carried over. SKU index made
+    **non-unique** (per-org uniqueness via `existsBySkuScoped`) — fixes inventory's global-unique-SKU
+    multi-tenant bug. Additive: inventory still has its own Product, both build. ✓ **BUILD SUCCESS**. **DONE.**
+  - [x] **5b DONE (awaiting build).** inventory stops owning the product master. New `StockLevel` (per-org,
+    per-product: currentStock/min/max/reorderPoint/costPrice) + `StockLevelRepository` (scoped). `StockEntry`/
+    `StockAdjustment`/`StockTransfer`/`StockAlert` `product` FK → `productId` (Long). `StockService` rewritten
+    onto `StockLevel` (add/adjust upsert the level; transfer unchanged; getCurrentStock/getHistory/getSummary
+    scoped). `AlertService` (@Scheduled, cross-tenant) scans `StockLevel.findLowStock()`; alert message uses
+    productId (name lives in catalog). **Deleted** inventory `Product`/`Category` + their controllers/services/
+    repos/DTOs (catalog owns them). V2 migration trimmed (products/categories removed; stock_levels via
+    ddl-auto). `/api/inventory/products` retired → use `/api/catalog/products`. **Follow-ups:** (i) `StockLevel`
+    thresholds (min/max/reorder/costPrice) have no setter endpoint yet → low-stock alerts dormant until set
+    (add a StockLevel admin endpoint); (ii) product-existence validation against catalog comes in 5c
+    (CatalogClient). (`mvn -pl inventory-service -am clean install -DskipTests`)
 - [ ] **Phase 6 — `trade-service`.** Refactor `business-service` → trade; delegate stock to inventory via the
   reserve/confirm **saga + outbox**.
 - [ ] **Phase 7 — rebase `pharma-service`.** Keep only Medicine clinical + Prescription/Dispensing; delete its
@@ -232,6 +253,44 @@ But StockEntry is the best *shape*, not yet feature-complete. Gaps it MUST absor
 
 **Freeze (not yet delete):** `business.Stock` and `pharma.PharmacyStock` stay until trade (Phase 6) and
 pharma (Phase 7) read inventory; deleting earlier would break the running services.
+
+## Phase 5 design — catalog/inventory split (DECIDED: split, per user)
+
+Splitting Product out of inventory only works if we split it along the **bounded context**, not down the
+middle of one entity. Today `Product` mixes *descriptive* attributes with *stock-quantity* state — and
+`StockService` mutates the quantity fields. Naively moving `Product` whole to catalog would force inventory
+to update catalog over HTTP on every stock change (chatty, breaks the stock transaction). So:
+
+**Field ownership split:**
+
+| Field | Owner | Why |
+|---|---|---|
+| sku, name, description, categoryId, unit, sellingPrice, taxRate, imageUrl, isActive | **catalog-service** `Product` | "what is this product" — descriptive master data |
+| currentStock, minStockLevel, maxStockLevel, reorderPoint, costPrice | **inventory-service** `StockLevel` (NEW, per productId) | "how much do we have + thresholds + valuation" — stock state |
+| batchNo, lotNo, expiryDate, quantity, warehouse, supplierId | **inventory-service** `StockEntry` | per-batch movements (unchanged) |
+
+**Consequence — the split is cleaner than it first looks:** inventory's low-stock / out-of-stock /
+summary / value calcs run entirely on its own `StockLevel` (no catalog call for quantities). Catalog is
+only called to resolve **display info** (name/sku) when composing a DTO → via `CatalogClient` (Phase 3),
+base `lb://catalog-service`. `StockEntry.product` (JPA FK) becomes `productId` (Long reference).
+
+**Mechanics:**
+- New module `catalog-service` (port 8092, DB `myplusdb_catalog`, gateway route `/api/catalog/**` +
+  StripPrefix=2, start-all entry). Carries `Product`+`Category` (entity/repo/service/controller/DTO) **with
+  the org-scoping from Phase 4.5 preserved** (CurrentUser + findScoped + stamped writes + anti-IDOR).
+- inventory-service: introduce `StockLevel{productId,currentStock,minStockLevel,maxStockLevel,reorderPoint,
+  costPrice,+org/audit}`; `StockEntry.product`→`productId`; rewrite `StockService`/`ProductRepository` low-
+  stock/summary onto `StockLevel`; **remove** inventory's `Product`/`Category` (now catalog's). Inventory's
+  `ProductController` (`/api/inventory/products`) is retired in favour of catalog's `/api/catalog/products`.
+- `commerce-contracts.CatalogClient.getProduct` already matches; add a batch `getProducts(ids)` if N+1 shows.
+- Migration: catalog gets `products`/`categories` (fresh), inventory gains `stock_levels` and drops the
+  product/category tables. **Dev = fresh DBs, trivial. Prod = a real data move** (copy product rows to
+  catalog, derive stock_levels) — flagged as a prod-cutover task, not auto-applied.
+
+> This is the heaviest structural phase. Recommend implementing in sub-steps with a build checkpoint each:
+> 5a scaffold catalog-service (Product/Category moved + scoped) → 5b inventory StockLevel + productId
+> reference + StockService rewrite → 5c wire CatalogClient where display names are needed → 5d gateway/
+> start-all/route + retire inventory ProductController.
 
 ## Test
 - Per phase: build the touched modules (user) + existing Cypress suites for affected domains (headed, Chrome).

@@ -37,6 +37,7 @@
     <module>service-parent</module>
     <module>api-gateway</module>
     <module>auth-service</module>
+    <module>catalog-service</module>
     <module>inventory-service</module>
     <module>business-service</module>
     <module>education-service</module>

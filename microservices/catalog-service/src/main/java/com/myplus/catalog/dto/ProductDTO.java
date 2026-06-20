@@ -1,4 +1,4 @@
-package com.myplus.inventory.dto;
+package com.myplus.catalog.dto;
 
 import lombok.*;
 
@@ -14,11 +14,6 @@ public class ProductDTO {
     private Long categoryId;
     private String categoryName;
     private String unit;
-    private Float minStockLevel;
-    private Float maxStockLevel;
-    private Float reorderPoint;
-    private Float currentStock;
-    private BigDecimal costPrice;
     private BigDecimal sellingPrice;
     private BigDecimal taxRate;
     private Boolean isActive;

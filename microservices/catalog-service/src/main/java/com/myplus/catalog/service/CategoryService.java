@@ -1,10 +1,10 @@
-package com.myplus.inventory.service;
+package com.myplus.catalog.service;
 
-import com.myplus.inventory.dto.CategoryDTO;
-import com.myplus.inventory.entity.Category;
+import com.myplus.catalog.dto.CategoryDTO;
+import com.myplus.catalog.entity.Category;
 import com.myplus.common.security.CurrentUser;
 import com.myplus.common.web.exception.ResourceNotFoundException;
-import com.myplus.inventory.repository.CategoryRepository;
+import com.myplus.catalog.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

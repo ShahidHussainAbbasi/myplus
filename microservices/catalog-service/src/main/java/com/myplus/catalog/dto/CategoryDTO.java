@@ -1,4 +1,4 @@
-package com.myplus.inventory.dto;
+package com.myplus.catalog.dto;
 
 import lombok.*;
 

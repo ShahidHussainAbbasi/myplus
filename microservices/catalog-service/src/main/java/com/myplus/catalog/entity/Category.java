@@ -1,4 +1,4 @@
-package com.myplus.inventory.entity;
+package com.myplus.catalog.entity;
 
 import lombok.*;
 
@@ -22,7 +22,7 @@ public class Category {
     @JoinColumn(name = "parent_id")
     private Category parentCategory;
 
-    // Tenant scope (slice 33, Phase 4.5) — nullable; ddl-auto/Flyway V2 adds them.
+    // Tenant scope (slice 33, Phase 4.5/5) — nullable.
     private Long organizationId;
     private Long userId;
     private String userType;
