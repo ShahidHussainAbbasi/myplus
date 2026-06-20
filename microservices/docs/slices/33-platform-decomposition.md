@@ -236,7 +236,15 @@ sequenceDiagram
     method params (controller reads CurrentUser) → unit-testable. Also fixed a latent 5c bug: `CatalogClient`
     base URL must be `http://catalog-service/api/catalog` (was missing the prefix → every product lookup 404'd).
     Test: `ReservationServiceTest` (Testcontainers) — FEFO+confirm decrement, release, OUT_OF_STOCK, idempotency.
-  - [ ] 6b trade-service shell · 6c saga+outbox (needs D1–D3) · 6d cut over + delete local Stock.
+  - [x] **6b DONE (awaiting build).** Wired the saga clients into business-service: extracted the gateway
+    identity-forwarding interceptor to **`common-security.GatewayIdentityForwarding`** (DRY — inventory's
+    `CatalogClientConfig` now reuses it too); `TradeClientsConfig` builds load-balanced `@HttpExchange` proxies
+    for `InventoryClient` (`lb://inventory-service/api/inventory`) and `CatalogClient`
+    (`lb://catalog-service/api/catalog`), each over a cloned RestClient + the shared interceptor;
+    `TradeSagaProperties` (`trade.saga.enabled`, default **false**) scaffolds the strangler flag. Fully
+    additive — no sell behavior changes (clients lazy, flag off). Tests deferred to 6c (the saga path is what
+    needs an integration test; wiring config alone doesn't). (`mvn -pl business-service,inventory-service -am clean install -DskipTests`)
+  - [ ] 6c saga+outbox (flagged path) · 6d cut over + delete local Stock + rename.
 - [ ] **Phase 7 — rebase `pharma-service`.** Keep only Medicine clinical + Prescription/Dispensing; delete its
   `PharmacyStock`/supplier duplicates; compose catalog+inventory+trade.
 - [ ] **Phase 8 — `notification-service`.** Single email/SMS/push service; migrate auth/education/campaign
@@ -323,15 +331,22 @@ Purchase also stocks-in to the local `Stock`. So Phase 6 is not "add a saga to a
 **rewiring trade's stock from local to inventory-as-system-of-record**, for both sell (stock-out) and
 eventually purchase (stock-in). This is the largest, highest-risk phase — hence sub-phased with checkpoints.
 
-**Open decisions for review (do NOT implement before these are settled):**
-- **D1 — pricing source.** Today sell rate/discount come from local `Stock`. If inventory owns stock, does
-  sell price come from catalog (`sellingPrice`) or from an inventory batch rate? (Leaning: catalog
-  `sellingPrice` as list price; per-batch cost stays inventory.) Affects the reserve response shape.
-- **D2 — strangler vs big-bang.** Keep business's local `Stock` during transition (dual-write/feature-flag,
-  then cut over) vs switch sell straight to the saga. (Leaning: strangler — add saga path behind the new
-  reservation API, verify, then delete local `Stock`.)
-- **D3 — purchase scope.** Migrate purchase→inventory stock-in in this phase or defer? (Leaning: defer to
-  6-later; first prove sell↔stock with inventory stock seeded directly, to bound risk.)
+**Decisions — SETTLED (user, 2026-06-20):**
+- **D1 = catalog `sellingPrice`.** Sell at catalog's list price (discount applied at sale); cost/margin from
+  the inventory FEFO batch `purchasePrice` in the reserve picks. catalog = price, inventory = cost.
+- **D2 = strangler behind a feature flag.** Keep business's local `Stock` working; add the saga sell-path
+  alongside behind a flag (e.g. `trade.saga.enabled`, default off); verify against real inventory; then cut over.
+- **D3 = defer purchase.** Prove sell↔stock against directly-seeded inventory stock first; migrate
+  purchase→inventory stock-in as its own later phase.
+
+**Refinement these imply:** under strangler (D2) we do NOT stand up a parallel `trade-service` module now
+(that would duplicate a large service). Instead the saga sell-path is added **inside business-service behind
+the flag**; the rename business-service → `trade-service` is a cosmetic cutover step (6d), not a fork. So:
+- **6b** = wire `InventoryClient` + `CatalogClient` into business-service (RestClient @HttpExchange proxies,
+  like inventory's `CatalogClientConfig`). Additive, low-risk.
+- **6c** = new flagged sell path: resolve price from catalog (D1), `reserve`→write Sell/Invoice PENDING +
+  outbox→`confirm`; compensation `release` on failure; idempotency. The hard part.
+- **6d** = cutover: flip flag on, delete local `Stock`, rename business→trade. Purchase deferred (D3).
 
 **Saga (reserve → confirm + outbox), unchanged in principle:**
 1. trade orchestrates: `InventoryClient.reserve(idempotencyKey, lines)` → FEFO picks or OUT_OF_STOCK.
