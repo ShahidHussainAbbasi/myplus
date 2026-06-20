@@ -35,8 +35,9 @@ public class CatalogClientConfig {
 
     @Bean
     public CatalogClient catalogClient(@LoadBalanced RestClient.Builder builder) {
+        // base includes catalog's controller prefix; getProduct("/products/{id}") -> /api/catalog/products/{id}.
         RestClient restClient = builder
-                .baseUrl("http://catalog-service")
+                .baseUrl("http://catalog-service/api/catalog")
                 .requestInterceptor(identityPropagationInterceptor())
                 .build();
         return HttpServiceProxyFactory

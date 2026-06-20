@@ -226,8 +226,17 @@ sequenceDiagram
     `catalog-service = 8092` (started before inventory so product validation works); `docker-compose.yml`
     `catalog-service` (DB `myplusdb_catalog`). **Runtime reminder:** rebuild+restart `config-server` (it serves
     the new `catalog-service.yml`) before starting catalog. **Phase 5 COMPLETE — catalog/inventory split landed.**
-- [ ] **Phase 6 — `trade-service`.** Refactor `business-service` → trade; delegate stock to inventory via the
-  reserve/confirm **saga + outbox**.
+- [~] **Phase 6 — `trade-service` + saga.** See "Phase 6 design" section. Sub-phased.
+  - [x] **6a DONE (awaiting build+test).** inventory reservation API: `Reservation`/`ReservationPick` entities,
+    `StockEntry.reservedQuantity` (held qty; available = quantity − reserved), `ReservationRepository`,
+    `StockEntryRepository.findForFefo` (earliest-expiry-first, null-expiry last), `ReservationService`
+    (two-pass FEFO so OUT_OF_STOCK holds nothing; reserve idempotent on key; confirm decrements StockEntry +
+    StockLevel; release returns hold; both idempotent), `ReservationController` at `/api/inventory/reservations`
+    returning the raw `StockReservationResponse` (matches the Phase-3 `InventoryClient` contract). org/user are
+    method params (controller reads CurrentUser) → unit-testable. Also fixed a latent 5c bug: `CatalogClient`
+    base URL must be `http://catalog-service/api/catalog` (was missing the prefix → every product lookup 404'd).
+    Test: `ReservationServiceTest` (Testcontainers) — FEFO+confirm decrement, release, OUT_OF_STOCK, idempotency.
+  - [ ] 6b trade-service shell · 6c saga+outbox (needs D1–D3) · 6d cut over + delete local Stock.
 - [ ] **Phase 7 — rebase `pharma-service`.** Keep only Medicine clinical + Prescription/Dispensing; delete its
   `PharmacyStock`/supplier duplicates; compose catalog+inventory+trade.
 - [ ] **Phase 8 — `notification-service`.** Single email/SMS/push service; migrate auth/education/campaign
@@ -303,6 +312,50 @@ base `lb://catalog-service`. `StockEntry.product` (JPA FK) becomes `productId` (
 > 5a scaffold catalog-service (Product/Category moved + scoped) → 5b inventory StockLevel + productId
 > reference + StockService rewrite → 5c wire CatalogClient where display names are needed → 5d gateway/
 > start-all/route + retire inventory ProductController.
+
+## Phase 6 design — trade-service + sell↔stock saga (GROUNDED in the real code)
+
+**Reality check (from reading `SellService.addSell`):** business-service owns its **own local `Stock` table**;
+`addSell` calls `stockService.updateStock(dto)` (local) then saves `Sell` + `CustomerHistory` — one local
+`@Transactional` in `myplusdb_business`. Sell rate/discount/batch all come from the **local** `Stock`.
+business-service's stock is **completely disconnected** from inventory-service's `StockLevel`/`StockEntry`.
+Purchase also stocks-in to the local `Stock`. So Phase 6 is not "add a saga to a remote call" — it is
+**rewiring trade's stock from local to inventory-as-system-of-record**, for both sell (stock-out) and
+eventually purchase (stock-in). This is the largest, highest-risk phase — hence sub-phased with checkpoints.
+
+**Open decisions for review (do NOT implement before these are settled):**
+- **D1 — pricing source.** Today sell rate/discount come from local `Stock`. If inventory owns stock, does
+  sell price come from catalog (`sellingPrice`) or from an inventory batch rate? (Leaning: catalog
+  `sellingPrice` as list price; per-batch cost stays inventory.) Affects the reserve response shape.
+- **D2 — strangler vs big-bang.** Keep business's local `Stock` during transition (dual-write/feature-flag,
+  then cut over) vs switch sell straight to the saga. (Leaning: strangler — add saga path behind the new
+  reservation API, verify, then delete local `Stock`.)
+- **D3 — purchase scope.** Migrate purchase→inventory stock-in in this phase or defer? (Leaning: defer to
+  6-later; first prove sell↔stock with inventory stock seeded directly, to bound risk.)
+
+**Saga (reserve → confirm + outbox), unchanged in principle:**
+1. trade orchestrates: `InventoryClient.reserve(idempotencyKey, lines)` → FEFO picks or OUT_OF_STOCK.
+2. trade writes `Sell`+`Invoice` (PENDING) **and** an outbox row in the same local tx.
+3. trade calls `confirm(reservationId)` → inventory decrements; trade marks invoice CONFIRMED.
+4. failure after step 2 → `release(reservationId)` compensation. Idempotency via reservationId/key.
+
+**To build on the inventory side (does not exist yet):** a `Reservation` aggregate + the
+`/reservations`, `/reservations/{id}/confirm`, `/reservations/{id}/release` endpoints (matching the Phase-3
+`InventoryClient` contract), with **FEFO allocation over `StockEntry`** and idempotency on the key.
+
+**Proposed sub-phases (build+test checkpoint each):**
+- **6a — inventory reservation API** (isolated, testable alone): `Reservation`/`ReservationLine` entities,
+  FEFO over `StockEntry`, reserve/confirm/release endpoints, idempotency, org-scoped. Unit + Testcontainers
+  tests for reserve→confirm→stock-decrement and reserve→release→no-decrement and OUT_OF_STOCK. **I am
+  confident to implement this one in isolation.**
+- **6b — trade-service shell**: rename/derive trade-service from business-service (mechanical), keep behavior.
+- **6c — saga orchestration + outbox** in trade: new sell path calls the reservation API; outbox + relay;
+  compensation; behind a switch (D2 strangler).
+- **6d — cut over + delete local Stock** once verified; (later) purchase→inventory stock-in.
+- Integration test: reserve→confirm happy path + compensation on injected failure (Testcontainers).
+
+> Recommendation: settle D1–D3, then implement **6a only** (isolated, low-risk, fully testable), checkpoint,
+> and reassess before touching the trade sell path. This keeps each step inside a 100%-confidence boundary.
 
 ## Test
 **Standard (per user): every phase ships tests that run on `mvn test`.** Pure-logic = always-run unit tests

@@ -30,4 +30,10 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     @Query("SELECT se FROM StockEntry se WHERE se.expiryDate BETWEEN :today AND :until AND " + SCOPE)
     List<StockEntry> findExpiringScoped(@Param("today") LocalDate today, @Param("until") LocalDate until,
                                         @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // FEFO ordering (slice 33, Phase 6a): earliest expiry first; null-expiry (non-perishable) batches last,
+    // then by id for a stable order. Used by the reservation allocator.
+    @Query("SELECT se FROM StockEntry se WHERE se.productId = :productId AND " + SCOPE
+            + " ORDER BY CASE WHEN se.expiryDate IS NULL THEN 1 ELSE 0 END, se.expiryDate ASC, se.id ASC")
+    List<StockEntry> findForFefo(@Param("productId") Long productId, @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

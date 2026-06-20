@@ -25,6 +25,10 @@ public class StockEntry {
     @Column(nullable = false)
     private Float quantity;
 
+    /** Held by open reservations (slice 33, Phase 6a). Available = quantity - reservedQuantity. */
+    @Builder.Default
+    private Float reservedQuantity = 0f;
+
     private String batchNo;
     private String lotNo;
     private LocalDate expiryDate;
