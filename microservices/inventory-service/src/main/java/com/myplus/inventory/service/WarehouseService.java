@@ -3,6 +3,7 @@ package com.myplus.inventory.service;
 import com.myplus.inventory.dto.WarehouseDTO;
 import com.myplus.inventory.entity.StockEntry;
 import com.myplus.inventory.entity.Warehouse;
+import com.myplus.common.security.CurrentUser;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.inventory.repository.StockEntryRepository;
 import com.myplus.inventory.repository.WarehouseRepository;
@@ -22,7 +23,8 @@ public class WarehouseService {
     private final StockEntryRepository stockEntryRepository;
 
     public List<WarehouseDTO> getAll() {
-        return warehouseRepository.findAll().stream().map(this::toDto).toList();
+        return warehouseRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId())
+                .stream().map(this::toDto).toList();
     }
 
     public WarehouseDTO getById(Long id) {
@@ -37,6 +39,8 @@ public class WarehouseService {
                 .address(dto.getAddress())
                 .capacity(dto.getCapacity())
                 .managerId(dto.getManagerId())
+                .organizationId(CurrentUser.organizationId())
+                .userId(CurrentUser.userId())
                 .build();
         return toDto(warehouseRepository.save(w));
     }
@@ -58,11 +62,13 @@ public class WarehouseService {
     }
 
     public Page<StockEntry> getStock(Long id, Pageable pageable) {
-        return stockEntryRepository.findByWarehouseId(id, pageable);
+        getEntity(id);   // scoped — ensures the warehouse belongs to the caller's tenant
+        return stockEntryRepository.findByWarehouseScoped(id, CurrentUser.organizationId(), CurrentUser.userId(), pageable);
     }
 
+    /** Scoped lookup — anti-IDOR. */
     public Warehouse getEntity(Long id) {
-        return warehouseRepository.findById(id)
+        return warehouseRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found: " + id));
     }
 

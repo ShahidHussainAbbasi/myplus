@@ -176,6 +176,22 @@ sequenceDiagram
   running services in this phase — it ratifies the target and lists the gaps StockEntry must absorb in
   Phase 5/6. `business-service.Stock` + `pharma.PharmacyStock` are **frozen for deletion** (deleted once
   trade/pharma read inventory, Phases 6–7).
+- [ ] **Phase 4.5 — org-scope inventory-service (prerequisite for system-of-record).** Bring inventory to
+  the multi-tenant standard before it owns everyone's stock. **Foundation:** new reusable
+  `common-security.CurrentUser` accessor (kills the future diverged-`RequestUtil` problem). **Template (this
+  step): Product** end-to-end — entity gains `organizationId`/`userId`/`userType`; `ProductRepository` every
+  read scoped (`org OR (org IS NULL AND user)`); `ProductService` reads scoped, writes stamp tenant, `getEntity`
+  scoped (anti-IDOR); kept unscoped `findLowStockProducts`/`findOutOfStockProducts` for the `@Scheduled`
+  cross-tenant `AlertService`. Flyway `V2__org_scoping.sql` (idempotent guarded adds for products/categories/
+  suppliers/warehouses/stock_entries). **Rollout DONE:** Category, Supplier, Warehouse, StockEntry all
+  org-scoped (entity + repo `findScoped`/`findByIdScoped` + service scoped reads, stamped writes, anti-IDOR
+  `getEntity`); `StockService` writes (addStock/adjust/transfer) now resolve Product/Warehouse via
+  `findByIdScoped` (anti-IDOR) and stamp StockEntry; `getSummary` uses `countScoped`/`findLowStockScoped`/
+  `findOutOfStockScoped`/`findAllScoped` (leak closed). `@Scheduled` `AlertService` keeps the unscoped
+  cross-tenant `findLowStock/OutOfStockProducts`. **Deferred follow-up (audit records, lower risk):**
+  `StockAdjustment`/`StockTransfer`/`StockAlert` entities don't yet carry `organization_id` (the Product they
+  touch is already scoped, so no cross-tenant mutation; only the movement-log rows lack a tenant tag). —
+  **awaiting build** (`mvn -pl inventory-service -am clean install -DskipTests`).
 - [ ] **Phase 5 — `catalog-service`.** Carve Product/Category/Unit/Manufacturer out (low coupling).
 - [ ] **Phase 6 — `trade-service`.** Refactor `business-service` → trade; delegate stock to inventory via the
   reserve/confirm **saga + outbox**.

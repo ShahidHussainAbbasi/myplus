@@ -2,6 +2,7 @@ package com.myplus.inventory.service;
 
 import com.myplus.inventory.dto.SupplierDTO;
 import com.myplus.inventory.entity.Supplier;
+import com.myplus.common.security.CurrentUser;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.inventory.repository.SupplierRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,8 @@ public class SupplierService {
     private final SupplierRepository supplierRepository;
 
     public List<SupplierDTO> getAll() {
-        return supplierRepository.findAll().stream().map(this::toDto).toList();
+        return supplierRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId())
+                .stream().map(this::toDto).toList();
     }
 
     public SupplierDTO getById(Long id) {
@@ -27,6 +29,8 @@ public class SupplierService {
     @Transactional
     public SupplierDTO create(SupplierDTO dto) {
         Supplier s = fromDto(dto, new Supplier());
+        s.setOrganizationId(CurrentUser.organizationId());
+        s.setUserId(CurrentUser.userId());
         return toDto(supplierRepository.save(s));
     }
 
@@ -42,8 +46,9 @@ public class SupplierService {
         supplierRepository.delete(getEntity(id));
     }
 
+    /** Scoped lookup — anti-IDOR. */
     public Supplier getEntity(Long id) {
-        return supplierRepository.findById(id)
+        return supplierRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Supplier not found: " + id));
     }
 

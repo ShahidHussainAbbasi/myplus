@@ -37,4 +37,9 @@ public class StockEntry {
 
     @Column(length = 1000)
     private String notes;
+
+    // Tenant scope (slice 33, Phase 4.5) — nullable; ddl-auto/Flyway V2 adds them.
+    private Long organizationId;
+    private Long userId;
+    private String userType;
 }

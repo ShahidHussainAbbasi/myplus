@@ -2,6 +2,7 @@ package com.myplus.inventory.service;
 
 import com.myplus.inventory.dto.CategoryDTO;
 import com.myplus.inventory.entity.Category;
+import com.myplus.common.security.CurrentUser;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.inventory.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,8 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
 
     public List<CategoryDTO> getAll() {
-        return categoryRepository.findAll().stream().map(this::toDto).toList();
+        return categoryRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId())
+                .stream().map(this::toDto).toList();
     }
 
     public CategoryDTO getById(Long id) {
@@ -30,6 +32,8 @@ public class CategoryService {
                 .name(dto.getName())
                 .description(dto.getDescription())
                 .parentCategory(dto.getParentId() != null ? getEntity(dto.getParentId()) : null)
+                .organizationId(CurrentUser.organizationId())
+                .userId(CurrentUser.userId())
                 .build();
         return toDto(categoryRepository.save(c));
     }
@@ -49,19 +53,20 @@ public class CategoryService {
     }
 
     public List<CategoryDTO> getTree() {
-        return categoryRepository.findByParentCategoryIsNull().stream()
-                .map(this::toTreeDto).toList();
+        return categoryRepository.findRootsScoped(CurrentUser.organizationId(), CurrentUser.userId())
+                .stream().map(this::toTreeDto).toList();
     }
 
     private CategoryDTO toTreeDto(Category c) {
         CategoryDTO dto = toDto(c);
-        dto.setChildren(categoryRepository.findByParentCategoryId(c.getId()).stream()
-                .map(this::toTreeDto).toList());
+        dto.setChildren(categoryRepository.findByParentScoped(c.getId(), CurrentUser.organizationId(), CurrentUser.userId())
+                .stream().map(this::toTreeDto).toList());
         return dto;
     }
 
+    /** Scoped lookup — anti-IDOR. */
     public Category getEntity(Long id) {
-        return categoryRepository.findById(id)
+        return categoryRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + id));
     }
 

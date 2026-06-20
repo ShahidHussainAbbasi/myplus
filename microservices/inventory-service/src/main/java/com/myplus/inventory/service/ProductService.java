@@ -3,6 +3,8 @@ package com.myplus.inventory.service;
 import com.myplus.inventory.dto.ProductDTO;
 import com.myplus.inventory.entity.Category;
 import com.myplus.inventory.entity.Product;
+import com.myplus.common.security.AuthenticatedUser;
+import com.myplus.common.security.CurrentUser;
 import com.myplus.common.web.exception.DuplicateResourceException;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.inventory.repository.CategoryRepository;
@@ -25,7 +27,7 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
 
     public Page<ProductDTO> getAll(Pageable pageable) {
-        return productRepository.findAll(pageable).map(this::toDto);
+        return productRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
     public ProductDTO getById(Long id) {
@@ -34,17 +36,21 @@ public class ProductService {
 
     @Transactional
     public ProductDTO create(ProductDTO dto) {
-        if (productRepository.existsBySku(dto.getSku())) {
+        Long orgId = CurrentUser.organizationId();
+        Long userId = CurrentUser.userId();
+        if (productRepository.existsBySkuScoped(dto.getSku(), orgId, userId)) {
             throw new DuplicateResourceException("Product SKU already exists: " + dto.getSku());
         }
         Product p = fromDto(dto, new Product());
+        stampTenant(p);
         return toDto(productRepository.save(p));
     }
 
     @Transactional
     public ProductDTO update(Long id, ProductDTO dto) {
-        Product p = getEntity(id);
-        if (dto.getSku() != null && !dto.getSku().equals(p.getSku()) && productRepository.existsBySku(dto.getSku())) {
+        Product p = getEntity(id);   // scoped — anti-IDOR
+        if (dto.getSku() != null && !dto.getSku().equals(p.getSku())
+                && productRepository.existsBySkuScoped(dto.getSku(), CurrentUser.organizationId(), CurrentUser.userId())) {
             throw new DuplicateResourceException("Product SKU already exists: " + dto.getSku());
         }
         fromDto(dto, p);
@@ -53,40 +59,53 @@ public class ProductService {
 
     @Transactional
     public void delete(Long id) {
-        productRepository.delete(getEntity(id));
+        productRepository.delete(getEntity(id));   // scoped — anti-IDOR
     }
 
     public Page<ProductDTO> search(String q, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
-        return productRepository.search(q, categoryId, minPrice, maxPrice, pageable).map(this::toDto);
+        return productRepository.searchScoped(q, categoryId, minPrice, maxPrice,
+                CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
     public Page<ProductDTO> getByCategory(Long categoryId, Pageable pageable) {
-        return productRepository.findByCategoryId(categoryId, pageable).map(this::toDto);
+        return productRepository.findByCategoryScoped(categoryId, CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
     public List<ProductDTO> getLowStock() {
-        return productRepository.findLowStockProducts().stream().map(this::toDto).toList();
+        return productRepository.findLowStockScoped(CurrentUser.organizationId(), CurrentUser.userId()).stream().map(this::toDto).toList();
     }
 
     public List<ProductDTO> getOutOfStock() {
-        return productRepository.findOutOfStockProducts().stream().map(this::toDto).toList();
+        return productRepository.findOutOfStockScoped(CurrentUser.organizationId(), CurrentUser.userId()).stream().map(this::toDto).toList();
     }
 
     public List<ProductDTO> getExpiring(int days) {
         LocalDate today = LocalDate.now();
-        return productRepository.findExpiringProducts(today, today.plusDays(days)).stream().map(this::toDto).toList();
+        return productRepository.findExpiringScoped(today, today.plusDays(days),
+                CurrentUser.organizationId(), CurrentUser.userId()).stream().map(this::toDto).toList();
     }
 
     @Transactional
     public ProductDTO setActive(Long id, boolean active) {
-        Product p = getEntity(id);
+        Product p = getEntity(id);   // scoped — anti-IDOR
         p.setIsActive(active);
         return toDto(productRepository.save(p));
     }
 
+    /** Scoped lookup so one tenant can never read/mutate another's product by id (anti-IDOR). */
     public Product getEntity(Long id) {
-        return productRepository.findById(id)
+        return productRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
+    }
+
+    /** Stamp the active tenant + actor on a new row (gateway-propagated identity). */
+    private void stampTenant(Product p) {
+        AuthenticatedUser u = CurrentUser.get().orElse(null);
+        if (u != null) {
+            p.setOrganizationId(u.getOrganizationId());
+            p.setUserId(u.getUserId());
+            if (p.getCreatedBy() == null) p.setCreatedBy(u.getUserId());
+        }
     }
 
     public ProductDTO toDto(Product p) {

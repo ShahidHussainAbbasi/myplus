@@ -44,6 +44,12 @@ public class Product {
     private String imageUrl;
     private Long createdBy;
 
+    // Tenant scope (slice 33, Phase 4.5): organization_id from the gateway X-Org-Id; user_id/user_type
+    // as audit and for the NULL-fallback read of pre-migration rows. All nullable (ddl-auto adds them).
+    private Long organizationId;
+    private Long userId;
+    private String userType;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
