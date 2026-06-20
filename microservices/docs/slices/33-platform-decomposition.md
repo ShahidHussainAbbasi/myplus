@@ -220,7 +220,12 @@ sequenceDiagram
     bypasses the gateway, so catalog's HeaderAuthFilter needs them to authenticate+scope). `StockService.addStock`
     now calls `assertProductExists(productId)` — a catalog 404 → `ValidationException`; other failures (catalog
     down) propagate, unmasked. Couples addStock to catalog uptime (the accepted cost of the split).
-    (`mvn -pl inventory-service -am clean install -DskipTests`)
+    (`mvn -pl inventory-service -am clean install -DskipTests`) ✓ **BUILD SUCCESS**. **DONE.**
+  - [x] **5d DONE.** Runtime wiring: gateway route `/api/catalog/**` → `lb://catalog-service` (CircuitBreaker
+    `catalog-service` + JwtAuthenticationFilter + StripPrefix=2); `start-all.ps1` + `stop-all.ps1` entry
+    `catalog-service = 8092` (started before inventory so product validation works); `docker-compose.yml`
+    `catalog-service` (DB `myplusdb_catalog`). **Runtime reminder:** rebuild+restart `config-server` (it serves
+    the new `catalog-service.yml`) before starting catalog. **Phase 5 COMPLETE — catalog/inventory split landed.**
 - [ ] **Phase 6 — `trade-service`.** Refactor `business-service` → trade; delegate stock to inventory via the
   reserve/confirm **saga + outbox**.
 - [ ] **Phase 7 — rebase `pharma-service`.** Keep only Medicine clinical + Prescription/Dispensing; delete its

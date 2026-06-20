@@ -158,6 +158,28 @@ services:
       config-server:
         condition: service_healthy
 
+  catalog-service:
+    build: ./catalog-service
+    container_name: myplus-catalog
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8092"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_catalog?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
   business-service:
     build: ./business-service
     container_name: myplus-business

@@ -48,6 +48,7 @@ $catalog = [ordered]@{
     'config-server'       = 8888
     'api-gateway'         = 8765
     'auth-service'        = 8081
+    'catalog-service'     = 8092
     'inventory-service'   = 8082
     'business-service'    = 8083
     'education-service'   = 8084

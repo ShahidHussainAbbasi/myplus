@@ -58,6 +58,17 @@ spring:
                 fallbackUri: forward:/fallback
             - name: JwtAuthenticationFilter
             - StripPrefix=2
+        - id: catalog-service
+          uri: lb://catalog-service
+          predicates:
+            - Path=/api/catalog/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: catalog-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
         - id: business-service
           uri: lb://business-service
           predicates:
