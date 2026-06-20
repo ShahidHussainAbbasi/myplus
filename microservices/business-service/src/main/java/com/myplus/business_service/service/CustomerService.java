@@ -16,6 +16,7 @@ import org.springframework.data.repository.query.FluentQuery.FetchableFluentQuer
 import org.springframework.stereotype.Service;
 
 import com.myplus.business_service.repository.CustomerRepo;
+import com.myplus.business_service.repository.CustomerHistoryRepo;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Customer;
 
@@ -31,7 +32,10 @@ public class CustomerService implements ICustomerService{
     CustomerRepo customerRepo;
 
     @Autowired
-    private AppUtil appUtil;  
+    CustomerHistoryRepo customerHistoryRepo;
+
+    @Autowired
+    private AppUtil appUtil;
 
 	@Autowired
 	RequestUtil requestUtil;
@@ -180,15 +184,23 @@ return customerRepo.exists(example);
 		return customerRepo.findScoped(orgId, userId, pageable);
 	}
 
+	@Override
+	public List<Customer> findOwnScoped(Long orgId, Long userId) {
+		return customerRepo.findOwnScoped(orgId, userId);
+	}
+
 
 	public Customer saveUpdateCustomer(CustomerHistoryDTO dto) throws Exception {
 
 		Customer customerObj = dto.getCustomer().getCustomerId() != null ? this.getReferenceById(dto.getCustomer().getCustomerId()) : new Customer();
 
+		AuthenticatedUser actor = requestUtil.getCurrentUser();
+
 		if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){
 
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			customerObj.setUserId(user.getUserId());
+			// New (or not-yet-identified) customer: populate identity, then try to match an existing row
+			// by name/contact so a repeat customer isn't duplicated.
+			customerObj.setUserId(actor.getUserId());
 			if (dto.getCustomer().getContact() != null) {
 				customerObj.setContact(dto.getCustomer().getContact());
 			}
@@ -201,29 +213,23 @@ return customerRepo.exists(example);
 			Example<Customer> example = Example.of(customerObj);
 			customerObj = this.findOne(example).orElse(customerObj);
 
-			if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){ 
-				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount().add(dto.getCustomer().getDueAmount()) );
-			} else {
-				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount().add(dto.getCustomer().getDueAmount()));
+			// brand-new customer: seed the running balance at zero so the non-null-ready column has a
+			// value; recomputeDue() sets the real figure once this sale's invoice header is saved.
+			if (appUtil.isEmptyOrNull(customerObj.getCustomerId()) && customerObj.getDueAmount() == null) {
+				customerObj.setDueAmount(java.math.BigDecimal.ZERO);
 			}
-
 			if (dto.getCustomer().getDueDate() != null) {
 				customerObj.setDueDate(dto.getCustomer().getDueDate());
 			}
-		} else {
-				customerObj.setDueAmount(customerObj.getDueAmount() == null ? dto.getCustomer().getDueAmount() : customerObj.getDueAmount().add(dto.getCustomer().getDueAmount()));
 		}
 
-		// set the due amount 0 if it is negative
-		if (dto.getCustomer().getDueAmount() != null && dto.getCustomer().getDueAmount().compareTo(java.math.BigDecimal.ZERO) < 0) {
-			customerObj.setDueAmount(dto.getCustomer().getDueAmount().negate());
-		} else {
-			customerObj.setDueAmount(java.math.BigDecimal.ZERO);
-		}
+		// NOTE: the customer's running balance (dueAmount) is deliberately NOT computed here. It is
+		// recomputed from the customer's invoice headers by recomputeDue() AFTER the CustomerHistory for
+		// this sale is saved — so a new sale, an edit, and a re-edit all stay correct (no lossy in-place
+		// accumulation). See SellController.addSell / updateSell.
 
 		customerObj.setDated(LocalDateTime.now());
 		customerObj.setUpdated(LocalDateTime.now());
-		AuthenticatedUser actor = requestUtil.getCurrentUser();
 		if (actor != null) {
 			if (customerObj.getUserId() == null) customerObj.setUserId(actor.getUserId()); // audit
 			customerObj.setOrganizationId(actor.getOrganizationId());                       // tenant scope
@@ -231,6 +237,19 @@ return customerRepo.exists(example);
 		this.save(customerObj);
 
 		return customerObj;
+	}
+
+	@Override
+	public void recomputeDue(Customer customer) {
+		if (customer == null || customer.getCustomerId() == null) return;
+		// Each invoice header stores dueAmount = (paid − bill): negative while the customer still owes.
+		// Running balance owed = Σ(bill − paid) = −Σ(dueAmount), floored at 0 (this app keeps no credit).
+		java.math.BigDecimal sumDue = customerHistoryRepo.sumDueByCustomer(customer.getCustomerId());
+		if (sumDue == null) sumDue = java.math.BigDecimal.ZERO;
+		java.math.BigDecimal owed = sumDue.negate();
+		if (owed.compareTo(java.math.BigDecimal.ZERO) < 0) owed = java.math.BigDecimal.ZERO;
+		customer.setDueAmount(owed);
+		customerRepo.save(customer);
 	}
 
 }

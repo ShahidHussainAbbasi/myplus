@@ -23,6 +23,11 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
         + "or (p.organizationId is null and p.userId = :userId)")
    List<Purchase> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   // OWN rows only (role-aware: a non-SUPER caller sees just the purchases they recorded).
+   @Query("select p from purchase p where p.userId = :userId "
+        + "and (p.organizationId = :orgId or p.organizationId is null)")
+   List<Purchase> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
 
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "
 //    		+ "p.mobile = :mobile AND a.FK_patient_id = p.patient_id",nativeQuery=true)

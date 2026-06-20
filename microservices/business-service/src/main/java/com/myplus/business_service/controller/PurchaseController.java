@@ -79,12 +79,22 @@ public class PurchaseController {
 		return (rowOrg != null && rowOrg.equals(orgId()))
 			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
 	}
+	/** Role-aware visibility: SUPER/owner sees the whole org's purchases; others only their own. */
+	private boolean seesAllOrg() {
+		AuthenticatedUser u = requestUtil.getCurrentUser();
+		return u != null && u.getAuthorities() != null && u.getAuthorities().stream()
+				.anyMatch(a -> "SUPER_PRIVILEGE".equals(a.getAuthority()));
+	}
+	private List<Purchase> visiblePurchases() {
+		return seesAllOrg() ? purchaseService.findScoped(orgId(), userId())
+		                    : purchaseService.findOwnScoped(orgId(), userId());
+	}
 
 	@RequestMapping(value = "/getUserPurchase", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserPurchase(final HttpServletRequest request) {
 		try {
-			List<Purchase> objs = purchaseService.findScoped(orgId(), userId());
+			List<Purchase> objs = visiblePurchases();   // role-aware: SUPER = org, others = own
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -130,7 +140,7 @@ public class PurchaseController {
 	public GenericResponse getAllPurchase(final HttpServletRequest request) {
 		try {
 			// was findAll() — cross-tenant leak; now scoped to the active org.
-			List<Purchase> objs = purchaseService.findScoped(orgId(), userId());
+			List<Purchase> objs = visiblePurchases();   // role-aware: SUPER = org, others = own
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 

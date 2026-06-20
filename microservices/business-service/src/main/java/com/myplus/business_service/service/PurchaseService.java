@@ -56,6 +56,11 @@ public class PurchaseService implements IPurchaseService{
 		return purchaseRepo.findScoped(orgId, userId);
 	}
 
+	@Override
+	public List<Purchase> findOwnScoped(Long orgId, Long userId) {
+		return purchaseRepo.findOwnScoped(orgId, userId);
+	}
+
 	public List<Purchase> findAll(Sort sort) {
 		// TODO Auto-generated method stub
 		return purchaseRepo.findAll(sort);
@@ -183,7 +188,7 @@ public class PurchaseService implements IPurchaseService{
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
-		obj.setDated(appUtil.getDateTime(null));
+		obj.setUpdated(obj.getUpdated()!=null?obj.getUpdated():LocalDateTime.now());
 		obj.setDated(LocalDateTime.now());
 		obj.setStock(stock);
 		obj.setUserId(user.getUserId());                  // audit

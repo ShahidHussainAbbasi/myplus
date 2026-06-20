@@ -5,6 +5,7 @@
     "java.format.settings.url": ".vscode/java-formatter.xml",
     "java.autobuild.enabled": false,
     "java.configuration.runtimes": [
+        
 
         // {
         //     "name": "JavaSE-1.8",

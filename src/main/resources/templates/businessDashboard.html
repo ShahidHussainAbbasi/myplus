@@ -10,6 +10,36 @@
 .dataTables_wrapper{padding:0}
 .dataTables_wrapper .row:first-child{margin-bottom:10px}
 .dataTables_wrapper .row:last-child{margin-top:10px}
+/* Customer input-mode segmented toggle */
+.cmode-toggle{display:inline-flex;gap:4px;padding:5px;background:#eef1f6;border:1px solid #d8dee9;border-radius:12px;box-shadow:inset 0 1px 3px rgba(20,40,80,.07)}
+.cmode-toggle .cmode-btn{display:inline-flex;align-items:center;gap:9px;margin:0;padding:10px 22px;font-size:14px;font-weight:600;line-height:1;color:#5a6677;background:transparent;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;transition:color .18s ease,background .18s ease,box-shadow .18s ease,transform .12s ease}
+.cmode-toggle .cmode-btn .glyphicon{font-size:13px;opacity:.9}
+.cmode-toggle .cmode-btn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.cmode-toggle .cmode-btn:hover:not(.active){color:#2c3e50;background:rgba(255,255,255,.7)}
+.cmode-toggle .cmode-btn.active{color:#fff;background:linear-gradient(135deg,#2b6cb0,#1f4e8c);box-shadow:0 4px 10px rgba(31,78,140,.35)}
+.cmode-toggle .cmode-btn:active{transform:translateY(1px)}
+@media (max-width:480px){.cmode-toggle{display:flex;width:100%}.cmode-toggle .cmode-btn{flex:1;justify-content:center;padding:10px 8px}}
+/* Sell cart / checkout panel (iDiv) */
+.cart-panel{max-width:60%;margin:0 auto;background:#fff;border:1px solid #e2e7ef;border-radius:14px;box-shadow:0 6px 22px rgba(20,40,80,.09);overflow:hidden;text-align:left}
+.cart-panel__head{display:flex;align-items:center;gap:10px;padding:13px 20px;background:linear-gradient(135deg,#2b6cb0,#1f4e8c);color:#fff;font-size:15px;font-weight:700;letter-spacing:.3px}
+.cart-panel__head .glyphicon{font-size:16px}
+.cart-hint{margin-left:auto;font-size:11px;font-weight:500;opacity:.85;letter-spacing:0}
+.cart-panel__body{padding:18px 20px 20px}
+.cart-panel__body .form-group{margin-bottom:14px}
+.cart-panel__body .form-group::after{content:"";display:table;clear:both}
+#sellCartScroll{max-height:300px;overflow:auto;border:1px solid #e7ebf2;border-radius:10px;background:#fff}
+#tablesi{margin:0!important;border:none}
+#tablesi thead th{position:sticky;top:0;z-index:2;background:#f3f6fb;color:#3a4a61;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e2e7ef;padding:10px 8px}
+#tablesi tbody td{padding:9px 8px;border-bottom:1px solid #eef1f6;font-size:13px;vertical-align:middle}
+#tablesi tbody tr:hover td{background:#f7faff}
+#tablesi tfoot th{background:#f3f6fb;font-weight:700;color:#1f4e8c;border-top:2px solid #e2e7ef;padding:11px 8px}
+#sellTotal{font-size:15px}
+.field-label{display:block;font-size:11px;font-weight:600;color:#5a6677;text-transform:uppercase;letter-spacing:.4px;margin:0 0 4px 2px;text-align:left}
+.checkout-actions{margin-top:4px}
+.checkout-actions .btn{min-width:160px;font-weight:600;margin:6px}
+#addSell.btn-success{background:linear-gradient(135deg,#27ae60,#1e8e4f);border:none;box-shadow:0 4px 12px rgba(30,142,79,.32)}
+#addSell.btn-success:hover,#addSell.btn-success:focus{filter:brightness(1.06);color:#fff}
+@media (max-width:560px){.cart-hint{display:none}.checkout-actions .btn{min-width:0;width:100%}}
 </style>
 </head>
 <body onkeypress="handleKey(event,'click','sellItemDD')">
@@ -83,7 +113,7 @@
 							</ul>
 						</div>
 						<!-- Team management — only the company SUPER owner sees this. -->
-						<div class="snav-dd" id="snavTeam" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
+						<div class="snav-dd" id="snavTeam" sec:authorize="hasAuthority('ROLE_OWNER')">
 							<button class="snav-btn" onclick="snavToggle(event,'snavTeam')">
 								<span class="glyphicon glyphicon-user"></span>
 								<span>Team</span>
@@ -251,7 +281,7 @@
 			<!-- ═══ Team / Users (owner-only) ═══════════════════════════════════════
 			     The company SUPER owner adds ADMIN/USER members (they set their own password via a
 			     reset email) and sees the current team. Server-confined to the owner's org. -->
-			<div id="TeamDiv" class="formDiv" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" style="display:none">
+			<div id="TeamDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
 				<h3 class="dash-page-title">Team &amp; Users</h3>
 				<div id="teamMsg" class="alert" style="display:none"></div>
 				<div class="row" style="margin-bottom:14px">
@@ -894,11 +924,15 @@
 	 -->					
 					</div>
 				</form>
-				<div id="iDiv" class="form-group col-xs-12 col-sm-12 text-center">
-					<div class="hidden-xs col-sm-2"></div>
-					<div class="table-bordered table-striped col-xs-12 col-sm-8">
+				<div id="iDiv" class="text-center" style="margin-top:12px;">
+					<div class="cart-panel">
+						<div class="cart-panel__head">
+							<span class="glyphicon glyphicon-shopping-cart"></span> Current Sale
+							<span class="cart-hint">Review items, choose customer &amp; payment, then complete the sale</span>
+						</div>
+						<div class="cart-panel__body">
 						<div id="sellCartScroll">
-						<table id="tablesi" class="display" style="width:100%; background-color: lightskyblue;">
+						<table id="tablesi" class="display" style="width:100%;">
 							<thead>
 								<tr>
 									<th class="col-sm-1">Item id</th>
@@ -926,12 +960,12 @@
 						<!-- Customer mode toggle -->
 						<div class="form-group" style="padding-top: 15px;">
 							<div class="col-sm-12">
-								<div class="btn-group" data-toggle="buttons">
-									<label style="margin: 10px;" class="btn btn-default btn-sm active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
+								<div class="cmode-toggle btn-group" data-toggle="buttons" role="group" aria-label="Customer input mode">
+									<label class="cmode-btn active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
 										<input type="radio" name="customerInputMode" value="select" checked>
 										<span class="glyphicon glyphicon-search"></span> Select Customer
 									</label>
-									<label style="margin: 10px;" class="btn btn-default btn-sm" id="btnModeManual" onclick="onCustomerModeChange('manual')">
+									<label class="cmode-btn" id="btnModeManual" onclick="onCustomerModeChange('manual')">
 										<input type="radio" name="customerInputMode" value="manual">
 										<span class="glyphicon glyphicon-pencil"></span> Enter Manually
 									</label>
@@ -941,6 +975,7 @@
 						<!-- Select mode: pick from existing customers -->
 						<div class="form-group" id="customerSelectMode">
 							<div class="col-xs-12 col-sm-4 col-md-3">
+								<span class="field-label">Customer</span>
 								<select class="form-control" id="sellCustomerDD" onchange="onSellCustomerSelect(this)">
 									<option value="">-- Select Customer --</option>
 								</select>
@@ -949,53 +984,73 @@
 						<!-- Manual mode: type name + contact -->
 						<div class="form-group" id="customerManualMode" style="display: none;">
 							<div class="col-xs-12 col-sm-4">
+								<span class="field-label">Customer Name</span>
 								<input type="text" class="form-control" id="sellCN"
 									name="cn" placeholder=" Customer name "
 									oninput="this.style.removeProperty('border-color')">
 							</div>
 							<div class="col-xs-12 col-sm-3">
+								<span class="field-label">Mobile</span>
 								<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number"/>
 							</div>
 						</div>
 						<!-- Payment row — always visible -->
 						<div class="form-group" style="padding-top: 8px; padding-bottom: 25px;">
 							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Amount Received</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellRec"
 									name="sellRec" placeholder=" Received " onkeyup="calculateChange()">
 							</div>
 							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Change</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellCh" name="sellCh" readonly="readonly" placeholder="Change">
 							</div>
 							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Due (this sale)</span>
+								<input type="number" step="any" class="form-control" id="sellDueThis" readonly="readonly" placeholder="0" title="Amount still owed on this sale">
+							</div>
+							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Due Date (optional)</span>
 								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control" placeholder="dd/mm/yyyy"/>
 								<input type="hidden" id="dueDate" name="dueDate"/>
 							</div>
 						</div>
-	 		
-	 				</div>	
-					<div class="col-sm-3"></div>
-				</div>
-				<div class="form-group text-center">
-					<button type="button" id="addSell" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Sell
-					</button>
-					<!-- <input type="checkbox" checked="checked" name="print" id="sellP"><span  class="glyphicon glyphicon-print"></span></input> -->
-					<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart()">
-						<span class="glyphicon glyphicon-shopping-cart"></span> Delete cart
-					</button>
-	 			</div>			
+						<!-- Account balance row — shown only for an existing selected customer (new sale) -->
+						<div class="form-group" id="sellAccountRow" style="display:none; padding-bottom: 20px;">
+							<div class="col-xs-6 col-sm-3 col-md-2 col-sm-offset-3 col-md-offset-2">
+								<span class="field-label">Previous balance</span>
+								<input type="number" step="any" class="form-control" id="sellPrevDue" readonly="readonly"
+									placeholder="0" title="Outstanding balance before this sale" style="background-color:#fff7e6;">
+							</div>
+							<div class="col-xs-6 col-sm-3 col-md-2">
+								<span class="field-label">New total due</span>
+								<input type="number" step="any" class="form-control" id="sellNewTotalDue" readonly="readonly"
+									placeholder="0" title="Total the customer will owe after this sale"
+									style="background-color:#ffecec; font-weight:bold;">
+							</div>
+						</div>
+						<div class="form-group text-center checkout-actions">
+							<button type="button" id="addSell" class="btn btn-success btn-lg">
+								<span class="glyphicon glyphicon-ok-circle"></span> Complete Sale
+							</button>
+							<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart()">
+								<span class="glyphicon glyphicon-trash"></span> Clear Cart
+							</button>
+						</div>
+					</div><!-- /cart-panel__body -->
+				</div><!-- /cart-panel -->
+				</div><!-- /iDiv -->
 				<div>
-					Toggle column: 
-					   <!-- <a class="toggle-vis" data-column="2">Code</a>  -->
+					Toggle column:
+					  - <a class="toggle-vis" data-column="2">Customer</a>
 					  - <a class="toggle-vis" data-column="3">Name</a>
 					  - <a class="toggle-vis" data-column="4">QTY</a>
-					  - <a class="toggle-vis" data-column="6">Expiry</a>
-					  - <a class="toggle-vis" data-column="7">P/U price</a> - <a class="toggle-vis" data-column="8">S/U price</a>
-					  - <a class="toggle-vis" data-column="9">Disc type</a> - <a class="toggle-vis" data-column="10">Discount</a>
-					  - <a class="toggle-vis" data-column="11">Total</a> - <a class="toggle-vis" data-column="12">Profit</a>
-					  <!-- - <a class="toggle-vis" data-column="13">Customer Name</a> - <a class="toggle-vis" data-column="14">Customer Contact</a> -->
-					  - <a class="toggle-vis" data-column="15">Dated</a> 
-					  <!-- - <a class="toggle-vis" data-column="16">DateTime</a> -->
+					  - <a class="toggle-vis" data-column="5">Expiry</a>
+					  - <a class="toggle-vis" data-column="6">P/U price</a> - <a class="toggle-vis" data-column="7">S/U price</a>
+					  - <a class="toggle-vis" data-column="8">Disc type</a> - <a class="toggle-vis" data-column="9">Discount</a>
+					  - <a class="toggle-vis" data-column="10">Total</a> - <a class="toggle-vis" data-column="11">Due</a>
+					  - <a class="toggle-vis" data-column="12">Profit</a>
+					  - <a class="toggle-vis" data-column="13">Dated</a>
 				</div>
 				<table id="tableSell" class="table table-bordered table-striped">
 					<thead>
@@ -1004,6 +1059,7 @@
 							<!-- <th data-field="checkDelete"></th> -->
 							<!-- <th data-field="sellItemDD">Code</th> -->
 							<th data-field="sellInvoiceNo">Invoice</th>
+							<th data-field="sellCustomerName">Customer</th>
 							<th data-field="sellItemName">Name</th>
 							<th data-field="sellItems">QTY</th>
 							<!-- <th data-field="sellBatchNo">BatchNo</th> -->
@@ -1013,6 +1069,7 @@
 							<th data-field="sellDiscountTypeDD">Disc Type</th>
 							<th data-field="sellDiscount">Discount</th>
 							<th data-field="sellTotalAmount">Total</th>
+							<th data-field="sellDueAmount">Due</th>
 							<th data-field="sellNetAmount">Profit</th>
 							<!-- <th data-field="sellCN">Customer Name</th> -->
 							<!-- <th data-field="sellCC">Customer Contact</th> -->

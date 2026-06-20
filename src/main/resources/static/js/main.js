@@ -77,7 +77,7 @@ function resetForm(){
 	form = document.getElementsByClassName('form-horizontal')[tableV];
 	if(form){
 		$(".resetForm").click();
-		updateReadOnly(false);
+		// updateReadOnly(false);
 		return;
 		
 /*		formFields = form.length-2;// -2 mean we don't need to loop over
@@ -155,7 +155,7 @@ $(document).ready(function() {
 		// Refresh selectpicker display after native reset clears its value
 		$form.find('.selectpicker').selectpicker('refresh');
 		clearFormError();
-		updateReadOnly(false);
+		// updateReadOnly(false);
 	});
 
 //
@@ -398,6 +398,9 @@ $(document).ready(function() {
 					// adjusted by the deltas); otherwise create a new sale.
 					if (window.editingInvoice && window.editingInvoice.chId) {
 						customerHistory.customer_history_id = window.editingInvoice.chId;
+						// customer is locked in edit mode — send its id so updateSell updates THAT customer
+						// in place (saveUpdateCustomer keys on customerId) rather than creating a duplicate.
+						if (window.editingInvoice.customerId) customer.customerId = window.editingInvoice.customerId;
 						jsonPost("updateSell", customerHistory);
 					} else {
 						jsonPost("addSell", customerHistory);
@@ -516,18 +519,21 @@ $(document).ready(function() {
 				showFormError('Edit is not allowed. Please delete and submit a new record.');
 				}
 			}else{
-				if(tableV!="Sell"){
-					var html = datatable.row(this).data();// .selector.rows.innerHTML;
-					var doc = getDocument(html);
-					editRecord(doc);
-				} else {
+				if (tableV=="Sell"){ 
 					// Sell: a sale is a multi-line invoice — load the WHOLE invoice (all its lines +
 					// customer) into the cart (iDiv) so the user can review/update and save in place.
 					var sdoc = getDocument(datatable.row(this).data());
 					var sidEl = sdoc.getElementById('sellId');
-					if (sidEl && sidEl.textContent.trim() && typeof loadSellForEdit === 'function')
+					if (sidEl && sidEl.textContent.trim() && typeof loadSellForEdit === 'function') {
 						loadSellForEdit(sidEl.textContent.trim());
+					}
+				} else {
+					var html = datatable.row(this).data();// .selector.rows.innerHTML;
+					var doc = getDocument(html);
+					editRecord(doc);
 				}
+						
+				// updateReadOnly(false);
 			}
 		} );
 	  });
@@ -752,6 +758,25 @@ function updateReadOnly(flag) {
 	if (tableV == "Purchase") {
 		$("#purchaseInvoiceNo").prop("readonly", flag);
 		$('#purchaseItemDD').prop('disabled', flag);
+	} else if (tableV == "Sell") {
+		// NOTE: do NOT clear window.editingInvoice or the edit banner here. updateReadOnly only toggles
+		// field read-only/disabled state and is called repeatedly (e.g. resetBSDD after every cart add) —
+		// wiping the edit flag here made every invoice edit fall through to addSell (new invoice + dup row).
+		// Edit state is owned by loadSellForEdit (set) and exitSellEditMode (clear, on save/cancel).
+		setSellItemBtnMode(flag);
+		$('#sellItemDD').prop('disabled', flag);
+		if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+		// Sell edit mode is keyed on window.editingInvoice (the single source of truth that persists
+		// through cart edits), NOT the shared `edit` global which resetBSDD/other cycles flip off.
+		if (window.editingInvoice) {
+			$('#sellCustomerDD').prop('disabled', true);   // lock the customer while editing an invoice
+			$('#sellCN').prop('disabled', true);
+			$('#sellCC').prop('disabled', true);
+		} else {
+			$('#sellCustomerDD').prop('disabled', flag);
+			$('#sellCN').prop('disabled', flag);
+			$('#sellCC').prop('disabled', flag);
+		}
 	}
 	// } else if (tableV == "Customer") {
 	// 	$("#name").prop("readonly", flag);

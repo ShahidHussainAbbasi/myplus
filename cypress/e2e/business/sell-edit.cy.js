@@ -126,3 +126,110 @@ describe('Sell edit — Phase 2: row-click loads the invoice into the cart', () 
     cy.get('#tablesi tbody tr', { timeout: 12000 }).should('have.length.greaterThan', 0)
   })
 })
+
+/**
+ * Phase 3 — editing a sale IN PLACE through the real, form-driven flow (the UX the owner described):
+ *
+ *   row-click  -> loadSellForEdit: the item form (Id Sell) + the cart are repopulated, edit mode is on
+ *                 (banner shows the invoice; the cart-add button becomes "Update Item").
+ *   change line -> pick the item again in the form, set the new qty, click "Update Item": the matching
+ *                 cart line is REPLACED in place (no duplicate). (A brand-new item would be appended.)
+ *   change cust -> sellCN / sellCC / sellRec can be (re)entered; due recomputes from sellRec.
+ *   save        -> "Add Sell" routes to updateSell (same invoice #, stock & dues adjusted by deltas).
+ *
+ * The cart is NOT edited directly — everything goes through the form, exactly as a cashier would.
+ */
+describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow', () => {
+  beforeEach(() => { cy.loginAsBusiness() })
+
+  // Current on-hand qty of an item, from getStock (the endpoint the sell form reads when an item is
+  // picked). It returns the item's StockDTO directly; .stock is the quantity.
+  const stockQty = (itemId) => cy.request('/getStock?itemId=' + itemId).then((r) =>
+    (r.body && typeof r.body.stock === 'number') ? r.body.stock : null)
+
+  it('editing a 2-qty line down to 1 keeps the invoice #, returns 1 to stock, leaves one line', () => {
+    const cust = `P3Cust_${Date.now()}`
+    cy.intercept('POST', '/addSell').as('addSell')
+    cy.intercept('POST', '/updateSell').as('updateSell')
+    cy.intercept('GET', '/getSellInvoice*').as('getInvoice')
+
+    // ── Step 1: create a sale of QTY 2 through the UI, remembering which item we used. ──────────────
+    let itemValue
+    cy.openSellSection('sellDiv')
+    cy.get('#sellItemDD option').then(($opts) => {
+      const opt = [...$opts].find(o => o.value && o.value !== '')
+      expect(opt, 'an item with stock is available to sell').to.exist
+      itemValue = opt.value
+      cy.get('#sellItemDD').select(opt.value, { force: true }).trigger('change', { force: true })
+    })
+    cy.wait(1000) // let onChange -> loadStock populate the rate fields
+    cy.get('#sellItems').clear({ force: true }).type('2', { force: true })
+    cy.get('#addInviceItem').click({ force: true })
+    cy.get('#tablesi tbody tr', { timeout: 8000 }).should('have.length', 1)
+    cy.get('#btnModeManual').click({ force: true })
+    cy.get('#sellCN').clear({ force: true }).type(cust, { force: true })
+    cy.get('#sellCC').clear({ force: true }).type('03001234567', { force: true })
+    cy.get('#sellRec').clear({ force: true }).type('200', { force: true })
+    cy.get('#addSell').click({ force: true })
+
+    cy.wait('@addSell').then(({ response }) => {
+      expect(response.body.status, JSON.stringify(response.body)).to.eq('SUCCESS')
+      const invoiceNo = invNo(response.body)
+      expect(invoiceNo, 'invoice number returned by addSell').to.match(/^INV-\d{6}$/)
+
+      // ── Step 2: locate this sale's row + item id, and record stock right after the sale. ──────────
+      cy.request('/getUserSell').then((sres) => {
+        const mine = rows(sres).find(x => x.customerHistory && x.customerHistory.invoiceNo === invoiceNo)
+        expect(mine, 'created sale present in the sell data').to.exist
+        const itemId = mine.itemId
+        stockQty(itemId).then((before) => {
+          expect(before, 'stock qty right after the sale').to.be.a('number')
+
+          // ── Step 3: open the invoice for editing (this is what a row-click runs). Wait on
+          //     getSellInvoice so edit mode is fully established before we touch the form. ──────────
+          cy.window().then((win) => win.loadSellForEdit(mine.sellId))
+          cy.wait('@getInvoice').its('response.body.status').should('eq', 'SUCCESS')
+          // edit mode is ON: banner shows the invoice, cart-add button reads "Update Item", one line,
+          // and the line is auto-loaded into the form with the ITEM LOCKED (dropdown disabled).
+          cy.get('#sellEditBanner', { timeout: 12000 }).should('be.visible').and('contain', invoiceNo)
+          cy.get('#addInviceItem').should('contain', 'Update Item')
+          cy.get('#tablesi tbody tr').should('have.length', 1)
+          cy.get('#sellItemDD').should('be.disabled').and('have.value', String(itemValue))
+          // the CUSTOMER is also locked: this was a manual customer (not in the dropdown when the section
+          // loaded), so Manual mode is active and the name is filled but disabled.
+          cy.get('#btnModeManual').should('have.class', 'active')
+          cy.get('#sellCN').should('be.disabled').and('have.value', cust)
+
+          // ── Step 4: the item can't change (dropdown locked) — only adjust the qty (2 -> 1), then
+          //     click "Update Item". ─────────────────────────────────────────────────────────────
+          cy.wait(1000) // let loadStock finish populating the rate fields for the locked item
+          cy.get('#sellItems').clear({ force: true }).type('1', { force: true })
+          cy.get('#addInviceItem').click({ force: true }) // "Update Item" -> replaces the line in place
+          // the line was REPLACED, not duplicated: still exactly one line.
+          cy.get('#tablesi tbody tr').should('have.length', 1)
+
+          // ── Step 5: customer is locked & already filled — just save -> routes to updateSell. ──────
+          cy.get('#addSell').click({ force: true })
+
+          cy.wait('@updateSell').then(({ response }) => {
+            // same invoice number, success.
+            expect(response.body.status, JSON.stringify(response.body)).to.eq('SUCCESS')
+            expect(invNo(response.body), 'invoice number is unchanged by the edit').to.eq(invoiceNo)
+
+            // ── Step 6: stock went UP by 1 (old 2 sold, new 1 sold => +1 returned to stock). ───────
+            stockQty(itemId).then((after) => {
+              expect(after, 'stock after edit = before + 1').to.eq(before + 1)
+            })
+            // ── Step 7: the edit PERSISTED — the invoice now has exactly one line, and that line's
+            //     quantity is the new value (1), proving the qty change reached the DB. ─────────────
+            cy.request('/getUserSell').then((s2) => {
+              const lines = rows(s2).filter(x => x.customerHistory && x.customerHistory.invoiceNo === invoiceNo)
+              expect(lines.length, 'invoice has exactly one line after edit').to.eq(1)
+              expect(Number(lines[0].quantity), 'persisted quantity is the edited value').to.eq(1)
+            })
+          })
+        })
+      })
+    })
+  })
+})

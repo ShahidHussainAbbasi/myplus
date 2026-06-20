@@ -402,6 +402,10 @@ public class SellController {
 			customerHistory.setCustomer(customerObj);
 			customerHistoryService.save(customerHistory);
 
+			// Running balance is the sum of this customer's invoice headers — recompute now that this
+			// sale's header exists, so under/over-payments carry across invoices correctly.
+			customerService.recomputeDue(customerObj);
+
 			List<SellDTO> sells = ObjectMapperUtils.mapAll(dto.getSales(), SellDTO.class);
 			for (SellDTO sell : sells) {
 				sell.setCustomerHistory(modelMapper.map(customerHistory, CustomerHistoryDTO.class));
@@ -547,6 +551,11 @@ public class SellController {
 			if (due != null) ch.setDueAmount(due);
 			if (dto.getDueDate() != null) ch.setDueDate(dto.getDueDate());
 			customerHistoryService.save(ch);
+
+			// Recompute the customer's running balance from all their invoice headers — this edited
+			// header now carries its new (paid − bill), so the prior balance + this change are correct
+			// without any lossy in-place reversal of the original amounts.
+			customerService.recomputeDue(customerObj);
 
 			// 5) Insert the edited line items (stock already adjusted above; rates come from the stock).
 			for (SellDTO s : dto.getSales()) {

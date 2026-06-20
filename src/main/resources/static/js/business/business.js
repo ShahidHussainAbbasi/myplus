@@ -249,13 +249,38 @@ $(document).ready(function() {
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
 			// obj.item = item;
 
-        	data.push(obj);
+        	// (cart insert handled below: append, or replace-in-place when editing)
 			var arr = [
-				obj.itemId,escHtml(obj.itemName),obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
+				obj.itemId,obj.itemName,obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
+			// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in
+				// place (no duplicate). A brand-new item is still appended. New-sale mode always appends.
+				var existingIdx = window.editingInvoice
+					? data.findIndex(function(d){ return String(d.itemId) === String(obj.itemId); })
+					: -1;
+				if (existingIdx >= 0) {
+					// The item is locked in edit mode, so carry the original line's stock identity onto the
+						// edited line. updateSell keys stock by stockId — the sell form never sets it, so without
+						// this the line would save with NULL stock and drop out of the report.
+						var prevStock = data[existingIdx].stock || {};
+						if (prevStock.stockId != null) obj.stock.stockId = prevStock.stockId;
+						if (prevStock.batchNo != null) obj.stock.batchNo = prevStock.batchNo;
+						data[existingIdx] = obj;
+					// tablesi.rows().every(function(){
+					// 	// if (String(this.data()[0]) === String(obj.itemId)) { this.data(arr); }
+					// 	this.data(arr);
+					// });
+					// tablesi.draw(false);
+				} else {
+					data.push(obj);
+					// tablesi.row.add(arr).draw();
+				}
 			resetForm();
 			resetBSDD('sellItemDD');
+			// Cart changed (item added / qty updated) → recompute Change & Due from the live cart total
+			// (#sellTotal). Standard POS: Due = bill − Received for THIS invoice.
+			calculateChange();
         }else{
         	showFormError('Please select an item and enter a valid quantity.');
         	return false;
@@ -277,6 +302,7 @@ function UIT(id){
 // paid/due) back into the cart (iDiv) and the sell form, in an "editing INV-xxxx" state. Saving
 // then routes to updateSell (same invoice #, stock & dues adjusted by the deltas).
 function loadSellForEdit(sellId){
+	edit = true;
 	$.get(serverContext + "getSellInvoice?sellId=" + encodeURIComponent(sellId), function(resp){
 		if(!resp || resp.status !== "SUCCESS" || !resp.object){
 			showFormError((resp && resp.message) || "Could not load this sale for editing.");
@@ -305,23 +331,44 @@ function loadSellForEdit(sellId){
 				stock: stk
 			};
 			data.push(item);
-			tablesi.row.add([
-				item.itemId, escHtml(item.itemName || ''), item.quantity,
-				stk.bsellRate, stk.bsellDiscount, item.totalAmount,
-				"<button id='DII' onclick=UIT(" + item.itemId + ")>Del</button>"
-			]);
+			$("#sellRec").val('');
+			// tablesi.row.add([
+			// 	item.itemId, escHtml(item.itemName || ''), item.quantity,
+			// 	stk.bsellRate, stk.bsellDiscount, item.totalAmount,
+			// 	"<button id='DII' onclick=UIT(" + item.itemId + ")>Del</button>"
+			// ]);
 		});
-		if(tablesi){ tablesi.draw(); }
-		// 3) fill the customer form (manual mode shows the name/contact fields)
-		if(typeof onCustomerModeChange === 'function') onCustomerModeChange('manual');
-		$("#sellCN").val(inv.customer ? (inv.customer.name || '') : '');
+		// if(tablesi){ tablesi.draw(); }
+		// 3) LOCK the customer — in edit mode you change quantities/payment, not WHO the customer is.
+		//    If the invoice's customer is in the dropdown, show Select mode with it chosen + disabled;
+		//    otherwise show Manual mode. Either way the name field is filled (the save reads it) and the
+		//    customer inputs are disabled. The customerId is remembered so updateSell updates THAT
+		//    customer in place (no duplicate).
+		var custId = inv.customer ? (inv.customer.customerId != null ? inv.customer.customerId
+		                          : (inv.customer.id != null ? inv.customer.id : null)) : null;
+		var inDD = custId != null && $('#sellCustomerDD option[value="' + custId + '"]').length > 0;
+		if(typeof onCustomerModeChange === 'function') onCustomerModeChange(inDD ? 'select' : 'manual');
+		if(inDD){ $('#sellCustomerDD').val(String(custId)); }
+		$("#sellCN").val(inv.customer ? (inv.customer.name || '') : '');     // the save reads name/contact
 		$("#sellCC").val(inv.customer ? (inv.customer.contact || '') : '');
-		$("#sellRec").val(inv.paidAmount != null ? inv.paidAmount : '');
+		// $("#sellRec").val(inv.paidAmount != null ? inv.paidAmount : '');
+		$("#sellRec").val('');
+		$("#sellCh,#sellDueThis").val('');         // cleared until the cashier re-enters Received
+		window.selectedCustomerDue = null;          // hide account preview while editing (avoids double-count)
+		$("#sellAccountRow").hide();
+		// $('#sellCustomerDD').prop('disabled', true);   // customer cannot be changed while editing
+		// $('#sellCN').prop('disabled', true);
+		// $('#sellCC').prop('disabled', true);
 		// 4) enter edit state + show the banner
-		window.editingInvoice = { chId: inv.customer_history_id, invoiceNo: inv.invoiceNo };
+		window.editingInvoice = { chId: inv.customer_history_id, invoiceNo: inv.invoiceNo, customerId: custId };
 		showSellEditBanner(inv.invoiceNo);
+		setSellItemBtnMode(true);   // the cart-add button becomes "Update Item" while editing
+		// Auto-load the line into the form (item shown but LOCKED, qty editable) so the cashier just
+		// adjusts the quantity and clicks "Update Item".
+		if(data.length) loadCartLineIntoForm(data[0].itemId);
 		// 5) bring the form into view
 		try { $('html, body').animate({ scrollTop: $('#sellDiv').offset().top }, 300); } catch(e){}
+		updateReadOnly(true);
 	}).fail(function(){
 		showFormError("Could not load this sale for editing.");
 	});
@@ -339,13 +386,51 @@ function showSellEditBanner(invoiceNo){
 	$('#cancelSellEdit').off().on('click', cancelSellEdit);
 }
 
-function cancelSellEdit(){
+// Toggle the cart-add button between "Add to Cart" (new sale) and "Update Item" (editing an invoice).
+function setSellItemBtnMode(editing){
+	var $b = $('#addInviceItem');
+	if(!$b.length) return;
+	$b.html(editing
+		? "<span class='glyphicon glyphicon-pencil'></span> Update Item"
+		: "<span class='glyphicon glyphicon-shopping-cart'></span> Add to Cart");
+}
+
+// Load one cart line into the item form for editing. In edit mode the ITEM is FIXED — the dropdown is
+// disabled so only the quantity/amounts of that line can change; "Update Item" then replaces this same
+// line in place.
+function loadCartLineIntoForm(itemId){
+	var line = data.find(function(d){ return String(d.itemId) === String(itemId); });
+	if(!line) return;
+	$('#sellItemDD').val(String(itemId));
+	if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+	loadStock($('#sellItemDD :selected').text(), itemId);   // fills rate/discount/stock (async $.get)
+	$('#sellItems').val(line.quantity);                     // keep the line's qty (loadStock won't override >0)
+	$('#sellItemDD').prop('disabled', true);                // lock the item while editing
+	if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+}
+
+// Leave edit mode: drop the editing flag, banner, restore the button label, and UNLOCK the item
+// dropdown. Safe to call when not editing (it just normalises the controls). Called on Cancel and
+// after a successful save.
+function exitSellEditMode(){
 	window.editingInvoice = null;
+	edit = false;
+	$('#sellEditBanner').remove();
+	setSellItemBtnMode(false);
+	$('#sellItemDD').prop('disabled', false);
+	if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+	$('#sellCustomerDD').prop('disabled', false);   // unlock the customer controls
+	$('#sellCN').prop('disabled', false);
+	$('#sellCC').prop('disabled', false);
+}
+
+function cancelSellEdit(){
 	data.length = 0;
 	if(tablesi){ tablesi.clear().draw(); }
-	$('#sellEditBanner').remove();
 	$("#sellCN,#sellCC,#sellRec").val('');
 	if(typeof resetForm === 'function') resetForm();
+	exitSellEditMode();
+	updateReadOnly(false);
 }
 
 // ─── Team / Users (owner-only) ────────────────────────────────────────────────
@@ -421,11 +506,17 @@ function CIT(data){
 function resetCart(){
 	data = [];
 	tablesi.clear().draw();
+	$("#sellRec,#sellCh,#sellDueThis,#sellPrevDue,#sellNewTotalDue").val('');
+	window.selectedCustomerDue = null;
+	$("#sellAccountRow").hide();
 	onCustomerModeChange('select');
 	$('input[name="customerInputMode"][value="select"]').prop('checked', true);
+	exitSellEditMode();   // a save (incl. updateSell) ends the edit: clear flag/banner, restore button
+	updateReadOnly(false);
 }
 function loadDataTable(){
 	tableSellReport.clear().draw();
+	edit = false;
 
 	var table = tableV.toLowerCase();
 	// Read current page length from the active DataTable for this entity (not hardcoded to Sell)
@@ -552,15 +643,25 @@ function loadDataTable(){
 					});
 				} else if (getAll === "Sell") {
 					$.each(collections, function(ind, obj) {
+						var ch = obj.customerHistory || null;
+						var custName = (ch && ch.customer && ch.customer.name) ? ch.customer.name
+									: (obj.customer && obj.customer.name ? obj.customer.name : '');
+						// "This invoice's due": header dueAmount is stored as (paid − bill), negative while
+						// owing; show the positive amount still owed (0 when fully paid).
+						var chDue = (ch && ch.dueAmount != null) ? Number(ch.dueAmount) : 0;
+						var owed = chDue < 0 ? (-chDue) : 0;
 						allRows.push([
 							"<div id=sellId>"+obj.sellId+"</div>",
-							"<div id=sellInvoiceNo>"+escHtml(obj.customerHistory ? (obj.customerHistory.invoiceNo || '') : '')+"</div>",
+							"<div id=sellInvoiceNo>"+escHtml(ch ? (ch.invoiceNo || '') : '')+"</div>",
+							"<div id=sellCustomerName>"+escHtml(custName)+"</div>",
 							"<div id=sellItemName>"+escHtml(obj.itemName)+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
 							"<div id=sellItemExpiry>"+obj.stock.bexpDate+"</div>",
 							"<div id=sellPurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stock.bsellRate+"</div>",
 							"<div id=sellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stock.bsellDiscount+"</div>",
-							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
+							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>",
+							"<div id=sellDueAmount>"+owed.toFixed(2)+"</div>",
+							"<div id=sellNetAmount>"+obj.netAmount+"</div>",
 							obj.updated
 						]);
 					});
@@ -597,7 +698,7 @@ function loadSellCustomers() {
 	$.get(serverContext + "getUserCustomer", function(res) {
 		if (res && res.collection) {
 			$.each(res.collection, function(i, c) {
-				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '">' + escHtml(c.name) + '</option>');
+				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '">' + escHtml(c.name) + '</option>');
 			});
 		}
 	}).fail(function() {
@@ -612,10 +713,14 @@ function onSellCustomerSelect(sel) {
 		$("#sellCN").val(opt.text());
 		$("#sellCC").val(opt.data('contact') || '');
 		document.getElementById("sellCustomerDD").style.removeProperty('border-color');
+		var due = Number(opt.data('due'));
+		window.selectedCustomerDue = isNaN(due) ? 0 : due;   // existing customer's running balance
 	} else {
 		$("#sellCN").val('');
 		$("#sellCC").val('');
+		window.selectedCustomerDue = null;                   // no account context (nothing picked)
 	}
+	refreshAccountDuePreview();
 }
 
 function onCustomerModeChange(mode) {
@@ -636,6 +741,9 @@ function onCustomerModeChange(mode) {
 		$('#btnModeManual').addClass('active');
 		$('#btnModeSelect').removeClass('active');
 	}
+	// Switching mode clears the selected customer, so drop the account-balance preview.
+	window.selectedCustomerDue = null;
+	if (typeof refreshAccountDuePreview === 'function') refreshAccountDuePreview();
 }
 
 function getDashboardData() {
@@ -949,7 +1057,7 @@ function loadStock(label,value){
 	bsellDiscount: 0
 	bsellDiscountType: "%"
 	bsellRate: 0
-	edit = false;
+	// edit = false;
 	$("#purchasePurchaseRate").val("");
 	$("#purchaseSellRate").val("")
 	$("#sellPurchaseRate").val("");
@@ -1109,7 +1217,9 @@ function calculateNetSell(){
 	$("#sellItems").removeClass("alert-danger");
 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
 	discountType = $("#sellDiscountTypeDD :selected").val();
-	if(edit){
+	// editing an existing sale → trust the displayed stock; key on editingInvoice, not the shared `edit`
+	// global (which resetBSDD flips off after every cart add).
+	if(window.editingInvoice){
 		batchStock = $("#sellStock").val()*ONE;
 	}
 	$("#sellStock").val(batchStock);
@@ -1198,11 +1308,20 @@ function calculateChange() {
 	$("#dueDateTemp").hide();
 	$('#displayDateWrapper').hide();
 
-	var recAm = $("#sellRec").val() * ONE;
-    var sellTotal = $("#sellTotal")[0].innerHTML * ONE;
+	var recAm = ($("#sellRec").val() * ONE) || 0;
+    var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
     var change = recAm - sellTotal;
-    
+
+    // sellCh keeps the SIGNED change/due (received − bill) — addSell submits this as customer.dueAmount.
+    // Do not change its meaning; the display fields below are derived from it.
     $("#sellCh").val(change);
+
+    // Due (this sale) = positive amount still owed on the current cart (0 when fully paid/overpaid).
+    var dueThis = change < 0 ? -change : 0;
+    $("#sellDueThis").val(dueThis.toFixed(2));
+
+    // Account preview (existing customer only): previous balance + this sale = new total outstanding.
+    refreshAccountDuePreview(dueThis);
 
     if (change < 0) {
         // Customer owes money — show due date field
@@ -1213,6 +1332,26 @@ function calculateChange() {
         $("#dueDateTemp").hide();
         $('#displayDateWrapper').hide();
     }
+}
+
+// Show the running-balance impact for a known (dropdown-selected) customer. window.selectedCustomerDue
+// holds their current outstanding balance; null for a walk-in/manual customer or while editing, in which
+// case the account row stays hidden. Re-derives this sale's due if not passed (e.g. on customer select).
+function refreshAccountDuePreview(dueThis) {
+	if (dueThis == null) {
+		var recAm = ($("#sellRec").val() * ONE) || 0;
+		var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
+		var ch = recAm - sellTotal;
+		dueThis = ch < 0 ? -ch : 0;
+	}
+	var prev = Number(window.selectedCustomerDue);
+	if (window.selectedCustomerDue == null || isNaN(prev)) {
+		$("#sellAccountRow").hide();
+		return;
+	}
+	$("#sellPrevDue").val(prev.toFixed(2));
+	$("#sellNewTotalDue").val((prev + dueThis).toFixed(2));
+	$("#sellAccountRow").show();
 }
 
 // function calculateChange(){

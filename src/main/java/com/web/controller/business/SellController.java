@@ -89,6 +89,20 @@ public class SellController {
         }
     }
 
+    // In-place edit of an existing invoice (Phase 3). The frontend routes here (instead of addSell)
+    // when the cart carries a customer_history_id; business-service reverts the old lines' stock/dues
+    // and re-applies the edited cart under the SAME invoice number, all-or-nothing.
+    @RequestMapping(value = "/updateSell", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> updateSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
+        try {
+            return client.postJson("/updateSell", dto);
+        } catch (Exception e) {
+            LOGGER.error("updateSell proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @PostMapping(value = "/addSelling")
     @ResponseBody
     public Map<String, Object> addSelling(@RequestBody final java.util.List<SellDTO> dtos, final HttpServletRequest request) {

@@ -20,7 +20,9 @@ import java.util.Map;
  * Owner/team management: a company's SUPER owner creates ADMIN/USER members in their OWN organization
  * and lists them. Confined to the caller's ACTIVE org, read from the Bearer JWT — /api/auth/** has no
  * gateway org-injection, so we read activeOrgId from the token here (the token is trusted: the
- * JwtAuthFilter already validated it and SUPER_PRIVILEGE is enforced below).
+ * JwtAuthFilter already validated it and ROLE_OWNER is enforced below). Gated on the OWNER *role*
+ * (not SUPER_PRIVILEGE) so a DEMO account — which has super privileges to use the app but is NOT an
+ * owner — cannot create team members.
  */
 @RestController
 @RequestMapping("/api/auth/org/users")
@@ -31,7 +33,7 @@ public class OrgUserController {
     private final JwtService jwtService;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('SUPER_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('ROLE_OWNER')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> create(
             @RequestBody Map<String, String> body,
             @RequestHeader("Authorization") String auth) {
@@ -46,7 +48,7 @@ public class OrgUserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('SUPER_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('ROLE_OWNER')")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> list(
             @RequestHeader("Authorization") String auth) {
         Long orgId = orgId(bearer(auth));

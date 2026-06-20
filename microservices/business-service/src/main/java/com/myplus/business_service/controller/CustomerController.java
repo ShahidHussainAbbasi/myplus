@@ -50,6 +50,17 @@ public class CustomerController {
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
 	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
+	/** Role-aware visibility: SUPER/owner sees the whole org's customers; others only their own. */
+	private boolean seesAllOrg() {
+		AuthenticatedUser u = requestUtil.getCurrentUser();
+		return u != null && u.getAuthorities() != null && u.getAuthorities().stream()
+				.anyMatch(a -> "SUPER_PRIVILEGE".equals(a.getAuthority()));
+	}
+	/** Org-wide for SUPER, own-only for everyone else. */
+	private List<Customer> visibleCustomers() {
+		return seesAllOrg() ? customerService.findScoped(orgId(), userId())
+		                    : customerService.findOwnScoped(orgId(), userId());
+	}
 
 	@RequestMapping(value = "/getUserCustomer", method = RequestMethod.GET)
 	@ResponseBody
@@ -59,7 +70,7 @@ public class CustomerController {
 			// optional pagination (slice 24): when page&size are sent return that page; else full list (UI contract)
 			List<Customer> objs = (page != null && size != null)
 					? customerService.findScoped(orgId(), userId(), org.springframework.data.domain.PageRequest.of(page, size))
-					: customerService.findScoped(orgId(), userId());
+					: visibleCustomers();   // role-aware: SUPER = org, others = own
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -85,7 +96,7 @@ public class CustomerController {
 	public String getUserCustomers(final HttpServletRequest request) {
 		StringBuffer sb = new StringBuffer();
 		try {
-			List<Customer> objs = customerService.findScoped(orgId(), userId());
+			List<Customer> objs = visibleCustomers();   // role-aware: SUPER = org, others = own
 
 			objs.forEach(d -> {
 				sb.append("<option value="+d.getCustomerId()+">"+d.getName()+"</option>");
@@ -102,7 +113,7 @@ public class CustomerController {
 	public GenericResponse getAllCustomer(final HttpServletRequest request) {
 		try {
 			// was findAll() — cross-tenant leak; now scoped to the active org.
-			List<Customer> objs = customerService.findScoped(orgId(), userId());
+			List<Customer> objs = visibleCustomers();   // role-aware: SUPER = org, others = own
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
@@ -124,9 +135,10 @@ public class CustomerController {
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getUserId());
 
-			// dup-name check within the active tenant (was a userId-only Example probe)
+			// dup-name check among the creator's OWN customers (per-user model: two users may each
+			// have a customer of the same name; SUPER aggregates but still creates under itself).
 			if(appUtil.isEmptyOrNull(dto.getCustomerId())){
-				boolean exists = customerService.findScoped(orgId(), userId()).stream()
+				boolean exists = customerService.findOwnScoped(orgId(), userId()).stream()
 						.anyMatch(c -> c.getName()!=null && c.getName().equalsIgnoreCase(dto.getName()));
 				if(exists) {
 					return new GenericResponse("FOUND", "Customer '" + dto.getName() + "' already exists.");
