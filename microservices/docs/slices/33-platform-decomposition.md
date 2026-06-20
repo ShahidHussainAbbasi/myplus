@@ -339,6 +339,30 @@ eventually purchase (stock-in). This is the largest, highest-risk phase — henc
 - **D3 = defer purchase.** Prove sell↔stock against directly-seeded inventory stock first; migrate
   purchase→inventory stock-in as its own later phase.
 
+**D4 (the big one) — item↔product identity: SETTLED = UNIFY ON CATALOG NOW (user, 2026-06-20).**
+Discovered while grounding 6c: a sell line uses business-service's **local `Item` id**; local `Stock` is keyed
+by `itemId`. business `Item` is a *separate product master* from catalog `Product` — different id spaces, no
+mapping. The saga can't decrement inventory stock without a catalog `productId`. User chose to **unify**:
+business `Item` is retired; catalog `Product` becomes the single master; sells reference catalog `productId`.
+This re-scopes Phase 6 into a unification program (touches data + the monolith sell UI), sequenced below.
+
+**Unification sequence (re-scopes 6c; each a checkpoint):**
+- **U1 — catalog field parity (additive, low-risk): DONE (awaiting build).** catalog `Product` gained
+  `manufacturer` (entity + DTO + toDto/fromDto), parity with business `Item.company`; `icode`→`sku`,
+  `iname`→`name`, `idesc`→`description`, `unit` already align; `category` string resolves to a `Category`
+  during U2; batch/stock/venderId are inventory/purchasing, not catalog. Nullable; ddl-auto adds the column
+  (catalog has no Flyway). No behavior change. (`mvn -pl catalog-service -am clean install -DskipTests`)
+- **U2 — item→product migration:** one-time per-org ETL copying business `Item` rows into catalog `Product`
+  (cross-DB, scripted), recording an `itemId → productId` map for the transition window.
+- **U3 — sell flow on productId:** SellDTO carries catalog `productId`; the flagged saga path resolves price
+  from catalog (D1), reserves inventory by `productId`, writes Sell/Invoice PENDING + outbox, confirms; release
+  compensation; idempotency. (Inventory stock seeded directly for now — purchase migration still deferred, D3.)
+- **U4 — monolith sell UI:** item picker reads catalog (`/api/catalog/products`), submits `productId`.
+- **U5 — cutover:** flip `trade.saga.enabled`, delete business `Item`+`Stock`, rename business→trade.
+
+Recommended first step: **U1** (additive catalog parity) — 100%-confident, no behavior change, unblocks U2.
+U2–U5 each get their own design/checkpoint; U3 carries the saga integration test.
+
 **Refinement these imply:** under strangler (D2) we do NOT stand up a parallel `trade-service` module now
 (that would duplicate a large service). Instead the saga sell-path is added **inside business-service behind
 the flag**; the rename business-service → `trade-service` is a cosmetic cutover step (6d), not a fork. So:

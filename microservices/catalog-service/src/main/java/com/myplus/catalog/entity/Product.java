@@ -31,6 +31,10 @@ public class Product {
     private Category category;
 
     private String unit;
+
+    /** Brand/manufacturer (slice 33, U1 — parity with business Item.company for the item→product migration). */
+    private String manufacturer;
+
     private BigDecimal sellingPrice;
     private BigDecimal taxRate;
 

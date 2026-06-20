@@ -92,6 +92,7 @@ public class ProductService {
                 .categoryId(p.getCategory() != null ? p.getCategory().getId() : null)
                 .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
                 .unit(p.getUnit())
+                .manufacturer(p.getManufacturer())
                 .sellingPrice(p.getSellingPrice())
                 .taxRate(p.getTaxRate())
                 .isActive(p.getIsActive())
@@ -112,6 +113,7 @@ public class ProductService {
             p.setCategory(cat);
         }
         p.setUnit(dto.getUnit());
+        p.setManufacturer(dto.getManufacturer());
         p.setSellingPrice(dto.getSellingPrice());
         p.setTaxRate(dto.getTaxRate());
         if (dto.getIsActive() != null) p.setIsActive(dto.getIsActive());

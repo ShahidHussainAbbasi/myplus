@@ -14,6 +14,7 @@ public class ProductDTO {
     private Long categoryId;
     private String categoryName;
     private String unit;
+    private String manufacturer;
     private BigDecimal sellingPrice;
     private BigDecimal taxRate;
     private Boolean isActive;
