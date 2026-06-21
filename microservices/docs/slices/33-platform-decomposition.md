@@ -410,8 +410,16 @@ This re-scopes Phase 6 into a unification program (touches data + the monolith s
     catalog price, both data-driven (no businessDashboard.html template edit needed). **Cypress:**
     `cypress/e2e/business/saga-sell.cy.js` — request-based: scans for a stocked+migrated item, sells it,
     asserts on-hand drops by 1 (run headed with the saga flag on).
-  - [ ] **U4.3** item picker reads catalog + submits productId (then drop the itemId translation) — the
-    bigger picker rewrite; do with Cypress once U4.1/U4.2 verified.
+  - [~] **U4.3 — backend DONE; frontend DEFERRED to U5 (decision).**
+    - [x] **Backend (committed):** `SellDTO.productId`; `SagaSellService` uses it directly when present, else
+      translates `itemId` (back-compat). Pre-staged `GET /productStock?productId=` (business) + monolith
+      `/catalogProducts` proxy. So the catalog picker can submit `productId` with **no further backend change**.
+    - [ ] **Frontend (deferred):** switching `business.js` `#sellItemDD` to catalog products + cart/submit to
+      `productId` touches a tangled, shared, unverifiable-blind flow (global `data[]` cart keyed on itemId,
+      `loadStock` shared with Purchase, edit-mode, the submit payload). It's **not required for the saga** —
+      the saga is proven live + via UI Cypress (`saga-sell-ui.cy.js`) using the itemId picker + server-side
+      translation. The picker swap is therefore folded into **U5** (when business `Item` is deleted), done
+      live with Cypress. Current state — saga on, itemId picker, translation bridging — is a valid end-state.
 - **U5 — cutover:** flip `trade.saga.enabled`, delete business `Item`+`Stock`, rename business→trade.
 
 Recommended first step: **U1** (additive catalog parity) — 100%-confident, no behavior change, unblocks U2.
