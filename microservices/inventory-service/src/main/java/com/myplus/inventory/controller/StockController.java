@@ -2,13 +2,18 @@ package com.myplus.inventory.controller;
 
 import com.myplus.common.web.ApiResponse;
 import com.myplus.common.web.PageResponse;
+import com.myplus.common.security.CurrentUser;
+import com.myplus.commerce.contracts.dto.StockImportLine;
 import com.myplus.inventory.dto.StockDTOs.*;
 import com.myplus.inventory.entity.StockEntry;
+import com.myplus.inventory.service.StockImportService;
 import com.myplus.inventory.service.StockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/inventory/stock")
@@ -16,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class StockController {
 
     private final StockService stockService;
+    private final StockImportService stockImportService;
 
     @PostMapping("/add")
     public ResponseEntity<ApiResponse<StockEntry>> addStock(@RequestBody StockEntryDTO dto) {
@@ -46,5 +52,12 @@ public class StockController {
     @GetMapping("/summary")
     public ResponseEntity<ApiResponse<StockSummaryDTO>> summary() {
         return ResponseEntity.ok(ApiResponse.success(stockService.getSummary()));
+    }
+
+    /** Bulk opening-stock seed for the item→product migration (slice 33, U2b). Returns the count created.
+     *  Raw body (not ApiResponse) so trade-service's InventoryClient.importStock deserializes it directly. */
+    @PostMapping("/import")
+    public Integer importStock(@RequestBody List<StockImportLine> lines) {
+        return stockImportService.importStock(lines, CurrentUser.organizationId(), CurrentUser.userId());
     }
 }

@@ -1,11 +1,14 @@
 package com.myplus.commerce.contracts.client;
 
+import com.myplus.commerce.contracts.dto.StockImportLine;
 import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.annotation.PostExchange;
+
+import java.util.List;
 
 /**
  * Declarative client for the inventory-service stock-reservation API — the three saga steps of the
@@ -29,4 +32,8 @@ public interface InventoryClient {
     /** Compensation — release a held reservation (sale failed/abandoned): held stock returns. Idempotent. */
     @PostExchange("/reservations/{reservationId}/release")
     StockReservationResponse release(@PathVariable String reservationId);
+
+    /** Seed opening stock for migrated products (item→product, slice 33 U2b). Returns the number created. */
+    @PostExchange("/stock/import")
+    Integer importStock(@RequestBody List<StockImportLine> lines);
 }

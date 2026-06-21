@@ -1,7 +1,9 @@
 package com.myplus.business_service.controller;
 
 import com.myplus.business_service.dto.CatalogMigrationResult;
+import com.myplus.business_service.dto.StockMigrationResult;
 import com.myplus.business_service.service.CatalogMigrationService;
+import com.myplus.business_service.service.StockMigrationService;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.common.security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CatalogMigrationController {
 
     private final CatalogMigrationService catalogMigrationService;
+    private final StockMigrationService stockMigrationService;
     private final RequestUtil requestUtil;
 
     @PostMapping("/migrate-catalog")
@@ -28,5 +31,13 @@ public class CatalogMigrationController {
     public ResponseEntity<CatalogMigrationResult> migrate() {
         AuthenticatedUser user = requestUtil.getCurrentUser();
         return ResponseEntity.ok(catalogMigrationService.migrate(user.getOrganizationId(), user.getUserId()));
+    }
+
+    /** Seed migrated products' opening stock into inventory (run after /migrate-catalog). Idempotent. */
+    @PostMapping("/migrate-stock")
+    @PreAuthorize("hasAuthority('ADD_ITEM')")
+    public ResponseEntity<StockMigrationResult> migrateStock() {
+        AuthenticatedUser user = requestUtil.getCurrentUser();
+        return ResponseEntity.ok(stockMigrationService.migrateStock(user.getOrganizationId(), user.getUserId()));
     }
 }

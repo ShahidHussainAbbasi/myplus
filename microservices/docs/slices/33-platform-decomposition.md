@@ -370,6 +370,13 @@ This re-scopes Phase 6 into a unification program (touches data + the monolith s
     sellable — kept separate to bound risk and because it crosses into inventory. (U3 verification can also
     seed stock directly.) **Tests:** catalog import endpoint (Testcontainers: dedup, category resolve, idempotency);
     business migration service (Mockito on CatalogClient + map persistence).
+  - **U2b DONE (awaiting build).** commerce-contracts `StockImportLine` + `InventoryClient.importStock`.
+    inventory: `StockImportService` (upsert StockLevel currentStock+=qty/costPrice, create opening StockEntry),
+    `POST /api/inventory/stock/import` (raw Integer for the client) + Testcontainers test. business:
+    `ItemCatalogMap.stockMigrated` flag + `findByOrganizationIdAndStockMigratedFalse`, `StockMigrationService`
+    (reads local Stock by itemId, builds lines, calls inventory, marks migrated — idempotent), admin `POST
+    /api/business/admin/migrate-stock` (`@PreAuthorize ADD_ITEM`); pure-Mockito always-run test.
+    (`mvn -pl inventory-service,business-service -am clean install -DskipTests`, then `… -am test`)
   - **U2 DONE (awaiting build).** Cross-service import DTOs put in **commerce-contracts** (`ProductImportLine`,
     `ProductImportResult`) so both sides share them; `CatalogClient.importProducts` added to the contract.
     Catalog side: `ProductRepository.findBySkuScoped`, `CategoryRepository.findByNameScoped`,

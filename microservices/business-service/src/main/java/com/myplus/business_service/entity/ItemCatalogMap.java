@@ -26,6 +26,10 @@ public class ItemCatalogMap {
 
     private Long organizationId;
 
+    /** Whether this item's local Stock has been seeded into inventory yet (slice 33, U2b). */
+    @Builder.Default
+    private boolean stockMigrated = false;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
