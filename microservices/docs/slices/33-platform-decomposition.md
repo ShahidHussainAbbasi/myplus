@@ -247,8 +247,16 @@ sequenceDiagram
   - [ ] 6c saga+outbox (flagged path) · 6d cut over + delete local Stock + rename.
 - [ ] **Phase 7 — rebase `pharma-service`.** Keep only Medicine clinical + Prescription/Dispensing; delete its
   `PharmacyStock`/supplier duplicates; compose catalog+inventory+trade.
-- [ ] **Phase 8 — `notification-service`.** Single email/SMS/push service; migrate auth/education/campaign
-  senders to call it; delete duplicate `EmailService`s.
+- [~] **Phase 8 — `notification-service`.** **Provider DONE (awaiting build).** New stateless service
+  (port 8093): `POST /api/notifications/email` (`EmailRequest{to,cc,subject,body}` → `NotificationService`
+  via JavaMailSender, best-effort, returns sent/failed); SecurityConfig; SMTP config (config-server
+  `notification-service.yml` + local `application.yml`, mirrors education's `spring.mail`); wired into parent
+  pom, gateway (`/api/notifications/**`, **no StripPrefix** — full-path controller), start-all/stop-all (8093).
+  Mockito `NotificationServiceTest` (builds+sends message / false on SMTP failure / rejects missing to).
+  **Also fixed:** catalog + inventory gateway routes had a `StripPrefix=2` mismatch (their controllers are
+  full-path) → removed, so the U4.3 `/catalogProducts` proxy + any gateway call to them resolves.
+  **Remaining (caller migration, incremental):** point auth/education/campaign EmailServices at this service
+  (via a NotificationClient), then delete the duplicate `EmailService`s. (`mvn -pl notification-service -am clean install -DskipTests`)
 - [ ] **Phase 9 — auth consolidation.** Move 2FA out of monolith `com.security.google2fa.*`; extract
   `common-captcha`; every dashboard calls `auth-service` for signup.
 
