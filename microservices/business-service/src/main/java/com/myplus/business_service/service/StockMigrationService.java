@@ -28,7 +28,7 @@ public class StockMigrationService {
 
     @Transactional
     public StockMigrationResult migrateStock(Long orgId, Long userId) {
-        List<ItemCatalogMap> maps = mapRepo.findByOrganizationIdAndStockMigratedFalse(orgId);
+        List<ItemCatalogMap> maps = mapRepo.findUnmigratedStock(orgId);
         List<StockImportLine> lines = new ArrayList<>();
 
         for (ItemCatalogMap m : maps) {

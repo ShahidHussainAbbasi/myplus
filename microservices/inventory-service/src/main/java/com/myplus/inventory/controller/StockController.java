@@ -43,6 +43,12 @@ public class StockController {
         return ResponseEntity.ok(ApiResponse.success(stockService.getCurrentStock(productId)));
     }
 
+    /** Raw current on-hand for inter-service callers (trade UI, slice 33 U4) — matches InventoryClient.getStockLevel. */
+    @GetMapping("/level/{productId}")
+    public Float stockLevel(@PathVariable Long productId) {
+        return stockService.getCurrentStock(productId);
+    }
+
     @GetMapping("/{productId}/history")
     public ResponseEntity<ApiResponse<PageResponse<StockEntry>>> history(@PathVariable Long productId, Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(

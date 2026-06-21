@@ -56,9 +56,13 @@ public class ProductImportService {
             }
             usedThisBatch.add(sku);
 
+            // catalog requires a name; fall back to the sku when the source item had none (incomplete data
+            // shouldn't drop the item — it must still map so it stays sellable).
+            String name = (dto.getName() == null || dto.getName().isBlank()) ? sku : dto.getName();
+
             Product p = Product.builder()
                     .sku(sku)
-                    .name(dto.getName())
+                    .name(name)
                     .description(dto.getDescription())
                     .unit(dto.getUnit())
                     .manufacturer(dto.getManufacturer())

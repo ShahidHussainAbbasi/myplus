@@ -5,6 +5,7 @@ import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.annotation.PostExchange;
 
@@ -36,4 +37,8 @@ public interface InventoryClient {
     /** Seed opening stock for migrated products (item→product, slice 33 U2b). Returns the number created. */
     @PostExchange("/stock/import")
     Integer importStock(@RequestBody List<StockImportLine> lines);
+
+    /** Current on-hand for a product (slice 33, U4) — lets the trade UI show inventory's stock, not local. */
+    @GetExchange("/stock/level/{productId}")
+    Float getStockLevel(@PathVariable Long productId);
 }

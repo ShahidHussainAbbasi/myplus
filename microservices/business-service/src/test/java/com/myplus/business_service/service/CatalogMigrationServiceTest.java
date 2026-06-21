@@ -47,7 +47,7 @@ class CatalogMigrationServiceTest {
     @SuppressWarnings("unchecked")
     void migrates_only_unmapped_items_and_persists_the_map() {
         when(itemRepo.findScoped(1L, 9L)).thenReturn(List.of(item(1L, "A1", "Aspirin"), item(2L, "B1", "Bandage")));
-        when(mapRepo.findItemIdsByOrganizationId(1L)).thenReturn(List.of(1L)); // item 1 already migrated
+        when(mapRepo.findMappedItemIds(1L)).thenReturn(List.of(1L)); // item 1 already migrated
         when(catalogClient.importProducts(anyList())).thenReturn(List.of(new ProductImportResult(2L, 200L)));
 
         CatalogMigrationResult result = service.migrate(1L, 9L);

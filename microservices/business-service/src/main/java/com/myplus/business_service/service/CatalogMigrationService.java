@@ -32,7 +32,7 @@ public class CatalogMigrationService {
     @Transactional
     public CatalogMigrationResult migrate(Long orgId, Long userId) {
         List<Item> items = itemRepo.findScoped(orgId, userId);
-        Set<Long> alreadyMapped = new HashSet<>(mapRepo.findItemIdsByOrganizationId(orgId));
+        Set<Long> alreadyMapped = new HashSet<>(mapRepo.findMappedItemIds(orgId));
 
         List<ProductImportLine> toImport = items.stream()
                 .filter(i -> !alreadyMapped.contains(i.getId()))

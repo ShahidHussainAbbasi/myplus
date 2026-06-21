@@ -66,8 +66,20 @@ public class StockController {
 	@Autowired
 	RequestUtil requestUtil;
 
+	@Autowired
+	com.myplus.business_service.config.TradeSagaProperties tradeSagaProperties;
+
+	@Autowired
+	com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;
+
+	@Autowired
+	com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
+
+	@Autowired
+	com.myplus.commerce.contracts.client.CatalogClient catalogClient;
+
     @Autowired
-    private AppUtil appUtil;  
+    private AppUtil appUtil;
     
 	ModelMapper modelMapper = new ModelMapper();
 
@@ -204,7 +216,25 @@ public class StockController {
 			}else {
 				dto.setIDesc("Item not registered");
 			}
-				
+
+			// U4 (slice 33): when the saga owns stock, source the sell screen's numbers from the new
+			// services — on-hand from inventory (U4.1) and sell price from catalog sellingPrice (U4.2) —
+			// instead of local Stock. Best-effort: falls back to the local values if the item isn't mapped
+			// or a service is unreachable, so the sell screen never breaks.
+			if (tradeSagaProperties.isEnabled()) {
+				try {
+					Long productId = itemCatalogMapRepo.findProductIdByItemId(itemId, orgId()).orElse(null);
+					if (productId != null) {
+						Float invStock = inventoryClient.getStockLevel(productId);
+						if (invStock != null) dto.setStock(invStock);                       // U4.1 on-hand
+						com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
+						if (p != null && p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());  // U4.2 price
+					}
+				} catch (Exception ex) {
+					LOGGER.warn("U4: inventory/catalog lookup failed for item {}, showing local values", itemId, ex);
+				}
+			}
+
 			return dto;
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause(), e);

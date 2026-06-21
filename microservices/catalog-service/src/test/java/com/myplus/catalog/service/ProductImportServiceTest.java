@@ -90,6 +90,14 @@ class ProductImportServiceTest {
     }
 
     @Test
+    void falls_back_name_to_sku_when_source_name_is_null() {
+        service.importProducts(List.of(item(7L, "SKU7", null, null)), ORG, USER);
+
+        assertThat(productRepository.findBySkuScoped("SKU7", ORG, USER))
+                .get().extracting("name").isEqualTo("SKU7");
+    }
+
+    @Test
     void reimport_is_idempotent_and_creates_no_duplicate() {
         ProductImportResult first = service.importProducts(List.of(item(5L, "SKU5", "Item5", null)), ORG, USER).get(0);
         ProductImportResult again = service.importProducts(List.of(item(5L, "SKU5", "Item5", null)), ORG, USER).get(0);

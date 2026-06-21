@@ -34,11 +34,14 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(productService.create(dto), "Created"));
     }
 
-    /** Bulk import for the item→product migration (slice 33, U2). Returns the clientRef→productId map. */
+    /**
+     * Bulk import for the item→product migration (slice 33, U2). Returns the clientRef→productId map.
+     * Raw (un-wrapped) response for the inter-service caller — matches {@code CatalogClient.importProducts}
+     * and the same raw convention as {@code /{id}/ref}.
+     */
     @PostMapping("/import")
-    public ResponseEntity<ApiResponse<List<ProductImportResult>>> importProducts(@RequestBody List<ProductImportLine> items) {
-        List<ProductImportResult> map = productImportService.importProducts(items, CurrentUser.organizationId(), CurrentUser.userId());
-        return ResponseEntity.ok(ApiResponse.success(map, "Imported " + map.size()));
+    public List<ProductImportResult> importProducts(@RequestBody List<ProductImportLine> items) {
+        return productImportService.importProducts(items, CurrentUser.organizationId(), CurrentUser.userId());
     }
 
     @GetMapping("/{id}")

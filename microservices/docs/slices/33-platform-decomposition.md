@@ -325,7 +325,7 @@ base `lb://catalog-service`. `StockEntry.product` (JPA FK) becomes `productId` (
 
 **Reality check (from reading `SellService.addSell`):** business-service owns its **own local `Stock` table**;
 `addSell` calls `stockService.updateStock(dto)` (local) then saves `Sell` + `CustomerHistory` — one local
-`@Transactional` in `myplusdb_business`. Sell rate/discount/batch all come from the **local** `Stock`.
+`@Transactional` in `myplusdb`. Sell rate/discount/batch all come from the **local** `Stock`.
 business-service's stock is **completely disconnected** from inventory-service's `StockLevel`/`StockEntry`.
 Purchase also stocks-in to the local `Stock`. So Phase 6 is not "add a saga to a remote call" — it is
 **rewiring trade's stock from local to inventory-as-system-of-record**, for both sell (stock-out) and
@@ -390,6 +390,22 @@ This re-scopes Phase 6 into a unification program (touches data + the monolith s
   from catalog (D1), reserves inventory by `productId`, writes Sell/Invoice PENDING + outbox, confirms; release
   compensation; idempotency. (Inventory stock seeded directly for now — purchase migration still deferred, D3.)
 - **U4 — monolith sell UI:** item picker reads catalog (`/api/catalog/products`), submits `productId`.
+  - [x] **U4.1 stock display DONE (awaiting build) — VERIFIED LIVE saga works (2026-06-21):** end-to-end live
+    test passed — sold item→product 12, inventory `stock_levels` decremented 132→130, saga reservation
+    CONFIRMED. The UI showing stale 132 was the expected gap (it read local `Stock`). Fix: `InventoryClient.
+    getStockLevel(productId)` + inventory raw `GET /api/inventory/stock/level/{productId}`; business
+    `getStock` now overrides the displayed quantity with inventory's on-hand when `trade.saga.enabled`
+    (translate itemId→productId via ItemCatalogMap; best-effort with local fallback so the screen never
+    breaks). Live notes: business-service DB = **myplusdb**; org=16; only 9 of 127 items had local Stock to
+    seed; stale `product_id→products` FKs in myplusdb_inventory dropped (V3 migration added).
+  - [x] **U4.2 price from catalog DONE (awaiting build).** business `getStock` also overrides the sell rate
+    with catalog `sellingPrice` when `trade.saga.enabled` (same best-effort/fallback block as U4.1, via
+    `CatalogClient.getProduct`). So the sell screen's "Stock In Hand" = inventory on-hand and "Sell Amount" =
+    catalog price, both data-driven (no businessDashboard.html template edit needed). **Cypress:**
+    `cypress/e2e/business/saga-sell.cy.js` — request-based: scans for a stocked+migrated item, sells it,
+    asserts on-hand drops by 1 (run headed with the saga flag on).
+  - [ ] **U4.3** item picker reads catalog + submits productId (then drop the itemId translation) — the
+    bigger picker rewrite; do with Cypress once U4.1/U4.2 verified.
 - **U5 — cutover:** flip `trade.saga.enabled`, delete business `Item`+`Stock`, rename business→trade.
 
 Recommended first step: **U1** (additive catalog parity) — 100%-confident, no behavior change, unblocks U2.

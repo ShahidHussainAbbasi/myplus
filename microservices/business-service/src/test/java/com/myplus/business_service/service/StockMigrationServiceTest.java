@@ -51,7 +51,7 @@ class StockMigrationServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void seeds_only_items_with_stock_and_flags_all_considered_maps() {
-        when(mapRepo.findByOrganizationIdAndStockMigratedFalse(1L))
+        when(mapRepo.findUnmigratedStock(1L))
                 .thenReturn(List.of(map(1L, 100L), map(2L, 200L)));
         when(stockRepo.findByItemId(1L)).thenReturn(Optional.of(stock(1L, 30f)));
         when(stockRepo.findByItemId(2L)).thenReturn(Optional.empty()); // no local stock
