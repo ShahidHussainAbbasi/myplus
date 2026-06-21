@@ -255,8 +255,14 @@ sequenceDiagram
   Mockito `NotificationServiceTest` (builds+sends message / false on SMTP failure / rejects missing to).
   **Also fixed:** catalog + inventory gateway routes had a `StripPrefix=2` mismatch (their controllers are
   full-path) → removed, so the U4.3 `/catalogProducts` proxy + any gateway call to them resolves.
-  **Remaining (caller migration, incremental):** point auth/education/campaign EmailServices at this service
-  (via a NotificationClient), then delete the duplicate `EmailService`s. (`mvn -pl notification-service -am clean install -DskipTests`)
+  **Caller migration (incremental):** shared contract `common-notify` (`EmailRequest` + `NotificationClient`
+  `@HttpExchange`); notification-service refactored onto it (raw `boolean` endpoint, `replyTo` support,
+  `/api/notifications/**` permitAll — internal infra, external gated by the gateway JWT).
+    - [x] **campaign-service migrated (awaiting build):** `NotificationClientConfig` (load-balanced proxy) +
+      `DemoLeadService` now calls `notificationClient.sendEmail` for the team + ack emails; removed its
+      `JavaMailSender`/`spring-boot-starter-mail`.
+    - [ ] **auth-service** (verification + reset emails) and **education-service** (alerts) → same pattern;
+      then delete their `EmailService`s. (`mvn -pl notification-service,campaign-service -am clean install -DskipTests`)
 - [ ] **Phase 9 — auth consolidation.** Move 2FA out of monolith `com.security.google2fa.*`; extract
   `common-captcha`; every dashboard calls `auth-service` for signup.
 

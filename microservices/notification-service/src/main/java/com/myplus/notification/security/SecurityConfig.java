@@ -22,8 +22,11 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // Internal infrastructure API: callers may be in public/no-user contexts (demo leads, registration,
+            // password reset), so the endpoint is permitAll at the service. External access is gated by the
+            // gateway's JwtAuthenticationFilter on /api/notifications/**; prod adds the internal-secret.
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**", "/api/notifications/public/**").permitAll()
+                .requestMatchers("/actuator/**", "/api/notifications/**").permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

@@ -34,6 +34,7 @@
     <module>common-web</module>
     <module>commerce-domain</module>
     <module>commerce-contracts</module>
+    <module>common-notify</module>
     <module>service-parent</module>
     <module>api-gateway</module>
     <module>auth-service</module>

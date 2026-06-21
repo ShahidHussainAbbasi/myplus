@@ -7,7 +7,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.List;
 
-import com.myplus.notification.dto.EmailRequest;
+import com.myplus.common.notify.EmailRequest;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +31,7 @@ class NotificationServiceTest {
     @Test
     void sends_email_with_recipients_cc_subject_and_body() {
         boolean sent = service.sendEmail(new EmailRequest(
-                List.of("a@test.com"), List.of("admin@test.com"), "Hi", "Body"));
+                List.of("a@test.com"), List.of("admin@test.com"), null, "Hi", "Body"));
 
         assertThat(sent).isTrue();
         ArgumentCaptor<SimpleMailMessage> msg = ArgumentCaptor.forClass(SimpleMailMessage.class);
@@ -46,14 +46,14 @@ class NotificationServiceTest {
     void returns_false_on_smtp_failure_instead_of_throwing() {
         doThrow(new org.springframework.mail.MailSendException("smtp down")).when(mailSender).send((SimpleMailMessage) org.mockito.ArgumentMatchers.any());
 
-        boolean sent = service.sendEmail(new EmailRequest(List.of("a@test.com"), null, "Hi", "Body"));
+        boolean sent = service.sendEmail(new EmailRequest(List.of("a@test.com"), null, null, "Hi", "Body"));
 
         assertThat(sent).isFalse();
     }
 
     @Test
     void rejects_missing_recipient() {
-        assertThatThrownBy(() -> service.sendEmail(new EmailRequest(null, null, "Hi", "Body")))
+        assertThatThrownBy(() -> service.sendEmail(new EmailRequest(null, null, null, "Hi", "Body")))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -1,6 +1,6 @@
 package com.myplus.notification.service;
 
-import com.myplus.notification.dto.EmailRequest;
+import com.myplus.common.notify.EmailRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +33,9 @@ public class NotificationService {
             message.setTo(req.getTo().toArray(new String[0]));
             if (req.getCc() != null && !req.getCc().isEmpty()) {
                 message.setCc(req.getCc().toArray(new String[0]));
+            }
+            if (req.getReplyTo() != null && !req.getReplyTo().isBlank()) {
+                message.setReplyTo(req.getReplyTo());
             }
             message.setSubject(req.getSubject());
             message.setText(req.getBody());
