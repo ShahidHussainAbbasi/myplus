@@ -48,9 +48,12 @@ public class SagaSellService {
         List<SagaLine> lines = new ArrayList<>();
         List<StockReservationLine> reservationLines = new ArrayList<>();
         for (SellDTO s : dto.getSales()) {
-            Long productId = itemCatalogMapRepo.findProductIdByItemId(s.getItemId(), orgId)
-                    .orElseThrow(() -> new RuntimeException(
-                            "Item " + s.getItemId() + " is not migrated to catalog; run the catalog migration first"));
+            // Catalog picker submits productId directly; legacy picker submits itemId → translate (back-compat).
+            Long productId = s.getProductId() != null
+                    ? s.getProductId()
+                    : itemCatalogMapRepo.findProductIdByItemId(s.getItemId(), orgId)
+                            .orElseThrow(() -> new RuntimeException(
+                                    "Item " + s.getItemId() + " is not migrated to catalog; run the catalog migration first"));
             ProductRef product = catalogClient.getProduct(productId);
             BigDecimal sellRate = (product != null && product.getSellingPrice() != null)
                     ? product.getSellingPrice() : BigDecimal.ZERO;

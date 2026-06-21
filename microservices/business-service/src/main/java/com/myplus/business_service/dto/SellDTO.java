@@ -26,6 +26,10 @@ public class SellDTO implements Serializable {
 	// private ItemDTO item;
 	private Long itemId = 0L;
 
+	// Catalog product id (slice 33, U4.3). The catalog-backed picker submits this directly; when null the
+	// saga falls back to translating itemId via ItemCatalogMap (back-compat with the legacy picker).
+	private Long productId;
+
 	private String itemName;
 	
 	private String itemCode;	
