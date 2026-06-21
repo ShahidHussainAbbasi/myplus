@@ -169,8 +169,24 @@ sequenceDiagram
     **superset** (added the request-attribute fallback + shared `REQUEST_ATTRIBUTE` constant, used by
     `HeaderAuthFilter`), then reduced every `RequestUtil` to a thin `@Component` delegating to it — callers
     untouched, behaviour identical. New `CurrentUserTest` (pure) covers both paths.
-  - [ ] **`AppUtil` reconciliation (still deferred).** The 4 `AppUtil` copies have genuinely diverged behaviour;
-    merging into `common-core` needs a per-service behavioral diff for review and is its own slice.
+  - [ ] **`AppUtil` reconciliation — ANALYSED, recommend DEFER (low value / real divergence).** Diffed all 4
+    (business 553 lines, education 97, welfare 43, agri 64):
+    - **Proven-identical subset (safe to share):** the 6 status constants (`SUCCESS/FAILED/FOUND/NOT_FOUND/
+      ERROR/INVALID`); the `dd-MM-yyyy` + `dd-MM-yyyy HH:mm:ss` formatters and their string helpers
+      (`todayDateStr`/`getDateStr`/`getLocalDateStr(LocalDate)`/`getLocalDateTimeStr`); the `isEmptyOrNull`
+      family incl. the `String` overload's `.equals("null")` guard; `le`/`li`/`lw` logging. ~40 lines.
+    - **GENUINELY diverged (a naive merge would change behaviour):**
+      (a) `getLocalDate(String)` — business declares `throws ParseException` (callers `try/catch` it; dropping the
+      checked exception is a *compile break* for those callers), the others don't.
+      (b) **month-boundary helpers differ in time-of-day:** business `firstDateTimeOfMonth()` = `withDayOfMonth(1)`
+      (keeps *now's* time), education zeroes to `00:00:00`; `lastDateTimeOfMonth()` business keeps now's time,
+      education sets `23:59:59`. These feed range queries — silently unifying them shifts results.
+      (c) business is a large superset (Jackson JSON, ~10 ModelMapper `Converter`s, `Sort`/`PageRequest` builders,
+      `validateEmail`/`validateMobileNumber`, `countryMap`, `notEmptyNorNull`) that belongs only in business.
+    - **Recommendation:** the only clean win is extracting the ~40-line identical subset into a shared base, but
+      welfare/agri have **no Cypress**, business's checked-exception + month-boundary semantics make *business*
+      participation risky, and the upside is tiny. **Defer** unless/until a new domain needs the helpers — at
+      which point extract the base and have new services use it, leaving the 4 incumbents untouched.
 - [x] **Phase 3 — `commerce-contracts` library.** **Decision (no prior inter-service pattern existed):
   `@HttpExchange` + load-balanced `RestClient`** — Spring's current direction, not maintenance-mode Feign;
   interfaces live here = clean DIP boundary. **Scope: contracts now, client beans in Phase 6.** Shipped the
