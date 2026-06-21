@@ -515,6 +515,55 @@ all idempotent on it / reservationId, so the relay and retries are safe.
 **Tests:** SagaSellService happy path + OUT_OF_STOCK reject + confirm-fails→release compensation (Mockito on
 the clients; Testcontainers for the invoice state transitions).
 
+## U4.3 + U5 — Cutover runbook (live session)
+
+The saga is proven live and purchases now feed inventory (D3). Cutover switches the sell screen to
+catalog/`productId` and makes the saga the only path. **Do this in a live session with the full stack up and
+Cypress driving the sell screen** — it changes the working money path. Tiered so each tier is shippable.
+
+### Tier 0 — Prerequisites (before flipping anything)
+- [ ] **Back up** `myplusdb`, `myplusdb_inventory`, `myplusdb_catalog`.
+- [ ] Migration re-run clean: `migrate-catalog` then `migrate-stock` (idempotent) — every sellable item mapped.
+- [ ] **Seed inventory stock** for items you intend to sell (purchase them in via D3, or accept OUT_OF_STOCK).
+- [ ] Saga verified live for **several** items (not just product 12), incl. an OUT_OF_STOCK rejection.
+- [ ] Business Cypress green with the saga flag ON: `sell.cy.js`, `flow.cy.js`, `stock.cy.js`, `saga-sell.cy.js`.
+
+### Tier 1 — Sell screen on catalog/productId (U4.3) — the functional cutover
+*Backend (business→trade):*
+- [ ] Monolith proxy `GET /catalogProducts` → gateway `/api/catalog/products` (picker source).
+- [ ] New `GET /productStock?productId=` (business) → returns `{stock: inventory on-hand, sellRate: catalog price}`
+      (reuses `InventoryClient.getStockLevel` + `CatalogClient.getProduct`). Replaces `getStock?itemId=` on the saga path.
+- [ ] `SellDTO` carries `productId`; `SagaSellService` uses it **directly** (drop the `ItemCatalogMap` translation).
+- [ ] `addSell` saga branch no longer needs `itemId`.
+*Frontend (`business.js` + `businessDashboard.html`):*
+- [ ] Item picker (`#sellItemDD`) loads catalog products: `value=productId`, text=name (+price).
+- [ ] On select → call `/productStock?productId=` (not `getStock?itemId=`); cart line keyed on `productId`,
+      no local `Stock` object (`stockId`/batch) on the saga line.
+- [ ] Sell submit sends `sales[].productId`.
+*Test:*
+- [ ] Update `saga-sell.cy.js` to the `productId` path; run headed. `sell.cy.js`/`flow.cy.js` still green.
+
+### Tier 2 — Make the saga the default + stop writing local Stock
+- [ ] Flip committed `trade.saga.enabled: true` (saga is now the only sell path).
+- [ ] `SellController.addSell` — remove the legacy local-Stock else-branch; `updateSell`/`saleReturn` move to
+      inventory adjust/return (or disable during cutover).
+- [ ] `PurchaseService.addPurchase` — drop the local `stockService.updateStock`; **inventory-only** stock-in.
+- [ ] Verify full Cypress suite green; soak a day on the flag-on default.
+
+### Tier 3 — Cleanup (bigger; can trail Tier 1–2)
+- [ ] Delete business `Stock` entity + `StockService`/`StockRepo` + stock-write endpoints (now inventory's).
+- [ ] **Item management → catalog**: point the item/itemType/unit CRUD screens at catalog-service; then delete
+      business `Item` (LARGE — Item underpins the whole business item UI; treat as its own slice).
+- [ ] Drop the `ItemCatalogMap` translation once nothing reads it (keep the table as audit, or migrate away).
+- [ ] Rename business-service → `trade-service` (module/package/gateway route/config/start-all) — cosmetic,
+      mechanical, do last; or keep the name and just treat it as trade.
+- [ ] Migrations to drop orphaned `stock`/`item` tables in `myplusdb`.
+
+> Reality check: **Tier 1–2 is the achievable cutover** (sell on catalog/inventory, saga default, no local
+> stock writes). **Tier 3 (delete Item + rename) is large** — Item backs the entire business item-management
+> UI — and is best its own slice, not crammed into the cutover. Pharmacy/marketplace can start composing
+> catalog/inventory/trade as soon as Tier 1–2 lands.
+
 ## Test
 **Standard (per user): every phase ships tests that run on `mvn test`.** Pure-logic = always-run unit tests
 (no Docker); repo/scoping/integration = `@DataJpaTest` + Testcontainers MySQL (`disabledWithoutDocker=true`,
