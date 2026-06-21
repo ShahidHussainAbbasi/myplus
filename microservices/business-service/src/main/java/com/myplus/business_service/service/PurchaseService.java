@@ -40,9 +40,20 @@ public class PurchaseService implements IPurchaseService{
 */
     @Autowired
     RequestUtil requestUtil;
-    
+
     @Autowired
     AppUtil appUtil;
+
+    @Autowired
+    com.myplus.business_service.config.TradeSagaProperties tradeSagaProperties;
+
+    @Autowired
+    com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;
+
+    @Autowired
+    com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
+
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
     
@@ -193,7 +204,37 @@ public class PurchaseService implements IPurchaseService{
 		obj.setStock(stock);
 		obj.setUserId(user.getUserId());                  // audit
 		obj.setOrganizationId(user.getOrganizationId());  // tenant scope
-		return this.save(obj);
+		Purchase saved = this.save(obj);
+		pushPurchaseToInventory(dto, stock, user);        // D3: dual-write stock-in to inventory
+		return saved;
+	}
+
+	/**
+	 * D3 (slice 33): when the saga is enabled, push the purchased quantity into inventory as an opening
+	 * StockEntry for the catalog product (translate itemId→productId), so inventory accumulates stock for
+	 * the saga over time. Best-effort: a failure here never fails the purchase (it is recorded locally;
+	 * reconcile inventory later). Only mapped items are pushed; unmapped items need migration first.
+	 */
+	void pushPurchaseToInventory(PurchaseDTO dto, Stock stock, AuthenticatedUser user) {
+		if (!tradeSagaProperties.isEnabled() || stock == null
+				|| dto.getQuantity() == null || dto.getQuantity() <= 0) {
+			return;
+		}
+		try {
+			itemCatalogMapRepo.findProductIdByItemId(dto.getItemId(), user.getOrganizationId())
+					.ifPresent(productId -> inventoryClient.importStock(List.of(
+							com.myplus.commerce.contracts.dto.StockImportLine.builder()
+									.productId(productId)
+									.quantity(dto.getQuantity())
+									.batchNo(stock.getBatchNo())
+									.expiryDate(stock.getBexpDate())
+									.purchasePrice(stock.getBpurchaseRate())
+									.costPrice(stock.getBpurchaseRate())
+									.build())));
+		} catch (Exception ex) {
+			LOG.warn("D3: inventory stock-in failed for item {} (purchase recorded locally; reconcile later)",
+					dto.getItemId(), ex);
+		}
 	}
 
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {

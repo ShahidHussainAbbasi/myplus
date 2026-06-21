@@ -336,8 +336,14 @@ eventually purchase (stock-in). This is the largest, highest-risk phase — henc
   the inventory FEFO batch `purchasePrice` in the reserve picks. catalog = price, inventory = cost.
 - **D2 = strangler behind a feature flag.** Keep business's local `Stock` working; add the saga sell-path
   alongside behind a flag (e.g. `trade.saga.enabled`, default off); verify against real inventory; then cut over.
-- **D3 = defer purchase.** Prove sell↔stock against directly-seeded inventory stock first; migrate
-  purchase→inventory stock-in as its own later phase.
+- **D3 = defer purchase → NOW DONE (awaiting build).** `PurchaseService.addPurchase` dual-writes the
+  purchased quantity into inventory when `trade.saga.enabled` (`pushPurchaseToInventory`: translate
+  itemId→productId, `InventoryClient.importStock` an opening StockEntry; best-effort so a purchase never
+  fails on inventory error; unmapped items skipped). Keeps local Stock too (legacy path during strangler).
+  So inventory accumulates stock for all items over time — the prerequisite for saga-as-default and the
+  U4.3+U5 picker cutover. Mockito `PurchaseStockInTest` (pushes when on / no-op off / no-op unmapped).
+  (Items that never get purchased stay OUT_OF_STOCK on the saga — correct; there is nothing to bulk-seed for
+  the 118 stockless items, they gain stock as purchased.)
 
 **D4 (the big one) — item↔product identity: SETTLED = UNIFY ON CATALOG NOW (user, 2026-06-20).**
 Discovered while grounding 6c: a sell line uses business-service's **local `Item` id**; local `Stock` is keyed
