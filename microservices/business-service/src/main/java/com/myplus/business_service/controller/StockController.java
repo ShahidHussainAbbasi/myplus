@@ -242,6 +242,28 @@ public class StockController {
 		}
 	}
 
+	/**
+	 * Stock + price for a CATALOG product (slice 33, U4.3 pre-stage). The catalog-backed picker will call
+	 * this (by productId) instead of getStock (by itemId): on-hand from inventory, sell rate from catalog.
+	 * Returns the same StockDTO shape as getStock so the sell screen can reuse its handler. Additive — nothing
+	 * calls it yet. Inventory/catalog calls are tenant-scoped via the propagated identity (no cross-tenant leak).
+	 */
+	@RequestMapping(value = "/productStock", method = RequestMethod.GET)
+	@ResponseBody
+	public StockDTO productStock(@RequestParam final Long productId) {
+		StockDTO dto = new StockDTO();
+		if (appUtil.isEmptyOrNull(productId)) return dto;
+		try {
+			Float invStock = inventoryClient.getStockLevel(productId);
+			if (invStock != null) dto.setStock(invStock);
+			com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
+			if (p != null && p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());
+		} catch (Exception e) {
+			LOGGER.warn("productStock lookup failed for product {}", productId, e);
+		}
+		return dto;
+	}
+
 	@RequestMapping(value = "/getStockByBatch", method = RequestMethod.GET)
 	@ResponseBody
 	public Stock getStockByBatch(@RequestParam final String batchNo) {
