@@ -17,8 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
  * Admin trigger for the item→product migration (slice 33, U2). Migrates the caller's organization. Role-gated
  * (ADD_ITEM) and idempotent — safe to re-run; only not-yet-migrated items are sent to catalog.
  */
+// Mapped at /admin/* (root-relative): the gateway route /api/business/** uses StripPrefix=2, so a call to
+// /api/business/admin/migrate-catalog reaches business-service as /admin/migrate-catalog (slice 33, U2).
 @RestController
-@RequestMapping("/api/business/admin")
+@RequestMapping("/admin")
 @RequiredArgsConstructor
 public class CatalogMigrationController {
 
