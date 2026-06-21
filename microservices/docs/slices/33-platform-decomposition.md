@@ -161,8 +161,16 @@ sequenceDiagram
   extracted); **`AppUtil`/`RequestUtil` are copied 4× but all 4 have DIVERGED** → reconciling them is
   deferred to **Phase 2b** (own slice, per-service diff, after commerce services exist — welfare/agri have
   no Cypress so it needs care). Build ✓ **BUILD SUCCESS** (2026-06-20). **DONE.**
-- [ ] **Phase 2b — `common-core` util reconciliation (deferred).** Merge the 4 diverged `AppUtil`/`RequestUtil`
-  copies into a shared `common-core`; diff every behavioral difference for review first.
+- [~] **Phase 2b — identity-util reconciliation.**
+  - [x] **`RequestUtil` consolidated (DONE).** The 4 diverged copies had functionally-equivalent `getCurrentUser()`
+    logic (SecurityContext + `_authenticated_user` request-attr fallback) plus, in business, ~100 lines of dead
+    helpers (`getRequestUserName`, `loadUserProperties`, `getPath`, `userProperties`, …). Verified only
+    `getCurrentUser()` is called anywhere across all 4 services. Made `common-security.CurrentUser.get()` a strict
+    **superset** (added the request-attribute fallback + shared `REQUEST_ATTRIBUTE` constant, used by
+    `HeaderAuthFilter`), then reduced every `RequestUtil` to a thin `@Component` delegating to it — callers
+    untouched, behaviour identical. New `CurrentUserTest` (pure) covers both paths.
+  - [ ] **`AppUtil` reconciliation (still deferred).** The 4 `AppUtil` copies have genuinely diverged behaviour;
+    merging into `common-core` needs a per-service behavioral diff for review and is its own slice.
 - [x] **Phase 3 — `commerce-contracts` library.** **Decision (no prior inter-service pattern existed):
   `@HttpExchange` + load-balanced `RestClient`** — Spring's current direction, not maintenance-mode Feign;
   interfaces live here = clean DIP boundary. **Scope: contracts now, client beans in Phase 6.** Shipped the

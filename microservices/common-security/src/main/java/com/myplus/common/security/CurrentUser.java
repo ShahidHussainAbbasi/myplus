@@ -2,6 +2,9 @@ package com.myplus.common.security;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.Optional;
 
@@ -12,12 +15,22 @@ import java.util.Optional;
  */
 public final class CurrentUser {
 
+    /** Request attribute {@link HeaderAuthFilter} mirrors the principal into; used as the fallback below. */
+    public static final String REQUEST_ATTRIBUTE = "_authenticated_user";
+
     private CurrentUser() {}
 
     /** The authenticated caller, if the gateway propagated an identity for this request. */
     public static Optional<AuthenticatedUser> get() {
         Authentication a = SecurityContextHolder.getContext().getAuthentication();
         if (a != null && a.getPrincipal() instanceof AuthenticatedUser u) {
+            return Optional.of(u);
+        }
+        // Fallback: HeaderAuthFilter also mirrors the principal into a request attribute, which survives
+        // even if the security context was cleared mid-request. Preserves the old RequestUtil behaviour.
+        RequestAttributes ra = RequestContextHolder.getRequestAttributes();
+        if (ra instanceof ServletRequestAttributes sra
+                && sra.getRequest().getAttribute(REQUEST_ATTRIBUTE) instanceof AuthenticatedUser u) {
             return Optional.of(u);
         }
         return Optional.empty();
