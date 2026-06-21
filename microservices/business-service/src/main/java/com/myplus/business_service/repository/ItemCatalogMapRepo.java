@@ -17,4 +17,9 @@ public interface ItemCatalogMapRepo extends JpaRepository<ItemCatalogMap, Long> 
 
     /** Mapped items whose local Stock hasn't been seeded into inventory yet (slice 33, U2b). */
     List<ItemCatalogMap> findByOrganizationIdAndStockMigratedFalse(Long organizationId);
+
+    /** Translate a business itemId to its catalog productId for the saga sell path (slice 33, U3b). */
+    @Query("SELECT m.productId FROM ItemCatalogMap m WHERE m.itemId = :itemId AND m.organizationId = :org")
+    java.util.Optional<Long> findProductIdByItemId(@Param("itemId") Long itemId, @Param("org") Long org);
 }
+

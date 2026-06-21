@@ -83,6 +83,13 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
     }
 
+    /** Lightweight cross-service reference (+ price) for the sell saga (slice 33, U3b). */
+    public com.myplus.commerce.contracts.dto.ProductRef getRef(Long id) {
+        Product p = getEntity(id);   // scoped — 404 if not this tenant's
+        return new com.myplus.commerce.contracts.dto.ProductRef(
+                p.getId(), p.getSku(), p.getName(), p.getUnit(), p.getSellingPrice(), p.getTaxRate());
+    }
+
     public ProductDTO toDto(Product p) {
         return ProductDTO.builder()
                 .id(p.getId())

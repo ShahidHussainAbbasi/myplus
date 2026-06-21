@@ -98,6 +98,12 @@ public class SellController {
 	@Autowired
 	ICustomerHistoryService customerHistoryService;
 
+	@Autowired
+	com.myplus.business_service.config.TradeSagaProperties tradeSagaProperties;
+
+	@Autowired
+	com.myplus.business_service.service.SagaSellService sagaSellService;
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -391,6 +397,16 @@ public class SellController {
 		try {
 			if (dto == null || appUtil.isEmptyOrNull(dto.getSales()))
 				return new GenericResponse("ERROR", "No sales data provided");
+
+			// Strangler (slice 33, D2): when enabled, route the sale through the inventory reservation saga
+			// (catalog price + reserve/confirm) instead of decrementing local Stock. SagaSellService manages
+			// its own committed transactions (REQUIRES_NEW), so it is safe to call inside this @Transactional.
+			if (tradeSagaProperties.isEnabled()) {
+				String invoiceNo = sagaSellService.addSell(dto);
+				return new GenericResponse("SUCCESS",
+						invoiceNo != null ? "Sale recorded successfully. Invoice " + invoiceNo : "Sale recorded successfully.",
+						invoiceNo);
+			}
 
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getUserId());

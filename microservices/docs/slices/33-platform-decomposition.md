@@ -428,6 +428,71 @@ the flag**; the rename business-service → `trade-service` is a cosmetic cutove
 > Recommendation: settle D1–D3, then implement **6a only** (isolated, low-risk, fully testable), checkpoint,
 > and reassess before touching the trade sell path. This keeps each step inside a 100%-confidence boundary.
 
+## U3 design — flagged saga sell path (the distributed transaction)
+
+**Current flow:** `SellController.addSell(CustomerHistoryDTO)` (one local `@Transactional`) saves Customer +
+CustomerHistory (invoice, per-org invoiceNo) + the `Sell` lines; each `Sell` decrements local `Stock` and
+takes `sellRate` from `Stock`. **Saga path (when `trade.saga.enabled`):** replace local stock with the
+inventory reservation saga + catalog price. Existing path stays as the default (strangler).
+
+**Orchestration (a new `SagaSellService`; the controller branches on the flag):**
+1. **Translate** each line's `itemId` → `productId` via `ItemCatalogMap` (fail clearly if unmapped).
+2. **Price** from catalog: `CatalogClient.getProduct(productId).sellingPrice` (D1), apply discount.
+3. **Reserve**: `InventoryClient.reserve(idempotencyKey, lines[productId, qty])`. OUT_OF_STOCK → reject the sale.
+4. **Write** (local `@Transactional`): Customer + CustomerHistory + Sell lines, invoice **saga-state = PENDING**,
+   carrying `reservationId` + `idempotencyKey`.
+5. **Confirm**: `InventoryClient.confirm(reservationId)` → inventory decrements; mark invoice **CONFIRMED**.
+6. **Compensate**: any failure after step 4 → `InventoryClient.release(reservationId)`; invoice stays PENDING/marked FAILED.
+
+**Model changes:** `Sell` gains `productId` (nullable; set for saga sells, `stock` FK null then);
+`CustomerHistory` gains `reservationId` + `sagaStatus` (PENDING/CONFIRMED/FAILED) + `idempotencyKey`.
+
+**Reliability — UD1 SETTLED = (A) invoice-as-saga-state + scheduled relay** (assistant's call per the
+"make industry-standard decisions" steer; right fit for a single downstream confirm). The confirm step can be
+lost if trade crashes between 4 and 5; the two options were:
+- **(A) Invoice-as-saga-state + scheduled relay (recommended):** the invoice already carries
+  `reservationId` + PENDING; a `@Scheduled` relay re-drives `confirm` for stuck-PENDING invoices. Simpler,
+  no new table, sufficient for a single downstream call. State machine + polling.
+- **(B) Transactional outbox table:** a `SaleOutbox` row (invoiceId, reservationId, status) written in the
+  same tx, a relay publishes/【confirms】. More standard when fanning out events to multiple consumers — which
+  we don't have here. More moving parts.
+
+**Idempotency:** one `idempotencyKey` (UUID) per sale, stored on the invoice → reserve/confirm/release are
+all idempotent on it / reservationId, so the relay and retries are safe.
+
+**Sub-steps:**
+- [x] **U3a DONE (awaiting build).** Additive model fields: `Sell.productId` (nullable; saga sells use it,
+  local Stock FK null then); `CustomerHistory.reservationId` + `idempotencyKey` + `sagaStatus`
+  (PENDING|CONFIRMED|FAILED). Nullable, ddl-auto adds columns, no behavior change (legacy flow ignores them).
+  (`mvn -pl business-service -am clean install -DskipTests`)
+- [~] **U3b** SagaSellService reserve→write→confirm + compensation. Flag branch goes at the top of
+  `SellController.addSell` (delegates to SagaSellService when `trade.saga.enabled`, else existing path).
+  - [x] **U3b-1 DONE (awaiting build).** Pricing prerequisites + a real latent-bug fix: `ProductRef` gained
+    `sellingPrice`/`taxRate`; catalog `GET /api/catalog/products/{id}/ref` returns a **raw** `ProductRef`
+    (+price); `CatalogClient.getProduct` re-pointed to `/ref` (it previously hit the ApiResponse-wrapped
+    `/products/{id}` → would never have deserialized a price; this also makes inventory's `assertProductExists`
+    hit a correct raw endpoint). `ItemCatalogMapRepo.findProductIdByItemId` for the itemId→productId translation.
+    (`mvn -pl catalog-service,inventory-service,business-service -am clean install -DskipTests`)
+  - [x] **U3b-2 DONE (awaiting build).** `SagaSaleWriter` (`REQUIRES_NEW` so the PENDING sale commits BEFORE
+    `confirm`, independent of the controller's legacy `@Transactional`; wraps `saveUpdateCustomer`'s checked
+    exception). `SagaSellService` orchestrates translate→price(catalog)→`reserve`→writePending→`confirm`→mark
+    CONFIRMED; **failure semantics:** write-failure → `release` + abort; confirm-failure → leave invoice
+    PENDING for the U3c relay (no release, hold retained — idempotent re-confirm). `SagaLine` record.
+    `SellController.addSell` branches to the saga when `trade.saga.enabled` (else existing path, default).
+    Mockito `SagaSellServiceTest`: happy path, OUT_OF_STOCK reject (no write), confirm-fail leaves PENDING.
+    (`mvn -pl catalog-service,inventory-service,business-service -am clean install -DskipTests`, then `… -am test`)
+  - [x] **U3c DONE (awaiting build).** `SagaRecoveryRelay` (`@Scheduled`, gated on the flag) re-drives
+    `confirm` for `CustomerHistoryRepo.findPendingSagaSales()` (PENDING + reservationId), marking CONFIRMED;
+    idempotent confirm makes retries safe. **Background-job identity:** extended `common-security.
+    GatewayIdentityForwarding` with `runAs(userId, orgId, action)` (ThreadLocal override) so the relay —
+    which has no inbound request — calls inventory as each invoice's tenant. Added `@EnableScheduling` to the
+    app. Mockito `SagaRecoveryRelayTest` (re-confirms when enabled; no-op when disabled). **U3 COMPLETE** —
+    saga sell path + recovery relay done. (`mvn -pl business-service -am clean install -DskipTests`, then `… -am test`)
+    Refinement noted: a max-age/attempt cap to mark hopeless PENDING as FAILED (today they retry indefinitely).
+- [ ] **U3c** the scheduled recovery relay (re-drive stuck-PENDING invoices to CONFIRMED).
+**Tests:** SagaSellService happy path + OUT_OF_STOCK reject + confirm-fails→release compensation (Mockito on
+the clients; Testcontainers for the invoice state transitions).
+
 ## Test
 **Standard (per user): every phase ships tests that run on `mvn test`.** Pure-logic = always-run unit tests
 (no Docker); repo/scoping/integration = `@DataJpaTest` + Testcontainers MySQL (`disabledWithoutDocker=true`,

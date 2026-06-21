@@ -72,6 +72,17 @@ public class CustomerHistory implements Serializable {
     @Column(name = "due_date")
     private LocalDate dueDate;
 
+    // Sell↔stock saga state (slice 33, U3). Null for legacy local-Stock sells. UD1 = invoice-as-saga-state:
+    // a stuck PENDING (with reservationId) is re-driven to CONFIRMED by the scheduled recovery relay (U3c).
+    @Column(name = "reservation_id")
+    private String reservationId;
+
+    @Column(name = "idempotency_key")
+    private String idempotencyKey;
+
+    @Column(name = "saga_status")
+    private String sagaStatus;            // PENDING | CONFIRMED | FAILED
+
 	/**
 	 * @return the serialversionuid
 	 */

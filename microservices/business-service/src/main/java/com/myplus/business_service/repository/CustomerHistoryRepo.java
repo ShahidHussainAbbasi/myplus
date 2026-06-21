@@ -27,4 +27,9 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
     // running balance the customer owes — the single source of truth for Customer.dueAmount.
     @Query("SELECT COALESCE(SUM(ch.dueAmount), 0) FROM CustomerHistory ch WHERE ch.customer.customerId = :customerId")
     BigDecimal sumDueByCustomer(@Param("customerId") Long customerId);
+
+    // Saga sales whose stock reservation was never confirmed (trade crashed between write and confirm) —
+    // the recovery relay re-drives confirm for these (slice 33, U3c).
+    @Query("SELECT ch FROM CustomerHistory ch WHERE ch.sagaStatus = 'PENDING' AND ch.reservationId IS NOT NULL ORDER BY ch.dated ASC")
+    List<CustomerHistory> findPendingSagaSales();
 }

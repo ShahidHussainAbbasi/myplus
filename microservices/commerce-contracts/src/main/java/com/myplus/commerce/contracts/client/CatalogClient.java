@@ -19,8 +19,8 @@ import java.util.List;
 @HttpExchange(accept = "application/json")
 public interface CatalogClient {
 
-    /** Resolve a single product reference by its catalog id (tenant-scoped via propagated headers). */
-    @GetExchange("/products/{id}")
+    /** Resolve a product reference (+ price) by its catalog id — raw ProductRef, tenant-scoped via headers. */
+    @GetExchange("/products/{id}/ref")
     ProductRef getProduct(@PathVariable Long id);
 
     /** Bulk import products (item→product migration, slice 33 U2). Returns the clientRef→productId map. */

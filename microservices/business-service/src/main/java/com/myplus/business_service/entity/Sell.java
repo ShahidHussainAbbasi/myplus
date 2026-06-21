@@ -96,6 +96,10 @@ public class Sell implements Serializable {
 	@JoinColumn(name = "stock_id")
 	private Stock stock;
 
+	// Saga sells (slice 33, U3) reference the catalog product directly; the local Stock FK is null then.
+	@Column(name = "product_id")
+	private Long productId;
+
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
     @JoinColumn(name = "customer_history_id", nullable = true)
     private CustomerHistory  customerHistory;

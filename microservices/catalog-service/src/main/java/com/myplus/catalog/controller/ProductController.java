@@ -46,6 +46,12 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(productService.getById(id)));
     }
 
+    /** Raw ProductRef (+ price) for inter-service callers (sell saga, slice 33 U3b) — matches CatalogClient. */
+    @GetMapping("/{id}/ref")
+    public com.myplus.commerce.contracts.dto.ProductRef getRef(@PathVariable Long id) {
+        return productService.getRef(id);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductDTO>> update(@PathVariable Long id, @RequestBody ProductDTO dto) {
         return ResponseEntity.ok(ApiResponse.success(productService.update(id, dto), "Updated"));
