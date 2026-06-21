@@ -261,8 +261,15 @@ sequenceDiagram
     - [x] **campaign-service migrated (awaiting build):** `NotificationClientConfig` (load-balanced proxy) +
       `DemoLeadService` now calls `notificationClient.sendEmail` for the team + ack emails; removed its
       `JavaMailSender`/`spring-boot-starter-mail`.
-    - [ ] **auth-service** (verification + reset emails) and **education-service** (alerts) → same pattern;
-      then delete their `EmailService`s. (`mvn -pl notification-service,campaign-service -am clean install -DskipTests`)
+    - [x] **auth-service migrated** (verification + reset): `EmailService` composes locally, sends via
+      `NotificationClient`; removed JavaMailSender + mail starter (stays @Async/best-effort).
+    - [x] **education-service migrated** (alerts): `EmailService` keeps per-recipient best-effort + always-copy-
+      admin, each send via `NotificationClient`; removed JavaMailSender + mail starter. Mockito `EmailServiceTest`.
+    - [x] Removed `appointment-service`'s dead `spring-boot-starter-mail`.
+    - **Phase 8 microservice consolidation COMPLETE — only notification-service owns SMTP.** Remaining/deferred:
+      the **monolith**'s own email (registration etc.) — separate effort, and monolith auth is already being
+      decommissioned; SMS/push channels are future additions to notification-service.
+      (`mvn -pl education-service,appointment-service -am clean install -DskipTests`, then `mvn -pl education-service -am test`)
 - [ ] **Phase 9 — auth consolidation.** Move 2FA out of monolith `com.security.google2fa.*`; extract
   `common-captcha`; every dashboard calls `auth-service` for signup.
 
