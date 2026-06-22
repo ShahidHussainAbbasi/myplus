@@ -31,5 +31,9 @@ app:
   reset-password-url: ${RESET_PASSWORD_URL:http://localhost:8080/user/changePassword}
   verification-token-expiry-hours: 24
   password-reset-token-expiry-hours: 1
-
-APP_CAPTCHA_ENABLED: "true"
+  # reCAPTCHA enforcement at the IdP (slice 33, Phase 9). Disabled by default; set enabled=true (and the
+  # site/secret) in the environment where you want bot protection. Verifier is a no-op while disabled.
+  captcha:
+    enabled: ${APP_CAPTCHA_ENABLED:false}
+    site: ${RECAPTCHA_SITE:}
+    secret: ${RECAPTCHA_SECRET:}
