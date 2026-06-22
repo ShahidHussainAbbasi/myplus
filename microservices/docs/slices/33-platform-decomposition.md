@@ -294,8 +294,28 @@ sequenceDiagram
       the **monolith**'s own email (registration etc.) — separate effort, and monolith auth is already being
       decommissioned; SMS/push channels are future additions to notification-service.
       (`mvn -pl education-service,appointment-service -am clean install -DskipTests`, then `mvn -pl education-service -am test`)
-- [ ] **Phase 9 — auth consolidation.** Move 2FA out of monolith `com.security.google2fa.*`; extract
-  `common-captcha`; every dashboard calls `auth-service` for signup.
+- [~] **Phase 9 — auth consolidation. RE-SCOPED after recon (2026-06-22).** The original goal assumed 2FA
+  still lived in the monolith — it does **not**.
+  - [x] **2FA already consolidated.** `auth-service` owns `TwoFactorService` + `/2fa/setup`,`/2fa/verify`, and
+    validates the login code (`/login` takes `twoFactorCode`). The monolith only extracts the `code` param
+    (`CustomWebAuthenticationDetails`) and forwards it via `AuthServerClient.login(...)`. Nothing to move.
+    (`com.security.google2fa.*` is thin form-plumbing that also carries the captcha token — stays.)
+  - [x] **Signup already on auth-service.** `/register`, `/forgot-password`, `/reset-password` all live there;
+    the monolith delegates. Done.
+  - [ ] **Captcha — the only real remaining work, and it's a security gap, not just dedup.** Today captcha is
+    validated **only in the monolith** (`AuthServerAuthenticationProvider` for login + `RegistrationController`
+    ×2 + `RegistrationCaptchaController`); `auth-service` has **zero** captcha, so its `/register` and `/login`
+    have **no bot protection when hit directly through the gateway** (mobile/marketplace/future clients bypass
+    it). Correct target: enforce captcha **at auth-service** (the IdP) via a new stateless `common-captcha`.
+    - **Hard constraint:** reCAPTCHA tokens are **single-use** → enforcement must be in exactly ONE place. So
+      this is a *coordinated* change: auth-service starts validating; the monolith must **stop** validating
+      locally and instead **forward** the `g-recaptcha-response` to auth-service (`login`/`register` don't send
+      it today). Cannot be incremental defense-in-depth.
+    - **Cross-project + live-login risk:** monolith (repo root) and microservices are separate Maven builds, and
+      this touches the live login/registration path. Captcha is also **disabled by default**
+      (`app.captcha.enabled=false`), so urgency is low.
+    - **Recommendation:** worthwhile as a security hardening (close the direct-to-auth-service bypass), but do it
+      as its own focused, user-driven live slice — not bundled. Plan ready below / on request.
 
 ## Phase 4 decision — stock system-of-record (field-level)
 
