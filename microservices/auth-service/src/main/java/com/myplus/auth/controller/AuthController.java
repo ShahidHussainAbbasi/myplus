@@ -5,6 +5,7 @@ import com.myplus.auth.entity.User;
 import com.myplus.auth.repository.UserRepository;
 import com.myplus.auth.service.AuthService;
 import com.myplus.auth.service.TwoFactorService;
+import com.myplus.common.captcha.CaptchaVerifier;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,14 +26,21 @@ public class AuthController {
     private final AuthService authService;
     private final TwoFactorService twoFactorService;
     private final UserRepository userRepository;
+    private final CaptchaVerifier captchaVerifier;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request,
+            @RequestHeader(value = "g-recaptcha-response", required = false) String captchaToken,
+            HttpServletRequest httpRequest) {
+        verifyCaptchaIfPresent(captchaToken, httpRequest);
         return ResponseEntity.ok(ApiResponse.success(authService.register(request), "Registered successfully"));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request,
+            @RequestHeader(value = "g-recaptcha-response", required = false) String captchaToken,
+            HttpServletRequest httpRequest) {
+        verifyCaptchaIfPresent(captchaToken, httpRequest);
         return ResponseEntity.ok(ApiResponse.success(authService.login(request), "Login successful"));
     }
 
@@ -66,7 +75,10 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> body) {
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> body,
+            @RequestHeader(value = "g-recaptcha-response", required = false) String captchaToken,
+            HttpServletRequest httpRequest) {
+        verifyCaptchaIfPresent(captchaToken, httpRequest);
         authService.sendPasswordResetEmail(body.get("email"));
         return ResponseEntity.ok(ApiResponse.success(null, "Password reset email sent"));
     }
@@ -106,5 +118,20 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> validate(@RequestHeader("Authorization") String authHeader) {
         String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
         return ResponseEntity.ok(ApiResponse.success(authService.validateToken(token)));
+    }
+
+    // Captcha enforcement at the IdP (slice 33, Phase 9). Step 1 is additive: verify only when a token is
+    // actually supplied (the monolith does not forward one yet, so existing flows are unaffected). The
+    // verifier itself is a no-op when app.captcha.enabled=false. The monolith-cutover step makes the token
+    // mandatory and stops the monolith's local validation (reCAPTCHA tokens are single-use).
+    private void verifyCaptchaIfPresent(String captchaToken, HttpServletRequest request) {
+        if (captchaToken != null && !captchaToken.isBlank()) {
+            captchaVerifier.verify(captchaToken, clientIp(request));
+        }
+    }
+
+    private static String clientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        return (xff == null || xff.isBlank()) ? request.getRemoteAddr() : xff.split(",")[0].trim();
     }
 }

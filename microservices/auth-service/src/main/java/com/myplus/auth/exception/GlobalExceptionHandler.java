@@ -1,6 +1,8 @@
 package com.myplus.auth.exception;
 
 import com.myplus.auth.dto.ApiResponse;
+import com.myplus.common.captcha.CaptchaInvalidException;
+import com.myplus.common.captcha.CaptchaUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -33,6 +35,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Invalid credentials", 401));
+    }
+
+    @ExceptionHandler(CaptchaInvalidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCaptchaInvalid(CaptchaInvalidException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("Captcha verification failed", 400));
+    }
+
+    @ExceptionHandler(CaptchaUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCaptchaUnavailable(CaptchaUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.error("Captcha verification unavailable, please try again", 503));
     }
 
     @ExceptionHandler(AuthenticationException.class)

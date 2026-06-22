@@ -31,3 +31,5 @@ app:
   reset-password-url: ${RESET_PASSWORD_URL:http://localhost:8080/user/changePassword}
   verification-token-expiry-hours: 24
   password-reset-token-expiry-hours: 1
+
+APP_CAPTCHA_ENABLED: "true"
