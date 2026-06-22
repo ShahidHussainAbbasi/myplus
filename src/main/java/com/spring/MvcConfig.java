@@ -77,8 +77,8 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/donator").setViewName("donator");
         registry.addViewController("/services").setViewName("maxtheservice_dashboard");
         registry.addViewController("/businessDashboard").setViewName("businessDashboard");
-        // /pharmacyDashboard is served by PharmacyDashboardController (renders businessDashboard with
-        // module=PHARMACY for terminology/branding) — slice 33: pharmacy reuses catalog/inventory/trade.
+        // /pharmaDashboard is served by PharmaDashboardController (renders businessDashboard with
+        // module=PHARMA for terminology/branding) — slice 33: pharmacy reuses catalog/inventory/trade.
         registry.addViewController("/welfareDashboard").setViewName("welfareDashboard");
         registry.addViewController("/educationDashboard").setViewName("educationDashboard");
         registry.addViewController("/agricultureDashboard").setViewName("agricultureDashboard");

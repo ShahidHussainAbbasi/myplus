@@ -133,12 +133,12 @@ public class SetupDataLoader {
             // privileges + DEMO_PRIVILEGE); userType routes each to its own module dashboard.
             String[][] demos = {
                     {"demo.business@myplus.com",     "BUSINESS"},
+                    {"demo.pharma@myplus.com",       "PHARMA"},      // pharmacy vertical — reuses the trade dashboard (slice 33)
                     {"demo.education@myplus.com",    "EDUCATION"},
                     {"demo.welfare@myplus.com",      "WELFARE"},
                     {"demo.agriculture@myplus.com",  "AGRICULTURE"},
                     {"demo.appointment@myplus.com",  "APPOINTMENT"},
                     {"demo.inventory@myplus.com",    "INVENTORY"},
-                    {"demo.pharma@myplus.com",       "PHARMA"},
                     {"demo.marketplace@myplus.com",  "MARKETPLACE"},
                     {"demo.campaign@myplus.com",     "CAMPAIGN"},
                     {"demo.analytics@myplus.com",    "ANALYTICS"},

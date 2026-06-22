@@ -46,6 +46,8 @@ public class DemoResetController {
             "APPOINTMENT", "/api/appointment/demo/purge",
             "EDUCATION", "/api/education/demo/purge",
             "BUSINESS", "/api/business/demo/purge",
+            // Pharmacy reuses the trade (business-service) backend, so its demo data purges there too.
+            "PHARMA", "/api/business/demo/purge",
             "WELFARE", "/api/welfare/demo/purge",
             "AGRICULTURE", "/api/agriculture/demo/purge");
 

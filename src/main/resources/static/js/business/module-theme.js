@@ -10,7 +10,9 @@
  */
 (function () {
     var TERMS = {
-        PHARMACY: {
+        // Keyed by the internal module identifier (PHARMA, matching pharma-service); the wording below is
+        // the user-facing display ("Pharmacy").
+        PHARMA: {
             title: 'Pharmacy Dashboard — MyPlus',
             // section headings (.dash-page-title), nav <option>s and .snav-btn labels — keyed by their
             // current (business) text, valued by the pharmacy wording.

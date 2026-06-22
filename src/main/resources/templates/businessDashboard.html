@@ -1191,8 +1191,8 @@
 	</div>
 	<script th:inline="javascript">
         var serverContext = [[@{/}]];
-        // Which vertical this dashboard is rendering for. Defaults to BUSINESS; PharmacyDashboardController
-        // sets PHARMACY. Drives terminology/branding in module-theme.js (one shared trade engine, white-labelled).
+        // Which vertical this dashboard is rendering for. Defaults to BUSINESS; PharmaDashboardController
+        // sets PHARMA. Drives terminology/branding in module-theme.js (one shared trade engine, white-labelled).
         window.MODULE = [[${module} ?: 'BUSINESS']];
     </script>
 

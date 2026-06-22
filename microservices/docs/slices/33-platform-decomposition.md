@@ -127,6 +127,18 @@ sequenceDiagram
 
 ### Why pharmacy then costs little
 
+> **Naming: "pharma" and "pharmacy" are the same single domain.** The canonical internal identifier is
+> **`PHARMA`** (matching `pharma-service`, package `com.myplus.pharma`, gateway `/api/pharma`, DB
+> `myplusdb_pharma`, `ROLE_PHARMA_USER`); the **user-facing display is "Pharmacy"**. There is no separate
+> "pharmacy" service — `pharma-service` *is* the pharmacy domain's clinical/Rx layer.
+>
+> **DONE — pharmacy commerce dashboard reuse (monolith).** A `userType=PHARMA` user lands on `/pharmaDashboard`,
+> which `PharmaDashboardController` renders from the **shared `businessDashboard` view** with `module=PHARMA`;
+> `module-theme.js` white-labels it ("Pharmacy" title, Item→Medicine, Vendor→Supplier, Customer→Patient,
+> Sale→Dispense). **Zero backend change** — userType only drives routing, and `ROLE_OWNER` grants the trade
+> privileges, so the same trade endpoints serve pharmacy. `demo.pharma@myplus.com` is seeded. The table below is
+> the *additive* clinical layer that still builds on `pharma-service`; the commerce core is already reused.
+
 | Pharmacy need | Source | Effort |
 |---|---|---|
 | Drug master (name/code/manufacturer) | `catalog-service` | reuse |
