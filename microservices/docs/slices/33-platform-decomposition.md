@@ -663,19 +663,21 @@ A live attempt surfaced that **U5 is an integration task, not a flag flip.** Har
   Confirm reduces `stock_entries.quantity` + `stock_levels.current_stock` **asynchronously** (recovery relay), so a
   synchronous before/after SQL snapshot won't see the delta — check `reservations.status='CONFIRMED'` instead.
   Seeding for a dev cutover must populate `stock_entries` (qty > 0).
-- **The blocker:** with the saga ON, business `getStock?itemId=` returns **0** for `demo.business`'s items, so
-  `saga-sell.cy.js` skips the sale and a real sale would be `OUT_OF_STOCK` — i.e. the **item → product → inventory**
-  lookup isn't surfacing seeded stock. Likely `item_catalog_map` ↔ the user's actual items, or `getStock`'s org
-  context, is misaligned.
+- **The blocker is the FLAG, not the data (corrected after tracing one item).** The trace
+  `SELECT i.id, m.product_id, (inv qty) FROM item i LEFT JOIN item_catalog_map m ON m.item_id=i.id WHERE
+  i.user_id=60` showed demo.business's items **all** map to products **and** all have `stock_entries` in org 16
+  (e.g. item 511→product 5→177, 519→12→133, 515-526→8-19→100). So the item→product→inventory chain is **intact**;
+  "getStock returns 0" was a wrong inference from the spec not selling. The real cause: **the saga never reliably
+  turned on** (config-server precedence + restarting a stale jar), so no saga sale ran.
 
-**Diagnostic to run (trace ONE item end-to-end; demo.business = user 60 / org 16):**
-1. `SELECT item_id, product_id FROM myplusdb.item_catalog_map LIMIT 5;` → a mapped (itemId, productId).
-2. `SELECT id, iname, user_id, organization_id FROM myplusdb.item WHERE id=<itemId>;` → is it demo.business's
-   (user 60 / org 16)? If the mapped items belong to a *different* user/org than the picker shows, that's the gap.
-3. `SELECT product_id, quantity, organization_id FROM myplusdb_inventory.stock_entries WHERE product_id=<productId>;`
-   → does it have stock, and in org 16?
-4. With the saga on, hit `GET /getStock?itemId=<itemId>` as demo.business and see what on-hand it returns.
-5. Read business `getStock` + `SagaSellService` translation (itemId→productId, org context) to see which step zeroes.
+**Verification to run (after Step 1 turns the saga on):** prove the saga actually engages —
+1. `SELECT MAX(id) FROM myplusdb_inventory.reservations;` (note it; was 6).
+2. `npx cypress run --browser chrome --spec cypress/e2e/business/saga-sell.cy.js`.
+3. `SELECT id,status,created_at FROM myplusdb_inventory.reservations ORDER BY id DESC LIMIT 3;` — a **new** row
+   (id > step 1, dated today) ⇒ saga engaged.
+4. `SELECT customer_history_id,invoice_no,saga_status FROM myplusdb.customer_history ORDER BY customer_history_id
+   DESC LIMIT 3;` — newest `saga_status` set (PENDING/CONFIRMED) ⇒ saga path; NULL ⇒ still legacy (flag not bound —
+   recheck `curl :8888/business-service/default`).
 > Dev seed used: `stock_entries`/`stock_levels` rows tagged `batch_no='SEED-U5'` (org 16, qty 100) — delete to clean.
 > DB backups saved in repo `u5-backups/`.
 
