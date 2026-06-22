@@ -670,7 +670,15 @@ A live attempt surfaced that **U5 is an integration task, not a flag flip.** Har
   "getStock returns 0" was a wrong inference from the spec not selling. The real cause: **the saga never reliably
   turned on** (config-server precedence + restarting a stale jar), so no saga sale ran.
 
-**Verification to run (after Step 1 turns the saga on):** prove the saga actually engages —
+**RESOLVED (2026-06-22) — the fix was rebuilding business-service.** config-server served `true` (verified via
+`curl :8888/business-service/default`) but the running business-service was **yesterday's jar** and ignored it — in
+this setup the service's own baked `application.yml` wins, so changing config-server alone is NOT enough. **To turn
+the saga on you must rebuild BOTH** config-server (literal `enabled: true`) **and** `mvn -pl business-service -am
+clean package`, then restart (config-server first). After the business-service rebuild, manual sells routed through
+the saga: `customer_history` 785/786 `saga_status=CONFIRMED`. (`saga-sell.cy.js` skipping earlier was the stale jar
+→ saga off → depleted local stock → `getStock` 0 → skip, not a data gap.)
+
+**Verification to run (after the saga is on):** prove the saga actually engages —
 1. `SELECT MAX(id) FROM myplusdb_inventory.reservations;` (note it; was 6).
 2. `npx cypress run --browser chrome --spec cypress/e2e/business/saga-sell.cy.js`.
 3. `SELECT id,status,created_at FROM myplusdb_inventory.reservations ORDER BY id DESC LIMIT 3;` — a **new** row
