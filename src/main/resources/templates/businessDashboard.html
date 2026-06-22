@@ -1191,6 +1191,9 @@
 	</div>
 	<script th:inline="javascript">
         var serverContext = [[@{/}]];
+        // Which vertical this dashboard is rendering for. Defaults to BUSINESS; PharmacyDashboardController
+        // sets PHARMACY. Drives terminology/branding in module-theme.js (one shared trade engine, white-labelled).
+        window.MODULE = [[${module} ?: 'BUSINESS']];
     </script>
 
     <!-- STEP 1: jQuery + all plugins -->
@@ -1201,6 +1204,7 @@
     <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
     <script th:src="@{/js/business/chart.umd.min.js}"></script>
     <script th:src="@{/js/common/dom-safe.js}"></script>
+    <script th:src="@{/js/business/module-theme.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <script th:src="@{/js/business/businessInvoicePrint.js}"></script>
     <script>

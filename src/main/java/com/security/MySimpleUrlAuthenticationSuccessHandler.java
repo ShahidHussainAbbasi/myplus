@@ -97,7 +97,7 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
     // to the landing page so it never 404s.
     private static final java.util.Set<String> KNOWN_DASHBOARDS = java.util.Set.of(
             "/businessDashboard", "/educationDashboard", "/welfareDashboard",
-            "/agricultureDashboard", "/appointmentDashboard");
+            "/agricultureDashboard", "/appointmentDashboard", "/pharmacyDashboard");
 
     //Navigate user to the dash board on the base of user type
     protected String determineTargetUrl(final Authentication authentication) {

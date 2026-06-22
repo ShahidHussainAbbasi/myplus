@@ -24,6 +24,7 @@ public class AppController {
             if (userType == null) return "redirect:/";
             switch (userType.toUpperCase()) {
                 case "BUSINESS":    return "redirect:/businessDashboard";
+                case "PHARMACY":    return "redirect:/pharmacyDashboard"; // reuses the trade dashboard
                 case "EDUCATION":   return "redirect:/educationDashboard";
                 case "WELFARE":     return "redirect:/welfareDashboard";
                 case "AGRICULTURE": return "redirect:/agricultureDashboard";
