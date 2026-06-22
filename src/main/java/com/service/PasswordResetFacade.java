@@ -11,9 +11,9 @@ public interface PasswordResetFacade {
     /**
      * Trigger a password-reset email for {@code email}. Always succeeds from the caller's point of
      * view — failures (unknown address, transport) are swallowed so the UI never reveals whether an
-     * address is registered.
+     * address is registered. {@code captchaResponse} is forwarded to the auth-service for verification.
      */
-    void requestReset(String email);
+    void requestReset(String email, String captchaResponse);
 
     /**
      * Complete a password reset using the token from the reset email.

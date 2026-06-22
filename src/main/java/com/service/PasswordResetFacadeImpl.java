@@ -28,9 +28,9 @@ public class PasswordResetFacadeImpl implements PasswordResetFacade {
     private MessageSource messages;
 
     @Override
-    public void requestReset(final String email) {
+    public void requestReset(final String email, final String captchaResponse) {
         try {
-            authServerClient.forgotPassword(email);
+            authServerClient.forgotPassword(email, captchaResponse);
         } catch (Exception ex) {
             // Swallow transport/404 errors so we never reveal whether an address is registered.
             LOGGER.debug("forgot-password delegation for {} returned: {}", email, ex.getMessage());

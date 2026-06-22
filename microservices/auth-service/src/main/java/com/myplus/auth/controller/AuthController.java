@@ -32,7 +32,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request,
             @RequestHeader(value = "g-recaptcha-response", required = false) String captchaToken,
             HttpServletRequest httpRequest) {
-        verifyCaptchaIfPresent(captchaToken, httpRequest);
+        verifyCaptcha(captchaToken, httpRequest);
         return ResponseEntity.ok(ApiResponse.success(authService.register(request), "Registered successfully"));
     }
 
@@ -40,7 +40,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request,
             @RequestHeader(value = "g-recaptcha-response", required = false) String captchaToken,
             HttpServletRequest httpRequest) {
-        verifyCaptchaIfPresent(captchaToken, httpRequest);
+        verifyCaptcha(captchaToken, httpRequest);
         return ResponseEntity.ok(ApiResponse.success(authService.login(request), "Login successful"));
     }
 
@@ -78,7 +78,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> body,
             @RequestHeader(value = "g-recaptcha-response", required = false) String captchaToken,
             HttpServletRequest httpRequest) {
-        verifyCaptchaIfPresent(captchaToken, httpRequest);
+        verifyCaptcha(captchaToken, httpRequest);
         authService.sendPasswordResetEmail(body.get("email"));
         return ResponseEntity.ok(ApiResponse.success(null, "Password reset email sent"));
     }
@@ -120,14 +120,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(authService.validateToken(token)));
     }
 
-    // Captcha enforcement at the IdP (slice 33, Phase 9). Step 1 is additive: verify only when a token is
-    // actually supplied (the monolith does not forward one yet, so existing flows are unaffected). The
-    // verifier itself is a no-op when app.captcha.enabled=false. The monolith-cutover step makes the token
-    // mandatory and stops the monolith's local validation (reCAPTCHA tokens are single-use).
-    private void verifyCaptchaIfPresent(String captchaToken, HttpServletRequest request) {
-        if (captchaToken != null && !captchaToken.isBlank()) {
-            captchaVerifier.verify(captchaToken, clientIp(request));
-        }
+    // Captcha enforcement at the IdP (slice 33, Phase 9 step 2e). When app.captcha.enabled=true the verifier
+    // REQUIRES a valid token (a blank/absent g-recaptcha-response is rejected), so enabling captcha actually
+    // enforces it for every client — closing the "submit without solving" bypass. When disabled it is a
+    // no-op. Keep this flag in sync with the monolith's app.captcha.enabled, since the monolith only forwards
+    // a token when its own captcha is on.
+    private void verifyCaptcha(String captchaToken, HttpServletRequest request) {
+        captchaVerifier.verify(captchaToken, clientIp(request));
     }
 
     private static String clientIp(HttpServletRequest request) {

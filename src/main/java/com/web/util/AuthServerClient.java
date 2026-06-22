@@ -29,25 +29,30 @@ public class AuthServerClient {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    /** Delegate a login. Throws {@link org.springframework.web.client.RestClientException} on transport/HTTP errors. */
-    public AuthServerLoginResponse login(String email, String password, String twoFactorCode) {
+    /**
+     * Delegate a login. {@code captchaResponse} is the reCAPTCHA token from the form, forwarded as the
+     * {@code g-recaptcha-response} header so the auth-service (the single enforcement point — tokens are
+     * single-use) can verify it. Throws {@link org.springframework.web.client.RestClientException} on
+     * transport/HTTP errors.
+     */
+    public AuthServerLoginResponse login(String email, String password, String twoFactorCode, String captchaResponse) {
         Map<String, String> body = new HashMap<>();
         body.put("email", email);
         body.put("password", password);
         if (twoFactorCode != null && !twoFactorCode.isBlank()) {
             body.put("twoFactorCode", twoFactorCode);
         }
-        return post("/api/auth/login", body);
+        return post("/api/auth/login", body, captchaResponse);
     }
 
     /**
      * Trigger a password-reset email for {@code email}. The auth-service owns the reset token and
      * sends the mail; it returns 404 for an unknown address. Callers should swallow failures so the
-     * UI never reveals whether an address is registered.
+     * UI never reveals whether an address is registered. {@code captchaResponse} is forwarded for
+     * server-side captcha verification at the auth-service.
      */
-    public void forgotPassword(String email) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+    public void forgotPassword(String email, String captchaResponse) {
+        HttpHeaders headers = jsonHeaders(captchaResponse);
         Map<String, String> body = new HashMap<>();
         body.put("email", email);
         restTemplate.postForEntity(baseUrl + "/api/auth/forgot-password", new HttpEntity<>(body, headers), Void.class);
@@ -72,9 +77,9 @@ public class AuthServerClient {
      * persists the user (disabled until verified) and sends the verification email. Throws
      * {@link org.springframework.web.client.HttpStatusCodeException} on duplicate email / validation.
      */
-    public void register(String firstName, String lastName, String email, String password, String phone, String userType, String organizationName) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+    public void register(String firstName, String lastName, String email, String password, String phone,
+                         String userType, String organizationName, String captchaResponse) {
+        HttpHeaders headers = jsonHeaders(captchaResponse);
         Map<String, String> body = new HashMap<>();
         body.put("firstName", firstName);
         body.put("lastName", lastName);
@@ -175,11 +180,24 @@ public class AuthServerClient {
     }
 
     private AuthServerLoginResponse post(String path, Map<String, String> body) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        return post(path, body, null);
+    }
+
+    private AuthServerLoginResponse post(String path, Map<String, String> body, String captchaResponse) {
+        HttpHeaders headers = jsonHeaders(captchaResponse);
         ResponseEntity<AuthServerEnvelope> resp = restTemplate.postForEntity(
                 baseUrl + path, new HttpEntity<>(body, headers), AuthServerEnvelope.class);
         AuthServerEnvelope envelope = resp.getBody();
         return envelope == null ? null : envelope.getData();
+    }
+
+    /** JSON headers, plus the reCAPTCHA token as {@code g-recaptcha-response} when one is supplied. */
+    private HttpHeaders jsonHeaders(String captchaResponse) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (captchaResponse != null && !captchaResponse.isBlank()) {
+            headers.add("g-recaptcha-response", captchaResponse);
+        }
+        return headers;
     }
 }

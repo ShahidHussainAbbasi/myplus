@@ -1,6 +1,5 @@
 package com.web.controller;
 
-import com.captcha.ICaptchaService;
 import com.web.dto.UserDto;
 import com.web.error.UserAlreadyExistException;
 import com.web.util.AuthServerClient;
@@ -24,25 +23,20 @@ public class RegistrationCaptchaController {
     @Autowired
     private AuthServerClient authServerClient;
 
-    @Autowired
-    private ICaptchaService captchaService;
-
     public RegistrationCaptchaController() {
         super();
     }
 
-    // Registration (with reCAPTCHA) — delegated to the auth-service.
+    // Registration (with reCAPTCHA) — delegated to the auth-service, which verifies the forwarded
+    // captcha token (single enforcement point — slice 33, Phase 9).
     @RequestMapping(value = "/user/registrationCaptcha", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse captchaRegisterUserAccount(@Valid final UserDto accountDto, final HttpServletRequest request) {
-        final String response = request.getParameter("g-recaptcha-response");
-        captchaService.processResponse(response);
-
         LOGGER.debug("Registering user account: {}", accountDto.getEmail());
         try {
             authServerClient.register(accountDto.getFirstName(), accountDto.getLastName(),
                     accountDto.getEmail(), accountDto.getPassword(), null, accountDto.getUserType(),
-                    accountDto.getOrganizationName());
+                    accountDto.getOrganizationName(), request.getParameter("g-recaptcha-response"));
         } catch (HttpStatusCodeException ex) {
             throw new UserAlreadyExistException("Registration failed");
         }

@@ -50,8 +50,12 @@ public class CaptchaVerifier {
         if (attemptService.isBlocked(clientIp)) {
             throw new CaptchaInvalidException("Client exceeded maximum number of failed attempts");
         }
-        if (!StringUtils.hasLength(captchaResponse) || !RESPONSE_PATTERN.matcher(captchaResponse).matches()) {
-            throw new CaptchaInvalidException("Response contains invalid characters");
+        if (!StringUtils.hasLength(captchaResponse)) {
+            // Enabled but no token supplied — this is the enforced-but-not-solved case (step 2e).
+            throw new CaptchaInvalidException("Captcha response is required");
+        }
+        if (!RESPONSE_PATTERN.matcher(captchaResponse).matches()) {
+            throw new CaptchaInvalidException("Captcha response contains invalid characters");
         }
 
         final URI verifyUri = URI.create(String.format(VERIFY_URL,
@@ -67,7 +71,9 @@ public class CaptchaVerifier {
             if (googleResponse != null && googleResponse.hasClientError()) {
                 attemptService.failed(clientIp);
             }
-            LOGGER.debug("reCAPTCHA rejected: {}", googleResponse);
+            // error-codes tells you exactly why (invalid-keys = site/secret mismatch or wrong key type;
+            // timeout-or-duplicate = token expired/reused; hostname-mismatch = domain not allowed).
+            LOGGER.warn("reCAPTCHA rejected by Google: {}", googleResponse);
             throw new CaptchaInvalidException("reCaptcha was not successfully validated");
         }
         attemptService.succeeded(clientIp);

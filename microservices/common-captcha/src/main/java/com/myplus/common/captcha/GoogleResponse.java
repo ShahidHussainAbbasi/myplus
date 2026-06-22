@@ -1,6 +1,5 @@
 package com.myplus.common.captcha;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -8,12 +7,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
- * Google siteverify response (slice 33, Phase 9 — ported verbatim from the monolith). {@link #hasClientError()}
- * distinguishes user-side failures (count toward throttling) from server/secret errors (do not).
+ * Google siteverify response (slice 33, Phase 9). Error codes are kept as raw strings so the actual
+ * reason (e.g. {@code invalid-keys}, {@code timeout-or-duplicate}, {@code hostname-mismatch}) is visible
+ * in logs — Google adds codes over time, so we never map them to a fixed enum.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -27,25 +25,7 @@ public class GoogleResponse {
     @JsonProperty("hostname")
     private String hostname;
     @JsonProperty("error-codes")
-    private ErrorCode[] errorCodes;
-
-    enum ErrorCode {
-        MissingSecret, InvalidSecret, MissingResponse, InvalidResponse;
-
-        private static final Map<String, ErrorCode> errorsMap = new HashMap<>(4);
-
-        static {
-            errorsMap.put("missing-input-secret", MissingSecret);
-            errorsMap.put("invalid-input-secret", InvalidSecret);
-            errorsMap.put("missing-input-response", MissingResponse);
-            errorsMap.put("invalid-input-response", InvalidResponse);
-        }
-
-        @JsonCreator
-        public static ErrorCode forValue(final String value) {
-            return errorsMap.get(value.toLowerCase());
-        }
-    }
+    private String[] errorCodes;
 
     public boolean isSuccess() {
         return success;
@@ -71,23 +51,22 @@ public class GoogleResponse {
         this.hostname = hostname;
     }
 
-    public ErrorCode[] getErrorCodes() {
+    public String[] getErrorCodes() {
         return errorCodes;
     }
 
-    public void setErrorCodes(ErrorCode[] errorCodes) {
+    public void setErrorCodes(String[] errorCodes) {
         this.errorCodes = errorCodes;
     }
 
     /** True when the failure is the user's fault (missing/invalid response) — counts toward throttling. */
     @JsonIgnore
     public boolean hasClientError() {
-        final ErrorCode[] errors = getErrorCodes();
-        if (errors == null) {
+        if (errorCodes == null) {
             return false;
         }
-        for (final ErrorCode error : errors) {
-            if (error == ErrorCode.InvalidResponse || error == ErrorCode.MissingResponse) {
+        for (final String code : errorCodes) {
+            if ("missing-input-response".equals(code) || "invalid-input-response".equals(code)) {
                 return true;
             }
         }

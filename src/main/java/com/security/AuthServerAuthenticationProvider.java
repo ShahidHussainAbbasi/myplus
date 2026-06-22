@@ -31,13 +31,10 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
 
     private final AuthServerClient authServerClient;
     private final TokenStore tokenStore;
-    private final com.captcha.ICaptchaService captchaService;
 
-    public AuthServerAuthenticationProvider(AuthServerClient authServerClient, TokenStore tokenStore,
-                                            com.captcha.ICaptchaService captchaService) {
+    public AuthServerAuthenticationProvider(AuthServerClient authServerClient, TokenStore tokenStore) {
         this.authServerClient = authServerClient;
         this.tokenStore = tokenStore;
-        this.captchaService = captchaService;
     }
 
     @Override
@@ -51,21 +48,20 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
             captchaResponse = details.getCaptchaResponse();
         }
 
-        // Verify the login captcha first (no-op when captcha is disabled by config).
-        try {
-            captchaService.processResponse(captchaResponse);
-        } catch (RuntimeException ce) {
-            throw new BadCredentialsException("Captcha verification failed");
-        }
-
         AuthServerLoginResponse response;
         try {
-            response = authServerClient.login(email, password, verificationCode);
+            // The captcha token is forwarded to the auth-service, which is now the single verification
+            // point (reCAPTCHA tokens are single-use, so the monolith no longer validates locally).
+            response = authServerClient.login(email, password, verificationCode, captchaResponse);
         } catch (HttpStatusCodeException e) {
-            // auth-service returns 4xx for invalid credentials / unverified / locked / wrong 2FA code.
+            // auth-service returns 4xx for invalid captcha / credentials / unverified / locked / wrong 2FA.
             // The specific reason is in the response body ({"message": "..."}); surface it instead of
             // collapsing everything to "invalid username or password" (which misleads unverified users).
             final String body = e.getResponseBodyAsString() == null ? "" : e.getResponseBodyAsString().toLowerCase();
+            if (body.contains("captcha")) {
+                // Captcha is checked before credentials at the auth-service, so report it first.
+                throw new BadCredentialsException("Captcha verification failed");
+            }
             if (verificationCode != null && !verificationCode.isBlank()) {
                 throw new BadCredentialsException("Invalid 2FA code");
             }

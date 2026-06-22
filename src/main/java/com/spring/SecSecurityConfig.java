@@ -57,9 +57,6 @@ public class SecSecurityConfig {
     private TokenStore tokenStore;
 
     @Autowired
-    private com.captcha.ICaptchaService captchaService;
-
-    @Autowired
     private RevokeTokenLogoutHandler revokeTokenLogoutHandler;
 
     public SecSecurityConfig() {
@@ -160,8 +157,8 @@ public class SecSecurityConfig {
     public AuthenticationProvider authProvider() {
         // Single identity provider: credentials are verified by the auth-service (JWT IdP).
         // The legacy local-DB provider was removed with the auth/user-store decommission.
-        // captchaService verifies the login captcha when enabled (no-op otherwise).
-        return new AuthServerAuthenticationProvider(authServerClient, tokenStore, captchaService);
+        // Captcha is verified by the auth-service too — the token is forwarded, not checked here.
+        return new AuthServerAuthenticationProvider(authServerClient, tokenStore);
     }
 
     @Bean

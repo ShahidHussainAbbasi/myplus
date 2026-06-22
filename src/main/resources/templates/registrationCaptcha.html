@@ -171,8 +171,8 @@
 
                 <div class="field-group" style="margin-bottom:24px">
                     <label class="field-label">Captcha</label>
-                    <!-- to enable captcha uncomment the keys in application.properties -->
-                    <div class="g-recaptcha" th:attr="data-sitekey=${@captchaService.getReCaptchaSite()}"
+                    <!-- site key + enabled flag come from FeatureFlagsInterceptor; verification is done by auth-service -->
+                    <div th:if="${captchaEnabled}" class="g-recaptcha" th:attr="data-sitekey=${captchaSiteKey}"
                          data-callback="onReCaptchaSuccess" data-expired-callback="onReCaptchaExpired"></div>
                     <span id="captchaError" class="alert reg-err" style="display:none"></span>
                 </div>
