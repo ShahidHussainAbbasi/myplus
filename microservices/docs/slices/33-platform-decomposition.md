@@ -649,6 +649,36 @@ Cypress driving the sell screen** — it changes the working money path. Tiered 
 > UI — and is best its own slice, not crammed into the cutover. Pharmacy/marketplace can start composing
 > catalog/inventory/trade as soon as Tier 1–2 lands.
 
+### U5 live-attempt findings (2026-06-22 — dev env, reverted to baseline) + getStock-gap diagnostic
+
+A live attempt surfaced that **U5 is an integration task, not a flag flip.** Hard-won facts:
+
+- **Turning the saga ON:** config-server (`configs/business-service.yml`, committed `trade.saga.enabled: false`)
+  **overrides** business-service's local `application.yml` (`enabled: true`) — bootstrap remote wins. To flip it you
+  must set config-server's value to a **literal** `enabled: true` (a `${TRADE_SAGA_ENABLED:true}` placeholder is
+  served *unresolved* → binds false), then **rebuild config-server** (configs are baked into its jar via the
+  `native`/`classpath:/configs` profile) and restart config-server + business-service. A `--trade.saga.enabled=true`
+  command-line arg does **not** beat config-server.
+- **Inventory model:** the saga reserves from **`stock_entries`** (multi-batch, FEFO), **not** `stock_levels`.
+  Confirm reduces `stock_entries.quantity` + `stock_levels.current_stock` **asynchronously** (recovery relay), so a
+  synchronous before/after SQL snapshot won't see the delta — check `reservations.status='CONFIRMED'` instead.
+  Seeding for a dev cutover must populate `stock_entries` (qty > 0).
+- **The blocker:** with the saga ON, business `getStock?itemId=` returns **0** for `demo.business`'s items, so
+  `saga-sell.cy.js` skips the sale and a real sale would be `OUT_OF_STOCK` — i.e. the **item → product → inventory**
+  lookup isn't surfacing seeded stock. Likely `item_catalog_map` ↔ the user's actual items, or `getStock`'s org
+  context, is misaligned.
+
+**Diagnostic to run (trace ONE item end-to-end; demo.business = user 60 / org 16):**
+1. `SELECT item_id, product_id FROM myplusdb.item_catalog_map LIMIT 5;` → a mapped (itemId, productId).
+2. `SELECT id, iname, user_id, organization_id FROM myplusdb.item WHERE id=<itemId>;` → is it demo.business's
+   (user 60 / org 16)? If the mapped items belong to a *different* user/org than the picker shows, that's the gap.
+3. `SELECT product_id, quantity, organization_id FROM myplusdb_inventory.stock_entries WHERE product_id=<productId>;`
+   → does it have stock, and in org 16?
+4. With the saga on, hit `GET /getStock?itemId=<itemId>` as demo.business and see what on-hand it returns.
+5. Read business `getStock` + `SagaSellService` translation (itemId→productId, org context) to see which step zeroes.
+> Dev seed used: `stock_entries`/`stock_levels` rows tagged `batch_no='SEED-U5'` (org 16, qty 100) — delete to clean.
+> DB backups saved in repo `u5-backups/`.
+
 ## Test
 **Standard (per user): every phase ships tests that run on `mvn test`.** Pure-logic = always-run unit tests
 (no Docker); repo/scoping/integration = `@DataJpaTest` + Testcontainers MySQL (`disabledWithoutDocker=true`,
