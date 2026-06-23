@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -43,11 +44,13 @@ public class ReservationService {
             if (existing.isPresent()) return toResponse(existing.get());
         }
 
+        final LocalDate today = LocalDate.now();   // G1: FEFO excludes batches expired before today
+
         // Pass 1 — verify EVERY line is fully satisfiable before holding anything (no partial holds).
         for (StockReservationLine line : req.getLines()) {
             float need = line.getQuantity().floatValue();
             float available = 0f;
-            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId)) {
+            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today)) {
                 available += Math.max(0f, nz(e.getQuantity()) - nz(e.getReservedQuantity()));
             }
             if (available + EPS < need) {
@@ -66,7 +69,7 @@ public class ReservationService {
 
         for (StockReservationLine line : req.getLines()) {
             float remaining = line.getQuantity().floatValue();
-            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId)) {
+            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today)) {
                 if (remaining <= EPS) break;
                 float avail = nz(e.getQuantity()) - nz(e.getReservedQuantity());
                 if (avail <= 0f) continue;

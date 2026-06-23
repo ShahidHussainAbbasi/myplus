@@ -53,6 +53,10 @@ class ReservationServiceTest {
     }
 
     private static final Long ORG = 1L, USER = 1L, PRODUCT = 10L;
+    // Relative to today so the tests don't rot, and so G1 (expired-stock exclusion) is exercised correctly.
+    private static final LocalDate SOON = LocalDate.now().plusMonths(2);    // earlier expiry, still valid
+    private static final LocalDate LATER = LocalDate.now().plusMonths(6);   // later expiry, still valid
+    private static final LocalDate EXPIRED = LocalDate.now().minusDays(1);  // already expired
 
     @Autowired private ReservationService service;
     @Autowired private StockEntryRepository stockEntryRepository;
@@ -85,8 +89,8 @@ class ReservationServiceTest {
 
     @Test
     void reserve_allocates_fefo_then_confirm_decrements_stock() {
-        StockEntry early = batch(30f, LocalDate.of(2026, 1, 1));
-        StockEntry late = batch(50f, LocalDate.of(2026, 6, 1));
+        StockEntry early = batch(30f, SOON);
+        StockEntry late = batch(50f, LATER);
         stockLevel(80f);
 
         StockReservationResponse res = service.reserve(request("k1", 40f), ORG, USER);
@@ -107,7 +111,7 @@ class ReservationServiceTest {
 
     @Test
     void release_returns_the_hold_without_decrementing() {
-        StockEntry b = batch(30f, LocalDate.of(2026, 1, 1));
+        StockEntry b = batch(30f, SOON);
         stockLevel(30f);
 
         StockReservationResponse res = service.reserve(request("k2", 20f), ORG, USER);
@@ -121,7 +125,7 @@ class ReservationServiceTest {
 
     @Test
     void reserve_returns_out_of_stock_and_holds_nothing_when_insufficient() {
-        StockEntry b = batch(5f, LocalDate.of(2026, 1, 1));
+        StockEntry b = batch(5f, SOON);
         stockLevel(5f);
 
         StockReservationResponse res = service.reserve(request("k3", 1000f), ORG, USER);
@@ -133,7 +137,7 @@ class ReservationServiceTest {
 
     @Test
     void reserve_is_idempotent_on_the_key() {
-        StockEntry b = batch(30f, LocalDate.of(2026, 1, 1));
+        StockEntry b = batch(30f, SOON);
         stockLevel(30f);
 
         StockReservationResponse first = service.reserve(request("same-key", 10f), ORG, USER);
@@ -142,5 +146,31 @@ class ReservationServiceTest {
         assertThat(second.getReservationId()).isEqualTo(first.getReservationId());
         // Held only once despite two reserve calls.
         assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualTo(10f);
+    }
+
+    // ── G1: expired-stock exclusion (pharmacy compliance) ─────────────────────────────────────────
+    @Test
+    void reserve_reports_out_of_stock_when_only_expired_stock_remains() {
+        StockEntry expired = batch(100f, EXPIRED);   // the only stock is already expired
+        stockLevel(100f);
+
+        StockReservationResponse res = service.reserve(request("g1a", 1f), ORG, USER);
+
+        // never allocate expired stock — it's treated as unavailable.
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.OUT_OF_STOCK);
+        assertThat(stockEntryRepository.findById(expired.getId()).get().getReservedQuantity()).isEqualTo(0f);
+    }
+
+    @Test
+    void reserve_allocates_only_the_non_expired_batch_and_skips_the_expired_one() {
+        StockEntry expired = batch(40f, EXPIRED);    // earliest date but expired -> must be skipped
+        StockEntry fresh = batch(40f, LATER);
+        stockLevel(80f);
+
+        StockReservationResponse res = service.reserve(request("g1b", 30f), ORG, USER);
+
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
+        assertThat(stockEntryRepository.findById(expired.getId()).get().getReservedQuantity()).isEqualTo(0f);  // untouched
+        assertThat(stockEntryRepository.findById(fresh.getId()).get().getReservedQuantity()).isEqualTo(30f);   // from fresh
     }
 }
