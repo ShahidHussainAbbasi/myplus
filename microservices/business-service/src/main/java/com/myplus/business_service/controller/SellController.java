@@ -104,6 +104,9 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.service.SagaSellService sagaSellService;
 
+	@Autowired
+	com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -200,14 +203,37 @@ public class SellController {
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
 					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+			// Saga sells carry productId (no local Stock/itemId); resolve their item name via the reverse
+			// catalog map (productId -> itemId -> Item) so they list with the same name as legacy sells.
+			java.util.List<Long> sagaProductIds = objs.stream()
+					.filter(s -> s.getStock() == null && s.getProductId() != null)
+					.map(s -> s.getProductId()).distinct()
+					.collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
+			if (!sagaProductIds.isEmpty()) {
+				java.util.Map<Long, Long> productToItem = new java.util.HashMap<>();
+				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(sagaProductIds, orgId())) {
+					productToItem.put((Long) row[0], (Long) row[1]);
+				}
+				java.util.Map<Long, Item> sagaItems = itemService.findAllById(productToItem.values()).stream()
+						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+				sagaProductIds.forEach(pid -> {
+					Long iid = productToItem.get(pid);
+					if (iid != null && sagaItems.get(iid) != null) itemByProductId.put(pid, sagaItems.get(iid));
+				});
+			}
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				// SellDTO dto = appUtil.objTodtoConverter(o);
 				SellDTO dto = modelMapper.map(o, SellDTO.class);
-				if(appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) {
-					Item item = itemsById.get(o.getStock().getItemId());
+				if((appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) || o.getProductId() != null) {
+					// legacy: item via local Stock's itemId; saga: item via productId reverse-map. Either way the
+					// invoice/customer below + dtos.add now run for ALL sells (saga sells were being dropped here).
+					Item item = (o.getStock() != null && o.getStock().getItemId() != null)
+							? itemsById.get(o.getStock().getItemId())
+							: itemByProductId.get(o.getProductId());
 					if(item != null) {
 						dto.setItemId(item.getId());
 						dto.setItemName(item.getIname());

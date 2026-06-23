@@ -26,5 +26,13 @@ public interface ItemCatalogMapRepo extends JpaRepository<ItemCatalogMap, Long> 
     /** Translate a business itemId to its catalog productId for the saga sell path (slice 33, U3b). */
     @Query("SELECT m.productId FROM ItemCatalogMap m WHERE m.itemId = :itemId AND " + SCOPE)
     java.util.Optional<Long> findProductIdByItemId(@Param("itemId") Long itemId, @Param("org") Long org);
+
+    /**
+     * Reverse map: catalog productId -> business itemId, for resolving the item name of SAGA sells when
+     * listing sales (saga Sell rows carry productId, not a local Stock/itemId). Batched: returns
+     * [productId, itemId] pairs for the given products.
+     */
+    @Query("SELECT m.productId, m.itemId FROM ItemCatalogMap m WHERE m.productId IN :productIds AND " + SCOPE)
+    List<Object[]> findItemIdsByProductIds(@Param("productIds") List<Long> productIds, @Param("org") Long org);
 }
 

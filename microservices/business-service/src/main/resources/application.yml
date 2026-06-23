@@ -44,6 +44,7 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
 
+# custom application properties
 trade:
   saga:
     enabled: true
