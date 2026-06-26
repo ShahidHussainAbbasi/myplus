@@ -1,6 +1,7 @@
 package com.myplus.inventory.service;
 
 import com.myplus.commerce.contracts.client.CatalogClient;
+import com.myplus.commerce.contracts.dto.StockBatch;
 import com.myplus.inventory.dto.StockDTOs.*;
 import com.myplus.inventory.entity.*;
 import com.myplus.common.security.CurrentUser;
@@ -14,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Stock operations (slice 33, Phase 5b). Quantity state lives in {@link StockLevel} (per product); product
@@ -132,6 +136,22 @@ public class StockService {
     public Float getCurrentStock(Long productId) {
         return stockLevelRepository.findByProductScoped(productId, CurrentUser.organizationId(), CurrentUser.userId())
                 .map(StockLevel::getCurrentStock).orElse(0f);
+    }
+
+    /** FEFO batches a sale/dispense draws from next (slice 54, P10): earliest-expiry first, expired excluded (G1),
+     *  only batches with sellable qty (quantity − reserved > 0). Org-scoped via CurrentUser. */
+    public List<StockBatch> getFefoBatches(Long productId) {
+        Long orgId = CurrentUser.organizationId();
+        Long userId = CurrentUser.userId();
+        List<StockBatch> out = new ArrayList<>();
+        for (StockEntry e : stockEntryRepository.findForFefo(productId, orgId, userId, LocalDate.now())) {
+            float qty = e.getQuantity() == null ? 0f : e.getQuantity();
+            float reserved = e.getReservedQuantity() == null ? 0f : e.getReservedQuantity();
+            float available = qty - reserved;
+            if (available <= 0f) continue;
+            out.add(new StockBatch(productId, e.getBatchNo(), e.getExpiryDate(), BigDecimal.valueOf(available)));
+        }
+        return out;
     }
 
     public Page<StockEntry> getHistory(Long productId, Pageable pageable) {

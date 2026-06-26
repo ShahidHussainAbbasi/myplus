@@ -1120,6 +1120,7 @@ function loadStock(label,value){
 	$("#sellPurchaseRate").val("");
 	$("#sellSellRate").val("")
 	$("#sellItems").removeClass("alert-danger");
+	$("#sellBatchInfo").hide().empty();   // P10 (slice 54): FEFO batch/expiry shown when an item is picked
 	$("pdt").html("      ");
 	
     $.get(serverContext+ "getStock?itemId="+value,function(data){
@@ -1156,6 +1157,7 @@ function loadStock(label,value){
 			    		$("#sellItems").val(1);
 			    	}
 			    	$("#sellItemDesc").val(data.idesc);
+			    	renderSellBatches(data.batches);   // P10: show the FEFO batch/expiry being dispensed
 			    	calculateNetSell();
 	    		}
     		}
@@ -1164,6 +1166,17 @@ function loadStock(label,value){
 	.fail(function(data) {
 		console.log(data);
 	});
+}
+
+// P10 (slice 54): render the FEFO batch/expiry the next sale/dispense will draw from. First batch = next dispensed.
+function renderSellBatches(batches){
+	var el = $("#sellBatchInfo");
+	if(!el.length) return;
+	if(!batches || !batches.length){ el.hide().empty(); return; }
+	var first = batches[0];
+	var exp = first.expiryDate ? (' • Exp ' + first.expiryDate) : '';
+	var more = batches.length > 1 ? (' <span class="text-muted">(+' + (batches.length-1) + ' more)</span>') : '';
+	el.html('<span class="glyphicon glyphicon-barcode"></span> FEFO: Batch <b>' + escHtml(first.batchNo || 'n/a') + '</b>' + escHtml(exp) + more).show();
 }
 
 function getBatchesByItem(itemId){

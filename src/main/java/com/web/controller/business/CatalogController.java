@@ -100,8 +100,13 @@ public class CatalogController {
         try {
             Object productId = body.get("productId");
             Object quantity = body.get("quantity");
-            String count = inventory.postJsonString("/stock/import",
-                    Collections.singletonList(Map.of("productId", productId, "quantity", quantity)));
+            // Optional lot info (slice 54, P10) — stock a specific batch/expiry so FEFO + the dispense screen show it.
+            Map<String, Object> line = new java.util.HashMap<>();
+            line.put("productId", productId);
+            line.put("quantity", quantity);
+            if (body.get("batchNo") != null) line.put("batchNo", body.get("batchNo"));
+            if (body.get("expiryDate") != null) line.put("expiryDate", body.get("expiryDate"));
+            String count = inventory.postJsonString("/stock/import", Collections.singletonList(line));
             return Map.of("success", true, "created", count);
         } catch (Exception e) {
             LOGGER.error("addProductStock proxy error", e);

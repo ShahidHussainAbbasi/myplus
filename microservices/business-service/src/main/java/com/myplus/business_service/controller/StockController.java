@@ -229,6 +229,14 @@ public class StockController {
 						if (invStock != null) dto.setStock(invStock);                       // U4.1 on-hand
 						com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
 						if (p != null && p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());  // U4.2 price
+						// P10 (slice 54): FEFO batch/expiry for the dispense screen; first batch is the next dispensed.
+						java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches = inventoryClient.getBatches(productId);
+						dto.setBatches(batches);
+						if (batches != null && !batches.isEmpty()) {
+							com.myplus.commerce.contracts.dto.StockBatch first = batches.get(0);
+							dto.setBatchNo(first.getBatchNo());
+							dto.setBexpDate(first.getExpiryDate() != null ? first.getExpiryDate().toString() : null);
+						}
 					}
 				} catch (Exception ex) {
 					LOGGER.warn("U4: inventory/catalog lookup failed for item {}, showing local values", itemId, ex);

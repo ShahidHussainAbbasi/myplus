@@ -49,6 +49,13 @@ public class StockController {
         return stockService.getCurrentStock(productId);
     }
 
+    /** FEFO batches (batch/expiry + sellable qty) for the dispense/sell screen (slice 54, P10). Raw body so the
+     *  trade-service InventoryClient.getBatches deserializes it directly. */
+    @GetMapping("/batches/{productId}")
+    public java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches(@PathVariable Long productId) {
+        return stockService.getFefoBatches(productId);
+    }
+
     @GetMapping("/{productId}/history")
     public ResponseEntity<ApiResponse<PageResponse<StockEntry>>> history(@PathVariable Long productId, Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(

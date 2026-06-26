@@ -136,7 +136,7 @@ and they **duplicate** Product/StockEntry — must be rebased to compose the cor
 | P7 | **Rx-required + controlled-substance enforcement** + log | ✅ | ✅ | ✅ | slice 44: `SafetyService` controlled-register + pre-dispense check (Cypress safety.cy.js) |
 | P8 | **Drug-interaction check at dispense** (cart vs patient meds) | ✅ | ✅ | ✅ | slice 44: `DrugInteraction` + pharma.js warns before dispense |
 | P9 | **FEFO + never dispense expired** | ✅ | ✅ | ✅ | **G1** already enforced in core |
-| P10 | Batch + expiry shown on dispense screen | ⬜ | 🟡 | ✅ | FEFO pick returns batch/expiry — surface it |
+| P10 | Batch + expiry shown on dispense screen | ✅ | ✅ | ✅ | slice 54: inventory `/stock/batches/{id}` (FEFO, G1-excluded) → `getStock.batches` → `#sellBatchInfo` on the sell/dispense screen |
 | P11 | Returns → quarantine (`restockable=false`) not sellable | ⬜ | 🟡 | ⬜ | layered on G2 `createReturnEntry` seam |
 | P12 | Tax/payment/receipt (+ insurance/co-pay later) | 🟡 | ✅ | ✅ | reuse G3/G5 via the shared sale; insurance 🔭 |
 | P13 | Near-expiry + low-stock pharmacy alerts | 🟡 | ✅ | ✅ | slice 45 (Cypress alerts.cy.js) |
