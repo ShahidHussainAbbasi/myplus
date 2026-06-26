@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/myplusdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/myplusdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B05:00&forceConnectionTimeZoneToSession=true
 
 # Strangler flag for the sell↔stock saga (slice 33). Default OFF: only ~9% of items have inventory stock
 # seeded so far, so enabling globally would reject sells (OUT_OF_STOCK) for unmigrated items. Flip to true
