@@ -165,6 +165,21 @@ public class OrderService {
         return repo.findScoped(orgId, userId).stream().map(this::toDTO).collect(Collectors.toList());
     }
 
+    /** Public order tracking (slice 56): a guest looks up their order by id + contact. Returns only on a contact
+     *  match (case-insensitive, non-blank) so order existence isn't revealed; minimal projection. */
+    public com.myplus.marketplace.dto.OrderTrackDTO trackPublic(Long ref, String contact) {
+        Order o = (ref == null) ? null : repo.findById(ref).orElse(null);
+        String c = contact == null ? "" : contact.trim();
+        if (o == null || c.isEmpty() || o.getCustomerContact() == null
+                || !o.getCustomerContact().trim().equalsIgnoreCase(c)) {
+            throw new ResourceNotFoundException("No order found for that reference and contact.");
+        }
+        return new com.myplus.marketplace.dto.OrderTrackDTO(
+                o.getId(), o.getCustomerName(),
+                o.getFulfilmentStatus() != null ? o.getFulfilmentStatus().name() : null,
+                o.getCreatedAt(), o.getTotal());
+    }
+
     public OrderDTO get(Long id, Long orgId, Long userId) {
         return toDTO(repo.findByIdScoped(id, orgId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found")));

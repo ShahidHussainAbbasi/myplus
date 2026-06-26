@@ -104,6 +104,28 @@ public class StorefrontController {
      * out of stock) the marketplace returns a 4xx with a {@code {success:false,message:...}} body — pass that body
      * straight through so the shopper sees the real reason ("out of stock") instead of a generic retry message.
      */
+    /** Track a guest order by ref + contact (anonymous, slice 56). Relays the marketplace's not-found message. */
+    @GetMapping("/storefront/track")
+    @ResponseBody
+    @SuppressWarnings("unchecked")
+    public Object track(@RequestParam("ref") String ref, @RequestParam("contact") String contact) {
+        try {
+            return restTemplate.getForObject(gatewayUrl + "/api/marketplace/public/order/track?ref="
+                    + java.net.URLEncoder.encode(ref, java.nio.charset.StandardCharsets.UTF_8)
+                    + "&contact=" + java.net.URLEncoder.encode(contact, java.nio.charset.StandardCharsets.UTF_8), Map.class);
+        } catch (HttpStatusCodeException e) {
+            try {
+                Map<String, Object> err = objectMapper.readValue(e.getResponseBodyAsString(), Map.class);
+                return Map.of("success", false, "message", err.get("message") != null ? err.get("message") : "Order not found.");
+            } catch (Exception ignore) {
+                return Map.of("success", false, "message", "Order not found.");
+            }
+        } catch (Exception e) {
+            LOGGER.error("storefront track proxy error", e);
+            return Map.of("success", false, "message", "Could not look up the order.");
+        }
+    }
+
     @PostMapping("/storefront/checkout")
     @ResponseBody
     public Object checkout(@RequestBody Map<String, Object> body) {

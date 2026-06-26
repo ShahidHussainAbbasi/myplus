@@ -58,6 +58,14 @@
             <button class="pay" id="payBtn" onclick="placeOrder()">Place order (Cash on Delivery)</button>
         </div>
         <div id="done"></div>
+        <!-- Order tracking (slice 56): look up an order's status by ref + contact, no account needed. -->
+        <div style="border-top:1px solid #e6eaf0;margin-top:14px;padding-top:12px">
+            <div style="font-weight:600;margin-bottom:6px">📦 Track your order</div>
+            <input id="trkRef" placeholder="Order # (e.g. 123)" inputmode="numeric">
+            <input id="trkContact" placeholder="Phone / email used">
+            <button class="pay" onclick="trackOrder()">Check status</button>
+            <div id="trkResult"></div>
+        </div>
     </div>
 </div>
 
@@ -150,9 +158,31 @@
                 var msg = payMode==='CARD'
                     ? '✓ Payment received — order confirmed! We\'ll ship it shortly.'
                     : '✓ Order placed! We\'ll contact you to confirm delivery. (Cash on Delivery)';
-                document.getElementById('done').innerHTML = '<div class="ok" id="orderDone">'+msg+'</div>';
+                var ref = (resp.data && resp.data.id) ? resp.data.id : null;
+                var refLine = ref ? ('<div style="margin-top:6px">Your order reference: <b>#'+esc(String(ref))+'</b> — keep it to track your order.</div>') : '';
+                document.getElementById('done').innerHTML = '<div class="ok" id="orderDone">'+msg+refLine+'</div>';
+                if(ref){ document.getElementById('trkRef').value = ref; document.getElementById('trkContact').value = document.getElementById('cContact').value; }
             } else { alert((resp && resp.message) || 'Could not place the order.'); }
         }).catch(function(){ alert('Could not place the order. Please try again.'); });
+    }
+
+    // Order tracking (slice 56): look up status by ref + contact.
+    function trackOrder(){
+        var ref = (document.getElementById('trkRef').value||'').trim();
+        var contact = (document.getElementById('trkContact').value||'').trim();
+        var out = document.getElementById('trkResult');
+        if(!ref || !contact){ out.innerHTML = '<div class="empty">Enter your order # and the contact you used.</div>'; return; }
+        fetch('/storefront/track?ref='+encodeURIComponent(ref)+'&contact='+encodeURIComponent(contact))
+            .then(function(r){ return r.json(); })
+            .then(function(resp){
+                if(resp && resp.success && resp.data){
+                    var d = resp.data;
+                    out.innerHTML = '<div class="ok" id="trkStatus">Order #'+esc(String(d.ref))+' — status: <b>'+esc(d.status||'')+'</b><br>'
+                        + esc(d.customerName||'') + ' • Total '+money(d.total)+'</div>';
+                } else {
+                    out.innerHTML = '<div class="empty" id="trkNone">'+esc((resp&&resp.message)||'Order not found.')+'</div>';
+                }
+            }).catch(function(){ out.innerHTML = '<div class="empty">Could not look up the order.</div>'; });
     }
 </script>
 </body>

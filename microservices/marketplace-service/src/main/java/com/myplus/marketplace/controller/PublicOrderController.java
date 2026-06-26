@@ -2,11 +2,14 @@ package com.myplus.marketplace.controller;
 
 import com.myplus.common.web.ApiResponse;
 import com.myplus.marketplace.dto.OrderDTO;
+import com.myplus.marketplace.dto.OrderTrackDTO;
 import com.myplus.marketplace.service.OrderService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -24,5 +27,11 @@ public class PublicOrderController {
     @PostMapping("/order")
     public ApiResponse<OrderDTO> placeOrder(@RequestBody OrderDTO dto) {
         return ApiResponse.success(orderService.placePublic(dto), "Order placed");
+    }
+
+    /** Public order tracking (slice 56) — look up an order's status by ref + contact (no account). */
+    @GetMapping("/order/track")
+    public ApiResponse<OrderTrackDTO> track(@RequestParam Long ref, @RequestParam String contact) {
+        return ApiResponse.success(orderService.trackPublic(ref, contact));
     }
 }

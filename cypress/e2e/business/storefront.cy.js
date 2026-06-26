@@ -22,6 +22,9 @@ describe('E-commerce — public storefront', () => {
       })
   })
 
+  // testIsolation clears the session between tests; the catalog writes (/addProduct) need auth, so re-login each test.
+  beforeEach(() => cy.loginAsMarketplace())
+
   it('the public products endpoint lists the store catalog with stock availability', () => {
     expect(orgId, 'resolved a store org').to.exist
     cy.request('/storefront/products?org=' + orgId).then((r) => {
