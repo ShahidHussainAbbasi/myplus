@@ -53,6 +53,9 @@ public class Order {
     @Column(name = "reservation_id")
     private String reservationId;           // the inventory saga hold this order drew down (slice 49)
 
+    @Column(name = "reservation_status")
+    private String reservationStatus;       // PENDING (held, not yet confirmed) | CONFIRMED — recovery relay (slice 52)
+
     @Column(precision = 19, scale = 2)
     private BigDecimal total;
 

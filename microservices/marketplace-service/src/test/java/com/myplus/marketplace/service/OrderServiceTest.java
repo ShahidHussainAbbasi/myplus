@@ -18,6 +18,8 @@ import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
 import com.myplus.commerce.contracts.dto.StockReturnRequest;
 import com.myplus.marketplace.dto.OrderDTO;
+import com.myplus.marketplace.entity.FulfilmentStatus;
+import com.myplus.marketplace.entity.Order;
 import com.myplus.marketplace.repository.OrderRepository;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +61,7 @@ class OrderServiceTest {
 
     @Autowired private OrderService service;
     @Autowired private OrderRepository repo;
+    @Autowired private OrderSagaRecoveryRelay relay;        // recovery relay (slice 52)
     @MockitoBean private InventoryClient inventoryClient;   // reuse the inventory saga; mocked here (slice 49)
 
     @BeforeEach
@@ -124,8 +127,34 @@ class OrderServiceTest {
         OrderDTO o = service.placePublic(storefront("COD Buyer", "COD", null));
         assertThat(o.getPaymentMode()).isEqualTo("COD");
         assertThat(o.getPaymentStatus()).isEqualTo("PENDING");
+        assertThat(o.getReservationStatus()).isEqualTo("CONFIRMED");   // inline confirm succeeded
         verify(inventoryClient, times(1)).reserve(any());
         verify(inventoryClient, times(1)).confirm("resv-1");
+    }
+
+    @Test
+    void relay_reconfirms_a_pending_reservation() {
+        Order pending = repo.save(Order.builder()
+                .organizationId(ORG).source("STOREFRONT")
+                .reservationId("r-pending").reservationStatus("PENDING")
+                .fulfilmentStatus(FulfilmentStatus.NEW).build());
+
+        relay.reconfirmPending();
+
+        verify(inventoryClient, times(1)).confirm("r-pending");
+        assertThat(repo.findById(pending.getId()).orElseThrow().getReservationStatus()).isEqualTo("CONFIRMED");
+    }
+
+    @Test
+    void relay_ignores_already_confirmed_orders() {
+        repo.save(Order.builder()
+                .organizationId(ORG).source("STOREFRONT")
+                .reservationId("r-done").reservationStatus("CONFIRMED")
+                .fulfilmentStatus(FulfilmentStatus.NEW).build());
+
+        relay.reconfirmPending();
+
+        verify(inventoryClient, never()).confirm("r-done");
     }
 
     @Test

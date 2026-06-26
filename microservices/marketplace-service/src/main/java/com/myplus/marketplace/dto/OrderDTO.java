@@ -22,6 +22,7 @@ public class OrderDTO {
     private String paymentRef;          // charge id (out)
     private String cardToken;           // sandbox card token (in) — "fail" declines
     private String reservationId;       // inventory saga hold (out, slice 49)
+    private String reservationStatus;   // PENDING | CONFIRMED (out, slice 52)
     private String shippingAddress;
     private List<Line> items;           // storefront cart lines — drive the stock reservation (slice 49)
     private LocalDateTime createdAt;

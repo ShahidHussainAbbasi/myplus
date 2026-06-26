@@ -95,6 +95,7 @@ public class OrderService {
                 .source("STOREFRONT").paymentMode(card ? "CARD" : "COD")
                 .paymentStatus(payStatus).paymentRef(payRef)
                 .reservationId(reservationId)
+                .reservationStatus(reservationId != null ? "PENDING" : null)
                 .items(toItems(dto.getItems()))
                 .fulfilmentStatus(FulfilmentStatus.NEW)
                 .build();
@@ -106,13 +107,15 @@ public class OrderService {
             throw writeFailure;
         }
 
-        // Confirm the hold → stock is decremented. Best-effort: a confirm failure leaves the hold (manual
-        // reconcile) — marketplace has no recovery relay (unlike POS, U3c). The order is already recorded.
+        // Confirm the hold → stock is decremented. Best-effort: a confirm failure leaves the reservation PENDING
+        // for the recovery relay (slice 52) to re-drive (confirm is idempotent). The order is already recorded.
         if (reservationId != null) {
             try {
                 asStore(org, () -> inventoryClient.confirm(reservationId));
+                saved.setReservationStatus("CONFIRMED");
+                saved = repo.save(saved);
             } catch (RuntimeException confirmFailure) {
-                LOG.warn("Storefront order {} placed but reservation {} confirm failed; held for reconcile",
+                LOG.warn("Storefront order {} placed but reservation {} confirm failed; left PENDING for the relay",
                         saved.getId(), reservationId, confirmFailure);
             }
         }
@@ -229,6 +232,7 @@ public class OrderService {
         d.setPaymentStatus(o.getPaymentStatus());
         d.setPaymentRef(o.getPaymentRef());
         d.setReservationId(o.getReservationId());
+        d.setReservationStatus(o.getReservationStatus());
         d.setShippingAddress(o.getShippingAddress());
         d.setCreatedAt(o.getCreatedAt());
         return d;
