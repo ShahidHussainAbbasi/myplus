@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.web.util.BusinessRestClient;
 import com.web.util.CatalogRestClient;
 import com.web.util.InventoryRestClient;
 
@@ -33,6 +34,9 @@ public class CatalogController {
     @Autowired
     private InventoryRestClient inventory;
 
+    @Autowired
+    private BusinessRestClient business;
+
     /** Catalog products for the picker. Pass-through of paging params, e.g. /catalogProducts?size=1000. */
     @GetMapping("/catalogProducts")
     @ResponseBody
@@ -45,12 +49,31 @@ public class CatalogController {
         }
     }
 
-    /** M1 (slice 42): register a catalog Product (the single product master). */
+    /** M1 (slice 42): register a catalog Product (the single product master). slice 53: also project a bridged
+     *  business Item so the one master surfaces in the POS/pharmacy itemId screens (master-sync). */
     @PostMapping("/addProduct")
     @ResponseBody
+    @SuppressWarnings("unchecked")
     public Map<String, Object> addProduct(@RequestBody final Map<String, Object> body) {
         try {
-            return catalog.postJson("/products", body);
+            Map<String, Object> resp = catalog.postJson("/products", body);
+            // master-sync (slice 53): best-effort — a sync failure must not fail the product registration.
+            try {
+                Object data = (resp != null) ? resp.get("data") : null;
+                if (Boolean.TRUE.equals(resp != null ? resp.get("success") : null) && data instanceof Map<?, ?> p) {
+                    Map<String, Object> sync = new java.util.HashMap<>();
+                    sync.put("productId", ((Map<String, Object>) p).get("id"));
+                    sync.put("name", body.get("name"));
+                    sync.put("sku", body.get("sku"));
+                    sync.put("unit", body.get("unit"));
+                    sync.put("description", body.get("description"));
+                    sync.put("category", body.get("categoryName"));
+                    business.postJson("/syncProductItem", sync);
+                }
+            } catch (Exception sync) {
+                LOGGER.warn("product->item master-sync failed (product was created): {}", sync.getMessage());
+            }
+            return resp;
         } catch (Exception e) {
             LOGGER.error("addProduct proxy error", e);
             return Collections.singletonMap("success", false);

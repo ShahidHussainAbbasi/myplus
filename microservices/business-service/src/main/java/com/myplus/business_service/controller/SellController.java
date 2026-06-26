@@ -837,13 +837,17 @@ public class SellController {
 		}
 	}
 
+	@Transactional
 	@PostMapping(value = "/saleReturn")
 	@ResponseBody
 	public GenericResponse saleReturn(final SellDTO dto, final HttpServletRequest request) {
 //	public GenericResponse saleReturn(@RequestParam final Long saleId,@RequestParam final Long stockId,@RequestParam final Float qty) {
 		try {
-			if(appUtil.isEmptyOrNull(dto.getSellId()) || appUtil.isEmptyOrNull(dto.getSellSId()))
-				return new GenericResponse("NOT_FOUND");;
+			// sellId identifies the line to return. sellSId (local Stock id) is only needed to restock a legacy
+			// local-Stock sell — saga sells have no local Stock (they reverse through inventory below), so an empty
+			// sellSId is valid for them and must NOT be rejected here, else the default (saga) sell can't be returned.
+			if(appUtil.isEmptyOrNull(dto.getSellId()))
+				return new GenericResponse("NOT_FOUND");
 
 			// anti-IDOR: only let the caller return a sale that belongs to their tenant
 			Sell existingSell = sellService.findById(dto.getSellId()).orElse(null);
@@ -869,7 +873,7 @@ public class SellController {
 				inventoryClient.returnStock(reservationId, new com.myplus.commerce.contracts.dto.StockReturnRequest(
 						java.util.List.of(new com.myplus.commerce.contracts.dto.StockReturnLine(
 								existingSell.getProductId(), dto.getQuantity()))));
-			} else {
+			} else if (!appUtil.isEmptyOrNull(dto.getSellSId())) {
 				// Legacy local-Stock sell: restore the local Stock row as before.
 				Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());
 				if(stockOpt.isPresent()) {
@@ -885,9 +889,10 @@ public class SellController {
 
 			// G5 (slice 37): record the money refunded to the customer (proportional to the returned qty), so the
 			// payment ledger matches the restored stock. A REFUND tender (negative) is written to the invoice.
+			boolean partial = retQty > 0f && retQty < soldQty;
 			if (ch != null && ch.getCustomer_history_id() != null) {
 				java.math.BigDecimal lineGross = nzbd(existingSell.getTotalAmount()).add(nzbd(existingSell.getTaxAmount()));
-				java.math.BigDecimal refund = (soldQty > 0f && retQty > 0f && retQty < soldQty)
+				java.math.BigDecimal refund = partial
 						? lineGross.multiply(java.math.BigDecimal.valueOf(retQty))
 								.divide(java.math.BigDecimal.valueOf(soldQty), 2, java.math.RoundingMode.HALF_UP)
 						: lineGross;   // full-line return (or unknown qty) → refund the whole line
@@ -895,7 +900,46 @@ public class SellController {
 					paymentService.refund(ch.getCustomer_history_id(), refund, orgId(), userId());
 			}
 
-			sellService.deleteById(dto.getSellId());
+			// Adjust the returned line: a full return removes it; a partial return reduces its qty and money
+			// pro-rata so the invoice keeps the portion the customer is keeping.
+			if (partial) {
+				java.math.BigDecimal keepFrac = java.math.BigDecimal.valueOf(soldQty - retQty)
+						.divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP);
+				existingSell.setQuantity(soldQty - retQty);
+				existingSell.setTotalAmount(nzbd(existingSell.getTotalAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
+				existingSell.setNetAmount(nzbd(existingSell.getNetAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
+				existingSell.setTaxAmount(nzbd(existingSell.getTaxAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
+				existingSell.setSrp(nzbd(existingSell.getSrp()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
+				existingSell.setUpdated(java.time.LocalDateTime.now());
+				sellService.save(existingSell);
+			} else {
+				sellService.deleteById(dto.getSellId());
+			}
+
+			// Re-settle the invoice header on its SURVIVING lines and recompute the customer's running due, so the
+			// return is reflected everywhere it is read — the dashboard's "customers with dues" (getDashboardChartData),
+			// the customer ledger/statement and the invoice totals. The header stores dueAmount = paidAmount − grandTotal
+			// (negative while owing); recomputeDue() sums those headers into Customer.dueAmount.
+			if (ch != null && ch.getCustomer_history_id() != null) {
+				List<Sell> surviving = sellService.findByInvoiceScoped(ch.getCustomer_history_id(), orgId(), userId());
+				java.math.BigDecimal subTotal = java.math.BigDecimal.ZERO, taxTotal = java.math.BigDecimal.ZERO;
+				for (Sell s : surviving) {
+					subTotal = subTotal.add(nzbd(s.getTotalAmount()));
+					taxTotal = taxTotal.add(nzbd(s.getTaxAmount()));
+				}
+				java.math.BigDecimal grandTotal = subTotal.add(taxTotal);
+				ch.setSubTotal(subTotal);
+				ch.setTaxTotal(taxTotal);
+				ch.setGrandTotal(grandTotal);
+				ch.setDueAmount(nzbd(ch.getPaidAmount()).subtract(grandTotal));
+				ch.setUpdated(java.time.LocalDateTime.now());
+				customerHistoryService.save(ch);
+
+				Customer customer = ch.getCustomer();
+				if (customer != null)
+					customerService.recomputeDue(customer);
+			}
+
 			return new GenericResponse("SUCCESS", "Sale returned successfully.");
 
 		} catch (Exception e) {

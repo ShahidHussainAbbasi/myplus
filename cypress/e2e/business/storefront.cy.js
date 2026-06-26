@@ -22,14 +22,35 @@ describe('E-commerce — public storefront', () => {
       })
   })
 
-  it('the public products endpoint lists the store catalog', () => {
+  it('the public products endpoint lists the store catalog with stock availability', () => {
     expect(orgId, 'resolved a store org').to.exist
     cy.request('/storefront/products?org=' + orgId).then((r) => {
       expect(r.body.success).to.eq(true)
       const mine = (r.body.data || []).find((p) => p.name === pname)
       expect(mine, 'product visible on the storefront').to.exist
       expect(mine).to.not.have.property('costPrice')   // public projection — no internal fields
+      // availability merge (slice 49 follow-up): the stocked product reports its sellable qty so the UI can cap/badge.
+      expect(mine).to.have.property('available')
+      expect(Number(mine.available), 'stocked product is available').to.be.greaterThan(0)
     })
+  })
+
+  it('checkout of an out-of-stock item returns the real "out of stock" reason (not a generic retry)', () => {
+    // A product with NO inventory — the reservation must reject it and the proxy must surface marketplace's message.
+    const dry = 'Dry_' + Date.now()
+    cy.request({ method: 'POST', url: '/addProduct', body: { name: dry, sku: 'DRY' + Date.now(), sellingPrice: 5, taxRate: 0, unit: 'pcs' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
+      .then((r) => {
+        const dryId = r.body.data.id
+        cy.request({
+          method: 'POST', url: '/storefront/checkout',
+          body: { organizationId: orgId, customerName: 'NoStock', customerContact: '0300DRY', shippingAddress: 'x', total: 5, items: [{ productId: dryId, quantity: 1, price: 5 }] },
+          headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+        }).then((res) => {
+          expect(res.status).to.eq(200)
+          expect(res.body.success, JSON.stringify(res.body)).to.eq(false)
+          expect(String(res.body.message).toLowerCase(), 'message names the stock problem').to.contain('stock')
+        })
+      })
   })
 
   it('a guest checkout places an order that appears in the back-office', () => {

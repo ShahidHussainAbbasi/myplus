@@ -27,6 +27,10 @@ public interface ItemCatalogMapRepo extends JpaRepository<ItemCatalogMap, Long> 
     @Query("SELECT m.productId FROM ItemCatalogMap m WHERE m.itemId = :itemId AND " + SCOPE)
     java.util.Optional<Long> findProductIdByItemId(@Param("itemId") Long itemId, @Param("org") Long org);
 
+    /** Reverse lookup for the Product→Item master-sync (slice 53): the map for a catalog productId, if any. */
+    @Query("SELECT m FROM ItemCatalogMap m WHERE m.productId = :productId AND " + SCOPE)
+    java.util.Optional<ItemCatalogMap> findByProductId(@Param("productId") Long productId, @Param("org") Long org);
+
     /**
      * Reverse map: catalog productId -> business itemId, for resolving the item name of SAGA sells when
      * listing sales (saga Sell rows carry productId, not a local Stock/itemId). Batched: returns

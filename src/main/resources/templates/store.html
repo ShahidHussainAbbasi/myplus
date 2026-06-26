@@ -15,6 +15,9 @@
         .card .muted{color:#6b7686;font-size:12px;flex:1}
         button{cursor:pointer;border:none;border-radius:8px;padding:8px 12px;font-weight:600}
         .add{background:#27ae60;color:#fff} .pay{background:#1f4e8c;color:#fff;width:100%}
+        .add:disabled{background:#c3c9d2;cursor:not-allowed}
+        .stock{font-size:11px;font-weight:600;margin:2px 0 8px;padding:2px 6px;border-radius:6px;display:inline-block}
+        .stock.out{background:#fdecea;color:#c0392b} .stock.low{background:#fff4e0;color:#b9770e}
         .cart{width:320px;background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:16px;position:sticky;top:18px}
         .cart h3{margin:0 0 10px} .line{display:flex;justify-content:space-between;font-size:13px;margin:4px 0}
         .total{display:flex;justify-content:space-between;font-weight:700;border-top:1px solid #e6eaf0;margin-top:8px;padding-top:8px}
@@ -72,16 +75,33 @@
             var g = document.getElementById('grid');
             if(!products.length){ g.innerHTML = '<div class="empty">This store has no products yet.</div>'; return; }
             g.innerHTML = products.map(function(p){
+                // available: null = unknown stock (no inventory row) -> treat as buyable; <=0 = out of stock.
+                var known = (p.available !== null && p.available !== undefined);
+                var out = known && Number(p.available) <= 0;
+                var low = known && Number(p.available) > 0 && Number(p.available) <= 5;
+                var badge = out ? '<div class="stock out">Out of stock</div>'
+                          : (low ? '<div class="stock low">Only '+Number(p.available)+' left</div>' : '');
+                var btn = out
+                    ? '<button class="add" disabled>Out of stock</button>'
+                    : '<button class="add" onclick="addToCart('+p.id+')">Add to cart</button>';
                 return '<div class="card"><div class="name">'+esc(p.name)+'</div>'
                     + '<div class="muted">'+esc(p.description||'')+'</div>'
                     + '<div class="price">'+money(p.sellingPrice)+'</div>'
-                    + '<button class="add" onclick="addToCart('+p.id+')">Add to cart</button></div>';
+                    + badge + btn + '</div>';
             }).join('');
         }).catch(function(){ document.getElementById('grid').innerHTML='<div class="empty">Could not load products.</div>'; });
 
     function addToCart(id){
         var p = products.find(function(x){ return x.id===id; }); if(!p) return;
         cart[id] = cart[id] || { id:id, name:p.name, price:Number(p.sellingPrice)||0, qty:0 };
+        // Cap at available stock when known, so the cart can never exceed what checkout could reserve.
+        var known = (p.available !== null && p.available !== undefined);
+        if(known && cart[id].qty >= Number(p.available)){
+            if(!cart[id].qty) delete cart[id];
+            alert('Only '+Number(p.available)+' of "'+p.name+'" in stock.');
+            renderCart();
+            return;
+        }
         cart[id].qty++;
         renderCart();
     }

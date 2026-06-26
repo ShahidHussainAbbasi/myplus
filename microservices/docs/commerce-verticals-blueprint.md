@@ -126,26 +126,29 @@ and they **duplicate** Product/StockEntry — must be rebased to compose the cor
 
 | Step | Activity | UI | API | DB | Std notes / gap |
 |---|---|:--:|:--:|:--:|---|
-| P0 | **Rebase pharma onto catalog/inventory** | ⬜ | ⬜ | 🟡 | Medicine→Product extension, drop PharmacyStock dup → use StockEntry |
-| P1 | Medicine master (generic/brand/strength/form/schedule/`rxRequired`) | ⬜ | ⬜ | 🟡 | entities exist; need controllers + compose catalog |
-| P2 | Drug categories (hierarchical) + interactions DB | ⬜ | ⬜ | 🟡 | `DrugCategory`,`DrugInteraction` entities only |
+| P0 | **Rebase pharma onto catalog/inventory** | ✅ | ✅ | ✅ | slice 41: Medicine/PharmacyStock **dropped**; pharma rebased onto the itemId bridge → uses the shared StockEntry. (Full Item→Product convergence parked: M2–M4.) |
+| P1 | Medicine master (generic/brand/strength/form/schedule/`rxRequired`) | 🟡 | ✅ | ✅ | slice 44: reuses the Item screen (relabelled "Medicine") + `MedicineClinical` for rxRequired/controlled/schedule |
+| P2 | Drug categories (hierarchical) + interactions DB | 🟡 | ✅ | ✅ | slice 44: `DrugInteraction` upsert via `findPairScoped`; categories deferred |
 | P3 | Supplier + purchase (batch/expiry mandatory) → inventory | 🟡 | ✅ | ✅ | reuse C6 (expiry compulsory) |
-| P4 | Patient + doctor/prescriber registry (license) | ⬜ | ⬜ | 🟡 | `Prescription` has patient/doctor fields |
-| P5 | **Prescription intake** (items, dosage, freq, duration, validity) | ⬜ | ⬜ | 🟡 | `Prescription`/`PrescriptionItem` entities |
-| P6 | **Dispense = sale + Rx ref + dispensed-by** (saga) | ⬜ | ⬜ | 🟡 | wire `Dispensing` to the trade saga, not a parallel store |
-| P7 | **Rx-required + controlled-substance enforcement** + log | ⬜ | ⬜ | ⬜ | block/scheduled-drug logging |
-| P8 | **Drug-interaction check at dispense** (cart vs patient meds) | ⬜ | ⬜ | 🟡 | use `DrugInteraction` |
+| P4 | Patient + doctor/prescriber registry (license) | 🟡 | 🟡 | ✅ | slice 43: `Prescription` carries patient/doctor; no separate registry yet |
+| P5 | **Prescription intake** (items, dosage, freq, duration, validity) | ✅ | ✅ | ✅ | slice 43 (Cypress prescription.cy.js) |
+| P6 | **Dispense = sale + Rx ref + dispensed-by** (saga) | ✅ | ✅ | ✅ | slice 43: dispense **completes a normal `addSell`** (the SAME `SagaSellService` POS uses) + a `Dispensing` row linked to that invoice — stock decrements through the shared saga, not a parallel store (Cypress dispense.cy.js) |
+| P7 | **Rx-required + controlled-substance enforcement** + log | ✅ | ✅ | ✅ | slice 44: `SafetyService` controlled-register + pre-dispense check (Cypress safety.cy.js) |
+| P8 | **Drug-interaction check at dispense** (cart vs patient meds) | ✅ | ✅ | ✅ | slice 44: `DrugInteraction` + pharma.js warns before dispense |
 | P9 | **FEFO + never dispense expired** | ✅ | ✅ | ✅ | **G1** already enforced in core |
 | P10 | Batch + expiry shown on dispense screen | ⬜ | 🟡 | ✅ | FEFO pick returns batch/expiry — surface it |
 | P11 | Returns → quarantine (`restockable=false`) not sellable | ⬜ | 🟡 | ⬜ | layered on G2 `createReturnEntry` seam |
-| P12 | Tax/payment/receipt (+ insurance/co-pay later) | ⬜ | 🟡 | 🟡 | reuse G3/G5; insurance 🔭 |
-| P13 | Near-expiry + low-stock pharmacy alerts | 🟡 | 🟡 | 🟡 | C17 + `findExpiringScoped` |
-| P14 | Regulatory reports (controlled-substance register) | ⬜ | ⬜ | ⬜ | jurisdictional |
+| P12 | Tax/payment/receipt (+ insurance/co-pay later) | 🟡 | ✅ | ✅ | reuse G3/G5 via the shared sale; insurance 🔭 |
+| P13 | Near-expiry + low-stock pharmacy alerts | 🟡 | ✅ | ✅ | slice 45 (Cypress alerts.cy.js) |
+| P14 | Regulatory reports (controlled-substance register) | 🟡 | ✅ | ✅ | slice 44: controlled-register list endpoint; jurisdictional reports 🔭 |
 
 ### Pharmacy standard gaps
-- **P0 rebase** is the foundation — do it before wiring P1–P8 so we don't deepen the duplication.
-- **Dispense-as-saga-sale** with Rx reference + dispensed-by.
-- **Safety/compliance:** rxRequired/controlled enforcement, interaction check, expired-block (✅), quarantine returns.
+- **P0 rebase DONE** (slice 41, itemId bridge) — dup stores dropped; pharma composes the shared core.
+- **Dispense-as-saga-sale DONE** (slice 43): dispensing rides the shared `addSell` saga (reserve→confirm→relay→return),
+  so stock parity with POS/storefront is **structural** — the on-hand decrement is proven by `saga-sell.cy.js`.
+  Prerequisite: the dispensed item must be **catalog-migrated** (`ItemCatalogMap`) like any saga sale (parked M2–M4).
+- **Safety/compliance DONE** (slice 44): rxRequired/controlled enforcement + register, interaction check,
+  expired-block (✅, G1). Remaining: P10 batch/expiry on the dispense screen, P11 quarantine returns.
 
 ---
 

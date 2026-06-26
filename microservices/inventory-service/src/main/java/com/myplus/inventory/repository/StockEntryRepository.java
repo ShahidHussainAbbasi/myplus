@@ -40,4 +40,12 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
             + " ORDER BY CASE WHEN se.expiryDate IS NULL THEN 1 ELSE 0 END, se.expiryDate ASC, se.id ASC")
     List<StockEntry> findForFefo(@Param("productId") Long productId, @Param("orgId") Long orgId,
                                  @Param("userId") Long userId, @Param("today") LocalDate today);
+
+    // Public storefront availability (slice 49 follow-up): per-product sellable quantity for a store (org). Mirrors
+    // what the reservation allocator can actually hold — (quantity − reserved) over non-expired batches — so the
+    // storefront never offers more than a checkout could reserve. Returns [productId, available] rows.
+    @Query("SELECT se.productId, SUM(se.quantity - COALESCE(se.reservedQuantity, 0)) FROM StockEntry se "
+            + "WHERE se.organizationId = :orgId AND (se.expiryDate IS NULL OR se.expiryDate >= :today) "
+            + "GROUP BY se.productId")
+    List<Object[]> availableByOrg(@Param("orgId") Long orgId, @Param("today") LocalDate today);
 }

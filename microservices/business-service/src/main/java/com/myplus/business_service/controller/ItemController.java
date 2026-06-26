@@ -15,6 +15,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Example;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -61,8 +62,11 @@ public class ItemController {
 	RequestUtil requestUtil;
 
     @Autowired
-    private AppUtil appUtil;  
-    
+    private AppUtil appUtil;
+
+    @Autowired
+    private com.myplus.business_service.service.ProductSyncService productSyncService;
+
 	ModelMapper modelMapper = new ModelMapper();
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
@@ -251,6 +255,24 @@ public class ItemController {
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
+		}
+	}
+
+	/**
+	 * Master-sync (slice 53): project a catalog Product into a bridged business Item + ItemCatalogMap so the one
+	 * product master surfaces in the itemId screens. Called by the monolith after it registers/edits a Product.
+	 */
+	@RequestMapping(value = "/syncProductItem", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse syncProductItem(@RequestBody final com.myplus.business_service.dto.ProductSyncDTO dto) {
+		try {
+			if (appUtil.isEmptyOrNull(dto.getProductId()))
+				return new GenericResponse("FAILED", "productId is required to sync.");
+			Long itemId = productSyncService.syncFromProduct(dto, orgId(), userId());
+			return new GenericResponse("SUCCESS", "Product synced to item.", itemId);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > syncProductItem " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not sync the product to an item.");
 		}
 	}
 
