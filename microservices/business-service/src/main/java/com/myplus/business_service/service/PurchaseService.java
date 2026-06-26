@@ -53,6 +53,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
 
+    @Autowired
+    CatalogMigrationService catalogMigrationService;   // M3.2: auto-map an item on purchase so it reaches inventory
+
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
@@ -210,10 +213,10 @@ public class PurchaseService implements IPurchaseService{
 	}
 
 	/**
-	 * D3 (slice 33): when the saga is enabled, push the purchased quantity into inventory as an opening
-	 * StockEntry for the catalog product (translate itemId→productId), so inventory accumulates stock for
-	 * the saga over time. Best-effort: a failure here never fails the purchase (it is recorded locally;
-	 * reconcile inventory later). Only mapped items are pushed; unmapped items need migration first.
+	 * D3 (slice 33) + M3.2 (slice 63): when the saga is enabled, push the purchased quantity into inventory so
+	 * inventory is authoritative for stock. The item is auto-mapped to a catalog product on demand
+	 * ({@code ensureMapped}) — so EVERY purchase reaches inventory, including legacy items never bulk-migrated.
+	 * Best-effort: a failure (catalog/inventory down) never fails the purchase (recorded locally; reconcile later).
 	 */
 	void pushPurchaseToInventory(PurchaseDTO dto, Stock stock, AuthenticatedUser user) {
 		if (!tradeSagaProperties.isEnabled() || stock == null
@@ -221,18 +224,19 @@ public class PurchaseService implements IPurchaseService{
 			return;
 		}
 		try {
-			itemCatalogMapRepo.findProductIdByItemId(dto.getItemId(), user.getOrganizationId())
-					.ifPresent(productId -> inventoryClient.importStock(List.of(
-							com.myplus.commerce.contracts.dto.StockImportLine.builder()
-									.productId(productId)
-									.quantity(dto.getQuantity())
-									.batchNo(stock.getBatchNo())
-									.expiryDate(stock.getBexpDate())
-									.purchasePrice(stock.getBpurchaseRate())
-									.costPrice(stock.getBpurchaseRate())
-									.build())));
+			Long productId = catalogMigrationService.ensureMapped(dto.getItemId(), user.getOrganizationId(), user.getUserId());
+			if (productId == null) return;
+			inventoryClient.importStock(List.of(
+					com.myplus.commerce.contracts.dto.StockImportLine.builder()
+							.productId(productId)
+							.quantity(dto.getQuantity())
+							.batchNo(stock.getBatchNo())
+							.expiryDate(stock.getBexpDate())
+							.purchasePrice(stock.getBpurchaseRate())
+							.costPrice(stock.getBpurchaseRate())
+							.build()));
 		} catch (Exception ex) {
-			LOG.warn("D3: inventory stock-in failed for item {} (purchase recorded locally; reconcile later)",
+			LOG.warn("M3.2: inventory stock-in failed for item {} (purchase recorded locally; reconcile later)",
 					dto.getItemId(), ex);
 		}
 	}

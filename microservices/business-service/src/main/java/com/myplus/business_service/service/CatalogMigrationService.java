@@ -56,6 +56,26 @@ public class CatalogMigrationService {
         return new CatalogMigrationResult(items.size(), results.size(), alreadyMapped.size());
     }
 
+    /**
+     * M3.2 (slice 63): ensure a single item is catalog-mapped, importing it on demand if not. Returns its
+     * productId (existing or freshly created). Idempotent. Lets the purchase path push EVERY item's stock-in to
+     * inventory — even legacy items never run through the bulk migration — so inventory is authoritative.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public Long ensureMapped(Long itemId, Long orgId, Long userId) {
+        if (itemId == null) return null;
+        var existing = mapRepo.findProductIdByItemId(itemId, orgId);
+        if (existing.isPresent()) return existing.get();
+        Item item = itemRepo.findById(itemId).orElse(null);
+        if (item == null) return null;
+        List<ProductImportResult> results = catalogClient.importProducts(List.of(toLine(item)));
+        if (results.isEmpty()) return null;
+        ProductImportResult r = results.get(0);
+        mapRepo.save(ItemCatalogMap.builder()
+                .itemId(r.getClientRef()).productId(r.getProductId()).organizationId(orgId).build());
+        return r.getProductId();
+    }
+
     private ProductImportLine toLine(Item i) {
         return ProductImportLine.builder()
                 .clientRef(i.getId())

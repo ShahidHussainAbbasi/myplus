@@ -1,17 +1,21 @@
 package com.myplus.business_service.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.myplus.business_service.dto.CatalogMigrationResult;
 import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.ItemCatalogMap;
 import com.myplus.business_service.repository.ItemCatalogMapRepo;
 import com.myplus.business_service.repository.ItemRepo;
+import com.myplus.business_service.repository.StockRepo;
 import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.dto.ProductImportLine;
 import com.myplus.commerce.contracts.dto.ProductImportResult;
@@ -33,6 +37,7 @@ class CatalogMigrationServiceTest {
     @Mock private ItemRepo itemRepo;
     @Mock private ItemCatalogMapRepo mapRepo;
     @Mock private CatalogClient catalogClient;
+    @Mock private StockRepo stockRepo;
     @InjectMocks private CatalogMigrationService service;
 
     private Item item(Long id, String icode, String iname) {
@@ -66,5 +71,28 @@ class CatalogMigrationServiceTest {
         verify(mapRepo).save(saved.capture());
         assertThat(saved.getValue().getItemId()).isEqualTo(2L);
         assertThat(saved.getValue().getProductId()).isEqualTo(200L);
+    }
+
+    @Test
+    void ensureMapped_returns_existing_productId_without_importing() {   // M3.2 (slice 63)
+        when(mapRepo.findProductIdByItemId(7L, 1L)).thenReturn(Optional.of(100L));
+
+        assertThat(service.ensureMapped(7L, 1L, 9L)).isEqualTo(100L);
+        verify(catalogClient, never()).importProducts(anyList());
+        verify(mapRepo, never()).save(any());
+    }
+
+    @Test
+    void ensureMapped_imports_and_maps_an_unmapped_item() {   // M3.2 (slice 63)
+        when(mapRepo.findProductIdByItemId(7L, 1L)).thenReturn(Optional.empty());
+        when(itemRepo.findById(7L)).thenReturn(Optional.of(item(7L, "L7", "Legacy")));
+        when(stockRepo.findByItemId(7L)).thenReturn(Optional.empty());
+        ProductImportResult r = org.mockito.Mockito.mock(ProductImportResult.class);
+        when(r.getClientRef()).thenReturn(7L);
+        when(r.getProductId()).thenReturn(200L);
+        when(catalogClient.importProducts(anyList())).thenReturn(List.of(r));
+
+        assertThat(service.ensureMapped(7L, 1L, 9L)).isEqualTo(200L);
+        verify(mapRepo).save(any(ItemCatalogMap.class));
     }
 }
