@@ -49,6 +49,14 @@ product-master value, low risk), then M3 deliberately. Each phase keeps the app 
   catalog-service unchanged (reused). Company/Vendor parity deferred to M2.
 - [x] **Convergence achieved via MASTER-SYNC (slice 53)** instead of M2: catalog Product is the master, auto-projected
   to a bridged Item, so all verticals read one master and the itemId screens stay untouched. M2 (picker rewire) is moot.
+- [x] **M3.1 (slice 62) DONE** — Stock list reads inventory on-hand (batched).
+- [x] **M3.2 (slice 63) DONE** — purchases auto-map + always land in inventory; inventory is the de-facto source.
+- [ ] ~~M3.3 stop local Stock writes / M3.4 delete Stock~~ **PARKED (decided 2026-06-27).** Investigation showed M3.3
+  is a 3–4 sub-slice refactor of the core POS — batch dropdowns (`getBatchesByItem`/`getStockByBatch`), some sell
+  rates, and the legacy sell/return paths still READ local `Stock`, so writes can't stop until those reads move to
+  inventory/catalog first. Zero user value; high regression risk. The convergence GOAL (one master + inventory-
+  authoritative stock-in) is met by M3.1+M3.2, so finishing is backlog. Higher-value P0s (Flyway/ddl-auto:validate,
+  real PSP, storefront-auth hardening) take priority.
 - [ ] **M3 stock → inventory-only (BACKLOG, decided 2026-06-26).** Worth doing eventually — purchases already
   dual-write inventory (`PurchaseService.pushPurchaseToInventory`) and `getStock` reads inventory, so local `Stock`
   is parallel dead-weight + drift risk. A deliberate, test-heavy slice: Stock screen + Purchase read/write inventory
