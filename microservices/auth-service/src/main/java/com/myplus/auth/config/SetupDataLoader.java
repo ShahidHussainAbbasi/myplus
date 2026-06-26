@@ -131,7 +131,7 @@ public class SetupDataLoader {
         if (seedDemo) {
             // One demo account per domain microservice. email, userType. All get DEMO_ROLE (full module
             // privileges + DEMO_PRIVILEGE); userType routes each to its own module dashboard.
-            String[][] l = {
+            String[][] demos = {
                     {"demo.business@myplus.com",     "BUSINESS"},
                     {"demo.pharma@myplus.com",       "PHARMA"},      // pharmacy vertical — reuses the trade dashboard (slice 33)
                     {"demo.education@myplus.com",    "EDUCATION"},
