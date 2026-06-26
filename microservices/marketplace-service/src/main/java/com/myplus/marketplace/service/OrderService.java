@@ -5,12 +5,15 @@ import com.myplus.commerce.contracts.dto.ReservationStatus;
 import com.myplus.commerce.contracts.dto.StockReservationLine;
 import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
+import com.myplus.commerce.contracts.dto.StockReturnLine;
+import com.myplus.commerce.contracts.dto.StockReturnRequest;
 import com.myplus.common.security.GatewayIdentityForwarding;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.dto.OrderDTO;
 import com.myplus.marketplace.entity.FulfilmentStatus;
 import com.myplus.marketplace.entity.Order;
+import com.myplus.marketplace.entity.OrderItem;
 import com.myplus.marketplace.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -92,6 +95,7 @@ public class OrderService {
                 .source("STOREFRONT").paymentMode(card ? "CARD" : "COD")
                 .paymentStatus(payStatus).paymentRef(payRef)
                 .reservationId(reservationId)
+                .items(toItems(dto.getItems()))
                 .fulfilmentStatus(FulfilmentStatus.NEW)
                 .build();
         Order saved;
@@ -170,8 +174,45 @@ public class OrderService {
         FulfilmentStatus s;
         try { s = FulfilmentStatus.valueOf(status == null ? "" : status.trim().toUpperCase()); }
         catch (Exception e) { throw new ValidationException("Invalid status: " + status); }
+
+        // E7 cancel (slice 51): transitioning INTO CANCELLED returns the order's stock to inventory via the G2
+        // inverse saga (the reservation was confirmed at placement). Idempotent — only on the first transition,
+        // and only for orders that actually held stock (reservationId set on a storefront order).
+        boolean nowCancelling = s == FulfilmentStatus.CANCELLED && o.getFulfilmentStatus() != FulfilmentStatus.CANCELLED;
+        if (nowCancelling && o.getReservationId() != null && !o.getItems().isEmpty()) {
+            returnStockQuietly(o);
+        }
+
         o.setFulfilmentStatus(s);
         return toDTO(repo.save(o));
+    }
+
+    /** Return a cancelled order's stock to inventory (G2 inverse saga). Best-effort: a failure leaves the order
+     *  cancelled and is logged for reconcile (rather than blocking the cancellation). */
+    private void returnStockQuietly(Order o) {
+        List<StockReturnLine> lines = new ArrayList<>();
+        for (OrderItem it : o.getItems()) {
+            if (it.getProductId() == null || it.getQuantity() == null || it.getQuantity() <= 0) continue;
+            lines.add(new StockReturnLine(it.getProductId(), it.getQuantity().floatValue()));
+        }
+        if (lines.isEmpty()) return;
+        try {
+            inventoryClient.returnStock(o.getReservationId(), new StockReturnRequest(lines));
+        } catch (RuntimeException returnFailure) {
+            LOG.warn("Order {} cancelled but stock-return for reservation {} failed; reconcile manually",
+                    o.getId(), o.getReservationId(), returnFailure);
+        }
+    }
+
+    private List<OrderItem> toItems(List<OrderDTO.Line> lines) {
+        List<OrderItem> items = new ArrayList<>();
+        if (lines == null) return items;
+        for (OrderDTO.Line l : lines) {
+            if (l.getProductId() == null) continue;
+            items.add(OrderItem.builder()
+                    .productId(l.getProductId()).quantity(l.getQuantity()).price(l.getPrice()).build());
+        }
+        return items;
     }
 
     private OrderDTO toDTO(Order o) {

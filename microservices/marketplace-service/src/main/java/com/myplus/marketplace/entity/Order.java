@@ -5,6 +5,8 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * An e-commerce order (E1, slice 46). The sale itself (stock/tax/payment/receipt) is the reused trade saga; this
@@ -61,6 +63,12 @@ public class Order {
 
     @Column(name = "shipping_address")
     private String shippingAddress;
+
+    // Order lines — persisted so a cancellation returns the exact quantities to inventory (slice 51).
+    @Builder.Default
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "order_id")
+    private List<OrderItem> items = new ArrayList<>();
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

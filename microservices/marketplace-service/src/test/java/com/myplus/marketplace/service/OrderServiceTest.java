@@ -3,6 +3,7 @@ package com.myplus.marketplace.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -15,6 +16,7 @@ import com.myplus.commerce.contracts.client.InventoryClient;
 import com.myplus.commerce.contracts.dto.ReservationStatus;
 import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
+import com.myplus.commerce.contracts.dto.StockReturnRequest;
 import com.myplus.marketplace.dto.OrderDTO;
 import com.myplus.marketplace.repository.OrderRepository;
 
@@ -135,6 +137,29 @@ class OrderServiceTest {
         assertThat(repo.findScoped(ORG, USER)).isEmpty();     // no order
         verify(inventoryClient, never()).confirm(anyString()); // never decremented
         verify(inventoryClient, never()).release(anyString()); // nothing was held to release
+    }
+
+    @Test
+    void cancelling_a_storefront_order_returns_its_stock() {
+        OrderDTO o = service.placePublic(storefront("Cancel Me", "COD", null));
+        OrderDTO cancelled = service.updateStatus(o.getId(), "CANCELLED", ORG, USER);
+        assertThat(cancelled.getFulfilmentStatus()).isEqualTo("CANCELLED");
+        verify(inventoryClient, times(1)).returnStock(eq("resv-1"), any(StockReturnRequest.class));
+    }
+
+    @Test
+    void re_cancelling_does_not_return_stock_twice() {
+        OrderDTO o = service.placePublic(storefront("Twice", "COD", null));
+        service.updateStatus(o.getId(), "CANCELLED", ORG, USER);
+        service.updateStatus(o.getId(), "CANCELLED", ORG, USER);   // idempotent — already cancelled
+        verify(inventoryClient, times(1)).returnStock(eq("resv-1"), any(StockReturnRequest.class));
+    }
+
+    @Test
+    void cancelling_a_pos_order_does_not_touch_inventory() {
+        OrderDTO created = service.record(sample("INV-X"), ORG, USER);   // POS order, no reservation
+        service.updateStatus(created.getId(), "CANCELLED", ORG, USER);
+        verify(inventoryClient, never()).returnStock(anyString(), any(StockReturnRequest.class));
     }
 
     @Test
