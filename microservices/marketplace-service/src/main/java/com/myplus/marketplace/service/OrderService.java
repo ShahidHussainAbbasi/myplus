@@ -44,6 +44,8 @@ public class OrderService {
     private final OrderRepository repo;
     private final PaymentGateway paymentGateway;
     private final InventoryClient inventoryClient;
+    private final NotificationService notificationService;
+    private final com.myplus.marketplace.repository.OrderEventRepository orderEventRepository;
 
     @Transactional
     public OrderDTO record(OrderDTO dto, Long orgId, Long userId) {
@@ -56,7 +58,9 @@ public class OrderService {
                 .source("POS").paymentMode(dto.getPaymentMode() != null ? dto.getPaymentMode() : "POS")
                 .fulfilmentStatus(FulfilmentStatus.NEW)
                 .build();
-        return toDTO(repo.save(o));
+        Order saved = repo.save(o);
+        notificationService.notify(saved, "NEW", "Order received");   // slice 57: start the timeline
+        return toDTO(saved);
     }
 
     /** Public guest order from the storefront (slice 47) — org comes from the request (no JWT identity). COD. */
@@ -119,6 +123,7 @@ public class OrderService {
                         saved.getId(), reservationId, confirmFailure);
             }
         }
+        notificationService.notify(saved, "NEW", "Order placed");   // slice 57: start the timeline
         return toDTO(saved);
     }
 
@@ -174,10 +179,14 @@ public class OrderService {
                 || !o.getCustomerContact().trim().equalsIgnoreCase(c)) {
             throw new ResourceNotFoundException("No order found for that reference and contact.");
         }
+        java.util.List<com.myplus.marketplace.dto.OrderTrackDTO.Event> timeline = new ArrayList<>();
+        for (com.myplus.marketplace.entity.OrderEvent e : orderEventRepository.findByOrderIdOrderByCreatedAtAsc(o.getId())) {
+            timeline.add(new com.myplus.marketplace.dto.OrderTrackDTO.Event(e.getStatus(), e.getCreatedAt()));
+        }
         return new com.myplus.marketplace.dto.OrderTrackDTO(
                 o.getId(), o.getCustomerName(),
                 o.getFulfilmentStatus() != null ? o.getFulfilmentStatus().name() : null,
-                o.getCreatedAt(), o.getTotal());
+                o.getCreatedAt(), o.getTotal(), timeline);
     }
 
     public OrderDTO get(Long id, Long orgId, Long userId) {
@@ -202,7 +211,9 @@ public class OrderService {
         }
 
         o.setFulfilmentStatus(s);
-        return toDTO(repo.save(o));
+        Order saved = repo.save(o);
+        notificationService.notify(saved, s.name(), "Status updated to " + s.name());   // slice 57: timeline event
+        return toDTO(saved);
     }
 
     /** Return a cancelled order's stock to inventory (G2 inverse saga). Best-effort: a failure leaves the order

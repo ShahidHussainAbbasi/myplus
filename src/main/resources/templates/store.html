@@ -177,8 +177,13 @@
             .then(function(resp){
                 if(resp && resp.success && resp.data){
                     var d = resp.data;
+                    var steps = (d.events||[]).map(function(e){
+                        var when = String(e.at||'').replace('T',' ').substring(0,16);
+                        return '<div style="font-size:12px">• <b>'+esc(e.status||'')+'</b> <span class="muted">'+esc(when)+'</span></div>';
+                    }).join('');
+                    var timeline = steps ? ('<div style="margin-top:6px">'+steps+'</div>') : '';
                     out.innerHTML = '<div class="ok" id="trkStatus">Order #'+esc(String(d.ref))+' — status: <b>'+esc(d.status||'')+'</b><br>'
-                        + esc(d.customerName||'') + ' • Total '+money(d.total)+'</div>';
+                        + esc(d.customerName||'') + ' • Total '+money(d.total)+ timeline +'</div>';
                 } else {
                     out.innerHTML = '<div class="empty" id="trkNone">'+esc((resp&&resp.message)||'Order not found.')+'</div>';
                 }

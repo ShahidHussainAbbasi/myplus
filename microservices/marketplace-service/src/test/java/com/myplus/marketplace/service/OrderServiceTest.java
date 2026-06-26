@@ -20,6 +20,7 @@ import com.myplus.commerce.contracts.dto.StockReturnRequest;
 import com.myplus.marketplace.dto.OrderDTO;
 import com.myplus.marketplace.entity.FulfilmentStatus;
 import com.myplus.marketplace.entity.Order;
+import com.myplus.marketplace.repository.OrderEventRepository;
 import com.myplus.marketplace.repository.OrderRepository;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -61,11 +62,13 @@ class OrderServiceTest {
 
     @Autowired private OrderService service;
     @Autowired private OrderRepository repo;
+    @Autowired private OrderEventRepository orderEventRepository;   // timeline (slice 57)
     @Autowired private OrderSagaRecoveryRelay relay;        // recovery relay (slice 52)
     @MockitoBean private InventoryClient inventoryClient;   // reuse the inventory saga; mocked here (slice 49)
 
     @BeforeEach
     void clean() {
+        orderEventRepository.deleteAll();
         repo.deleteAll();
         // Default: stock is available — reserve succeeds, confirm/release are no-ops.
         when(inventoryClient.reserve(any(StockReservationRequest.class)))
@@ -189,6 +192,17 @@ class OrderServiceTest {
         OrderDTO created = service.record(sample("INV-X"), ORG, USER);   // POS order, no reservation
         service.updateStatus(created.getId(), "CANCELLED", ORG, USER);
         verify(inventoryClient, never()).returnStock(anyString(), any(StockReturnRequest.class));
+    }
+
+    @Test
+    void order_lifecycle_records_a_notification_timeline() {
+        OrderDTO o = service.placePublic(storefront("Timeline", "COD", null));
+        assertThat(orderEventRepository.findByOrderIdOrderByCreatedAtAsc(o.getId()))
+                .extracting(e -> e.getStatus()).containsExactly("NEW");
+
+        service.updateStatus(o.getId(), "PACKED", ORG, USER);
+        assertThat(orderEventRepository.findByOrderIdOrderByCreatedAtAsc(o.getId()))
+                .extracting(e -> e.getStatus()).containsExactly("NEW", "PACKED");
     }
 
     @Test
