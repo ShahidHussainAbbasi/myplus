@@ -42,6 +42,24 @@
         <div class="grid" id="grid"><div class="empty">Loading products…</div></div>
     </div>
     <div class="cart">
+        <!-- slice 61: storefront shopper account -->
+        <div id="acct" style="border:1px solid #e6eaf0;border-radius:8px;padding:10px;margin-bottom:14px">
+            <div id="acctOut">
+                <div style="font-weight:600;margin-bottom:6px">👤 Account</div>
+                <input id="acEmail" placeholder="Email">
+                <input id="acPass" type="password" placeholder="Password">
+                <input id="acName" placeholder="Name (for sign up)">
+                <div style="display:flex;gap:6px;margin-top:6px">
+                    <button class="pay" style="flex:1" onclick="acLogin()">Sign in</button>
+                    <button class="pay" style="flex:1;background:#27ae60" onclick="acRegister()">Sign up</button>
+                </div>
+                <div id="acErr" style="color:#c0392b;font-size:12px;min-height:14px;margin-top:4px"></div>
+            </div>
+            <div id="acctIn" style="display:none">
+                <div>Hi <b id="acWho"></b> · <a href="#" onclick="acMyOrders();return false">My Orders</a> · <a href="#" onclick="acLogout();return false">Sign out</a></div>
+                <div id="acOrders" style="margin-top:8px"></div>
+            </div>
+        </div>
         <h3>Your cart</h3>
         <div id="cartLines"><div class="empty">Cart is empty</div></div>
         <div class="total"><span>Total</span><span id="cartTotal">0.00</span></div>
@@ -167,6 +185,7 @@
             customerContact:document.getElementById('cContact').value, shippingAddress:document.getElementById('cAddress').value,
             total: cartTotal(), items: items, paymentMode: payMode };
         if(payMode==='CARD'){ body.cardToken = cardToken(); }
+        if(acctToken()){ body.customerToken = acctToken(); }   // slice 61: link the order to the signed-in shopper
         fetch('/storefront/checkout', {
             method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
         }).then(function(r){ return r.json(); }).then(function(resp){
@@ -182,6 +201,47 @@
             } else { alert((resp && resp.message) || 'Could not place the order.'); }
         }).catch(function(){ alert('Could not place the order. Please try again.'); });
     }
+
+    // ── Storefront accounts (slice 61) ──────────────────────────────────────────
+    function acctData(){ try { return JSON.parse(localStorage.getItem('sfCustomer_' + STORE_ORG) || 'null'); } catch(e){ return null; } }
+    function acctToken(){ var a = acctData(); return a ? a.token : null; }
+    function renderAcct(){
+        var a = acctData();
+        document.getElementById('acctOut').style.display = a ? 'none' : 'block';
+        document.getElementById('acctIn').style.display = a ? 'block' : 'none';
+        if(a){ document.getElementById('acWho').textContent = a.name || a.email; }
+    }
+    function acSave(resp){
+        if(resp && resp.success && resp.data && resp.data.token){
+            localStorage.setItem('sfCustomer_' + STORE_ORG, JSON.stringify({ token: resp.data.token, name: resp.data.name, email: resp.data.email }));
+            document.getElementById('acErr').textContent = '';
+            renderAcct();
+            return true;
+        }
+        document.getElementById('acErr').textContent = (resp && resp.message) || 'Failed.';
+        return false;
+    }
+    function acPost(path){
+        return fetch(path, { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ organizationId:Number(STORE_ORG), email:document.getElementById('acEmail').value,
+                password:document.getElementById('acPass').value, name:document.getElementById('acName').value }) })
+            .then(function(r){ return r.json(); });
+    }
+    function acRegister(){ acPost('/storefront/register').then(acSave).catch(function(){ document.getElementById('acErr').textContent='Sign up failed.'; }); }
+    function acLogin(){ acPost('/storefront/login').then(acSave).catch(function(){ document.getElementById('acErr').textContent='Sign in failed.'; }); }
+    function acLogout(){ localStorage.removeItem('sfCustomer_' + STORE_ORG); document.getElementById('acOrders').innerHTML=''; renderAcct(); }
+    function acMyOrders(){
+        var tok = acctToken(); if(!tok) return;
+        fetch('/storefront/myorders?token=' + encodeURIComponent(tok)).then(function(r){ return r.json(); }).then(function(resp){
+            var out = document.getElementById('acOrders');
+            if(!resp || !resp.success){ out.innerHTML = '<div class="empty">'+esc((resp&&resp.message)||'Could not load orders.')+'</div>'; if(resp&&!resp.success){ acLogout(); } return; }
+            var list = resp.data || [];
+            out.innerHTML = list.length ? ('<div id="myOrders">' + list.map(function(o){
+                return '<div class="line"><span>#'+esc(String(o.id))+' · '+esc(o.fulfilmentStatus||'')+'</span><span>'+money(o.total)+'</span></div>';
+            }).join('') + '</div>') : '<div class="empty">No orders yet.</div>';
+        }).catch(function(){ document.getElementById('acOrders').innerHTML='<div class="empty">Could not load orders.</div>'; });
+    }
+    renderAcct();
 
     // Order tracking (slice 56): look up status by ref + contact.
     function trackOrder(){

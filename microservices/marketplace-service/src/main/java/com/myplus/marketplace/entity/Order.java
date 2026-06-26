@@ -35,6 +35,9 @@ public class Order {
     @Column(name = "customer_contact")
     private String customerContact;
 
+    @Column(name = "customer_account_id")
+    private Long customerAccountId;     // storefront shopper account, when logged in (slice 61)
+
     @Builder.Default
     @Column(name = "source")
     private String source = "POS";          // POS | STOREFRONT (slice 47)

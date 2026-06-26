@@ -130,6 +130,56 @@ public class StorefrontController {
         }
     }
 
+    /** Storefront shopper register/login (anonymous, slice 61) — relays the marketplace's success/error body. */
+    @PostMapping("/storefront/register")
+    @ResponseBody
+    public Object register(@RequestBody Map<String, Object> body) { return postPublic("/api/marketplace/public/customer/register", body); }
+
+    @PostMapping("/storefront/login")
+    @ResponseBody
+    public Object login(@RequestBody Map<String, Object> body) { return postPublic("/api/marketplace/public/customer/login", body); }
+
+    /** A signed-in shopper's own orders (slice 61). */
+    @GetMapping("/storefront/myorders")
+    @ResponseBody
+    @SuppressWarnings("unchecked")
+    public Object myOrders(@RequestParam("token") String token) {
+        try {
+            return restTemplate.getForObject(gatewayUrl + "/api/marketplace/public/customer/orders?token="
+                    + java.net.URLEncoder.encode(token, java.nio.charset.StandardCharsets.UTF_8), Map.class);
+        } catch (HttpStatusCodeException e) {
+            return relay(e, "Please sign in again.");
+        } catch (Exception e) {
+            LOGGER.error("storefront myorders proxy error", e);
+            return Map.of("success", false, "message", "Could not load your orders.");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object postPublic(String path, Map<String, Object> body) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            return restTemplate.postForObject(gatewayUrl + path, new HttpEntity<>(body, headers), Map.class);
+        } catch (HttpStatusCodeException e) {
+            return relay(e, "Request failed.");
+        } catch (Exception e) {
+            LOGGER.error("storefront account proxy error ({})", path, e);
+            return Map.of("success", false, "message", "Something went wrong. Please try again.");
+        }
+    }
+
+    /** Relay the marketplace's {success,message} error body to the shopper. */
+    @SuppressWarnings("unchecked")
+    private Object relay(HttpStatusCodeException e, String fallback) {
+        try {
+            Map<String, Object> err = objectMapper.readValue(e.getResponseBodyAsString(), Map.class);
+            return Map.of("success", false, "message", err.get("message") != null ? err.get("message") : fallback);
+        } catch (Exception ignore) {
+            return Map.of("success", false, "message", fallback);
+        }
+    }
+
     @PostMapping("/storefront/checkout")
     @ResponseBody
     public Object checkout(@RequestBody Map<String, Object> body) {

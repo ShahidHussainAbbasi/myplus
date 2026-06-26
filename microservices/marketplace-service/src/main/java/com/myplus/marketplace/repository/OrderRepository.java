@@ -21,6 +21,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.id = :id AND " + SCOPE)
     Optional<Order> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /** A storefront shopper's own orders, newest first (slice 61, My Orders). */
+    List<Order> findByCustomerAccountIdOrderByCreatedAtDesc(Long customerAccountId);
+
     /** Recovery relay (slice 52): storefront orders whose reservation was reserved but not confirmed (placement
      *  crashed/timed out between reserve and confirm). Cross-tenant; the relay impersonates each order's org. */
     @Query("SELECT o FROM Order o WHERE o.reservationStatus = 'PENDING' AND o.reservationId IS NOT NULL "

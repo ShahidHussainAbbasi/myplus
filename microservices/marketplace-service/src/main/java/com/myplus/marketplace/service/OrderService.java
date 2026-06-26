@@ -46,6 +46,7 @@ public class OrderService {
     private final InventoryClient inventoryClient;
     private final NotificationService notificationService;
     private final com.myplus.marketplace.repository.OrderEventRepository orderEventRepository;
+    private final com.myplus.marketplace.repository.StorefrontCustomerRepository customerRepo;
 
     @Transactional
     public OrderDTO record(OrderDTO dto, Long orgId, Long userId) {
@@ -72,6 +73,14 @@ public class OrderService {
             throw new ValidationException("Your name is required");
 
         Long org = dto.getOrganizationId();
+
+        // slice 61: link the order to the shopper's account when a valid session token is supplied.
+        Long customerAccountId = null;
+        if (dto.getCustomerToken() != null && !dto.getCustomerToken().isBlank()) {
+            customerAccountId = customerRepo.findBySessionToken(dto.getCustomerToken().trim())
+                    .filter(c -> org.equals(c.getOrganizationId()))   // only link within the same store
+                    .map(com.myplus.marketplace.entity.StorefrontCustomer::getId).orElse(null);
+        }
 
         // E7 (slice 49): reserve stock via the SAME inventory saga POS uses. OUT_OF_STOCK blocks the order
         // (nothing held, no charge). Reserve before charging so a paid order is always fulfillable.
@@ -100,6 +109,7 @@ public class OrderService {
                 .paymentStatus(payStatus).paymentRef(payRef)
                 .reservationId(reservationId)
                 .reservationStatus(reservationId != null ? "PENDING" : null)
+                .customerAccountId(customerAccountId)
                 .items(toItems(dto.getItems()))
                 .fulfilmentStatus(FulfilmentStatus.NEW)
                 .build();
@@ -168,6 +178,12 @@ public class OrderService {
 
     public List<OrderDTO> list(Long orgId, Long userId) {
         return repo.findScoped(orgId, userId).stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
+    /** A storefront shopper's own orders (slice 61, My Orders). */
+    public List<OrderDTO> listForCustomer(Long customerAccountId) {
+        return repo.findByCustomerAccountIdOrderByCreatedAtDesc(customerAccountId)
+                .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     /** Public order tracking (slice 56): a guest looks up their order by id + contact. Returns only on a contact
