@@ -24,6 +24,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // Public storefront (slice 47): active products for a store (by orgId — no JWT identity on a public call).
     java.util.List<Product> findByOrganizationIdAndIsActiveTrueOrderByNameAsc(Long organizationId);
 
+    // Public storefront search (slice 60): active products whose name contains the query, case-insensitive.
+    java.util.List<Product> findByOrganizationIdAndIsActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
+            Long organizationId, String name);
+
     @Query("SELECT p FROM Product p WHERE p.id = :id AND " + SCOPE)
     Optional<Product> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
 

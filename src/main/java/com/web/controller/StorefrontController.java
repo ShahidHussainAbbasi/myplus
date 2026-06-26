@@ -51,10 +51,14 @@ public class StorefrontController {
     @GetMapping("/storefront/products")
     @ResponseBody
     @SuppressWarnings("unchecked")
-    public Object products(@RequestParam(value = "org", required = false, defaultValue = "0") Long org) {
+    public Object products(@RequestParam(value = "org", required = false, defaultValue = "0") Long org,
+            @RequestParam(value = "q", required = false) String q) {
         try {
-            Map<String, Object> resp = restTemplate.getForObject(
-                    gatewayUrl + "/api/catalog/public/products?org=" + org, Map.class);
+            String url = gatewayUrl + "/api/catalog/public/products?org=" + org;
+            if (q != null && !q.isBlank()) {   // slice 60: forward the search term
+                url += "&q=" + java.net.URLEncoder.encode(q.trim(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+            Map<String, Object> resp = restTemplate.getForObject(url, Map.class);
             if (resp == null) return Map.of("success", false, "message", "Could not load products.");
 
             // Best-effort availability merge — if inventory is unreachable, products still render (treated as

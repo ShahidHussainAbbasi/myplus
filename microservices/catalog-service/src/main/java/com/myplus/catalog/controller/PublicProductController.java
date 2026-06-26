@@ -25,10 +25,13 @@ public class PublicProductController {
     private final ProductRepository productRepository;
 
     @GetMapping("/products")
-    public ApiResponse<List<Map<String, Object>>> products(@RequestParam("org") Long org) {
-        List<Map<String, Object>> out = productRepository.findByOrganizationIdAndIsActiveTrueOrderByNameAsc(org)
-                .stream().map(this::storefrontView).toList();
-        return ApiResponse.success(out);
+    public ApiResponse<List<Map<String, Object>>> products(@RequestParam("org") Long org,
+            @RequestParam(value = "q", required = false) String q) {
+        // slice 60: optional name search (case-insensitive contains); blank q = full list.
+        List<com.myplus.catalog.entity.Product> products = (q == null || q.isBlank())
+                ? productRepository.findByOrganizationIdAndIsActiveTrueOrderByNameAsc(org)
+                : productRepository.findByOrganizationIdAndIsActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(org, q.trim());
+        return ApiResponse.success(products.stream().map(this::storefrontView).toList());
     }
 
     private Map<String, Object> storefrontView(Product p) {
