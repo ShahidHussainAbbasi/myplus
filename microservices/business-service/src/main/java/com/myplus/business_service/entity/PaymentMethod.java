@@ -11,5 +11,6 @@ public enum PaymentMethod {
     CREDIT,
     WALLET,
     BANK_TRANSFER,
+    INSURANCE,   // P12 (slice 59): insurer-covered portion of a pharmacy dispense; counts as paid (insurer receivable)
     REFUND
 }

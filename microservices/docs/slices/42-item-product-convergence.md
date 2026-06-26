@@ -47,7 +47,12 @@ product-master value, low risk), then M3 deliberately. Each phase keeps the app 
   `catalog-product.cy.js`. Strangler: the Item screen still works untouched; this adds the Product master alongside.
   **Cypress GREEN (headed, 2026-06-23): catalog-product.cy.js 2/2** — register product + list + screen renders.
   catalog-service unchanged (reused). Company/Vendor parity deferred to M2.
-- [ ] M2 product picker (sell/purchase) — IN PROGRESS
-- [ ] M3 stock → inventory; retire local Stock
-- [ ] M4 retire Item / ItemCatalogMap
-- [ ] M5 resume pharmacy on Product
+- [x] **Convergence achieved via MASTER-SYNC (slice 53)** instead of M2: catalog Product is the master, auto-projected
+  to a bridged Item, so all verticals read one master and the itemId screens stay untouched. M2 (picker rewire) is moot.
+- [ ] **M3 stock → inventory-only (BACKLOG, decided 2026-06-26).** Worth doing eventually — purchases already
+  dual-write inventory (`PurchaseService.pushPurchaseToInventory`) and `getStock` reads inventory, so local `Stock`
+  is parallel dead-weight + drift risk. A deliberate, test-heavy slice: Stock screen + Purchase read/write inventory
+  only, drop the legacy local-Stock return path, delete `Stock`/`updateStock`. Medium risk (core Purchase/Stock screens).
+- [ ] ~~M4 retire Item / ItemCatalogMap~~ **PARKED / obviated (decided 2026-06-26)** — master-sync already gives one
+  master; Item is now a thin projection. Full itemId→productId rewire = high risk, low marginal value. Likely never.
+- [ ] M5 resume pharmacy on Product — N/A, pharmacy runs on the itemId bridge + master-sync.

@@ -78,4 +78,14 @@ class PaymentServiceTest {
         assertThat(r.paid()).isEqualByComparingTo("10.00");   // treated as a non-credit (CASH) tender
         assertThat(r.paymentMode()).isEqualTo("CASH");
     }
+
+    @Test
+    void insurance_plus_copay_settles_the_dispense_with_no_due() {   // P12 (slice 59)
+        SettleResult r = PaymentService.settle(new BigDecimal("100.00"),
+                List.of(tender("INSURANCE", "80.00"), tender("CASH", "20.00")));
+        assertThat(r.paid()).isEqualByComparingTo("100.00");   // insurance counts as paid (not credit)
+        assertThat(r.due()).isEqualByComparingTo("0.00");
+        assertThat(r.change()).isEqualByComparingTo("0.00");
+        assertThat(r.paymentMode()).isEqualTo("SPLIT");
+    }
 }

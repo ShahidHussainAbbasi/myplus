@@ -1379,8 +1379,10 @@ function calculateChange() {
 	$('#displayDateWrapper').hide();
 
 	var recAm = ($("#sellRec").val() * ONE) || 0;
+    // P12 (slice 59): insurance covers part of the bill; the patient only owes the remainder (the co-pay).
+    var insured = ($("#sellInsured") && $("#sellInsured").val() ? $("#sellInsured").val() * ONE : 0) || 0;
     var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
-    var change = recAm - sellTotal;
+    var change = recAm + insured - sellTotal;
 
     // sellCh keeps the SIGNED change/due (received − bill) — addSell submits this as customer.dueAmount.
     // Do not change its meaning; the display fields below are derived from it.

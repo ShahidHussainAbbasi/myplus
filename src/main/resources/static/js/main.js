@@ -402,6 +402,11 @@ $(document).ready(function() {
 					if (received > 0 || payMethod === 'CREDIT') {
 						customerHistory.tenders.push({ "method": payMethod, "amount": received, "reference": "" });
 					}
+					// P12 (slice 59): an insurer-covered portion becomes a second INSURANCE tender (co-pay split).
+					var insured = $("#sellInsured").val()*ONE || 0;
+					if (insured > 0) {
+						customerHistory.tenders.push({ "method": "INSURANCE", "amount": insured, "reference": "" });
+					}
 					// Editing an existing invoice -> update it in place (same invoice #, stock & dues
 					// adjusted by the deltas); otherwise create a new sale.
 					if (window.editingInvoice && window.editingInvoice.chId) {
