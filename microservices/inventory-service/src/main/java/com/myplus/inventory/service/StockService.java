@@ -138,6 +138,35 @@ public class StockService {
                 .map(StockLevel::getCurrentStock).orElse(0f);
     }
 
+    /** Quarantine register (slice 58): the org's non-sellable returned lots. */
+    public java.util.Map<String, Object> listQuarantine() {
+        Long orgId = CurrentUser.organizationId();
+        Long userId = CurrentUser.userId();
+        List<java.util.Map<String, Object>> items = new ArrayList<>();
+        for (StockEntry e : stockEntryRepository.findQuarantinedScoped(orgId, userId)) {
+            java.util.Map<String, Object> m = new java.util.HashMap<>();
+            m.put("id", e.getId());
+            m.put("productId", e.getProductId());
+            m.put("batchNo", e.getBatchNo());
+            m.put("expiryDate", e.getExpiryDate());
+            m.put("quantity", e.getQuantity());
+            items.add(m);
+        }
+        return java.util.Map.of("items", items);
+    }
+
+    /** Dispose a quarantined lot (slice 58) — destroyed / returned to supplier. Anti-IDOR: must be the caller's
+     *  org AND actually quarantined. Returns true when a row was removed. */
+    @Transactional
+    public boolean disposeQuarantine(Long id) {
+        StockEntry e = stockEntryRepository.findById(id).orElse(null);
+        Long orgId = CurrentUser.organizationId();
+        boolean mine = e != null && e.getOrganizationId() != null && e.getOrganizationId().equals(orgId);
+        if (e == null || !mine || !Boolean.FALSE.equals(e.getRestockable())) return false;
+        stockEntryRepository.delete(e);
+        return true;
+    }
+
     /** FEFO batches a sale/dispense draws from next (slice 54, P10): earliest-expiry first, expired excluded (G1),
      *  only batches with sellable qty (quantity − reserved > 0). Org-scoped via CurrentUser. */
     public List<StockBatch> getFefoBatches(Long productId) {

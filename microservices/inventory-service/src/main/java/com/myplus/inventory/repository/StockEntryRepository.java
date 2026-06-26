@@ -46,6 +46,10 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     // Public storefront availability (slice 49 follow-up): per-product sellable quantity for a store (org). Mirrors
     // what the reservation allocator can actually hold — (quantity − reserved) over non-expired batches — so the
     // storefront never offers more than a checkout could reserve. Returns [productId, available] rows.
+    /** Quarantine register (slice 58): the org's non-sellable (returned) lots, newest first. */
+    @Query("SELECT se FROM StockEntry se WHERE se.restockable = false AND " + SCOPE + " ORDER BY se.id DESC")
+    List<StockEntry> findQuarantinedScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT se.productId, SUM(se.quantity - COALESCE(se.reservedQuantity, 0)) FROM StockEntry se "
             + "WHERE se.organizationId = :orgId AND (se.expiryDate IS NULL OR se.expiryDate >= :today) "
             + "AND (se.restockable IS NULL OR se.restockable = true) "   // P11: exclude quarantined stock

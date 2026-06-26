@@ -126,4 +126,29 @@ public class CatalogController {
             return Collections.singletonMap("success", false);
         }
     }
+
+    /** P11 register (slice 58): the org's quarantined (non-sellable) lots. */
+    @GetMapping("/quarantineList")
+    @ResponseBody
+    public Map<String, Object> quarantineList() {
+        try {
+            Map<String, Object> resp = inventory.get("/stock/quarantine");
+            return resp != null ? resp : Collections.singletonMap("items", java.util.Collections.emptyList());
+        } catch (Exception e) {
+            LOGGER.error("quarantineList proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /** P11 register (slice 58): dispose a quarantined lot. */
+    @PostMapping("/disposeQuarantine")
+    @ResponseBody
+    public Map<String, Object> disposeQuarantine(@RequestBody final Map<String, Object> body) {
+        try {
+            return inventory.postJson("/stock/quarantine/" + body.get("id") + "/dispose", Collections.emptyMap());
+        } catch (Exception e) {
+            LOGGER.error("disposeQuarantine proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
 }

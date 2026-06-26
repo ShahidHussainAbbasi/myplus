@@ -56,6 +56,18 @@ public class StockController {
         return stockService.getFefoBatches(productId);
     }
 
+    /** Quarantine register (slice 58): list the org's quarantined lots. */
+    @GetMapping("/quarantine")
+    public java.util.Map<String, Object> quarantine() {
+        return stockService.listQuarantine();
+    }
+
+    /** Dispose a quarantined lot (slice 58) — removed (destroyed / returned to supplier). */
+    @PostMapping("/quarantine/{id}/dispose")
+    public java.util.Map<String, Object> disposeQuarantine(@PathVariable Long id) {
+        return java.util.Map.of("success", stockService.disposeQuarantine(id));
+    }
+
     @GetMapping("/{productId}/history")
     public ResponseEntity<ApiResponse<PageResponse<StockEntry>>> history(@PathVariable Long productId, Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(

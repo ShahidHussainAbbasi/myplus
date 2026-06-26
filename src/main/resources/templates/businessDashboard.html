@@ -90,6 +90,7 @@
 								<li><a onclick="snavGo('registrationType','CustomerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Customer</a></li>
 								<li><a onclick="snavGo('registrationType','itemDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> Item</a></li>
 								<li><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> Product (Catalog)</a></li>
+								<li><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> Quarantine</a></li>
 							</ul>
 						</div>
 						<div class="snav-dd" id="snavPurchase">
@@ -313,7 +314,7 @@
 										<tr>
 											<th>Customer</th>
 											<th>Contact</th>
-											<th>Due Amount</th>
+											<th title="Total still owed by this customer across ALL their invoices">Total Outstanding</th>
 											<th>Due Date</th>
 											<th>Status</th>
 										</tr>
@@ -1143,7 +1144,7 @@
 							<th data-field="sellDiscountTypeDD">Disc Type</th>
 							<th data-field="sellDiscount">Discount</th>
 							<th data-field="sellTotalAmount">Total</th>
-							<th data-field="sellDueAmount">Due</th>
+							<th data-field="sellDueAmount" title="Amount still owed on THIS invoice only">Invoice Due</th>
 							<th data-field="sellNetAmount">Profit</th>
 							<!-- <th data-field="sellCN">Customer Name</th> -->
 							<!-- <th data-field="sellCC">Customer Contact</th> -->
@@ -1207,6 +1208,16 @@
 					<thead><tr><th>Name</th><th>SKU</th><th>Unit</th><th>Price</th><th>Tax %</th><th>Category</th><th>On hand</th><th>Add stock</th></tr></thead>
 					<tbody id="productBody"></tbody>
 				</table>
+			</div>
+
+			<div id="QuarantineDiv" class="formDiv" style="display:none">
+				<h4>Quarantine Register</h4>
+				<p class="text-muted">Returned, non-sellable lots (e.g. pharmacy returns). Dispose removes the lot (destroyed / returned to supplier). Quarantined stock is never re-sold (excluded from FEFO).</p>
+				<table id="tableQuarantine" class="table table-bordered table-striped">
+					<thead><tr><th>Product</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Action</th></tr></thead>
+					<tbody id="quarantineBody"></tbody>
+				</table>
+				<div id="quarantineEmpty" class="text-muted" style="display:none">No quarantined stock.</div>
 			</div>
 
 			<!-- Medicine registration reuses the existing Item screen (relabeled "Medicine" by module-theme.js) —
@@ -1542,6 +1553,7 @@
     <script th:src="@{/js/business/till.js}"></script>
     <script th:src="@{/js/business/park.js}"></script>
     <script th:src="@{/js/business/catalog-products.js}"></script>
+    <script th:src="@{/js/business/quarantine.js}"></script>
     <script th:src="@{/js/business/pharma.js}"></script>
     <script th:src="@{/js/business/ecommerce.js}"></script>
     <script>
