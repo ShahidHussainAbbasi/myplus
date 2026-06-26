@@ -138,9 +138,10 @@ public class ReservationService {
      * the remainder re-enters via a fresh StockEntry. {@code StockLevel} is bumped by the full returned qty either way.
      */
     @Transactional
-    public StockReturnResponse returnPicks(String reservationId, List<StockReturnLine> lines, Long orgId, Long userId) {
+    public StockReturnResponse returnPicks(String reservationId, List<StockReturnLine> lines, boolean quarantine,
+                                           Long orgId, Long userId) {
         Reservation resv = reservationRepository.findByReservationIdScoped(reservationId, orgId, userId).orElse(null);
-        float totalRestored = 0f;
+        float total = 0f;
 
         for (StockReturnLine line : lines) {
             if (line == null || line.getProductId() == null) continue;
@@ -155,36 +156,44 @@ public class ReservationService {
                     float room = nz(p.getQuantity()) - nz(p.getReturnedQuantity());
                     if (room <= 0f) continue;
                     float take = Math.min(room, remaining);
-                    StockEntry e = stockEntryRepository.findById(p.getStockEntryId()).orElse(null);
-                    if (e != null) {                       // restore to the exact original batch
-                        e.setQuantity(nz(e.getQuantity()) + take);
-                        stockEntryRepository.save(e);
-                    } else {                               // original batch gone -> fresh batch, keep its lot/expiry
-                        createReturnEntry(line.getProductId(), take, p.getBatchNo(), p.getExpiryDate(), orgId, userId);
+                    if (quarantine) {
+                        // P11: returned med is NOT re-sellable — park it in a quarantine batch (keep lot/expiry).
+                        createReturnEntry(line.getProductId(), take, p.getBatchNo(), p.getExpiryDate(), orgId, userId, false);
+                    } else {
+                        StockEntry e = stockEntryRepository.findById(p.getStockEntryId()).orElse(null);
+                        if (e != null) {                   // restore to the exact original batch
+                            e.setQuantity(nz(e.getQuantity()) + take);
+                            stockEntryRepository.save(e);
+                        } else {                           // original batch gone -> fresh batch, keep its lot/expiry
+                            createReturnEntry(line.getProductId(), take, p.getBatchNo(), p.getExpiryDate(), orgId, userId, true);
+                        }
                     }
                     p.setReturnedQuantity(nz(p.getReturnedQuantity()) + take);
                     remaining -= take;
                 }
             }
 
-            if (remaining > EPS) {                          // fallback B: no picks / exhausted / beyond picked
-                createReturnEntry(line.getProductId(), remaining, null, null, orgId, userId);
+            if (remaining > EPS) {                          // fallback: no picks / exhausted / beyond picked
+                createReturnEntry(line.getProductId(), remaining, null, null, orgId, userId, !quarantine);
                 remaining = 0f;
             }
 
-            bumpLevel(line.getProductId(), qty, orgId, userId);
-            totalRestored += qty;
+            // Quarantined stock is physically present but NOT sellable, so it does not raise sellable on-hand.
+            if (!quarantine) bumpLevel(line.getProductId(), qty, orgId, userId);
+            total += qty;
         }
 
         if (resv != null) reservationRepository.save(resv);   // persist the per-pick returnedQuantity
-        return new StockReturnResponse(reservationId, BigDecimal.valueOf(totalRestored), "RETURNED");
+        return new StockReturnResponse(reservationId, BigDecimal.valueOf(total), quarantine ? "QUARANTINED" : "RETURNED");
     }
 
-    /** Fallback restock for returns: a fresh StockEntry carrying the original lot/expiry when known (else null). */
-    private void createReturnEntry(Long productId, float qty, String batchNo, java.time.LocalDate expiry, Long orgId, Long userId) {
+    /** A fresh StockEntry for a return: carries the original lot/expiry when known; {@code restockable=false}
+     *  quarantines it (P11) so FEFO/availability never re-sell it. */
+    private void createReturnEntry(Long productId, float qty, String batchNo, java.time.LocalDate expiry,
+                                   Long orgId, Long userId, boolean restockable) {
         stockEntryRepository.save(StockEntry.builder()
                 .productId(productId).quantity(qty).reservedQuantity(0f)
-                .batchNo(batchNo).expiryDate(expiry)
+                .batchNo(batchNo).expiryDate(expiry).restockable(restockable)
                 .organizationId(orgId).userId(userId).build());
     }
 

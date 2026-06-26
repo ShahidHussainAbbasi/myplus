@@ -39,7 +39,7 @@ public class ReservationController {
     /** G2 inverse saga (slice 34) — return sold stock back to inventory for a confirmed sale. */
     @PostMapping("/{reservationId}/return")
     public StockReturnResponse returnStock(@PathVariable String reservationId, @RequestBody StockReturnRequest request) {
-        return reservationService.returnPicks(reservationId, request.getLines(),
+        return reservationService.returnPicks(reservationId, request.getLines(), request.isQuarantine(),
                 CurrentUser.organizationId(), CurrentUser.userId());
     }
 }

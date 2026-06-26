@@ -14,4 +14,12 @@ import java.util.List;
 @Data @NoArgsConstructor @AllArgsConstructor
 public class StockReturnRequest {
     private List<StockReturnLine> lines;
+    /** P11 (slice 55): when true, returned stock is quarantined (restockable=false), not put back on the shelf. */
+    private boolean quarantine;
+
+    /** Back-compat 1-arg: a plain restock return (quarantine=false) — used by retail/e-commerce callers. */
+    public StockReturnRequest(List<StockReturnLine> lines) {
+        this.lines = lines;
+        this.quarantine = false;
+    }
 }

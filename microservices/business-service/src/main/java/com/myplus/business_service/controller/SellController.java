@@ -870,9 +870,14 @@ public class SellController {
 			boolean sagaSell = existingSell.getProductId() != null && reservationId != null;
 
 			if(sagaSell) {
-				inventoryClient.returnStock(reservationId, new com.myplus.commerce.contracts.dto.StockReturnRequest(
-						java.util.List.of(new com.myplus.commerce.contracts.dto.StockReturnLine(
-								existingSell.getProductId(), dto.getQuantity()))));
+				// P11 (slice 55): pharmacy returns quarantine (do not restock) — flag travels from the return UI.
+				boolean quarantine = "true".equalsIgnoreCase(request.getParameter("quarantine"));
+				com.myplus.commerce.contracts.dto.StockReturnRequest returnReq =
+						new com.myplus.commerce.contracts.dto.StockReturnRequest(
+								java.util.List.of(new com.myplus.commerce.contracts.dto.StockReturnLine(
+										existingSell.getProductId(), dto.getQuantity())));
+				returnReq.setQuarantine(quarantine);
+				inventoryClient.returnStock(reservationId, returnReq);
 			} else if (!appUtil.isEmptyOrNull(dto.getSellSId())) {
 				// Legacy local-Stock sell: restore the local Stock row as before.
 				Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());

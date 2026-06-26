@@ -194,7 +194,7 @@ class ReservationServiceTest {
         assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(10f);
         assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(10f);
 
-        service.returnPicks(resId, returnLines(20f), ORG, USER);
+        service.returnPicks(resId, returnLines(20f), false, ORG, USER);
 
         // reverses the confirm exactly: the same batch is restored, real expiry retained.
         assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(30f);
@@ -208,8 +208,8 @@ class ReservationServiceTest {
         stockLevel(30f);
         String resId = confirmedReservation("r2", 20f);   // sold 20 from this batch
 
-        service.returnPicks(resId, returnLines(12f), ORG, USER);   // batch: 10 -> 22
-        service.returnPicks(resId, returnLines(12f), ORG, USER);   // only 8 of pick room left -> batch capped at 30
+        service.returnPicks(resId, returnLines(12f), false, ORG, USER);   // batch: 10 -> 22
+        service.returnPicks(resId, returnLines(12f), false, ORG, USER);   // only 8 of pick room left -> batch capped at 30
 
         // the original batch is restored by at most what was picked from it (20); the excess 4 went to a fresh batch.
         assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(30f);
@@ -219,10 +219,32 @@ class ReservationServiceTest {
     @Test
     void return_with_no_reservation_falls_back_to_a_fresh_batch_and_makes_the_level_whole() {
         // no reserve/confirm, no prior stock level for the product (legacy/non-saga return path).
-        service.returnPicks("does-not-exist", returnLines(10f), ORG, USER);
+        service.returnPicks("does-not-exist", returnLines(10f), false, ORG, USER);
 
         assertThat(stockEntryRepository.count()).isEqualTo(1L);    // a fallback batch was created
         assertThat(stockEntryRepository.findAll().get(0).getQuantity()).isEqualTo(10f);
         assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(10f);
+    }
+
+    @Test
+    void quarantine_return_parks_stock_non_sellable_and_does_not_raise_on_hand() {   // P11 (slice 55)
+        StockEntry b = batch(30f, SOON);
+        stockLevel(30f);
+        String resId = confirmedReservation("rq", 20f);   // confirm -> batch qty 10, sellable level 10
+
+        service.returnPicks(resId, returnLines(8f), true, ORG, USER);   // quarantine 8 of the 20 sold
+
+        // sellable on-hand is UNCHANGED (quarantined stock is not put back on the shelf)
+        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(10f);
+        // the original sellable batch is NOT restored either
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(10f);
+        // a quarantine (restockable=false) batch was created for the returned 8...
+        StockEntry q = stockEntryRepository.findAll().stream()
+                .filter(e -> Boolean.FALSE.equals(e.getRestockable())).findFirst().orElseThrow();
+        assertThat(q.getQuantity()).isEqualTo(8f);
+        // ...and FEFO never offers it (only the 10 sellable units remain allocatable)
+        float fefoAvailable = (float) stockEntryRepository.findForFefo(PRODUCT, ORG, USER, LocalDate.now())
+                .stream().mapToDouble(e -> e.getQuantity() - (e.getReservedQuantity() == null ? 0f : e.getReservedQuantity())).sum();
+        assertThat(fefoAvailable).isEqualTo(10f);
     }
 }

@@ -34,6 +34,10 @@ public class StockEntry {
     private LocalDate expiryDate;
     private BigDecimal purchasePrice;
 
+    /** P11 (slice 55): false = quarantined (e.g. a pharmacy return) — excluded from FEFO/availability so it is
+     *  never re-sold/dispensed. null or true = sellable (back-compat for pre-P11 rows). */
+    private Boolean restockable;
+
     @Builder.Default
     private LocalDateTime entryDate = LocalDateTime.now();
 

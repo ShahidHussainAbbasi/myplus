@@ -35,8 +35,10 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     // then by id for a stable order. Used by the reservation allocator.
     // G1 (compliance, slice 33): EXCLUDE already-expired batches (expiryDate < today) so a sale/dispense never
     // allocates expired stock — if only expired batches remain, the allocator sees 0 available -> OUT_OF_STOCK.
+    // P11 (slice 55): also exclude quarantined (restockable=false) entries — never allocate returned, non-sellable stock.
     @Query("SELECT se FROM StockEntry se WHERE se.productId = :productId AND " + SCOPE
             + " AND (se.expiryDate IS NULL OR se.expiryDate >= :today)"
+            + " AND (se.restockable IS NULL OR se.restockable = true)"
             + " ORDER BY CASE WHEN se.expiryDate IS NULL THEN 1 ELSE 0 END, se.expiryDate ASC, se.id ASC")
     List<StockEntry> findForFefo(@Param("productId") Long productId, @Param("orgId") Long orgId,
                                  @Param("userId") Long userId, @Param("today") LocalDate today);
@@ -46,6 +48,7 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     // storefront never offers more than a checkout could reserve. Returns [productId, available] rows.
     @Query("SELECT se.productId, SUM(se.quantity - COALESCE(se.reservedQuantity, 0)) FROM StockEntry se "
             + "WHERE se.organizationId = :orgId AND (se.expiryDate IS NULL OR se.expiryDate >= :today) "
+            + "AND (se.restockable IS NULL OR se.restockable = true) "   // P11: exclude quarantined stock
             + "GROUP BY se.productId")
     List<Object[]> availableByOrg(@Param("orgId") Long orgId, @Param("today") LocalDate today);
 }

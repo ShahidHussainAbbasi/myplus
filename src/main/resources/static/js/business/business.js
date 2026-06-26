@@ -1493,6 +1493,8 @@ function buildSaleReturnDialog(){
 		+ "<input type='number' id='srQty' class='form-control' step='any' min='1' style='margin-bottom:12px'>"
 		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Reason (optional)</label>"
 		+ "<input type='text' id='srReason' class='form-control' maxlength='200' placeholder='e.g. damaged, expired, customer change' style='margin-bottom:8px'>"
+		// P11 (slice 55): quarantine returned stock (not restocked) — defaulted on for pharmacy.
+		+ "<label style='display:block;font-size:13px;margin-bottom:8px'><input type='checkbox' id='srQuarantine' style='margin-right:6px'>Quarantine returned stock (do not restock)</label>"
 		+ "<div id='srError' style='color:#c0392b;font-size:12px;min-height:16px;margin-bottom:8px'></div>"
 		+ "<div style='text-align:right'>"
 		+ "<button type='button' class='btn btn-default' onclick='closeSaleReturn()'>Cancel</button> "
@@ -1516,6 +1518,8 @@ function openSaleReturn(btn){
 	qtyInput.value = sold;
 	qtyInput.max   = sold;
 	document.getElementById('srReason').value = '';
+	// Pharmacy returns default to quarantine (returned meds can't be re-dispensed); other verticals default off.
+	document.getElementById('srQuarantine').checked = (window.MODULE === 'PHARMA');
 	document.getElementById('srError').textContent = '';
 	d.style.display = 'flex';
 }
@@ -1540,7 +1544,8 @@ function submitSaleReturn(){
 		type: 'POST',
 		url: serverContext + "saleReturn",
 		dataType: "json",
-		data: { 'sellId': sellId, 'sellSId': stockId, 'quantity': qty, 'reason': document.getElementById('srReason').value },
+		data: { 'sellId': sellId, 'sellSId': stockId, 'quantity': qty, 'reason': document.getElementById('srReason').value,
+			'quarantine': document.getElementById('srQuarantine').checked },
 		success: function(data){
 			btn.disabled = false;
 			if (data && (data.status === 'SUCCESS' || data.message)) {
