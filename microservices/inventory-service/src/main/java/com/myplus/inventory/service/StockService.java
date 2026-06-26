@@ -138,6 +138,16 @@ public class StockService {
                 .map(StockLevel::getCurrentStock).orElse(0f);
     }
 
+    /** Batch on-hand for the whole tenant (slice 62, M3.1): productId → currentStock, in one query, so the Stock
+     *  screen reads inventory without an HTTP call per item. */
+    public java.util.Map<Long, Float> getAllLevels() {
+        java.util.Map<Long, Float> out = new java.util.HashMap<>();
+        for (StockLevel sl : stockLevelRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId())) {
+            out.put(sl.getProductId(), sl.getCurrentStock() == null ? 0f : sl.getCurrentStock());
+        }
+        return out;
+    }
+
     /** Quarantine register (slice 58): the org's non-sellable returned lots. */
     public java.util.Map<String, Object> listQuarantine() {
         Long orgId = CurrentUser.organizationId();

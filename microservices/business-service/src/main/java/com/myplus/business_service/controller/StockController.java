@@ -100,6 +100,21 @@ public class StockController {
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
 
+			// M3.1 (slice 62): batch the tenant's inventory on-hand + itemId→productId map ONCE (one inventory call),
+			// so the Stock list shows inventory's on-hand without an HTTP round-trip per item.
+			java.util.Map<Long, Float> levelsTmp = java.util.Collections.emptyMap();
+			final java.util.Map<Long, Long> productByItem = new java.util.HashMap<>();
+			if (tradeSagaProperties.isEnabled()) {
+				try {
+					levelsTmp = inventoryClient.getStockLevels();
+					for (com.myplus.business_service.entity.ItemCatalogMap m : itemCatalogMapRepo.findAllScoped(orgId()))
+						productByItem.put(m.getItemId(), m.getProductId());
+				} catch (Exception ex) {
+					LOGGER.warn("M3.1: batch inventory on-hand lookup failed; Stock list shows local stock", ex);
+				}
+			}
+			final java.util.Map<Long, Float> levels = levelsTmp;
+
 			List<ItemDTO> dtos = new ArrayList<ItemDTO>();
 			objs.forEach(obj -> {
 				modelMapper.addConverter(appUtil.localDateToString);
@@ -126,6 +141,14 @@ public class StockController {
 					Vender vender = venderService.getOne(dto.getVenderId());
 					dto.setVenderId(vender.getId());
 					dto.setVenderName(vender.getName());
+				}
+				// M3.1 (slice 62): show INVENTORY on-hand from the pre-batched levels (no per-item HTTP call).
+				// Falls back to the local Stock value when the item isn't catalog-mapped or inventory was unreachable.
+				Long invProductId = productByItem.get(obj.getId());
+				Float invStock = invProductId == null ? null : levels.get(invProductId);
+				if (invStock != null) {
+					if (dto.getStock() == null) dto.setStock(new StockDTO());
+					dto.getStock().setStock(invStock);
 				}
 //				if(!AppUtil.isEmptyOrNull(obj.getItemType())) {
 //					dto.setItemTypeId(obj.getItemType().getId());

@@ -49,6 +49,12 @@ public class StockController {
         return stockService.getCurrentStock(productId);
     }
 
+    /** Batch on-hand for the whole tenant (slice 62, M3.1): productId → currentStock. One call for the Stock list. */
+    @GetMapping("/levels")
+    public java.util.Map<Long, Float> stockLevels() {
+        return stockService.getAllLevels();
+    }
+
     /** FEFO batches (batch/expiry + sellable qty) for the dispense/sell screen (slice 54, P10). Raw body so the
      *  trade-service InventoryClient.getBatches deserializes it directly. */
     @GetMapping("/batches/{productId}")

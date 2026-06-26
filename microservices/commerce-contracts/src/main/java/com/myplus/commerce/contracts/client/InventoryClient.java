@@ -50,6 +50,10 @@ public interface InventoryClient {
     @GetExchange("/stock/level/{productId}")
     Float getStockLevel(@PathVariable Long productId);
 
+    /** Batch on-hand for the whole tenant (slice 62, M3.1): productId → currentStock, one call. */
+    @GetExchange("/stock/levels")
+    java.util.Map<Long, Float> getStockLevels();
+
     /** FEFO batches (batch/expiry + sellable qty) a sale/dispense would draw from next (slice 54, P10). */
     @GetExchange("/stock/batches/{productId}")
     List<StockBatch> getBatches(@PathVariable Long productId);
