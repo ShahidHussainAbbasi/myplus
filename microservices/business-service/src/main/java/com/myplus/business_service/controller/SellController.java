@@ -107,11 +107,24 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;
 
+	@Autowired
+	com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
+
+	@Autowired
+	com.myplus.business_service.service.PaymentService paymentService;
+
+	@Autowired
+	com.myplus.business_service.service.TaxService taxService;
+
+	@Autowired
+	com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
 	}
 
+	private static java.math.BigDecimal nzbd(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
 	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
@@ -334,6 +347,86 @@ public class SellController {
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > getSellInvoice " + e.getMessage(), e);
 			return new GenericResponse("ERROR", "Could not load the sale. Please try again.");
+		}
+	}
+
+	/**
+	 * G6 receipts (slice 38): the printable receipt for an invoice, by its per-org invoice number. Carries the
+	 * lines (with per-line tax + item name, saga or legacy), the G3 tax totals, the G5 payment summary and the
+	 * tax label/reg-no — everything the client renders into a thermal/A4 receipt. Tenant-scoped + role-aware.
+	 */
+	@RequestMapping(value = "/getReceipt", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getReceipt(@RequestParam("invoiceNo") String invoiceNo, final HttpServletRequest request) {
+		try {
+			if (appUtil.isEmptyOrNull(invoiceNo)) return new GenericResponse("NOT_FOUND", "Invoice not found");
+			CustomerHistory ch = customerHistoryRepo.findByOrganizationIdAndInvoiceNo(orgId(), invoiceNo).orElse(null);
+			if (ch == null || !inMyTenant(ch.getOrganizationId(), ch.getUserId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found");           // anti-IDOR
+			if (!seesAllOrg() && ch.getUserId() != null && !ch.getUserId().equals(userId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found");           // role-aware
+
+			List<Sell> lines = sellService.findByInvoiceScoped(ch.getCustomer_history_id(), orgId(), userId());
+			if (appUtil.isEmptyOrNull(lines)) return new GenericResponse("NOT_FOUND", "No line items found");
+
+			CustomerHistoryDTO out = new CustomerHistoryDTO();
+			out.setCustomer_history_id(ch.getCustomer_history_id());
+			out.setInvoiceNo(ch.getInvoiceNo());
+			out.setInvoiceSeq(ch.getInvoiceSeq());
+			out.setDated(ch.getDated());
+			out.setPaidAmount(ch.getPaidAmount());
+			out.setDueAmount(ch.getDueAmount());
+			out.setDueDate(ch.getDueDate());
+			out.setSubTotal(ch.getSubTotal());
+			out.setTaxTotal(ch.getTaxTotal());
+			out.setGrandTotal(ch.getGrandTotal());
+			out.setPaymentMode(ch.getPaymentMode());
+			out.setTenderedAmount(ch.getTenderedAmount());
+			out.setChangeAmount(ch.getChangeAmount());
+			if (ch.getCustomer() != null) out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
+
+			var ts = taxService.settingsFor(orgId());                                  // tax label/reg-no for the header
+			out.setTaxLabel(ts.getTaxLabel());
+			out.setTaxRegNo(ts.getTaxRegNo());
+
+			// line item names: legacy via local Stock's itemId, saga via productId reverse-map (same as getUserSell)
+			java.util.List<Long> itemIds = lines.stream()
+					.filter(s -> s.getStock() != null && s.getStock().getItemId() != null)
+					.map(s -> s.getStock().getItemId()).distinct().collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
+					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+			java.util.List<Long> sagaProductIds = lines.stream()
+					.filter(s -> s.getStock() == null && s.getProductId() != null)
+					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
+			if (!sagaProductIds.isEmpty()) {
+				java.util.Map<Long, Long> productToItem = new java.util.HashMap<>();
+				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(sagaProductIds, orgId()))
+					productToItem.put((Long) row[0], (Long) row[1]);
+				java.util.Map<Long, Item> sagaItems = itemService.findAllById(productToItem.values()).stream()
+						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+				sagaProductIds.forEach(pid -> {
+					Long iid = productToItem.get(pid);
+					if (iid != null && sagaItems.get(iid) != null) itemByProductId.put(pid, sagaItems.get(iid));
+				});
+			}
+			List<SellDTO> sales = new java.util.ArrayList<>();
+			for (Sell s : lines) {
+				modelMapper.addConverter(appUtil.localDateTimeToString);
+				modelMapper.addConverter(appUtil.localDateToString);
+				SellDTO sd = modelMapper.map(s, SellDTO.class);
+				Item item = (s.getStock() != null && s.getStock().getItemId() != null)
+						? itemsById.get(s.getStock().getItemId())
+						: itemByProductId.get(s.getProductId());
+				if (item != null) { sd.setItemId(item.getId()); sd.setItemName(item.getIname()); sd.setItemCode(item.getIcode()); }
+				if (s.getStock() != null) sd.setStock(modelMapper.map(s.getStock(), StockDTO.class));
+				sales.add(sd);
+			}
+			out.setSales(sales);
+			return new GenericResponse("SUCCESS", "Receipt loaded", out);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > getReceipt " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load the receipt.");
 		}
 	}
 
@@ -757,16 +850,51 @@ public class SellController {
 			if(existingSell == null || !inMyTenant(existingSell.getOrganizationId(), existingSell.getUserId()))
 				return new GenericResponse("NOT_FOUND");
 
-			Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());
-			if(stockOpt.isPresent()) {
-				Stock stock = stockOpt.get();
-				stock.setStock(stock.getStock() + dto.getQuantity());
-				
-				stockService.save(stock);
-				if(appUtil.isEmptyOrNull(stock)) {
-					return new GenericResponse("FAILED", "Sale return failed. Please try again.");
+			// G2 (slice 34) input validation: return qty must be > 0 and not exceed what was sold on this line —
+			// otherwise the fallback restock would inflate StockLevel beyond what left. (Bean-Validation standard, slice 26.)
+			float soldQty = existingSell.getQuantity() != null ? existingSell.getQuantity() : 0f;
+			float retQty = dto.getQuantity() != null ? dto.getQuantity() : 0f;
+			if(retQty <= 0f)
+				return new GenericResponse("FAILED", "Return quantity must be greater than 0.");
+			if(retQty > soldQty)
+				return new GenericResponse("FAILED", "Cannot return more than the sold quantity (" + soldQty + ").");
+
+			// G2 (slice 34): a saga sell decremented inventory-service (StockEntry/StockLevel), not local Stock.
+			// Route its return back through inventory (inverse saga) so on-hand is restored, not just local Stock.
+			CustomerHistory ch = existingSell.getCustomerHistory();
+			String reservationId = ch != null ? ch.getReservationId() : null;
+			boolean sagaSell = existingSell.getProductId() != null && reservationId != null;
+
+			if(sagaSell) {
+				inventoryClient.returnStock(reservationId, new com.myplus.commerce.contracts.dto.StockReturnRequest(
+						java.util.List.of(new com.myplus.commerce.contracts.dto.StockReturnLine(
+								existingSell.getProductId(), dto.getQuantity()))));
+			} else {
+				// Legacy local-Stock sell: restore the local Stock row as before.
+				Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());
+				if(stockOpt.isPresent()) {
+					Stock stock = stockOpt.get();
+					stock.setStock(stock.getStock() + dto.getQuantity());
+
+					stockService.save(stock);
+					if(appUtil.isEmptyOrNull(stock)) {
+						return new GenericResponse("FAILED", "Sale return failed. Please try again.");
+					}
 				}
 			}
+
+			// G5 (slice 37): record the money refunded to the customer (proportional to the returned qty), so the
+			// payment ledger matches the restored stock. A REFUND tender (negative) is written to the invoice.
+			if (ch != null && ch.getCustomer_history_id() != null) {
+				java.math.BigDecimal lineGross = nzbd(existingSell.getTotalAmount()).add(nzbd(existingSell.getTaxAmount()));
+				java.math.BigDecimal refund = (soldQty > 0f && retQty > 0f && retQty < soldQty)
+						? lineGross.multiply(java.math.BigDecimal.valueOf(retQty))
+								.divide(java.math.BigDecimal.valueOf(soldQty), 2, java.math.RoundingMode.HALF_UP)
+						: lineGross;   // full-line return (or unknown qty) → refund the whole line
+				if (refund.signum() > 0)
+					paymentService.refund(ch.getCustomer_history_id(), refund, orgId(), userId());
+			}
+
 			sellService.deleteById(dto.getSellId());
 			return new GenericResponse("SUCCESS", "Sale returned successfully.");
 

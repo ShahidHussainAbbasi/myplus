@@ -45,7 +45,12 @@ public class SellDTO implements Serializable {
 	private BigDecimal netAmount = BigDecimal.ZERO;
 
 	private BigDecimal srp = BigDecimal.ZERO;
-	
+
+	// G3 (slice 35): applied tax on this line, for the read/receipt path.
+	private BigDecimal taxRate;
+
+	private BigDecimal taxAmount;
+
 	private Float itemStock=0.0F;
 
 	private String dated;

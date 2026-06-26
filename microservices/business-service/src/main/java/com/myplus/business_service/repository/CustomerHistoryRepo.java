@@ -23,6 +23,14 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
     @Query("SELECT COALESCE(MAX(ch.invoiceSeq), 0) FROM CustomerHistory ch WHERE ch.organizationId = :orgId")
     Long maxInvoiceSeqForOrg(@Param("orgId") Long orgId);
 
+    // Receipt lookup by the per-org invoice number (G6 receipts, slice 38).
+    java.util.Optional<CustomerHistory> findByOrganizationIdAndInvoiceNo(Long organizationId, String invoiceNo);
+
+    // POS day-close (slice 39): a shift's sales summary — [count, Σ grandTotal, Σ taxTotal].
+    @Query("SELECT COUNT(ch), COALESCE(SUM(ch.grandTotal),0), COALESCE(SUM(ch.taxTotal),0) "
+            + "FROM CustomerHistory ch WHERE ch.shiftId = :shiftId")
+    Object[] shiftSalesSummary(@Param("shiftId") Long shiftId);
+
     // Net (paid − bill) across all of a customer's invoice headers. Negate + floor at 0 to get the
     // running balance the customer owes — the single source of truth for Customer.dueAmount.
     @Query("SELECT COALESCE(SUM(ch.dueAmount), 0) FROM CustomerHistory ch WHERE ch.customer.customerId = :customerId")

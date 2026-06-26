@@ -10,6 +10,7 @@ import com.myplus.commerce.contracts.dto.ReservationStatus;
 import com.myplus.commerce.contracts.dto.StockReservationLine;
 import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
+import com.myplus.commerce.contracts.dto.StockReturnLine;
 import com.myplus.inventory.entity.StockEntry;
 import com.myplus.inventory.entity.StockLevel;
 import com.myplus.inventory.repository.ReservationRepository;
@@ -172,5 +173,56 @@ class ReservationServiceTest {
         assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
         assertThat(stockEntryRepository.findById(expired.getId()).get().getReservedQuantity()).isEqualTo(0f);  // untouched
         assertThat(stockEntryRepository.findById(fresh.getId()).get().getReservedQuantity()).isEqualTo(30f);   // from fresh
+    }
+
+    // ── G2: returns -> inventory (inverse saga, slice 34) ─────────────────────────────────────────
+    private String confirmedReservation(String key, float qty) {
+        StockReservationResponse res = service.reserve(request(key, qty), ORG, USER);
+        service.confirm(res.getReservationId(), ORG, USER);
+        return res.getReservationId();
+    }
+
+    private List<StockReturnLine> returnLines(float qty) {
+        return List.of(new StockReturnLine(PRODUCT, qty));
+    }
+
+    @Test
+    void return_restores_the_exact_original_batch_and_bumps_stock_level() {
+        StockEntry b = batch(30f, SOON);
+        stockLevel(30f);
+        String resId = confirmedReservation("r1", 20f);   // confirm -> batch qty 10, level 10
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(10f);
+        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(10f);
+
+        service.returnPicks(resId, returnLines(20f), ORG, USER);
+
+        // reverses the confirm exactly: the same batch is restored, real expiry retained.
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(30f);
+        assertThat(stockEntryRepository.findById(b.getId()).get().getExpiryDate()).isEqualTo(SOON);
+        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(30f);
+    }
+
+    @Test
+    void repeated_partial_returns_never_over_restore_the_original_batch() {
+        StockEntry b = batch(30f, SOON);
+        stockLevel(30f);
+        String resId = confirmedReservation("r2", 20f);   // sold 20 from this batch
+
+        service.returnPicks(resId, returnLines(12f), ORG, USER);   // batch: 10 -> 22
+        service.returnPicks(resId, returnLines(12f), ORG, USER);   // only 8 of pick room left -> batch capped at 30
+
+        // the original batch is restored by at most what was picked from it (20); the excess 4 went to a fresh batch.
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(30f);
+        assertThat(stockEntryRepository.count()).isEqualTo(2L);    // original + one fallback batch
+    }
+
+    @Test
+    void return_with_no_reservation_falls_back_to_a_fresh_batch_and_makes_the_level_whole() {
+        // no reserve/confirm, no prior stock level for the product (legacy/non-saga return path).
+        service.returnPicks("does-not-exist", returnLines(10f), ORG, USER);
+
+        assertThat(stockEntryRepository.count()).isEqualTo(1L);    // a fallback batch was created
+        assertThat(stockEntryRepository.findAll().get(0).getQuantity()).isEqualTo(10f);
+        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(10f);
     }
 }

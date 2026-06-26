@@ -19,9 +19,11 @@ public class PrescriptionItem {
     @JoinColumn(name = "prescription_id")
     private Prescription prescription;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "medicine_id")
-    private Medicine medicine;
+    // slice 41 (reuse): a medicine is an existing business Item — reference it by itemId (same as the sell flow),
+    // so dispensing reuses the POS Sell/saga without a parallel product model.
+    @Column(name = "item_id")
+    private Long itemId;
+    private String medicineName;   // snapshot for display
 
     @Column(nullable = false)
     private int quantity;

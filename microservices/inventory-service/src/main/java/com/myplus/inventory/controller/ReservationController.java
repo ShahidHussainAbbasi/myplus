@@ -2,6 +2,8 @@ package com.myplus.inventory.controller;
 
 import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
+import com.myplus.commerce.contracts.dto.StockReturnRequest;
+import com.myplus.commerce.contracts.dto.StockReturnResponse;
 import com.myplus.common.security.CurrentUser;
 import com.myplus.inventory.service.ReservationService;
 import lombok.RequiredArgsConstructor;
@@ -32,5 +34,12 @@ public class ReservationController {
     @PostMapping("/{reservationId}/release")
     public StockReservationResponse release(@PathVariable String reservationId) {
         return reservationService.release(reservationId, CurrentUser.organizationId(), CurrentUser.userId());
+    }
+
+    /** G2 inverse saga (slice 34) — return sold stock back to inventory for a confirmed sale. */
+    @PostMapping("/{reservationId}/return")
+    public StockReturnResponse returnStock(@PathVariable String reservationId, @RequestBody StockReturnRequest request) {
+        return reservationService.returnPicks(reservationId, request.getLines(),
+                CurrentUser.organizationId(), CurrentUser.userId());
     }
 }

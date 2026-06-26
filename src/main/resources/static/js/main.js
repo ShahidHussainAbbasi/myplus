@@ -394,6 +394,14 @@ $(document).ready(function() {
 
 					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
 					var customerHistory = {"customer":customer, "sales":data};
+					// G5 (slice 37): record how the sale is paid. One tender from the chosen method + amount received;
+					// CREDIT = on account (not counted as paid). Backend settles paid/due against the grand total.
+					var payMethod = $("#sellPayMethod").val() || 'CASH';
+					var received = $("#sellRec").val()*ONE || 0;
+					customerHistory.tenders = [];
+					if (received > 0 || payMethod === 'CREDIT') {
+						customerHistory.tenders.push({ "method": payMethod, "amount": received, "reference": "" });
+					}
 					// Editing an existing invoice -> update it in place (same invoice #, stock & dues
 					// adjusted by the deltas); otherwise create a new sale.
 					if (window.editingInvoice && window.editingInvoice.chId) {
@@ -650,7 +658,19 @@ function jsonPost(method,data) {
 			}
 			clearFormError();
 			// slice 22: show the system-generated per-org invoice number returned by addSell
-			if (data.object) { showSaleSuccess('Sale recorded — Invoice ' + data.object); }
+			if (data.object) {
+				showSaleSuccess('Sale recorded — Invoice ' + data.object);
+				// G6 (slice 38): auto-print the receipt for a new sale (hidden iframe — no popup block).
+				if (method === 'addSell' && typeof printReceipt === 'function') { printReceipt(data.object); }
+				// P6 (slice 43): if this sale is dispensing a prescription, record the dispense against it.
+				if (method === 'addSell' && window.dispensingPrescriptionId && typeof dispensePrescription === 'function') {
+					dispensePrescription(data.object);
+				}
+				// E1 (slice 46): a Store (MARKETPLACE) sale becomes an order with a fulfilment lifecycle.
+				if (method === 'addSell' && (window.MODULE || '').toUpperCase() === 'MARKETPLACE' && typeof recordOrder === 'function') {
+					recordOrder(data.object);
+				}
+			}
 /*
 		    	var mylink = document.getElementById("MyLink");
 		    	mylink.setAttribute("href", "../");

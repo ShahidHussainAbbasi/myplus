@@ -15,4 +15,12 @@ public interface DispensingRepository extends JpaRepository<Dispensing, Long> {
     List<Dispensing> findByDispensedAtBetween(LocalDateTime start, LocalDateTime end);
     Page<Dispensing> findByPatientNameContainingIgnoreCase(String name, Pageable pageable);
     List<Dispensing> findByPrescriptionItemPrescriptionId(Long prescriptionId);
+
+    // P8 (slice 45): the controlled-substance register — controlled dispenses, org-scoped (NULL-fallback by user).
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT d FROM Dispensing d WHERE d.controlled = true AND "
+        + "(d.organizationId = :orgId OR (d.organizationId IS NULL AND d.dispensedBy = :userId)) "
+        + "ORDER BY d.dispensedAt DESC")
+    List<Dispensing> findControlledScoped(@org.springframework.data.repository.query.Param("orgId") Long orgId,
+                                          @org.springframework.data.repository.query.Param("userId") Long userId);
 }

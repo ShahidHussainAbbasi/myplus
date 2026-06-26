@@ -6,6 +6,7 @@ import com.myplus.common.web.exception.ValidationException;
 import com.myplus.inventory.entity.Reservation;
 import com.myplus.inventory.entity.ReservationPick;
 import com.myplus.inventory.entity.StockEntry;
+import com.myplus.inventory.entity.StockLevel;
 import com.myplus.inventory.repository.ReservationRepository;
 import com.myplus.inventory.repository.StockEntryRepository;
 import com.myplus.inventory.repository.StockLevelRepository;
@@ -126,6 +127,75 @@ public class ReservationService {
         resv.setStatus(ReservationStatus.RELEASED);
         reservationRepository.save(resv);
         return toResponse(resv);
+    }
+
+    /**
+     * G2 inverse saga (slice 34) — return sold stock for a (confirmed) reservation. Primary path: restore each
+     * returned product to the sale's ORIGINAL batches (the reservation picks), capped per pick by
+     * {@code quantity - returnedQuantity} so repeated partial returns never over-restore a batch — returned units
+     * keep their real expiry, so FEFO stays correct and lot traceability holds. Fallback: when the reservation/picks
+     * are unavailable (legacy/non-saga or the StockEntry is gone), or the returned qty exceeds what was picked,
+     * the remainder re-enters via a fresh StockEntry. {@code StockLevel} is bumped by the full returned qty either way.
+     */
+    @Transactional
+    public StockReturnResponse returnPicks(String reservationId, List<StockReturnLine> lines, Long orgId, Long userId) {
+        Reservation resv = reservationRepository.findByReservationIdScoped(reservationId, orgId, userId).orElse(null);
+        float totalRestored = 0f;
+
+        for (StockReturnLine line : lines) {
+            if (line == null || line.getProductId() == null) continue;
+            float qty = nz(line.getQty());
+            if (qty <= EPS) continue;
+            float remaining = qty;
+
+            if (resv != null) {
+                for (ReservationPick p : resv.getPicks()) {
+                    if (remaining <= EPS) break;
+                    if (!line.getProductId().equals(p.getProductId())) continue;
+                    float room = nz(p.getQuantity()) - nz(p.getReturnedQuantity());
+                    if (room <= 0f) continue;
+                    float take = Math.min(room, remaining);
+                    StockEntry e = stockEntryRepository.findById(p.getStockEntryId()).orElse(null);
+                    if (e != null) {                       // restore to the exact original batch
+                        e.setQuantity(nz(e.getQuantity()) + take);
+                        stockEntryRepository.save(e);
+                    } else {                               // original batch gone -> fresh batch, keep its lot/expiry
+                        createReturnEntry(line.getProductId(), take, p.getBatchNo(), p.getExpiryDate(), orgId, userId);
+                    }
+                    p.setReturnedQuantity(nz(p.getReturnedQuantity()) + take);
+                    remaining -= take;
+                }
+            }
+
+            if (remaining > EPS) {                          // fallback B: no picks / exhausted / beyond picked
+                createReturnEntry(line.getProductId(), remaining, null, null, orgId, userId);
+                remaining = 0f;
+            }
+
+            bumpLevel(line.getProductId(), qty, orgId, userId);
+            totalRestored += qty;
+        }
+
+        if (resv != null) reservationRepository.save(resv);   // persist the per-pick returnedQuantity
+        return new StockReturnResponse(reservationId, BigDecimal.valueOf(totalRestored), "RETURNED");
+    }
+
+    /** Fallback restock for returns: a fresh StockEntry carrying the original lot/expiry when known (else null). */
+    private void createReturnEntry(Long productId, float qty, String batchNo, java.time.LocalDate expiry, Long orgId, Long userId) {
+        stockEntryRepository.save(StockEntry.builder()
+                .productId(productId).quantity(qty).reservedQuantity(0f)
+                .batchNo(batchNo).expiryDate(expiry)
+                .organizationId(orgId).userId(userId).build());
+    }
+
+    /** Make the product's on-hand whole again: StockLevel += qty, creating a zero level for the tenant if missing. */
+    private void bumpLevel(Long productId, float qty, Long orgId, Long userId) {
+        StockLevel level = stockLevelRepository.findByProductScoped(productId, orgId, userId)
+                .orElseGet(() -> StockLevel.builder()
+                        .productId(productId).currentStock(0f)
+                        .organizationId(orgId).userId(userId).build());
+        level.setCurrentStock(nz(level.getCurrentStock()) + qty);
+        stockLevelRepository.save(level);
     }
 
     private Reservation load(String reservationId, Long orgId, Long userId) {

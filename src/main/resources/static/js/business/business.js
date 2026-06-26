@@ -443,6 +443,49 @@ function showTeam(){
 	loadTeamUsers();
 }
 
+// G3 (slice 35): org tax policy. Same direct-show pattern as showTeam (no DataTable entity).
+function showTaxSettings(){
+	$('.formDiv').hide();
+	$('#TaxSettingDiv').show();
+	loadTaxSetting();
+}
+
+function loadTaxSetting(){
+	$.get(serverContext + "getTaxSetting", function(resp){
+		var s = (resp && resp.object) ? resp.object : {};
+		$('#taxEnabled').prop('checked', s.enabled === true);
+		$('#taxMode').val(s.taxMode === 'INCLUSIVE' ? 'INCLUSIVE' : 'EXCLUSIVE');
+		$('#taxDefaultRate').val(s.defaultRate != null ? s.defaultRate : '');
+		$('#taxLabel').val(s.taxLabel != null ? s.taxLabel : 'Tax');
+		$('#taxRegNo').val(s.taxRegNo != null ? s.taxRegNo : '');
+	}).fail(function(){
+		showFormError('Could not load tax settings.');
+	});
+}
+
+function saveTaxSetting(){
+	$.ajax({
+		type: 'POST',
+		url: serverContext + "saveTaxSetting",
+		dataType: 'json',
+		data: {
+			'enabled': $('#taxEnabled').is(':checked'),
+			'taxMode': $('#taxMode').val(),
+			'defaultRate': $('#taxDefaultRate').val() || '0',
+			'taxLabel': $('#taxLabel').val() || 'Tax',
+			'taxRegNo': $('#taxRegNo').val() || ''
+		},
+		success: function(data){
+			if (data && (data.status === 'SUCCESS' || data.message)) {
+				showSaleSuccess((data.message) || 'Tax settings saved.');
+			} else {
+				showFormError((data && data.status ? data.status : 'Save failed') + (data && data.message ? ': ' + data.message : '.'));
+			}
+		},
+		error: function(){ showFormError('Could not save tax settings.'); }
+	});
+}
+
 function loadTeamUsers(){
 	$.get(serverContext + "team/users", function(resp){
 		var users = (resp && resp.data) ? resp.data : [];
@@ -662,7 +705,21 @@ function loadDataTable(){
 							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>",
 							"<div id=sellDueAmount>"+owed.toFixed(2)+"</div>",
 							"<div id=sellNetAmount>"+obj.netAmount+"</div>",
-							obj.updated
+							obj.updated,
+							"<div id=sellTaxAmount>"+(obj.taxAmount!=null?obj.taxAmount:'')+"</div>",
+							"<div id=sellPaymentMode>"+escHtml(ch&&ch.paymentMode?ch.paymentMode:'')+"</div>",
+							// Actions: G6 (slice 38) Print receipt + G2 (slice 34) Sale Return. Print uses the
+							// invoice number; Return passes its row data via data-* for the partial-qty dialog.
+							((ch && ch.invoiceNo)
+								? "<button type='button' class='btn btn-xs btn-default' title='Print receipt' onclick=\"printReceipt('"+escHtml(ch.invoiceNo)+"')\"><span class='glyphicon glyphicon-print'></span></button> "
+								: "")
+							+ "<button type='button' class='btn btn-xs btn-warning' onclick='openSaleReturn(this)'"
+								+ " data-sellid='"+obj.sellId+"'"
+								+ " data-stockid='"+(obj.stock&&obj.stock.stockId!=null?obj.stock.stockId:'')+"'"
+								+ " data-qty='"+(obj.quantity!=null?obj.quantity:'')+"'"
+								+ " data-invoice='"+escHtml(ch?(ch.invoiceNo||''):'')+"'"
+								+ " data-item='"+escHtml(obj.itemName||'')+"'>"
+								+ "<span class='glyphicon glyphicon-share-alt'></span> Return</button>"
 						]);
 					});
 				}
@@ -1402,33 +1459,90 @@ function resetPurchaseForm(){
 	resetBSDD('purchaseItemDD');
 }
 
-function saleReturn(sellId,stockId,qty){
-	var r = confirm("Are you sure, Do you want to revert this sale?");
-	if (r != true)
-		return false;
-	
+// G2 (slice 34): Sale Return. The per-row "Return" button opens a small self-contained dialog that supports a
+// PARTIAL return (1..sold qty) + an optional reason, then posts to /saleReturn. The server decides whether the
+// sale is a saga sell (-> inventory inverse saga) or a legacy local-Stock sell; the UI just sends sellId/qty.
+function buildSaleReturnDialog(){
+	var d = document.getElementById('saleReturnDialog');
+	if (d) return d;
+	d = document.createElement('div');
+	d.id = 'saleReturnDialog';
+	d.style.cssText = 'position:fixed;inset:0;z-index:10000;display:none;'
+		+ 'background:rgba(0,0,0,.45);align-items:center;justify-content:center';
+	d.innerHTML =
+		"<div style='background:#fff;border-radius:10px;max-width:420px;width:92%;padding:22px 24px;"
+		+ "box-shadow:0 12px 40px rgba(0,0,0,.3)'>"
+		+ "<h4 style='margin:0 0 14px;font-weight:700'>Sale Return</h4>"
+		+ "<div style='font-size:13px;color:#444;margin-bottom:12px'>"
+		+ "Invoice <b id='srInvoice'></b> &middot; <span id='srItem'></span><br>"
+		+ "Sold quantity: <b id='srSold'></b></div>"
+		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Return quantity</label>"
+		+ "<input type='number' id='srQty' class='form-control' step='any' min='1' style='margin-bottom:12px'>"
+		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Reason (optional)</label>"
+		+ "<input type='text' id='srReason' class='form-control' maxlength='200' placeholder='e.g. damaged, expired, customer change' style='margin-bottom:8px'>"
+		+ "<div id='srError' style='color:#c0392b;font-size:12px;min-height:16px;margin-bottom:8px'></div>"
+		+ "<div style='text-align:right'>"
+		+ "<button type='button' class='btn btn-default' onclick='closeSaleReturn()'>Cancel</button> "
+		+ "<button type='button' id='srSubmit' class='btn btn-warning' onclick='submitSaleReturn()'>"
+		+ "<span class='glyphicon glyphicon-share-alt'></span> Confirm Return</button>"
+		+ "</div></div>";
+	document.body.appendChild(d);
+	return d;
+}
+
+function openSaleReturn(btn){
+	var d = buildSaleReturnDialog();
+	var sold = parseFloat(btn.getAttribute('data-qty')) || 0;
+	d.dataset.sellid  = btn.getAttribute('data-sellid') || '';
+	d.dataset.stockid = btn.getAttribute('data-stockid') || '';
+	d.dataset.sold    = sold;
+	document.getElementById('srInvoice').textContent = btn.getAttribute('data-invoice') || '—';
+	document.getElementById('srItem').textContent    = btn.getAttribute('data-item') || '';
+	document.getElementById('srSold').textContent    = sold;
+	var qtyInput = document.getElementById('srQty');
+	qtyInput.value = sold;
+	qtyInput.max   = sold;
+	document.getElementById('srReason').value = '';
+	document.getElementById('srError').textContent = '';
+	d.style.display = 'flex';
+}
+
+function closeSaleReturn(){
+	var d = document.getElementById('saleReturnDialog');
+	if (d) d.style.display = 'none';
+}
+
+function submitSaleReturn(){
+	var d = document.getElementById('saleReturnDialog');
+	var sellId = d.dataset.sellid, stockId = d.dataset.stockid;
+	var sold = parseFloat(d.dataset.sold) || 0;
+	var qty = parseFloat(document.getElementById('srQty').value);
+	var err = document.getElementById('srError');
+	if (!qty || qty <= 0) { err.textContent = 'Enter a quantity greater than 0.'; return false; }
+	if (qty > sold)       { err.textContent = 'Cannot return more than the sold quantity (' + sold + ').'; return false; }
+
+	var btn = document.getElementById('srSubmit');
+	btn.disabled = true;
 	$.ajax({
-        type:'POST',
-        url:serverContext+ "saleReturn",
-        dataType : "json",
-        data:{'sellId':sellId,'sellSId':stockId,'quantity':qty},
-            success:function(data){
-        		datatable.clear().draw();
-        		datatable.ajax.reload();		
-	        },
-		    error: function (e) {
- 		        showFormError('An error occurred: ' + e);
-		    }
-        });
-    
-//	$.get(serverContext+ "saleReturn?itemId="+itemId+"&stockId="+stockId+"&qty="+qty,function(data){
-//		datatable.clear().draw();
-//		datatable.ajax.reload();		
-//    })
-//	.fail(function(data) {
-//		alert(data);
-//	});
-//	resetForm();
-//	$("#globalError").empty();
+		type: 'POST',
+		url: serverContext + "saleReturn",
+		dataType: "json",
+		data: { 'sellId': sellId, 'sellSId': stockId, 'quantity': qty, 'reason': document.getElementById('srReason').value },
+		success: function(data){
+			btn.disabled = false;
+			if (data && (data.status === 'SUCCESS' || data.message)) {
+				closeSaleReturn();
+				showSaleSuccess((data.message) || 'Sale returned successfully.');
+				datatable.clear().draw();
+				datatable.ajax.reload();
+			} else {
+				err.textContent = (data && data.status ? data.status : 'Return failed') + (data && data.message ? ': ' + data.message : '.');
+			}
+		},
+		error: function (e) {
+			btn.disabled = false;
+			err.textContent = 'An error occurred. Please try again.';
+		}
+	});
 }
 

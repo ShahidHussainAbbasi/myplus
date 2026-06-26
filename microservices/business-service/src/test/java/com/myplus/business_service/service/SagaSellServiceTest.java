@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -25,6 +26,7 @@ import com.myplus.commerce.contracts.dto.ProductRef;
 import com.myplus.commerce.contracts.dto.ReservationStatus;
 import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
+import com.myplus.business_service.entity.TaxSetting;
 import com.myplus.common.security.AuthenticatedUser;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +48,7 @@ class SagaSellServiceTest {
     @Mock private InventoryClient inventoryClient;
     @Mock private SagaSaleWriter saleWriter;
     @Mock private RequestUtil requestUtil;
+    @Mock private TaxService taxService;
     @InjectMocks private SagaSellService service;
 
     private CustomerHistoryDTO dtoWithOneLine() {
@@ -70,6 +73,10 @@ class SagaSellServiceTest {
     void user() {
         when(requestUtil.getCurrentUser())
                 .thenReturn(new AuthenticatedUser(1L, "cashier@test.com", List.of(), 1L));
+        // G3: tax disabled in these saga-orchestration tests — no tax applied, lines carry zero tax.
+        when(taxService.settingsFor(anyLong())).thenReturn(TaxSetting.builder().enabled(false).build());
+        when(taxService.taxForLine(any(), any(), any()))
+                .thenReturn(new TaxResult(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
     }
 
     @Test

@@ -2,6 +2,12 @@ package com.myplus.business_service.exception;
 
 import com.myplus.business_service.dto.ApiResponse;
 import com.myplus.business_service.util.GenericResponse;
+// G5/slice-39 dedup: reuse common-web's canonical exception classes (the local copies were deleted). This
+// handler stays business-local on purpose — it's monolith-facing (Bean-Validation → HTTP 200 + GenericResponse),
+// so CommonWebAutoConfiguration is excluded in BusinessServiceApplication to avoid a second advice.
+import com.myplus.common.web.exception.DuplicateResourceException;
+import com.myplus.common.web.exception.ResourceNotFoundException;
+import com.myplus.common.web.exception.ValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;

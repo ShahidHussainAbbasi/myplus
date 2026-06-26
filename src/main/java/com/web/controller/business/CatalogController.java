@@ -9,10 +9,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.web.util.CatalogRestClient;
+import com.web.util.InventoryRestClient;
 
 /**
  * Proxies the catalog-backed item picker (slice 33, U4.3 pre-stage). Additive — the new sell-screen picker
@@ -27,6 +30,9 @@ public class CatalogController {
     @Autowired
     private CatalogRestClient catalog;
 
+    @Autowired
+    private InventoryRestClient inventory;
+
     /** Catalog products for the picker. Pass-through of paging params, e.g. /catalogProducts?size=1000. */
     @GetMapping("/catalogProducts")
     @ResponseBody
@@ -35,6 +41,60 @@ public class CatalogController {
             return catalog.get("/products", request.getQueryString());
         } catch (Exception e) {
             LOGGER.error("catalogProducts proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /** M1 (slice 42): register a catalog Product (the single product master). */
+    @PostMapping("/addProduct")
+    @ResponseBody
+    public Map<String, Object> addProduct(@RequestBody final Map<String, Object> body) {
+        try {
+            return catalog.postJson("/products", body);
+        } catch (Exception e) {
+            LOGGER.error("addProduct proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /** M1 (slice 42): a single catalog Product by id. */
+    @GetMapping("/getCatalogProduct")
+    @ResponseBody
+    public Map<String, Object> getCatalogProduct(final HttpServletRequest request) {
+        try {
+            return catalog.get("/products/" + request.getParameter("id"));
+        } catch (Exception e) {
+            LOGGER.error("getCatalogProduct proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /** E7 (slice 49): stock a catalog product for the storefront — opening inventory the reservation saga draws
+     *  down. Forwards a single opening-stock line to inventory {@code /stock/import} (org from the logged-in user). */
+    @PostMapping("/addProductStock")
+    @ResponseBody
+    public Map<String, Object> addProductStock(@RequestBody final Map<String, Object> body) {
+        try {
+            Object productId = body.get("productId");
+            Object quantity = body.get("quantity");
+            String count = inventory.postJsonString("/stock/import",
+                    Collections.singletonList(Map.of("productId", productId, "quantity", quantity)));
+            return Map.of("success", true, "created", count);
+        } catch (Exception e) {
+            LOGGER.error("addProductStock proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /** E7 (slice 49): current inventory on-hand for a product (for the storefront/back-office stock readout). */
+    @GetMapping("/productStock")
+    @ResponseBody
+    public Map<String, Object> productStock(final HttpServletRequest request) {
+        try {
+            String level = inventory.getString("/stock/level/" + request.getParameter("productId"));
+            return Map.of("success", true, "stock", level == null ? "0" : level.trim());
+        } catch (Exception e) {
+            LOGGER.error("productStock proxy error", e);
             return Collections.singletonMap("success", false);
         }
     }

@@ -3,6 +3,7 @@ package com.web.util;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -35,5 +36,15 @@ public class CatalogRestClient {
     /** GET with query string appended. */
     public Map<String, Object> get(String path, String queryString) {
         return gateway.forMap(PREFIX, directBaseUrl, withQuery(path, queryString), HttpMethod.GET, null, null);
+    }
+
+    /** POST JSON (slice 42, M1): create a catalog Product (the single product master). */
+    public Map<String, Object> postJson(String path, Object body) {
+        return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.POST, body, MediaType.APPLICATION_JSON);
+    }
+
+    /** PUT JSON (slice 42, M1): update a catalog Product. */
+    public Map<String, Object> putJson(String path, Object body) {
+        return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.PUT, body, MediaType.APPLICATION_JSON);
     }
 }

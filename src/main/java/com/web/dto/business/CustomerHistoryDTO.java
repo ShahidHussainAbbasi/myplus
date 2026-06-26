@@ -40,4 +40,8 @@ public class CustomerHistoryDTO {
 
     private Float dueAmount;
 
-    private LocalDate dueDate;}
+    private LocalDate dueDate;
+
+    // G5 (slice 37): checkout tenders — carried through to business-service so the sale's payment is recorded.
+    private List<TenderDTO> tenders = new ArrayList<>();
+}

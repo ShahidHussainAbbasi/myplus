@@ -72,6 +72,33 @@ public class CustomerHistory implements Serializable {
     @Column(name = "due_date")
     private LocalDate dueDate;
 
+    // G3 (slice 35): invoice money summary. subTotal = Σ line net; taxTotal = Σ line tax; grandTotal = subTotal+tax.
+    // Null for legacy invoices. Settlement (paid/due vs grandTotal) is finalised in G5 (payments).
+    @Column(name = "sub_total", precision = 19, scale = 2)
+    private BigDecimal subTotal;
+
+    @Column(name = "tax_total", precision = 19, scale = 2)
+    private BigDecimal taxTotal;
+
+    @Column(name = "grand_total", precision = 19, scale = 2)
+    private BigDecimal grandTotal;
+
+    // G5 (slice 37): payment summary. paymentMode = single method name | SPLIT | null (legacy/unpaid). The per-
+    // tender breakdown lives in the Payment table (linked by customer_history_id). dueAmount above settles to grand_total.
+    @Column(name = "payment_mode")
+    private String paymentMode;
+
+    @Column(name = "tendered_amount", precision = 19, scale = 2)
+    private BigDecimal tenderedAmount;
+
+    @Column(name = "change_amount", precision = 19, scale = 2)
+    private BigDecimal changeAmount;
+
+    // POS day-close (slice 39): the cashier shift this sale belongs to (null if no shift was open). Drives the
+    // X/Z report aggregation.
+    @Column(name = "shift_id")
+    private Long shiftId;
+
     // Sell↔stock saga state (slice 33, U3). Null for legacy local-Stock sells. UD1 = invoice-as-saga-state:
     // a stuck PENDING (with reservationId) is re-driven to CONFIRMED by the scheduled recovery relay (U3c).
     @Column(name = "reservation_id")

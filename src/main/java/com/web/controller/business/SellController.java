@@ -78,6 +78,20 @@ public class SellController {
         }
     }
 
+    // G6 receipts (slice 38) — proxies the printable receipt (by invoice number) to business-service.
+    @RequestMapping(value = "/getReceipt", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getReceipt(final HttpServletRequest request) {
+        try {
+            String invoiceNo = request.getParameter("invoiceNo");
+            return client.get("/getReceipt", "invoiceNo=" + java.net.URLEncoder.encode(
+                    invoiceNo == null ? "" : invoiceNo, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            LOGGER.error("getReceipt proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/addSell", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {

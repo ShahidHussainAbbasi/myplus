@@ -21,6 +21,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE " + SCOPE)
     Page<Product> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
+    // Public storefront (slice 47): active products for a store (by orgId — no JWT identity on a public call).
+    java.util.List<Product> findByOrganizationIdAndIsActiveTrueOrderByNameAsc(Long organizationId);
+
     @Query("SELECT p FROM Product p WHERE p.id = :id AND " + SCOPE)
     Optional<Product> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
 

@@ -54,7 +54,15 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   `LOGGER.error(...+e.getCause())` lines to pass the throwable (`, e`) and `AppUtil.le(...)` (SellController's
   9 catches) to `log.error(msg, e)` — full stack trace via the logger, levels/aggregation apply. Build ✓ +
   headed Cypress sell 28/28 + flow 19/19 (no regression).
+- [x] 🟢 **`addInteraction` duplicate rows (pharma P7)** — DONE 2026-06-26: `addInteraction` now upserts the pair
+  (`DrugInteractionRepository.findPairScoped`, either order) instead of inserting duplicates.
 - [ ] 🟡 **`new ModelMapper()` per controller (9×)** — make a single `@Bean` (thread-safe, expensive to build).
+  _NOTE: the business-service controllers deliberately use `STRICT` matching; a shared bean must preserve STRICT or
+  field mappings break — do as a careful dedicated change, not a blind dedup._
+
+_Tech-debt pass 2026-06-26: did the safe bounded win (addInteraction dedup). Remaining open items are large/risky
+(Item→Product convergence = slice 42 M2–M4 parked; `ApiResponse`/`GenericResponse` dedup; ModelMapper STRICT;
+quantities→BigDecimal) or infra (tracing, gateway rate-limiting) — each its own deliberate slice, not a quick pass._
 - [ ] 🟡 **Service-layer boilerplate** — each `*Service` re-implements ~30 `JpaRepository` passthrough
   methods. Inject the repository directly or use a thin generic base.
 - [x] 🟢 **Dead code on classpath** — DONE + VERIFIED 2026-06-14 (build ✓ + headed Cypress stock/sell/flow
@@ -132,6 +140,19 @@ Severity: 🔴 critical · 🟠 high · 🟡 medium · 🟢 low
   so jQuery/DataTables were missing → `$ is not defined`. Both fixed + rebuilt + verified. _slices/28._
 - [ ] 🟢 **Finance hardening** — beyond `BigDecimal`: immutable audit trail + a proper invoice/ledger model
   (org-scoping + `user_id` audit added in slices 21–22 is the start).
+- [~] 🟠 **Duplicated web-support classes in business-service vs `common-web`** — `business-service` carried its own
+  copies of `ValidationException`, `ResourceNotFoundException`, `DuplicateResourceException`, `GlobalExceptionHandler`
+  **and** `ApiResponse`, while `common-web` (which business-service already depends on) provides the canonical
+  versions. Risk: importing the wrong one (bit us in slice 39 — `ShiftService` imported the common-web class, which
+  resolved against a **stale** installed `common-web` jar → "package does not exist"). **Partly fixed 2026-06-23
+  (slice 39 cleanup):** business-service now reuses **common-web's exception classes** (3 local copies deleted,
+  imports repointed) and **excludes `CommonWebAutoConfiguration`** so its own `GlobalExceptionHandler` stays
+  authoritative — that handler is **intentionally different** (monolith-facing: Bean-Validation errors return HTTP
+  200 + flat `GenericResponse` for the server-rendered JS, vs common-web's 400 + `ApiResponse`; common-web's own
+  docs already exclude business-service from the shared handler). **Still open:** business-service keeps its own
+  `ApiResponse`/`GenericResponse` (its handler + every controller use them) — consolidating those is a larger
+  module-wide pass for later. Build ordering: `common-web` must be installed before/with business-service (full
+  reactor `mvn install`, or `mvn -pl common-web -am install`) or the import resolves a stale jar.
 
 ## ✅ Already in good shape (no action)
 Per-service DB isolation · token-derived tenant scoping (no client-supplied org id) · right-sized Hikari

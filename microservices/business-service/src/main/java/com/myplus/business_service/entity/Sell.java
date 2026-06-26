@@ -79,6 +79,13 @@ public class Sell implements Serializable {
 	@Column(name = "sell_return_profit", precision = 19, scale = 2)
 	private BigDecimal srp;
 
+	// G3 (slice 35): applied tax on this line. taxRate is the % used; taxAmount is the money. Null for legacy sells.
+	@Column(name = "tax_rate", precision = 19, scale = 2)
+	private BigDecimal taxRate;
+
+	@Column(name = "tax_amount", precision = 19, scale = 2)
+	private BigDecimal taxAmount;
+
 	@Column(name = "discount_type")
 	private String dt;
 

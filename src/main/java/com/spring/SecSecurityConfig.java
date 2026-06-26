@@ -83,7 +83,8 @@ public class SecSecurityConfig {
                     "/user/registration*", "/user/registrationCaptcha*", "/old/user/registration*",
                     "/user/resetPassword*", "/user/savePassword*", "/user/resendRegistrationToken*",
                     "/addDonation", "/appointmentReq", "/registerHospital*", "/api/demo-request",
-                    "/loadDoctorsByHospital", "/loadDoctorDetails"
+                    "/loadDoctorsByHospital", "/loadDoctorDetails",
+                    "/storefront/**"   // public storefront guest checkout (slice 47, anonymous — no CSRF token)
                 )
             )
             .authorizeHttpRequests(auth -> auth
@@ -99,6 +100,7 @@ public class SecSecurityConfig {
                     "/expiredAccount*", "/registration*", "/registerHospital*",
                     "/appointmentReq", "appointmentDashboard", "/services",
                     "/api/demo-request",
+                    "/store", "/storefront/**",
                     "/appointment", "/islamicChannels*", "/loadDoctorsByHospital",
                     "/loadDoctorDetails", "/addDonation", "/badUser*",
                     "/user/resendRegistrationToken*", "/forgetPassword*",

@@ -23,7 +23,8 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**", "/api/marketplace/public/**").permitAll()
+                // Gateway strips /api/marketplace (StripPrefix=2) → service sees /public/** (storefront, later).
+                .requestMatchers("/actuator/**", "/public/**").permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

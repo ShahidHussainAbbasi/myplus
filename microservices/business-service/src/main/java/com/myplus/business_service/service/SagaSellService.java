@@ -37,6 +37,7 @@ public class SagaSellService {
     private final InventoryClient inventoryClient;
     private final SagaSaleWriter saleWriter;
     private final RequestUtil requestUtil;
+    private final TaxService taxService;
 
     /** @return the invoice number of the recorded sale. */
     public String addSell(CustomerHistoryDTO dto) {
@@ -44,7 +45,10 @@ public class SagaSellService {
         Long orgId = user.getOrganizationId();
         String idempotencyKey = UUID.randomUUID().toString();
 
-        // 1 + 2: translate each line to a catalog productId and price it from catalog.
+        // G3 (slice 35): the org's tax policy, resolved once per sale.
+        var taxSetting = taxService.settingsFor(orgId);
+
+        // 1 + 2 + 2b: translate each line to a catalog productId, price it from catalog, and apply tax.
         List<SagaLine> lines = new ArrayList<>();
         List<StockReservationLine> reservationLines = new ArrayList<>();
         for (SellDTO s : dto.getSales()) {
@@ -57,8 +61,12 @@ public class SagaSellService {
             ProductRef product = catalogClient.getProduct(productId);
             BigDecimal sellRate = (product != null && product.getSellingPrice() != null)
                     ? product.getSellingPrice() : BigDecimal.ZERO;
+            BigDecimal productTaxRate = product != null ? product.getTaxRate() : null;
+            // Taxable base is the line total (qty×rate after discount). EXCLUSIVE adds on top; INCLUSIVE backs it out.
+            TaxResult tax = taxService.taxForLine(s.getTotalAmount(), productTaxRate, taxSetting);
             lines.add(new SagaLine(productId, s.getQuantity(), sellRate, null,
-                    s.getTotalAmount(), s.getNetAmount(), s.getSrp()));
+                    s.getTotalAmount(), s.getNetAmount(), s.getSrp(),
+                    tax.rate(), tax.tax(), tax.gross()));
             reservationLines.add(new StockReservationLine(productId, BigDecimal.valueOf(s.getQuantity())));
         }
 
