@@ -42,4 +42,13 @@ public class CatalogMigrationController {
         AuthenticatedUser user = requestUtil.getCurrentUser();
         return ResponseEntity.ok(stockMigrationService.migrateStock(user.getOrganizationId(), user.getUserId()));
     }
+
+    /** M3c.1 (slice 76): backfill product_id onto historical Stock-linked sells/purchases (run after /migrate-catalog).
+     *  Idempotent; prepares the data so the local Stock FK can be retired (M3c.4). */
+    @PostMapping("/backfill-product-ids")
+    @PreAuthorize("hasAuthority('ADD_ITEM')")
+    public ResponseEntity<CatalogMigrationService.BackfillResult> backfillProductIds() {
+        AuthenticatedUser user = requestUtil.getCurrentUser();
+        return ResponseEntity.ok(catalogMigrationService.backfillProductIds(user.getOrganizationId(), user.getUserId()));
+    }
 }

@@ -6,6 +6,8 @@ import com.myplus.business_service.entity.ItemCatalogMap;
 import com.myplus.business_service.entity.Stock;
 import com.myplus.business_service.repository.ItemCatalogMapRepo;
 import com.myplus.business_service.repository.ItemRepo;
+import com.myplus.business_service.repository.PurchaseRepo;
+import com.myplus.business_service.repository.SellRepo;
 import com.myplus.business_service.repository.StockRepo;
 import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.dto.ProductImportLine;
@@ -32,6 +34,25 @@ public class CatalogMigrationService {
     private final ItemCatalogMapRepo mapRepo;
     private final CatalogClient catalogClient;
     private final StockRepo stockRepo;
+    private final SellRepo sellRepo;
+    private final PurchaseRepo purchaseRepo;
+
+    /** M3c.1 (slice 76): result of stamping product_id onto historical Stock-linked sells/purchases. */
+    public record BackfillResult(int sellsBackfilled, int purchasesBackfilled, long sellsRemaining, long purchasesRemaining) {}
+
+    /**
+     * M3c.1: backfill product_id onto historical (Stock-linked) sells + purchases via the item→product map, so the
+     * local Stock FK can be retired later. Idempotent (only fills NULLs). Run /migrate-catalog first for full coverage;
+     * {@code *Remaining} reports rows whose item still isn't mapped (should be 0 after a migrate).
+     */
+    @Transactional
+    public BackfillResult backfillProductIds(Long orgId, Long userId) {
+        int sells = sellRepo.backfillProductIds(orgId, userId);
+        int purchases = purchaseRepo.backfillProductIds(orgId, userId);
+        long sellsRemaining = sellRepo.countWithoutProductId(orgId, userId);
+        long purchasesRemaining = purchaseRepo.countWithoutProductId(orgId, userId);
+        return new BackfillResult(sells, purchases, sellsRemaining, purchasesRemaining);
+    }
 
     @Transactional
     public CatalogMigrationResult migrate(Long orgId, Long userId) {
