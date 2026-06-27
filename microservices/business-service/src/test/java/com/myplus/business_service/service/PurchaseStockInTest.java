@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import com.myplus.business_service.config.TradeSagaProperties;
 import com.myplus.business_service.dto.PurchaseDTO;
@@ -35,6 +34,7 @@ class PurchaseStockInTest {
     @Mock private TradeSagaProperties tradeSagaProperties;
     @Mock private ItemCatalogMapRepo itemCatalogMapRepo;
     @Mock private InventoryClient inventoryClient;
+    @Mock private CatalogMigrationService catalogMigrationService;  // M3.2: PurchaseService maps the item via this
     @InjectMocks private PurchaseService service;
 
     private static final AuthenticatedUser USER = new AuthenticatedUser(1L, "buyer@test.com", List.of(), 1L);
@@ -57,7 +57,7 @@ class PurchaseStockInTest {
     @SuppressWarnings("unchecked")
     void pushes_purchased_quantity_to_inventory_when_saga_enabled() {
         when(tradeSagaProperties.isEnabled()).thenReturn(true);
-        when(itemCatalogMapRepo.findProductIdByItemId(5L, 1L)).thenReturn(Optional.of(50L));
+        when(catalogMigrationService.ensureMapped(5L, 1L, 1L)).thenReturn(50L);
 
         service.pushPurchaseToInventory(purchase(5L, 10f), stock("B1", "5.00"), USER);
 
@@ -82,7 +82,7 @@ class PurchaseStockInTest {
     @Test
     void does_nothing_for_unmapped_item() {
         when(tradeSagaProperties.isEnabled()).thenReturn(true);
-        when(itemCatalogMapRepo.findProductIdByItemId(99L, 1L)).thenReturn(Optional.empty());
+        when(catalogMigrationService.ensureMapped(99L, 1L, 1L)).thenReturn(null);
 
         service.pushPurchaseToInventory(purchase(99L, 10f), stock("B1", "5.00"), USER);
 
