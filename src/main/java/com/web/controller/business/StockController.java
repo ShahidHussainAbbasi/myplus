@@ -58,25 +58,17 @@ public class StockController {
         }
     }
 
+    // M3a: the purchase batch pre-fill now sources on-hand/expiry/last-purchase-rate from inventory + sell rate from
+    // the catalog master, so it forwards the selected itemId too. (getBatchesByItem retired — it was dead.)
     @RequestMapping(value = "/getStockByBatch", method = RequestMethod.GET)
     @ResponseBody
-    public Map<String, Object> getStockByBatch(@RequestParam final String batchNo) {
+    public Map<String, Object> getStockByBatch(@RequestParam final String batchNo,
+            @RequestParam(required = false) final Long itemId) {
         try {
-            return client.get("/getStockByBatch", "batchNo=" + batchNo);
+            return client.get("/getStockByBatch", "batchNo=" + batchNo + (itemId != null ? "&itemId=" + itemId : ""));
         } catch (Exception e) {
             LOGGER.error("getStockByBatch proxy error", e);
             return null;
-        }
-    }
-
-    @RequestMapping(value = "/getBatchesByItem", method = RequestMethod.GET)
-    @ResponseBody
-    public String getBatchesByItem(@RequestParam final Long itemId, final HttpServletRequest request) {
-        try {
-            return client.getString("/getBatchesByItem", "itemId=" + itemId);
-        } catch (Exception e) {
-            LOGGER.error("getBatchesByItem proxy error", e);
-            return "<option value=''> Unable to find item batch </option>";
         }
     }
 

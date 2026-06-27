@@ -188,7 +188,7 @@ public class StockService {
             float reserved = e.getReservedQuantity() == null ? 0f : e.getReservedQuantity();
             float available = qty - reserved;
             if (available <= 0f) continue;
-            out.add(new StockBatch(productId, e.getBatchNo(), e.getExpiryDate(), BigDecimal.valueOf(available)));
+            out.add(new StockBatch(productId, e.getBatchNo(), e.getExpiryDate(), BigDecimal.valueOf(available), e.getPurchasePrice()));
         }
         return out;
     }

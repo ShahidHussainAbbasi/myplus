@@ -295,42 +295,38 @@ public class StockController {
 		return dto;
 	}
 
+	/**
+	 * M3a (stock → inventory-only): the purchase screen's "pick an existing batch" pre-fill. Sources on-hand qty +
+	 * expiry + the batch's last purchase price from INVENTORY (StockEntry, via {@code getBatches}) and the sell rate
+	 * from the catalog Product MASTER — instead of the legacy local {@code Stock} row. Discounts no longer auto-fill
+	 * (the master is the single price source). Returns a StockDTO with the fields the purchase form reads.
+	 */
 	@RequestMapping(value = "/getStockByBatch", method = RequestMethod.GET)
 	@ResponseBody
-	public Stock getStockByBatch(@RequestParam final String batchNo) {
-			if(appUtil.isEmptyOrNull(batchNo))
-				return null;
-			
-			try {
-				// tenant-scoped batch lookup (own org + caller's pre-migration org-NULL rows)
-				return service.findByBatchScoped(batchNo, orgId(), userId()).orElse(null);
+	public StockDTO getStockByBatch(@RequestParam final String batchNo, @RequestParam(required = false) final Long itemId) {
+		StockDTO dto = new StockDTO();
+		dto.setBatchNo(batchNo);
+		if (appUtil.isEmptyOrNull(batchNo) || appUtil.isEmptyOrNull(itemId)) return dto;
+		try {
+			Long productId = itemCatalogMapRepo.findProductIdByItemId(itemId, orgId()).orElse(null);
+			if (productId == null) return dto;                       // unmapped legacy item — nothing to pre-fill
 
-			} catch (Exception e) {
-				LOGGER.error(this.getClass().getName() + " > getStockByBatch " + e.getCause(), e);
+			// on-hand + expiry + last purchase price for this batch from inventory (tenant-scoped via propagated identity)
+			for (com.myplus.commerce.contracts.dto.StockBatch b : inventoryClient.getBatches(productId)) {
+				if (batchNo.equals(b.getBatchNo())) {
+					if (b.getAvailable() != null) dto.setStock(b.getAvailable().floatValue());
+					if (b.getExpiryDate() != null) dto.setBexpDate(b.getExpiryDate().toString());
+					if (b.getPurchasePrice() != null) dto.setBpurchaseRate(b.getPurchasePrice());   // last purchase rate
+					break;
+				}
 			}
-			return null;
-	}
-
-	@RequestMapping(value = "/getBatchesByItem", method = RequestMethod.GET)
-	@ResponseBody
-	public String getBatchesByItem(@RequestParam final Long itemId) {
-			if(appUtil.isEmptyOrNull(itemId))
-				return null;
-			
-			StringBuffer sb = new StringBuffer();
-			try {
-				// tenant-scoped batches (own org + caller's pre-migration org-NULL rows)
-				Set<String> batches = service.getItemBatchScoped(orgId(), userId(), itemId);
-				sb.append("<option value=''> Nothing Selected </option>");
-				sb.append("<option value='0'> Default </option>");
-				batches.forEach(batch -> {
-					sb.append("<option value='" + batch + "'>" + batch + "</option>");
-				});
-				return sb.toString();
-			} catch (Exception e) {
-				LOGGER.error(this.getClass().getName() + " > getItemBatch " + e.getCause(), e);
-				return (sb.append("<option value=''> Unable to find item batch </option>")).toString();
-			}
+			// sell rate from the catalog Product master (one price source)
+			com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
+			if (p != null && p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > getStockByBatch " + e.getCause(), e);
+		}
+		return dto;
 	}
 
 	@RequestMapping(value = "/getAllStock", method = RequestMethod.GET)

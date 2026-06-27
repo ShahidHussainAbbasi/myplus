@@ -1213,7 +1213,10 @@ function getStockByBatch(batchNo){
 		$("#sellSellRate").val("")
 		$("#sellItems").removeClass("alert-danger");
 		$("pdt").html("      ");
-		$.get(serverContext+ "getStockByBatch?batchNo="+batchNo,function(data){
+		// M3a: send the selected item so the server can source on-hand/rate from inventory + the catalog master.
+		var itemDDForBatch = document.getElementById(tableV.toLowerCase()+"ItemDD");
+		var itemIdForBatch = itemDDForBatch ? itemDDForBatch.options[itemDDForBatch.selectedIndex].value : '';
+		$.get(serverContext+ "getStockByBatch?batchNo="+batchNo+"&itemId="+itemIdForBatch,function(data){
 	    	if(data){
 		    	discountValue = data.bsellDiscount;
 		    	discountType = data.bsellDiscountType;

@@ -18,4 +18,5 @@ public class StockBatch {
     private String batchNo;
     private LocalDate expiryDate;
     private BigDecimal available;
+    private BigDecimal purchasePrice;   // the batch's last purchase price (slice M3a) — pre-fills the purchase form
 }

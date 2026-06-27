@@ -43,3 +43,23 @@ this is missing capability — it's drift-risk cleanup with **no user-facing val
 Do **M3a first** (smallest, de-risks the rest) only when there's appetite for core-till changes; otherwise stay parked
 — it blocks nothing. Each sub-slice is test-first and reversible. Estimated 3 sub-slices, medium risk concentrated in
 the purchase + sell screens.
+
+---
+
+## M3a — IMPLEMENTED (decision: master price + last purchase rate)
+Batch reads moved to inventory + master. Changes:
+- **commerce-contracts** `StockBatch` — added `purchasePrice` (the batch's last purchase price).
+- **inventory** `getFefoBatches` — populates `purchasePrice` from `StockEntry.purchasePrice`.
+- **business** `StockController.getStockByBatch(batchNo, itemId)` — reimplemented: maps `itemId→productId`, reads the
+  batch's on-hand + expiry + purchase price from `inventoryClient.getBatches`, and the sell rate from
+  `catalogClient.getProduct` (master). Returns a `StockDTO` (no local `Stock` read). Discounts no longer auto-fill.
+- **business** `getBatchesByItem` endpoint **deleted** (was dead). `getItemBatchScoped` left orphaned (swept in M3c).
+- **monolith** `/getStockByBatch` proxy forwards `itemId`; `/getBatchesByItem` proxy removed. `business.js`
+  `getStockByBatch` sends the selected item.
+- **Test:** `cypress/e2e/business/purchase-batch-prefill.cy.js` — purchase a known batch → `getStockByBatch` returns
+  inventory on-hand (6) + purchase rate (10) + master sell price (15).
+
+**Build note:** `commerce-contracts` changed → rebuild `commerce-contracts` (install) → `inventory-service` +
+`business-service` → monolith. **Still local-Stock (for M3b/M3c):** purchase/sell `updateStock` writes, the legacy
+return branch, `getItemBatchScoped`, `findByBatchScoped`.
+- [ ] **Awaiting build + (user-run) Cypress** `purchase-batch-prefill.cy.js`.
