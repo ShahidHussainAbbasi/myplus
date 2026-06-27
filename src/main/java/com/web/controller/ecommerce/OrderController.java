@@ -72,6 +72,21 @@ public class OrderController {
         }
     }
 
+    /** Back-office process a return (E10, slice 71) — stock back + refund → RETURNED. */
+    @RequestMapping(value = "/processReturn", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> processReturn(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body.get("id");
+            return client.postJson("/orders/" + id + "/return", Collections.emptyMap());
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not process the return.");
+        } catch (Exception e) {
+            LOGGER.error("processReturn proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
     /** Relay the marketplace's {success,message} body to the caller instead of swallowing it into a bare failure. */
     @SuppressWarnings("unchecked")
     private Map<String, Object> relayError(HttpStatusCodeException e, String fallback) {

@@ -51,4 +51,11 @@ public class OrderController {
         return ApiResponse.success(
                 orderService.refund(id, amount, CurrentUser.organizationId(), CurrentUser.userId()), "Refund issued");
     }
+
+    /** Back-office process a return (E10, slice 71) — stock back (G2) + refund (card) → RETURNED. */
+    @PostMapping("/{id}/return")
+    public ApiResponse<OrderDTO> processReturn(@PathVariable Long id) {
+        return ApiResponse.success(
+                orderService.processReturn(id, CurrentUser.organizationId(), CurrentUser.userId()), "Return processed");
+    }
 }

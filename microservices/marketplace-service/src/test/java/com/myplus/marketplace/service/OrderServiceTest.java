@@ -233,6 +233,41 @@ class OrderServiceTest {
     }
 
     @Test
+    void return_request_on_a_delivered_order_sets_return_requested() {
+        OrderDTO d = storefront("Returner", "COD", null);
+        d.setCustomerContact("0300RET");
+        OrderDTO o = service.placePublic(d);
+        service.updateStatus(o.getId(), "DELIVERED", ORG, USER);
+
+        var t = service.requestReturn(o.getId(), "0300RET", "too big");
+        assertThat(t.getStatus()).isEqualTo("RETURN_REQUESTED");
+    }
+
+    @Test
+    void return_request_on_a_non_delivered_order_is_rejected() {
+        OrderDTO d = storefront("Early", "COD", null);
+        d.setCustomerContact("0300ERL");
+        OrderDTO o = service.placePublic(d);   // NEW, not delivered
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
+                () -> service.requestReturn(o.getId(), "0300ERL", "nope"));
+    }
+
+    @Test
+    void processing_a_return_returns_stock_and_refunds_a_card_order() {
+        OrderDTO d = storefront("RMA Buyer", "CARD", "ok");   // total 20.00, PAID, reservation resv-1
+        d.setCustomerContact("0300RMA");
+        OrderDTO o = service.placePublic(d);
+        service.updateStatus(o.getId(), "DELIVERED", ORG, USER);
+
+        OrderDTO r = service.processReturn(o.getId(), ORG, USER);
+
+        assertThat(r.getFulfilmentStatus()).isEqualTo("RETURNED");
+        assertThat(r.getPaymentStatus()).isEqualTo("REFUNDED");
+        assertThat(r.getRefundedAmount()).isEqualByComparingTo(o.getTotal());
+        verify(inventoryClient, times(1)).returnStock(eq("resv-1"), any(StockReturnRequest.class));  // G2 stock back
+    }
+
+    @Test
     void record_then_advance_status_and_list_scoped() {
         OrderDTO created = service.record(sample("INV-1"), ORG, USER);
         assertThat(created.getId()).isNotNull();

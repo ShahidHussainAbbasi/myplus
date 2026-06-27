@@ -355,12 +355,30 @@
                         return '<div style="font-size:12px">• <b>'+esc(e.status||'')+'</b> <span class="muted">'+esc(when)+'</span></div>';
                     }).join('');
                     var timeline = steps ? ('<div style="margin-top:6px">'+steps+'</div>') : '';
+                    // slice 71: a delivered order can be returned.
+                    var returnBtn = (d.status === 'DELIVERED')
+                        ? '<button class="pay" id="returnBtn" style="margin-top:8px" onclick="requestReturn()">↩ Request a return</button>' : '';
                     out.innerHTML = '<div class="ok" id="trkStatus">Order #'+esc(String(d.ref))+' — status: <b>'+esc(d.status||'')+'</b><br>'
-                        + esc(d.customerName||'') + ' • Total '+money(d.total)+ timeline +'</div>';
+                        + esc(d.customerName||'') + ' • Total '+money(d.total)+ timeline + returnBtn +'</div>';
                 } else {
                     out.innerHTML = '<div class="empty" id="trkNone">'+esc((resp&&resp.message)||'Order not found.')+'</div>';
                 }
             }).catch(function(){ out.innerHTML = '<div class="empty">Could not look up the order.</div>'; });
+    }
+
+    // slice 71: request a return for a delivered order (uses the ref + contact already entered for tracking).
+    function requestReturn(){
+        var ref = (document.getElementById('trkRef').value||'').trim();
+        var contact = (document.getElementById('trkContact').value||'').trim();
+        if(!ref || !contact){ alert('Enter your order # and contact first.'); return; }
+        var reason = prompt('Reason for return (optional):') || '';
+        fetch('/storefront/return', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ ref: Number(ref), contact: contact, reason: reason }) })
+            .then(function(r){ return r.json(); })
+            .then(function(resp){
+                if(resp && resp.success){ trackOrder(); }   // re-render: status now RETURN_REQUESTED
+                else { alert((resp && resp.message) || 'Could not request the return.'); }
+            }).catch(function(){ alert('Could not request the return.'); });
     }
 </script>
 </body>

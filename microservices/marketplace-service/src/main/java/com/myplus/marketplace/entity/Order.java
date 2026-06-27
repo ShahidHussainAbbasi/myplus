@@ -90,6 +90,9 @@ public class Order {
     @Column(name = "shipping_address")
     private String shippingAddress;
 
+    @Column(name = "return_reason")
+    private String returnReason;     // why the shopper returned it (slice 71)
+
     // Order lines — persisted so a cancellation returns the exact quantities to inventory (slice 51).
     @Builder.Default
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)

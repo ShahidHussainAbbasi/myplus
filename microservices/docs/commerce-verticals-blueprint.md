@@ -170,7 +170,7 @@ Build the storefront/cart/checkout/fulfillment layer; **reserve uses the same sa
 | E7 | **Order placement** (stock reserve via saga) | ✅ | ✅ | ✅ | slice 49: guest checkout reserves→confirms via the SAME inventory saga POS uses; OUT_OF_STOCK blocks; decline/write-failure releases |
 | E8 | Order management (status, fulfillment, picking) | ✅ | ✅ | ✅ | slice 46: back-office orders + fulfilment status (NEW→…→DELIVERED) |
 | E9 | **Shipping/delivery** (carrier, tracking, slots) | ⬜ | ⬜ | ⬜ | |
-| E10 | **Returns/RMA** → inventory (reuse G2 inverse saga) | ⬜ | 🟡 | 🟡 | extend C9 |
+| E10 | **Returns/RMA** → inventory (reuse G2 inverse saga) | ✅ | ✅ | ✅ | slice 71: shopper request (ref+contact) → back-office process → stock back (G2) + refund (E6) → RETURNED |
 | E11 | Notifications (order confirm/ship/deliver email/SMS) | 🟡 | ✅ | ✅ | slice 57: order-status timeline + notification seam; templated email/SMS later |
 | E12 | Reviews/ratings, wishlist | 🔭 | 🔭 | 🔭 | |
 | E13 | Promotions/coupons/cart rules | ⬜ | ⬜ | ⬜ | shares C12 |

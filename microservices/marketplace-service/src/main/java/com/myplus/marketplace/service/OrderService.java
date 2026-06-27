@@ -11,6 +11,7 @@ import com.myplus.common.security.GatewayIdentityForwarding;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.dto.OrderDTO;
+import com.myplus.marketplace.dto.OrderTrackDTO;
 import com.myplus.marketplace.entity.FulfilmentStatus;
 import com.myplus.marketplace.entity.Order;
 import com.myplus.marketplace.entity.OrderItem;
@@ -242,26 +243,79 @@ public class OrderService {
     public OrderDTO refund(Long id, BigDecimal amount, Long orgId, Long userId) {
         Order o = repo.findByIdScoped(id, orgId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        if (!isCardRefundable(o))
+            throw new ValidationException("Only a card-paid order can be refunded (COD is settled in cash)");
+        if (!doRefund(o, amount))
+            throw new ValidationException("Order is already fully refunded");
+        Order saved = repo.save(o);
+        notificationService.notify(saved, "REFUNDED", "Refund issued");   // timeline (slice 57)
+        return toDTO(saved);
+    }
 
-        boolean refundable = ("PAID".equalsIgnoreCase(o.getPaymentStatus())
-                || "PARTIALLY_REFUNDED".equalsIgnoreCase(o.getPaymentStatus())) && o.getPaymentRef() != null;
-        if (!refundable) throw new ValidationException("Only a card-paid order can be refunded (COD is settled in cash)");
+    /** True when the order was paid by card and still has refundable balance left. */
+    private boolean isCardRefundable(Order o) {
+        return ("PAID".equalsIgnoreCase(o.getPaymentStatus()) || "PARTIALLY_REFUNDED".equalsIgnoreCase(o.getPaymentStatus()))
+                && o.getPaymentRef() != null;
+    }
 
+    /** Apply a refund to a card-refundable order (caller checked {@link #isCardRefundable}); caps at the remaining
+     *  amount, calls the gateway, updates amount + status. Returns false if nothing was left to refund. */
+    private boolean doRefund(Order o, BigDecimal amount) {
         BigDecimal total = o.getTotal() != null ? o.getTotal() : BigDecimal.ZERO;
         BigDecimal already = o.getRefundedAmount() != null ? o.getRefundedAmount() : BigDecimal.ZERO;
         BigDecimal remaining = total.subtract(already);
-        if (remaining.signum() <= 0) throw new ValidationException("Order is already fully refunded");
+        if (remaining.signum() <= 0) return false;
         BigDecimal amt = (amount == null || amount.signum() <= 0) ? remaining : amount.min(remaining);
-
         PaymentGateway.Refund r = paymentGateway.refund(o.getPaymentRef(), amt);
         if (!r.success()) throw new ValidationException("Refund failed: " + (r.reason() != null ? r.reason() : "unknown"));
-
         BigDecimal newRefunded = already.add(amt);
         o.setRefundedAmount(newRefunded);
         o.setRefundRef(r.refundId());
         o.setPaymentStatus(newRefunded.compareTo(total) >= 0 ? "REFUNDED" : "PARTIALLY_REFUNDED");
+        return true;
+    }
+
+    /** Shopper requests a return (E10, slice 71) — public, verified by order id + contact (slice 56 pattern). Only a
+     *  DELIVERED order is returnable. Sets RETURN_REQUESTED + reason for the back-office to process. */
+    @Transactional
+    public OrderTrackDTO requestReturn(Long ref, String contact, String reason) {
+        Order o = (ref == null) ? null : repo.findById(ref).orElse(null);
+        String c = contact == null ? "" : contact.trim();
+        if (o == null || c.isEmpty() || o.getCustomerContact() == null
+                || !o.getCustomerContact().trim().equalsIgnoreCase(c)) {
+            throw new ResourceNotFoundException("No order found for that reference and contact.");
+        }
+        if (o.getFulfilmentStatus() != FulfilmentStatus.DELIVERED)
+            throw new ValidationException("Only a delivered order can be returned");
+        o.setFulfilmentStatus(FulfilmentStatus.RETURN_REQUESTED);
+        o.setReturnReason(reason);
         Order saved = repo.save(o);
-        notificationService.notify(saved, "REFUNDED", "Refund issued: " + amt);   // timeline (slice 57)
+        notificationService.notify(saved, "RETURN_REQUESTED", "Return requested");
+        return trackPublic(saved.getId(), c);
+    }
+
+    /** Back-office processes a return (E10, slice 71): return stock to inventory (G2 inverse saga) + refund a card
+     *  order (best-effort) → RETURNED. From RETURN_REQUESTED or DELIVERED (admin-initiated). Org-scoped. */
+    @Transactional
+    public OrderDTO processReturn(Long id, Long orgId, Long userId) {
+        Order o = repo.findByIdScoped(id, orgId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        FulfilmentStatus s = o.getFulfilmentStatus();
+        if (s != FulfilmentStatus.RETURN_REQUESTED && s != FulfilmentStatus.DELIVERED)
+            throw new ValidationException("Only a delivered / return-requested order can be returned");
+
+        if (o.getReservationId() != null && !o.getItems().isEmpty()) {
+            returnStockQuietly(o);                          // G2 inverse saga — stock back
+        }
+        if (isCardRefundable(o)) {
+            try { doRefund(o, null); }                       // full remaining refund, best-effort
+            catch (RuntimeException refundFailure) {
+                LOG.warn("Return {} processed (stock returned) but refund failed; reconcile manually", o.getId(), refundFailure);
+            }
+        }
+        o.setFulfilmentStatus(FulfilmentStatus.RETURNED);
+        Order saved = repo.save(o);
+        notificationService.notify(saved, "RETURNED", "Return processed");   // timeline (slice 57)
         return toDTO(saved);
     }
 
@@ -315,6 +369,7 @@ public class OrderService {
         d.setReservationId(o.getReservationId());
         d.setReservationStatus(o.getReservationStatus());
         d.setShippingAddress(o.getShippingAddress());
+        d.setReturnReason(o.getReturnReason());
         d.setCreatedAt(o.getCreatedAt());
         return d;
     }

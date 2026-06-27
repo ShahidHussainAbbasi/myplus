@@ -130,6 +130,11 @@ public class StorefrontController {
         }
     }
 
+    /** Public return request (E10, slice 71) — anonymous, verified by order ref + contact. */
+    @PostMapping("/storefront/return")
+    @ResponseBody
+    public Object requestReturn(@RequestBody Map<String, Object> body) { return postPublic("/api/marketplace/public/order/return", body); }
+
     /** Storefront shopper register/login (anonymous, slice 61) — relays the marketplace's success/error body. */
     @PostMapping("/storefront/register")
     @ResponseBody

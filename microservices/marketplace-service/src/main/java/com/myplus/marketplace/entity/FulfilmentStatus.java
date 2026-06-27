@@ -6,5 +6,7 @@ public enum FulfilmentStatus {
     PACKED,
     SHIPPED,
     DELIVERED,
-    CANCELLED
+    CANCELLED,
+    RETURN_REQUESTED,   // shopper asked to return a delivered order (slice 71)
+    RETURNED            // back-office processed: stock back + refund (slice 71)
 }

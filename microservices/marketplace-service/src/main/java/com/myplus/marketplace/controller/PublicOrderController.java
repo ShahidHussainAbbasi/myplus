@@ -34,4 +34,13 @@ public class PublicOrderController {
     public ApiResponse<OrderTrackDTO> track(@RequestParam Long ref, @RequestParam String contact) {
         return ApiResponse.success(orderService.trackPublic(ref, contact));
     }
+
+    /** Public return request (E10, slice 71) — verified by order ref + contact; only a delivered order. */
+    @PostMapping("/order/return")
+    public ApiResponse<OrderTrackDTO> requestReturn(@RequestBody java.util.Map<String, Object> body) {
+        Long ref = body.get("ref") == null ? null : Long.valueOf(body.get("ref").toString());
+        String contact = body.get("contact") == null ? null : body.get("contact").toString();
+        String reason = body.get("reason") == null ? null : body.get("reason").toString();
+        return ApiResponse.success(orderService.requestReturn(ref, contact, reason), "Return requested");
+    }
 }

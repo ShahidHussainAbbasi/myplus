@@ -32,6 +32,7 @@ public class OrderDTO {
     private BigDecimal taxTotal;
     private BigDecimal shippingFee;
     private String shippingMethod;      // PICKUP | STANDARD | EXPRESS
+    private String returnReason;        // RMA reason (slice 71)
     private List<Line> items;           // storefront cart lines — drive the stock reservation (slice 49)
     private LocalDateTime createdAt;
 
