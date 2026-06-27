@@ -26,7 +26,9 @@
         .cl-qty{min-width:18px;text-align:center} .cl-total{min-width:52px;text-align:right;font-weight:600}
         .rbtn{border:none;background:none;color:#c0392b;cursor:pointer;font-size:13px;padding:0 2px}
         .total{display:flex;justify-content:space-between;font-weight:700;border-top:1px solid #e6eaf0;margin-top:8px;padding-top:8px}
-        input{width:100%;padding:8px;margin:4px 0;border:1px solid #ccd4df;border-radius:8px}
+        input,select{width:100%;padding:8px;margin:4px 0;border:1px solid #ccd4df;border-radius:8px;background:#fff}
+        .totals{margin:8px 0;border-top:1px dashed #e6eaf0;padding-top:6px}
+        .totals .line{font-size:13px;color:#33415c} .totals .total{font-size:14px}
         .ok{background:#e7f8ee;border:1px solid #27ae60;color:#0a7d33;padding:10px;border-radius:8px;margin-top:8px}
         .empty{color:#6b7686;text-align:center;padding:30px}
         .pay-tabs{display:flex;gap:8px;margin:8px 0}
@@ -67,11 +69,23 @@
         </div>
         <h3>Your cart</h3>
         <div id="cartLines"><div class="empty">Cart is empty</div></div>
-        <div class="total"><span>Total</span><span id="cartTotal">0.00</span></div>
+        <div class="total"><span>Subtotal</span><span id="cartTotal">0.00</span></div>
         <div id="checkout" style="display:none;margin-top:12px">
             <input id="cName" placeholder="Your name *">
             <input id="cContact" placeholder="Phone / email">
             <input id="cAddress" placeholder="Delivery address">
+            <select id="cShip" onchange="refreshQuote()">
+                <option value="STANDARD">Standard delivery (+5.00)</option>
+                <option value="EXPRESS">Express delivery (+15.00)</option>
+                <option value="PICKUP">Store pickup (free)</option>
+            </select>
+            <!-- slice 69: server-computed totals breakdown -->
+            <div class="totals">
+                <div class="line"><span>Subtotal</span><span id="qSub">0.00</span></div>
+                <div class="line"><span>Tax</span><span id="qTax">0.00</span></div>
+                <div class="line"><span>Shipping</span><span id="qShip">0.00</span></div>
+                <div class="total"><span>Total</span><span id="qTotal">0.00</span></div>
+            </div>
             <div class="pay-tabs">
                 <div class="pay-tab active" id="tabCod" onclick="setPay('COD')">💵 Cash on Delivery</div>
                 <div class="pay-tab" id="tabCard" onclick="setPay('CARD')">💳 Pay by Card</div>
@@ -215,9 +229,27 @@
         }).join('');
         document.getElementById('cartTotal').textContent = money(cartState.subtotal);
         document.getElementById('checkout').style.display = 'block';
+        refreshQuote();
     }
 
     function cartTotal(){ return Number(cartState.subtotal)||0; }
+
+    // slice 69: fetch the server-computed totals (subtotal + tax + shipping) for the chosen method.
+    function shipMethod(){ var s = document.getElementById('cShip'); return s ? s.value : 'STANDARD'; }
+    function refreshQuote(){
+        var t = getCartToken(); if(!t || !(cartState.items||[]).length){ return; }
+        var url = '/storefront/checkout/quote?org=' + encodeURIComponent(STORE_ORG)
+            + '&cartToken=' + encodeURIComponent(t) + '&shippingMethod=' + encodeURIComponent(shipMethod());
+        fetch(url).then(function(r){ return r.json(); }).then(function(resp){
+            if(resp && resp.success && resp.data){
+                var q = resp.data;
+                document.getElementById('qSub').textContent = money(q.subtotal);
+                document.getElementById('qTax').textContent = money(q.taxTotal);
+                document.getElementById('qShip').textContent = money(q.shippingFee);
+                document.getElementById('qTotal').textContent = money(q.total);
+            }
+        }).catch(function(){});
+    }
 
     var payMode = 'COD';
     function setPay(mode){
@@ -236,14 +268,17 @@
 
     function placeOrder(){
         if(!document.getElementById('cName').value.trim()){ alert('Please enter your name.'); return; }
-        var items = (cartState.items||[]).map(function(c){ return { productId:c.productId, quantity:c.quantity, price:c.unitPrice }; });
-        if(!items.length){ alert('Your cart is empty.'); return; }
-        var body = { organizationId:Number(STORE_ORG), customerName:document.getElementById('cName').value,
-            customerContact:document.getElementById('cContact').value, shippingAddress:document.getElementById('cAddress').value,
-            total: cartTotal(), items: items, paymentMode: payMode };
+        if(!(cartState.items||[]).length){ alert('Your cart is empty.'); return; }
+        var ct = getCartToken();
+        if(!ct){ alert('Your cart is empty.'); return; }
+        // slice 69: server sources items + computes totals from the cart — we send only the token + choices.
+        var body = { organizationId:Number(STORE_ORG), cartToken: ct,
+            customerName:document.getElementById('cName').value,
+            customerContact:document.getElementById('cContact').value,
+            shippingAddress:document.getElementById('cAddress').value,
+            shippingMethod: shipMethod(), paymentMode: payMode };
         if(payMode==='CARD'){ body.cardToken = cardToken(); }
         if(acctToken()){ body.customerToken = acctToken(); }   // slice 61: link the order to the signed-in shopper
-        var ct = getCartToken(); if(ct){ body.cartToken = ct; }  // slice 68: server closes this cart on success
         fetch('/storefront/checkout', {
             method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
         }).then(function(r){ return r.json(); }).then(function(resp){

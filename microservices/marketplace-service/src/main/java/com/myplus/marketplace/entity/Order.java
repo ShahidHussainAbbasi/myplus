@@ -62,6 +62,19 @@ public class Order {
     @Column(precision = 19, scale = 2)
     private BigDecimal total;
 
+    // Checkout breakdown (slice 69): total = subTotal + taxTotal + shippingFee.
+    @Column(name = "sub_total", precision = 19, scale = 2)
+    private BigDecimal subTotal;
+
+    @Column(name = "tax_total", precision = 19, scale = 2)
+    private BigDecimal taxTotal;
+
+    @Column(name = "shipping_fee", precision = 19, scale = 2)
+    private BigDecimal shippingFee;
+
+    @Column(name = "shipping_method")
+    private String shippingMethod;
+
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "fulfilment_status")

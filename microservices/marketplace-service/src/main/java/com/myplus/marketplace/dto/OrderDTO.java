@@ -26,6 +26,10 @@ public class OrderDTO {
     private String reservationId;       // inventory saga hold (out, slice 49)
     private String reservationStatus;   // PENDING | CONFIRMED (out, slice 52)
     private String shippingAddress;
+    private BigDecimal subTotal;        // checkout breakdown (slice 69) — total = subTotal + taxTotal + shippingFee
+    private BigDecimal taxTotal;
+    private BigDecimal shippingFee;
+    private String shippingMethod;      // PICKUP | STANDARD | EXPRESS
     private List<Line> items;           // storefront cart lines — drive the stock reservation (slice 49)
     private LocalDateTime createdAt;
 

@@ -26,5 +26,9 @@ public class CartItem {
     @Column(name = "unit_price", precision = 19, scale = 2)
     private BigDecimal unitPrice;
 
+    /** Product tax rate (%) snapshot at add-time, so checkout (slice 69) computes tax from the cart alone. */
+    @Column(name = "tax_rate", precision = 19, scale = 2)
+    private BigDecimal taxRate;
+
     private Integer quantity;
 }

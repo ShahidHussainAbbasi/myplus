@@ -214,13 +214,35 @@ public class StorefrontController {
     @ResponseBody
     public Object cartRemove(@RequestBody Map<String, Object> body) { return postPublic("/api/marketplace/public/cart/remove", body); }
 
+    /** Live checkout totals (slice 69) — subtotal + tax + shipping for the cart + chosen method. */
+    @GetMapping("/storefront/checkout/quote")
+    @ResponseBody
+    @SuppressWarnings("unchecked")
+    public Object checkoutQuote(@RequestParam("org") Long org,
+            @RequestParam(value = "cartToken", required = false) String cartToken,
+            @RequestParam(value = "shippingMethod", required = false) String shippingMethod) {
+        try {
+            StringBuilder url = new StringBuilder(gatewayUrl).append("/api/marketplace/public/checkout/quote?organizationId=").append(org);
+            if (cartToken != null && !cartToken.isBlank())
+                url.append("&cartToken=").append(java.net.URLEncoder.encode(cartToken, java.nio.charset.StandardCharsets.UTF_8));
+            if (shippingMethod != null && !shippingMethod.isBlank())
+                url.append("&shippingMethod=").append(java.net.URLEncoder.encode(shippingMethod, java.nio.charset.StandardCharsets.UTF_8));
+            return restTemplate.getForObject(url.toString(), Map.class);
+        } catch (HttpStatusCodeException e) {
+            return relay(e, "Could not compute totals.");
+        } catch (Exception e) {
+            LOGGER.error("storefront checkout quote proxy error", e);
+            return Map.of("success", false, "message", "Could not compute totals.");
+        }
+    }
+
     @PostMapping("/storefront/checkout")
     @ResponseBody
     public Object checkout(@RequestBody Map<String, Object> body) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            return restTemplate.postForObject(gatewayUrl + "/api/marketplace/public/order",
+            return restTemplate.postForObject(gatewayUrl + "/api/marketplace/public/checkout",
                     new HttpEntity<>(body, headers), Map.class);
         } catch (HttpStatusCodeException e) {
             // The marketplace already shaped a meaningful {success,message} body — relay it to the shopper.

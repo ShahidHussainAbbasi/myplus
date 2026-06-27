@@ -105,6 +105,8 @@ public class OrderService {
                 .customerName(dto.getCustomerName())
                 .customerContact(dto.getCustomerContact())
                 .total(dto.getTotal())
+                .subTotal(dto.getSubTotal()).taxTotal(dto.getTaxTotal())
+                .shippingFee(dto.getShippingFee()).shippingMethod(dto.getShippingMethod())
                 .shippingAddress(dto.getShippingAddress())
                 .source("STOREFRONT").paymentMode(card ? "CARD" : "COD")
                 .paymentStatus(payStatus).paymentRef(payRef)
@@ -270,6 +272,10 @@ public class OrderService {
         d.setCustomerName(o.getCustomerName());
         d.setCustomerContact(o.getCustomerContact());
         d.setTotal(o.getTotal());
+        d.setSubTotal(o.getSubTotal());
+        d.setTaxTotal(o.getTaxTotal());
+        d.setShippingFee(o.getShippingFee());
+        d.setShippingMethod(o.getShippingMethod());
         d.setFulfilmentStatus(o.getFulfilmentStatus() != null ? o.getFulfilmentStatus().name() : null);
         d.setSource(o.getSource());
         d.setPaymentMode(o.getPaymentMode());

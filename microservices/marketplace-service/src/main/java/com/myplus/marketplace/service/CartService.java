@@ -76,6 +76,7 @@ public class CartService {
                     .productId(p.getId())
                     .productName(p.getName())
                     .unitPrice(p.getSellingPrice() != null ? p.getSellingPrice() : BigDecimal.ZERO)
+                    .taxRate(p.getTaxRate() != null ? p.getTaxRate() : BigDecimal.ZERO)
                     .quantity(qty)
                     .build());
         } else {
@@ -104,6 +105,13 @@ public class CartService {
             cart.getItems().removeIf(i -> r.getProductId().equals(i.getProductId()));
         }
         return toDTO(cartRepo.save(cart));
+    }
+
+    /** The ACTIVE cart for a token (slice 69 checkout reads its authoritative lines). */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Cart> activeCart(Long org, String cartToken) {
+        if (org == null || !hasText(cartToken)) return java.util.Optional.empty();
+        return cartRepo.findByOrganizationIdAndCartTokenAndStatus(org, cartToken.trim(), ACTIVE);
     }
 
     /** Checkout hand-off (slice 68): close the cart once its order is placed so a stale cart can't be re-ordered.
