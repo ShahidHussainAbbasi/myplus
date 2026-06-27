@@ -19,7 +19,12 @@
         .stock{font-size:11px;font-weight:600;margin:2px 0 8px;padding:2px 6px;border-radius:6px;display:inline-block}
         .stock.out{background:#fdecea;color:#c0392b} .stock.low{background:#fff4e0;color:#b9770e}
         .cart{width:320px;background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:16px;position:sticky;top:18px}
-        .cart h3{margin:0 0 10px} .line{display:flex;justify-content:space-between;font-size:13px;margin:4px 0}
+        .cart h3{margin:0 0 10px} .line{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin:6px 0;gap:6px}
+        .cl-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .cl-ctrl{display:flex;align-items:center;gap:6px}
+        .qbtn{width:22px;height:22px;padding:0;border:1px solid #ccd4df;border-radius:6px;background:#f6f8fb;cursor:pointer;line-height:1}
+        .cl-qty{min-width:18px;text-align:center} .cl-total{min-width:52px;text-align:right;font-weight:600}
+        .rbtn{border:none;background:none;color:#c0392b;cursor:pointer;font-size:13px;padding:0 2px}
         .total{display:flex;justify-content:space-between;font-weight:700;border-top:1px solid #e6eaf0;margin-top:8px;padding-top:8px}
         input{width:100%;padding:8px;margin:4px 0;border:1px solid #ccd4df;border-radius:8px}
         .ok{background:#e7f8ee;border:1px solid #27ae60;color:#0a7d33;padding:10px;border-radius:8px;margin-top:8px}
@@ -93,7 +98,14 @@
 
 <script th:inline="javascript">
     var STORE_ORG = new URLSearchParams(location.search).get('org') || [[${storeOrg} ?: 1]];
-    var products = [], cart = {};
+    var products = [];
+    // slice 68: the cart is server-owned. We keep only an opaque token in localStorage and mirror the server's view.
+    var cartState = { items:[], subtotal:0, count:0 };
+
+    function cartTokenKey(){ return 'sfCart_' + STORE_ORG; }
+    function getCartToken(){ try { return localStorage.getItem(cartTokenKey()) || null; } catch(e){ return null; } }
+    function setCartToken(t){ try { if(t) localStorage.setItem(cartTokenKey(), t); } catch(e){} }
+    function clearCartToken(){ try { localStorage.removeItem(cartTokenKey()); } catch(e){} }
 
     function money(v){ var n=Number(v); return isNaN(n)?'0.00':n.toFixed(2); }
     function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
@@ -128,39 +140,84 @@
     loadStoreProducts('');
 
     // Debounced search box.
+    // (cart is loaded once the helpers below are defined — see the init call at the end of the script)
     (function(){
         var box = document.getElementById('storeSearch'), t;
         if(!box) return;
         box.addEventListener('input', function(){ clearTimeout(t); var q = box.value.trim(); t = setTimeout(function(){ loadStoreProducts(q); }, 300); });
     })();
 
-    function addToCart(id){
-        var p = products.find(function(x){ return x.id===id; }); if(!p) return;
-        cart[id] = cart[id] || { id:id, name:p.name, price:Number(p.sellingPrice)||0, qty:0 };
-        // Cap at available stock when known, so the cart can never exceed what checkout could reserve.
-        var known = (p.available !== null && p.available !== undefined);
-        if(known && cart[id].qty >= Number(p.available)){
-            if(!cart[id].qty) delete cart[id];
-            alert('Only '+Number(p.available)+' of "'+p.name+'" in stock.');
-            renderCart();
-            return;
-        }
-        cart[id].qty++;
+    // Apply a server CartDTO to local state + the UI.
+    function applyCart(dto){
+        if(!dto){ return; }
+        if(dto.cartToken){ setCartToken(dto.cartToken); }
+        cartState = { items: dto.items || [], subtotal: Number(dto.subtotal)||0, count: Number(dto.count)||0 };
         renderCart();
     }
 
+    // Load the server cart (read-only; never creates a row). Sends the account token so a signed-in shopper sees
+    // their account cart.
+    function loadCart(){
+        var url = '/storefront/cart?org=' + encodeURIComponent(STORE_ORG);
+        var t = getCartToken(); if(t){ url += '&cartToken=' + encodeURIComponent(t); }
+        var a = acctToken(); if(a){ url += '&customerToken=' + encodeURIComponent(a); }
+        return fetch(url).then(function(r){ return r.json(); })
+            .then(function(resp){ if(resp && resp.success){ applyCart(resp.data); } })
+            .catch(function(){});
+    }
+
+    // POST a cart mutation (add/update/remove) and re-render from the authoritative response.
+    function postCart(path, productId, quantity){
+        var body = { organizationId:Number(STORE_ORG), productId:productId };
+        var t = getCartToken(); if(t){ body.cartToken = t; }
+        var a = acctToken(); if(a){ body.customerToken = a; }   // links/merges the cart to the signed-in shopper
+        if(quantity !== undefined && quantity !== null){ body.quantity = quantity; }
+        return fetch('/storefront/cart/' + path, {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+        }).then(function(r){ return r.json(); }).then(function(resp){
+            if(resp && resp.success){ applyCart(resp.data); }
+            else { alert((resp && resp.message) || 'Could not update your cart.'); }
+        }).catch(function(){ alert('Could not update your cart.'); });
+    }
+
+    function addToCart(id){
+        var p = products.find(function(x){ return x.id===id; });
+        // Soft client-side stock cap (server reservation is the hard gate at checkout).
+        if(p){
+            var known = (p.available !== null && p.available !== undefined);
+            var inCart = currentQty(id);
+            if(known && inCart >= Number(p.available)){ alert('Only '+Number(p.available)+' of "'+p.name+'" in stock.'); return; }
+        }
+        postCart('add', id, 1);
+    }
+
+    function currentQty(id){
+        var l = cartState.items.find(function(x){ return x.productId===id; });
+        return l ? Number(l.quantity)||0 : 0;
+    }
+
+    function changeQty(id, qty){ postCart('update', id, qty); }
+    function removeLine(id){ postCart('remove', id); }
+
     function renderCart(){
-        var ids = Object.keys(cart), lines = document.getElementById('cartLines'), total = 0;
-        if(!ids.length){ lines.innerHTML='<div class="empty">Cart is empty</div>'; document.getElementById('checkout').style.display='none'; document.getElementById('cartTotal').textContent='0.00'; return; }
-        lines.innerHTML = ids.map(function(id){
-            var c = cart[id]; total += c.price*c.qty;
-            return '<div class="line"><span>'+esc(c.name)+' × '+c.qty+'</span><span>'+money(c.price*c.qty)+'</span></div>';
+        var items = cartState.items || [], lines = document.getElementById('cartLines');
+        if(!items.length){ lines.innerHTML='<div class="empty">Cart is empty</div>'; document.getElementById('checkout').style.display='none'; document.getElementById('cartTotal').textContent='0.00'; return; }
+        lines.innerHTML = items.map(function(c){
+            return '<div class="line" data-pid="'+c.productId+'">'
+                + '<span class="cl-name">'+esc(c.name)+'</span>'
+                + '<span class="cl-ctrl">'
+                +   '<button class="qbtn" onclick="changeQty('+c.productId+','+(Number(c.quantity)-1)+')">−</button>'
+                +   '<span class="cl-qty">'+c.quantity+'</span>'
+                +   '<button class="qbtn" onclick="changeQty('+c.productId+','+(Number(c.quantity)+1)+')">+</button>'
+                +   '<span class="cl-total">'+money(c.lineTotal)+'</span>'
+                +   '<button class="rbtn" title="Remove" onclick="removeLine('+c.productId+')">✕</button>'
+                + '</span></div>';
         }).join('');
-        document.getElementById('cartTotal').textContent = money(total);
+        document.getElementById('cartTotal').textContent = money(cartState.subtotal);
         document.getElementById('checkout').style.display = 'block';
     }
 
-    function cartTotal(){ return Object.keys(cart).reduce(function(t,id){ return t + cart[id].price*cart[id].qty; },0); }
+    function cartTotal(){ return Number(cartState.subtotal)||0; }
 
     var payMode = 'COD';
     function setPay(mode){
@@ -179,18 +236,20 @@
 
     function placeOrder(){
         if(!document.getElementById('cName').value.trim()){ alert('Please enter your name.'); return; }
-        var items = Object.keys(cart).map(function(id){ return { productId:cart[id].id, quantity:cart[id].qty, price:cart[id].price }; });
+        var items = (cartState.items||[]).map(function(c){ return { productId:c.productId, quantity:c.quantity, price:c.unitPrice }; });
         if(!items.length){ alert('Your cart is empty.'); return; }
         var body = { organizationId:Number(STORE_ORG), customerName:document.getElementById('cName').value,
             customerContact:document.getElementById('cContact').value, shippingAddress:document.getElementById('cAddress').value,
             total: cartTotal(), items: items, paymentMode: payMode };
         if(payMode==='CARD'){ body.cardToken = cardToken(); }
         if(acctToken()){ body.customerToken = acctToken(); }   // slice 61: link the order to the signed-in shopper
+        var ct = getCartToken(); if(ct){ body.cartToken = ct; }  // slice 68: server closes this cart on success
         fetch('/storefront/checkout', {
             method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
         }).then(function(r){ return r.json(); }).then(function(resp){
             if(resp && resp.success){
-                cart = {}; renderCart();
+                clearCartToken();                                // the server converted this cart
+                cartState = { items:[], subtotal:0, count:0 }; renderCart();
                 var msg = payMode==='CARD'
                     ? '✓ Payment received — order confirmed! We\'ll ship it shortly.'
                     : '✓ Order placed! We\'ll contact you to confirm delivery. (Cash on Delivery)';
@@ -216,6 +275,7 @@
             localStorage.setItem('sfCustomer_' + STORE_ORG, JSON.stringify({ token: resp.data.token, name: resp.data.name, email: resp.data.email }));
             document.getElementById('acErr').textContent = '';
             renderAcct();
+            loadCart();   // slice 68: relink/merge the cart to the signed-in shopper
             return true;
         }
         document.getElementById('acErr').textContent = (resp && resp.message) || 'Failed.';
@@ -229,7 +289,7 @@
     }
     function acRegister(){ acPost('/storefront/register').then(acSave).catch(function(){ document.getElementById('acErr').textContent='Sign up failed.'; }); }
     function acLogin(){ acPost('/storefront/login').then(acSave).catch(function(){ document.getElementById('acErr').textContent='Sign in failed.'; }); }
-    function acLogout(){ localStorage.removeItem('sfCustomer_' + STORE_ORG); document.getElementById('acOrders').innerHTML=''; renderAcct(); }
+    function acLogout(){ localStorage.removeItem('sfCustomer_' + STORE_ORG); document.getElementById('acOrders').innerHTML=''; renderAcct(); loadCart(); }
     function acMyOrders(){
         var tok = acctToken(); if(!tok) return;
         fetch('/storefront/myorders?token=' + encodeURIComponent(tok)).then(function(r){ return r.json(); }).then(function(resp){
@@ -242,6 +302,7 @@
         }).catch(function(){ document.getElementById('acOrders').innerHTML='<div class="empty">Could not load orders.</div>'; });
     }
     renderAcct();
+    loadCart();   // slice 68: hydrate the persistent cart on page load (survives reloads)
 
     // Order tracking (slice 56): look up status by ref + contact.
     function trackOrder(){

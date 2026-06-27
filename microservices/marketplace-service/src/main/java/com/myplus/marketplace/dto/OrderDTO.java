@@ -22,6 +22,7 @@ public class OrderDTO {
     private String paymentRef;          // charge id (out)
     private String cardToken;           // sandbox card token (in) — "fail" declines
     private String customerToken;       // storefront account session token (in) — links the order to the shopper (slice 61)
+    private String cartToken;           // persistent cart handle (in) — closed on successful checkout (slice 68)
     private String reservationId;       // inventory saga hold (out, slice 49)
     private String reservationStatus;   // PENDING | CONFIRMED (out, slice 52)
     private String shippingAddress;

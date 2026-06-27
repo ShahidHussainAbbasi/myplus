@@ -47,6 +47,7 @@ public class OrderService {
     private final NotificationService notificationService;
     private final com.myplus.marketplace.repository.OrderEventRepository orderEventRepository;
     private final com.myplus.marketplace.repository.StorefrontCustomerRepository customerRepo;
+    private final CartService cartService;   // slice 68: close the persistent cart on successful checkout
 
     @Transactional
     public OrderDTO record(OrderDTO dto, Long orgId, Long userId) {
@@ -134,6 +135,7 @@ public class OrderService {
             }
         }
         notificationService.notify(saved, "NEW", "Order placed");   // slice 57: start the timeline
+        cartService.markConverted(org, dto.getCartToken());          // slice 68: empty the persistent cart
         return toDTO(saved);
     }
 

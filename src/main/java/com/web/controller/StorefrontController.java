@@ -180,6 +180,40 @@ public class StorefrontController {
         }
     }
 
+    /** Persistent cart (slice 68, E3) — view + add/update/remove, all anonymous, relaying the marketplace body. */
+    @GetMapping("/storefront/cart")
+    @ResponseBody
+    @SuppressWarnings("unchecked")
+    public Object cart(@RequestParam("org") Long org,
+            @RequestParam(value = "cartToken", required = false) String cartToken,
+            @RequestParam(value = "customerToken", required = false) String customerToken) {
+        try {
+            StringBuilder url = new StringBuilder(gatewayUrl).append("/api/marketplace/public/cart?organizationId=").append(org);
+            if (cartToken != null && !cartToken.isBlank())
+                url.append("&cartToken=").append(java.net.URLEncoder.encode(cartToken, java.nio.charset.StandardCharsets.UTF_8));
+            if (customerToken != null && !customerToken.isBlank())
+                url.append("&customerToken=").append(java.net.URLEncoder.encode(customerToken, java.nio.charset.StandardCharsets.UTF_8));
+            return restTemplate.getForObject(url.toString(), Map.class);
+        } catch (HttpStatusCodeException e) {
+            return relay(e, "Could not load your cart.");
+        } catch (Exception e) {
+            LOGGER.error("storefront cart view proxy error", e);
+            return Map.of("success", false, "message", "Could not load your cart.");
+        }
+    }
+
+    @PostMapping("/storefront/cart/add")
+    @ResponseBody
+    public Object cartAdd(@RequestBody Map<String, Object> body) { return postPublic("/api/marketplace/public/cart/add", body); }
+
+    @PostMapping("/storefront/cart/update")
+    @ResponseBody
+    public Object cartUpdate(@RequestBody Map<String, Object> body) { return postPublic("/api/marketplace/public/cart/update", body); }
+
+    @PostMapping("/storefront/cart/remove")
+    @ResponseBody
+    public Object cartRemove(@RequestBody Map<String, Object> body) { return postPublic("/api/marketplace/public/cart/remove", body); }
+
     @PostMapping("/storefront/checkout")
     @ResponseBody
     public Object checkout(@RequestBody Map<String, Object> body) {

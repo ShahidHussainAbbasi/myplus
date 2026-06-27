@@ -1,5 +1,6 @@
 package com.myplus.marketplace.config;
 
+import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.client.InventoryClient;
 import com.myplus.common.security.GatewayIdentityForwarding;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,6 +44,21 @@ public class MarketplaceClientsConfig {
                 .builderFor(RestClientAdapter.create(restClient))
                 .build()
                 .createClient(InventoryClient.class);
+    }
+
+    /** Catalog lookup for authoritative cart line pricing (slice 68) — same load-balanced, identity-forwarding,
+     *  internal-secret-stamped recipe as {@link #inventoryClient}. */
+    @Bean
+    public CatalogClient catalogClient(@LoadBalanced RestClient.Builder builder) {
+        RestClient restClient = builder.clone()
+                .baseUrl("http://catalog-service/api/catalog")
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .requestInterceptor(internalSecretInterceptor())
+                .build();
+        return HttpServiceProxyFactory
+                .builderFor(RestClientAdapter.create(restClient))
+                .build()
+                .createClient(CatalogClient.class);
     }
 
     /** Stamp X-Internal-Secret on the outbound call (no inbound request to forward it from, since the storefront
