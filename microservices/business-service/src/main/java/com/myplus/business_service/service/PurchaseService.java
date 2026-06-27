@@ -197,18 +197,34 @@ public class PurchaseService implements IPurchaseService{
 	public Purchase addPurchase(PurchaseDTO dto) throws Exception {
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		dto.setUserId(user.getUserId());
-		Stock stock = stockService.updateStock(dto);
 
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
 		obj.setUpdated(obj.getUpdated()!=null?obj.getUpdated():LocalDateTime.now());
 		obj.setDated(LocalDateTime.now());
-		obj.setStock(stock);
 		obj.setUserId(user.getUserId());                  // audit
 		obj.setOrganizationId(user.getOrganizationId());  // tenant scope
+
+		// M3b (slice 75): the purchase is self-describing — copy its batch/rate snapshot off the DTO (reusing the
+		// existing date/number converters via an in-memory Stock map that is NEVER persisted) instead of writing a
+		// local Stock row. Inventory stays authoritative for on-hand (pushed below).
+		obj.setItemId(dto.getItemId());
+		obj.setProductId(catalogMigrationService.ensureMapped(dto.getItemId(), user.getOrganizationId(), user.getUserId()));
+		if (dto.getStock() != null) {
+			Stock snap = modelMapper.map(dto.getStock(), Stock.class);   // in-memory only — not saved
+			obj.setBatchNo(snap.getBatchNo());
+			obj.setBpurchaseRate(snap.getBpurchaseRate());
+			obj.setBsellRate(snap.getBsellRate());
+			obj.setBpurchaseDiscount(snap.getBpurchaseDiscount());
+			obj.setBsellDiscount(snap.getBsellDiscount());
+			obj.setBpurchaseDiscountType(snap.getBpurchaseDiscountType());
+			obj.setBsellDiscountType(snap.getBsellDiscountType());
+			obj.setBexpDate(snap.getBexpDate());
+		}
+		obj.setStock(null);                               // M3b: no local Stock row (legacy FK left null)
 		Purchase saved = this.save(obj);
-		pushPurchaseToInventory(dto, stock, user);        // D3: dual-write stock-in to inventory
+		pushPurchaseToInventory(saved, dto, user);        // dual-write stock-in to inventory (authoritative)
 		return saved;
 	}
 
@@ -218,25 +234,24 @@ public class PurchaseService implements IPurchaseService{
 	 * ({@code ensureMapped}) — so EVERY purchase reaches inventory, including legacy items never bulk-migrated.
 	 * Best-effort: a failure (catalog/inventory down) never fails the purchase (recorded locally; reconcile later).
 	 */
-	void pushPurchaseToInventory(PurchaseDTO dto, Stock stock, AuthenticatedUser user) {
-		if (!tradeSagaProperties.isEnabled() || stock == null
-				|| dto.getQuantity() == null || dto.getQuantity() <= 0) {
+	void pushPurchaseToInventory(Purchase obj, PurchaseDTO dto, AuthenticatedUser user) {
+		if (!tradeSagaProperties.isEnabled() || dto.getQuantity() == null || dto.getQuantity() <= 0) {
 			return;
 		}
 		try {
-			Long productId = catalogMigrationService.ensureMapped(dto.getItemId(), user.getOrganizationId(), user.getUserId());
+			Long productId = obj.getProductId();          // M3b: mapped once in addPurchase
 			if (productId == null) return;
 			inventoryClient.importStock(List.of(
 					com.myplus.commerce.contracts.dto.StockImportLine.builder()
 							.productId(productId)
 							.quantity(dto.getQuantity())
-							.batchNo(stock.getBatchNo())
-							.expiryDate(stock.getBexpDate())
-							.purchasePrice(stock.getBpurchaseRate())
-							.costPrice(stock.getBpurchaseRate())
+							.batchNo(obj.getBatchNo())
+							.expiryDate(obj.getBexpDate())
+							.purchasePrice(obj.getBpurchaseRate())
+							.costPrice(obj.getBpurchaseRate())
 							.build()));
 		} catch (Exception ex) {
-			LOG.warn("M3.2: inventory stock-in failed for item {} (purchase recorded locally; reconcile later)",
+			LOG.warn("M3b: inventory stock-in failed for item {} (purchase recorded locally; reconcile later)",
 					dto.getItemId(), ex);
 		}
 	}

@@ -53,7 +53,29 @@ public class Purchase implements Serializable {
 
 	@ManyToOne(fetch = FetchType.EAGER, optional = true)
 	@JoinColumn(name = "stock_id", nullable=true,unique=false)
-	private Stock stock;
+	private Stock stock;        // legacy (historical rows); null for M3b purchases (slice 75)
+
+	// M3b (slice 75): the purchase is self-describing — its batch/rate snapshot lives here, not on a local Stock row.
+	@Column(name = "item_id")
+	private Long itemId;
+	@Column(name = "product_id")
+	private Long productId;
+	@Column(name = "batch_no")
+	private String batchNo;
+	@Column(name = "bpurchase_rate", precision = 19, scale = 2)
+	private BigDecimal bpurchaseRate;
+	@Column(name = "bsell_rate", precision = 19, scale = 2)
+	private BigDecimal bsellRate;
+	@Column(name = "bpurchase_discount", precision = 19, scale = 2)
+	private BigDecimal bpurchaseDiscount;
+	@Column(name = "bsell_discount", precision = 19, scale = 2)
+	private BigDecimal bsellDiscount;
+	@Column(name = "bpurchase_discount_type")
+	private String bpurchaseDiscountType;
+	@Column(name = "bsell_discount_type")
+	private String bsellDiscountType;
+	@Column(name = "bexp_date")
+	private LocalDate bexpDate;
 	
 	// @OneToOne(fetch = FetchType.EAGER, optional = true)
 	// @NotFound(action = NotFoundAction.IGNORE)

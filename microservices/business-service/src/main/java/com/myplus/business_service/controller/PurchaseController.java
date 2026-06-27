@@ -103,29 +103,35 @@ public class PurchaseController {
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
-				if(appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) {
-					Optional<Item> option = itemService.findById(o.getStock().getItemId());
-					if(option.isPresent()) {
-						Item item = option.get();
-						dto.setItemId(item.getId());
-						dto.setIname(item.getIname());
-						dto.setIcode(item.getIcode());
-						// dto.setDescription(item.getIdesc());
-//						dto.setStock(item.getStock());
-					}
-//					Optional<Stock> option2 = stockService.findById(dto.getStockDTO()());
-					if(o.getStock()!=null) {
-						modelMapper.addConverter(appUtil.localDateToString);
-						modelMapper.addConverter(appUtil.localDateTimeToString);
-						StockDTO stock = modelMapper.map(o.getStock(), StockDTO.class);
-						dto.setStock(stock);
-					}
-					
-//					dto.setDatedStr(appUtil.getDateStr(o.getDated()));
-//					dto.setUpdated(appUtil.getDateStr(o.getUpdated()));
-//					dto.setIExpiry(appUtil.getLocalDateStr(o.getIExpiry()));
-					dtos.add(dto);
+
+				// M3b (slice 75): identity + batch/rate come from the Purchase's own fields (new rows) or the legacy
+				// Stock FK (historical rows). Stock-less purchases are no longer skipped.
+				Long itemId = (o.getStock() != null && o.getStock().getItemId() != null)
+						? o.getStock().getItemId() : o.getItemId();
+				if (itemId == null) return;   // truly unidentifiable line
+				itemService.findById(itemId).ifPresent(item -> {
+					dto.setItemId(item.getId());
+					dto.setIname(item.getIname());
+					dto.setIcode(item.getIcode());
+				});
+
+				StockDTO sd;
+				if (o.getStock() != null) {                       // legacy row — read the Stock FK
+					sd = modelMapper.map(o.getStock(), StockDTO.class);
+				} else {                                          // M3b self-describing row
+					sd = new StockDTO();
+					sd.setBatchNo(o.getBatchNo());
+					sd.setBpurchaseRate(o.getBpurchaseRate());
+					sd.setBsellRate(o.getBsellRate());
+					sd.setBpurchaseDiscount(o.getBpurchaseDiscount());
+					sd.setBsellDiscount(o.getBsellDiscount());
+					sd.setBpurchaseDiscountType(o.getBpurchaseDiscountType());
+					sd.setBsellDiscountType(o.getBsellDiscountType());
+					sd.setBexpDate(o.getBexpDate() != null ? o.getBexpDate().toString() : null);
+					sd.setStock(o.getQuantity());                 // the purchased quantity
 				}
+				dto.setStock(sd);
+				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
