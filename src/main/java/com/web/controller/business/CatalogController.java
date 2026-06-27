@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.HttpStatusCodeException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.web.util.BusinessRestClient;
 import com.web.util.CatalogRestClient;
 import com.web.util.InventoryRestClient;
@@ -36,6 +38,28 @@ public class CatalogController {
 
     @Autowired
     private BusinessRestClient business;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * Turn a failed downstream call into a user-facing {success:false, message} body. When the catalog returned a
+     * 4xx/5xx with a {message:...} body (e.g. "Product SKU already exists: 001"), relay that real reason instead of
+     * a blank failure so the UI can tell the user what went wrong.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> failure(Exception e) {
+        if (e instanceof HttpStatusCodeException he) {
+            try {
+                Map<String, Object> body = objectMapper.readValue(he.getResponseBodyAsString(), Map.class);
+                if (body.get("message") != null) {
+                    return Map.of("success", false, "message", body.get("message"));
+                }
+            } catch (Exception ignore) {
+                // fall through to the generic failure below
+            }
+        }
+        return Collections.singletonMap("success", false);
+    }
 
     /** Catalog products for the picker. Pass-through of paging params, e.g. /catalogProducts?size=1000. */
     @GetMapping("/catalogProducts")
@@ -76,7 +100,7 @@ public class CatalogController {
             return resp;
         } catch (Exception e) {
             LOGGER.error("addProduct proxy error", e);
-            return Collections.singletonMap("success", false);
+            return failure(e);   // surface the real reason (e.g. duplicate SKU 409) to the user
         }
     }
 

@@ -23,10 +23,14 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
 
+    // readOnly tx keeps the session open through toDto()'s lazy category access (open-in-view is false) —
+    // otherwise listing a product that HAS a category throws "Could not initialize proxy [Category] - no session".
+    @Transactional(readOnly = true)
     public Page<ProductDTO> getAll(Pageable pageable) {
         return productRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
+    @Transactional(readOnly = true)
     public ProductDTO getById(Long id) {
         return toDto(getEntity(id));
     }
@@ -61,11 +65,13 @@ public class ProductService {
         productRepository.delete(getEntity(id));   // scoped — anti-IDOR
     }
 
+    @Transactional(readOnly = true)
     public Page<ProductDTO> search(String q, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
         return productRepository.searchScoped(q, categoryId, minPrice, maxPrice,
                 CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
+    @Transactional(readOnly = true)
     public Page<ProductDTO> getByCategory(Long categoryId, Pageable pageable) {
         return productRepository.findByCategoryScoped(categoryId, CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }

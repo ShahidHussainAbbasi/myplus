@@ -40,6 +40,9 @@
                 'Vender / Supplier': 'Supplier',
                 'Customer': 'Patient',
                 'Item': 'Medicine',
+                // Slice 74: the Product master is the creation path — relabel it (and its heading) per vertical.
+                'Product': 'Medicine',
+                'Product (Catalog Master)': 'Medicine (Catalog Master)',
                 'Register': 'Register',
                 'Purchase': 'Purchase',
                 'New Purchase': 'New Purchase',

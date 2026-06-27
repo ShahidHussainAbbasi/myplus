@@ -88,8 +88,9 @@
 								<li><a onclick="snavGo('registrationType','CompanyDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> Company</a></li>
 								<li><a onclick="snavGo('registrationType','VenderDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> Vender / Supplier</a></li>
 								<li><a onclick="snavGo('registrationType','CustomerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Customer</a></li>
-								<li><a onclick="snavGo('registrationType','itemDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> Item</a></li>
-								<li><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> Product (Catalog)</a></li>
+								<!-- Slice 74: the Product master is the single creation path; the legacy Item screen is edit-only. -->
+								<li><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> Product</a></li>
+								<li><a onclick="snavGo('registrationType','itemDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> Legacy Items (edit)</a></li>
 								<li><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> Quarantine</a></li>
 							</ul>
 						</div>
@@ -1180,7 +1181,7 @@
 
 			<!-- M1 (slice 42): catalog Product master registration — the single product master all verticals share. -->
 			<div id="ProductDiv" class="formDiv" style="display:none">
-				<h4>Product (Catalog Master)</h4>
+				<h4 data-term>Product (Catalog Master)</h4>
 				<p class="text-muted">The single product master shared across POS, pharmacy and e-commerce (catalog-service).</p>
 				<form class="form-horizontal" role="form" id="Product" autocomplete="off" onsubmit="return false;">
 					<div class="form-group">
