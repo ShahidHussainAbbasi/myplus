@@ -206,6 +206,33 @@ class OrderServiceTest {
     }
 
     @Test
+    void full_refund_marks_a_card_order_refunded() {
+        OrderDTO o = service.placePublic(storefront("Refund Me", "CARD", "ok"));   // total 20.00, PAID
+        OrderDTO r = service.refund(o.getId(), null, ORG, USER);                   // null amount → full
+        assertThat(r.getPaymentStatus()).isEqualTo("REFUNDED");
+        assertThat(r.getRefundedAmount()).isEqualByComparingTo(o.getTotal());
+        assertThat(r.getRefundRef()).startsWith("re_sandbox_");
+    }
+
+    @Test
+    void partial_refund_then_remainder_caps_at_total() {
+        OrderDTO o = service.placePublic(storefront("Partial", "CARD", "ok"));     // total 20.00
+        OrderDTO r1 = service.refund(o.getId(), new BigDecimal("5.00"), ORG, USER);
+        assertThat(r1.getPaymentStatus()).isEqualTo("PARTIALLY_REFUNDED");
+        assertThat(r1.getRefundedAmount()).isEqualByComparingTo("5.00");
+        OrderDTO r2 = service.refund(o.getId(), new BigDecimal("999.00"), ORG, USER);   // over-refund → capped
+        assertThat(r2.getPaymentStatus()).isEqualTo("REFUNDED");
+        assertThat(r2.getRefundedAmount()).isEqualByComparingTo(o.getTotal());
+    }
+
+    @Test
+    void cod_order_cannot_be_refunded() {
+        OrderDTO o = service.placePublic(storefront("COD NoRefund", "COD", null));
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
+                () -> service.refund(o.getId(), null, ORG, USER));
+    }
+
+    @Test
     void record_then_advance_status_and_list_scoped() {
         OrderDTO created = service.record(sample("INV-1"), ORG, USER);
         assertThat(created.getId()).isNotNull();

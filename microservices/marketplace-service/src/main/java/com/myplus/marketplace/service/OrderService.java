@@ -236,6 +236,35 @@ public class OrderService {
         return toDTO(saved);
     }
 
+    /** Refund a card-paid order (E6, slice 70), full or partial, via the payment provider. Caps at the remaining
+     *  refundable amount; flips paymentStatus to PARTIALLY_REFUNDED / REFUNDED. Org-scoped (anti-IDOR). */
+    @Transactional
+    public OrderDTO refund(Long id, BigDecimal amount, Long orgId, Long userId) {
+        Order o = repo.findByIdScoped(id, orgId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        boolean refundable = ("PAID".equalsIgnoreCase(o.getPaymentStatus())
+                || "PARTIALLY_REFUNDED".equalsIgnoreCase(o.getPaymentStatus())) && o.getPaymentRef() != null;
+        if (!refundable) throw new ValidationException("Only a card-paid order can be refunded (COD is settled in cash)");
+
+        BigDecimal total = o.getTotal() != null ? o.getTotal() : BigDecimal.ZERO;
+        BigDecimal already = o.getRefundedAmount() != null ? o.getRefundedAmount() : BigDecimal.ZERO;
+        BigDecimal remaining = total.subtract(already);
+        if (remaining.signum() <= 0) throw new ValidationException("Order is already fully refunded");
+        BigDecimal amt = (amount == null || amount.signum() <= 0) ? remaining : amount.min(remaining);
+
+        PaymentGateway.Refund r = paymentGateway.refund(o.getPaymentRef(), amt);
+        if (!r.success()) throw new ValidationException("Refund failed: " + (r.reason() != null ? r.reason() : "unknown"));
+
+        BigDecimal newRefunded = already.add(amt);
+        o.setRefundedAmount(newRefunded);
+        o.setRefundRef(r.refundId());
+        o.setPaymentStatus(newRefunded.compareTo(total) >= 0 ? "REFUNDED" : "PARTIALLY_REFUNDED");
+        Order saved = repo.save(o);
+        notificationService.notify(saved, "REFUNDED", "Refund issued: " + amt);   // timeline (slice 57)
+        return toDTO(saved);
+    }
+
     /** Return a cancelled order's stock to inventory (G2 inverse saga). Best-effort: a failure leaves the order
      *  cancelled and is logged for reconcile (rather than blocking the cancellation). */
     private void returnStockQuietly(Order o) {
@@ -281,6 +310,8 @@ public class OrderService {
         d.setPaymentMode(o.getPaymentMode());
         d.setPaymentStatus(o.getPaymentStatus());
         d.setPaymentRef(o.getPaymentRef());
+        d.setRefundRef(o.getRefundRef());
+        d.setRefundedAmount(o.getRefundedAmount());
         d.setReservationId(o.getReservationId());
         d.setReservationStatus(o.getReservationStatus());
         d.setShippingAddress(o.getShippingAddress());

@@ -166,7 +166,7 @@ Build the storefront/cart/checkout/fulfillment layer; **reserve uses the same sa
 | E3 | **Cart** (add/update/remove, persist guest+account) | ✅ | ✅ | ✅ | slice 68: persistent server-side cart, authoritative catalog pricing, guest→account merge on login |
 | E4 | Customer accounts (register/login/addresses) | ✅ | ✅ | ✅ | slice 61: self-contained storefront accounts (BCrypt, session token); addresses + auth hardening later |
 | E5 | **Checkout** (address, shipping method, tax, totals) | ✅ | ✅ | ✅ | slice 69: server-authoritative totals (subtotal + EXCLUSIVE tax + shipping) from the cart; PICKUP/STANDARD/EXPRESS; per-org INCLUSIVE policy parity later |
-| E6 | **Online payment** (gateway: card/wallet/UPI, webhook) | ✅ | ✅ | ✅ | slice 48: sandbox PaymentGateway (COD/Card); PSP swap deferred |
+| E6 | **Online payment** (gateway: card/wallet/UPI, webhook) | ✅ | ✅ | ✅ | slice 48 sandbox charge + slice 70 **refunds** + provider-pluggable PaymentGateway (sandbox default); real Stripe = keys-gated extension |
 | E7 | **Order placement** (stock reserve via saga) | ✅ | ✅ | ✅ | slice 49: guest checkout reserves→confirms via the SAME inventory saga POS uses; OUT_OF_STOCK blocks; decline/write-failure releases |
 | E8 | Order management (status, fulfillment, picking) | ✅ | ✅ | ✅ | slice 46: back-office orders + fulfilment status (NEW→…→DELIVERED) |
 | E9 | **Shipping/delivery** (carrier, tracking, slots) | ⬜ | ⬜ | ⬜ | |

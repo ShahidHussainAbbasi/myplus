@@ -20,6 +20,8 @@ public class OrderDTO {
     private String paymentMode;         // COD | CARD
     private String paymentStatus;       // PENDING | PAID | FAILED (out)
     private String paymentRef;          // charge id (out)
+    private String refundRef;           // refund id (out, slice 70)
+    private BigDecimal refundedAmount;  // cumulative refunded (out, slice 70)
     private String cardToken;           // sandbox card token (in) — "fail" declines
     private String customerToken;       // storefront account session token (in) — links the order to the shopper (slice 61)
     private String cartToken;           // persistent cart handle (in) — closed on successful checkout (slice 68)

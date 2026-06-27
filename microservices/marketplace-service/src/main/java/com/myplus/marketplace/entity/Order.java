@@ -51,7 +51,14 @@ public class Order {
     private String paymentStatus = "PENDING";  // PENDING | PAID | FAILED (slice 48)
 
     @Column(name = "payment_ref")
-    private String paymentRef;              // charge id (sandbox now; PSP later)
+    private String paymentRef;
+
+    // Refunds (slice 70): paymentStatus also takes REFUNDED | PARTIALLY_REFUNDED.
+    @Column(name = "refund_ref")
+    private String refundRef;
+
+    @Column(name = "refunded_amount", precision = 19, scale = 2)
+    private BigDecimal refundedAmount;              // charge id (sandbox now; PSP later)
 
     @Column(name = "reservation_id")
     private String reservationId;           // the inventory saga hold this order drew down (slice 49)

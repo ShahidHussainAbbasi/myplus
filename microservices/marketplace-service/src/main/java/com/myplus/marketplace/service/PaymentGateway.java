@@ -1,24 +1,21 @@
 package com.myplus.marketplace.service;
 
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
-import java.util.UUID;
 
 /**
- * Sandbox payment gateway (E2b, slice 48). Deterministic mock so the storefront pay-flow is real + testable
- * without PSP keys: a {@code "fail"} token declines, anything else succeeds. Real Stripe (PaymentIntent + webhook)
- * replaces {@link #charge} later; the {@link Charge} result shape stays.
+ * Payment provider abstraction (E6, slice 70). Implementations charge a card token and refund a prior charge. The
+ * default is {@link SandboxPaymentGateway} (deterministic, no PSP keys); a real Stripe implementation is selected by
+ * {@code payments.provider=stripe} once the operator supplies keys (PaymentIntent + webhook) — deferred like the AWS
+ * deploy bootstrap. The {@link Charge}/{@link Refund} result shapes stay stable across providers.
  */
-@Component
-public class PaymentGateway {
+public interface PaymentGateway {
 
-    public Charge charge(String token, BigDecimal amount) {
-        if ("fail".equalsIgnoreCase(token)) {
-            return new Charge(false, null, "Card declined");
-        }
-        return new Charge(true, "ch_sandbox_" + UUID.randomUUID().toString().substring(0, 12), null);
-    }
+    Charge charge(String token, BigDecimal amount);
 
-    public record Charge(boolean success, String chargeId, String declineReason) {}
+    /** Refund (full or partial) a prior charge. {@code amount} is the money to return. */
+    Refund refund(String chargeId, BigDecimal amount);
+
+    record Charge(boolean success, String chargeId, String declineReason) {}
+
+    record Refund(boolean success, String refundId, String reason) {}
 }

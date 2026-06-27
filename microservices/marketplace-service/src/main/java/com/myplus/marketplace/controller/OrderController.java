@@ -41,4 +41,14 @@ public class OrderController {
         return ApiResponse.success(
                 orderService.updateStatus(id, body.get("status"), CurrentUser.organizationId(), CurrentUser.userId()), "Status updated");
     }
+
+    /** Back-office refund (E6, slice 70). {@code amount} optional — omitted/0 = full remaining refund. */
+    @PostMapping("/{id}/refund")
+    public ApiResponse<OrderDTO> refund(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> body) {
+        java.math.BigDecimal amount = null;
+        Object a = body == null ? null : body.get("amount");
+        if (a != null && !a.toString().isBlank()) amount = new java.math.BigDecimal(a.toString());
+        return ApiResponse.success(
+                orderService.refund(id, amount, CurrentUser.organizationId(), CurrentUser.userId()), "Refund issued");
+    }
 }
