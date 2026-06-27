@@ -210,7 +210,7 @@ public class SellController {
 			}
 			// Batch-fetch the referenced items in ONE query (was an N+1: itemService.findById per Sell row).
 			java.util.List<Long> itemIds = objs.stream()
-					.filter(s -> s.getStock() != null && s.getStock().getItemId() != null)
+					.filter(s -> s.getProductId() == null && s.getStock() != null && s.getStock().getItemId() != null)
 					.map(s -> s.getStock().getItemId())
 					.distinct()
 					.collect(java.util.stream.Collectors.toList());
@@ -219,7 +219,7 @@ public class SellController {
 			// Saga sells carry productId (no local Stock/itemId); resolve their item name via the reverse
 			// catalog map (productId -> itemId -> Item) so they list with the same name as legacy sells.
 			java.util.List<Long> sagaProductIds = objs.stream()
-					.filter(s -> s.getStock() == null && s.getProductId() != null)
+					.filter(s -> s.getProductId() != null)
 					.map(s -> s.getProductId()).distinct()
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
@@ -244,9 +244,9 @@ public class SellController {
 				if((appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) || o.getProductId() != null) {
 					// legacy: item via local Stock's itemId; saga: item via productId reverse-map. Either way the
 					// invoice/customer below + dtos.add now run for ALL sells (saga sells were being dropped here).
-					Item item = (o.getStock() != null && o.getStock().getItemId() != null)
-							? itemsById.get(o.getStock().getItemId())
-							: itemByProductId.get(o.getProductId());
+					Item item = (o.getProductId() != null)
+							? itemByProductId.get(o.getProductId())
+							: itemsById.get(o.getStock().getItemId());
 					if(item != null) {
 						dto.setItemId(item.getId());
 						dto.setItemName(item.getIname());
