@@ -10,6 +10,36 @@
 .dataTables_wrapper{padding:0}
 .dataTables_wrapper .row:first-child{margin-bottom:10px}
 .dataTables_wrapper .row:last-child{margin-top:10px}
+/* Customer input-mode segmented toggle */
+.cmode-toggle{display:inline-flex;gap:4px;padding:5px;background:#eef1f6;border:1px solid #d8dee9;border-radius:12px;box-shadow:inset 0 1px 3px rgba(20,40,80,.07)}
+.cmode-toggle .cmode-btn{display:inline-flex;align-items:center;gap:9px;margin:0;padding:10px 22px;font-size:14px;font-weight:600;line-height:1;color:#5a6677;background:transparent;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;transition:color .18s ease,background .18s ease,box-shadow .18s ease,transform .12s ease}
+.cmode-toggle .cmode-btn .glyphicon{font-size:13px;opacity:.9}
+.cmode-toggle .cmode-btn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.cmode-toggle .cmode-btn:hover:not(.active){color:#2c3e50;background:rgba(255,255,255,.7)}
+.cmode-toggle .cmode-btn.active{color:#fff;background:linear-gradient(135deg,#2b6cb0,#1f4e8c);box-shadow:0 4px 10px rgba(31,78,140,.35)}
+.cmode-toggle .cmode-btn:active{transform:translateY(1px)}
+@media (max-width:480px){.cmode-toggle{display:flex;width:100%}.cmode-toggle .cmode-btn{flex:1;justify-content:center;padding:10px 8px}}
+/* Sell cart / checkout panel (iDiv) */
+.cart-panel{max-width:60%;margin:0 auto;background:#fff;border:1px solid #e2e7ef;border-radius:14px;box-shadow:0 6px 22px rgba(20,40,80,.09);overflow:hidden;text-align:left}
+.cart-panel__head{display:flex;align-items:center;gap:10px;padding:13px 20px;background:linear-gradient(135deg,#2b6cb0,#1f4e8c);color:#fff;font-size:15px;font-weight:700;letter-spacing:.3px}
+.cart-panel__head .glyphicon{font-size:16px}
+.cart-hint{margin-left:auto;font-size:11px;font-weight:500;opacity:.85;letter-spacing:0}
+.cart-panel__body{padding:18px 20px 20px}
+.cart-panel__body .form-group{margin-bottom:14px}
+.cart-panel__body .form-group::after{content:"";display:table;clear:both}
+#sellCartScroll{max-height:300px;overflow:auto;border:1px solid #e7ebf2;border-radius:10px;background:#fff}
+#tablesi{margin:0!important;border:none}
+#tablesi thead th{position:sticky;top:0;z-index:2;background:#f3f6fb;color:#3a4a61;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e2e7ef;padding:10px 8px}
+#tablesi tbody td{padding:9px 8px;border-bottom:1px solid #eef1f6;font-size:13px;vertical-align:middle}
+#tablesi tbody tr:hover td{background:#f7faff}
+#tablesi tfoot th{background:#f3f6fb;font-weight:700;color:#1f4e8c;border-top:2px solid #e2e7ef;padding:11px 8px}
+#sellTotal{font-size:15px}
+.field-label{display:block;font-size:11px;font-weight:600;color:#5a6677;text-transform:uppercase;letter-spacing:.4px;margin:0 0 4px 2px;text-align:left}
+.checkout-actions{margin-top:4px}
+.checkout-actions .btn{min-width:160px;font-weight:600;margin:6px}
+#addSell.btn-success{background:linear-gradient(135deg,#27ae60,#1e8e4f);border:none;box-shadow:0 4px 12px rgba(30,142,79,.32)}
+#addSell.btn-success:hover,#addSell.btn-success:focus{filter:brightness(1.06);color:#fff}
+@media (max-width:560px){.cart-hint{display:none}.checkout-actions .btn{min-width:0;width:100%}}
 </style>
 </head>
 <body onkeypress="handleKey(event,'click','sellItemDD')">
@@ -59,6 +89,8 @@
 								<li><a onclick="snavGo('registrationType','VenderDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> Vender / Supplier</a></li>
 								<li><a onclick="snavGo('registrationType','CustomerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Customer</a></li>
 								<li><a onclick="snavGo('registrationType','itemDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> Item</a></li>
+								<li><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> Product (Catalog)</a></li>
+								<li><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> Quarantine</a></li>
 							</ul>
 						</div>
 						<div class="snav-dd" id="snavPurchase">
@@ -79,7 +111,66 @@
 							</button>
 							<ul class="snav-menu">
 								<li><a onclick="snavGo('sellType','sellDiv','snavSell')"><span class="glyphicon glyphicon-plus-sign"></span> New Sale</a></li>
+								<li><a onclick="showParked();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-pause"></span> Parked Sales</a></li>
 								<li><a onclick="snavGo('sellType','SRDiv','snavSell')"><span class="glyphicon glyphicon-list"></span> Sale Detail Report</a></li>
+							</ul>
+						</div>
+						<!-- Store / e-commerce (slice 46) — shown ONLY for MARKETPLACE users (vertical-profile feature). -->
+						<div class="snav-dd" id="snavStore" data-vertical-only="MARKETPLACE">
+							<button class="snav-btn" onclick="snavToggle(event,'snavStore')">
+								<span class="glyphicon glyphicon-shopping-cart"></span>
+								<span>Store</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li><a onclick="showOrders();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-list"></span> Orders</a></li>
+							</ul>
+						</div>
+						<!-- Pharmacy (slice 41) — clinical screens, shown ONLY for PHARMA users (vertical-profile feature). -->
+						<div class="snav-dd" id="snavPharmacy" data-vertical-only="PHARMA">
+							<button class="snav-btn" onclick="snavToggle(event,'snavPharmacy')">
+								<span class="glyphicon glyphicon-plus"></span>
+								<span>Pharmacy</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<!-- Medicine registration REUSES the existing Item screen (relabeled "Medicine"); no separate screen. -->
+								<li><a onclick="showPrescriptions();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-edit"></span> Prescriptions</a></li>
+								<li><a onclick="showClinical();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-alert"></span> Clinical &amp; Safety</a></li>
+								<li><a onclick="showPharmAlerts();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-bell"></span> Alerts &amp; Register</a></li>
+							</ul>
+						</div>
+						<!-- Till / cash drawer — cashier day-close (slice 39). Available to any commerce user. -->
+						<div class="snav-dd" id="snavTill">
+							<button class="snav-btn" onclick="snavToggle(event,'snavTill')">
+								<span class="glyphicon glyphicon-usd"></span>
+								<span>Till</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li><a onclick="showTill();document.getElementById('snavTill').classList.remove('snav-open');"><span class="glyphicon glyphicon-briefcase"></span> Cash Drawer</a></li>
+							</ul>
+						</div>
+						<!-- Settings — org-level config; owner only. -->
+						<div class="snav-dd" id="snavSettings" sec:authorize="hasAuthority('ROLE_OWNER')">
+							<button class="snav-btn" onclick="snavToggle(event,'snavSettings')">
+								<span class="glyphicon glyphicon-cog"></span>
+								<span>Settings</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> Tax Settings</a></li>
+							</ul>
+						</div>
+						<!-- Team management — only the company SUPER owner sees this. -->
+						<div class="snav-dd" id="snavTeam" sec:authorize="hasAuthority('ROLE_OWNER')">
+							<button class="snav-btn" onclick="snavToggle(event,'snavTeam')">
+								<span class="glyphicon glyphicon-user"></span>
+								<span>Team</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li><a onclick="showTeam();document.getElementById('snavTeam').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> Manage Users</a></li>
 							</ul>
 						</div>
 					</div>
@@ -223,7 +314,7 @@
 										<tr>
 											<th>Customer</th>
 											<th>Contact</th>
-											<th>Due Amount</th>
+											<th title="Total still owed by this customer across ALL their invoices">Total Outstanding</th>
 											<th>Due Date</th>
 											<th>Status</th>
 										</tr>
@@ -237,6 +328,32 @@
 					</div>
 				</div>
 			</div>
+			<!-- ═══ Team / Users (owner-only) ═══════════════════════════════════════
+			     The company SUPER owner adds ADMIN/USER members (they set their own password via a
+			     reset email) and sees the current team. Server-confined to the owner's org. -->
+			<div id="TeamDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+				<h3 class="dash-page-title">Team &amp; Users</h3>
+				<div id="teamMsg" class="alert" style="display:none"></div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name"/></div>
+					<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name"/></div>
+					<div class="col-sm-3"><input id="teamEmail" type="email" class="form-control" placeholder="Email"/></div>
+					<div class="col-sm-2">
+						<select id="teamRole" class="form-control">
+							<option value="USER">User</option>
+							<option value="ADMIN">Admin</option>
+						</select>
+					</div>
+					<div class="col-sm-1">
+						<button type="button" id="addTeamUser" class="btn btn-success" onclick="addTeamUser()">Add</button>
+					</div>
+				</div>
+				<table id="tableTeam" class="table table-bordered table-striped">
+					<thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+
 			<div id="CompanyDiv" class="formDiv">
 				<!-- <h3 th:text="#{label.company.form.heading}">Company Registration Form</h3> -->
 				<h3 class="dash-page-title"> Company Registration</h3>
@@ -736,6 +853,12 @@
 				</table>
 			</div>
 			<div id="sellDiv" class="formDiv">
+			<!-- P6 (slice 43): shown when a sale is dispensing a prescription; cleared after Complete Sale records the dispense. -->
+			<div id="dispenseBanner" class="alert alert-info" style="display:none">
+				<span class="glyphicon glyphicon-edit"></span> Dispensing <b id="dispenseRxLabel"></b> —
+				add the prescribed items and complete the sale.
+				<a href="#" onclick="cancelDispense();return false;" style="float:right">cancel</a>
+			</div>
 			<a id="MyLink"  style="display:none"></a>
 			<input id="Button1" type="button" value="Click Me" onclick="OpenWord()" style="display: none;"/>
 				<h4 th:text="#{label.sell.form.heading}">Sell Form</h4>
@@ -779,6 +902,12 @@
 						</div>
 						<div class="col-sm-2">
 							<input type="text" class="form-control" id="bexpDate" name="bexpDate" readonly="readonly"/>
+						</div>
+					</div>
+					<!-- P10 (slice 54): the FEFO batch/expiry the next sale/dispense draws from (populated by loadStock). -->
+					<div class="form-group">
+						<div class="col-sm-offset-2 col-sm-10">
+							<div id="sellBatchInfo" class="alert alert-info" style="display:none;padding:6px 10px;margin:0"></div>
 						</div>
 					</div>
 					<div class="form-group">
@@ -857,11 +986,15 @@
 	 -->					
 					</div>
 				</form>
-				<div id="iDiv" class="form-group col-xs-12 col-sm-12 text-center">
-					<div class="hidden-xs col-sm-2"></div>
-					<div class="table-bordered table-striped col-xs-12 col-sm-8">
+				<div id="iDiv" class="text-center" style="margin-top:12px;">
+					<div class="cart-panel">
+						<div class="cart-panel__head">
+							<span class="glyphicon glyphicon-shopping-cart"></span> Current Sale
+							<span class="cart-hint">Review items, choose customer &amp; payment, then complete the sale</span>
+						</div>
+						<div class="cart-panel__body">
 						<div id="sellCartScroll">
-						<table id="tablesi" class="display" style="width:100%; background-color: lightskyblue;">
+						<table id="tablesi" class="display" style="width:100%;">
 							<thead>
 								<tr>
 									<th class="col-sm-1">Item id</th>
@@ -889,12 +1022,12 @@
 						<!-- Customer mode toggle -->
 						<div class="form-group" style="padding-top: 15px;">
 							<div class="col-sm-12">
-								<div class="btn-group" data-toggle="buttons">
-									<label style="margin: 10px;" class="btn btn-default btn-sm active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
+								<div class="cmode-toggle btn-group" data-toggle="buttons" role="group" aria-label="Customer input mode">
+									<label class="cmode-btn active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
 										<input type="radio" name="customerInputMode" value="select" checked>
 										<span class="glyphicon glyphicon-search"></span> Select Customer
 									</label>
-									<label style="margin: 10px;" class="btn btn-default btn-sm" id="btnModeManual" onclick="onCustomerModeChange('manual')">
+									<label class="cmode-btn" id="btnModeManual" onclick="onCustomerModeChange('manual')">
 										<input type="radio" name="customerInputMode" value="manual">
 										<span class="glyphicon glyphicon-pencil"></span> Enter Manually
 									</label>
@@ -904,6 +1037,7 @@
 						<!-- Select mode: pick from existing customers -->
 						<div class="form-group" id="customerSelectMode">
 							<div class="col-xs-12 col-sm-4 col-md-3">
+								<span class="field-label">Customer</span>
 								<select class="form-control" id="sellCustomerDD" onchange="onSellCustomerSelect(this)">
 									<option value="">-- Select Customer --</option>
 								</select>
@@ -912,53 +1046,93 @@
 						<!-- Manual mode: type name + contact -->
 						<div class="form-group" id="customerManualMode" style="display: none;">
 							<div class="col-xs-12 col-sm-4">
+								<span class="field-label">Customer Name</span>
 								<input type="text" class="form-control" id="sellCN"
 									name="cn" placeholder=" Customer name "
 									oninput="this.style.removeProperty('border-color')">
 							</div>
 							<div class="col-xs-12 col-sm-3">
+								<span class="field-label">Mobile</span>
 								<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number"/>
 							</div>
 						</div>
 						<!-- Payment row — always visible -->
 						<div class="form-group" style="padding-top: 8px; padding-bottom: 25px;">
 							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Payment Method</span>
+								<select class="form-control" id="sellPayMethod" name="sellPayMethod">
+									<option value="CASH" selected>Cash</option>
+									<option value="CARD">Card</option>
+									<option value="CREDIT">Credit (on account)</option>
+									<option value="WALLET">Wallet</option>
+									<option value="BANK_TRANSFER">Bank Transfer</option>
+									<option value="INSURANCE">Insurance</option>
+								</select>
+							</div>
+							<!-- P12 (slice 59): insurer-covered portion of a dispense; the rest is the patient co-pay. -->
+							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Insurance covered</span>
+								<input type="number" step="any" min="0" class="form-control" id="sellInsured"
+									name="sellInsured" placeholder="0.00" onkeyup="calculateChange()">
+							</div>
+							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Amount Received</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellRec"
 									name="sellRec" placeholder=" Received " onkeyup="calculateChange()">
 							</div>
 							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Change</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellCh" name="sellCh" readonly="readonly" placeholder="Change">
 							</div>
 							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Due (this sale)</span>
+								<input type="number" step="any" class="form-control" id="sellDueThis" readonly="readonly" placeholder="0" title="Amount still owed on this sale">
+							</div>
+							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label">Due Date (optional)</span>
 								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control" placeholder="dd/mm/yyyy"/>
 								<input type="hidden" id="dueDate" name="dueDate"/>
 							</div>
 						</div>
-	 		
-	 				</div>	
-					<div class="col-sm-3"></div>
-				</div>
-				<div class="form-group text-center">
-					<button type="button" id="addSell" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Sell
-					</button>
-					<!-- <input type="checkbox" checked="checked" name="print" id="sellP"><span  class="glyphicon glyphicon-print"></span></input> -->
-					<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart()">
-						<span class="glyphicon glyphicon-shopping-cart"></span> Delete cart
-					</button>
-	 			</div>			
+						<!-- Account balance row — shown only for an existing selected customer (new sale) -->
+						<div class="form-group" id="sellAccountRow" style="display:none; padding-bottom: 20px;">
+							<div class="col-xs-6 col-sm-3 col-md-2 col-sm-offset-3 col-md-offset-2">
+								<span class="field-label">Previous balance</span>
+								<input type="number" step="any" class="form-control" id="sellPrevDue" readonly="readonly"
+									placeholder="0" title="Outstanding balance before this sale" style="background-color:#fff7e6;">
+							</div>
+							<div class="col-xs-6 col-sm-3 col-md-2">
+								<span class="field-label">New total due</span>
+								<input type="number" step="any" class="form-control" id="sellNewTotalDue" readonly="readonly"
+									placeholder="0" title="Total the customer will owe after this sale"
+									style="background-color:#ffecec; font-weight:bold;">
+							</div>
+						</div>
+						<div class="form-group text-center checkout-actions">
+							<button type="button" id="addSell" class="btn btn-success btn-lg">
+								<span class="glyphicon glyphicon-ok-circle"></span> Complete Sale
+							</button>
+							<button type="button" id="parkSaleBtn" class="btn btn-info" onclick="parkCurrentSale()">
+								<span class="glyphicon glyphicon-pause"></span> Park
+							</button>
+							<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart()">
+								<span class="glyphicon glyphicon-trash"></span> Clear Cart
+							</button>
+						</div>
+					</div><!-- /cart-panel__body -->
+				</div><!-- /cart-panel -->
+				</div><!-- /iDiv -->
 				<div>
-					Toggle column: 
-					   <!-- <a class="toggle-vis" data-column="2">Code</a>  -->
+					Toggle column:
+					  - <a class="toggle-vis" data-column="2">Customer</a>
 					  - <a class="toggle-vis" data-column="3">Name</a>
 					  - <a class="toggle-vis" data-column="4">QTY</a>
-					  - <a class="toggle-vis" data-column="6">Expiry</a>
-					  - <a class="toggle-vis" data-column="7">P/U price</a> - <a class="toggle-vis" data-column="8">S/U price</a>
-					  - <a class="toggle-vis" data-column="9">Disc type</a> - <a class="toggle-vis" data-column="10">Discount</a>
-					  - <a class="toggle-vis" data-column="11">Total</a> - <a class="toggle-vis" data-column="12">Profit</a>
-					  <!-- - <a class="toggle-vis" data-column="13">Customer Name</a> - <a class="toggle-vis" data-column="14">Customer Contact</a> -->
-					  - <a class="toggle-vis" data-column="15">Dated</a> 
-					  <!-- - <a class="toggle-vis" data-column="16">DateTime</a> -->
+					  - <a class="toggle-vis" data-column="5">Expiry</a>
+					  - <a class="toggle-vis" data-column="6">P/U price</a> - <a class="toggle-vis" data-column="7">S/U price</a>
+					  - <a class="toggle-vis" data-column="8">Disc type</a> - <a class="toggle-vis" data-column="9">Discount</a>
+					  - <a class="toggle-vis" data-column="10">Total</a> - <a class="toggle-vis" data-column="11">Due</a>
+					  - <a class="toggle-vis" data-column="12">Profit</a>
+					  - <a class="toggle-vis" data-column="13">Dated</a>
 				</div>
 				<table id="tableSell" class="table table-bordered table-striped">
 					<thead>
@@ -966,6 +1140,8 @@
 							<th data-field="sellId">ID</th>
 							<!-- <th data-field="checkDelete"></th> -->
 							<!-- <th data-field="sellItemDD">Code</th> -->
+							<th data-field="sellInvoiceNo">Invoice</th>
+							<th data-field="sellCustomerName">Customer</th>
 							<th data-field="sellItemName">Name</th>
 							<th data-field="sellItems">QTY</th>
 							<!-- <th data-field="sellBatchNo">BatchNo</th> -->
@@ -975,6 +1151,7 @@
 							<th data-field="sellDiscountTypeDD">Disc Type</th>
 							<th data-field="sellDiscount">Discount</th>
 							<th data-field="sellTotalAmount">Total</th>
+							<th data-field="sellDueAmount" title="Amount still owed on THIS invoice only">Invoice Due</th>
 							<th data-field="sellNetAmount">Profit</th>
 							<!-- <th data-field="sellCN">Customer Name</th> -->
 							<!-- <th data-field="sellCC">Customer Contact</th> -->
@@ -982,11 +1159,277 @@
 	<!-- 						<th data-field="sellsrp">Return profit</th>
 							<th data-field="sellRe">Return reason</th>
 	 -->						<th data-field="updated">Dated</th>
+							<th data-field="sellTaxAmount">Tax</th>
+							<th data-field="sellPaymentMode">Payment</th>
+							<th data-field="sellAction">Actions</th>
 						</tr>
 					</thead>
 				</table>
 			</div>
-			
+
+			<!-- E-commerce E1 (slice 46): orders back-office (order = trade sale + fulfilment). ECOMMERCE only. -->
+			<div id="OrdersDiv" class="formDiv" style="display:none">
+				<h4>Orders</h4>
+				<p class="text-muted">An order is a sale (reused trade saga) plus a fulfilment lifecycle. New sales by a Store user are recorded here automatically.</p>
+				<table id="tableOrders" class="table table-bordered table-striped">
+					<thead><tr><th>Invoice</th><th>Buyer</th><th>Total</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
+					<tbody id="ordersBody"></tbody>
+				</table>
+				<div id="ordersEmpty" class="text-muted" style="display:none">No orders yet.</div>
+			</div>
+
+			<!-- M1 (slice 42): catalog Product master registration — the single product master all verticals share. -->
+			<div id="ProductDiv" class="formDiv" style="display:none">
+				<h4>Product (Catalog Master)</h4>
+				<p class="text-muted">The single product master shared across POS, pharmacy and e-commerce (catalog-service).</p>
+				<form class="form-horizontal" role="form" id="Product" autocomplete="off" onsubmit="return false;">
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="prodName">Name</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="prodName"></div>
+						<label class="control-label col-sm-2" for="prodSku">SKU / Code</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="prodSku"></div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="prodPrice">Sell Price</label>
+						<div class="col-sm-4"><input type="number" step="any" min="0" class="form-control" id="prodPrice"></div>
+						<label class="control-label col-sm-2" for="prodTax">Tax %</label>
+						<div class="col-sm-4"><input type="number" step="any" min="0" class="form-control" id="prodTax"></div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="prodUnit">Unit</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="prodUnit" placeholder="pcs"></div>
+						<label class="control-label col-sm-2" for="prodCategory">Category</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="prodCategory"></div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="prodManufacturer">Manufacturer</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="prodManufacturer"></div>
+						<label class="control-label col-sm-2" for="prodDesc">Description</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="prodDesc"></div>
+					</div>
+					<div class="form-group text-center">
+						<button type="button" class="btn btn-success" onclick="saveProduct()"><span class="glyphicon glyphicon-floppy-disk"></span> Save Product</button>
+					</div>
+				</form>
+				<table id="tableProduct" class="table table-bordered table-striped">
+					<thead><tr><th>Name</th><th>SKU</th><th>Unit</th><th>Price</th><th>Tax %</th><th>Category</th><th>On hand</th><th>Add stock</th></tr></thead>
+					<tbody id="productBody"></tbody>
+				</table>
+			</div>
+
+			<div id="QuarantineDiv" class="formDiv" style="display:none">
+				<h4>Quarantine Register</h4>
+				<p class="text-muted">Returned, non-sellable lots (e.g. pharmacy returns). Dispose removes the lot (destroyed / returned to supplier). Quarantined stock is never re-sold (excluded from FEFO).</p>
+				<table id="tableQuarantine" class="table table-bordered table-striped">
+					<thead><tr><th>Product</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Action</th></tr></thead>
+					<tbody id="quarantineBody"></tbody>
+				</table>
+				<div id="quarantineEmpty" class="text-muted" style="display:none">No quarantined stock.</div>
+			</div>
+
+			<!-- Medicine registration reuses the existing Item screen (relabeled "Medicine" by module-theme.js) —
+			     no separate Medicine screen (avoid reinventing the POS). slice 41 / 42 (itemId bridge). -->
+
+			<!-- Pharmacy P8 (slice 45): controlled-substance register + stock (near-expiry/low) alerts. PHARMA only. -->
+			<div id="PharmAlertsDiv" class="formDiv" style="display:none">
+				<h4>Alerts &amp; Controlled Register</h4>
+				<h5>Stock alerts (near-expiry / low stock)</h5>
+				<table id="tableStockAlerts" class="table table-bordered table-striped">
+					<thead><tr><th>Type</th><th>Product</th><th>Message</th><th>Created</th></tr></thead>
+					<tbody id="stockAlertsBody"></tbody>
+				</table>
+				<div id="stockAlertsEmpty" class="text-muted" style="display:none">No stock alerts.</div>
+				<h5 style="margin-top:18px">Controlled-substance register</h5>
+				<table id="tableControlled" class="table table-bordered table-striped">
+					<thead><tr><th>Dispensed</th><th>Medicine</th><th>Qty</th><th>Patient</th><th>Invoice</th></tr></thead>
+					<tbody id="controlledBody"></tbody>
+				</table>
+				<div id="controlledEmpty" class="text-muted" style="display:none">No controlled dispenses recorded.</div>
+			</div>
+
+			<!-- Pharmacy P7 (slice 44): clinical flags + drug interactions (dispense safety). PHARMA only. -->
+			<div id="ClinicalDiv" class="formDiv" style="display:none">
+				<h4>Clinical &amp; Safety</h4>
+				<form class="form-horizontal" role="form" onsubmit="return false;">
+					<div class="form-group">
+						<label class="control-label col-sm-2">Medicine</label>
+						<div class="col-sm-3"><select class="form-control" id="clItem"></select></div>
+						<div class="col-sm-7" style="padding-top:8px">
+							<label style="margin-right:18px"><input type="checkbox" id="clRx"> Prescription required</label>
+							<label style="margin-right:18px"><input type="checkbox" id="clControlled"> Controlled substance</label>
+							<button type="button" class="btn btn-sm btn-success" onclick="saveClinical()">Save flags</button>
+						</div>
+					</div>
+					<hr>
+					<div class="form-group">
+						<label class="control-label col-sm-2">Interaction</label>
+						<div class="col-sm-3"><select class="form-control" id="clInterA"></select></div>
+						<div class="col-sm-3"><select class="form-control" id="clInterB"></select></div>
+						<div class="col-sm-2">
+							<select class="form-control" id="clSeverity"><option>MILD</option><option selected>MODERATE</option><option>SEVERE</option></select>
+						</div>
+						<div class="col-sm-2"><button type="button" class="btn btn-sm btn-warning" onclick="addInteraction()">Add</button></div>
+					</div>
+					<div class="form-group">
+						<div class="col-sm-offset-2 col-sm-8"><input type="text" class="form-control" id="clInterDesc" placeholder="Interaction note (optional)"></div>
+					</div>
+				</form>
+				<h5>Flagged medicines</h5>
+				<table id="tableClinical" class="table table-bordered table-striped">
+					<thead><tr><th>Medicine</th><th>Item ID</th><th>Rx required</th><th>Controlled</th></tr></thead>
+					<tbody id="clinicalBody"></tbody>
+				</table>
+			</div>
+
+			<!-- Pharmacy P5 (slice 41): prescription intake. PHARMA only. -->
+			<div id="PrescriptionDiv" class="formDiv" style="display:none">
+				<h4>Prescription Intake</h4>
+				<form class="form-horizontal" role="form" id="Prescription" autocomplete="off" onsubmit="return false;">
+					<div class="form-group">
+						<label class="control-label col-sm-2 req" for="rxPatient">Patient</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="rxPatient"></div>
+						<label class="control-label col-sm-2" for="rxPatientPhone">Phone</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="rxPatientPhone"></div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="rxDoctor">Doctor</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="rxDoctor"></div>
+						<label class="control-label col-sm-2" for="rxLicense">License</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="rxLicense"></div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="rxDiagnosis">Diagnosis</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="rxDiagnosis"></div>
+						<label class="control-label col-sm-2" for="rxValidUntil">Valid until</label>
+						<div class="col-sm-4"><input type="date" class="form-control" id="rxValidUntil"></div>
+					</div>
+					<hr>
+					<div class="form-group">
+						<label class="control-label col-sm-2">Add item</label>
+						<div class="col-sm-3"><select class="form-control" id="rxMedicine"></select></div>
+						<div class="col-sm-1"><input type="number" min="1" class="form-control" id="rxQty" placeholder="Qty"></div>
+						<div class="col-sm-2"><input type="text" class="form-control" id="rxDosage" placeholder="Dosage"></div>
+						<div class="col-sm-1"><input type="text" class="form-control" id="rxFreq" placeholder="Freq"></div>
+						<div class="col-sm-1"><input type="text" class="form-control" id="rxDuration" placeholder="Dur"></div>
+						<div class="col-sm-2"><button type="button" class="btn btn-default" onclick="addRxItem()">Add</button></div>
+					</div>
+					<table class="table table-condensed"><thead><tr><th>Medicine</th><th>Qty</th><th>Dosage</th><th>Freq</th><th>Duration</th><th></th></tr></thead>
+						<tbody id="rxItemsBody"></tbody></table>
+					<div class="form-group text-center">
+						<button type="button" class="btn btn-success" onclick="savePrescription()"><span class="glyphicon glyphicon-floppy-disk"></span> Save Prescription</button>
+					</div>
+				</form>
+				<h5>Recent prescriptions</h5>
+				<table id="tablePrescription" class="table table-bordered table-striped">
+					<thead><tr><th>Patient</th><th>Doctor</th><th>Items</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+					<tbody id="prescriptionBody"></tbody>
+				</table>
+			</div>
+
+			<!-- POS R10 (slice 40): parked / held sales. -->
+			<div id="ParkedDiv" class="formDiv" style="display:none">
+				<h4>Parked Sales</h4>
+				<p class="text-muted">Held carts you can resume later. Resuming loads the cart back; completing the sale removes it.</p>
+				<table id="tableParked" class="table table-bordered table-striped">
+					<thead><tr><th>Label</th><th>Items</th><th>Total</th><th>Parked at</th><th>Actions</th></tr></thead>
+					<tbody id="parkedBody"></tbody>
+				</table>
+				<div id="parkedEmpty" class="text-muted" style="display:none">No parked sales.</div>
+			</div>
+
+			<!-- POS day-close (slice 39): cashier shift / cash drawer / X-Z report. -->
+			<div id="TillDiv" class="formDiv" style="display:none">
+				<h4>Cash Drawer / Till</h4>
+				<div id="tillStatus" class="alert alert-info" style="display:none"></div>
+
+				<!-- Open shift (shown when no shift is open) -->
+				<div id="tillOpenPanel" style="display:none">
+					<form class="form-horizontal" role="form" onsubmit="return false;">
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="tillFloat">Opening float</label>
+							<div class="col-sm-4"><input type="number" step="any" min="0" class="form-control" id="tillFloat" placeholder="e.g. 100"></div>
+							<div class="col-sm-3"><button type="button" class="btn btn-success" onclick="openShift()"><span class="glyphicon glyphicon-log-in"></span> Open Shift</button></div>
+						</div>
+					</form>
+				</div>
+
+				<!-- Open-shift operations (shown when a shift is open) -->
+				<div id="tillOpsPanel" style="display:none">
+					<form class="form-horizontal" role="form" onsubmit="return false;">
+						<div class="form-group">
+							<label class="control-label col-sm-3">Cash in / out</label>
+							<div class="col-sm-3">
+								<select class="form-control" id="tillMoveType">
+									<option value="PAY_IN">Pay In</option>
+									<option value="PAY_OUT">Pay Out</option>
+									<option value="DROP">Cash Drop</option>
+								</select>
+							</div>
+							<div class="col-sm-2"><input type="number" step="any" min="0" class="form-control" id="tillMoveAmount" placeholder="Amount"></div>
+							<div class="col-sm-2"><input type="text" class="form-control" id="tillMoveReason" placeholder="Reason"></div>
+							<div class="col-sm-2"><button type="button" class="btn btn-default" onclick="addCashMovement()">Add</button></div>
+						</div>
+						<div class="form-group text-center">
+							<button type="button" class="btn btn-info" onclick="loadShiftReport()"><span class="glyphicon glyphicon-list-alt"></span> X Report</button>
+						</div>
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="tillCounted">Counted cash (close)</label>
+							<div class="col-sm-4"><input type="number" step="any" min="0" class="form-control" id="tillCounted" placeholder="Counted cash"></div>
+							<div class="col-sm-2"><input type="text" class="form-control" id="tillCloseNotes" placeholder="Notes"></div>
+							<div class="col-sm-3"><button type="button" class="btn btn-danger" onclick="closeShift()"><span class="glyphicon glyphicon-log-out"></span> Close (Z)</button></div>
+						</div>
+					</form>
+				</div>
+
+				<div id="tillReport" style="margin-top:14px"></div>
+			</div>
+
+			<!-- G3 (slice 35): per-org tax policy. Owner-only; drives tax on every sale + receipt. -->
+			<div id="TaxSettingDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+				<h4>Tax Settings</h4>
+				<form class="form-horizontal" role="form" id="TaxSetting" autocomplete="off" onsubmit="return false;">
+					<div class="form-group">
+						<label class="control-label col-sm-3" for="taxEnabled">Apply tax to sales</label>
+						<div class="col-sm-4">
+							<input type="checkbox" id="taxEnabled" name="enabled">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-3" for="taxMode">Price mode</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="taxMode" name="taxMode">
+								<option value="EXCLUSIVE">Tax-exclusive (added on top)</option>
+								<option value="INCLUSIVE">Tax-inclusive (price includes tax)</option>
+							</select>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-3" for="taxDefaultRate">Default rate (%)</label>
+						<div class="col-sm-4">
+							<input type="number" step="any" min="0" class="form-control" id="taxDefaultRate" name="defaultRate" placeholder="e.g. 17">
+						</div>
+						<div class="col-sm-5 help-block" style="padding-top:8px">Used when a product has no tax rate of its own.</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-3" for="taxLabel">Tax label</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="taxLabel" name="taxLabel" maxlength="40" placeholder="VAT / GST / Sales Tax">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-3" for="taxRegNo">Tax reg. no (receipt)</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="taxRegNo" name="taxRegNo" maxlength="60" placeholder="optional">
+						</div>
+					</div>
+					<div class="form-group text-center">
+						<button type="button" onclick="saveTaxSetting()" class="btn btn-success">
+							<span class="glyphicon glyphicon-floppy-disk"></span> Save
+						</button>
+					</div>
+				</form>
+			</div>
+
 			<div id="SRDiv" class="formDiv">
 				<h4>Sale reports</h4>
 				<form action="/" method="POST" class="form-horizontal" role="form"
@@ -1096,6 +1539,10 @@
 	</div>
 	<script th:inline="javascript">
         var serverContext = [[@{/}]];
+        // Which commerce vertical this dashboard renders for. BusinessDashboardController sets `module` from the
+        // logged-in user's type (BUSINESS=POS, PHARMA=Pharmacy, ECOMMERCE=Store); defaults BUSINESS. Drives
+        // terminology / features / theme in module-theme.js — one shared trade engine, white-labelled (slice 36).
+        window.MODULE = [[${module} ?: 'BUSINESS']];
     </script>
 
     <!-- STEP 1: jQuery + all plugins -->
@@ -1106,8 +1553,16 @@
     <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
     <script th:src="@{/js/business/chart.umd.min.js}"></script>
     <script th:src="@{/js/common/dom-safe.js}"></script>
+    <script th:src="@{/js/business/module-theme.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <script th:src="@{/js/business/businessInvoicePrint.js}"></script>
+    <script th:src="@{/js/business/receipt.js}"></script>
+    <script th:src="@{/js/business/till.js}"></script>
+    <script th:src="@{/js/business/park.js}"></script>
+    <script th:src="@{/js/business/catalog-products.js}"></script>
+    <script th:src="@{/js/business/quarantine.js}"></script>
+    <script th:src="@{/js/business/pharma.js}"></script>
+    <script th:src="@{/js/business/ecommerce.js}"></script>
     <script>
     /* ── Subnav custom dropdown bridge ───────────────────── */
     function snavToggle(e, id) {

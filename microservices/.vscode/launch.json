@@ -1,0 +1,113 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+    
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "AgricultureServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.agriculture.AgricultureServiceApplication",
+            "projectName": "agriculture-service"
+        },
+        {
+            "type": "java",
+            "name": "AnalyticsServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.analytics.AnalyticsServiceApplication",
+            "projectName": "analytics-service"
+        },
+        {
+            "type": "java",
+            "name": "ApiGatewayApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.gateway.ApiGatewayApplication",
+            "projectName": "api-gateway"
+        },
+        {
+            "type": "java",
+            "name": "AppointmentServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.appointment.AppointmentServiceApplication",
+            "projectName": "appointment-service"
+        },
+        {
+            "type": "java",
+            "name": "AuthServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.auth.AuthServiceApplication",
+            "projectName": "auth-service"
+        },
+        {
+            "type": "java",
+            "name": "BusinessServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.business_service.BusinessServiceApplication",
+            "projectName": "business-service"
+        },
+        {
+            "type": "java",
+            "name": "CampaignServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.campaign.CampaignServiceApplication",
+            "projectName": "campaign-service"
+        },
+        {
+            "type": "java",
+            "name": "ConfigServerApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.config.ConfigServerApplication",
+            "projectName": "config-server"
+        },
+        {
+            "type": "java",
+            "name": "EducationServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.education.EducationServiceApplication",
+            "projectName": "education-service"
+        },
+        {
+            "type": "java",
+            "name": "EurekaServerApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.eureka.EurekaServerApplication",
+            "projectName": "eureka-server"
+        },
+        {
+            "type": "java",
+            "name": "InventoryServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.inventory.InventoryServiceApplication",
+            "projectName": "inventory-service"
+        },
+        {
+            "type": "java",
+            "name": "MarketplaceServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.marketplace.MarketplaceServiceApplication",
+            "projectName": "marketplace-service"
+        },
+        {
+            "type": "java",
+            "name": "PharmaServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.pharma.PharmaServiceApplication",
+            "projectName": "pharma-service"
+        },
+        {
+            "type": "java",
+            "name": "WelfareServiceApplication",
+            "request": "launch",
+            "mainClass": "com.myplus.welfare.WelfareServiceApplication",
+            "projectName": "welfare-service"
+        }
+    ]
+}

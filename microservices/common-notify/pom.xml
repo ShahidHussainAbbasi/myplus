@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>common-notify</artifactId>
+  <name>common-notify</name>
+  <description>Shared notification contract (slice 33, Phase 8): EmailRequest DTO + the declarative
+    @HttpExchange NotificationClient. Used by notification-service (provider) and every sender (auth,
+    education, campaign) so the email API is defined once.</description>
+
+  <dependencies>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><optional>true</optional></dependency>
+  </dependencies>
+</project>

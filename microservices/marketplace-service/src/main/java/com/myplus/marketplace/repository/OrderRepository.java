@@ -1,0 +1,32 @@
+package com.myplus.marketplace.repository;
+
+import com.myplus.marketplace.entity.Order;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+/** Tenant-scoped orders (E1, slice 46), NULL-fallback. */
+@Repository
+public interface OrderRepository extends JpaRepository<Order, Long> {
+
+    String SCOPE = "(o.organizationId = :orgId OR (o.organizationId IS NULL AND o.userId = :userId))";
+
+    @Query("SELECT o FROM Order o WHERE " + SCOPE + " ORDER BY o.createdAt DESC")
+    List<Order> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("SELECT o FROM Order o WHERE o.id = :id AND " + SCOPE)
+    Optional<Order> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** A storefront shopper's own orders, newest first (slice 61, My Orders). */
+    List<Order> findByCustomerAccountIdOrderByCreatedAtDesc(Long customerAccountId);
+
+    /** Recovery relay (slice 52): storefront orders whose reservation was reserved but not confirmed (placement
+     *  crashed/timed out between reserve and confirm). Cross-tenant; the relay impersonates each order's org. */
+    @Query("SELECT o FROM Order o WHERE o.reservationStatus = 'PENDING' AND o.reservationId IS NOT NULL "
+            + "AND o.fulfilmentStatus <> com.myplus.marketplace.entity.FulfilmentStatus.CANCELLED")
+    List<Order> findPendingReservations();
+}

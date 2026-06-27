@@ -14,4 +14,7 @@ public interface IPurchaseService extends org.springframework.data.jpa.repositor
 	/** Tenant-scoped purchases (own org + caller's pre-migration org-NULL rows). */
 	List<Purchase> findScoped(Long orgId, Long userId);
 
+	/** OWN purchases only (role-aware) — a non-SUPER caller sees just the purchases they recorded. */
+	List<Purchase> findOwnScoped(Long orgId, Long userId);
+
 }

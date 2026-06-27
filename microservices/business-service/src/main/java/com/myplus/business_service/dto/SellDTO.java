@@ -26,6 +26,10 @@ public class SellDTO implements Serializable {
 	// private ItemDTO item;
 	private Long itemId = 0L;
 
+	// Catalog product id (slice 33, U4.3). The catalog-backed picker submits this directly; when null the
+	// saga falls back to translating itemId via ItemCatalogMap (back-compat with the legacy picker).
+	private Long productId;
+
 	private String itemName;
 	
 	private String itemCode;	
@@ -41,7 +45,12 @@ public class SellDTO implements Serializable {
 	private BigDecimal netAmount = BigDecimal.ZERO;
 
 	private BigDecimal srp = BigDecimal.ZERO;
-	
+
+	// G3 (slice 35): applied tax on this line, for the read/receipt path.
+	private BigDecimal taxRate;
+
+	private BigDecimal taxAmount;
+
 	private Float itemStock=0.0F;
 
 	private String dated;

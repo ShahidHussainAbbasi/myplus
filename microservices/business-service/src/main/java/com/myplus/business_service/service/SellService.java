@@ -41,6 +41,9 @@ public class SellService implements ISellService {
 	SellRepo sellRepo;
 
 	@Autowired
+	com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
+
+	@Autowired
 	RequestUtil requestUtil;
 
 	@Autowired
@@ -184,6 +187,16 @@ public class SellService implements ISellService {
 		return sellRepo.findScoped(orgId, userId, pageable);
 	}
 
+	@Override
+	public List<Sell> findByInvoiceScoped(Long chId, Long orgId, Long userId) {
+		return sellRepo.findByInvoiceScoped(chId, orgId, userId);
+	}
+
+	@Override
+	public List<Sell> findOwnScoped(Long orgId, Long userId) {
+		return sellRepo.findOwnScoped(orgId, userId);
+	}
+
 	public List<Sell> findSellByStartDate(LocalDateTime sd, Long orgId, Long userId) {
 		return sellRepo.findSellByStartDate(sd, orgId, userId);
 	}
@@ -210,7 +223,14 @@ public class SellService implements ISellService {
 					modelMapper.addConverter(appUtil.stringToLocalDate);
 					Sell obj = modelMapper.map(dto, Sell.class);
 					if(obj.getSellId() != null && obj.getSellId() == 0) obj.setSellId(null);
-					obj.setCustomerHistory(null);
+					// Persist the invoice link (FK only). Previously this was nulled to avoid the
+					// cascade-MERGE overwriting the invoice row with the detached mapped entity's partial
+					// data — but that lost the link entirely, leaving sells unattributable to an invoice
+					// (breaking grouping + edit). A managed reference by id sets the FK without an
+					// unwanted overwrite (merging an unchanged proxy is a no-op).
+					Long chId = (dto.getCustomerHistory() != null)
+							? dto.getCustomerHistory().getCustomer_history_id() : null;
+					obj.setCustomerHistory(chId != null ? customerHistoryRepo.getReferenceById(chId) : null);
 					obj.setSellRate(stock.getBsellRate());
 					obj.setDiscount(stock.getBsellDiscount());
 					obj.setDt(stock.getBsellDiscountType());

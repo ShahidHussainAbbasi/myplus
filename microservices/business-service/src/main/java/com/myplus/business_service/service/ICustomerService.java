@@ -12,11 +12,20 @@ public interface ICustomerService extends org.springframework.data.jpa.repositor
 
     Customer saveUpdateCustomer(CustomerHistoryDTO customerObj) throws Exception;
 
+    /**
+     * Recompute a customer's running balance owed from their invoice headers (the single source of
+     * truth). Call AFTER the sale's CustomerHistory is saved, so add / edit / re-edit stay correct.
+     */
+    void recomputeDue(Customer customer);
+
     /** Tenant-scoped customers (own org + caller's pre-migration org-NULL rows). */
     List<Customer> findScoped(Long orgId, Long userId);
 
     /** Paged tenant-scoped customers (slice 24). */
     List<Customer> findScoped(Long orgId, Long userId, Pageable pageable);
+
+    /** OWN customers only (role-aware) — a non-SUPER caller sees just the customers they created. */
+    List<Customer> findOwnScoped(Long orgId, Long userId);
 
 
 }

@@ -41,6 +41,19 @@ public class SellController {
         }
     }
 
+    // Load a full sale (invoice) for editing — proxies to business-service getSellInvoice.
+    @RequestMapping(value = "/getSellInvoice", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getSellInvoice(final HttpServletRequest request) {
+        try {
+            String sellId = request.getParameter("sellId");
+            return client.get("/getSellInvoice", "sellId=" + sellId);
+        } catch (Exception e) {
+            LOGGER.error("getSellInvoice proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/loadSR", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> loadSR(final SellDTO dto, final HttpServletRequest request) {
@@ -65,6 +78,20 @@ public class SellController {
         }
     }
 
+    // G6 receipts (slice 38) — proxies the printable receipt (by invoice number) to business-service.
+    @RequestMapping(value = "/getReceipt", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getReceipt(final HttpServletRequest request) {
+        try {
+            String invoiceNo = request.getParameter("invoiceNo");
+            return client.get("/getReceipt", "invoiceNo=" + java.net.URLEncoder.encode(
+                    invoiceNo == null ? "" : invoiceNo, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            LOGGER.error("getReceipt proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/addSell", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
@@ -72,6 +99,20 @@ public class SellController {
             return client.postJson("/addSell", dto);
         } catch (Exception e) {
             LOGGER.error("addSell proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    // In-place edit of an existing invoice (Phase 3). The frontend routes here (instead of addSell)
+    // when the cart carries a customer_history_id; business-service reverts the old lines' stock/dues
+    // and re-applies the edited cart under the SAME invoice number, all-or-nothing.
+    @RequestMapping(value = "/updateSell", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> updateSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
+        try {
+            return client.postJson("/updateSell", dto);
+        } catch (Exception e) {
+            LOGGER.error("updateSell proxy error", e);
             return Collections.singletonMap("status", "ERROR");
         }
     }

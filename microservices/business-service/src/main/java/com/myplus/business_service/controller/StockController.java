@@ -66,8 +66,20 @@ public class StockController {
 	@Autowired
 	RequestUtil requestUtil;
 
+	@Autowired
+	com.myplus.business_service.config.TradeSagaProperties tradeSagaProperties;
+
+	@Autowired
+	com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;
+
+	@Autowired
+	com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
+
+	@Autowired
+	com.myplus.commerce.contracts.client.CatalogClient catalogClient;
+
     @Autowired
-    private AppUtil appUtil;  
+    private AppUtil appUtil;
     
 	ModelMapper modelMapper = new ModelMapper();
 
@@ -87,6 +99,21 @@ public class StockController {
 			if (appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
+
+			// M3.1 (slice 62): batch the tenant's inventory on-hand + itemId→productId map ONCE (one inventory call),
+			// so the Stock list shows inventory's on-hand without an HTTP round-trip per item.
+			java.util.Map<Long, Float> levelsTmp = java.util.Collections.emptyMap();
+			final java.util.Map<Long, Long> productByItem = new java.util.HashMap<>();
+			if (tradeSagaProperties.isEnabled()) {
+				try {
+					levelsTmp = inventoryClient.getStockLevels();
+					for (com.myplus.business_service.entity.ItemCatalogMap m : itemCatalogMapRepo.findAllScoped(orgId()))
+						productByItem.put(m.getItemId(), m.getProductId());
+				} catch (Exception ex) {
+					LOGGER.warn("M3.1: batch inventory on-hand lookup failed; Stock list shows local stock", ex);
+				}
+			}
+			final java.util.Map<Long, Float> levels = levelsTmp;
 
 			List<ItemDTO> dtos = new ArrayList<ItemDTO>();
 			objs.forEach(obj -> {
@@ -114,6 +141,14 @@ public class StockController {
 					Vender vender = venderService.getOne(dto.getVenderId());
 					dto.setVenderId(vender.getId());
 					dto.setVenderName(vender.getName());
+				}
+				// M3.1 (slice 62): show INVENTORY on-hand from the pre-batched levels (no per-item HTTP call).
+				// Falls back to the local Stock value when the item isn't catalog-mapped or inventory was unreachable.
+				Long invProductId = productByItem.get(obj.getId());
+				Float invStock = invProductId == null ? null : levels.get(invProductId);
+				if (invStock != null) {
+					if (dto.getStock() == null) dto.setStock(new StockDTO());
+					dto.getStock().setStock(invStock);
 				}
 //				if(!AppUtil.isEmptyOrNull(obj.getItemType())) {
 //					dto.setItemTypeId(obj.getItemType().getId());
@@ -204,12 +239,60 @@ public class StockController {
 			}else {
 				dto.setIDesc("Item not registered");
 			}
-				
+
+			// U4 (slice 33): when the saga owns stock, source the sell screen's numbers from the new
+			// services — on-hand from inventory (U4.1) and sell price from catalog sellingPrice (U4.2) —
+			// instead of local Stock. Best-effort: falls back to the local values if the item isn't mapped
+			// or a service is unreachable, so the sell screen never breaks.
+			if (tradeSagaProperties.isEnabled()) {
+				try {
+					Long productId = itemCatalogMapRepo.findProductIdByItemId(itemId, orgId()).orElse(null);
+					if (productId != null) {
+						Float invStock = inventoryClient.getStockLevel(productId);
+						if (invStock != null) dto.setStock(invStock);                       // U4.1 on-hand
+						com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
+						if (p != null && p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());  // U4.2 price
+						// P10 (slice 54): FEFO batch/expiry for the dispense screen; first batch is the next dispensed.
+						java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches = inventoryClient.getBatches(productId);
+						dto.setBatches(batches);
+						if (batches != null && !batches.isEmpty()) {
+							com.myplus.commerce.contracts.dto.StockBatch first = batches.get(0);
+							dto.setBatchNo(first.getBatchNo());
+							dto.setBexpDate(first.getExpiryDate() != null ? first.getExpiryDate().toString() : null);
+						}
+					}
+				} catch (Exception ex) {
+					LOGGER.warn("U4: inventory/catalog lookup failed for item {}, showing local values", itemId, ex);
+				}
+			}
+
 			return dto;
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > getUserItems " + e.getCause(), e);
 			return null;
 		}
+	}
+
+	/**
+	 * Stock + price for a CATALOG product (slice 33, U4.3 pre-stage). The catalog-backed picker will call
+	 * this (by productId) instead of getStock (by itemId): on-hand from inventory, sell rate from catalog.
+	 * Returns the same StockDTO shape as getStock so the sell screen can reuse its handler. Additive — nothing
+	 * calls it yet. Inventory/catalog calls are tenant-scoped via the propagated identity (no cross-tenant leak).
+	 */
+	@RequestMapping(value = "/productStock", method = RequestMethod.GET)
+	@ResponseBody
+	public StockDTO productStock(@RequestParam final Long productId) {
+		StockDTO dto = new StockDTO();
+		if (appUtil.isEmptyOrNull(productId)) return dto;
+		try {
+			Float invStock = inventoryClient.getStockLevel(productId);
+			if (invStock != null) dto.setStock(invStock);
+			com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
+			if (p != null && p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());
+		} catch (Exception e) {
+			LOGGER.warn("productStock lookup failed for product {}", productId, e);
+		}
+		return dto;
 	}
 
 	@RequestMapping(value = "/getStockByBatch", method = RequestMethod.GET)

@@ -98,11 +98,33 @@ public class SellController {
 	@Autowired
 	ICustomerHistoryService customerHistoryService;
 
+	@Autowired
+	com.myplus.business_service.config.TradeSagaProperties tradeSagaProperties;
+
+	@Autowired
+	com.myplus.business_service.service.SagaSellService sagaSellService;
+
+	@Autowired
+	com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;
+
+	@Autowired
+	com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
+
+	@Autowired
+	com.myplus.business_service.service.PaymentService paymentService;
+
+	@Autowired
+	com.myplus.business_service.service.TaxService taxService;
+
+	@Autowired
+	com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
 	}
 
+	private static java.math.BigDecimal nzbd(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
 	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
@@ -110,6 +132,14 @@ public class SellController {
 	private boolean inMyTenant(Long rowOrg, Long rowUser) {
 		return (rowOrg != null && rowOrg.equals(orgId()))
 			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
+	}
+
+	/** Role-aware visibility (Phase 7a): a SUPER/owner sees the WHOLE org's data; everyone else sees
+	 *  only their own. SUPER_PRIVILEGE travels in the JWT -> gateway X-User-Privileges -> authorities. */
+	private boolean seesAllOrg() {
+		AuthenticatedUser u = requestUtil.getCurrentUser();
+		return u != null && u.getAuthorities() != null && u.getAuthorities().stream()
+				.anyMatch(a -> "SUPER_PRIVILEGE".equals(a.getAuthority()));
 	}
 
 
@@ -168,7 +198,8 @@ public class SellController {
 			// tenant-scoped, newest-first. slice 24: page&size -> DB page; else legacy "recent N" offset cap.
 			List<Sell> objs = (page != null && size != null)
 					? sellService.findScoped(orgId(), userId(), org.springframework.data.domain.PageRequest.of(page, size))
-					: sellService.findScoped(orgId(), userId());
+					: (seesAllOrg() ? sellService.findScoped(orgId(), userId())          // SUPER: whole org
+					                : sellService.findOwnScoped(orgId(), userId()));      // others: own only
 			if((page == null || size == null) && !(appUtil.isEmptyOrNull(offset) || offset.equals("-1"))) {
 				int limit = Integer.valueOf(offset);
 				if(objs.size() > limit) objs = new ArrayList<>(objs.subList(0, limit));
@@ -185,14 +216,37 @@ public class SellController {
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
 					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+			// Saga sells carry productId (no local Stock/itemId); resolve their item name via the reverse
+			// catalog map (productId -> itemId -> Item) so they list with the same name as legacy sells.
+			java.util.List<Long> sagaProductIds = objs.stream()
+					.filter(s -> s.getStock() == null && s.getProductId() != null)
+					.map(s -> s.getProductId()).distinct()
+					.collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
+			if (!sagaProductIds.isEmpty()) {
+				java.util.Map<Long, Long> productToItem = new java.util.HashMap<>();
+				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(sagaProductIds, orgId())) {
+					productToItem.put((Long) row[0], (Long) row[1]);
+				}
+				java.util.Map<Long, Item> sagaItems = itemService.findAllById(productToItem.values()).stream()
+						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+				sagaProductIds.forEach(pid -> {
+					Long iid = productToItem.get(pid);
+					if (iid != null && sagaItems.get(iid) != null) itemByProductId.put(pid, sagaItems.get(iid));
+				});
+			}
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				// SellDTO dto = appUtil.objTodtoConverter(o);
 				SellDTO dto = modelMapper.map(o, SellDTO.class);
-				if(appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) {
-					Item item = itemsById.get(o.getStock().getItemId());
+				if((appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) || o.getProductId() != null) {
+					// legacy: item via local Stock's itemId; saga: item via productId reverse-map. Either way the
+					// invoice/customer below + dtos.add now run for ALL sells (saga sells were being dropped here).
+					Item item = (o.getStock() != null && o.getStock().getItemId() != null)
+							? itemsById.get(o.getStock().getItemId())
+							: itemByProductId.get(o.getProductId());
 					if(item != null) {
 						dto.setItemId(item.getId());
 						dto.setItemName(item.getIname());
@@ -227,7 +281,155 @@ public class SellController {
 					e.getMessage());
 		}
 	}
-	
+
+	/**
+	 * Load a full sale (invoice) for editing. Given ANY of its line items' sellId, returns the parent
+	 * invoice's customer + amounts + ALL its line items so the cart (iDiv) and sell form can be rebuilt.
+	 * Tenant-scoped (anti-IDOR): a sellId from another org returns NOT_FOUND without revealing it exists.
+	 */
+	@RequestMapping(value = "/getSellInvoice", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getSellInvoice(@RequestParam("sellId") Long sellId, final HttpServletRequest request) {
+		try {
+			Optional<Sell> os = sellService.findById(sellId);
+			if (!os.isPresent()) return new GenericResponse("NOT_FOUND", "Sale not found");
+			Sell clicked = os.get();
+			if (!inMyTenant(clicked.getOrganizationId(), clicked.getUserId()))
+				return new GenericResponse("NOT_FOUND", "Sale not found"); // anti-IDOR (cross-org)
+			// Role-aware: a non-SUPER caller may only open invoices they created.
+			if (!seesAllOrg() && clicked.getUserId() != null && !clicked.getUserId().equals(userId()))
+				return new GenericResponse("NOT_FOUND", "Sale not found");
+			if (clicked.getCustomerHistory() == null || clicked.getCustomerHistory().getCustomer_history_id() == null)
+				return new GenericResponse("NOT_FOUND", "This sale has no invoice to edit");
+
+			Long chId = clicked.getCustomerHistory().getCustomer_history_id();
+			List<Sell> lines = sellService.findByInvoiceScoped(chId, orgId(), userId());
+			if (appUtil.isEmptyOrNull(lines)) return new GenericResponse("NOT_FOUND", "No line items found");
+
+			CustomerHistory ch = clicked.getCustomerHistory();
+			CustomerHistoryDTO out = new CustomerHistoryDTO();
+			out.setCustomer_history_id(ch.getCustomer_history_id());
+			out.setInvoiceNo(ch.getInvoiceNo());
+			out.setInvoiceSeq(ch.getInvoiceSeq());
+			out.setPaidAmount(ch.getPaidAmount());
+			out.setDueAmount(ch.getDueAmount());
+			out.setDueDate(ch.getDueDate());
+			if (ch.getCustomer() != null) {
+				out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
+			}
+
+			// Batch-load item names in one query (same approach as getUserSell).
+			java.util.List<Long> itemIds = lines.stream()
+					.filter(s -> s.getStock() != null && s.getStock().getItemId() != null)
+					.map(s -> s.getStock().getItemId()).distinct()
+					.collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
+					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+
+			List<SellDTO> sales = new java.util.ArrayList<>();
+			for (Sell s : lines) {
+				modelMapper.addConverter(appUtil.localDateTimeToString);
+				modelMapper.addConverter(appUtil.localDateToString);
+				SellDTO sd = modelMapper.map(s, SellDTO.class);
+				if (s.getStock() != null) {
+					sd.setStock(modelMapper.map(s.getStock(), StockDTO.class));
+					Item item = itemsById.get(s.getStock().getItemId());
+					if (item != null) {
+						sd.setItemId(item.getId());
+						sd.setItemName(item.getIname());
+						sd.setItemCode(item.getIcode());
+					}
+				}
+				sales.add(sd);
+			}
+			out.setSales(sales);
+			return new GenericResponse("SUCCESS", "Invoice loaded", out);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > getSellInvoice " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load the sale. Please try again.");
+		}
+	}
+
+	/**
+	 * G6 receipts (slice 38): the printable receipt for an invoice, by its per-org invoice number. Carries the
+	 * lines (with per-line tax + item name, saga or legacy), the G3 tax totals, the G5 payment summary and the
+	 * tax label/reg-no — everything the client renders into a thermal/A4 receipt. Tenant-scoped + role-aware.
+	 */
+	@RequestMapping(value = "/getReceipt", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getReceipt(@RequestParam("invoiceNo") String invoiceNo, final HttpServletRequest request) {
+		try {
+			if (appUtil.isEmptyOrNull(invoiceNo)) return new GenericResponse("NOT_FOUND", "Invoice not found");
+			CustomerHistory ch = customerHistoryRepo.findByOrganizationIdAndInvoiceNo(orgId(), invoiceNo).orElse(null);
+			if (ch == null || !inMyTenant(ch.getOrganizationId(), ch.getUserId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found");           // anti-IDOR
+			if (!seesAllOrg() && ch.getUserId() != null && !ch.getUserId().equals(userId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found");           // role-aware
+
+			List<Sell> lines = sellService.findByInvoiceScoped(ch.getCustomer_history_id(), orgId(), userId());
+			if (appUtil.isEmptyOrNull(lines)) return new GenericResponse("NOT_FOUND", "No line items found");
+
+			CustomerHistoryDTO out = new CustomerHistoryDTO();
+			out.setCustomer_history_id(ch.getCustomer_history_id());
+			out.setInvoiceNo(ch.getInvoiceNo());
+			out.setInvoiceSeq(ch.getInvoiceSeq());
+			out.setDated(ch.getDated());
+			out.setPaidAmount(ch.getPaidAmount());
+			out.setDueAmount(ch.getDueAmount());
+			out.setDueDate(ch.getDueDate());
+			out.setSubTotal(ch.getSubTotal());
+			out.setTaxTotal(ch.getTaxTotal());
+			out.setGrandTotal(ch.getGrandTotal());
+			out.setPaymentMode(ch.getPaymentMode());
+			out.setTenderedAmount(ch.getTenderedAmount());
+			out.setChangeAmount(ch.getChangeAmount());
+			if (ch.getCustomer() != null) out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
+
+			var ts = taxService.settingsFor(orgId());                                  // tax label/reg-no for the header
+			out.setTaxLabel(ts.getTaxLabel());
+			out.setTaxRegNo(ts.getTaxRegNo());
+
+			// line item names: legacy via local Stock's itemId, saga via productId reverse-map (same as getUserSell)
+			java.util.List<Long> itemIds = lines.stream()
+					.filter(s -> s.getStock() != null && s.getStock().getItemId() != null)
+					.map(s -> s.getStock().getItemId()).distinct().collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
+					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+			java.util.List<Long> sagaProductIds = lines.stream()
+					.filter(s -> s.getStock() == null && s.getProductId() != null)
+					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
+			if (!sagaProductIds.isEmpty()) {
+				java.util.Map<Long, Long> productToItem = new java.util.HashMap<>();
+				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(sagaProductIds, orgId()))
+					productToItem.put((Long) row[0], (Long) row[1]);
+				java.util.Map<Long, Item> sagaItems = itemService.findAllById(productToItem.values()).stream()
+						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+				sagaProductIds.forEach(pid -> {
+					Long iid = productToItem.get(pid);
+					if (iid != null && sagaItems.get(iid) != null) itemByProductId.put(pid, sagaItems.get(iid));
+				});
+			}
+			List<SellDTO> sales = new java.util.ArrayList<>();
+			for (Sell s : lines) {
+				modelMapper.addConverter(appUtil.localDateTimeToString);
+				modelMapper.addConverter(appUtil.localDateToString);
+				SellDTO sd = modelMapper.map(s, SellDTO.class);
+				Item item = (s.getStock() != null && s.getStock().getItemId() != null)
+						? itemsById.get(s.getStock().getItemId())
+						: itemByProductId.get(s.getProductId());
+				if (item != null) { sd.setItemId(item.getId()); sd.setItemName(item.getIname()); sd.setItemCode(item.getIcode()); }
+				if (s.getStock() != null) sd.setStock(modelMapper.map(s.getStock(), StockDTO.class));
+				sales.add(sd);
+			}
+			out.setSales(sales);
+			return new GenericResponse("SUCCESS", "Receipt loaded", out);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > getReceipt " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load the receipt.");
+		}
+	}
+
 	@RequestMapping(value = "/loadSR", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse loadSR(final SellDTO dto, final HttpServletRequest request) {
@@ -282,8 +484,9 @@ public class SellController {
 	@ResponseBody
 	public GenericResponse getAllSell(final HttpServletRequest request) {
 		try {
-			// was findAll() — cross-tenant leak; now scoped to the active org.
-			List<Sell> objs = sellService.findScoped(orgId(), userId());
+			// was findAll() — cross-tenant leak; now org-scoped + role-aware (SUPER = org, others = own).
+			List<Sell> objs = seesAllOrg() ? sellService.findScoped(orgId(), userId())
+			                               : sellService.findOwnScoped(orgId(), userId());
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -314,6 +517,16 @@ public class SellController {
 			if (dto == null || appUtil.isEmptyOrNull(dto.getSales()))
 				return new GenericResponse("ERROR", "No sales data provided");
 
+			// Strangler (slice 33, D2): when enabled, route the sale through the inventory reservation saga
+			// (catalog price + reserve/confirm) instead of decrementing local Stock. SagaSellService manages
+			// its own committed transactions (REQUIRES_NEW), so it is safe to call inside this @Transactional.
+			if (tradeSagaProperties.isEnabled()) {
+				String invoiceNo = sagaSellService.addSell(dto);
+				return new GenericResponse("SUCCESS",
+						invoiceNo != null ? "Sale recorded successfully. Invoice " + invoiceNo : "Sale recorded successfully.",
+						invoiceNo);
+			}
+
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getUserId());
 			Customer customerObj = customerService.saveUpdateCustomer(dto);
@@ -323,6 +536,10 @@ public class SellController {
 
 			customerHistory.setCustomer(customerObj);
 			customerHistoryService.save(customerHistory);
+
+			// Running balance is the sum of this customer's invoice headers — recompute now that this
+			// sale's header exists, so under/over-payments carry across invoices correctly.
+			customerService.recomputeDue(customerObj);
 
 			List<SellDTO> sells = ObjectMapperUtils.mapAll(dto.getSales(), SellDTO.class);
 			for (SellDTO sell : sells) {
@@ -400,6 +617,114 @@ public class SellController {
 */	
 	
 	
+	/**
+	 * Update an existing sale (invoice) in place — the "edit" counterpart of addSell. Keeps the SAME
+	 * invoice number; adjusts stock by the NET per-item delta (old sold qty given back − new sold qty);
+	 * recomputes the customer due. All-or-nothing (@Transactional). The frontend routes here (instead of
+	 * addSell) when it carries a customer_history_id (an edit in progress).
+	 */
+	@RequestMapping(value = "/updateSell", method = RequestMethod.POST)
+	@ResponseBody
+	@Transactional
+	public GenericResponse updateSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
+		try {
+			if (dto == null || dto.getCustomer_history_id() == null)
+				return new GenericResponse("ERROR", "No invoice id provided for update");
+			if (appUtil.isEmptyOrNull(dto.getSales()))
+				return new GenericResponse("ERROR", "No sales data provided");
+
+			AuthenticatedUser user = requestUtil.getCurrentUser();
+			Long chId = dto.getCustomer_history_id();
+
+			// Anti-IDOR: the invoice must belong to this tenant.
+			Optional<CustomerHistory> chOpt = customerHistoryService.findById(chId);
+			if (!chOpt.isPresent())
+				return new GenericResponse("NOT_FOUND", "Invoice not found");
+			CustomerHistory ch = chOpt.get();
+			if (!inMyTenant(ch.getOrganizationId(), ch.getUserId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found");
+
+			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
+			java.util.Map<Long, Float> delta = new java.util.HashMap<>();
+			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
+			for (Sell o : oldLines) {
+				if (o.getStock() != null && o.getStock().getStockId() != null && o.getQuantity() != null)
+					delta.merge(o.getStock().getStockId(), o.getQuantity(), Float::sum);
+			}
+			for (SellDTO s : dto.getSales()) {
+				Long sid = (s.getStock() != null) ? s.getStock().getStockId() : null;
+				if (sid != null && s.getQuantity() != null)
+					delta.merge(sid, -s.getQuantity(), Float::sum);
+			}
+			// 2) Apply the deltas, rejecting any change that would drive stock negative.
+			for (java.util.Map.Entry<Long, Float> e : delta.entrySet()) {
+				Optional<Stock> so = stockService.findById(e.getKey());
+				if (!so.isPresent()) continue;
+				Stock st = so.get();
+				float now = (st.getStock() == null ? 0f : st.getStock()) + e.getValue();
+				if (now < 0)
+					return new GenericResponse("ERROR", "Not enough stock to apply this change.");
+				st.setStock(now);
+				stockService.save(st);
+			}
+
+			// 3) Delete the original line items (replaced below).
+			for (Sell o : oldLines) sellService.deleteById(o.getSellId());
+
+			// 4) Update customer + invoice header IN PLACE — KEEP invoiceSeq/invoiceNo (no new number).
+			Customer customerObj = customerService.saveUpdateCustomer(dto);
+			customerService.save(customerObj);
+			ch.setCustomer(customerObj);
+			ch.setUserId(user.getUserId());
+			ch.setOrganizationId(user.getOrganizationId());
+			ch.setUpdated(java.time.LocalDateTime.now());
+			java.math.BigDecimal paid = dto.getPaidAmount() != null ? dto.getPaidAmount()
+					: (dto.getCustomer() != null ? dto.getCustomer().getPaidAmount() : null);
+			java.math.BigDecimal due = dto.getDueAmount() != null ? dto.getDueAmount()
+					: (dto.getCustomer() != null ? dto.getCustomer().getDueAmount() : null);
+			if (paid != null) ch.setPaidAmount(paid);
+			if (due != null) ch.setDueAmount(due);
+			if (dto.getDueDate() != null) ch.setDueDate(dto.getDueDate());
+			customerHistoryService.save(ch);
+
+			// Recompute the customer's running balance from all their invoice headers — this edited
+			// header now carries its new (paid − bill), so the prior balance + this change are correct
+			// without any lossy in-place reversal of the original amounts.
+			customerService.recomputeDue(customerObj);
+
+			// 5) Insert the edited line items (stock already adjusted above; rates come from the stock).
+			for (SellDTO s : dto.getSales()) {
+				Sell line = new Sell();
+				line.setUserId(user.getUserId());
+				line.setOrganizationId(user.getOrganizationId());
+				line.setQuantity(s.getQuantity());
+				line.setTotalAmount(s.getTotalAmount());
+				line.setNetAmount(s.getNetAmount());
+				line.setSrp(s.getSrp());
+				line.setDated(java.time.LocalDateTime.now());
+				line.setUpdated(java.time.LocalDateTime.now());
+				line.setCustomerHistory(ch);
+				if (s.getStock() != null && s.getStock().getStockId() != null) {
+					Optional<Stock> so = stockService.findById(s.getStock().getStockId());
+					if (so.isPresent()) {
+						Stock st = so.get();
+						line.setStock(st);
+						line.setSellRate(st.getBsellRate());
+						line.setDiscount(st.getBsellDiscount());
+						line.setDt(st.getBsellDiscountType());
+					}
+				}
+				sellService.save(line);
+			}
+
+			return new GenericResponse("SUCCESS", "Sale updated. Invoice " + ch.getInvoiceNo(), ch.getInvoiceNo());
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > updateSell " + e.getMessage(), e);
+			// Propagate past @Transactional so the whole edit rolls back (all-or-nothing).
+			throw new RuntimeException("Could not update the sale. Please try again.", e);
+		}
+	}
+
 	@PostMapping(value = "/addSelling")
 	@ResponseBody
 	public GenericResponse addSelling(@RequestBody final List<SellDTO> dtos, final HttpServletRequest request) {
@@ -512,30 +837,114 @@ public class SellController {
 		}
 	}
 
+	@Transactional
 	@PostMapping(value = "/saleReturn")
 	@ResponseBody
 	public GenericResponse saleReturn(final SellDTO dto, final HttpServletRequest request) {
 //	public GenericResponse saleReturn(@RequestParam final Long saleId,@RequestParam final Long stockId,@RequestParam final Float qty) {
 		try {
-			if(appUtil.isEmptyOrNull(dto.getSellId()) || appUtil.isEmptyOrNull(dto.getSellSId()))
-				return new GenericResponse("NOT_FOUND");;
+			// sellId identifies the line to return. sellSId (local Stock id) is only needed to restock a legacy
+			// local-Stock sell — saga sells have no local Stock (they reverse through inventory below), so an empty
+			// sellSId is valid for them and must NOT be rejected here, else the default (saga) sell can't be returned.
+			if(appUtil.isEmptyOrNull(dto.getSellId()))
+				return new GenericResponse("NOT_FOUND");
 
 			// anti-IDOR: only let the caller return a sale that belongs to their tenant
 			Sell existingSell = sellService.findById(dto.getSellId()).orElse(null);
 			if(existingSell == null || !inMyTenant(existingSell.getOrganizationId(), existingSell.getUserId()))
 				return new GenericResponse("NOT_FOUND");
 
-			Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());
-			if(stockOpt.isPresent()) {
-				Stock stock = stockOpt.get();
-				stock.setStock(stock.getStock() + dto.getQuantity());
-				
-				stockService.save(stock);
-				if(appUtil.isEmptyOrNull(stock)) {
-					return new GenericResponse("FAILED", "Sale return failed. Please try again.");
+			// G2 (slice 34) input validation: return qty must be > 0 and not exceed what was sold on this line —
+			// otherwise the fallback restock would inflate StockLevel beyond what left. (Bean-Validation standard, slice 26.)
+			float soldQty = existingSell.getQuantity() != null ? existingSell.getQuantity() : 0f;
+			float retQty = dto.getQuantity() != null ? dto.getQuantity() : 0f;
+			if(retQty <= 0f)
+				return new GenericResponse("FAILED", "Return quantity must be greater than 0.");
+			if(retQty > soldQty)
+				return new GenericResponse("FAILED", "Cannot return more than the sold quantity (" + soldQty + ").");
+
+			// G2 (slice 34): a saga sell decremented inventory-service (StockEntry/StockLevel), not local Stock.
+			// Route its return back through inventory (inverse saga) so on-hand is restored, not just local Stock.
+			CustomerHistory ch = existingSell.getCustomerHistory();
+			String reservationId = ch != null ? ch.getReservationId() : null;
+			boolean sagaSell = existingSell.getProductId() != null && reservationId != null;
+
+			if(sagaSell) {
+				// P11 (slice 55): pharmacy returns quarantine (do not restock) — flag travels from the return UI.
+				boolean quarantine = "true".equalsIgnoreCase(request.getParameter("quarantine"));
+				com.myplus.commerce.contracts.dto.StockReturnRequest returnReq =
+						new com.myplus.commerce.contracts.dto.StockReturnRequest(
+								java.util.List.of(new com.myplus.commerce.contracts.dto.StockReturnLine(
+										existingSell.getProductId(), dto.getQuantity())));
+				returnReq.setQuarantine(quarantine);
+				inventoryClient.returnStock(reservationId, returnReq);
+			} else if (!appUtil.isEmptyOrNull(dto.getSellSId())) {
+				// Legacy local-Stock sell: restore the local Stock row as before.
+				Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());
+				if(stockOpt.isPresent()) {
+					Stock stock = stockOpt.get();
+					stock.setStock(stock.getStock() + dto.getQuantity());
+
+					stockService.save(stock);
+					if(appUtil.isEmptyOrNull(stock)) {
+						return new GenericResponse("FAILED", "Sale return failed. Please try again.");
+					}
 				}
 			}
-			sellService.deleteById(dto.getSellId());
+
+			// G5 (slice 37): record the money refunded to the customer (proportional to the returned qty), so the
+			// payment ledger matches the restored stock. A REFUND tender (negative) is written to the invoice.
+			boolean partial = retQty > 0f && retQty < soldQty;
+			if (ch != null && ch.getCustomer_history_id() != null) {
+				java.math.BigDecimal lineGross = nzbd(existingSell.getTotalAmount()).add(nzbd(existingSell.getTaxAmount()));
+				java.math.BigDecimal refund = partial
+						? lineGross.multiply(java.math.BigDecimal.valueOf(retQty))
+								.divide(java.math.BigDecimal.valueOf(soldQty), 2, java.math.RoundingMode.HALF_UP)
+						: lineGross;   // full-line return (or unknown qty) → refund the whole line
+				if (refund.signum() > 0)
+					paymentService.refund(ch.getCustomer_history_id(), refund, orgId(), userId());
+			}
+
+			// Adjust the returned line: a full return removes it; a partial return reduces its qty and money
+			// pro-rata so the invoice keeps the portion the customer is keeping.
+			if (partial) {
+				java.math.BigDecimal keepFrac = java.math.BigDecimal.valueOf(soldQty - retQty)
+						.divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP);
+				existingSell.setQuantity(soldQty - retQty);
+				existingSell.setTotalAmount(nzbd(existingSell.getTotalAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
+				existingSell.setNetAmount(nzbd(existingSell.getNetAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
+				existingSell.setTaxAmount(nzbd(existingSell.getTaxAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
+				existingSell.setSrp(nzbd(existingSell.getSrp()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
+				existingSell.setUpdated(java.time.LocalDateTime.now());
+				sellService.save(existingSell);
+			} else {
+				sellService.deleteById(dto.getSellId());
+			}
+
+			// Re-settle the invoice header on its SURVIVING lines and recompute the customer's running due, so the
+			// return is reflected everywhere it is read — the dashboard's "customers with dues" (getDashboardChartData),
+			// the customer ledger/statement and the invoice totals. The header stores dueAmount = paidAmount − grandTotal
+			// (negative while owing); recomputeDue() sums those headers into Customer.dueAmount.
+			if (ch != null && ch.getCustomer_history_id() != null) {
+				List<Sell> surviving = sellService.findByInvoiceScoped(ch.getCustomer_history_id(), orgId(), userId());
+				java.math.BigDecimal subTotal = java.math.BigDecimal.ZERO, taxTotal = java.math.BigDecimal.ZERO;
+				for (Sell s : surviving) {
+					subTotal = subTotal.add(nzbd(s.getTotalAmount()));
+					taxTotal = taxTotal.add(nzbd(s.getTaxAmount()));
+				}
+				java.math.BigDecimal grandTotal = subTotal.add(taxTotal);
+				ch.setSubTotal(subTotal);
+				ch.setTaxTotal(taxTotal);
+				ch.setGrandTotal(grandTotal);
+				ch.setDueAmount(nzbd(ch.getPaidAmount()).subtract(grandTotal));
+				ch.setUpdated(java.time.LocalDateTime.now());
+				customerHistoryService.save(ch);
+
+				Customer customer = ch.getCustomer();
+				if (customer != null)
+					customerService.recomputeDue(customer);
+			}
+
 			return new GenericResponse("SUCCESS", "Sale returned successfully.");
 
 		} catch (Exception e) {

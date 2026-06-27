@@ -51,13 +51,24 @@ spring:
           uri: lb://inventory-service
           predicates:
             - Path=/api/inventory/**
+          # No StripPrefix: inventory-service controllers are mapped at the full /api/inventory/... path.
           filters:
             - name: CircuitBreaker
               args:
                 name: inventory-service
                 fallbackUri: forward:/fallback
             - name: JwtAuthenticationFilter
-            - StripPrefix=2
+        - id: catalog-service
+          uri: lb://catalog-service
+          predicates:
+            - Path=/api/catalog/**
+          # No StripPrefix: catalog-service controllers are mapped at the full /api/catalog/... path.
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: catalog-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
         - id: business-service
           uri: lb://business-service
           predicates:
@@ -124,6 +135,17 @@ spring:
                 fallbackUri: forward:/fallback
             - name: JwtAuthenticationFilter
             - StripPrefix=2
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
+          # No StripPrefix: notification-service controllers are mapped at the full /api/notifications/... path.
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: notification-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
         - id: campaign-service
           uri: lb://campaign-service
           predicates:

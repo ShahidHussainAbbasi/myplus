@@ -4,7 +4,7 @@ import com.myplus.analytics.dto.ReportDefinitionDTO;
 import com.myplus.analytics.dto.ReportExecutionDTO;
 import com.myplus.analytics.entity.ReportDefinition;
 import com.myplus.analytics.entity.ReportExecution;
-import com.myplus.analytics.exception.ResourceNotFoundException;
+import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.analytics.repository.ReportDefinitionRepository;
 import com.myplus.analytics.repository.ReportExecutionRepository;
 import lombok.RequiredArgsConstructor;

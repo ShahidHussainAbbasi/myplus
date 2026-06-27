@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Store — MyPlus</title>
+    <style>
+        *{box-sizing:border-box} body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2a37;background:#f6f8fb}
+        header{background:#1f4e8c;color:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:center}
+        header .brand{font-weight:700;font-size:18px} header a{color:#cfe0ff;text-decoration:none;font-size:13px}
+        .wrap{max-width:1100px;margin:0 auto;padding:18px;display:flex;gap:18px;align-items:flex-start}
+        .grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+        .card{background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:14px;display:flex;flex-direction:column}
+        .card .name{font-weight:600;margin-bottom:4px} .card .price{color:#1f4e8c;font-weight:700;margin:6px 0}
+        .card .muted{color:#6b7686;font-size:12px;flex:1}
+        button{cursor:pointer;border:none;border-radius:8px;padding:8px 12px;font-weight:600}
+        .add{background:#27ae60;color:#fff} .pay{background:#1f4e8c;color:#fff;width:100%}
+        .add:disabled{background:#c3c9d2;cursor:not-allowed}
+        .stock{font-size:11px;font-weight:600;margin:2px 0 8px;padding:2px 6px;border-radius:6px;display:inline-block}
+        .stock.out{background:#fdecea;color:#c0392b} .stock.low{background:#fff4e0;color:#b9770e}
+        .cart{width:320px;background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:16px;position:sticky;top:18px}
+        .cart h3{margin:0 0 10px} .line{display:flex;justify-content:space-between;font-size:13px;margin:4px 0}
+        .total{display:flex;justify-content:space-between;font-weight:700;border-top:1px solid #e6eaf0;margin-top:8px;padding-top:8px}
+        input{width:100%;padding:8px;margin:4px 0;border:1px solid #ccd4df;border-radius:8px}
+        .ok{background:#e7f8ee;border:1px solid #27ae60;color:#0a7d33;padding:10px;border-radius:8px;margin-top:8px}
+        .empty{color:#6b7686;text-align:center;padding:30px}
+        .pay-tabs{display:flex;gap:8px;margin:8px 0}
+        .pay-tab{flex:1;text-align:center;padding:8px;border:1px solid #ccd4df;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;background:#fff}
+        .pay-tab.active{background:#1f4e8c;color:#fff;border-color:#1f4e8c}
+        .hint{font-size:11px;color:#6b7686;margin:2px 0 6px}
+    </style>
+</head>
+<body>
+<header>
+    <span class="brand">🛍️ MyPlus Store</span>
+    <a href="/">← back to maxtheservice.com</a>
+</header>
+<div class="wrap">
+    <div style="flex:1">
+        <!-- slice 60: product name search -->
+        <input id="storeSearch" placeholder="Search products…" style="width:100%;padding:10px;margin-bottom:12px;border:1px solid #ccd4df;border-radius:8px">
+        <div class="grid" id="grid"><div class="empty">Loading products…</div></div>
+    </div>
+    <div class="cart">
+        <!-- slice 61: storefront shopper account -->
+        <div id="acct" style="border:1px solid #e6eaf0;border-radius:8px;padding:10px;margin-bottom:14px">
+            <div id="acctOut">
+                <div style="font-weight:600;margin-bottom:6px">👤 Account</div>
+                <input id="acEmail" placeholder="Email">
+                <input id="acPass" type="password" placeholder="Password">
+                <input id="acName" placeholder="Name (for sign up)">
+                <div style="display:flex;gap:6px;margin-top:6px">
+                    <button class="pay" style="flex:1" onclick="acLogin()">Sign in</button>
+                    <button class="pay" style="flex:1;background:#27ae60" onclick="acRegister()">Sign up</button>
+                </div>
+                <div id="acErr" style="color:#c0392b;font-size:12px;min-height:14px;margin-top:4px"></div>
+            </div>
+            <div id="acctIn" style="display:none">
+                <div>Hi <b id="acWho"></b> · <a href="#" onclick="acMyOrders();return false">My Orders</a> · <a href="#" onclick="acLogout();return false">Sign out</a></div>
+                <div id="acOrders" style="margin-top:8px"></div>
+            </div>
+        </div>
+        <h3>Your cart</h3>
+        <div id="cartLines"><div class="empty">Cart is empty</div></div>
+        <div class="total"><span>Total</span><span id="cartTotal">0.00</span></div>
+        <div id="checkout" style="display:none;margin-top:12px">
+            <input id="cName" placeholder="Your name *">
+            <input id="cContact" placeholder="Phone / email">
+            <input id="cAddress" placeholder="Delivery address">
+            <div class="pay-tabs">
+                <div class="pay-tab active" id="tabCod" onclick="setPay('COD')">💵 Cash on Delivery</div>
+                <div class="pay-tab" id="tabCard" onclick="setPay('CARD')">💳 Pay by Card</div>
+            </div>
+            <div id="cardForm" style="display:none">
+                <input id="cCard" placeholder="Card number" value="4242 4242 4242 4242" inputmode="numeric">
+                <div class="hint">Sandbox — use 4000 0000 0000 0002 to test a decline.</div>
+                <input id="cExp" placeholder="MM/YY" value="12/30">
+                <input id="cCvc" placeholder="CVC" value="123">
+            </div>
+            <button class="pay" id="payBtn" onclick="placeOrder()">Place order (Cash on Delivery)</button>
+        </div>
+        <div id="done"></div>
+        <!-- Order tracking (slice 56): look up an order's status by ref + contact, no account needed. -->
+        <div style="border-top:1px solid #e6eaf0;margin-top:14px;padding-top:12px">
+            <div style="font-weight:600;margin-bottom:6px">📦 Track your order</div>
+            <input id="trkRef" placeholder="Order # (e.g. 123)" inputmode="numeric">
+            <input id="trkContact" placeholder="Phone / email used">
+            <button class="pay" onclick="trackOrder()">Check status</button>
+            <div id="trkResult"></div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    var STORE_ORG = new URLSearchParams(location.search).get('org') || [[${storeOrg} ?: 1]];
+    var products = [], cart = {};
+
+    function money(v){ var n=Number(v); return isNaN(n)?'0.00':n.toFixed(2); }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+
+    // slice 60: load (optionally search) the store's products and render the grid.
+    function loadStoreProducts(q){
+        var url = '/storefront/products?org=' + encodeURIComponent(STORE_ORG) + (q ? ('&q=' + encodeURIComponent(q)) : '');
+        fetch(url)
+            .then(function(r){ return r.json(); })
+            .then(function(resp){
+                products = (resp && resp.data) ? resp.data : [];
+                var g = document.getElementById('grid');
+                if(!products.length){ g.innerHTML = '<div class="empty">'+(q ? 'No products match "'+esc(q)+'".' : 'This store has no products yet.')+'</div>'; return; }
+                g.innerHTML = products.map(function(p){
+                    // available: null = unknown stock (no inventory row) -> treat as buyable; <=0 = out of stock.
+                    var known = (p.available !== null && p.available !== undefined);
+                    var out = known && Number(p.available) <= 0;
+                    var low = known && Number(p.available) > 0 && Number(p.available) <= 5;
+                    var badge = out ? '<div class="stock out">Out of stock</div>'
+                              : (low ? '<div class="stock low">Only '+Number(p.available)+' left</div>' : '');
+                    var btn = out
+                        ? '<button class="add" disabled>Out of stock</button>'
+                        : '<button class="add" onclick="addToCart('+p.id+')">Add to cart</button>';
+                    return '<div class="card"><div class="name">'+esc(p.name)+'</div>'
+                        + '<div class="muted">'+esc(p.description||'')+'</div>'
+                        + '<div class="price">'+money(p.sellingPrice)+'</div>'
+                        + badge + btn + '</div>';
+                }).join('');
+            }).catch(function(){ document.getElementById('grid').innerHTML='<div class="empty">Could not load products.</div>'; });
+    }
+
+    loadStoreProducts('');
+
+    // Debounced search box.
+    (function(){
+        var box = document.getElementById('storeSearch'), t;
+        if(!box) return;
+        box.addEventListener('input', function(){ clearTimeout(t); var q = box.value.trim(); t = setTimeout(function(){ loadStoreProducts(q); }, 300); });
+    })();
+
+    function addToCart(id){
+        var p = products.find(function(x){ return x.id===id; }); if(!p) return;
+        cart[id] = cart[id] || { id:id, name:p.name, price:Number(p.sellingPrice)||0, qty:0 };
+        // Cap at available stock when known, so the cart can never exceed what checkout could reserve.
+        var known = (p.available !== null && p.available !== undefined);
+        if(known && cart[id].qty >= Number(p.available)){
+            if(!cart[id].qty) delete cart[id];
+            alert('Only '+Number(p.available)+' of "'+p.name+'" in stock.');
+            renderCart();
+            return;
+        }
+        cart[id].qty++;
+        renderCart();
+    }
+
+    function renderCart(){
+        var ids = Object.keys(cart), lines = document.getElementById('cartLines'), total = 0;
+        if(!ids.length){ lines.innerHTML='<div class="empty">Cart is empty</div>'; document.getElementById('checkout').style.display='none'; document.getElementById('cartTotal').textContent='0.00'; return; }
+        lines.innerHTML = ids.map(function(id){
+            var c = cart[id]; total += c.price*c.qty;
+            return '<div class="line"><span>'+esc(c.name)+' × '+c.qty+'</span><span>'+money(c.price*c.qty)+'</span></div>';
+        }).join('');
+        document.getElementById('cartTotal').textContent = money(total);
+        document.getElementById('checkout').style.display = 'block';
+    }
+
+    function cartTotal(){ return Object.keys(cart).reduce(function(t,id){ return t + cart[id].price*cart[id].qty; },0); }
+
+    var payMode = 'COD';
+    function setPay(mode){
+        payMode = mode;
+        document.getElementById('tabCod').classList.toggle('active', mode==='COD');
+        document.getElementById('tabCard').classList.toggle('active', mode==='CARD');
+        document.getElementById('cardForm').style.display = mode==='CARD' ? 'block' : 'none';
+        document.getElementById('payBtn').textContent = mode==='CARD' ? 'Pay now (Card)' : 'Place order (Cash on Delivery)';
+    }
+
+    // Sandbox: the decline test card maps to the "fail" token the PaymentGateway rejects.
+    function cardToken(){
+        var num = (document.getElementById('cCard').value || '').replace(/\s+/g,'');
+        return num === '4000000000000002' ? 'fail' : 'tok_sandbox';
+    }
+
+    function placeOrder(){
+        if(!document.getElementById('cName').value.trim()){ alert('Please enter your name.'); return; }
+        var items = Object.keys(cart).map(function(id){ return { productId:cart[id].id, quantity:cart[id].qty, price:cart[id].price }; });
+        if(!items.length){ alert('Your cart is empty.'); return; }
+        var body = { organizationId:Number(STORE_ORG), customerName:document.getElementById('cName').value,
+            customerContact:document.getElementById('cContact').value, shippingAddress:document.getElementById('cAddress').value,
+            total: cartTotal(), items: items, paymentMode: payMode };
+        if(payMode==='CARD'){ body.cardToken = cardToken(); }
+        if(acctToken()){ body.customerToken = acctToken(); }   // slice 61: link the order to the signed-in shopper
+        fetch('/storefront/checkout', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+        }).then(function(r){ return r.json(); }).then(function(resp){
+            if(resp && resp.success){
+                cart = {}; renderCart();
+                var msg = payMode==='CARD'
+                    ? '✓ Payment received — order confirmed! We\'ll ship it shortly.'
+                    : '✓ Order placed! We\'ll contact you to confirm delivery. (Cash on Delivery)';
+                var ref = (resp.data && resp.data.id) ? resp.data.id : null;
+                var refLine = ref ? ('<div style="margin-top:6px">Your order reference: <b>#'+esc(String(ref))+'</b> — keep it to track your order.</div>') : '';
+                document.getElementById('done').innerHTML = '<div class="ok" id="orderDone">'+msg+refLine+'</div>';
+                if(ref){ document.getElementById('trkRef').value = ref; document.getElementById('trkContact').value = document.getElementById('cContact').value; }
+            } else { alert((resp && resp.message) || 'Could not place the order.'); }
+        }).catch(function(){ alert('Could not place the order. Please try again.'); });
+    }
+
+    // ── Storefront accounts (slice 61) ──────────────────────────────────────────
+    function acctData(){ try { return JSON.parse(localStorage.getItem('sfCustomer_' + STORE_ORG) || 'null'); } catch(e){ return null; } }
+    function acctToken(){ var a = acctData(); return a ? a.token : null; }
+    function renderAcct(){
+        var a = acctData();
+        document.getElementById('acctOut').style.display = a ? 'none' : 'block';
+        document.getElementById('acctIn').style.display = a ? 'block' : 'none';
+        if(a){ document.getElementById('acWho').textContent = a.name || a.email; }
+    }
+    function acSave(resp){
+        if(resp && resp.success && resp.data && resp.data.token){
+            localStorage.setItem('sfCustomer_' + STORE_ORG, JSON.stringify({ token: resp.data.token, name: resp.data.name, email: resp.data.email }));
+            document.getElementById('acErr').textContent = '';
+            renderAcct();
+            return true;
+        }
+        document.getElementById('acErr').textContent = (resp && resp.message) || 'Failed.';
+        return false;
+    }
+    function acPost(path){
+        return fetch(path, { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ organizationId:Number(STORE_ORG), email:document.getElementById('acEmail').value,
+                password:document.getElementById('acPass').value, name:document.getElementById('acName').value }) })
+            .then(function(r){ return r.json(); });
+    }
+    function acRegister(){ acPost('/storefront/register').then(acSave).catch(function(){ document.getElementById('acErr').textContent='Sign up failed.'; }); }
+    function acLogin(){ acPost('/storefront/login').then(acSave).catch(function(){ document.getElementById('acErr').textContent='Sign in failed.'; }); }
+    function acLogout(){ localStorage.removeItem('sfCustomer_' + STORE_ORG); document.getElementById('acOrders').innerHTML=''; renderAcct(); }
+    function acMyOrders(){
+        var tok = acctToken(); if(!tok) return;
+        fetch('/storefront/myorders?token=' + encodeURIComponent(tok)).then(function(r){ return r.json(); }).then(function(resp){
+            var out = document.getElementById('acOrders');
+            if(!resp || !resp.success){ out.innerHTML = '<div class="empty">'+esc((resp&&resp.message)||'Could not load orders.')+'</div>'; if(resp&&!resp.success){ acLogout(); } return; }
+            var list = resp.data || [];
+            out.innerHTML = list.length ? ('<div id="myOrders">' + list.map(function(o){
+                return '<div class="line"><span>#'+esc(String(o.id))+' · '+esc(o.fulfilmentStatus||'')+'</span><span>'+money(o.total)+'</span></div>';
+            }).join('') + '</div>') : '<div class="empty">No orders yet.</div>';
+        }).catch(function(){ document.getElementById('acOrders').innerHTML='<div class="empty">Could not load orders.</div>'; });
+    }
+    renderAcct();
+
+    // Order tracking (slice 56): look up status by ref + contact.
+    function trackOrder(){
+        var ref = (document.getElementById('trkRef').value||'').trim();
+        var contact = (document.getElementById('trkContact').value||'').trim();
+        var out = document.getElementById('trkResult');
+        if(!ref || !contact){ out.innerHTML = '<div class="empty">Enter your order # and the contact you used.</div>'; return; }
+        fetch('/storefront/track?ref='+encodeURIComponent(ref)+'&contact='+encodeURIComponent(contact))
+            .then(function(r){ return r.json(); })
+            .then(function(resp){
+                if(resp && resp.success && resp.data){
+                    var d = resp.data;
+                    var steps = (d.events||[]).map(function(e){
+                        var when = String(e.at||'').replace('T',' ').substring(0,16);
+                        return '<div style="font-size:12px">• <b>'+esc(e.status||'')+'</b> <span class="muted">'+esc(when)+'</span></div>';
+                    }).join('');
+                    var timeline = steps ? ('<div style="margin-top:6px">'+steps+'</div>') : '';
+                    out.innerHTML = '<div class="ok" id="trkStatus">Order #'+esc(String(d.ref))+' — status: <b>'+esc(d.status||'')+'</b><br>'
+                        + esc(d.customerName||'') + ' • Total '+money(d.total)+ timeline +'</div>';
+                } else {
+                    out.innerHTML = '<div class="empty" id="trkNone">'+esc((resp&&resp.message)||'Order not found.')+'</div>';
+                }
+            }).catch(function(){ out.innerHTML = '<div class="empty">Could not look up the order.</div>'; });
+    }
+</script>
+</body>
+</html>

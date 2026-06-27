@@ -8,8 +8,8 @@ eureka:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${DB_USER:root}
-    password: ${DB_PASSWORD:changeme}
+    username: ${DB_USER:shahid}
+    password: ${DB_PASSWORD:Technology@2025!}
     hikari:
       # 11 DB-backed services share one MySQL. Keep each pool small so the total stays well under
       # MySQL max_connections (default 151; docker sets 200): 11 × 8 = 88. Env-overridable for prod.
@@ -37,7 +37,10 @@ spring:
     connect-retries-interval: ${FLYWAY_CONNECT_RETRIES_INTERVAL:5s}
   jpa:
     hibernate:
-      ddl-auto: update
+      # Flyway is now authoritative for every service's schema (P0 series, slices 64-67), so dev validates
+      # like prod instead of letting Hibernate auto-alter. Schema changes must go through a migration.
+      # Escape hatch: set DDL_AUTO=update to fall back to auto-DDL without a rebuild.
+      ddl-auto: ${DDL_AUTO:validate}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect

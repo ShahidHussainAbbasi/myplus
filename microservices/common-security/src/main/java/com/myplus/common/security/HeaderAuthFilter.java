@@ -60,8 +60,8 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
                 AuthenticatedUser principal = new AuthenticatedUser(Long.valueOf(userId), email, authorities, organizationId);
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
-                // Also store in request attributes as a reliable fallback.
-                request.setAttribute("_authenticated_user", principal);
+                // Also store in request attributes as a reliable fallback (read by CurrentUser.get()).
+                request.setAttribute(CurrentUser.REQUEST_ATTRIBUTE, principal);
             } catch (NumberFormatException ignored) {
             }
         }

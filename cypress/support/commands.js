@@ -52,6 +52,18 @@ Cypress.Commands.add('loginAsBusiness', (email = 'demo.business@myplus.com', pas
   cy.loginAs(email, password, '/getBusinessDashboardStats')
 })
 
+// Pharmacy (slice 33) — the PHARMA vertical reuses the business/trade backend, so it validates via the
+// same business stats endpoint; userType PHARMA routes the user to /pharmaDashboard.
+Cypress.Commands.add('loginAsPharma', (email = 'demo.pharma@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getBusinessDashboardStats')
+})
+
+// E-commerce (slice 46) — MARKETPLACE userType reuses the trade dashboard (relabeled "Store"); validates via the
+// orders endpoint it owns.
+Cypress.Commands.add('loginAsMarketplace', (email = 'demo.marketplace@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getOrders')
+})
+
 // Education — seeded EDUCATION demo user; routes to /educationDashboard.
 Cypress.Commands.add('loginAsEducation', (email = 'demo.education@myplus.com', password = DEMO_PW) => {
   cy.loginAs(email, password, '/getDashboardData')

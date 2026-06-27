@@ -1,6 +1,6 @@
 package com.myplus.inventory.controller;
 
-import com.myplus.inventory.dto.ApiResponse;
+import com.myplus.common.web.ApiResponse;
 import com.myplus.inventory.dto.SupplierDTO;
 import com.myplus.inventory.service.SupplierService;
 import lombok.RequiredArgsConstructor;

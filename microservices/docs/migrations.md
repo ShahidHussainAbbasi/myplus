@@ -25,3 +25,19 @@ ALTER TABLE stock            MODIFY batch_purchase_rate DECIMAL(19,2), MODIFY ba
 > Find the old index name in your environment with (swap TABLE_NAME / TABLE_SCHEMA per row):
 > `SELECT INDEX_NAME, GROUP_CONCAT(COLUMN_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='myplusdb_education' AND TABLE_NAME='owner' GROUP BY INDEX_NAME;`
 > For slice 21 use `TABLE_SCHEMA='myplusdb'` and `TABLE_NAME IN ('item_type','item_unit')` — the old single-column `name` index is the one to drop (keep the new `(organization_id, name)` one).
+
+---
+
+## Migration #4 — slice 59 (P12): add INSURANCE to the payment method enum
+
+Hibernate 6 maps `@Enumerated(STRING)` to a native MySQL `enum(...)` column. Adding a new `PaymentMethod` value
+(`INSURANCE`) is NOT applied by `ddl-auto: update` (it never alters enum columns), so inserting an INSURANCE tender
+fails with "Data truncated for column 'method'". Run once on the business DB (`myplusdb`):
+
+```sql
+ALTER TABLE payment
+  MODIFY method enum('BANK_TRANSFER','CARD','CASH','CREDIT','INSURANCE','REFUND','WALLET') DEFAULT NULL;
+```
+
+Applied 2026-06-26 on dev `myplusdb`. (General rule: any new enum value on an `@Enumerated(STRING)` field needs an
+ALTER … MODIFY of its MySQL enum column — ddl-auto won't add it.)

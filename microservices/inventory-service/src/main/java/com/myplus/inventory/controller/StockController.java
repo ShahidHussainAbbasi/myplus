@@ -1,14 +1,19 @@
 package com.myplus.inventory.controller;
 
-import com.myplus.inventory.dto.ApiResponse;
-import com.myplus.inventory.dto.PageResponse;
+import com.myplus.common.web.ApiResponse;
+import com.myplus.common.web.PageResponse;
+import com.myplus.common.security.CurrentUser;
+import com.myplus.commerce.contracts.dto.StockImportLine;
 import com.myplus.inventory.dto.StockDTOs.*;
 import com.myplus.inventory.entity.StockEntry;
+import com.myplus.inventory.service.StockImportService;
 import com.myplus.inventory.service.StockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/inventory/stock")
@@ -16,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class StockController {
 
     private final StockService stockService;
+    private final StockImportService stockImportService;
 
     @PostMapping("/add")
     public ResponseEntity<ApiResponse<StockEntry>> addStock(@RequestBody StockEntryDTO dto) {
@@ -37,6 +43,37 @@ public class StockController {
         return ResponseEntity.ok(ApiResponse.success(stockService.getCurrentStock(productId)));
     }
 
+    /** Raw current on-hand for inter-service callers (trade UI, slice 33 U4) — matches InventoryClient.getStockLevel. */
+    @GetMapping("/level/{productId}")
+    public Float stockLevel(@PathVariable Long productId) {
+        return stockService.getCurrentStock(productId);
+    }
+
+    /** Batch on-hand for the whole tenant (slice 62, M3.1): productId → currentStock. One call for the Stock list. */
+    @GetMapping("/levels")
+    public java.util.Map<Long, Float> stockLevels() {
+        return stockService.getAllLevels();
+    }
+
+    /** FEFO batches (batch/expiry + sellable qty) for the dispense/sell screen (slice 54, P10). Raw body so the
+     *  trade-service InventoryClient.getBatches deserializes it directly. */
+    @GetMapping("/batches/{productId}")
+    public java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches(@PathVariable Long productId) {
+        return stockService.getFefoBatches(productId);
+    }
+
+    /** Quarantine register (slice 58): list the org's quarantined lots. */
+    @GetMapping("/quarantine")
+    public java.util.Map<String, Object> quarantine() {
+        return stockService.listQuarantine();
+    }
+
+    /** Dispose a quarantined lot (slice 58) — removed (destroyed / returned to supplier). */
+    @PostMapping("/quarantine/{id}/dispose")
+    public java.util.Map<String, Object> disposeQuarantine(@PathVariable Long id) {
+        return java.util.Map.of("success", stockService.disposeQuarantine(id));
+    }
+
     @GetMapping("/{productId}/history")
     public ResponseEntity<ApiResponse<PageResponse<StockEntry>>> history(@PathVariable Long productId, Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(
@@ -46,5 +83,12 @@ public class StockController {
     @GetMapping("/summary")
     public ResponseEntity<ApiResponse<StockSummaryDTO>> summary() {
         return ResponseEntity.ok(ApiResponse.success(stockService.getSummary()));
+    }
+
+    /** Bulk opening-stock seed for the item→product migration (slice 33, U2b). Returns the count created.
+     *  Raw body (not ApiResponse) so trade-service's InventoryClient.importStock deserializes it directly. */
+    @PostMapping("/import")
+    public Integer importStock(@RequestBody List<StockImportLine> lines) {
+        return stockImportService.importStock(lines, CurrentUser.organizationId(), CurrentUser.userId());
     }
 }

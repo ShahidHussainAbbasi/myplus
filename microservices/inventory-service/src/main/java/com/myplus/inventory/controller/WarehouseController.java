@@ -1,7 +1,7 @@
 package com.myplus.inventory.controller;
 
-import com.myplus.inventory.dto.ApiResponse;
-import com.myplus.inventory.dto.PageResponse;
+import com.myplus.common.web.ApiResponse;
+import com.myplus.common.web.PageResponse;
 import com.myplus.inventory.dto.WarehouseDTO;
 import com.myplus.inventory.entity.StockEntry;
 import com.myplus.inventory.service.WarehouseService;

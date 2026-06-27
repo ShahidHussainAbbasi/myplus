@@ -77,7 +77,7 @@ function resetForm(){
 	form = document.getElementsByClassName('form-horizontal')[tableV];
 	if(form){
 		$(".resetForm").click();
-		updateReadOnly(false);
+		// updateReadOnly(false);
 		return;
 		
 /*		formFields = form.length-2;// -2 mean we don't need to loop over
@@ -155,7 +155,7 @@ $(document).ready(function() {
 		// Refresh selectpicker display after native reset clears its value
 		$form.find('.selectpicker').selectpicker('refresh');
 		clearFormError();
-		updateReadOnly(false);
+		// updateReadOnly(false);
 	});
 
 //
@@ -377,7 +377,10 @@ $(document).ready(function() {
 				}
 
 				if(data && data.length>0 && $("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0){
-					if ($("#sellCh").val()*ONE < 0) {
+					// A NEW (manually entered) customer who owes a balance must give a mobile so the due
+					// can be followed up. An existing customer chosen from sellCustomerDD is already on
+					// file (their contact may legitimately be blank) — don't force a mobile in that case.
+					if (!isSelectMode && $("#sellCh").val()*ONE < 0) {
 						if($("#sellCC").val().trim() == ""){
 							document.getElementById("sellCC").style.setProperty('border-color', 'red', 'important');
 							error = true;
@@ -391,7 +394,30 @@ $(document).ready(function() {
 
 					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
 					var customerHistory = {"customer":customer, "sales":data};
-					jsonPost("addSell",customerHistory);
+					// G5 (slice 37): record how the sale is paid. One tender from the chosen method + amount received;
+					// CREDIT = on account (not counted as paid). Backend settles paid/due against the grand total.
+					var payMethod = $("#sellPayMethod").val() || 'CASH';
+					var received = $("#sellRec").val()*ONE || 0;
+					customerHistory.tenders = [];
+					if (received > 0 || payMethod === 'CREDIT') {
+						customerHistory.tenders.push({ "method": payMethod, "amount": received, "reference": "" });
+					}
+					// P12 (slice 59): an insurer-covered portion becomes a second INSURANCE tender (co-pay split).
+					var insured = $("#sellInsured").val()*ONE || 0;
+					if (insured > 0) {
+						customerHistory.tenders.push({ "method": "INSURANCE", "amount": insured, "reference": "" });
+					}
+					// Editing an existing invoice -> update it in place (same invoice #, stock & dues
+					// adjusted by the deltas); otherwise create a new sale.
+					if (window.editingInvoice && window.editingInvoice.chId) {
+						customerHistory.customer_history_id = window.editingInvoice.chId;
+						// customer is locked in edit mode — send its id so updateSell updates THAT customer
+						// in place (saveUpdateCustomer keys on customerId) rather than creating a duplicate.
+						if (window.editingInvoice.customerId) customer.customerId = window.editingInvoice.customerId;
+						jsonPost("updateSell", customerHistory);
+					} else {
+						jsonPost("addSell", customerHistory);
+					}
 			    }else{
 					    	document.getElementById("sellRec").style.setProperty('border-color', 'red', 'important');
 					    	showFormError('Please add items to the cart and enter a valid payment amount.');
@@ -506,11 +532,21 @@ $(document).ready(function() {
 				showFormError('Edit is not allowed. Please delete and submit a new record.');
 				}
 			}else{
-				if(tableV!="Sell"){					
+				if (tableV=="Sell"){ 
+					// Sell: a sale is a multi-line invoice — load the WHOLE invoice (all its lines +
+					// customer) into the cart (iDiv) so the user can review/update and save in place.
+					var sdoc = getDocument(datatable.row(this).data());
+					var sidEl = sdoc.getElementById('sellId');
+					if (sidEl && sidEl.textContent.trim() && typeof loadSellForEdit === 'function') {
+						loadSellForEdit(sidEl.textContent.trim());
+					}
+				} else {
 					var html = datatable.row(this).data();// .selector.rows.innerHTML;
 					var doc = getDocument(html);
 					editRecord(doc);
 				}
+						
+				// updateReadOnly(false);
 			}
 		} );
 	  });
@@ -627,7 +663,19 @@ function jsonPost(method,data) {
 			}
 			clearFormError();
 			// slice 22: show the system-generated per-org invoice number returned by addSell
-			if (data.object) { showSaleSuccess('Sale recorded — Invoice ' + data.object); }
+			if (data.object) {
+				showSaleSuccess('Sale recorded — Invoice ' + data.object);
+				// G6 (slice 38): auto-print the receipt for a new sale (hidden iframe — no popup block).
+				if (method === 'addSell' && typeof printReceipt === 'function') { printReceipt(data.object); }
+				// P6 (slice 43): if this sale is dispensing a prescription, record the dispense against it.
+				if (method === 'addSell' && window.dispensingPrescriptionId && typeof dispensePrescription === 'function') {
+					dispensePrescription(data.object);
+				}
+				// E1 (slice 46): a Store (MARKETPLACE) sale becomes an order with a fulfilment lifecycle.
+				if (method === 'addSell' && (window.MODULE || '').toUpperCase() === 'MARKETPLACE' && typeof recordOrder === 'function') {
+					recordOrder(data.object);
+				}
+			}
 /*
 		    	var mylink = document.getElementById("MyLink");
 		    	mylink.setAttribute("href", "../");
@@ -735,6 +783,25 @@ function updateReadOnly(flag) {
 	if (tableV == "Purchase") {
 		$("#purchaseInvoiceNo").prop("readonly", flag);
 		$('#purchaseItemDD').prop('disabled', flag);
+	} else if (tableV == "Sell") {
+		// NOTE: do NOT clear window.editingInvoice or the edit banner here. updateReadOnly only toggles
+		// field read-only/disabled state and is called repeatedly (e.g. resetBSDD after every cart add) —
+		// wiping the edit flag here made every invoice edit fall through to addSell (new invoice + dup row).
+		// Edit state is owned by loadSellForEdit (set) and exitSellEditMode (clear, on save/cancel).
+		setSellItemBtnMode(flag);
+		$('#sellItemDD').prop('disabled', flag);
+		if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+		// Sell edit mode is keyed on window.editingInvoice (the single source of truth that persists
+		// through cart edits), NOT the shared `edit` global which resetBSDD/other cycles flip off.
+		if (window.editingInvoice) {
+			$('#sellCustomerDD').prop('disabled', true);   // lock the customer while editing an invoice
+			$('#sellCN').prop('disabled', true);
+			$('#sellCC').prop('disabled', true);
+		} else {
+			$('#sellCustomerDD').prop('disabled', flag);
+			$('#sellCN').prop('disabled', flag);
+			$('#sellCC').prop('disabled', flag);
+		}
 	}
 	// } else if (tableV == "Customer") {
 	// 	$("#name").prop("readonly", flag);

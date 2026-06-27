@@ -32,4 +32,9 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
    @Query("select c from Customer c where c.organizationId = :orgId "
         + "or (c.organizationId is null and c.userId = :userId)")
    List<Customer> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
+
+   // OWN rows only (role-aware: a non-SUPER caller sees just the customers they created).
+   @Query("select c from Customer c where c.userId = :userId "
+        + "and (c.organizationId = :orgId or c.organizationId is null)")
+   List<Customer> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 }

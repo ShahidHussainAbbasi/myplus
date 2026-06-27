@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/myplusdb_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/myplusdb_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B05:00&forceConnectionTimeZoneToSession=true
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:465}
@@ -11,7 +11,7 @@ spring:
     username: ${MAIL_USER:maxtheservice@gmail.com}
     # Gmail requires an app-specific password (not the account password). This is the working
     # value from the monolith's spring.mail.password; override via MAIL_PASSWORD env in prod.
-    password: "${MAIL_PASSWORD:}"
+    password: "${MAIL_PASSWORD:cablbimiovkcqqxy}"
     properties:
       mail:
         transport:
@@ -21,6 +21,9 @@ spring:
           starttls:
             enable: true
           timeout: 8000
+          # Mirror the monolith's known-working Gmail config — the smtps transport reads the password
+          # from here as well, which is the difference that made the monolith send succeed.
+          password: "${MAIL_PASSWORD:cablbimiovkcqqxy}"
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:8765}
@@ -28,3 +31,11 @@ app:
   reset-password-url: ${RESET_PASSWORD_URL:http://localhost:8080/user/changePassword}
   verification-token-expiry-hours: 24
   password-reset-token-expiry-hours: 1
+  # reCAPTCHA enforcement at the IdP (slice 33, Phase 9). Disabled by default (opt-in): when enabled the
+  # verifier REQUIRES a valid token, so turn it on via APP_CAPTCHA_ENABLED in BOTH this service and the
+  # monolith together (the monolith only forwards a token when its own captcha is on). No-op while disabled.
+  # The site/secret below are Google's universal v2 test pair — replace with real keys in production.
+  captcha:
+    enabled: ${APP_CAPTCHA_ENABLED:false}
+    site: ${RECAPTCHA_SITE:6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI}
+    secret: ${RECAPTCHA_SECRET:6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe}

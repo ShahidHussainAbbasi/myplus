@@ -59,6 +59,11 @@
                 <span class="glyphicon glyphicon-qrcode"></span>&nbsp;
                 <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Enter the verification code from your authenticator app.'">Enter the verification code from your authenticator app.</span>
             </div>
+            <!-- Registered-but-unverified (trial pending): not an error, so use the info style. -->
+            <div th:if="${param.unverified != null}" class="msg-bar info">
+                <span class="glyphicon glyphicon-envelope"></span>&nbsp;
+                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Please open the confirmation link we emailed you to activate your trial account.'">Please verify your email to activate your account.</span>
+            </div>
             <div th:if="${param.error != null}" class="msg-bar error">
                 <span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;
                 <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Invalid username or password. Please try again.'">Invalid username or password. Please try again.</span>
@@ -144,6 +149,8 @@
                         <option value="">Choose a module…</option>
                         <option value="demo.education@myplus.com">School Management (Education)</option>
                         <option value="demo.business@myplus.com">POS &amp; Inventory (Retail)</option>
+                        <option value="demo.pharma@myplus.com">Pharmacy &amp; Pharmaceutical (Healthcare)</option>
+                        <option value="demo.marketplace@myplus.com">Online Marketplace (E-commerce)</option>
                         <option value="demo.appointment@myplus.com">Appointments &amp; Scheduling</option>
                         <option value="demo.agriculture@myplus.com">Agriculture income &amp; expense</option>
                         <option value="demo.welfare@myplus.com">Welfare / Donations</option>
@@ -178,6 +185,8 @@
 
 <script th:if="${captchaEnabled}" src="https://www.google.com/recaptcha/api.js" async defer></script>
 <script th:src="@{/js/jquery-3.3.1.js}"></script>
+<!-- Global AJAX waiting overlay — single source for the whole app (see /js/common/ajax-overlay.js). -->
+<script th:src="@{/js/common/ajax-overlay.js}"></script>
 <script th:src="@{/js/login.js}"></script>
 <script>
 // Pre-fill from a "Try the demo" hand-off (Book-a-Demo). Creds are public demo accounts; we only fill

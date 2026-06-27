@@ -57,7 +57,9 @@ describe('Stock API — Read Endpoints', () => {
       if (res.body.status === 'SUCCESS') {
         const items = res.body.data || res.body.collection || []
         items.forEach((s) => {
-          expect(s.stock ?? 0).to.be.gte(0)
+          // ItemDTO.stock is a StockDTO object (qty in s.stock.stock); M3.1 populates it from inventory.
+          const qty = (s.stock && typeof s.stock === 'object') ? s.stock.stock : s.stock
+          expect(Number(qty ?? 0)).to.be.gte(0)
         })
       }
     })

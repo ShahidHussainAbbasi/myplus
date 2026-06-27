@@ -63,6 +63,24 @@ public class OrganizationService {
         return organizationRepository.findById(id).orElse(null);
     }
 
+    /** Add {@code userId} to an EXISTING organization with the given membership role (ADMIN/USER).
+     *  Idempotent — returns the existing membership if the user is already a member. */
+    @Transactional
+    public Membership addMember(Long userId, Long orgId, String role) {
+        return membershipRepository.findByUserIdAndOrganizationId(userId, orgId)
+                .orElseGet(() -> membershipRepository.save(Membership.builder()
+                        .userId(userId)
+                        .organizationId(orgId)
+                        .role(role)
+                        .status("ACTIVE")
+                        .build()));
+    }
+
+    /** All memberships in an organization (for the owner's team list). */
+    public List<Membership> membersOf(Long orgId) {
+        return membershipRepository.findByOrganizationId(orgId);
+    }
+
     /** Return the user's primary organization, creating it (+ OWNER membership) if none exists. */
     @Transactional
     public Organization getOrCreatePrimaryOrg(User user) {

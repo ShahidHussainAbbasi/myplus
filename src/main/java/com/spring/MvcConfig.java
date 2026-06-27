@@ -76,7 +76,9 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/hospital.html");
         registry.addViewController("/donator").setViewName("donator");
         registry.addViewController("/services").setViewName("maxtheservice_dashboard");
-        registry.addViewController("/businessDashboard").setViewName("businessDashboard");
+        // /businessDashboard is served by BusinessDashboardController — ONE commerce dashboard for all commerce
+        // verticals (POS/BUSINESS, Pharmacy/PHARMA, Store/ECOMMERCE); it sets `module` from the logged-in user's
+        // type so module-theme.js white-labels the single template (slice 36). No separate per-vertical routes.
         registry.addViewController("/welfareDashboard").setViewName("welfareDashboard");
         registry.addViewController("/educationDashboard").setViewName("educationDashboard");
         registry.addViewController("/agricultureDashboard").setViewName("agricultureDashboard");

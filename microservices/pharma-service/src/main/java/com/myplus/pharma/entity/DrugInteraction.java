@@ -15,13 +15,12 @@ public class DrugInteraction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "medicine1_id")
-    private Medicine medicine1;
+    // slice 41 (reuse): interactions are between two business items (by itemId), consistent with the sell flow.
+    @Column(name = "item_id1")
+    private Long itemId1;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "medicine2_id")
-    private Medicine medicine2;
+    @Column(name = "item_id2")
+    private Long itemId2;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -31,6 +30,13 @@ public class DrugInteraction {
     private String description;
 
     private String recommendation;
+
+    // P7 (slice 44): tenant scope.
+    @Column(name = "organization_id")
+    private Long organizationId;
+
+    @Column(name = "user_id")
+    private Long userId;
 
     public enum Severity { MILD, MODERATE, SEVERE }
 }

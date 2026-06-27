@@ -5,6 +5,7 @@ import com.myplus.auth.entity.User;
 import com.myplus.auth.repository.UserRepository;
 import com.myplus.auth.service.AuthService;
 import com.myplus.auth.service.TwoFactorService;
+import com.myplus.common.captcha.CaptchaVerifier;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,21 +26,31 @@ public class AuthController {
     private final AuthService authService;
     private final TwoFactorService twoFactorService;
     private final UserRepository userRepository;
+    private final CaptchaVerifier captchaVerifier;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request,
+            @RequestHeader(value = "g-recaptcha-response", required = false) String captchaToken,
+            HttpServletRequest httpRequest) {
+        verifyCaptcha(captchaToken, httpRequest);
         return ResponseEntity.ok(ApiResponse.success(authService.register(request), "Registered successfully"));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request,
+            @RequestHeader(value = "g-recaptcha-response", required = false) String captchaToken,
+            HttpServletRequest httpRequest) {
+        verifyCaptcha(captchaToken, httpRequest);
         return ResponseEntity.ok(ApiResponse.success(authService.login(request), "Login successful"));
     }
 
-    // Operator onboarding (SUPER/ADMIN): create a client tenant without a redeploy — the SaaS replacement
+    // Platform-operator onboarding: create a client tenant without a redeploy — the SaaS replacement
     // for seeding customers. The owner receives a password-reset email to set their own credential.
+    // Gated on the platform ROLE_ADMIN *role* (not the SUPER/ADMIN privilege): company owners now hold
+    // SUPER privileges within their own tenant (ROLE_OWNER), so a privilege gate would let any owner
+    // create new tenants. ROLE_ADMIN keeps this to the platform operator (admin@myplus.com).
     @PostMapping("/admin/provision-tenant")
-    @PreAuthorize("hasAnyAuthority('SUPER_PRIVILEGE','ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> provisionTenant(@Valid @RequestBody ProvisionTenantRequest request) {
         return ResponseEntity.ok(ApiResponse.success(authService.provisionTenant(request), "Tenant provisioned"));
     }
@@ -63,7 +75,10 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> body) {
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> body,
+            @RequestHeader(value = "g-recaptcha-response", required = false) String captchaToken,
+            HttpServletRequest httpRequest) {
+        verifyCaptcha(captchaToken, httpRequest);
         authService.sendPasswordResetEmail(body.get("email"));
         return ResponseEntity.ok(ApiResponse.success(null, "Password reset email sent"));
     }
@@ -103,5 +118,19 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> validate(@RequestHeader("Authorization") String authHeader) {
         String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
         return ResponseEntity.ok(ApiResponse.success(authService.validateToken(token)));
+    }
+
+    // Captcha enforcement at the IdP (slice 33, Phase 9 step 2e). When app.captcha.enabled=true the verifier
+    // REQUIRES a valid token (a blank/absent g-recaptcha-response is rejected), so enabling captcha actually
+    // enforces it for every client — closing the "submit without solving" bypass. When disabled it is a
+    // no-op. Keep this flag in sync with the monolith's app.captcha.enabled, since the monolith only forwards
+    // a token when its own captcha is on.
+    private void verifyCaptcha(String captchaToken, HttpServletRequest request) {
+        captchaVerifier.verify(captchaToken, clientIp(request));
+    }
+
+    private static String clientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        return (xff == null || xff.isBlank()) ? request.getRemoteAddr() : xff.split(",")[0].trim();
     }
 }

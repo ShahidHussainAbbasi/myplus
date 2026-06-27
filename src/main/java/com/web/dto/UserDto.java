@@ -34,6 +34,12 @@ public class UserDto {
     @Size(min = 1, message = "{Size.userDto.organizationName}")
     private String organizationName;
 
+    // The domain/service the trial owner signs up for (BUSINESS, EDUCATION, WELFARE, AGRICULTURE, …).
+    // The auth-service derives the role (ROLE_<userType>_USER) and dashboard routing from this.
+    @NotNull
+    @Size(min = 1, message = "{Size.userDto.userType}")
+    private String userType;
+
     private boolean isUsing2FA;
 
     public String getEmail() {
@@ -50,6 +56,14 @@ public class UserDto {
 
     public void setOrganizationName(final String organizationName) {
         this.organizationName = organizationName;
+    }
+
+    public String getUserType() {
+        return userType;
+    }
+
+    public void setUserType(final String userType) {
+        this.userType = userType;
     }
 
     private Integer role;

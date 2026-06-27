@@ -35,6 +35,9 @@ public class Prescription {
     @Column(nullable = false)
     private Status status;
 
+    @Column(name = "organization_id")
+    private Long organizationId;     // P5 (slice 41): tenant scope
+
     private Long userId;
 
     @Column(updatable = false)

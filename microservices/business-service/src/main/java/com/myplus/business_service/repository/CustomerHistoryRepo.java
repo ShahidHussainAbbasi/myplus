@@ -1,5 +1,6 @@
 package com.myplus.business_service.repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,4 +22,22 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
     // Highest invoice number issued for an org (0 if none) — the per-org invoice series counter.
     @Query("SELECT COALESCE(MAX(ch.invoiceSeq), 0) FROM CustomerHistory ch WHERE ch.organizationId = :orgId")
     Long maxInvoiceSeqForOrg(@Param("orgId") Long orgId);
+
+    // Receipt lookup by the per-org invoice number (G6 receipts, slice 38).
+    java.util.Optional<CustomerHistory> findByOrganizationIdAndInvoiceNo(Long organizationId, String invoiceNo);
+
+    // POS day-close (slice 39): a shift's sales summary — [count, Σ grandTotal, Σ taxTotal].
+    @Query("SELECT COUNT(ch), COALESCE(SUM(ch.grandTotal),0), COALESCE(SUM(ch.taxTotal),0) "
+            + "FROM CustomerHistory ch WHERE ch.shiftId = :shiftId")
+    Object[] shiftSalesSummary(@Param("shiftId") Long shiftId);
+
+    // Net (paid − bill) across all of a customer's invoice headers. Negate + floor at 0 to get the
+    // running balance the customer owes — the single source of truth for Customer.dueAmount.
+    @Query("SELECT COALESCE(SUM(ch.dueAmount), 0) FROM CustomerHistory ch WHERE ch.customer.customerId = :customerId")
+    BigDecimal sumDueByCustomer(@Param("customerId") Long customerId);
+
+    // Saga sales whose stock reservation was never confirmed (trade crashed between write and confirm) —
+    // the recovery relay re-drives confirm for these (slice 33, U3c).
+    @Query("SELECT ch FROM CustomerHistory ch WHERE ch.sagaStatus = 'PENDING' AND ch.reservationId IS NOT NULL ORDER BY ch.dated ASC")
+    List<CustomerHistory> findPendingSagaSales();
 }

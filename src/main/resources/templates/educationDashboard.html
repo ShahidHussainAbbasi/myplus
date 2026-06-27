@@ -1357,9 +1357,8 @@
 					<div class="form-group">		
 						<label class="control-label col-sm-2 req" for="acdd">Select Consumers</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control" id="acdd" name="c" required="required">
-								<option class="dropdown-item" value="">Nothing Selected</option>
-								<option class="dropdown-item" value="Students">Students</option>
+							<select multiple="multiple"	class="form-control selectpicker" id="acdd" name="c" required="required" title="Select consumers…" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+																<option class="dropdown-item" value="Students">Students</option>
 			 					<option class="dropdown-item" value="Guardians">Guardians</option>
 								<option class="dropdown-item" value="Employees">Employees</option>
 			 					<option class="dropdown-item" value="Drivers">Drivers</option>
@@ -1369,9 +1368,8 @@
 						</div>
 						<label class="control-label col-sm-2 req" for="atdd">Alert Type</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control" id="atdd" name="at" required="required">
-								<option class="dropdown-item" value="">Nothing Selected</option>
-								<option class="dropdown-item" value="Notice Board">Notice Board</option>
+							<select multiple="multiple"	class="form-control selectpicker" id="atdd" name="at" required="required" title="Select alert type…" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+																<option class="dropdown-item" value="Notice Board">Notice Board</option>
 			 					<option class="dropdown-item" value="Late Fee">Late Fee</option>
 								<option class="dropdown-item" value="Fee Reviwed">Fee Reviwed</option>
 			 					<option class="dropdown-item" value="Timing Issue">Timing Issue</option>
@@ -1388,9 +1386,8 @@
 					<div class="form-group">		
 						<label class="control-label col-sm-2 req" for="adcdd">Delivery Channel</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control" id="adcdd" name="dc" required="required">
-								<option class="dropdown-item" value="">Nothing Selected</option>
-			 					<option class="dropdown-item" value="Email">Email</option>
+							<select multiple="multiple"	class="form-control selectpicker" id="adcdd" name="dc" required="required" title="Select channels…" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+											 					<option class="dropdown-item" value="Email">Email</option>
 								<option class="dropdown-item" value="SMS">SMS</option>
 								<option class="dropdown-item" value="Watts App">Watts App</option>
 			 					<option class="dropdown-item" value="Facebook">Facebook</option>
@@ -1400,9 +1397,8 @@
 						</div>
 						<label class="control-label col-sm-2 req" for="adpdd">Delivery Channel</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control" id="adpdd" name="dp" required="required">
-								<option class="dropdown-item" value="">Nothing Selected</option>
-								<option class="dropdown-item" value="Daily">Daily</option>
+							<select multiple="multiple"	class="form-control selectpicker" id="adpdd" name="dp" required="required" title="Select frequency…" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+																<option class="dropdown-item" value="Daily">Daily</option>
 			 					<option class="dropdown-item" value="Weekly">Weekly</option>
 								<option class="dropdown-item" value="Monthly">Monthly</option>
 			 					<option class="dropdown-item" value="Quartly">Quartly</option>
@@ -1415,8 +1411,7 @@
 						<label class="control-label col-sm-2 req" for="adtdd">Delivery Type</label>
 						<div class="col-sm-4">
 							<select	class="form-control" id="adtdd" name="dt" required="required">
-								<option class="dropdown-item" value="">Nothing Selected</option>
-								<option class="dropdown-item" value="Manual">Manual</option>
+																<option class="dropdown-item" value="Manual">Manual</option>
 			 					<option class="dropdown-item" value="Auto">Auto</option>
 			 				</select>
 						</div>
@@ -1654,8 +1649,7 @@
 						<label class="control-label col-sm-2 req"  for="fcri">Recieved In</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="fcri" name="ri" required="required">
-								<option class="dropdown-item" value="">Nothing Selected</option>
-								<option class="dropdown-item" value="Cash">Cash</option>
+																<option class="dropdown-item" value="Cash">Cash</option>
 								<option class="dropdown-item" value="Check">Check</option>
 							</select>	
 						</div>
@@ -2101,6 +2095,38 @@ var serverContext = [[@{/}]];
 		document.addEventListener('click', function(e) {
 			if (!e.target.closest('.snav-dd'))
 				document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });
+		});
+	</script>
+
+	<!-- ═══ Unified dropdown theme/UX ═══════════════════════════════════════════
+	     Make EVERY education form dropdown one consistent, searchable bootstrap-select.
+	     Skips only the off-screen nav selects (registrationType/feeType/… driven by main.js).
+	     Several AJAX populate helpers in education.js append <option>s without calling
+	     selectpicker('refresh') (e.g. getUserOwners/getUserSchools), so a single ajaxComplete
+	     refresh keeps every populated dropdown (schoolOwnerDD, vehicleSchoolDD, …) in sync. -->
+	<script type="text/javascript">
+		jQuery(function ($) {
+			var SKIP = { registrationType:1, feeType:1, reportType:1, attendanceType:1, communicationType:1 };
+			$('select').each(function () {
+				if (SKIP[this.id] || $(this).hasClass('panel-heading')) return;
+				var $s = $(this);
+				// Tear down any prior bootstrap-select so the unified options below apply cleanly.
+				try { $s.selectpicker('destroy'); } catch (e) {}
+				$s.addClass('selectpicker')
+				  .attr('data-live-search', 'true')   // searchable
+				  .attr('data-size', '8')
+				  .attr('data-style', 'btn-default');
+				if (this.multiple) {
+					$s.attr('data-actions-box', 'true')
+					  .attr('data-selected-text-format', 'count > 2');
+				}
+				if (!$s.attr('title')) $s.attr('title', 'Select…');
+			});
+			$('.selectpicker').selectpicker();
+			// AJAX-populated dropdowns refresh after their options load (handles every getUser* helper).
+			$(document).ajaxComplete(function () {
+				try { $('.selectpicker').selectpicker('refresh'); } catch (e) {}
+			});
 		});
 	</script>
 </body>

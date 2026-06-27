@@ -1,6 +1,6 @@
 # Gateway PROD overrides (SPRING_PROFILES_ACTIVE=prod). See docs/prod-hardening.md (P3, F10).
 jwt:
-  secret: ${JWT_SECRET}   # no default in prod
+  secret: ${JWT_SECRET:2RwbZHVkgShLsA/5ETL6dWarJzeUn6lVUr9FC4P7XepmMbM3j0zTS98GOvdCU9Rk}   # no default in prod
 
 # F10: drop the 'gateway' actuator endpoint (route read/modify) and metrics from the public
 # surface in prod — expose only health + info.

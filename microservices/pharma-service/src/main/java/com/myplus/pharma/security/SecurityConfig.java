@@ -23,7 +23,8 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**", "/api/pharma/public/**").permitAll()
+                // Gateway strips /api/pharma (StripPrefix=2), so the service sees /public/** — match the stripped path.
+                .requestMatchers("/actuator/**", "/public/**").permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

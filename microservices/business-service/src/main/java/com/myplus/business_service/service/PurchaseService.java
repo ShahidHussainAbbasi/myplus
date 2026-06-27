@@ -40,9 +40,23 @@ public class PurchaseService implements IPurchaseService{
 */
     @Autowired
     RequestUtil requestUtil;
-    
+
     @Autowired
     AppUtil appUtil;
+
+    @Autowired
+    com.myplus.business_service.config.TradeSagaProperties tradeSagaProperties;
+
+    @Autowired
+    com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;
+
+    @Autowired
+    com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
+
+    @Autowired
+    CatalogMigrationService catalogMigrationService;   // M3.2: auto-map an item on purchase so it reaches inventory
+
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
     
@@ -54,6 +68,11 @@ public class PurchaseService implements IPurchaseService{
 	@Override
 	public List<Purchase> findScoped(Long orgId, Long userId) {
 		return purchaseRepo.findScoped(orgId, userId);
+	}
+
+	@Override
+	public List<Purchase> findOwnScoped(Long orgId, Long userId) {
+		return purchaseRepo.findOwnScoped(orgId, userId);
 	}
 
 	public List<Purchase> findAll(Sort sort) {
@@ -183,12 +202,43 @@ public class PurchaseService implements IPurchaseService{
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
-		obj.setDated(appUtil.getDateTime(null));
+		obj.setUpdated(obj.getUpdated()!=null?obj.getUpdated():LocalDateTime.now());
 		obj.setDated(LocalDateTime.now());
 		obj.setStock(stock);
 		obj.setUserId(user.getUserId());                  // audit
 		obj.setOrganizationId(user.getOrganizationId());  // tenant scope
-		return this.save(obj);
+		Purchase saved = this.save(obj);
+		pushPurchaseToInventory(dto, stock, user);        // D3: dual-write stock-in to inventory
+		return saved;
+	}
+
+	/**
+	 * D3 (slice 33) + M3.2 (slice 63): when the saga is enabled, push the purchased quantity into inventory so
+	 * inventory is authoritative for stock. The item is auto-mapped to a catalog product on demand
+	 * ({@code ensureMapped}) — so EVERY purchase reaches inventory, including legacy items never bulk-migrated.
+	 * Best-effort: a failure (catalog/inventory down) never fails the purchase (recorded locally; reconcile later).
+	 */
+	void pushPurchaseToInventory(PurchaseDTO dto, Stock stock, AuthenticatedUser user) {
+		if (!tradeSagaProperties.isEnabled() || stock == null
+				|| dto.getQuantity() == null || dto.getQuantity() <= 0) {
+			return;
+		}
+		try {
+			Long productId = catalogMigrationService.ensureMapped(dto.getItemId(), user.getOrganizationId(), user.getUserId());
+			if (productId == null) return;
+			inventoryClient.importStock(List.of(
+					com.myplus.commerce.contracts.dto.StockImportLine.builder()
+							.productId(productId)
+							.quantity(dto.getQuantity())
+							.batchNo(stock.getBatchNo())
+							.expiryDate(stock.getBexpDate())
+							.purchasePrice(stock.getBpurchaseRate())
+							.costPrice(stock.getBpurchaseRate())
+							.build()));
+		} catch (Exception ex) {
+			LOG.warn("M3.2: inventory stock-in failed for item {} (purchase recorded locally; reconcile later)",
+					dto.getItemId(), ex);
+		}
 	}
 
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {

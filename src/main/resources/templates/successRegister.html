@@ -1,19 +1,62 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-  <link rel="stylesheet" type="text/css" th:href="@{/main.css}" />
-	<title th:text="#{label.pages.home.title}">Title</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="#{label.pages.home.title}">Registration complete — MyPlus</title>
+    <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" th:href="@{/css/login.css}"/>
+    <style>
+        .done-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px;
+                   background:linear-gradient(160deg,#f0f4ff 0%,#F4F7FB 50%,#eef2f9 100%)}
+        .done-card{width:100%;max-width:460px;background:#fff;border-radius:18px;text-align:center;
+                   padding:44px 40px;border-top:5px solid #10b981;
+                   box-shadow:0 24px 64px rgba(13,35,83,.16)}
+        .done-badge{width:72px;height:72px;margin:0 auto 22px;border-radius:50%;
+                    background:#ecfdf5;display:flex;align-items:center;justify-content:center}
+        .done-badge .glyphicon{color:#10b981;font-size:34px}
+        .done-card h1{font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;margin:0 0 10px}
+        .done-card p{font-size:14.5px;color:#475569;line-height:1.7;margin:0 0 18px}
+        .done-pill{display:inline-flex;align-items:center;gap:7px;margin:0 0 22px;padding:7px 16px;border-radius:100px;
+                   background:#eef4ff;color:#0D3B8C;font-size:12.5px;font-weight:700;border:1px solid #cfe0ff}
+        .done-pill .glyphicon{font-size:12px}
+        .done-contact{font-size:13px;color:#475569;line-height:1.6;margin:22px 0 6px}
+        .done-mail{display:inline-block;color:#1565C0;font-weight:700;text-decoration:none;font-size:13.5px}
+        .done-mail:hover{text-decoration:underline;color:#0D3B8C}
+        .done-card .next{display:block;width:100%;height:50px;line-height:50px;border:none;border-radius:8px;
+                         background:linear-gradient(135deg,#0D2353 0%,#0D3B8C 50%,#1565C0 100%);
+                         color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:700;text-decoration:none;
+                         box-shadow:0 6px 20px rgba(13,59,140,.4);transition:transform .2s,box-shadow .2s}
+        .done-card .next:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(13,59,140,.55);color:#fff;text-decoration:none}
+        .done-hint{margin-top:18px;font-size:12.5px;color:#94a3b8}
+    </style>
 </head>
 <body>
-	<div th:fragment="header" class="navbar-default hdr-cls">
-		<nav class="container">
-		</nav>
-	</div>
-    <div class="container content-cls">
-    <h1 class="alert alert-success" th:text="#{message.regSucc}">success</h1>
-    <a class="btn btn-info btn-cls" th:href="@{/login}" th:text="#{label.login}">login</a>
+<div class="done-wrap">
+    <div class="done-card">
+        <div class="done-badge"><span class="glyphicon glyphicon-ok"></span></div>
+        <h1>Registration successful</h1>
+        <div class="done-pill">
+            <span class="glyphicon glyphicon-time"></span> 14-day free trial started — full access
+        </div>
+        <p th:text="#{message.regSucc}">
+            Your account has been created and your 14-day free trial has started — you get full access
+            while it lasts. We've emailed you a confirmation link; please verify your email to activate
+            your account.
+        </p>
+        <a class="next" th:href="@{/login}">
+            <span class="glyphicon glyphicon-log-in" style="margin-right:7px"></span>
+            <span th:text="#{label.login}">Login here</span>
+        </a>
+        <p class="done-contact" th:text="#{message.regContact}">
+            Need a full account or have questions? Contact us at maxtheservice@gmail.com.
+        </p>
+        <a class="done-mail" href="mailto:maxtheservice@gmail.com">maxtheservice@gmail.com</a>
+        <div class="done-hint" style="margin-top:16px">Didn't get the email? Check your spam folder, then sign in to resend.</div>
+    </div>
 </div>
-<th:block th:replace="~{footer :: footer}"/> 
 </body>
 </html>

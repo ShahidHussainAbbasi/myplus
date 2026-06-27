@@ -8,28 +8,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.myplus.common.notify.EmailRequest;
+import com.myplus.common.notify.NotificationClient;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 /**
- * Sends alert emails via the configured SMTP (slice 16). Best-effort per recipient so one bad address
- * doesn't fail the batch. The configured admin recipients are ALWAYS added so every send is observable.
+ * Sends alert emails (slice 16) via notification-service (slice 33, Phase 8 — SMTP lives there now).
+ * Best-effort per recipient so one bad address doesn't fail the batch. The configured admin recipients are
+ * ALWAYS added so every send is observable.
  */
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
-
-    @Value("${education.alerts.from:maxtheservice@gmail.com}")
-    private String from;
+    private final NotificationClient notificationClient;
 
     @Value("${education.alerts.admin-recipients:}")
     private String adminRecipientsCsv;
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    public EmailService(NotificationClient notificationClient) {
+        this.notificationClient = notificationClient;
     }
 
     /** Returns {sent, failed, recipients, errors}. */
@@ -40,21 +38,27 @@ public class EmailService {
                 if (r != null && r.contains("@")) to.add(r.trim());
             }
         }
-        for (String a : adminRecipientsCsv.split(",")) {
-            if (a != null && a.contains("@")) to.add(a.trim());
+        if (adminRecipientsCsv != null) {
+            for (String a : adminRecipientsCsv.split(",")) {
+                if (a != null && a.contains("@")) to.add(a.trim());
+            }
         }
 
         int sent = 0, failed = 0;
         List<String> errors = new ArrayList<>();
         for (String r : to) {
             try {
-                SimpleMailMessage msg = new SimpleMailMessage();
-                msg.setFrom(from);
-                msg.setTo(r);
-                msg.setSubject(subject == null ? "(no subject)" : subject);
-                msg.setText(body == null ? "" : body);
-                mailSender.send(msg);
-                sent++;
+                Boolean ok = notificationClient.sendEmail(EmailRequest.builder()
+                        .to(List.of(r))
+                        .subject(subject == null ? "(no subject)" : subject)
+                        .body(body == null ? "" : body)
+                        .build());
+                if (Boolean.TRUE.equals(ok)) {
+                    sent++;
+                } else {
+                    failed++;
+                    errors.add(r + ": send failed");
+                }
             } catch (Exception e) {
                 failed++;
                 errors.add(r + ": " + e.getMessage());

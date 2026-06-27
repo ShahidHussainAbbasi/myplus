@@ -47,6 +47,9 @@ public class StockDTO implements Serializable {
 
 	private Long itemId;
 
+	/** FEFO batches (batch/expiry + sellable qty) for the dispense/sell screen (slice 54, P10). */
+	private java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches;
+
 
 	/* (non-Javadoc)
 	 * @see java.lang.Object#toString()

@@ -23,7 +23,10 @@ public class AppController {
             String userType = requestUtil.getCurrentUser().getUserType();
             if (userType == null) return "redirect:/";
             switch (userType.toUpperCase()) {
-                case "BUSINESS":    return "redirect:/businessDashboard";
+                // All commerce verticals share the ONE dashboard, white-labelled by user type (slice 36).
+                case "BUSINESS":
+                case "PHARMA":
+                case "MARKETPLACE": return "redirect:/businessDashboard";
                 case "EDUCATION":   return "redirect:/educationDashboard";
                 case "WELFARE":     return "redirect:/welfareDashboard";
                 case "AGRICULTURE": return "redirect:/agricultureDashboard";

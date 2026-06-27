@@ -64,7 +64,10 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
             "/api/campaign/public/",  // public Book-a-Demo lead capture (anonymous)
-            "/api/appointment/public/"   // public patient booking (anonymous)
+            "/api/appointment/public/",  // public patient booking (anonymous)
+            "/api/catalog/public/",      // public storefront product browse (slice 47, anonymous)
+            "/api/inventory/public/",    // public storefront stock availability (slice 49 follow-up, anonymous)
+            "/api/marketplace/public/"   // public storefront guest checkout (slice 47, anonymous)
     );
 
     public JwtAuthenticationFilter(ReactiveStringRedisTemplate redis) {

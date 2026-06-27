@@ -1,7 +1,7 @@
 package com.myplus.analytics.controller;
 
-import com.myplus.analytics.dto.ApiResponse;
-import com.myplus.analytics.dto.PageResponse;
+import com.myplus.common.web.ApiResponse;
+import com.myplus.common.web.PageResponse;
 import com.myplus.analytics.dto.ReportDefinitionDTO;
 import com.myplus.analytics.dto.ReportExecutionDTO;
 import com.myplus.common.security.AuthenticatedUser;

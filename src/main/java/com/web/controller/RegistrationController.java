@@ -41,36 +41,34 @@ public class RegistrationController {
     @Autowired
     private MessageSource messages;
 
-    @Autowired
-    private com.captcha.ICaptchaService captchaService;
-
     public RegistrationController() {
         super();
     }
 
     // Registration — delegated to the auth-service (single identity store). The auth-service
-    // creates the user (disabled until verified) and sends the verification email itself.
+    // creates the user (disabled until verified), sends the verification email, and now also verifies
+    // the forwarded reCAPTCHA token (single enforcement point — see slice 33, Phase 9).
     @RequestMapping(value = "/user/registration", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse registerUserAccount(@Valid final UserDto accountDto, final HttpServletRequest request) {
-        captchaService.processResponse(request.getParameter("g-recaptcha-response")); // no-op when captcha disabled
         LOGGER.debug("Registering user account: {}", accountDto.getEmail());
         try {
             authServerClient.register(accountDto.getFirstName(), accountDto.getLastName(),
-                    accountDto.getEmail(), accountDto.getPassword(), null, null, accountDto.getOrganizationName());
+                    accountDto.getEmail(), accountDto.getPassword(), null, accountDto.getUserType(),
+                    accountDto.getOrganizationName(), request.getParameter("g-recaptcha-response"));
         } catch (HttpStatusCodeException ex) {
-            // Most common cause from the form is a duplicate email.
+            // Most common cause from the form is a duplicate email (or a rejected captcha → 400).
             throw new UserAlreadyExistException("Registration failed");
         }
         return new GenericResponse("success");
     }
 
-    // Reset password — delegated to the auth-service (it owns the user store and the reset token).
+    // Reset password — delegated to the auth-service (it owns the user store and the reset token, and
+    // verifies the forwarded captcha token).
     @RequestMapping(value = "/user/resetPassword", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse resetPassword(final HttpServletRequest request, @RequestParam("email") final String userEmail) {
-        captchaService.processResponse(request.getParameter("g-recaptcha-response")); // no-op when captcha disabled
-        passwordResetFacade.requestReset(userEmail);
+        passwordResetFacade.requestReset(userEmail, request.getParameter("g-recaptcha-response"));
         return new GenericResponse(messages.getMessage("message.resetPasswordEmail", null, request.getLocale()));
     }
 

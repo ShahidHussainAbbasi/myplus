@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
@@ -448,19 +449,29 @@ public class AppUtil {
 			if(isEmptyOrNull(arg0.getSource())) {
 		        return LocalDateTime.now();
 			}
-	    	return LocalDateTime.parse(arg0.getSource().toString(), dateTimeFormatter);//dateformatter.parse(arg0.getSource().toString());
+	    	return parseFlexibleDateTime(arg0.getSource().toString());
     	}
-	}; 
-	
+	};
+
 	public Converter<String, LocalDateTime> stringToLocalDateTimeIgnoreEmptyOrNull = new Converter<String, LocalDateTime>() {
     	@Override
     	public LocalDateTime convert(MappingContext<String, LocalDateTime> arg0) {
 			if(isEmptyOrNull(arg0.getSource())) {
 		        return null;
 			}
-	    	return LocalDateTime.parse(arg0.getSource().toString(), dateTimeFormatter);//dateformatter.parse(arg0.getSource().toString());
+	    	return parseFlexibleDateTime(arg0.getSource().toString());
     	}
-	}; 
+	};
+
+	// Parse a String into LocalDateTime, accepting both "dd-MM-yyyy HH:mm:ss" and
+	// date-only "dd-MM-yyyy" (date-only falls back to start of day).
+	private LocalDateTime parseFlexibleDateTime(String s) {
+		try {
+			return LocalDateTime.parse(s, dateTimeFormatter);
+		} catch (DateTimeParseException e) {
+			return LocalDate.parse(s, dateformatter).atStartOfDay();
+		}
+	}
 
 	public Converter<LocalDateTime,String> localDateTimeToString = new Converter<LocalDateTime,String>() {
     	@Override

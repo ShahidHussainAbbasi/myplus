@@ -31,9 +31,15 @@
     <module>config-server</module>
     <module>common-security</module>
     <module>common-service</module>
+    <module>common-web</module>
+    <module>commerce-domain</module>
+    <module>commerce-contracts</module>
+    <module>common-notify</module>
+    <module>common-captcha</module>
     <module>service-parent</module>
     <module>api-gateway</module>
     <module>auth-service</module>
+    <module>catalog-service</module>
     <module>inventory-service</module>
     <module>business-service</module>
     <module>education-service</module>
@@ -41,6 +47,7 @@
     <module>agriculture-service</module>
     <module>pharma-service</module>
     <module>marketplace-service</module>
+    <module>notification-service</module>
     <module>campaign-service</module>
     <module>analytics-service</module>
     <module>appointment-service</module>

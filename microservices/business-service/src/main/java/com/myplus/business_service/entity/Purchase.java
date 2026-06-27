@@ -114,7 +114,7 @@ public class Purchase implements Serializable {
 	@Column(updatable=false)
 	private LocalDateTime dated;
 
-	private LocalDate updated;
+	private LocalDateTime updated;
 
 	@Column(name = "purchase_invoice_no")
 	private String purchaseInvoiceNo;

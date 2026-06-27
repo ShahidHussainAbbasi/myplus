@@ -15,9 +15,9 @@ public class StockAdjustment {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    // Product master lives in catalog-service (slice 33, Phase 5b) — referenced by id.
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "warehouse_id")

@@ -3,23 +3,26 @@ package com.myplus.campaign.service;
 import com.myplus.campaign.dto.DemoRequestRequest;
 import com.myplus.campaign.entity.DemoRequest;
 import com.myplus.campaign.repository.DemoRequestRepository;
+import com.myplus.common.notify.EmailRequest;
+import com.myplus.common.notify.NotificationClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-/** Persists a Book-a-Demo lead and notifies the team + acknowledges the requester (best-effort email). */
+import java.util.List;
+
+/** Persists a Book-a-Demo lead and notifies the team + acknowledges the requester (best-effort email via
+ *  notification-service). */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DemoLeadService {
 
     private final DemoRequestRepository repository;
-    private final JavaMailSender mailSender;
+    private final NotificationClient notificationClient;
 
     @Value("${app.support-email:maxtheservice@gmail.com}")
     private String supportEmail;
@@ -36,23 +39,18 @@ public class DemoLeadService {
         log.info("Demo lead saved (id={}, company={}, country={})", e.getId(), e.getCompany(), e.getCountry());
 
         try {
-            mailSender.send(teamEmail(e));
+            notificationClient.sendEmail(teamEmail(e));
         } catch (Exception ex) {
             log.error("Demo lead {}: team notification failed: {}", e.getId(), ex.getMessage());
         }
         try {
-            mailSender.send(ackEmail(e));
+            notificationClient.sendEmail(ackEmail(e));
         } catch (Exception ex) {
             log.error("Demo lead {}: acknowledgement failed: {}", e.getId(), ex.getMessage());
         }
     }
 
-    private SimpleMailMessage teamEmail(final DemoRequest d) {
-        final SimpleMailMessage m = new SimpleMailMessage();
-        m.setFrom(supportEmail);
-        m.setTo(supportEmail);
-        m.setReplyTo(d.getWorkEmail());
-        m.setSubject("New demo request — " + d.getCompany() + " (" + d.getCountry() + ")");
+    private EmailRequest teamEmail(final DemoRequest d) {
         final StringBuilder b = new StringBuilder("A new demo request was submitted from the website.\n\n");
         line(b, "Name", d.getFullName());
         line(b, "Work email", d.getWorkEmail());
@@ -69,15 +67,15 @@ public class DemoLeadService {
             b.append("\nMessage:\n").append(d.getMessage()).append('\n');
         }
         b.append("\nLead reference: #").append(d.getId());
-        m.setText(b.toString());
-        return m;
+        return EmailRequest.builder()
+                .to(List.of(supportEmail))
+                .replyTo(d.getWorkEmail())
+                .subject("New demo request — " + d.getCompany() + " (" + d.getCountry() + ")")
+                .body(b.toString())
+                .build();
     }
 
-    private SimpleMailMessage ackEmail(final DemoRequest d) {
-        final SimpleMailMessage m = new SimpleMailMessage();
-        m.setFrom(supportEmail);
-        m.setTo(d.getWorkEmail());
-        m.setSubject("Thanks for your interest in MaxTheService");
+    private EmailRequest ackEmail(final DemoRequest d) {
         final StringBuilder b = new StringBuilder("Hi ").append(firstName(d.getFullName())).append(",\n\n");
         b.append("Thank you for requesting a demo of MaxTheService. We have received your request");
         if (StringUtils.hasText(d.getCompany())) b.append(" for ").append(d.getCompany());
@@ -86,8 +84,11 @@ public class DemoLeadService {
         if (StringUtils.hasText(d.getTimezone())) b.append(" (").append(d.getTimezone()).append(")");
         b.append(".\n\nIf you need anything sooner, just reply to this email or write to ")
                 .append(supportEmail).append(".\n\nWarm regards,\nThe MaxTheService Team\nhttps://maxtheservice.com");
-        m.setText(b.toString());
-        return m;
+        return EmailRequest.builder()
+                .to(List.of(d.getWorkEmail()))
+                .subject("Thanks for your interest in MaxTheService")
+                .body(b.toString())
+                .build();
     }
 
     private static void line(final StringBuilder b, final String label, final String value) {

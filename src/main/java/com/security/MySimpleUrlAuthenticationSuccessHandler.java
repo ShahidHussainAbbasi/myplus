@@ -99,11 +99,17 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
             "/businessDashboard", "/educationDashboard", "/welfareDashboard",
             "/agricultureDashboard", "/appointmentDashboard");
 
+    // Commerce verticals all share the ONE dashboard (/businessDashboard), white-labelled by user type
+    // (POS=BUSINESS, Pharmacy=PHARMA, Store=ECOMMERCE) — slice 36. No per-vertical routes.
+    private static final java.util.Set<String> COMMERCE_TYPES = java.util.Set.of("BUSINESS", "PHARMA", "MARKETPLACE");
+
     //Navigate user to the dash board on the base of user type
     protected String determineTargetUrl(final Authentication authentication) {
              if (authentication.getPrincipal() instanceof User) {
         	 User user = ((User)authentication.getPrincipal());
         	 if(!appUtil.isEmptyOrNull(user) && !appUtil.isEmptyOrNull(user.getUserType())){
+        	         String type = user.getUserType().toUpperCase();
+        	         if (COMMERCE_TYPES.contains(type)) return "/businessDashboard";  // one shared commerce dashboard
             		 String dash = "/"+user.getUserType().toLowerCase()+"Dashboard";
             		 return KNOWN_DASHBOARDS.contains(dash) ? dash : "/";
             }else {

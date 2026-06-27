@@ -10,6 +10,9 @@
   <artifactId>pharma-service</artifactId>
 
   <dependencies>
+    <dependency><groupId>com.myplus</groupId><artifactId>common-web</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
+    <!-- P0a (slice 41): pharma composes the shared core — catalog (product master/price) + inventory (stock/FEFO). -->
+    <dependency><groupId>com.myplus</groupId><artifactId>commerce-contracts</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId></dependency>
@@ -31,6 +34,24 @@
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-mysql</artifactId>
+    </dependency>
+
+    <!-- Tests (tech-debt #12): JUnit + Testcontainers-MySQL so repository/query tests run against the
+         real dialect, not H2. Versions managed by the Spring Boot 3.5 BOM. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>mysql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 

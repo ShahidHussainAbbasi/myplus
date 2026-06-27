@@ -249,13 +249,38 @@ $(document).ready(function() {
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
 			// obj.item = item;
 
-        	data.push(obj);
+        	// (cart insert handled below: append, or replace-in-place when editing)
 			var arr = [
-				obj.itemId,escHtml(obj.itemName),obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
+				obj.itemId,obj.itemName,obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
+			// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in
+				// place (no duplicate). A brand-new item is still appended. New-sale mode always appends.
+				var existingIdx = window.editingInvoice
+					? data.findIndex(function(d){ return String(d.itemId) === String(obj.itemId); })
+					: -1;
+				if (existingIdx >= 0) {
+					// The item is locked in edit mode, so carry the original line's stock identity onto the
+						// edited line. updateSell keys stock by stockId — the sell form never sets it, so without
+						// this the line would save with NULL stock and drop out of the report.
+						var prevStock = data[existingIdx].stock || {};
+						if (prevStock.stockId != null) obj.stock.stockId = prevStock.stockId;
+						if (prevStock.batchNo != null) obj.stock.batchNo = prevStock.batchNo;
+						data[existingIdx] = obj;
+					// tablesi.rows().every(function(){
+					// 	// if (String(this.data()[0]) === String(obj.itemId)) { this.data(arr); }
+					// 	this.data(arr);
+					// });
+					// tablesi.draw(false);
+				} else {
+					data.push(obj);
+					// tablesi.row.add(arr).draw();
+				}
 			resetForm();
 			resetBSDD('sellItemDD');
+			// Cart changed (item added / qty updated) → recompute Change & Due from the live cart total
+			// (#sellTotal). Standard POS: Due = bill − Received for THIS invoice.
+			calculateChange();
         }else{
         	showFormError('Please select an item and enter a valid quantity.');
         	return false;
@@ -270,6 +295,241 @@ function UIT(id){
 			data.splice(i,1);
 		}
 	});
+}
+
+// ─── Edit an existing sale (invoice) ──────────────────────────────────────────
+// Clicking a row in the Sell report loads that row's WHOLE invoice (all line items + customer +
+// paid/due) back into the cart (iDiv) and the sell form, in an "editing INV-xxxx" state. Saving
+// then routes to updateSell (same invoice #, stock & dues adjusted by the deltas).
+function loadSellForEdit(sellId){
+	edit = true;
+	$.get(serverContext + "getSellInvoice?sellId=" + encodeURIComponent(sellId), function(resp){
+		if(!resp || resp.status !== "SUCCESS" || !resp.object){
+			showFormError((resp && resp.message) || "Could not load this sale for editing.");
+			return;
+		}
+		var inv = resp.object;
+		// 1) clear the current cart
+		data.length = 0;
+		if(tablesi){ tablesi.clear(); }
+		// 2) rebuild the cart from the invoice's line items
+		(inv.sales || []).forEach(function(line){
+			var stk = line.stock || {};
+			stk.itemId = line.itemId;
+			stk.itemName = line.itemName;
+			var item = {
+				sellId: line.sellId,            // original line — lets updateSell revert the right stock
+				quantity: line.quantity,
+				itemId: line.itemId,
+				itemName: line.itemName,
+				totalAmount: line.totalAmount,
+				netAmount: line.netAmount,
+				sellRate: line.sellRate,
+				discount: line.discount,
+				dt: line.dt,
+				srp: line.srp,
+				stock: stk
+			};
+			data.push(item);
+			$("#sellRec").val('');
+			// tablesi.row.add([
+			// 	item.itemId, escHtml(item.itemName || ''), item.quantity,
+			// 	stk.bsellRate, stk.bsellDiscount, item.totalAmount,
+			// 	"<button id='DII' onclick=UIT(" + item.itemId + ")>Del</button>"
+			// ]);
+		});
+		// if(tablesi){ tablesi.draw(); }
+		// 3) LOCK the customer — in edit mode you change quantities/payment, not WHO the customer is.
+		//    If the invoice's customer is in the dropdown, show Select mode with it chosen + disabled;
+		//    otherwise show Manual mode. Either way the name field is filled (the save reads it) and the
+		//    customer inputs are disabled. The customerId is remembered so updateSell updates THAT
+		//    customer in place (no duplicate).
+		var custId = inv.customer ? (inv.customer.customerId != null ? inv.customer.customerId
+		                          : (inv.customer.id != null ? inv.customer.id : null)) : null;
+		var inDD = custId != null && $('#sellCustomerDD option[value="' + custId + '"]').length > 0;
+		if(typeof onCustomerModeChange === 'function') onCustomerModeChange(inDD ? 'select' : 'manual');
+		if(inDD){ $('#sellCustomerDD').val(String(custId)); }
+		$("#sellCN").val(inv.customer ? (inv.customer.name || '') : '');     // the save reads name/contact
+		$("#sellCC").val(inv.customer ? (inv.customer.contact || '') : '');
+		// $("#sellRec").val(inv.paidAmount != null ? inv.paidAmount : '');
+		$("#sellRec").val('');
+		$("#sellCh,#sellDueThis").val('');         // cleared until the cashier re-enters Received
+		window.selectedCustomerDue = null;          // hide account preview while editing (avoids double-count)
+		$("#sellAccountRow").hide();
+		// $('#sellCustomerDD').prop('disabled', true);   // customer cannot be changed while editing
+		// $('#sellCN').prop('disabled', true);
+		// $('#sellCC').prop('disabled', true);
+		// 4) enter edit state + show the banner
+		window.editingInvoice = { chId: inv.customer_history_id, invoiceNo: inv.invoiceNo, customerId: custId };
+		showSellEditBanner(inv.invoiceNo);
+		setSellItemBtnMode(true);   // the cart-add button becomes "Update Item" while editing
+		// Auto-load the line into the form (item shown but LOCKED, qty editable) so the cashier just
+		// adjusts the quantity and clicks "Update Item".
+		if(data.length) loadCartLineIntoForm(data[0].itemId);
+		// 5) bring the form into view
+		try { $('html, body').animate({ scrollTop: $('#sellDiv').offset().top }, 300); } catch(e){}
+		updateReadOnly(true);
+	}).fail(function(){
+		showFormError("Could not load this sale for editing.");
+	});
+}
+
+function showSellEditBanner(invoiceNo){
+	$('#sellEditBanner').remove();
+	var banner = $(
+		"<div id='sellEditBanner' class='alert alert-info' style='margin:8px 0;display:flex;align-items:center;gap:10px'>"
+		+ "<span class='glyphicon glyphicon-pencil'></span> "
+		+ "<span><b>Editing invoice " + escHtml(invoiceNo || '') + "</b> — change items / amounts, then click <b>Add Sell</b> to update.</span>"
+		+ "<button type='button' id='cancelSellEdit' class='btn btn-xs btn-default' style='margin-left:auto'>Cancel edit</button>"
+		+ "</div>");
+	$('#iDiv').before(banner);
+	$('#cancelSellEdit').off().on('click', cancelSellEdit);
+}
+
+// Toggle the cart-add button between "Add to Cart" (new sale) and "Update Item" (editing an invoice).
+function setSellItemBtnMode(editing){
+	var $b = $('#addInviceItem');
+	if(!$b.length) return;
+	$b.html(editing
+		? "<span class='glyphicon glyphicon-pencil'></span> Update Item"
+		: "<span class='glyphicon glyphicon-shopping-cart'></span> Add to Cart");
+}
+
+// Load one cart line into the item form for editing. In edit mode the ITEM is FIXED — the dropdown is
+// disabled so only the quantity/amounts of that line can change; "Update Item" then replaces this same
+// line in place.
+function loadCartLineIntoForm(itemId){
+	var line = data.find(function(d){ return String(d.itemId) === String(itemId); });
+	if(!line) return;
+	$('#sellItemDD').val(String(itemId));
+	if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+	loadStock($('#sellItemDD :selected').text(), itemId);   // fills rate/discount/stock (async $.get)
+	$('#sellItems').val(line.quantity);                     // keep the line's qty (loadStock won't override >0)
+	$('#sellItemDD').prop('disabled', true);                // lock the item while editing
+	if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+}
+
+// Leave edit mode: drop the editing flag, banner, restore the button label, and UNLOCK the item
+// dropdown. Safe to call when not editing (it just normalises the controls). Called on Cancel and
+// after a successful save.
+function exitSellEditMode(){
+	window.editingInvoice = null;
+	edit = false;
+	$('#sellEditBanner').remove();
+	setSellItemBtnMode(false);
+	$('#sellItemDD').prop('disabled', false);
+	if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+	$('#sellCustomerDD').prop('disabled', false);   // unlock the customer controls
+	$('#sellCN').prop('disabled', false);
+	$('#sellCC').prop('disabled', false);
+}
+
+function cancelSellEdit(){
+	data.length = 0;
+	if(tablesi){ tablesi.clear().draw(); }
+	$("#sellCN,#sellCC,#sellRec").val('');
+	if(typeof resetForm === 'function') resetForm();
+	exitSellEditMode();
+	updateReadOnly(false);
+}
+
+// ─── Team / Users (owner-only) ────────────────────────────────────────────────
+// The company SUPER owner manages team members. Uses a custom show (not the generic .dropdown path)
+// so it doesn't trigger loadDataTable for a non-existent "Team" entity.
+function showTeam(){
+	$('.formDiv').hide();
+	$('#TeamDiv').show();
+	$('#teamMsg').hide();
+	loadTeamUsers();
+}
+
+// G3 (slice 35): org tax policy. Same direct-show pattern as showTeam (no DataTable entity).
+function showTaxSettings(){
+	$('.formDiv').hide();
+	$('#TaxSettingDiv').show();
+	loadTaxSetting();
+}
+
+function loadTaxSetting(){
+	$.get(serverContext + "getTaxSetting", function(resp){
+		var s = (resp && resp.object) ? resp.object : {};
+		$('#taxEnabled').prop('checked', s.enabled === true);
+		$('#taxMode').val(s.taxMode === 'INCLUSIVE' ? 'INCLUSIVE' : 'EXCLUSIVE');
+		$('#taxDefaultRate').val(s.defaultRate != null ? s.defaultRate : '');
+		$('#taxLabel').val(s.taxLabel != null ? s.taxLabel : 'Tax');
+		$('#taxRegNo').val(s.taxRegNo != null ? s.taxRegNo : '');
+	}).fail(function(){
+		showFormError('Could not load tax settings.');
+	});
+}
+
+function saveTaxSetting(){
+	$.ajax({
+		type: 'POST',
+		url: serverContext + "saveTaxSetting",
+		dataType: 'json',
+		data: {
+			'enabled': $('#taxEnabled').is(':checked'),
+			'taxMode': $('#taxMode').val(),
+			'defaultRate': $('#taxDefaultRate').val() || '0',
+			'taxLabel': $('#taxLabel').val() || 'Tax',
+			'taxRegNo': $('#taxRegNo').val() || ''
+		},
+		success: function(data){
+			if (data && (data.status === 'SUCCESS' || data.message)) {
+				showSaleSuccess((data.message) || 'Tax settings saved.');
+			} else {
+				showFormError((data && data.status ? data.status : 'Save failed') + (data && data.message ? ': ' + data.message : '.'));
+			}
+		},
+		error: function(){ showFormError('Could not save tax settings.'); }
+	});
+}
+
+function loadTeamUsers(){
+	$.get(serverContext + "team/users", function(resp){
+		var users = (resp && resp.data) ? resp.data : [];
+		var $tb = $('#tableTeam tbody').empty();
+		if(!users.length){ $tb.append('<tr><td colspan="4" class="text-center">No team members yet.</td></tr>'); return; }
+		users.forEach(function(u){
+			$tb.append('<tr><td>' + escHtml(u.name || '') + '</td><td>' + escHtml(u.email || '')
+				+ '</td><td>' + escHtml(u.role || '') + '</td><td>' + (u.enabled ? 'Active' : 'Pending') + '</td></tr>');
+		});
+	}).fail(function(){
+		$('#tableTeam tbody').html('<tr><td colspan="4" class="text-center">Could not load the team.</td></tr>');
+	});
+}
+
+function addTeamUser(){
+	var body = {
+		firstName: ($('#teamFirstName').val() || '').trim(),
+		lastName:  ($('#teamLastName').val()  || '').trim(),
+		email:     ($('#teamEmail').val()     || '').trim(),
+		role:      $('#teamRole').val()
+	};
+	if(!body.email){ teamMsg('Please enter an email.', true); return; }
+	$.ajax({
+		type: 'POST', url: serverContext + 'team/users', contentType: 'application/json',
+		data: JSON.stringify(body), dataType: 'json',
+		success: function(resp){
+			if(resp && resp.data && resp.data.userId){
+				teamMsg('Team member added — a set-password email was sent to ' + body.email + '.', false);
+				$('#teamFirstName,#teamLastName,#teamEmail').val('');
+				loadTeamUsers();
+			} else {
+				teamMsg((resp && resp.message) || 'Could not add the team member.', true);
+			}
+		},
+		error: function(xhr){
+			var m = (xhr && xhr.responseJSON && xhr.responseJSON.message) || 'Could not add the team member. Please try again.';
+			teamMsg(m, true);
+		}
+	});
+}
+
+function teamMsg(msg, isErr){
+	$('#teamMsg').removeClass('alert-success alert-danger')
+		.addClass(isErr ? 'alert-danger' : 'alert-success').html(escHtml(msg)).show();
 }
 
 function CIT(data){
@@ -289,11 +549,17 @@ function CIT(data){
 function resetCart(){
 	data = [];
 	tablesi.clear().draw();
+	$("#sellRec,#sellCh,#sellDueThis,#sellPrevDue,#sellNewTotalDue").val('');
+	window.selectedCustomerDue = null;
+	$("#sellAccountRow").hide();
 	onCustomerModeChange('select');
 	$('input[name="customerInputMode"][value="select"]').prop('checked', true);
+	exitSellEditMode();   // a save (incl. updateSell) ends the edit: clear flag/banner, restore button
+	updateReadOnly(false);
 }
 function loadDataTable(){
 	tableSellReport.clear().draw();
+	edit = false;
 
 	var table = tableV.toLowerCase();
 	// Read current page length from the active DataTable for this entity (not hardcoded to Sell)
@@ -420,15 +686,40 @@ function loadDataTable(){
 					});
 				} else if (getAll === "Sell") {
 					$.each(collections, function(ind, obj) {
+						var ch = obj.customerHistory || null;
+						var custName = (ch && ch.customer && ch.customer.name) ? ch.customer.name
+									: (obj.customer && obj.customer.name ? obj.customer.name : '');
+						// "This invoice's due": header dueAmount is stored as (paid − bill), negative while
+						// owing; show the positive amount still owed (0 when fully paid).
+						var chDue = (ch && ch.dueAmount != null) ? Number(ch.dueAmount) : 0;
+						var owed = chDue < 0 ? (-chDue) : 0;
 						allRows.push([
 							"<div id=sellId>"+obj.sellId+"</div>",
-							"<div id=sellItemName>"+escHtml(obj.itemName)+"</div>",
+							"<div id=sellInvoiceNo>"+escHtml(ch ? (ch.invoiceNo || '') : '')+"</div>",
+							"<div id=sellCustomerName>"+escHtml(custName)+"</div>",
+							"<div id=sellItemName>"+escHtml(obj.itemName||'')+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
-							"<div id=sellItemExpiry>"+obj.stock.bexpDate+"</div>",
-							"<div id=sellPurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=sellSellRate>"+obj.stock.bsellRate+"</div>",
-							"<div id=sellDiscountTypeDD>"+obj.stock.bsellDiscountType+"</div>","<div id=sellDiscount>"+obj.stock.bsellDiscount+"</div>",
-							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>","<div id=sellNetAmount>"+obj.netAmount+"</div>",
-							obj.updated
+							"<div id=sellItemExpiry>"+(obj.stock&&obj.stock.bexpDate!=null?obj.stock.bexpDate:'')+"</div>",
+							"<div id=sellPurchaseRate>"+(obj.stock&&obj.stock.bpurchaseRate!=null?obj.stock.bpurchaseRate:'')+"</div>","<div id=sellSellRate>"+(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:(obj.sellRate!=null?obj.sellRate:''))+"</div>",
+							"<div id=sellDiscountTypeDD>"+(obj.stock&&obj.stock.bsellDiscountType!=null?obj.stock.bsellDiscountType:'')+"</div>","<div id=sellDiscount>"+(obj.stock&&obj.stock.bsellDiscount!=null?obj.stock.bsellDiscount:(obj.discount!=null?obj.discount:''))+"</div>",
+							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>",
+							"<div id=sellDueAmount>"+owed.toFixed(2)+"</div>",
+							"<div id=sellNetAmount>"+obj.netAmount+"</div>",
+							obj.updated,
+							"<div id=sellTaxAmount>"+(obj.taxAmount!=null?obj.taxAmount:'')+"</div>",
+							"<div id=sellPaymentMode>"+escHtml(ch&&ch.paymentMode?ch.paymentMode:'')+"</div>",
+							// Actions: G6 (slice 38) Print receipt + G2 (slice 34) Sale Return. Print uses the
+							// invoice number; Return passes its row data via data-* for the partial-qty dialog.
+							((ch && ch.invoiceNo)
+								? "<button type='button' class='btn btn-xs btn-default' title='Print receipt' onclick=\"printReceipt('"+escHtml(ch.invoiceNo)+"')\"><span class='glyphicon glyphicon-print'></span></button> "
+								: "")
+							+ "<button type='button' class='btn btn-xs btn-warning' onclick='openSaleReturn(this)'"
+								+ " data-sellid='"+obj.sellId+"'"
+								+ " data-stockid='"+(obj.stock&&obj.stock.stockId!=null?obj.stock.stockId:'')+"'"
+								+ " data-qty='"+(obj.quantity!=null?obj.quantity:'')+"'"
+								+ " data-invoice='"+escHtml(ch?(ch.invoiceNo||''):'')+"'"
+								+ " data-item='"+escHtml(obj.itemName||'')+"'>"
+								+ "<span class='glyphicon glyphicon-share-alt'></span> Return</button>"
 						]);
 					});
 				}
@@ -464,7 +755,7 @@ function loadSellCustomers() {
 	$.get(serverContext + "getUserCustomer", function(res) {
 		if (res && res.collection) {
 			$.each(res.collection, function(i, c) {
-				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '">' + escHtml(c.name) + '</option>');
+				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '">' + escHtml(c.name) + '</option>');
 			});
 		}
 	}).fail(function() {
@@ -479,10 +770,14 @@ function onSellCustomerSelect(sel) {
 		$("#sellCN").val(opt.text());
 		$("#sellCC").val(opt.data('contact') || '');
 		document.getElementById("sellCustomerDD").style.removeProperty('border-color');
+		var due = Number(opt.data('due'));
+		window.selectedCustomerDue = isNaN(due) ? 0 : due;   // existing customer's running balance
 	} else {
 		$("#sellCN").val('');
 		$("#sellCC").val('');
+		window.selectedCustomerDue = null;                   // no account context (nothing picked)
 	}
+	refreshAccountDuePreview();
 }
 
 function onCustomerModeChange(mode) {
@@ -503,6 +798,9 @@ function onCustomerModeChange(mode) {
 		$('#btnModeManual').addClass('active');
 		$('#btnModeSelect').removeClass('active');
 	}
+	// Switching mode clears the selected customer, so drop the account-balance preview.
+	window.selectedCustomerDue = null;
+	if (typeof refreshAccountDuePreview === 'function') refreshAccountDuePreview();
 }
 
 function getDashboardData() {
@@ -816,12 +1114,13 @@ function loadStock(label,value){
 	bsellDiscount: 0
 	bsellDiscountType: "%"
 	bsellRate: 0
-	edit = false;
+	// edit = false;
 	$("#purchasePurchaseRate").val("");
 	$("#purchaseSellRate").val("")
 	$("#sellPurchaseRate").val("");
 	$("#sellSellRate").val("")
 	$("#sellItems").removeClass("alert-danger");
+	$("#sellBatchInfo").hide().empty();   // P10 (slice 54): FEFO batch/expiry shown when an item is picked
 	$("pdt").html("      ");
 	
     $.get(serverContext+ "getStock?itemId="+value,function(data){
@@ -858,6 +1157,7 @@ function loadStock(label,value){
 			    		$("#sellItems").val(1);
 			    	}
 			    	$("#sellItemDesc").val(data.idesc);
+			    	renderSellBatches(data.batches);   // P10: show the FEFO batch/expiry being dispensed
 			    	calculateNetSell();
 	    		}
     		}
@@ -866,6 +1166,17 @@ function loadStock(label,value){
 	.fail(function(data) {
 		console.log(data);
 	});
+}
+
+// P10 (slice 54): render the FEFO batch/expiry the next sale/dispense will draw from. First batch = next dispensed.
+function renderSellBatches(batches){
+	var el = $("#sellBatchInfo");
+	if(!el.length) return;
+	if(!batches || !batches.length){ el.hide().empty(); return; }
+	var first = batches[0];
+	var exp = first.expiryDate ? (' • Exp ' + first.expiryDate) : '';
+	var more = batches.length > 1 ? (' <span class="text-muted">(+' + (batches.length-1) + ' more)</span>') : '';
+	el.html('<span class="glyphicon glyphicon-barcode"></span> FEFO: Batch <b>' + escHtml(first.batchNo || 'n/a') + '</b>' + escHtml(exp) + more).show();
 }
 
 function getBatchesByItem(itemId){
@@ -976,7 +1287,9 @@ function calculateNetSell(){
 	$("#sellItems").removeClass("alert-danger");
 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
 	discountType = $("#sellDiscountTypeDD :selected").val();
-	if(edit){
+	// editing an existing sale → trust the displayed stock; key on editingInvoice, not the shared `edit`
+	// global (which resetBSDD flips off after every cart add).
+	if(window.editingInvoice){
 		batchStock = $("#sellStock").val()*ONE;
 	}
 	$("#sellStock").val(batchStock);
@@ -1065,11 +1378,22 @@ function calculateChange() {
 	$("#dueDateTemp").hide();
 	$('#displayDateWrapper').hide();
 
-	var recAm = $("#sellRec").val() * ONE;
-    var sellTotal = $("#sellTotal")[0].innerHTML * ONE;
-    var change = recAm - sellTotal;
-    
+	var recAm = ($("#sellRec").val() * ONE) || 0;
+    // P12 (slice 59): insurance covers part of the bill; the patient only owes the remainder (the co-pay).
+    var insured = ($("#sellInsured") && $("#sellInsured").val() ? $("#sellInsured").val() * ONE : 0) || 0;
+    var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
+    var change = recAm + insured - sellTotal;
+
+    // sellCh keeps the SIGNED change/due (received − bill) — addSell submits this as customer.dueAmount.
+    // Do not change its meaning; the display fields below are derived from it.
     $("#sellCh").val(change);
+
+    // Due (this sale) = positive amount still owed on the current cart (0 when fully paid/overpaid).
+    var dueThis = change < 0 ? -change : 0;
+    $("#sellDueThis").val(dueThis.toFixed(2));
+
+    // Account preview (existing customer only): previous balance + this sale = new total outstanding.
+    refreshAccountDuePreview(dueThis);
 
     if (change < 0) {
         // Customer owes money — show due date field
@@ -1080,6 +1404,26 @@ function calculateChange() {
         $("#dueDateTemp").hide();
         $('#displayDateWrapper').hide();
     }
+}
+
+// Show the running-balance impact for a known (dropdown-selected) customer. window.selectedCustomerDue
+// holds their current outstanding balance; null for a walk-in/manual customer or while editing, in which
+// case the account row stays hidden. Re-derives this sale's due if not passed (e.g. on customer select).
+function refreshAccountDuePreview(dueThis) {
+	if (dueThis == null) {
+		var recAm = ($("#sellRec").val() * ONE) || 0;
+		var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
+		var ch = recAm - sellTotal;
+		dueThis = ch < 0 ? -ch : 0;
+	}
+	var prev = Number(window.selectedCustomerDue);
+	if (window.selectedCustomerDue == null || isNaN(prev)) {
+		$("#sellAccountRow").hide();
+		return;
+	}
+	$("#sellPrevDue").val(prev.toFixed(2));
+	$("#sellNewTotalDue").val((prev + dueThis).toFixed(2));
+	$("#sellAccountRow").show();
 }
 
 // function calculateChange(){
@@ -1130,33 +1474,95 @@ function resetPurchaseForm(){
 	resetBSDD('purchaseItemDD');
 }
 
-function saleReturn(sellId,stockId,qty){
-	var r = confirm("Are you sure, Do you want to revert this sale?");
-	if (r != true)
-		return false;
-	
+// G2 (slice 34): Sale Return. The per-row "Return" button opens a small self-contained dialog that supports a
+// PARTIAL return (1..sold qty) + an optional reason, then posts to /saleReturn. The server decides whether the
+// sale is a saga sell (-> inventory inverse saga) or a legacy local-Stock sell; the UI just sends sellId/qty.
+function buildSaleReturnDialog(){
+	var d = document.getElementById('saleReturnDialog');
+	if (d) return d;
+	d = document.createElement('div');
+	d.id = 'saleReturnDialog';
+	d.style.cssText = 'position:fixed;inset:0;z-index:10000;display:none;'
+		+ 'background:rgba(0,0,0,.45);align-items:center;justify-content:center';
+	d.innerHTML =
+		"<div style='background:#fff;border-radius:10px;max-width:420px;width:92%;padding:22px 24px;"
+		+ "box-shadow:0 12px 40px rgba(0,0,0,.3)'>"
+		+ "<h4 style='margin:0 0 14px;font-weight:700'>Sale Return</h4>"
+		+ "<div style='font-size:13px;color:#444;margin-bottom:12px'>"
+		+ "Invoice <b id='srInvoice'></b> &middot; <span id='srItem'></span><br>"
+		+ "Sold quantity: <b id='srSold'></b></div>"
+		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Return quantity</label>"
+		+ "<input type='number' id='srQty' class='form-control' step='any' min='1' style='margin-bottom:12px'>"
+		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Reason (optional)</label>"
+		+ "<input type='text' id='srReason' class='form-control' maxlength='200' placeholder='e.g. damaged, expired, customer change' style='margin-bottom:8px'>"
+		// P11 (slice 55): quarantine returned stock (not restocked) — defaulted on for pharmacy.
+		+ "<label style='display:block;font-size:13px;margin-bottom:8px'><input type='checkbox' id='srQuarantine' style='margin-right:6px'>Quarantine returned stock (do not restock)</label>"
+		+ "<div id='srError' style='color:#c0392b;font-size:12px;min-height:16px;margin-bottom:8px'></div>"
+		+ "<div style='text-align:right'>"
+		+ "<button type='button' class='btn btn-default' onclick='closeSaleReturn()'>Cancel</button> "
+		+ "<button type='button' id='srSubmit' class='btn btn-warning' onclick='submitSaleReturn()'>"
+		+ "<span class='glyphicon glyphicon-share-alt'></span> Confirm Return</button>"
+		+ "</div></div>";
+	document.body.appendChild(d);
+	return d;
+}
+
+function openSaleReturn(btn){
+	var d = buildSaleReturnDialog();
+	var sold = parseFloat(btn.getAttribute('data-qty')) || 0;
+	d.dataset.sellid  = btn.getAttribute('data-sellid') || '';
+	d.dataset.stockid = btn.getAttribute('data-stockid') || '';
+	d.dataset.sold    = sold;
+	document.getElementById('srInvoice').textContent = btn.getAttribute('data-invoice') || '—';
+	document.getElementById('srItem').textContent    = btn.getAttribute('data-item') || '';
+	document.getElementById('srSold').textContent    = sold;
+	var qtyInput = document.getElementById('srQty');
+	qtyInput.value = sold;
+	qtyInput.max   = sold;
+	document.getElementById('srReason').value = '';
+	// Pharmacy returns default to quarantine (returned meds can't be re-dispensed); other verticals default off.
+	document.getElementById('srQuarantine').checked = (window.MODULE === 'PHARMA');
+	document.getElementById('srError').textContent = '';
+	d.style.display = 'flex';
+}
+
+function closeSaleReturn(){
+	var d = document.getElementById('saleReturnDialog');
+	if (d) d.style.display = 'none';
+}
+
+function submitSaleReturn(){
+	var d = document.getElementById('saleReturnDialog');
+	var sellId = d.dataset.sellid, stockId = d.dataset.stockid;
+	var sold = parseFloat(d.dataset.sold) || 0;
+	var qty = parseFloat(document.getElementById('srQty').value);
+	var err = document.getElementById('srError');
+	if (!qty || qty <= 0) { err.textContent = 'Enter a quantity greater than 0.'; return false; }
+	if (qty > sold)       { err.textContent = 'Cannot return more than the sold quantity (' + sold + ').'; return false; }
+
+	var btn = document.getElementById('srSubmit');
+	btn.disabled = true;
 	$.ajax({
-        type:'POST',
-        url:serverContext+ "saleReturn",
-        dataType : "json",
-        data:{'sellId':sellId,'sellSId':stockId,'quantity':qty},
-            success:function(data){
-        		datatable.clear().draw();
-        		datatable.ajax.reload();		
-	        },
-		    error: function (e) {
- 		        showFormError('An error occurred: ' + e);
-		    }
-        });
-    
-//	$.get(serverContext+ "saleReturn?itemId="+itemId+"&stockId="+stockId+"&qty="+qty,function(data){
-//		datatable.clear().draw();
-//		datatable.ajax.reload();		
-//    })
-//	.fail(function(data) {
-//		alert(data);
-//	});
-//	resetForm();
-//	$("#globalError").empty();
+		type: 'POST',
+		url: serverContext + "saleReturn",
+		dataType: "json",
+		data: { 'sellId': sellId, 'sellSId': stockId, 'quantity': qty, 'reason': document.getElementById('srReason').value,
+			'quarantine': document.getElementById('srQuarantine').checked },
+		success: function(data){
+			btn.disabled = false;
+			if (data && (data.status === 'SUCCESS' || data.message)) {
+				closeSaleReturn();
+				showSaleSuccess((data.message) || 'Sale returned successfully.');
+				datatable.clear().draw();
+				datatable.ajax.reload();
+			} else {
+				err.textContent = (data && data.status ? data.status : 'Return failed') + (data && data.message ? ': ' + data.message : '.');
+			}
+		},
+		error: function (e) {
+			btn.disabled = false;
+			err.textContent = 'An error occurred. Please try again.';
+		}
+	});
 }
 

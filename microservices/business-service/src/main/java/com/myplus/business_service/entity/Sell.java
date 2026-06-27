@@ -79,6 +79,13 @@ public class Sell implements Serializable {
 	@Column(name = "sell_return_profit", precision = 19, scale = 2)
 	private BigDecimal srp;
 
+	// G3 (slice 35): applied tax on this line. taxRate is the % used; taxAmount is the money. Null for legacy sells.
+	@Column(name = "tax_rate", precision = 19, scale = 2)
+	private BigDecimal taxRate;
+
+	@Column(name = "tax_amount", precision = 19, scale = 2)
+	private BigDecimal taxAmount;
+
 	@Column(name = "discount_type")
 	private String dt;
 
@@ -95,6 +102,10 @@ public class Sell implements Serializable {
 	@ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
 	@JoinColumn(name = "stock_id")
 	private Stock stock;
+
+	// Saga sells (slice 33, U3) reference the catalog product directly; the local Stock FK is null then.
+	@Column(name = "product_id")
+	private Long productId;
 
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
     @JoinColumn(name = "customer_history_id", nullable = true)
