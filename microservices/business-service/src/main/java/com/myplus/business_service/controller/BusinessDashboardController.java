@@ -33,6 +33,7 @@ import com.myplus.business_service.service.IItemService;
 import com.myplus.business_service.service.ISellService;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
+import com.myplus.business_service.repository.ItemCatalogMapRepo;
 import com.myplus.business_service.util.RequestUtil;
 
 @RestController
@@ -63,6 +64,9 @@ public class BusinessDashboardController {
 
     @Autowired
     private CustomerHistoryRepo customerHistoryRepo;
+
+    @Autowired
+    private ItemCatalogMapRepo itemCatalogMapRepo;   // M3c.2 (slice 78): productId -> item reverse-map for top items
 
     @GetMapping("/getBusinessDashboardStats")
     @ResponseBody
@@ -157,10 +161,18 @@ public class BusinessDashboardController {
 
             // --- top 5 items by qty this month ---
             Map<Long, Double> itemQtyMap = new HashMap<>();
+            // M3c.2 (slice 78): resolve each sell's item productId-first (reverse catalog map) so this no longer needs Stock.
+            java.util.List<Long> dpids = monthlySells.stream().filter(s -> s.getProductId() != null)
+                .map(Sell::getProductId).distinct().collect(Collectors.toList());
+            Map<Long, Long> dProductToItem = new HashMap<>();
+            if (!dpids.isEmpty())
+                for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(dpids, user.getOrganizationId()))
+                    dProductToItem.put((Long) row[0], (Long) row[1]);
             for (Sell s : monthlySells) {
-                if (s.getStock() != null && s.getStock().getItemId() != null && s.getQuantity() != null) {
-                    itemQtyMap.merge(s.getStock().getItemId(), s.getQuantity().doubleValue(), Double::sum);
-                }
+                if (s.getQuantity() == null) continue;
+                Long iid = (s.getProductId() != null) ? dProductToItem.get(s.getProductId())
+                        : (s.getStock() != null ? s.getStock().getItemId() : null);
+                if (iid != null) itemQtyMap.merge(iid, s.getQuantity().doubleValue(), Double::sum);
             }
             List<Map.Entry<Long, Double>> topEntries = itemQtyMap.entrySet().stream()
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())

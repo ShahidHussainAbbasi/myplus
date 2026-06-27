@@ -318,28 +318,39 @@ public class SellController {
 				out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
 			}
 
-			// Batch-load item names in one query (same approach as getUserSell).
+			// M3c.2b (slice 78): resolve item names productId-FIRST (reverse catalog map) so edit-load no longer needs
+			// the Stock FK — and saga sells (no Stock) now load with their name too. Legacy Stock.itemId is a fallback.
 			java.util.List<Long> itemIds = lines.stream()
-					.filter(s -> s.getStock() != null && s.getStock().getItemId() != null)
+					.filter(s -> s.getProductId() == null && s.getStock() != null && s.getStock().getItemId() != null)
 					.map(s -> s.getStock().getItemId()).distinct()
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
 					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+			java.util.List<Long> invProductIds = lines.stream()
+					.filter(s -> s.getProductId() != null).map(Sell::getProductId).distinct()
+					.collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
+			if (!invProductIds.isEmpty()) {
+				java.util.Map<Long, Long> productToItem = new java.util.HashMap<>();
+				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(invProductIds, orgId()))
+					productToItem.put((Long) row[0], (Long) row[1]);
+				java.util.Map<Long, Item> invItems = itemService.findAllById(productToItem.values()).stream()
+						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+				invProductIds.forEach(pid -> {
+					Long iid = productToItem.get(pid);
+					if (iid != null && invItems.get(iid) != null) itemByProductId.put(pid, invItems.get(iid));
+				});
+			}
 
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
-				if (s.getStock() != null) {
-					sd.setStock(modelMapper.map(s.getStock(), StockDTO.class));
-					Item item = itemsById.get(s.getStock().getItemId());
-					if (item != null) {
-						sd.setItemId(item.getId());
-						sd.setItemName(item.getIname());
-						sd.setItemCode(item.getIcode());
-					}
-				}
+				Item item = (s.getProductId() != null) ? itemByProductId.get(s.getProductId())
+						: (s.getStock() != null ? itemsById.get(s.getStock().getItemId()) : null);
+				if (item != null) { sd.setItemId(item.getId()); sd.setItemName(item.getIname()); sd.setItemCode(item.getIcode()); }
+				if (s.getStock() != null) sd.setStock(modelMapper.map(s.getStock(), StockDTO.class));
 				sales.add(sd);
 			}
 			out.setSales(sales);
@@ -396,7 +407,7 @@ public class SellController {
 			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
 					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
 			java.util.List<Long> sagaProductIds = lines.stream()
-					.filter(s -> s.getStock() == null && s.getProductId() != null)
+					.filter(s -> s.getProductId() != null)
 					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
 			if (!sagaProductIds.isEmpty()) {
@@ -415,9 +426,9 @@ public class SellController {
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
-				Item item = (s.getStock() != null && s.getStock().getItemId() != null)
-						? itemsById.get(s.getStock().getItemId())
-						: itemByProductId.get(s.getProductId());
+				Item item = (s.getProductId() != null)
+						? itemByProductId.get(s.getProductId())
+						: itemsById.get(s.getStock().getItemId());
 				if (item != null) { sd.setItemId(item.getId()); sd.setItemName(item.getIname()); sd.setItemCode(item.getIcode()); }
 				if (s.getStock() != null) sd.setStock(modelMapper.map(s.getStock(), StockDTO.class));
 				sales.add(sd);
@@ -878,17 +889,19 @@ public class SellController {
 										existingSell.getProductId(), dto.getQuantity())));
 				returnReq.setQuarantine(quarantine);
 				inventoryClient.returnStock(reservationId, returnReq);
+			} else if (existingSell.getProductId() != null) {
+				// M3c.3 (slice 79): a backfilled legacy sell has a productId but no reservation — restock INVENTORY by
+				// product (a fresh entry) so inventory stays authoritative even for legacy returns; no local Stock write.
+				inventoryClient.importStock(java.util.List.of(
+						com.myplus.commerce.contracts.dto.StockImportLine.builder()
+								.productId(existingSell.getProductId()).quantity(dto.getQuantity()).build()));
 			} else if (!appUtil.isEmptyOrNull(dto.getSellSId())) {
-				// Legacy local-Stock sell: restore the local Stock row as before.
+				// Pre-backfill legacy row (no productId) — last-resort local Stock restock.
 				Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());
 				if(stockOpt.isPresent()) {
 					Stock stock = stockOpt.get();
 					stock.setStock(stock.getStock() + dto.getQuantity());
-
 					stockService.save(stock);
-					if(appUtil.isEmptyOrNull(stock)) {
-						return new GenericResponse("FAILED", "Sale return failed. Please try again.");
-					}
 				}
 			}
 
