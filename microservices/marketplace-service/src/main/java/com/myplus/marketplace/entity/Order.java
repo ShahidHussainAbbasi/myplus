@@ -82,6 +82,12 @@ public class Order {
     @Column(name = "shipping_method")
     private String shippingMethod;
 
+    @Column(name = "coupon_code")
+    private String couponCode;       // applied promo code (slice 72)
+
+    @Column(name = "discount_amount", precision = 19, scale = 2)
+    private BigDecimal discountAmount;
+
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "fulfilment_status")

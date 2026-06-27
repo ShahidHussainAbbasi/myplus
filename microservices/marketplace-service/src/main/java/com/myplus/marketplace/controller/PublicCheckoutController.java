@@ -28,8 +28,9 @@ public class PublicCheckoutController {
     @GetMapping("/quote")
     public ApiResponse<CheckoutDTO.Quote> quote(@RequestParam Long organizationId,
                                                 @RequestParam(required = false) String cartToken,
-                                                @RequestParam(required = false) String shippingMethod) {
-        return ApiResponse.success(checkoutService.quote(organizationId, cartToken, shippingMethod));
+                                                @RequestParam(required = false) String shippingMethod,
+                                                @RequestParam(required = false) String couponCode) {
+        return ApiResponse.success(checkoutService.quote(organizationId, cartToken, shippingMethod, couponCode));
     }
 
     /** Place the order from the server cart (reserve→charge→confirm saga). */

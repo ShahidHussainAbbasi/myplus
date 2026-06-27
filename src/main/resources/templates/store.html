@@ -79,9 +79,16 @@
                 <option value="EXPRESS">Express delivery (+15.00)</option>
                 <option value="PICKUP">Store pickup (free)</option>
             </select>
+            <!-- slice 72: promo code -->
+            <div style="display:flex;gap:6px">
+                <input id="cCoupon" placeholder="Promo code" style="flex:1" onkeyup="if(event.key==='Enter')applyCoupon()">
+                <button class="qbtn" style="width:auto;padding:0 12px" onclick="applyCoupon()">Apply</button>
+            </div>
+            <div id="couponMsg" class="muted" style="font-size:12px;min-height:14px"></div>
             <!-- slice 69: server-computed totals breakdown -->
             <div class="totals">
                 <div class="line"><span>Subtotal</span><span id="qSub">0.00</span></div>
+                <div class="line" id="qDiscountLine" style="display:none;color:#1e7e34"><span>Discount</span><span id="qDiscount">0.00</span></div>
                 <div class="line"><span>Tax</span><span id="qTax">0.00</span></div>
                 <div class="line"><span>Shipping</span><span id="qShip">0.00</span></div>
                 <div class="total"><span>Total</span><span id="qTotal">0.00</span></div>
@@ -234,12 +241,15 @@
 
     function cartTotal(){ return Number(cartState.subtotal)||0; }
 
-    // slice 69: fetch the server-computed totals (subtotal + tax + shipping) for the chosen method.
+    // slice 69/72: fetch the server-computed totals (subtotal + discount + tax + shipping) for the chosen method + code.
     function shipMethod(){ var s = document.getElementById('cShip'); return s ? s.value : 'STANDARD'; }
+    function couponCode(){ var c = document.getElementById('cCoupon'); return c ? c.value.trim() : ''; }
+    function applyCoupon(){ refreshQuote(); }
     function refreshQuote(){
         var t = getCartToken(); if(!t || !(cartState.items||[]).length){ return; }
         var url = '/storefront/checkout/quote?org=' + encodeURIComponent(STORE_ORG)
             + '&cartToken=' + encodeURIComponent(t) + '&shippingMethod=' + encodeURIComponent(shipMethod());
+        var code = couponCode(); if(code){ url += '&couponCode=' + encodeURIComponent(code); }
         fetch(url).then(function(r){ return r.json(); }).then(function(resp){
             if(resp && resp.success && resp.data){
                 var q = resp.data;
@@ -247,6 +257,14 @@
                 document.getElementById('qTax').textContent = money(q.taxTotal);
                 document.getElementById('qShip').textContent = money(q.shippingFee);
                 document.getElementById('qTotal').textContent = money(q.total);
+                // discount line + coupon feedback
+                var disc = Number(q.discount) || 0;
+                document.getElementById('qDiscount').textContent = '-' + money(disc);
+                document.getElementById('qDiscountLine').style.display = disc > 0 ? 'flex' : 'none';
+                var msg = document.getElementById('couponMsg');
+                if(code && q.couponMessage){ msg.textContent = q.couponMessage; msg.style.color = '#c0392b'; }
+                else if(disc > 0){ msg.textContent = 'Coupon "' + esc(q.couponCode) + '" applied.'; msg.style.color = '#1e7e34'; }
+                else { msg.textContent = ''; }
             }
         }).catch(function(){});
     }
@@ -277,6 +295,7 @@
             customerContact:document.getElementById('cContact').value,
             shippingAddress:document.getElementById('cAddress').value,
             shippingMethod: shipMethod(), paymentMode: payMode };
+        var code = couponCode(); if(code){ body.couponCode = code; }   // slice 72
         if(payMode==='CARD'){ body.cardToken = cardToken(); }
         if(acctToken()){ body.customerToken = acctToken(); }   // slice 61: link the order to the signed-in shopper
         fetch('/storefront/checkout', {

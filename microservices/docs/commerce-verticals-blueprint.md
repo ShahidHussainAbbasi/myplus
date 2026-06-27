@@ -173,7 +173,7 @@ Build the storefront/cart/checkout/fulfillment layer; **reserve uses the same sa
 | E10 | **Returns/RMA** → inventory (reuse G2 inverse saga) | ✅ | ✅ | ✅ | slice 71: shopper request (ref+contact) → back-office process → stock back (G2) + refund (E6) → RETURNED |
 | E11 | Notifications (order confirm/ship/deliver email/SMS) | 🟡 | ✅ | ✅ | slice 57: order-status timeline + notification seam; templated email/SMS later |
 | E12 | Reviews/ratings, wishlist | 🔭 | 🔭 | 🔭 | |
-| E13 | Promotions/coupons/cart rules | ⬜ | ⬜ | ⬜ | shares C12 |
+| E13 | Promotions/coupons/cart rules | ✅ | ✅ | ✅ | slice 72: PERCENT/FIXED promo codes (min-spend, validity, usage cap) applied at checkout; stacking/BOGO/category rules later |
 | E14 | Admin: catalog/orders/inventory/customers | ⬜ | ⬜ | ⬜ | reuse core admin |
 | E15 | Multi-channel inventory sync (POS↔online) | 🟡 | ✅ | ✅ | same inventory-service = single source ✅ |
 

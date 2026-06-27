@@ -20,10 +20,13 @@ public class CheckoutDTO {
     public static class Quote {
         private List<Line> items;
         private BigDecimal subtotal;
+        private BigDecimal discount;        // coupon discount off the subtotal (slice 72)
         private BigDecimal taxTotal;
         private BigDecimal shippingFee;
         private BigDecimal total;
         private String shippingMethod;
+        private String couponCode;          // applied code, or null
+        private String couponMessage;       // why a supplied code was not applied (null when fine)
         private boolean addressRequired;
     }
 
@@ -47,6 +50,7 @@ public class CheckoutDTO {
         private String customerContact;
         private String shippingAddress;
         private String shippingMethod;    // PICKUP | STANDARD | EXPRESS
+        private String couponCode;        // optional promo code (slice 72)
         private String paymentMode;       // COD | CARD
         private String cardToken;         // sandbox card token
     }

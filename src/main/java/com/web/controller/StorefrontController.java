@@ -219,19 +219,22 @@ public class StorefrontController {
     @ResponseBody
     public Object cartRemove(@RequestBody Map<String, Object> body) { return postPublic("/api/marketplace/public/cart/remove", body); }
 
-    /** Live checkout totals (slice 69) — subtotal + tax + shipping for the cart + chosen method. */
+    /** Live checkout totals (slice 69) — subtotal + tax + shipping (+ coupon discount, slice 72) for the cart. */
     @GetMapping("/storefront/checkout/quote")
     @ResponseBody
     @SuppressWarnings("unchecked")
     public Object checkoutQuote(@RequestParam("org") Long org,
             @RequestParam(value = "cartToken", required = false) String cartToken,
-            @RequestParam(value = "shippingMethod", required = false) String shippingMethod) {
+            @RequestParam(value = "shippingMethod", required = false) String shippingMethod,
+            @RequestParam(value = "couponCode", required = false) String couponCode) {
         try {
             StringBuilder url = new StringBuilder(gatewayUrl).append("/api/marketplace/public/checkout/quote?organizationId=").append(org);
             if (cartToken != null && !cartToken.isBlank())
                 url.append("&cartToken=").append(java.net.URLEncoder.encode(cartToken, java.nio.charset.StandardCharsets.UTF_8));
             if (shippingMethod != null && !shippingMethod.isBlank())
                 url.append("&shippingMethod=").append(java.net.URLEncoder.encode(shippingMethod, java.nio.charset.StandardCharsets.UTF_8));
+            if (couponCode != null && !couponCode.isBlank())
+                url.append("&couponCode=").append(java.net.URLEncoder.encode(couponCode, java.nio.charset.StandardCharsets.UTF_8));
             return restTemplate.getForObject(url.toString(), Map.class);
         } catch (HttpStatusCodeException e) {
             return relay(e, "Could not compute totals.");
