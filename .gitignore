@@ -47,3 +47,8 @@ cypress/downloads/
 # Service runtime logs (not versioned)
 microservices/logs/
 node_modules
+
+# Local DB dumps / backups — never commit
+u5-backups/
+*-backups/
+*.sql.bak

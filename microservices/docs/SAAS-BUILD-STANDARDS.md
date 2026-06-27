@@ -48,40 +48,52 @@ fulfillment.
 
 ---
 
-## 3. Where we are (status, 2026-06-23)
+## 3. Where we are (status, 2026-06-27)
 
 **Phase 1 — POS / shared core: DONE, all headed-Cypress green.**
 G1 expired-stock block · G2 returns→inventory · G3 tax engine · G5 payments/tender · G6 receipts · day-close
 (shift/cash-drawer/X-Z) · park/hold · single vertical-aware dashboard.
 
-**Phase 2 — Pharmacy: IN PROGRESS (on the itemId bridge, reuse-first).**
-- P0a ✅ pharma-service is a mesh participant (catalog/inventory clients, eureka/gateway, health verified).
-- Medicine registration = the **existing Item screen** (relabeled "Medicine") — no separate screen.
-- P5 prescription intake (net-new): backend + PHARMA-only screen built; references `itemId`; **awaiting build +
-  headed Cypress**.
-- M1 ✅ (additive) catalog **Product master** register/list screen (strangler for the future convergence).
+**Phase 2 — Pharmacy: largely DONE on the itemId bridge (reuse-first), headed-Cypress green.**
+- pharma-service is a full mesh participant; medicine registration = the existing Item screen (relabeled).
+- P5 prescription intake · P6 dispense (reuses Sell screen) · P7 safety (rxRequired/controlled + drug-interaction)
+  · P8 alerts · P10 FEFO batch/expiry on dispense · P11 quarantine returns + register · P12 insurance/co-pay split.
+- Remaining: deeper clinical/reporting; convergence cleanup (below).
 
-**Phase 3 — E-commerce: not started.**
+**Phase 3 — E-commerce: IN PROGRESS (reuse catalog/inventory/trade).**
+- Done (slices 46–61): storefront browse + **name search**, public orders, **stock-reserve saga** (same inventory
+  saga as POS) + recovery relay, order management/fulfilment, order tracking + status timeline + notification seam,
+  sandbox online payment (PSP swap deferred), **self-contained customer accounts**.
+- Remaining, in priority order: **cart (E3), checkout (E5), real PSP + refunds (E6), shipping (E9), returns/RMA
+  (E10), coupons (E13), variants/media (E2)**.
 
-**Deferred tech-debt:** Item→Product convergence (M2–M4 in slice 42); business-service `ApiResponse`/`GenericResponse`
-dedup; local `Stock` vs inventory `StockEntry` dedup.
+**Cross-cutting — prod-readiness: DONE this cycle.**
+- **P0 Flyway series (slices 64–67):** all 12 microservices now own their schema via versioned migrations and are
+  `ddl-auto: validate`-ready; dev flipped `update → ${DDL_AUTO:validate}`. See [[project_flyway_validate_ready]].
+
+**Convergence status (Item↔Product, slice 42):** M1 ✅ Product master screen · M3.1 ✅ Stock list reads inventory
+on-hand · M3.2 ✅ purchases auto-map + reach inventory · slice 53 ✅ product-master sync (Product→Item). M3.3/M3.4
+(retire local `Stock`/`Item`) and full M2/M4 rewire **parked** — master-sync covers "one product master" for now.
+
+**Deferred tech-debt:** M3.3/M3.4 local-`Stock`/`Item` retirement; business-service `ApiResponse`/`GenericResponse`
+dedup + OpenAPI; storefront auth hardening (token expiry/rotation/rate-limit/email verify); quantities
+`Float→BigDecimal`; real PSP + money-side refunds; landing this 34-slice branch (master SB 4.1.0 doesn't compile).
 
 ---
 
 ## 4. Step-by-step path from here (regrouped)
 
-**Finish Pharmacy on the bridge (reuse POS):**
-1. **P5** — build + headed Cypress green for prescription intake (`pharmacy/prescription.cy.js`).
-2. **P6 — Dispense = reuse the Sell screen** (relabeled "Dispense") + attach a Prescription reference to the sale
-   (no new dispense screen). Reuses saga + tax + payment + receipt.
-3. **P7 — Safety**: `rxRequired`/controlled-substance enforcement at dispense + drug-interaction check (clinical
-   data keyed by `itemId`).
-4. **P8 — Pharmacy alerts/reports** (near-expiry, controlled-substance register) reusing inventory alerts.
+**Consolidation (in progress):** P0 Flyway done + dev `validate` flip; planning docs refreshed; branch housekeeping.
+Then decide the **branch-landing path** — `feature/commerce-gaps` is ~34 slices ahead of a master that doesn't
+compile (SB 4.1.0); fix master to the 3.5.0 line (or cut a release) and merge before piling on more.
 
-**Then Phase 3 — E-commerce** (reuse catalog/inventory/trade): storefront → cart → checkout (reuse tax) → online
-payment (PSP, extends G5) → order placement via the saga → fulfillment/shipping → RMA (reuse G2).
+**Finish Phase 3 — E-commerce** (reuse catalog/inventory/trade/tax/saga), in order:
+1. **E3 Cart** — add/update/remove, persisted for guest + account (reuses customer accounts from slice 61).
+2. **E5 Checkout** — address + shipping method + tax (reuse C3/G3) + totals → order placement via the saga.
+3. **E6 Real PSP + refunds** — swap the sandbox gateway for Stripe; webhooks; money-side refund (extends G5/G2).
+4. **E9 Shipping**, **E10 Returns/RMA** (reuse G2 inverse saga), **E13 coupons**, **E2 variants/media**.
 
-**Cross-cutting / tech-debt** (fold in deliberately): Item→Product convergence; audit log; reporting suite;
-notifications wiring.
+**Cross-cutting / tech-debt** (fold in deliberately): `ApiResponse`/`GenericResponse` dedup + OpenAPI; storefront
+auth hardening; M3.3/M3.4 local-`Stock`/`Item` retirement; quantities `Float→BigDecimal`; audit log; reporting suite.
 
 > Every numbered step ships UI/UX + service/API + DB together, with a passing headed Cypress, before the next.

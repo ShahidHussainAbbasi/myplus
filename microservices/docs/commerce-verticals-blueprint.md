@@ -28,10 +28,10 @@ Layers graded per step: **UI** (Thymeleaf/JS screen) · **API** (service endpoin
 | Stock / batches | `inventory-service` | ✅ StockLevel, StockEntry (batch/lot/expiry/warehouse/supplier/reserved), reservations (FEFO + G1 expiry exclusion), warehouse, supplier, alerts, adjustments, transfers |
 | Trade (sell/purchase) | `business-service` | ✅ POS sale + sell↔stock **saga** (reserve/confirm/release + recovery relay), purchase, customer, vendor, company, invoicing (per-org seq), returns (G2 inverse saga) |
 | Analytics | `analytics-service` | 🟡 dashboard/financial/report/sales endpoints exist |
-| Pharmacy | `pharma-service` | 🟡 **clinical entities + repos only** — no controllers/services; duplicates catalog/inventory |
-| E-commerce | `marketplace-service` | ⬜ **empty scaffold** (Application + SecurityConfig only) |
-| Payments | — | ⬜ no payment service/entity (only `CustomerHistory.paid/due`) |
-| Tax engine | — | 🟡 `taxRate` stored on Product, **never applied** to a sale (G3) |
+| Pharmacy | `pharma-service` | ✅ rebased on catalog/inventory (slices 41–45): dispense, drug-interaction safety, alerts, FEFO batch/expiry on dispense, quarantine returns + register, insurance/co-pay split (P10–P12) |
+| E-commerce | `marketplace-service` | 🟡 storefront browse/search, public orders, **stock-reserve saga** (same inventory saga as POS) + recovery relay, order tracking/timeline, customer accounts (slices 46–61). **Missing: cart, checkout, shipping, coupons** |
+| Payments | `business-service` | 🟡 **offline tender done** — payment entity + method enum (cash/card/credit/wallet/insurance/refund), split + change, day-close (slices G5/P12). **Missing: online PSP + refunds** |
+| Tax engine | `business-service` | ✅ per-product `taxRate` → line + invoice tax applied at sale (G3) |
 
 **Architecture principle (decomposition, slice 33):** the three verticals **share one commerce core** —
 catalog (products) + inventory (stock) + trade (sale saga) + pricing/tax/payment/customer/returns. Each vertical
@@ -65,14 +65,14 @@ These power all three verticals; closing them benefits everything. (G-codes map 
 |---|---|:--:|:--:|:--:|---|
 | C1 | Product master (SKU/barcode/category/unit) | ✅ | ✅ | ✅ | catalog-service |
 | C2 | Price management (sell/cost/MRP, price history) | 🟡 | 🟡 | 🟡 | G4 — price edit exists; **price history / tiers / promos** missing |
-| C3 | **Tax engine** (per-product rate → line+invoice tax, tax-inclusive/exclusive, multi-tax) | ⬜ | 🟡 | 🟡 | **G3** — `taxRate` stored, never applied |
+| C3 | **Tax engine** (per-product rate → line+invoice tax, tax-inclusive/exclusive, multi-tax) | ✅ | ✅ | ✅ | **G3 done** — per-product rate applied to line + invoice; multi-tax/inclusive-toggle later |
 | C4 | Inventory: multi-batch, lot, expiry, warehouse, reorder | 🟡 | ✅ | ✅ | UI for batch/expiry/reorder thin |
 | C5 | FEFO allocation + **no expired** | ✅ | ✅ | ✅ | **G1 done** |
 | C6 | Stock receipt (purchase/GRN) → inventory | 🟡 | ✅ | ✅ | purchase exists; GRN/PO workflow thin |
 | C7 | Atomic sale (saga reserve→confirm→release) | ✅ | ✅ | ✅ | slice 33 |
 | C8 | Invoicing (per-org sequential, reprint, format) | 🟡 | ✅ | ✅ | numbering ✅; print/template basic |
 | C9 | **Returns/refunds → inventory** (inverse saga) | ✅ | ✅ | ✅ | **G2 done** (UI dialog + inverse saga) |
-| C10 | **Payments** (cash/card/credit/wallet/split, change, tender) | ⬜ | ⬜ | ⬜ | **G5** — nothing records payment method |
+| C10 | **Payments** (cash/card/credit/wallet/split, change, tender) | ✅ | ✅ | ✅ | **G5 done (offline)** — payment entity + method enum + split/change + insurance; **online PSP + refunds** missing |
 | C11 | Customer / CRM (credit, due, ledger, loyalty) | 🟡 | 🟡 | 🟡 | paid/due ✅; **loyalty/points/statements** missing |
 | C12 | Discounts/promotions (line, cart, coupon, BOGO) | 🟡 | 🟡 | 🟡 | line discount only |
 | C13 | Multi-tenancy / org-scoping | ✅ | ✅ | ✅ | every read/write |
@@ -96,14 +96,14 @@ These power all three verticals; closing them benefits everything. (G-codes map 
 | R3 | Supplier + purchase/GRN → stock in | 🟡 | ✅ | ✅ | C6 — PO/GRN approval flow thin |
 | R4 | Opening stock / stock-take / adjustments | 🟡 | ✅ | ✅ | adjust/transfer API ✅; cycle-count UI missing |
 | R5 | **Counter sale**: scan/select → cart → qty/disc | 🟡 | ✅ | ✅ | sell screen exists; barcode-scan UX + cart polish needed |
-| R6 | **Tax** applied to lines + totals | ⬜ | 🟡 | 🟡 | **G3** |
-| R7 | **Payment/tender** (cash/card/credit/split, change) | ⬜ | ⬜ | ⬜ | **G5** |
+| R6 | **Tax** applied to lines + totals | ✅ | ✅ | ✅ | **G3 done** |
+| R7 | **Payment/tender** (cash/card/credit/split, change) | ✅ | ✅ | ✅ | **G5 done (offline)**; online PSP later |
 | R8 | Finalize sale (saga) + **receipt print** | 🟡 | ✅ | ✅ | saga ✅; thermal/A4 receipt template basic |
 | R9 | **Returns/refunds** (full/partial) → inventory | ✅ | ✅ | ✅ | **G2** |
-| R10 | Hold/park & resume sale, void line/sale | ⬜ | ⬜ | 🟡 | edit-invoice exists; park/void missing |
+| R10 | Hold/park & resume sale, void line/sale | ✅ | ✅ | ✅ | **park/hold + resume done** (parked_sale); void line/sale still thin |
 | R11 | Customer attach (walk-in vs account, credit sale) | 🟡 | 🟡 | 🟡 | C11 |
 | R12 | Discounts/coupons/loyalty at POS | 🟡 | 🟡 | 🟡 | C12 |
-| R13 | **Cash drawer / shift open-close / X-Z report** | ⬜ | ⬜ | ⬜ | standard POS day-close missing |
+| R13 | **Cash drawer / shift open-close / X-Z report** | ✅ | ✅ | ✅ | **day-close done** — cashier_shift + cash_movement, open/close + report |
 | R14 | Low-stock / near-expiry alerts on dashboard | 🟡 | 🟡 | 🟡 | C17 |
 | R15 | Reports: sales, margin, tax, top items, stock value | 🟡 | 🟡 | 🟡 | C15 |
 
@@ -161,25 +161,27 @@ Build the storefront/cart/checkout/fulfillment layer; **reserve uses the same sa
 
 | Step | Activity | UI | API | DB | Std notes |
 |---|---|:--:|:--:|:--:|---|
-| E1 | Storefront catalog (browse/search/filter/detail, images) | ✅ | ✅ | 🟡 | slice 47: public /store grid via catalog public projection; media+search later |
+| E1 | Storefront catalog (browse/search/filter/detail, images) | ✅ | ✅ | 🟡 | slice 47 grid + slice 60 **name search done**; media/filter later |
 | E2 | Product media/SEO/attributes/variants | ⬜ | ⬜ | ⬜ | variants/options model |
-| E3 | **Cart** (add/update/remove, persist guest+account) | ⬜ | ⬜ | ⬜ | |
-| E4 | Customer accounts (register/login/addresses) | 🟡 | 🟡 | 🟡 | auth-service reusable |
+| E3 | **Cart** (add/update/remove, persist guest+account) | ⬜ | ⬜ | ⬜ | next biggest e-comm gap |
+| E4 | Customer accounts (register/login/addresses) | ✅ | ✅ | ✅ | slice 61: self-contained storefront accounts (BCrypt, session token); addresses + auth hardening later |
 | E5 | **Checkout** (address, shipping method, tax, totals) | ⬜ | ⬜ | ⬜ | reuse C3 tax |
 | E6 | **Online payment** (gateway: card/wallet/UPI, webhook) | ✅ | ✅ | ✅ | slice 48: sandbox PaymentGateway (COD/Card); PSP swap deferred |
 | E7 | **Order placement** (stock reserve via saga) | ✅ | ✅ | ✅ | slice 49: guest checkout reserves→confirms via the SAME inventory saga POS uses; OUT_OF_STOCK blocks; decline/write-failure releases |
 | E8 | Order management (status, fulfillment, picking) | ✅ | ✅ | ✅ | slice 46: back-office orders + fulfilment status (NEW→…→DELIVERED) |
 | E9 | **Shipping/delivery** (carrier, tracking, slots) | ⬜ | ⬜ | ⬜ | |
 | E10 | **Returns/RMA** → inventory (reuse G2 inverse saga) | ⬜ | 🟡 | 🟡 | extend C9 |
-| E11 | Notifications (order confirm/ship/deliver email/SMS) | ⬜ | 🟡 | 🟡 | notification-service |
+| E11 | Notifications (order confirm/ship/deliver email/SMS) | 🟡 | ✅ | ✅ | slice 57: order-status timeline + notification seam; templated email/SMS later |
 | E12 | Reviews/ratings, wishlist | 🔭 | 🔭 | 🔭 | |
 | E13 | Promotions/coupons/cart rules | ⬜ | ⬜ | ⬜ | shares C12 |
 | E14 | Admin: catalog/orders/inventory/customers | ⬜ | ⬜ | ⬜ | reuse core admin |
 | E15 | Multi-channel inventory sync (POS↔online) | 🟡 | ✅ | ✅ | same inventory-service = single source ✅ |
 
 ### E-commerce standard gaps
-Everything except the shared core; biggest net-new are **cart, checkout, online payment (PSP), order & fulfillment
-lifecycle, shipping**. Inventory is already shared, so POS and online never oversell against each other.
+Storefront, search, public orders, the stock-reserve saga, order tracking/timeline, and customer accounts are done
+(slices 46–61). Remaining net-new, in priority order: **cart (E3), checkout (E5), real PSP + refunds (E6 swap),
+shipping (E9), returns/RMA (E10), coupons (E13), variants/media (E2)**. Inventory is already shared, so POS and
+online never oversell against each other.
 
 ---
 
@@ -187,8 +189,8 @@ lifecycle, shipping**. Inventory is already shared, so POS and online never over
 
 | Area | Status | Standard gap |
 |---|:--:|---|
-| Payments (offline tender + online PSP + refunds) | ⬜ | **biggest shared gap (G5)** |
-| Tax engine (multi-rate, inclusive/exclusive, reports) | 🟡 | **G3** |
+| Payments (offline tender + online PSP + refunds) | 🟡 | **offline tender done (G5)**; online PSP + money-side refunds remain |
+| Tax engine (multi-rate, inclusive/exclusive, reports) | 🟡 | **G3 base done**; multi-rate / inclusive toggle / tax reports later |
 | Returns/refunds ledger (money side, not just stock) | 🟡 | G2 restores stock; refund money/record missing |
 | Promotions/discount engine | 🟡 | unify line/cart/coupon |
 | Audit log (immutable money/stock events) | 🟡 | dedicated audit |
