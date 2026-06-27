@@ -41,11 +41,16 @@ public class ProductImportService {
                     ? "ITEM-" + dto.getClientRef() : dto.getSku().trim();
 
             // Idempotent reuse: a product already at this sku (e.g. a re-run) is returned, not duplicated.
-            var existing = productRepository.findBySkuScoped(baseSku, orgId, userId);
-            if (existing.isPresent()) {
-                usedThisBatch.add(baseSku);
-                results.add(new ProductImportResult(dto.getClientRef(), existing.get().getId()));
-                continue;
+            // Only when this sku wasn't already produced earlier in THIS batch — otherwise the row we just
+            // saved (already flushed, so findBySkuScoped sees it) would be mistaken for a prior-run product
+            // and an in-batch clash would silently collapse instead of being suffixed below.
+            if (!usedThisBatch.contains(baseSku)) {
+                var existing = productRepository.findBySkuScoped(baseSku, orgId, userId);
+                if (existing.isPresent()) {
+                    usedThisBatch.add(baseSku);
+                    results.add(new ProductImportResult(dto.getClientRef(), existing.get().getId()));
+                    continue;
+                }
             }
 
             // Ensure a unique sku within this batch and the tenant.
