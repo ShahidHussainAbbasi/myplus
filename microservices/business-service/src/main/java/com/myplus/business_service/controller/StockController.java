@@ -246,13 +246,30 @@ public class StockController {
 	@RequestMapping(value = "/productStock", method = RequestMethod.GET)
 	@ResponseBody
 	public StockDTO productStock(@RequestParam final Long productId) {
+		// M4e.1 (slice 97): the full productId-native pre-fill for the sell/dispense screens — the equivalent of getStock
+		// but keyed by productId (no Item / ItemCatalogMap). On-hand + FEFO batches from inventory; sell price +
+		// description from the catalog Product master. Lets the picker move off itemId (M4e.1b).
 		StockDTO dto = new StockDTO();
+		dto.setBpurchaseDiscountType("%");
+		dto.setBpurchaseDiscount(java.math.BigDecimal.ZERO);
+		dto.setStock(0.0F);
 		if (appUtil.isEmptyOrNull(productId)) return dto;
 		try {
 			Float invStock = inventoryClient.getStockLevel(productId);
-			if (invStock != null) dto.setStock(invStock);
+			if (invStock != null) dto.setStock(invStock);                          // on-hand
 			com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
-			if (p != null && p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());
+			if (p != null) {
+				if (p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());   // sell price
+				dto.setIDesc(p.getDescription() != null ? p.getDescription() : "");        // description (M4d ProductRef)
+			}
+			// FEFO batch/expiry for the dispense screen; first batch is the next dispensed.
+			java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches = inventoryClient.getBatches(productId);
+			dto.setBatches(batches);
+			if (batches != null && !batches.isEmpty()) {
+				com.myplus.commerce.contracts.dto.StockBatch first = batches.get(0);
+				dto.setBatchNo(first.getBatchNo());
+				dto.setBexpDate(first.getExpiryDate() != null ? first.getExpiryDate().toString() : null);
+			}
 		} catch (Exception e) {
 			LOGGER.warn("productStock lookup failed for product {}", productId, e);
 		}
