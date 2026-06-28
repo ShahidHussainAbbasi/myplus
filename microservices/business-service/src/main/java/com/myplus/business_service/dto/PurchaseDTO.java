@@ -23,7 +23,11 @@ public class PurchaseDTO implements Serializable {
 
 	@ValidateEmpty
 	private Long itemId;
-	
+
+	// M4c (slice 92): productId-native purchase. When the form submits it, addPurchase uses it directly instead of
+	// resolving productId from itemId via ensureMapped — the path toward retiring Item + the itemId bridge (M4e).
+	private Long productId;
+
 	private Long pstockId;
 
 	private String iname;

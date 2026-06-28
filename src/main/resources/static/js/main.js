@@ -437,7 +437,14 @@ $(document).ready(function() {
 				}
 				validateForm();
 			    if(formValidated){
-					$(this).callAjax("add" + buttonV,populateFormData());
+					var fd = populateFormData();
+					// M4c (slice 92): submit the purchase productId-native (from the picker's data-product) so the
+					// server uses it directly; itemId stays as a back-compat fallback.
+					if(buttonV=="Purchase"){
+						var ppid = $("#purchaseItemDD :selected").data('product');
+						if(ppid != null && ppid !== '') fd.productId = ppid;
+					}
+					$(this).callAjax("add" + buttonV, fd);
 			    }else{
 				    	return false;
 			    }

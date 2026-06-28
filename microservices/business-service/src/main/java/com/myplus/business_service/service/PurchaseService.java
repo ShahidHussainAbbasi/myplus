@@ -207,7 +207,12 @@ public class PurchaseService implements IPurchaseService{
 		// (StockDTO scalar types already match Purchase; bexpDate parsed via AppUtil) instead of going through a local
 		// Stock entity. Inventory stays authoritative for on-hand (pushed below).
 		obj.setItemId(dto.getItemId());
-		obj.setProductId(catalogMigrationService.ensureMapped(dto.getItemId(), user.getOrganizationId(), user.getUserId()));
+		// M4c (slice 92): prefer the productId the form submitted; fall back to mapping from itemId (legacy submissions
+		// or an item not yet catalog-mapped). ensureMapped is idempotent, so the fallback still auto-maps on demand.
+		Long productId = dto.getProductId() != null
+				? dto.getProductId()
+				: catalogMigrationService.ensureMapped(dto.getItemId(), user.getOrganizationId(), user.getUserId());
+		obj.setProductId(productId);
 		StockDTO snap = dto.getStock();
 		if (snap != null) {
 			obj.setBatchNo(snap.getBatchNo());

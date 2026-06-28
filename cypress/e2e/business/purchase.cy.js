@@ -85,28 +85,29 @@ describe('Purchase API — Read', () => {
 // ─── 3. Purchase API — CRUD ───────────────────────────────────────────────────
 
 describe('Purchase API — CRUD', () => {
-  let testItemId
+  let testItemId, testProductId
 
   before(() => {
     cy.loginAsBusiness()
-    // M4a (slice 90): seed via the catalog Product master; addPurchase still takes itemId (saga maps it to productId).
+    // M4a/M4c (slice 90/92): seed via the catalog Product master; addPurchase below submits productId-native.
     cy.seedProduct({ name: `PurchaseTestItem_${Date.now()}`, sellingPrice: 80, purchaseRate: 50, stock: 100, category: 'Test' })
-      .then(({ itemId }) => { testItemId = itemId })
+      .then(({ itemId, productId }) => { testItemId = itemId; testProductId = productId })
   })
 
   beforeEach(() => {
     cy.loginAsBusiness()
   })
 
-  it('addPurchase with valid item — returns 200 with status', () => {
-    if (!testItemId) return cy.log('No test item — skipping')
+  it('addPurchase productId-native — returns 200 with status', () => {
+    if (!testProductId) return cy.log('No test product — skipping')
     cy.request({
       method: 'POST', url: '/addPurchase', form: true,
-      body: { itemId: testItemId, quantity: 5, purchaseRate: 50, totalAmount: 250, netAmount: 250, purchaseInvoiceNo: `INV-CY-${Date.now()}` },
+      // M4c (slice 92): submit productId directly; the server uses it instead of mapping from itemId.
+      body: { itemId: testItemId, productId: testProductId, quantity: 5, purchaseRate: 50, totalAmount: 250, netAmount: 250, purchaseInvoiceNo: `INV-CY-${Date.now()}` },
       failOnStatusCode: false,
     }).then((res) => {
       expect(res.status).to.eq(200)
-      expect(res.body).to.have.property('status')
+      expect(res.body.status, JSON.stringify(res.body)).to.eq('SUCCESS')
       cy.log(`addPurchase: ${res.body.status}`)
     })
   })
