@@ -323,7 +323,7 @@ describe('Sell API Endpoints', () => {
 // successive sales must increment it.
 
 describe('Sell Section — Invoice Numbering (slice 22)', () => {
-  let stockId
+  let itemId
   const ts = Date.now()
   const iname = `InvItem_${ts}`
 
@@ -340,29 +340,24 @@ describe('Sell Section — Invoice Numbering (slice 22)', () => {
     method: 'POST', url: '/addSell',
     body: {
       customer: { name: `InvCust_${ts}`, contact: `032${ts.toString().slice(-8)}`, paidAmount: 100, dueAmount: 0 },
-      sales: [{ stockId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
+      sales: [{ itemId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
     },
     headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
   })
 
   before(() => {
     cy.loginAsBusiness()
-    cy.request({ method: 'POST', url: '/addItem', form: true, body: { icode: `INV-${ts}`, iname, unit: 'pcs' }, failOnStatusCode: false })
-    cy.request('/getUserItem').then((res) => {
-      const item = (res.body.data || res.body.collection || []).find(i => i.iname === iname)
-      if (!item) return cy.log('Item not created — invoice tests will skip')
-      cy.request({ method: 'POST', url: '/addStock', form: true, body: { itemId: item.id, bpurchaseRate: 50, bsellRate: 100, stock: 50 }, failOnStatusCode: false })
-      cy.request({ url: '/getUserStock', failOnStatusCode: false }).then((r2) => {
-        const stock = (r2.body.data || r2.body.collection || []).find(s => s.itemId === item.id)
-        if (stock) stockId = stock.stockId || stock.id
-      })
-    })
+    // M4a (slice 90): seed via the catalog Product master (single creation path) with opening inventory, then sell
+    // via the synced itemId — the saga translates itemId→productId (ItemCatalogMap). productId-native submission
+    // comes in M4b (needs the monolith SellDTO + pickers on productId).
+    cy.seedProduct({ name: iname, sku: `INV-${ts}`, sellingPrice: 100, purchaseRate: 50, stock: 50 })
+      .then(({ itemId: id }) => { itemId = id })
   })
 
   beforeEach(() => { cy.loginAsBusiness() })
 
   it('addSell returns a system-generated INV-###### invoice number', () => {
-    if (!stockId) return cy.log('No stockId — skipping invoice test')
+    if (!itemId) return cy.log('No itemId — skipping invoice test')
     sellOnce().then((res) => {
       expect(res.status).to.eq(200)
       expect(res.body.status).to.eq('SUCCESS')
@@ -371,7 +366,7 @@ describe('Sell Section — Invoice Numbering (slice 22)', () => {
   })
 
   it('a second sale gets the next sequential invoice number', () => {
-    if (!stockId) return cy.log('No stockId — skipping')
+    if (!itemId) return cy.log('No itemId — skipping')
     sellOnce().then((r1) => {
       const n1 = parseInt((invNo(r1.body) || 'INV-000000').slice(4), 10)
       sellOnce().then((r2) => {

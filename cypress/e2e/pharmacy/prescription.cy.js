@@ -9,15 +9,8 @@ describe('Pharmacy — prescription intake (on itemId bridge)', () => {
   it('records a prescription for an existing item and lists it', () => {
     const patient = 'Rx_' + Date.now()
     const iname = 'RxItem_' + Date.now()
-    let itemId
-
-    // a prescription references an existing Item (reuse the POS item registration)
-    cy.request({ method: 'POST', url: '/addItem', form: true, body: { icode: 'RX' + Date.now(), iname: iname, unit: 'tablet' }, failOnStatusCode: false })
-    cy.request('/getUserItem').then((res) => {
-      const items = res.body.data || res.body.collection || []
-      const item = items.find((i) => i.iname === iname)
-      if (!item) return cy.log('Item not created — skipping prescription test')
-      itemId = item.id
+    // M4a (slice 90): the medicine is created via the catalog Product master (projected to a bridged Item the Rx references).
+    cy.seedProduct({ name: iname, sku: 'RX' + Date.now(), unit: 'tablet' }).then(({ itemId }) => {
 
       cy.request({
         method: 'POST', url: '/addPrescription',

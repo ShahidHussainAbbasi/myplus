@@ -89,22 +89,9 @@ describe('Purchase API — CRUD', () => {
 
   before(() => {
     cy.loginAsBusiness()
-    const iname = `PurchaseTestItem_${Date.now()}`
-    cy.request({
-      method: 'POST', url: '/addItem', form: true,
-      body: { icode: `PCI-${Date.now()}`, iname, unit: 'pcs', category: 'Test' },
-    })
-    cy.request('/getUserItem').then((res) => {
-      const item = res.body.data?.find(i => i.iname === iname)
-      if (item) {
-        testItemId = item.id
-        cy.request({
-          method: 'POST', url: '/addStock', form: true,
-          body: { itemId: item.id, bpurchaseRate: 50, bsellRate: 80, stock: 100 },
-          failOnStatusCode: false,
-        })
-      }
-    })
+    // M4a (slice 90): seed via the catalog Product master; addPurchase still takes itemId (saga maps it to productId).
+    cy.seedProduct({ name: `PurchaseTestItem_${Date.now()}`, sellingPrice: 80, purchaseRate: 50, stock: 100, category: 'Test' })
+      .then(({ itemId }) => { testItemId = itemId })
   })
 
   beforeEach(() => {

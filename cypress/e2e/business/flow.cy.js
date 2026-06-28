@@ -81,18 +81,10 @@ describe('E2E Flow — Registration Chain', () => {
   it('create item linked to flow company — item appears in list', () => {
     if (!companyId) return cy.log('No companyId — skipping item creation')
     const iname = `FlowItem_${ts}`
-
-    cy.request({
-      method: 'POST', url: '/addItem', form: true,
-      body: { icode: `FI-${ts}`, iname, unit: 'pcs', category: 'Flow', companyId },
-    }).then((res) => {
-      expect(res.body.status).to.be.oneOf(['SUCCESS', 'FOUND'])
-    })
-
-    cy.request('/getUserItem').then((res) => {
-      const item = (res.body.data || []).find(i => i.iname === iname)
-      if (item) itemId = item.id
-      expect(item, `Item ${iname} should exist`).to.not.be.undefined
+    // M4a (slice 90): create through the catalog Product master (which projects to a bridged Item).
+    cy.seedProduct({ name: iname, sku: `FI-${ts}`, category: 'Flow' }).then(({ itemId: id }) => {
+      itemId = id
+      expect(id, `Item ${iname} should exist (synced from Product)`).to.not.be.null
     })
   })
 
@@ -120,11 +112,9 @@ describe('E2E Flow — Item to Stock', () => {
 
   before(() => {
     cy.loginAsBusiness()
-    cy.request({ method: 'POST', url: '/addItem', form: true, body: { icode: `SFI-${ts}`, iname, unit: 'pcs' } })
-    cy.request('/getUserItem').then((res) => {
-      const item = (res.body.data || []).find(i => i.iname === iname)
-      if (item) itemId = item.id
-    })
+    // M4a (slice 90): seed via the catalog Product master + opening inventory.
+    cy.seedProduct({ name: iname, sku: `SFI-${ts}`, sellingPrice: 80, purchaseRate: 50, stock: 20 })
+      .then(({ itemId: id }) => { itemId = id })
   })
 
   beforeEach(() => {
@@ -213,25 +203,9 @@ describe('E2E Flow — Full Sale Transaction', () => {
       if (c) customerId = c.customerId || c.id
     })
 
-    // Create item
-    cy.request({ method: 'POST', url: '/addItem', form: true, body: { icode: `FSI-${ts}`, iname, unit: 'pcs' } })
-    cy.request('/getUserItem').then((res) => {
-      const item = (res.body.data || []).find(i => i.iname === iname)
-      if (item) itemId = item.id
-    })
-
-    // Add stock
-    cy.request({
-      method: 'POST', url: '/addStock', form: true,
-      body: { itemId: itemId || 0, bpurchaseRate: 50, bsellRate: 100, stock: 30 },
-      failOnStatusCode: false,
-    })
-    cy.request({ url: '/getUserStock', failOnStatusCode: false }).then((res) => {
-      if (res.body.status === 'SUCCESS') {
-        const stock = (res.body.data || res.body.collection || []).find(s => s.itemId === itemId)
-        if (stock) stockId = stock.stockId || stock.id
-      }
-    })
+    // Create item + opening stock via the catalog Product master (M4a, slice 90)
+    cy.seedProduct({ name: iname, sku: `FSI-${ts}`, sellingPrice: 100, purchaseRate: 50, stock: 30 })
+      .then(({ itemId: id }) => { itemId = id })
   })
 
   beforeEach(() => {
@@ -252,11 +226,11 @@ describe('E2E Flow — Full Sale Transaction', () => {
   })
 
   it('POST /addSelling with a complete sell body — returns 200', () => {
-    if (!stockId) return cy.log('No stockId — skipping sell test')
+    if (!itemId) return cy.log('No itemId — skipping sell test')
 
     const sellBody = [
       {
-        stockId,
+        itemId,
         quantity: 1,
         sellRate: 100,
         discount: 0,
@@ -287,13 +261,13 @@ describe('E2E Flow — Full Sale Transaction', () => {
   })
 
   it('POST /addSell with customer+sales body — returns 200', () => {
-    if (!stockId) return cy.log('No stockId — skipping')
+    if (!itemId) return cy.log('No itemId — skipping')
 
     cy.request({
       method: 'POST', url: '/addSell',
       body: {
         customer: { name: custName, contact: `031${ts.toString().slice(-8)}`, paidAmount: 100, dueAmount: 0 },
-        sales: [{ stockId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
+        sales: [{ itemId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
       },
       headers: { 'Content-Type': 'application/json' },
       failOnStatusCode: false,
@@ -390,14 +364,11 @@ describe('E2E Flow — Cross-Entity Consistency', () => {
 
   it('item created → appears in purchase item dropdown (getUserItems)', () => {
     const iname = `DDItem_${Date.now()}`
-    cy.request({ method: 'POST', url: '/addItem', form: true, body: { icode: `DDI-${Date.now()}`, iname, unit: 'pcs' } })
-
-    cy.request('/getUserItems').then((res) => {
-      expect(res.body).to.include(iname)
-
-      cy.request('/getUserItem').then((listRes) => {
-        const item = (listRes.body.data || []).find(i => i.iname === iname)
-        if (item) cy.request({ method: 'POST', url: '/deleteItem', form: true, body: { checked: item.id }, failOnStatusCode: false })
+    // M4a (slice 90): create via the catalog Product master; it projects to a bridged Item that the picker shows.
+    cy.seedProduct({ name: iname }).then(({ itemId }) => {
+      cy.request('/getUserItems').then((res) => {
+        expect(res.body).to.include(iname)
+        if (itemId) cy.request({ method: 'POST', url: '/deleteItem', form: true, body: { checked: itemId }, failOnStatusCode: false })
       })
     })
   })

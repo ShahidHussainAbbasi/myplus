@@ -108,7 +108,10 @@
         var rx = lastPrescriptions.find(function (p) { return p.id === id; }) || {};
         window.dispensingPrescriptionId = id;
         $('#dispenseRxLabel').text('Rx #' + id + (rx.patientName ? ' — ' + rx.patientName : ''));
-        $('#sellType').val('sellDiv').trigger('change');   // reuse the Sell screen
+        // reuse the Sell screen. The global .dropdown change handler loads the sell table but is brittle on some
+        // pages — guard it so a failure there can't abort the screen switch, then reveal #sellDiv directly (M4a).
+        try { $('#sellType').val('sellDiv').trigger('change'); } catch (e) { /* global handler failed — switch anyway */ }
+        $('.formDiv').hide(); $('#sellDiv').show();
         $('#dispenseBanner').show();
         // P7: warn the pharmacist about controlled items / interactions before they dispense.
         var itemIds = (rx.items || []).map(function (it) { return it.itemId; }).filter(Boolean);

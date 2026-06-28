@@ -8,13 +8,8 @@ describe('Pharmacy — alerts & controlled register', () => {
   it('a controlled-substance dispense appears on the controlled register', () => {
     const iname = 'CtrlMed_' + Date.now()
     const invoiceNo = 'INV-CTRL-' + Date.now()
-    let itemId
-
-    cy.request({ method: 'POST', url: '/addItem', form: true, body: { icode: 'CT' + Date.now(), iname: iname, unit: 'tablet' }, failOnStatusCode: false })
-    cy.request('/getUserItem').then((res) => {
-      const item = (res.body.data || res.body.collection || []).find((i) => i.iname === iname)
-      if (!item) return cy.log('Item not created — skipping')
-      itemId = item.id
+    // M4a (slice 90): seed the medicine via the catalog Product master (+ opening stock for the dispense).
+    cy.seedProduct({ name: iname, sku: 'CT' + Date.now(), unit: 'tablet', stock: 50 }).then(({ itemId }) => {
 
       // flag it controlled
       cy.request({ method: 'POST', url: '/saveClinical', body: { itemId: itemId, medicineName: iname, controlledSubstance: true }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })

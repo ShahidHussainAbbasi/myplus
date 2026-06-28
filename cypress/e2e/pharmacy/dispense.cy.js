@@ -8,13 +8,10 @@ describe('Pharmacy — dispense (sale + Rx link)', () => {
 
   it('dispensing a prescription updates quantities + status (FULLY_DISPENSED)', () => {
     const iname = 'DispMed_' + Date.now()
-    let itemId, rxId
+    let rxId
 
-    cy.request({ method: 'POST', url: '/addItem', form: true, body: { icode: 'DSP' + Date.now(), iname: iname, unit: 'tablet' }, failOnStatusCode: false })
-    cy.request('/getUserItem').then((res) => {
-      const item = (res.body.data || res.body.collection || []).find((i) => i.iname === iname)
-      if (!item) return cy.log('Item not created — skipping')
-      itemId = item.id
+    // M4a (slice 90): seed the medicine via the catalog Product master (+ opening stock for the dispense).
+    cy.seedProduct({ name: iname, sku: 'DSP' + Date.now(), unit: 'tablet', stock: 50 }).then(({ itemId }) => {
 
       cy.request({
         method: 'POST', url: '/addPrescription',
