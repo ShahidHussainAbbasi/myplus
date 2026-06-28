@@ -105,6 +105,32 @@ public class SellController {
 	com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
 
 	@Autowired
+	com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: resolve line display fields from catalog
+
+	/** M4d (slice 94): batch-resolve catalog ProductRef by productId for the read screens (name/sku/description),
+	 *  replacing the local Item entity load. Best-effort — on a catalog hiccup names fall back to blank, never throws. */
+	private java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productRefs(java.util.List<Long> productIds) {
+		if (productIds == null || productIds.isEmpty()) return java.util.Collections.emptyMap();
+		try {
+			return catalogClient.getProducts(productIds).stream()
+				.collect(java.util.stream.Collectors.toMap(com.myplus.commerce.contracts.dto.ProductRef::getId, p -> p, (a, b) -> a));
+		} catch (Exception e) {
+			LOGGER.warn("M4d: catalog getProducts failed for {} id(s); line names may be blank", productIds.size(), e);
+			return java.util.Collections.emptyMap();
+		}
+	}
+
+	/** M4d (slice 94): productId→itemId reverse map (ItemCatalogMap) — still needed for the edit picker's itemId value
+	 *  until the picker becomes productId-valued (M4e). Does NOT load the Item entity. */
+	private java.util.Map<Long, Long> productToItem(java.util.List<Long> productIds) {
+		java.util.Map<Long, Long> m = new java.util.HashMap<>();
+		if (productIds == null || productIds.isEmpty()) return m;
+		for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(productIds, orgId()))
+			m.put((Long) row[0], (Long) row[1]);
+		return m;
+	}
+
+	@Autowired
 	com.myplus.business_service.service.PaymentService paymentService;
 
 	@Autowired
