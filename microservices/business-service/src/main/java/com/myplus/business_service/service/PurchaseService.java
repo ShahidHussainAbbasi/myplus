@@ -219,7 +219,6 @@ public class PurchaseService implements IPurchaseService{
 			obj.setBsellDiscountType(snap.getBsellDiscountType());
 			obj.setBexpDate(appUtil.toLocalDateOrNull(snap.getBexpDate()));
 		}
-		obj.setStock(null);                               // M3c.4b: no local Stock row (legacy FK left null until 4f drop)
 		Purchase saved = this.save(obj);
 		pushPurchaseToInventory(saved, dto, user);        // dual-write stock-in to inventory (authoritative)
 		return saved;

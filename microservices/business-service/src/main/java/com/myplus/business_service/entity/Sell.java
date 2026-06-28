@@ -99,9 +99,7 @@ public class Sell implements Serializable {
 	@Column(name = "return_reason")
 	private Float re;
 
-	@ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
-	@JoinColumn(name = "stock_id")
-	private Stock stock;
+	// M3c.4f (slice 88): the Sell→local-Stock FK was removed; the sell carries productId (saga writes it directly).
 
 	// Saga sells (slice 33, U3) reference the catalog product directly; the local Stock FK is null then.
 	@Column(name = "product_id")

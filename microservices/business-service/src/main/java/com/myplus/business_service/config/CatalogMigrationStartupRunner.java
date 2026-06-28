@@ -44,9 +44,10 @@ public class CatalogMigrationStartupRunner implements ApplicationRunner {
                 if (groups == 0) {
                     LOG.info("Catalog auto-migrate: all items already mapped — nothing to do.");
                 } else {
-                    var bf = catalogMigrationService.backfillAll();   // stamp product_id on the newly-mapped items' rows
-                    LOG.info("Catalog auto-migrate: mapped {} tenant group(s); backfilled {} sells + {} purchases.",
-                            groups, bf.sellsBackfilled(), bf.purchasesBackfilled());
+                    // M3c.4f (slice 88): the local-Stock product_id backfill was retired with the Stock table; the
+                    // historical backfill runs at Flyway time (V5/V6). New items mapped here are sold via the saga
+                    // (productId written directly), so there are no Stock-linked rows left to backfill.
+                    LOG.info("Catalog auto-migrate: mapped {} tenant group(s).", groups);
                 }
                 return;
             } catch (Exception e) {

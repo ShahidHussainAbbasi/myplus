@@ -25,6 +25,6 @@ public interface SellRepository extends JpaRepository<Sell, Long> {
     @Query("SELECT MONTH(s.dated), COALESCE(SUM(s.netAmount), 0.0) FROM Sell s WHERE s.userId = :userId AND YEAR(s.dated) = :year GROUP BY MONTH(s.dated)")
     List<Object[]> monthlySales(@Param("userId") Long userId, @Param("year") int year);
 
-    @Query("SELECT s.stock.itemId, COALESCE(SUM(s.quantity), 0) FROM Sell s WHERE s.userId = :userId GROUP BY s.stock.itemId ORDER BY COALESCE(SUM(s.quantity), 0) DESC")
+    @Query("SELECT s.productId, COALESCE(SUM(s.quantity), 0) FROM Sell s WHERE s.userId = :userId AND s.productId IS NOT NULL GROUP BY s.productId ORDER BY COALESCE(SUM(s.quantity), 0) DESC")
     List<Object[]> topSellingItems(@Param("userId") Long userId, Pageable pageable);
 }

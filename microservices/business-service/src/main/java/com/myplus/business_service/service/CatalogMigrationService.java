@@ -7,7 +7,6 @@ import com.myplus.business_service.entity.Purchase;
 import com.myplus.business_service.repository.ItemCatalogMapRepo;
 import com.myplus.business_service.repository.ItemRepo;
 import com.myplus.business_service.repository.PurchaseRepo;
-import com.myplus.business_service.repository.SellRepo;
 import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.dto.ProductImportLine;
 import com.myplus.commerce.contracts.dto.ProductImportResult;
@@ -32,25 +31,7 @@ public class CatalogMigrationService {
     private final ItemRepo itemRepo;
     private final ItemCatalogMapRepo mapRepo;
     private final CatalogClient catalogClient;
-    private final SellRepo sellRepo;
     private final PurchaseRepo purchaseRepo;
-
-    /** M3c.1 (slice 76): result of stamping product_id onto historical Stock-linked sells/purchases. */
-    public record BackfillResult(int sellsBackfilled, int purchasesBackfilled, long sellsRemaining, long purchasesRemaining) {}
-
-    /**
-     * M3c.1: backfill product_id onto historical (Stock-linked) sells + purchases via the item→product map, so the
-     * local Stock FK can be retired later. Idempotent (only fills NULLs). Run /migrate-catalog first for full coverage;
-     * {@code *Remaining} reports rows whose item still isn't mapped (should be 0 after a migrate).
-     */
-    @Transactional
-    public BackfillResult backfillProductIds(Long orgId, Long userId) {
-        int sells = sellRepo.backfillProductIds(orgId, userId);
-        int purchases = purchaseRepo.backfillProductIds(orgId, userId);
-        long sellsRemaining = sellRepo.countWithoutProductId(orgId, userId);
-        long purchasesRemaining = purchaseRepo.countWithoutProductId(orgId, userId);
-        return new BackfillResult(sells, purchases, sellsRemaining, purchasesRemaining);
-    }
 
     /**
      * M3c (slice 82): deploy-time auto-migrate — map every tenant's not-yet-mapped items to catalog Products. Idempotent;
@@ -69,14 +50,6 @@ public class CatalogMigrationService {
             groups++;
         }
         return groups;
-    }
-
-    /** M3c (slice 82): all-tenant product_id backfill (after {@link #migrateAllUnmapped} maps new items at deploy time). */
-    @Transactional
-    public BackfillResult backfillAll() {
-        int sells = sellRepo.backfillAllProductIds();
-        int purchases = purchaseRepo.backfillAllProductIds();
-        return new BackfillResult(sells, purchases, 0L, 0L);
     }
 
     @Transactional

@@ -117,10 +117,7 @@ public class Item implements Serializable {
 	// @ElementCollection
 	// private List<Purchase> purchases = new ArrayList<>();;
 
-	@OneToOne(fetch = FetchType.EAGER)
-	@NotFound(action = NotFoundAction.IGNORE)
-	@JoinColumn(name = "stock_id")
-	private Stock stock;
+	// M3c.4f (slice 88): the Item→local-Stock relation was removed; inventory (catalog product) is authoritative for stock.
 
 
 //	@OneToOne(fetch = FetchType.LAZY)
