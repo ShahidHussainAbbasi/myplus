@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,7 +23,6 @@ import com.myplus.business_service.repository.VenderRepo;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
-import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.Sell;
 import com.myplus.business_service.entity.Vender;
 import com.myplus.business_service.service.ICompanyService;
@@ -33,7 +31,6 @@ import com.myplus.business_service.service.IItemService;
 import com.myplus.business_service.service.ISellService;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
-import com.myplus.business_service.repository.ItemCatalogMapRepo;
 import com.myplus.business_service.util.RequestUtil;
 
 @RestController
@@ -66,7 +63,7 @@ public class BusinessDashboardController {
     private CustomerHistoryRepo customerHistoryRepo;
 
     @Autowired
-    private ItemCatalogMapRepo itemCatalogMapRepo;   // M3c.2 (slice 78): productId -> item reverse-map for top items
+    private com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: top-item names from catalog
 
     @GetMapping("/getBusinessDashboardStats")
     @ResponseBody
@@ -159,31 +156,29 @@ public class BusinessDashboardController {
                 dailyRevList.add(Math.round(dailyRev[i] * 100.0) / 100.0);
             }
 
-            // --- top 5 items by qty this month ---
-            Map<Long, Double> itemQtyMap = new HashMap<>();
-            // M3c.2 (slice 78): resolve each sell's item productId-first (reverse catalog map) so this no longer needs Stock.
-            java.util.List<Long> dpids = monthlySells.stream().filter(s -> s.getProductId() != null)
-                .map(Sell::getProductId).distinct().collect(Collectors.toList());
-            Map<Long, Long> dProductToItem = new HashMap<>();
-            if (!dpids.isEmpty())
-                for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(dpids, user.getOrganizationId()))
-                    dProductToItem.put((Long) row[0], (Long) row[1]);
+            // --- top 5 products by qty this month ---
+            // M4d (slice 96): aggregate by productId and resolve names from catalog (≤5 lookups) — no reverse map, no Item load.
+            Map<Long, Double> productQtyMap = new HashMap<>();
             for (Sell s : monthlySells) {
-                if (s.getQuantity() == null) continue;
-                // M3c.4d (slice 86): productId-only — historical sells were backfilled (V5), so the Sell→Stock fallback is gone.
-                Long iid = (s.getProductId() != null) ? dProductToItem.get(s.getProductId()) : null;
-                if (iid != null) itemQtyMap.merge(iid, s.getQuantity().doubleValue(), Double::sum);
+                if (s.getQuantity() == null || s.getProductId() == null) continue;
+                productQtyMap.merge(s.getProductId(), s.getQuantity().doubleValue(), Double::sum);
             }
-            List<Map.Entry<Long, Double>> topEntries = itemQtyMap.entrySet().stream()
+            List<Map.Entry<Long, Double>> topEntries = productQtyMap.entrySet().stream()
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
                 .limit(5)
                 .collect(Collectors.toList());
+            java.util.List<Long> topProductIds = topEntries.stream().map(Map.Entry::getKey).collect(Collectors.toList());
+            java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> topProductById;
+            try {
+                topProductById = topProductIds.isEmpty() ? java.util.Collections.emptyMap()
+                    : catalogClient.getProducts(topProductIds).stream()
+                        .collect(Collectors.toMap(com.myplus.commerce.contracts.dto.ProductRef::getId, p -> p, (a, b) -> a));
+            } catch (Exception ex) { topProductById = java.util.Collections.emptyMap(); }
             List<String> topItemNames = new ArrayList<>();
             List<Double> topItemQtys = new ArrayList<>();
             for (Map.Entry<Long, Double> entry : topEntries) {
-                Optional<Item> itemOpt = itemService.findById(entry.getKey());
-                String name = itemOpt.isPresent() && itemOpt.get().getIname() != null
-                    ? itemOpt.get().getIname() : "Item #" + entry.getKey();
+                com.myplus.commerce.contracts.dto.ProductRef p = topProductById.get(entry.getKey());
+                String name = (p != null && p.getName() != null) ? p.getName() : "Product #" + entry.getKey();
                 topItemNames.add(name);
                 topItemQtys.add(entry.getValue());
             }

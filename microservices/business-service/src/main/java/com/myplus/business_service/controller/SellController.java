@@ -34,13 +34,11 @@ import com.myplus.business_service.entity.Company;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
-import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.Sell;
 import com.myplus.business_service.service.CustomerService;
 import com.myplus.business_service.service.ICustomerHistoryService;
 import com.myplus.business_service.service.ICustomerService;
 // import com.myplus.business_service.service.ICustomerService;
-import com.myplus.business_service.service.IItemService;
 // import com.myplus.business_service.service.IItemTypeService;
 import com.myplus.business_service.service.IItemUnitService;
 import com.myplus.business_service.service.IPurchaseService;
@@ -74,8 +72,6 @@ public class SellController {
 	@Autowired
 	IItemUnitService itemUnitService;
 
-	@Autowired
-	IItemService itemService;
 
 	@Autowired
 	IPurchaseService purchaseService;
@@ -310,30 +306,22 @@ public class SellController {
 				out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
 			}
 
-			// M3c.4a (slice 81): item names productId-only via the reverse catalog map (no local Stock).
+			// M4d (slice 94): line names from catalog ProductRef; itemId via the reverse map (edit picker) — no Item load.
 			java.util.List<Long> invProductIds = lines.stream()
 					.filter(s -> s.getProductId() != null).map(Sell::getProductId).distinct()
 					.collect(java.util.stream.Collectors.toList());
-			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
-			if (!invProductIds.isEmpty()) {
-				java.util.Map<Long, Long> productToItem = new java.util.HashMap<>();
-				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(invProductIds, orgId()))
-					productToItem.put((Long) row[0], (Long) row[1]);
-				java.util.Map<Long, Item> invItems = itemService.findAllById(productToItem.values()).stream()
-						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
-				invProductIds.forEach(pid -> {
-					Long iid = productToItem.get(pid);
-					if (iid != null && invItems.get(iid) != null) itemByProductId.put(pid, invItems.get(iid));
-				});
-			}
+			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(invProductIds);
+			java.util.Map<Long, Long> productItemIds = productToItem(invProductIds);
 
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
-				Item item = itemByProductId.get(s.getProductId());
-				if (item != null) { sd.setItemId(item.getId()); sd.setItemName(item.getIname()); sd.setItemCode(item.getIcode()); }
+				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
+				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); }
+				Long iid = productItemIds.get(s.getProductId());
+				if (iid != null) sd.setItemId(iid);
 				sales.add(sd);
 			}
 			out.setSales(sales);
@@ -383,29 +371,18 @@ public class SellController {
 			out.setTaxLabel(ts.getTaxLabel());
 			out.setTaxRegNo(ts.getTaxRegNo());
 
-			// M3c.4a (slice 81): line item names productId-only via the reverse catalog map (no local Stock).
+			// M4d (slice 94): line names from catalog ProductRef (a printed receipt needs no itemId) — no Item load.
 			java.util.List<Long> sagaProductIds = lines.stream()
 					.filter(s -> s.getProductId() != null)
 					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
-			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
-			if (!sagaProductIds.isEmpty()) {
-				java.util.Map<Long, Long> productToItem = new java.util.HashMap<>();
-				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(sagaProductIds, orgId()))
-					productToItem.put((Long) row[0], (Long) row[1]);
-				java.util.Map<Long, Item> sagaItems = itemService.findAllById(productToItem.values()).stream()
-						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
-				sagaProductIds.forEach(pid -> {
-					Long iid = productToItem.get(pid);
-					if (iid != null && sagaItems.get(iid) != null) itemByProductId.put(pid, sagaItems.get(iid));
-				});
-			}
+			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(sagaProductIds);
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
-				Item item = itemByProductId.get(s.getProductId());
-				if (item != null) { sd.setItemId(item.getId()); sd.setItemName(item.getIname()); sd.setItemCode(item.getIcode()); }
+				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
+				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); }
 				sales.add(sd);
 			}
 			out.setSales(sales);
@@ -440,29 +417,23 @@ public class SellController {
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
-			// M3c.4a (slice 81): item names productId-only via the reverse catalog map (no local Stock; fixes the
-			// prior NPE on saga sells). itemStock (live on-hand) dropped — this is a sales report, not a stock report.
+			// M4d (slice 94): line names from catalog ProductRef; itemId via the reverse map — no Item load.
+			// itemStock (live on-hand) dropped — this is a sales report, not a stock report.
 			java.util.List<Long> rpProductIds = objs.stream().filter(s -> s.getProductId() != null)
 					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
-			java.util.Map<Long, Item> rpItemByProduct = new java.util.HashMap<>();
-			if (!rpProductIds.isEmpty()) {
-				java.util.Map<Long, Long> p2i = new java.util.HashMap<>();
-				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(rpProductIds, orgId()))
-					p2i.put((Long) row[0], (Long) row[1]);
-				java.util.Map<Long, Item> its = itemService.findAllById(p2i.values()).stream()
-						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
-				rpProductIds.forEach(pid -> { Long iid = p2i.get(pid); if (iid != null && its.get(iid) != null) rpItemByProduct.put(pid, its.get(iid)); });
-			}
+			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> rpProductById = productRefs(rpProductIds);
+			java.util.Map<Long, Long> rpProductItemIds = productToItem(rpProductIds);
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(obj ->{
 				SellDTO dtotemp = modelMapper.map(obj, SellDTO.class);
-				Item item = rpItemByProduct.get(obj.getProductId());
-				if(item != null) {
-					dtotemp.setItemId(item.getId());
-					dtotemp.setItemName(item.getIname());
-					dtotemp.setItemCode(item.getIcode());
-					dtotemp.setDescription(item.getIdesc());
+				com.myplus.commerce.contracts.dto.ProductRef p = rpProductById.get(obj.getProductId());
+				if(p != null) {
+					dtotemp.setItemName(p.getName());
+					dtotemp.setItemCode(p.getSku());
+					dtotemp.setDescription(p.getDescription());
 				}
+				Long iid = rpProductItemIds.get(obj.getProductId());
+				if (iid != null) dtotemp.setItemId(iid);
 				dtotemp.setDated(appUtil.getDateStr(obj.getDated()));
 				dtotemp.setUpdated(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dtotemp);

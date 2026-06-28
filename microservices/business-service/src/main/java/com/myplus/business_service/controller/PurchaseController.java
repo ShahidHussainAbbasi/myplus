@@ -21,10 +21,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.myplus.common.security.AuthenticatedUser;
-import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.Purchase;
 import com.myplus.business_service.service.ICompanyService;
-import com.myplus.business_service.service.IItemService;
 // import com.myplus.business_service.service.IItemTypeService;
 import com.myplus.business_service.service.IItemUnitService;
 import com.myplus.business_service.service.IPurchaseService;
@@ -55,10 +53,22 @@ public class PurchaseController {
 	IItemUnitService itemUnitService;
 
 	@Autowired
-	IItemService itemService;
+	IVenderService venderService;
 
 	@Autowired
-	IVenderService venderService;
+	com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: resolve line names from catalog
+
+	/** M4d (slice 96): batch-resolve catalog ProductRef by productId for the read grid (name/sku); best-effort. */
+	private java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productRefs(java.util.List<Long> productIds) {
+		if (productIds == null || productIds.isEmpty()) return java.util.Collections.emptyMap();
+		try {
+			return catalogClient.getProducts(productIds).stream()
+				.collect(java.util.stream.Collectors.toMap(com.myplus.commerce.contracts.dto.ProductRef::getId, p -> p, (a, b) -> a));
+		} catch (Exception e) {
+			LOGGER.warn("M4d: catalog getProducts failed for {} id(s); purchase line names may be blank", productIds.size(), e);
+			return java.util.Collections.emptyMap();
+		}
+	}
 
 	@Autowired
 	RequestUtil requestUtil;
@@ -94,22 +104,28 @@ public class PurchaseController {
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
-			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>(); 
+			// M4d (slice 96): batch-resolve line names from catalog ProductRef (no Item entity load). The purchase
+			// carries its own itemId + productId, so no reverse map is needed.
+			java.util.List<Long> pProductIds = objs.stream().filter(o -> o.getProductId() != null)
+					.map(com.myplus.business_service.entity.Purchase::getProductId).distinct()
+					.collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(pProductIds);
+
+			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(o ->{
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
 
-				// M3c.4b (slice 84): identity + batch/rate come from the Purchase's OWN self-describing fields. Historical
-				// rows were backfilled from the (now-retired) Stock FK by V5 (product_id) + V6 (snapshot columns), so the
-				// local Stock is no longer read here.
+				// M4d (slice 96): identity from the purchase's own fields; name/sku from catalog ProductRef (no Item load).
 				Long itemId = o.getItemId();
-				if (itemId == null) return;   // truly unidentifiable line
-				itemService.findById(itemId).ifPresent(item -> {
-					dto.setItemId(item.getId());
-					dto.setIname(item.getIname());
-					dto.setIcode(item.getIcode());
-				});
+				if (itemId == null && o.getProductId() == null) return;   // truly unidentifiable line
+				dto.setItemId(itemId);
+				com.myplus.commerce.contracts.dto.ProductRef p = (o.getProductId() != null) ? productById.get(o.getProductId()) : null;
+				if (p != null) {
+					dto.setIname(p.getName());
+					dto.setIcode(p.getSku());
+				}
 
 				StockDTO sd = new StockDTO();   // the UI grid's nested batch/rate contract, built from the purchase
 				sd.setBatchNo(o.getBatchNo());

@@ -370,7 +370,7 @@ function loadSellForEdit(sellId){
 		setSellItemBtnMode(true);   // the cart-add button becomes "Update Item" while editing
 		// Auto-load the line into the form (item shown but LOCKED, qty editable) so the cashier just
 		// adjusts the quantity and clicks "Update Item".
-		if(data.length) loadCartLineIntoForm(data[0].itemId);
+		if(data.length) loadCartLineIntoForm(data[0]);
 		// 5) bring the form into view
 		try { $('html, body').animate({ scrollTop: $('#sellDiv').offset().top }, 300); } catch(e){}
 		updateReadOnly(true);
@@ -403,15 +403,36 @@ function setSellItemBtnMode(editing){
 // Load one cart line into the item form for editing. In edit mode the ITEM is FIXED — the dropdown is
 // disabled so only the quantity/amounts of that line can change; "Update Item" then replaces this same
 // line in place.
-function loadCartLineIntoForm(itemId){
-	var line = data.find(function(d){ return String(d.itemId) === String(itemId); });
+function loadCartLineIntoForm(line){
 	if(!line) return;
-	$('#sellItemDD').val(String(itemId));
-	if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
-	loadStock($('#sellItemDD :selected').text(), itemId);   // fills rate/discount/stock (async $.get)
-	$('#sellItems').val(line.quantity);                     // keep the line's qty (loadStock won't override >0)
-	$('#sellItemDD').prop('disabled', true);                // lock the item while editing
-	if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+	// M4d (slice 95): the edit flow can run before the sell screen's async getUserItems has populated #sellItemDD
+	// (first-edit race → empty dropdown → nothing selected). So (re)load the options first, THEN select — and select
+	// by productId (the option's data-product, added in M4b), which is robust even when the line's itemId is
+	// unmapped/stale; fall back to itemId.
+	$.get(serverContext + "getUserItems", function(html){
+		var $dd = $('#sellItemDD').empty().append(html);
+		var $opt = (line.productId != null)
+			? $dd.find('option').filter(function(){ return String($(this).data('product')) === String(line.productId); })
+			: $();
+		if(!$opt.length && line.itemId != null) $opt = $dd.find('option[value="' + line.itemId + '"]');
+		if(!$opt.length){
+			// M4d (slice 95): the sold item isn't in the current list (e.g. it was later deleted, leaving an orphaned
+			// sale). Inject a one-off option from the line's own data so the sale stays viewable + editable instead of
+			// a blank picker (which made loadStock call getStock?itemId= → 400).
+			var injVal = (line.itemId != null) ? String(line.itemId) : ('p' + line.productId);
+			$dd.append($('<option>').val(injVal)
+				.attr('data-product', line.productId != null ? line.productId : '')
+				.text(line.itemName || ('Item #' + (line.itemId != null ? line.itemId : line.productId))));
+			$opt = $dd.find('option[value="' + injVal + '"]');
+		}
+		$dd.val($opt.val());
+		if($dd.data('selectpicker')) $dd.selectpicker('refresh');
+		var sel = $dd.val();
+		if(sel && /^\d+$/.test(sel)) loadStock($dd.find(':selected').text(), sel);   // only with a real itemId — never getStock?itemId=
+		$('#sellItems').val(line.quantity);                   // keep the line's qty (loadStock won't override >0)
+		$dd.prop('disabled', true);                           // lock the item while editing
+		if($dd.data('selectpicker')) $dd.selectpicker('refresh');
+	});
 }
 
 // Leave edit mode: drop the editing flag, banner, restore the button label, and UNLOCK the item
