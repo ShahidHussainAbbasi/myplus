@@ -11,7 +11,7 @@
 describe('Negative — Sell: Empty Cart Blocks Submission', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
-    cy.intercept('GET', '/getUserItems').as('getItems')
+    cy.intercept('GET', '/catalogProducts*').as('getItems')   // M4e.1b: picker lists catalog Products
     cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
     cy.visit('/businessDashboard')
     cy.get('#sellType').select('sellDiv', { force: true })
@@ -71,7 +71,7 @@ describe('Negative — Sell: Empty Cart Blocks Submission', () => {
 describe('Negative — Purchase: Missing Fields Block Submission', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
-    cy.intercept('GET', '/getUserItems').as('getItems')
+    cy.intercept('GET', '/catalogProducts*').as('getItems')   // M4e.1b: picker lists catalog Products
     cy.visit('/businessDashboard')
     cy.get('#purchaseType').select('purchaseDiv', { force: true })
     cy.get('#purchaseDiv').should('be.visible')

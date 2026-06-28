@@ -31,11 +31,12 @@ describe('Purchase Section — UI Rendering', () => {
     cy.get('#purchaseQuantity').should('have.value', '')
   })
 
-  it('item dropdown is pre-populated via getUserItems AJAX', () => {
-    cy.intercept('GET', '/getUserItems').as('getItems')
+  it('item dropdown is pre-populated via catalogProducts AJAX', () => {
+    // M4e.1b (slice 98): the purchase picker now lists catalog Products via /catalogProducts, not /getUserItems.
+    cy.intercept('GET', '/catalogProducts*').as('catalogProducts')
     cy.visit('/businessDashboard')
     cy.get('#purchaseType').select('purchaseDiv', { force: true })
-    cy.wait('@getItems', { timeout: 10000 }).then((interception) => {
+    cy.wait('@catalogProducts', { timeout: 10000 }).then((interception) => {
       expect(interception.response.statusCode).to.eq(200)
     })
   })

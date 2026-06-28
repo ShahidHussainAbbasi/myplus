@@ -63,11 +63,12 @@ describe('Sell Section — AJAX Loading', () => {
     cy.loginAsBusiness()
   })
 
-  it('item dropdown loads options from getUserItems', () => {
-    cy.intercept('GET', '/getUserItems').as('getUserItems')
+  it('item dropdown loads options from catalogProducts', () => {
+    // M4e.1b (slice 98): the picker now lists catalog Products (value=productId) via /catalogProducts, not /getUserItems.
+    cy.intercept('GET', '/catalogProducts*').as('catalogProducts')
     cy.visit('/businessDashboard')
     cy.get('#sellType').select('sellDiv', { force: true })
-    cy.wait('@getUserItems', { timeout: 10000 }).then((interception) => {
+    cy.wait('@catalogProducts', { timeout: 10000 }).then((interception) => {
       expect(interception.response.statusCode).to.eq(200)
     })
   })

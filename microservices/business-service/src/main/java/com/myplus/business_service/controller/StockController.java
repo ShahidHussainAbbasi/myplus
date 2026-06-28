@@ -284,14 +284,13 @@ public class StockController {
 	 */
 	@RequestMapping(value = "/getStockByBatch", method = RequestMethod.GET)
 	@ResponseBody
-	public StockDTO getStockByBatch(@RequestParam final String batchNo, @RequestParam(required = false) final Long itemId) {
+	public StockDTO getStockByBatch(@RequestParam final String batchNo, @RequestParam(required = false) final Long productId) {
+		// M4e.1b (slice 98): the purchase picker submits a productId now — source the batch pre-fill by productId
+		// directly (no itemId / ItemCatalogMap lookup).
 		StockDTO dto = new StockDTO();
 		dto.setBatchNo(batchNo);
-		if (appUtil.isEmptyOrNull(batchNo) || appUtil.isEmptyOrNull(itemId)) return dto;
+		if (appUtil.isEmptyOrNull(batchNo) || appUtil.isEmptyOrNull(productId)) return dto;
 		try {
-			Long productId = itemCatalogMapRepo.findProductIdByItemId(itemId, orgId()).orElse(null);
-			if (productId == null) return dto;                       // unmapped legacy item — nothing to pre-fill
-
 			// on-hand + expiry + last purchase price for this batch from inventory (tenant-scoped via propagated identity)
 			for (com.myplus.commerce.contracts.dto.StockBatch b : inventoryClient.getBatches(productId)) {
 				if (batchNo.equals(b.getBatchNo())) {

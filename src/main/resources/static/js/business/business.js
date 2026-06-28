@@ -243,11 +243,10 @@ $(document).ready(function() {
         	var obj  = formToJSON("Sell");
 //        	obj = populateFormData();
         	obj.itemName = $( "#sellItemDD :selected" ).text();
-			obj.itemId = $("#sellItemDD").val();
-			// M4b (slice 91): carry the catalog productId on the cart line (from the option's data-product) so the
-			// sale is submitted productId-native; the saga uses it directly (itemId stays as back-compat fallback).
-			var pid = $("#sellItemDD :selected").data('product');
-			if (pid != null && pid !== '') obj.productId = pid;
+			// M4e.1b (slice 98): the picker value IS the catalog productId now — the cart line keys by productId.
+			var pickVal = $("#sellItemDD").val();
+			obj.productId = pickVal;            // cart key + productId-native submission
+			obj.itemId = pickVal;               // back-compat field (ignored once productId present; removed in M4e.5)
 			obj.stock.itemId = obj.itemId;
 			obj.stock.itemName = obj.itemName;
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
@@ -255,13 +254,13 @@ $(document).ready(function() {
 
         	// (cart insert handled below: append, or replace-in-place when editing)
 			var arr = [
-				obj.itemId,obj.itemName,obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.itemId+")>Del</button>"
+				obj.productId,obj.itemName,obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.productId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
 			// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in
 				// place (no duplicate). A brand-new item is still appended. New-sale mode always appends.
 				var existingIdx = window.editingInvoice
-					? data.findIndex(function(d){ return String(d.itemId) === String(obj.itemId); })
+					? data.findIndex(function(d){ return String(d.productId) === String(obj.productId); })
 					: -1;
 				if (existingIdx >= 0) {
 					// The item is locked in edit mode, so carry the original line's stock identity onto the
@@ -293,8 +292,9 @@ $(document).ready(function() {
 } );
 
 function UIT(id){
+	// M4e.1b (slice 98): cart lines key by productId now.
 	data.forEach(function(d,i){
-		if(id==d.itemId){
+		if(id==d.productId){
 			removed = true;
 			data.splice(i,1);
 		}
@@ -405,30 +405,28 @@ function setSellItemBtnMode(editing){
 // line in place.
 function loadCartLineIntoForm(line){
 	if(!line) return;
-	// M4d (slice 95): the edit flow can run before the sell screen's async getUserItems has populated #sellItemDD
-	// (first-edit race → empty dropdown → nothing selected). So (re)load the options first, THEN select — and select
-	// by productId (the option's data-product, added in M4b), which is robust even when the line's itemId is
-	// unmapped/stale; fall back to itemId.
-	$.get(serverContext + "getUserItems", function(html){
+	// M4e.1b (slice 98): (re)load the catalog-product picker (value = productId), then select THIS line by its
+	// productId. The first-edit race (picker not yet populated) is handled by reloading here. If the product isn't in
+	// the list (e.g. deleted → orphaned sale), inject a one-off option so the sale stays editable.
+	$.get(serverContext + "catalogProducts?size=2000", function(resp){
+		var list = (resp && resp.data && resp.data.content) ? resp.data.content
+		         : (Array.isArray(resp && resp.data) ? resp.data : []);
+		var html = "<option value=''>Nothing Selected</option>";
+		list.forEach(function(p){
+			html += "<option value='" + p.id + "' data-product='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
+		});
 		var $dd = $('#sellItemDD').empty().append(html);
-		var $opt = (line.productId != null)
-			? $dd.find('option').filter(function(){ return String($(this).data('product')) === String(line.productId); })
-			: $();
-		if(!$opt.length && line.itemId != null) $opt = $dd.find('option[value="' + line.itemId + '"]');
-		if(!$opt.length){
-			// M4d (slice 95): the sold item isn't in the current list (e.g. it was later deleted, leaving an orphaned
-			// sale). Inject a one-off option from the line's own data so the sale stays viewable + editable instead of
-			// a blank picker (which made loadStock call getStock?itemId= → 400).
-			var injVal = (line.itemId != null) ? String(line.itemId) : ('p' + line.productId);
-			$dd.append($('<option>').val(injVal)
-				.attr('data-product', line.productId != null ? line.productId : '')
-				.text(line.itemName || ('Item #' + (line.itemId != null ? line.itemId : line.productId))));
-			$opt = $dd.find('option[value="' + injVal + '"]');
+		var pid = (line.productId != null) ? line.productId : line.itemId;   // cart lines key by productId
+		var $opt = (pid != null) ? $dd.find('option[value="' + pid + '"]') : $();
+		if(!$opt.length && pid != null){
+			$dd.append($('<option>').val(pid).attr('data-product', pid)
+				.text(line.itemName || ('Product #' + pid)));
+			$opt = $dd.find('option[value="' + pid + '"]');
 		}
 		$dd.val($opt.val());
 		if($dd.data('selectpicker')) $dd.selectpicker('refresh');
 		var sel = $dd.val();
-		if(sel && /^\d+$/.test(sel)) loadStock($dd.find(':selected').text(), sel);   // only with a real itemId — never getStock?itemId=
+		if(sel && /^\d+$/.test(sel)) loadStock($dd.find(':selected').text(), sel);   // sel is a productId now
 		$('#sellItems').val(line.quantity);                   // keep the line's qty (loadStock won't override >0)
 		$dd.prop('disabled', true);                           // lock the item while editing
 		if($dd.data('selectpicker')) $dd.selectpicker('refresh');
@@ -1085,11 +1083,20 @@ function loadUserItemUnits(table) {
 	});
 }
 
-function loadUserItems(table) {	
-    $.get(serverContext+ "getUserItems",function(data){
-    	$("#"+table+"ItemDD").empty().append(data).selectpicker('refresh');
-    })
-	.fail(function(data) {
+function loadUserItems(table) {
+	// M4e.1b (slice 98): the sell/purchase picker lists catalog PRODUCTS (value = productId) sourced from the catalog
+	// master — not the local Item table. data-product carries the same productId so the cart submits productId-native.
+	$.get(serverContext + "catalogProducts?size=2000", function(resp){
+		var list = (resp && resp.data && resp.data.content) ? resp.data.content
+		         : (Array.isArray(resp && resp.data) ? resp.data : []);
+		var html = "<option value=''>Nothing Selected</option>";
+		list.forEach(function(p){
+			html += "<option value='" + p.id + "' data-product='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
+		});
+		$("#"+table+"ItemDD").empty().append(html);
+		if($("#"+table+"ItemDD").data('selectpicker')) $("#"+table+"ItemDD").selectpicker('refresh');
+	})
+	.fail(function() {
 		$("#"+table+"ItemDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
@@ -1149,7 +1156,9 @@ function loadStock(label,value){
 	$("#sellBatchInfo").hide().empty();   // P10 (slice 54): FEFO batch/expiry shown when an item is picked
 	$("pdt").html("      ");
 	
-    $.get(serverContext+ "getStock?itemId="+value,function(data){
+    // M4e.1b (slice 98): the picker value is a productId now → pre-fill from productStock (on-hand + price + FEFO
+    // batches + description, by productId) instead of getStock(itemId).
+    $.get(serverContext+ "productStock?productId="+value,function(data){
     	if(data){
 	    	discountValue = data.bsellDiscount;
 	    	discountType = data.bsellDiscountType;
@@ -1239,10 +1248,11 @@ function getStockByBatch(batchNo){
 		$("#sellSellRate").val("")
 		$("#sellItems").removeClass("alert-danger");
 		$("pdt").html("      ");
-		// M3a: send the selected item so the server can source on-hand/rate from inventory + the catalog master.
+		// M4e.1b (slice 98): the picker value is a productId now → ask the server by productId (inventory batches +
+		// catalog master), no itemId/ItemCatalogMap lookup.
 		var itemDDForBatch = document.getElementById(tableV.toLowerCase()+"ItemDD");
-		var itemIdForBatch = itemDDForBatch ? itemDDForBatch.options[itemDDForBatch.selectedIndex].value : '';
-		$.get(serverContext+ "getStockByBatch?batchNo="+batchNo+"&itemId="+itemIdForBatch,function(data){
+		var productIdForBatch = itemDDForBatch ? itemDDForBatch.options[itemDDForBatch.selectedIndex].value : '';
+		$.get(serverContext+ "getStockByBatch?batchNo="+batchNo+"&productId="+productIdForBatch,function(data){
 	    	if(data){
 		    	discountValue = data.bsellDiscount;
 		    	discountType = data.bsellDiscountType;
