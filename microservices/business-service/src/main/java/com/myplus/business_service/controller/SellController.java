@@ -228,24 +228,13 @@ public class SellController {
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
-			// M3c.4a (slice 81): item name via the reverse catalog map (productId -> itemId -> Item), productId-only.
+			// M4d (slice 94): line display fields from catalog ProductRef; itemId via the reverse map (edit picker) — no Item load.
 			java.util.List<Long> sagaProductIds = objs.stream()
 					.filter(s -> s.getProductId() != null)
 					.map(s -> s.getProductId()).distinct()
 					.collect(java.util.stream.Collectors.toList());
-			java.util.Map<Long, Item> itemByProductId = new java.util.HashMap<>();
-			if (!sagaProductIds.isEmpty()) {
-				java.util.Map<Long, Long> productToItem = new java.util.HashMap<>();
-				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(sagaProductIds, orgId())) {
-					productToItem.put((Long) row[0], (Long) row[1]);
-				}
-				java.util.Map<Long, Item> sagaItems = itemService.findAllById(productToItem.values()).stream()
-						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
-				sagaProductIds.forEach(pid -> {
-					Long iid = productToItem.get(pid);
-					if (iid != null && sagaItems.get(iid) != null) itemByProductId.put(pid, sagaItems.get(iid));
-				});
-			}
+			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(sagaProductIds);
+			java.util.Map<Long, Long> productItemIds = productToItem(sagaProductIds);
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
 				modelMapper.addConverter(appUtil.localDateTimeToString);
@@ -253,15 +242,16 @@ public class SellController {
 				// SellDTO dto = appUtil.objTodtoConverter(o);
 				SellDTO dto = modelMapper.map(o, SellDTO.class);
 				if(o.getProductId() != null) {
-					// M3c.4a (slice 81): productId-only — item via the reverse catalog map; no local Stock.
-					Item item = itemByProductId.get(o.getProductId());
-					if(item != null) {
-						dto.setItemId(item.getId());
-						dto.setItemName(item.getIname());
-						dto.setItemCode(item.getIcode());
-						dto.setDescription(item.getIdesc());
+					// M4d (slice 94): name/sku/description from catalog; itemId from the reverse map (picker).
+					com.myplus.commerce.contracts.dto.ProductRef p = productById.get(o.getProductId());
+					if(p != null) {
+						dto.setItemName(p.getName());
+						dto.setItemCode(p.getSku());
+						dto.setDescription(p.getDescription());
 					}
-					
+					Long iid = productItemIds.get(o.getProductId());
+					if (iid != null) dto.setItemId(iid);
+
 					if (o.getCustomerHistory() != null) {
 						CustomerHistoryDTO customerHistoryDTO = modelMapper.map(o.getCustomerHistory(), CustomerHistoryDTO.class);
 						dto.setCustomerHistory(customerHistoryDTO);
