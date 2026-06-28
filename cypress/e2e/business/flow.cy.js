@@ -106,15 +106,15 @@ describe('E2E Flow — Registration Chain', () => {
 // Item → addStock → verify stock → purchase → stock increases
 
 describe('E2E Flow — Item to Stock', () => {
-  let itemId, stockId
+  let itemId, productId, stockId
   const ts = Date.now()
   const iname = `StockFlowItem_${ts}`
 
   before(() => {
     cy.loginAsBusiness()
-    // M4a (slice 90): seed via the catalog Product master + opening inventory.
+    // M4a/M4e.2: seed via the catalog Product master + opening inventory; purchase productId-native.
     cy.seedProduct({ name: iname, sku: `SFI-${ts}`, sellingPrice: 80, purchaseRate: 50, stock: 20 })
-      .then(({ itemId: id }) => { itemId = id })
+      .then(({ itemId: id, productId: pid }) => { itemId = id; productId = pid })
   })
 
   beforeEach(() => {
@@ -157,7 +157,7 @@ describe('E2E Flow — Item to Stock', () => {
 
     cy.request({
       method: 'POST', url: '/addPurchase', form: true,
-      body: { itemId, quantity: 5, purchaseRate: 50, totalAmount: 250, netAmount: 250, purchaseInvoiceNo: `PF-${ts}` },
+      body: { productId, quantity: 5, purchaseRate: 50, totalAmount: 250, netAmount: 250, purchaseInvoiceNo: `PF-${ts}` },
       failOnStatusCode: false,
     }).then((res) => {
       cy.log(`addPurchase for stock chain: ${res.body.status}`)
@@ -184,7 +184,7 @@ describe('E2E Flow — Item to Stock', () => {
 // Customer → Item → Stock → Sell → Sell appears in list
 
 describe('E2E Flow — Full Sale Transaction', () => {
-  let customerId, itemId, stockId
+  let customerId, itemId, productId, stockId
   const ts = Date.now()
   const custName = `FlowCust_${ts}`
   const iname    = `FlowSellItem_${ts}`
@@ -205,7 +205,7 @@ describe('E2E Flow — Full Sale Transaction', () => {
 
     // Create item + opening stock via the catalog Product master (M4a, slice 90)
     cy.seedProduct({ name: iname, sku: `FSI-${ts}`, sellingPrice: 100, purchaseRate: 50, stock: 30 })
-      .then(({ itemId: id }) => { itemId = id })
+      .then(({ itemId: id, productId: pid }) => { itemId = id; productId = pid })
   })
 
   beforeEach(() => {
@@ -267,7 +267,7 @@ describe('E2E Flow — Full Sale Transaction', () => {
       method: 'POST', url: '/addSell',
       body: {
         customer: { name: custName, contact: `031${ts.toString().slice(-8)}`, paidAmount: 100, dueAmount: 0 },
-        sales: [{ itemId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
+        sales: [{ productId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
       },
       headers: { 'Content-Type': 'application/json' },
       failOnStatusCode: false,

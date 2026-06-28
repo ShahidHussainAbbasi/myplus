@@ -8,7 +8,7 @@
  * flow.cy.js) so it doesn't depend on the sell-screen DOM.
  */
 describe('Sell↔stock saga — sale decrements inventory on-hand', () => {
-  let itemId, itemName, sellRate, stockBefore
+  let itemId, productId, itemName, sellRate, stockBefore
   const ts = Date.now()
   const custName = `SagaCust_${ts}`
   const contact = `031${ts.toString().slice(-8)}`
@@ -28,6 +28,7 @@ describe('Sell↔stock saga — sale decrements inventory on-hand', () => {
           const s = r.body || {}
           if (!itemId && s.stock && s.stock > 0) {
             itemId = it.id
+            productId = it.productId   // M4e.2: sell productId-native (getUserItem now carries productId)
             itemName = it.iname
             stockBefore = s.stock
             sellRate = s.bsellRate || 1
@@ -55,7 +56,7 @@ describe('Sell↔stock saga — sale decrements inventory on-hand', () => {
       headers: { 'Content-Type': 'application/json' },
       body: {
         customer: { name: custName, contact, paidAmount: sellRate, dueAmount: 0 },
-        sales: [{ itemId, quantity: 1, sellRate, totalAmount: sellRate, netAmount: sellRate }],
+        sales: [{ productId, quantity: 1, sellRate, totalAmount: sellRate, netAmount: sellRate }],
       },
       failOnStatusCode: false,
     }).then((res) => {
