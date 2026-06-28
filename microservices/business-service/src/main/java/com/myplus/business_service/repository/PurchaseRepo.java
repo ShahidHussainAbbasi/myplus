@@ -29,6 +29,10 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
         + "and (p.organizationId = :orgId or p.organizationId is null)")
    List<Purchase> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   // M3c.4e (slice 87): the item's most recent purchase sell rate — the Stock-free source for carrying a legacy
+   // item's price into the catalog at migration time (V6 backfilled bsellRate onto historical purchase rows).
+   java.util.Optional<Purchase> findFirstByItemIdAndBsellRateNotNullOrderByPurchaseIdDesc(Long itemId);
+
    // M3c.1 (slice 76): backfill product_id onto historical (Stock-linked) purchases from the item→product map, so
    // the Stock FK can later be retired. Idempotent (only NULL product_id rows); tenant-scoped (NULL-fallback).
    @Modifying(clearAutomatically = true, flushAutomatically = true)

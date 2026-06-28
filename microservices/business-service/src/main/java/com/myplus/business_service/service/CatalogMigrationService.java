@@ -3,12 +3,11 @@ package com.myplus.business_service.service;
 import com.myplus.business_service.dto.CatalogMigrationResult;
 import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.ItemCatalogMap;
-import com.myplus.business_service.entity.Stock;
+import com.myplus.business_service.entity.Purchase;
 import com.myplus.business_service.repository.ItemCatalogMapRepo;
 import com.myplus.business_service.repository.ItemRepo;
 import com.myplus.business_service.repository.PurchaseRepo;
 import com.myplus.business_service.repository.SellRepo;
-import com.myplus.business_service.repository.StockRepo;
 import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.dto.ProductImportLine;
 import com.myplus.commerce.contracts.dto.ProductImportResult;
@@ -33,7 +32,6 @@ public class CatalogMigrationService {
     private final ItemRepo itemRepo;
     private final ItemCatalogMapRepo mapRepo;
     private final CatalogClient catalogClient;
-    private final StockRepo stockRepo;
     private final SellRepo sellRepo;
     private final PurchaseRepo purchaseRepo;
 
@@ -137,10 +135,12 @@ public class CatalogMigrationService {
                 .build();
     }
 
-    /** The item's sell price for the catalog = its (single) Stock row's bsellRate, when set and positive. */
+    /** M3c.4e (slice 87): the item's sell price for the catalog = its most recent purchase's bsellRate, when set and
+     *  positive. Stock-free — V6 backfilled bsellRate onto historical purchase rows, so this preserves the legacy
+     *  price-carry without the (to-be-dropped) local Stock row. */
     private BigDecimal sellRateOf(Item i) {
-        return stockRepo.findByItemId(i.getId())
-                .map(Stock::getBsellRate)
+        return purchaseRepo.findFirstByItemIdAndBsellRateNotNullOrderByPurchaseIdDesc(i.getId())
+                .map(Purchase::getBsellRate)
                 .filter(r -> r != null && r.signum() > 0)
                 .orElse(null);
     }
