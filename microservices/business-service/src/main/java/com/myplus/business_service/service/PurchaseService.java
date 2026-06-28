@@ -19,9 +19,9 @@ import org.springframework.stereotype.Service;
 import com.myplus.business_service.repository.PurchaseRepo;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Purchase;
-import com.myplus.business_service.entity.Stock;
 
 import com.myplus.business_service.dto.PurchaseDTO;
+import com.myplus.business_service.dto.StockDTO;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.RequestUtil;
 
@@ -32,9 +32,6 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     PurchaseRepo purchaseRepo;
 
-    @Autowired
-    IStockService stockService;
-    
 /*    @Autowired
     IBatchService batchService;
 */
@@ -206,13 +203,13 @@ public class PurchaseService implements IPurchaseService{
 		obj.setUserId(user.getUserId());                  // audit
 		obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 
-		// M3b (slice 75): the purchase is self-describing — copy its batch/rate snapshot off the DTO (reusing the
-		// existing date/number converters via an in-memory Stock map that is NEVER persisted) instead of writing a
-		// local Stock row. Inventory stays authoritative for on-hand (pushed below).
+		// M3c.4b (slice 84): the purchase is self-describing — copy its batch/rate snapshot straight off the DTO
+		// (StockDTO scalar types already match Purchase; bexpDate parsed via AppUtil) instead of going through a local
+		// Stock entity. Inventory stays authoritative for on-hand (pushed below).
 		obj.setItemId(dto.getItemId());
 		obj.setProductId(catalogMigrationService.ensureMapped(dto.getItemId(), user.getOrganizationId(), user.getUserId()));
-		if (dto.getStock() != null) {
-			Stock snap = modelMapper.map(dto.getStock(), Stock.class);   // in-memory only — not saved
+		StockDTO snap = dto.getStock();
+		if (snap != null) {
 			obj.setBatchNo(snap.getBatchNo());
 			obj.setBpurchaseRate(snap.getBpurchaseRate());
 			obj.setBsellRate(snap.getBsellRate());
@@ -220,9 +217,9 @@ public class PurchaseService implements IPurchaseService{
 			obj.setBsellDiscount(snap.getBsellDiscount());
 			obj.setBpurchaseDiscountType(snap.getBpurchaseDiscountType());
 			obj.setBsellDiscountType(snap.getBsellDiscountType());
-			obj.setBexpDate(snap.getBexpDate());
+			obj.setBexpDate(appUtil.toLocalDateOrNull(snap.getBexpDate()));
 		}
-		obj.setStock(null);                               // M3b: no local Stock row (legacy FK left null)
+		obj.setStock(null);                               // M3c.4b: no local Stock row (legacy FK left null until 4f drop)
 		Purchase saved = this.save(obj);
 		pushPurchaseToInventory(saved, dto, user);        // dual-write stock-in to inventory (authoritative)
 		return saved;

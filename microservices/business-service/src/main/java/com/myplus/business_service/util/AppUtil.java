@@ -161,6 +161,12 @@ public class AppUtil {
     	LocalDate date = LocalDate.parse(dateStr, dateformatter);
     	return date;
     }
+
+    /** Parse a dd-MM-yyyy date to LocalDate, or null when empty/blank. Mirrors {@link #stringToLocalDateIgnoreEmptyOrNull}
+     *  for direct use off the ModelMapper path (M3c.4b). */
+    public LocalDate toLocalDateOrNull(String dateStr) {
+    	return isEmptyOrNull(dateStr) ? null : LocalDate.parse(dateStr, dateformatter);
+    }
    	//Get current Month
     public LocalDate getLocalDateByMonthYear(String monthYearStr) throws ParseException {
     	if(StringUtils.isEmpty(monthYearStr))

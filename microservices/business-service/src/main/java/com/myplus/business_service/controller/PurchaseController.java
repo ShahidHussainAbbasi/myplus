@@ -28,7 +28,6 @@ import com.myplus.business_service.service.IItemService;
 // import com.myplus.business_service.service.IItemTypeService;
 import com.myplus.business_service.service.IItemUnitService;
 import com.myplus.business_service.service.IPurchaseService;
-import com.myplus.business_service.service.IStockService;
 import com.myplus.business_service.service.IVenderService;
 import com.myplus.business_service.dto.PurchaseDTO;
 import com.myplus.business_service.dto.StockDTO;
@@ -57,9 +56,6 @@ public class PurchaseController {
 
 	@Autowired
 	IItemService itemService;
-
-	@Autowired
-	IStockService stockService;
 
 	@Autowired
 	IVenderService venderService;
@@ -104,10 +100,10 @@ public class PurchaseController {
 				modelMapper.addConverter(appUtil.localDateToString);
 				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
 
-				// M3b (slice 75): identity + batch/rate come from the Purchase's own fields (new rows) or the legacy
-				// Stock FK (historical rows). Stock-less purchases are no longer skipped.
-				Long itemId = (o.getStock() != null && o.getStock().getItemId() != null)
-						? o.getStock().getItemId() : o.getItemId();
+				// M3c.4b (slice 84): identity + batch/rate come from the Purchase's OWN self-describing fields. Historical
+				// rows were backfilled from the (now-retired) Stock FK by V5 (product_id) + V6 (snapshot columns), so the
+				// local Stock is no longer read here.
+				Long itemId = o.getItemId();
 				if (itemId == null) return;   // truly unidentifiable line
 				itemService.findById(itemId).ifPresent(item -> {
 					dto.setItemId(item.getId());
@@ -115,21 +111,16 @@ public class PurchaseController {
 					dto.setIcode(item.getIcode());
 				});
 
-				StockDTO sd;
-				if (o.getStock() != null) {                       // legacy row — read the Stock FK
-					sd = modelMapper.map(o.getStock(), StockDTO.class);
-				} else {                                          // M3b self-describing row
-					sd = new StockDTO();
-					sd.setBatchNo(o.getBatchNo());
-					sd.setBpurchaseRate(o.getBpurchaseRate());
-					sd.setBsellRate(o.getBsellRate());
-					sd.setBpurchaseDiscount(o.getBpurchaseDiscount());
-					sd.setBsellDiscount(o.getBsellDiscount());
-					sd.setBpurchaseDiscountType(o.getBpurchaseDiscountType());
-					sd.setBsellDiscountType(o.getBsellDiscountType());
-					sd.setBexpDate(o.getBexpDate() != null ? o.getBexpDate().toString() : null);
-					sd.setStock(o.getQuantity());                 // the purchased quantity
-				}
+				StockDTO sd = new StockDTO();   // the UI grid's nested batch/rate contract, built from the purchase
+				sd.setBatchNo(o.getBatchNo());
+				sd.setBpurchaseRate(o.getBpurchaseRate());
+				sd.setBsellRate(o.getBsellRate());
+				sd.setBpurchaseDiscount(o.getBpurchaseDiscount());
+				sd.setBsellDiscount(o.getBsellDiscount());
+				sd.setBpurchaseDiscountType(o.getBpurchaseDiscountType());
+				sd.setBsellDiscountType(o.getBsellDiscountType());
+				sd.setBexpDate(o.getBexpDate() != null ? o.getBexpDate().toString() : null);
+				sd.setStock(o.getQuantity());                 // the purchased quantity
 				dto.setStock(sd);
 				dtos.add(dto);
 			});
