@@ -15,6 +15,25 @@ if (SLOW_MO > 0) {
   }
 }
 
+// Make CSS animations/transitions instant during tests. The dashboard sections (.formDiv) fade in via a
+// `sectionIn` keyframe with `animation-fill-mode: both`; when a section is re-shown the keyframe can leave it
+// stuck at its start state (opacity:0), so `should('be.visible')` times out even though the section IS shown
+// (display:block). Zeroing the durations makes a shown element settle at its resting opacity immediately —
+// deterministic visibility without changing production UX.
+Cypress.Commands.overwrite('visit', (originalFn, ...args) => {
+  return originalFn(...args).then((win) => {
+    const doc = win && win.document ? win.document : null
+    if (doc && doc.head && !doc.getElementById('cy-no-animations')) {
+      const style = doc.createElement('style')
+      style.id = 'cy-no-animations'
+      style.innerHTML = '*,*::before,*::after{animation-duration:0s !important;animation-delay:0s !important;' +
+        'transition-duration:0s !important;transition-delay:0s !important;}'
+      doc.head.appendChild(style)
+    }
+    return win
+  })
+})
+
 // Keep the seeded demo accounts under their 50-create/module/day cap: clear the gateway's
 // Redis write-counters before every test so a long suite never trips DEMO_LIMIT mid-run on a
 // create POST. Counter-only (no data purge); no-ops when Redis/docker isn't reachable.

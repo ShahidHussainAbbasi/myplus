@@ -634,6 +634,14 @@ public class SellController {
 	 * recomputes the customer due. All-or-nothing (@Transactional). The frontend routes here (instead of
 	 * addSell) when it carries a customer_history_id (an edit in progress).
 	 */
+	/** M3c.3b (slice 80): resolve a sell line's catalog productId — its own productId, else mapped from itemId. */
+	private Long productIdOfLine(SellDTO s) {
+		if (s.getProductId() != null && s.getProductId() > 0) return s.getProductId();
+		if (s.getItemId() != null && s.getItemId() > 0)
+			return itemCatalogMapRepo.findProductIdByItemId(s.getItemId(), orgId()).orElse(null);
+		return null;
+	}
+
 	@RequestMapping(value = "/updateSell", method = RequestMethod.POST)
 	@ResponseBody
 	@Transactional
@@ -656,28 +664,36 @@ public class SellController {
 				return new GenericResponse("NOT_FOUND", "Invoice not found");
 
 			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
-			java.util.Map<Long, Float> delta = new java.util.HashMap<>();
 			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
+			// M3c.3b (slice 80): net per-PRODUCT delta = old sold qty − new sold qty. Adjust INVENTORY (not local
+			// Stock): a positive delta returns the excess (importStock); a negative delta takes more via one
+			// reservation+confirm (reject the edit if out of stock). Edits become inventory-correct and Stock-free.
+			java.util.Map<Long, Float> delta = new java.util.HashMap<>();
 			for (Sell o : oldLines) {
-				if (o.getStock() != null && o.getStock().getStockId() != null && o.getQuantity() != null)
-					delta.merge(o.getStock().getStockId(), o.getQuantity(), Float::sum);
+				Long pid = (o.getProductId() != null) ? o.getProductId()
+						: (o.getStock() != null && o.getStock().getItemId() != null
+							? itemCatalogMapRepo.findProductIdByItemId(o.getStock().getItemId(), orgId()).orElse(null) : null);
+				if (pid != null && o.getQuantity() != null) delta.merge(pid, o.getQuantity(), Float::sum);
 			}
 			for (SellDTO s : dto.getSales()) {
-				Long sid = (s.getStock() != null) ? s.getStock().getStockId() : null;
-				if (sid != null && s.getQuantity() != null)
-					delta.merge(sid, -s.getQuantity(), Float::sum);
+				Long pid = productIdOfLine(s);
+				if (pid != null && s.getQuantity() != null) delta.merge(pid, -s.getQuantity(), Float::sum);
 			}
-			// 2) Apply the deltas, rejecting any change that would drive stock negative.
+			java.util.List<com.myplus.commerce.contracts.dto.StockReservationLine> takeLines = new java.util.ArrayList<>();
+			java.util.List<com.myplus.commerce.contracts.dto.StockImportLine> returnLines = new java.util.ArrayList<>();
 			for (java.util.Map.Entry<Long, Float> e : delta.entrySet()) {
-				Optional<Stock> so = stockService.findById(e.getKey());
-				if (!so.isPresent()) continue;
-				Stock st = so.get();
-				float now = (st.getStock() == null ? 0f : st.getStock()) + e.getValue();
-				if (now < 0)
-					return new GenericResponse("ERROR", "Not enough stock to apply this change.");
-				st.setStock(now);
-				stockService.save(st);
+				float d = e.getValue();
+				if (d < 0f) takeLines.add(new com.myplus.commerce.contracts.dto.StockReservationLine(e.getKey(), java.math.BigDecimal.valueOf(-d)));
+				else if (d > 0f) returnLines.add(com.myplus.commerce.contracts.dto.StockImportLine.builder().productId(e.getKey()).quantity(d).build());
 			}
+			if (!takeLines.isEmpty()) {
+				com.myplus.commerce.contracts.dto.StockReservationResponse resp = inventoryClient.reserve(
+						new com.myplus.commerce.contracts.dto.StockReservationRequest(java.util.UUID.randomUUID().toString(), takeLines));
+				if (resp == null || resp.getStatus() != com.myplus.commerce.contracts.dto.ReservationStatus.RESERVED)
+					return new GenericResponse("ERROR", "Not enough stock to apply this change.");
+				inventoryClient.confirm(resp.getReservationId());
+			}
+			if (!returnLines.isEmpty()) inventoryClient.importStock(returnLines);
 
 			// 3) Delete the original line items (replaced below).
 			for (Sell o : oldLines) sellService.deleteById(o.getSellId());
@@ -703,7 +719,7 @@ public class SellController {
 			// without any lossy in-place reversal of the original amounts.
 			customerService.recomputeDue(customerObj);
 
-			// 5) Insert the edited line items (stock already adjusted above; rates come from the stock).
+			// 5) Insert the edited line items productId-first (no local Stock; inventory already adjusted above).
 			for (SellDTO s : dto.getSales()) {
 				Sell line = new Sell();
 				line.setUserId(user.getUserId());
@@ -712,19 +728,15 @@ public class SellController {
 				line.setTotalAmount(s.getTotalAmount());
 				line.setNetAmount(s.getNetAmount());
 				line.setSrp(s.getSrp());
+				line.setTaxRate(s.getTaxRate());
+				line.setTaxAmount(s.getTaxAmount());
+				line.setProductId(productIdOfLine(s));               // preserve catalog product identity
+				if (s.getTotalAmount() != null && s.getQuantity() != null && s.getQuantity() > 0f)
+					line.setSellRate(s.getTotalAmount().divide(java.math.BigDecimal.valueOf(s.getQuantity()),
+							2, java.math.RoundingMode.HALF_UP));   // unit rate from the line total
 				line.setDated(java.time.LocalDateTime.now());
 				line.setUpdated(java.time.LocalDateTime.now());
 				line.setCustomerHistory(ch);
-				if (s.getStock() != null && s.getStock().getStockId() != null) {
-					Optional<Stock> so = stockService.findById(s.getStock().getStockId());
-					if (so.isPresent()) {
-						Stock st = so.get();
-						line.setStock(st);
-						line.setSellRate(st.getBsellRate());
-						line.setDiscount(st.getBsellDiscount());
-						line.setDt(st.getBsellDiscountType());
-					}
-				}
 				sellService.save(line);
 			}
 
