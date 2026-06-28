@@ -43,6 +43,13 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
         + "AND (p.organization_id = :orgId OR (p.organization_id IS NULL AND p.user_id = :userId))", nativeQuery = true)
    long countWithoutProductId(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   // M3c (slice 82): all-tenant backfill for the deploy-time startup auto-migrate (mirrors V5 for rows mapped after V5 ran).
+   @Modifying(clearAutomatically = true, flushAutomatically = true)
+   @Query(value = "UPDATE purchase p JOIN stock st ON p.stock_id = st.stock_id "
+        + "JOIN item_catalog_map m ON m.item_id = st.item_id "
+        + "SET p.product_id = m.product_id WHERE p.product_id IS NULL AND p.stock_id IS NOT NULL", nativeQuery = true)
+   int backfillAllProductIds();
+
 
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "
 //    		+ "p.mobile = :mobile AND a.FK_patient_id = p.patient_id",nativeQuery=true)

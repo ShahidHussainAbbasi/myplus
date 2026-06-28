@@ -25,6 +25,18 @@ public class ItemController {
     @Autowired
     private BusinessRestClient client;
 
+    /** Map every business Item to a catalog Product (admin; run before /backfillProductIds). Idempotent. */
+    @RequestMapping(value = "/migrateCatalog", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> migrateCatalog() {
+        try {
+            return client.postJson("/admin/migrate-catalog", Collections.emptyMap());
+        } catch (Exception e) {
+            LOGGER.error("migrateCatalog proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
     /** M3c.1 (slice 76): backfill product_id onto historical Stock-linked sells/purchases (admin; run after
      *  /migrate-catalog). Idempotent + tenant-scoped server-side. Returns the backfill + remaining counts. */
     @RequestMapping(value = "/backfillProductIds", method = RequestMethod.POST)

@@ -81,6 +81,14 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
     @Query(value = "SELECT COUNT(*) FROM sell s WHERE s.product_id IS NULL AND s.stock_id IS NOT NULL "
          + "AND (s.organization_id = :orgId OR (s.organization_id IS NULL AND s.user_id = :userId))", nativeQuery = true)
     long countWithoutProductId(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // M3c (slice 82): all-tenant backfill for the deploy-time startup auto-migrate (after newly-mapped items get a
+    // product). Idempotent (NULL only). Mirrors the V5 Flyway script for rows mapped AFTER V5 ran.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "UPDATE sell s JOIN stock st ON s.stock_id = st.stock_id "
+         + "JOIN item_catalog_map m ON m.item_id = st.item_id "
+         + "SET s.product_id = m.product_id WHERE s.product_id IS NULL AND s.stock_id IS NOT NULL", nativeQuery = true)
+    int backfillAllProductIds();
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "
 //    		+ "p.mobile = :mobile AND a.FK_patient_id = p.patient_id",nativeQuery=true)
 //    Optional<Appointment> isPatientAppointed(@Param("doctor_id") Long doctor_id, @Param("date") String date, @Param("mobile") String mobile);

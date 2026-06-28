@@ -208,16 +208,7 @@ public class SellController {
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
-			// Batch-fetch the referenced items in ONE query (was an N+1: itemService.findById per Sell row).
-			java.util.List<Long> itemIds = objs.stream()
-					.filter(s -> s.getProductId() == null && s.getStock() != null && s.getStock().getItemId() != null)
-					.map(s -> s.getStock().getItemId())
-					.distinct()
-					.collect(java.util.stream.Collectors.toList());
-			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
-					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
-			// Saga sells carry productId (no local Stock/itemId); resolve their item name via the reverse
-			// catalog map (productId -> itemId -> Item) so they list with the same name as legacy sells.
+			// M3c.4a (slice 81): item name via the reverse catalog map (productId -> itemId -> Item), productId-only.
 			java.util.List<Long> sagaProductIds = objs.stream()
 					.filter(s -> s.getProductId() != null)
 					.map(s -> s.getProductId()).distinct()
@@ -241,23 +232,14 @@ public class SellController {
 				modelMapper.addConverter(appUtil.localDateToString);
 				// SellDTO dto = appUtil.objTodtoConverter(o);
 				SellDTO dto = modelMapper.map(o, SellDTO.class);
-				if((appUtil.notEmptyNorNull(o.getStock()) && appUtil.notEmptyNorNull(o.getStock().getItemId())) || o.getProductId() != null) {
-					// legacy: item via local Stock's itemId; saga: item via productId reverse-map. Either way the
-					// invoice/customer below + dtos.add now run for ALL sells (saga sells were being dropped here).
-					Item item = (o.getProductId() != null)
-							? itemByProductId.get(o.getProductId())
-							: itemsById.get(o.getStock().getItemId());
+				if(o.getProductId() != null) {
+					// M3c.4a (slice 81): productId-only — item via the reverse catalog map; no local Stock.
+					Item item = itemByProductId.get(o.getProductId());
 					if(item != null) {
 						dto.setItemId(item.getId());
 						dto.setItemName(item.getIname());
 						dto.setItemCode(item.getIcode());
 						dto.setDescription(item.getIdesc());
-					}
-					if(o.getStock() != null) {
-						modelMapper.addConverter(appUtil.localDateToString);
-						modelMapper.addConverter(appUtil.localDateTimeToString);
-						StockDTO stock = modelMapper.map(o.getStock(), StockDTO.class);
-						dto.setStock(stock);
 					}
 					
 					if (o.getCustomerHistory() != null) {
@@ -318,14 +300,7 @@ public class SellController {
 				out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
 			}
 
-			// M3c.2b (slice 78): resolve item names productId-FIRST (reverse catalog map) so edit-load no longer needs
-			// the Stock FK — and saga sells (no Stock) now load with their name too. Legacy Stock.itemId is a fallback.
-			java.util.List<Long> itemIds = lines.stream()
-					.filter(s -> s.getProductId() == null && s.getStock() != null && s.getStock().getItemId() != null)
-					.map(s -> s.getStock().getItemId()).distinct()
-					.collect(java.util.stream.Collectors.toList());
-			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
-					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+			// M3c.4a (slice 81): item names productId-only via the reverse catalog map (no local Stock).
 			java.util.List<Long> invProductIds = lines.stream()
 					.filter(s -> s.getProductId() != null).map(Sell::getProductId).distinct()
 					.collect(java.util.stream.Collectors.toList());
@@ -347,10 +322,8 @@ public class SellController {
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
-				Item item = (s.getProductId() != null) ? itemByProductId.get(s.getProductId())
-						: (s.getStock() != null ? itemsById.get(s.getStock().getItemId()) : null);
+				Item item = itemByProductId.get(s.getProductId());
 				if (item != null) { sd.setItemId(item.getId()); sd.setItemName(item.getIname()); sd.setItemCode(item.getIcode()); }
-				if (s.getStock() != null) sd.setStock(modelMapper.map(s.getStock(), StockDTO.class));
 				sales.add(sd);
 			}
 			out.setSales(sales);
@@ -400,12 +373,7 @@ public class SellController {
 			out.setTaxLabel(ts.getTaxLabel());
 			out.setTaxRegNo(ts.getTaxRegNo());
 
-			// line item names: legacy via local Stock's itemId, saga via productId reverse-map (same as getUserSell)
-			java.util.List<Long> itemIds = lines.stream()
-					.filter(s -> s.getStock() != null && s.getStock().getItemId() != null)
-					.map(s -> s.getStock().getItemId()).distinct().collect(java.util.stream.Collectors.toList());
-			java.util.Map<Long, Item> itemsById = itemService.findAllById(itemIds).stream()
-					.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+			// M3c.4a (slice 81): line item names productId-only via the reverse catalog map (no local Stock).
 			java.util.List<Long> sagaProductIds = lines.stream()
 					.filter(s -> s.getProductId() != null)
 					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
@@ -426,11 +394,8 @@ public class SellController {
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				modelMapper.addConverter(appUtil.localDateToString);
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
-				Item item = (s.getProductId() != null)
-						? itemByProductId.get(s.getProductId())
-						: itemsById.get(s.getStock().getItemId());
+				Item item = itemByProductId.get(s.getProductId());
 				if (item != null) { sd.setItemId(item.getId()); sd.setItemName(item.getIname()); sd.setItemCode(item.getIcode()); }
-				if (s.getStock() != null) sd.setStock(modelMapper.map(s.getStock(), StockDTO.class));
 				sales.add(sd);
 			}
 			out.setSales(sales);
@@ -465,19 +430,28 @@ public class SellController {
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
-			List<SellDTO> dtos=new ArrayList<SellDTO>(); 
+			// M3c.4a (slice 81): item names productId-only via the reverse catalog map (no local Stock; fixes the
+			// prior NPE on saga sells). itemStock (live on-hand) dropped — this is a sales report, not a stock report.
+			java.util.List<Long> rpProductIds = objs.stream().filter(s -> s.getProductId() != null)
+					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, Item> rpItemByProduct = new java.util.HashMap<>();
+			if (!rpProductIds.isEmpty()) {
+				java.util.Map<Long, Long> p2i = new java.util.HashMap<>();
+				for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(rpProductIds, orgId()))
+					p2i.put((Long) row[0], (Long) row[1]);
+				java.util.Map<Long, Item> its = itemService.findAllById(p2i.values()).stream()
+						.collect(java.util.stream.Collectors.toMap(Item::getId, java.util.function.Function.identity()));
+				rpProductIds.forEach(pid -> { Long iid = p2i.get(pid); if (iid != null && its.get(iid) != null) rpItemByProduct.put(pid, its.get(iid)); });
+			}
+			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(obj ->{
-				Optional<Item> option = itemService.findById(obj.getStock().getItemId());
 				SellDTO dtotemp = modelMapper.map(obj, SellDTO.class);
-				if(option.isPresent()) {
-					Item item = option.get();
-					obj.getStock().setItemId(item.getId());
+				Item item = rpItemByProduct.get(obj.getProductId());
+				if(item != null) {
 					dtotemp.setItemId(item.getId());
 					dtotemp.setItemName(item.getIname());
 					dtotemp.setItemCode(item.getIcode());
 					dtotemp.setDescription(item.getIdesc());
-					dtotemp.setItemStock(item.getStock() == null? 0: item.getStock().getStock());
-					// dtotemp.setSrp(item.getStock().getSrp());
 				}
 				dtotemp.setDated(appUtil.getDateStr(obj.getDated()));
 				dtotemp.setUpdated(appUtil.getDateStr(obj.getUpdated()));

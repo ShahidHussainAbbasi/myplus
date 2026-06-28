@@ -54,6 +54,33 @@ public class CatalogMigrationService {
         return new BackfillResult(sells, purchases, sellsRemaining, purchasesRemaining);
     }
 
+    /**
+     * M3c (slice 82): deploy-time auto-migrate — map every tenant's not-yet-mapped items to catalog Products. Idempotent;
+     * returns the number of tenant groups migrated (0 in the normal case → no catalog call). Each group runs AS that
+     * tenant ({@code runAs}) so catalog stamps the right org. Not @Transactional (each {@code migrate} self-commits its
+     * saves); the catalog import is an HTTP call we don't want to hold a DB tx across.
+     */
+    public int migrateAllUnmapped() {
+        java.util.List<Object[]> pairs = itemRepo.findUnmappedOrgUser();
+        int groups = 0;
+        for (Object[] p : pairs) {
+            Long org = (Long) p[0];
+            Long user = (Long) p[1];
+            if (org == null && user == null) continue;
+            com.myplus.common.security.GatewayIdentityForwarding.runAs(user != null ? user : 0L, org, () -> migrate(org, user));
+            groups++;
+        }
+        return groups;
+    }
+
+    /** M3c (slice 82): all-tenant product_id backfill (after {@link #migrateAllUnmapped} maps new items at deploy time). */
+    @Transactional
+    public BackfillResult backfillAll() {
+        int sells = sellRepo.backfillAllProductIds();
+        int purchases = purchaseRepo.backfillAllProductIds();
+        return new BackfillResult(sells, purchases, 0L, 0L);
+    }
+
     @Transactional
     public CatalogMigrationResult migrate(Long orgId, Long userId) {
         List<Item> items = itemRepo.findScoped(orgId, userId);

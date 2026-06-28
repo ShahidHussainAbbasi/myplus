@@ -19,6 +19,11 @@ import com.myplus.business_service.entity.Item;
  */
 public interface ItemRepo extends JpaRepository<Item, Long>,QueryByExampleExecutor<Item> {
 
+   // M3c (slice 82): distinct (org, user) of items NOT yet catalog-mapped — drives the deploy-time startup auto-migrate
+   // so a pre-convergence DB maps its legacy items on boot (no manual /migrate-catalog). Empty in the normal case.
+   @Query("SELECT DISTINCT i.organizationId, i.userId FROM Item i WHERE i.id NOT IN (SELECT m.itemId FROM ItemCatalogMap m)")
+   List<Object[]> findUnmappedOrgUser();
+
    // Tenant-scoped read with NULL-fallback (own org + caller's pre-migration org-NULL rows).
    @Query("select i from Item i where i.organizationId = :orgId "
         + "or (i.organizationId is null and i.userId = :userId)")
