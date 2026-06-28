@@ -170,8 +170,8 @@ public class BusinessDashboardController {
                     dProductToItem.put((Long) row[0], (Long) row[1]);
             for (Sell s : monthlySells) {
                 if (s.getQuantity() == null) continue;
-                Long iid = (s.getProductId() != null) ? dProductToItem.get(s.getProductId())
-                        : (s.getStock() != null ? s.getStock().getItemId() : null);
+                // M3c.4d (slice 86): productId-only — historical sells were backfilled (V5), so the Sell→Stock fallback is gone.
+                Long iid = (s.getProductId() != null) ? dProductToItem.get(s.getProductId()) : null;
                 if (iid != null) itemQtyMap.merge(iid, s.getQuantity().doubleValue(), Double::sum);
             }
             List<Map.Entry<Long, Double>> topEntries = itemQtyMap.entrySet().stream()

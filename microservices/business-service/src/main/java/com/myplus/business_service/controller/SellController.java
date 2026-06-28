@@ -496,40 +496,11 @@ public class SellController {
 			if (dto == null || appUtil.isEmptyOrNull(dto.getSales()))
 				return new GenericResponse("ERROR", "No sales data provided");
 
-			// Strangler (slice 33, D2): when enabled, route the sale through the inventory reservation saga
-			// (catalog price + reserve/confirm) instead of decrementing local Stock. SagaSellService manages
-			// its own committed transactions (REQUIRES_NEW), so it is safe to call inside this @Transactional.
-			if (tradeSagaProperties.isEnabled()) {
-				String invoiceNo = sagaSellService.addSell(dto);
-				return new GenericResponse("SUCCESS",
-						invoiceNo != null ? "Sale recorded successfully. Invoice " + invoiceNo : "Sale recorded successfully.",
-						invoiceNo);
-			}
-
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			dto.setUserId(user.getUserId());
-			Customer customerObj = customerService.saveUpdateCustomer(dto);
-			customerService.save(customerObj);
-
-			CustomerHistory customerHistory =   customerHistoryService.saveUpdateCustomerHistory(dto);
-
-			customerHistory.setCustomer(customerObj);
-			customerHistoryService.save(customerHistory);
-
-			// Running balance is the sum of this customer's invoice headers — recompute now that this
-			// sale's header exists, so under/over-payments carry across invoices correctly.
-			customerService.recomputeDue(customerObj);
-
-			List<SellDTO> sells = ObjectMapperUtils.mapAll(dto.getSales(), SellDTO.class);
-			for (SellDTO sell : sells) {
-				sell.setCustomerHistory(modelMapper.map(customerHistory, CustomerHistoryDTO.class));
-				// sell.setCustomerHistory(dto);
-			}
-
-			sellService.addSell(ObjectMapperUtils.mapAll(sells, Sell.class));
-
-			// slice 22: surface the generated per-org invoice number to the cashier/receipt
-			String invoiceNo = customerHistory.getInvoiceNo();
+			// M3c.4d (slice 86): the inventory reservation saga (catalog price + FEFO reserve/confirm) is the ONLY
+			// sell-write path — the legacy branch that decremented local Stock has been retired (Stock is being
+			// dropped). SagaSellService persists customer + invoice header + lines and manages its own committed
+			// transactions (REQUIRES_NEW), so it is safe to call inside this @Transactional.
+			String invoiceNo = sagaSellService.addSell(dto);
 			return new GenericResponse("SUCCESS",
 					invoiceNo != null ? "Sale recorded successfully. Invoice " + invoiceNo : "Sale recorded successfully.",
 					invoiceNo);

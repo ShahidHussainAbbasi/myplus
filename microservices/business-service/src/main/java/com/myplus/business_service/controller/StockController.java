@@ -2,7 +2,6 @@ package com.myplus.business_service.controller;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
-import org.springframework.data.domain.Example;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,13 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Item;
-import com.myplus.business_service.entity.Stock;
 import com.myplus.business_service.entity.Vender;
 import com.myplus.business_service.service.ICompanyService;
 import com.myplus.business_service.service.IItemService;
 // import com.myplus.business_service.service.IItemTypeService;
 import com.myplus.business_service.service.IItemUnitService;
-import com.myplus.business_service.service.IStockService;
 import com.myplus.business_service.service.IVenderService;
 import com.myplus.business_service.dto.ItemDTO;
 import com.myplus.business_service.dto.StockDTO;
@@ -44,9 +40,6 @@ public class StockController {
 	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;
-
-	@Autowired
-	IStockService service;
 
 	@Autowired
 	IItemService itemService;
@@ -208,62 +201,33 @@ public class StockController {
 			if(ownerItem == null || !inMyTenant(ownerItem.getOrganizationId(), ownerItem.getUserId()))
 				return null;
 
-			Stock obj = new Stock();
-//			obj.setBatchNo(batchNo);
-			obj.setItemId(itemId);
-			Example<Stock> example = Example.of(obj) ;
-			List<Stock> stocks = service.findAll(example);
+			// M3c.4c (slice 85): the sell/dispense pre-fill is sourced entirely from inventory (on-hand + FEFO batches)
+			// and catalog (sell price) by productId — the local Stock entity is no longer read. Defaults stand in until
+			// the item is catalog-mapped (ensureMapped on purchase + the deploy-time startup runner guarantee mapping).
 			StockDTO dto = new StockDTO();
-			Float stock=0.0F;
-			if(!appUtil.isEmptyOrNull(stocks)) {
-//				return stock.get();
-				for(Stock s:stocks){
-					stock +=s.getStock();
-				}
-				//if sell is item base not batch base then populate first item from the list
-				Stock s = stocks.get(0);
-				dto = modelMapper.map(s, StockDTO.class);
-//				dto.setBpurchaseDiscountType(stocks.get(0).getBpurchaseDiscountType());
-//				dto.setBpurchaseDiscount(stocks.get(0).getBpurchaseDiscount());
-				
-				dto.setStock(stock);
-			}else {
-				dto.setBpurchaseDiscountType("%");
-				dto.setBpurchaseDiscount(java.math.BigDecimal.ZERO);
-				dto.setStock(0.0F);
-			}
-			//fetch item description
-			Optional<Item> itemOpt = itemService.findById(itemId);
-			if(itemOpt.isPresent()) {
-				dto.setIDesc(itemOpt.get().getIdesc());
-			}else {
-				dto.setIDesc("Item not registered");
-			}
+			dto.setBpurchaseDiscountType("%");
+			dto.setBpurchaseDiscount(java.math.BigDecimal.ZERO);
+			dto.setStock(0.0F);
+			dto.setIDesc(ownerItem.getIdesc() != null ? ownerItem.getIdesc() : "");
 
-			// U4 (slice 33): when the saga owns stock, source the sell screen's numbers from the new
-			// services — on-hand from inventory (U4.1) and sell price from catalog sellingPrice (U4.2) —
-			// instead of local Stock. Best-effort: falls back to the local values if the item isn't mapped
-			// or a service is unreachable, so the sell screen never breaks.
-			if (tradeSagaProperties.isEnabled()) {
-				try {
-					Long productId = itemCatalogMapRepo.findProductIdByItemId(itemId, orgId()).orElse(null);
-					if (productId != null) {
-						Float invStock = inventoryClient.getStockLevel(productId);
-						if (invStock != null) dto.setStock(invStock);                       // U4.1 on-hand
-						com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
-						if (p != null && p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());  // U4.2 price
-						// P10 (slice 54): FEFO batch/expiry for the dispense screen; first batch is the next dispensed.
-						java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches = inventoryClient.getBatches(productId);
-						dto.setBatches(batches);
-						if (batches != null && !batches.isEmpty()) {
-							com.myplus.commerce.contracts.dto.StockBatch first = batches.get(0);
-							dto.setBatchNo(first.getBatchNo());
-							dto.setBexpDate(first.getExpiryDate() != null ? first.getExpiryDate().toString() : null);
-						}
+			try {
+				Long productId = itemCatalogMapRepo.findProductIdByItemId(itemId, orgId()).orElse(null);
+				if (productId != null) {
+					Float invStock = inventoryClient.getStockLevel(productId);
+					if (invStock != null) dto.setStock(invStock);                       // U4.1 on-hand
+					com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
+					if (p != null && p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());  // U4.2 price
+					// P10 (slice 54): FEFO batch/expiry for the dispense screen; first batch is the next dispensed.
+					java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches = inventoryClient.getBatches(productId);
+					dto.setBatches(batches);
+					if (batches != null && !batches.isEmpty()) {
+						com.myplus.commerce.contracts.dto.StockBatch first = batches.get(0);
+						dto.setBatchNo(first.getBatchNo());
+						dto.setBexpDate(first.getExpiryDate() != null ? first.getExpiryDate().toString() : null);
 					}
-				} catch (Exception ex) {
-					LOGGER.warn("U4: inventory/catalog lookup failed for item {}, showing local values", itemId, ex);
 				}
+			} catch (Exception ex) {
+				LOGGER.warn("U4: inventory/catalog lookup failed for item {}, returning defaults", itemId, ex);
 			}
 
 			return dto;

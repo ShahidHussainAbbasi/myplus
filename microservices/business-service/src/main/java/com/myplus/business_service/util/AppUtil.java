@@ -42,7 +42,6 @@ import com.myplus.business_service.entity.Sell;
 import com.myplus.business_service.dto.CustomerDTO;
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.dto.SellDTO;
-import com.myplus.business_service.dto.StockDTO;
 
 import lombok.extern.slf4j.Slf4j;
 

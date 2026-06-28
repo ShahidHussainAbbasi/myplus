@@ -2,7 +2,7 @@ package com.myplus.business_service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
@@ -26,15 +26,18 @@ import com.myplus.business_service.dto.CustomerDTO;
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.dto.SellDTO;
 import com.myplus.business_service.repository.CustomerRepo;
-import com.myplus.business_service.service.ISellService;
+import com.myplus.business_service.service.SagaSellService;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.common.security.AuthenticatedUser;
 
 /**
- * Tech-debt #12 — addSell atomicity (slices 1182dca / 4c4d428). {@code addSell} is {@code @Transactional}
- * and writes Customer + CustomerHistory + Sell rows; if the sale write fails, ALL of them must roll back.
- * Here the Sell write is forced to throw (mocked {@link ISellService}); the test asserts the Customer
- * persisted earlier in the same transaction is rolled back. Runs against real MySQL; skips without Docker.
+ * Tech-debt #12 — addSell atomicity, after M3c.4d (slice 86). The legacy local-Stock write path was retired:
+ * {@code SellController.addSell} now delegates entirely to the inventory reservation saga
+ * ({@link SagaSellService#addSell}), which persists Customer + CustomerHistory + Sell rows in its own committed
+ * transactions and compensates (releases the stock hold) on failure — that saga-level atomicity is covered by
+ * {@code SagaSellServiceTest}. This test pins the controller boundary: a saga failure must propagate as an error
+ * past the {@code @Transactional}/exception-handler boundary, and nothing is persisted. Runs against real MySQL;
+ * skips without Docker.
  */
 @SpringBootTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -57,9 +60,9 @@ class AddSellAtomicityTest {
     }
 
     @MockitoBean
-    private RequestUtil requestUtil;     // supplies the authenticated tenant user
+    private RequestUtil requestUtil;        // supplies the authenticated tenant user
     @MockitoBean
-    private ISellService sellService;    // force the sale write to fail
+    private SagaSellService sagaSellService; // force the sale (saga) write to fail
 
     @Autowired
     private SellController sellController;   // injected as the @Transactional proxy
@@ -67,29 +70,31 @@ class AddSellAtomicityTest {
     private CustomerRepo customerRepo;
 
     @BeforeEach
-    void setup() throws Exception {
+    void setup() {
         when(requestUtil.getCurrentUser()).thenReturn(
                 new AuthenticatedUser(1L, "atom@test.com",
                         List.of(new SimpleGrantedAuthority("LOGIN_PRIVILEGE")), 1L));
-        doThrow(new RuntimeException("stock unavailable")).when(sellService).addSell(anyList());
+        doThrow(new RuntimeException("Insufficient stock to complete the sale"))
+                .when(sagaSellService).addSell(any());
     }
 
     @Test
-    void addSell_rolls_back_customer_when_the_sale_write_fails() {
+    void addSell_surfaces_a_saga_failure_and_persists_nothing() {
         CustomerDTO customer = new CustomerDTO();
         customer.setName("AtomicCust");
         customer.setContact("0300ATOMIC");
 
         CustomerHistoryDTO dto = new CustomerHistoryDTO();
         dto.setCustomer(customer);
-        dto.setSales(List.of(new SellDTO())); // non-empty so addSell proceeds to the sale write
+        dto.setSales(List.of(new SellDTO())); // non-empty so addSell proceeds to the saga write
 
-        // addSell is @Transactional; the (mocked) sale write throws → the whole transaction rolls back.
+        // The saga write throws → the controller propagates a RuntimeException past the @Transactional boundary.
         assertThatThrownBy(() -> sellController.addSell(dto, null)).isInstanceOf(RuntimeException.class);
 
-        // The customer written earlier in the same transaction must NOT have persisted.
+        // The controller no longer writes the customer itself (the saga owns persistence and rolled back),
+        // so no customer row exists.
         assertThat(customerRepo.findAll())
-                .as("Customer must roll back when the sale write fails")
+                .as("No customer persists when the saga write fails")
                 .noneMatch(c -> "0300ATOMIC".equals(c.getContact()));
     }
 }

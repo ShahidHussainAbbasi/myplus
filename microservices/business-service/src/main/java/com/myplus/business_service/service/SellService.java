@@ -22,7 +22,6 @@ import com.myplus.business_service.repository.SellRepo;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.Sell;
-import com.myplus.business_service.entity.Stock;
 
 import com.myplus.business_service.dto.SellDTO;
 import com.myplus.business_service.util.AppUtil;
@@ -33,9 +32,6 @@ import com.myplus.business_service.util.RequestUtil;
 public class SellService implements ISellService {
 
 	ModelMapper modelMapper = new ModelMapper();
-	
-	@Autowired
-	IStockService stockService;
 
 	@Autowired
 	SellRepo sellRepo;
@@ -209,48 +205,14 @@ public class SellService implements ISellService {
 		return sellRepo.findSellByDates(sd, ed, orgId, userId);
 	}
 
-	@SuppressWarnings("null")
 	@Override
 	@Transactional
 	public void addSell(List<Sell> dtos) throws Exception {
-		// List<Sell> objs = new ArrayList<>();
-		if(!appUtil.isEmptyOrNull(dtos)) {
-			dtos.forEach(dto ->{
-				if(dto.getStock() == null) return;
-				Stock stock = stockService.updateStock(dto);
-				if(!appUtil.isEmptyOrNull(stock)) {
-					modelMapper.addConverter(appUtil.stringToLocalDateTime);
-					modelMapper.addConverter(appUtil.stringToLocalDate);
-					Sell obj = modelMapper.map(dto, Sell.class);
-					if(obj.getSellId() != null && obj.getSellId() == 0) obj.setSellId(null);
-					// Persist the invoice link (FK only). Previously this was nulled to avoid the
-					// cascade-MERGE overwriting the invoice row with the detached mapped entity's partial
-					// data — but that lost the link entirely, leaving sells unattributable to an invoice
-					// (breaking grouping + edit). A managed reference by id sets the FK without an
-					// unwanted overwrite (merging an unchanged proxy is a no-op).
-					Long chId = (dto.getCustomerHistory() != null)
-							? dto.getCustomerHistory().getCustomer_history_id() : null;
-					obj.setCustomerHistory(chId != null ? customerHistoryRepo.getReferenceById(chId) : null);
-					obj.setSellRate(stock.getBsellRate());
-					obj.setDiscount(stock.getBsellDiscount());
-					obj.setDt(stock.getBsellDiscountType());
-					obj.setSrp(dto.getSrp());
-					obj.setUpdated(dto.getUpdated());
-					obj.setTotalAmount(dto.getTotalAmount());
-					obj.setNetAmount(dto.getNetAmount());
-					obj.setStock(stock);
-					AuthenticatedUser actor = requestUtil.getCurrentUser();
-					obj.setUserId(actor.getUserId());                       // audit: who sold
-					obj.setOrganizationId(actor.getOrganizationId());       // tenant scope
-					obj.setDated(LocalDateTime.now());
-					obj.setUpdated(LocalDateTime.now());
-					stockService.save(stock);
-					this.save(obj);
-					// objs.add(this.save(obj));
-				}
-			});
-		}
-		// return objs;
+		// M3c.4d (slice 86): the legacy local-Stock sell-write path is RETIRED. All sales go through the inventory
+		// reservation saga (SagaSellService.addSell → SagaSaleWriter), which writes sell.productId with no local Stock
+		// row. This interface method is no longer wired to any endpoint; left as a guard so any stray caller fails loud.
+		throw new UnsupportedOperationException(
+				"Local-Stock sell path retired; record sales via SagaSellService.addSell (the inventory saga).");
 	}
 	
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {
