@@ -55,6 +55,13 @@ public class ProductController {
         return productService.getRef(id);
     }
 
+    /** M4d (slice 93): batch refs by id for the POS read screens — GET /products/refs?ids=1,2,3 (tenant-scoped). */
+    @GetMapping("/refs")
+    public java.util.List<com.myplus.commerce.contracts.dto.ProductRef> getRefs(
+            @org.springframework.web.bind.annotation.RequestParam java.util.List<Long> ids) {
+        return productService.getRefs(ids);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductDTO>> update(@PathVariable Long id, @RequestBody ProductDTO dto) {
         return ResponseEntity.ok(ApiResponse.success(productService.update(id, dto), "Updated"));

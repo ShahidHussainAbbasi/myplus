@@ -91,9 +91,25 @@ public class ProductService {
 
     /** Lightweight cross-service reference (+ price) for the sell saga (slice 33, U3b). */
     public com.myplus.commerce.contracts.dto.ProductRef getRef(Long id) {
-        Product p = getEntity(id);   // scoped — 404 if not this tenant's
-        return new com.myplus.commerce.contracts.dto.ProductRef(
-                p.getId(), p.getSku(), p.getName(), p.getUnit(), p.getSellingPrice(), p.getTaxRate());
+        return toRef(getEntity(id));   // scoped — 404 if not this tenant's
+    }
+
+    /** M4d (slice 93): batch refs by id (tenant-scoped) for the POS read screens — one call instead of N. Missing or
+     *  foreign ids are simply omitted. */
+    public java.util.List<com.myplus.commerce.contracts.dto.ProductRef> getRefs(java.util.List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return java.util.Collections.emptyList();
+        return productRepository.findAllByIdScoped(ids, CurrentUser.organizationId(), CurrentUser.userId())
+                .stream().map(this::toRef).toList();
+    }
+
+    private com.myplus.commerce.contracts.dto.ProductRef toRef(Product p) {
+        return com.myplus.commerce.contracts.dto.ProductRef.builder()
+                .id(p.getId()).sku(p.getSku()).name(p.getName()).unit(p.getUnit())
+                .sellingPrice(p.getSellingPrice()).taxRate(p.getTaxRate())
+                .description(p.getDescription())
+                .category(p.getCategory() != null ? p.getCategory().getName() : null)
+                .manufacturer(p.getManufacturer())
+                .build();
     }
 
     public ProductDTO toDto(Product p) {
