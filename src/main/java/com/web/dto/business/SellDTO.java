@@ -24,6 +24,10 @@ public class SellDTO implements Serializable {
 	// private ItemDTO item;
 	private Long itemId = 0L;
 
+	// M4b (slice 91): productId-native sale line. Carried through the /addSell proxy to business-service so the saga
+	// uses productId directly (no itemId→ItemCatalogMap translation) — the path toward retiring Item (M4e).
+	private Long productId;
+
 	private String itemName;
 	
 	private String itemCode;	

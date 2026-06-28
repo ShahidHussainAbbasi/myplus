@@ -323,7 +323,7 @@ describe('Sell API Endpoints', () => {
 // successive sales must increment it.
 
 describe('Sell Section — Invoice Numbering (slice 22)', () => {
-  let itemId
+  let productId   // M4b (slice 91): now sold productId-native (monolith SellDTO carries productId through the proxy)
   const ts = Date.now()
   const iname = `InvItem_${ts}`
 
@@ -340,24 +340,23 @@ describe('Sell Section — Invoice Numbering (slice 22)', () => {
     method: 'POST', url: '/addSell',
     body: {
       customer: { name: `InvCust_${ts}`, contact: `032${ts.toString().slice(-8)}`, paidAmount: 100, dueAmount: 0 },
-      sales: [{ itemId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
+      sales: [{ productId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
     },
     headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
   })
 
   before(() => {
     cy.loginAsBusiness()
-    // M4a (slice 90): seed via the catalog Product master (single creation path) with opening inventory, then sell
-    // via the synced itemId — the saga translates itemId→productId (ItemCatalogMap). productId-native submission
-    // comes in M4b (needs the monolith SellDTO + pickers on productId).
+    // M4b (slice 91): seed via the catalog Product master, then sell PRODUCTID-NATIVE — the monolith SellDTO now
+    // carries productId through the /addSell proxy, so the saga uses it directly (no itemId→ItemCatalogMap lookup).
     cy.seedProduct({ name: iname, sku: `INV-${ts}`, sellingPrice: 100, purchaseRate: 50, stock: 50 })
-      .then(({ itemId: id }) => { itemId = id })
+      .then(({ productId: pid }) => { productId = pid })
   })
 
   beforeEach(() => { cy.loginAsBusiness() })
 
   it('addSell returns a system-generated INV-###### invoice number', () => {
-    if (!itemId) return cy.log('No itemId — skipping invoice test')
+    if (!productId) return cy.log('No productId — skipping invoice test')
     sellOnce().then((res) => {
       expect(res.status).to.eq(200)
       expect(res.body.status).to.eq('SUCCESS')
@@ -366,7 +365,7 @@ describe('Sell Section — Invoice Numbering (slice 22)', () => {
   })
 
   it('a second sale gets the next sequential invoice number', () => {
-    if (!itemId) return cy.log('No itemId — skipping')
+    if (!productId) return cy.log('No productId — skipping')
     sellOnce().then((r1) => {
       const n1 = parseInt((invNo(r1.body) || 'INV-000000').slice(4), 10)
       sellOnce().then((r2) => {

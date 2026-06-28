@@ -18,6 +18,10 @@ public class ItemDTO implements Serializable {
 
 	private Long id;
 
+	// M4b (slice 91): the item's catalog productId (from ItemCatalogMap), so the client can submit sales/purchases
+	// productId-native (the saga uses it directly) — the path toward retiring Item + the itemId→productId bridge (M4e).
+	private Long productId;
+
 	private String icode;
 
 	private Long userId;

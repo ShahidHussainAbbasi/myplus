@@ -67,6 +67,9 @@ public class ItemController {
     @Autowired
     private com.myplus.business_service.service.ProductSyncService productSyncService;
 
+    @Autowired
+    private com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;   // M4b: itemId→productId
+
 	ModelMapper modelMapper = new ModelMapper();
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
@@ -90,12 +93,19 @@ public class ItemController {
 				return new GenericResponse("NOT_FOUND",
 						messages.getMessage("message.userNotFound", null, request.getLocale()));
 
+			// M4b (slice 91): batch the tenant's itemId→productId map ONCE so each ItemDTO carries its catalog
+			// productId — lets the client submit sales/purchases productId-native (no per-item lookup).
+			final java.util.Map<Long, Long> productByItem = new java.util.HashMap<>();
+			for (com.myplus.business_service.entity.ItemCatalogMap m : itemCatalogMapRepo.findAllScoped(orgId()))
+				productByItem.put(m.getItemId(), m.getProductId());
+
 			List<ItemDTO> dtos = new ArrayList<ItemDTO>();
 			objs.forEach(obj -> {
 				modelMapper.addConverter(appUtil.localDateToString);
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				ItemDTO dto = modelMapper.map(obj, ItemDTO.class);
-				
+				dto.setProductId(productByItem.get(obj.getId()));   // M4b: catalog productId for productId-native submit
+
 //				dto.setVenderId(obj.getVender().getId());
 //				dto.setVenderName(obj.getVender().getName());
 //				dto.setVenderIds(obj.getVenders().stream().map(Vender::getId).collect(Collectors.toSet()));
@@ -155,10 +165,15 @@ public class ItemController {
 		StringBuffer sb = new StringBuffer();
 		try {
 			List<Item> objs = itemService.findScoped(orgId(), userId());
+			// M4b (slice 91): carry each item's catalog productId on the option (data-product) so the cart can submit
+			// productId-native (the saga uses it directly, no itemId→ItemCatalogMap lookup) — path toward retiring Item.
+			final java.util.Map<Long, Long> productByItem = new java.util.HashMap<>();
+			for (com.myplus.business_service.entity.ItemCatalogMap m : itemCatalogMapRepo.findAllScoped(orgId()))
+				productByItem.put(m.getItemId(), m.getProductId());
 			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
-				sb.append("<option value=" + d.getId() + ">" +d.getIname() + "</option>");
-				// sb.append("<option value=" + d.getId() + ">" +d.getIcode()+" ~ "+d.getIname() + "</option>");
+				Long pid = productByItem.get(d.getId());
+				sb.append("<option value=" + d.getId() + (pid != null ? " data-product=" + pid : "") + ">" +d.getIname() + "</option>");
 			});
 			return sb.toString();
 		} catch (Exception e) {

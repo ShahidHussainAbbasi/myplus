@@ -244,6 +244,10 @@ $(document).ready(function() {
 //        	obj = populateFormData();
         	obj.itemName = $( "#sellItemDD :selected" ).text();
 			obj.itemId = $("#sellItemDD").val();
+			// M4b (slice 91): carry the catalog productId on the cart line (from the option's data-product) so the
+			// sale is submitted productId-native; the saga uses it directly (itemId stays as back-compat fallback).
+			var pid = $("#sellItemDD :selected").data('product');
+			if (pid != null && pid !== '') obj.productId = pid;
 			obj.stock.itemId = obj.itemId;
 			obj.stock.itemName = obj.itemName;
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
@@ -321,6 +325,7 @@ function loadSellForEdit(sellId){
 				sellId: line.sellId,            // original line — lets updateSell revert the right stock
 				quantity: line.quantity,
 				itemId: line.itemId,
+				productId: line.productId,      // M4b: keep the productId-native line on edit
 				itemName: line.itemName,
 				totalAmount: line.totalAmount,
 				netAmount: line.netAmount,
