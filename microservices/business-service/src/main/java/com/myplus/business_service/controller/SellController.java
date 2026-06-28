@@ -36,7 +36,6 @@ import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
 import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.Sell;
-import com.myplus.business_service.entity.Stock;
 import com.myplus.business_service.service.CustomerService;
 import com.myplus.business_service.service.ICustomerHistoryService;
 import com.myplus.business_service.service.ICustomerService;
@@ -46,12 +45,10 @@ import com.myplus.business_service.service.IItemService;
 import com.myplus.business_service.service.IItemUnitService;
 import com.myplus.business_service.service.IPurchaseService;
 import com.myplus.business_service.service.ISellService;
-import com.myplus.business_service.service.IStockService;
 import com.myplus.business_service.dto.CustomerDTO;
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.dto.ItemDTO;
 import com.myplus.business_service.dto.SellDTO;
-import com.myplus.business_service.dto.StockDTO;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
 import com.myplus.business_service.util.ObjectMapperUtils;
@@ -88,9 +85,6 @@ public class SellController {
 	
 	@Autowired
 	ObjectMapperUtils objectMapperUtils;
-	
-	@Autowired
-	IStockService stockService;
 
     @Autowired
     private AppUtil appUtil;  
@@ -644,9 +638,7 @@ public class SellController {
 			// reservation+confirm (reject the edit if out of stock). Edits become inventory-correct and Stock-free.
 			java.util.Map<Long, Float> delta = new java.util.HashMap<>();
 			for (Sell o : oldLines) {
-				Long pid = (o.getProductId() != null) ? o.getProductId()
-						: (o.getStock() != null && o.getStock().getItemId() != null
-							? itemCatalogMapRepo.findProductIdByItemId(o.getStock().getItemId(), orgId()).orElse(null) : null);
+				Long pid = o.getProductId();   // M3c.4a: productId-only (backfill complete)
 				if (pid != null && o.getQuantity() != null) delta.merge(pid, o.getQuantity(), Float::sum);
 			}
 			for (SellDTO s : dto.getSales()) {
@@ -725,89 +717,17 @@ public class SellController {
 	@PostMapping(value = "/addSelling")
 	@ResponseBody
 	public GenericResponse addSelling(@RequestBody final List<SellDTO> dtos, final HttpServletRequest request) {
-		try {
-//			AgricultureIncome obj= new AgricultureIncome();
-			LocalDateTime dated = LocalDateTime.now();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			List<Sell> objs = ObjectMapperUtils.mapAll(dtos, Sell.class);
-			objs.forEach(obj ->{
-				obj.setUserId(user.getUserId());                       // audit
-				obj.setOrganizationId(user.getOrganizationId());       // tenant scope
-				if(obj.getStock() == null) return;
-				//if update
-				Item item = itemService.getReferenceById(obj.getStock().getItemId());
-	        	Float stock = item.getStock().getStock() - obj.getQuantity();
-				if(!appUtil.isEmptyOrNull(obj.getSellId())){
-					Sell objTemp = sellService.getReferenceById(obj.getSellId());
-					if(objTemp.getQuantity() > obj.getQuantity())
-						stock = item.getStock().getStock() - (obj.getQuantity() - objTemp.getQuantity());
-					else
-						stock = item.getStock().getStock() + (objTemp.getQuantity() - obj.getQuantity());
-					
-					item.getStock().setStock(stock);
-				}
-				//updating stock
-				item.getStock().setStock(stock);
-		        itemService.save(item);
-	//			//updating stock
-//		        obj.setStock(stock);
-		        obj.setDated(dated);
-				obj.setUpdated(dated);
-	
-				obj = sellService.save(obj);
-			});
-			return new GenericResponse("SUCCESS", "Sale recorded successfully.");
-		} catch (Exception e) {
-			appUtil.le(this.getClass(),e);
-			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
-		}
+		// M3c.4a (slice 83): legacy local-Stock bulk endpoint, RETIRED. Sells go through addSell (saga, productId,
+		// inventory-authoritative). Kept as a stub so the route returns a clear message instead of writing local Stock.
+		return new GenericResponse("ERROR", "addSelling is no longer supported; use addSell.");
 	}
 
 	@RequestMapping(value = "/revertSell", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse reverSell(@Validated final SellDTO dto, final HttpServletRequest request) {
-		try {
-			Sell obj= new Sell();
-			LocalDateTime dated = LocalDateTime.now();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			obj = modelMapper.map(dto, Sell.class);
-			obj.setUserId(user.getUserId());                       // audit
-			obj.setOrganizationId(user.getOrganizationId());       // tenant scope
-			if(appUtil.isEmptyOrNull(dto.getSellId()))
-				return new GenericResponse("NOT_FOUND");
-				
-			Optional<Item> o = itemService.findById(dto.getStock().getItemId());
-			if(!o.isPresent())
-				return new GenericResponse("NOT_FOUND");
-			
-			Item item = o.get();
-        	Float stock = Float.sum(item.getStock().getStock(),dto.getQuantity());
-			//updating stock
-			item.getStock().setStock(stock);
-	        itemService.save(item);
-	        
-	        Sell s = sellService.getReferenceById(dto.getSellId());
-	        
-//			obj.setDiscount(s.getDiscount() - dto.getStock().getse);
-			obj.setNetAmount(s.getNetAmount().subtract(dto.getNetAmount()));
-			obj.setTotalAmount(s.getTotalAmount().subtract(dto.getTotalAmount()));
-			obj.setQuantity(s.getQuantity() - dto.getQuantity());
-			
-			//rollback stock
-//	        obj.setStock(stock);
-	        obj.setDated(dated);
-			obj.setUpdated(dated);
-
-			obj = sellService.save(obj);
-			if(appUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED", "Failed to revert sale. Please try again.");
-			}else {
-				return new GenericResponse("SUCCESS", "Sale reverted successfully.");
-			}
-		} catch (Exception e) {
-			appUtil.le(this.getClass(),e);
-			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
-		}
+		// M3c.4a (slice 83): legacy local-Stock revert, RETIRED (its UI button was already commented out). Returns/
+		// reverts go through saleReturn (saga inverse / inventory restock). Stub so the route can't write local Stock.
+		return new GenericResponse("ERROR", "revertSell is no longer supported; use the Sale Return action.");
 	}
 
 	@RequestMapping(value = "/deleteSell", method = RequestMethod.POST)
@@ -876,19 +796,11 @@ public class SellController {
 				returnReq.setQuarantine(quarantine);
 				inventoryClient.returnStock(reservationId, returnReq);
 			} else if (existingSell.getProductId() != null) {
-				// M3c.3 (slice 79): a backfilled legacy sell has a productId but no reservation — restock INVENTORY by
-				// product (a fresh entry) so inventory stays authoritative even for legacy returns; no local Stock write.
+				// M3c.3 (slice 79): a non-saga sell has a productId (backfill complete) but no reservation — restock
+				// INVENTORY by product (a fresh entry) so inventory stays authoritative; no local Stock write.
 				inventoryClient.importStock(java.util.List.of(
 						com.myplus.commerce.contracts.dto.StockImportLine.builder()
 								.productId(existingSell.getProductId()).quantity(dto.getQuantity()).build()));
-			} else if (!appUtil.isEmptyOrNull(dto.getSellSId())) {
-				// Pre-backfill legacy row (no productId) — last-resort local Stock restock.
-				Optional<Stock> stockOpt = stockService.findById(dto.getSellSId());
-				if(stockOpt.isPresent()) {
-					Stock stock = stockOpt.get();
-					stock.setStock(stock.getStock() + dto.getQuantity());
-					stockService.save(stock);
-				}
 			}
 
 			// G5 (slice 37): record the money refunded to the customer (proportional to the returned qty), so the
