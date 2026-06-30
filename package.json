@@ -11,6 +11,6 @@
     "test:e2e:education:demo": "cypress run --browser chrome --headed --config video=true --spec cypress/e2e/education/demo.cy.js"
   },
   "devDependencies": {
-    "cypress": "^13.13.0"
+    "cypress": "^15.18.0"
   }
 }
