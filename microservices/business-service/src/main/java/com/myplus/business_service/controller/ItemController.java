@@ -243,34 +243,10 @@ public class ItemController {
 	@RequestMapping(value = "/addItem", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse addItem(@Validated final ItemDTO dto, final HttpServletRequest request) {
-		try {
-			Item obj= new Item();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			dto.setUserId(user.getUserId());
-			obj.setUserId(user.getUserId());
-			if(appUtil.isEmptyOrNull(dto.getId())){
-				// dup-name check within the active tenant (was a userId-only Example probe)
-				boolean exists = itemService.findScoped(orgId(), userId()).stream()
-						.anyMatch(i -> i.getIname()!=null && i.getIname().equalsIgnoreCase(dto.getIname()));
-				if(exists)
-					return new GenericResponse("FOUND", "Item '" + dto.getIname() + "' already exists.");
-			}
-
-			modelMapper.addConverter(appUtil.stringToLocalDate);
-			modelMapper.addConverter(appUtil.stringToLocalDateTime);
-			obj = modelMapper.map(dto, Item.class);
-			obj.setUserId(user.getUserId());                  // audit
-			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
-			obj = itemService.save(obj);
-			if (appUtil.isEmptyOrNull(obj.getId())) {
-				return new GenericResponse("FAILED", "Failed to save item. Please try again.");
-			} else {
-				return new GenericResponse("SUCCESS", "Item saved successfully.");
-			}
-		} catch (Exception e) {
-			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause(), e);
-			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
-		}
+		// M4e.b (slice 102): the legacy Item registration form is RETIRED — products are created via the Product
+		// (catalog) master form, which auto-projects a bridged Item (syncProductItem). This stub keeps the route
+		// resolvable during cutover; it is removed with the Item entity in M4e.d.
+		return new GenericResponse("ERROR", "Item registration has moved to the Product (catalog) form.");
 	}
 
 	/**

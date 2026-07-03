@@ -29,10 +29,7 @@ describe('Subnav — Register Menu', () => {
     cy.get('#CustomerDiv').should('be.visible')
   })
 
-  it('clicking Register > Item shows itemDiv', () => {
-    cy.get('#registrationType').select('itemDiv', { force: true })
-    cy.get('#itemDiv').should('be.visible')
-  })
+  // M4e.b (slice 102): the legacy Item form was retired — products are registered via the Product (catalog) master form.
 })
 
 describe('Subnav — Purchase Menu', () => {

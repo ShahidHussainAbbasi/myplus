@@ -64,10 +64,7 @@ describe('Business Dashboard — Navigation Sections', () => {
     cy.get('#contact').should('be.visible')
   })
 
-  it('selecting Item shows itemDiv', () => {
-    cy.get('#registrationType').select('itemDiv', { force: true })
-    cy.get('#itemDiv').should('be.visible')
-  })
+  // M4e.b (slice 102): the legacy Item form was retired — products are registered via the Product (catalog) master form.
 
   it('selecting Purchase section shows purchaseDiv', () => {
     cy.get('#purchaseType').select('purchaseDiv', { force: true })

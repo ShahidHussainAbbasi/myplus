@@ -53,7 +53,7 @@
 				<option value="CompanyDiv">Company/Distributor</option>
 				<option value="VenderDiv">Vender/Supplier</option>
 				<option value="CustomerDiv">Customer</option>
-				<option value="itemDiv">Item</option>
+				<!-- M4e.b (slice 102): legacy Item form retired — register products via the Product (catalog) master form -->
 			</select>
 			<select name="purchaseType" id="purchaseType" class="dropdown show panel-heading" tabindex="-1">
 				<option value="">Purchase</option>
@@ -91,7 +91,7 @@
 								<!-- Slice 74: the Product master is the single creation path; the legacy Item screen is edit-only. -->
 								<!-- <li><a onclick="snavGo('registrationType','productDiv','snavRegister')"><span class="glyphicon glyphicon-barcode"></span> Product</a></li>								 -->
 								<li><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> Product</a></li>
-								<li><a onclick="snavGo('registrationType','itemDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> Legacy Items (edit)</a></li>
+								<!-- M4e.b (slice 102): legacy Item form retired — use the Product (catalog) master form -->
 								<li><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> Quarantine</a></li>
 							</ul>
 						</div>

@@ -354,70 +354,9 @@ public class StockController {
 	@RequestMapping(value = "/addStock", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse addStock(@Validated final ItemDTO dto, final HttpServletRequest request) {
-		try {
-			Item obj= new Item();
-//			LocalDateTime dated = LocalDateTime.now();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			dto.setUserId(user.getUserId());
-			obj.setUserId(user.getUserId());
-//			if(appUtil.isEmptyOrNull(dto.getStock()))
-//				dto.setStock(0F);
-//			if(appUtil.isEmptyOrNull(dto.getDiscountType()))
-//				dto.setDiscountType("%");
-			
-			if(appUtil.isEmptyOrNull(dto.getId())){
-				// dup-name check within the active tenant (was a userId-only Example probe)
-				boolean exists = itemService.findScoped(orgId(), userId()).stream()
-						.anyMatch(i -> i.getIname()!=null && i.getIname().equalsIgnoreCase(dto.getIname()));
-				if(exists)
-					return new GenericResponse("FOUND", "The Item '"+dto.getIname()+"' already exists.");
-			}
-
-			modelMapper.addConverter(appUtil.stringToLocalDate);
-			modelMapper.addConverter(appUtil.stringToLocalDateTime);
-			obj = modelMapper.map(dto, Item.class);
-			obj.setUserId(user.getUserId());                  // audit
-			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
-//			if(!appUtil.isEmptyOrNull(dto.getExpDateStr()))
-//				obj.setExpDate(appUtil.getLocalDate(dto.getExpDateStr()));
-			
-//			obj.setDated(dated);
-//			obj.setUpdated(dated);
-			// add company
-			// add company
-//			if (!AppUtil.isEmptyOrNull(dto.getCompanyId()))
-//				obj.setCompany(companyService.getOne(dto.getCompanyId()));
-//			else
-//				obj.setCompany(null);
-			// add vender
-//			if (!AppUtil.isEmptyOrNull(dto.getVenderId()))
-//				obj.setVender(venderService.getOne(dto.getVenderId()));
-//			else
-//				obj.setVender(null);
-
-//			if (!AppUtil.isEmptyOrNull(dto.getItemTypeIds()))
-//				obj.setItemTypes(itemTypeService.findAllById(dto.getItemTypeIds()));
-//			else
-//				obj.setItemTypes(null);
-
-//			if (!AppUtil.isEmptyOrNull(dto.getItemUnitIds()))
-//				obj.setItemUnits(itemUnitService.findAllById(dto.getItemUnitIds()));
-//			else
-//				obj.setItemUnits(null);
-
-			obj = itemService.save(obj);
-			if (appUtil.isEmptyOrNull(obj.getId())) {
-				return new GenericResponse("FAILED",
-						messages.getMessage("message.userNotFound", null, request.getLocale()));
-			} else {
-				return new GenericResponse("SUCCESS",
-						messages.getMessage("message.userNotFound", null, request.getLocale()));
-			}
-		} catch (Exception e) {
-			LOGGER.error(this.getClass().getName() + " > addItem " + e.getCause(), e);
-			return new GenericResponse("ERROR", messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getMessage());
-		}
+		// M4e.b (slice 102): the legacy /addStock (an Item upsert; stock has lived in inventory since M3c) is RETIRED.
+		// Register products via the Product form; stock in via purchases (dual-writes to inventory). Removed in M4e.d.
+		return new GenericResponse("ERROR", "Stock registration has moved to the Product form + purchases (inventory).");
 	}
 
 	@RequestMapping(value = "/deleteStock", method = RequestMethod.POST)
