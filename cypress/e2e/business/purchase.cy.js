@@ -86,13 +86,13 @@ describe('Purchase API — Read', () => {
 // ─── 3. Purchase API — CRUD ───────────────────────────────────────────────────
 
 describe('Purchase API — CRUD', () => {
-  let testItemId, testProductId
+  let testProductId
 
   before(() => {
     cy.loginAsBusiness()
-    // M4a/M4c (slice 90/92): seed via the catalog Product master; addPurchase below submits productId-native.
+    // M4e.d (slice 104): seed via the catalog Product master; addPurchase below is productId-native.
     cy.seedProduct({ name: `PurchaseTestItem_${Date.now()}`, sellingPrice: 80, purchaseRate: 50, stock: 100, category: 'Test' })
-      .then(({ itemId, productId }) => { testItemId = itemId; testProductId = productId })
+      .then(({ productId }) => { testProductId = productId })
   })
 
   beforeEach(() => {
@@ -103,8 +103,8 @@ describe('Purchase API — CRUD', () => {
     if (!testProductId) return cy.log('No test product — skipping')
     cy.request({
       method: 'POST', url: '/addPurchase', form: true,
-      // M4c (slice 92): submit productId directly; the server uses it instead of mapping from itemId.
-      body: { itemId: testItemId, productId: testProductId, quantity: 5, purchaseRate: 50, totalAmount: 250, netAmount: 250, purchaseInvoiceNo: `INV-CY-${Date.now()}` },
+      // M4e.d (slice 104): submit productId directly — the server persists it, no itemId mapping.
+      body: { productId: testProductId, quantity: 5, purchaseRate: 50, totalAmount: 250, netAmount: 250, purchaseInvoiceNo: `INV-CY-${Date.now()}` },
       failOnStatusCode: false,
     }).then((res) => {
       expect(res.status).to.eq(200)
@@ -114,11 +114,11 @@ describe('Purchase API — CRUD', () => {
   })
 
   it('addPurchase → appears in getUserPurchase list', () => {
-    if (!testItemId) return cy.log('No test item — skipping')
+    if (!testProductId) return cy.log('No test product — skipping')
     const invoiceNo = `INV-TRACE-${Date.now()}`
     cy.request({
       method: 'POST', url: '/addPurchase', form: true,
-      body: { itemId: testItemId, quantity: 2, purchaseRate: 50, totalAmount: 100, netAmount: 100, purchaseInvoiceNo: invoiceNo },
+      body: { productId: testProductId, quantity: 2, purchaseRate: 50, totalAmount: 100, netAmount: 100, purchaseInvoiceNo: invoiceNo },
       failOnStatusCode: false,
     }).then((res) => {
       if (res.body.status !== 'SUCCESS') return cy.log(`addPurchase not SUCCESS (${res.body.status}) — skipping trace`)
@@ -155,9 +155,9 @@ describe('Purchase API — CRUD', () => {
   })
 
   it('deletePurchase with comma-separated ids — bulk delete', () => {
-    if (!testItemId) return cy.log('No test item — skipping')
-    cy.request({ method: 'POST', url: '/addPurchase', form: true, body: { itemId: testItemId, quantity: 1, purchaseRate: 50, totalAmount: 50, netAmount: 50, purchaseInvoiceNo: `INV-BLK1-${Date.now()}` }, failOnStatusCode: false })
-    cy.request({ method: 'POST', url: '/addPurchase', form: true, body: { itemId: testItemId, quantity: 1, purchaseRate: 50, totalAmount: 50, netAmount: 50, purchaseInvoiceNo: `INV-BLK2-${Date.now()}` }, failOnStatusCode: false })
+    if (!testProductId) return cy.log('No test product — skipping')
+    cy.request({ method: 'POST', url: '/addPurchase', form: true, body: { productId: testProductId, quantity: 1, purchaseRate: 50, totalAmount: 50, netAmount: 50, purchaseInvoiceNo: `INV-BLK1-${Date.now()}` }, failOnStatusCode: false })
+    cy.request({ method: 'POST', url: '/addPurchase', form: true, body: { productId: testProductId, quantity: 1, purchaseRate: 50, totalAmount: 50, netAmount: 50, purchaseInvoiceNo: `INV-BLK2-${Date.now()}` }, failOnStatusCode: false })
 
     cy.request('/getUserPurchase').then((res) => {
       const records = res.body.collection || res.body.data || []

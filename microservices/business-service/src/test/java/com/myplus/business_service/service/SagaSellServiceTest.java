@@ -18,7 +18,6 @@ import java.util.Optional;
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.dto.SellDTO;
 import com.myplus.business_service.entity.CustomerHistory;
-import com.myplus.business_service.repository.ItemCatalogMapRepo;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.client.InventoryClient;
@@ -43,7 +42,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class SagaSellServiceTest {
 
-    @Mock private ItemCatalogMapRepo itemCatalogMapRepo;
     @Mock private CatalogClient catalogClient;
     @Mock private InventoryClient inventoryClient;
     @Mock private SagaSaleWriter saleWriter;
@@ -53,7 +51,7 @@ class SagaSellServiceTest {
 
     private CustomerHistoryDTO dtoWithOneLine() {
         SellDTO s = new SellDTO();
-        s.setItemId(5L);
+        s.setProductId(50L);   // M4e.d: productId-native (Item/ItemCatalogMap bridge retired)
         s.setQuantity(2f);
         s.setTotalAmount(new BigDecimal("20.00"));
         s.setNetAmount(new BigDecimal("20.00"));
@@ -81,7 +79,6 @@ class SagaSellServiceTest {
 
     @Test
     void happy_path_reserves_writes_confirms_and_marks_confirmed() {
-        when(itemCatalogMapRepo.findProductIdByItemId(5L, 1L)).thenReturn(Optional.of(50L));
         when(catalogClient.getProduct(50L))
                 .thenReturn(new ProductRef(50L, "SKU", "Name", "ea", new BigDecimal("10.00"), null));
         when(inventoryClient.reserve(any(StockReservationRequest.class)))
@@ -98,7 +95,6 @@ class SagaSellServiceTest {
 
     @Test
     void out_of_stock_rejects_before_writing_anything() {
-        when(itemCatalogMapRepo.findProductIdByItemId(5L, 1L)).thenReturn(Optional.of(50L));
         when(catalogClient.getProduct(50L))
                 .thenReturn(new ProductRef(50L, "SKU", "Name", "ea", new BigDecimal("10.00"), null));
         when(inventoryClient.reserve(any(StockReservationRequest.class)))
@@ -113,7 +109,6 @@ class SagaSellServiceTest {
 
     @Test
     void confirm_failure_leaves_invoice_pending_for_the_relay() {
-        when(itemCatalogMapRepo.findProductIdByItemId(5L, 1L)).thenReturn(Optional.of(50L));
         when(catalogClient.getProduct(50L))
                 .thenReturn(new ProductRef(50L, "SKU", "Name", "ea", new BigDecimal("10.00"), null));
         when(inventoryClient.reserve(any(StockReservationRequest.class)))

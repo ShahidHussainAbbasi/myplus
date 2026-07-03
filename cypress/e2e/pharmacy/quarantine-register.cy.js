@@ -3,7 +3,7 @@
  * product, quarantine-return some, then the lot shows in the register and Dispose removes it. Run headed.
  */
 describe('Pharmacy — quarantine register (P11)', () => {
-  let productId, itemId
+  let productId
   const pname = 'QRMed_' + Date.now()
   const cust = 'QRCust_' + Date.now()
   const batch = 'QRB' + Date.now()
@@ -13,12 +13,6 @@ describe('Pharmacy — quarantine register (P11)', () => {
   it('a quarantined lot appears in the register and can be disposed', () => {
     cy.request({ method: 'POST', url: '/addProduct', body: { name: pname, sku: 'QR' + Date.now(), sellingPrice: 8, taxRate: 0, unit: 'tablet' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
       .then((r) => { expect(r.body.success, JSON.stringify(r.body)).to.eq(true); productId = r.body.data.id })
-
-    cy.request('/getUserItem').then((r) => {
-      const items = r.body.collection || r.body.object || r.body.data || []
-      itemId = (items.find((i) => i.iname === pname) || {}).id
-      expect(itemId, 'projected Item').to.exist
-    })
 
     cy.then(() => {
       cy.request({ method: 'POST', url: '/addProductStock', body: { productId, quantity: 20, batchNo: batch, expiryDate: '2030-11-30' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })

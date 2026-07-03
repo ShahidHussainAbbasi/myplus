@@ -17,7 +17,6 @@ import org.springframework.data.repository.query.FluentQuery.FetchableFluentQuer
 import org.springframework.stereotype.Service;
 
 import com.myplus.business_service.repository.CustomerHistoryRepo;
-import com.myplus.business_service.repository.ItemRepo;
 import com.myplus.commerce.domain.InvoiceNumbers;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Customer;
@@ -32,9 +31,6 @@ import com.myplus.business_service.util.RequestUtil;
 @Service
 @Transactional
 public class CustomerHistoryService implements ICustomerHistoryService {
-
-    @Autowired
-    ItemRepo itemRepo;
 
 	@Autowired
 	RequestUtil requestUtil;

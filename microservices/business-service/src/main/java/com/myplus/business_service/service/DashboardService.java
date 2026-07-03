@@ -21,9 +21,10 @@ public class DashboardService {
     private final CompanyRepository companyRepository;
     private final VenderRepository venderRepository;
     private final CustomerRepository customerRepository;
-    private final ItemRepository itemRepository;
     private final SellRepository sellRepository;
     private final PurchaseRepository purchaseRepository;
+    // M4e.d (slice 106): the "items" KPI counts catalog Products (the single master); the local Item entity is gone.
+    private final com.myplus.commerce.contracts.client.CatalogClient catalogClient;
 
     public DashboardStatsDTO getStats(Long userId) {
         YearMonth now = YearMonth.now();
@@ -40,7 +41,7 @@ public class DashboardService {
                 .companiesCount(companyRepository.countByUserId(userId))
                 .vendersCount(venderRepository.countByUserId(userId))
                 .customersCount(customerRepository.countByUserId(userId))
-                .itemsCount(itemRepository.countByUserId(userId))
+                .itemsCount(catalogProductCount())
                 .monthlySales(monthlySales != null ? monthlySales : BigDecimal.ZERO)
                 .monthlyRevenue(monthlyRevenue)
                 .build();
@@ -70,5 +71,14 @@ public class DashboardService {
                 .topItems(topItems)
                 .customerSales(List.of())
                 .build();
+    }
+
+    /** Tenant-scoped catalog product count for the "items" KPI. Best-effort — a catalog hiccup yields 0, never throws. */
+    private long catalogProductCount() {
+        try {
+            return catalogClient.countProducts();
+        } catch (Exception e) {
+            return 0L;
+        }
     }
 }

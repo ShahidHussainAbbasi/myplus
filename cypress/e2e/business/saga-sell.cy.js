@@ -1,56 +1,42 @@
 /**
- * Sell↔stock saga (slice 33, U3/U4) — verifies a sale routed through the inventory reservation saga:
- *   • getStock reflects INVENTORY on-hand (U4.1) + CATALOG price (U4.2),
+ * Sell↔stock saga (slice 33, U3/U4; M4e.d productId-native) — verifies a sale routed through the
+ * inventory reservation saga:
+ *   • /productStock reflects INVENTORY on-hand + CATALOG price,
  *   • POST /addSell reserves→confirms inventory, so the on-hand drops by the quantity sold.
  *
- * Run with `trade.saga.enabled=true` AND after the item→product + stock migration has been run; otherwise
- * this exercises the legacy local-Stock path and the decrement assertion is skipped. Request-based (like
- * flow.cy.js) so it doesn't depend on the sell-screen DOM.
+ * M4e.d (slice 104): the legacy getUserItem/getStock(itemId) scan is gone — we seed a stocked catalog
+ * Product (cy.seedProduct) and sell it by productId. Request-based (like flow.cy.js) so it doesn't
+ * depend on the sell-screen DOM. Run with `trade.saga.enabled=true`.
  */
 describe('Sell↔stock saga — sale decrements inventory on-hand', () => {
-  let itemId, productId, itemName, sellRate, stockBefore
+  let productId, sellRate
   const ts = Date.now()
   const custName = `SagaCust_${ts}`
   const contact = `031${ts.toString().slice(-8)}`
+  const openingStock = 20
 
   before(() => {
     cy.loginAsBusiness()
-    // Find a migrated item that has inventory stock. With the saga on, getStock returns inventory on-hand,
-    // so we scan items until one reports stock > 0.
-    cy.request('/getUserItem').then((res) => {
-      // /getUserItem returns a GenericResponse — the item list is in `collection` (not `data`). Reading
-      // `data` was the bug that made this spec silently skip every sale (items=[] -> never sells).
-      const items = res.body.collection || res.body.object || res.body.data || []
-      const tryItem = (idx) => {
-        if (idx >= items.length || itemId) return
-        const it = items[idx]
-        cy.request({ url: `/getStock?itemId=${it.id}`, failOnStatusCode: false }).then((r) => {
-          const s = r.body || {}
-          if (!itemId && s.stock && s.stock > 0) {
-            itemId = it.id
-            productId = it.productId   // M4e.2: sell productId-native (getUserItem now carries productId)
-            itemName = it.iname
-            stockBefore = s.stock
-            sellRate = s.bsellRate || 1
-            cy.log(`Selling "${it.iname}" (id=${it.id}); inventory on-hand=${stockBefore}, catalog price=${sellRate}`)
-          } else {
-            tryItem(idx + 1)
-          }
-        })
-      }
-      tryItem(0)
-    })
+    // Seed a catalog Product with opening inventory so the saga has stock to reserve/confirm.
+    cy.seedProduct({ name: `SagaProd_${ts}`, sku: `SG-${ts}`, sellingPrice: 25, stock: openingStock })
+      .then(({ productId: pid }) => {
+        productId = pid
+        sellRate = 25
+        cy.log(`Selling product id=${pid}; opening on-hand=${openingStock}, catalog price=${sellRate}`)
+      })
   })
 
   beforeEach(() => cy.loginAsBusiness())
 
-  it('getStock reports a positive inventory on-hand for a stocked item', () => {
-    if (!itemId) return cy.log('No stocked+migrated item found — run migrate-catalog/migrate-stock and seed stock first')
-    expect(stockBefore).to.be.gt(0)
+  it('productStock reports the opening inventory on-hand', () => {
+    if (!productId) return cy.log('No seeded product — skipping')
+    cy.request({ url: `/productStock?productId=${productId}`, failOnStatusCode: false }).then((r) => {
+      expect(Number(r.body.stock), 'inventory on-hand').to.be.gte(1)
+    })
   })
 
   it('POST /addSell (saga path) succeeds and returns an invoice', () => {
-    if (!itemId) return cy.log('No stocked item — skipping')
+    if (!productId) return cy.log('No seeded product — skipping')
     cy.request({
       method: 'POST', url: '/addSell',
       headers: { 'Content-Type': 'application/json' },
@@ -66,16 +52,16 @@ describe('Sell↔stock saga — sale decrements inventory on-hand', () => {
     })
   })
 
-  it('inventory on-hand (via getStock) drops after the sale', () => {
-    if (!itemId) return cy.log('No stocked item — skipping')
+  it('inventory on-hand (via productStock) drops after the sale', () => {
+    if (!productId) return cy.log('No seeded product — skipping')
     // The saga reserves synchronously but the confirm/decrement can settle a beat later (recovery relay),
-    // so poll getStock briefly until on-hand has dropped rather than asserting an exact value immediately.
+    // so poll productStock briefly until on-hand has dropped rather than asserting an exact value immediately.
     const poll = (tries) => {
-      cy.request({ url: `/getStock?itemId=${itemId}`, failOnStatusCode: false }).then((r) => {
-        const after = (r.body || {}).stock
-        if (after <= stockBefore - 1 || tries <= 0) {
-          cy.log(`on-hand before=${stockBefore}, after=${after}`)
-          expect(after, 'saga decremented inventory on-hand').to.be.lte(stockBefore - 1)
+      cy.request({ url: `/productStock?productId=${productId}`, failOnStatusCode: false }).then((r) => {
+        const after = Number((r.body || {}).stock)
+        if (after <= openingStock - 1 || tries <= 0) {
+          cy.log(`on-hand before=${openingStock}, after=${after}`)
+          expect(after, 'saga decremented inventory on-hand').to.be.lte(openingStock - 1)
         } else {
           cy.wait(1000)
           poll(tries - 1)

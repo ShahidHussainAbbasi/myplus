@@ -3,7 +3,7 @@
  * a quarantine return must NOT raise sellable on-hand (the returned units can't be re-dispensed). Run headed.
  */
 describe('Pharmacy — quarantine returns (P11)', () => {
-  let productId, itemId
+  let productId
   const pname = 'QMed_' + Date.now()
   const cust = 'QCust_' + Date.now()
 
@@ -14,13 +14,6 @@ describe('Pharmacy — quarantine returns (P11)', () => {
   it('a quarantined return keeps the stock off the sellable shelf', () => {
     cy.request({ method: 'POST', url: '/addProduct', body: { name: pname, sku: 'QM' + Date.now(), sellingPrice: 10, taxRate: 0, unit: 'tablet' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
       .then((r) => { expect(r.body.success, JSON.stringify(r.body)).to.eq(true); productId = r.body.data.id })
-
-    cy.request('/getUserItem').then((r) => {
-      const items = r.body.collection || r.body.object || r.body.data || []
-      const mine = items.find((i) => i.iname === pname)
-      expect(mine, 'projected Item (master-sync)').to.exist
-      itemId = mine.id
-    })
 
     cy.then(() => {
       cy.request({ method: 'POST', url: '/addProductStock', body: { productId, quantity: 20, batchNo: 'QB' + Date.now(), expiryDate: '2030-12-31' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })

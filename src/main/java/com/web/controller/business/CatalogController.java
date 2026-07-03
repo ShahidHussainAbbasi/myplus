@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpStatusCodeException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.web.util.BusinessRestClient;
 import com.web.util.CatalogRestClient;
 import com.web.util.InventoryRestClient;
 
@@ -35,9 +34,6 @@ public class CatalogController {
 
     @Autowired
     private InventoryRestClient inventory;
-
-    @Autowired
-    private BusinessRestClient business;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -73,31 +69,13 @@ public class CatalogController {
         }
     }
 
-    /** M1 (slice 42): register a catalog Product (the single product master). slice 53: also project a bridged
-     *  business Item so the one master surfaces in the POS/pharmacy itemId screens (master-sync). */
+    /** M1 (slice 42): register a catalog Product — the single product master. M4e.d (slice 105): the legacy
+     *  business Item projection (master-sync → /syncProductItem) is retired; the catalog Product is the only master. */
     @PostMapping("/addProduct")
     @ResponseBody
-    @SuppressWarnings("unchecked")
     public Map<String, Object> addProduct(@RequestBody final Map<String, Object> body) {
         try {
-            Map<String, Object> resp = catalog.postJson("/products", body);
-            // master-sync (slice 53): best-effort — a sync failure must not fail the product registration.
-            try {
-                Object data = (resp != null) ? resp.get("data") : null;
-                if (Boolean.TRUE.equals(resp != null ? resp.get("success") : null) && data instanceof Map<?, ?> p) {
-                    Map<String, Object> sync = new java.util.HashMap<>();
-                    sync.put("productId", ((Map<String, Object>) p).get("id"));
-                    sync.put("name", body.get("name"));
-                    sync.put("sku", body.get("sku"));
-                    sync.put("unit", body.get("unit"));
-                    sync.put("description", body.get("description"));
-                    sync.put("category", body.get("categoryName"));
-                    business.postJson("/syncProductItem", sync);
-                }
-            } catch (Exception sync) {
-                LOGGER.warn("product->item master-sync failed (product was created): {}", sync.getMessage());
-            }
-            return resp;
+            return catalog.postJson("/products", body);
         } catch (Exception e) {
             LOGGER.error("addProduct proxy error", e);
             return failure(e);   // surface the real reason (e.g. duplicate SKU 409) to the user

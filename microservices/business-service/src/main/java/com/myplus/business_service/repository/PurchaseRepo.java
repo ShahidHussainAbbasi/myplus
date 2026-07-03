@@ -29,10 +29,6 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
         + "and (p.organizationId = :orgId or p.organizationId is null)")
    List<Purchase> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
-   // M3c.4e (slice 87): the item's most recent purchase sell rate — the Stock-free source for carrying a legacy
-   // item's price into the catalog at migration time (V6 backfilled bsellRate onto historical purchase rows).
-   java.util.Optional<Purchase> findFirstByItemIdAndBsellRateNotNullOrderByPurchaseIdDesc(Long itemId);
-
    // M3c.4f (slice 88): the product_id backfill-from-stock queries were retired with the local Stock table.
    // The historical backfill ran at Flyway time (V5/V6) before the drop; nothing references local Stock anymore.
 

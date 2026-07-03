@@ -45,7 +45,6 @@ import com.myplus.business_service.service.IPurchaseService;
 import com.myplus.business_service.service.ISellService;
 import com.myplus.business_service.dto.CustomerDTO;
 import com.myplus.business_service.dto.CustomerHistoryDTO;
-import com.myplus.business_service.dto.ItemDTO;
 import com.myplus.business_service.dto.SellDTO;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
@@ -95,9 +94,6 @@ public class SellController {
 	com.myplus.business_service.service.SagaSellService sagaSellService;
 
 	@Autowired
-	com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;
-
-	@Autowired
 	com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
 
 	@Autowired
@@ -114,16 +110,6 @@ public class SellController {
 			LOGGER.warn("M4d: catalog getProducts failed for {} id(s); line names may be blank", productIds.size(), e);
 			return java.util.Collections.emptyMap();
 		}
-	}
-
-	/** M4d (slice 94): productId→itemId reverse map (ItemCatalogMap) — still needed for the edit picker's itemId value
-	 *  until the picker becomes productId-valued (M4e). Does NOT load the Item entity. */
-	private java.util.Map<Long, Long> productToItem(java.util.List<Long> productIds) {
-		java.util.Map<Long, Long> m = new java.util.HashMap<>();
-		if (productIds == null || productIds.isEmpty()) return m;
-		for (Object[] row : itemCatalogMapRepo.findItemIdsByProductIds(productIds, orgId()))
-			m.put((Long) row[0], (Long) row[1]);
-		return m;
 	}
 
 	@Autowired
@@ -224,13 +210,12 @@ public class SellController {
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 			}
-			// M4d (slice 94): line display fields from catalog ProductRef; itemId via the reverse map (edit picker) — no Item load.
+			// M4e.d (slice 106): line display fields from catalog ProductRef by productId (no Item load, no reverse map).
 			java.util.List<Long> sagaProductIds = objs.stream()
 					.filter(s -> s.getProductId() != null)
 					.map(s -> s.getProductId()).distinct()
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(sagaProductIds);
-			java.util.Map<Long, Long> productItemIds = productToItem(sagaProductIds);
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
 				modelMapper.addConverter(appUtil.localDateTimeToString);
@@ -245,8 +230,6 @@ public class SellController {
 						dto.setItemCode(p.getSku());
 						dto.setDescription(p.getDescription());
 					}
-					Long iid = productItemIds.get(o.getProductId());
-					if (iid != null) dto.setItemId(iid);
 
 					if (o.getCustomerHistory() != null) {
 						CustomerHistoryDTO customerHistoryDTO = modelMapper.map(o.getCustomerHistory(), CustomerHistoryDTO.class);
@@ -306,12 +289,11 @@ public class SellController {
 				out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
 			}
 
-			// M4d (slice 94): line names from catalog ProductRef; itemId via the reverse map (edit picker) — no Item load.
+			// M4e.d (slice 106): line names from catalog ProductRef by productId (no Item load, no reverse map).
 			java.util.List<Long> invProductIds = lines.stream()
 					.filter(s -> s.getProductId() != null).map(Sell::getProductId).distinct()
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(invProductIds);
-			java.util.Map<Long, Long> productItemIds = productToItem(invProductIds);
 
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
@@ -320,8 +302,6 @@ public class SellController {
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
 				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); }
-				Long iid = productItemIds.get(s.getProductId());
-				if (iid != null) sd.setItemId(iid);
 				sales.add(sd);
 			}
 			out.setSales(sales);
@@ -417,12 +397,11 @@ public class SellController {
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
-			// M4d (slice 94): line names from catalog ProductRef; itemId via the reverse map — no Item load.
+			// M4e.d (slice 106): line names from catalog ProductRef by productId (no Item load, no reverse map).
 			// itemStock (live on-hand) dropped — this is a sales report, not a stock report.
 			java.util.List<Long> rpProductIds = objs.stream().filter(s -> s.getProductId() != null)
 					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> rpProductById = productRefs(rpProductIds);
-			java.util.Map<Long, Long> rpProductItemIds = productToItem(rpProductIds);
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(obj ->{
 				SellDTO dtotemp = modelMapper.map(obj, SellDTO.class);
@@ -432,8 +411,6 @@ public class SellController {
 					dtotemp.setItemCode(p.getSku());
 					dtotemp.setDescription(p.getDescription());
 				}
-				Long iid = rpProductItemIds.get(obj.getProductId());
-				if (iid != null) dtotemp.setItemId(iid);
 				dtotemp.setDated(appUtil.getDateStr(obj.getDated()));
 				dtotemp.setUpdated(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dtotemp);
@@ -510,49 +487,6 @@ public class SellController {
 		return new GenericResponse("ERROR", e.getMessage());
 	}
 		
-/*	@RequestMapping(value = "/addSell", method = RequestMethod.POST)
-	@ResponseBody
-	public GenericResponse addSell(@Validated final SellDTO dto, final HttpServletRequest request) {
-		try {
-			Sell obj= new Sell();
-			LocalDateTime dated = LocalDateTime.now();
-			AuthenticatedUser user = requestUtil.getCurrentUser();
-			obj = modelMapper.map(dto, Sell.class);
-			obj.setUserId(user.getUserId());
-			//if update
-			Item item = itemService.getOne(dto.getItemId());
-        	Float stock = item.getStock()-dto.getQuantity();
-			if(!appUtil.isEmptyOrNull(dto.getId())){
-				Sell objTemp = sellService.getOne(dto.getId());
-				if(objTemp.getQuantity() > dto.getQuantity())
-					stock = item.getStock() - (dto.getQuantity() - objTemp.getQuantity());
-				else
-					stock = item.getStock() + (objTemp.getQuantity() - dto.getQuantity());
-				
-				item.setStock(stock);	
-			}
-			//updating stock
-			item.setStock(stock);
-	        itemService.save(item);
-//			//updating stock
-	        obj.setStock(stock);
-	        obj.setDated(dated);
-			obj.setUpdated(dated);
-
-			obj = sellService.save(obj);
-			if(appUtil.isEmptyOrNull(obj)) {
-				return new GenericResponse("FAILED",messages.getMessage("message.userNotFound", null, request.getLocale()));
-			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()));
-			}
-		} catch (Exception e) {
-			appUtil.le(this.getClass(),e);
-			return new GenericResponse("ERROR",messages.getMessage(e.getMessage(), null, request.getLocale()),
-					e.getMessage());
-		}
-	}
-*/	
-	
 	
 	/**
 	 * Update an existing sale (invoice) in place — the "edit" counterpart of addSell. Keeps the SAME
@@ -560,12 +494,9 @@ public class SellController {
 	 * recomputes the customer due. All-or-nothing (@Transactional). The frontend routes here (instead of
 	 * addSell) when it carries a customer_history_id (an edit in progress).
 	 */
-	/** M3c.3b (slice 80): resolve a sell line's catalog productId — its own productId, else mapped from itemId. */
+	/** M4e.d (slice 106): a sell line's catalog productId — productId-native (the Item/ItemCatalogMap bridge is gone). */
 	private Long productIdOfLine(SellDTO s) {
-		if (s.getProductId() != null && s.getProductId() > 0) return s.getProductId();
-		if (s.getItemId() != null && s.getItemId() > 0)
-			return itemCatalogMapRepo.findProductIdByItemId(s.getItemId(), orgId()).orElse(null);
-		return null;
+		return (s.getProductId() != null && s.getProductId() > 0) ? s.getProductId() : null;
 	}
 
 	@RequestMapping(value = "/updateSell", method = RequestMethod.POST)

@@ -21,7 +21,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.myplus.business_service.entity.CustomerHistory;
-import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.Sell;
 
 /**
@@ -56,8 +55,6 @@ class SellInvoiceMoneyRepoTest {
     private SellRepo sellRepo;
     @Autowired
     private CustomerHistoryRepo chRepo;
-    @Autowired
-    private ItemRepo itemRepo;
     @Autowired
     private TestEntityManager em;
 
@@ -126,21 +123,4 @@ class SellInvoiceMoneyRepoTest {
         assertThatThrownBy(() -> invoice(1L, 5L)).isInstanceOf(PersistenceException.class);
     }
 
-    @Test
-    void itemFindScoped_isolates_by_org() {
-        Item a = item(1L, 1L, "Item-A");
-        Item other = item(2L, 9L, "Item-Other");
-
-        List<Item> scoped = itemRepo.findScoped(1L, 1L);
-
-        assertThat(scoped).extracting(Item::getId).contains(a.getId()).doesNotContain(other.getId());
-    }
-
-    private Item item(Long org, Long user, String name) {
-        Item i = new Item();
-        i.setUserId(user);
-        i.setOrganizationId(org);
-        i.setIname(name);
-        return em.persistAndFlush(i);
-    }
 }

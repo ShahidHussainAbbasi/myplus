@@ -19,6 +19,7 @@ function resetForm(){
 	formFields = form.length-2;//-2 mean we don't need to loop over buttons (Add & Delete)
 	for(var i=0; i<formFields; i++){
 		$("#"+form[i].id).removeClass("alert-danger");
+		$("#"+form[i].id).
 	}
 	$(".form-control").val("");
 }

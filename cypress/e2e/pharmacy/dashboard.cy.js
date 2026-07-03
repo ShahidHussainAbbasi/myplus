@@ -33,7 +33,8 @@ describe('Pharmacy dashboard (reuses trade, white-labelled PHARMA)', () => {
 
   it('reuses the trade backend (same endpoints serve pharmacy)', () => {
     cy.request('/getBusinessDashboardStats').its('status').should('eq', 200)
-    cy.request('/getUserItems').its('status').should('eq', 200)
+    // M4e.d (slice 104): the medicine picker lists catalog Products (productId-native), not legacy Items.
+    cy.request('/catalogProducts?size=10').its('status').should('eq', 200)
   })
 
   it('does NOT theme the business dashboard (theming is module-scoped, not user-scoped)', () => {

@@ -5,7 +5,7 @@
  * reflects inventory + master. Run headed.
  */
 describe('M3a — purchase batch pre-fill from inventory + master', () => {
-  let itemId, productId
+  let productId
   const tag = Date.now()
   const name = 'M3AProd_' + tag
   const batch = 'M3ABATCH' + tag
@@ -13,15 +13,13 @@ describe('M3a — purchase batch pre-fill from inventory + master', () => {
   beforeEach(() => cy.loginAsBusiness())
 
   it('getStockByBatch returns inventory on-hand + last purchase rate + master sell price', () => {
-    // 1) register via the catalog MASTER (sell price 15) → auto-projects a bridged Item
+    // 1) register via the catalog MASTER (sell price 15) — the single product master (M4e.d, productId-native)
     cy.request({ method: 'POST', url: '/addProduct', headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
       body: { name, sku: 'M3A' + tag, sellingPrice: 15, taxRate: 0, unit: 'pcs' } })
-      .then((r) => { productId = r.body && r.body.data && r.body.data.id })
-    cy.request('/getUserItem').then((r) => {
-      const items = r.body.collection || r.body.object || r.body.data || []
-      itemId = (items.find((i) => i.iname === name) || {}).id
-      expect(productId, 'catalog product created').to.exist
-    })
+      .then((r) => {
+        productId = r.body && r.body.data && r.body.data.id
+        expect(productId, 'catalog product created').to.exist
+      })
 
     // 2) purchase 6 of a known batch @ purchase rate 10 → inventory StockEntry(batch, qty 6, purchasePrice 10)
     cy.then(() => {

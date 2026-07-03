@@ -2,16 +2,20 @@
  * End-to-End Business Flow Tests
  *
  * These tests exercise the complete data chain:
- *   Company → Vender → Item → Stock → Purchase → Sell
+ *   Company → Vender → Product → Stock → Purchase → Sell
+ *
+ * M4e.d (slice 104): productId-native throughout — the legacy Item/Stock screens
+ * (getUserItem(s)/addStock/getUserStock/deleteItem/addSelling) are gone. Products are
+ * seeded via the catalog master (cy.seedProduct), stock read from inventory (/productStock).
  *
  * Each describe block is independent. Data created is cleaned up after use.
  */
 
 // ─── 1. Full Registration Chain ───────────────────────────────────────────────
-// Company → Vender → Item created together and each verified in their list.
+// Company → Vender → Product created together and each verified in their list.
 
 describe('E2E Flow — Registration Chain', () => {
-  let companyId, venderId, itemId
+  let companyId, venderId, productId
   const ts = Date.now()
 
   before(() => {
@@ -78,81 +82,68 @@ describe('E2E Flow — Registration Chain', () => {
     })
   })
 
-  it('create item linked to flow company — item appears in list', () => {
-    if (!companyId) return cy.log('No companyId — skipping item creation')
+  it('create product linked to flow company — product exists in catalog', () => {
+    if (!companyId) return cy.log('No companyId — skipping product creation')
     const iname = `FlowItem_${ts}`
-    // M4a (slice 90): create through the catalog Product master (which projects to a bridged Item).
-    cy.seedProduct({ name: iname, sku: `FI-${ts}`, category: 'Flow' }).then(({ itemId: id }) => {
-      itemId = id
-      expect(id, `Item ${iname} should exist (synced from Product)`).to.not.be.null
+    // M4e.d (slice 104): create through the catalog Product master (the single product master).
+    cy.seedProduct({ name: iname, sku: `FI-${ts}`, category: 'Flow' }).then(({ productId: pid }) => {
+      productId = pid
+      expect(pid, `Product ${iname} should exist`).to.not.be.null
     })
   })
 
-  it('created item appears in getUserItems HTML options', () => {
-    cy.request('/getUserItems').then((res) => {
-      expect(res.body).to.be.a('string')
+  it('created product appears in catalog product list', () => {
+    cy.request('/catalogProducts?size=1000').then((res) => {
+      // catalog ApiResponse: { success, data: { content: [...] } } — assert the new product is present.
+      const content = (res.body && res.body.data && res.body.data.content) || []
+      const found = content.some((p) => p.name === `FlowItem_${ts}` || p.sku === `FI-${ts}`)
+      expect(found, `FlowItem_${ts} should appear in catalog`).to.be.true
     })
   })
 
   after(() => {
     cy.loginAsBusiness()
     if (venderId) cy.request({ method: 'POST', url: '/deleteVender', form: true, body: { checked: venderId }, failOnStatusCode: false })
-    if (itemId) cy.request({ method: 'POST', url: '/deleteItem', form: true, body: { checked: itemId }, failOnStatusCode: false })
     if (companyId) cy.request({ method: 'POST', url: '/deleteCompany', form: true, body: { checked: companyId }, failOnStatusCode: false })
   })
 })
 
 // ─── 2. Stock Chain ───────────────────────────────────────────────────────────
-// Item → addStock → verify stock → purchase → stock increases
+// Product → opening inventory → verify stock → purchase → stock increases
+// M4e.d (slice 104): stock lives in inventory-service, read via /productStock?productId= (returns { success, stock }).
 
-describe('E2E Flow — Item to Stock', () => {
-  let itemId, productId, stockId
+describe('E2E Flow — Product to Stock', () => {
+  let productId
   const ts = Date.now()
   const iname = `StockFlowItem_${ts}`
 
   before(() => {
     cy.loginAsBusiness()
-    // M4a/M4e.2: seed via the catalog Product master + opening inventory; purchase productId-native.
+    // seed via the catalog Product master + opening inventory (20 on hand); purchase productId-native.
     cy.seedProduct({ name: iname, sku: `SFI-${ts}`, sellingPrice: 80, purchaseRate: 50, stock: 20 })
-      .then(({ itemId: id, productId: pid }) => { itemId = id; productId = pid })
+      .then(({ productId: pid }) => { productId = pid })
   })
 
   beforeEach(() => {
     cy.loginAsBusiness()
   })
 
-  it('addStock for item — stock appears in getUserStock', () => {
-    if (!itemId) return cy.log('No item — skipping')
-    cy.request({
-      method: 'POST', url: '/addStock', form: true,
-      body: { itemId, bpurchaseRate: 50, bsellRate: 80, stock: 20 },
-      failOnStatusCode: false,
-    })
-    cy.request({ url: '/getUserStock', failOnStatusCode: false }).then((res) => {
-      if (res.body.status === 'SUCCESS') {
-        const stocks = res.body.data || res.body.collection || []
-        const stock = stocks.find(s => s.itemId === itemId)
-        if (stock) {
-          stockId = stock.stockId || stock.id
-          expect(stock.stock).to.be.gte(0)
-          cy.log(`Stock quantity: ${stock.stock}`)
-        } else {
-          cy.log('Stock not found in getUserStock — may be NPE bug in aggregation')
-        }
-      }
+  it('opening inventory shows on-hand via /productStock', () => {
+    if (!productId) return cy.log('No product — skipping')
+    cy.request({ url: `/productStock?productId=${productId}`, failOnStatusCode: false }).then((res) => {
+      expect(res.status).to.eq(200)
+      const onHand = Number(res.body.stock)
+      cy.log(`Opening on-hand: ${onHand}`)
+      expect(onHand).to.be.gte(0)
     })
   })
 
-  it('purchase against the stocked item — stock quantity increases', () => {
-    if (!itemId) return cy.log('No item — skipping')
+  it('purchase against the product — inventory on-hand increases', () => {
+    if (!productId) return cy.log('No product — skipping')
     let stockBefore = 0
 
-    cy.request({ url: '/getUserStock', failOnStatusCode: false }).then((res) => {
-      if (res.body.status === 'SUCCESS') {
-        const stocks = res.body.data || res.body.collection || []
-        const stock = stocks.find(s => s.itemId === itemId)
-        stockBefore = stock?.stock ?? 0
-      }
+    cy.request({ url: `/productStock?productId=${productId}`, failOnStatusCode: false }).then((res) => {
+      stockBefore = Number(res.body.stock) || 0
     })
 
     cy.request({
@@ -163,28 +154,21 @@ describe('E2E Flow — Item to Stock', () => {
       cy.log(`addPurchase for stock chain: ${res.body.status}`)
     })
 
-    cy.request({ url: '/getUserStock', failOnStatusCode: false }).then((res) => {
-      if (res.body.status === 'SUCCESS') {
-        const stocks = res.body.data || res.body.collection || []
-        const stockAfter = stocks.find(s => s.itemId === itemId)?.stock ?? 0
-        cy.log(`Stock before: ${stockBefore}, after purchase: ${stockAfter}`)
-        // After purchase, stock should be >= before (may stay same if purchase doesn't auto-update)
-        expect(stockAfter).to.be.gte(0)
-      }
+    cy.request({ url: `/productStock?productId=${productId}`, failOnStatusCode: false }).then((res) => {
+      const stockAfter = Number(res.body.stock) || 0
+      cy.log(`Stock before: ${stockBefore}, after purchase: ${stockAfter}`)
+      // A purchase dual-writes to inventory, so on-hand should not decrease.
+      expect(stockAfter).to.be.gte(stockBefore)
     })
-  })
-
-  after(() => {
-    cy.loginAsBusiness()
-    if (itemId) cy.request({ method: 'POST', url: '/deleteItem', form: true, body: { checked: itemId }, failOnStatusCode: false })
   })
 })
 
 // ─── 3. Full Transaction Flow — Sell ─────────────────────────────────────────
-// Customer → Item → Stock → Sell → Sell appears in list
+// Customer → Product → Stock → Sell → Sell appears in list
+// M4e.d (slice 104): sell is productId-native via /addSell (saga); /addSelling is retired.
 
 describe('E2E Flow — Full Sale Transaction', () => {
-  let customerId, itemId, productId, stockId
+  let customerId, productId
   const ts = Date.now()
   const custName = `FlowCust_${ts}`
   const iname    = `FlowSellItem_${ts}`
@@ -203,56 +187,30 @@ describe('E2E Flow — Full Sale Transaction', () => {
       if (c) customerId = c.customerId || c.id
     })
 
-    // Create item + opening stock via the catalog Product master (M4a, slice 90)
+    // Create product + opening stock via the catalog Product master (M4e.d)
     cy.seedProduct({ name: iname, sku: `FSI-${ts}`, sellingPrice: 100, purchaseRate: 50, stock: 30 })
-      .then(({ itemId: id, productId: pid }) => { itemId = id; productId = pid })
+      .then(({ productId: pid }) => { productId = pid })
   })
 
   beforeEach(() => {
     cy.loginAsBusiness()
   })
 
-  it('customer, item and stock all exist before sell', () => {
+  it('customer and product both exist before sell', () => {
     cy.request('/getUserCustomer').then((res) => {
       const c = (res.body.collection || res.body.data || []).find(x => x.name === custName)
       if (c) cy.log(`Customer ${custName} found ✓`)
       else cy.log('Customer not found — duplicate-check bug may have blocked save')
     })
-    cy.request('/getUserItem').then((res) => {
-      const item = (res.body.data || []).find(i => i.iname === iname)
-      if (item) cy.log(`Item ${iname} found ✓`)
-      else cy.log(`Item ${iname} not found — may not have been saved`)
+    cy.request('/catalogProducts?size=1000').then((res) => {
+      const content = (res.body && res.body.data && res.body.data.content) || []
+      const p = content.find(i => i.name === iname)
+      if (p) cy.log(`Product ${iname} found ✓`)
+      else cy.log(`Product ${iname} not found — may not have been saved`)
     })
   })
 
-  it('POST /addSelling with a complete sell body — returns 200', () => {
-    if (!itemId) return cy.log('No itemId — skipping sell test')
-
-    const sellBody = [
-      {
-        itemId,
-        quantity: 1,
-        sellRate: 100,
-        discount: 0,
-        discountType: '%',
-        totalAmount: 100,
-        netAmount: 100,
-        customer: { name: custName, contact: `031${ts.toString().slice(-8)}`, paidAmount: 100, dueAmount: 0 },
-      }
-    ]
-
-    cy.request({
-      method: 'POST', url: '/addSelling',
-      body: sellBody,
-      headers: { 'Content-Type': 'application/json' },
-      failOnStatusCode: false,
-    }).then((res) => {
-      expect(res.status).to.eq(200)
-      cy.log(`addSelling response: ${JSON.stringify(res.body).substring(0, 150)}`)
-    })
-  })
-
-  it('sell appears in getUserSell after addSelling', () => {
+  it('sell appears in getUserSell', () => {
     cy.request({ url: '/getUserSell', failOnStatusCode: false }).then((res) => {
       expect(res.status).to.eq(200)
       expect(res.body).to.have.property('status')
@@ -260,8 +218,8 @@ describe('E2E Flow — Full Sale Transaction', () => {
     })
   })
 
-  it('POST /addSell with customer+sales body — returns 200', () => {
-    if (!itemId) return cy.log('No itemId — skipping')
+  it('POST /addSell with customer+sales body (productId) — returns 200', () => {
+    if (!productId) return cy.log('No productId — skipping')
 
     cy.request({
       method: 'POST', url: '/addSell',
@@ -280,7 +238,6 @@ describe('E2E Flow — Full Sale Transaction', () => {
   after(() => {
     cy.loginAsBusiness()
     if (customerId) cy.request({ method: 'POST', url: '/deleteCustomer', form: true, body: { checked: customerId }, failOnStatusCode: false })
-    if (itemId) cy.request({ method: 'POST', url: '/deleteItem', form: true, body: { checked: itemId }, failOnStatusCode: false })
   })
 })
 
@@ -362,13 +319,13 @@ describe('E2E Flow — Cross-Entity Consistency', () => {
     })
   })
 
-  it('item created → appears in purchase item dropdown (getUserItems)', () => {
+  it('product created → appears in the catalog picker (catalogProducts)', () => {
     const iname = `DDItem_${Date.now()}`
-    // M4a (slice 90): create via the catalog Product master; it projects to a bridged Item that the picker shows.
-    cy.seedProduct({ name: iname }).then(({ itemId }) => {
-      cy.request('/getUserItems').then((res) => {
-        expect(res.body).to.include(iname)
-        if (itemId) cy.request({ method: 'POST', url: '/deleteItem', form: true, body: { checked: itemId }, failOnStatusCode: false })
+    // M4e.d (slice 104): create via the catalog Product master; the sell/purchase picker lists it via /catalogProducts.
+    cy.seedProduct({ name: iname }).then(() => {
+      cy.request('/catalogProducts?size=1000').then((res) => {
+        const content = (res.body && res.body.data && res.body.data.content) || []
+        expect(content.some((p) => p.name === iname), `${iname} in catalog picker`).to.be.true
       })
     })
   })

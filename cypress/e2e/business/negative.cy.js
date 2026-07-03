@@ -141,17 +141,18 @@ describe('Negative — API: Invalid Inputs Return Errors, Not 500', () => {
     })
   })
 
-  it('addItem with empty name — returns error status, not 500', () => {
+  it('addProduct with empty name — returns error status, not 500', () => {
+    // M4e.d (slice 104): product registration is the catalog master path (/addProduct).
     cy.request({
       method: 'POST',
-      url: '/addItem',
-      body: { iname: '', icode: `NEG${Date.now()}`, idesc: 'neg test' },
+      url: '/addProduct',
+      body: { name: '', sku: `NEG${Date.now()}`, sellingPrice: 1 },
       headers: { 'Content-Type': 'application/json' },
       failOnStatusCode: false,
     }).then((res) => {
       expect([200, 400]).to.include(res.status)
       if (res.status === 200) {
-        expect(res.body.status).to.be.a('string')
+        expect(res.body.success).to.not.eq(true)
       }
     })
   })
@@ -201,12 +202,14 @@ describe('Negative — API: Invalid Inputs Return Errors, Not 500', () => {
     })
   })
 
-  it('deleteItem with non-existent id — returns false or error, not 500', () => {
+  it('deletePurchase with non-existent id — returns false or error, not 500', () => {
+    // M4e.d (slice 104): legacy /deleteItem is retired (Item is gone); purchase delete stands in as the
+    // "non-existent delete doesn't 500" negative check on a live route.
     cy.request({
       method: 'POST',
-      url: '/deleteItem',
+      url: '/deletePurchase',
+      form: true,
       body: { checked: '999999999' },
-      headers: { 'Content-Type': 'application/json' },
       failOnStatusCode: false,
     }).then((res) => {
       expect([200, 400]).to.include(res.status)
@@ -287,21 +290,23 @@ describe('Negative — Boundary & Edge Cases', () => {
     })
   })
 
-  it('addStock with non-existent itemId — returns error, not 500', () => {
+  it('addProductStock with non-existent productId — returns error, not 500', () => {
+    // M4e.d (slice 104): stocking is productId-native via /addProductStock (inventory-service).
     cy.request({
-      method: 'POST', url: '/addStock', form: true,
-      body: { itemId: 999999999, bpurchaseRate: 10, bsellRate: 20, stock: 5 },
+      method: 'POST', url: '/addProductStock',
+      headers: { 'Content-Type': 'application/json' },
+      body: { productId: 999999999, quantity: 5 },
       failOnStatusCode: false,
     }).then((res) => {
       expect([200, 400, 500]).to.include(res.status)
-      cy.log(`addStock with bad itemId: ${res.status}`)
+      cy.log(`addProductStock with bad productId: ${res.status}`)
     })
   })
 
   it('addPurchase with negative quantity — returns error, not 500', () => {
     cy.request({
       method: 'POST', url: '/addPurchase', form: true,
-      body: { itemId: 1, quantity: -5, purchaseRate: 50, totalAmount: -250, netAmount: -250 },
+      body: { productId: 1, quantity: -5, purchaseRate: 50, totalAmount: -250, netAmount: -250 },
       failOnStatusCode: false,
     }).then((res) => {
       expect([200, 400, 422]).to.include(res.status)
@@ -364,15 +369,17 @@ describe('Negative — Input Sanitisation', () => {
     })
   })
 
-  it('addItem with XSS attempt in iname — does not crash and app remains usable', () => {
+  it('addProduct with XSS attempt in name — does not crash and app remains usable', () => {
+    // M4e.d (slice 104): product registration is the catalog master path (/addProduct).
     cy.request({
-      method: 'POST', url: '/addItem', form: true,
-      body: { icode: `XSS-${Date.now()}`, iname: '<script>alert(1)</script>', unit: 'pcs' },
+      method: 'POST', url: '/addProduct',
+      headers: { 'Content-Type': 'application/json' },
+      body: { name: '<script>alert(1)</script>', sku: `XSS-${Date.now()}`, sellingPrice: 1, unit: 'pcs' },
       failOnStatusCode: false,
     }).then((res) => {
       expect([200, 400]).to.include(res.status)
       // Verify the app is still responsive after the attempt
-      cy.request('/getUserItem').then((followUp) => {
+      cy.request('/catalogProducts?size=10').then((followUp) => {
         expect(followUp.status).to.eq(200)
       })
     })

@@ -4,7 +4,7 @@
  * method + covered-amount field. Run headed.
  */
 describe('Pharmacy — insurance / co-pay (P12)', () => {
-  let productId, itemId
+  let productId
   const pname = 'InsMed_' + Date.now()
 
   beforeEach(() => cy.loginAsPharma())
@@ -13,10 +13,6 @@ describe('Pharmacy — insurance / co-pay (P12)', () => {
     cy.loginAsPharma()
     cy.request({ method: 'POST', url: '/addProduct', body: { name: pname, sku: 'INS' + Date.now(), sellingPrice: 100, taxRate: 0, unit: 'pack' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
       .then((r) => { productId = r.body.data.id })
-    cy.request('/getUserItem').then((r) => {
-      const items = r.body.collection || r.body.object || r.body.data || []
-      itemId = (items.find((i) => i.iname === pname) || {}).id
-    })
     cy.then(() => cy.request({ method: 'POST', url: '/addProductStock', body: { productId, quantity: 5 }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }))
   })
 

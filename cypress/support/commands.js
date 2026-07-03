@@ -104,12 +104,11 @@ Cypress.Commands.add('openPurchaseSection', (sectionValue) => {
   cy.get(`#${sectionValue}`).should('be.visible')
 })
 
-// M4 (slice 90): seed a product via the catalog MASTER (the single creation path), replacing the legacy
-// /addItem + /addStock seeding. Creates a catalog Product (which auto-syncs to a bridged business Item via
-// ProductSyncService), optionally seeds opening inventory, and yields { productId, itemId, name, sku }.
-// itemId is resolved from getUserItem because the sell/purchase pickers are still itemId-based until M4b.
+// M4e.d (slice 104): seed a product via the catalog MASTER — the single creation path. Creates a catalog Product
+// and optionally seeds opening inventory (inventory-service). Yields { productId, name, sku }. The legacy Item
+// bridge is GONE: there is no itemId — sell/purchase/pharmacy pickers are all productId-native.
 // Usage: cy.seedProduct({ name, sku, sellingPrice, taxRate, unit, category, stock, purchaseRate, batchNo })
-//        .then(({ productId, itemId }) => { ... })
+//        .then(({ productId }) => { ... })
 Cypress.Commands.add('seedProduct', (overrides = {}) => {
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`
   const name = overrides.name || `Prod_${stamp}`
@@ -132,25 +131,16 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
     expect(r.status, `addProduct ${name}`).to.eq(200)
     expect(r.body && r.body.success, JSON.stringify(r.body)).to.eq(true)
     const productId = r.body.data.id
+    const result = { productId, name, sku }
 
-    // resolve the synced itemId. /getUserItem is a business GenericResponse — its list lives under `collection`
-    // (fields: message/error/status/object/collection — there is NO `data`).
-    return cy.request('/getUserItem').then((res) => {
-      const b = res.body || {}
-      const items = b.collection || b.object || b.data || []
-      const item = items.find((it) => it.icode === sku || it.iname === name)
-      expect(item, `seedProduct: synced item not found for sku=${sku} (Product→Item sync)`).to.exist
-      const result = { productId, itemId: item.id, name, sku }
-
-      if (!overrides.stock) return result
-      // opening inventory (local Stock is gone — stock lives in inventory-service)
-      const stockBody = { productId, quantity: overrides.stock }
-      stockBody.batchNo = overrides.batchNo || `B${stamp}`
-      if (overrides.expiryDate) stockBody.expiryDate = overrides.expiryDate
-      return cy.request({
-        method: 'POST', url: '/addProductStock', body: stockBody,
-        headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-      }).then(() => result)
-    })
+    if (!overrides.stock) return result
+    // opening inventory (local Stock is gone — stock lives in inventory-service)
+    const stockBody = { productId, quantity: overrides.stock }
+    stockBody.batchNo = overrides.batchNo || `B${stamp}`
+    if (overrides.expiryDate) stockBody.expiryDate = overrides.expiryDate
+    return cy.request({
+      method: 'POST', url: '/addProductStock', body: stockBody,
+      headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+    }).then(() => result)
   })
 })

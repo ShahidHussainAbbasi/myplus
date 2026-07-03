@@ -4,7 +4,7 @@
  * Builds on master-sync (slice 53): registering a Product projects the Item the dispense screen uses. Run headed.
  */
 describe('Pharmacy — batch/expiry on dispense (P10)', () => {
-  let productId, itemId
+  let productId
   const pname = 'BatchMed_' + Date.now()
   const batch = 'B' + Date.now()
   const expiry = '2030-09-30'
@@ -14,13 +14,6 @@ describe('Pharmacy — batch/expiry on dispense (P10)', () => {
   it('a stocked lot exposes its FEFO batch + expiry via getStock', () => {
     cy.request({ method: 'POST', url: '/addProduct', body: { name: pname, sku: 'BM' + Date.now(), sellingPrice: 15, taxRate: 0, unit: 'tablet' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
       .then((r) => { expect(r.body.success, JSON.stringify(r.body)).to.eq(true); productId = r.body.data.id })
-
-    cy.request('/getUserItem').then((r) => {
-      const items = r.body.collection || r.body.object || r.body.data || []
-      const mine = items.find((i) => i.iname === pname)
-      expect(mine, 'projected Item exists (master-sync)').to.exist
-      itemId = mine.id
-    })
 
     cy.then(() => {
       cy.request({ method: 'POST', url: '/addProductStock', body: { productId, quantity: 50, batchNo: batch, expiryDate: expiry }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })

@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 
 import com.myplus.business_service.repository.SellRepo;
 import com.myplus.common.security.AuthenticatedUser;
-import com.myplus.business_service.entity.Item;
 import com.myplus.business_service.entity.Sell;
 
 import com.myplus.business_service.dto.SellDTO;
@@ -41,9 +40,6 @@ public class SellService implements ISellService {
 
 	@Autowired
 	RequestUtil requestUtil;
-
-	@Autowired
-	IItemService itemService;
 
 	@Autowired
 	private AppUtil appUtil;

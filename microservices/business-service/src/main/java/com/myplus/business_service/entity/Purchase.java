@@ -54,8 +54,7 @@ public class Purchase implements Serializable {
 	// M3c.4f (slice 88): the Purchase→local-Stock FK was removed; the purchase is self-describing (M3b) + dual-writes to inventory.
 
 	// M3b (slice 75): the purchase is self-describing — its batch/rate snapshot lives here, not on a local Stock row.
-	@Column(name = "item_id")
-	private Long itemId;
+	// M4e.d (slice 106): the legacy item_id column is retired (Item entity gone); productId is the catalog identity.
 	@Column(name = "product_id")
 	private Long productId;
 	@Column(name = "batch_no")

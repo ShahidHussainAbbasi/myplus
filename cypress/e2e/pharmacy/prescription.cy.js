@@ -1,15 +1,15 @@
 /**
- * Pharmacy P5 (slice 41, reuse-first) — prescription intake referencing an existing business Item (itemId, the
- * same id the sell flow uses). Medicine registration reuses the Item screen; this is the net-new clinical screen.
- * Run headed.
+ * Pharmacy P5 (slice 41, reuse-first; M4e.d productId-native) — prescription intake referencing an existing
+ * catalog Product (productId, the same id the sell flow uses). Medicine registration reuses the Product screen;
+ * this is the net-new clinical screen. Run headed.
  */
-describe('Pharmacy — prescription intake (on itemId bridge)', () => {
+describe('Pharmacy — prescription intake (on catalog productId)', () => {
   beforeEach(() => { cy.loginAsPharma() })
 
-  it('records a prescription for an existing item and lists it', () => {
+  it('records a prescription for an existing product and lists it', () => {
     const patient = 'Rx_' + Date.now()
     const iname = 'RxItem_' + Date.now()
-    // M4a (slice 90): the medicine is created via the catalog Product master (projected to a bridged Item the Rx references).
+    // M4e.d (slice 104): the medicine is created via the catalog Product master; the Rx references its productId.
     cy.seedProduct({ name: iname, sku: 'RX' + Date.now(), unit: 'tablet' }).then(({ productId }) => {
 
       cy.request({

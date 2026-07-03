@@ -3,7 +3,7 @@
  * reaches inventory (authoritative on-hand). The purchase list renders from the Purchase's own fields. Run headed.
  */
 describe('M3b — purchase self-describing, no local Stock row', () => {
-  let itemId, productId
+  let productId
   const tag = Date.now()
   const name = 'M3bProd_' + tag
   const batch = 'M3BBATCH' + tag
@@ -11,15 +11,13 @@ describe('M3b — purchase self-describing, no local Stock row', () => {
   beforeEach(() => cy.loginAsBusiness())
 
   it('records batch/rate on the purchase + stocks inventory; the list shows it', () => {
-    // register via the master → bridged item
+    // register via the master — the single product master (M4e.d, productId-native)
     cy.request({ method: 'POST', url: '/addProduct', headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
       body: { name, sku: 'M3B' + tag, sellingPrice: 15, taxRate: 0, unit: 'pcs' } })
-      .then((r) => { productId = r.body && r.body.data && r.body.data.id })
-    cy.request('/getUserItem').then((r) => {
-      const items = r.body.collection || r.body.object || r.body.data || []
-      itemId = (items.find((i) => i.iname === name) || {}).id
-      expect(productId, 'catalog product').to.exist
-    })
+      .then((r) => {
+        productId = r.body && r.body.data && r.body.data.id
+        expect(productId, 'catalog product').to.exist
+      })
 
     // purchase 7 of a known batch @ rate 10 (form binds nested stock.*) — productId-native (M4e.2)
     cy.then(() => cy.request({ method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
@@ -36,9 +34,9 @@ describe('M3b — purchase self-describing, no local Stock row', () => {
       expect(Number(mine.stock.bpurchaseRate), 'purchase rate carried').to.eq(10)
     }))
 
-    // inventory on-hand reflects the purchase (authoritative)
+    // inventory on-hand reflects the purchase (authoritative) — read by productId (M4e.d)
     cy.then(() => {
-      const poll = (t) => cy.request('/getStock?itemId=' + itemId).then((r) => {
+      const poll = (t) => cy.request('/productStock?productId=' + productId).then((r) => {
         const s = Number((r.body || {}).stock)
         if (s === 7 || t <= 0) { expect(s, 'inventory on-hand after purchase').to.eq(7); return }
         cy.wait(700); poll(t - 1)

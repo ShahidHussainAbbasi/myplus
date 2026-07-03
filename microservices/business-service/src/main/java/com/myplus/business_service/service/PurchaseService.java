@@ -200,9 +200,8 @@ public class PurchaseService implements IPurchaseService{
 		// M3c.4b (slice 84): the purchase is self-describing — copy its batch/rate snapshot straight off the DTO
 		// (StockDTO scalar types already match Purchase; bexpDate parsed via AppUtil) instead of going through a local
 		// Stock entity. Inventory stays authoritative for on-hand (pushed below).
-		obj.setItemId(dto.getItemId());
-		// M4e (slice 101): productId-native — the purchase form submits productId; the legacy ensureMapped(itemId)
-		// auto-map fallback has been retired.
+		// M4e.d (slice 106): productId-native — the purchase form submits productId; the legacy itemId field + its
+		// ensureMapped(itemId) auto-map fallback are gone (Item entity retired).
 		obj.setProductId(dto.getProductId());
 		StockDTO snap = dto.getStock();
 		if (snap != null) {
@@ -243,8 +242,8 @@ public class PurchaseService implements IPurchaseService{
 							.costPrice(obj.getBpurchaseRate())
 							.build()));
 		} catch (Exception ex) {
-			LOG.warn("M3b: inventory stock-in failed for item {} (purchase recorded locally; reconcile later)",
-					dto.getItemId(), ex);
+			LOG.warn("M3b: inventory stock-in failed for product {} (purchase recorded locally; reconcile later)",
+					dto.getProductId(), ex);
 		}
 	}
 

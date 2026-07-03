@@ -105,7 +105,7 @@ public class PurchaseController {
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			// M4d (slice 96): batch-resolve line names from catalog ProductRef (no Item entity load). The purchase
-			// carries its own itemId + productId, so no reverse map is needed.
+			// carries its own productId, so no reverse map is needed.
 			java.util.List<Long> pProductIds = objs.stream().filter(o -> o.getProductId() != null)
 					.map(com.myplus.business_service.entity.Purchase::getProductId).distinct()
 					.collect(java.util.stream.Collectors.toList());
@@ -117,11 +117,9 @@ public class PurchaseController {
 				modelMapper.addConverter(appUtil.localDateToString);
 				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
 
-				// M4d (slice 96): identity from the purchase's own fields; name/sku from catalog ProductRef (no Item load).
-				Long itemId = o.getItemId();
-				if (itemId == null && o.getProductId() == null) return;   // truly unidentifiable line
-				dto.setItemId(itemId);
-				com.myplus.commerce.contracts.dto.ProductRef p = (o.getProductId() != null) ? productById.get(o.getProductId()) : null;
+				// M4e.d (slice 106): identity from the purchase's own productId; name/sku from catalog ProductRef (no Item load).
+				if (o.getProductId() == null) return;   // truly unidentifiable line
+				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(o.getProductId());
 				if (p != null) {
 					dto.setIname(p.getName());
 					dto.setIcode(p.getSku());

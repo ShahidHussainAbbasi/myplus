@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.io.Serializable;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.myplus.business_service.entity.Item;
 
 import lombok.Data;
 
@@ -23,11 +22,7 @@ public class SellDTO implements Serializable {
 
 	private String userType;
 
-	// private ItemDTO item;
-	private Long itemId = 0L;
-
-	// Catalog product id (slice 33, U4.3). The catalog-backed picker submits this directly; when null the
-	// saga falls back to translating itemId via ItemCatalogMap (back-compat with the legacy picker).
+	// Catalog product id — the picker submits this directly (M4e.d: the Item/itemId bridge is retired).
 	private Long productId;
 
 	private String itemName;

@@ -8,10 +8,9 @@ describe('Session — Protected Routes', () => {
     '/getUserCompany',
     '/getUserVender',
     '/getUserCustomer',
-    '/getUserItem',
+    '/catalogProducts',
     '/getUserPurchase',
     '/getUserSell',
-    '/getUserStock',
     '/getBusinessDashboardStats',
   ]
 

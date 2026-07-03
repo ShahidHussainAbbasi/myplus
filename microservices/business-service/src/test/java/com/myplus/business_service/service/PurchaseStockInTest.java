@@ -12,7 +12,6 @@ import java.util.List;
 import com.myplus.business_service.config.TradeSagaProperties;
 import com.myplus.business_service.dto.PurchaseDTO;
 import com.myplus.business_service.entity.Purchase;
-import com.myplus.business_service.repository.ItemCatalogMapRepo;
 import com.myplus.commerce.contracts.client.InventoryClient;
 import com.myplus.commerce.contracts.dto.StockImportLine;
 import com.myplus.common.security.AuthenticatedUser;
@@ -33,17 +32,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class PurchaseStockInTest {
 
     @Mock private TradeSagaProperties tradeSagaProperties;
-    @Mock private ItemCatalogMapRepo itemCatalogMapRepo;
     @Mock private InventoryClient inventoryClient;
-    @Mock private CatalogMigrationService catalogMigrationService;
     @InjectMocks private PurchaseService service;
 
     private static final AuthenticatedUser USER = new AuthenticatedUser(1L, "buyer@test.com", List.of(), 1L);
 
     private PurchaseDTO dto(Float qty) {
         PurchaseDTO d = new PurchaseDTO();
-        d.setItemId(5L);
-        d.setQuantity(qty);
+        d.setQuantity(qty);   // M4e.d: productId-native; the Purchase row carries productId (see purchase() helper)
         return d;
     }
 
