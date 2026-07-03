@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "medicine_clinical", uniqueConstraints =
-        @UniqueConstraint(name = "uq_medclinical_org_item", columnNames = {"organization_id", "item_id"}))
+        @UniqueConstraint(name = "uq_medclinical_org_item", columnNames = {"organization_id", "product_id"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class MedicineClinical {
 
@@ -25,8 +25,8 @@ public class MedicineClinical {
     @Column(name = "user_id")
     private Long userId;
 
-    @Column(name = "item_id", nullable = false)
-    private Long itemId;
+    @Column(name = "product_id", nullable = false)   // M5 (slice 100): catalog Product reference
+    private Long productId;
 
     @Column(name = "medicine_name")
     private String medicineName;       // snapshot for display

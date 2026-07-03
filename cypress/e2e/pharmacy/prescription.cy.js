@@ -10,20 +10,20 @@ describe('Pharmacy — prescription intake (on itemId bridge)', () => {
     const patient = 'Rx_' + Date.now()
     const iname = 'RxItem_' + Date.now()
     // M4a (slice 90): the medicine is created via the catalog Product master (projected to a bridged Item the Rx references).
-    cy.seedProduct({ name: iname, sku: 'RX' + Date.now(), unit: 'tablet' }).then(({ itemId }) => {
+    cy.seedProduct({ name: iname, sku: 'RX' + Date.now(), unit: 'tablet' }).then(({ productId }) => {
 
       cy.request({
         method: 'POST', url: '/addPrescription',
         body: {
           patientName: patient, patientPhone: '0300RX', doctorName: 'Dr House', doctorLicense: 'LIC-9', diagnosis: 'Fever',
-          items: [{ itemId: itemId, medicineName: iname, quantity: 10, dosage: '1 tab', frequency: 'BD', duration: '5d' }],
+          items: [{ productId: productId, medicineName: iname, quantity: 10, dosage: '1 tab', frequency: 'BD', duration: '5d' }],
         },
         headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
       }).then((r) => {
         expect(r.status).to.eq(200)
         expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
         expect(r.body.data.status).to.eq('PENDING')
-        expect(r.body.data.items[0].itemId).to.eq(itemId)
+        expect(r.body.data.items[0].productId).to.eq(productId)
       })
 
       cy.request('/getPrescriptions').then((r) => {

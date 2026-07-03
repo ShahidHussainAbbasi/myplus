@@ -25,8 +25,9 @@ public class SafetyController {
 
     @PostMapping("/safety/check")
     public ApiResponse<SafetyReportDTO> check(@RequestBody Map<String, List<Long>> body) {
-        List<Long> itemIds = body.getOrDefault("itemIds", List.of());
-        return ApiResponse.success(safetyService.check(itemIds, CurrentUser.organizationId(), CurrentUser.userId()));
+        // M5 (slice 100): productId-native; accept the legacy "itemIds" key too for back-compat during cutover.
+        List<Long> productIds = body.getOrDefault("productIds", body.getOrDefault("itemIds", List.of()));
+        return ApiResponse.success(safetyService.check(productIds, CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
     @GetMapping("/clinical")

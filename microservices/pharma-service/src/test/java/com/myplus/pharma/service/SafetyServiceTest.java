@@ -55,7 +55,7 @@ class SafetyServiceTest {
 
     private ClinicalDTO clinical(long itemId, boolean rx, boolean controlled) {
         ClinicalDTO d = new ClinicalDTO();
-        d.setItemId(itemId); d.setRxRequired(rx); d.setControlledSubstance(controlled);
+        d.setProductId(itemId); d.setRxRequired(rx); d.setControlledSubstance(controlled);
         return d;
     }
 
@@ -64,7 +64,7 @@ class SafetyServiceTest {
         safety.upsertClinical(clinical(10L, true, true), ORG, USER);    // controlled + rx
         safety.upsertClinical(clinical(20L, false, false), ORG, USER);
         InteractionDTO inter = new InteractionDTO();
-        inter.setItemId1(10L); inter.setItemId2(20L); inter.setSeverity("SEVERE"); inter.setDescription("X+Y bad");
+        inter.setProductId1(10L); inter.setProductId2(20L); inter.setSeverity("SEVERE"); inter.setDescription("X+Y bad");
         safety.addInteraction(inter, ORG, USER);
 
         SafetyReportDTO r = safety.check(List.of(10L, 20L), ORG, USER);
@@ -78,7 +78,7 @@ class SafetyServiceTest {
     @Test
     void interaction_only_fires_when_both_items_are_present() {
         InteractionDTO inter = new InteractionDTO();
-        inter.setItemId1(10L); inter.setItemId2(20L); inter.setSeverity("MODERATE");
+        inter.setProductId1(10L); inter.setProductId2(20L); inter.setSeverity("MODERATE");
         safety.addInteraction(inter, ORG, USER);
 
         assertThat(safety.check(List.of(10L), ORG, USER).getInteractions()).isEmpty();          // only one item

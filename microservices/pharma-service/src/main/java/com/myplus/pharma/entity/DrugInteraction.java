@@ -15,12 +15,12 @@ public class DrugInteraction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // slice 41 (reuse): interactions are between two business items (by itemId), consistent with the sell flow.
-    @Column(name = "item_id1")
-    private Long itemId1;
+    // M5 (slice 100): interactions are between two catalog Products (by productId), consistent with the sell flow.
+    @Column(name = "product_id1")
+    private Long productId1;
 
-    @Column(name = "item_id2")
-    private Long itemId2;
+    @Column(name = "product_id2")
+    private Long productId2;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 public class PrescriptionItemDTO {
     private Long id;
-    private Long itemId;           // the business Item (medicine) — same id the sell flow uses
+    private Long productId;        // M5 (slice 100): the catalog Product (medicine) — same id the sell flow uses
     private String medicineName;   // snapshot for display
     private int quantity;
     private String dosage;

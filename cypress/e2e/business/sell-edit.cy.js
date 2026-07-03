@@ -142,9 +142,8 @@ describe('Sell edit — Phase 2: row-click loads the invoice into the cart', () 
 describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow', () => {
   beforeEach(() => { cy.loginAsBusiness() })
 
-  // Current on-hand qty of an item, from getStock (the endpoint the sell form reads when an item is
-  // picked). It returns the item's StockDTO directly; .stock is the quantity.
-  const stockQty = (itemId) => cy.request('/getStock?itemId=' + itemId).then((r) =>
+  // M4e.1b: on-hand qty by productId, from productStock (the endpoint the sell form reads on item select).
+  const stockQty = (productId) => cy.request('/productStock?productId=' + productId).then((r) =>
     (r.body && typeof r.body.stock === 'number') ? r.body.stock : null)
 
   it('editing a 2-qty line down to 1 keeps the invoice #, returns 1 to stock, leaves one line', () => {
@@ -153,15 +152,11 @@ describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow',
     cy.intercept('POST', '/updateSell').as('updateSell')
     cy.intercept('GET', '/getSellInvoice*').as('getInvoice')
 
-    // ── Step 1: create a sale of QTY 2 through the UI, remembering which item we used. ──────────────
-    let itemValue
+    // ── Step 1: seed a STOCKED catalog product, then sell QTY 2 of it through the UI (picker value = productId). ──
+    cy.seedProduct({ name: `P3Med_${Date.now()}`, sellingPrice: 100, purchaseRate: 50, stock: 10 }).then(({ productId }) => {
+    const itemValue = productId   // the picker option value IS the productId now (M4e.1b)
     cy.openSellSection('sellDiv')
-    cy.get('#sellItemDD option').then(($opts) => {
-      const opt = [...$opts].find(o => o.value && o.value !== '')
-      expect(opt, 'an item with stock is available to sell').to.exist
-      itemValue = opt.value
-      cy.get('#sellItemDD').select(opt.value, { force: true }).trigger('change', { force: true })
-    })
+    cy.get('#sellItemDD').select(String(productId), { force: true }).trigger('change', { force: true })
     cy.wait(1000) // let onChange -> loadStock populate the rate fields
     cy.get('#sellItems').clear({ force: true }).type('2', { force: true })
     cy.get('#addInviceItem').click({ force: true })
@@ -181,8 +176,7 @@ describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow',
       cy.request('/getUserSell').then((sres) => {
         const mine = rows(sres).find(x => x.customerHistory && x.customerHistory.invoiceNo === invoiceNo)
         expect(mine, 'created sale present in the sell data').to.exist
-        const itemId = mine.itemId
-        stockQty(itemId).then((before) => {
+        stockQty(productId).then((before) => {
           expect(before, 'stock qty right after the sale').to.be.a('number')
 
           // ── Step 3: open the invoice for editing (this is what a row-click runs). Wait on
@@ -217,7 +211,7 @@ describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow',
             expect(invNo(response.body), 'invoice number is unchanged by the edit').to.eq(invoiceNo)
 
             // ── Step 6: stock went UP by 1 (old 2 sold, new 1 sold => +1 returned to stock). ───────
-            stockQty(itemId).then((after) => {
+            stockQty(productId).then((after) => {
               expect(after, 'stock after edit = before + 1').to.eq(before + 1)
             })
             // ── Step 7: the edit PERSISTED — the invoice now has exactly one line, and that line's
@@ -230,6 +224,7 @@ describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow',
           })
         })
       })
+    })
     })
   })
 })

@@ -11,11 +11,11 @@ describe('Pharmacy — dispense (sale + Rx link)', () => {
     let rxId
 
     // M4a (slice 90): seed the medicine via the catalog Product master (+ opening stock for the dispense).
-    cy.seedProduct({ name: iname, sku: 'DSP' + Date.now(), unit: 'tablet', stock: 50 }).then(({ itemId }) => {
+    cy.seedProduct({ name: iname, sku: 'DSP' + Date.now(), unit: 'tablet', stock: 50 }).then(({ productId }) => {
 
       cy.request({
         method: 'POST', url: '/addPrescription',
-        body: { patientName: 'Disp_' + Date.now(), items: [{ itemId: itemId, medicineName: iname, quantity: 20, dosage: '1', frequency: 'BD', duration: '5d' }] },
+        body: { patientName: 'Disp_' + Date.now(), items: [{ productId: productId, medicineName: iname, quantity: 20, dosage: '1', frequency: 'BD', duration: '5d' }] },
         headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
       }).then((r) => {
         expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
@@ -25,7 +25,7 @@ describe('Pharmacy — dispense (sale + Rx link)', () => {
       cy.then(() => {
         cy.request({
           method: 'POST', url: '/dispensePrescription',
-          body: { prescriptionId: rxId, invoiceNo: 'INV-TEST', items: [{ itemId: itemId, quantity: 20 }] },
+          body: { prescriptionId: rxId, invoiceNo: 'INV-TEST', items: [{ productId: productId, quantity: 20 }] },
           headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
         }).then((r) => {
           expect(r.status).to.eq(200)
@@ -41,7 +41,7 @@ describe('Pharmacy — dispense (sale + Rx link)', () => {
     const patient = 'UiDisp_' + Date.now()
     cy.request({
       method: 'POST', url: '/addPrescription',
-      body: { patientName: patient, items: [{ itemId: 1, medicineName: 'X', quantity: 1 }] },
+      body: { patientName: patient, items: [{ productId: 1, medicineName: 'X', quantity: 1 }] },
       headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
     }).then((r) => {
       const rxId = r.body.data.id

@@ -9,15 +9,15 @@ describe('Pharmacy — alerts & controlled register', () => {
     const iname = 'CtrlMed_' + Date.now()
     const invoiceNo = 'INV-CTRL-' + Date.now()
     // M4a (slice 90): seed the medicine via the catalog Product master (+ opening stock for the dispense).
-    cy.seedProduct({ name: iname, sku: 'CT' + Date.now(), unit: 'tablet', stock: 50 }).then(({ itemId }) => {
+    cy.seedProduct({ name: iname, sku: 'CT' + Date.now(), unit: 'tablet', stock: 50 }).then(({ productId }) => {
 
       // flag it controlled
-      cy.request({ method: 'POST', url: '/saveClinical', body: { itemId: itemId, medicineName: iname, controlledSubstance: true }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
+      cy.request({ method: 'POST', url: '/saveClinical', body: { productId: productId, medicineName: iname, controlledSubstance: true }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
       // prescription → dispense (controlled)
-      cy.request({ method: 'POST', url: '/addPrescription', body: { patientName: 'Ctrl_' + Date.now(), items: [{ itemId: itemId, medicineName: iname, quantity: 5 }] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((r) => {
+      cy.request({ method: 'POST', url: '/addPrescription', body: { patientName: 'Ctrl_' + Date.now(), items: [{ productId: productId, medicineName: iname, quantity: 5 }] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((r) => {
         const rxId = r.body.data.id
-        cy.request({ method: 'POST', url: '/dispensePrescription', body: { prescriptionId: rxId, invoiceNo: invoiceNo, items: [{ itemId: itemId, quantity: 5 }] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((d) => {
+        cy.request({ method: 'POST', url: '/dispensePrescription', body: { prescriptionId: rxId, invoiceNo: invoiceNo, items: [{ productId: productId, quantity: 5 }] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((d) => {
           expect(d.body.success, JSON.stringify(d.body)).to.eq(true)
         })
       })

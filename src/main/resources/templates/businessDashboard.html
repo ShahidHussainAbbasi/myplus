@@ -50,7 +50,7 @@
 		<div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
 			<select name="registrationType" id="registrationType" class="dropdown show panel-heading" tabindex="-1">
 				<option value="">Register</option>
-				<option value="CompanyDiv">Company</option>
+				<option value="CompanyDiv">Company/Distributor</option>
 				<option value="VenderDiv">Vender/Supplier</option>
 				<option value="CustomerDiv">Customer</option>
 				<option value="itemDiv">Item</option>
@@ -89,6 +89,7 @@
 								<li><a onclick="snavGo('registrationType','VenderDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> Vender / Supplier</a></li>
 								<li><a onclick="snavGo('registrationType','CustomerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Customer</a></li>
 								<!-- Slice 74: the Product master is the single creation path; the legacy Item screen is edit-only. -->
+								<!-- <li><a onclick="snavGo('registrationType','productDiv','snavRegister')"><span class="glyphicon glyphicon-barcode"></span> Product</a></li>								 -->
 								<li><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> Product</a></li>
 								<li><a onclick="snavGo('registrationType','itemDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> Legacy Items (edit)</a></li>
 								<li><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> Quarantine</a></li>
@@ -357,7 +358,7 @@
 
 			<div id="CompanyDiv" class="formDiv">
 				<!-- <h3 th:text="#{label.company.form.heading}">Company Registration Form</h3> -->
-				<h3 class="dash-page-title"> Company Registration</h3>
+				<h3 class="dash-page-title"> Company/Distributor Registration</h3>
 				<!-- <form class="form-horizontal" role="form"> -->
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Company" autocomplete="off">
@@ -438,7 +439,7 @@
 							<input type="text" class="form-control" id="venderName" name="name"
 								placeholder="Vender Name" required="required">
 						</div>
-						<label class="control-label col-sm-2 req" th:text="#{label.company}">Select	Company</label> 
+						<label class="control-label col-sm-2 req" th:text="#{label.company}">Select	Company/Distributor</label> 
 						<div class="col-sm-4">
 							<!-- <select	class="form-control" id="venderCompanyDD" name="companyId" required="required">
 							</select> -->
@@ -492,7 +493,7 @@
 								<th data-field="venderId">ID</th>
 								<th data-field="checkDelete"></th>
 								<th data-field="venderName">Name</th>
-								<th data-field="venderCompany">Company</th>
+								<th data-field="venderCompany">Company/Distributor</th>
 								<th data-field="venderPhone">Phone</th>
 								<th data-field="venderMobile">Mobile</th>
 								<th data-field="venderEemail">Email</th>
@@ -515,7 +516,7 @@
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" th:text="#{label.company}">Select
-							Company</label> <span class="col-sm-4"> 
+							Company/Distributor</label> <span class="col-sm-4"> 
 						<!-- <select class="form-control" id="itemCompanyDD" name="companyId"></select> -->
 						<select class="form-control onChangeSelect selectpicker" id="itemCompanyDD" name="companyId" data-live-search="true">
 						</select>
@@ -611,7 +612,7 @@
 							<tr>
 								<th data-field="itemId">ID</th>
 								<th data-field="checkDelete">Mark</th>
-								<th data-field="itemCompanyDD">Company</th>
+								<th data-field="itemCompanyDD">Company/Distributor</th>
 								<th data-field="itemVenderDD">Vender/Supplier</th>
 								<th data-field="itemName">Name</th>
 								<th data-field="itemCode">Code</th>
@@ -1440,7 +1441,7 @@
 						<div class="col-sm-4">
 							<select class="form-control onChangeSelect" id="srb" name="sb" required="required">
 								<option class="dropdown-item" value=-1 selected="selected">All</option>
-								<option class="dropdown-item" value=0 >Company</option>
+								<option class="dropdown-item" value=0 >Company/Distributor</option>
 								<option class="dropdown-item" value=1 >Vender</option>
 								<option class="dropdown-item" value=2 >Item</option>
 							</select>	

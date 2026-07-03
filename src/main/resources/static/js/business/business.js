@@ -746,6 +746,17 @@ function loadDataTable(){
 								+ "<span class='glyphicon glyphicon-share-alt'></span> Return</button>"
 						]);
 					});
+				} else if (getAll === "Product") {
+					$.each(collections, function(ind, obj) {
+						allRows.push([
+							// tr.append($('<td>').attr('id', 'stk_' + p.id).addClass('prod-onhand').text('…'));
+							"<div id=productId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
+							"<div id=name>"+escHtml(obj.name || '')+"</div>","<div id=sku>"+escHtml(obj.sku)+"</div>",
+							"<div id=unit>"+escHtml(obj.unit || '')+"</div>","<div id=sellingPrice>"+escHtml(obj.sellingPrice != null ? Number(obj.sellingPrice).toFixed(2) : '')+"</div>",
+							"<div id=taxRate>"+escHtml(obj.taxRate != null ? Number(obj.taxRate).toFixed(2) : '')+"</div>","<div id=categoryName>"+escHtml(obj.p.categoryName || '')+"</div>",
+							"<div id=productPrice>"+escHtml(obj.price != null ? Number(obj.price).toFixed(2) : '')+"</div>","<div id=productStock>"+obj.stock+"</div>",obj.updated
+						]);
+					});
 				}
 				// Single draw — much faster than calling draw() on every row.add()
 				datatable.rows.add(allRows).draw();

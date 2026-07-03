@@ -15,12 +15,12 @@ public interface DrugInteractionRepository extends JpaRepository<DrugInteraction
     String SCOPE = "(d.organizationId = :orgId OR (d.organizationId IS NULL AND d.userId = :userId))";
 
     /** Interactions where BOTH items are in the dispensed set. */
-    @Query("SELECT d FROM DrugInteraction d WHERE d.itemId1 IN :itemIds AND d.itemId2 IN :itemIds AND " + SCOPE)
-    List<DrugInteraction> findAmongScoped(@Param("itemIds") List<Long> itemIds,
+    @Query("SELECT d FROM DrugInteraction d WHERE d.productId1 IN :productIds AND d.productId2 IN :productIds AND " + SCOPE)
+    List<DrugInteraction> findAmongScoped(@Param("productIds") List<Long> productIds,
                                           @Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /** Existing interaction for a pair (either order), scoped — so addInteraction upserts instead of duplicating. */
-    @Query("SELECT d FROM DrugInteraction d WHERE ((d.itemId1 = :a AND d.itemId2 = :b) OR (d.itemId1 = :b AND d.itemId2 = :a)) AND " + SCOPE)
+    @Query("SELECT d FROM DrugInteraction d WHERE ((d.productId1 = :a AND d.productId2 = :b) OR (d.productId1 = :b AND d.productId2 = :a)) AND " + SCOPE)
     java.util.Optional<DrugInteraction> findPairScoped(@Param("a") Long a, @Param("b") Long b,
                                                        @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

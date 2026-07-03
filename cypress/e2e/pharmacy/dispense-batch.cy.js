@@ -24,9 +24,9 @@ describe('Pharmacy — batch/expiry on dispense (P10)', () => {
 
     cy.then(() => {
       cy.request({ method: 'POST', url: '/addProductStock', body: { productId, quantity: 50, batchNo: batch, expiryDate: expiry }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-      cy.request('/getStock?itemId=' + itemId).then((r) => {
+      cy.request('/productStock?productId=' + productId).then((r) => {   // M5: productId-native FEFO pre-fill
         const batches = r.body.batches || []
-        expect(batches.length, 'getStock returns FEFO batches').to.be.greaterThan(0)
+        expect(batches.length, 'productStock returns FEFO batches').to.be.greaterThan(0)
         expect(batches[0].batchNo).to.eq(batch)
         expect(batches[0].expiryDate).to.eq(expiry)
         expect(r.body.bexpDate, 'first-batch expiry surfaced on the DTO').to.eq(expiry)
@@ -38,7 +38,7 @@ describe('Pharmacy — batch/expiry on dispense (P10)', () => {
     cy.visit('/businessDashboard')
     cy.get('#sellType', { timeout: 10000 }).select('sellDiv', { force: true })   // open the Sell/dispense screen
     cy.get('#sellDiv').should('be.visible')
-    cy.window().then((w) => { w.tableV = 'Sell'; w.loadStock(pname, itemId) })   // simulate picking the medicine
+    cy.window().then((w) => { w.tableV = 'Sell'; w.loadStock(pname, productId) })   // M5: pick by productId
     cy.get('#sellBatchInfo', { timeout: 10000 }).should('be.visible')
       .and('contain', batch).and('contain', expiry)
   })

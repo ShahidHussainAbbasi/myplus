@@ -22,9 +22,9 @@ public class Dispensing {
     @JoinColumn(name = "prescription_item_id")
     private PrescriptionItem prescriptionItem;
 
-    // slice 41 (reuse): business Item reference (same id the sell flow uses); dispense reuses the POS sale.
-    @Column(name = "item_id")
-    private Long itemId;
+    // M5 (slice 100): catalog Product reference (same id the sell flow now uses); dispense reuses the POS sale.
+    @Column(name = "product_id")
+    private Long productId;
     private String medicineName;   // snapshot for the dispense record
 
     @Column(nullable = false)

@@ -9,5 +9,5 @@ import java.util.List;
 @Repository
 public interface PrescriptionItemRepository extends JpaRepository<PrescriptionItem, Long> {
     List<PrescriptionItem> findByPrescriptionId(Long prescriptionId);
-    List<PrescriptionItem> findByItemId(Long itemId);   // slice 41 (reuse): medicine = business Item (by id)
+    List<PrescriptionItem> findByProductId(Long productId);   // M5 (slice 100): medicine = catalog Product (by id)
 }

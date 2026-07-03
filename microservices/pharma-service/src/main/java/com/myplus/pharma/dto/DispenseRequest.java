@@ -13,7 +13,7 @@ public class DispenseRequest {
 
     @Data
     public static class Line {
-        private Long itemId;
+        private Long productId;   // M5 (slice 100): catalog Product id
         private int quantity;
     }
 }

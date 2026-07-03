@@ -26,7 +26,7 @@ describe('Pharmacy — insurance / co-pay (P12)', () => {
       method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
       body: {
         customer: { name: 'InsPatient_' + Date.now(), contact: '0300INS', paidAmount: 20, dueAmount: 0 },
-        sales: [{ itemId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
+        sales: [{ productId, quantity: 1, sellRate: 100, totalAmount: 100, netAmount: 100 }],
         tenders: [{ method: 'CASH', amount: 20, reference: '' }, { method: 'INSURANCE', amount: 80, reference: '' }],
       },
       failOnStatusCode: false,

@@ -16,8 +16,8 @@ public class SafetyReportDTO {
 
     @Data
     public static class Interaction {
-        private Long itemId1;
-        private Long itemId2;
+        private Long productId1;   // M5 (slice 100): catalog Product ids
+        private Long productId2;
         private String severity;
         private String description;
         private String recommendation;

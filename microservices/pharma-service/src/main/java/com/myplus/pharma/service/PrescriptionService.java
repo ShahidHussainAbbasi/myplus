@@ -53,7 +53,7 @@ public class PrescriptionService {
         for (PrescriptionItemDTO it : dto.getItems()) {
             itemRepo.save(PrescriptionItem.builder()
                     .prescription(p)
-                    .itemId(it.getItemId())
+                    .productId(it.getProductId())
                     .medicineName(it.getMedicineName())
                     .quantity(it.getQuantity())
                     .dosage(it.getDosage())
@@ -91,7 +91,7 @@ public class PrescriptionService {
         d.setItems(itemRepo.findByPrescriptionId(p.getId()).stream().map(i -> {
             PrescriptionItemDTO id = new PrescriptionItemDTO();
             id.setId(i.getId());
-            id.setItemId(i.getItemId());
+            id.setProductId(i.getProductId());
             id.setMedicineName(i.getMedicineName());
             id.setQuantity(i.getQuantity());
             id.setDosage(i.getDosage());

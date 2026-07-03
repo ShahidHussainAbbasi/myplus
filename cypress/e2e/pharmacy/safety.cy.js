@@ -6,17 +6,17 @@ describe('Pharmacy — dispense safety', () => {
   beforeEach(() => { cy.loginAsPharma() })
 
   it('checkSafety reports controlled items + interactions for the dispensed set', () => {
-    // unique itemIds per run so re-runs don't accumulate interaction rows
+    // unique productIds per run so re-runs don't accumulate interaction rows
     const base = Date.now() % 1000000000
     const a = base, b = base + 1
 
-    cy.request({ method: 'POST', url: '/saveClinical', body: { itemId: a, medicineName: 'CtrlMed', rxRequired: true, controlledSubstance: true }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
+    cy.request({ method: 'POST', url: '/saveClinical', body: { productId: a, medicineName: 'CtrlMed', rxRequired: true, controlledSubstance: true }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
       .then((r) => expect(r.body.success, JSON.stringify(r.body)).to.eq(true))
-    cy.request({ method: 'POST', url: '/saveClinical', body: { itemId: b, medicineName: 'OtherMed', rxRequired: false, controlledSubstance: false }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-    cy.request({ method: 'POST', url: '/addInteraction', body: { itemId1: a, itemId2: b, severity: 'SEVERE', description: 'A+B dangerous' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
+    cy.request({ method: 'POST', url: '/saveClinical', body: { productId: b, medicineName: 'OtherMed', rxRequired: false, controlledSubstance: false }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
+    cy.request({ method: 'POST', url: '/addInteraction', body: { productId1: a, productId2: b, severity: 'SEVERE', description: 'A+B dangerous' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
       .then((r) => expect(r.body.success).to.eq(true))
 
-    cy.request({ method: 'POST', url: '/checkSafety', body: { itemIds: [a, b] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((r) => {
+    cy.request({ method: 'POST', url: '/checkSafety', body: { productIds: [a, b] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((r) => {
       expect(r.status).to.eq(200)
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.controlledItems).to.include(a)
@@ -29,12 +29,12 @@ describe('Pharmacy — dispense safety', () => {
   it('interaction only fires when both items are in the set', () => {
     const base = (Date.now() % 1000000000) + 500
     const a = base, b = base + 1
-    cy.request({ method: 'POST', url: '/addInteraction', body: { itemId1: a, itemId2: b, severity: 'MODERATE' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
+    cy.request({ method: 'POST', url: '/addInteraction', body: { productId1: a, productId2: b, severity: 'MODERATE' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
-    cy.request({ method: 'POST', url: '/checkSafety', body: { itemIds: [a] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((r) => {
+    cy.request({ method: 'POST', url: '/checkSafety', body: { productIds: [a] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((r) => {
       expect(r.body.data.interactions).to.have.length(0)
     })
-    cy.request({ method: 'POST', url: '/checkSafety', body: { itemIds: [a, b] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((r) => {
+    cy.request({ method: 'POST', url: '/checkSafety', body: { productIds: [a, b] }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }).then((r) => {
       expect(r.body.data.interactions).to.have.length(1)
     })
   })

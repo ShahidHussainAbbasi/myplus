@@ -45,13 +45,7 @@ public class PurchaseService implements IPurchaseService{
     com.myplus.business_service.config.TradeSagaProperties tradeSagaProperties;
 
     @Autowired
-    com.myplus.business_service.repository.ItemCatalogMapRepo itemCatalogMapRepo;
-
-    @Autowired
     com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
-
-    @Autowired
-    CatalogMigrationService catalogMigrationService;   // M3.2: auto-map an item on purchase so it reaches inventory
 
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
@@ -207,12 +201,9 @@ public class PurchaseService implements IPurchaseService{
 		// (StockDTO scalar types already match Purchase; bexpDate parsed via AppUtil) instead of going through a local
 		// Stock entity. Inventory stays authoritative for on-hand (pushed below).
 		obj.setItemId(dto.getItemId());
-		// M4c (slice 92): prefer the productId the form submitted; fall back to mapping from itemId (legacy submissions
-		// or an item not yet catalog-mapped). ensureMapped is idempotent, so the fallback still auto-maps on demand.
-		Long productId = dto.getProductId() != null
-				? dto.getProductId()
-				: catalogMigrationService.ensureMapped(dto.getItemId(), user.getOrganizationId(), user.getUserId());
-		obj.setProductId(productId);
+		// M4e (slice 101): productId-native — the purchase form submits productId; the legacy ensureMapped(itemId)
+		// auto-map fallback has been retired.
+		obj.setProductId(dto.getProductId());
 		StockDTO snap = dto.getStock();
 		if (snap != null) {
 			obj.setBatchNo(snap.getBatchNo());

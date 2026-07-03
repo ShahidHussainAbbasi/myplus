@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 @Data
 public class ControlledDispenseDTO {
     private LocalDateTime dispensedAt;
-    private Long itemId;
+    private Long productId;   // M5 (slice 100): catalog Product id
     private String medicineName;
     private int quantity;
     private String patientName;

@@ -18,11 +18,11 @@ public interface MedicineClinicalRepository extends JpaRepository<MedicineClinic
     @Query("SELECT c FROM MedicineClinical c WHERE " + SCOPE + " ORDER BY c.medicineName ASC")
     List<MedicineClinical> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
-    @Query("SELECT c FROM MedicineClinical c WHERE c.itemId = :itemId AND " + SCOPE)
-    Optional<MedicineClinical> findByItemIdScoped(@Param("itemId") Long itemId,
+    @Query("SELECT c FROM MedicineClinical c WHERE c.productId = :productId AND " + SCOPE)
+    Optional<MedicineClinical> findByProductIdScoped(@Param("productId") Long productId,
                                                  @Param("orgId") Long orgId, @Param("userId") Long userId);
 
-    @Query("SELECT c FROM MedicineClinical c WHERE c.itemId IN :itemIds AND " + SCOPE)
-    List<MedicineClinical> findByItemIdsScoped(@Param("itemIds") List<Long> itemIds,
+    @Query("SELECT c FROM MedicineClinical c WHERE c.productId IN :productIds AND " + SCOPE)
+    List<MedicineClinical> findByProductIdsScoped(@Param("productIds") List<Long> productIds,
                                               @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

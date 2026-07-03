@@ -25,7 +25,7 @@ describe('Pharmacy — quarantine register (P11)', () => {
       // saga dispense of 5
       cy.request({
         method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
-        body: { customer: { name: cust, contact: '0300QR', paidAmount: 40, dueAmount: 0 }, sales: [{ itemId, quantity: 5, sellRate: 8, totalAmount: 40, netAmount: 40 }] },
+        body: { customer: { name: cust, contact: '0300QR', paidAmount: 40, dueAmount: 0 }, sales: [{ productId, quantity: 5, sellRate: 8, totalAmount: 40, netAmount: 40 }] },
         failOnStatusCode: false,
       }).then((r) => expect(r.body.status, JSON.stringify(r.body).substring(0, 200)).to.eq('SUCCESS'))
 

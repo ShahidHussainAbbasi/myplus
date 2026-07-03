@@ -3,7 +3,6 @@ package com.myplus.business_service.service;
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.dto.SellDTO;
 import com.myplus.business_service.entity.CustomerHistory;
-import com.myplus.business_service.repository.ItemCatalogMapRepo;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.client.InventoryClient;
@@ -32,7 +31,6 @@ public class SagaSellService {
 
     private static final Logger LOG = LoggerFactory.getLogger(SagaSellService.class);
 
-    private final ItemCatalogMapRepo itemCatalogMapRepo;
     private final CatalogClient catalogClient;
     private final InventoryClient inventoryClient;
     private final SagaSaleWriter saleWriter;
@@ -52,12 +50,10 @@ public class SagaSellService {
         List<SagaLine> lines = new ArrayList<>();
         List<StockReservationLine> reservationLines = new ArrayList<>();
         for (SellDTO s : dto.getSales()) {
-            // Catalog picker submits productId directly; legacy picker submits itemId → translate (back-compat).
-            Long productId = s.getProductId() != null
-                    ? s.getProductId()
-                    : itemCatalogMapRepo.findProductIdByItemId(s.getItemId(), orgId)
-                            .orElseThrow(() -> new RuntimeException(
-                                    "Item " + s.getItemId() + " is not migrated to catalog; run the catalog migration first"));
+            // M4e (slice 101): productId-native — every caller (POS + pharmacy) submits productId now; the legacy
+            // itemId→ItemCatalogMap translation has been retired.
+            Long productId = s.getProductId();
+            if (productId == null) throw new RuntimeException("Sale line has no productId — submit productId-native.");
             ProductRef product = catalogClient.getProduct(productId);
             BigDecimal sellRate = (product != null && product.getSellingPrice() != null)
                     ? product.getSellingPrice() : BigDecimal.ZERO;

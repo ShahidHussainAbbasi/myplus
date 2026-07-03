@@ -29,7 +29,7 @@ describe('Pharmacy — quarantine returns (P11)', () => {
       // saga dispense of 5 → on-hand 15
       cy.request({
         method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
-        body: { customer: { name: cust, contact: '0300QQ', paidAmount: 50, dueAmount: 0 }, sales: [{ itemId, quantity: 5, sellRate: 10, totalAmount: 50, netAmount: 50 }] },
+        body: { customer: { name: cust, contact: '0300QQ', paidAmount: 50, dueAmount: 0 }, sales: [{ productId, quantity: 5, sellRate: 10, totalAmount: 50, netAmount: 50 }] },
         failOnStatusCode: false,
       }).then((r) => expect(r.body.status, JSON.stringify(r.body).substring(0, 200)).to.eq('SUCCESS'))
 

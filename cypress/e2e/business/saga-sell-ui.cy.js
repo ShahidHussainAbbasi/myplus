@@ -9,7 +9,7 @@
 describe('Sell↔stock saga — through the sell form (UI)', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
-    cy.intercept('GET', '**/getStock*').as('getStock')
+    cy.intercept('GET', '**/productStock*').as('getStock')   // M4e.1b: picker pre-fills via productStock(productId)
     cy.intercept('POST', '**/addSell').as('addSell')
     cy.visit('/businessDashboard')
     cy.get('#sellType').select('sellDiv', { force: true })   // open the Sell section (off-screen select)

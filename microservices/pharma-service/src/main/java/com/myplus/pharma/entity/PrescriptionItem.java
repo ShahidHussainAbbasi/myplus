@@ -19,10 +19,10 @@ public class PrescriptionItem {
     @JoinColumn(name = "prescription_id")
     private Prescription prescription;
 
-    // slice 41 (reuse): a medicine is an existing business Item — reference it by itemId (same as the sell flow),
-    // so dispensing reuses the POS Sell/saga without a parallel product model.
-    @Column(name = "item_id")
-    private Long itemId;
+    // M5 (slice 100): a medicine is a catalog Product — reference it by productId (the same id the POS sell flow now
+    // uses), so dispensing reuses the POS Sell/saga on the single Product master.
+    @Column(name = "product_id")
+    private Long productId;
     private String medicineName;   // snapshot for display
 
     @Column(nullable = false)

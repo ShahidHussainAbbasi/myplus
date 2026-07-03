@@ -20,21 +20,27 @@
         loadPrescriptions();
     };
 
-    function loadRxItemOptions() {
-        // getUserItems returns ready-made <option value=itemId>name</option> markup — reuse it directly.
-        $.get(serverContext + 'getUserItems', function (html) {
-            $('#rxMedicine').html(html);
-        }).fail(function () { showFormError('Could not load medicines (items).'); });
+    // M5 (slice 100): the medicine picker lists catalog PRODUCTS (value = productId) — the single Product master,
+    // not the local business Item table. Shared by the prescription + clinical pickers.
+    function loadMedicineOptions(selectSel) {
+        $.get(serverContext + 'catalogProducts?size=2000', function (resp) {
+            var list = (resp && resp.data && resp.data.content) ? resp.data.content
+                     : (Array.isArray(resp && resp.data) ? resp.data : []);
+            var html = "<option value=''>Select medicine</option>";
+            list.forEach(function (p) { html += "<option value='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>"; });
+            $(selectSel).html(html);
+        }).fail(function () { showFormError('Could not load medicines.'); });
     }
+    function loadRxItemOptions() { loadMedicineOptions('#rxMedicine'); }
 
     global.addRxItem = function () {
         var $opt = $('#rxMedicine option:selected');
-        var itemId = $('#rxMedicine').val();
-        if (!itemId) { showFormError('Pick a medicine (register it on the Item screen first).'); return; }
+        var productId = $('#rxMedicine').val();
+        if (!productId) { showFormError('Pick a medicine (register it on the Product screen first).'); return; }
         var qty = num($('#rxQty').val());
         if (qty <= 0) { showFormError('Enter a quantity.'); return; }
         rxItems.push({
-            itemId: Number(itemId), medicineName: $opt.text().trim(),
+            productId: Number(productId), medicineName: $opt.text().trim(),
             quantity: qty, dosage: $('#rxDosage').val(), frequency: $('#rxFreq').val(), duration: $('#rxDuration').val()
         });
         $('#rxQty,#rxDosage,#rxFreq,#rxDuration').val('');
@@ -113,16 +119,16 @@
         try { $('#sellType').val('sellDiv').trigger('change'); } catch (e) { /* global handler failed — switch anyway */ }
         $('.formDiv').hide(); $('#sellDiv').show();
         $('#dispenseBanner').show();
-        // P7: warn the pharmacist about controlled items / interactions before they dispense.
-        var itemIds = (rx.items || []).map(function (it) { return it.itemId; }).filter(Boolean);
-        checkSafetyForItems(itemIds);
+        // P7: warn the pharmacist about controlled products / interactions before they dispense.
+        var productIds = (rx.items || []).map(function (it) { return it.productId; }).filter(Boolean);
+        checkSafetyForItems(productIds);
     };
 
-    function checkSafetyForItems(itemIds) {
-        if (!itemIds || !itemIds.length) return;
+    function checkSafetyForItems(productIds) {
+        if (!productIds || !productIds.length) return;
         $.ajax({
             type: 'POST', url: serverContext + 'checkSafety', contentType: 'application/json', dataType: 'json',
-            data: JSON.stringify({ itemIds: itemIds }),
+            data: JSON.stringify({ productIds: productIds }),   // M5 (slice 100): productId-native
             success: function (resp) {
                 var rep = (resp && resp.data) ? resp.data : null;
                 if (!rep) return;
@@ -141,9 +147,7 @@
     global.showClinical = function () {
         $('.formDiv').hide();
         $('#ClinicalDiv').show();
-        $.get(serverContext + 'getUserItems', function (html) {
-            $('#clItem,#clInterA,#clInterB').html(html);
-        });
+        loadMedicineOptions('#clItem,#clInterA,#clInterB');   // M5 (slice 100): catalog Products (productId)
         loadClinical();
     };
 
@@ -154,7 +158,7 @@
             list.forEach(function (c) {
                 var tr = $('<tr>');
                 tr.append($('<td>').text(c.medicineName || ''));
-                tr.append($('<td>').text(c.itemId));
+                tr.append($('<td>').text(c.productId));
                 tr.append($('<td>').text(c.rxRequired ? 'Yes' : ''));
                 tr.append($('<td>').text(c.controlledSubstance ? 'Yes' : ''));
                 $b.append(tr);
@@ -164,11 +168,11 @@
     global.loadClinical = loadClinical;
 
     global.saveClinical = function () {
-        var itemId = $('#clItem').val();
-        if (!itemId) { showFormError('Pick a medicine (item).'); return; }
+        var productId = $('#clItem').val();
+        if (!productId) { showFormError('Pick a medicine.'); return; }
         $.ajax({
             type: 'POST', url: serverContext + 'saveClinical', contentType: 'application/json', dataType: 'json',
-            data: JSON.stringify({ itemId: Number(itemId), medicineName: $('#clItem option:selected').text().trim(),
+            data: JSON.stringify({ productId: Number(productId), medicineName: $('#clItem option:selected').text().trim(),
                 rxRequired: $('#clRx').is(':checked'), controlledSubstance: $('#clControlled').is(':checked') }),
             success: function (resp) {
                 if (resp && resp.success) { showSaleSuccess('Flags saved.'); $('#clRx,#clControlled').prop('checked', false); loadClinical(); }
@@ -183,7 +187,7 @@
         if (!a || !b || a === b) { showFormError('Pick two different medicines.'); return; }
         $.ajax({
             type: 'POST', url: serverContext + 'addInteraction', contentType: 'application/json', dataType: 'json',
-            data: JSON.stringify({ itemId1: Number(a), itemId2: Number(b), severity: $('#clSeverity').val(), description: $('#clInterDesc').val() }),
+            data: JSON.stringify({ productId1: Number(a), productId2: Number(b), severity: $('#clSeverity').val(), description: $('#clInterDesc').val() }),
             success: function (resp) {
                 if (resp && resp.success) { showSaleSuccess('Interaction added.'); $('#clInterDesc').val(''); }
                 else showFormError((resp && resp.message) || 'Could not add interaction.');
@@ -246,7 +250,8 @@
     global.dispensePrescription = function (invoiceNo) {
         var id = window.dispensingPrescriptionId;
         if (!id) return;
-        var items = (window.data || []).map(function (d) { return { itemId: Number(d.itemId), quantity: Number(d.quantity) || 0 }; });
+        // M5 (slice 100): the cart line keys by productId now; dispense records against the catalog Product.
+        var items = (window.data || []).map(function (d) { return { productId: Number(d.productId), quantity: Number(d.quantity) || 0 }; });
         $.ajax({
             type: 'POST', url: serverContext + 'dispensePrescription', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ prescriptionId: id, invoiceNo: invoiceNo, items: items }),

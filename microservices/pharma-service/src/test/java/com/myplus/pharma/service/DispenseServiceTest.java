@@ -59,7 +59,7 @@ class DispenseServiceTest {
         PrescriptionDTO d = new PrescriptionDTO();
         d.setPatientName("Alice");
         PrescriptionItemDTO it = new PrescriptionItemDTO();
-        it.setItemId(ITEM); it.setMedicineName("Paracetamol"); it.setQuantity(20);
+        it.setProductId(ITEM); it.setMedicineName("Paracetamol"); it.setQuantity(20);
         d.getItems().add(it);
         return prescriptionService.create(d, ORG, USER).getId();
     }
@@ -68,7 +68,7 @@ class DispenseServiceTest {
         DispenseRequest r = new DispenseRequest();
         r.setInvoiceNo("INV-000001");
         DispenseRequest.Line l = new DispenseRequest.Line();
-        l.setItemId(ITEM); l.setQuantity(qty);
+        l.setProductId(ITEM); l.setQuantity(qty);
         r.getItems().add(l);
         return r;
     }

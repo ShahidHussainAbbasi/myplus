@@ -59,7 +59,7 @@ class PrescriptionServiceTest {
         d.setDoctorLicense("LIC-123");
         d.setDiagnosis("Headache");
         PrescriptionItemDTO it = new PrescriptionItemDTO();
-        it.setItemId(555L);
+        it.setProductId(555L);
         it.setMedicineName("Paracetamol 500mg");
         it.setQuantity(20);
         it.setDosage("1 tab");
@@ -78,7 +78,7 @@ class PrescriptionServiceTest {
 
         PrescriptionDTO got = service.get(out.getId(), ORG, USER);
         assertThat(got.getPatientName()).isEqualTo("Alice");
-        assertThat(got.getItems().get(0).getItemId()).isEqualTo(555L);
+        assertThat(got.getItems().get(0).getProductId()).isEqualTo(555L);
         assertThat(got.getItems().get(0).getFrequency()).isEqualTo("TDS");
     }
 
