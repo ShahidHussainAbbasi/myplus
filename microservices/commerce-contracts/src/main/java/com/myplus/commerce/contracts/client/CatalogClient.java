@@ -29,6 +29,10 @@ public interface CatalogClient {
     @GetExchange("/products/refs")
     List<ProductRef> getProducts(@RequestParam("ids") List<Long> ids);
 
+    /** M4e.c (slice 103): tenant-scoped product count (dashboard KPI). */
+    @GetExchange("/products/count")
+    long countProducts();
+
     /** Bulk import products (item→product migration, slice 33 U2). Returns the clientRef→productId map. */
     @PostExchange("/products/import")
     List<ProductImportResult> importProducts(@RequestBody List<ProductImportLine> items);

@@ -27,7 +27,6 @@ import com.myplus.business_service.entity.Sell;
 import com.myplus.business_service.entity.Vender;
 import com.myplus.business_service.service.ICompanyService;
 import com.myplus.business_service.service.ICustomerService;
-import com.myplus.business_service.service.IItemService;
 import com.myplus.business_service.service.ISellService;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
@@ -54,9 +53,6 @@ public class BusinessDashboardController {
     private ICustomerService customerService;
 
     @Autowired
-    private IItemService itemService;
-
-    @Autowired
     private ISellService sellService;
 
     @Autowired
@@ -78,7 +74,10 @@ public class BusinessDashboardController {
             long companyCount  = companyService.findScoped(orgId, userId).size();
             long venderCount   = venderRepo.findScoped(orgId, userId).size();
             long customerCount = customerService.findScoped(orgId, userId).size();
-            long itemCount     = itemService.findScoped(orgId, userId).size();
+            // M4e.c (slice 103): the "items" KPI now counts catalog Products (the single master), not local Items.
+            long itemCount = 0;
+            try { itemCount = catalogClient.countProducts(); }
+            catch (Exception ex) { LOGGER.warn("M4e.c: catalog product count failed; items KPI shows 0", ex); }
 
             LocalDateTime startOfMonth = appUtil.firstDateTimeOfMonth();
             LocalDateTime endOfMonth = appUtil.lastDateTimeOfMonth();

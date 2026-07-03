@@ -62,6 +62,12 @@ public class ProductController {
         return productService.getRefs(ids);
     }
 
+    /** M4e.c (slice 103): tenant-scoped product count for the dashboard KPI — GET /products/count. */
+    @GetMapping("/count")
+    public long count() {
+        return productService.count();
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductDTO>> update(@PathVariable Long id, @RequestBody ProductDTO dto) {
         return ResponseEntity.ok(ApiResponse.success(productService.update(id, dto), "Updated"));

@@ -30,6 +30,12 @@ public class ProductService {
         return productRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
+    /** M4e.c (slice 103): tenant-scoped product count for the dashboard KPI. */
+    @Transactional(readOnly = true)
+    public long count() {
+        return productRepository.countScoped(CurrentUser.organizationId(), CurrentUser.userId());
+    }
+
     @Transactional(readOnly = true)
     public ProductDTO getById(Long id) {
         return toDto(getEntity(id));

@@ -21,6 +21,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE " + SCOPE)
     Page<Product> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
+    /** M4e.c (slice 103): tenant-scoped product count (for the dashboard KPI, replacing the local Item count). */
+    @Query("SELECT COUNT(p) FROM Product p WHERE " + SCOPE)
+    long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
     // Public storefront (slice 47): active products for a store (by orgId — no JWT identity on a public call).
     java.util.List<Product> findByOrganizationIdAndIsActiveTrueOrderByNameAsc(Long organizationId);
 
