@@ -96,13 +96,17 @@ public class CatalogController {
     @ResponseBody
     public Map<String, Object> getUserProduct(final HttpServletRequest request) {
         try {
+            // "Show inactive" toggle: when true, include deactivated products (each carries isActive so the row can
+            // show a status badge + a Reactivate action). Default hides them (the "delete" UX).
+            boolean includeInactive = "true".equalsIgnoreCase(request.getParameter("includeInactive"));
             Map<String, Object> resp = catalog.get("/products", "size=1000");
             java.util.List<Map<String, Object>> collection = new java.util.ArrayList<>();
             Object data = (resp != null) ? resp.get("data") : null;
             if (data instanceof Map<?, ?> page && page.get("content") instanceof java.util.List<?> list) {
                 for (Object o : list) {
                     if (!(o instanceof Map<?, ?> p)) continue;
-                    if (Boolean.FALSE.equals(p.get("isActive"))) continue;   // deactivated → hidden
+                    boolean inactive = Boolean.FALSE.equals(p.get("isActive"));
+                    if (inactive && !includeInactive) continue;   // deactivated → hidden unless "Show inactive"
                     Map<String, Object> row = new java.util.LinkedHashMap<>();
                     row.put("id", p.get("id"));
                     row.put("name", p.get("name"));
@@ -113,6 +117,7 @@ public class CatalogController {
                     row.put("categoryName", p.get("categoryName"));
                     row.put("manufacturer", p.get("manufacturer"));
                     row.put("description", p.get("description"));
+                    row.put("isActive", p.get("isActive") == null ? Boolean.TRUE : p.get("isActive"));   // for the Status column / Reactivate
                     row.put("userId", p.get("createdBy"));   // keeps loadDataTable's userId bookkeeping happy
                     collection.add(row);
                 }
@@ -153,6 +158,22 @@ public class CatalogController {
             return Collections.singletonMap("success", true);
         } catch (Exception e) {
             LOGGER.error("deactivateProduct proxy error", e);
+            return failure(e);
+        }
+    }
+
+    /** Reactivate a previously-deactivated product (the Product screen's Reactivate action) → catalog
+     *  PUT /products/{id}/activate. Brings it back into the list + pickers. */
+    @PostMapping("/activateProduct")
+    @ResponseBody
+    public Map<String, Object> activateProduct(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body.get("id");
+            if (id == null || id.toString().isBlank()) return Collections.singletonMap("success", false);
+            catalog.putJson("/products/" + id.toString().trim() + "/activate", Collections.emptyMap());
+            return Collections.singletonMap("success", true);
+        } catch (Exception e) {
+            LOGGER.error("activateProduct proxy error", e);
             return failure(e);
         }
     }

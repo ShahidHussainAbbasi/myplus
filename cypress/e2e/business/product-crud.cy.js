@@ -172,6 +172,26 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
     })
   })
 
+  it('reactivate: deactivated product is hidden by default, shown with includeInactive, then reactivated', () => {
+    cy.seedProduct({ name: 'RA_' + Date.now() }).then(({ productId }) => {
+      // deactivate
+      cy.request({ method: 'POST', url: '/deactivateProduct', headers: { 'Content-Type': 'application/json' }, body: { checked: String(productId) }, failOnStatusCode: false })
+        .then((r) => expect(r.body.success).to.eq(true))
+      // hidden from the default list
+      cy.request('/getUserProduct?q=-1').then((r) => expect((r.body.collection || []).some((p) => p.id === productId)).to.be.false)
+      // visible with the "Show inactive" toggle, flagged inactive
+      cy.request('/getUserProduct?q=-1&includeInactive=true').then((r) => {
+        const mine = (r.body.collection || []).find((p) => p.id === productId)
+        expect(mine, 'inactive product visible with includeInactive').to.exist
+        expect(mine.isActive).to.eq(false)
+      })
+      // reactivate → active + back in the default list
+      cy.request({ method: 'POST', url: '/activateProduct', headers: { 'Content-Type': 'application/json' }, body: { id: productId }, failOnStatusCode: false })
+        .then((r) => expect(r.body.success).to.eq(true))
+      cy.request('/getUserProduct?q=-1').then((r) => expect((r.body.collection || []).some((p) => p.id === productId)).to.be.true)
+    })
+  })
+
   it('New opens the Product form modal; selecting a row shows the bulk-action bar', () => {
     cy.seedProduct({ name: 'PM_' + Date.now(), stock: 3 }).then(({ productId }) => {
       cy.visit('/businessDashboard')

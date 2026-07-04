@@ -27,7 +27,7 @@
             var list = (resp && resp.data && resp.data.content) ? resp.data.content
                      : (Array.isArray(resp && resp.data) ? resp.data : []);
             var html = "<option value=''>Select medicine</option>";
-            list.forEach(function (p) { html += "<option value='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>"; });
+            list.forEach(function (p) { if (p.isActive === false) return; html += "<option value='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>"; });
             $(selectSel).html(html);
         }).fail(function () { showFormError('Could not load medicines.'); });
     }

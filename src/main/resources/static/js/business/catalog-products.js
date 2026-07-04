@@ -200,4 +200,23 @@
             error: function () { showFormError('Could not remove the product(s).'); }
         });
     };
+
+    // "Show inactive" toggle — include deactivated products in the list (with a Status column + Reactivate action).
+    global.toggleShowInactiveProducts = function (checked) {
+        window.productShowInactive = !!checked;
+        loadDataTable();
+    };
+
+    // Reactivate a deactivated product — brings it back into the list + the purchase/sale/medicine pickers.
+    global.reactivateProduct = function (productId) {
+        $.ajax({
+            type: 'POST', url: serverContext + 'activateProduct', contentType: 'application/json', dataType: 'json',
+            data: JSON.stringify({ id: productId }),
+            success: function (resp) {
+                if (resp && resp.success) { showSaleSuccess('Product reactivated.'); loadDataTable(); }
+                else { showFormError((resp && resp.message) || 'Could not reactivate the product.'); }
+            },
+            error: function () { showFormError('Could not reactivate the product.'); }
+        });
+    };
 })(window);

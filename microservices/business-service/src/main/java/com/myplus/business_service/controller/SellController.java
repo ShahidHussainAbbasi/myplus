@@ -411,6 +411,20 @@ public class SellController {
 					dtotemp.setItemCode(p.getSku());
 					dtotemp.setDescription(p.getDescription());
 				}
+				// Sale report: flatten the invoice (CustomerHistory) + Customer onto the line so the UI can show
+				// invoice #, who bought, how they paid and what's still owed without a second round-trip.
+				CustomerHistory ch = obj.getCustomerHistory();
+				if (ch != null) {
+					dtotemp.setInvoiceNo(ch.getInvoiceNo());
+					dtotemp.setPaymentMode(ch.getPaymentMode());
+					dtotemp.setDueAmount(ch.getDueAmount());
+					dtotemp.setGrandTotal(ch.getGrandTotal());
+					dtotemp.setDueDate(ch.getDueDate() != null ? ch.getDueDate().toString() : "");
+					if (ch.getCustomer() != null) {
+						dtotemp.setCn(ch.getCustomer().getName());
+						dtotemp.setCc(ch.getCustomer().getContact());
+					}
+				}
 				dtotemp.setDated(appUtil.getDateStr(obj.getDated()));
 				dtotemp.setUpdated(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dtotemp);

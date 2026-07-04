@@ -552,17 +552,18 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
 .navbar-inverse {
   background: linear-gradient(100deg, #070F2B 0%, #0D2353 30%, #0D3B8C 65%, #1565C0 100%) !important;
   border: none !important;
-  border-bottom: 3px solid rgba(255,255,255,.12) !important;
-  box-shadow: 0 6px 32px rgba(7,15,43,.6) !important;
-  min-height: 62px;
+  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+  box-shadow: 0 2px 14px rgba(7,15,43,.45) !important;
+  min-height: 48px;
 }
 .navbar-brand,
 .navbar-inverse .navbar-brand {
   color: #fff !important;
-  font-weight: 800;
-  font-size: 19px;
+  font-weight: 700;
+  font-size: 17px;
   letter-spacing: -0.03em;
-  padding: 15px 20px;
+  padding: 12px 20px;
+  height: 48px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -571,8 +572,8 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
 .navbar-inverse .navbar-nav > li > a {
   color: rgba(255,255,255,.82) !important;
   font-weight: 500;
-  font-size: 13.5px;
-  padding: 19px 16px !important;
+  font-size: 13px;
+  padding: 14px 15px !important;
   transition: var(--transition);
   letter-spacing: 0.01em;
 }
@@ -581,16 +582,28 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   color: #fff !important;
   background: rgba(255,255,255,.12) !important;
 }
+/* Right cluster (user chip / logout / sign-in) — flex-center it in the 48px bar so
+   nothing sits off-baseline or forces the bar taller. Desktop only: below 768px the
+   navbar collapses into a vertical dropdown that must keep its normal stacked flow. */
+@media (min-width: 768px) {
+  .navbar-nav.navbar-right {
+    display: flex;
+    align-items: center;
+    height: 48px;
+    margin: 0 8px 0 0;
+  }
+  .navbar-nav.navbar-right > li { float: none; display: flex; align-items: center; }
+}
 .navbar-right > li > a {
-  margin: 12px 14px 0;
+  margin: 0 6px !important;
   background: rgba(255,255,255,.15) !important;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(255,255,255,.3) !important;
-  border-radius: 20px !important;
+  border-radius: 18px !important;
   color: #fff !important;
-  padding: 6px 18px !important;
-  font-size: 13px;
+  padding: 5px 16px !important;
+  font-size: 12.5px;
   font-weight: 600;
   display: inline-flex !important;
   align-items: center;
@@ -997,8 +1010,28 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   .tableOuterDiv,
   .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+  /* DataTables: most dashboard grids are NOT wrapped in .tableOuterDiv, so a wide table (e.g. the
+     13-column Sale Detail Report) would push the whole page sideways. Let the DataTables wrapper
+     scroll its own overflow horizontally instead of the viewport. */
+  .dataTables_wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .dataTables_wrapper table.dataTable { min-width: 560px; }   /* keep columns legible, not squashed */
+
+  /* DataTables toolbar (buttons / length / search) stacks instead of colliding on narrow screens */
+  .dataTables_wrapper .dt-buttons { float: none; text-align: center; margin-bottom: 8px; }
+  .dataTables_wrapper .dataTables_filter,
+  .dataTables_wrapper .dataTables_length { float: none; text-align: left; margin-bottom: 6px; }
+  .dataTables_wrapper .dataTables_filter input { width: 100%; box-sizing: border-box; }
+  .dataTables_wrapper .dataTables_paginate { float: none; text-align: center; }
+
   /* Sell cart table: scoped to its own wrapper div, not the parent */
   #sellCartScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Panels/cards that use a desktop max-width:60% become full-width on phones */
+  .cart-panel { max-width: 100% !important; }
+  .crud-box { max-width: 96% !important; }
+
+  /* Belt-and-braces: nothing should push the page sideways on mobile */
+  body { overflow-x: hidden; }
 }
 
 /* Small phones (≤ 480px) */

@@ -5,143 +5,48 @@ var tableSellReport;
 
 
 $(document).ready(function() {
+    // Sale Detail Report table. Columns (0-based): 0 Date, 1 Invoice#, 2 Product, 3 Qty, 4 List price,
+    // 5 Unit price, 6 Line total, 7 Tax, 8 Net, 9 Customer, 10 Contact, 11 Payment, 12 Invoice due.
     tableSellReport = $('#tableSellReport').DataTable( {
         dom: 'Bfrtip',
+        order: [[ 0, 'desc' ]],
         lengthMenu: [
             [ 10, 25, 50, -1 ],
             [ '10 rows', '25 rows', '50 rows', 'Show all' ]
-        ],        
+        ],
+        columnDefs: [ { targets: [3,4,5,6,7,8,12], className: 'num' } ],
         buttons: [
         	'pageLength',
-            { extend: 'copyHtml5', footer: true },
-            { extend: 'csvHtml5', footer: true },
-            { extend: 'excelHtml5', footer: true },
-            { extend: 'print', footer: true },
+            { extend: 'copyHtml5', footer: true, title: 'Sale Detail Report' },
+            { extend: 'csvHtml5', footer: true, title: 'Sale Detail Report' },
+            { extend: 'excelHtml5', footer: true, title: 'Sale Detail Report' },
+            { extend: 'print', footer: true, title: 'Sale Detail Report' },
         	{ extend: 'pdfHtml5',
               orientation: 'landscape',
               pageSize: 'LEGAL',
-              footer: true
+              footer: true,
+              title: 'Sale Detail Report'
             }
         ],
 	    
 	    "footerCallback": function ( row, data, start, end, display ) {
-	        var api = this.api(), data;
-	
-	        // Remove the formatting to get integer data for summation
+	        var api = this.api();
+
+	        // Strip formatting (commas / currency) so numeric columns can be summed.
 	        var intVal = function ( i ) {
-	            return typeof i === 'string' ?
-	                i.replace(/[\$,]/g, '')*1 :
-	                typeof i === 'number' ?
-	                    i : 0;
+	            return typeof i === 'string' ? (i.replace(/[^0-9.\-]/g, '') * 1 || 0) :
+	                   typeof i === 'number' ? i : 0;
 	        };
-	
-	        // Total over all pages
-	        feeTotal = api
-	            .column( 1 )
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Total over this page
-	        feePageTotal = api
-	            .column( 1, { page: 'current'} )
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Update footer
-	        $( api.column( 1 ).footer() ).html(
-	            feePageTotal +'/'+ feeTotal
-	        );
-
-	        // Total over all pages
-	        otherTotal = api
-	            .column( 4 )
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Total over this page
-	        otherPageTotal = api
-	            .column( 4, { page: 'current'} )
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Update footer
-	        $( api.column( 4 ).footer() ).html(
-	            otherPageTotal +'/'+ otherTotal
-	        );
-	    
-
-	        // Total over all pages
-	        disTotal = api
-	            .column(5)
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Total over this page
-	        disPageTotal = api
-	            .column(5, { page: 'current'} )
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Update footer
-	        $( api.column(5).footer() ).html(
-	        		disPageTotal +'/'+ disTotal
-	        );
-
-	        // Total over all pages
-	        dueTotal = api
-	            .column(7)
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Total over this page
-	        duePageTotal = api
-	            .column(7, { page: 'current'} )
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Update footer
-	        $( api.column(7).footer() ).html(
-	        		duePageTotal +'/'+ dueTotal
-	        );
-	    
-	        // Total over all pages
-	        paidTotal = api
-	            .column(8)
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Total over this page
-	        paidPageTotal = api
-	            .column(8, { page: 'current'} )
-	            .data()
-	            .reduce( function (a, b) {
-	                return intVal(a) + intVal(b);
-	            }, 0 );
-	
-	        // Update footer
-	        $( api.column(8).footer() ).html(
-	        		paidPageTotal +'/'+ paidTotal
-	        );
-	        
-	    }    
+	        var sumCol = function ( idx ) {
+	            return api.column( idx ).data().reduce( function (a, b) { return intVal(a) + intVal(b); }, 0 );
+	        };
+	        // 3 Qty (plain), 6 Line total, 7 Tax, 8 Net (money). Invoice due (12) is invoice-level — not summed
+	        // per line to avoid double counting; the KPI card shows outstanding due by distinct invoice.
+	        $( api.column(3).footer() ).html( srNum( sumCol(3) ) );
+	        $( api.column(6).footer() ).html( srMoney( sumCol(6) ) );
+	        $( api.column(7).footer() ).html( srMoney( sumCol(7) ) );
+	        $( api.column(8).footer() ).html( srMoney( sumCol(8) ) );
+	    }
     } );
  
     $('a.toggle-vis').on( 'click', function (e) {
@@ -418,6 +323,7 @@ function loadCartLineIntoForm(line){
 		         : (Array.isArray(resp && resp.data) ? resp.data : []);
 		var html = "<option value=''>Nothing Selected</option>";
 		list.forEach(function(p){
+			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker — not sellable/purchasable
 			html += "<option value='" + p.id + "' data-product='" + p.id + "' data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
 		});
 		var $dd = $('#sellItemDD').empty().append(html);
@@ -620,7 +526,7 @@ function loadDataTable(){
 		"ajax": {
 			// Load ALL records so DataTables handles Next/Back pagination and search locally.
 			// Search: DataTables filters the loaded set first; re-open the section to refresh from DB.
-			"url": serverContext + "getUser" + getAll + "?q=-1",
+			"url": serverContext + "getUser" + getAll + "?q=-1" + ((getAll === "Product" && window.productShowInactive) ? "&includeInactive=true" : ""),
 			"type": "GET",
 			"success": function(data) {
 				if(reload != tableV) reload = tableV;
@@ -708,8 +614,8 @@ function loadDataTable(){
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
 							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>",
 							"<div id=purchaseDiscount>"+obj.stock.bpurchaseDiscount+"</div>",
-							"<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
-							"<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
+							// "<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
+							// "<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"
 						]);
 					});
@@ -765,7 +671,10 @@ function loadDataTable(){
 							"<div id=stk_"+obj.id+" class=prod-onhand>…</div>",
 							"<input type=number min=0 step=any id=addstk_"+obj.id+" class='form-control input-sm prod-addstk' style='width:80px;display:inline-block'>"
 								+ "<button type=button id=addstkbtn_"+obj.id+" class='btn btn-xs btn-success' style='margin-left:4px' title='Add to on-hand' onclick='addProductStock("+obj.id+")'><span class='glyphicon glyphicon-plus'></span></button>"
-								+ "<button type=button id=lessstkbtn_"+obj.id+" class='btn btn-xs btn-warning' style='margin-left:4px' title='Correct / reduce on-hand' onclick='adjustProductStock("+obj.id+")'><span class='glyphicon glyphicon-minus'></span></button>"
+								+ "<button type=button id=lessstkbtn_"+obj.id+" class='btn btn-xs btn-warning' style='margin-left:4px' title='Correct / reduce on-hand' onclick='adjustProductStock("+obj.id+")'><span class='glyphicon glyphicon-minus'></span></button>",
+							(obj.isActive === false
+								? "<span class='label label-default'>Inactive</span> <button type=button class='btn btn-xs btn-info' style='margin-left:6px' onclick='reactivateProduct("+obj.id+")' title='Reactivate this product'><span class='glyphicon glyphicon-refresh'></span> Reactivate</button>"
+								: "<span class='label label-success'>Active</span>")
 						]);
 					});
 				}
@@ -1127,6 +1036,7 @@ function loadUserItems(table) {
 		         : (Array.isArray(resp && resp.data) ? resp.data : []);
 		var html = "<option value=''>Nothing Selected</option>";
 		list.forEach(function(p){
+			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker — not sellable/purchasable
 			html += "<option value='" + p.id + "' data-product='" + p.id + "' data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
 		});
 		$("#"+table+"ItemDD").empty().append(html);
@@ -1525,27 +1435,143 @@ function refreshAccountDuePreview(dueThis) {
 	
 // }
 
+// ─── Sale Detail Report ───────────────────────────────────────────────────────
+// Number/money/escape helpers (function declarations → hoisted, so the DataTable footerCallback
+// defined at the top of the file can call srNum/srMoney safely).
+function srNum(n){
+	n = (typeof n === 'number') ? n : (parseFloat(n) || 0);
+	return (Math.round(n * 100) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+function srMoney(n){
+	n = (typeof n === 'number') ? n : (parseFloat(n) || 0);
+	return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+// Money for a table cell — blank/absent shows an em dash instead of a misleading 0.00.
+function srMoneyCell(v){
+	if (v === null || v === undefined || v === '') return '—';
+	return srMoney(v);
+}
+// Always escape user-supplied strings before injecting into DataTables HTML (XSS-safe rendering).
+function escSR(s){
+	if (typeof escHtml === 'function') return escHtml(s == null ? '' : String(s));
+	return (s == null ? '' : String(s)).replace(/[&<>"']/g, function(c){
+		return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+	});
+}
+
+// Show/hide the custom date-range pickers based on the Period select (0 = current month, 4 = custom).
+// The eonasdan datetimepicker mis-initialises when bound to a display:none field (its global
+// document-ready init runs while these wrappers are hidden), so the calendar never opens. Re-create
+// the pickers the moment they become visible. Format stays dd-MM-yyyy HH:mm:ss — the backend's
+// getDateTime() parses sd/ed strictly with that pattern.
+function initSRDatePickers(){
+	['#srsd', '#sred'].forEach(function(sel){
+		var $el = $(sel);
+		if (!$el.length) return;
+		try { if ($el.data('DateTimePicker')) $el.data('DateTimePicker').destroy(); } catch (e) {}
+		$el.datetimepicker({
+			format: 'DD-MM-YYYY HH:mm:ss',
+			useCurrent: false,
+			showTodayButton: true,
+			showClear: true,
+			showClose: true,
+			toolbarPlacement: 'top'
+		}).on('dp.show', function(){
+			var dtp = $(this).data('DateTimePicker');
+			if (dtp && dtp.date() === null) dtp.date(moment());
+		});
+	});
+}
+function toggleSRCustomRange(){
+	var custom = $('#dateRangeDDSR').val() === '4';
+	$('#srStartWrap, #srEndWrap').toggle(custom);
+	if (custom){
+		initSRDatePickers();
+	} else {
+		$('#srsd').val(''); $('#sred').val('');
+	}
+}
+
+// KPI summary — aggregates the line collection. Invoice-level figures (due) are counted once per
+// distinct invoice so multiple lines on the same invoice don't double-count.
+function renderSRKpis(rows){
+	var gross = 0, tax = 0, qty = 0, invoices = {}, dueByInv = {};
+	rows.forEach(function(o){
+		gross += parseFloat(o.totalAmount) || 0;
+		tax   += parseFloat(o.taxAmount)   || 0;
+		qty   += parseFloat(o.quantity)    || 0;
+		var inv = o.invoiceNo || ('#' + (o.sellId || ''));
+		invoices[inv] = true;
+		if (!(inv in dueByInv)){
+			var d = parseFloat(o.dueAmount);
+			dueByInv[inv] = (!isNaN(d) && d < 0) ? -d : 0;   // dueAmount<0 = customer still owes
+		}
+	});
+	var due = 0;
+	Object.keys(dueByInv).forEach(function(k){ due += dueByInv[k]; });
+	$('#srkGross').text(srMoney(gross));
+	$('#srkTax').text(srMoney(tax));
+	$('#srkBilled').text(srMoney(gross + tax));
+	$('#srkItems').text(srNum(qty));
+	$('#srkInvoices').text(Object.keys(invoices).length);
+	$('#srkDue').text(srMoney(due));
+	$('#srKpis').css('display', 'grid');
+}
+
 function loadSR(){
 	tableSellReport.clear().draw();
-	validateForm();
+	$('#srKpis').hide();
+	clearFormError();
+	// Self-contained params (the report bypasses the shared form-scan machinery): rp = period,
+	// sd/ed = custom range. Backend contract unchanged.
+	var rp = $('#dateRangeDDSR').val();
+	var sd = $('#srsd').val();
+	var ed = $('#sred').val();
+	if (rp === '4' && !sd && !ed){
+		showFormError('Please pick a start and/or end date for the custom range.');
+		return;
+	}
 	$.ajax({
 		type : "POST",
 		url : serverContext + "loadSR",
 		dataType : "json",
-		data : populateFormData(),
+		data : { rp: rp, sd: sd, ed: ed },
 		success : function(data) {
 			if(data.status!=="SUCCESS"){
- 					showFormError((data.status || '') + (data.message ? ': ' + data.message : ''));
-			}else{
-				if(!data || !data.collection)
- 					showFormError('Data not found.');
-
-				$.each(data.collection, function(ind, o) {
-					var row = [o.itemCode +" - "+o.itemName, o.stock,o.purchaseRate,o.sellRate,o.quantity,o.discount,o.dt,o.totalAmount,o.netAmount,o.cn,o.cc,o.srp,o.re,o.datedStr]
-
-					tableSellReport.row.add(row).draw();
-				});
+				showFormError((data.status || '') + (data.message ? ': ' + data.message : ''));
+				return;
 			}
+			var rows = (data && data.collection) ? data.collection : [];
+			if(!rows.length){
+				showFormError('No sales found for the selected period.');
+				return;
+			}
+			clearFormError();
+			rows.forEach(function(o){
+				var product = escSR((o.itemCode ? o.itemCode + ' — ' : '') + (o.itemName || ''));
+				var dueRaw  = parseFloat(o.dueAmount);
+				var owed    = (!isNaN(dueRaw) && dueRaw < 0) ? -dueRaw : 0;
+				var dueCell = owed > 0
+					? '<span class="sr-due-owing">' + srMoney(owed) + '</span>'
+					: '<span class="sr-due-clear">Paid</span>';
+				tableSellReport.row.add([
+					escSR(o.dated || ''),
+					'<span class="sr-inv">' + escSR(o.invoiceNo || '—') + '</span>',
+					product,
+					srNum(o.quantity),
+					srMoneyCell(o.catalogPrice),
+					srMoneyCell(o.sellRate),
+					srMoneyCell(o.totalAmount),
+					srMoneyCell(o.taxAmount),
+					srMoneyCell(o.netAmount),
+					escSR(o.cn || ''),
+					escSR(o.cc || ''),
+					escSR(o.paymentMode || '—'),
+					dueCell
+				]);
+			});
+			tableSellReport.draw();
+			renderSRKpis(rows);
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();

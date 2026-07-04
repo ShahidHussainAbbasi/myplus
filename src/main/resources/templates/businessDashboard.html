@@ -1269,6 +1269,9 @@
 						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Product')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
 						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Product')">Clear</button>
 					</span>
+					<label style="margin-left:14px;font-weight:normal;cursor:pointer" title="Include deactivated products">
+						<input type="checkbox" id="showInactiveProducts" onchange="toggleShowInactiveProducts(this.checked)"> Show inactive
+					</label>
 				</div>
 				<div id="ProductModal" class="crud-overlay">
 				  <div class="crud-box">
@@ -1341,6 +1344,7 @@
 								<th data-field="categoryName">Category</th>
 								<th data-field="onHand">On hand</th>
 								<th data-field="addStock">Add stock</th>
+								<th data-field="productStatus">Status</th>
 							</tr>
 						</thead>
 					</table>
@@ -1561,105 +1565,107 @@
 			</div>
 
 			<div id="SRDiv" class="formDiv">
-				<!-- <h4>Sale reports</h4> -->
-				<form action="/" method="POST" class="form-horizontal" role="form"
-					enctype="utf8" id="SR" autocomplete="off">
-					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="srb">Sell By</label>
-						<div class="col-sm-4">
-							<select class="form-control onChangeSelect" id="srb" name="sb" required="required">
-								<option class="dropdown-item" value=-1 selected="selected">All</option>
-								<option class="dropdown-item" value=0 >Company/Distributor</option>
-								<option class="dropdown-item" value=1 >Vender</option>
-								<option class="dropdown-item" value=2 >Item</option>
-							</select>	
-						</div>
-						<div id="fvidiv">
-							<label class="control-label col-sm-2" for="sri">Enter Id</label>
-							<div class="col-sm-4">
-								<input type="text" class="form-control" id="sri" name="ri"
-									placeholder=" Enter Id "> 
-							</div>					
-						</div>					
+				<style>
+					/* Sale Detail Report — scoped presentation */
+					#SRDiv .sr-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;
+						background:#fff;border:1px solid #e2e7ef;border-radius:14px;padding:16px 20px;
+						box-shadow:0 4px 16px rgba(20,40,80,.06);margin-bottom:18px}
+					/* position:relative so the eonasdan datetimepicker can anchor its calendar popup here
+					   (it walks up for a positioned ancestor and throws without one). */
+					#SRDiv .sr-field{display:flex;flex-direction:column;gap:5px;position:relative}
+					#SRDiv .sr-field > label{margin:0;font-size:11px;font-weight:700;letter-spacing:.4px;
+						text-transform:uppercase;color:#5a6677}
+					#SRDiv .sr-field .form-control{min-width:170px}
+					#SRDiv .sr-toolbar .btn{height:38px}
+					#SRDiv .sr-kpis{display:none;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+						gap:12px;margin-bottom:18px}
+					#SRDiv .sr-kpi{background:#fff;border:1px solid #e6ebf3;border-left:4px solid #2b6cb0;
+						border-radius:12px;padding:13px 16px;box-shadow:0 3px 12px rgba(20,40,80,.05)}
+					#SRDiv .sr-kpi .k-label{font-size:11px;font-weight:700;text-transform:uppercase;
+						letter-spacing:.4px;color:#7a8699;margin-bottom:5px}
+					#SRDiv .sr-kpi .k-value{font-size:22px;font-weight:800;color:#1f2d3d;line-height:1.1}
+					#SRDiv .sr-kpi.k-sales{border-left-color:#2b6cb0}
+					#SRDiv .sr-kpi.k-billed{border-left-color:#16a34a}
+					#SRDiv .sr-kpi.k-tax{border-left-color:#9333ea}
+					#SRDiv .sr-kpi.k-items{border-left-color:#0891b2}
+					#SRDiv .sr-kpi.k-invoices{border-left-color:#d97706}
+					#SRDiv .sr-kpi.k-due{border-left-color:#dc2626}
+					#SRDiv .sr-kpi.k-due .k-value{color:#c62828}
+					#SRDiv #tableSellReport td.num,#SRDiv #tableSellReport th.num{text-align:right;white-space:nowrap}
+					#SRDiv .sr-empty{padding:32px;text-align:center;color:#64748b}
+					#SRDiv .sr-inv{font-weight:700;color:#1f4e8c}
+					#SRDiv .sr-due-owing{color:#c62828;font-weight:700}
+					#SRDiv .sr-due-clear{color:#16a34a}
+				</style>
+
+				<!-- Filter toolbar (backend contract: rp = period, sd/ed = custom range) -->
+				<form class="sr-toolbar" role="form" id="SR" autocomplete="off" onsubmit="return false">
+					<div class="sr-field">
+						<label for="dateRangeDDSR">Period</label>
+						<select class="form-control" id="dateRangeDDSR" name="rp" required="required"
+							onchange="toggleSRCustomRange()">
+							<option value="0" selected="selected">Current month</option>
+							<option value="4">Custom range</option>
+						</select>
 					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="srp">Period</label>
-						<div class="col-sm-4">
-							<select class="form-control" id="dateRangeDDSR" name="rp" required="required">
-								<option class="dropdown-item" value=0 selected="selected">Current month</option>
-	<!-- 							<option class="dropdown-item" value=2>Last 2 month</option>
-								<option class="dropdown-item" value=3>Last 3 month</option>
-	 -->							<option class="dropdown-item" value=4>Custom range</option>
-							</select>	
-						</div>
-						<label class="control-label col-sm-2 req"  for="srbs">Status By</label>
-						<div class="col-sm-4">
-							<select class="form-control" id="srbs" name="rbs" required="required">
-								<option class="dropdown-item" value="" selected="selected">All</option>
-								<option class="dropdown-item" value="Active" disabled="disabled">Active</option>
-								<option class="dropdown-item" value="Inactive" disabled="disabled">Inactive</option>
-								<option class="dropdown-item" value="Expired" disabled="disabled">Expired</option>
-							</select>	
-						</div>
+					<div class="sr-field" id="srStartWrap" style="display:none">
+						<label for="srsd">Start date</label>
+						<input type="text" class="form-control datetimepicker" id="srsd" name="sd" placeholder="Start date">
 					</div>
-					<div class="form-group">
-						<div id="dateRangeSR" style="display: none">
-							<label class="control-label col-sm-2">date range</label>
-							<div class="col-sm-2">
-								<input type="text" class="form-control datetimepicker" id="srsd" name="sd"
-									placeholder=" Start Date"> 
-							</div>
-							<div class="col-sm-2">
-								<input type="text" class="form-control datetimepicker" id="sred" name="ed"
-									placeholder=" End Date"> 
-							</div>
-							<div class="col-sm-6">
-							</div>
-						</div>
+					<div class="sr-field" id="srEndWrap" style="display:none">
+						<label for="sred">End date</label>
+						<input type="text" class="form-control datetimepicker" id="sred" name="ed" placeholder="End date">
 					</div>
-					<div class="form-group text-center">
+					<div class="sr-field">
 						<button type="button" onclick="loadSR()" class="btn btn-success">
-							<span class="glyphicon glyphicon-sunglasses"></span> View
+							<span class="glyphicon glyphicon-search"></span> View report
 						</button>
 					</div>
 				</form>
-				<table id="tableSellReport" class="table table-striped text-center">
+
+				<!-- KPI summary — filled by renderSRKpis() after a successful load -->
+				<div class="sr-kpis" id="srKpis">
+					<div class="sr-kpi k-sales"><div class="k-label">Gross sales</div><div class="k-value" id="srkGross">—</div></div>
+					<div class="sr-kpi k-tax"><div class="k-label">Tax collected</div><div class="k-value" id="srkTax">—</div></div>
+					<div class="sr-kpi k-billed"><div class="k-label">Total billed</div><div class="k-value" id="srkBilled">—</div></div>
+					<div class="sr-kpi k-items"><div class="k-label">Items sold</div><div class="k-value" id="srkItems">—</div></div>
+					<div class="sr-kpi k-invoices"><div class="k-label">Invoices</div><div class="k-value" id="srkInvoices">—</div></div>
+					<div class="sr-kpi k-due"><div class="k-label">Outstanding due</div><div class="k-value" id="srkDue">—</div></div>
+				</div>
+
+				<table id="tableSellReport" class="table table-striped" style="width:100%">
 			        <thead>
 			            <tr>
-							<th>Item</th>
-							<th>Stock</th>
-							<th>P/U Price</th>
-							<th>S/U Price</th>
-							<th>QTY</th>
-							<th>Discount</th>
-							<th>Type</th>
-							<th>Total</th>
-							<th>Profit</th>
-							<th>Customer Name</th>
-							<th>Customer Contact</th>
-							<!-- <th>Return Profit</th> -->
-							<!-- <th>Return Reason</th> -->
-							<th>Due date</th>
-							<th>Dated</th>
+							<th>Date</th>
+							<th>Invoice&nbsp;#</th>
+							<th>Product</th>
+							<th class="num">Qty</th>
+							<th class="num">List&nbsp;price</th>
+							<th class="num">Unit&nbsp;price</th>
+							<th class="num">Line&nbsp;total</th>
+							<th class="num">Tax</th>
+							<th class="num">Net</th>
+							<th>Customer</th>
+							<th>Contact</th>
+							<th>Payment</th>
+							<th class="num">Invoice&nbsp;due</th>
 			            </tr>
 			        </thead>
 					<tfoot>
 			            <tr>
-			                <th>Totals:</th>
+			                <th>Totals</th>
+			                <th></th>
+			                <th></th>
+			                <th class="num"></th>
+			                <th class="num"></th>
+			                <th class="num"></th>
+			                <th class="num"></th>
+			                <th class="num"></th>
+			                <th class="num"></th>
 			                <th></th>
 			                <th></th>
 			                <th></th>
-			                <th></th>
-			                <th></th>
-			                <th></th>
-			                <th></th>
-			                <th></th>
-			                <th></th>
-			                <th></th>
-			                <th></th>
-			                <!-- <th></th> -->
-			                <!-- <th></th> -->
-							<th></th>
+			                <th class="num"></th>
 			            </tr>
 			        </tfoot>
 	   		    </table>

@@ -280,10 +280,46 @@ describe('Sell Section — Sale Detail Report', () => {
     cy.get('#SRDiv').should('be.visible')
   })
 
-  it('shows the View button and filter dropdowns', () => {
-    cy.get('#srb').should('exist')
+  it('shows the redesigned filter toolbar (Period + View)', () => {
     cy.get('#dateRangeDDSR').should('exist')
-    cy.get('#srbs').should('exist')
+    cy.contains('#SRDiv button', 'View report').should('be.visible')
+    // KPI summary starts hidden until a report is loaded
+    cy.get('#srKpis').should('not.be.visible')
+  })
+
+  it('has the full industry-standard column set', () => {
+    const cols = ['Date', 'Invoice', 'Product', 'Qty', 'List', 'Unit',
+                  'Line total', 'Tax', 'Net', 'Customer', 'Contact', 'Payment', 'due']
+    cy.get('#tableSellReport thead th').should('have.length', 13)
+    cols.forEach((c) => cy.get('#tableSellReport thead').contains(c, { matchCase: false }))
+  })
+
+  it('Custom range reveals the start/end date pickers', () => {
+    cy.get('#srStartWrap').should('not.be.visible')
+    cy.get('#dateRangeDDSR').select('4')
+    cy.get('#srStartWrap').should('be.visible')
+    cy.get('#srEndWrap').should('be.visible')
+    cy.get('#dateRangeDDSR').select('0')
+    cy.get('#srStartWrap').should('not.be.visible')
+  })
+
+  it('View report loads data and populates KPIs (or shows empty state)', () => {
+    cy.intercept('POST', '**/loadSR').as('loadSR')
+    cy.contains('#SRDiv button', 'View report').click()
+    cy.wait('@loadSR').its('response.statusCode').should('eq', 200)
+    cy.get('@loadSR').then(({ response }) => {
+      expect(response.body).to.have.property('status')
+      if (response.body.status === 'SUCCESS' && (response.body.collection || []).length) {
+        // rows rendered + KPI cards revealed with numeric content
+        cy.get('#tableSellReport tbody tr').its('length').should('be.gte', 1)
+        cy.get('#srKpis').should('be.visible')
+        cy.get('#srkInvoices').invoke('text').should('match', /\d/)
+        cy.get('#srkGross').invoke('text').should('not.eq', '—')
+      } else {
+        // no sales this period → friendly empty message, table stays empty
+        cy.get('#tableSellReport tbody tr').should('have.length.lte', 1)
+      }
+    })
   })
 })
 

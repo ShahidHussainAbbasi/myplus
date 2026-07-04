@@ -54,6 +54,17 @@ body.has-sidebar.sidebar-collapsed{ padding-left:var(--sb-w-collapsed); }
 .app-sidebar .snav-caret{ margin-left:auto; font-size:9px; opacity:.7; transition:transform .15s ease; }
 .app-sidebar .snav-dd.snav-open>.snav-btn{ color:#fff; background:rgba(255,255,255,.05); }
 .app-sidebar .snav-dd.snav-open .snav-caret{ transform:rotate(180deg); }
+/* keep the chosen action visible after selection even when the accordion collapses:
+   snavGo() marks the picked group button .snav-active — highlight it as the current section. */
+.app-sidebar .snav-btn.snav-active{
+  color:#fff; background:rgba(30,136,229,.16); box-shadow:inset 3px 0 0 var(--sb-accent);
+}
+.app-sidebar .snav-btn.snav-active>.glyphicon:first-child{ color:#fff; }
+/* Keep the CURRENT section's group expanded after picking a sub-item, so the user never re-expands it.
+   snavGo() marks the picked group's button .snav-active (persists until another group is chosen); this forces
+   that group's submenu open even though snavGo/outside-click removed .snav-open. Other (browsing) groups still
+   collapse normally. (:has() is supported in all current browsers.) */
+.app-sidebar .snav-dd:has(> .snav-btn.snav-active) .snav-menu{ max-height:520px; }
 
 /* submenu (was a floating dropdown → now inline accordion) */
 .app-sidebar .snav-menu{

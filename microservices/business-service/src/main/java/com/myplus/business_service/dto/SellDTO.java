@@ -39,6 +39,12 @@ public class SellDTO implements Serializable {
 
 	private BigDecimal netAmount = BigDecimal.ZERO;
 
+	// Line discount amount + type ("%" / amount). Null for modern saga sells (discount is folded into
+	// net at cart time); kept for legacy lines and the report's Discount column.
+	private BigDecimal discount;
+
+	private String dt;
+
 	private BigDecimal srp = BigDecimal.ZERO;
 
 	// The rate this line was actually SOLD at — the cashier may override the catalog price on the sell screen.
@@ -59,9 +65,20 @@ public class SellDTO implements Serializable {
 	private String updated;
 
 	private String cc="";
-	
+
 	private String cn="";
-	
+
+	// Sale report: invoice + settlement context pulled from the line's CustomerHistory (invoice) and Customer.
+	private String invoiceNo;
+
+	private String paymentMode;
+
+	private BigDecimal dueAmount;      // per-invoice balance (negative = customer still owes)
+
+	private String dueDate;
+
+	private BigDecimal grandTotal;     // invoice tax-inclusive total (repeats per line of the same invoice)
+
 	private Float re=0.0F;
 	
 	private String sd;
