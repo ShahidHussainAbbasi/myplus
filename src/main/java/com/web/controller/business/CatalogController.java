@@ -280,13 +280,14 @@ public class CatalogController {
      * (Previously returned a thin {@code {success, stock}} from the raw inventory level, which is why the pickers'
      * sell-rate/batch pre-fill came up empty.)
      */
-    /** Batch on-hand for the whole tenant in ONE call (productId → current on-hand) → inventory {@code /stock/levels}.
-     *  The Product screen uses this to fill every row's on-hand at once, instead of a per-row /productStock call. */
+    /** Batch on-hand for the whole tenant in ONE call → inventory {@code /stock/levels/detail}: productId →
+     *  {onHand, sellable, expired}. The Product screen fills every row's on-hand at once (instead of a per-row
+     *  /productStock call) and shows the honest sellable count + an "expired" badge. */
     @GetMapping("/productStockLevels")
     @ResponseBody
     public Map<String, Object> productStockLevels() {
         try {
-            Map<String, Object> levels = inventory.get("/stock/levels");
+            Map<String, Object> levels = inventory.get("/stock/levels/detail");
             return Map.of("success", true, "levels", levels != null ? levels : Collections.emptyMap());
         } catch (Exception e) {
             LOGGER.error("productStockLevels proxy error", e);

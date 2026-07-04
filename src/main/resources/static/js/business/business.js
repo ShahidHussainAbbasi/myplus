@@ -682,13 +682,26 @@ function loadDataTable(){
 				datatable.rows.add(allRows).draw();
 
 				// Product on-hand is inventory (not catalog). Fill EVERY row's on-hand in ONE batch call
-				// (/productStockLevels → inventory /stock/levels) instead of a per-row /productStock request.
+				// (/productStockLevels → inventory /stock/levels/detail) instead of a per-row /productStock request.
+				// Show the honest SELLABLE count (what a sale can actually reserve) + a red "N expired" badge when
+				// physical stock is locked in expired batches — so a 16-on-hand/0-sellable product no longer lies.
 				if (getAll === "Product") {
 					$.get(serverContext + "productStockLevels", function(resp){
 						var levels = (resp && resp.success && resp.levels) ? resp.levels : {};
 						$.each(collections, function(ind, obj){
-							var v = levels[obj.id];
-							$('#stk_' + obj.id).text(v != null ? v : '0');
+							var d = levels[obj.id];
+							var el = $('#stk_' + obj.id);
+							if (d == null) { el.text('0'); return; }
+							// Back-compat: a bare number means sellable only.
+							var sellable = (typeof d === 'object') ? Number(d.sellable || 0) : Number(d);
+							var expired  = (typeof d === 'object') ? Number(d.expired  || 0) : 0;
+							var onHand   = (typeof d === 'object') ? Number(d.onHand   || 0) : sellable;
+							var html = "<span title='" + onHand + " physical on-hand'>" + sellable + "</span>";
+							if (expired > 0) {
+								html += " <span class='label label-danger' style='margin-left:4px' title='" + expired
+									+ " unit(s) in expired batches — physically present but not sellable'>" + expired + " expired</span>";
+							}
+							el.html(html);   // numbers only (no user data) → XSS-safe
 						});
 					}).fail(function(){
 						$.each(collections, function(ind, obj){ $('#stk_' + obj.id).text('—'); });

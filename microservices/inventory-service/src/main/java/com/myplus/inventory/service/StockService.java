@@ -148,6 +148,40 @@ public class StockService {
         return out;
     }
 
+    /** Stock screen honesty (sellable + expired badge): per product → {onHand, sellable, expired} in one scoped
+     *  pass. onHand = physical StockLevel.currentStock; sellable = what the FEFO allocator can actually hold
+     *  (non-expired, non-quarantined, minus holds); expired = physical qty stuck in expired batches. This lets the
+     *  Product screen show the true "you can sell N" number instead of a raw on-hand that overstates it (a product
+     *  can read 16 on-hand yet be 0 sellable when every batch has expired). One call for the whole list. */
+    public java.util.Map<Long, java.util.Map<String, Float>> getLevelDetail() {
+        Long orgId = CurrentUser.organizationId();
+        Long userId = CurrentUser.userId();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.util.Map<Long, java.util.Map<String, Float>> out = new java.util.HashMap<>();
+        // Seed every product that has a StockLevel row with its physical on-hand (sellable/expired default 0).
+        for (StockLevel sl : stockLevelRepository.findScoped(orgId, userId)) {
+            java.util.Map<String, Float> m = new java.util.HashMap<>();
+            m.put("onHand", sl.getCurrentStock() == null ? 0f : sl.getCurrentStock());
+            m.put("sellable", 0f);
+            m.put("expired", 0f);
+            out.put(sl.getProductId(), m);
+        }
+        // Overlay the batch-derived sellable/expired split.
+        for (Object[] row : stockEntryRepository.sellableExpiredByScope(orgId, userId, today)) {
+            Long pid = (Long) row[0];
+            float sellable = row[1] == null ? 0f : ((Number) row[1]).floatValue();
+            float expired = row[2] == null ? 0f : ((Number) row[2]).floatValue();
+            java.util.Map<String, Float> m = out.computeIfAbsent(pid, k -> {
+                java.util.Map<String, Float> mm = new java.util.HashMap<>();
+                mm.put("onHand", 0f);
+                return mm;
+            });
+            m.put("sellable", Math.max(0f, sellable));
+            m.put("expired", Math.max(0f, expired));
+        }
+        return out;
+    }
+
     /** Quarantine register (slice 58): the org's non-sellable returned lots. */
     public java.util.Map<String, Object> listQuarantine() {
         Long orgId = CurrentUser.organizationId();

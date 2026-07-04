@@ -55,4 +55,16 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
             + "AND (se.restockable IS NULL OR se.restockable = true) "   // P11: exclude quarantined stock
             + "GROUP BY se.productId")
     List<Object[]> availableByOrg(@Param("orgId") Long orgId, @Param("today") LocalDate today);
+
+    // Stock screen honesty (sellable + expired badge): per product, SELLABLE = (qty − reserved) over non-expired,
+    // non-quarantined batches (exactly what the FEFO allocator can hold), and EXPIRED = physical qty locked in
+    // already-expired batches (present on the shelf but unsellable). Same NULL-fallback SCOPE as getAllLevels.
+    // Returns [productId, sellable, expired] rows.
+    @Query("SELECT se.productId, "
+            + "SUM(CASE WHEN (se.expiryDate IS NULL OR se.expiryDate >= :today) AND (se.restockable IS NULL OR se.restockable = true) "
+            + "         THEN (se.quantity - COALESCE(se.reservedQuantity, 0)) ELSE 0 END), "
+            + "SUM(CASE WHEN se.expiryDate IS NOT NULL AND se.expiryDate < :today THEN se.quantity ELSE 0 END) "
+            + "FROM StockEntry se WHERE " + SCOPE + " GROUP BY se.productId")
+    List<Object[]> sellableExpiredByScope(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                                          @Param("today") LocalDate today);
 }

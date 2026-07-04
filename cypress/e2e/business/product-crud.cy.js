@@ -172,6 +172,46 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
     })
   })
 
+  it('on-hand reports SELLABLE and flags EXPIRED batches; sale follows sellable, not physical', () => {
+    cy.seedProduct({ name: 'EX_' + Date.now() }).then(({ productId }) => {
+      // stock a batch that is ALREADY expired → physically present but not sellable (G1)
+      cy.request({
+        method: 'POST', url: '/addProductStock', headers: { 'Content-Type': 'application/json' },
+        body: { productId, quantity: 5, batchNo: 'OLD', expiryDate: '2000-01-01' }, failOnStatusCode: false,
+      }).then((r) => expect(r.body.success, JSON.stringify(r.body)).to.eq(true))
+
+      // the screen's on-hand feed splits it: sellable 0, expired 5
+      cy.request('/productStockLevels').then((r) => {
+        const d = (r.body.levels || {})[productId]
+        expect(d, 'detail entry for product').to.exist
+        expect(Number(d.sellable), 'expired batch is NOT sellable').to.eq(0)
+        expect(Number(d.expired), 'expired qty surfaced for the badge').to.eq(5)
+      })
+      // a sale is correctly refused — nothing sellable (this is the product-6 case)
+      cy.request({
+        method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
+        body: { customer: { name: 'EXc_' + Date.now(), contact: '0300EX', paidAmount: 0, dueAmount: 0 },
+          sales: [{ productId, quantity: 1, sellRate: 10, totalAmount: 10, netAmount: 10 }] }, failOnStatusCode: false,
+      }).then((r) => expect(r.body.status).to.not.eq('SUCCESS'))
+
+      // add a FRESH (future-expiry) batch → sellable rises, expired unchanged, sale now succeeds
+      cy.request({
+        method: 'POST', url: '/addProductStock', headers: { 'Content-Type': 'application/json' },
+        body: { productId, quantity: 4, batchNo: 'NEW', expiryDate: '2099-12-31' }, failOnStatusCode: false,
+      }).then((r) => expect(r.body.success).to.eq(true))
+      cy.request('/productStockLevels').then((r) => {
+        const d = (r.body.levels || {})[productId]
+        expect(Number(d.sellable), 'fresh batch is sellable').to.eq(4)
+        expect(Number(d.expired), 'expired still flagged').to.eq(5)
+      })
+      cy.request({
+        method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
+        body: { customer: { name: 'EXok_' + Date.now(), contact: '0300OK', paidAmount: 10, dueAmount: 0 },
+          sales: [{ productId, quantity: 1, sellRate: 10, totalAmount: 10, netAmount: 10 }] }, failOnStatusCode: false,
+      }).then((r) => expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS'))
+    })
+  })
+
   it('reactivate: deactivated product is hidden by default, shown with includeInactive, then reactivated', () => {
     cy.seedProduct({ name: 'RA_' + Date.now() }).then(({ productId }) => {
       // deactivate

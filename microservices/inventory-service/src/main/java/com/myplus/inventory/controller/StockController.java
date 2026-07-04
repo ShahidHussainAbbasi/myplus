@@ -55,6 +55,14 @@ public class StockController {
         return stockService.getAllLevels();
     }
 
+    /** Honest per-product stock split for the Product screen: productId → {onHand, sellable, expired}. Lets the UI
+     *  show the true sellable count (what a sale can reserve) + an "expired" badge, instead of a raw on-hand that
+     *  overstates it. One call for the whole list. */
+    @GetMapping("/levels/detail")
+    public java.util.Map<Long, java.util.Map<String, Float>> stockLevelDetail() {
+        return stockService.getLevelDetail();
+    }
+
     /** FEFO batches (batch/expiry + sellable qty) for the dispense/sell screen (slice 54, P10). Raw body so the
      *  trade-service InventoryClient.getBatches deserializes it directly. */
     @GetMapping("/batches/{productId}")
