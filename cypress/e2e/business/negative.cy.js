@@ -76,6 +76,8 @@ describe('Negative — Purchase: Missing Fields Block Submission', () => {
     cy.get('#purchaseType').select('purchaseDiv', { force: true })
     cy.get('#purchaseDiv').should('be.visible')
     cy.wait('@getItems', { timeout: 10000 })
+    cy.get('#newPurchase').click()                       // form now lives in a modal — open it first
+    cy.get('#PurchaseModal').should('have.class', 'open')
   })
 
   it('submit without selecting an item — addPurchase never POSTs', () => {
@@ -108,10 +110,10 @@ describe('Negative — Purchase: Missing Fields Block Submission', () => {
   })
 
   it('both fields blank — addPurchase never POSTs', () => {
+    // beforeEach already opened a fresh (blank) modal; submitting it as-is must be blocked.
     let posted = false
     cy.intercept('POST', '/addPurchase', (req) => { posted = true; req.continue() })
 
-    cy.get('#resetPurchase').click() // clear form
     cy.get('#addPurchase').click()
     cy.wait(800)
     cy.then(() => expect(posted, 'Blank purchase form should not POST').to.be.false)

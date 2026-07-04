@@ -4,6 +4,7 @@
 <title>Business Dashboard — MyPlus</title>
 	<th:block th:replace="~{fragments/header :: header-css}"></th:block>
     <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
+    <link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
 <style>
 #dueCustTableBody tr td:nth-child(3){font-weight:700;color:#c62828}
 #DashboardDiv canvas{display:block}
@@ -42,7 +43,9 @@
 @media (max-width:560px){.cart-hint{display:none}.checkout-actions .btn{min-width:0;width:100%}}
 </style>
 </head>
-<body onkeypress="handleKey(event,'click','sellItemDD')">
+<body class="has-sidebar" onkeypress="handleKey(event,'click','sellItemDD')">
+<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+<div class="sidebar-backdrop" onclick="closeSidebar()"></div>
 <div id="container">
 	<th:block th:replace="~{fragments/header :: header}" />
 	<div id="content">
@@ -65,14 +68,13 @@
 				<option value="SRDiv">Sale Detail Report</option>
 			</select>
 		</div>
-		<nav class="subnav" id="nav-subheader">
-			<div class="container-fluid">
-				<div class="snav-inner">
-					<div class="snav-left">
-						<span class="subnav-user" th:if="${param.user} != null">
-							<span class="glyphicon glyphicon-user" style="margin-right:6px"></span><span th:text="${param.user[0]}">User</span>
-						</span>
-					</div>
+		<aside id="app-sidebar" class="app-sidebar">
+			<div class="app-sidebar__brand">
+				<span class="glyphicon glyphicon-th-large"></span>
+				<span class="app-sidebar__brand-text">MyPlus</span>
+				<button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+			</div>
+			<nav class="app-sidebar__nav" id="nav-subheader">
 					<div class="snav-actions">
 						<!-- <button class="snav-btn snav-home-btn" onclick="snavHome()">
 							<span class="glyphicon glyphicon-dashboard"></span>
@@ -176,9 +178,8 @@
 							</ul>
 						</div>
 					</div>
-				</div>
-			</div>
-		</nav>
+			</nav>
+		</aside>
 		<div>
 			<div id="globalError" class="alert alert-danger text-center" style="display:none">error</div>
 		</div>
@@ -359,12 +360,30 @@
 			<div id="CompanyDiv" class="formDiv">
 				<!-- <h3 th:text="#{label.company.form.heading}">Company Registration Form</h3> -->
 				<h3 class="dash-page-title"> Company/Distributor Registration</h3>
-				<!-- <form class="form-horizontal" role="form"> -->
+				<!-- Toolbar: create-via-modal + contextual bulk-action bar (register-screen pilot pattern) -->
+				<div style="margin-bottom:8px">
+					<button type="button" id="newCompany" class="btn btn-success" onclick="newEntity('Company')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Company
+					</button>
+					<button type="button" id="deleteCompany" class="btn btn-danger" style="display:none"></button>
+					<span id="bulkBarCompany" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Company')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Company')">Clear</button>
+					</span>
+				</div>
+				<div id="CompanyModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="CompanyModalTitle">New Company</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('CompanyModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Company" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-6">
-							<input type="number" class="form-control" id="companyId" name="id" readonly="readonly"/> 
+							<input type="number" class="form-control" id="companyId" name="id" readonly="readonly"/>
 						</div>
 						<div class="col-sm-6">
 							<input type="date" class="form-control" id="companyDated" name="dated" readonly="readonly"/> 
@@ -398,15 +417,15 @@
 						<button type="button" id="addCompany" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteCompany" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetCompanyItem" class="btn btn-warning">
+						<button type="button" id="resetCompanyItem" class="btn btn-warning" onclick="resetForm();closeModal('CompanyModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					<table id="tableCompany" class="table table-bordered table-striped">
 						<thead>
@@ -426,11 +445,29 @@
 			<div id="VenderDiv" class="formDiv">
 				<!-- <h3 th:text="#{label.vender.form.heading}">Vender Registration Form</h3> -->
 				<h3 class="dash-page-title"> Vendor Registration</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newVender" class="btn btn-success" onclick="newEntity('Vender')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Vendor
+					</button>
+					<button type="button" id="deleteVender" class="btn btn-danger" style="display:none"></button>
+					<span id="bulkBarVender" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Vender')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Vender')">Clear</button>
+					</span>
+				</div>
+				<div id="VenderModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="VenderModalTitle">New Vendor</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('VenderModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Vender" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-6">
-							<input type="number" class="form-control" id="venderId" name="id" readonly="readonly"/> 
+							<input type="number" class="form-control" id="venderId" name="id" readonly="readonly"/>
 						</div>
 					</div>
 					<div class="form-group">
@@ -477,15 +514,15 @@
 						<button type="button" id="addVender" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteVender" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetVender" class="btn btn-warning" onclick="updateReadOnly(false)">
+						<button type="button" id="resetVender" class="btn btn-warning" onclick="resetForm();closeModal('VenderModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					<table id="tableVender" class="table table-bordered table-striped">
 						<thead>
@@ -505,7 +542,7 @@
 				</div>
 			</div>
 			<div id="itemDiv" class="formDiv">
-				<!-- <h4 th:text="#{label.item.form.heading}">Item Registration Form</h4> -->
+				<!-- <h4 th:text="#{label.product.form.heading}">Item Registration Form</h4> -->
 				<h3 class="dash-page-title"> Item Registration</h3>
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Item" autocomplete="off">
@@ -603,7 +640,7 @@
 						<button type="reset" id="resetItem" class="btn btn-warning" onclick="updateReadOnly(false)">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="reset" class="resetForm" style="display:none"/>						
 					</div>
 				</form>
 				<div>
@@ -626,6 +663,24 @@
 			<div id="CustomerDiv" class="formDiv">
 				<!-- <h3 th:text="#{label.customer.form.heading}">Customer Registration Form</h3> -->
 				<h3 class="dash-page-title"> Customer Registration</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newCustomer" class="btn btn-success" onclick="newEntity('Customer')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Customer
+					</button>
+					<button type="button" id="deleteCustomer" class="btn btn-danger" style="display:none"></button>
+					<span id="bulkBarCustomer" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Customer')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Customer')">Clear</button>
+					</span>
+				</div>
+				<div id="CustomerModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="CustomerModalTitle">New Customer</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('CustomerModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Customer" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -661,15 +716,15 @@
 						<button type="button" id="addCustomer" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteCustomer" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetCustomer" class="btn btn-warning" onclick="updateReadOnly(false)">
+						<button type="button" id="resetCustomer" class="btn btn-warning" onclick="resetForm();closeModal('CustomerModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					<table id="tableCustomer" class="table table-bordered table-striped">
 						<thead>
@@ -688,7 +743,26 @@
 			</div>
 	
 			<div id="purchaseDiv" class="formDiv">
-				<h4 th:text="#{label.purchase.form.heading}">Purchase Form</h4>
+				<h3 class="dash-page-title" th:text="#{label.purchase.form.heading}">Purchase Form</h3>
+				<!-- Toolbar: create-via-modal + contextual bulk-action bar (same pattern as Company/Product) -->
+				<div style="margin-bottom:8px">
+					<button type="button" id="newPurchase" class="btn btn-success" onclick="newPurchase()">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Purchase
+					</button>
+					<button type="button" id="deletePurchase" class="btn btn-danger" style="display:none"></button>
+					<span id="bulkBarPurchase" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Purchase')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Purchase')">Clear</button>
+					</span>
+				</div>
+				<div id="PurchaseModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="PurchaseModalTitle">New Purchase</h4>
+						<button type="button" class="crud-x" onclick="resetPurchaseForm();closeModal('PurchaseModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<!-- <form class="form-horizontal" role="form"> -->
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Purchase" autocomplete="off">
@@ -704,7 +778,7 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" th:text="#{label.item}">Select Item</label> 
+						<label class="control-label col-sm-2 req" th:text="#{label.product}">Select Product</label> 
 						<div class="col-sm-4">
 							<select
 								class="form-control onChangeSelect selectpicker" id="purchaseItemDD" name="itemId" data-live-search="true" required="required">
@@ -718,7 +792,7 @@
 						</div>
 					</div>
 					<!-- <div class="form-group">
-						<label class="control-label col-sm-2 req" th:text="#{label.itemBatch}">Select Batch</label> 
+						<label class="control-label col-sm-2 req" th:text="#{label.productBatch}">Select Batch</label> 
 						<div class="col-sm-4">
 							<select
 								class="form-control selectpicker" id="purchaseBatchDD" required="required" onchange="getStockByBatch(this.value);">
@@ -753,7 +827,7 @@
 								name="stock.bsellRate" placeholder=" Sell Amount 0.0" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
 						</div>
 					</div>
-					<div class="form-group">
+					<!-- <div class="form-group">
 						<label class="control-label col-sm-2" for="discountTypeDD">Set P/U Discount</label>
 						<div class="col-sm-4">
 							<select name="stock.bpurchaseDiscountType" id="discountTypeDD" class="form-control" onchange="calculateNetPurchase()">
@@ -767,7 +841,7 @@
 							<input type="number" step=any class="form-control" id="purchaseDiscount"
 								name="stock.bpurchaseDiscount" placeholder=" Discount 0.0" onkeyup="calculateNetPurchase()">
 						</div>
-					</div>
+					</div> -->
 					<!-- <div class="form-group">
 						<label class="control-label col-sm-2">Set S/U Discount</label>
 						<div class="col-sm-4">
@@ -809,15 +883,15 @@
 						<button type="button" id="addPurchase" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deletePurchase" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetPurchase" class="btn btn-warning" onclick="resetBSDD('purchaseItemDD')">
+						<button type="reset" id="resetPurchase" class="btn btn-warning" onclick="resetBSDD('purchaseItemDD');closeModal('PurchaseModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="reset" class="resetForm" style="display:none"/>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					Toggle column: <a class="toggle-vis" data-column="2">Code</a> - <a class="toggle-vis" data-column="3">Name</a>
 					  - <a class="toggle-vis" data-column="4">QTY</a> <!-- - <a class="toggle-vis" data-column="5">Stock</a> -->
@@ -842,8 +916,8 @@
 							<!-- <th data-field="purchaseBatchNo">Batch #</th> -->
 							<th data-field="purchasePurchaseRate">P/U Price</th>
 							<th data-field="purchaseSellRate">S/U Price</th>
-							<th data-field="purchaseDiscountTypeDD">P/U Disc Type</th>
-		 					<th data-field="purchaseDiscount">P/U Discount</th>
+							<!-- <th data-field="purchaseDiscountTypeDD">P/U Disc Type</th> -->
+		 					<!-- <th data-field="purchaseDiscount">P/U Discount</th> -->
 							<!-- <th data-field="sellDiscountTypeDD">S/U Disc Type</th> -->
 		 					<!-- <th data-field="sellDiscount">S/U Discount</th> -->
 							<th data-field="purchaseTotalAmount">Total</th>
@@ -863,7 +937,7 @@
 			</div>
 			<a id="MyLink"  style="display:none"></a>
 			<input id="Button1" type="button" value="Click Me" onclick="OpenWord()" style="display: none;"/>
-				<h4 th:text="#{label.sell.form.heading}">Sell Form</h4>
+				<!-- <h4 th:text="#{label.sell.form.heading}">Sell Form</h4> -->
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Sell" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -977,7 +1051,7 @@
 						<button type="reset" id="resetInviceItem" class="btn btn-warning" onclick="resetBSDD('sellItemDD')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>
+						<button type="reset" class="resetForm" style="display:none"/>
 						
 						<!-- <button type="button" id="deleteSellItem" class="btn btn-danger">
 							<span class="glyphicon glyphicon-minus-sign"></span> delete
@@ -1149,7 +1223,8 @@
 							<!-- <th data-field="sellBatchNo">BatchNo</th> -->
 							<th data-field="sellItemExpiry">Expiry</th>
 							<th data-field="sellPurchaseRate">P/U Price</th>
-							<th data-field="sellSellRate">S/U Price</th>
+							<th data-field="sellSellRate" title="The rate this line was actually sold at">Sold Rate</th>
+							<th data-field="sellCatalogPrice" title="Catalog master price at the time of sale">Catalog</th>
 							<th data-field="sellDiscountTypeDD">Disc Type</th>
 							<th data-field="sellDiscount">Discount</th>
 							<th data-field="sellTotalAmount">Total</th>
@@ -1171,7 +1246,7 @@
 
 			<!-- E-commerce E1 (slice 46): orders back-office (order = trade sale + fulfilment). ECOMMERCE only. -->
 			<div id="OrdersDiv" class="formDiv" style="display:none">
-				<h4>Orders</h4>
+				<!-- <h4>Orders</h4> -->
 				<p class="text-muted">An order is a sale (reused trade saga) plus a fulfilment lifecycle. New sales by a Store user are recorded here automatically.</p>
 				<table id="tableOrders" class="table table-bordered table-striped">
 					<thead><tr><th>Invoice</th><th>Buyer</th><th>Total</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
@@ -1182,8 +1257,26 @@
 
 			<!-- M1 (slice 42): catalog Product master registration — the single product master all verticals share. -->
 			<div id="ProductDiv" class="formDiv" style="display:none">
-				<h4 data-term>Product (Catalog Master)</h4>
+				<!-- <h4 data-term>Product (Catalog Master)</h4> -->
 				<p class="text-muted">The single product master shared across POS, pharmacy and e-commerce (catalog-service).</p>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newProduct" class="btn btn-success" onclick="newProduct()">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Product
+					</button>
+					<button type="button" id="deleteProduct" class="btn btn-danger" style="display:none" onclick="deactivateProducts()"></button>
+					<span id="bulkBarProduct" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Product')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Product')">Clear</button>
+					</span>
+				</div>
+				<div id="ProductModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<!-- <h4 id="ProductModalTitle">New Product</h4> -->
+						<button type="button" class="crud-x" onclick="resetProductForm();closeModal('ProductModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form class="form-horizontal" role="form" id="Product" autocomplete="off" onsubmit="return false;">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-6">
@@ -1206,7 +1299,15 @@
 						<label class="control-label col-sm-2" for="prodUnit">Unit</label>
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodUnit" placeholder="pcs"></div>
 						<label class="control-label col-sm-2" for="prodCategory">Category</label>
-						<div class="col-sm-4"><input type="text" class="form-control" id="prodCategory"></div>
+						<div class="col-sm-4">
+							<select class="form-control" id="prodCategory"></select>
+							<div class="input-group" style="margin-top:6px">
+								<input type="text" class="form-control input-sm" id="prodCategoryNew" placeholder="+ New category">
+								<span class="input-group-btn">
+									<button type="button" class="btn btn-success btn-sm" onclick="addCategoryInline()" title="Add category"><span class="glyphicon glyphicon-plus"></span></button>
+								</span>
+							</div>
+						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="prodManufacturer">Manufacturer</label>
@@ -1218,14 +1319,14 @@
 						<button type="button" id="addProduct" class="btn btn-success" onclick="saveProduct()">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteProduct" class="btn btn-danger" onclick="deactivateProducts()">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetProduct" class="btn btn-warning" onclick="resetProductForm()">
+						<button type="button" id="resetProduct" class="btn btn-warning" onclick="resetProductForm();closeModal('ProductModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					<table id="tableProduct" class="table table-bordered table-striped">
 						<thead>
@@ -1247,7 +1348,7 @@
 			</div>
 
 			<div id="QuarantineDiv" class="formDiv" style="display:none">
-				<h4>Quarantine Register</h4>
+				<!-- <h4>Quarantine Register</h4> -->
 				<p class="text-muted">Returned, non-sellable lots (e.g. pharmacy returns). Dispose removes the lot (destroyed / returned to supplier). Quarantined stock is never re-sold (excluded from FEFO).</p>
 				<table id="tableQuarantine" class="table table-bordered table-striped">
 					<thead><tr><th>Product</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Action</th></tr></thead>
@@ -1261,7 +1362,7 @@
 
 			<!-- Pharmacy P8 (slice 45): controlled-substance register + stock (near-expiry/low) alerts. PHARMA only. -->
 			<div id="PharmAlertsDiv" class="formDiv" style="display:none">
-				<h4>Alerts &amp; Controlled Register</h4>
+				<!-- <h4>Alerts &amp; Controlled Register</h4> -->
 				<h5>Stock alerts (near-expiry / low stock)</h5>
 				<table id="tableStockAlerts" class="table table-bordered table-striped">
 					<thead><tr><th>Type</th><th>Product</th><th>Message</th><th>Created</th></tr></thead>
@@ -1278,7 +1379,7 @@
 
 			<!-- Pharmacy P7 (slice 44): clinical flags + drug interactions (dispense safety). PHARMA only. -->
 			<div id="ClinicalDiv" class="formDiv" style="display:none">
-				<h4>Clinical &amp; Safety</h4>
+				<!-- <h4>Clinical &amp; Safety</h4> -->
 				<form class="form-horizontal" role="form" onsubmit="return false;">
 					<div class="form-group">
 						<label class="control-label col-sm-2">Medicine</label>
@@ -1312,7 +1413,7 @@
 
 			<!-- Pharmacy P5 (slice 41): prescription intake. PHARMA only. -->
 			<div id="PrescriptionDiv" class="formDiv" style="display:none">
-				<h4>Prescription Intake</h4>
+				<!-- <h4>Prescription Intake</h4> -->
 				<form class="form-horizontal" role="form" id="Prescription" autocomplete="off" onsubmit="return false;">
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="rxPatient">Patient</label>
@@ -1357,7 +1458,7 @@
 
 			<!-- POS R10 (slice 40): parked / held sales. -->
 			<div id="ParkedDiv" class="formDiv" style="display:none">
-				<h4>Parked Sales</h4>
+				<!-- <h4>Parked Sales</h4> -->
 				<p class="text-muted">Held carts you can resume later. Resuming loads the cart back; completing the sale removes it.</p>
 				<table id="tableParked" class="table table-bordered table-striped">
 					<thead><tr><th>Label</th><th>Items</th><th>Total</th><th>Parked at</th><th>Actions</th></tr></thead>
@@ -1368,7 +1469,7 @@
 
 			<!-- POS day-close (slice 39): cashier shift / cash drawer / X-Z report. -->
 			<div id="TillDiv" class="formDiv" style="display:none">
-				<h4>Cash Drawer / Till</h4>
+				<!-- <h4>Cash Drawer / Till</h4> -->
 				<div id="tillStatus" class="alert alert-info" style="display:none"></div>
 
 				<!-- Open shift (shown when no shift is open) -->
@@ -1415,7 +1516,7 @@
 
 			<!-- G3 (slice 35): per-org tax policy. Owner-only; drives tax on every sale + receipt. -->
 			<div id="TaxSettingDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
-				<h4>Tax Settings</h4>
+				<!-- <h4>Tax Settings</h4> -->
 				<form class="form-horizontal" role="form" id="TaxSetting" autocomplete="off" onsubmit="return false;">
 					<div class="form-group">
 						<label class="control-label col-sm-3" for="taxEnabled">Apply tax to sales</label>
@@ -1460,7 +1561,7 @@
 			</div>
 
 			<div id="SRDiv" class="formDiv">
-				<h4>Sale reports</h4>
+				<!-- <h4>Sale reports</h4> -->
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="SR" autocomplete="off">
 					<div class="form-group">
@@ -1574,6 +1675,35 @@
         window.MODULE = [[${module} ?: 'BUSINESS']];
     </script>
 
+    <!-- Register-screen modal + bulk-select styling (pilot) -->
+    <style>
+      .crud-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1050;display:none;padding:40px 12px}
+      .crud-overlay.open{display:block}
+      .crud-box{background:#fff;border-radius:6px;max-width:60%;margin:0 auto;box-shadow:0 6px 30px rgba(0,0,0,.3)}
+      .crud-head{padding:12px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+      .crud-head h4{margin:0}
+      .crud-body{padding:16px}
+      .crud-x{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:#888}
+      .crud-bulkbar .btn{margin-left:4px}
+    </style>
+    <!-- Shared confirm-delete modal (reused by every register screen's bulk Delete) -->
+    <div id="confirmDeleteModal" class="crud-overlay">
+      <div class="crud-box" style="max-width:420px">
+        <div class="crud-head">
+          <!-- <h4>Confirm delete</h4> -->
+          <button type="button" class="crud-x" onclick="closeModal('confirmDeleteModal')">&times;</button>
+        </div>
+        <div class="crud-body">
+          <p>Delete <b><span id="confirmDeleteCount">0</span></b> selected record(s)?</p>
+          <ul id="confirmDeleteList" class="text-muted" style="max-height:160px;overflow:auto"></ul>
+          <div class="text-right">
+            <button type="button" class="btn btn-default" onclick="closeModal('confirmDeleteModal')">Cancel</button>
+            <button type="button" id="confirmDeleteYes" class="btn btn-danger">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- STEP 1: jQuery + all plugins -->
     <th:block th:replace="~{fragments/header :: header-js}"></th:block>
 
@@ -1589,6 +1719,8 @@
     <script th:src="@{/js/business/till.js}"></script>
     <script th:src="@{/js/business/park.js}"></script>
     <script th:src="@{/js/business/catalog-products.js}"></script>
+    <script th:src="@{/js/business/crud-modal.js}"></script>
+    <script th:src="@{/js/business/sidebar.js}"></script>
     <script th:src="@{/js/business/quarantine.js}"></script>
     <script th:src="@{/js/business/pharma.js}"></script>
     <script th:src="@{/js/business/ecommerce.js}"></script>

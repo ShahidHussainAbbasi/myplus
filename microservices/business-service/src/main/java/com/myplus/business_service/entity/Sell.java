@@ -67,6 +67,10 @@ public class Sell implements Serializable {
 	@Column(name = "sell_rate", precision = 19, scale = 2)
 	private BigDecimal sellRate;
 
+	// The catalog master price snapshot at the moment this line was sold (reports: catalog price vs sold rate).
+	@Column(name = "catalog_price", precision = 19, scale = 2)
+	private BigDecimal catalogPrice;
+
 	@Column(precision = 19, scale = 2)
 	private BigDecimal discount;
 

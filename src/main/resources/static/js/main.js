@@ -438,11 +438,13 @@ $(document).ready(function() {
 				validateForm();
 			    if(formValidated){
 					var fd = populateFormData();
-					// M4c (slice 92): submit the purchase productId-native (from the picker's data-product) so the
-					// server uses it directly; itemId stays as a back-compat fallback.
+					// M4c (slice 92) / fix: submit the purchase productId-native from the picker's data-product.
+					// populateFormData() returns a URL-encoded STRING ($.param), so productId must be APPENDED to it —
+					// `fd.productId = ppid` was a silent no-op on a string, so productId was never sent and the purchase
+					// saved with productId=null (skipped by getUserPurchase + never stocked into inventory).
 					if(buttonV=="Purchase"){
 						var ppid = $("#purchaseItemDD :selected").data('product');
-						if(ppid != null && ppid !== '') fd.productId = ppid;
+						if(ppid != null && ppid !== '') fd += "&productId=" + encodeURIComponent(ppid);
 					}
 					$(this).callAjax("add" + buttonV, fd);
 			    }else{
@@ -523,12 +525,14 @@ $(document).ready(function() {
 	  	
 	  	// having below block on every switch to get it work
 		// Edit table click on row
-		$("#table" + tableV).on( 'click', 'tr', function () {
-/*
- * var r = confirm("Any selection if you have will be discarded, Are you sure do
- * you want to edit?"); if (r != true) return false;
- * 
- */			
+		$("#table" + tableV).on( 'click', 'tr', function (e) {
+			// Register-screen modal layer (opt-in: only when #<tableV>Modal exists). A checkbox click is a
+			// bulk-SELECT (update the action bar), NOT an edit — so multi-select works without opening a form.
+			var crudHasModal = $('#' + tableV + 'Modal').length > 0;
+			if (crudHasModal && $(e.target).is("input[type='checkbox']")) {
+				if (typeof refreshBulkBar === 'function') refreshBulkBar(tableV);
+				return;
+			}
 			resetForm();
 			if(tableV==="Fc"){
 				var ids = $("#table"+ tableV+ " input[type='checkbox']:checkbox:checked").map(function() {
@@ -551,8 +555,10 @@ $(document).ready(function() {
 					var html = datatable.row(this).data();// .selector.rows.innerHTML;
 					var doc = getDocument(html);
 					editRecord(doc);
+					// Modal screens: pop the populated form in its modal (edit mode).
+					if (crudHasModal && typeof openCrudModal === 'function') openCrudModal(tableV);
 				}
-						
+
 				// updateReadOnly(false);
 			}
 		} );
@@ -584,6 +590,9 @@ $(document).ready(function() {
 					datatable.ajax.reload();
 					resetForm();
 					clearFormError();
+					// Register-screen modal layer: close the form modal + clear the bulk-action bar after a save/delete.
+					if ($('#' + tableV + 'Modal').length && typeof closeModal === 'function') closeModal(tableV + 'Modal');
+					if (typeof refreshBulkBar === 'function') refreshBulkBar(tableV);
 				}
 				return false;
 			}, fail: function(data, textStatus, errorThrown) {

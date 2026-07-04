@@ -48,20 +48,19 @@ describe('Business Dashboard — Navigation Sections', () => {
   it('selecting Company from Register dropdown shows CompanyDiv', () => {
     cy.get('#registrationType').select('CompanyDiv', { force: true })
     cy.get('#CompanyDiv').should('be.visible')
-    cy.get('#companyName').should('be.visible')
+    cy.get('#newCompany').should('be.visible')   // form moved into a modal; the toolbar's New button shows
   })
 
   it('selecting Vender shows VenderDiv', () => {
     cy.get('#registrationType').select('VenderDiv', { force: true })
     cy.get('#VenderDiv').should('be.visible')
-    cy.get('#venderName').should('be.visible')
+    cy.get('#newVender').should('be.visible')
   })
 
   it('selecting Customer shows CustomerDiv', () => {
     cy.get('#registrationType').select('CustomerDiv', { force: true })
     cy.get('#CustomerDiv').should('be.visible')
-    cy.get('#customerName').should('be.visible')
-    cy.get('#contact').should('be.visible')
+    cy.get('#newCustomer').should('be.visible')
   })
 
   // M4e.b (slice 102): the legacy Item form was retired — products are registered via the Product (catalog) master form.
@@ -181,6 +180,7 @@ describe('Business Dashboard — Form Reset Buttons', () => {
 
   it('Company Reset button clears form fields', () => {
     cy.get('#registrationType').select('CompanyDiv', { force: true })
+    cy.get('#newCompany').click()
     cy.get('#companyName').type('Temp Name')
     cy.get('#resetCompanyItem').click()
     cy.get('#companyName').should('have.value', '')
@@ -188,6 +188,7 @@ describe('Business Dashboard — Form Reset Buttons', () => {
 
   it('Vender Reset button clears form', () => {
     cy.get('#registrationType').select('VenderDiv', { force: true })
+    cy.get('#newVender').click()
     cy.get('#venderName').type('Temp Vender')
     cy.get('#resetVender').click()
     cy.get('#venderName').should('have.value', '')
@@ -195,6 +196,7 @@ describe('Business Dashboard — Form Reset Buttons', () => {
 
   it('Customer Reset button clears form', () => {
     cy.get('#registrationType').select('CustomerDiv', { force: true })
+    cy.get('#newCustomer').click()
     cy.get('#customerName').type('Temp Customer')
     cy.get('#resetCustomer').click()
     cy.get('#customerName').should('have.value', '')

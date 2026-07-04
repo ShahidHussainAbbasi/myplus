@@ -5,6 +5,7 @@
 <title>Education Dashboard — MyPlus</title>
 <th:block th:replace="~{fragments/header :: header-css}"></th:block>
 <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
+<link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
 <style>
 /* ===== Owner analytics dashboard (slice 22) ===== */
 #DashboardDiv.dashbo{padding:18px 20px}
@@ -35,7 +36,9 @@
 .an-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px}
 </style>
 </head>
-<body>
+<body class="has-sidebar">
+<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+<div class="sidebar-backdrop" onclick="closeSidebar()"></div>
    	<div id="container">
 		<th:block th:replace="~{fragments/header :: header}" />
 	    <div id="content">
@@ -74,7 +77,7 @@
 					<option value="AlertsDiv">System Alerts</option>
 				</select>
 			</div>
-			<nav class="subnav" id="nav-subheader">
+			<nav class="app-sidebar" id="nav-subheader"><div class="app-sidebar__brand"><span class="glyphicon glyphicon-th-large"></span><span class="app-sidebar__brand-text">MyPlus</span><button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button></div>
 				<div class="container-fluid">
 					<div class="snav-inner">
 						<div class="snav-left">
@@ -2076,6 +2079,7 @@ var serverContext = [[@{/}]];
 	<script type="text/javascript" th:src="@{/js/education/education.js}"></script>
 	<script type="text/javascript" th:src="@{/js/education/educationDashboard.js}"></script>
 	<script type="text/javascript" th:src="@{/js/date.js}"></script>
+	<script th:src="@{/js/business/sidebar.js}"></script>
 	<script type="text/javascript">
 		// Subnav button-dropdown behaviour — same pattern as businessDashboard for a consistent look.
 		function snavToggle(e, id) {

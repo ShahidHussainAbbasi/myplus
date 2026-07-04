@@ -3,33 +3,37 @@
 <head>
 <link rel="icon" type="image/jpg" sizes="60x50" th:href="@{favicon.jpeg}"/>
 <th:block th:replace="~{fragments/header :: header-css}" />
+<link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
 
 
 
 
 </head>
-<body>
+<body class="has-sidebar">
+<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+<div class="sidebar-backdrop" onclick="closeSidebar()"></div>
 	<th:block th:replace="~{fragments/header :: header}" />
-	<nav class="subnav" id="nav-subheader">
-		<div class="container-fluid">
-			<ul class="nav navbar-nav">
-				<div class="navbar-header active">
-					<p style="color: lightskyblue; padding-top: 17px"
-						class="glyphicon glyphicon-user" th:if="${param.user} != null"
-						th:text="${param.user[0]}">User</p>
-				</div>
-				<li>
-					<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
-						<option class="dropdown-item" value="">Nothing Selected</option>
-						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonatorDiv">Add Donator</option>
-						<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonationDiv">Add Donation</option>
-						<option sec:authorize="hasAuthority('READ_PRIVILEGE')" class="dropdown-item" value="DonationsDiv">View Donations</option>
-						<!-- <option class="dropdown-item" value="myDonation">My Donations</option> -->
-					</select>
-				</li>
-			</ul>					
+	<!-- Section select — off-screen so welfare.js's change handler still drives section-show + Cypress can reach it -->
+	<div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+		<select name="registrationType" id="registrationType" class="dropdown show panel-heading" tabindex="-1">
+			<option class="dropdown-item" value="">Nothing Selected</option>
+			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonatorDiv">Add Donator</option>
+			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonationDiv">Add Donation</option>
+			<option sec:authorize="hasAuthority('READ_PRIVILEGE')" class="dropdown-item" value="DonationsDiv">View Donations</option>
+		</select>
+	</div>
+	<aside class="app-sidebar" id="nav-subheader">
+		<div class="app-sidebar__brand">
+			<span class="glyphicon glyphicon-th-large"></span>
+			<span class="app-sidebar__brand-text">MyPlus</span>
+			<button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
 		</div>
-	</nav>
+		<nav class="app-sidebar__nav">
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','DonatorDiv',this)"><span class="glyphicon glyphicon-user"></span><span>Add Donator</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','DonationDiv',this)"><span class="glyphicon glyphicon-gift"></span><span>Add Donation</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('READ_PRIVILEGE')" onclick="sbNav('registrationType','DonationsDiv',this)"><span class="glyphicon glyphicon-list"></span><span>View Donations</span></a>
+		</nav>
+	</aside>
 	<div class="container content-cls">
 		<div id=DonatorDiv class="formDiv" style="display:none">
 			<h3 th:text="#{label.donator.form.heading}">Donator Registration Form</h3>
@@ -184,6 +188,7 @@ var serverContext = [[@{/}]];
 	<th:block th:replace="~{fragments/header :: header-js}"></th:block>
 	<script th:src="@{/js/common/dom-safe.js}"></script>
 	<script th:src="@{/js/welfare/welfare.js}"></script>
+	<script th:src="@{/js/business/sidebar.js}"></script>
 	<th:block th:replace="~{fragments/footer :: footer}"/>
 </body>
 </html>

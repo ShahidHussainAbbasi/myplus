@@ -55,14 +55,19 @@ public class SagaSellService {
             Long productId = s.getProductId();
             if (productId == null) throw new RuntimeException("Sale line has no productId — submit productId-native.");
             ProductRef product = catalogClient.getProduct(productId);
-            BigDecimal sellRate = (product != null && product.getSellingPrice() != null)
+            BigDecimal catalogPrice = (product != null && product.getSellingPrice() != null)
                     ? product.getSellingPrice() : BigDecimal.ZERO;
+            // The rate this line SOLD at = what the cashier entered (they may override the catalog price on the
+            // sell screen); fall back to the catalog master when no rate was submitted. The catalog price is
+            // snapshotted separately so reports show BOTH "catalog price" and "sold at".
+            BigDecimal soldRate = (s.getSellRate() != null && s.getSellRate().compareTo(BigDecimal.ZERO) > 0)
+                    ? s.getSellRate() : catalogPrice;
             BigDecimal productTaxRate = product != null ? product.getTaxRate() : null;
             // Taxable base is the line total (qty×rate after discount). EXCLUSIVE adds on top; INCLUSIVE backs it out.
             TaxResult tax = taxService.taxForLine(s.getTotalAmount(), productTaxRate, taxSetting);
-            lines.add(new SagaLine(productId, s.getQuantity(), sellRate, null,
+            lines.add(new SagaLine(productId, s.getQuantity(), soldRate, null,
                     s.getTotalAmount(), s.getNetAmount(), s.getSrp(),
-                    tax.rate(), tax.tax(), tax.gross()));
+                    tax.rate(), tax.tax(), tax.gross(), catalogPrice));
             reservationLines.add(new StockReservationLine(productId, BigDecimal.valueOf(s.getQuantity())));
         }
 

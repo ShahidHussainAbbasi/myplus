@@ -3,32 +3,35 @@
 <head>
 	<link rel="icon" type="image/jpg" sizes="60x50" th:href="@{favicon.jpeg}"/>
 	<th:block th:replace="~{fragments/header :: header-css}"></th:block>
+	<link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
 </head>
-<body>
+<body class="has-sidebar">
+<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+<div class="sidebar-backdrop" onclick="closeSidebar()"></div>
    	<div id="container" class="wrapper">
 		<th:block th:replace="~{fragments/header :: header}"/>
 	    <div id="content">
-			<nav class="subnav" id="nav-subheader">
-				<div class="container-fluid">
-					<ul class="nav navbar-nav">
-						<div class="navbar-header active">
-							<p style="color: lightskyblue; padding-top: 17px"
-								class="glyphicon glyphicon-user" th:if="${param.user} != null"
-								th:text="${param.user[0]}">User</p>
-						</div>
-						<li>
-							<select name="registrationType" id="registrationType" class="dropdown show panel-heading">
-								<option class="dropdown-item" value="">Nothing Selected</option>
-								<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="landDiv">Register Land</option>
-								<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="agricultureExpenseDiv">Add Expense</option>
-								<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="agricultureIncomeDiv">Add Income</option>
-		<!-- 						<option sec:authorize="hasAuthority('READ_AGRICULTURE_EXPENSE')" class="dropdown-item" value="DonationsDiv">View Expense</option>
-								<option sec:authorize="hasAuthority('READ_AGRICULTURE_INCOME')" class="dropdown-item" value="DonationsDiv">View Income</option>
-		 -->					</select>
-						</li>
-					</ul>					
-				</div>
-			</nav>
+	<!-- Section select — off-screen so agriculture.js change handler drives section-show + Cypress reaches it -->
+	<div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+		<select name="registrationType" id="registrationType" class="dropdown show panel-heading" tabindex="-1">
+			<option class="dropdown-item" value="">Nothing Selected</option>
+			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="landDiv">Register Land</option>
+			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="agricultureExpenseDiv">Add Expense</option>
+			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="agricultureIncomeDiv">Add Income</option>
+		</select>
+	</div>
+	<aside class="app-sidebar" id="nav-subheader">
+		<div class="app-sidebar__brand">
+			<span class="glyphicon glyphicon-th-large"></span>
+			<span class="app-sidebar__brand-text">MyPlus</span>
+			<button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+		</div>
+		<nav class="app-sidebar__nav">
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','landDiv',this)"><span class="glyphicon glyphicon-map-marker"></span><span>Register Land</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','agricultureExpenseDiv',this)"><span class="glyphicon glyphicon-minus-sign"></span><span>Add Expense</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','agricultureIncomeDiv',this)"><span class="glyphicon glyphicon-plus-sign"></span><span>Add Income</span></a>
+		</nav>
+	</aside>
 			<div id="agricultureExpenseDiv" class="formDiv" style="display:none">
 				<h4 th:text="#{label.expense.form.heading}">Expense Form</h4>
 				<form action="/" method="POST" class="form-horizontal" role="form"
@@ -470,5 +473,6 @@ var serverContext = [[@{/}]];
     <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
 	<script th:src="@{/js/common/dom-safe.js}"></script>
 	<script th:src="@{/js/agriculture/agriculture.js}"></script>
+	<script th:src="@{/js/business/sidebar.js}"></script>
 </body>
 </html>

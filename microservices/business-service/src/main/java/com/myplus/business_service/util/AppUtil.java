@@ -161,10 +161,15 @@ public class AppUtil {
     	return date;
     }
 
-    /** Parse a dd-MM-yyyy date to LocalDate, or null when empty/blank. Mirrors {@link #stringToLocalDateIgnoreEmptyOrNull}
-     *  for direct use off the ModelMapper path (M3c.4b). */
+    /** Parse a date to LocalDate, or null when empty/blank. Accepts BOTH the UI's {@code dd-MM-yyyy} and ISO
+     *  {@code yyyy-MM-dd} (HTML date inputs / datepickers emit ISO). An unparseable value returns null rather than
+     *  throwing, so a bad expiry never fails the whole purchase (M3c.4b path). */
     public LocalDate toLocalDateOrNull(String dateStr) {
-    	return isEmptyOrNull(dateStr) ? null : LocalDate.parse(dateStr, dateformatter);
+    	if (isEmptyOrNull(dateStr)) return null;
+    	for (DateTimeFormatter fmt : new DateTimeFormatter[]{ dateformatter, dateformatterForDB }) {
+    		try { return LocalDate.parse(dateStr, fmt); } catch (java.time.format.DateTimeParseException ignore) { }
+    	}
+    	return null;
     }
    	//Get current Month
     public LocalDate getLocalDateByMonthYear(String monthYearStr) throws ParseException {

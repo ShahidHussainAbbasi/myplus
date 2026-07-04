@@ -19,13 +19,15 @@ describe('Customer CRUD', () => {
 
   // ─── GET ────────────────────────────────────────────────────────────────────
 
-  it('loads the customer section with form and table', () => {
-    cy.get('#Customer').should('exist')
+  it('loads the customer section with toolbar + table; New opens the form modal', () => {
     cy.get('#tableCustomer').should('exist')
+    cy.get('#newCustomer').should('be.visible')
+    cy.get('#CustomerModal').should('not.have.class', 'open')
+    cy.get('#newCustomer').click()
+    cy.get('#CustomerModal').should('have.class', 'open')
     cy.get('#customerName').should('be.visible')
     cy.get('#contact').should('be.visible')
     cy.get('#addCustomer').should('be.visible')
-    cy.get('#deleteCustomer').should('be.visible')
   })
 
   it('getUserCustomer API returns SUCCESS or NOT_FOUND', () => {
@@ -53,6 +55,8 @@ describe('Customer CRUD', () => {
 
   it('fills customer form and submits via UI', () => {
     const contact = `0300${Date.now().toString().slice(-7)}`
+    cy.get('#newCustomer').click()                       // open the form modal
+    cy.get('#CustomerModal').should('have.class', 'open')
     cy.get('#customerName').type(`Cypress Customer`)
     cy.get('#contact').type(contact)
     cy.get('#email').type(`cust${Date.now()}@test.com`)
@@ -142,6 +146,7 @@ describe('Customer CRUD', () => {
       // editRecord() uses doc.getElementById(formControl.id) — IDs in row HTML must
       // match form control IDs (customerId, name, contact, email, address)
       cy.wrap(dataRows.first()).click()
+      cy.get('#CustomerModal').should('have.class', 'open')   // row-click opens the edit modal
       cy.get('#customerId').should('not.have.value', '')
       cy.get('#customerName').should('not.have.value', '')
     })

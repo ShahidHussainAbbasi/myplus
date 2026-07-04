@@ -47,6 +47,58 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
     })
   })
 
+  it('category round-trips on save + update (find-or-create by name)', () => {
+    const cat = 'Cat_' + Date.now()
+    cy.seedProduct({ name: 'PC_' + Date.now(), category: cat }).then(({ productId, sku }) => {
+      // after create, the free-text category name persists on the product + the list column
+      cy.request('/getCatalogProduct?id=' + productId).then((r) => {
+        expect(r.body.data.categoryName, 'category persisted on create').to.eq(cat)
+      })
+      cy.request('/getUserProduct?q=-1').then((r) => {
+        const mine = (r.body.collection || []).find((p) => p.id === productId)
+        expect(mine.categoryName, 'category shows in the list').to.eq(cat)
+      })
+      // update to a new category name → also round-trips (so the edit form repopulates it)
+      const cat2 = 'Cat2_' + Date.now()
+      cy.request({
+        method: 'POST', url: '/updateProduct', headers: { 'Content-Type': 'application/json' },
+        body: { id: productId, name: 'PC_up', sku, sellingPrice: 5, taxRate: 0, unit: 'pcs', categoryName: cat2 },
+        failOnStatusCode: false,
+      }).then((r) => expect(r.body.success).to.eq(true))
+      cy.request('/getCatalogProduct?id=' + productId).then((r) => {
+        expect(r.body.data.categoryName, 'category persisted on update').to.eq(cat2)
+      })
+    })
+  })
+
+  it('category dropdown: quick-add a category, then create a product referencing it by id', () => {
+    const cname = 'DDCat_' + Date.now()
+    cy.request({
+      method: 'POST', url: '/addCategory', headers: { 'Content-Type': 'application/json' },
+      body: { name: cname }, failOnStatusCode: false,
+    }).then((r) => {
+      expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
+      const catId = r.body.data.id
+      // it appears in the dropdown source
+      cy.request('/getUserCategories').then((g) => {
+        expect(g.body.success).to.eq(true)
+        expect((g.body.categories || []).some((c) => c.id === catId && c.name === cname)).to.be.true
+      })
+      // a product created with categoryId gets that category name back (dropdown path)
+      cy.request({
+        method: 'POST', url: '/addProduct', headers: { 'Content-Type': 'application/json' },
+        body: { name: 'PCid_' + Date.now(), sku: 'PCID' + Date.now(), sellingPrice: 3, taxRate: 0, unit: 'pcs', categoryId: catId },
+        failOnStatusCode: false,
+      }).then((p) => {
+        expect(p.body.success).to.eq(true)
+        cy.request('/getCatalogProduct?id=' + p.body.data.id).then((gp) => {
+          expect(gp.body.data.categoryId).to.eq(catId)
+          expect(gp.body.data.categoryName).to.eq(cname)
+        })
+      })
+    })
+  })
+
   it('renders #tableProduct as a DataTable with the product row + add-stock control', () => {
     cy.seedProduct({ name: 'PT_' + Date.now(), stock: 7 }).then(({ productId }) => {
       cy.visit('/businessDashboard')
@@ -55,7 +107,86 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
       // DataTable render: the shared path builds the toolbar (length select) + the seeded row's add-stock button.
       cy.get('select[name="tableProduct_length"]', { timeout: 10000 }).should('exist')
       cy.get('#addstkbtn_' + productId, { timeout: 10000 }).should('exist')
+      cy.get('#lessstkbtn_' + productId).should('exist')   // correct/reduce control
       cy.get('#stk_' + productId).should('exist')
+    })
+  })
+
+  it('adjustProductStock decreases on-hand and refuses to go below zero', () => {
+    cy.seedProduct({ name: 'PA_' + Date.now(), stock: 10 }).then(({ productId }) => {
+      // decrease 4 → on-hand 6
+      cy.request({
+        method: 'POST', url: '/adjustProductStock', headers: { 'Content-Type': 'application/json' },
+        body: { productId, adjustmentType: 'DECREASE', quantity: 4, reason: 'cypress correction' }, failOnStatusCode: false,
+      }).then((r) => expect(r.body.success, JSON.stringify(r.body)).to.eq(true))
+      cy.request('/productStock?productId=' + productId).then((r) => expect(Number(r.body.stock)).to.eq(6))
+
+      // decreasing beyond on-hand is rejected (guard) and leaves on-hand unchanged
+      cy.request({
+        method: 'POST', url: '/adjustProductStock', headers: { 'Content-Type': 'application/json' },
+        body: { productId, adjustmentType: 'DECREASE', quantity: 999, reason: 'cypress over-decrease' }, failOnStatusCode: false,
+      }).then((r) => expect(r.body.success).to.not.eq(true))
+      cy.request('/productStock?productId=' + productId).then((r) => expect(Number(r.body.stock)).to.eq(6))
+    })
+  })
+
+  it('re-prices the product on receive (purchase sell rate → product sellingPrice), guarded', () => {
+    cy.seedProduct({ name: 'PR_' + Date.now(), sellingPrice: 20 }).then(({ productId }) => {
+      // a purchase carrying a new sell rate (35) re-prices the master
+      cy.request({
+        method: 'POST', url: '/addPurchase', form: true,
+        body: { productId, quantity: 3, purchaseRate: 10, 'stock.bpurchaseRate': 10, 'stock.bsellRate': 35, totalAmount: 30, netAmount: 30, purchaseInvoiceNo: 'RP-' + Date.now() },
+        failOnStatusCode: false,
+      }).then((r) => expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS'))
+      cy.request('/getCatalogProduct?id=' + productId).then((r) => expect(Number(r.body.data.sellingPrice)).to.eq(35))
+
+      // GUARD: a purchase with sell rate 0 must NOT wipe the price (stays 35)
+      cy.request({
+        method: 'POST', url: '/addPurchase', form: true,
+        body: { productId, quantity: 1, purchaseRate: 10, 'stock.bpurchaseRate': 10, 'stock.bsellRate': 0, totalAmount: 10, netAmount: 10, purchaseInvoiceNo: 'RP0-' + Date.now() },
+        failOnStatusCode: false,
+      }).then((r) => expect(r.body.status).to.eq('SUCCESS'))
+      cy.request('/getCatalogProduct?id=' + productId).then((r) => expect(Number(r.body.data.sellingPrice)).to.eq(35))
+    })
+  })
+
+  it('records the actual SOLD rate + the catalog price snapshot on a sale', () => {
+    cy.seedProduct({ name: 'SP_' + Date.now(), sellingPrice: 20, stock: 10 }).then(({ productId }) => {
+      // sell 1 at an OVERRIDDEN rate of 25 (catalog master is 20)
+      cy.request({
+        method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
+        body: {
+          customer: { name: 'SPCust_' + Date.now(), contact: '0300SP', paidAmount: 25, dueAmount: 0 },
+          sales: [{ productId, quantity: 1, sellRate: 25, totalAmount: 25, netAmount: 25 }],
+        }, failOnStatusCode: false,
+      }).then((r) => expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS'))
+
+      // the line records sellRate=25 (what it sold at) + catalogPrice=20 (master at sale time)
+      cy.request('/getUserSell').then((r) => {
+        const list = r.body.collection || r.body.data || []
+        const mine = list.find((s) => s.productId === productId)
+        expect(mine, 'sale line for the seeded product').to.exist
+        expect(Number(mine.sellRate), 'sold rate').to.eq(25)
+        expect(Number(mine.catalogPrice), 'catalog price snapshot').to.eq(20)
+      })
+    })
+  })
+
+  it('New opens the Product form modal; selecting a row shows the bulk-action bar', () => {
+    cy.seedProduct({ name: 'PM_' + Date.now(), stock: 3 }).then(({ productId }) => {
+      cy.visit('/businessDashboard')
+      cy.window().then((w) => w.showProducts())
+      cy.get('#ProductModal').should('not.have.class', 'open')
+      // + New Product opens the form modal
+      cy.get('#newProduct').click()
+      cy.get('#ProductModal').should('have.class', 'open')
+      cy.get('#prodName').should('be.visible')
+      cy.get('#ProductModal .crud-x').click()
+      cy.get('#ProductModal').should('not.have.class', 'open')
+      // ticking a row reveals the contextual bulk-action bar
+      cy.get('#addstkbtn_' + productId, { timeout: 10000 }).should('exist')
+      cy.get('#tableProduct tbody').find("input[type='checkbox']").first().check()
+      cy.get('#bulkBarProduct').should('be.visible').and('contain', 'selected')
     })
   })
 })

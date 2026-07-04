@@ -1,0 +1,102 @@
+/* ============================================================================
+ * SaaS app shell — Corporate Blue left sidebar (shared by all dashboards).
+ * Reuses the existing .snav-dd / .snav-btn / .snav-menu markup + handlers; this
+ * stylesheet just relocates+restyles them into a fixed vertical rail. Opt-in via
+ * <body class="has-sidebar"> so pages without a sidebar are unaffected.
+ * ========================================================================== */
+:root{
+  --sb-w:238px; --sb-w-collapsed:64px;
+  --sb-bg:#12386b; --sb-bg2:#0e2c55; --sb-accent:#1e88e5;
+  --sb-text:#dbe6f5; --sb-muted:#9db3d4;
+}
+
+/* the top header now acts as the top bar to the right of the rail — drop its duplicate brand/logo */
+body.has-sidebar #header .navbar-brand{ display:none; }
+
+/* push the whole app right to make room for the fixed rail. Padding the body works for EVERY dashboard
+ * regardless of its wrapper markup — the fixed rail/hamburger/backdrop are viewport-positioned, so body
+ * padding pushes only the normal-flow content. */
+body.has-sidebar{ padding-left:var(--sb-w); transition:padding-left .18s ease; }
+body.has-sidebar.sidebar-collapsed{ padding-left:var(--sb-w-collapsed); }
+
+.app-sidebar{
+  position:fixed; top:0; left:0; bottom:0; width:var(--sb-w);
+  background:linear-gradient(180deg,var(--sb-bg),var(--sb-bg2)); color:var(--sb-text);
+  display:flex; flex-direction:column; z-index:1040; overflow-x:hidden; overflow-y:auto;
+  transition:width .18s ease, transform .2s ease; box-shadow:2px 0 14px rgba(9,30,66,.20);
+}
+.app-sidebar__brand{
+  display:flex; align-items:center; gap:10px; padding:15px 16px; height:52px;
+  font-weight:700; font-size:15px; color:#fff; white-space:nowrap;
+  border-bottom:1px solid rgba(255,255,255,.08); flex-shrink:0;
+}
+.app-sidebar__brand>.glyphicon:first-child{ color:var(--sb-accent); font-size:17px; }
+.app-sidebar__toggle{ margin-left:auto; background:none; border:0; color:var(--sb-muted); cursor:pointer; padding:4px 6px; border-radius:6px; }
+.app-sidebar__toggle:hover{ color:#fff; background:rgba(255,255,255,.08); }
+.app-sidebar__nav{ padding:8px 0 24px; flex:1 1 auto; }
+
+/* dashboards converted in-place keep their .container-fluid/.snav-inner wrappers inside the nav — flatten them */
+.app-sidebar .container-fluid{ padding:0; width:auto; margin:0; }
+.app-sidebar .snav-inner{ display:block; }
+.app-sidebar .snav-left{ display:none; }   /* the user chip lives in the top bar, not the rail */
+
+/* group header (was a dropdown button → now a full-width rail row) */
+.app-sidebar .snav-actions{ display:block; }
+.app-sidebar .snav-dd{ position:static; display:block; margin:0; }
+.app-sidebar .snav-btn{
+  display:flex; align-items:center; gap:12px; width:100%; padding:11px 18px;
+  background:none; border:0; color:var(--sb-text); font-size:14px; font-weight:500;
+  text-align:left; cursor:pointer; white-space:nowrap; border-radius:0;
+}
+.app-sidebar .snav-btn:hover{ background:rgba(255,255,255,.07); color:#fff; }
+.app-sidebar .snav-btn>.glyphicon:first-child{ width:18px; text-align:center; font-size:15px; flex-shrink:0; color:var(--sb-muted); }
+.app-sidebar .snav-btn:hover>.glyphicon:first-child{ color:#fff; }
+.app-sidebar .snav-caret{ margin-left:auto; font-size:9px; opacity:.7; transition:transform .15s ease; }
+.app-sidebar .snav-dd.snav-open>.snav-btn{ color:#fff; background:rgba(255,255,255,.05); }
+.app-sidebar .snav-dd.snav-open .snav-caret{ transform:rotate(180deg); }
+
+/* submenu (was a floating dropdown → now inline accordion) */
+.app-sidebar .snav-menu{
+  list-style:none; margin:0; padding:0; position:static; box-shadow:none; background:rgba(0,0,0,.16);
+  max-height:0; overflow:hidden; transition:max-height .2s ease; opacity:1; visibility:visible; transform:none; min-width:0;
+}
+.app-sidebar .snav-dd.snav-open .snav-menu{ max-height:520px; }
+.app-sidebar .snav-menu>li{ margin:0; }
+.app-sidebar .snav-menu>li>a{
+  display:flex; align-items:center; gap:10px; padding:9px 18px 9px 48px;
+  color:var(--sb-muted); font-size:13px; cursor:pointer; text-decoration:none; white-space:nowrap; border:0;
+}
+.app-sidebar .snav-menu>li>a:hover{ background:rgba(255,255,255,.07); color:#fff; }
+.app-sidebar .snav-menu>li>a>.glyphicon{ font-size:12px; width:16px; text-align:center; }
+.app-sidebar .snav-menu>li>a.active{ color:#fff; box-shadow:inset 3px 0 0 var(--sb-accent); background:rgba(30,136,229,.14); }
+
+/* flat rail links (select-nav dashboards: welfare/agriculture) */
+.app-sidebar .sb-link{ display:flex; align-items:center; gap:12px; padding:11px 18px; color:var(--sb-text); font-size:14px; font-weight:500; cursor:pointer; text-decoration:none; white-space:nowrap; }
+.app-sidebar .sb-link:hover{ background:rgba(255,255,255,.07); color:#fff; }
+.app-sidebar .sb-link>.glyphicon{ width:18px; text-align:center; font-size:15px; color:var(--sb-muted); flex-shrink:0; }
+.app-sidebar .sb-link:hover>.glyphicon{ color:#fff; }
+.app-sidebar .sb-link.active{ color:#fff; box-shadow:inset 3px 0 0 var(--sb-accent); background:rgba(30,136,229,.14); }
+body.sidebar-collapsed .app-sidebar .sb-link>span:not(.glyphicon){ display:none; }
+body.sidebar-collapsed .app-sidebar .sb-link{ justify-content:center; padding:12px 0; }
+
+/* collapsed icon-rail: hide labels/carets/submenus, keep the group icons */
+body.sidebar-collapsed .app-sidebar{ width:var(--sb-w-collapsed); }
+body.sidebar-collapsed .app-sidebar .app-sidebar__brand-text,
+body.sidebar-collapsed .app-sidebar .snav-btn>span:not(.glyphicon),
+body.sidebar-collapsed .app-sidebar .snav-caret,
+body.sidebar-collapsed .app-sidebar .snav-menu{ display:none; }
+body.sidebar-collapsed .app-sidebar .snav-btn{ justify-content:center; padding:12px 0; }
+body.sidebar-collapsed .app-sidebar .app-sidebar__brand{ justify-content:center; padding:15px 0; }
+body.sidebar-collapsed .app-sidebar .app-sidebar__toggle{ margin:0; }
+
+/* mobile: off-canvas drawer + hamburger + backdrop */
+#sidebar-mobile-btn{ display:none; position:fixed; top:9px; left:10px; z-index:1045; width:40px; height:40px; border:0; border-radius:8px; background:var(--sb-bg); color:#fff; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(9,30,66,.3); }
+.sidebar-backdrop{ display:none; }
+@media (max-width:900px){
+  body.has-sidebar{ padding-left:0; }
+  .app-sidebar{ transform:translateX(-100%); width:var(--sb-w); }
+  body.sidebar-open .app-sidebar{ transform:translateX(0); }
+  body.sidebar-collapsed .app-sidebar{ width:var(--sb-w); }   /* no icon-rail on mobile */
+  #sidebar-mobile-btn{ display:inline-flex; }
+  body.sidebar-open .sidebar-backdrop{ display:block; position:fixed; inset:0; top:0; left:0; right:0; bottom:0; background:rgba(9,30,66,.45); z-index:1039; }
+}

@@ -89,19 +89,35 @@ public class ProductService {
         return toDto(productRepository.save(p));
     }
 
+    /** Re-price on receive (Option B): the purchase/goods-in flow updates the selling price. GUARD — only a
+     *  positive price re-prices; a null/≤0 leaves the master price untouched (never wipes it). Scoped (anti-IDOR). */
+    @Transactional
+    public ProductDTO updatePrice(Long id, BigDecimal price) {
+        Product p = getEntity(id);
+        if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
+            p.setSellingPrice(price);
+            p = productRepository.save(p);
+        }
+        return toDto(p);
+    }
+
     /** Scoped lookup — anti-IDOR. */
     public Product getEntity(Long id) {
         return productRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + id));
     }
 
-    /** Lightweight cross-service reference (+ price) for the sell saga (slice 33, U3b). */
+    /** Lightweight cross-service reference (+ price) for the sell saga (slice 33, U3b).
+     *  readOnly tx keeps the session open through toRef()'s lazy category access (open-in-view is false) — a product
+     *  that HAS a category otherwise throws "Could not initialize proxy [Category] - no session". */
+    @Transactional(readOnly = true)
     public com.myplus.commerce.contracts.dto.ProductRef getRef(Long id) {
         return toRef(getEntity(id));   // scoped — 404 if not this tenant's
     }
 
     /** M4d (slice 93): batch refs by id (tenant-scoped) for the POS read screens — one call instead of N. Missing or
-     *  foreign ids are simply omitted. */
+     *  foreign ids are simply omitted. readOnly tx keeps the session open for toRef()'s lazy category (see getRef). */
+    @Transactional(readOnly = true)
     public java.util.List<com.myplus.commerce.contracts.dto.ProductRef> getRefs(java.util.List<Long> ids) {
         if (ids == null || ids.isEmpty()) return java.util.Collections.emptyList();
         return productRepository.findAllByIdScoped(ids, CurrentUser.organizationId(), CurrentUser.userId())
@@ -146,6 +162,10 @@ public class ProductService {
             Category cat = categoryRepository.findByIdScoped(dto.getCategoryId(), CurrentUser.organizationId(), CurrentUser.userId())
                     .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + dto.getCategoryId()));
             p.setCategory(cat);
+        } else if (dto.getCategoryName() != null && !dto.getCategoryName().isBlank()) {
+            // The POS Product form submits a free-text category NAME (no id) — find-or-create it (tenant-scoped) so
+            // the category persists and round-trips to the list + edit form. Blank/absent name leaves it unchanged.
+            p.setCategory(findOrCreateCategory(dto.getCategoryName().trim()));
         }
         p.setUnit(dto.getUnit());
         p.setManufacturer(dto.getManufacturer());
@@ -155,5 +175,18 @@ public class ProductService {
         p.setImageUrl(dto.getImageUrl());
         if (dto.getCreatedBy() != null) p.setCreatedBy(dto.getCreatedBy());
         return p;
+    }
+
+    /** Find-or-create a tenant-scoped Category by name (for the POS Product form's free-text category). */
+    private Category findOrCreateCategory(String name) {
+        Long orgId = CurrentUser.organizationId();
+        Long userId = CurrentUser.userId();
+        return categoryRepository.findByNameScoped(name, orgId, userId).orElseGet(() -> {
+            Category c = new Category();
+            c.setName(name);
+            c.setOrganizationId(orgId);
+            c.setUserId(userId);
+            return categoryRepository.save(c);
+        });
     }
 }

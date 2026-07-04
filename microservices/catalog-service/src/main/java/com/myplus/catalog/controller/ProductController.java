@@ -90,6 +90,12 @@ public class ProductController {
                 PageResponse.of(productService.search(q, category, minPrice, maxPrice, pageable), p -> p)));
     }
 
+    /** Re-price on receive (Option B): update just the selling price — called by the purchase/goods-in flow. */
+    @PutMapping("/{id}/price")
+    public ResponseEntity<ApiResponse<ProductDTO>> updatePrice(@PathVariable Long id, @RequestParam BigDecimal price) {
+        return ResponseEntity.ok(ApiResponse.success(productService.updatePrice(id, price), "Price updated"));
+    }
+
     @PutMapping("/{id}/activate")
     public ResponseEntity<ApiResponse<ProductDTO>> activate(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(productService.setActive(id, true)));

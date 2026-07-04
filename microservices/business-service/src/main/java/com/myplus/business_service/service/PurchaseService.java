@@ -47,6 +47,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
 
+    @Autowired
+    com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // Option B: re-price the product on receive
+
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
@@ -216,6 +219,15 @@ public class PurchaseService implements IPurchaseService{
 		}
 		Purchase saved = this.save(obj);
 		pushPurchaseToInventory(saved, dto, user);        // dual-write stock-in to inventory (authoritative)
+
+		// Option B — re-price on receive: the purchase's sell rate updates the catalog Product's selling price
+		// (the master POS/pharmacy/e-commerce all sell at). GUARD: only a positive rate re-prices; a blank/0 leaves
+		// the master price untouched. Best-effort — a catalog hiccup never fails the purchase (stock is already in).
+		if (snap != null && snap.getBsellRate() != null
+				&& snap.getBsellRate().compareTo(java.math.BigDecimal.ZERO) > 0 && saved.getProductId() != null) {
+			try { catalogClient.updatePrice(saved.getProductId(), snap.getBsellRate()); }
+			catch (Exception ex) { LOG.warn("Option B: re-price on receive failed for product {} (purchase recorded)", saved.getProductId(), ex); }
+		}
 		return saved;
 	}
 

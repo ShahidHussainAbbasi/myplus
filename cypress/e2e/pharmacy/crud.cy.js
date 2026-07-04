@@ -38,6 +38,8 @@ describe('Pharmacy dashboard transacts on the reused trade backend', () => {
   it('submits the pharmacy dashboard form (UI path) successfully', () => {
     const name = `PharmaForm_${Date.now()}`
     cy.openSection('CompanyDiv', '/pharmaDashboard')
+    cy.get('#newCompany').click()                       // form moved into a modal
+    cy.get('#CompanyModal').should('have.class', 'open')
     cy.get('#companyName').type(name)
     cy.get('#companyEmail').clear().type(`${Date.now()}@pharma.test`)
     cy.intercept('POST', '/addCompany').as('addCompany')

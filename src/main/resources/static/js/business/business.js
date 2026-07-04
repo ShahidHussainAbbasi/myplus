@@ -249,6 +249,11 @@ $(document).ready(function() {
 			obj.itemId = pickVal;               // back-compat field (ignored once productId present; removed in M4e.5)
 			obj.stock.itemId = obj.itemId;
 			obj.stock.itemName = obj.itemName;
+			// The rate this line SOLD at = the cashier's #sellSellRate (bound to stock.bsellRate). Surface it as
+			// line.sellRate so the /addSell submission carries it → SagaSellService records the actual sold rate
+			// (and snapshots the catalog price separately). Without this the sold rate was dropped (saga fell back
+			// to the catalog price).
+			obj.sellRate = (obj.stock && obj.stock.bsellRate != null) ? obj.stock.bsellRate : null;
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
 			// obj.item = item;
 
@@ -413,7 +418,7 @@ function loadCartLineIntoForm(line){
 		         : (Array.isArray(resp && resp.data) ? resp.data : []);
 		var html = "<option value=''>Nothing Selected</option>";
 		list.forEach(function(p){
-			html += "<option value='" + p.id + "' data-product='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
+			html += "<option value='" + p.id + "' data-product='" + p.id + "' data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
 		});
 		var $dd = $('#sellItemDD').empty().append(html);
 		var pid = (line.productId != null) ? line.productId : line.itemId;   // cart lines key by productId
@@ -698,7 +703,7 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=purchaseId>"+obj.purchaseId+"</div>","<input type='checkbox' value="+ obj.purchaseId+ ">",
-							"<div id=purchaseInvoiceNo>"+escHtml(obj.purchaseInvoiceNo)+"</div>","<div id=purchaseItemDD>"+escHtml(obj.iname)+"</div>",
+							"<div id=purchaseInvoiceNo>"+escHtml(obj.purchaseInvoiceNo)+"</div>","<div id=purchaseItemDD>"+escHtml(obj.iname || obj.icode || (obj.productId ? ('Product #'+obj.productId) : ''))+"</div>",
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>","<div id=purchaseStock>"+obj.stock.stock+"</div>",
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
 							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>",
@@ -724,7 +729,7 @@ function loadDataTable(){
 							"<div id=sellItemName>"+escHtml(obj.itemName||'')+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
 							"<div id=sellItemExpiry>"+(obj.stock&&obj.stock.bexpDate!=null?obj.stock.bexpDate:'')+"</div>",
-							"<div id=sellPurchaseRate>"+(obj.stock&&obj.stock.bpurchaseRate!=null?obj.stock.bpurchaseRate:'')+"</div>","<div id=sellSellRate>"+(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:(obj.sellRate!=null?obj.sellRate:''))+"</div>",
+							"<div id=sellPurchaseRate>"+(obj.stock&&obj.stock.bpurchaseRate!=null?obj.stock.bpurchaseRate:'')+"</div>","<div id=sellSellRate>"+(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:(obj.sellRate!=null?obj.sellRate:''))+"</div>","<div id=sellCatalogPrice>"+(obj.catalogPrice!=null?obj.catalogPrice:'')+"</div>",
 							"<div id=sellDiscountTypeDD>"+(obj.stock&&obj.stock.bsellDiscountType!=null?obj.stock.bsellDiscountType:'')+"</div>","<div id=sellDiscount>"+(obj.stock&&obj.stock.bsellDiscount!=null?obj.stock.bsellDiscount:(obj.discount!=null?obj.discount:''))+"</div>",
 							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>",
 							"<div id=sellDueAmount>"+owed.toFixed(2)+"</div>",
@@ -758,17 +763,27 @@ function loadDataTable(){
 							"<div id=taxRate>"+(obj.taxRate != null ? Number(obj.taxRate).toFixed(2) : '')+"</div>",
 							"<div id=categoryName>"+escHtml(obj.categoryName || '')+"</div>",
 							"<div id=stk_"+obj.id+" class=prod-onhand>…</div>",
-							"<input type=number min=0 step=any id=addstk_"+obj.id+" class='form-control input-sm prod-addstk' style='width:90px;display:inline-block'>"
-								+ "<button type=button id=addstkbtn_"+obj.id+" class='btn btn-xs btn-success' style='margin-left:4px' onclick='addProductStock("+obj.id+")'><span class='glyphicon glyphicon-plus'></span> Add</button>"
+							"<input type=number min=0 step=any id=addstk_"+obj.id+" class='form-control input-sm prod-addstk' style='width:80px;display:inline-block'>"
+								+ "<button type=button id=addstkbtn_"+obj.id+" class='btn btn-xs btn-success' style='margin-left:4px' title='Add to on-hand' onclick='addProductStock("+obj.id+")'><span class='glyphicon glyphicon-plus'></span></button>"
+								+ "<button type=button id=lessstkbtn_"+obj.id+" class='btn btn-xs btn-warning' style='margin-left:4px' title='Correct / reduce on-hand' onclick='adjustProductStock("+obj.id+")'><span class='glyphicon glyphicon-minus'></span></button>"
 						]);
 					});
 				}
 				// Single draw — much faster than calling draw() on every row.add()
 				datatable.rows.add(allRows).draw();
 
-				// Product on-hand is inventory (not catalog) — lazy-load each row's live stock after the table draws.
-				if (getAll === "Product" && typeof refreshStock === 'function') {
-					$.each(collections, function(ind, obj) { refreshStock(obj.id); });
+				// Product on-hand is inventory (not catalog). Fill EVERY row's on-hand in ONE batch call
+				// (/productStockLevels → inventory /stock/levels) instead of a per-row /productStock request.
+				if (getAll === "Product") {
+					$.get(serverContext + "productStockLevels", function(resp){
+						var levels = (resp && resp.success && resp.levels) ? resp.levels : {};
+						$.each(collections, function(ind, obj){
+							var v = levels[obj.id];
+							$('#stk_' + obj.id).text(v != null ? v : '0');
+						});
+					}).fail(function(){
+						$.each(collections, function(ind, obj){ $('#stk_' + obj.id).text('—'); });
+					});
 				}
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
@@ -1112,7 +1127,7 @@ function loadUserItems(table) {
 		         : (Array.isArray(resp && resp.data) ? resp.data : []);
 		var html = "<option value=''>Nothing Selected</option>";
 		list.forEach(function(p){
-			html += "<option value='" + p.id + "' data-product='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
+			html += "<option value='" + p.id + "' data-product='" + p.id + "' data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
 		});
 		$("#"+table+"ItemDD").empty().append(html);
 		if($("#"+table+"ItemDD").data('selectpicker')) $("#"+table+"ItemDD").selectpicker('refresh');
@@ -1179,7 +1194,14 @@ function loadStock(label,value){
 	
     // M4e.1b (slice 98): the picker value is a productId now → pre-fill from productStock (on-hand + price + FEFO
     // batches + description, by productId) instead of getStock(itemId).
-    $.get(serverContext+ "productStock?productId="+value,function(data){
+    var catalogSellPrice = $("#"+(tableV?tableV.toLowerCase():'')+"ItemDD :selected").attr('data-price');
+		// Fill the sell rate IMMEDIATELY from the catalog price (data-price on the option), independent of the async
+		// on-hand/batch fetch below — so it shows on select even if /productStock is slow or unavailable.
+		if (catalogSellPrice != null && catalogSellPrice !== '') {
+			if (tableV=="Purchase") $("#purchaseSellRate").val(catalogSellPrice);
+			else if (tableV=="Sell") $("#sellSellRate").val(catalogSellPrice);
+		}
+	    $.get(serverContext+ "productStock?productId="+value,function(data){
     	if(data){
 	    	discountValue = data.bsellDiscount;
 	    	discountType = data.bsellDiscountType;
@@ -1188,7 +1210,8 @@ function loadStock(label,value){
         		$("#discountTypeDD").val(discountType);    			
     			$("#purchaseDiscount").val(discountValue);//*1>0?$("#bpurchaseDiscount").val():0;
 		    	$("#purchasePurchaseRate").val(data.bpurchaseRate);
-		    	$("#purchaseSellRate").val(data.bsellRate)
+		    	// $("#purchase SellRate").val((data.bsellRate!=null && data.bsellRate!=='') ? data.bsellRate : (catalogSellPrice||''))
+				$("#purchaseSellRate").val((catalogSellPrice!=null && catalogSellPrice!=='') ? catalogSellPrice : (data.bsellRate||''))
 		    	if($("#purchaseQuantity").val()*1<=0){
 		    		$("#purchaseQuantity").val(1);
 		    	}
@@ -1207,7 +1230,8 @@ function loadStock(label,value){
 		    		$("#sellItemDesc").val(data.desc);
 			    	$("#bexpDate").val(data.bexpDate);
 		    		$("#sellPurchaseRate").val(data.bpurchaseRate);
-			    	$("#sellSellRate").val(data.bsellRate)
+			    	// $("#sellSellRate").val((data.bsellRate!=null && data.bsellRate!=='') ? data.bsellRate : (catalogSellPrice||''))
+					$("#sellSellRate").val((catalogSellPrice!=null && catalogSellPrice!=='') ? catalogSellPrice : (data.bsellRate||''))
 			    	$("#sellDiscount").val(discountValue);
 			    	if($("#sellItems").val()*1<=0){
 			    		$("#sellItems").val(1);
@@ -1532,6 +1556,16 @@ function loadSR(){
 
 function resetPurchaseForm(){
 	resetBSDD('purchaseItemDD');
+}
+
+// Toolbar "+ New Purchase" → open the form modal fresh (mirrors newProduct/newEntity, but also
+// visually resets the bootstrap-select item picker which the generic resetForm() leaves stale).
+function newPurchase(){
+	resetForm();
+	resetPurchaseForm();
+	$('#purchaseId').val('');
+	$('#PurchaseModalTitle').text('New Purchase');
+	openModal('PurchaseModal');
 }
 
 // G2 (slice 34): Sale Return. The per-row "Return" button opens a small self-contained dialog that supports a

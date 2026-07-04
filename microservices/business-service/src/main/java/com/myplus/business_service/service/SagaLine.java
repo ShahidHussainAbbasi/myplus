@@ -17,5 +17,6 @@ public record SagaLine(
         BigDecimal srp,
         BigDecimal taxRate,
         BigDecimal taxAmount,
-        BigDecimal lineGross) {
+        BigDecimal lineGross,
+        BigDecimal catalogPrice) {
 }

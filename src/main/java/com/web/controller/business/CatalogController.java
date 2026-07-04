@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpStatusCodeException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.web.util.BusinessRestClient;
 import com.web.util.CatalogRestClient;
 import com.web.util.InventoryRestClient;
 
@@ -34,6 +35,9 @@ public class CatalogController {
 
     @Autowired
     private InventoryRestClient inventory;
+
+    @Autowired
+    private BusinessRestClient business;   // full productStock pre-fill (on-hand + price + FEFO batches)
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -153,6 +157,43 @@ public class CatalogController {
         }
     }
 
+    /** Categories for the Product form's dropdown → catalog GET /categories (ApiResponse&lt;List&gt;). Returns a
+     *  slim {@code {success, categories:[{id,name}]}} for the &lt;select&gt;. */
+    @GetMapping("/getUserCategories")
+    @ResponseBody
+    public Map<String, Object> getUserCategories() {
+        try {
+            Map<String, Object> resp = catalog.get("/categories");
+            java.util.List<Map<String, Object>> cats = new java.util.ArrayList<>();
+            Object data = (resp != null) ? resp.get("data") : null;
+            if (data instanceof java.util.List<?> list) {
+                for (Object o : list) {
+                    if (!(o instanceof Map<?, ?> c)) continue;
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("id", c.get("id"));
+                    row.put("name", c.get("name"));
+                    cats.add(row);
+                }
+            }
+            return Map.of("success", true, "categories", cats);
+        } catch (Exception e) {
+            LOGGER.error("getUserCategories proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /** Quick-add a category from the Product form → catalog POST /categories {name}. Returns the created {id,name,...}. */
+    @PostMapping("/addCategory")
+    @ResponseBody
+    public Map<String, Object> addCategory(@RequestBody final Map<String, Object> body) {
+        try {
+            return catalog.postJson("/categories", body);
+        } catch (Exception e) {
+            LOGGER.error("addCategory proxy error", e);
+            return failure(e);
+        }
+    }
+
     /** M1 (slice 42): a single catalog Product by id. */
     @GetMapping("/getCatalogProduct")
     @ResponseBody
@@ -187,13 +228,60 @@ public class CatalogController {
         }
     }
 
-    /** E7 (slice 49): current inventory on-hand for a product (for the storefront/back-office stock readout). */
+    /** Correct a product's on-hand — decrease (a mistaken over-add) or increase — via inventory {@code /stock/adjust}.
+     *  Server-side guarded (a DECREASE below zero is rejected: "Insufficient stock") and audited (reason/who/when). */
+    @PostMapping("/adjustProductStock")
+    @ResponseBody
+    public Map<String, Object> adjustProductStock(@RequestBody final Map<String, Object> body) {
+        try {
+            Map<String, Object> dto = new java.util.HashMap<>();
+            dto.put("productId", body.get("productId"));
+            dto.put("adjustmentType", body.getOrDefault("adjustmentType", "DECREASE"));   // INCREASE | DECREASE
+            dto.put("quantity", body.get("quantity"));
+            dto.put("reason", body.getOrDefault("reason", "Manual stock correction"));
+            Map<String, Object> resp = inventory.postJson("/stock/adjust", dto);
+            Map<String, Object> out = new java.util.HashMap<>();
+            out.put("success", resp != null && Boolean.TRUE.equals(resp.get("success")));
+            if (resp != null && resp.get("message") != null) out.put("message", resp.get("message"));
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("adjustProductStock proxy error", e);
+            return failure(e);   // surfaces the inventory error body (e.g. "Insufficient stock")
+        }
+    }
+
+    /**
+     * Full product pre-fill for the back-office screens: on-hand + sell price + FEFO batches + description.
+     * Proxies business-service {@code StockController.productStock} (which sources on-hand/batches from inventory
+     * and price/description from the catalog master), then merges {@code success:true} so BOTH consumers work off
+     * one call: the Product screen's {@code refreshStock} reads {@code {success, stock}}, and the sell/purchase
+     * pickers' {@code loadStock} read the full StockDTO ({@code stock, bsellRate, bpurchaseRate, batches, …}).
+     * (Previously returned a thin {@code {success, stock}} from the raw inventory level, which is why the pickers'
+     * sell-rate/batch pre-fill came up empty.)
+     */
+    /** Batch on-hand for the whole tenant in ONE call (productId → current on-hand) → inventory {@code /stock/levels}.
+     *  The Product screen uses this to fill every row's on-hand at once, instead of a per-row /productStock call. */
+    @GetMapping("/productStockLevels")
+    @ResponseBody
+    public Map<String, Object> productStockLevels() {
+        try {
+            Map<String, Object> levels = inventory.get("/stock/levels");
+            return Map.of("success", true, "levels", levels != null ? levels : Collections.emptyMap());
+        } catch (Exception e) {
+            LOGGER.error("productStockLevels proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
     @GetMapping("/productStock")
     @ResponseBody
     public Map<String, Object> productStock(final HttpServletRequest request) {
         try {
-            String level = inventory.getString("/stock/level/" + request.getParameter("productId"));
-            return Map.of("success", true, "stock", level == null ? "0" : level.trim());
+            Map<String, Object> dto = business.get("/productStock", "productId=" + request.getParameter("productId"));
+            Map<String, Object> out = new java.util.HashMap<>();
+            if (dto != null) out.putAll(dto);   // stock (on-hand) + bsellRate + bpurchaseRate + batches + iDesc + bexpDate
+            out.put("success", true);
+            return out;
         } catch (Exception e) {
             LOGGER.error("productStock proxy error", e);
             return Collections.singletonMap("success", false);

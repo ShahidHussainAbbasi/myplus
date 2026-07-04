@@ -25,12 +25,14 @@ describe('Company CRUD', () => {
 
   // ─── GET ────────────────────────────────────────────────────────────────────
 
-  it('loads the company section with form and table', () => {
-    cy.get('#Company').should('exist')
+  it('loads the company section with toolbar + table; New opens the form modal', () => {
     cy.get('#tableCompany').should('exist')
+    cy.get('#newCompany').should('be.visible')
+    cy.get('#CompanyModal').should('not.have.class', 'open')   // form hidden until New
+    cy.get('#newCompany').click()
+    cy.get('#CompanyModal').should('have.class', 'open')
     cy.get('#companyName').should('be.visible')
     cy.get('#addCompany').should('be.visible')
-    cy.get('#deleteCompany').should('be.visible')
   })
 
   it('getUserCompany returns JSON with SUCCESS or NOT_FOUND', () => {
@@ -72,6 +74,8 @@ describe('Company CRUD', () => {
       }
     })
 
+    cy.get('#newCompany').click()                       // open the form modal
+    cy.get('#CompanyModal').should('have.class', 'open')
     cy.get('#companyName').type(COMPANY.name)
     cy.get('#companyPhone').type(COMPANY.phone)
     cy.get('#companyEmail').clear().type(COMPANY.email)
@@ -81,7 +85,9 @@ describe('Company CRUD', () => {
     cy.intercept('POST', '/addCompany').as('addCompany')
     cy.get('#addCompany').click()
     cy.wait('@addCompany').then((interception) => {
-      expect(interception.response.body.status).to.be.oneOf(['SUCCESS', 'FOUND'])
+      const st = interception.response.body.status
+      expect(st).to.be.oneOf(['SUCCESS', 'FOUND'])
+      if (st === 'SUCCESS') cy.get('#CompanyModal').should('not.have.class', 'open')   // modal closes on save
     })
   })
 
@@ -131,7 +137,7 @@ describe('Company CRUD', () => {
         return
       }
       cy.wrap(dataRows.first()).click({ force: true })
-      cy.get('#CompanyDiv').should('be.visible')
+      cy.get('#CompanyModal').should('have.class', 'open')   // row-click opens the edit modal
     })
   })
 
@@ -186,7 +192,7 @@ describe('Company CRUD', () => {
     })
   })
 
-  it('select row in table, click Delete button, row is removed from table', () => {
+  it('select row → bulk-action bar → confirm delete removes the row', () => {
     // Ensure one company exists
     const name = `DelUI_${Date.now()}`
     cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name, email: `delui${Date.now()}@test.com` } })
@@ -195,8 +201,13 @@ describe('Company CRUD', () => {
     cy.get('#registrationType').select('CompanyDiv', { force: true })
     cy.get('#tableCompany tbody tr').contains(name).closest('tr').find('input[type="checkbox"]').check()
 
+    // Selecting a row reveals the contextual bulk-action bar
+    cy.get('#bulkBarCompany').should('be.visible').and('contain', 'selected')
+
     cy.intercept('POST', '/deleteCompany').as('deleteCompany')
-    cy.get('#deleteCompany').click()
+    cy.get('#bulkBarCompany').contains('Delete').click()        // → opens the confirm modal
+    cy.get('#confirmDeleteModal').should('have.class', 'open')
+    cy.get('#confirmDeleteYes').click()                          // → reuses the generic delete
     cy.wait('@deleteCompany').then((interception) => {
       expect(interception.response.body).to.be.true
     })

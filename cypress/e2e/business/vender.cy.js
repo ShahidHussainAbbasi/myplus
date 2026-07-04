@@ -27,9 +27,12 @@ describe('Vender CRUD', () => {
 
   // ─── GET ────────────────────────────────────────────────────────────────────
 
-  it('loads the vender section with form and table', () => {
-    cy.get('#Vender').should('exist')
+  it('loads the vender section with toolbar + table; New opens the form modal', () => {
     cy.get('#tableVender').should('exist')
+    cy.get('#newVender').should('be.visible')
+    cy.get('#VenderModal').should('not.have.class', 'open')
+    cy.get('#newVender').click()
+    cy.get('#VenderModal').should('have.class', 'open')
     cy.get('#venderName').should('be.visible')
     cy.get('#addVender').should('be.visible')
   })
@@ -55,6 +58,8 @@ describe('Vender CRUD', () => {
       const cId = res.body.data?.[0]?.id
       if (!cId) return cy.log('No company available — skipping vender add UI test')
 
+      cy.get('#newVender').click()                       // open the form modal
+      cy.get('#VenderModal').should('have.class', 'open')
       cy.get('#venderCompanyDD').select(String(cId))
       cy.get('#venderName').type(`Cypress Trader ${Date.now()}`)
       cy.get('#venderMobile').type('03001234567')
@@ -109,7 +114,7 @@ describe('Vender CRUD', () => {
       if ($row.find('td').length > 0) {
         // Re-query by index to avoid DataTable re-render detaching the cached reference
         cy.get('#tableVender tbody tr').first().click()
-        cy.get('#VenderDiv').should('be.visible')
+        cy.get('#VenderModal').should('have.class', 'open')   // row-click opens the edit modal
       } else {
         cy.log('No venders in table — row click test skipped')
       }

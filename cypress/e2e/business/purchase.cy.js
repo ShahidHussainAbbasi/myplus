@@ -13,7 +13,12 @@ describe('Purchase Section — UI Rendering', () => {
     cy.openPurchaseSection('purchaseDiv')
   })
 
-  it('shows item dropdown, quantity field and submit button', () => {
+  it('shows toolbar + table; New opens the form modal', () => {
+    cy.get('#tablePurchase').should('exist')
+    cy.get('#newPurchase').should('be.visible')
+    cy.get('#PurchaseModal').should('not.have.class', 'open')   // form hidden until New
+    cy.get('#newPurchase').click()
+    cy.get('#PurchaseModal').should('have.class', 'open')
     cy.get('#purchaseItemDD').should('exist')
     cy.get('#purchaseQuantity').should('be.visible')
     cy.get('#addPurchase').should('be.visible')
@@ -25,9 +30,18 @@ describe('Purchase Section — UI Rendering', () => {
     cy.get('#tablePurchase thead th').should('have.length.above', 0)
   })
 
+  it('Cancel closes the form modal', () => {
+    cy.get('#newPurchase').click()
+    cy.get('#PurchaseModal').should('have.class', 'open')
+    cy.get('#resetPurchase').click()
+    cy.get('#PurchaseModal').should('not.have.class', 'open')
+  })
+
   it('Reset button clears the quantity field', () => {
+    cy.get('#newPurchase').click()
     cy.get('#purchaseQuantity').type('5')
     cy.get('#resetPurchase').click()
+    cy.get('#newPurchase').click()                              // re-open to inspect the cleared field
     cy.get('#purchaseQuantity').should('have.value', '')
   })
 
@@ -177,6 +191,8 @@ describe('Purchase Validation — Form Guards', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
     cy.openPurchaseSection('purchaseDiv')
+    cy.get('#newPurchase').click()                    // form now lives in a modal — open it first
+    cy.get('#PurchaseModal').should('have.class', 'open')
   })
 
   it('submitting without selecting item — POST is NOT fired', () => {
@@ -205,9 +221,9 @@ describe('Purchase Validation — Form Guards', () => {
   })
 
   it('completely blank form — POST is NOT fired', () => {
+    // beforeEach already opened a fresh (blank) modal; submitting it as-is must be blocked.
     let posted = false
     cy.intercept('POST', '/addPurchase', (req) => { posted = true; req.continue() })
-    cy.get('#resetPurchase').click()
     cy.get('#addPurchase').click()
     cy.wait(800)
     cy.then(() => expect(posted, 'Blank form should not POST').to.be.false)
@@ -231,12 +247,29 @@ describe('Purchase Table — Row Click', () => {
     cy.get('#tablePurchase tbody').should('exist')
   })
 
-  it('clicking a row does not crash the page', () => {
+  it('clicking a row opens the edit modal', () => {
     cy.get('#tablePurchase tbody tr').then(($rows) => {
       const dataRows = $rows.filter((i, r) => Cypress.$(r).find('td').length > 1)
       if (dataRows.length === 0) return cy.log('No purchases — row click test skipped')
-      cy.wrap(dataRows.first()).click({ force: true })
-      cy.get('#purchaseDiv').should('be.visible')
+      cy.wrap(dataRows.first()).find('td').eq(1).click({ force: true })   // a data cell, not the checkbox
+      cy.get('#PurchaseModal').should('have.class', 'open')
+    })
+  })
+
+  // Checkbox → bulk-action bar → confirm popup → Cancel. Kept NON-destructive (Cancel, not confirm) so it
+  // doesn't reverse real stock; the actual delete path is covered by the deletePurchase API tests above.
+  it('checking a row reveals the bulk-action bar; Delete opens the confirm popup; Cancel closes it', () => {
+    cy.get('#tablePurchase tbody tr').then(($rows) => {
+      const dataRows = $rows.filter((i, r) => Cypress.$(r).find('input[type="checkbox"]').length > 0)
+      if (dataRows.length === 0) return cy.log('No purchases — bulk-delete test skipped')
+      cy.wrap(dataRows.first()).find('input[type="checkbox"]').check({ force: true })
+      cy.get('#bulkBarPurchase').should('be.visible').and('contain', 'selected')
+      cy.get('#bulkBarPurchase').contains('Delete').click()     // → shared confirm popup
+      cy.get('#confirmDeleteModal').should('have.class', 'open')
+      cy.get('#confirmDeleteModal').contains('Cancel').click()
+      cy.get('#confirmDeleteModal').should('not.have.class', 'open')
+      cy.get('#bulkBarPurchase').contains('Clear').click()      // clear the selection
+      cy.get('#bulkBarPurchase').should('not.be.visible')
     })
   })
 })

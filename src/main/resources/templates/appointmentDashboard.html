@@ -6,6 +6,7 @@
 <title>Appointments — MyPlus</title>
 <th:block th:replace="~{fragments/header :: header-css}"></th:block>
 <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
+<link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
 <style>
   #apptContent .formDiv{display:none}
   .appt-table thead th{background:#0D3B8C;color:#fff;font-weight:600;border:none;white-space:nowrap}
@@ -13,7 +14,9 @@
   .appt-empty{padding:28px;text-align:center;color:#64748b}
 </style>
 </head>
-<body>
+<body class="has-sidebar">
+<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+<div class="sidebar-backdrop" onclick="closeSidebar()"></div>
   <div id="container">
     <th:block th:replace="~{fragments/header :: header}" />
     <div id="content">
@@ -26,7 +29,7 @@
         </select>
       </div>
 
-      <nav class="subnav" id="nav-subheader">
+      <nav class="app-sidebar" id="nav-subheader"><div class="app-sidebar__brand"><span class="glyphicon glyphicon-th-large"></span><span class="app-sidebar__brand-text">MyPlus</span><button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button></div>
         <div class="container-fluid">
           <div class="snav-inner">
             <div class="snav-left">
@@ -173,6 +176,7 @@
   </div>
 
   <th:block th:replace="~{fragments/header :: header-js}"></th:block>
+  <script th:src="@{/js/business/sidebar.js}"></script>
   <script th:inline="javascript">
     var serverContext = [[@{/}]];
 

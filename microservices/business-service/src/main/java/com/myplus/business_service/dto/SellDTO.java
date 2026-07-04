@@ -41,6 +41,12 @@ public class SellDTO implements Serializable {
 
 	private BigDecimal srp = BigDecimal.ZERO;
 
+	// The rate this line was actually SOLD at — the cashier may override the catalog price on the sell screen.
+	private BigDecimal sellRate;
+
+	// The catalog master price at the moment of sale (snapshot) — lets reports compare catalog price vs sold rate.
+	private BigDecimal catalogPrice;
+
 	// G3 (slice 35): applied tax on this line, for the read/receipt path.
 	private BigDecimal taxRate;
 

@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.annotation.PostExchange;
+import org.springframework.web.service.annotation.PutExchange;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -36,4 +38,9 @@ public interface CatalogClient {
     /** Bulk import products (item→product migration, slice 33 U2). Returns the clientRef→productId map. */
     @PostExchange("/products/import")
     List<ProductImportResult> importProducts(@RequestBody List<ProductImportLine> items);
+
+    /** Re-price on receive (Option B): set a product's selling price from the purchase/goods-in flow. Tenant-scoped
+     *  via headers; guarded server-side (a null/≤0 price never wipes the master). */
+    @PutExchange("/products/{id}/price")
+    void updatePrice(@PathVariable Long id, @RequestParam("price") BigDecimal price);
 }

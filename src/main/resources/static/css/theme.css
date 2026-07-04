@@ -935,6 +935,7 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid rgba(13,35,83,.08);
+  
 }
 .dash-page-title {
   font-size: 22px;
@@ -943,6 +944,7 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   letter-spacing: -0.03em;
   margin: 0 0 3px;
   line-height: 1.2;
+  display: none;
 }
 .dash-page-sub {
   font-size: 13px;

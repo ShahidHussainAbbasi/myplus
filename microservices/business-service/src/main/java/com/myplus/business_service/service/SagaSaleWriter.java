@@ -94,7 +94,8 @@ public class SagaSaleWriter {
             sell.setOrganizationId(user.getOrganizationId());
             sell.setProductId(l.productId());        // saga sell: catalog product, no local Stock FK
             sell.setQuantity(l.quantity());
-            sell.setSellRate(l.sellRate());          // catalog list price (D1)
+            sell.setSellRate(l.sellRate());          // the ACTUAL sold rate (cashier's rate; falls back to catalog)
+            sell.setCatalogPrice(l.catalogPrice());  // catalog master price snapshot at sale time (for reports)
             sell.setDiscount(l.discount());
             sell.setTotalAmount(l.totalAmount());
             sell.setNetAmount(l.netAmount());

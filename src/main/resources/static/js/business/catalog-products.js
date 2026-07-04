@@ -15,12 +15,19 @@
         $('.formDiv').hide();
         $('#ProductDiv').show();
         resetProductForm();
+        loadCategories();   // populate the Category dropdown
         // Render #tableProduct through the shared DataTable path (like #tableCustomer).
         tableV = 'Product'; getAll = 'Product'; buttonV = 'Product'; deleteV = 'Product';
         loadDataTable();
 
-        // Row-click → edit (mirror Customer). Ignore clicks on the checkbox / add-stock input+button.
+        // Row interactions (mirror the generic modal screens):
+        //   • checkbox → bulk-select (update the action bar), not edit
+        //   • other cells → open the edit modal (ignore the add-stock input/button)
         $('#tableProduct').off('click', 'tbody tr').on('click', 'tbody tr', function (e) {
+            if ($(e.target).is("input[type='checkbox']")) {
+                if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
+                return;
+            }
             if ($(e.target).is('input, button') || $(e.target).closest('button').length) return;
             var rowData = datatable.row(this).data();
             if (!rowData) return;
@@ -29,12 +36,52 @@
         });
     };
 
+    // Toolbar "+ New Product" → open the form modal fresh.
+    global.newProduct = function () {
+        resetProductForm();
+        loadCategories();
+        $('#ProductModalTitle').text('New Product');
+        openModal('ProductModal');
+    };
+
     function resetProductForm() {
         var f = document.getElementById('Product');
         if (f) f.reset();
         $('#productId').val('');
+        $('#prodCategory').val('');
+        $('#prodCategoryNew').val('');
     }
     global.resetProductForm = resetProductForm;
+
+    // Populate the Category dropdown from the catalog Category master; optionally pre-select one.
+    function loadCategories(selectId) {
+        $.get(serverContext + 'getUserCategories', function (resp) {
+            var cats = (resp && resp.categories) ? resp.categories : [];
+            var $sel = $('#prodCategory').empty();
+            $sel.append($('<option>').val('').text('— none —'));
+            cats.forEach(function (c) { $sel.append($('<option>').val(c.id).text(c.name)); });
+            if (selectId != null) $sel.val(selectId);
+        });
+    }
+    global.loadCategories = loadCategories;
+
+    // Inline quick-add a category, then reload the dropdown with the new one selected.
+    global.addCategoryInline = function () {
+        var name = $('#prodCategoryNew').val().trim();
+        if (!name) { showFormError('Enter a category name.'); return; }
+        $.ajax({
+            type: 'POST', url: serverContext + 'addCategory', contentType: 'application/json', dataType: 'json',
+            data: JSON.stringify({ name: name }),
+            success: function (resp) {
+                if (resp && resp.success && resp.data) {
+                    showSaleSuccess('Category added.');
+                    $('#prodCategoryNew').val('');
+                    loadCategories(resp.data.id);
+                } else { showFormError((resp && resp.message) || 'Could not add the category.'); }
+            },
+            error: function () { showFormError('Could not add the category.'); }
+        });
+    };
 
     // Read a product's current on-hand from inventory and show it in its row.
     function refreshStock(productId) {
@@ -65,6 +112,28 @@
         });
     };
 
+    // Correct on-hand — reduce (a mistaken over-add) by the entered quantity. Uses inventory's audited DECREASE
+    // adjustment, which refuses to go below zero ("Insufficient stock"). Pass 'INCREASE' to add via the same path.
+    global.adjustProductStock = function (productId, type) {
+        var qty = num($('#addstk_' + productId).val());
+        if (qty <= 0) { showFormError('Enter a quantity to correct the on-hand by.'); return; }
+        var t = type || 'DECREASE';
+        var $btn = $('#lessstkbtn_' + productId).prop('disabled', true);
+        $.ajax({
+            type: 'POST', url: serverContext + 'adjustProductStock', contentType: 'application/json', dataType: 'json',
+            data: JSON.stringify({ productId: productId, adjustmentType: t, quantity: qty, reason: 'Manual stock correction' }),
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showSaleSuccess((t === 'DECREASE' ? 'Removed ' : 'Added ') + qty + (t === 'DECREASE' ? ' from' : ' to') + ' stock.');
+                    $('#addstk_' + productId).val('');
+                    refreshStock(productId);
+                } else { showFormError((resp && resp.message) || 'Could not correct stock (not enough on hand?).'); }
+            },
+            error: function () { showFormError('Could not correct stock.'); },
+            complete: function () { $btn.prop('disabled', false); }
+        });
+    };
+
     // Load a product into the form for editing (row-click).
     function editProduct(id) {
         $.get(serverContext + 'getCatalogProduct?id=' + id, function (resp) {
@@ -76,9 +145,12 @@
             $('#prodPrice').val(p.sellingPrice != null ? p.sellingPrice : '');
             $('#prodTax').val(p.taxRate != null ? p.taxRate : '');
             $('#prodUnit').val(p.unit || '');
-            $('#prodCategory').val(p.categoryName || '');
+            // Select by category id (dropdown). Reload the list first so the product's category option is present.
+            loadCategories(p.categoryId != null ? p.categoryId : '');
             $('#prodManufacturer').val(p.manufacturer || '');
             $('#prodDesc').val(p.description || '');
+            $('#ProductModalTitle').text('Edit Product');
+            openModal('ProductModal');
         }).fail(function () { showFormError('Could not load the product.'); });
     }
     global.editProduct = editProduct;
@@ -90,7 +162,8 @@
         var body = {
             name: $('#prodName').val().trim(), sku: $('#prodSku').val(),
             sellingPrice: num($('#prodPrice').val()), taxRate: num($('#prodTax').val()),
-            unit: $('#prodUnit').val(), categoryName: $('#prodCategory').val(),
+            unit: $('#prodUnit').val(),
+            categoryId: $('#prodCategory').val() ? Number($('#prodCategory').val()) : null,
             manufacturer: $('#prodManufacturer').val(), description: $('#prodDesc').val()
         };
         var url = 'addProduct';
@@ -102,7 +175,9 @@
                 if (resp && resp.success) {
                     showSaleSuccess(id ? 'Product updated.' : 'Product saved.');
                     resetProductForm();
+                    closeModal('ProductModal');
                     loadDataTable();
+                    if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
                 } else { showFormError((resp && resp.message) || 'Could not save the product.'); }
             },
             error: function () { showFormError('Could not save the product.'); }
@@ -117,8 +192,10 @@
             type: 'POST', url: serverContext + 'deactivateProduct', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ checked: ids }),
             success: function (resp) {
-                if (resp && resp.success) { showSaleSuccess('Product(s) removed.'); resetProductForm(); loadDataTable(); }
-                else { showFormError((resp && resp.message) || 'Could not remove the product(s).'); }
+                if (resp && resp.success) {
+                    showSaleSuccess('Product(s) removed.'); resetProductForm(); loadDataTable();
+                    if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
+                } else { showFormError((resp && resp.message) || 'Could not remove the product(s).'); }
             },
             error: function () { showFormError('Could not remove the product(s).'); }
         });
