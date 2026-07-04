@@ -22,6 +22,7 @@ function resetForm(){
 		$("#"+form[i].id).
 	}
 	$(".form-control").val("");
+	updateReadOnly(false);
 }
 /*
 function validateForm(){

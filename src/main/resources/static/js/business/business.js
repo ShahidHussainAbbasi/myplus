@@ -747,19 +747,29 @@ function loadDataTable(){
 						]);
 					});
 				} else if (getAll === "Product") {
+					// Product master row, rendered through the shared DataTable (same path as Customer). Columns:
+					// [id(hidden), checkbox, name, sku, unit, price, tax%, category, on-hand(lazy), add-stock control].
 					$.each(collections, function(ind, obj) {
 						allRows.push([
-							// tr.append($('<td>').attr('id', 'stk_' + p.id).addClass('prod-onhand').text('…'));
 							"<div id=productId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=name>"+escHtml(obj.name || '')+"</div>","<div id=sku>"+escHtml(obj.sku)+"</div>",
-							"<div id=unit>"+escHtml(obj.unit || '')+"</div>","<div id=sellingPrice>"+escHtml(obj.sellingPrice != null ? Number(obj.sellingPrice).toFixed(2) : '')+"</div>",
-							"<div id=taxRate>"+escHtml(obj.taxRate != null ? Number(obj.taxRate).toFixed(2) : '')+"</div>","<div id=categoryName>"+escHtml(obj.p.categoryName || '')+"</div>",
-							"<div id=productPrice>"+escHtml(obj.price != null ? Number(obj.price).toFixed(2) : '')+"</div>","<div id=productStock>"+obj.stock+"</div>",obj.updated
+							"<div id=name>"+escHtml(obj.name || '')+"</div>","<div id=sku>"+escHtml(obj.sku || '')+"</div>",
+							"<div id=unit>"+escHtml(obj.unit || '')+"</div>",
+							"<div id=sellingPrice>"+(obj.sellingPrice != null ? Number(obj.sellingPrice).toFixed(2) : '')+"</div>",
+							"<div id=taxRate>"+(obj.taxRate != null ? Number(obj.taxRate).toFixed(2) : '')+"</div>",
+							"<div id=categoryName>"+escHtml(obj.categoryName || '')+"</div>",
+							"<div id=stk_"+obj.id+" class=prod-onhand>…</div>",
+							"<input type=number min=0 step=any id=addstk_"+obj.id+" class='form-control input-sm prod-addstk' style='width:90px;display:inline-block'>"
+								+ "<button type=button id=addstkbtn_"+obj.id+" class='btn btn-xs btn-success' style='margin-left:4px' onclick='addProductStock("+obj.id+")'><span class='glyphicon glyphicon-plus'></span> Add</button>"
 						]);
 					});
 				}
 				// Single draw — much faster than calling draw() on every row.add()
 				datatable.rows.add(allRows).draw();
+
+				// Product on-hand is inventory (not catalog) — lazy-load each row's live stock after the table draws.
+				if (getAll === "Product" && typeof refreshStock === 'function') {
+					$.each(collections, function(ind, obj) { refreshStock(obj.id); });
+				}
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
 				console.log(jqXHR, textStatus, errorThrown);

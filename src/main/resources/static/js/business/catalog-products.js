@@ -1,8 +1,10 @@
 /*
- * Catalog Product master (slice 42, M1) — register/list Products in catalog-service (the single product master
- * shared by POS, pharmacy, e-commerce). Additive: the existing Item screen still works; later phases repoint the
- * sell/purchase pickers + stock to Product, then retire Item. Reuses the existing /catalogProducts (list) and the
- * new /addProduct proxy. catalog returns the common-web ApiResponse envelope; lists are paged (data.content).
+ * Catalog Product master (slice 42, M1; UI-parity refactor) — register/list/edit Products in catalog-service
+ * (the single product master shared by POS, pharmacy, e-commerce). The list now renders through the SHARED
+ * loadDataTable() DataTable path (same as Customer): sort/search/paging/export, a hidden id + checkbox column,
+ * row-click edit, and a Delete that DEACTIVATES (products referenced by sales/inventory stay intact, just drop
+ * off the list). Per-row Add-stock (addstkbtn_<id>) is preserved. Proxies: /getUserProduct (list, {collection}),
+ * /addProduct, /updateProduct, /deactivateProduct, /addProductStock, /productStock, /getCatalogProduct.
  */
 (function (global) {
     'use strict';
@@ -12,39 +14,27 @@
     global.showProducts = function () {
         $('.formDiv').hide();
         $('#ProductDiv').show();
-        loadProducts();
+        resetProductForm();
+        // Render #tableProduct through the shared DataTable path (like #tableCustomer).
+        tableV = 'Product'; getAll = 'Product'; buttonV = 'Product'; deleteV = 'Product';
+        loadDataTable();
+
+        // Row-click → edit (mirror Customer). Ignore clicks on the checkbox / add-stock input+button.
+        $('#tableProduct').off('click', 'tbody tr').on('click', 'tbody tr', function (e) {
+            if ($(e.target).is('input, button') || $(e.target).closest('button').length) return;
+            var rowData = datatable.row(this).data();
+            if (!rowData) return;
+            var id = $(rowData[0]).text();   // rowData[0] = "<div id=productId>123</div>"
+            if (id) editProduct(id);
+        });
     };
 
-    function loadProducts() {
-        $.get(serverContext + 'catalogProducts?size=500', function (resp) {
-            var page = (resp && resp.data) ? resp.data : {};
-            var list = page.content || [];
-            var $b = $('#productBody').empty();
-            list.forEach(function (p) {
-                var tr = $('<tr>');
-                tr.append($('<td>').text(p.name || ''));
-                tr.append($('<td>').text(p.sku || ''));
-                tr.append($('<td>').text(p.unit || ''));
-                tr.append($('<td>').text(p.sellingPrice != null ? Number(p.sellingPrice).toFixed(2) : ''));
-                tr.append($('<td>').text(p.taxRate != null ? p.taxRate : ''));
-                tr.append($('<td>').text(p.categoryName || ''));
-                // On hand (lazy-loaded) + add-stock control. Inventory the storefront/POS saga draws down (slice 50).
-                tr.append($('<td>').attr('id', 'stk_' + p.id).addClass('prod-onhand').text('…'));
-                var addCell = $('<td>');
-                $('<input>').attr({ type: 'number', min: '0', step: 'any', id: 'addstk_' + p.id })
-                    .addClass('form-control input-sm prod-addstk').css({ width: '90px', display: 'inline-block' })
-                    .appendTo(addCell);
-                $('<button>').attr({ type: 'button', id: 'addstkbtn_' + p.id }).addClass('btn btn-xs btn-success')
-                    .css('margin-left', '4px').html('<span class="glyphicon glyphicon-plus"></span> Add')
-                    .on('click', function () { addProductStock(p.id); })
-                    .appendTo(addCell);
-                tr.append(addCell);
-                $b.append(tr);
-                refreshStock(p.id);
-            });
-        }).fail(function () { showFormError('Could not load products.'); });
+    function resetProductForm() {
+        var f = document.getElementById('Product');
+        if (f) f.reset();
+        $('#productId').val('');
     }
-    global.loadProducts = loadProducts;
+    global.resetProductForm = resetProductForm;
 
     // Read a product's current on-hand from inventory and show it in its row.
     function refreshStock(productId) {
@@ -55,7 +45,7 @@
     }
     global.refreshStock = refreshStock;
 
-    // Add opening stock for a product (slice 50) — feeds the inventory the storefront/POS reservation saga draws down.
+    // Add opening stock for a product — feeds the inventory the storefront/POS reservation saga draws down.
     global.addProductStock = function (productId) {
         var qty = num($('#addstk_' + productId).val());
         if (qty <= 0) { showFormError('Enter a quantity greater than 0 to add stock.'); return; }
@@ -75,24 +65,62 @@
         });
     };
 
+    // Load a product into the form for editing (row-click).
+    function editProduct(id) {
+        $.get(serverContext + 'getCatalogProduct?id=' + id, function (resp) {
+            var p = (resp && resp.data) ? resp.data : null;
+            if (!p) { showFormError('Could not load the product.'); return; }
+            $('#productId').val(p.id);
+            $('#prodName').val(p.name || '');
+            $('#prodSku').val(p.sku || '');
+            $('#prodPrice').val(p.sellingPrice != null ? p.sellingPrice : '');
+            $('#prodTax').val(p.taxRate != null ? p.taxRate : '');
+            $('#prodUnit').val(p.unit || '');
+            $('#prodCategory').val(p.categoryName || '');
+            $('#prodManufacturer').val(p.manufacturer || '');
+            $('#prodDesc').val(p.description || '');
+        }).fail(function () { showFormError('Could not load the product.'); });
+    }
+    global.editProduct = editProduct;
+
+    // Submit: add a new product, or update the one being edited (hidden #productId set).
     global.saveProduct = function () {
         if (!$('#prodName').val().trim()) { showFormError('Product name is required.'); return; }
+        var id = $('#productId').val();
+        var body = {
+            name: $('#prodName').val().trim(), sku: $('#prodSku').val(),
+            sellingPrice: num($('#prodPrice').val()), taxRate: num($('#prodTax').val()),
+            unit: $('#prodUnit').val(), categoryName: $('#prodCategory').val(),
+            manufacturer: $('#prodManufacturer').val(), description: $('#prodDesc').val()
+        };
+        var url = 'addProduct';
+        if (id) { body.id = Number(id); url = 'updateProduct'; }
         $.ajax({
-            type: 'POST', url: serverContext + 'addProduct', contentType: 'application/json', dataType: 'json',
-            data: JSON.stringify({
-                name: $('#prodName').val().trim(), sku: $('#prodSku').val(),
-                sellingPrice: num($('#prodPrice').val()), taxRate: num($('#prodTax').val()),
-                unit: $('#prodUnit').val(), categoryName: $('#prodCategory').val(),
-                manufacturer: $('#prodManufacturer').val(), description: $('#prodDesc').val()
-            }),
+            type: 'POST', url: serverContext + url, contentType: 'application/json', dataType: 'json',
+            data: JSON.stringify(body),
             success: function (resp) {
                 if (resp && resp.success) {
-                    showSaleSuccess('Product saved.');
-                    $('#Product')[0].reset();
-                    loadProducts();
+                    showSaleSuccess(id ? 'Product updated.' : 'Product saved.');
+                    resetProductForm();
+                    loadDataTable();
                 } else { showFormError((resp && resp.message) || 'Could not save the product.'); }
             },
             error: function () { showFormError('Could not save the product.'); }
+        });
+    };
+
+    // Delete = deactivate the checked products (they drop off the active list, stay intact for history).
+    global.deactivateProducts = function () {
+        var ids = $("#tableProduct input[type='checkbox']:checked").map(function () { return this.value; }).get().join(',');
+        if (!ids) { showFormError('Select at least one product to remove.'); return; }
+        $.ajax({
+            type: 'POST', url: serverContext + 'deactivateProduct', contentType: 'application/json', dataType: 'json',
+            data: JSON.stringify({ checked: ids }),
+            success: function (resp) {
+                if (resp && resp.success) { showSaleSuccess('Product(s) removed.'); resetProductForm(); loadDataTable(); }
+                else { showFormError((resp && resp.message) || 'Could not remove the product(s).'); }
+            },
+            error: function () { showFormError('Could not remove the product(s).'); }
         });
     };
 })(window);

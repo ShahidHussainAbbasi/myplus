@@ -82,6 +82,77 @@ public class CatalogController {
         }
     }
 
+    /**
+     * Product list for the businessDashboard Product screen, shaped like the other {@code getUser*} endpoints so it
+     * flows through the shared {@code loadDataTable()} path (same as Customer): a GenericResponse-style
+     * {@code {status, collection:[...]}}. Only ACTIVE products are returned — a deactivated product drops off the
+     * list (the "delete" UX), same as a deleted customer. Sourced from catalog {@code /products} (data.content).
+     */
+    @GetMapping("/getUserProduct")
+    @ResponseBody
+    public Map<String, Object> getUserProduct(final HttpServletRequest request) {
+        try {
+            Map<String, Object> resp = catalog.get("/products", "size=1000");
+            java.util.List<Map<String, Object>> collection = new java.util.ArrayList<>();
+            Object data = (resp != null) ? resp.get("data") : null;
+            if (data instanceof Map<?, ?> page && page.get("content") instanceof java.util.List<?> list) {
+                for (Object o : list) {
+                    if (!(o instanceof Map<?, ?> p)) continue;
+                    if (Boolean.FALSE.equals(p.get("isActive"))) continue;   // deactivated → hidden
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("id", p.get("id"));
+                    row.put("name", p.get("name"));
+                    row.put("sku", p.get("sku"));
+                    row.put("unit", p.get("unit"));
+                    row.put("sellingPrice", p.get("sellingPrice"));
+                    row.put("taxRate", p.get("taxRate"));
+                    row.put("categoryName", p.get("categoryName"));
+                    row.put("manufacturer", p.get("manufacturer"));
+                    row.put("description", p.get("description"));
+                    row.put("userId", p.get("createdBy"));   // keeps loadDataTable's userId bookkeeping happy
+                    collection.add(row);
+                }
+            }
+            Map<String, Object> out = new java.util.HashMap<>();
+            out.put("status", collection.isEmpty() ? "NOT_FOUND" : "SUCCESS");
+            out.put("collection", collection);
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("getUserProduct proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    /** Update a catalog Product (the "edit" Submit on the Product form) → catalog PUT /products/{id}. */
+    @PostMapping("/updateProduct")
+    @ResponseBody
+    public Map<String, Object> updateProduct(@RequestBody final Map<String, Object> body) {
+        try {
+            return catalog.putJson("/products/" + body.get("id"), body);
+        } catch (Exception e) {
+            LOGGER.error("updateProduct proxy error", e);
+            return failure(e);
+        }
+    }
+
+    /** Deactivate the checked products (the Product screen's Delete button) → catalog PUT /products/{id}/deactivate.
+     *  Deactivate (not hard-delete) keeps products referenced by past sales/inventory intact; they drop off the list. */
+    @PostMapping("/deactivateProduct")
+    @ResponseBody
+    public Map<String, Object> deactivateProduct(@RequestBody final Map<String, Object> body) {
+        try {
+            Object checked = body.get("checked");
+            if (checked == null || checked.toString().isBlank()) return Collections.singletonMap("success", false);
+            for (String id : checked.toString().split(",")) {
+                if (!id.isBlank()) catalog.putJson("/products/" + id.trim() + "/deactivate", Collections.emptyMap());
+            }
+            return Collections.singletonMap("success", true);
+        } catch (Exception e) {
+            LOGGER.error("deactivateProduct proxy error", e);
+            return failure(e);
+        }
+    }
+
     /** M1 (slice 42): a single catalog Product by id. */
     @GetMapping("/getCatalogProduct")
     @ResponseBody

@@ -1185,6 +1185,11 @@
 				<h4 data-term>Product (Catalog Master)</h4>
 				<p class="text-muted">The single product master shared across POS, pharmacy and e-commerce (catalog-service).</p>
 				<form class="form-horizontal" role="form" id="Product" autocomplete="off" onsubmit="return false;">
+					<div class="form-group" style="display: none">
+						<div class="col-sm-6">
+							<input type="number" class="form-control" id="productId" name="productId" readonly="readonly"/>
+						</div>
+					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="prodName">Name</label>
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodName"></div>
@@ -1210,13 +1215,35 @@
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodDesc"></div>
 					</div>
 					<div class="form-group text-center">
-						<button type="button" class="btn btn-success" onclick="saveProduct()"><span class="glyphicon glyphicon-floppy-disk"></span> Save Product</button>
+						<button type="button" id="addProduct" class="btn btn-success" onclick="saveProduct()">
+							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						</button>
+						<button type="button" id="deleteProduct" class="btn btn-danger" onclick="deactivateProducts()">
+							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+						</button>
+						<button type="reset" id="resetProduct" class="btn btn-warning" onclick="resetProductForm()">
+							<span class="glyphicon glyphicon-refresh"></span> Cancel
+						</button>
 					</div>
 				</form>
-				<table id="tableProduct" class="table table-bordered table-striped">
-					<thead><tr><th>Name</th><th>SKU</th><th>Unit</th><th>Price</th><th>Tax %</th><th>Category</th><th>On hand</th><th>Add stock</th></tr></thead>
-					<tbody id="productBody"></tbody>
-				</table>
+				<div>
+					<table id="tableProduct" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th data-field="productId">ID</th>
+								<th data-field="checkDelete"></th>
+								<th data-field="name">Name</th>
+								<th data-field="sku">SKU</th>
+								<th data-field="unit">Unit</th>
+								<th data-field="sellingPrice">Price</th>
+								<th data-field="taxRate">Tax %</th>
+								<th data-field="categoryName">Category</th>
+								<th data-field="onHand">On hand</th>
+								<th data-field="addStock">Add stock</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
 			</div>
 
 			<div id="QuarantineDiv" class="formDiv" style="display:none">

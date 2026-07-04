@@ -810,18 +810,17 @@ function updateReadOnly(flag) {
 			$('#sellCC').prop('disabled', flag);
 		}
 	}
-	// } else if (tableV == "Customer") {
-	// 	$("#name").prop("readonly", flag);
-	// } else if (tableV == "Item") {
-	// 	$("#itemName").prop("readonly", flag);
-	// }
+
+	$('#companyName').prop('disabled', flag);
+
 }
+
 function updatePurchaseForm(batchStock){
 	($("#purchaseQuantity").val(batchStock));
 }
 
 function resetBSDD(id){
-	updateReadOnly(false);
+	
 	edit = false;// when reset boot strap drill down
 	$("#"+id).val('default').selectpicker("refresh");
 }
