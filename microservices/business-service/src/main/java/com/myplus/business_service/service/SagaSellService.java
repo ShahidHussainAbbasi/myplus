@@ -67,9 +67,16 @@ public class SagaSellService {
             BigDecimal soldRate = (s.getSellRate() != null && s.getSellRate().compareTo(BigDecimal.ZERO) > 0)
                     ? s.getSellRate() : catalogPrice;
             BigDecimal productTaxRate = product != null ? product.getTaxRate() : null;
-            // Taxable base is the line total (qty×rate after discount). EXCLUSIVE adds on top; INCLUSIVE backs it out.
-            TaxResult tax = taxService.taxForLine(s.getTotalAmount(), productTaxRate, taxSetting);
-            lines.add(new SagaLine(productId, s.getQuantity(), soldRate, null,
+            // The line DISCOUNT (amount or %) reduces the bill. The UI's discounted net (#sellrm) is display-only
+            // and never submitted, so resolve it here from the line total + discount, and TAX THE DISCOUNTED BASE
+            // (qty×rate − discount). Without this the invoice bill kept the pre-discount total, so a fully-paid
+            // discounted sale wrongly showed the discount as due.
+            BigDecimal lineTotal = s.getTotalAmount() != null ? s.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal discount = resolveDiscount(s, lineTotal);
+            BigDecimal base = lineTotal.subtract(discount);
+            if (base.compareTo(BigDecimal.ZERO) < 0) base = BigDecimal.ZERO;
+            TaxResult tax = taxService.taxForLine(base, productTaxRate, taxSetting);
+            lines.add(new SagaLine(productId, s.getQuantity(), soldRate, discount,
                     s.getTotalAmount(), s.getNetAmount(), s.getSrp(),
                     tax.rate(), tax.tax(), tax.gross(), catalogPrice));
             reservationLines.add(new StockReservationLine(productId, BigDecimal.valueOf(s.getQuantity())));
@@ -103,6 +110,21 @@ public class SagaSellService {
                     reservationId, ch.getInvoiceNo(), confirmFailure);
         }
         return ch.getInvoiceNo();
+    }
+
+    /** The line's discount as an absolute amount. A "%"/"1" type is a percent of the line total; anything else is
+     *  already an amount. Read from the line's stock (bsellDiscount + bsellDiscountType) — where the sell form binds
+     *  the discount (the discounted net #sellrm is display-only and never submitted). */
+    private BigDecimal resolveDiscount(SellDTO s, BigDecimal lineTotal) {
+        var st = s.getStock();
+        if (st == null || st.getBsellDiscount() == null) return BigDecimal.ZERO;
+        BigDecimal d = st.getBsellDiscount();
+        if (d.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
+        String type = st.getBsellDiscountType();
+        if ("%".equals(type) || "1".equals(type)) {
+            return lineTotal.multiply(d).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        }
+        return d;   // absolute amount
     }
 
     /** Turn the reserve's raw "product 891: only 7 sellable, 10 requested" reason into a name-resolved, cashier-
