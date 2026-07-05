@@ -151,6 +151,8 @@
             $('#prodDesc').val(p.description || '');
             $('#ProductModalTitle').text('Edit Product');
             openModal('ProductModal');
+            updateReadOnly(true);   // make the key fields readonly when editing
+
         }).fail(function () { showFormError('Could not load the product.'); });
     }
     global.editProduct = editProduct;

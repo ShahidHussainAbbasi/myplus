@@ -150,6 +150,41 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
     })
   })
 
+  it('editing a purchase reconciles inventory by the DELTA, keeping on-hand AND batches (sellable) in sync', () => {
+    cy.seedProduct({ name: 'PUE_' + Date.now() }).then(({ productId }) => {
+      const inv = 'PUE-' + Date.now()
+      // NOTE: deliberately no batchNo — the reported bug: reconcile moved on-hand but not the (batch) sellable.
+      const body = (qty, total) => ({
+        productId, quantity: qty, purchaseRate: 10, 'stock.bpurchaseRate': 10, 'stock.bsellRate': 20,
+        totalAmount: total, netAmount: total, purchaseInvoiceNo: inv,
+      })
+      // master data (inventory) must agree on both metrics whichever side edited it
+      const expectStock = (n) => {
+        cy.request('/productStock?productId=' + productId).then((r) => expect(Number(r.body.stock), 'on-hand').to.eq(n))
+        cy.request('/productSellable?productId=' + productId).then((r) => expect(Number(r.body.sellable), 'sellable (batches)').to.eq(n))
+      }
+      // receive 9 → on-hand 9, sellable 9
+      cy.request({ method: 'POST', url: '/addPurchase', form: true, body: body(9, 90), failOnStatusCode: false })
+        .then((r) => expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS'))
+      expectStock(9)
+
+      cy.request('/getUserPurchase').then((r) => {
+        const list = r.body.collection || r.body.data || []
+        const mine = list.find((p) => p.productId === productId)
+        expect(mine, 'seeded purchase').to.exist
+        const purchaseId = mine.purchaseId
+        // edit 9 → 5 : BOTH on-hand and sellable DROP by 4 → 5 (not re-imported to 14, not level-only)
+        cy.request({ method: 'POST', url: '/updatePurchase', form: true, body: { ...body(5, 50), purchaseId }, failOnStatusCode: false })
+          .then((r2) => expect(r2.body.status, JSON.stringify(r2.body)).to.eq('SUCCESS'))
+        expectStock(5)
+        // increase 5 → 12 : BOTH rise by 7 → 12
+        cy.request({ method: 'POST', url: '/updatePurchase', form: true, body: { ...body(12, 120), purchaseId }, failOnStatusCode: false })
+          .then((r3) => expect(r3.body.status).to.eq('SUCCESS'))
+        expectStock(12)
+      })
+    })
+  })
+
   it('records the actual SOLD rate + the catalog price snapshot on a sale', () => {
     cy.seedProduct({ name: 'SP_' + Date.now(), sellingPrice: 20, stock: 10 }).then(({ productId }) => {
       // sell 1 at an OVERRIDDEN rate of 25 (catalog master is 20)
@@ -187,12 +222,24 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
         expect(Number(d.sellable), 'expired batch is NOT sellable').to.eq(0)
         expect(Number(d.expired), 'expired qty surfaced for the badge').to.eq(5)
       })
-      // a sale is correctly refused — nothing sellable (this is the product-6 case)
+      // a sale is correctly refused — nothing sellable (this is the product-6 case) — with a FRIENDLY message
+      // (name-resolved "not enough sellable stock"), not the generic "unexpected error".
       cy.request({
         method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
         body: { customer: { name: 'EXc_' + Date.now(), contact: '0300EX', paidAmount: 0, dueAmount: 0 },
           sales: [{ productId, quantity: 1, sellRate: 10, totalAmount: 10, netAmount: 10 }] }, failOnStatusCode: false,
-      }).then((r) => expect(r.body.status).to.not.eq('SUCCESS'))
+      }).then((r) => {
+        expect(r.body.status).to.not.eq('SUCCESS')
+        expect(r.body.message, 'friendly sellable message').to.match(/sellable/i)
+        expect(r.body.message, 'not the generic swallow').to.not.match(/unexpected error/i)
+      })
+
+      // /productSellable (the sell-form feed) reports the same split for a single product
+      cy.request('/productSellable?productId=' + productId).then((r) => {
+        expect(r.body.success).to.eq(true)
+        expect(Number(r.body.sellable)).to.eq(0)
+        expect(Number(r.body.expired)).to.eq(5)
+      })
 
       // add a FRESH (future-expiry) batch → sellable rises, expired unchanged, sale now succeeds
       cy.request({

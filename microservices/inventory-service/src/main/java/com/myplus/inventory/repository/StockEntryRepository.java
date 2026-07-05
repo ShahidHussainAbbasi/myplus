@@ -23,6 +23,19 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     @Query("SELECT se FROM StockEntry se WHERE se.warehouse.id = :warehouseId AND " + SCOPE)
     Page<StockEntry> findByWarehouseScoped(@Param("warehouseId") Long warehouseId, @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
+    // Purchase-edit reconcile: the batch a purchase created, matched by productId + batchNo. Newest first so an
+    // edit reconciles the most recent matching lot when (rarely) a batchNo repeats.
+    @Query("SELECT se FROM StockEntry se WHERE se.productId = :productId AND se.batchNo = :batchNo AND " + SCOPE
+            + " ORDER BY se.id DESC")
+    List<StockEntry> findByProductAndBatchScoped(@Param("productId") Long productId, @Param("batchNo") String batchNo,
+                                                 @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // Purchase-edit reconcile fallback: all of a product's lots, newest first, so a DECREASE with no matching
+    // batchNo draws down the most-recent receipts (keeps batch totals in step with on-hand).
+    @Query("SELECT se FROM StockEntry se WHERE se.productId = :productId AND " + SCOPE + " ORDER BY se.id DESC")
+    List<StockEntry> findByProductNewestFirst(@Param("productId") Long productId, @Param("orgId") Long orgId,
+                                              @Param("userId") Long userId);
+
     @Query("SELECT se FROM StockEntry se WHERE se.productId = :productId AND se.warehouse.id = :warehouseId AND " + SCOPE)
     List<StockEntry> findByProductAndWarehouseScoped(@Param("productId") Long productId, @Param("warehouseId") Long warehouseId,
                                                      @Param("orgId") Long orgId, @Param("userId") Long userId);

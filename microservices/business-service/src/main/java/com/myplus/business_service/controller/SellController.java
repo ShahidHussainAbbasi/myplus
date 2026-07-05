@@ -483,6 +483,11 @@ public class SellController {
 					invoiceNo != null ? "Sale recorded successfully. Invoice " + invoiceNo : "Sale recorded successfully.",
 					invoiceNo);
 
+		} catch (com.myplus.business_service.service.InsufficientStockException stock) {
+			// Business rejection (FEFO reserve refused) — nothing was written yet, so surface the reason to the
+			// cashier verbatim instead of the generic "unexpected error". No rollback drama, just a clean ERROR.
+			LOGGER.warn("addSell rejected (insufficient stock): {}", stock.getMessage());
+			return new GenericResponse("ERROR", stock.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > addSell "+e.getCause(), e);
 			// Propagate past the @Transactional boundary so customer + history + sell roll back

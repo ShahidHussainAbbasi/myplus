@@ -610,7 +610,7 @@ function loadDataTable(){
 						allRows.push([
 							"<div id=purchaseId>"+obj.purchaseId+"</div>","<input type='checkbox' value="+ obj.purchaseId+ ">",
 							"<div id=purchaseInvoiceNo>"+escHtml(obj.purchaseInvoiceNo)+"</div>","<div id=purchaseItemDD>"+escHtml(obj.iname || obj.icode || (obj.productId ? ('Product #'+obj.productId) : ''))+"</div>",
-							"<div id=purchaseQuantity>"+obj.quantity+"</div>","<div id=purchaseStock>"+obj.stock.stock+"</div>",
+							"<div id=purchaseQuantity>"+obj.quantity+"</div>",
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
 							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>",
 							"<div id=purchaseDiscount>"+obj.stock.bpurchaseDiscount+"</div>",
@@ -719,6 +719,8 @@ function loadDataTable(){
 	$("select[name='table" + tableV + "_length']").change(function(){
 		loadDataTable();
 	});
+
+	//call it to enable the fields for editing the data in the table
 	updateReadOnly(false);
 }
 
@@ -1113,6 +1115,7 @@ function loadStock(label,value){
 	$("#sellSellRate").val("")
 	$("#sellItems").removeClass("alert-danger");
 	$("#sellBatchInfo").hide().empty();   // P10 (slice 54): FEFO batch/expiry shown when an item is picked
+	$("#sellSellableInfo").hide().empty();   // sellable/expired badge, refreshed on each item pick
 	$("pdt").html("      ");
 	
     // M4e.1b (slice 98): the picker value is a productId now → pre-fill from productStock (on-hand + price + FEFO
@@ -1162,6 +1165,26 @@ function loadStock(label,value){
 			    	$("#sellItemDesc").val(data.idesc);
 			    	renderSellBatches(data.batches);   // P10: show the FEFO batch/expiry being dispensed
 			    	calculateNetSell();
+			    	// Sellable guard: re-key the qty guard to SELLABLE stock (non-expired, non-held) — what a sale can
+			    	// actually reserve — so the cashier can't over-sell into expired/held stock the server would reject.
+			    	// Also surfaces "Sellable: N (+ expired)" on the form.
+			    	$.get(serverContext+"productSellable?productId="+value, function(sd){
+			    		var sellable = (sd && sd.success && sd.sellable!=null) ? Number(sd.sellable) : Number(batchStock||0);
+			    		var expired  = (sd && sd.success && sd.expired!=null)  ? Number(sd.expired)  : 0;
+			    		batchStock = sellable;
+			    		$("#sellStock").val(sellable);
+			    		var badge = 'Sellable: <b>'+sellable+'</b>';
+			    		if(expired>0) badge += ' <span class="label label-danger" title="expired stock is not sellable">'+expired+' expired</span>';
+			    		$("#sellSellableInfo").html(badge).show();
+			    		if(sellable <= 0){
+			    			$("#sellItems").addClass("alert-danger");
+			    			showFormError(expired>0 ? 'All stock for this item is expired — not sellable. Add a fresh batch to sell.' : 'No sellable stock. Please purchase this item first.');
+			    			resetBSDD('sellItemDD');
+			    			$("#sellSellableInfo").hide();
+			    			return;
+			    		}
+			    		calculateNetSell();   // re-run the qty guard against sellable
+			    	});
 	    		}
     		}
     	}
@@ -1265,6 +1288,38 @@ function getStockByBatch(batchNo){
 	 }
 }
 
+// "Stock In Hand" on the purchase form = the selected product's LIVE inventory on-hand — NOT the purchased
+// quantity. On a fresh add, loadStock already fills it (batchStock from /productStock). On EDIT the generic
+// editRecord() no longer has a stock column to copy, so it calls this to fetch on-hand for the edited product.
+function refreshPurchaseOnHand(){
+	var dd = document.getElementById("purchaseItemDD");
+	var pid = dd ? dd.value : '';
+	if(!pid || pid === 'default'){ $("#purchaseStock").val(''); window.purchaseEdit = null; return; }
+	$.get(serverContext + "productStock?productId=" + encodeURIComponent(pid), function(data){
+		var onHand = (data && data.stock != null) ? Number(data.stock) : 0;
+		batchStock = onHand;
+		// In EDIT mode the live on-hand ALREADY includes this purchase's old qty, so the on-hand that will
+		// RESULT after saving = onHand - oldQty + newQty. Store the baseline so the quantity onchange previews it.
+		var isEdit = ($("#purchaseId").val()*1 > 0);
+		window.purchaseEdit = isEdit ? { base: onHand, oldQty: ($("#purchaseQuantity").val()*1 || 0) } : null;
+		updatePurchaseProjectedOnHand();
+	});
+}
+
+// Live "Stock In Hand" preview. EDIT: the on-hand that will result after saving (base − oldQty + newQty), so
+// changing 9→5 on a 140 on-hand previews 136. ADD: just mirrors the current live on-hand.
+function updatePurchaseProjectedOnHand(){
+	// Only treat as edit when a purchase is actually loaded (#purchaseId set) — guards a stale purchaseEdit
+	// left over from a previous edit when the user starts a NEW purchase.
+	if(($("#purchaseId").val()*1 > 0) && window.purchaseEdit){
+		var newQty = $("#purchaseQuantity").val()*1 || 0;
+		var projected = window.purchaseEdit.base - window.purchaseEdit.oldQty + newQty;
+		$("#purchaseStock").val(projected);
+	}else{
+		$("#purchaseStock").val(batchStock);
+	}
+}
+
 function calculateNetPurchase(){
 	var p = $("#purchasePurchaseRate").val()*ONE;
 	var s= $("#purchaseSellRate").val()*ONE;
@@ -1272,9 +1327,7 @@ function calculateNetPurchase(){
 	discountType = $("#discountTypeDD :selected").val();
 	var purchaseDiscount = $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val()*ONE:0;
 	var purchaseTotalAmount = $($("#purchaseTotalAmount").val(parseFloat(qty * p).toFixed(2))).val();
-	if (!edit){
-		 $("#purchaseStock").val(batchStock);
-	}
+	updatePurchaseProjectedOnHand();   // "Stock In Hand" = live on-hand (add) / projected after-save on-hand (edit)
 	if(discountType == "%"){
 		//Discount  =  List Price Ã— Discount Rate 
 		purchaseDiscount = purchaseTotalAmount * (purchaseDiscount*1 / 100);

@@ -37,6 +37,11 @@ public class ReservationService {
     private static float nz(Float f) { return f == null ? 0f : f; }
     private static final float EPS = 0.0001f;
 
+    /** Trim a whole-number quantity to "7" instead of "7.0" for user-facing messages. */
+    private static String fmtQty(float q) {
+        return (q == Math.rint(q)) ? String.valueOf((long) q) : String.valueOf(q);
+    }
+
     @Transactional
     public StockReservationResponse reserve(StockReservationRequest req, Long orgId, Long userId) {
         // Idempotency: a retried reserve with the same key returns the existing hold, never double-holds.
@@ -55,7 +60,10 @@ public class ReservationService {
                 available += Math.max(0f, nz(e.getQuantity()) - nz(e.getReservedQuantity()));
             }
             if (available + EPS < need) {
-                return outOfStock("Insufficient stock for product " + line.getItemId());
+                // Carry the numbers + productId so the sell orchestrator can render a friendly, name-resolved
+                // message ("Not enough sellable stock for 'X': 7 sellable, 10 requested") instead of a raw 500.
+                return outOfStock("product " + line.getItemId() + ": only " + fmtQty(available)
+                        + " sellable, " + fmtQty(need) + " requested");
             }
         }
 

@@ -310,6 +310,24 @@ public class CatalogController {
         }
     }
 
+    /** Single-product sellable split for the sell/purchase forms → inventory {@code /stock/sellable/{id}}:
+     *  {onHand, sellable, expired}. The sell screen uses it to show "Sellable: N" + an expired badge and to guard
+     *  the entered quantity before submit (so the cashier never over-sells into expired/held stock). */
+    @GetMapping("/productSellable")
+    @ResponseBody
+    public Map<String, Object> productSellable(final HttpServletRequest request) {
+        try {
+            Map<String, Object> d = inventory.get("/stock/sellable/" + request.getParameter("productId"));
+            Map<String, Object> out = new java.util.HashMap<>();
+            if (d != null) out.putAll(d);   // onHand + sellable + expired
+            out.put("success", true);
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("productSellable proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
     /** P11 register (slice 58): the org's quarantined (non-sellable) lots. */
     @GetMapping("/quarantineList")
     @ResponseBody

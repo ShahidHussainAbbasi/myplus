@@ -11,6 +11,10 @@ public interface IPurchaseService extends org.springframework.data.jpa.repositor
 
 	Purchase addPurchase(PurchaseDTO dto) throws ParseException, Exception;
 
+	/** Edit an existing purchase: update the record AND reconcile inventory by the quantity delta (new − old)
+	 *  against the purchase's own batch, so on-hand tracks the correction instead of re-importing the full qty. */
+	Purchase updatePurchase(PurchaseDTO dto) throws Exception;
+
 	/** Tenant-scoped purchases (own org + caller's pre-migration org-NULL rows). */
 	List<Purchase> findScoped(Long orgId, Long userId);
 

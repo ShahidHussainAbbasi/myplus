@@ -2,6 +2,7 @@ package com.myplus.commerce.contracts.client;
 
 import com.myplus.commerce.contracts.dto.StockBatch;
 import com.myplus.commerce.contracts.dto.StockImportLine;
+import com.myplus.commerce.contracts.dto.StockPurchaseAdjust;
 import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
 import com.myplus.commerce.contracts.dto.StockReturnRequest;
@@ -45,6 +46,11 @@ public interface InventoryClient {
     /** Seed opening stock for migrated products (item→product, slice 33 U2b). Returns the number created. */
     @PostExchange("/stock/import")
     Integer importStock(@RequestBody List<StockImportLine> lines);
+
+    /** Reconcile a purchase EDIT: apply the signed quantity delta to the purchase's own batch + StockLevel,
+     *  keeping batch totals and on-hand consistent. Returns the product's new on-hand. */
+    @PostExchange("/stock/purchase-adjust")
+    Float reconcilePurchase(@RequestBody StockPurchaseAdjust adjust);
 
     /** Current on-hand for a product (slice 33, U4) — lets the trade UI show inventory's stock, not local. */
     @GetExchange("/stock/level/{productId}")

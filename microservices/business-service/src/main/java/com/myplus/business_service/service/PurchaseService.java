@@ -231,6 +231,76 @@ public class PurchaseService implements IPurchaseService{
 		return saved;
 	}
 
+	@Override
+	@Transactional
+	public Purchase updatePurchase(PurchaseDTO dto) throws Exception {
+		AuthenticatedUser user = requestUtil.getCurrentUser();
+		if (dto.getPurchaseId() == null) throw new RuntimeException("updatePurchase requires a purchaseId");
+
+		// Anti-IDOR: the edited purchase must belong to the caller's tenant.
+		Purchase existing = purchaseRepo.findById(dto.getPurchaseId())
+				.filter(p -> scopeMatches(p, user))
+				.orElseThrow(() -> new RuntimeException("Purchase not found: " + dto.getPurchaseId()));
+
+		float oldQty = existing.getQuantity() != null ? existing.getQuantity() : 0f;
+		Long oldProductId = existing.getProductId();
+		String oldBatchNo = existing.getBatchNo();   // reconcile against the batch that was originally imported
+
+		// Update the record (keep id + original audit/tenant; product is readonly on edit).
+		dto.setUserId(user.getUserId());
+		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
+		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
+		Purchase obj = modelMapper.map(dto, Purchase.class);
+		obj.setPurchaseId(existing.getPurchaseId());
+		obj.setDated(existing.getDated() != null ? existing.getDated() : LocalDateTime.now());
+		obj.setUpdated(LocalDateTime.now());
+		obj.setUserId(existing.getUserId());
+		obj.setOrganizationId(existing.getOrganizationId());
+		obj.setProductId(dto.getProductId() != null ? dto.getProductId() : oldProductId);
+		StockDTO snap = dto.getStock();
+		if (snap != null) {
+			obj.setBatchNo(snap.getBatchNo() != null ? snap.getBatchNo() : oldBatchNo);
+			obj.setBpurchaseRate(snap.getBpurchaseRate());
+			obj.setBsellRate(snap.getBsellRate());
+			obj.setBpurchaseDiscount(snap.getBpurchaseDiscount());
+			obj.setBsellDiscount(snap.getBsellDiscount());
+			obj.setBpurchaseDiscountType(snap.getBpurchaseDiscountType());
+			obj.setBsellDiscountType(snap.getBsellDiscountType());
+			obj.setBexpDate(appUtil.toLocalDateOrNull(snap.getBexpDate()));
+		}
+		Purchase saved = this.save(obj);
+
+		// Reconcile inventory by the quantity DELTA (new − old) against the purchase's own batch — NOT a re-import.
+		// Runs inside this @Transactional: a guard rejection (e.g. reducing below stock already sold) throws and
+		// rolls the record edit back too, so the record and inventory never diverge.
+		float newQty = saved.getQuantity() != null ? saved.getQuantity() : 0f;
+		float delta = newQty - oldQty;
+		if (tradeSagaProperties.isEnabled() && saved.getProductId() != null && delta != 0f) {
+			inventoryClient.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
+					.productId(saved.getProductId())
+					.batchNo(oldBatchNo)
+					.delta(delta)
+					.expiryDate(saved.getBexpDate())
+					.purchasePrice(saved.getBpurchaseRate())
+					.build());
+		}
+
+		// Option B — an edited sell rate re-prices the catalog master too (guarded, best-effort).
+		if (snap != null && snap.getBsellRate() != null
+				&& snap.getBsellRate().compareTo(java.math.BigDecimal.ZERO) > 0 && saved.getProductId() != null) {
+			try { catalogClient.updatePrice(saved.getProductId(), snap.getBsellRate()); }
+			catch (Exception ex) { LOG.warn("Option B: re-price on edit failed for product {} (purchase updated)", saved.getProductId(), ex); }
+		}
+		return saved;
+	}
+
+	/** Anti-IDOR scope check for an edited purchase: caller's org owns it, or (legacy) an org-NULL row keyed to the caller. */
+	private boolean scopeMatches(Purchase p, AuthenticatedUser user) {
+		Long orgId = user.getOrganizationId();
+		if (orgId != null && orgId.equals(p.getOrganizationId())) return true;
+		return p.getOrganizationId() == null && user.getUserId() != null && user.getUserId().equals(p.getUserId());
+	}
+
 	/**
 	 * D3 (slice 33) + M3.2 (slice 63): when the saga is enabled, push the purchased quantity into inventory so
 	 * inventory is authoritative for stock. The item is auto-mapped to a catalog product on demand

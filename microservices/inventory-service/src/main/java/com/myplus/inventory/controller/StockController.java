@@ -63,6 +63,13 @@ public class StockController {
         return stockService.getLevelDetail();
     }
 
+    /** Single-product {onHand, sellable, expired} for the sell/purchase forms — lets the sell screen show the true
+     *  sellable count (+ an expired badge) and guard the quantity before submit, instead of failing at reserve. */
+    @GetMapping("/sellable/{productId}")
+    public java.util.Map<String, Float> sellable(@PathVariable Long productId) {
+        return stockService.getLevelDetailFor(productId);
+    }
+
     /** FEFO batches (batch/expiry + sellable qty) for the dispense/sell screen (slice 54, P10). Raw body so the
      *  trade-service InventoryClient.getBatches deserializes it directly. */
     @GetMapping("/batches/{productId}")
@@ -98,5 +105,12 @@ public class StockController {
     @PostMapping("/import")
     public Integer importStock(@RequestBody List<StockImportLine> lines) {
         return stockImportService.importStock(lines, CurrentUser.organizationId(), CurrentUser.userId());
+    }
+
+    /** Reconcile a purchase EDIT: apply the signed quantity delta to the purchase's own batch + StockLevel.
+     *  Raw body so business-service's InventoryClient.reconcilePurchase deserializes the new on-hand directly. */
+    @PostMapping("/purchase-adjust")
+    public Float reconcilePurchase(@RequestBody com.myplus.commerce.contracts.dto.StockPurchaseAdjust adjust) {
+        return stockService.reconcilePurchase(adjust);
     }
 }

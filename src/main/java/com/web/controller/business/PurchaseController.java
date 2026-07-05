@@ -59,6 +59,21 @@ public class PurchaseController {
         }
     }
 
+    /** Edit an existing purchase → business-service /updatePurchase: updates the record AND reconciles inventory
+     *  by the quantity delta (new − old) against the purchase's own batch, instead of re-importing the full qty. */
+    @RequestMapping(value = "/updatePurchase", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> updatePurchase(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/updatePurchase", params);
+        } catch (Exception e) {
+            LOGGER.error("updatePurchase proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/deletePurchase", method = RequestMethod.POST)
     @ResponseBody
     public Boolean deletePurchase(HttpServletRequest req, HttpServletResponse resp) {

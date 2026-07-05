@@ -49,12 +49,16 @@ public class SagaSellService {
         // 1 + 2 + 2b: translate each line to a catalog productId, price it from catalog, and apply tax.
         List<SagaLine> lines = new ArrayList<>();
         List<StockReservationLine> reservationLines = new ArrayList<>();
+        java.util.Map<Long, String> productNames = new java.util.HashMap<>();   // for a friendly out-of-stock message
         for (SellDTO s : dto.getSales()) {
             // M4e (slice 101): productId-native — every caller (POS + pharmacy) submits productId now; the legacy
             // itemId→ItemCatalogMap translation has been retired.
             Long productId = s.getProductId();
             if (productId == null) throw new RuntimeException("Sale line has no productId — submit productId-native.");
             ProductRef product = catalogClient.getProduct(productId);
+            String pName = (product != null && product.getName() != null) ? product.getName()
+                    : (s.getItemName() != null ? s.getItemName() : ("product " + productId));
+            productNames.put(productId, pName);
             BigDecimal catalogPrice = (product != null && product.getSellingPrice() != null)
                     ? product.getSellingPrice() : BigDecimal.ZERO;
             // The rate this line SOLD at = what the cashier entered (they may override the catalog price on the
@@ -75,8 +79,8 @@ public class SagaSellService {
         StockReservationResponse reservation =
                 inventoryClient.reserve(new StockReservationRequest(idempotencyKey, reservationLines));
         if (reservation == null || reservation.getStatus() != ReservationStatus.RESERVED) {
-            String why = (reservation != null && reservation.getMessage() != null) ? ": " + reservation.getMessage() : "";
-            throw new RuntimeException("Insufficient stock to complete the sale" + why);
+            String reason = (reservation != null) ? reservation.getMessage() : null;
+            throw new InsufficientStockException(friendlyOutOfStock(reason, productNames));
         }
         String reservationId = reservation.getReservationId();
 
@@ -99,6 +103,17 @@ public class SagaSellService {
                     reservationId, ch.getInvoiceNo(), confirmFailure);
         }
         return ch.getInvoiceNo();
+    }
+
+    /** Turn the reserve's raw "product 891: only 7 sellable, 10 requested" reason into a name-resolved, cashier-
+     *  friendly sentence. Falls back to a generic line when the reserve gave no detail. */
+    private String friendlyOutOfStock(String reason, java.util.Map<Long, String> names) {
+        if (reason == null || reason.isBlank()) return "Not enough sellable stock to complete the sale.";
+        for (java.util.Map.Entry<Long, String> e : names.entrySet()) {
+            reason = reason.replace("product " + e.getKey(), "'" + e.getValue() + "'");
+        }
+        return "Not enough sellable stock — " + reason
+                + ". Expired or held stock is not sellable; add a fresh batch to sell more.";
     }
 
     private void safeRelease(String reservationId) {

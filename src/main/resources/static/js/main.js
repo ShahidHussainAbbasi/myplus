@@ -155,7 +155,17 @@ $(document).ready(function() {
 		// Refresh selectpicker display after native reset clears its value
 		$form.find('.selectpicker').selectpicker('refresh');
 		clearFormError();
+
+		// make readonly false on reset, so user can edit the form again
 		// updateReadOnly(false);
+		// if($form.length === 0){
+		// 	return;
+		// }
+									
+		// for(var i=0; i<$form.length; i++){
+		// 	 $("#"+form[i].id).removeClass("alert-danger");
+		// }
+		// $(".form-control").val("");		
 	});
 
 //
@@ -442,11 +452,16 @@ $(document).ready(function() {
 					// populateFormData() returns a URL-encoded STRING ($.param), so productId must be APPENDED to it —
 					// `fd.productId = ppid` was a silent no-op on a string, so productId was never sent and the purchase
 					// saved with productId=null (skipped by getUserPurchase + never stocked into inventory).
+					var action = "add" + buttonV;
 					if(buttonV=="Purchase"){
 						var ppid = $("#purchaseItemDD :selected").data('product');
 						if(ppid != null && ppid !== '') fd += "&productId=" + encodeURIComponent(ppid);
+						// Edit mode → update path: reconciles inventory by the qty DELTA instead of re-importing the
+						// full quantity (which double-counted stock). Keyed on the readonly #purchaseId.
+						var pIdVal = $("#purchaseId").val();
+						if(pIdVal && pIdVal*1 > 0) action = "updatePurchase";
 					}
-					$(this).callAjax("add" + buttonV, fd);
+					$(this).callAjax(action, fd);
 			    }else{
 				    	return false;
 			    }
@@ -630,6 +645,12 @@ $(document).ready(function() {
 		}
 		edit = false;// when add/update & delete done
 	}	
+
+});
+
+// bound once, but fires for ANY current/future reset button
+$(document).on('click', '[id^="reset"]', function () {
+    updateReadOnly(false);
 });
 
 function populateFormData(){
@@ -763,34 +784,19 @@ function editRecord(doc){
 			}
 		}
 
-		// make readonly the key fields when user edit the records
-		updateReadOnly(true);
 	}
-	// stock should be now quantity for purchase form, so update it
 	if (tableV=="Purchase") {
-		this.updatePurchaseForm($("#purchaseStock").val());
+		// Quantity comes from the row's OWN quantity (it used to be sourced from the overloaded 'stock' field,
+		// which is why "Stock In Hand" always equalled QTY). "Stock In Hand" is now the product's live on-hand.
+		var q = doc.getElementById('purchaseQuantity');
+		if (q) { $("#purchaseQuantity").val(q.textContent); }
+		if (typeof refreshPurchaseOnHand === 'function') { refreshPurchaseOnHand(); }
 	}
+
+	// make readonly the key fields when user edit the records
+	updateReadOnly(true);
 }
 
-
-$('#reset').on('click', function() {
-	updateReadOnly(false);
-    // Reset all form fields
-    // $('#yourFormId')[0].reset();
-    
-    // // Clear any validation errors
-    // $('.error-message').hide();
-    // $('.has-error').removeClass('has-error');
-    
-    // // Clear any success/error alerts
-    // $('.alert').hide();
-    
-    // // Reset select dropdowns if using custom selects
-    // $('select').val('');
-    
-    // // Clear any dynamic content
-    // $('#someResultDiv').empty();
-});
 
 function updateReadOnly(flag) {
 	if (tableV) {
@@ -818,14 +824,12 @@ function updateReadOnly(flag) {
 			$('#sellCN').prop('disabled', flag);
 			$('#sellCC').prop('disabled', flag);
 		}
+	} else if (tableV == "Product") {
+		$('#prodName').prop('disabled', flag);
 	}
 
 	$('#companyName').prop('disabled', flag);
 
-}
-
-function updatePurchaseForm(batchStock){
-	($("#purchaseQuantity").val(batchStock));
 }
 
 function resetBSDD(id){

@@ -200,6 +200,29 @@ public class PurchaseController {
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
+
+	/** Edit an existing purchase: update the record AND reconcile inventory by the quantity delta (new − old)
+	 *  against the purchase's own batch — no re-import. A guard rejection (e.g. reducing below stock already sold)
+	 *  rolls the whole edit back and its message is surfaced to the user. */
+	@RequestMapping(value = "/updatePurchase", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse updatePurchase(@Validated final PurchaseDTO dto, final HttpServletRequest request) {
+		try {
+			if (appUtil.isEmptyOrNull(dto.getPurchaseId())) {
+				return new GenericResponse("ERROR", "Missing purchase id for update.");
+			}
+			if (appUtil.isEmptyOrNull(purchaseService.updatePurchase(dto))) {
+				return new GenericResponse("FAILED", "Failed to update purchase. Please try again.");
+			}
+			return new GenericResponse("SUCCESS", "Purchase updated successfully.");
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName()+" > updatePurchase "+e.getCause(), e);
+			String msg = e.getMessage();
+			boolean businessRejection = msg != null
+					&& (msg.toLowerCase().contains("cannot reduce") || msg.toLowerCase().contains("not found"));
+			return new GenericResponse("ERROR", businessRejection ? msg : "An unexpected error occurred. Please contact support.");
+		}
+	}
 	
 	@RequestMapping(value = "/deletePurchase", method = RequestMethod.POST)
 	@ResponseBody
