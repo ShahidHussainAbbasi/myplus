@@ -580,7 +580,9 @@ function loadDataTable(){
 						allRows.push([
 							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value="+ obj.customerId+ ">",
 							"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
-							"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",obj.updated
+							"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
+							"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",obj.updated,
+							"<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button>"
 						]);
 					});
 				} else if (getAll === "ItemType") {
@@ -1752,3 +1754,46 @@ function submitSaleReturn(){
 	});
 }
 
+
+// ─── Receive Payment (AR subledger) ───────────────────────────────────────────
+// A "Receive" action on each customer row opens the modal; submit FIFO-allocates the receipt to the customer's
+// open invoices (business-service), recomputes their due, and records it in the shared finance ledger.
+$(document).on('click', '.rcv-pay-btn', function (e) {
+	e.stopPropagation();   // don't let the row-click also open the edit modal
+	openReceivePayment($(this).data('cid'), $(this).data('name'), $(this).data('due'));
+});
+
+function openReceivePayment(customerId, name, due) {
+	$("#rcvCustomerId").val(customerId);
+	$("#rcvCustomerName").text(name || ('Customer #' + customerId));
+	var d = Number(due || 0);
+	$("#rcvDue").text(d);
+	$("#rcvAmount").val(d > 0 ? d : '');
+	$("#rcvMethod").val('CASH');
+	$("#rcvReference").val('');
+	$("#rcvDate").val(new Date().toISOString().slice(0, 10));
+	openModal('ReceivePaymentModal');
+}
+
+function submitReceivePayment() {
+	var customerId = $("#rcvCustomerId").val();
+	var amount = $("#rcvAmount").val() * 1;
+	if (!customerId || !(amount > 0)) { showFormError('Enter a positive amount to receive.'); return; }
+	$.post(serverContext + "receivePayment", {
+		customerId: customerId,
+		amount: amount,
+		method: $("#rcvMethod").val(),
+		paidOn: $("#rcvDate").val(),
+		reference: $("#rcvReference").val()
+	}, function (resp) {
+		if (resp && resp.status === "SUCCESS") {
+			var o = resp.object || {};
+			var msg = 'Payment received.' + (o.receiptNo ? ' Receipt ' + o.receiptNo : '');
+			if (typeof showSaleSuccess === 'function') showSaleSuccess(msg); else clearFormError();
+			closeModal('ReceivePaymentModal');
+			loadDataTable();   // refresh the customer list — due is updated
+		} else {
+			showFormError((resp && resp.message) || 'Could not record the payment.');
+		}
+	}, 'json').fail(function () { showFormError('Could not record the payment.'); });
+}

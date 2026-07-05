@@ -1,6 +1,7 @@
 package com.myplus.business_service.config;
 
 import com.myplus.commerce.contracts.client.CatalogClient;
+import com.myplus.commerce.contracts.client.FinanceClient;
 import com.myplus.commerce.contracts.client.InventoryClient;
 import com.myplus.common.security.GatewayIdentityForwarding;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
@@ -34,6 +35,11 @@ public class TradeClientsConfig {
     @Bean
     public CatalogClient catalogClient(@LoadBalanced RestClient.Builder builder) {
         return proxy(builder, "http://catalog-service/api/catalog", CatalogClient.class);
+    }
+
+    @Bean
+    public FinanceClient financeClient(@LoadBalanced RestClient.Builder builder) {
+        return proxy(builder, "http://finance-service/api/finance", FinanceClient.class);
     }
 
     /** Build a declarative client over a cloned, load-balanced RestClient (clone isolates per-client config). */

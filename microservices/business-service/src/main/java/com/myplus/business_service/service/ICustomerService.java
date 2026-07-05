@@ -18,6 +18,14 @@ public interface ICustomerService extends org.springframework.data.jpa.repositor
      */
     void recomputeDue(Customer customer);
 
+    /**
+     * Receive Payment (AR subledger): FIFO-allocate a receipt across a customer's open invoices, recompute their
+     * due, and record the receipt in the shared finance ledger. Returns {success, receiptNo, allocated,
+     * onAccountCredit, newDue}.
+     */
+    java.util.Map<String, Object> receivePayment(Long customerId, java.math.BigDecimal amount, String method,
+            java.time.LocalDate paidOn, String reference);
+
     /** Tenant-scoped customers (own org + caller's pre-migration org-NULL rows). */
     List<Customer> findScoped(Long orgId, Long userId);
 

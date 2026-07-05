@@ -58,6 +58,17 @@ spring:
                 name: inventory-service
                 fallbackUri: forward:/fallback
             - name: JwtAuthenticationFilter
+        - id: finance-service
+          uri: lb://finance-service
+          predicates:
+            - Path=/api/finance/**
+          # No StripPrefix: finance-service controllers are mapped at the full /api/finance/... path.
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: finance-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
         - id: catalog-service
           uri: lb://catalog-service
           predicates:

@@ -19,7 +19,7 @@ import com.myplus.business_service.repository.CustomerRepo;
 import com.myplus.business_service.repository.CustomerHistoryRepo;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Customer;
-
+import com.myplus.business_service.entity.CustomerHistory;
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.RequestUtil;
@@ -39,6 +39,11 @@ public class CustomerService implements ICustomerService{
 
 	@Autowired
 	RequestUtil requestUtil;
+
+	@Autowired(required = false)
+	com.myplus.commerce.contracts.client.FinanceClient financeClient;   // shared payment ledger (AR subledger)
+
+	private static final org.slf4j.Logger PAY_LOG = org.slf4j.LoggerFactory.getLogger(CustomerService.class);
 
 	// @Autowired
 	// ObjectMapperUtils objectMapperUtils;
@@ -250,6 +255,63 @@ return customerRepo.exists(example);
 		if (owed.compareTo(java.math.BigDecimal.ZERO) < 0) owed = java.math.BigDecimal.ZERO;
 		customer.setDueAmount(owed);
 		customerRepo.save(customer);
+	}
+
+	@Override
+	@jakarta.transaction.Transactional
+	public java.util.Map<String, Object> receivePayment(Long customerId, java.math.BigDecimal amount, String method,
+			java.time.LocalDate paidOn, String reference) {
+		if (customerId == null) throw new RuntimeException("customerId is required");
+		if (amount == null || amount.signum() <= 0) throw new RuntimeException("A positive amount is required");
+
+		Customer customer = this.findById(customerId)
+				.orElseThrow(() -> new RuntimeException("Customer not found: " + customerId));
+
+		// FIFO-allocate the receipt across the customer's still-owing invoices (oldest first).
+		java.util.List<com.myplus.commerce.contracts.dto.PaymentAllocationRef> allocations = new java.util.ArrayList<>();
+		java.math.BigDecimal remaining = amount;
+		for (CustomerHistory inv : customerHistoryRepo.findOpenInvoicesByCustomer(customerId)) {
+			if (remaining.signum() <= 0) break;
+			java.math.BigDecimal due = inv.getDueAmount() != null ? inv.getDueAmount() : java.math.BigDecimal.ZERO;
+			java.math.BigDecimal outstanding = due.negate();   // due = paid − bill (negative while owing)
+			if (outstanding.signum() <= 0) continue;
+			java.math.BigDecimal applied = remaining.min(outstanding);
+			java.math.BigDecimal paid = inv.getPaidAmount() != null ? inv.getPaidAmount() : java.math.BigDecimal.ZERO;
+			inv.setPaidAmount(paid.add(applied));
+			inv.setDueAmount(due.add(applied));                // moves toward 0
+			inv.setUpdated(LocalDateTime.now());
+			customerHistoryRepo.save(inv);
+			allocations.add(com.myplus.commerce.contracts.dto.PaymentAllocationRef.builder()
+					.docType("INVOICE").docId(inv.getCustomer_history_id()).docNo(inv.getInvoiceNo()).amount(applied).build());
+			remaining = remaining.subtract(applied);
+		}
+
+		// Recompute the customer's running balance from the (now-updated) invoice headers.
+		this.recomputeDue(customer);
+
+		// Record the receipt in the shared ledger — best-effort: the settlement is already applied, a ledger
+		// hiccup must never block taking the customer's money (reconcile later).
+		String receiptNo = null;
+		try {
+			if (financeClient != null) {
+				com.myplus.commerce.contracts.dto.PaymentRecordResult res = financeClient.recordPayment(
+						com.myplus.commerce.contracts.dto.PaymentRecordRequest.builder()
+								.direction("RECEIPT").partyType("CUSTOMER").partyId(customerId).partyName(customer.getName())
+								.amount(amount).method(method).paidOn(paidOn).reference(reference)
+								.sourceModule("BUSINESS").allocations(allocations).build());
+				receiptNo = res != null ? res.getReceiptNo() : null;
+			}
+		} catch (Exception ex) {
+			PAY_LOG.warn("finance ledger record failed for customer {} (settlement applied; reconcile later)", customerId, ex);
+		}
+
+		java.util.Map<String, Object> out = new java.util.HashMap<>();
+		out.put("success", true);
+		out.put("receiptNo", receiptNo);
+		out.put("allocated", amount.subtract(remaining));
+		out.put("onAccountCredit", remaining);   // excess not applied to any open invoice (customer due floors at 0)
+		out.put("newDue", customer.getDueAmount());
+		return out;
 	}
 
 }

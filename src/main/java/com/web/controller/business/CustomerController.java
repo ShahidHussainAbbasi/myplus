@@ -70,6 +70,21 @@ public class CustomerController {
         }
     }
 
+    /** Receive Payment (AR subledger) → business-service /receivePayment: allocates the receipt to the customer's
+     *  open invoices, recomputes their due, and records it in the shared finance ledger. */
+    @RequestMapping(value = "/receivePayment", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> receivePayment(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/receivePayment", params);
+        } catch (Exception e) {
+            LOGGER.error("receivePayment proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/deleteCustomer", method = RequestMethod.POST)
     @ResponseBody
     public Boolean deleteCustomer(HttpServletRequest req, HttpServletResponse resp) {

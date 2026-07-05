@@ -608,6 +608,57 @@
 				  </div>
 				</div>
 				<div>
+					<!-- Receive Payment (AR subledger): allocate a receipt to the customer's open invoices + record it
+					     in the shared finance ledger. Opened from the "Receive" action on a customer row. -->
+					<div id="ReceivePaymentModal" class="crud-overlay">
+					  <div class="crud-box">
+						<div class="crud-head">
+							<h4>Receive Payment &mdash; <span id="rcvCustomerName"></span></h4>
+							<button type="button" class="crud-x" onclick="closeModal('ReceivePaymentModal')">&times;</button>
+						</div>
+						<div class="crud-body">
+							<input type="hidden" id="rcvCustomerId"/>
+							<div class="form-horizontal">
+								<div class="form-group">
+									<label class="control-label col-sm-3">Outstanding due:</label>
+									<div class="col-sm-4"><p class="form-control-static"><b id="rcvDue">0</b></p></div>
+								</div>
+								<div class="form-group">
+									<label class="control-label col-sm-3 req" for="rcvAmount">Amount:</label>
+									<div class="col-sm-4">
+										<input type="number" step="any" min="0" class="form-control" id="rcvAmount" placeholder="Amount received"/>
+									</div>
+								</div>
+								<div class="form-group">
+									<label class="control-label col-sm-3" for="rcvMethod">Method:</label>
+									<div class="col-sm-4">
+										<select class="form-control" id="rcvMethod">
+											<option value="CASH">Cash</option>
+											<option value="CARD">Card</option>
+											<option value="BANK">Bank transfer</option>
+											<option value="CHEQUE">Cheque</option>
+										</select>
+									</div>
+								</div>
+								<div class="form-group">
+									<label class="control-label col-sm-3" for="rcvDate">Date:</label>
+									<div class="col-sm-4"><input type="date" class="form-control" id="rcvDate"/></div>
+									<label class="control-label col-sm-2" for="rcvReference">Ref:</label>
+									<div class="col-sm-3"><input type="text" class="form-control" id="rcvReference" placeholder="Cheque/txn #"/></div>
+								</div>
+								<div class="form-group text-center">
+									<button type="button" class="btn btn-success" onclick="submitReceivePayment()">
+										<span class="glyphicon glyphicon-usd"></span> Receive
+									</button>
+									<button type="button" class="btn btn-warning" onclick="closeModal('ReceivePaymentModal')">
+										<span class="glyphicon glyphicon-remove"></span> Cancel
+									</button>
+								</div>
+							</div>
+						</div>
+					  </div>
+					</div>
+
 					<table id="tableCustomer" class="table table-bordered table-striped">
 						<thead>
 							<tr>
@@ -617,7 +668,9 @@
 								<th data-field="customerContact">Contact</th>
 								<th data-field="customerEmail">Email</th>
 								<th data-field="customerAddress">Address</th>
+								<th data-field="dueAmount">Due</th>
 								<th data-field="dated">Dated</th>
+								<th data-field="customerAction">Receive Payment</th>
 							</tr>
 						</thead>
 					</table>

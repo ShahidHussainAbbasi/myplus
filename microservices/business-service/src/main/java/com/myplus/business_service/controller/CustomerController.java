@@ -149,7 +149,13 @@ public class CustomerController {
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getCustomerId())) {
 				Customer existing = customerService.findById(dto.getCustomerId()).orElse(null);
-				if(existing != null) obj.setDated(existing.getDated());
+				if(existing != null) {
+					obj.setDated(existing.getDated());
+					// dueAmount + dueDate are DERIVED (owned by recomputeDue / Receive Payment) — a profile edit
+					// carries a blank due from the form, so preserve the real balance instead of wiping it.
+					obj.setDueAmount(existing.getDueAmount());
+					obj.setDueDate(existing.getDueDate());
+				}
 			}else {
 				obj.setDated(dated);
 			}
@@ -168,6 +174,24 @@ public class CustomerController {
 		}
 	}
 	
+	/** Receive Payment (AR subledger): FIFO-allocate a receipt to the customer's open invoices, recompute their
+	 *  due, and record it in the shared finance ledger. Returns {receiptNo, allocated, onAccountCredit, newDue}. */
+	@RequestMapping(value = "/receivePayment", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse receivePayment(@RequestParam Long customerId, @RequestParam java.math.BigDecimal amount,
+			@RequestParam(required = false) String method, @RequestParam(required = false) String paidOn,
+			@RequestParam(required = false) String reference) {
+		try {
+			java.time.LocalDate on = appUtil.isEmptyOrNull(paidOn) ? java.time.LocalDate.now() : appUtil.toLocalDateOrNull(paidOn);
+			if (on == null) on = java.time.LocalDate.now();
+			java.util.Map<String, Object> res = customerService.receivePayment(customerId, amount, method, on, reference);
+			return new GenericResponse("SUCCESS", "Payment received.", res);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > receivePayment " + e.getCause(), e);
+			return new GenericResponse("ERROR", e.getMessage() != null ? e.getMessage() : "Failed to record payment.");
+		}
+	}
+
 	@RequestMapping(value = "/deleteCustomer", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteCustomer(HttpServletRequest req, HttpServletResponse resp) {
