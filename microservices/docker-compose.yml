@@ -202,6 +202,30 @@ services:
       config-server:
         condition: service_healthy
 
+  # Shared finance ledger — customer/vendor payments + receipts. POS customer payments record here
+  # (best-effort from business-service; the receipt number + ledger entry come from this service).
+  finance-service:
+    build: ./finance-service
+    container_name: myplus-finance
+    restart: unless-stopped
+    mem_limit: 768m
+    expose:
+      - "8094"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_finance?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
   education-service:
     build: ./education-service
     container_name: myplus-education
