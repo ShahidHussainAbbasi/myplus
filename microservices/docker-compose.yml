@@ -36,7 +36,9 @@ services:
     mem_limit: 1536m
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_USER: myplus
+      # Creates the app user 'shahid'@'%' with this password on first init (before init-db.sql runs,
+      # which then grants it every per-service DB). Services + the healthcheck below connect as shahid.
+      MYSQL_USER: shahid
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mysql-data:/var/lib/mysql
@@ -134,14 +136,39 @@ services:
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       JWT_SECRET: ${JWT_SECRET}
-      SPRING_MAIL_HOST: smtp.gmail.com
-      SPRING_MAIL_PORT: 587
-      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-maxtheservice}
-      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
+      # Public base URL used to build the emailed verification/reset links. MUST be reachable from the
+      # customer's browser (behind nginx: https://<your-domain>, which proxies /api/ -> gateway -> auth).
+      # Unset here it would default to http://localhost:8765 and every link would be dead.
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8765}
+      RESET_PASSWORD_URL: ${RESET_PASSWORD_URL:-http://localhost:8080/user/changePassword}
+      # SMTP itself lives in notification-service now; auth only composes the message and delegates.
     networks: [myplus-net]
     depends_on:
       mysql:
         condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  # Central email/SMS sender. auth-service (verification + password-reset), and any other service,
+  # delegate delivery here over Eureka (http://notification-service/api/notifications). Without it
+  # running, verification emails are silently dropped and new accounts can never be enabled.
+  notification-service:
+    build: ./notification-service
+    container_name: myplus-notification
+    restart: unless-stopped
+    mem_limit: 512m
+    expose:
+      - "8093"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+      # notification-service.yml reads MAIL_USER (full Gmail address) + MAIL_PASSWORD (app password).
+      MAIL_USER: ${MAIL_USER:-maxtheservice@gmail.com}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+    networks: [myplus-net]
+    depends_on:
       config-server:
         condition: service_healthy
 
@@ -410,6 +437,7 @@ services:
       RECAPTCHA_SECRET: ${RECAPTCHA_SECRET:-}
       AUTH_SERVER_URL: http://api-gateway:8765   # auth.server.url
       GATEWAY_URL: http://api-gateway:8765        # gateway.url
+      EUREKA_URI: http://eureka-server:8761/eureka   # else it defaults to localhost:8761 (unreachable in-container)
     networks: [myplus-net]
     depends_on:
       api-gateway:

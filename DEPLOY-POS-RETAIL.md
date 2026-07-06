@@ -3,9 +3,15 @@
 End-to-end runbook to build and run the **POS / Retail** slice of MyPlus with Docker, first
 locally, then on the Hostinger VPS `187.127.125.91`.
 
-POS/Retail does **not** need every microservice. This runbook runs only the subset the
-retail POS depends on. The other domain services (education, welfare, agriculture, pharma,
-marketplace, campaign, analytics, appointment) are simply left out of the `up` command.
+POS/Retail does **not** need every microservice. This runbook's **primary path runs only the
+subset** the retail POS depends on; the other domain services (education, welfare, agriculture,
+pharma, marketplace, analytics, appointment) are left out of the `up` command. Every module is
+Docker-packaged, though, so you can bring up the **entire platform** with a single `docker compose
+up -d --build` (no service list) — see §9 *Deploy the full stack*.
+
+> **Signup e-mail:** account verification and password-reset e-mails are sent by
+> **notification-service**. It is included in the POS subset below — without it, new users never
+> receive the verification link and therefore can never log in.
 
 ---
 
@@ -13,12 +19,13 @@ marketplace, campaign, analytics, appointment) are simply left out of the `up` c
 
 | Component | Container | Host port | Role |
 |-----------|-----------|-----------|------|
-| MySQL 8 | `myplus-mysql` | 3306 | Per-service databases (`myplusdb`, `myplusdb_auth`, `myplusdb_catalog`, `myplusdb_inventory`) |
+| MySQL 8 | `myplus-mysql` | 3306 | Per-service DBs (`myplusdb` = monolith+business, `myplusdb_auth`, `myplusdb_catalog`, `myplusdb_inventory`, `myplusdb_finance`) |
 | Redis | `myplus-redis` | – (internal) | Demo-quota / rate-limit counter |
 | Eureka | `myplus-eureka` | 8761 | Service discovery |
 | Config server | `myplus-config` | 8888 | Centralised config |
 | API gateway | `myplus-gateway` | 8765 | Edge — JWT auth, header stamping, routing |
-| Auth service | `myplus-auth` | – (internal) | Login / JWT / tenants |
+| Auth service | `myplus-auth` | – (internal) | Login / JWT / tenants / signup |
+| Notification service | `myplus-notification` | – (internal) | Sends verification + password-reset e-mail |
 | Catalog service | `myplus-catalog` | – (internal) | Product master |
 | Inventory service | `myplus-inventory` | – (internal) | Stock levels + reserve/confirm saga |
 | Business service | `myplus-business` | – (internal) | POS: customers, sales, purchases, reports |
@@ -35,8 +42,9 @@ Only edge components publish host ports; the rest are reachable only inside the 
 > won't get a receipt number or ledger record*. It is therefore **part of the POS stack** and is
 > included below.
 
-**Approx. RAM for the POS subset:** mysql 1.5 GB + monolith 1 GB + 8 JVMs × 0.75 GB ≈ **~9 GB**.
-Size the VPS accordingly (≥ 8 GB, 12 GB comfortable).
+**Approx. RAM for the POS subset:** mysql 1.5 GB + monolith 1 GB + 8 JVMs × 0.75 GB +
+notification 0.5 GB ≈ **~9.5 GB**. Size the VPS accordingly (≥ 8 GB, 12 GB comfortable).
+The **full stack** (all 18 services) needs ~16 GB — see §9.
 
 ```
 Browser ──▶ :8080 monolith (UI) ──▶ :8765 gateway ──▶ auth / catalog / inventory / business
@@ -69,10 +77,18 @@ Docker Compose auto-loads `microservices/.env`. Make sure these are set (edit `m
 DB_PASSWORD=<a-strong-db-password>
 JWT_SECRET=<output of: openssl rand -base64 48>     # auth-service and gateway MUST share this
 INTERNAL_SECRET=                                    # leave empty locally (header-forgery check off)
-MAIL_PASSWORD=                                       # optional; empty = no e-mail sent
+# --- signup e-mail (notification-service) ---
+MAIL_USER=<you@gmail.com>                            # full Gmail address
+MAIL_PASSWORD=<gmail app password>                   # empty = no e-mail sent (signup link won't arrive)
+# APP_BASE_URL / RESET_PASSWORD_URL: leave unset locally — links default to http://localhost:8765
+# (the gateway) / http://localhost:8080, which work on the same machine.
 ```
 
-> `DB_PASSWORD` becomes the MySQL root password and every service connects as `root`. It must be set.
+> `DB_PASSWORD` is used for **both** the MySQL `root` account and the app user `shahid` (which the
+> mysql container auto-creates on first boot; `init-db.sql` then grants it every per-service DB).
+> Services connect as `shahid`; leave `DB_USER=shahid` in `.env`. It must be set **before** the
+> `mysql-data` volume is first created (see Troubleshooting if you change it later).
+> For signup to work end-to-end, `MAIL_USER` + `MAIL_PASSWORD` must be a working Gmail app-password pair.
 
 ### 3.2 Build the jars
 
@@ -82,7 +98,7 @@ The microservices are one Maven reactor. Build the common libraries + the POS se
 # from repo root
 cd microservices
 # Fast: only the POS services + their upstream common libs (-am pulls in commerce-contracts, common-*)
-mvn -q -DskipTests -pl eureka-server,config-server,api-gateway,auth-service,catalog-service,inventory-service,business-service,finance-service -am install
+mvn -q -DskipTests -pl eureka-server,config-server,api-gateway,auth-service,notification-service,catalog-service,inventory-service,business-service,finance-service -am install
 cd ..
 
 # Build the monolith (UI) jar -> target/myplus.jar
@@ -98,11 +114,14 @@ mvn -q -DskipTests clean package
 cd microservices
 docker compose up -d --build \
   mysql redis eureka-server config-server api-gateway \
-  auth-service catalog-service inventory-service business-service finance-service monolith
+  auth-service notification-service catalog-service inventory-service business-service finance-service monolith
 ```
 
 Compose starts these in dependency order (mysql/redis → config/eureka → gateway → services →
 monolith). First boot creates the databases automatically (`createDatabaseIfNotExist=true`).
+
+> To run **every** module instead of the POS subset, drop the service list: `docker compose up -d
+> --build` (see §9).
 
 ### 3.4 Verify
 
@@ -111,9 +130,12 @@ docker compose ps                       # all should be "running"/"healthy"
 docker compose logs -f monolith         # watch the UI come up (Ctrl-C to stop tailing)
 ```
 
-- Eureka dashboard: <http://localhost:8761> — should list AUTH, CATALOG, INVENTORY, BUSINESS, GATEWAY
+- Eureka dashboard: <http://localhost:8761> — should list AUTH, NOTIFICATION, CATALOG, INVENTORY, BUSINESS, FINANCE, GATEWAY
 - Gateway health: <http://localhost:8765/actuator/health> → `{"status":"UP"}`
 - **POS app: <http://localhost:8080>** — log in with your seeded/demo retail account
+- **Signup test:** register a new user → check the inbox for the verification e-mail → click the link
+  → then log in. (Locally the link is `http://localhost:8765/api/auth/verify-email?...` and works on
+  the same machine; on the VPS it's `https://<your-domain>/...` via nginx — see §4.8.)
 
 Give the JVMs ~60–90 s on first start. If the monolith 502s briefly, the gateway/services are
 still registering — wait and refresh.
@@ -197,26 +219,35 @@ Edit `microservices/.env` on the VPS with **strong, production** values:
 DB_PASSWORD=<long-random-db-password>
 JWT_SECRET=<openssl rand -base64 48>
 INTERNAL_SECRET=<openssl rand -base64 32>     # IMPORTANT: set this in prod (turns on header-forgery protection)
-MAIL_PASSWORD=<gmail app password or empty>
+# --- signup e-mail (notification-service) ---
+MAIL_USER=<you@gmail.com>                       # full Gmail address
+MAIL_PASSWORD=<gmail app password>              # empty = verification e-mail never sent
+# --- public URLs baked into the e-mailed links (MUST be your real domain, browser-reachable) ---
+APP_BASE_URL=https://maxtheservice.com          # nginx proxies /api/ here -> gateway -> auth-service (§4.8)
+RESET_PASSWORD_URL=https://maxtheservice.com/user/changePassword
 RECAPTCHA_SECRET=<your key or empty>
 ```
 
 > Never commit real secrets. `.env` is git-ignored.
+> `APP_BASE_URL` is what makes the verification link clickable from a customer's phone/PC. If it is
+> left at the localhost default, the link is dead — this is the #1 cause of "I can't sign up / verify".
 
 ### 4.6 Build + run the POS subset
 
 ```bash
 cd /opt/myplus/microservices
-mvn -q -DskipTests -pl eureka-server,config-server,api-gateway,auth-service,catalog-service,inventory-service,business-service,finance-service -am install
+mvn -q -DskipTests -pl eureka-server,config-server,api-gateway,auth-service,notification-service,catalog-service,inventory-service,business-service,finance-service -am install
 cd /opt/myplus && mvn -q -DskipTests clean package        # monolith jar
 cd /opt/myplus/microservices
 
 docker compose up -d --build \
   mysql redis eureka-server config-server api-gateway \
-  auth-service catalog-service inventory-service business-service finance-service monolith
+  auth-service notification-service catalog-service inventory-service business-service finance-service monolith
 
 docker compose ps
 ```
+
+> Or run **all modules**: `docker compose up -d --build` with no service list (§9).
 
 First open **http://187.127.125.91:8080** (open port 8080 temporarily — see firewall below) to
 confirm it runs, then put it behind nginx + TLS (§4.8).
@@ -249,6 +280,19 @@ cat >/etc/nginx/sites-available/myplus <<'NGINX'
 server {
     server_name maxtheservice.com www.maxtheservice.com;   # <-- your domain
     client_max_body_size 20m;
+
+    # API gateway — REQUIRED so the e-mailed verification link
+    # (https://<domain>/api/auth/verify-email?token=...) reaches auth-service. The gateway is
+    # firewalled off the public internet (§4.7); this is its only public entry point.
+    location /api/ {
+        proxy_pass http://127.0.0.1:8765;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Monolith UI (everything else)
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
@@ -330,8 +374,11 @@ Containers use `restart: unless-stopped`, so they survive reboots. The MySQL dat
 | Service can't reach MySQL on boot | MySQL still initialising. It has a healthcheck + `depends_on: service_healthy`; on a slow box give it longer, or `docker compose restart <svc>`. |
 | "Access denied" to MySQL | `DB_PASSWORD` unset/mismatched. It must be set **before** the mysql volume is first created; if you changed it later, `docker compose down -v` to recreate the DB (destroys data). |
 | Sale fails "Not enough sellable stock" | Add stock via Product → Add stock; only non-expired batches are sellable. |
+| Signup succeeds but **no verification e-mail** | `notification-service` not running (must be in the `up` list) **or** `MAIL_USER`/`MAIL_PASSWORD` wrong. Check `docker compose logs notification-service`; the Gmail value must be an **app password**. |
+| Verification link opens but **doesn't verify / 404** | `APP_BASE_URL` still at the localhost default (link is dead off-box), or nginx has no `location /api/` block (§4.8) routing to the gateway. |
+| New account can't log in — "Account not verified" | Expected until the e-mailed link is clicked. Fix e-mail delivery (rows above); the account is enabled only after verification. |
 | Identity-header errors between services | `JWT_SECRET` must be identical for auth-service and gateway; if `INTERNAL_SECRET` is set, all services must share the same value. |
-| Out-of-memory / build killed on VPS | Add swap (§4.1) or build with the registry approach (§4.9); the POS subset needs ~8 GB at runtime. |
+| Out-of-memory / build killed on VPS | Add swap (§4.1) or build with the registry approach (§4.9); the POS subset needs ~9.5 GB at runtime, the full stack ~16 GB. |
 
 ---
 
@@ -342,6 +389,34 @@ After secrets are set and jars are built:
 ```bash
 cd microservices && docker compose up -d --build \
   mysql redis eureka-server config-server api-gateway \
-  auth-service catalog-service inventory-service business-service finance-service monolith
+  auth-service notification-service catalog-service inventory-service business-service finance-service monolith
 # open http://localhost:8080  (local)  /  https://<your-domain>  (VPS)
 ```
+
+---
+
+## 9. Deploy the full stack (all modules)
+
+Every module ships a Dockerfile (Java 21 runtime) and is wired into `microservices/docker-compose.yml`,
+so the whole platform — POS **plus** education, welfare, agriculture, pharma, marketplace, campaign,
+analytics, appointment — comes up with no service list:
+
+```bash
+cd microservices
+# 1. Build every module (one reactor). Slower first time; -DskipTests keeps it moving.
+mvn -q -DskipTests install
+cd .. && mvn -q -DskipTests clean package        # monolith jar
+cd microservices
+
+# 2. Bring up EVERYTHING (omit the service list = all services in the compose file)
+docker compose up -d --build
+docker compose ps
+```
+
+Notes:
+- **RAM:** the full stack is ~16 GB. On an 8–12 GB VPS, stick to the POS subset (§3.3/§4.6) or add
+  swap (§4.1) and expect slower boots.
+- **Secrets:** same `.env`. Domain services that send mail (education, campaign) reuse
+  `MAIL_USERNAME`/`MAIL_PASSWORD`; notification-service uses `MAIL_USER`/`MAIL_PASSWORD`.
+- **Selective add-ons:** to add just one domain to a running POS stack, name it — e.g.
+  `docker compose up -d --build education-service` (Compose starts its deps as needed).
