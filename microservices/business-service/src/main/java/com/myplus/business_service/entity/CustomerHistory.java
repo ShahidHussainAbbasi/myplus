@@ -27,7 +27,10 @@ import lombok.Data;
 @Entity
 @Table(name = "customer_history", uniqueConstraints = {
 		@UniqueConstraint(columnNames = "customer_history_id"),
-		@UniqueConstraint(name = "uq_ch_org_invoice_seq", columnNames = {"organization_id", "invoice_seq"}) })  // per-org invoice series
+		@UniqueConstraint(name = "uq_ch_org_invoice_seq", columnNames = {"organization_id", "invoice_seq"}),  // per-org invoice series
+		// SF-3: idempotent sale submission — one invoice per (org, idempotency key). MySQL allows multiple NULLs,
+		// so legacy non-saga rows are unaffected.
+		@UniqueConstraint(name = "uq_ch_org_idempotency", columnNames = {"organization_id", "idempotency_key"}) })
 public class CustomerHistory implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -104,7 +107,8 @@ public class CustomerHistory implements Serializable {
     @Column(name = "reservation_id")
     private String reservationId;
 
-    @Column(name = "idempotency_key")
+    // length=191 so the (org, key) unique index fits utf8mb4's index-byte limit (191*4=764). UUID keys are ~36 chars.
+    @Column(name = "idempotency_key", length = 191)
     private String idempotencyKey;
 
     @Column(name = "saga_status")

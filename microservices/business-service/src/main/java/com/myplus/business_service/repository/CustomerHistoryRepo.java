@@ -26,6 +26,10 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
     // Receipt lookup by the per-org invoice number (G6 receipts, slice 38).
     java.util.Optional<CustomerHistory> findByOrganizationIdAndInvoiceNo(Long organizationId, String invoiceNo);
 
+    // SF-3: dedup an idempotent sale submission — an existing invoice for the caller's key means the sale was
+    // already recorded (a double-click / retry), so addSell returns it instead of writing a second invoice.
+    java.util.Optional<CustomerHistory> findFirstByOrganizationIdAndIdempotencyKey(Long organizationId, String idempotencyKey);
+
     // POS day-close (slice 39): a shift's sales summary — [count, Σ grandTotal, Σ taxTotal].
     @Query("SELECT COUNT(ch), COALESCE(SUM(ch.grandTotal),0), COALESCE(SUM(ch.taxTotal),0) "
             + "FROM CustomerHistory ch WHERE ch.shiftId = :shiftId")

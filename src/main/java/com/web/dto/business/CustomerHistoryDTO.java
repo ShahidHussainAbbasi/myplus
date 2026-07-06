@@ -44,4 +44,8 @@ public class CustomerHistoryDTO {
 
     // G5 (slice 37): checkout tenders — carried through to business-service so the sale's payment is recorded.
     private List<TenderDTO> tenders = new ArrayList<>();
+
+    // SF-3: idempotency key (one per checkout) — carried through to business-service so a double-click / retry
+    // dedups to ONE invoice. Without this field the proxy would drop it on deserialize.
+    private String idempotencyKey;
 }

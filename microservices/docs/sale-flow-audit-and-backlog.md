@@ -44,7 +44,7 @@ Legend — Phase: ⬜ not started · 🟨 in progress · ✅ done. All rows are 
 |----|-----------|-------|--------|-----|--------|------|------|
 | SF-1 | `updateSell` never recomputes invoice totals — FIXED via shared `SagaSaleWriter.applyInvoice` (used by add+edit) | `SagaSaleWriter.applyInvoice`, `SellController.updateSell` | Edit now recomputes subTotal/taxTotal/grandTotal; `Σ lines == grandTotal` | ✅ | ✅ | ✅ | 🟨 run |
 | SF-2 | `updateSell` rebuilt lines from client — FIXED via shared `SagaSellService.buildLines` (tax on discounted base + discount + catalogPrice + soldRate) | `SagaSellService.buildLines` | Edit no longer reverts the discount fix; add/edit converge | ✅ | ✅ | ✅ | 🟨 run |
-| SF-3 | Duplicate-invoice risk on retry/double-submit — `idempotencyKey` is a fresh UUID per call; `writePending` not deduped; no client submit-lock | `SagaSellService.addSell` + `main.js` | Network retry / double-click can create two invoices | ✅ | ⬜ | ⬜ | ⬜ |
+| SF-3 | Duplicate-invoice on retry/double-submit — FIXED: client key per checkout + submit lock; server dedup on (org,key) + unique index (Flyway V10) | `SagaSellService.addSell`, `CustomerHistory(DTO/entity/repo)`, `main.js`, monolith DTO | Same checkout → one invoice; retry returns same invoiceNo | ✅ | ✅ | ✅ | 🟨 run |
 
 **SF-1 + SF-2 recommended together:** extract a shared `recomputeInvoice(ch, lines)` (totals + tax + discount + catalog snapshot) used by **add, edit and return** so there is ONE authoritative compute path.
 
@@ -124,6 +124,46 @@ Edit clears "Received", so no new tender is usually sent. Authoritative model (m
 - Edit changing qty → `grandTotal/subTotal/taxTotal` recomputed; `Σ lines == grandTotal`; due = paid − grandTotal.
 - Edit preserves prior payment (no re-entry needed).
 - Regression: `product-crud.cy.js` sold-rate/catalog-snapshot still pass on edited lines.
+
+---
+
+## 6b. DESIGN — SF-3 (idempotent sale submission)  ⟵ awaiting approval to implement
+
+**Goal:** the same "complete sale" applied twice (double-click, network retry) records **one** invoice, reserves stock **once**, charges the due **once**.
+
+**Root cause recap:** `SagaSellService.addSell` mints a **fresh UUID per call**, and `writePending` always inserts a new `CustomerHistory` — so two calls = two invoices. No client submit-lock.
+
+### Design — client-supplied key + server dedup + DB guard + submit lock
+
+1. **Client key per CHECKOUT (not per HTTP call).** `main.js` generates `window.saleIdempotencyKey` once per sale attempt (first cart interaction / form open), sends it in the `customerHistory` payload, and **resets it only after a SUCCESS** — so a retry of the same sale reuses the same key, but the next sale gets a new one. Edits (`updateSell`) are naturally keyed by invoice id and out of this scope.
+2. **Submit lock.** Disable the Add Sell trigger during the in-flight request (in `jsonPost`), re-enable on completion — stops the double-click at the source.
+3. **DTO carries it.** Add `idempotencyKey` to `CustomerHistoryDTO` (monolith proxy already passes the DTO through unchanged).
+4. **Server dedup.** `addSell` uses `dto.getIdempotencyKey()` when present (else generates one, backward-compatible). **Before** reserving/writing, look up an existing invoice for `(orgId, idempotencyKey)`; if found, **return its invoiceNo** — no second reserve, no second write. The same key also drives the inventory reserve (already idempotent per key), so a retry re-holds the same stock.
+5. **DB guard (race).** Flyway **unique index** on `customer_history(organization_id, idempotency_key)` so two *concurrent* retries that both pass the pre-check can't both insert — the loser catches the constraint violation and returns the existing invoice. (MySQL allows multiple NULLs, so legacy non-saga rows are unaffected.)
+
+```mermaid
+sequenceDiagram
+    participant UI as main.js (Add Sell, locked)
+    participant BS as addSell
+    participant DB as CustomerHistory
+    UI->>BS: addSell {..., idempotencyKey=K}
+    BS->>DB: find (orgId, K)?
+    alt already recorded
+      DB-->>BS: existing invoice
+      BS-->>UI: same invoiceNo (no 2nd reserve/write)
+    else first time
+      BS->>BS: reserve(K) → writePending(K) → confirm
+      BS-->>UI: new invoiceNo
+    end
+```
+
+### Files
+`CustomerHistoryDTO` (+field), `SagaSellService.addSell` (use+dedup), `CustomerHistoryRepo` (finder), Flyway `V#__ch_idempotency_unique.sql` (unique index), `main.js` (key lifecycle + submit lock). business-service + monolith; **one Flyway migration**; no contracts change.
+
+### Test plan
+- Two `addSell` calls with the **same** idempotencyKey → **one** invoice; second returns the same invoiceNo; customer due charged once; stock reserved once.
+- Different keys → two invoices (normal).
+- (Manual) double-click Add Sell → button disabled, single invoice.
 
 ---
 

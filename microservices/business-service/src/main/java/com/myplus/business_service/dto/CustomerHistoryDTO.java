@@ -61,6 +61,10 @@ public class CustomerHistoryDTO {
 
     private BigDecimal changeAmount;
 
+    // SF-3: client-supplied idempotency key (one per checkout attempt). addSell dedups on (org, key) so a
+    // double-click / network retry records ONE invoice instead of two. Null for legacy callers.
+    private String idempotencyKey;
+
     // G6 (slice 38): receipt header bits from the org tax policy (not persisted on the invoice).
     private String taxLabel;
 

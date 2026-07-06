@@ -429,6 +429,9 @@ $(document).ready(function() {
 						if (window.editingInvoice.customerId) customer.customerId = window.editingInvoice.customerId;
 						jsonPost("updateSell", customerHistory);
 					} else {
+						// SF-3: one idempotency key per checkout attempt — a double-click / retry reuses it so the
+						// server records ONE invoice. Reset only after a successful sale (see jsonPost).
+						customerHistory.idempotencyKey = getSaleIdempotencyKey();
 						jsonPost("addSell", customerHistory);
 					}
 			    }else{
@@ -684,24 +687,39 @@ function populateFormData(){
 }
 
 
+// SF-3: one idempotency key per checkout attempt. Generated lazily, kept across retries (so a double-click /
+// network retry sends the SAME key and the server dedups), and reset only after a successful sale.
+function getSaleIdempotencyKey(){
+	if(!window.saleIdempotencyKey){
+		window.saleIdempotencyKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+			: ('sale-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+	}
+	return window.saleIdempotencyKey;
+}
+
 function jsonPost(method,data) {
 	var r = true;// confirm("Are you sure you want to Sell?");
 	if (r != true)
 		return false;
-	
+
 	var printData = data;
 	$.ajax({
 	      type : "POST",
 	      contentType : "application/json",
 	      url : serverContext + method,
 	      data : JSON.stringify(data),//populateFormData()
-	      dataType : 'json',			
+	      dataType : 'json',
+	      // SF-3: lock the submit button while in flight so a double-click can't fire a second sale.
+	      beforeSend : function(){ $('#addSell').prop('disabled', true); },
+	      complete   : function(){ $('#addSell').prop('disabled', false); },
 	      success : function(data) {
 			if(data.status!="SUCCESS"){
 				showFormError(data.message || 'Sale could not be completed. Please check all fields and try again.');
-				return;
+				return;   // keep the idempotency key so a retry dedups
 			}
 			clearFormError();
+			// SF-3: sale committed — retire this checkout's key so the NEXT sale gets a fresh one.
+			if (method === 'addSell') { window.saleIdempotencyKey = null; }
 			// slice 22: show the system-generated per-org invoice number returned by addSell
 			if (data.object) {
 				showSaleSuccess('Sale recorded — Invoice ' + data.object);

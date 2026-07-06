@@ -36,11 +36,23 @@ public class SagaSellService {
     private final SagaSaleWriter saleWriter;
     private final RequestUtil requestUtil;
     private final TaxService taxService;
+    private final com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;   // SF-3 dedup
 
     /** @return the invoice number of the recorded sale. */
     public String addSell(CustomerHistoryDTO dto) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
-        String idempotencyKey = UUID.randomUUID().toString();
+
+        // SF-3: idempotent submission — one key per checkout attempt (client-supplied; fall back to a generated one
+        // for legacy callers). If an invoice already exists for (org, key), this is a double-click / retry: return
+        // the SAME invoice, with no second reserve and no second write.
+        String idempotencyKey = (dto.getIdempotencyKey() != null && !dto.getIdempotencyKey().isBlank())
+                ? dto.getIdempotencyKey() : UUID.randomUUID().toString();
+        java.util.Optional<CustomerHistory> already =
+                customerHistoryRepo.findFirstByOrganizationIdAndIdempotencyKey(user.getOrganizationId(), idempotencyKey);
+        if (already.isPresent()) {
+            LOG.info("addSell idempotent replay for key {} -> existing invoice {}", idempotencyKey, already.get().getInvoiceNo());
+            return already.get().getInvoiceNo();
+        }
 
         // SF-1/SF-2: the ONE authoritative line build (catalog price + sold rate + discount + tax + catalog
         // snapshot), shared with updateSell so add and edit produce identical lines.
@@ -64,6 +76,12 @@ public class SagaSellService {
         CustomerHistory ch;
         try {
             ch = saleWriter.writePending(dto, reservationId, idempotencyKey, user, lines);
+        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+            // SF-3 race: a concurrent retry inserted this invoice first (unique idempotency index). The reservation
+            // is idempotent per key (a shared hold owned by the winner) — do NOT release it; just return their invoice.
+            LOG.info("addSell idempotent race for key {} -> returning the winner's invoice", idempotencyKey);
+            return customerHistoryRepo.findFirstByOrganizationIdAndIdempotencyKey(user.getOrganizationId(), idempotencyKey)
+                    .map(CustomerHistory::getInvoiceNo).orElseThrow(() -> dup);
         } catch (RuntimeException writeFailure) {
             safeRelease(reservationId);
             throw writeFailure;
