@@ -13,7 +13,18 @@
 # NOTE: this stack assumes the monolith runs with auth.mode=server (calls flow
 # through the gateway). Legacy direct calls would be rejected once enforced.
 # =============================================================================
-version: '3.8'
+# Shared DB connection env for every DB-backed service. config-server serves
+# spring.datasource.* built from these ${DB_HOST}/${DB_USER}/${DB_PASSWORD}
+# placeholders, and Spring Cloud Config OVERRIDES container env by default — so
+# THESE are the vars that actually take effect, not SPRING_DATASOURCE_*. Inside
+# the network the DB host is the `mysql` service. `shahid` must exist in MySQL
+# with CREATE DATABASE privilege (createDatabaseIfNotExist needs it for the
+# catalog/finance/appointment DBs, which init-db.sql does not pre-create).
+x-db-env: &db-env
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_USER: shahid
+  DB_PASSWORD: ${DB_PASSWORD}
 
 services:
   mysql:
@@ -34,7 +45,7 @@ services:
       - "3306:3306"
     networks: [myplus-net]
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "shahid", "-p${DB_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -119,9 +130,7 @@ services:
       - "8081"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       JWT_SECRET: ${JWT_SECRET}
@@ -145,9 +154,7 @@ services:
       - "8082"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_inventory?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -167,9 +174,7 @@ services:
       - "8092"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_catalog?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -189,9 +194,7 @@ services:
       - "8083"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -213,9 +216,7 @@ services:
       - "8094"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_finance?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -235,9 +236,7 @@ services:
       - "8084"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_education?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -259,9 +258,7 @@ services:
       - "8085"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_welfare?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -281,9 +278,7 @@ services:
       - "8086"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_agriculture?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -303,9 +298,7 @@ services:
       - "8087"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_pharma?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -325,9 +318,7 @@ services:
       - "8088"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_marketplace?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -347,9 +338,7 @@ services:
       - "8089"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_campaign?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -371,9 +360,7 @@ services:
       - "8090"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_analytics?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -393,9 +380,7 @@ services:
       - "8091"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/myplusdb_appointment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}

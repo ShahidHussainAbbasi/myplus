@@ -49,7 +49,7 @@ Browser ──▶ :8080 monolith (UI) ──▶ :8765 gateway ──▶ auth / c
 ## 2. Prerequisites (local machine)
 
 - **Docker Desktop** (Compose v2) — `docker compose version`
-- **JDK 25** and **Maven 3.9+** — `java -version`, `mvn -version`
+- **JDK 21** and **Maven 3.9+** — `java -version`, `mvn -version`
   (the Dockerfiles are runtime-only and copy a pre-built `target/*.jar`, so you build the jars with Maven first)
 - **Git**
 
@@ -167,15 +167,15 @@ curl -fsSL https://get.docker.com | sh
 docker version && docker compose version     # verify
 ```
 
-### 4.3 Install JDK 25 + Maven (only for build-on-VPS / path A)
+### 4.3 Install JDK 21 + Maven (only for build-on-VPS / path A)
 
 ```bash
-apt -y install maven openjdk-25-jdk 2>/dev/null || {
-  # Fallback if the distro has no JDK 25 package — use Temurin:
+apt -y install maven openjdk-21-jdk 2>/dev/null || {
+  # Fallback if the distro has no JDK 21 package — use Temurin:
   apt -y install wget apt-transport-https gnupg
   wget -qO- https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | tee /etc/apt/keyrings/adoptium.gpg >/dev/null
   echo "deb [signed-by=/etc/apt/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb $(. /etc/os-release; echo $VERSION_CODENAME) main" > /etc/apt/sources.list.d/adoptium.list
-  apt update && apt -y install temurin-25-jdk maven
+  apt update && apt -y install temurin-21-jdk maven
 }
 java -version
 ```
