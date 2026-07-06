@@ -94,6 +94,9 @@ public class SellController {
 	com.myplus.business_service.service.SagaSellService sagaSellService;
 
 	@Autowired
+	com.myplus.business_service.service.SagaSaleWriter saleWriter;   // SF-1/SF-2: shared authoritative invoice apply
+
+	@Autowired
 	com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
 
 	@Autowired
@@ -569,50 +572,23 @@ public class SellController {
 			}
 			if (!returnLines.isEmpty()) inventoryClient.importStock(returnLines);
 
-			// 3) Delete the original line items (replaced below).
-			for (Sell o : oldLines) sellService.deleteById(o.getSellId());
-
-			// 4) Update customer + invoice header IN PLACE — KEEP invoiceSeq/invoiceNo (no new number).
+			// 3) Update customer + invoice header IN PLACE — KEEP invoiceSeq/invoiceNo (no new number).
+			//    (The old line items are deleted + rewritten authoritatively inside applyInvoice below.)
 			Customer customerObj = customerService.saveUpdateCustomer(dto);
 			customerService.save(customerObj);
 			ch.setCustomer(customerObj);
 			ch.setUserId(user.getUserId());
 			ch.setOrganizationId(user.getOrganizationId());
 			ch.setUpdated(java.time.LocalDateTime.now());
-			java.math.BigDecimal paid = dto.getPaidAmount() != null ? dto.getPaidAmount()
-					: (dto.getCustomer() != null ? dto.getCustomer().getPaidAmount() : null);
-			java.math.BigDecimal due = dto.getDueAmount() != null ? dto.getDueAmount()
-					: (dto.getCustomer() != null ? dto.getCustomer().getDueAmount() : null);
-			if (paid != null) ch.setPaidAmount(paid);
-			if (due != null) ch.setDueAmount(due);
 			if (dto.getDueDate() != null) ch.setDueDate(dto.getDueDate());
-			customerHistoryService.save(ch);
 
-			// Recompute the customer's running balance from all their invoice headers — this edited
-			// header now carries its new (paid − bill), so the prior balance + this change are correct
-			// without any lossy in-place reversal of the original amounts.
-			customerService.recomputeDue(customerObj);
-
-			// 5) Insert the edited line items productId-first (no local Stock; inventory already adjusted above).
-			for (SellDTO s : dto.getSales()) {
-				Sell line = new Sell();
-				line.setUserId(user.getUserId());
-				line.setOrganizationId(user.getOrganizationId());
-				line.setQuantity(s.getQuantity());
-				line.setTotalAmount(s.getTotalAmount());
-				line.setNetAmount(s.getNetAmount());
-				line.setSrp(s.getSrp());
-				line.setTaxRate(s.getTaxRate());
-				line.setTaxAmount(s.getTaxAmount());
-				line.setProductId(productIdOfLine(s));               // preserve catalog product identity
-				if (s.getTotalAmount() != null && s.getQuantity() != null && s.getQuantity() > 0f)
-					line.setSellRate(s.getTotalAmount().divide(java.math.BigDecimal.valueOf(s.getQuantity()),
-							2, java.math.RoundingMode.HALF_UP));   // unit rate from the line total
-				line.setDated(java.time.LocalDateTime.now());
-				line.setUpdated(java.time.LocalDateTime.now());
-				line.setCustomerHistory(ch);
-				sellService.save(line);
-			}
+			// 4) SF-1/SF-2: recompute totals + tax + discount + catalog snapshot and REPLACE the Sell lines through
+			//    the SAME authoritative path addSell uses (buildLines → applyInvoice). Settlement keeps the invoice's
+			//    prior payment + adds any new tender and derives due = paid − grandTotal (client-sent due not trusted).
+			//    Replaces the old hand-rolled block that never recomputed totals and dropped discount/catalogPrice/tax.
+			java.util.List<com.myplus.business_service.service.SagaLine> lines =
+					sagaSellService.buildLines(dto, new java.util.HashMap<>());
+			saleWriter.applyInvoice(ch, lines, dto, user, true);
 
 			return new GenericResponse("SUCCESS", "Sale updated. Invoice " + ch.getInvoiceNo(), ch.getInvoiceNo());
 		} catch (Exception e) {

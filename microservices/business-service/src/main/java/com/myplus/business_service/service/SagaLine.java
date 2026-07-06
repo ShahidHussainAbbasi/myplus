@@ -18,5 +18,6 @@ public record SagaLine(
         BigDecimal taxRate,
         BigDecimal taxAmount,
         BigDecimal lineGross,
-        BigDecimal catalogPrice) {
+        BigDecimal catalogPrice,
+        String discountType) {   // display type of the applied discount ("%" or "Amount"); persisted to Sell.dt
 }

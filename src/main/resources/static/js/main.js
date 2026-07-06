@@ -386,7 +386,10 @@ $(document).ready(function() {
 					document.getElementById("sellCN").style.removeProperty('border-color');
 				}
 
-				if(data && data.length>0 && $("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0){
+				// Proceed when the cart has items AND (payment received OR still owing OR we're editing an existing
+				// invoice — a fully-paid edit has no new payment and zero due but must still be submittable). SF-8:
+				// grouped explicitly (was `A && B && C || D`, which let a no-item owing state through).
+				if(data && data.length>0 && ($("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0 || window.editingInvoice)){
 					// A NEW (manually entered) customer who owes a balance must give a mobile so the due
 					// can be followed up. An existing customer chosen from sellCustomerDD is already on
 					// file (their contact may legitimately be blank) — don't force a mobile in that case.

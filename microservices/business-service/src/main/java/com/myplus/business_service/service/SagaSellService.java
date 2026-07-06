@@ -40,46 +40,15 @@ public class SagaSellService {
     /** @return the invoice number of the recorded sale. */
     public String addSell(CustomerHistoryDTO dto) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
-        Long orgId = user.getOrganizationId();
         String idempotencyKey = UUID.randomUUID().toString();
 
-        // G3 (slice 35): the org's tax policy, resolved once per sale.
-        var taxSetting = taxService.settingsFor(orgId);
-
-        // 1 + 2 + 2b: translate each line to a catalog productId, price it from catalog, and apply tax.
-        List<SagaLine> lines = new ArrayList<>();
-        List<StockReservationLine> reservationLines = new ArrayList<>();
+        // SF-1/SF-2: the ONE authoritative line build (catalog price + sold rate + discount + tax + catalog
+        // snapshot), shared with updateSell so add and edit produce identical lines.
         java.util.Map<Long, String> productNames = new java.util.HashMap<>();   // for a friendly out-of-stock message
-        for (SellDTO s : dto.getSales()) {
-            // M4e (slice 101): productId-native — every caller (POS + pharmacy) submits productId now; the legacy
-            // itemId→ItemCatalogMap translation has been retired.
-            Long productId = s.getProductId();
-            if (productId == null) throw new RuntimeException("Sale line has no productId — submit productId-native.");
-            ProductRef product = catalogClient.getProduct(productId);
-            String pName = (product != null && product.getName() != null) ? product.getName()
-                    : (s.getItemName() != null ? s.getItemName() : ("product " + productId));
-            productNames.put(productId, pName);
-            BigDecimal catalogPrice = (product != null && product.getSellingPrice() != null)
-                    ? product.getSellingPrice() : BigDecimal.ZERO;
-            // The rate this line SOLD at = what the cashier entered (they may override the catalog price on the
-            // sell screen); fall back to the catalog master when no rate was submitted. The catalog price is
-            // snapshotted separately so reports show BOTH "catalog price" and "sold at".
-            BigDecimal soldRate = (s.getSellRate() != null && s.getSellRate().compareTo(BigDecimal.ZERO) > 0)
-                    ? s.getSellRate() : catalogPrice;
-            BigDecimal productTaxRate = product != null ? product.getTaxRate() : null;
-            // The line DISCOUNT (amount or %) reduces the bill. The UI's discounted net (#sellrm) is display-only
-            // and never submitted, so resolve it here from the line total + discount, and TAX THE DISCOUNTED BASE
-            // (qty×rate − discount). Without this the invoice bill kept the pre-discount total, so a fully-paid
-            // discounted sale wrongly showed the discount as due.
-            BigDecimal lineTotal = s.getTotalAmount() != null ? s.getTotalAmount() : BigDecimal.ZERO;
-            BigDecimal discount = resolveDiscount(s, lineTotal);
-            BigDecimal base = lineTotal.subtract(discount);
-            if (base.compareTo(BigDecimal.ZERO) < 0) base = BigDecimal.ZERO;
-            TaxResult tax = taxService.taxForLine(base, productTaxRate, taxSetting);
-            lines.add(new SagaLine(productId, s.getQuantity(), soldRate, discount,
-                    s.getTotalAmount(), s.getNetAmount(), s.getSrp(),
-                    tax.rate(), tax.tax(), tax.gross(), catalogPrice));
-            reservationLines.add(new StockReservationLine(productId, BigDecimal.valueOf(s.getQuantity())));
+        List<SagaLine> lines = buildLines(dto, productNames);
+        List<StockReservationLine> reservationLines = new ArrayList<>();
+        for (SagaLine l : lines) {
+            reservationLines.add(new StockReservationLine(l.productId(), BigDecimal.valueOf(l.quantity())));
         }
 
         // 3: reserve (FEFO). OUT_OF_STOCK -> reject the sale (nothing held, nothing written).
@@ -112,6 +81,46 @@ public class SagaSellService {
         return ch.getInvoiceNo();
     }
 
+    /**
+     * SF-1/SF-2: THE authoritative per-line build — used by addSell AND updateSell so a new sale and an edit
+     * produce identical lines. Each line is priced from catalog (soldRate = cashier's rate or catalog fallback),
+     * the DISCOUNT (amount/%) is resolved and the tax is applied on the DISCOUNTED base (qty×rate − discount), and
+     * the catalog price is snapshotted. {@code productNames} (nullable) is filled productId→name for a friendly
+     * out-of-stock message on the reserve step.
+     */
+    public List<SagaLine> buildLines(CustomerHistoryDTO dto, java.util.Map<Long, String> productNames) {
+        Long orgId = requestUtil.getCurrentUser().getOrganizationId();
+        var taxSetting = taxService.settingsFor(orgId);   // G3: the org's tax policy, once per sale
+        List<SagaLine> lines = new ArrayList<>();
+        for (SellDTO s : dto.getSales()) {
+            // M4e (slice 101): productId-native — every caller (POS + pharmacy) submits productId now.
+            Long productId = s.getProductId();
+            if (productId == null) throw new RuntimeException("Sale line has no productId — submit productId-native.");
+            ProductRef product = catalogClient.getProduct(productId);
+            String pName = (product != null && product.getName() != null) ? product.getName()
+                    : (s.getItemName() != null ? s.getItemName() : ("product " + productId));
+            if (productNames != null) productNames.put(productId, pName);
+            BigDecimal catalogPrice = (product != null && product.getSellingPrice() != null)
+                    ? product.getSellingPrice() : BigDecimal.ZERO;
+            // The rate this line SOLD at = the cashier's rate (may override catalog); fall back to catalog. The
+            // catalog price is snapshotted separately so reports show BOTH "catalog price" and "sold at".
+            BigDecimal soldRate = (s.getSellRate() != null && s.getSellRate().compareTo(BigDecimal.ZERO) > 0)
+                    ? s.getSellRate() : catalogPrice;
+            BigDecimal productTaxRate = product != null ? product.getTaxRate() : null;
+            // The line DISCOUNT reduces the bill; tax the DISCOUNTED base (the UI's discounted net is never submitted).
+            BigDecimal lineTotal = s.getTotalAmount() != null ? s.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal discount = resolveDiscount(s, lineTotal);
+            String discountType = resolveDiscountType(s, discount);
+            BigDecimal base = lineTotal.subtract(discount);
+            if (base.compareTo(BigDecimal.ZERO) < 0) base = BigDecimal.ZERO;
+            TaxResult tax = taxService.taxForLine(base, productTaxRate, taxSetting);
+            lines.add(new SagaLine(productId, s.getQuantity(), soldRate, discount,
+                    s.getTotalAmount(), s.getNetAmount(), s.getSrp(),
+                    tax.rate(), tax.tax(), tax.gross(), catalogPrice, discountType));
+        }
+        return lines;
+    }
+
     /** The line's discount as an absolute amount. A "%"/"1" type is a percent of the line total; anything else is
      *  already an amount. Read from the line's stock (bsellDiscount + bsellDiscountType) — where the sell form binds
      *  the discount (the discounted net #sellrm is display-only and never submitted). */
@@ -125,6 +134,15 @@ public class SagaSellService {
             return lineTotal.multiply(d).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
         }
         return d;   // absolute amount
+    }
+
+    /** Human-readable discount type for the sell history table (Sell.dt). Blank when there's no discount so the
+     *  column stays empty rather than labelling a zero discount. Mirrors resolveDiscount's %/amount decision. */
+    private String resolveDiscountType(SellDTO s, BigDecimal resolvedDiscount) {
+        if (resolvedDiscount == null || resolvedDiscount.compareTo(BigDecimal.ZERO) <= 0) return "";
+        var st = s.getStock();
+        String type = st != null ? st.getBsellDiscountType() : null;
+        return ("%".equals(type) || "1".equals(type)) ? "%" : "Amount";
     }
 
     /** Turn the reserve's raw "product 891: only 7 sellable, 10 requested" reason into a name-resolved, cashier-

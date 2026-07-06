@@ -29,7 +29,10 @@ public class StockDTO implements Serializable {
 	
 	private String bpurchaseDiscountType="%";
 	
-	private String bsellDiscountType="%";
+	// Sell discount type: "0"/absent = flat amount, "1"/"%" = percent. Default is AMOUNT so a line that
+	// reaches the backend WITHOUT an explicit type (e.g. the select had no matching option → FormData omits it)
+	// is treated as a flat amount, not silently as a percent (which turned a flat 10 on a 120 line into 12).
+	private String bsellDiscountType="0";
 	
 	private BigDecimal bpurchaseDiscount = BigDecimal.ZERO;
 	

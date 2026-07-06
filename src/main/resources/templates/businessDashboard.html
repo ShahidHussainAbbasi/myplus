@@ -1056,8 +1056,14 @@
 								<input type="number" step="any" min="0" class="form-control" id="sellInsured"
 									name="sellInsured" placeholder="0.00" onkeyup="calculateChange()">
 							</div>
+							<!-- Edit only: what was already paid on this invoice. "Amount Received" is then ADDITIONAL payment;
+							     the server keeps the prior payment and adds the new tender (SF-1/SF-2). -->
+							<div class="col-xs-12 col-sm-3 col-md-2" id="sellPaidSoFarWrap" style="display:none">
+								<span class="field-label">Already paid</span>
+								<input type="number" step="any" class="form-control" id="sellPaidSoFar" readonly="readonly" title="Paid on this invoice so far">
+							</div>
 							<div class="col-xs-12 col-sm-3 col-md-2">
-								<span class="field-label">Amount Received</span>
+								<span class="field-label" id="sellRecLabel">Amount Received</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellRec"
 									name="sellRec" placeholder=" Received " onkeyup="calculateChange()">
 							</div>
@@ -1126,15 +1132,15 @@
 							<th data-field="sellItemName">Name</th>
 							<th data-field="sellItems">QTY</th>
 							<!-- <th data-field="sellBatchNo">BatchNo</th> -->
-							<th data-field="sellItemExpiry">Expiry</th>
-							<th data-field="sellPurchaseRate">P/U Price</th>
+							<!-- <th data-field="sellItemExpiry">Expiry</th> -->
+							<!-- <th data-field="sellPurchaseRate">P/U Price</th> -->
 							<th data-field="sellSellRate" title="The rate this line was actually sold at">Sold Rate</th>
-							<th data-field="sellCatalogPrice" title="Catalog master price at the time of sale">Catalog</th>
+							<!-- <th data-field="sellCatalogPrice" title="Catalog master price at the time of sale">Catalog</th> -->
 							<th data-field="sellDiscountTypeDD">Disc Type</th>
 							<th data-field="sellDiscount">Discount</th>
 							<th data-field="sellTotalAmount">Total</th>
 							<th data-field="sellDueAmount" title="Amount still owed on THIS invoice only">Invoice Due</th>
-							<th data-field="sellNetAmount">Profit</th>
+							<th data-field="sellNetAmount">Net Amount (Paid)</th>
 							<!-- <th data-field="sellCN">Customer Name</th> -->
 							<!-- <th data-field="sellCC">Customer Contact</th> -->
 							<!-- <th data-field="sellDuedays">Due Days</th> -->

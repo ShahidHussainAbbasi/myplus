@@ -266,9 +266,14 @@ function loadSellForEdit(sellId){
 		if(inDD){ $('#sellCustomerDD').val(String(custId)); }
 		$("#sellCN").val(inv.customer ? (inv.customer.name || '') : '');     // the save reads name/contact
 		$("#sellCC").val(inv.customer ? (inv.customer.contact || '') : '');
-		// $("#sellRec").val(inv.paidAmount != null ? inv.paidAmount : '');
+		// SF-1/SF-2: show what was already paid on this invoice; "Amount Received" now means ADDITIONAL payment
+		// (the server keeps the prior payment and adds the new tender). Received stays empty by default.
+		window.editingPaid = Number(inv.paidAmount != null ? inv.paidAmount : 0);
+		$("#sellPaidSoFar").val(window.editingPaid.toFixed(2));
+		$("#sellPaidSoFarWrap").show();
+		$("#sellRecLabel").text('Additional payment');
 		$("#sellRec").val('');
-		$("#sellCh,#sellDueThis").val('');         // cleared until the cashier re-enters Received
+		$("#sellCh,#sellDueThis").val('');         // recomputed (incl. prior paid) once items/Received change
 		window.selectedCustomerDue = null;          // hide account preview while editing (avoids double-count)
 		$("#sellAccountRow").hide();
 		// $('#sellCustomerDD').prop('disabled', true);   // customer cannot be changed while editing
@@ -350,6 +355,11 @@ function loadCartLineIntoForm(line){
 function exitSellEditMode(){
 	window.editingInvoice = null;
 	edit = false;
+	// SF-1/SF-2: drop the edit-only "Already paid" display + restore the Received label.
+	window.editingPaid = 0;
+	$("#sellPaidSoFarWrap").hide();
+	$("#sellPaidSoFar").val('');
+	$("#sellRecLabel").text('Amount Received');
 	$('#sellEditBanner').remove();
 	setSellItemBtnMode(false);
 	$('#sellItemDD').prop('disabled', false);
@@ -636,9 +646,12 @@ function loadDataTable(){
 							"<div id=sellCustomerName>"+escHtml(custName)+"</div>",
 							"<div id=sellItemName>"+escHtml(obj.itemName||'')+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
-							"<div id=sellItemExpiry>"+(obj.stock&&obj.stock.bexpDate!=null?obj.stock.bexpDate:'')+"</div>",
-							"<div id=sellPurchaseRate>"+(obj.stock&&obj.stock.bpurchaseRate!=null?obj.stock.bpurchaseRate:'')+"</div>","<div id=sellSellRate>"+(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:(obj.sellRate!=null?obj.sellRate:''))+"</div>","<div id=sellCatalogPrice>"+(obj.catalogPrice!=null?obj.catalogPrice:'')+"</div>",
-							"<div id=sellDiscountTypeDD>"+(obj.stock&&obj.stock.bsellDiscountType!=null?obj.stock.bsellDiscountType:'')+"</div>","<div id=sellDiscount>"+(obj.stock&&obj.stock.bsellDiscount!=null?obj.stock.bsellDiscount:(obj.discount!=null?obj.discount:''))+"</div>",
+							// "<div id=sellItemExpiry>"+(obj.stock&&obj.stock.bexpDate!=null?obj.stock.bexpDate:'')+"</div>",
+							// "<div id=sellPurchaseRate>"+(obj.stock&&obj.stock.bpurchaseRate!=null?obj.stock.bpurchaseRate:'')+"</div>",
+							"<div id=sellSellRate>"+(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:(obj.sellRate!=null?obj.sellRate:''))+"</div>",
+							// "<div id=sellCatalogPrice>"+(obj.catalogPrice!=null?obj.catalogPrice:'')+"</div>",
+							"<div id=sellDiscountTypeDD>"+escHtml(obj.dt!=null&&obj.dt!==''?obj.dt:(obj.stock&&obj.stock.bsellDiscountType!=null?obj.stock.bsellDiscountType:''))+"</div>",
+							"<div id=sellDiscount>"+(obj.stock&&obj.stock.bsellDiscount!=null?obj.stock.bsellDiscount:(obj.discount!=null?obj.discount:''))+"</div>",
 							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>",
 							"<div id=sellDueAmount>"+owed.toFixed(2)+"</div>",
 							"<div id=sellNetAmount>"+obj.netAmount+"</div>",
@@ -1147,7 +1160,13 @@ function loadStock(label,value){
 		    	$("#pdt").html(discountType+" Discount");
 		    	calculateNetPurchase();
     		}else if(value && tableV=="Sell"){
-        		$("#sellDiscountTypeDD").val(discountType);
+        		// Guard: the type select only has "0" (amount) / "1" (percent). If the pre-fill value is anything
+        		// else (e.g. legacy "%", empty, undefined) it wouldn't match an option → selectedIndex -1 → the
+        		// field is omitted from the submission → backend defaults to percent. Normalise "%"→"1", else "0",
+        		// and refresh the selectpicker so a real option is always selected.
+        		var sdt = (discountType == "1" || discountType == "%") ? "1" : "0";
+        		$("#sellDiscountTypeDD").val(sdt);
+        		if($("#sellDiscountTypeDD").data('selectpicker')) $("#sellDiscountTypeDD").selectpicker('refresh');
 	    		if(batchStock <= 0){
 	    			$("#sellItems").addClass("alert-danger");
  	    			showFormError('No stock available. Please purchase this item first.');
@@ -1262,7 +1281,11 @@ function getStockByBatch(batchNo){
 			    	$("#pdt").html(discountType+" Discount");
 			    	calculateNetPurchase();
 	    		}else if(tableV=="Sell"){
-	        		$("#sellDiscountTypeDD").val(discountType);
+	        		// Same guard as above: normalise the discount type to a real option ("0" amount / "1" percent)
+	        		// so it's never omitted from the submission (which made the backend default to percent).
+	        		var sdt2 = (discountType == "1" || discountType == "%") ? "1" : "0";
+	        		$("#sellDiscountTypeDD").val(sdt2);
+	        		if($("#sellDiscountTypeDD").data('selectpicker')) $("#sellDiscountTypeDD").selectpicker('refresh');
 		    		if(batchStock <= 0){
 		    			$("#sellItems").addClass("alert-danger");
  		    			showFormError('No stock available. Please purchase this item first.');
@@ -1363,12 +1386,16 @@ function calculateNetSell(){
 	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val()*ONE:0;
 	sellTotalAmount = parseFloat(qty * s).toFixed(2);
 	if(discountType*ONE == 1){
-		//Discount  =  List Price Ã— Discount Rate 
-		sellDiscount =  sellTotalAmount * (sellDiscount*1 / 100);
+		//Discount = List Price × Discount Rate. Round to 2dp so a % of an odd total (e.g. 5% of 99.99)
+		//doesn't leak 3–4 decimals into the receivable/net.
+		sellDiscount = parseFloat(sellTotalAmount * (sellDiscount*1 / 100)).toFixed(2)*ONE;
 	}else{
-		// sellDiscount = sellTotalAmount - sellDiscount;
-		//$("#sellDiscount").val(sellDiscount);
+		// Amount type: the entered value is the flat discount, used as-is.
+		sellDiscount = parseFloat(sellDiscount).toFixed(2)*ONE;
 	}
+	// Clamp: the discount can never exceed the line total (a >100% or oversized amount would
+	// otherwise produce a negative receivable).
+	if(sellDiscount > sellTotalAmount*ONE) sellDiscount = sellTotalAmount*ONE;
 	var profit = parseFloat(sellTotalAmount- (p*qty) - sellDiscount).toFixed(2);
 	$("#sellNetAmount").val(profit);
 	if(profit<=0)
@@ -1377,7 +1404,7 @@ function calculateNetSell(){
 		$("#sellNetAmount").removeClass("alert-danger");
 	
 	$("#sellTotalAmount").val(sellTotalAmount);
-	$("#sellrm").val($("#sellTotalAmount").val()-sellDiscount);
+	$("#sellrm").val(parseFloat($("#sellTotalAmount").val()-sellDiscount).toFixed(2));
 }
 
 // function calculateNetSell(){
@@ -1444,7 +1471,10 @@ function calculateChange() {
     // P12 (slice 59): insurance covers part of the bill; the patient only owes the remainder (the co-pay).
     var insured = ($("#sellInsured") && $("#sellInsured").val() ? $("#sellInsured").val() * ONE : 0) || 0;
     var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
-    var change = recAm + insured - sellTotal;
+    // SF-1/SF-2: while EDITING, the bill is already partly covered by what was paid before, so the preview must
+    // count it: due = bill − (priorPaid + additionalReceived + insured). The server derives the real due the same way.
+    var priorPaid = (window.editingInvoice && window.editingPaid) ? Number(window.editingPaid) : 0;
+    var change = recAm + insured + priorPaid - sellTotal;
 
     // sellCh keeps the SIGNED change/due (received − bill) — addSell submits this as customer.dueAmount.
     // Do not change its meaning; the display fields below are derived from it.

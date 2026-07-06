@@ -42,6 +42,10 @@ public class StockController {
 		StockDTO dto = new StockDTO();
 		dto.setBpurchaseDiscountType("%");
 		dto.setBpurchaseDiscount(java.math.BigDecimal.ZERO);
+		// Sell discount defaults: amount type ("0") + zero, so the sell form's pre-fill matches the "0" (amount)
+		// option and the type is never left as the ambiguous "%" that made a flat discount resolve as a percent.
+		dto.setBsellDiscountType("0");
+		dto.setBsellDiscount(java.math.BigDecimal.ZERO);
 		dto.setStock(0.0F);
 		if (appUtil.isEmptyOrNull(productId)) return dto;
 		try {

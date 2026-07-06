@@ -53,7 +53,21 @@ public class SagaSaleWriter {
         cashierShiftRepo.findFirstByOrganizationIdAndUserIdAndStatusOrderByOpenedAtDesc(
                 user.getOrganizationId(), user.getUserId(), com.myplus.business_service.entity.ShiftStatus.OPEN)
                 .ifPresent(shift -> ch.setShiftId(shift.getId()));
-        // G3 (slice 35): invoice tax summary for the receipt + tax report (subTotal = Σ net, etc.).
+        // SF-1/SF-2: totals + settle + Sell lines + recomputeDue, via the ONE shared path (also used by updateSell).
+        applyInvoice(ch, lines, dto, user, false);
+        return ch;
+    }
+
+    /**
+     * SF-1/SF-2 — THE authoritative invoice apply, shared by new sales (writePending) and edits (updateSell):
+     * recompute the tax summary (subTotal/taxTotal/grandTotal) from the authoritative lines, settle payment,
+     * (re)write the Sell lines, and recompute the customer's running due. Runs in the caller's transaction.
+     * <p>Settlement: {@code paid = existingPaid (edit only) + any new tender}, and {@code due = paid − grandTotal}
+     * (negative while owing) — the server DERIVES due; the client-sent dueAmount is not trusted. For an edit the
+     * cashier only adds NEW payment (the prior payment is kept), so it is never double-counted.
+     */
+    public void applyInvoice(CustomerHistory ch, List<SagaLine> lines, CustomerHistoryDTO dto,
+                             AuthenticatedUser user, boolean replaceLines) {
         java.math.BigDecimal subTotal = java.math.BigDecimal.ZERO, taxTotal = java.math.BigDecimal.ZERO,
                 grandTotal = java.math.BigDecimal.ZERO;
         for (SagaLine l : lines) {
@@ -67,26 +81,38 @@ public class SagaSaleWriter {
         ch.setTaxTotal(taxTotal);
         ch.setGrandTotal(grandTotal);
 
-        // G5 (slice 37): settle the tenders against the (tax-inclusive) grand total. Only when tenders are sent —
-        // otherwise leave the legacy paid/due the cart already set (backward-compatible). dueAmount = paid − bill
-        // (negative while owing), matching the existing convention recomputeDue() relies on.
+        // Settle: an edit KEEPS the invoice's prior payment and ADDS any new tender; a new sale starts at 0.
+        java.math.BigDecimal existingPaid = replaceLines ? nz(ch.getPaidAmount()) : java.math.BigDecimal.ZERO;
         boolean hasTenders = dto.getTenders() != null && !dto.getTenders().isEmpty();
+        java.math.BigDecimal paid = existingPaid;
         if (hasTenders) {
-            SettleResult st = PaymentService.settle(grandTotal, dto.getTenders());
+            // Settle the NEW tender against what's still owed (grandTotal − alreadyPaid), so an edit's extra
+            // payment is capped at the remaining balance and never double-counts the prior payment. For a new
+            // sale existingPaid = 0, so this is simply the whole grand total.
+            java.math.BigDecimal remaining = grandTotal.subtract(existingPaid);
+            if (remaining.compareTo(java.math.BigDecimal.ZERO) < 0) remaining = java.math.BigDecimal.ZERO;
+            SettleResult st = PaymentService.settle(remaining, dto.getTenders());
             ch.setPaymentMode(st.paymentMode());
             ch.setTenderedAmount(st.tendered());
             ch.setChangeAmount(st.change());
-            ch.setPaidAmount(st.paid());
-            ch.setDueAmount(st.paid().subtract(grandTotal));
+            paid = existingPaid.add(st.paid());
         }
+        ch.setPaidAmount(paid);
+        ch.setDueAmount(paid.subtract(grandTotal));   // negative while owing (recomputeDue convention)
         customerHistoryService.save(ch);
 
         if (hasTenders) {
             paymentService.record(ch.getCustomer_history_id(), dto.getTenders(),
                     user.getOrganizationId(), user.getUserId());
         }
-        customerService.recomputeDue(customer);
 
+        // (Re)write the Sell lines authoritatively (discount + catalog snapshot + tax + sold rate).
+        if (replaceLines) {
+            for (Sell o : sellService.findByInvoiceScoped(ch.getCustomer_history_id(),
+                    user.getOrganizationId(), user.getUserId())) {
+                sellService.deleteById(o.getSellId());
+            }
+        }
         LocalDateTime now = LocalDateTime.now();
         for (SagaLine l : lines) {
             Sell sell = new Sell();
@@ -97,6 +123,7 @@ public class SagaSaleWriter {
             sell.setSellRate(l.sellRate());          // the ACTUAL sold rate (cashier's rate; falls back to catalog)
             sell.setCatalogPrice(l.catalogPrice());  // catalog master price snapshot at sale time (for reports)
             sell.setDiscount(l.discount());
+            sell.setDt(l.discountType());            // persist the discount type ("%" / "Amount") for the sell history table
             sell.setTotalAmount(l.totalAmount());
             sell.setNetAmount(l.netAmount());
             sell.setSrp(l.srp());
@@ -107,7 +134,7 @@ public class SagaSaleWriter {
             sell.setUpdated(now);
             sellService.save(sell);
         }
-        return ch;
+        customerService.recomputeDue(ch.getCustomer());
     }
 
     /** Flip the invoice's saga status (PENDING → CONFIRMED/FAILED) in its own transaction. */
