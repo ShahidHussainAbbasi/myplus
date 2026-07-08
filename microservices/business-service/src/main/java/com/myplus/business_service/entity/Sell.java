@@ -71,6 +71,11 @@ public class Sell implements Serializable {
 	@Column(name = "catalog_price", precision = 19, scale = 2)
 	private BigDecimal catalogPrice;
 
+	// SF-10: unit COST (COGS) snapshot at sale time — the product's latest purchase rate — so reports can show
+	// true per-line margin = netAmount − costPrice×quantity. Null for legacy sells / never-purchased products.
+	@Column(name = "cost_price", precision = 19, scale = 2)
+	private BigDecimal costPrice;
+
 	@Column(precision = 19, scale = 2)
 	private BigDecimal discount;
 

@@ -29,6 +29,13 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
         + "and (p.organizationId = :orgId or p.organizationId is null)")
    List<Purchase> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   // SF-10: the product's most-recent purchase rate (unit cost / COGS) in this tenant — for the sell-line margin
+   // snapshot. Returns newest-first; the caller takes the first with Pageable(0,1). NULL rates are skipped.
+   @Query("select p.bpurchaseRate from purchase p where p.productId = :productId and p.bpurchaseRate is not null "
+        + "and (p.organizationId = :orgId or (p.organizationId is null and p.userId = :userId)) order by p.dated desc")
+   List<java.math.BigDecimal> findRecentCosts(@Param("productId") Long productId, @Param("orgId") Long orgId,
+        @Param("userId") Long userId, org.springframework.data.domain.Pageable pageable);
+
    // M3c.4f (slice 88): the product_id backfill-from-stock queries were retired with the local Stock table.
    // The historical backfill ran at Flyway time (V5/V6) before the drop; nothing references local Stock anymore.
 

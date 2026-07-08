@@ -124,6 +124,9 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
 
+	@Autowired
+	com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;   // SF-11: return audit / credit-note
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -687,18 +690,12 @@ public class SellController {
 								.productId(existingSell.getProductId()).quantity(dto.getQuantity()).build()));
 			}
 
-			// G5 (slice 37): record the money refunded to the customer (proportional to the returned qty), so the
-			// payment ledger matches the restored stock. A REFUND tender (negative) is written to the invoice.
+			// SF-5: the money owed back to the customer is settled in the header re-settle below, from the actual
+			// OVERPAYMENT the return creates (paidAmount − new grandTotal) — NOT the raw line value. This way a
+			// paid sale refunds only what was overpaid, and an unpaid credit-sale return refunds nothing (the
+			// return just reduces what the customer owes). See the re-settle block for the REFUND tender.
 			boolean partial = retQty > 0f && retQty < soldQty;
-			if (ch != null && ch.getCustomer_history_id() != null) {
-				java.math.BigDecimal lineGross = nzbd(existingSell.getTotalAmount()).add(nzbd(existingSell.getTaxAmount()));
-				java.math.BigDecimal refund = partial
-						? lineGross.multiply(java.math.BigDecimal.valueOf(retQty))
-								.divide(java.math.BigDecimal.valueOf(soldQty), 2, java.math.RoundingMode.HALF_UP)
-						: lineGross;   // full-line return (or unknown qty) → refund the whole line
-				if (refund.signum() > 0)
-					paymentService.refund(ch.getCustomer_history_id(), refund, orgId(), userId());
-			}
+			java.math.BigDecimal refundedAmount = java.math.BigDecimal.ZERO;   // SF-11: recorded on the return audit
 
 			// Adjust the returned line: a full return removes it; a partial return reduces its qty and money
 			// pro-rata so the invoice keeps the portion the customer is keeping.
@@ -731,7 +728,20 @@ public class SellController {
 				ch.setSubTotal(subTotal);
 				ch.setTaxTotal(taxTotal);
 				ch.setGrandTotal(grandTotal);
-				ch.setDueAmount(nzbd(ch.getPaidAmount()).subtract(grandTotal));
+
+				// SF-5: reconcile the header payment against the new total. If the return leaves the invoice
+				// OVERPAID (paidAmount > grandTotal), refund exactly that overpayment (cash back to the customer,
+				// recorded as a negative REFUND tender) and drop paidAmount to what's retained — so dueAmount is
+				// never falsely positive and the customer's running balance can't be floored-away. An unpaid /
+				// credit-sale return overpays by ≤ 0, so it refunds nothing and simply reduces what is owed.
+				java.math.BigDecimal priorPaid = nzbd(ch.getPaidAmount());
+				java.math.BigDecimal refund = priorPaid.subtract(grandTotal);   // > 0 only when overpaid
+				if (refund.signum() > 0) {
+					paymentService.refund(ch.getCustomer_history_id(), refund, orgId(), userId());
+					ch.setPaidAmount(priorPaid.subtract(refund));   // = grandTotal; the refunded cash leaves paidAmount
+					refundedAmount = refund;                        // SF-11: capture for the return audit record
+				}
+				ch.setDueAmount(nzbd(ch.getPaidAmount()).subtract(grandTotal));   // ≤ 0 (owing or settled)
 				ch.setUpdated(java.time.LocalDateTime.now());
 				customerHistoryService.save(ch);
 
@@ -740,11 +750,42 @@ public class SellController {
 					customerService.recomputeDue(customer);
 			}
 
+			// SF-11: write the return audit / credit-note stub (who/what/why/how-much). Best-effort — the return is
+			// already applied, so a logging hiccup must never fail it.
+			try {
+				com.myplus.business_service.entity.SaleReturn cn = new com.myplus.business_service.entity.SaleReturn();
+				cn.setInvoiceNo(ch != null ? ch.getInvoiceNo() : null);
+				cn.setSellId(dto.getSellId());
+				cn.setProductId(existingSell.getProductId());
+				cn.setQuantity(retQty);
+				cn.setReason(request.getParameter("reason"));
+				cn.setRefundAmount(refundedAmount);
+				cn.setOrganizationId(orgId());
+				cn.setUserId(userId());
+				cn.setDated(java.time.LocalDateTime.now());
+				saleReturnRepo.save(cn);
+			} catch (Exception auditOnly) {
+				LOGGER.warn(this.getClass().getName() + " > saleReturn audit write failed (return applied)", auditOnly);
+			}
+
 			return new GenericResponse("SUCCESS", "Sale returned successfully.");
 
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > saleReturn " + e.getCause(), e);
 			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");
+		}
+	}
+
+	/** SF-11: the sale-return / credit-note audit log for this tenant (newest first), for review + a future
+	 *  printable credit note. Flat records — no lazy relations. Org-scoped with NULL-fallback. */
+	@RequestMapping(value = "/getSaleReturns", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getSaleReturns(final HttpServletRequest request) {
+		try {
+			return new GenericResponse("SUCCESS", "Sale returns loaded", saleReturnRepo.findScoped(orgId(), userId()));
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > getSaleReturns " + e.getMessage(), e);
+			return new GenericResponse("FAILED", "Could not load sale returns.");
 		}
 	}
 }

@@ -53,6 +53,9 @@ public class SellDTO implements Serializable {
 	// The catalog master price at the moment of sale (snapshot) — lets reports compare catalog price vs sold rate.
 	private BigDecimal catalogPrice;
 
+	// SF-10: unit cost (COGS) snapshot — carried to the Sale Detail Report so the UI can show per-line margin.
+	private BigDecimal costPrice;
+
 	// G3 (slice 35): applied tax on this line, for the read/receipt path.
 	private BigDecimal taxRate;
 

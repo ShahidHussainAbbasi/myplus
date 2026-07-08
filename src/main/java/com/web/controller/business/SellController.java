@@ -92,6 +92,18 @@ public class SellController {
         }
     }
 
+    // SF-11: the sale-return / credit-note audit log (proxy to business-service).
+    @RequestMapping(value = "/getSaleReturns", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getSaleReturns(final HttpServletRequest request) {
+        try {
+            return client.get("/getSaleReturns", "");
+        } catch (Exception e) {
+            LOGGER.error("getSaleReturns proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/addSell", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {

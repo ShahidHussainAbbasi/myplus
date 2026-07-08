@@ -42,9 +42,9 @@ Legend — Phase: ⬜ not started · 🟨 in progress · ✅ done. All rows are 
 
 | ID | Bug / gap | Where | Impact | Doc | Design | Impl | Test |
 |----|-----------|-------|--------|-----|--------|------|------|
-| SF-1 | `updateSell` never recomputes invoice totals — FIXED via shared `SagaSaleWriter.applyInvoice` (used by add+edit) | `SagaSaleWriter.applyInvoice`, `SellController.updateSell` | Edit now recomputes subTotal/taxTotal/grandTotal; `Σ lines == grandTotal` | ✅ | ✅ | ✅ | 🟨 run |
-| SF-2 | `updateSell` rebuilt lines from client — FIXED via shared `SagaSellService.buildLines` (tax on discounted base + discount + catalogPrice + soldRate) | `SagaSellService.buildLines` | Edit no longer reverts the discount fix; add/edit converge | ✅ | ✅ | ✅ | 🟨 run |
-| SF-3 | Duplicate-invoice on retry/double-submit — FIXED: client key per checkout + submit lock; server dedup on (org,key) + unique index (Flyway V10) | `SagaSellService.addSell`, `CustomerHistory(DTO/entity/repo)`, `main.js`, monolith DTO | Same checkout → one invoice; retry returns same invoiceNo | ✅ | ✅ | ✅ | 🟨 run |
+| SF-1 | `updateSell` never recomputes invoice totals — FIXED via shared `SagaSaleWriter.applyInvoice` (used by add+edit) | `SagaSaleWriter.applyInvoice`, `SellController.updateSell` | Edit now recomputes subTotal/taxTotal/grandTotal; `Σ lines == grandTotal` | ✅ | ✅ | ✅ | ✅ |
+| SF-2 | `updateSell` rebuilt lines from client — FIXED via shared `SagaSellService.buildLines` (tax on discounted base + discount + catalogPrice + soldRate) | `SagaSellService.buildLines` | Edit no longer reverts the discount fix; add/edit converge | ✅ | ✅ | ✅ | ✅ |
+| SF-3 | Duplicate-invoice on retry/double-submit — FIXED: client key per checkout + submit lock; server dedup on (org,key) + unique index (Flyway V10) | `SagaSellService.addSell`, `CustomerHistory(DTO/entity/repo)`, `main.js`, monolith DTO | Same checkout → one invoice; retry returns same invoiceNo | ✅ | ✅ | ✅ | ✅ |
 
 **SF-1 + SF-2 recommended together:** extract a shared `recomputeInvoice(ch, lines)` (totals + tax + discount + catalog snapshot) used by **add, edit and return** so there is ONE authoritative compute path.
 
@@ -52,19 +52,19 @@ Legend — Phase: ⬜ not started · 🟨 in progress · ✅ done. All rows are 
 
 | ID | Bug / gap | Where | Impact | Doc | Design | Impl | Test |
 |----|-----------|-------|--------|-----|--------|------|------|
-| SF-4 | Edit clears "Received" — PARTLY FIXED: edit now shows **"Already paid"** + preserves it server-side; Received = ADDITIONAL payment; due preview counts prior paid | `business.js` loadSellForEdit/calculateChange, `applyInvoice` | Prior payment no longer forgotten on edit | ✅ | ✅ | 🟨 partial | 🟨 run |
-| SF-5 | Return refund doesn't reduce header `paidAmount`; customer credit floored to 0 (lost) | `saleReturn` 758 + `recomputeDue` | Invoice shows paid > grandTotal; return/overpay credit vanishes (no customer-credit concept) | ✅ | ⬜ | ⬜ | ⬜ |
-| SF-6 | No-tender sale (received 0, not CREDIT) skips `settle` → `paidAmount` may be null | `main.js` 412 + `SagaSaleWriter` 73-81 | Inconsistent paid/due for unpaid non-credit sales | ✅ | ⬜ | ⬜ | ⬜ |
+| SF-4 | Edit clears "Received" — FIXED: edit shows prior **"Already paid"** + preserves it server-side; Received = ADDITIONAL payment; due preview counts prior paid | `business.js` loadSellForEdit/calculateChange, `applyInvoice` | Prior payment no longer forgotten on edit; covered by green `sale-discount.cy.js` "EDIT is authoritative … prior payment preserved" | ✅ | ✅ | ✅ | ✅ |
+| SF-5 | Return refund doesn't reduce header `paidAmount`; customer credit floored to 0 (lost) — **FIXED (Model A, cash-refund):** `saleReturn` now reconciles the header — `refund = max(0, paidAmount − newGrandTotal)`, drops `paidAmount` to the retained amount, `due = paid − grandTotal (≤0)`. Paid sale refunds only the overpayment; unpaid credit-sale refunds nothing (over-refund bug also fixed). Header `paidAmount` and the REFUND payment-line ledger now agree. | `SellController.saleReturn` | Credit no longer vanishes; credit sale no longer over-refunds. **Store-credit ledger (Model B) deferred to a finance slice.** | ✅ | ✅ | ✅ | ✅ |
+| SF-6 | No-tender sale (received 0, not CREDIT) — **RESOLVED by the SF-1/SF-2 `applyInvoice` refactor:** a new sale with no tenders sets `paidAmount = 0` (never null) and `due = 0 − grandTotal`. | `SagaSaleWriter.applyInvoice` | Unpaid non-credit sales are consistent (paid 0, due = −bill) | ✅ | ✅ | ✅ | ✅ |
 
 ### 🟢 Low / standards
 
 | ID | Bug / gap | Where | Impact | Doc | Design | Impl | Test |
 |----|-----------|-------|--------|-----|--------|------|------|
-| SF-7 | Client-side float money math for cashier change/due preview | `business.js` calculateChange/calculateNetSell | On-screen number can drift (persisted data safe — server recomputes) | ✅ | ⬜ | ⬜ | ⬜ |
-| SF-8 | Submit guard precedence — FIXED: grouped explicitly + allows editing a fully-paid invoice | `main.js` 389 | No-item owing state no longer slips through; fully-paid edit submittable | ✅ | ✅ | ✅ | 🟨 run |
-| SF-9 | Cart shows discount value but not type (amount vs %) | sell cart | Minor UX ambiguity | ✅ | ⬜ | ⬜ | ⬜ |
-| SF-10 | No line-level cost ⇒ no true margin/profit anywhere | data model | Reports can't show profit | ✅ | ⬜ | ⬜ | ⬜ |
-| SF-11 | Return has no reason / credit-note document | `saleReturn` | Weak audit trail on returns | ✅ | ⬜ | ⬜ | ⬜ |
+| SF-7 | Client-side float money math for cashier change/due preview — **FIXED:** round to 2dp in `calculateChange`/`refreshAccountDuePreview` (display only; server already authoritative) | `business.js` calculateChange | On-screen change/due no longer shows float drift | ✅ | ✅ | ✅ | ✅ (display-only, no spec) |
+| SF-8 | Submit guard precedence — FIXED: grouped explicitly + allows editing a fully-paid invoice | `main.js` 389 | No-item owing state no longer slips through; fully-paid edit submittable | ✅ | ✅ | ✅ | ✅ |
+| SF-9 | Cart shows discount value but not type (amount vs %) — **FIXED:** cart cell renders "10%" (percent) or "10 (Amt)" (fixed) | `business.js` cart row | Discount type unambiguous in the cart | ✅ | ✅ | ✅ | ✅ (display-only, no spec) |
+| SF-10 | No line-level cost ⇒ no true margin/profit — **IMPLEMENTED:** `Sell.cost_price` (Flyway V12) snapshotted at sale time from the product's latest local purchase rate (`buildLines`→`SagaLine`→`applyInvoice`); Sale Detail Report gains a **Margin** column (= net − cost×qty) + total. Cost source (a) = latest purchase rate (self-contained; no inventory/contracts rebuild). Legacy/never-purchased lines show blank. | `Sell`, `SellDTO`, `SagaLine`, `SagaSellService.buildLines`, `PurchaseRepo.findRecentCosts`, `SagaSaleWriter`, report JS/HTML | Reports now show per-line margin | ✅ | ✅ | ✅ | 🟨 run (`sale-margin.cy.js`) |
+| SF-11 | Return has no reason / credit-note document — **IMPLEMENTED:** new `SaleReturn` record (Flyway V13: invoice/line/qty/reason/refund/org/user/date) written on every `saleReturn`; the return dialog's Reason field (already present) is now persisted; `GET /getSaleReturns` audit list (+ monolith proxy). | `SaleReturn`, `SaleReturnRepo`, `SellController.saleReturn`/`getSaleReturns`, monolith proxy | Returns now have an auditable credit-note stub | ✅ | ✅ | ✅ | 🟨 run (`sale-return-audit.cy.js`) |
 
 ## 5. Missing vs. standard POS/commerce backend
 - One authoritative compute path for add **and** edit (SF-1/SF-2).

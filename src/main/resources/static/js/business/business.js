@@ -6,7 +6,7 @@ var tableSellReport;
 
 $(document).ready(function() {
     // Sale Detail Report table. Columns (0-based): 0 Date, 1 Invoice#, 2 Product, 3 Qty, 4 List price,
-    // 5 Unit price, 6 Line total, 7 Tax, 8 Net, 9 Customer, 10 Contact, 11 Payment, 12 Invoice due.
+    // 5 Unit price, 6 Line total, 7 Tax, 8 Net, 9 Customer, 10 Contact, 11 Payment, 12 Invoice due, 13 Margin (SF-10).
     tableSellReport = $('#tableSellReport').DataTable( {
         dom: 'Bfrtip',
         order: [[ 0, 'desc' ]],
@@ -14,7 +14,7 @@ $(document).ready(function() {
             [ 10, 25, 50, -1 ],
             [ '10 rows', '25 rows', '50 rows', 'Show all' ]
         ],
-        columnDefs: [ { targets: [3,4,5,6,7,8,12], className: 'num' } ],
+        columnDefs: [ { targets: [3,4,5,6,7,8,12,13], className: 'num' } ],
         buttons: [
         	'pageLength',
             { extend: 'copyHtml5', footer: true, title: 'Sale Detail Report' },
@@ -46,6 +46,7 @@ $(document).ready(function() {
 	        $( api.column(6).footer() ).html( srMoney( sumCol(6) ) );
 	        $( api.column(7).footer() ).html( srMoney( sumCol(7) ) );
 	        $( api.column(8).footer() ).html( srMoney( sumCol(8) ) );
+	        $( api.column(13).footer() ).html( srMoney( sumCol(13) ) );   // SF-10: total margin
 	    }
     } );
  
@@ -164,7 +165,10 @@ $(document).ready(function() {
 
         	// (cart insert handled below: append, or replace-in-place when editing)
 			var arr = [
-				obj.productId,obj.itemName,obj.quantity,obj.stock.bsellRate,obj.stock.bsellDiscount,($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.productId+")>Del</button>"
+				// SF-9: show the discount WITH its type so "10" is unambiguous — "10%" (percent) vs "10 (Amt)" (fixed).
+				obj.productId,obj.itemName,obj.quantity,obj.stock.bsellRate,
+				(obj.stock && obj.stock.bsellDiscount ? (Number(obj.stock.bsellDiscount) + ((obj.stock.bsellDiscountType==='1'||obj.stock.bsellDiscountType==='%') ? '%' : ' (Amt)')) : (obj.stock ? obj.stock.bsellDiscount : '')),
+				($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.productId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
 			// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in
@@ -1474,7 +1478,8 @@ function calculateChange() {
     // SF-1/SF-2: while EDITING, the bill is already partly covered by what was paid before, so the preview must
     // count it: due = bill − (priorPaid + additionalReceived + insured). The server derives the real due the same way.
     var priorPaid = (window.editingInvoice && window.editingPaid) ? Number(window.editingPaid) : 0;
-    var change = recAm + insured + priorPaid - sellTotal;
+    // SF-7: round money to 2 decimals so the on-screen change/due can't show float drift (e.g. 0.30000000004).
+    var change = Math.round((recAm + insured + priorPaid - sellTotal) * 100) / 100;
 
     // sellCh keeps the SIGNED change/due (received − bill) — addSell submits this as customer.dueAmount.
     // Do not change its meaning; the display fields below are derived from it.
@@ -1505,7 +1510,7 @@ function refreshAccountDuePreview(dueThis) {
 	if (dueThis == null) {
 		var recAm = ($("#sellRec").val() * ONE) || 0;
 		var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
-		var ch = recAm - sellTotal;
+		var ch = Math.round((recAm - sellTotal) * 100) / 100;   // SF-7: round money to 2dp
 		dueThis = ch < 0 ? -ch : 0;
 	}
 	var prev = Number(window.selectedCustomerDue);
@@ -1665,7 +1670,10 @@ function loadSR(){
 					escSR(o.cn || ''),
 					escSR(o.cc || ''),
 					escSR(o.paymentMode || '—'),
-					dueCell
+					dueCell,
+					// SF-10: per-line margin = net revenue minus COGS (cost x qty); blank when no cost captured.
+					((!isNaN(parseFloat(o.costPrice)) && !isNaN(parseFloat(o.netAmount)) && !isNaN(parseFloat(o.quantity)))
+						? srMoneyCell(parseFloat(o.netAmount) - parseFloat(o.costPrice) * parseFloat(o.quantity)) : '')
 				]);
 			});
 			tableSellReport.draw();

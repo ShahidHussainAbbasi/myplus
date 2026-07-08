@@ -19,5 +19,6 @@ public record SagaLine(
         BigDecimal taxAmount,
         BigDecimal lineGross,
         BigDecimal catalogPrice,
-        String discountType) {   // display type of the applied discount ("%" or "Amount"); persisted to Sell.dt
+        String discountType,     // display type of the applied discount ("%" or "Amount"); persisted to Sell.dt
+        BigDecimal costPrice) {  // SF-10: unit COGS snapshot (latest purchase rate) for per-line margin
 }

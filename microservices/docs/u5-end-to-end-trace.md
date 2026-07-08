@@ -1,4 +1,4 @@
-# U5 end-to-end trace — register → purchase → sale, tracking IDs across every table
+# U5 end-to-end trace — register → purchase → sale → receipt, tracking IDs across every table
 
 Goal: create a **fresh** set of records and follow their IDs through **every** table, so the full
 trade/saga pipeline is verifiable and any silent drop (like the saga sells `getUserSell` bug) is obvious.
@@ -80,6 +80,39 @@ SELECT id, quantity, reserved_quantity FROM myplusdb_inventory.stock_entries
 ```
 Then confirm the **UI**: the sale shows in `#tableSell` **with item name TRACE-ITEM** (the getUserSell saga fix).
 
+> **Leave a balance owing** so Phase 5 has something to settle: on the sale form enter **Received < total**
+> (e.g. sell 2 @ some rate, receive 0 or a partial amount). The invoice header then carries a negative
+> `due_amount` (= paid − bill) and the customer shows an outstanding **Due**.
+
+## Phase 5 — Receive Payment → the shared finance ledger (feature/finance-ledger)
+The receipt crosses THREE stores: business-service updates the invoice + customer balance it **owns**, and
+finance-service records the money in its **ledger** (`myplusdb_finance`). Customer menu → row **Receive** button →
+`#ReceivePaymentModal`, pay part or all of the TRACE-CUST due, submit.
+
+First confirm the pre-payment state (note the negative invoice `due_amount` and the customer `due_amount`):
+```sql
+SELECT customer_history_id, invoice_no, paid_amount, due_amount
+  FROM myplusdb.customer_history WHERE customer_history_id=<CH_ID>;
+SELECT customer_id, name, due_amount FROM myplusdb.customer WHERE customer_id=<CUSTOMER_ID>;
+```
+After submitting the receipt, capture all three updated stores:
+```sql
+-- (business) invoice: paid_amount up by the applied amount, due_amount moved toward 0 (FIFO oldest-first)
+SELECT customer_history_id, invoice_no, paid_amount, due_amount
+  FROM myplusdb.customer_history WHERE customer_history_id=<CH_ID>;
+-- (business) customer running balance recomputed = -Σ(invoice due_amount), floored at 0
+SELECT customer_id, name, due_amount FROM myplusdb.customer WHERE customer_id=<CUSTOMER_ID>;
+-- (finance) ledger entry: direction=RECEIPT, party_type=CUSTOMER, receipt_no=RCPT-######
+SELECT id AS payment_id, direction, party_type, party_id, amount, method, receipt_no
+  FROM myplusdb_finance.payments
+  WHERE party_type='CUSTOMER' AND party_id=<CUSTOMER_ID> ORDER BY id DESC LIMIT 1;
+-- (finance) allocation(s): one row per invoice the receipt was applied to (doc_id=CH_ID, doc_no=invoice_no)
+SELECT id AS alloc_id, payment_id, doc_type, doc_id, doc_no, amount
+  FROM myplusdb_finance.payment_allocations WHERE payment_id=<PAYMENT_ID>;
+```
+Then confirm the **UI**: the customer's **Due** column drops by the amount received (to 0 if paid in full),
+and the modal reports the **receiptNo** (RCPT-######).
+
 ---
 
 ## Tracking table (fill in)
@@ -96,6 +129,13 @@ Then confirm the **UI**: the sale shows in `#tableSell` **with item name TRACE-I
 | 4 | Invoice   | `myplusdb.customer_history` | `customer_history_id` | CH_ID = |
 | 4 | Sell line | `myplusdb.sell`     | `sell_id`             | SELL_ID    = |
 | 4 | Reservation | `myplusdb_inventory.reservations` | `id`    | RESERVATION_ID = |
+| 5 | Payment (ledger) | `myplusdb_finance.payments` | `id`     | PAYMENT_ID = |
+| 5 | Receipt no | `myplusdb_finance.payments` | `receipt_no`    | RECEIPT_NO = |
+| 5 | Allocation | `myplusdb_finance.payment_allocations` | `id` | ALLOC_ID = |
 
 **Pass criteria:** every row above has an ID; the sell line has `product_id` set + `stock_id` NULL; the
 reservation is `CONFIRMED`; inventory `quantity` dropped 50→48; and `#tableSell` shows the sale with the item name.
+**Phase 5:** after the receipt, `customer_history.paid_amount` rose and `due_amount` moved toward 0; `customer.due_amount`
+dropped by the amount received; a `myplusdb_finance.payments` row exists (`direction=RECEIPT`, `party_type=CUSTOMER`,
+`party_id=CUSTOMER_ID`, an `RCPT-######` receipt_no) with a matching `payment_allocations` row (`doc_id=CH_ID`,
+`doc_no=invoice_no`); and the UI **Due** decreased by the received amount.

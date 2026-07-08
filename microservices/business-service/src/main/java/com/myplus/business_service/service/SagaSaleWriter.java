@@ -122,6 +122,7 @@ public class SagaSaleWriter {
             sell.setQuantity(l.quantity());
             sell.setSellRate(l.sellRate());          // the ACTUAL sold rate (cashier's rate; falls back to catalog)
             sell.setCatalogPrice(l.catalogPrice());  // catalog master price snapshot at sale time (for reports)
+            sell.setCostPrice(l.costPrice());        // SF-10: unit COGS snapshot → per-line margin in the report
             sell.setDiscount(l.discount());
             sell.setDt(l.discountType());            // persist the discount type ("%" / "Amount") for the sell history table
             sell.setTotalAmount(l.totalAmount());

@@ -37,6 +37,7 @@ public class SagaSellService {
     private final RequestUtil requestUtil;
     private final TaxService taxService;
     private final com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;   // SF-3 dedup
+    private final com.myplus.business_service.repository.PurchaseRepo purchaseRepo;                 // SF-10 line cost
 
     /** @return the invoice number of the recorded sale. */
     public String addSell(CustomerHistoryDTO dto) {
@@ -107,7 +108,9 @@ public class SagaSellService {
      * out-of-stock message on the reserve step.
      */
     public List<SagaLine> buildLines(CustomerHistoryDTO dto, java.util.Map<Long, String> productNames) {
-        Long orgId = requestUtil.getCurrentUser().getOrganizationId();
+        AuthenticatedUser user = requestUtil.getCurrentUser();
+        Long orgId = user.getOrganizationId();
+        Long userId = user.getUserId();
         var taxSetting = taxService.settingsFor(orgId);   // G3: the org's tax policy, once per sale
         List<SagaLine> lines = new ArrayList<>();
         for (SellDTO s : dto.getSales()) {
@@ -132,9 +135,15 @@ public class SagaSellService {
             BigDecimal base = lineTotal.subtract(discount);
             if (base.compareTo(BigDecimal.ZERO) < 0) base = BigDecimal.ZERO;
             TaxResult tax = taxService.taxForLine(base, productTaxRate, taxSetting);
+            // SF-10: snapshot the product's latest purchase rate as the unit COGS for margin reporting (null if
+            // this product was never purchased in the tenant → margin shows blank for that line).
+            BigDecimal costPrice = null;
+            List<BigDecimal> recentCosts = purchaseRepo.findRecentCosts(productId, orgId, userId,
+                    org.springframework.data.domain.PageRequest.of(0, 1));
+            if (!recentCosts.isEmpty()) costPrice = recentCosts.get(0);
             lines.add(new SagaLine(productId, s.getQuantity(), soldRate, discount,
                     s.getTotalAmount(), s.getNetAmount(), s.getSrp(),
-                    tax.rate(), tax.tax(), tax.gross(), catalogPrice, discountType));
+                    tax.rate(), tax.tax(), tax.gross(), catalogPrice, discountType, costPrice));
         }
         return lines;
     }
