@@ -374,6 +374,7 @@ Containers use `restart: unless-stopped`, so they survive reboots. The MySQL dat
 | Service can't reach MySQL on boot | MySQL still initialising. It has a healthcheck + `depends_on: service_healthy`; on a slow box give it longer, or `docker compose restart <svc>`. |
 | "Access denied" to MySQL | `DB_PASSWORD` unset/mismatched. It must be set **before** the mysql volume is first created; if you changed it later, `docker compose down -v` to recreate the DB (destroys data). |
 | Sale fails "Not enough sellable stock" | Add stock via Product → Add stock; only non-expired batches are sellable. |
+| Add vendor/customer/item/sale fails: "could not read a hi value - you need to populate the table: `*_seq`" | Hibernate sequence tables weren't seeded. Fixed by business-service Flyway `V11__seed_sequence_tables.sql` — rebuild + restart business-service so it applies. (Only business-service uses these; other services use auto-increment.) |
 | Signup succeeds but **no verification e-mail** | `notification-service` not running (must be in the `up` list) **or** `MAIL_USER`/`MAIL_PASSWORD` wrong. Check `docker compose logs notification-service`; the Gmail value must be an **app password**. |
 | Verification link opens but **doesn't verify / 404** | `APP_BASE_URL` still at the localhost default (link is dead off-box), or nginx has no `location /api/` block (§4.8) routing to the gateway. |
 | New account can't log in — "Account not verified" | Expected until the e-mailed link is clicked. Fix e-mail delivery (rows above); the account is enabled only after verification. |
