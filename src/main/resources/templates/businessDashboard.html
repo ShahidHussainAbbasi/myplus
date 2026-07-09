@@ -365,7 +365,7 @@
 					<button type="button" id="newCompany" class="btn btn-success" onclick="newEntity('Company')">
 						<span class="glyphicon glyphicon-plus-sign"></span> New Company
 					</button>
-					<button type="button" id="deleteCompany" class="btn btn-danger" style="display:none"></button>
+					<button type="button" id="deleteCompany" class="btn btn-danger" style="display:none !important"></button>
 					<span id="bulkBarCompany" class="crud-bulkbar" style="display:none;margin-left:10px">
 						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
 						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Company')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
@@ -449,7 +449,7 @@
 					<button type="button" id="newVender" class="btn btn-success" onclick="newEntity('Vender')">
 						<span class="glyphicon glyphicon-plus-sign"></span> New Vendor
 					</button>
-					<button type="button" id="deleteVender" class="btn btn-danger" style="display:none"></button>
+					<button type="button" id="deleteVender" class="btn btn-danger" style="display:none !important"></button>
 					<span id="bulkBarVender" class="crud-bulkbar" style="display:none;margin-left:10px">
 						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
 						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Vender')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
@@ -549,7 +549,7 @@
 					<button type="button" id="newCustomer" class="btn btn-success" onclick="newEntity('Customer')">
 						<span class="glyphicon glyphicon-plus-sign"></span> New Customer
 					</button>
-					<button type="button" id="deleteCustomer" class="btn btn-danger" style="display:none"></button>
+					<button type="button" id="deleteCustomer" class="btn btn-danger" style="display:none !important"></button>
 					<span id="bulkBarCustomer" class="crud-bulkbar" style="display:none;margin-left:10px">
 						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
 						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Customer')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
@@ -684,7 +684,7 @@
 					<button type="button" id="newPurchase" class="btn btn-success" onclick="newPurchase()">
 						<span class="glyphicon glyphicon-plus-sign"></span> New Purchase
 					</button>
-					<button type="button" id="deletePurchase" class="btn btn-danger" style="display:none"></button>
+					<button type="button" id="deletePurchase" class="btn btn-danger" style="display:none !important"></button>
 					<span id="bulkBarPurchase" class="crud-bulkbar" style="display:none;margin-left:10px">
 						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
 						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Purchase')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
@@ -1174,7 +1174,7 @@
 					<button type="button" id="newProduct" class="btn btn-success" onclick="resetProductForm(); newProduct()">
 						<span class="glyphicon glyphicon-plus-sign"></span> New Product
 					</button>
-					<button type="button" id="deleteProduct" class="btn btn-danger" style="display:none" onclick="deactivateProducts()"></button>
+					<button type="button" id="deleteProduct" class="btn btn-danger" style="display:none !important" onclick="deactivateProducts()"></button>
 					<span id="bulkBarProduct" class="crud-bulkbar" style="display:none;margin-left:10px">
 						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
 						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Product')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
@@ -1595,17 +1595,8 @@
         window.MODULE = [[${module} ?: 'BUSINESS']];
     </script>
 
-    <!-- Register-screen modal + bulk-select styling (pilot) -->
-    <style>
-      .crud-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1050;display:none;padding:40px 12px}
-      .crud-overlay.open{display:block}
-      .crud-box{background:#fff;border-radius:6px;max-width:60%;margin:0 auto;box-shadow:0 6px 30px rgba(0,0,0,.3)}
-      .crud-head{padding:12px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
-      .crud-head h4{margin:0}
-      .crud-body{padding:16px}
-      .crud-x{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:#888}
-      .crud-bulkbar .btn{margin-left:4px}
-    </style>
+    <!-- Register-screen modal + bulk-select styling now lives in the shared /css/crud-modal.css
+         (loaded via fragments/header :: header-css) so every dashboard shares one responsive treatment. -->
     <!-- Shared confirm-delete modal (reused by every register screen's bulk Delete) -->
     <div id="confirmDeleteModal" class="crud-overlay">
       <div class="crud-box" style="max-width:420px">

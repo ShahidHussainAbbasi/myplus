@@ -22,7 +22,7 @@
 			<option sec:authorize="hasAuthority('READ_PRIVILEGE')" class="dropdown-item" value="DonationsDiv">View Donations</option>
 		</select>
 	</div>
-	<aside class="app-sidebar" id="nav-subheader">
+	<aside class="app-sidebar" id="app-sidebar">
 		<div class="app-sidebar__brand">
 			<span class="glyphicon glyphicon-th-large"></span>
 			<span class="app-sidebar__brand-text">MyPlus</span>
@@ -34,11 +34,26 @@
 			<a class="sb-link" sec:authorize="hasAuthority('READ_PRIVILEGE')" onclick="sbNav('registrationType','DonationsDiv',this)"><span class="glyphicon glyphicon-list"></span><span>View Donations</span></a>
 		</nav>
 	</aside>
-	<div class="container content-cls">
+	<div id="content" class="content-cls">
 		<div id=DonatorDiv class="formDiv" style="display:none">
-			<h3 th:text="#{label.donator.form.heading}">Donator Registration Form</h3>
-			<br />
-			<!-- <form class="form-horizontal" role="form"> -->
+			<h3 class="dash-page-title" th:text="#{label.donator.form.heading}">Donator Registration Form</h3>
+			<div style="margin-bottom:8px">
+				<button type="button" id="newDonator" class="btn btn-success" onclick="newEntity('Donator')">
+					<span class="glyphicon glyphicon-plus-sign"></span> New Donator
+				</button>
+				<span id="bulkBarDonator" class="crud-bulkbar" style="display:none;margin-left:10px">
+					<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+					<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Donator')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+					<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Donator')">Clear</button>
+				</span>
+			</div>
+			<div id="DonatorModal" class="crud-overlay">
+			  <div class="crud-box">
+				<div class="crud-head">
+					<h4 id="DonatorModalTitle">New Donator</h4>
+					<button type="button" class="crud-x" onclick="resetForm();closeModal('DonatorModal')">&times;</button>
+				</div>
+				<div class="crud-body">
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Donator" autocomplete="off">
 				<div class="form-group" style="display: none">
@@ -81,15 +96,20 @@
 							name="address" placeholder="Compalete Address" required="required">
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="form-group text-center">
 					<button type="button" id="addDonator" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
-					<button type="button" id="deleteDonator" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					<button type="button" id="resetDonator" class="btn btn-warning" onclick="resetForm();closeModal('DonatorModal')">
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
+					<button type="button" id="deleteDonator" class="btn btn-danger" style="display:none"></button>
+					<button type="reset" class="resetForm" style="display:none"></button>
 				</div>
 			</form>
+				</div>
+			  </div>
+			</div>
 			<div>
 				<table id="tableDonator" class="table table-bordered table-striped">
 					<thead>
@@ -107,9 +127,24 @@
 			</div>
 		</div>
 		<div id=DonationDiv class="formDiv" style="display:none">
-			<h3 th:text="#{label.donation.form.heading}">Donation Registration Form</h3>
-			<br />
-			<!-- <form class="form-horizontal" role="form"> -->
+			<h3 class="dash-page-title" th:text="#{label.donation.form.heading}">Donation Registration Form</h3>
+			<div style="margin-bottom:8px">
+				<button type="button" id="newDonation" class="btn btn-success" onclick="newEntity('Donation')">
+					<span class="glyphicon glyphicon-plus-sign"></span> New Donation
+				</button>
+				<span id="bulkBarDonation" class="crud-bulkbar" style="display:none;margin-left:10px">
+					<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+					<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Donation')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+					<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Donation')">Clear</button>
+				</span>
+			</div>
+			<div id="DonationModal" class="crud-overlay">
+			  <div class="crud-box">
+				<div class="crud-head">
+					<h4 id="DonationModalTitle">New Donation</h4>
+					<button type="button" class="crud-x" onclick="resetForm();closeModal('DonationModal')">&times;</button>
+				</div>
+				<div class="crud-body">
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Donation" autocomplete="off">
 				<div class="form-group" style="display: none">
@@ -133,15 +168,20 @@
 						class="col-sm-4"><input id="donationReceivedBy" class="form-control"
 						name="receivedBy" value="" required="required" /></span> 
 				</div>
-				<div class="form-group">
+				<div class="form-group text-center">
 					<button type="button" id="addDonation" class="btn btn-success">
 						<span class="glyphicon glyphicon-plus-sign"></span> Submit
 					</button>
-					<button type="button" id="deleteDonation" class="btn btn-warning">
-						<span class="glyphicon glyphicon-minus-sign"></span> Delete
+					<button type="button" id="resetDonation" class="btn btn-warning" onclick="resetForm();closeModal('DonationModal')">
+						<span class="glyphicon glyphicon-refresh"></span> Cancel
 					</button>
+					<button type="button" id="deleteDonation" class="btn btn-danger" style="display:none"></button>
+					<button type="reset" class="resetForm" style="display:none"></button>
 				</div>
 			</form>
+				</div>
+			  </div>
+			</div>
 			<div>
 				<table id="tableDonation" class="table table-bordered table-striped">
 					<thead>
@@ -181,6 +221,23 @@
 			</form>
 		</div>
 	</div>
+	<!-- Shared confirm-delete modal (reused by every register screen's bulk Delete) -->
+	<div id="confirmDeleteModal" class="crud-overlay">
+	  <div class="crud-box" style="max-width:420px">
+		<div class="crud-head">
+			<h4>Confirm delete</h4>
+			<button type="button" class="crud-x" onclick="closeModal('confirmDeleteModal')">&times;</button>
+		</div>
+		<div class="crud-body">
+			<p>Delete <b><span id="confirmDeleteCount">0</span></b> selected record(s)?</p>
+			<ul id="confirmDeleteList" class="text-muted" style="max-height:160px;overflow:auto"></ul>
+			<div class="text-right">
+				<button type="button" class="btn btn-default" onclick="closeModal('confirmDeleteModal')">Cancel</button>
+				<button type="button" id="confirmDeleteYes" class="btn btn-danger">Delete</button>
+			</div>
+		</div>
+	  </div>
+	</div>
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>
@@ -189,6 +246,8 @@ var serverContext = [[@{/}]];
 	<script th:src="@{/js/common/dom-safe.js}"></script>
 	<script th:src="@{/js/welfare/welfare.js}"></script>
 	<script th:src="@{/js/business/sidebar.js}"></script>
+	<!-- Shared CRUD modal layer (openModal/closeModal/newEntity/bulk-select) — same as businessDashboard. -->
+	<script th:src="@{/js/business/crud-modal.js}"></script>
 	<th:block th:replace="~{fragments/footer :: footer}"/>
 </body>
 </html>

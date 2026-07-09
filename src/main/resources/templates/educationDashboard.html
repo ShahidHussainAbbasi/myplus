@@ -77,7 +77,7 @@
 					<option value="AlertsDiv">System Alerts</option>
 				</select>
 			</div>
-			<nav class="app-sidebar" id="nav-subheader"><div class="app-sidebar__brand"><span class="glyphicon glyphicon-th-large"></span><span class="app-sidebar__brand-text">MyPlus</span><button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button></div>
+			<nav class="app-sidebar" id="app-sidebar"><div class="app-sidebar__brand"><span class="glyphicon glyphicon-th-large"></span><span class="app-sidebar__brand-text">MyPlus</span><button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button></div>
 				<div class="container-fluid">
 					<div class="snav-inner">
 						<div class="snav-left">
@@ -238,9 +238,24 @@
 				</div>
 			</div>
 			<div id="OwnerDiv" class="formDiv">
-				<h4 th:text="#{label.owner.form.heading}">Owner Registration</h4>
-				<br />
-				<!-- <form class="form-horizontal" role="form"> -->
+				<h3 class="dash-page-title" th:text="#{label.owner.form.heading}">Owner Registration</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newOwner" class="btn btn-success" onclick="newEntity('Owner')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Owner
+					</button>
+					<span id="bulkBarOwner" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Owner')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Owner')">Clear</button>
+					</span>
+				</div>
+				<div id="OwnerModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="OwnerModalTitle">New Owner</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('OwnerModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Owner" autocomplete="off">
 					<div class="form-group" style="display: none">				
@@ -281,19 +296,20 @@
 			 				</select>
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center">
+					<div class="form-group text-center">
 						<button type="button" id="addOwner" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteOwner" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetOwner" class="btn btn-warning">
+						<button type="button" id="resetOwner" class="btn btn-warning" onclick="resetForm();closeModal('OwnerModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="button" id="deleteOwner" class="btn btn-danger" style="display:none"></button>
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<table id="tableOwner" class="table table-striped">
 					<thead>
 						<tr>
@@ -310,8 +326,24 @@
 				</table>
 			</div>
 			<div id="SchoolDiv" class="formDiv">
-				<h4 th:text="#{label.School.form.heading}">School Registration</h4>
-				<br />
+				<h3 class="dash-page-title" th:text="#{label.School.form.heading}">School Registration</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newSchool" class="btn btn-success" onclick="newEntity('School')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Campus
+					</button>
+					<span id="bulkBarSchool" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('School')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('School')">Clear</button>
+					</span>
+				</div>
+				<div id="SchoolModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="SchoolModalTitle">New Campus</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('SchoolModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="School" autocomplete="off">
 					<div class="form-group" style="display: none">				
@@ -360,19 +392,20 @@
 			 				</select>
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center">
+					<div class="form-group text-center">
 						<button type="button" id="addSchool" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteSchool" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetSchool" class="btn btn-warning">
+						<button type="button" id="resetSchool" class="btn btn-warning" onclick="resetForm();closeModal('SchoolModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="button" id="deleteSchool" class="btn btn-danger" style="display:none"></button>
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					<table id="tableSchool" class="table table-striped">
 						<thead>
@@ -392,8 +425,24 @@
 				</div>
 			</div>
 			<div id="GradeDiv" class="formDiv">
-				<h4 th:text="#{label.grade.form.heading}">Class Registration</h4>
-				<br />
+				<h3 class="dash-page-title" th:text="#{label.grade.form.heading}">Class Registration</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newGrade" class="btn btn-success" onclick="newEntity('Grade')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Class
+					</button>
+					<span id="bulkBarGrade" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Grade')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Grade')">Clear</button>
+					</span>
+				</div>
+				<div id="GradeModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="GradeModalTitle">New Class</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('GradeModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Grade" autocomplete="off">
 					<div class="form-group" style="display: none">				
@@ -454,19 +503,20 @@
 			 				</select>
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center">
+					<div class="form-group text-center">
 						<button type="button" id="addGrade" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteGrade" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetGrade" class="btn btn-warning">
+						<button type="button" id="resetGrade" class="btn btn-warning" onclick="resetForm();closeModal('GradeModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>												
+						<button type="button" id="deleteGrade" class="btn btn-danger" style="display:none"></button>
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div class="form-group">
 					<table id="tableGrade" class="table table-striped">
 						<thead>
@@ -488,8 +538,24 @@
 				</div>
 			</div>
 			<div id="StaffDiv" class="formDiv">
-				<h4 th:text="#{label.staff.form.heading}">Staff Registration</h4>
-				<br />
+				<h3 class="dash-page-title" th:text="#{label.staff.form.heading}">Staff Registration</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newStaff" class="btn btn-success" onclick="newEntity('Staff')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Employee
+					</button>
+					<span id="bulkBarStaff" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Staff')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Staff')">Clear</button>
+					</span>
+				</div>
+				<div id="StaffModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="StaffModalTitle">New Employee</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('StaffModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Staff" autocomplete="off">
 					<div class="form-group" style="display: none">				
@@ -603,19 +669,20 @@
 			 				</select>
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center">
+					<div class="form-group text-center">
 						<button type="button" id="addStaff" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteStaff" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetStaff" class="btn btn-warning">
+						<button type="button" id="resetStaff" class="btn btn-warning" onclick="resetForm();closeModal('StaffModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="button" id="deleteStaff" class="btn btn-danger" style="display:none"></button>
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					<table id="tableStaff" class="table table-striped">
 						<thead>
@@ -644,8 +711,24 @@
 				</div>
 			</div>
 			<div id="GuardianDiv" class="formDiv">
-				<h4 th:text="#{label.guardian.form.heading}">Guardian Registration</h4>
-				<br />
+				<h3 class="dash-page-title" th:text="#{label.guardian.form.heading}">Guardian Registration</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newGuardian" class="btn btn-success" onclick="newEntity('Guardian')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Guardian
+					</button>
+					<span id="bulkBarGuardian" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Guardian')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Guardian')">Clear</button>
+					</span>
+				</div>
+				<div id="GuardianModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="GuardianModalTitle">New Guardian</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('GuardianModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Guardian" autocomplete="off">
 					<div class="form-group" style="display: none">				
@@ -720,19 +803,20 @@
 			 				</select>
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center">
+					<div class="form-group text-center">
 						<button type="button" id="addGuardian" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteGuardian" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetGuardian" class="btn btn-warning">
+						<button type="button" id="resetGuardian" class="btn btn-warning" onclick="resetForm();closeModal('GuardianModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="button" id="deleteGuardian" class="btn btn-danger" style="display:none"></button>
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<table id="tableGuardian" class="table table-striped">
 					<thead>
 						<th class="col-sm-1" data-field="guardianId">Id</th>
@@ -751,8 +835,7 @@
 				</table>
 			</div>		
 			<div id="StudentDiv" class="formDiv">
-				<h4 th:text="#{label.student.form.heading}">Student Registration</h4>
-				<br />
+				<h3 class="dash-page-title" th:text="#{label.student.form.heading}">Student Registration</h3>
 				<!-- Bulk CSV import (slice 15): download a template, upload a filled CSV, see a summary. -->
 				<div class="panel panel-default" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 					<div class="panel-heading"><b>Import Students (CSV)</b></div>
@@ -769,9 +852,26 @@
 					</div>
 				</div>
 				<br />
+				<div style="margin-bottom:8px">
+					<button type="button" id="newStudent" class="btn btn-success" onclick="newEntity('Student')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Student
+					</button>
+					<span id="bulkBarStudent" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Student')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Student')">Clear</button>
+					</span>
+				</div>
+				<div id="StudentModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="StudentModalTitle">New Student</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('StudentModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Student" autocomplete="off">
-					<div class="form-group" style="display: none">				
+					<div class="form-group" style="display: none">
 						<div class="col-sm-12">
 							<input type="text" class="form-control" id="studentId" name="id"> 
 						</div>
@@ -973,18 +1073,20 @@
 								placeholder=" Vehicle Fare "> 
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center;">
+					<div class="form-group text-center">
 						<button type="button" id="addStudent" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteStudent" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetStudent" class="btn btn-warning">
+						<button type="button" id="resetStudent" class="btn btn-warning" onclick="resetForm();closeModal('StudentModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="button" id="deleteStudent" class="btn btn-danger" style="display:none"></button>
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
+				</form>
+					</div>
+				  </div>
+				</div>
 					<div class="form-group">
 						<table id="tableStudent" class="table table-striped">
 							<thead>
@@ -1020,12 +1122,26 @@
 							</thead>
 						</table>
 					</div>
-				</form>
 			</div>
 			<div id="SubjectDiv" class="formDiv">
-				<h4 th:text="#{label.subject.form.heading}">Subject Registration</h4>
-				<br />
-				<!-- <form class="form-horizontal" role="form"> -->
+				<h3 class="dash-page-title" th:text="#{label.subject.form.heading}">Subject Registration</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newSubject" class="btn btn-success" onclick="newEntity('Subject')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Subject
+					</button>
+					<span id="bulkBarSubject" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Subject')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Subject')">Clear</button>
+					</span>
+				</div>
+				<div id="SubjectModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="SubjectModalTitle">New Subject</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('SubjectModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Subject" autocomplete="off">
 					<div class="form-group" style="display: none">				
@@ -1081,19 +1197,20 @@
 								name="edition" placeholder="Enter Edition">
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center">
+					<div class="form-group text-center">
 						<button type="button" id="addSubject" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteSubject" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetSubject" class="btn btn-warning">
+						<button type="button" id="resetSubject" class="btn btn-warning" onclick="resetForm();closeModal('SubjectModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="button" id="deleteSubject" class="btn btn-danger" style="display:none"></button>
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					<table id="tableSubject" class="table table-striped">
 						<thead>
@@ -1113,8 +1230,24 @@
 				</div>
 			</div>	
 			<div id="VehicleDiv" class="formDiv">
-				<h4 th:text="#{label.vehicle.form.heading}">Vehicle Registration</h4>
-				<br />
+				<h3 class="dash-page-title" th:text="#{label.vehicle.form.heading}">Vehicle Registration</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newVehicle" class="btn btn-success" onclick="newEntity('Vehicle')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Vehicle
+					</button>
+					<span id="bulkBarVehicle" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Vehicle')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Vehicle')">Clear</button>
+					</span>
+				</div>
+				<div id="VehicleModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="VehicleModalTitle">New Vehicle</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('VehicleModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Vehicle" autocomplete="off">
 					<div class="form-group" style="display: none">				
@@ -1183,15 +1316,16 @@
 							<span class="glyphicon glyphicon-ban-circle"></span> Inactive
 						</button>
 	 -->					
-	 					<button type="button" id="deleteVehicle" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetVehicle" class="btn btn-warning">
+	 					<button type="button" id="deleteVehicle" class="btn btn-danger" style="display:none"></button>
+						<button type="button" id="resetVehicle" class="btn btn-warning" onclick="resetForm();closeModal('VehicleModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					<table id="tableVehicle" class="table table-striped">
 						<thead>
@@ -1213,8 +1347,24 @@
 				</div>
 			</div>		
 			<div id="DiscountDiv" class="formDiv">
-				<h4>Discount Management</h4>
-				<br />
+				<h3 class="dash-page-title">Discount Management</h3>
+				<div style="margin-bottom:8px">
+					<button type="button" id="newDiscount" class="btn btn-success" onclick="newEntity('Discount')">
+						<span class="glyphicon glyphicon-plus-sign"></span> New Discount / Charge
+					</button>
+					<span id="bulkBarDiscount" class="crud-bulkbar" style="display:none;margin-left:10px">
+						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Discount')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Discount')">Clear</button>
+					</span>
+				</div>
+				<div id="DiscountModal" class="crud-overlay">
+				  <div class="crud-box">
+					<div class="crud-head">
+						<h4 id="DiscountModalTitle">New Discount / Charge</h4>
+						<button type="button" class="crud-x" onclick="resetForm();closeModal('DiscountModal')">&times;</button>
+					</div>
+					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="Discount" autocomplete="off">
 					<div class="form-group" style="display: none">				
@@ -1271,19 +1421,20 @@
 			 				</select>
 						</div>
 					</div>
-					<div class="form-group" style="text-align: center">
+					<div class="form-group text-center">
 						<button type="button" id="addDiscount" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
 						</button>
-						<button type="button" id="deleteDiscount" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
-						</button>
-						<button type="reset" id="resetDiscount" class="btn btn-warning">
+						<button type="button" id="resetDiscount" class="btn btn-warning" onclick="resetForm();closeModal('DiscountModal')">
 							<span class="glyphicon glyphicon-refresh"></span> Cancel
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="button" id="deleteDiscount" class="btn btn-danger" style="display:none"></button>
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
+					</div>
+				  </div>
+				</div>
 				<div>
 					<table id="tableDiscount" class="table table-striped">
 						<thead>
@@ -2066,7 +2217,24 @@
 				<input th:type="submit" value="Import" />
 			</form>
 		</div>
-	    <th:block th:replace="~{fragments/header :: header-js}"></th:block>		
+	    <!-- Shared confirm-delete modal (reused by every register screen's bulk Delete) -->
+	    <div id="confirmDeleteModal" class="crud-overlay">
+	      <div class="crud-box" style="max-width:420px">
+	        <div class="crud-head">
+	          <h4>Confirm delete</h4>
+	          <button type="button" class="crud-x" onclick="closeModal('confirmDeleteModal')">&times;</button>
+	        </div>
+	        <div class="crud-body">
+	          <p>Delete <b><span id="confirmDeleteCount">0</span></b> selected record(s)?</p>
+	          <ul id="confirmDeleteList" class="text-muted" style="max-height:160px;overflow:auto"></ul>
+	          <div class="text-right">
+	            <button type="button" class="btn btn-default" onclick="closeModal('confirmDeleteModal')">Cancel</button>
+	            <button type="button" id="confirmDeleteYes" class="btn btn-danger">Delete</button>
+	          </div>
+	        </div>
+	      </div>
+	    </div>
+	    <th:block th:replace="~{fragments/header :: header-js}"></th:block>
  	</div>
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
@@ -2080,6 +2248,8 @@ var serverContext = [[@{/}]];
 	<script type="text/javascript" th:src="@{/js/education/educationDashboard.js}"></script>
 	<script type="text/javascript" th:src="@{/js/date.js}"></script>
 	<script th:src="@{/js/business/sidebar.js}"></script>
+	<!-- Shared CRUD modal layer (openModal/closeModal/newEntity/bulk-select) — same as businessDashboard. -->
+	<script th:src="@{/js/business/crud-modal.js}"></script>
 	<script type="text/javascript">
 		// Subnav button-dropdown behaviour — same pattern as businessDashboard for a consistent look.
 		function snavToggle(e, id) {

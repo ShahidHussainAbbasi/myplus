@@ -11,6 +11,31 @@
 
     function num(v) { var n = Number(v); return isNaN(n) ? 0 : n; }
 
+    // ── Client-side SKU uniqueness ──────────────────────────────────────────────
+    // catalog-service enforces a unique SKU per org (a duplicate → 409 "Product SKU already exists").
+    // Mirror that on the client so the user gets instant feedback while typing / before submit, instead of a
+    // round-trip. Index maps a normalised (trim + lower-case) SKU → the owning product id (as a string), built
+    // from getUserProduct incl. inactive products (a deactivated product still owns its SKU downstream).
+    var skuIndex = {};
+    function normSku(s) { return (s == null ? '' : String(s)).trim().toLowerCase(); }
+    function refreshSkuIndex() {
+        $.get(serverContext + 'getUserProduct?includeInactive=true', function (resp) {
+            skuIndex = {};
+            var list = (resp && resp.collection) ? resp.collection : [];
+            list.forEach(function (p) {
+                var k = normSku(p.sku);
+                if (k) skuIndex[k] = String(p.id);
+            });
+        });
+    }
+    // Returns true when `sku` is a non-empty duplicate of a DIFFERENT product than the one being edited.
+    function isDuplicateSku(sku, currentId) {
+        var k = normSku(sku);
+        if (!k) return false;                       // SKU is optional — blank never blocks on the client
+        var owner = skuIndex[k];
+        return owner != null && owner !== String(currentId || '');
+    }
+
     global.showProducts = function () {
         $('.formDiv').hide();
         $('#ProductDiv').show();
@@ -19,6 +44,7 @@
         // Render #tableProduct through the shared DataTable path (like #tableCustomer).
         tableV = 'Product'; getAll = 'Product'; buttonV = 'Product'; deleteV = 'Product';
         loadDataTable();
+        refreshSkuIndex();   // keep the client-side duplicate-SKU check current for this screen
 
         // Row interactions (mirror the generic modal screens):
         //   • checkbox → bulk-select (update the action bar), not edit
@@ -40,6 +66,7 @@
     global.newProduct = function () {
         resetProductForm();
         loadCategories();
+        refreshSkuIndex();   // refresh the known SKUs each time the form opens
         $('#ProductModalTitle').text('New Product');
         openModal('ProductModal');
     };
@@ -50,6 +77,8 @@
         $('#productId').val('');
         $('#prodCategory').val('');
         $('#prodCategoryNew').val('');
+        $('#prodSku').removeClass('alert-danger');
+        if (typeof clearFormError === 'function') clearFormError();
     }
     global.resetProductForm = resetProductForm;
 
@@ -150,6 +179,7 @@
             $('#prodManufacturer').val(p.manufacturer || '');
             $('#prodDesc').val(p.description || '');
             $('#ProductModalTitle').text('Edit Product');
+            refreshSkuIndex();      // refresh known SKUs so the duplicate check excludes only THIS product
             openModal('ProductModal');
             updateReadOnly(true);   // make the key fields readonly when editing
 
@@ -161,8 +191,15 @@
     global.saveProduct = function () {
         if (!$('#prodName').val().trim()) { showFormError('Product name is required.'); return; }
         var id = $('#productId').val();
+        // Client-side uniqueness: block a duplicate SKU before the round-trip (server still enforces it).
+        var sku = $('#prodSku').val();
+        if (isDuplicateSku(sku, id)) {
+            $('#prodSku').addClass('alert-danger').focus();
+            showFormError('SKU "' + sku.trim() + '" is already used by another product. Enter a unique SKU.');
+            return;
+        }
         var body = {
-            name: $('#prodName').val().trim(), sku: $('#prodSku').val(),
+            name: $('#prodName').val().trim(), sku: sku,
             sellingPrice: num($('#prodPrice').val()), taxRate: num($('#prodTax').val()),
             unit: $('#prodUnit').val(),
             categoryId: $('#prodCategory').val() ? Number($('#prodCategory').val()) : null,
@@ -221,4 +258,19 @@
             error: function () { showFormError('Could not reactivate the product.'); }
         });
     };
+
+    // Instant "unique check during entry": flag a duplicate SKU as soon as the user leaves the field,
+    // and clear the flag while they retype. Delegated so it works with the modal form present at load.
+    $(function () {
+        $(document).on('blur', '#prodSku', function () {
+            var v = $(this).val();
+            if (isDuplicateSku(v, $('#productId').val())) {
+                $(this).addClass('alert-danger');
+                showFormError('SKU "' + v.trim() + '" is already used by another product. Enter a unique SKU.');
+            } else {
+                $(this).removeClass('alert-danger');
+            }
+        });
+        $(document).on('input', '#prodSku', function () { $(this).removeClass('alert-danger'); });
+    });
 })(window);

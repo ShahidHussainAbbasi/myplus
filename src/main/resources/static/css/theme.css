@@ -204,9 +204,12 @@ a:hover { color: var(--brand-dark); text-decoration: none; }
   color: var(--txt);
   animation: sectionIn .2s ease both;
 }
+/* Opacity-only fade: a `transform` on .formDiv would make it the containing block for any
+   position:fixed descendant (the shared CRUD modal overlays), trapping them inside the section
+   instead of the viewport. Fade without transform keeps the entrance without that side effect. */
 @keyframes sectionIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .formDiv > h3,
@@ -1026,12 +1029,12 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   /* Sell cart table: scoped to its own wrapper div, not the parent */
   #sellCartScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-  /* Panels/cards that use a desktop max-width:60% become full-width on phones */
+  /* Panels/cards that use a desktop max-width:60% become full-width on phones.
+     (.crud-box mobile sizing is owned by the shared /css/crud-modal.css.) */
   .cart-panel { max-width: 100% !important; }
-  .crud-box { max-width: 96% !important; }
 
   /* Belt-and-braces: nothing should push the page sideways on mobile */
-  body { overflow-x: hidden; }
+  html, body { overflow-x: hidden; max-width: 100%; }
 }
 
 /* Small phones (≤ 480px) */

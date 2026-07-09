@@ -35,6 +35,46 @@ describe('Catalog Product master (M1)', () => {
     cy.window().should('have.property', 'showProducts')
     cy.window().then((w) => w.showProducts())
     cy.get('#ProductDiv').should('be.visible')
+    // The Product form lives in a modal now — open it before asserting its fields render.
+    cy.window().then((w) => w.newProduct())
+    cy.get('#ProductModal').should('have.class', 'open')
     cy.get('#prodName').should('be.visible')
+  })
+
+  // The duplicate-SKU 409 from catalog-service must reach the user. Previously the message was written to
+  // #globalError, which sits behind the fixed modal overlay → invisible. Now it surfaces as a toast (and the
+  // client pre-check blocks it before submit). Either way the user sees "already …" and the modal stays open.
+  it('duplicate SKU is rejected with a visible error and the modal stays open', () => {
+    const sku = 'DUP' + Date.now()
+
+    // The proxy relays the catalog 409 as a friendly {success:false, message} body (HTTP 200), not a 5xx.
+    cy.request({
+      method: 'POST', url: '/addProduct',
+      body: { name: 'Seed_' + Date.now(), sku: sku, sellingPrice: 1, taxRate: 0, unit: 'pcs', categoryName: 'General' },
+      headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+    }).its('body.success').should('eq', true)
+
+    cy.request({
+      method: 'POST', url: '/addProduct',
+      body: { name: 'Dupe_' + Date.now(), sku: sku, sellingPrice: 1, taxRate: 0, unit: 'pcs', categoryName: 'General' },
+      headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+    }).then((r) => {
+      expect(r.status).to.eq(200)
+      expect(r.body.success).to.eq(false)
+      expect(String(r.body.message).toLowerCase()).to.contain('already')
+    })
+
+    // UI: entering the same SKU in the modal shows a visible error toast and does NOT close the modal.
+    cy.visit('/businessDashboard')
+    cy.window().then((w) => w.showProducts())
+    cy.get('#ProductDiv').should('be.visible')
+    cy.window().then((w) => w.newProduct())
+    cy.get('#ProductModal').should('have.class', 'open')
+    cy.get('#prodName').type('Another_' + Date.now())
+    cy.get('#prodSku').type(sku).blur()
+    cy.get('#addProduct').click()
+    cy.get('#formErrorToast', { timeout: 10000 }).should('be.visible')
+      .invoke('text').then((t) => expect(t.toLowerCase()).to.contain('already'))
+    cy.get('#ProductModal').should('have.class', 'open')   // save was blocked, form not lost
   })
 })

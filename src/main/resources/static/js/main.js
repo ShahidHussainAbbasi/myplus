@@ -44,9 +44,39 @@ function showFormError(msg) {
     if (el) {
         el.textContent = msg;
         el.style.display = 'block';
+    }
+    // A CRUD form now lives inside a fixed .crud-overlay modal; the inline #globalError banner sits in the
+    // page flow BEHIND that overlay, so the user never sees it (e.g. a duplicate-SKU 409). When a modal is
+    // open, surface the message as a fixed toast that stacks above the modal. Otherwise keep the classic
+    // inline banner + scroll-to (used by the auth pages and non-modal screens).
+    if (document.querySelector('.crud-overlay.open')) {
+        showErrorToast(msg);
+    } else if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 }
+
+// Fixed, dismissable error toast — always visible, stacks above the CRUD modal overlay (z-index 1050).
+function showErrorToast(msg) {
+    var el = document.getElementById('formErrorToast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'formErrorToast';
+        el.setAttribute('role', 'alert');
+        el.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10001;'
+            + 'background:#c62828;color:#fff;padding:12px 42px 12px 18px;border-radius:8px;font-size:14px;'
+            + 'font-weight:600;box-shadow:0 8px 28px rgba(0,0,0,.35);max-width:92vw;cursor:pointer;'
+            + 'white-space:normal;text-align:center';
+        el.title = 'Dismiss';
+        el.addEventListener('click', function () { el.style.display = 'none'; });
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.style.display = 'none'; }, 8000);
+}
+window.showErrorToast = showErrorToast;
 
 function clearFormError() {
     var el = document.getElementById('globalError');
@@ -54,6 +84,8 @@ function clearFormError() {
         el.textContent = '';
         el.style.display = 'none';
     }
+    var toast = document.getElementById('formErrorToast');
+    if (toast) toast.style.display = 'none';
 }
 
 // slice 22: transient confirmation showing the system-generated invoice number after a sale.
