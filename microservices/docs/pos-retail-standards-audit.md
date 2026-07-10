@@ -13,8 +13,8 @@ other money/stock-mutating event is **invisible to the GL and/or AP/AR**, so the
 | New sale | ✅ saga | ✅ due | ✅ SALE | — |
 | New purchase | ✅ inventory | ✅ payable | ✅ PURCHASE | — |
 | **Sale return** | ✅ inverse saga | 🟡 refund line (SF-5) | ✅ **SALE_RETURN wired** | reverses Sales/Tax/AR/Cash + COGS |
-| **Sale edit** | ✅ delta | ✅ recompute | ⬜ **no adjustment** | GL keeps the original amounts (TODO) |
-| **Purchase edit** | ✅ delta | ✅ recompute | ⬜ **no adjustment** | GL keeps the original (TODO) |
+| **Sale edit** | ✅ delta | ✅ recompute | ✅ **reverse+repost** | `updateSell` posts SALE_RETURN(old)+SALE(new) |
+| **Purchase edit** | ✅ delta | ✅ recompute | ✅ **reverse+repost** | `updatePurchase` posts PURCHASE_RETURN(old)+PURCHASE(new) |
 | **Purchase return** | ✅ reconcile −delta | ✅ payable cut + refund | ✅ **PURCHASE_RETURN** | done end-to-end |
 | **Void / cancel** | ⬜ delete only | ⬜ | ⬜ | deletes bypass GL + audit |
 | Receive Payment / Pay Vendor | n/a | ✅ | ✅ hook | — |
@@ -71,11 +71,11 @@ for free. Fixing them later means retrofitting every module + reconciling histor
 1. **Purchase Return (R15)** — ✅ **DONE** (`PurchaseService.purchaseReturn`: stock-out via reconcilePurchase −delta
    + AP reconcile + `recomputePayable` + GL `PURCHASE_RETURN`; `/purchaseReturn` + monolith proxy + purchase-row
    Return button/dialog; Cypress `purchase-return.cy.js`).
-2. **Shared reversal posting (§0)** — ✅ groundwork DONE: `PostingService` now posts `SALE_RETURN` + `PURCHASE_RETURN`
-   (mirror-image journals). **Sale return is WIRED** (`SellController.saleReturn` → `SALE_RETURN`, reverses
-   Sales/Tax/AR + Cash refund + COGS/Inventory). **Still TODO: wire `updateSell`/`updatePurchase` edits to post an
-   adjustment (reverse-then-repost) — currently the GL keeps the pre-edit amounts.**
-3. **Void/cancel** as a first-class audited action (uses #2's reversal).
+2. **Shared reversal posting (§0)** — ✅ **DONE**: `PostingService` posts `SALE_RETURN` + `PURCHASE_RETURN`
+   (mirror-image journals). Wired into **sale return** (`saleReturn`), **purchase return**, AND **edits**
+   (`updateSell`/`updatePurchase` now reverse-the-old + repost-the-new = the edit's delta). Every mutating event
+   now posts to the GL → **no silent drift**. Cypress `gl-edit-adjustment.cy.js`.
+3. **Void/cancel** as a first-class audited action (uses #2's reversal) — next.
 4. **Posting reliability** — outbox + retry relay for GL/ledger posts (no silent drift).
 5. **Idempotency** on purchase/receivePayment/payVendor/postEvent.
 6. **Immutable audit log** (money + stock events).

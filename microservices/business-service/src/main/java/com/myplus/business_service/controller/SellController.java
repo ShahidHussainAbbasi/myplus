@@ -592,9 +592,37 @@ public class SellController {
 			//    the SAME authoritative path addSell uses (buildLines → applyInvoice). Settlement keeps the invoice's
 			//    prior payment + adds any new tender and derives due = paid − grandTotal (client-sent due not trusted).
 			//    Replaces the old hand-rolled block that never recomputed totals and dropped discount/catalogPrice/tax.
+			// GL edit adjustment: capture the OLD invoice + COGS BEFORE it's recomputed.
+			java.math.BigDecimal oldGrand = nzbd(ch.getGrandTotal()), oldSub = nzbd(ch.getSubTotal()),
+					oldTax = nzbd(ch.getTaxTotal()), oldPaid = nzbd(ch.getPaidAmount());
+			java.math.BigDecimal oldCost = java.math.BigDecimal.ZERO;
+			for (Sell o : oldLines)
+				oldCost = oldCost.add(nzbd(o.getCostPrice()).multiply(java.math.BigDecimal.valueOf(o.getQuantity() != null ? o.getQuantity() : 0f)));
+
 			java.util.List<com.myplus.business_service.service.SagaLine> lines =
 					sagaSellService.buildLines(dto, new java.util.HashMap<>());
 			saleWriter.applyInvoice(ch, lines, dto, user, true);
+
+			// GL: reverse the old posting + repost the new (net = the edit's delta) so the books never drift on an
+			// edit. The unchanged paid portion cancels between the two. Best-effort — never fail the edit.
+			try {
+				if (financeClient != null) {
+					java.math.BigDecimal newCost = java.math.BigDecimal.ZERO;
+					for (com.myplus.business_service.service.SagaLine l : lines)
+						if (l.costPrice() != null) newCost = newCost.add(l.costPrice().multiply(java.math.BigDecimal.valueOf(l.quantity())));
+					String mode = ch.getPaymentMode();
+					if (oldGrand.signum() > 0)
+						financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+								.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+								.grandTotal(oldGrand).subTotal(oldSub).taxTotal(oldTax).cost(oldCost).paidAmount(oldPaid).method(mode).build());
+					financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+							.eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+							.grandTotal(nzbd(ch.getGrandTotal())).subTotal(nzbd(ch.getSubTotal())).taxTotal(nzbd(ch.getTaxTotal()))
+							.cost(newCost).paidAmount(nzbd(ch.getPaidAmount())).method(mode).build());
+				}
+			} catch (Exception glEx) {
+				LOGGER.warn(this.getClass().getName() + " > updateSell GL adjustment failed (edit applied)", glEx);
+			}
 
 			return new GenericResponse("SUCCESS", "Sale updated. Invoice " + ch.getInvoiceNo(), ch.getInvoiceNo());
 		} catch (Exception e) {

@@ -270,6 +270,8 @@ public class PurchaseService implements IPurchaseService{
 		float oldQty = existing.getQuantity() != null ? existing.getQuantity() : 0f;
 		Long oldProductId = existing.getProductId();
 		String oldBatchNo = existing.getBatchNo();   // reconcile against the batch that was originally imported
+		java.math.BigDecimal oldBillTotal = nz(existing.getTotalAmount());   // GL: reverse the OLD posting on edit
+		java.math.BigDecimal oldBillPaid = nz(existing.getPaidAmount());
 
 		// Update the record (keep id + original audit/tenant; product is readonly on edit).
 		dto.setUserId(user.getUserId());
@@ -327,6 +329,22 @@ public class PurchaseService implements IPurchaseService{
 				&& snap.getBsellRate().compareTo(java.math.BigDecimal.ZERO) > 0 && saved.getProductId() != null) {
 			try { catalogClient.updatePrice(saved.getProductId(), snap.getBsellRate()); }
 			catch (Exception ex) { LOG.warn("Option B: re-price on edit failed for product {} (purchase updated)", saved.getProductId(), ex); }
+		}
+
+		// GL edit adjustment: reverse the OLD bill + repost the NEW (net = the edit's delta) so the books never
+		// drift on a purchase edit. Best-effort — never fail the edit.
+		try {
+			if (financeClient != null) {
+				if (oldBillTotal.signum() > 0)
+					financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+							.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
+							.grandTotal(oldBillTotal).paidAmount(oldBillPaid).method("CASH").build());
+				financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+						.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
+						.grandTotal(saved.getTotalAmount()).paidAmount(saved.getPaidAmount()).method("CASH").build());
+			}
+		} catch (Exception ex) {
+			LOG.warn("GL adjustment failed for purchase edit {} (edit applied)", saved.getPurchaseInvoiceNo(), ex);
 		}
 		return saved;
 	}
