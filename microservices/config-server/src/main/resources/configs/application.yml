@@ -44,8 +44,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
-        format_sql: true
-    show-sql: ${JPA_SHOW_SQL:true}
+        # SQL echo is OFF by default (prod-safe, quiet logs, less CPU/log volume across all services).
+        # Turn it on per-service for debugging with JPA_SHOW_SQL=true / JPA_FORMAT_SQL=true.
+        format_sql: ${JPA_FORMAT_SQL:false}
+    show-sql: ${JPA_SHOW_SQL:false}
     open-in-view: false
 
 management:

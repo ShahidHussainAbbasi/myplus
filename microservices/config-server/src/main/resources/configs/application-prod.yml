@@ -47,9 +47,14 @@ service:
   internal-secret: ${INTERNAL_SECRET}
 
 # F11: no SQL / bound-parameter logging in prod (it leaks PII / credential material).
+# Root drops to WARN in prod to cut log volume/disk on the VPS (framework INFO chatter is silenced);
+# our own app package + Flyway stay at INFO so service logs and schema migrations remain auditable on
+# a deploy. Raise any logger with logging.level.<pkg>=DEBUG via env for troubleshooting.
 logging:
   level:
+    root: WARN
     com.myplus: INFO
+    org.flywaydb: INFO
     org.springframework.web: WARN
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN

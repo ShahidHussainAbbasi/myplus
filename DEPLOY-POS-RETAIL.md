@@ -19,7 +19,7 @@ up -d --build` (no service list) — see §9 *Deploy the full stack*.
 
 | Component | Container | Host port | Role |
 |-----------|-----------|-----------|------|
-| MySQL 8 | `myplus-mysql` | 3306 | Per-service DBs (`myplusdb` = monolith+business, `myplusdb_auth`, `myplusdb_catalog`, `myplusdb_inventory`, `myplusdb_finance`) |
+| MySQL 8 | `myplus-mysql` | 3306 | Per-service DBs (`myplusdb` = business-service, `myplusdb_auth`, `myplusdb_catalog`, `myplusdb_inventory`, `myplusdb_finance`). The monolith owns **no** database (P5). |
 | Redis | `myplus-redis` | – (internal) | Demo-quota / rate-limit counter |
 | Eureka | `myplus-eureka` | 8761 | Service discovery |
 | Config server | `myplus-config` | 8888 | Centralised config |
@@ -363,6 +363,43 @@ cat /opt/backups/myplus-YYYY-MM-DD.sql | docker exec -i myplus-mysql sh -c 'exec
 Containers use `restart: unless-stopped`, so they survive reboots. The MySQL data lives in the
 `mysql-data` named volume and persists across `docker compose down` (but not `down -v`).
 
+### 6.1 Log management (VPS disk / memory saving)
+
+Logging is kept deliberately **lightweight** — no aggregation stack, near-zero extra RAM:
+
+- **Rotation is capped in-compose.** Every container inherits the shared `x-logging: &default-logging`
+  anchor (`json-file`, `max-size: 10m`, `max-file: 3`) → **≤ 30 MB per container**, ~0.6 GB across the
+  whole stack. Docker's default driver never rotates, so without this container logs grow unbounded and
+  fill the VPS disk — which then looks exactly like the box running out of memory (MySQL can't write,
+  JVMs fail). Recreating a container (`docker compose up -d`) also **discards its old log file**, so a
+  redeploy instantly reclaims any pre-cap bloat.
+- **Logs are quiet by default.** In prod (`SPRING_PROFILES_ACTIVE=prod`) `root` is `WARN` and SQL echo
+  is off; only `com.myplus` (app) and `org.flywaydb` (migrations) stay at `INFO`. Less volume, less CPU/GC.
+
+```bash
+# View logs (rotation-capped)
+docker compose logs -f business-service
+docker compose logs --tail=200 monolith
+
+# Confirm the cap is applied to a container
+docker inspect --format '{{.Name}} {{.HostConfig.LogConfig.Config}}' myplus-business
+
+# Temporarily raise verbosity for one service (no rebuild) — e.g. see SQL or DEBUG a package
+docker compose stop business-service
+JPA_SHOW_SQL=true LOGGING_LEVEL_COM_MYPLUS=DEBUG docker compose up -d business-service
+# ...then revert by restarting it plainly: docker compose up -d --force-recreate business-service
+```
+
+**Optional host-level safety net** (applies the same cap to *any* container, incl. ones started outside
+this compose file — not repo-tracked, so the compose anchor above remains the reproducible source):
+
+```bash
+cat >/etc/docker/daemon.json <<'JSON'
+{ "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" } }
+JSON
+systemctl restart docker
+```
+
 ---
 
 ## 7. Troubleshooting
@@ -380,6 +417,7 @@ Containers use `restart: unless-stopped`, so they survive reboots. The MySQL dat
 | New account can't log in — "Account not verified" | Expected until the e-mailed link is clicked. Fix e-mail delivery (rows above); the account is enabled only after verification. |
 | Identity-header errors between services | `JWT_SECRET` must be identical for auth-service and gateway; if `INTERNAL_SECRET` is set, all services must share the same value. |
 | Out-of-memory / build killed on VPS | Add swap (§4.1) or build with the registry approach (§4.9); the POS subset needs ~9.5 GB at runtime, the full stack ~16 GB. |
+| VPS slowly fills disk / gets unresponsive over days; MySQL write errors | Unrotated container logs. Fixed by the `x-logging` rotation anchor (§6.1) — if a container shows no `max-size` in `docker inspect`, you're on an old compose: `git pull` + `docker compose up -d` to recreate (also clears the accumulated log files). |
 
 ---
 

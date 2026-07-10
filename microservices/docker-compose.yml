@@ -26,11 +26,23 @@ x-db-env: &db-env
   DB_USER: shahid
   DB_PASSWORD: ${DB_PASSWORD}
 
+# Shared log-rotation policy for EVERY container. Docker's default json-file driver never
+# rotates, so container logs grow unbounded and fill the VPS disk (which then looks like the
+# box running out of memory: MySQL can't write, JVMs OOM-adjacent failures, etc.). Capping at
+# 3 × 10 MB = 30 MB per container bounds total log disk to ~0.6 GB across the 20 services and
+# keeps `docker compose logs` working. Referenced by each service as `logging: *default-logging`.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   mysql:
     image: mysql:8.0
     container_name: myplus-mysql
     restart: unless-stopped
+    logging: *default-logging
     # Headroom above the combined service pools (11 services × 8 = 88) so admin/replication/spikes fit.
     command: ["--max-connections=200"]
     mem_limit: 1536m
@@ -56,6 +68,7 @@ services:
     build: ./eureka-server
     container_name: myplus-eureka
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
@@ -72,6 +85,7 @@ services:
     build: ./config-server
     container_name: myplus-config
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     ports:
       - "8888:8888"
@@ -92,6 +106,7 @@ services:
     image: redis:7-alpine
     container_name: myplus-redis
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 256m
     expose:
       - "6379"
@@ -106,6 +121,7 @@ services:
     build: ./api-gateway
     container_name: myplus-gateway
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     ports:
       - "8765:8765"
@@ -127,6 +143,7 @@ services:
     build: ./auth-service
     container_name: myplus-auth
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8081"
@@ -156,6 +173,7 @@ services:
     build: ./notification-service
     container_name: myplus-notification
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 512m
     expose:
       - "8093"
@@ -176,6 +194,7 @@ services:
     build: ./inventory-service
     container_name: myplus-inventory
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8082"
@@ -196,6 +215,7 @@ services:
     build: ./catalog-service
     container_name: myplus-catalog
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8092"
@@ -216,6 +236,7 @@ services:
     build: ./business-service
     container_name: myplus-business
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8083"
@@ -238,6 +259,7 @@ services:
     build: ./finance-service
     container_name: myplus-finance
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8094"
@@ -258,6 +280,7 @@ services:
     build: ./education-service
     container_name: myplus-education
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8084"
@@ -280,6 +303,7 @@ services:
     build: ./welfare-service
     container_name: myplus-welfare
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8085"
@@ -300,6 +324,7 @@ services:
     build: ./agriculture-service
     container_name: myplus-agriculture
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8086"
@@ -320,6 +345,7 @@ services:
     build: ./pharma-service
     container_name: myplus-pharma
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8087"
@@ -340,6 +366,7 @@ services:
     build: ./marketplace-service
     container_name: myplus-marketplace
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8088"
@@ -360,6 +387,7 @@ services:
     build: ./campaign-service
     container_name: myplus-campaign
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8089"
@@ -382,6 +410,7 @@ services:
     build: ./analytics-service
     container_name: myplus-analytics
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8090"
@@ -402,6 +431,7 @@ services:
     build: ./appointment-service
     container_name: myplus-appointment
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 768m
     expose:
       - "8091"
@@ -426,6 +456,7 @@ services:
       dockerfile: Dockerfile
     container_name: myplus-monolith
     restart: unless-stopped
+    logging: *default-logging
     mem_limit: 1024m
     ports:
       - "8080:8080"
