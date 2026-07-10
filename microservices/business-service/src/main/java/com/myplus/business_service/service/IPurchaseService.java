@@ -15,6 +15,9 @@ public interface IPurchaseService extends org.springframework.data.jpa.repositor
 	 *  against the purchase's own batch, so on-hand tracks the correction instead of re-importing the full qty. */
 	Purchase updatePurchase(PurchaseDTO dto) throws Exception;
 
+	/** Purchase Return (debit note): reverse stock-in + reconcile the vendor bill/payable + post a GL reversal. */
+	java.util.Map<String, Object> purchaseReturn(Long purchaseId, Float returnQty, String reason);
+
 	/** Tenant-scoped purchases (own org + caller's pre-migration org-NULL rows). */
 	List<Purchase> findScoped(Long orgId, Long userId);
 

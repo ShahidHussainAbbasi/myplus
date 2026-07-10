@@ -338,6 +338,80 @@ public class PurchaseService implements IPurchaseService{
 		return p.getOrganizationId() == null && user.getUserId() != null && user.getUserId().equals(p.getUserId());
 	}
 
+	private static java.math.BigDecimal nz(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
+
+	/**
+	 * Purchase Return (debit note): return goods to the vendor. Reverses the stock-in, reconciles the bill's
+	 * payment position (mirror of the sale-return SF-5 reconcile) so the vendor refunds any overpayment, refreshes
+	 * the vendor payable, and posts a PURCHASE_RETURN reversal journal to the GL. Partial or full. All-or-nothing
+	 * (@Transactional): if inventory rejects the stock-out (e.g. those goods were already sold on), the whole
+	 * return rolls back so the record + inventory + books never diverge.
+	 */
+	@Override
+	@Transactional
+	public java.util.Map<String, Object> purchaseReturn(Long purchaseId, Float returnQty, String reason) {
+		AuthenticatedUser user = requestUtil.getCurrentUser();
+		Purchase p = purchaseRepo.findById(purchaseId).filter(x -> scopeMatches(x, user))
+				.orElseThrow(() -> new RuntimeException("Purchase not found: " + purchaseId));
+		float soldQty = p.getQuantity() != null ? p.getQuantity() : 0f;
+		float rq = returnQty != null ? returnQty : 0f;
+		if (rq <= 0f) throw new RuntimeException("Return quantity must be greater than 0.");
+		if (rq > soldQty) throw new RuntimeException("Cannot return more than was purchased (" + soldQty + ").");
+		boolean partial = rq < soldQty;
+
+		java.math.BigDecimal total = nz(p.getTotalAmount());
+		java.math.BigDecimal returnedValue = partial
+				? total.multiply(java.math.BigDecimal.valueOf(rq)).divide(java.math.BigDecimal.valueOf(soldQty), 2, java.math.RoundingMode.HALF_UP)
+				: total;
+
+		// 1) reverse the stock-in for this batch (negative delta). A guard rejection rolls the whole return back.
+		if (tradeSagaProperties.isEnabled() && p.getProductId() != null) {
+			inventoryClient.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
+					.productId(p.getProductId()).batchNo(p.getBatchNo()).delta(-rq)
+					.expiryDate(p.getBexpDate()).purchasePrice(p.getBpurchaseRate()).build());
+		}
+
+		// 2) reconcile the bill (mirror SF-5 for AP): reduce it by the returned value; the vendor refunds any
+		//    resulting overpayment; dueAmount = paid − new bill.
+		java.math.BigDecimal newBill = total.subtract(returnedValue);
+		java.math.BigDecimal priorPaid = nz(p.getPaidAmount());
+		java.math.BigDecimal refund = priorPaid.subtract(newBill).max(java.math.BigDecimal.ZERO);   // vendor refunds overpayment
+		java.math.BigDecimal newPaid = priorPaid.subtract(refund);
+		if (partial) {
+			java.math.BigDecimal keepFrac = java.math.BigDecimal.valueOf(soldQty - rq)
+					.divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP);
+			p.setQuantity(soldQty - rq);
+			p.setTotalAmount(newBill);
+			p.setNetAmount(nz(p.getNetAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
+		} else {
+			p.setQuantity(0f);
+			p.setTotalAmount(java.math.BigDecimal.ZERO);
+			p.setNetAmount(java.math.BigDecimal.ZERO);
+		}
+		p.setPaidAmount(newPaid);
+		p.setDueAmount(newPaid.subtract(nz(p.getTotalAmount())));
+		p.setUpdated(LocalDateTime.now());
+		purchaseRepo.save(p);
+		if (p.getVenderId() != null) venderService.recomputePayable(p.getVenderId());
+
+		// 3) GL reversal (best-effort): Cr Inventory (returned value), Dr AP (payable cut) + Dr Cash (refund).
+		try {
+			if (financeClient != null)
+				financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+						.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(p.getPurchaseInvoiceNo())
+						.grandTotal(returnedValue).paidAmount(refund).method("CASH").build());
+		} catch (Exception ex) {
+			LOG.warn("GL post failed for purchase return {} (return applied; reconcile later)", p.getPurchaseInvoiceNo(), ex);
+		}
+
+		java.util.Map<String, Object> out = new java.util.HashMap<>();
+		out.put("success", true);
+		out.put("returnedValue", returnedValue);
+		out.put("refund", refund);
+		out.put("newDue", p.getDueAmount());
+		return out;
+	}
+
 	/**
 	 * D3 (slice 33) + M3.2 (slice 63): when the saga is enabled, push the purchased quantity into inventory so
 	 * inventory is authoritative for stock. The item is auto-mapped to a catalog product on demand

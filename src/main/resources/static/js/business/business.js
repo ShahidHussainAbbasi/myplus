@@ -637,7 +637,8 @@ function loadDataTable(){
 							"<div id=purchaseDiscount>"+obj.stock.bpurchaseDiscount+"</div>",
 							// "<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
 							// "<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
-							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>","<div id=purchaseDate>"+obj.updated+"</div>"
+							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>",
+						"<div id=purchaseDate>"+obj.updated+" <button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button></div>"
 						]);
 					});
 				} else if (getAll === "Sell") {
@@ -1880,6 +1881,50 @@ function submitPayVendor() {
 			showFormError((resp && resp.message) || 'Could not record the payment.');
 		}
 	}, 'json').fail(function () { showFormError('Could not record the payment.'); });
+}
+
+// Purchase Return (debit note) — a per-row Return button opens a small dialog and posts /purchaseReturn.
+$(document).on('click', '.purchase-return-btn', function (e) {
+	e.stopPropagation();
+	openPurchaseReturn(this.getAttribute('data-pid'), parseFloat(this.getAttribute('data-qty')) || 0, this.getAttribute('data-inv'));
+});
+
+function openPurchaseReturn(purchaseId, soldQty, inv){
+	var d = document.getElementById('purchaseReturnDialog');
+	if(!d){
+		d = document.createElement('div'); d.id = 'purchaseReturnDialog';
+		d.style.cssText = 'position:fixed;inset:0;z-index:10000;display:none;background:rgba(0,0,0,.45);align-items:center;justify-content:center';
+		d.innerHTML = "<div style='background:#fff;border-radius:10px;max-width:420px;width:92%;padding:22px 24px;box-shadow:0 12px 40px rgba(0,0,0,.3)'>"
+			+ "<h4 style='margin:0 0 12px;font-weight:700'>Return to Vendor</h4>"
+			+ "<div style='font-size:13px;color:#444;margin-bottom:10px'>Purchase <b id='prInv'></b> &middot; purchased qty <b id='prSold'></b></div>"
+			+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Return quantity</label>"
+			+ "<input type='number' id='prQty' class='form-control' step='any' min='1' style='margin-bottom:10px'>"
+			+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Reason (optional)</label>"
+			+ "<input type='text' id='prReason' class='form-control' maxlength='200' placeholder='e.g. damaged, wrong item' style='margin-bottom:8px'>"
+			+ "<div id='prError' style='color:#c0392b;font-size:12px;min-height:16px;margin-bottom:8px'></div>"
+			+ "<div style='text-align:right'><button type='button' class='btn btn-default' onclick=\"document.getElementById('purchaseReturnDialog').style.display='none'\">Cancel</button> "
+			+ "<button type='button' class='btn btn-warning' onclick='submitPurchaseReturn()'><span class='glyphicon glyphicon-share-alt'></span> Confirm Return</button></div></div>";
+		document.body.appendChild(d);
+	}
+	d.dataset.pid = purchaseId; d.dataset.sold = soldQty;
+	document.getElementById('prInv').textContent = inv || '—';
+	document.getElementById('prSold').textContent = soldQty;
+	var q = document.getElementById('prQty'); q.value = soldQty; q.max = soldQty;
+	document.getElementById('prReason').value = ''; document.getElementById('prError').textContent = '';
+	d.style.display = 'flex';
+}
+
+function submitPurchaseReturn(){
+	var d = document.getElementById('purchaseReturnDialog');
+	var pid = d.dataset.pid, sold = parseFloat(d.dataset.sold) || 0;
+	var qty = parseFloat(document.getElementById('prQty').value);
+	var err = document.getElementById('prError');
+	if(!qty || qty <= 0){ err.textContent = 'Enter a quantity greater than 0.'; return; }
+	if(qty > sold){ err.textContent = 'Cannot return more than purchased (' + sold + ').'; return; }
+	$.post(serverContext + 'purchaseReturn', { purchaseId: pid, quantity: qty, reason: document.getElementById('prReason').value }, function(resp){
+		if(resp && resp.status === 'SUCCESS'){ d.style.display='none'; if(typeof showSaleSuccess==='function') showSaleSuccess('Purchase returned to vendor.'); loadDataTable(); }
+		else { err.textContent = (resp && resp.message) || 'Return failed.'; }
+	}, 'json').fail(function(){ err.textContent = 'An error occurred. Please try again.'; });
 }
 
 // F2: Statement of account + Aging — self-contained dialogs (no template modal needed), like the sale-return dialog.

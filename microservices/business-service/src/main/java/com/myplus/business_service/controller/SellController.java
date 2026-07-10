@@ -127,6 +127,9 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;   // SF-11: return audit / credit-note
 
+	@org.springframework.beans.factory.annotation.Autowired(required = false)
+	com.myplus.commerce.contracts.client.FinanceClient financeClient;      // GL: SALE_RETURN reversal journal
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -696,6 +699,12 @@ public class SellController {
 			// return just reduces what the customer owes). See the re-settle block for the REFUND tender.
 			boolean partial = retQty > 0f && retQty < soldQty;
 			java.math.BigDecimal refundedAmount = java.math.BigDecimal.ZERO;   // SF-11: recorded on the return audit
+			// GL SALE_RETURN: capture the returned line's ex-tax net, tax and COGS BEFORE the line is adjusted/deleted.
+			float retFrac = soldQty > 0f ? (retQty / soldQty) : 1f;
+			java.math.BigDecimal retSub = nzbd(existingSell.getTotalAmount()).multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
+			java.math.BigDecimal retTax = nzbd(existingSell.getTaxAmount()).multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
+			java.math.BigDecimal retCost = nzbd(existingSell.getCostPrice()).multiply(java.math.BigDecimal.valueOf(retQty)).setScale(2, java.math.RoundingMode.HALF_UP);
+			String retInvoiceNo = ch != null ? ch.getInvoiceNo() : null;
 
 			// Adjust the returned line: a full return removes it; a partial return reduces its qty and money
 			// pro-rata so the invoice keeps the portion the customer is keeping.
@@ -766,6 +775,19 @@ public class SellController {
 				saleReturnRepo.save(cn);
 			} catch (Exception auditOnly) {
 				LOGGER.warn(this.getClass().getName() + " > saleReturn audit write failed (return applied)", auditOnly);
+			}
+
+			// GL: post the SALE_RETURN reversal (best-effort) — reverses Sales/Tax + AR/Cash refund + COGS/Inventory.
+			try {
+				java.math.BigDecimal retGross = retSub.add(retTax);
+				if (financeClient != null && retGross.signum() > 0) {
+					financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(retInvoiceNo)
+							.grandTotal(retGross).subTotal(retSub).taxTotal(retTax).cost(retCost).paidAmount(refundedAmount)
+							.method("CASH").build());
+				}
+			} catch (Exception glEx) {
+				LOGGER.warn(this.getClass().getName() + " > saleReturn GL reversal failed (return applied)", glEx);
 			}
 
 			return new GenericResponse("SUCCESS", "Sale returned successfully.");

@@ -224,6 +224,26 @@ public class PurchaseController {
 		}
 	}
 	
+	/** Purchase Return (debit note): reverse stock-in + reconcile the vendor bill/payable + post a GL reversal. */
+	@RequestMapping(value = "/purchaseReturn", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse purchaseReturn(final HttpServletRequest request) {
+		try {
+			String pid = request.getParameter("purchaseId");
+			String qty = request.getParameter("quantity");
+			if (appUtil.isEmptyOrNull(pid) || appUtil.isEmptyOrNull(qty))
+				return new GenericResponse("FAILED", "Purchase and quantity are required.");
+			java.util.Map<String, Object> result = purchaseService.purchaseReturn(
+					Long.valueOf(pid.trim()), Float.valueOf(qty.trim()), request.getParameter("reason"));
+			return new GenericResponse("SUCCESS", "Purchase returned successfully.", result);
+		} catch (NumberFormatException nfe) {
+			return new GenericResponse("FAILED", "Invalid purchase id or quantity.");
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > purchaseReturn " + e.getCause(), e);
+			return new GenericResponse("FAILED", e.getMessage() != null ? e.getMessage() : "An unexpected error occurred. Please contact support.");
+		}
+	}
+
 	@RequestMapping(value = "/deletePurchase", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deletePurchase( HttpServletRequest req, HttpServletResponse resp ){

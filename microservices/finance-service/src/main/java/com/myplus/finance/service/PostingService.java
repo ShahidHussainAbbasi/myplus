@@ -49,9 +49,48 @@ public class PostingService {
     @Transactional
     public void postEvent(PostEventRequest req) {
         glService.ensureDefaults();   // the org's chart of accounts must exist (idempotent)
-        if ("SALE".equalsIgnoreCase(req.getEventType())) postSale(req);
-        else if ("PURCHASE".equalsIgnoreCase(req.getEventType())) postPurchase(req);
-        else throw new IllegalArgumentException("Unknown event type: " + req.getEventType());
+        String type = req.getEventType();
+        if ("SALE".equalsIgnoreCase(type)) postSale(req);
+        else if ("PURCHASE".equalsIgnoreCase(type)) postPurchase(req);
+        else if ("SALE_RETURN".equalsIgnoreCase(type)) postSaleReturn(req);
+        else if ("PURCHASE_RETURN".equalsIgnoreCase(type)) postPurchaseReturn(req);
+        else throw new IllegalArgumentException("Unknown event type: " + type);
+    }
+
+    // Reverse a sale (goods back, refund/AR credited): mirror image of postSale. grand = returned value,
+    // paidAmount = cash refunded (rest reduces AR), cost = COGS of the returned goods (Inventory restored).
+    private void postSaleReturn(PostEventRequest r) {
+        BigDecimal grand = nz(r.getGrandTotal());
+        if (grand.signum() <= 0) return;
+        BigDecimal sub = nz(r.getSubTotal()), tax = nz(r.getTaxTotal());
+        BigDecimal refund = nz(r.getPaidAmount()).max(BigDecimal.ZERO).min(grand);
+        BigDecimal ar = grand.subtract(refund);
+        List<JournalLineDTO> lines = new ArrayList<>();
+        if (sub.signum() > 0 || tax.signum() > 0) {
+            if (sub.signum() > 0) lines.add(dr(SALES, sub));
+            if (tax.signum() > 0) lines.add(dr(TAX, tax));
+        } else {
+            lines.add(dr(SALES, grand));
+        }
+        if (refund.signum() > 0) lines.add(cr(cashAccount(r.getMethod()), refund));
+        if (ar.signum() > 0)     lines.add(cr(AR, ar));
+        post("SALE_RETURN", r.getDate(), r.getRef(), lines);
+        BigDecimal cost = nz(r.getCost());
+        if (cost.signum() > 0) post("SALE_RETURN", r.getDate(), r.getRef(), List.of(dr(INVENTORY, cost), cr(COGS, cost)));
+    }
+
+    // Reverse a purchase (goods back to vendor): mirror of postPurchase. grand = returned value, paidAmount = cash
+    // refunded by the vendor (rest reduces AP), Inventory credited.
+    private void postPurchaseReturn(PostEventRequest r) {
+        BigDecimal value = nz(r.getGrandTotal());
+        if (value.signum() <= 0) return;
+        BigDecimal refund = nz(r.getPaidAmount()).max(BigDecimal.ZERO).min(value);
+        BigDecimal ap = value.subtract(refund);
+        List<JournalLineDTO> lines = new ArrayList<>();
+        if (refund.signum() > 0) lines.add(dr(cashAccount(r.getMethod()), refund));
+        if (ap.signum() > 0)     lines.add(dr(AP, ap));
+        lines.add(cr(INVENTORY, value));
+        post("PURCHASE_RETURN", r.getDate(), r.getRef(), lines);
     }
 
     private void postSale(PostEventRequest r) {

@@ -74,6 +74,20 @@ public class PurchaseController {
         }
     }
 
+    /** Purchase Return (debit note) → business-service /purchaseReturn: reverses stock-in + vendor payable + GL. */
+    @RequestMapping(value = "/purchaseReturn", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> purchaseReturn(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/purchaseReturn", params);
+        } catch (Exception e) {
+            LOGGER.error("purchaseReturn proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/deletePurchase", method = RequestMethod.POST)
     @ResponseBody
     public Boolean deletePurchase(HttpServletRequest req, HttpServletResponse resp) {
