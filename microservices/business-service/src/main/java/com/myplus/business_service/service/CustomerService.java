@@ -40,10 +40,8 @@ public class CustomerService implements ICustomerService{
 	@Autowired
 	RequestUtil requestUtil;
 
-	@Autowired(required = false)
-	com.myplus.commerce.contracts.client.FinanceClient financeClient;   // shared payment ledger (AR subledger)
-
-	private static final org.slf4j.Logger PAY_LOG = org.slf4j.LoggerFactory.getLogger(CustomerService.class);
+	@Autowired
+	com.myplus.business_service.service.subledger.SubledgerService subledgerService;   // shared AR/AP settlement
 
 	// @Autowired
 	// ObjectMapperUtils objectMapperUtils;
@@ -267,50 +265,40 @@ return customerRepo.exists(example);
 		Customer customer = this.findById(customerId)
 				.orElseThrow(() -> new RuntimeException("Customer not found: " + customerId));
 
-		// FIFO-allocate the receipt across the customer's still-owing invoices (oldest first).
-		java.util.List<com.myplus.commerce.contracts.dto.PaymentAllocationRef> allocations = new java.util.ArrayList<>();
-		java.math.BigDecimal remaining = amount;
+		// The customer's still-owing invoices (oldest first) as generic OpenDocs for the shared allocator.
+		java.util.List<com.myplus.business_service.service.subledger.OpenDoc> docs = new java.util.ArrayList<>();
 		for (CustomerHistory inv : customerHistoryRepo.findOpenInvoicesByCustomer(customerId)) {
-			if (remaining.signum() <= 0) break;
-			java.math.BigDecimal due = inv.getDueAmount() != null ? inv.getDueAmount() : java.math.BigDecimal.ZERO;
-			java.math.BigDecimal outstanding = due.negate();   // due = paid − bill (negative while owing)
-			if (outstanding.signum() <= 0) continue;
-			java.math.BigDecimal applied = remaining.min(outstanding);
-			java.math.BigDecimal paid = inv.getPaidAmount() != null ? inv.getPaidAmount() : java.math.BigDecimal.ZERO;
-			inv.setPaidAmount(paid.add(applied));
-			inv.setDueAmount(due.add(applied));                // moves toward 0
-			inv.setUpdated(LocalDateTime.now());
-			customerHistoryRepo.save(inv);
-			allocations.add(com.myplus.commerce.contracts.dto.PaymentAllocationRef.builder()
-					.docType("INVOICE").docId(inv.getCustomer_history_id()).docNo(inv.getInvoiceNo()).amount(applied).build());
-			remaining = remaining.subtract(applied);
+			docs.add(new com.myplus.business_service.service.subledger.OpenDoc() {
+				public java.math.BigDecimal outstanding() {
+					java.math.BigDecimal due = inv.getDueAmount() != null ? inv.getDueAmount() : java.math.BigDecimal.ZERO;
+					return due.negate();   // due = paid - bill (negative while owing)
+				}
+				public void apply(java.math.BigDecimal applied) {
+					java.math.BigDecimal due = inv.getDueAmount() != null ? inv.getDueAmount() : java.math.BigDecimal.ZERO;
+					java.math.BigDecimal paid = inv.getPaidAmount() != null ? inv.getPaidAmount() : java.math.BigDecimal.ZERO;
+					inv.setPaidAmount(paid.add(applied));
+					inv.setDueAmount(due.add(applied));    // moves toward 0
+					inv.setUpdated(LocalDateTime.now());
+					customerHistoryRepo.save(inv);
+				}
+				public String docType() { return "INVOICE"; }
+				public Long docId() { return inv.getCustomer_history_id(); }
+				public String docNo() { return inv.getInvoiceNo(); }
+			});
 		}
 
-		// Recompute the customer's running balance from the (now-updated) invoice headers.
-		this.recomputeDue(customer);
-
-		// Record the receipt in the shared ledger — best-effort: the settlement is already applied, a ledger
-		// hiccup must never block taking the customer's money (reconcile later).
-		String receiptNo = null;
-		try {
-			if (financeClient != null) {
-				com.myplus.commerce.contracts.dto.PaymentRecordResult res = financeClient.recordPayment(
-						com.myplus.commerce.contracts.dto.PaymentRecordRequest.builder()
-								.direction("RECEIPT").partyType("CUSTOMER").partyId(customerId).partyName(customer.getName())
-								.amount(amount).method(method).paidOn(paidOn).reference(reference)
-								.sourceModule("BUSINESS").allocations(allocations).build());
-				receiptNo = res != null ? res.getReceiptNo() : null;
-			}
-		} catch (Exception ex) {
-			PAY_LOG.warn("finance ledger record failed for customer {} (settlement applied; reconcile later)", customerId, ex);
-		}
+		// ONE shared settlement path (FIFO allocate + best-effort finance-ledger record); recomputeDue refreshes
+		// the customer's running balance and returns the fresh due for the response.
+		com.myplus.business_service.service.subledger.SettleOutcome outcome = subledgerService.settle(
+				"RECEIPT", "CUSTOMER", customerId, customer.getName(), amount, method, paidOn, reference, "BUSINESS",
+				docs, () -> { this.recomputeDue(customer); return customer.getDueAmount(); });
 
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);
-		out.put("receiptNo", receiptNo);
-		out.put("allocated", amount.subtract(remaining));
-		out.put("onAccountCredit", remaining);   // excess not applied to any open invoice (customer due floors at 0)
-		out.put("newDue", customer.getDueAmount());
+		out.put("receiptNo", outcome.voucherNo());
+		out.put("allocated", outcome.allocated());
+		out.put("onAccountCredit", outcome.onAccount());   // excess not applied to any open invoice (due floors 0)
+		out.put("newDue", outcome.newDue());
 		return out;
 	}
 

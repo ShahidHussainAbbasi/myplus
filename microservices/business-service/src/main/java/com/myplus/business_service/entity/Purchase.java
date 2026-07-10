@@ -122,6 +122,16 @@ public class Purchase implements Serializable {
 	@Column(name = "net_amount", precision = 19, scale = 2)
 	private BigDecimal netAmount = null;
 
+	// F1 (AP): the vendor this purchase is billed from, and how much has been paid to them for THIS bill.
+	// dueAmount = paidAmount − netAmount (negative while we still owe the vendor); the vendor's running payable
+	// = −Σ(due). A null vendor / fully-paid purchase carries no payable (cash purchase or legacy row).
+	@Column(name = "vender_id")
+	private Long venderId;
+	@Column(name = "paid_amount", precision = 19, scale = 2)
+	private BigDecimal paidAmount;
+	@Column(name = "due_amount", precision = 19, scale = 2)
+	private BigDecimal dueAmount;
+
 	@Column(name = "purchase_expense")
 	private Float purchaseExpense;
 

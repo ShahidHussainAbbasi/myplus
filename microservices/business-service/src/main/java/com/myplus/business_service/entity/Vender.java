@@ -1,6 +1,7 @@
 package com.myplus.business_service.entity;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -45,6 +46,10 @@ public class Vender implements Serializable {
 
 	@Column(name = "organization_id")
 	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
+
+	// F1 (AP): running payable owed to this vendor = −Σ(open purchase due), floored at 0 (derived by recomputePayable).
+	@Column(name = "due_amount", precision = 19, scale = 2)
+	private BigDecimal dueAmount;
 
 	private String name;
 

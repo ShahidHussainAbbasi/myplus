@@ -97,3 +97,16 @@ compile (SB 4.1.0); fix master to the 3.5.0 line (or cut a release) and merge be
 auth hardening; M3.3/M3.4 local-`Stock`/`Item` retirement; quantities `Float→BigDecimal`; audit log; reporting suite.
 
 > Every numbered step ships UI/UX + service/API + DB together, with a passing headed Cypress, before the next.
+
+---
+
+## 5. Product roadmap & cross-cutting shared services
+
+**The landing page `svcMarquee` (`SVCS` array, `maxtheservice_dashboard.html`) is the product catalog — 11 services, each a domain on the SAME shared core (reuse-first, plug-and-play):**
+School Management (education ✅) · Inventory (inventory ✅) · **ERP (⬜ planned)** · POS (business ✅) · **HRM (⬜ planned)** · Campaign (campaign ✅) · Analytics (analytics 🟡) · Appointment (appointment ✅) · Pharmacy POS (pharma ✅) · **Pharmaceutical / distribution (⬜ planned)** · Online Marketplace (marketplace ✅).
+
+**Cross-cutting shared services — build deliberately, never per-domain:**
+- **finance-service** = the money spine (AR ✅ → AP ✅ (F1) → **GL ⬜**). The GL is the seed of the **ERP** offering. Party-agnostic ledger (references parties by `partyType+partyId`, never owns them).
+- **party/contact master service** = the future shared CRM/identity. **Decision: defer** — not a "customer god-service"; converge on a thin party master + `partyId` bridge (like Item→Product), as its own initiative **after** the finance stack. Rationale in `finance-ap-vendor-payments-design.md` companion + memory. The shared `SubledgerService`/`OpenDoc` (business-service) is already party-agnostic and is the enabler.
+
+**Standing constraint — performance is a priority** in every design/impl choice: set-based over per-row queries (watch N+1), index scoped/FIFO columns via Flyway, keep inter-service calls off hot paths (best-effort like the finance ledger call), reuse shared components. Raise perf/architecture concerns **early**, before a design ships.

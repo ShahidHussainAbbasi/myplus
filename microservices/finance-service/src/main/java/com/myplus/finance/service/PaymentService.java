@@ -35,8 +35,9 @@ public class PaymentService {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
 
+        PaymentDirection direction = req.getDirection() != null ? req.getDirection() : PaymentDirection.RECEIPT;
         Payment p = Payment.builder()
-                .direction(req.getDirection() != null ? req.getDirection() : PaymentDirection.RECEIPT)
+                .direction(direction)
                 .partyType(req.getPartyType())
                 .partyId(req.getPartyId())
                 .partyName(req.getPartyName())
@@ -49,7 +50,7 @@ public class PaymentService {
                 .organizationId(orgId)
                 .userId(userId)
                 .createdAt(LocalDateTime.now())
-                .receiptNo(nextReceiptNo(orgId, userId))
+                .receiptNo(nextReceiptNo(direction, orgId, userId))
                 .allocations(new ArrayList<>())
                 .build();
 
@@ -82,9 +83,12 @@ public class PaymentService {
         return sum != null ? sum : BigDecimal.ZERO;
     }
 
-    private String nextReceiptNo(Long orgId, Long userId) {
-        long n = paymentRepository.countScoped(orgId, userId) + 1;
-        return String.format("RCPT-%06d", n);
+    /** Per-org, per-direction voucher sequence: RECEIPT → RCPT-######, DISBURSEMENT (AP) → PV-###### (payment
+     *  voucher). Numbering is direction-scoped so receipts and payments don't share one running number. */
+    private String nextReceiptNo(PaymentDirection direction, Long orgId, Long userId) {
+        long n = paymentRepository.countByDirectionScoped(direction, orgId, userId) + 1;
+        String prefix = direction == PaymentDirection.DISBURSEMENT ? "PV" : "RCPT";
+        return String.format("%s-%06d", prefix, n);
     }
 
     private PaymentDTO toDTO(Payment p) {

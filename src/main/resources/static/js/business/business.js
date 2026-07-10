@@ -553,6 +553,7 @@ function loadDataTable(){
 					loadUserVenders(table);
 				} else if (getAll == "Purchase") {
 					loadUserItems(table);
+					loadUserVenders(table);   // F1 (AP): populate the purchase form's Vendor select
 				} else if (getAll == "Sell") {
 					loadUserItems(table);
 					loadSellCustomers();
@@ -585,7 +586,10 @@ function loadDataTable(){
 							"<div id=venderName>"+escHtml(obj.name)+"</div>",
 							"<div id=venderCompanyDD>"+escHtml(obj.companyName)+"</div>",
 							"<div id=venderPhone>"+escHtml(obj.phone)+"</div>","<div id=venderMobile>"+escHtml(obj.mobile)+"</div>",
-							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",obj.datedStr
+							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",
+							"<div id=venderDue>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",obj.datedStr,
+							"<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Pay this vendor'><span class='glyphicon glyphicon-usd'></span> Pay</button> "
+							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='VENDOR' data-pid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
 						]);
 					});
 					$("#venderName").prop("readonly", false);
@@ -596,7 +600,8 @@ function loadDataTable(){
 							"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
 							"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
 							"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",obj.updated,
-							"<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button>"
+							"<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> "
+							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='CUSTOMER' data-pid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
 						]);
 					});
 				} else if (getAll === "ItemType") {
@@ -1834,4 +1839,107 @@ function submitReceivePayment() {
 			showFormError((resp && resp.message) || 'Could not record the payment.');
 		}
 	}, 'json').fail(function () { showFormError('Could not record the payment.'); });
+}
+
+// F1 (AP): Pay Vendor — mirror of Receive Payment. Opens the modal from the vendor row's Pay button, posts /payVendor.
+$(document).on('click', '.pay-vendor-btn', function (e) {
+	e.stopPropagation();   // don't let the row-click also open the edit modal
+	openPayVendor($(this).data('vid'), $(this).data('name'), $(this).data('due'));
+});
+
+function openPayVendor(venderId, name, due) {
+	$("#pvVendorId").val(venderId);
+	$("#pvVendorName").text(name || ('Vendor #' + venderId));
+	var d = Number(due || 0);
+	$("#pvDue").text(d);
+	$("#pvAmount").val(d > 0 ? d : '');
+	$("#pvMethod").val('CASH');
+	$("#pvReference").val('');
+	$("#pvDate").val(new Date().toISOString().slice(0, 10));
+	openModal('PayVendorModal');
+}
+
+function submitPayVendor() {
+	var venderId = $("#pvVendorId").val();
+	var amount = $("#pvAmount").val() * 1;
+	if (!venderId || !(amount > 0)) { showFormError('Enter a positive amount to pay.'); return; }
+	$.post(serverContext + "payVendor", {
+		venderId: venderId,
+		amount: amount,
+		method: $("#pvMethod").val(),
+		paidOn: $("#pvDate").val(),
+		reference: $("#pvReference").val()
+	}, function (resp) {
+		if (resp && resp.status === "SUCCESS") {
+			var o = resp.object || {};
+			var msg = 'Vendor paid.' + (o.voucherNo ? ' Voucher ' + o.voucherNo : '');
+			if (typeof showSaleSuccess === 'function') showSaleSuccess(msg); else clearFormError();
+			closeModal('PayVendorModal');
+			loadDataTable();   // refresh the vendor list — due is updated
+		} else {
+			showFormError((resp && resp.message) || 'Could not record the payment.');
+		}
+	}, 'json').fail(function () { showFormError('Could not record the payment.'); });
+}
+
+// F2: Statement of account + Aging — self-contained dialogs (no template modal needed), like the sale-return dialog.
+$(document).on('click', '.stmt-btn', function (e) {
+	e.stopPropagation();
+	openStatement($(this).data('ptype'), $(this).data('pid'), $(this).data('name'));
+});
+
+function buildFinanceDialog(id){
+	var d = document.getElementById(id);
+	if (d) return d;
+	d = document.createElement('div');
+	d.id = id;
+	d.style.cssText = 'position:fixed;inset:0;z-index:10000;display:none;background:rgba(0,0,0,.45);align-items:center;justify-content:center';
+	d.innerHTML = "<div style='background:#fff;border-radius:10px;max-width:760px;width:94%;max-height:86vh;overflow:auto;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.3)'>"
+		+ "<div style='display:flex;align-items:center;margin-bottom:12px'><h4 id='"+id+"Title' style='margin:0;font-weight:700;flex:1'></h4>"
+		+ "<button type='button' class='btn btn-default btn-sm' onclick=\"document.getElementById('"+id+"').style.display='none'\">Close</button></div>"
+		+ "<div id='"+id+"Body'></div></div>";
+	document.body.appendChild(d);
+	return d;
+}
+
+function openStatement(partyType, partyId, name){
+	var url = (partyType === 'VENDOR' ? '/vendorStatement?venderId=' : '/customerStatement?customerId=') + encodeURIComponent(partyId);
+	buildFinanceDialog('StatementDialog').style.display = 'flex';
+	document.getElementById('StatementDialogTitle').textContent = 'Statement — ' + (name || ((partyType === 'VENDOR' ? 'Vendor #' : 'Customer #') + partyId));
+	document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
+	$.get(serverContext + url, function(resp){
+		var lines = (resp && (resp.collection || resp.data)) || [];
+		if (!lines.length) { document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px;color:#777">No documents.</div>'; return; }
+		var h = '<table class="table table-striped" style="width:100%"><thead><tr><th>Date</th><th>Doc #</th><th>Type</th><th class="text-right">Debit</th><th class="text-right">Credit</th><th class="text-right">Balance</th></tr></thead><tbody>';
+		lines.forEach(function(l){
+			h += '<tr><td>'+escHtml(l.date||'')+'</td><td>'+escHtml(l.docNo||'')+'</td><td>'+escHtml(l.type||'')+'</td>'
+				+ '<td class="text-right">'+(l.debit!=null?Number(l.debit).toFixed(2):'')+'</td>'
+				+ '<td class="text-right">'+(l.credit!=null?Number(l.credit).toFixed(2):'')+'</td>'
+				+ '<td class="text-right"><b>'+(l.balance!=null?Number(l.balance).toFixed(2):'')+'</b></td></tr>';
+		});
+		var closing = Number(lines[lines.length-1].balance||0).toFixed(2);
+		h += '</tbody><tfoot><tr><th colspan="5" class="text-right">Closing balance</th><th class="text-right">'+closing+'</th></tr></tfoot></table>';
+		document.getElementById('StatementDialogBody').innerHTML = h;
+	}, 'json').fail(function(){ document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load the statement.</div>'; });
+}
+
+// Aging report (Receivables = CUSTOMER, Payables = VENDOR). Trigger buttons live in the Customer/Vendor toolbars.
+function openAging(partyType){
+	var url = partyType === 'VENDOR' ? '/vendorAging' : '/customerAging';
+	buildFinanceDialog('AgingDialog').style.display = 'flex';
+	document.getElementById('AgingDialogTitle').textContent = (partyType === 'VENDOR' ? 'Payables' : 'Receivables') + ' Aging';
+	document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
+	$.get(serverContext + url, function(resp){
+		var rows = (resp && (resp.collection || resp.data)) || [];
+		if (!rows.length) { document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px;color:#777">Nothing outstanding.</div>'; return; }
+		var t=[0,0,0,0,0];
+		var h = '<table class="table table-striped" style="width:100%"><thead><tr><th>'+(partyType==='VENDOR'?'Vendor':'Customer')+'</th><th class="text-right">0–30</th><th class="text-right">31–60</th><th class="text-right">61–90</th><th class="text-right">90+</th><th class="text-right">Total</th></tr></thead><tbody>';
+		rows.forEach(function(r){
+			var v=[Number(r.b0_30||0),Number(r.b31_60||0),Number(r.b61_90||0),Number(r.b90plus||0),Number(r.total||0)];
+			for(var i=0;i<5;i++) t[i]+=v[i];
+			h += '<tr><td>'+escHtml(r.partyName||('#'+r.partyId))+'</td>'+v.map(function(x){return '<td class="text-right">'+x.toFixed(2)+'</td>';}).join('')+'</tr>';
+		});
+		h += '</tbody><tfoot><tr><th>Total</th>'+t.map(function(x){return '<th class="text-right">'+x.toFixed(2)+'</th>';}).join('')+'</tr></tfoot></table>';
+		document.getElementById('AgingDialogBody').innerHTML = h;
+	}, 'json').fail(function(){ document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load aging.</div>'; });
 }

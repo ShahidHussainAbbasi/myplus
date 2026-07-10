@@ -15,7 +15,9 @@ import org.springframework.data.repository.query.FluentQuery.FetchableFluentQuer
 import org.springframework.stereotype.Service;
 
 import com.myplus.business_service.repository.VenderRepo;
+import com.myplus.business_service.repository.PurchaseRepo;
 import com.myplus.business_service.entity.Vender;
+import com.myplus.business_service.entity.Purchase;
 
 
 @Service
@@ -24,9 +26,12 @@ public class VenderService implements IVenderService {
 
     @Autowired
     private VenderRepo venderRepo;
-    
+
     @Autowired
-    
+    private PurchaseRepo purchaseRepo;                                          // F1 (AP): FIFO across open bills
+
+    @Autowired
+    private com.myplus.business_service.service.subledger.SubledgerService subledgerService;   // shared AR/AP settlement
 
     public static final String TOKEN_INVALID = "invalidToken";
     public static final String TOKEN_EXPIRED = "expired";
@@ -196,5 +201,64 @@ public class VenderService implements IVenderService {
 		throw new UnsupportedOperationException("Unimplemented method 'findBy'");
 	}
 
+	@Override
+	public void recomputePayable(Long venderId) {
+		if (venderId == null) return;
+		Vender v = venderRepo.findById(venderId).orElse(null);
+		if (v == null) return;
+		// Each purchase stores dueAmount = paid − net (negative while we owe). Payable owed = −Σ(due), floored 0.
+		java.math.BigDecimal sumDue = purchaseRepo.sumDueByVendor(venderId);
+		if (sumDue == null) sumDue = java.math.BigDecimal.ZERO;
+		java.math.BigDecimal owed = sumDue.negate();
+		if (owed.compareTo(java.math.BigDecimal.ZERO) < 0) owed = java.math.BigDecimal.ZERO;
+		v.setDueAmount(owed);
+		venderRepo.save(v);
+	}
+
+	@Override
+	public java.util.Map<String, Object> payVendor(Long venderId, java.math.BigDecimal amount, String method,
+			java.time.LocalDate paidOn, String reference) {
+		if (venderId == null) throw new RuntimeException("venderId is required");
+		if (amount == null || amount.signum() <= 0) throw new RuntimeException("A positive amount is required");
+		Vender vendor = venderRepo.findById(venderId)
+				.orElseThrow(() -> new RuntimeException("Vendor not found: " + venderId));
+
+		// The vendor's still-owing purchase bills (oldest first) as generic OpenDocs for the shared allocator.
+		java.util.List<com.myplus.business_service.service.subledger.OpenDoc> docs = new java.util.ArrayList<>();
+		for (Purchase bill : purchaseRepo.findOpenPurchasesByVendor(venderId)) {
+			docs.add(new com.myplus.business_service.service.subledger.OpenDoc() {
+				public java.math.BigDecimal outstanding() {
+					java.math.BigDecimal due = bill.getDueAmount() != null ? bill.getDueAmount() : java.math.BigDecimal.ZERO;
+					return due.negate();   // due = paid - net (negative while we owe)
+				}
+				public void apply(java.math.BigDecimal applied) {
+					java.math.BigDecimal due = bill.getDueAmount() != null ? bill.getDueAmount() : java.math.BigDecimal.ZERO;
+					java.math.BigDecimal paid = bill.getPaidAmount() != null ? bill.getPaidAmount() : java.math.BigDecimal.ZERO;
+					bill.setPaidAmount(paid.add(applied));
+					bill.setDueAmount(due.add(applied));    // moves toward 0
+					bill.setUpdated(java.time.LocalDateTime.now());
+					purchaseRepo.save(bill);
+				}
+				public String docType() { return "PURCHASE"; }
+				public Long docId() { return bill.getPurchaseId(); }
+				public String docNo() { return bill.getPurchaseInvoiceNo(); }
+			});
+		}
+
+		// ONE shared settlement path (FIFO allocate + best-effort finance-ledger record); recomputePayable refreshes
+		// the vendor's running payable and returns the fresh value for the response.
+		com.myplus.business_service.service.subledger.SettleOutcome outcome = subledgerService.settle(
+				"DISBURSEMENT", "VENDOR", venderId, vendor.getName(), amount, method, paidOn, reference, "BUSINESS",
+				docs, () -> { this.recomputePayable(venderId);
+					return venderRepo.findById(venderId).map(Vender::getDueAmount).orElse(null); });
+
+		java.util.Map<String, Object> out = new java.util.HashMap<>();
+		out.put("success", true);
+		out.put("voucherNo", outcome.voucherNo());
+		out.put("allocated", outcome.allocated());
+		out.put("onAccountAdvance", outcome.onAccount());   // excess not applied to any open bill (advance to vendor)
+		out.put("newDue", outcome.newDue());
+		return out;
+	}
 
 }

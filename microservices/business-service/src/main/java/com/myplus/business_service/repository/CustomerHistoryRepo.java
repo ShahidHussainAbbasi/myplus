@@ -46,6 +46,16 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
             + "ORDER BY ch.invoiceSeq ASC, ch.customer_history_id ASC")
     List<CustomerHistory> findOpenInvoicesByCustomer(@Param("customerId") Long customerId);
 
+    // F2 (AR aging): all still-owing invoices for the tenant (dueAmount < 0), with the customer fetched, so aging
+    // can group by customer. Org-scoped with NULL-fallback (own org + caller's pre-migration org-NULL rows).
+    @Query("SELECT ch FROM CustomerHistory ch LEFT JOIN FETCH ch.customer WHERE ch.dueAmount < 0 AND "
+            + "(ch.organizationId = :orgId OR (ch.organizationId IS NULL AND ch.userId = :userId))")
+    List<CustomerHistory> findOpenInvoicesScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // F2 (AR statement): a customer's invoices oldest-first — the BILL lines of their statement of account.
+    @Query("SELECT ch FROM CustomerHistory ch WHERE ch.customer.customerId = :customerId ORDER BY ch.dated ASC")
+    List<CustomerHistory> findByCustomerOrdered(@Param("customerId") Long customerId);
+
     // Saga sales whose stock reservation was never confirmed (trade crashed between write and confirm) —
     // the recovery relay re-drives confirm for these (slice 33, U3c).
     @Query("SELECT ch FROM CustomerHistory ch WHERE ch.sagaStatus = 'PENDING' AND ch.reservationId IS NOT NULL ORDER BY ch.dated ASC")

@@ -50,6 +50,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // Option B: re-price the product on receive
 
+    @Autowired
+    IVenderService venderService;                                       // F1 (AP): refresh vendor payable on purchase
+
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
@@ -217,7 +220,15 @@ public class PurchaseService implements IPurchaseService{
 			obj.setBsellDiscountType(snap.getBsellDiscountType());
 			obj.setBexpDate(appUtil.toLocalDateOrNull(snap.getBexpDate()));
 		}
+		// F1 (AP): the bill's payment position. The vendor bill = totalAmount (qty × purchase rate = what we owe);
+		// NOTE netAmount here is the sell-vs-cost PROFIT, not the payable. paidAmount defaults to the full bill
+		// (a cash purchase); dueAmount = paid − bill (negative while we still owe). venderId + paidAmount via the mapper.
+		java.math.BigDecimal bill = obj.getTotalAmount() != null ? obj.getTotalAmount() : java.math.BigDecimal.ZERO;
+		java.math.BigDecimal paid = obj.getPaidAmount() != null ? obj.getPaidAmount() : bill;
+		obj.setPaidAmount(paid);
+		obj.setDueAmount(paid.subtract(bill));
 		Purchase saved = this.save(obj);
+		if (saved.getVenderId() != null) venderService.recomputePayable(saved.getVenderId());   // F1 (AP)
 		pushPurchaseToInventory(saved, dto, user);        // dual-write stock-in to inventory (authoritative)
 
 		// Option B — re-price on receive: the purchase's sell rate updates the catalog Product's selling price
@@ -268,7 +279,19 @@ public class PurchaseService implements IPurchaseService{
 			obj.setBsellDiscountType(snap.getBsellDiscountType());
 			obj.setBexpDate(appUtil.toLocalDateOrNull(snap.getBexpDate()));
 		}
+		// F1 (AP): recompute the bill's payment position on edit — bill = totalAmount (what we owe; netAmount is
+		// profit). Keep the prior paid unless the edit supplies a new one; dueAmount = paid − bill. venderId may
+		// change on edit, so refresh BOTH the old and new vendor payables.
+		java.math.BigDecimal bill = obj.getTotalAmount() != null ? obj.getTotalAmount() : java.math.BigDecimal.ZERO;
+		java.math.BigDecimal paid = obj.getPaidAmount() != null ? obj.getPaidAmount()
+				: (existing.getPaidAmount() != null ? existing.getPaidAmount() : bill);
+		obj.setPaidAmount(paid);
+		obj.setDueAmount(paid.subtract(bill));
 		Purchase saved = this.save(obj);
+		Long oldVendor = existing.getVenderId();
+		if (oldVendor != null) venderService.recomputePayable(oldVendor);
+		if (saved.getVenderId() != null && !saved.getVenderId().equals(oldVendor))
+			venderService.recomputePayable(saved.getVenderId());
 
 		// Reconcile inventory by the quantity DELTA (new − old) against the purchase's own batch — NOT a re-import.
 		// Runs inside this @Transactional: a guard rejection (e.g. reducing below stock already sold) throws and

@@ -29,6 +29,25 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
         + "and (p.organizationId = :orgId or p.organizationId is null)")
    List<Purchase> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   // F1 (AP): a vendor's still-owing purchase bills (due_amount < 0), oldest first — for FIFO payment allocation.
+   @Query("select p from purchase p where p.venderId = :venderId and p.dueAmount is not null and p.dueAmount < 0 "
+        + "order by p.dated asc")
+   List<Purchase> findOpenPurchasesByVendor(@Param("venderId") Long venderId);
+
+   // F1 (AP): Σ(due) across a vendor's purchases — recomputePayable derives the vendor's running payable = −Σ(due).
+   @Query("select coalesce(sum(p.dueAmount), 0) from purchase p where p.venderId = :venderId")
+   java.math.BigDecimal sumDueByVendor(@Param("venderId") Long venderId);
+
+   // F2 (AP aging): all still-owing vendor bills for the tenant (dueAmount < 0, a vendor set), org-scoped —
+   // aging groups these by venderId. (venderId null = cash/legacy, excluded by the dueAmount<0 filter after seed.)
+   @Query("select p from purchase p where p.dueAmount < 0 and p.venderId is not null and "
+        + "(p.organizationId = :orgId or (p.organizationId is null and p.userId = :userId))")
+   List<Purchase> findOpenBillsScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   // F2 (AP statement): a vendor's bills oldest-first — the BILL lines of their statement of account.
+   @Query("select p from purchase p where p.venderId = :venderId order by p.dated asc")
+   List<Purchase> findByVenderOrdered(@Param("venderId") Long venderId);
+
    // SF-10: the product's most-recent purchase rate (unit cost / COGS) in this tenant — for the sell-line margin
    // snapshot. Returns newest-first; the caller takes the first with Pageable(0,1). NULL rates are skipped.
    @Query("select p.bpurchaseRate from purchase p where p.productId = :productId and p.bpurchaseRate is not null "

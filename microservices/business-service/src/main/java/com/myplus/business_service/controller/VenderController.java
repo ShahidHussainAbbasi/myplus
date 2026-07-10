@@ -165,7 +165,10 @@ public class VenderController {
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				Vender existing = venderService.findById(dto.getId()).orElse(null);
-				if(existing != null) obj.setDated(existing.getDated());
+				if(existing != null) {
+					obj.setDated(existing.getDated());
+					obj.setDueAmount(existing.getDueAmount());   // F1 (AP): a profile edit must not wipe the payable
+				}
 			}else {
 				obj.setDated(dated);
 			}
@@ -186,6 +189,38 @@ public class VenderController {
 		}
 	}
 	
+	/**
+	 * F1 (AP): pay a vendor. FIFO-allocates the amount across the vendor's open purchase bills, recomputes the
+	 * vendor payable, and records a DISBURSEMENT in the shared finance ledger. Mirrors CustomerController.receivePayment.
+	 */
+	@RequestMapping(value = "/payVendor", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse payVendor(final HttpServletRequest request) {
+		try {
+			String vId = request.getParameter("venderId");
+			String amt = request.getParameter("amount");
+			if (appUtil.isEmptyOrNull(vId) || appUtil.isEmptyOrNull(amt))
+				return new GenericResponse("FAILED", "Vendor and amount are required.");
+			Long venderId = Long.valueOf(vId.trim());
+			// anti-IDOR: the vendor must belong to the caller's tenant
+			Vender vendor = venderService.findById(venderId).orElse(null);
+			if (vendor == null || !inMyTenant(vendor.getOrganizationId(), vendor.getUserId()))
+				return new GenericResponse("NOT_FOUND", "Vendor not found.");
+			java.math.BigDecimal amount = new java.math.BigDecimal(amt.trim());
+			String method = request.getParameter("method");
+			String reference = request.getParameter("reference");
+			String paidOnStr = request.getParameter("paidOn");
+			java.time.LocalDate paidOn = appUtil.isEmptyOrNull(paidOnStr) ? null : java.time.LocalDate.parse(paidOnStr.trim());
+			java.util.Map<String, Object> result = venderService.payVendor(venderId, amount, method, paidOn, reference);
+			return new GenericResponse("SUCCESS", "Payment recorded.", result);
+		} catch (NumberFormatException nfe) {
+			return new GenericResponse("FAILED", "Invalid amount.");
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName()+" > payVendor "+e.getCause(), e);
+			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");
+		}
+	}
+
 	@RequestMapping(value = "/deleteVender", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteVender( HttpServletRequest req, HttpServletResponse resp ){

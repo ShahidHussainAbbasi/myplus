@@ -1,6 +1,8 @@
 # finance — Phase 2: AP subledger (Vendor Payments) — Design
 
-**Branch:** `feature/finance-ledger` · **Slice:** F1 (AP / Pay Vendor) · **Roadmap:** AR ✅ → **AP (this)** → General Ledger
+**STATUS: F1 DONE ✅ (headed-Cypress green — `pay-vendor.cy.js` + `receive-payment.cy.js` regression, after rebuilding the finance-service jar so the `PV-` numbering shipped).** Includes the shared `SubledgerService` refactor + full Pay Vendor UI.
+
+**Branch:** `feature/finance-ledger` · **Slice:** F1 (AP / Pay Vendor) · **Roadmap:** AR ✅ → **AP ✅** → F2 statements/aging → General Ledger
 **Companion:** `finance-service-design.md` (AR / Phase 1). This mirrors AR faithfully on the payables side.
 
 ## 0. Decisions (locked with the user)
@@ -63,7 +65,7 @@ Sign convention **mirrors AR** (`CustomerHistory.dueAmount = paid − bill`): `P
 - **Vender**: `+ BigDecimal dueAmount` (col `due_amount`).
 - **Purchase**: `+ Long venderId`, `+ BigDecimal paidAmount`, `+ BigDecimal dueAmount`.
 - **PurchaseDTO**: un-comment `venderId` (+ `venderName`); add `paidAmount`.
-- **PurchaseService.add/update**: set `venderId`; `paidAmount = dto.paidAmount` (default = net → cash); `dueAmount = paid − net`; after save → `venderService.recomputePayable(vender)`.
+- **PurchaseService.add/update**: set `venderId`; `paidAmount = dto.paidAmount` (default = full bill → cash); **the vendor bill = `totalAmount` (qty × purchase rate = what we owe); NOTE `netAmount` is the sell-vs-cost PROFIT, not the payable**; `dueAmount = paid − totalAmount`; after save → `venderService.recomputePayable(vender)` (both old & new vendor on edit).
 - **VenderService**:
   - `recomputePayable(Vender v)`: `owed = −Σ(open purchase due for v)` floored 0 → `v.setDueAmount(owed)`.
   - `payVendor(venderId, amount, method, paidOn, reference)`: FIFO across `PurchaseRepo.findOpenPurchasesByVendor` (bump `paidAmount`, move `dueAmount` toward 0) → `recomputePayable` → `financeClient.recordPayment(direction="DISBURSEMENT", partyType="VENDOR", partyId, partyName, amount, method, allocations[docType="PURCHASE", docId=purchaseId, docNo=purchaseInvoiceNo])` (best-effort). Returns `{success, voucherNo, allocated, onAccountAdvance, newDue}`.

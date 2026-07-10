@@ -28,4 +28,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     /** Per-org receipt count → the next RCPT-###### sequence. */
     @Query("SELECT COUNT(p) FROM Payment p WHERE (p.organizationId = :orgId OR (p.organizationId IS NULL AND p.userId = :userId))")
     long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Per-org, per-direction count → the next RCPT-/PV-###### voucher (AP disbursements number separately from AR). */
+    @Query("SELECT COUNT(p) FROM Payment p WHERE p.direction = :direction AND "
+            + "(p.organizationId = :orgId OR (p.organizationId IS NULL AND p.userId = :userId))")
+    long countByDirectionScoped(@Param("direction") com.myplus.finance.entity.PaymentDirection direction,
+                                @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

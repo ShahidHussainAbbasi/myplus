@@ -449,6 +449,9 @@
 					<button type="button" id="newVender" class="btn btn-success" onclick="newEntity('Vender')">
 						<span class="glyphicon glyphicon-plus-sign"></span> New Vendor
 					</button>
+					<button type="button" class="btn btn-info" onclick="openAging('VENDOR')" title="Payables aging report (F2)">
+						<span class="glyphicon glyphicon-time"></span> Payables Aging
+					</button>
 					<button type="button" id="deleteVender" class="btn btn-danger" style="display:none !important"></button>
 					<span id="bulkBarVender" class="crud-bulkbar" style="display:none;margin-left:10px">
 						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
@@ -535,10 +538,62 @@
 								<th data-field="venderMobile">Mobile</th>
 								<th data-field="venderEemail">Email</th>
 								<th data-field="venderAddress">Address</th>
+								<th data-field="venderDue">Due</th>
 								<th data-field="dated">Dated</th>
+								<th data-field="venderAction"></th>
 							</tr>
 						</thead>
 					</table>
+
+					<!-- F1 (AP): Pay Vendor modal — FIFO-settles the vendor payable + records a DISBURSEMENT (mirror of ReceivePaymentModal). -->
+					<div id="PayVendorModal" class="crud-overlay">
+					  <div class="crud-box">
+						<div class="crud-head">
+							<h4>Pay Vendor &mdash; <span id="pvVendorName"></span></h4>
+							<button type="button" class="crud-x" onclick="closeModal('PayVendorModal')">&times;</button>
+						</div>
+						<div class="crud-body">
+							<input type="hidden" id="pvVendorId"/>
+							<div class="form-horizontal">
+								<div class="form-group">
+									<label class="control-label col-sm-3">Payable due:</label>
+									<div class="col-sm-4"><p class="form-control-static"><b id="pvDue">0</b></p></div>
+								</div>
+								<div class="form-group">
+									<label class="control-label col-sm-3 req" for="pvAmount">Amount:</label>
+									<div class="col-sm-4">
+										<input type="number" step="any" min="0" class="form-control" id="pvAmount" placeholder="Amount to pay"/>
+									</div>
+								</div>
+								<div class="form-group">
+									<label class="control-label col-sm-3" for="pvMethod">Method:</label>
+									<div class="col-sm-4">
+										<select class="form-control" id="pvMethod">
+											<option value="CASH">Cash</option>
+											<option value="CARD">Card</option>
+											<option value="BANK">Bank transfer</option>
+											<option value="CHEQUE">Cheque</option>
+										</select>
+									</div>
+								</div>
+								<div class="form-group">
+									<label class="control-label col-sm-3" for="pvDate">Date:</label>
+									<div class="col-sm-4"><input type="date" class="form-control" id="pvDate"/></div>
+									<label class="control-label col-sm-2" for="pvReference">Ref:</label>
+									<div class="col-sm-3"><input type="text" class="form-control" id="pvReference" placeholder="Cheque/txn #"/></div>
+								</div>
+								<div class="form-group text-center">
+									<button type="button" class="btn btn-success" onclick="submitPayVendor()">
+										<span class="glyphicon glyphicon-usd"></span> Pay
+									</button>
+									<button type="button" class="btn btn-warning" onclick="closeModal('PayVendorModal')">
+										<span class="glyphicon glyphicon-remove"></span> Cancel
+									</button>
+								</div>
+							</div>
+						</div>
+					  </div>
+					</div>
 				</div>
 			</div>
 			
@@ -548,6 +603,9 @@
 				<div style="margin-bottom:8px">
 					<button type="button" id="newCustomer" class="btn btn-success" onclick="newEntity('Customer')">
 						<span class="glyphicon glyphicon-plus-sign"></span> New Customer
+					</button>
+					<button type="button" class="btn btn-info" onclick="openAging('CUSTOMER')" title="Receivables aging report (F2)">
+						<span class="glyphicon glyphicon-time"></span> Receivables Aging
 					</button>
 					<button type="button" id="deleteCustomer" class="btn btn-danger" style="display:none !important"></button>
 					<span id="bulkBarCustomer" class="crud-bulkbar" style="display:none;margin-left:10px">
@@ -710,6 +768,19 @@
 						<label class="control-label col-sm-2" for="purchaseInvoiceNo">Purchase Invoice #</label> 
 						<div class="col-sm-4">
 							<input type="text" placeholder="Purchase Invoice #" class="form-control" id="purchaseInvoiceNo" name="purchaseInvoiceNo"/>
+						</div>
+					</div>
+					<!-- F1 (AP): Vendor the purchase is billed from + how much was paid now. Blank paid = paid in full (cash); paid < total = on credit -> a vendor payable. Vendor needed only for a credit purchase. -->
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="purchaseVenderDD">Vendor</label>
+						<div class="col-sm-4">
+							<select class="form-control selectpicker" id="purchaseVenderDD" name="venderId" data-live-search="true" title="Cash purchase (no vendor)">
+								<option value="">Nothing Selected</option>
+							</select>
+						</div>
+						<label class="control-label col-sm-2" for="purchasePaid">Amount Paid</label>
+						<div class="col-sm-4">
+							<input type="number" step="any" min="0" class="form-control" id="purchasePaid" name="paidAmount" placeholder="Blank = paid in full (cash)"/>
 						</div>
 					</div>
 					<div class="form-group">

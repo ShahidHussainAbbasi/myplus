@@ -59,6 +59,11 @@ public class PurchaseDTO implements Serializable {
 
 	private BigDecimal netAmount;
 
+	// F1 (AP): the vendor the purchase is billed from + how much was paid at purchase time (defaults to net = cash).
+	private Long venderId;
+	private String venderName;
+	private BigDecimal paidAmount;
+
 	private Float purchaseExpense;
 
 	private String purchaseExpenseDesc;

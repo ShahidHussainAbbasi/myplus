@@ -1,0 +1,73 @@
+package com.myplus.business_service.controller;
+
+import com.myplus.business_service.service.FinanceReportService;
+import com.myplus.business_service.util.GenericResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+/**
+ * F2: AR/AP statements + aging reports (read-only). Aging is computed from the tenant's open docs; a statement
+ * merges the party's docs with the shared finance ledger. All reads are tenant-scoped inside FinanceReportService.
+ */
+@Controller
+public class FinanceReportController {
+
+    private final Logger LOGGER = LoggerFactory.getLogger(getClass());
+
+    @Autowired
+    private FinanceReportService reportService;
+
+    /** AR aging — outstanding per customer in 0–30/31–60/61–90/90+ buckets. */
+    @RequestMapping(value = "/customerAging", method = RequestMethod.GET)
+    @ResponseBody
+    public GenericResponse customerAging() {
+        try {
+            return new GenericResponse("SUCCESS", "Customer aging", reportService.customerAging());
+        } catch (Exception e) {
+            LOGGER.error(getClass().getName() + " > customerAging " + e.getMessage(), e);
+            return new GenericResponse("ERROR", "Could not load customer aging.");
+        }
+    }
+
+    /** AP aging — outstanding per vendor in 0–30/31–60/61–90/90+ buckets. */
+    @RequestMapping(value = "/vendorAging", method = RequestMethod.GET)
+    @ResponseBody
+    public GenericResponse vendorAging() {
+        try {
+            return new GenericResponse("SUCCESS", "Vendor aging", reportService.vendorAging());
+        } catch (Exception e) {
+            LOGGER.error(getClass().getName() + " > vendorAging " + e.getMessage(), e);
+            return new GenericResponse("ERROR", "Could not load vendor aging.");
+        }
+    }
+
+    /** AR statement of account for one customer (bills + receipts, running balance). */
+    @RequestMapping(value = "/customerStatement", method = RequestMethod.GET)
+    @ResponseBody
+    public GenericResponse customerStatement(@RequestParam("customerId") Long customerId) {
+        try {
+            return new GenericResponse("SUCCESS", "Customer statement", reportService.customerStatement(customerId));
+        } catch (Exception e) {
+            LOGGER.error(getClass().getName() + " > customerStatement " + e.getMessage(), e);
+            return new GenericResponse("FAILED", "Could not load the customer statement.");
+        }
+    }
+
+    /** AP statement of account for one vendor (bills + payments, running balance). */
+    @RequestMapping(value = "/vendorStatement", method = RequestMethod.GET)
+    @ResponseBody
+    public GenericResponse vendorStatement(@RequestParam("venderId") Long venderId) {
+        try {
+            return new GenericResponse("SUCCESS", "Vendor statement", reportService.vendorStatement(venderId));
+        } catch (Exception e) {
+            LOGGER.error(getClass().getName() + " > vendorStatement " + e.getMessage(), e);
+            return new GenericResponse("FAILED", "Could not load the vendor statement.");
+        }
+    }
+}
