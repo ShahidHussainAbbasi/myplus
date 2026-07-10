@@ -53,6 +53,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     IVenderService venderService;                                       // F1 (AP): refresh vendor payable on purchase
 
+    @Autowired(required = false)
+    com.myplus.commerce.contracts.client.FinanceClient financeClient;   // F3b: post the PURCHASE journal to the GL
+
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
@@ -238,6 +241,17 @@ public class PurchaseService implements IPurchaseService{
 				&& snap.getBsellRate().compareTo(java.math.BigDecimal.ZERO) > 0 && saved.getProductId() != null) {
 			try { catalogClient.updatePrice(saved.getProductId(), snap.getBsellRate()); }
 			catch (Exception ex) { LOG.warn("Option B: re-price on receive failed for product {} (purchase recorded)", saved.getProductId(), ex); }
+		}
+
+		// F3b: auto-post the purchase to the GL (Dr Inventory, Cr Cash(paid)/AP(rest)). Best-effort — never fail the purchase.
+		try {
+			if (financeClient != null) {
+				financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+						.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
+						.grandTotal(saved.getTotalAmount()).paidAmount(saved.getPaidAmount()).method("CASH").build());
+			}
+		} catch (Exception ex) {
+			LOG.warn("GL post failed for purchase {} (recorded; reconcile later)", saved.getPurchaseInvoiceNo(), ex);
 		}
 		return saved;
 	}

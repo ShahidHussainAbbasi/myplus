@@ -29,6 +29,8 @@ import java.util.List;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final PostingService postingService;   // F3b: auto-post the receipt/disbursement to the GL
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PaymentService.class);
 
     @Transactional
     public PaymentDTO record(RecordPaymentRequest req) {
@@ -63,7 +65,11 @@ public class PaymentService {
                         .build());
             }
         }
-        return toDTO(paymentRepository.save(p));
+        Payment saved = paymentRepository.save(p);
+        // F3b: auto-post the GL journal (best-effort — a GL hiccup must never fail recording the money).
+        try { postingService.postPayment(saved.getDirection().name(), saved.getAmount(), saved.getMethod()); }
+        catch (Exception ex) { LOG.warn("GL post failed for payment {} (recorded; reconcile later)", saved.getId(), ex); }
+        return toDTO(saved);
     }
 
     @Transactional(readOnly = true)

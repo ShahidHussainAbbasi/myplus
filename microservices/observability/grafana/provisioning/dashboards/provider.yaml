@@ -1,0 +1,13 @@
+# Auto-load dashboards shipped in the repo (json/ subfolder) so Grafana comes up with them provisioned.
+apiVersion: 1
+providers:
+  - name: myplus
+    orgId: 1
+    folder: MyPlus
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false

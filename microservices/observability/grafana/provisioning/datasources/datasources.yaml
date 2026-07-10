@@ -1,0 +1,44 @@
+# Auto-provisioned Grafana datasources (no manual clicking). Loki + Tempo, wired for
+# log<->trace correlation: a log line's trace_id links to its Tempo trace and back.
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      # OTLP maps the trace id into structured metadata `trace_id`; make it a clickable link to Tempo.
+      derivedFields:
+        - name: TraceID
+          matcherType: label
+          matcherRegex: trace_id
+          datasourceUid: tempo
+          url: "$${__value.raw}"
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    isDefault: true
+    jsonData:
+      # Jump from a span to the correlated logs in Loki.
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: true
+        filterBySpanID: false
+      nodeGraph:
+        enabled: true
+
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    jsonData:
+      # Metrics arrive via Prometheus' native OTLP receiver (pushed by the collector).
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo

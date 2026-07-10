@@ -1,0 +1,118 @@
+# =============================================================================
+# Self-hosted observability backend — Loki (logs) + Tempo (traces) + Grafana +
+# OTel Collector. Free, runs on the same VPS, secured (Grafana bound to
+# localhost only; collector/loki/tempo have NO host ports — reachable only on the
+# private myplus-net). Apps export OTLP to `otel-collector:4318`.
+#
+# ALWAYS layer this on top of the main compose so it shares myplus-net + project:
+#   docker compose -f docker-compose.yml -f observability/docker-compose.observability.yml up -d
+#
+# Relative paths below resolve from the project dir (this repo's `microservices/`).
+# =============================================================================
+
+# Anchors don't cross files, so re-declare the same rotation policy locally.
+x-obs-logging: &obs-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: myplus-loki
+    restart: unless-stopped
+    mem_limit: 512m
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    networks: [myplus-net]
+    logging: *obs-logging
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: myplus-tempo
+    restart: unless-stopped
+    mem_limit: 512m
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    volumes:
+      - ./observability/tempo-config.yaml:/etc/tempo/config.yaml:ro
+      - tempo-data:/var/tempo
+    networks: [myplus-net]
+    logging: *obs-logging
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: myplus-prometheus
+    restart: unless-stopped
+    mem_limit: 512m
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-otlp-receiver          # accept metrics pushed by the collector (no scrape targets)
+      - --storage.tsdb.retention.time=15d   # bound disk
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks: [myplus-net]
+    logging: *obs-logging
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.116.0
+    container_name: myplus-otel-collector
+    restart: unless-stopped
+    mem_limit: 256m
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    networks: [myplus-net]
+    depends_on: [loki, tempo, prometheus]
+    logging: *obs-logging
+    # No host ports on purpose: services reach it at otel-collector:4317/4318 on myplus-net only.
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: myplus-grafana
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      # Bound to localhost ONLY — never exposed to the internet. Reach it via SSH tunnel:
+      #   ssh -L 3000:localhost:3000 root@<vps>   then open http://localhost:3000
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    networks: [myplus-net]
+    depends_on: [loki, tempo, prometheus]
+    logging: *obs-logging
+
+  # Turn telemetry export ON for the app services — only when this overlay is layered in. In the base
+  # compose these have no OTEL_SDK_DISABLED, so config default (true) keeps them silent with no collector.
+  # (environment maps are merged, so this only adds the flag; it doesn't clobber existing env.)
+  api-gateway:       { environment: { OTEL_SDK_DISABLED: "false" } }
+  auth-service:      { environment: { OTEL_SDK_DISABLED: "false" } }
+  notification-service: { environment: { OTEL_SDK_DISABLED: "false" } }
+  catalog-service:   { environment: { OTEL_SDK_DISABLED: "false" } }
+  inventory-service: { environment: { OTEL_SDK_DISABLED: "false" } }
+  business-service:  { environment: { OTEL_SDK_DISABLED: "false" } }
+  finance-service:   { environment: { OTEL_SDK_DISABLED: "false" } }
+  education-service: { environment: { OTEL_SDK_DISABLED: "false" } }
+  welfare-service:   { environment: { OTEL_SDK_DISABLED: "false" } }
+  agriculture-service: { environment: { OTEL_SDK_DISABLED: "false" } }
+  pharma-service:    { environment: { OTEL_SDK_DISABLED: "false" } }
+  marketplace-service: { environment: { OTEL_SDK_DISABLED: "false" } }
+  campaign-service:  { environment: { OTEL_SDK_DISABLED: "false" } }
+  analytics-service: { environment: { OTEL_SDK_DISABLED: "false" } }
+  appointment-service: { environment: { OTEL_SDK_DISABLED: "false" } }
+  monolith:          { environment: { OTEL_SDK_DISABLED: "false" } }
+
+volumes:
+  loki-data:
+  tempo-data:
+  prometheus-data:
+  grafana-data:

@@ -1,6 +1,16 @@
 # Observability — OpenTelemetry + Grafana (Loki / Tempo / Prometheus) — Design
 
-**Status:** Design (pre-implementation) · **Branch:** TBD (`feature/observability`) · **Scope:** platform-wide (all microservices + monolith) · **Cadence:** 5 slices, each Document → Design → Implement → Test-gated.
+**Status:** Implementing — self-hosted backend + Spring-native traces/logs instrumentation + **per-tenant
+baggage/MDC + monolith + metrics** landed (see [`../observability/`](../observability/)). Pending: gateway
+(reactive) baggage. · **Scope:** all microservices + monolith · **Cadence:** slices, Test-gated.
+
+> **Implementation notes / deviations from the original plan (all deliberate):**
+> - **Instrumentation:** used `opentelemetry-spring-boot-starter` (non-agent) rather than the raw
+>   `micrometer-tracing-bridge-otel`, because the starter also exports **logs** over OTLP with no manual
+>   SDK wiring — one dep in `service-parent` + `api-gateway`, config served centrally (`otel.*`).
+> - **Backend:** **self-hosted** Loki+Tempo+Grafana+Collector on the 16 GB VPS (free, data stays local),
+>   not Grafana Cloud. Grafana is localhost-bound (SSH tunnel) so it's secure with no public port/TLS cost.
+> - **Scope now:** Logs + Traces (metrics deferred → `otel.metrics.exporter: none`).
 
 > Cross-cutting standard, so this doc lives in `microservices/docs/` next to
 > [`ARCHITECTURE-MULTITENANCY.md`](ARCHITECTURE-MULTITENANCY.md) rather than in `docs/slices/`.
@@ -213,15 +223,11 @@ sequenceDiagram
 
 ## 4. Implement (checklist — one slice per group, Test-gated between)
 
-**Slice O1 — Metrics endpoints (quick win)**
-- [ ] Add `micrometer-registry-prometheus` to the shared parent/BOM.
-- [ ] Confirm `/actuator/prometheus` materialises on every service (was a no-op).
-- [ ] Keep `prometheus`/`metrics` internal-only; `health` for probes.
-
-**Slice O2 — OTel Collector + metrics scrape**
-- [ ] Add `otel-collector` service to `microservices/docker-compose.yml` (config file, `myplus-net`, mem_limit 256m).
-- [ ] Collector scrapes `/actuator/prometheus` for all services; remote_write to backend (Grafana Cloud token in `.env`).
-- [ ] One Grafana dashboard: RED per service + gateway.
+**Slice O1+O2 — Metrics (implemented as OTLP push, not scrape)**
+- [x] **Deviation:** instead of `micrometer-registry-prometheus` + Prometheus *scraping* `/actuator/prometheus` (which would need actuator-exposure changes across 15 services + the gateway), metrics are **pushed over OTLP** — the same path as logs/traces. Flipped `otel.metrics.exporter: otlp` (central config + monolith).
+- [x] Collector gains a `metrics` pipeline exporting via `otlphttp` to Prometheus' **native OTLP receiver** (`--web.enable-otlp-receiver`) — one code path, no scrape-target list, no per-service exposure/security changes.
+- [x] `prometheus` container added to the overlay (15-day retention, `promote_resource_attributes: service.name`) + Grafana Prometheus datasource + a provisioned **RED + JVM** dashboard (`MyPlus — Services (OTLP)`).
+- [x] Inherits the off-by-default `otel.sdk.disabled` toggle, so metrics export only when the overlay is layered.
 
 **Slice O3 — Structured logs → Loki**
 - [ ] `logback-spring.xml` JSON console encoder (services + monolith); MDC fields `traceId,spanId,org_id,user_id`.
@@ -229,10 +235,11 @@ sequenceDiagram
 - [ ] Verify a log line is queryable by `org_id` in Grafana.
 
 **Slice O4 — Tracing + tenant baggage**
-- [ ] Add `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`; OTLP + sampling config in central `application.yml`.
-- [ ] `TenantObservationFilter` in `common-security`/`common-web` (baggage + MDC), auto-configured.
-- [ ] `remote-fields: org_id,user_id` so baggage crosses hops.
-- [ ] Monolith mirrors OTLP config in its own properties.
+- [x] Instrumentation via `opentelemetry-spring-boot-starter` (traces + logs OTLP); OTLP + sampling config in central `application.yml`. *(Used the starter instead of `micrometer-tracing-bridge-otel` — it exports logs too.)*
+- [x] `TenantTelemetryFilter` in `common-security` (span attrs + baggage + MDC), auto-configured for every servlet service; unit-tested.
+- [x] Baggage crosses hops via the `baggage` propagator (`otel.propagators: tracecontext,baggage`); MDC keys captured into logs (`otel.instrumentation.logback-appender...capture-mdc-attributes`).
+- [x] Monolith instrumented with its own starter (repo-root pom) + `otel.*` in `application.properties`; `MonolithTelemetryFilter` stamps `user_id` (roots the trace, propagates to the gateway).
+- [ ] Gateway (reactive) sets baggage via a `WebFilter` so the trace root carries tenant attrs (pending; services already stamp from the forwarded `X-Org-Id`).
 
 **Slice O5 — Backend, dashboards, alerts**
 - [ ] Grafana Cloud datasources (Loki/Tempo/Prometheus) + trace↔log correlation.

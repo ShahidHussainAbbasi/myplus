@@ -15,6 +15,10 @@
   <dependencies>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId><scope>provided</scope></dependency>
+    <!-- OpenTelemetry API for the tenant-telemetry filter (span attrs + baggage). 'provided': every
+         instrumented consumer supplies it via opentelemetry-spring-boot-starter; API calls are safe
+         no-ops when no SDK is present, so uninstrumented consumers still work. -->
+    <dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-api</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><optional>true</optional></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
   </dependencies>

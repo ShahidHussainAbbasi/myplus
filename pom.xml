@@ -27,6 +27,16 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+			<!-- OpenTelemetry Spring Boot starter (traces + logs over OTLP), non-agent. Keep the version
+			     in sync with microservices/pom.xml's opentelemetry-instrumentation.version; bump if the
+			     build can't resolve the starter for this Spring Boot line. -->
+			<dependency>
+				<groupId>io.opentelemetry.instrumentation</groupId>
+				<artifactId>opentelemetry-instrumentation-bom</artifactId>
+				<version>2.11.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
@@ -35,6 +45,13 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
+		<!-- Observability: the monolith is the browser-facing trace root; exports traces + logs over
+		     OTLP to the collector. Non-agent; version from opentelemetry-instrumentation-bom above. -->
+		<dependency>
+			<groupId>io.opentelemetry.instrumentation</groupId>
+			<artifactId>opentelemetry-spring-boot-starter</artifactId>
 		</dependency>
 
 

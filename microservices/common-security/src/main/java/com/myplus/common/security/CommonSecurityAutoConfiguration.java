@@ -24,6 +24,16 @@ public class CommonSecurityAutoConfiguration {
     }
 
     /**
+     * Stamps tenant/user identity (X-Org-Id / X-User-Id) onto logs (MDC), the current span, and
+     * OpenTelemetry baggage so telemetry is filterable per tenant. No-op when no OTel SDK is present.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public TenantTelemetryFilter tenantTelemetryFilter() {
+        return new TenantTelemetryFilter();
+    }
+
+    /**
      * Server-side XSS input sanitization (defense-in-depth). Auto-registered for every servlet
      * service on the classpath; a service may override by defining its own bean.
      */

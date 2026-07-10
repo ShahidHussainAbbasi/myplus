@@ -46,6 +46,11 @@ gateway:
 service:
   internal-secret: ${INTERNAL_SECRET}
 
+# Observability: sample 10% of traces in prod (bounds CPU/export/disk); raise via TRACE_SAMPLE.
+otel:
+  traces:
+    sampler-arg: ${TRACE_SAMPLE:0.1}
+
 # F11: no SQL / bound-parameter logging in prod (it leaks PII / credential material).
 # Root drops to WARN in prod to cut log volume/disk on the VPS (framework INFO chatter is silenced);
 # our own app package + Flyway stay at INFO so service logs and schema migrations remain auditable on

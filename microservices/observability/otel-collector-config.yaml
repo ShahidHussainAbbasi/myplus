@@ -1,0 +1,51 @@
+# OpenTelemetry Collector — single ingress for all app telemetry.
+# Services export OTLP -> this collector -> Loki (logs) + Tempo (traces).
+# Core distro only (otel/opentelemetry-collector): otlp receiver + batch/memory_limiter + otlp/otlphttp exporters.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Guard the collector's own memory footprint on the shared VPS.
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 75
+    spike_limit_percentage: 20
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+exporters:
+  # Loki 3.x native OTLP log ingest — otlphttp appends /v1/logs -> /otlp/v1/logs
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+  # Tempo OTLP trace ingest (gRPC)
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  # Prometheus native OTLP ingest — otlphttp appends /v1/metrics -> /api/v1/otlp/v1/metrics
+  otlphttp/prometheus:
+    endpoint: http://prometheus:9090/api/v1/otlp
+
+service:
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/loki]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/prometheus]

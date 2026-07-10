@@ -24,6 +24,10 @@
     <modelmapper.version>3.2.0</modelmapper.version>
     <poi.version>5.4.0</poi.version>
     <mysql.version>9.1.0</mysql.version>
+    <!-- OpenTelemetry Spring Boot starter (traces + logs export via OTLP), non-agent. Bump to the
+         latest tag compatible with this Spring Boot line if the build complains:
+         https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases -->
+    <opentelemetry-instrumentation.version>2.11.0</opentelemetry-instrumentation.version>
   </properties>
 
   <modules>
@@ -60,6 +64,13 @@
         <groupId>org.springframework.cloud</groupId>
         <artifactId>spring-cloud-dependencies</artifactId>
         <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry.instrumentation</groupId>
+        <artifactId>opentelemetry-instrumentation-bom</artifactId>
+        <version>${opentelemetry-instrumentation.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>

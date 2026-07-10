@@ -59,6 +59,38 @@ management:
     health:
       show-details: always
 
+# OpenTelemetry (opentelemetry-spring-boot-starter). Exports traces + logs over OTLP to the
+# self-hosted collector on myplus-net. Service name defaults to spring.application.name. Metrics
+# are OFF for now (logs+traces scope). Sampling defaults to 100% here so dev/test sees every trace;
+# application-prod.yml lowers it. Override the endpoint per-env with OTLP_ENDPOINT.
+otel:
+  # OFF by default so the base stack (no observability overlay) makes NO export attempts and never
+  # spams "UnknownHostException: otel-collector". The observability compose overlay sets
+  # OTEL_SDK_DISABLED=false on each app service to turn it on. Resolved on the client against its env.
+  sdk:
+    disabled: ${OTEL_SDK_DISABLED:true}
+  service:
+    name: ${spring.application.name}
+  exporter:
+    otlp:
+      endpoint: ${OTLP_ENDPOINT:http://otel-collector:4318}
+      protocol: http/protobuf
+  traces:
+    exporter: otlp
+    sampler: parentbased_traceidratio
+    sampler-arg: ${TRACE_SAMPLE:1.0}
+  logs:
+    exporter: otlp
+  metrics:
+    exporter: otlp
+  propagators: tracecontext,baggage
+  # Capture the tenant MDC keys (set by TenantTelemetryFilter) into exported log records so logs are
+  # filterable per tenant in Loki. trace_id/span_id are added automatically by the appender.
+  instrumentation:
+    logback-appender:
+      experimental:
+        capture-mdc-attributes: org_id,user_id
+
 jwt:
   secret: ${JWT_SECRET:dev-only-insecure-change-me-jwt-secret-min-32-bytes-padding}
   access-token-expiration-ms: 900000

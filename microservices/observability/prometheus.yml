@@ -1,0 +1,11 @@
+# Prometheus receives metrics via its native OTLP receiver (push from the OTel Collector) — no scrape
+# targets to maintain. Enabled with the --web.enable-otlp-receiver flag (see the compose command).
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+# Promote OTLP resource attributes to labels so metrics are grouped per service in Grafana.
+otlp:
+  promote_resource_attributes:
+    - service.name
+    - service.namespace

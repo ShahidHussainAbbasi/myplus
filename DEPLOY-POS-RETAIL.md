@@ -226,6 +226,8 @@ MAIL_PASSWORD=<gmail app password>              # empty = verification e-mail ne
 APP_BASE_URL=https://maxtheservice.com          # nginx proxies /api/ here -> gateway -> auth-service (§4.8)
 RESET_PASSWORD_URL=https://maxtheservice.com/user/changePassword
 RECAPTCHA_SECRET=<your key or empty>
+# --- observability (only if you run the LGTM overlay; Grafana is localhost-bound but set it anyway) ---
+GRAFANA_PASSWORD=<strong-random-password>       # REQUIRED for observability; UNSET => Grafana admin/admin
 ```
 
 > Never commit real secrets. `.env` is git-ignored.
@@ -333,6 +335,14 @@ Once stable, build once and pull on the VPS instead of compiling there:
 - [ ] `DDL_AUTO=validate` once Flyway baselines exist (first prod boot may use `update`).
 - [ ] Regular `mysql-data` volume backups (§6).
 - [ ] Rotate the Gmail app password / reCAPTCHA keys out of any committed history.
+- [ ] **Observability (if running the LGTM overlay):** set a strong `GRAFANA_PASSWORD` (unset ⇒
+      `admin`/`admin`). Grafana is bound to `127.0.0.1:3000` only — reach it via SSH tunnel
+      (`ssh -L 3000:localhost:3000 root@<vps>`); do **not** add a `ufw allow 3000` rule, and if you
+      front it with nginx add HTTP basic-auth + TLS. Loki/Tempo/Prometheus/Collector have **no** host
+      ports (private `myplus-net`).
+- [ ] Treat telemetry as sensitive: app logs/traces may carry PII/tenant data — they live only in the
+      internal Loki/Tempo/Prometheus with 7d/3d/15d retention. Ensure the app never logs secrets/JWTs,
+      and keep the observability images updated for CVEs.
 
 ---
 

@@ -23,5 +23,12 @@
       <artifactId>common-service</artifactId>
       <version>1.0.0-SNAPSHOT</version>
     </dependency>
+    <!-- Observability: exports traces + logs over OTLP to the collector. Non-agent (no per-JVM
+         javaagent); version managed by opentelemetry-instrumentation-bom in the root pom. Config
+         (endpoint, sampling, exporters) is served centrally by config-server (otel.* keys). -->
+    <dependency>
+      <groupId>io.opentelemetry.instrumentation</groupId>
+      <artifactId>opentelemetry-spring-boot-starter</artifactId>
+    </dependency>
   </dependencies>
 </project>

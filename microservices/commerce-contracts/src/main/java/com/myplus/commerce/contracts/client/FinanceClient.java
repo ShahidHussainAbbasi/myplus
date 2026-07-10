@@ -26,4 +26,8 @@ public interface FinanceClient {
     /** A party's ledger payments (newest first) — for F2 statements of account. Tenant-scoped in finance-service. */
     @GetExchange("/payments")
     List<PaymentView> listPayments(@RequestParam("partyType") String partyType, @RequestParam("partyId") Long partyId);
+
+    /** F3b: post a SALE/PURCHASE event to the General Ledger (finance-service applies the posting rules). Best-effort. */
+    @PostExchange("/gl/post-event")
+    void postEvent(@RequestBody com.myplus.commerce.contracts.dto.PostingEventRequest request);
 }
