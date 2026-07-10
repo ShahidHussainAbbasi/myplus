@@ -62,4 +62,27 @@ public class GlController {
             return finance.get("/gl/accounts/" + (id == null ? "" : id) + "/ledger");
         } catch (Exception e) { LOGGER.error("gl accountLedger proxy error", e); return "{\"status\":\"ERROR\"}"; }
     }
+
+    /** F3c — Profit & Loss. */
+    @GetMapping(value = "/gl/pnl", produces = "application/json")
+    @ResponseBody
+    public String pnl(final HttpServletRequest request) {
+        try {
+            String from = request.getParameter("from"), to = request.getParameter("to");
+            String q = null;
+            if (from != null && !from.isEmpty()) q = "from=" + from;
+            if (to != null && !to.isEmpty()) q = (q == null ? "" : q + "&") + "to=" + to;
+            return finance.get("/gl/pnl", q);
+        } catch (Exception e) { LOGGER.error("gl pnl proxy error", e); return "{\"status\":\"ERROR\"}"; }
+    }
+
+    /** F3c — Balance Sheet. */
+    @GetMapping(value = "/gl/balanceSheet", produces = "application/json")
+    @ResponseBody
+    public String balanceSheet(final HttpServletRequest request) {
+        try {
+            String asOf = request.getParameter("asOf");
+            return finance.get("/gl/balance-sheet", asOf != null && !asOf.isEmpty() ? "asOf=" + asOf : null);
+        } catch (Exception e) { LOGGER.error("gl balanceSheet proxy error", e); return "{\"status\":\"ERROR\"}"; }
+    }
 }

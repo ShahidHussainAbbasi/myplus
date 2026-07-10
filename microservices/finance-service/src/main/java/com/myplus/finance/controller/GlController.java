@@ -68,4 +68,19 @@ public class GlController {
     public List<Map<String, Object>> ledger(@PathVariable("id") Long accountId) {
         return glService.accountLedger(accountId);
     }
+
+    /** F3c — Profit & Loss over a period (defaults: this month → today). */
+    @GetMapping("/pnl")
+    public Map<String, Object> pnl(
+            @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return glService.profitAndLoss(from, to);
+    }
+
+    /** F3c — Balance Sheet as-of a date (default today). */
+    @GetMapping("/balance-sheet")
+    public Map<String, Object> balanceSheet(
+            @RequestParam(value = "asOf", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
+        return glService.balanceSheet(asOf);
+    }
 }

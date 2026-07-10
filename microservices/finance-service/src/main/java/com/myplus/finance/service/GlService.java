@@ -184,6 +184,78 @@ public class GlService {
         return out;
     }
 
+    /** F3c — Profit & Loss over [from, to]: income (credit − debit) − expense (debit − credit) = net profit. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> profitAndLoss(LocalDate from, LocalDate to) {
+        Long org = CurrentUser.organizationId();
+        LocalDate f = from != null ? from : LocalDate.now().withDayOfMonth(1);
+        LocalDate t = to != null ? to : LocalDate.now();
+        Map<Long, Account> byId = accountsById(org);
+        List<Map<String, Object>> income = new ArrayList<>(), expense = new ArrayList<>();
+        BigDecimal totalIncome = BigDecimal.ZERO, totalExpense = BigDecimal.ZERO;
+        for (Object[] r : journalLineRepository.sumByAccountInRange(org, f, t)) {
+            Account a = byId.get((Long) r[0]);
+            if (a == null) continue;
+            BigDecimal debit = nz((BigDecimal) r[1]), credit = nz((BigDecimal) r[2]);
+            if (a.getType() == AccountType.INCOME) {
+                BigDecimal amt = credit.subtract(debit);
+                if (amt.signum() != 0) { income.add(line(a, amt)); totalIncome = totalIncome.add(amt); }
+            } else if (a.getType() == AccountType.EXPENSE) {
+                BigDecimal amt = debit.subtract(credit);
+                if (amt.signum() != 0) { expense.add(line(a, amt)); totalExpense = totalExpense.add(amt); }
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("from", f); out.put("to", t);
+        out.put("income", income); out.put("expense", expense);
+        out.put("totalIncome", totalIncome); out.put("totalExpense", totalExpense);
+        out.put("netProfit", totalIncome.subtract(totalExpense));
+        return out;
+    }
+
+    /** F3c — Balance Sheet as-of a date: assets = liabilities + equity (+ current net income, until it's closed). */
+    @Transactional(readOnly = true)
+    public Map<String, Object> balanceSheet(LocalDate asOf) {
+        Long org = CurrentUser.organizationId();
+        LocalDate d = asOf != null ? asOf : LocalDate.now();
+        Map<Long, Account> byId = accountsById(org);
+        List<Map<String, Object>> assets = new ArrayList<>(), liabilities = new ArrayList<>(), equity = new ArrayList<>();
+        BigDecimal totalAssets = BigDecimal.ZERO, totalLiab = BigDecimal.ZERO, totalEquity = BigDecimal.ZERO, netIncome = BigDecimal.ZERO;
+        for (Object[] r : journalLineRepository.trialBalance(org, d)) {
+            Account a = byId.get((Long) r[0]);
+            if (a == null) continue;
+            BigDecimal net = nz((BigDecimal) r[1]).subtract(nz((BigDecimal) r[2]));   // debit − credit
+            switch (a.getType()) {
+                case ASSET -> { if (net.signum() != 0) { assets.add(line(a, net)); totalAssets = totalAssets.add(net); } }
+                case LIABILITY -> { BigDecimal b = net.negate(); if (b.signum() != 0) { liabilities.add(line(a, b)); totalLiab = totalLiab.add(b); } }
+                case EQUITY -> { BigDecimal b = net.negate(); if (b.signum() != 0) { equity.add(line(a, b)); totalEquity = totalEquity.add(b); } }
+                case INCOME, EXPENSE -> netIncome = netIncome.add(net.negate());   // roll into retained earnings
+            }
+        }
+        BigDecimal equityWithIncome = totalEquity.add(netIncome);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("asOf", d);
+        out.put("assets", assets); out.put("liabilities", liabilities); out.put("equity", equity);
+        out.put("netIncome", netIncome);              // current-period net income (not yet closed to equity)
+        out.put("totalAssets", totalAssets);
+        out.put("totalLiabilities", totalLiab);
+        out.put("totalEquity", equityWithIncome);     // includes retained/current net income
+        out.put("balanced", totalAssets.compareTo(totalLiab.add(equityWithIncome)) == 0);   // the accounting equation
+        return out;
+    }
+
+    private Map<Long, Account> accountsById(Long org) {
+        Map<Long, Account> byId = new HashMap<>();
+        for (Account a : accountRepository.findByOrganizationIdOrderByCodeAsc(org)) byId.put(a.getId(), a);
+        return byId;
+    }
+
+    private Map<String, Object> line(Account a, BigDecimal amount) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("code", a.getCode()); m.put("name", a.getName()); m.put("type", a.getType().name()); m.put("amount", amount);
+        return m;
+    }
+
     private AccountDTO toDTO(Account a) {
         return AccountDTO.builder().id(a.getId()).code(a.getCode()).name(a.getName())
                 .type(a.getType().name()).normalSide(a.getNormalSide().name()).build();

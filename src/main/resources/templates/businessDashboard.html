@@ -607,6 +607,16 @@
 					<button type="button" class="btn btn-info" onclick="openAging('CUSTOMER')" title="Receivables aging report (F2)">
 						<span class="glyphicon glyphicon-time"></span> Receivables Aging
 					</button>
+					<!-- F3: General Ledger financial statements (org-wide) -->
+					<button type="button" class="btn btn-default" onclick="openTrialBalance()" title="Trial Balance (F3)">
+						<span class="glyphicon glyphicon-list"></span> Trial Balance
+					</button>
+					<button type="button" class="btn btn-default" onclick="openPnl()" title="Profit &amp; Loss (F3)">
+						<span class="glyphicon glyphicon-stats"></span> P&amp;L
+					</button>
+					<button type="button" class="btn btn-default" onclick="openBalanceSheet()" title="Balance Sheet (F3)">
+						<span class="glyphicon glyphicon-scale"></span> Balance Sheet
+					</button>
 					<button type="button" id="deleteCustomer" class="btn btn-danger" style="display:none !important"></button>
 					<span id="bulkBarCustomer" class="crud-bulkbar" style="display:none;margin-left:10px">
 						<span class="label label-info"><span class="bulk-count">0</span> selected</span>

@@ -13,10 +13,16 @@ import java.util.List;
 @Repository
 public interface JournalLineRepository extends JpaRepository<JournalLine, Long> {
 
-    /** Trial balance rows as {@code [accountId, Σdebit, Σcredit]} for entries dated on/before {@code asOf}. */
+    /** Trial balance / balance-sheet rows as {@code [accountId, Σdebit, Σcredit]} for entries dated on/before asOf. */
     @Query("SELECT jl.accountId, COALESCE(SUM(jl.debit),0), COALESCE(SUM(jl.credit),0) FROM JournalLine jl "
             + "WHERE jl.entry.organizationId = :orgId AND jl.entry.entryDate <= :asOf GROUP BY jl.accountId")
     List<Object[]> trialBalance(@Param("orgId") Long orgId, @Param("asOf") LocalDate asOf);
+
+    /** P&L rows as {@code [accountId, Σdebit, Σcredit]} for entries dated within [from, to] (period income/expense). */
+    @Query("SELECT jl.accountId, COALESCE(SUM(jl.debit),0), COALESCE(SUM(jl.credit),0) FROM JournalLine jl "
+            + "WHERE jl.entry.organizationId = :orgId AND jl.entry.entryDate >= :from AND jl.entry.entryDate <= :to "
+            + "GROUP BY jl.accountId")
+    List<Object[]> sumByAccountInRange(@Param("orgId") Long orgId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
     /** One account's lines oldest-first (entry fetched) for the GL detail with a running balance. */
     @Query("SELECT jl FROM JournalLine jl JOIN FETCH jl.entry e WHERE jl.accountId = :accountId "

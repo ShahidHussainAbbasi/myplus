@@ -1943,3 +1943,55 @@ function openAging(partyType){
 		document.getElementById('AgingDialogBody').innerHTML = h;
 	}, 'json').fail(function(){ document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load aging.</div>'; });
 }
+
+// F3c: GL financial statements — Trial Balance, P&L, Balance Sheet (org-wide, self-contained dialogs).
+function glFail(){ document.getElementById('GLDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load the report.</div>'; }
+
+function glSection(title, rows, total){
+	var h = '<h5 style="font-weight:700;margin:12px 0 4px">'+escHtml(title)+'</h5><table class="table table-condensed" style="width:100%"><tbody>';
+	(rows||[]).forEach(function(r){ h += '<tr><td>'+escHtml((r.code?r.code+' ':'')+(r.name||''))+'</td><td class="text-right">'+Number(r.amount||0).toFixed(2)+'</td></tr>'; });
+	h += '<tr><th class="text-right">Total '+escHtml(title)+'</th><th class="text-right">'+Number(total||0).toFixed(2)+'</th></tr></tbody></table>';
+	return h;
+}
+
+function openTrialBalance(){
+	buildFinanceDialog('GLDialog').style.display='flex';
+	document.getElementById('GLDialogTitle').textContent='Trial Balance';
+	document.getElementById('GLDialogBody').innerHTML='<div style="padding:8px">Loading…</div>';
+	$.get(serverContext+'/gl/trialBalance', function(resp){
+		var d=(typeof resp==='string')?JSON.parse(resp):resp; var rows=d.rows||[];
+		var h='<table class="table table-striped" style="width:100%"><thead><tr><th>Code</th><th>Account</th><th class="text-right">Debit</th><th class="text-right">Credit</th></tr></thead><tbody>';
+		rows.forEach(function(r){ h+='<tr><td>'+escHtml(r.code||'')+'</td><td>'+escHtml(r.name||'')+'</td><td class="text-right">'+Number(r.debit||0).toFixed(2)+'</td><td class="text-right">'+Number(r.credit||0).toFixed(2)+'</td></tr>'; });
+		h+='</tbody><tfoot><tr><th colspan="2" class="text-right">Total</th><th class="text-right">'+Number(d.totalDebit||0).toFixed(2)+'</th><th class="text-right">'+Number(d.totalCredit||0).toFixed(2)+'</th></tr></tfoot></table>';
+		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">'+(d.balanced?'Balanced ✓':'NOT balanced')+'</div>';
+		document.getElementById('GLDialogBody').innerHTML=h;
+	}, 'json').fail(glFail);
+}
+
+function openPnl(){
+	buildFinanceDialog('GLDialog').style.display='flex';
+	document.getElementById('GLDialogTitle').textContent='Profit & Loss';
+	document.getElementById('GLDialogBody').innerHTML='<div style="padding:8px">Loading…</div>';
+	$.get(serverContext+'/gl/pnl', function(resp){
+		var d=(typeof resp==='string')?JSON.parse(resp):resp;
+		var h=glSection('Income', d.income, d.totalIncome)+glSection('Expenses', d.expense, d.totalExpense);
+		var np=Number(d.netProfit||0);
+		h+='<div style="text-align:right;font-size:16px;font-weight:800;color:'+(np>=0?'#0f6e56':'#c0392b')+'">Net Profit: '+np.toFixed(2)+'</div>';
+		document.getElementById('GLDialogBody').innerHTML=h;
+	}, 'json').fail(glFail);
+}
+
+function openBalanceSheet(){
+	buildFinanceDialog('GLDialog').style.display='flex';
+	document.getElementById('GLDialogTitle').textContent='Balance Sheet';
+	document.getElementById('GLDialogBody').innerHTML='<div style="padding:8px">Loading…</div>';
+	$.get(serverContext+'/gl/balanceSheet', function(resp){
+		var d=(typeof resp==='string')?JSON.parse(resp):resp;
+		var h=glSection('Assets', d.assets, d.totalAssets)+glSection('Liabilities', d.liabilities, d.totalLiabilities);
+		var eq=(d.equity||[]).slice();
+		if(Number(d.netIncome||0)!==0) eq.push({code:'',name:'Net income (current period)',amount:d.netIncome});
+		h+=glSection('Equity', eq, d.totalEquity);
+		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">Assets '+Number(d.totalAssets||0).toFixed(2)+' = Liab + Equity '+(Number(d.totalLiabilities||0)+Number(d.totalEquity||0)).toFixed(2)+(d.balanced?' ✓':' — NOT balanced')+'</div>';
+		document.getElementById('GLDialogBody').innerHTML=h;
+	}, 'json').fail(glFail);
+}
