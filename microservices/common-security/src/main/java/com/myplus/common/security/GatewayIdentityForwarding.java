@@ -27,6 +27,18 @@ public final class GatewayIdentityForwarding {
     private static final ThreadLocal<Map<String, String>> RUN_AS = new ThreadLocal<>();
 
     /**
+     * The internal trust secret this service was configured with ({@code service.internal-secret}). {@link #runAs}
+     * stamps it as {@code X-Internal-Secret} so background/relay calls authenticate against a callee that ENFORCES
+     * the secret (a runAs call has no inbound request to copy it from). Configured once at startup by common-security.
+     */
+    private static volatile String internalSecret = "";
+
+    /** Set at startup from {@code service.internal-secret} (see CommonSecurityAutoConfiguration). */
+    public static void configureInternalSecret(String secret) {
+        internalSecret = (secret == null) ? "" : secret;
+    }
+
+    /**
      * Run {@code action} as the given tenant/user so outbound service calls inside it carry that identity
      * (the {@link #interceptor()} reads this override when there is no inbound request). For background jobs.
      */
@@ -34,6 +46,9 @@ public final class GatewayIdentityForwarding {
         Map<String, String> headers = new HashMap<>();
         if (userId != null) headers.put("X-User-Id", String.valueOf(userId));
         if (organizationId != null) headers.put("X-Org-Id", String.valueOf(organizationId));
+        // Carry the internal trust secret too, else a callee that enforces service.internal-secret rejects the
+        // secret-less runAs call with 401 (the inbound-request path forwards it, but runAs has no inbound request).
+        if (!internalSecret.isEmpty()) headers.put("X-Internal-Secret", internalSecret);
         RUN_AS.set(headers);
         try {
             action.run();

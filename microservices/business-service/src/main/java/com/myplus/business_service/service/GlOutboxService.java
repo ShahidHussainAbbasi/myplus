@@ -3,12 +3,13 @@ package com.myplus.business_service.service;
 import com.myplus.business_service.entity.GlOutbox;
 import com.myplus.business_service.repository.GlOutboxRepo;
 import com.myplus.business_service.service.gl.GlEventPublisher;
+import com.myplus.business_service.service.outbox.OutboxDelivery;
+import com.myplus.business_service.service.outbox.OutboxRelay;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.commerce.contracts.dto.PostingEventRequest;
 import com.myplus.common.security.AuthenticatedUser;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -19,21 +20,20 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Audit #4: reliable GL posting via a transactional outbox. {@link #enqueue} writes a PENDING row IN THE CALLER'S
  * TX (so if the sale/purchase/return/edit commits, the GL event is durable — never silently lost), then an
  * AFTER_COMMIT event listener delivers it immediately (books stay real-time). A {@link #flushPending @Scheduled}
- * relay re-drives anything still PENDING. The actual transport is behind the {@link GlEventPublisher} seam
- * (HTTP today; swappable to a broker later). Delivery only happens AFTER commit → no journal for a rolled-back
- * business change.
+ * relay re-drives anything still PENDING. The delivery state machine is the shared {@link OutboxRelay}; the transport
+ * is behind the {@link GlEventPublisher} seam (HTTP today; swappable to a broker later). Delivery only happens AFTER
+ * commit → no journal for a rolled-back business change.
  */
 @Service
 @RequiredArgsConstructor
 public class GlOutboxService {
-
-    private static final Logger LOG = LoggerFactory.getLogger(GlOutboxService.class);
-    private static final int MAX_ATTEMPTS = 20;
 
     /** Fired once an outbox row is enqueued; delivered after the caller's TX commits. */
     public record GlOutboxEvent(Long id) {}
@@ -42,6 +42,22 @@ public class GlOutboxService {
     private final RequestUtil requestUtil;
     private final ApplicationEventPublisher events;
     private final GlEventPublisher publisher;   // the GL transport seam (HTTP now; broker later)
+    private final OutboxRelay relay;            // shared delivery state machine
+
+    /** The GL transport strategy for the shared relay: deliver through the publisher seam. */
+    private OutboxDelivery<GlOutbox> channel;
+
+    @PostConstruct
+    void initChannel() {
+        channel = new OutboxDelivery<>() {
+            public String name() { return "GL"; }
+            public boolean available() { return publisher.isAvailable(); }
+            public Optional<GlOutbox> find(Long id) { return repo.findById(id); }
+            public List<GlOutbox> pending() { return repo.findTop100ByStatusOrderByIdAsc("PENDING"); }
+            public GlOutbox save(GlOutbox e) { return repo.save(e); }
+            public void send(GlOutbox e) { publisher.publish(toReq(e), e.getUserId(), e.getOrganizationId()); }
+        };
+    }
 
     /** Queue a GL posting event in the caller's transaction; delivered after commit + retried by the relay. */
     public void enqueue(PostingEventRequest req) {
@@ -74,33 +90,18 @@ public class GlOutboxService {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onEnqueued(GlOutboxEvent e) {
-        tryDeliver(e.id());
+        relay.deliver(channel, e.id());
     }
 
     /** Attempt to deliver one outbox row to finance-service (idempotent-ish: POSTED/FAILED rows are skipped). */
     public void tryDeliver(Long id) {
-        GlOutbox o = repo.findById(id).orElse(null);
-        if (o == null || "POSTED".equals(o.getStatus()) || "FAILED".equals(o.getStatus())) return;
-        if (!publisher.isAvailable()) return;
-        try {
-            publisher.publish(toReq(o), o.getUserId(), o.getOrganizationId());
-            o.setStatus("POSTED");
-            o.setUpdatedAt(LocalDateTime.now());
-            repo.save(o);
-        } catch (Exception ex) {
-            o.setAttempts((o.getAttempts() == null ? 0 : o.getAttempts()) + 1);
-            o.setLastError(String.valueOf(ex.getMessage()));
-            if (o.getAttempts() >= MAX_ATTEMPTS) o.setStatus("FAILED");   // dead-letter for manual review
-            o.setUpdatedAt(LocalDateTime.now());
-            repo.save(o);
-            LOG.warn("GL outbox delivery failed for event {} (attempt {}); will retry", id, o.getAttempts(), ex);
-        }
+        relay.deliver(channel, id);
     }
 
     /** Retry relay — re-drives undelivered GL events (mirrors SagaRecoveryRelay). */
     @Scheduled(fixedDelayString = "${gl.outbox.relay-delay-ms:30000}")
     public void flushPending() {
-        for (GlOutbox o : repo.findTop100ByStatusOrderByIdAsc("PENDING")) tryDeliver(o.getId());
+        relay.flush(channel);
     }
 
     private PostingEventRequest toReq(GlOutbox o) {

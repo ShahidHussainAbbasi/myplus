@@ -42,6 +42,9 @@ public class SagaSellService {
     @org.springframework.beans.factory.annotation.Autowired
     private GlOutboxService glOutboxService;   // #4: durable GL posting via the outbox (replaces direct FinanceClient)
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private AuditService auditService;   // #6: append-only audit trail
+
     /** @return the invoice number of the recorded sale. */
     public String addSell(CustomerHistoryDTO dto) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
@@ -114,6 +117,9 @@ public class SagaSellService {
         } catch (Exception ex) {
             LOG.warn("GL enqueue failed for sale {} (sale recorded)", ch.getInvoiceNo(), ex);
         }
+
+        // #6: append-only audit of the sale (who/when/what/ref/amount).
+        auditService.record("SALE", "INVOICE", ch.getInvoiceNo(), ch.getGrandTotal(), "items=" + lines.size());
         return ch.getInvoiceNo();
     }
 

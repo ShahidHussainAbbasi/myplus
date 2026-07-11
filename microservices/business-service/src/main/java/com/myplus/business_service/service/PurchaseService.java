@@ -59,6 +59,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     IdempotencyService idempotencyService;   // Audit #5: shared money-op dedup
 
+    @Autowired
+    AuditService auditService;   // Audit #6: append-only audit trail (via audit-service outbox)
+
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
@@ -273,6 +276,8 @@ public class PurchaseService implements IPurchaseService{
 
 		// Audit #5: record this purchase (atomic with the write) so a repeat with the same key replays the same bill.
 		idempotencyService.record(org, "addPurchase", idemKey, String.valueOf(saved.getPurchaseId()));
+		// Audit #6: append-only trail.
+		auditService.record("PURCHASE", "BILL", saved.getPurchaseInvoiceNo(), saved.getTotalAmount(), null);
 		return saved;
 	}
 
@@ -366,6 +371,7 @@ public class PurchaseService implements IPurchaseService{
 		} catch (Exception ex) {
 			LOG.warn("GL adjustment enqueue failed for purchase edit {} (edit applied)", saved.getPurchaseInvoiceNo(), ex);
 		}
+		auditService.record("PURCHASE_EDIT", "BILL", saved.getPurchaseInvoiceNo(), saved.getTotalAmount(), null);   // #6
 		return saved;
 	}
 
@@ -443,6 +449,8 @@ public class PurchaseService implements IPurchaseService{
 			LOG.warn("GL enqueue failed for purchase return {} (return applied)", p.getPurchaseInvoiceNo(), ex);
 		}
 
+		auditService.record("PURCHASE_RETURN", "BILL", p.getPurchaseInvoiceNo(), returnedValue, "qty=" + rq);   // #6
+
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);
 		out.put("returnedValue", returnedValue);
@@ -477,6 +485,8 @@ public class PurchaseService implements IPurchaseService{
 		voided.setVoidReason(reason);
 		voided.setUpdated(LocalDateTime.now());
 		purchaseRepo.save(voided);
+		auditService.record("VOID_PURCHASE", "BILL", voided.getPurchaseInvoiceNo(),
+				(java.math.BigDecimal) out.get("returnedValue"), reason);   // #6
 		return out;
 	}
 

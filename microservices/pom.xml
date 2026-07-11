@@ -47,6 +47,7 @@
     <module>inventory-service</module>
     <module>business-service</module>
     <module>finance-service</module>
+    <module>audit-service</module>
     <module>education-service</module>
     <module>welfare-service</module>
     <module>agriculture-service</module>

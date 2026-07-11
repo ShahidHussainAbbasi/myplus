@@ -36,6 +36,9 @@ public class VenderService implements IVenderService {
     @Autowired
     private IdempotencyService idempotencyService;   // Audit #5: shared money-op dedup
 
+    @Autowired
+    private AuditService auditService;   // Audit #6: append-only audit trail (via audit-service outbox)
+
     public static final String TOKEN_INVALID = "invalidToken";
     public static final String TOKEN_EXPIRED = "expired";
     public static final String TOKEN_VALID = "valid";
@@ -278,6 +281,8 @@ public class VenderService implements IVenderService {
 
 		// Audit #5: record this payment (atomic with the allocation) so a repeat with the same key replays it.
 		idempotencyService.record(org, "payVendor", idempotencyKey, outcome.voucherNo());
+		// Audit #6: append-only trail (atomic capture; delivered to audit-service after commit).
+		auditService.record("PAYMENT", "VENDOR", outcome.voucherNo(), amount, "vendor=" + vendor.getName());
 
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);

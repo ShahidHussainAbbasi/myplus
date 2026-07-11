@@ -1,5 +1,6 @@
 package com.myplus.common.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -22,6 +23,20 @@ public class CommonSecurityAutoConfiguration {
     public HeaderAuthFilter headerAuthFilter() {
         return new HeaderAuthFilter();
     }
+
+    /**
+     * Push this service's {@code service.internal-secret} into {@link GatewayIdentityForwarding} so background/relay
+     * calls (which have no inbound request to copy X-Internal-Secret from) still authenticate against callees that
+     * ENFORCE the secret. Returns a trivial marker bean; the side effect is the configuration.
+     */
+    @Bean
+    public GatewayForwardingSecret gatewayForwardingSecret(@Value("${service.internal-secret:}") String internalSecret) {
+        GatewayIdentityForwarding.configureInternalSecret(internalSecret);
+        return new GatewayForwardingSecret();
+    }
+
+    /** Marker for the {@link GatewayIdentityForwarding} internal-secret wiring. */
+    public static final class GatewayForwardingSecret {}
 
     /**
      * Stamps tenant/user identity (X-Org-Id / X-User-Id) onto logs (MDC), the current span, and

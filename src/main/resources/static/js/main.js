@@ -579,6 +579,10 @@ $(document).ready(function() {
 	  	// having below block on every switch to get it work
 		// Edit table click on row
 		$("#table" + tableV).on( 'click', 'tr', function (e) {
+			if (tableV == "Sell") {
+				return; // SF-8: a sale is a multi-line invoice — edit only via the per-row Edit button, not a stray click anywhere in the row.
+			} 
+
 			// Register-screen modal layer (opt-in: only when #<tableV>Modal exists). A checkbox click is a
 			// bulk-SELECT (update the action bar), NOT an edit — so multi-select works without opening a form.
 			var crudHasModal = $('#' + tableV + 'Modal').length > 0;

@@ -60,7 +60,10 @@ dispense-returns, e-commerce RMA, and education fee-reversals each rediscover th
   key deferred — server guard already protects it.)
 - **Void ≠ delete (MED):** ✅ **DONE** — hard-delete retired; `voidSell`/`voidPurchase` reverse inventory + AR/AP +
   GL and soft-stamp the document VOID (read-only). Dedicated `VOID_INVOICE` privilege deferred to #6.
-- **Immutable audit log (MED):** only `userId` stamped; no append-only who/when/what on money & stock events.
+- **Immutable audit log (MED):** ✅ **DONE** — standalone **audit-service** (own DB, append-only `audit_event`,
+  idempotent ingest, org-scoped reads) fed by business-service's **`audit_outbox`** (`AuditService`, atomic capture +
+  AFTER_COMMIT/relay delivery via `AuditClient`, the #4 outbox pattern). All 10 money/stock ops emit; dashboard Audit
+  Log view. Plug-and-play: finance/inventory adopt by adding the client + an outbox emit. Design `finance-audit-log-design.md`.
 - **Tax completeness (MED):** single per-product rate applied; no multi-rate, inclusive/exclusive per-org policy in
   all paths, or a **tax-filing (output/input tax) register** — needed for any real jurisdiction.
 - **Period close / lock (MED):** GL entries are editable-by-absence-of-lock; add a period close that freezes a range.
@@ -94,7 +97,8 @@ for free. Fixing them later means retrofitting every module + reconciling histor
 5. **Idempotency** — ✅ **DONE**: shared `IdempotencyService` + `idempotency_record` (V18) for
    receivePayment/payVendor/addPurchase (client key + submit-lock, replay = same result); GL `postEvent` deduped via
    outbox `event_key` + finance `gl_processed_event` (V3). Cypress `idempotency.cy.js`.
-6. **Immutable audit log** (money + stock events).
+6. **Immutable audit log** — ✅ **DONE**: standalone **audit-service** + business-service `audit_outbox` producer
+   (`AuditService`), all 10 money/stock ops emit, dashboard Audit Log view. Cypress `audit-log.cy.js`.
 7. Then polish: tax-filing register, period close, store-credit/loyalty, GRN/PO, barcode-first UX, cycle-count.
 
 > Each remains a slice: Document → Design → Implement (UI→API→DB) → mvn → headed Cypress → next.

@@ -127,6 +127,9 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;   // SF-11: return audit / credit-note
 
+	@Autowired
+	com.myplus.business_service.service.AuditService auditService;   // #6: append-only audit trail
+
 	@org.springframework.beans.factory.annotation.Autowired
 	com.myplus.business_service.service.GlOutboxService glOutboxService;   // #4: durable GL posting via the outbox
 
@@ -624,6 +627,7 @@ public class SellController {
 				LOGGER.warn(this.getClass().getName() + " > updateSell GL adjustment enqueue failed (edit applied)", glEx);
 			}
 
+			auditService.record("SALE_EDIT", "INVOICE", ch.getInvoiceNo(), nzbd(ch.getGrandTotal()), null);   // #6
 			return new GenericResponse("SUCCESS", "Sale updated. Invoice " + ch.getInvoiceNo(), ch.getInvoiceNo());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > updateSell " + e.getMessage(), e);
@@ -808,6 +812,7 @@ public class SellController {
 				LOGGER.warn(this.getClass().getName() + " > saleReturn GL reversal enqueue failed (return applied)", glEx);
 			}
 
+			auditService.record("SALE_RETURN", "INVOICE", retInvoiceNo, retSub.add(retTax), "qty=" + retQty);   // #6
 			return new GenericResponse("SUCCESS", "Sale returned successfully.");
 
 		} catch (Exception e) {
@@ -903,6 +908,7 @@ public class SellController {
 				LOGGER.warn(this.getClass().getName() + " > voidSell GL reversal enqueue failed (void applied)", glEx);
 			}
 
+			auditService.record("VOID_SALE", "INVOICE", ch.getInvoiceNo(), retSub.add(retTax), reason);   // #6
 			return new GenericResponse("SUCCESS", "Invoice voided.");
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > voidSell " + e.getCause(), e);
