@@ -1,11 +1,16 @@
 package com.myplus.finance.service;
 
+import com.myplus.common.security.CurrentUser;
 import com.myplus.finance.dto.JournalLineDTO;
 import com.myplus.finance.dto.JournalPostRequest;
 import com.myplus.finance.dto.PostEventRequest;
+import com.myplus.finance.entity.ProcessedEvent;
+import com.myplus.finance.repository.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,6 +29,7 @@ import java.util.List;
 public class PostingService {
 
     private final GlService glService;
+    private final ProcessedEventRepository processedEvents;   // Audit #5: idempotent GL posting
 
     // Default chart-of-accounts codes (see GlService.DEFAULT_COA).
     private static final String CASH = "1000", BANK = "1010", AR = "1100", INVENTORY = "1200",
@@ -49,6 +55,18 @@ public class PostingService {
     @Transactional
     public void postEvent(PostEventRequest req) {
         glService.ensureDefaults();   // the org's chart of accounts must exist (idempotent)
+
+        // Audit #5: idempotent posting — a duplicate outbox delivery (same event_key) is a no-op. Claim the key in
+        // this tx; a concurrent race hits the unique index → this tx rolls back → the outbox retries → the retry
+        // finds the claim and skips. (A SALE posts two journals under one key, so we dedup the event, not the journal.)
+        String eventKey = req.getEventKey();
+        if (eventKey != null && !eventKey.isBlank()) {
+            Long org = CurrentUser.organizationId();
+            if (processedEvents.existsByOrganizationIdAndEventKey(org, eventKey)) return;   // already posted
+            processedEvents.saveAndFlush(ProcessedEvent.builder()
+                    .organizationId(org).eventKey(eventKey).createdAt(LocalDateTime.now()).build());
+        }
+
         String type = req.getEventType();
         if ("SALE".equalsIgnoreCase(type)) postSale(req);
         else if ("PURCHASE".equalsIgnoreCase(type)) postPurchase(req);

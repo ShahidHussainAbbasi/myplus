@@ -41,6 +41,9 @@ public class CustomerService implements ICustomerService{
 	RequestUtil requestUtil;
 
 	@Autowired
+	IdempotencyService idempotencyService;   // Audit #5: shared money-op dedup
+
+	@Autowired
 	com.myplus.business_service.service.subledger.SubledgerService subledgerService;   // shared AR/AP settlement
 
 	// @Autowired
@@ -258,12 +261,34 @@ return customerRepo.exists(example);
 	@Override
 	@jakarta.transaction.Transactional
 	public java.util.Map<String, Object> receivePayment(Long customerId, java.math.BigDecimal amount, String method,
-			java.time.LocalDate paidOn, String reference) {
+			java.time.LocalDate paidOn, String reference, String idempotencyKey) {
 		if (customerId == null) throw new RuntimeException("customerId is required");
 		if (amount == null || amount.signum() <= 0) throw new RuntimeException("A positive amount is required");
 
 		Customer customer = this.findById(customerId)
 				.orElseThrow(() -> new RuntimeException("Customer not found: " + customerId));
+
+		// Audit #5: dedup a double-click/retry of this receipt. A prior submit with the same key returns the SAME
+		// receipt (no second allocation). Blank key (legacy) → guard disabled.
+		final Long org = customer.getOrganizationId();
+		if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+			java.util.Optional<String> prior = idempotencyService.find(org, "receivePayment", idempotencyKey);
+			if (prior.isPresent()) return replayPayment(prior.get());
+		}
+		return doReceivePayment(customer, customerId, amount, method, paidOn, reference, org, idempotencyKey);
+	}
+
+	/** A replay response for an already-recorded receipt (same receipt, no second charge). */
+	private java.util.Map<String, Object> replayPayment(String receiptNo) {
+		java.util.Map<String, Object> out = new java.util.HashMap<>();
+		out.put("success", true);
+		out.put("receiptNo", receiptNo);
+		out.put("replay", true);
+		return out;
+	}
+
+	private java.util.Map<String, Object> doReceivePayment(Customer customer, Long customerId, java.math.BigDecimal amount,
+			String method, java.time.LocalDate paidOn, String reference, Long org, String idempotencyKey) {
 
 		// The customer's still-owing invoices (oldest first) as generic OpenDocs for the shared allocator.
 		java.util.List<com.myplus.business_service.service.subledger.OpenDoc> docs = new java.util.ArrayList<>();
@@ -292,6 +317,9 @@ return customerRepo.exists(example);
 		com.myplus.business_service.service.subledger.SettleOutcome outcome = subledgerService.settle(
 				"RECEIPT", "CUSTOMER", customerId, customer.getName(), amount, method, paidOn, reference, "BUSINESS",
 				docs, () -> { this.recomputeDue(customer); return customer.getDueAmount(); });
+
+		// Audit #5: record this receipt (atomic with the allocation) so a repeat with the same key replays it.
+		idempotencyService.record(org, "receivePayment", idempotencyKey, outcome.voucherNo());
 
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);

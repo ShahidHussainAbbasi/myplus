@@ -15,6 +15,7 @@ import java.time.LocalDate;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class PostEventRequest {
     private String eventType;       // SALE | PURCHASE
+    private String eventKey;        // Audit #5: unique per-event id → dedup a duplicate delivery (idempotent GL)
     private LocalDate date;
     private String ref;
     private BigDecimal grandTotal;

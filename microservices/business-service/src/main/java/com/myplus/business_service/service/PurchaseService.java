@@ -56,6 +56,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     GlOutboxService glOutboxService;   // #4: durable GL posting via the outbox (replaces direct FinanceClient)
 
+    @Autowired
+    IdempotencyService idempotencyService;   // Audit #5: shared money-op dedup
+
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
@@ -198,6 +201,22 @@ public class PurchaseService implements IPurchaseService{
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		dto.setUserId(user.getUserId());
 
+		// Audit #5: dedup a double-click/retry of this purchase (same key → the SAME purchase, no second stock-in or payable).
+		final Long org = user.getOrganizationId();
+		final String idemKey = dto.getIdempotencyKey();
+		if (idemKey != null && !idemKey.isBlank()) {
+			java.util.Optional<String> prior = idempotencyService.find(org, "addPurchase", idemKey);
+			if (prior.isPresent()) return replayPurchase(prior.get());   // sequential double-submit → same bill
+		}
+		return doAddPurchase(dto, user, org, idemKey);
+	}
+
+	/** A replay for an already-recorded purchase (the same bill), by its stored purchaseId; null if not yet visible. */
+	private Purchase replayPurchase(String purchaseId) {
+		return purchaseId == null ? null : purchaseRepo.findById(Long.valueOf(purchaseId)).orElse(null);
+	}
+
+	private Purchase doAddPurchase(PurchaseDTO dto, AuthenticatedUser user, Long org, String idemKey) throws Exception {
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
@@ -251,6 +270,9 @@ public class PurchaseService implements IPurchaseService{
 		} catch (Exception ex) {
 			LOG.warn("GL enqueue failed for purchase {} (recorded)", saved.getPurchaseInvoiceNo(), ex);
 		}
+
+		// Audit #5: record this purchase (atomic with the write) so a repeat with the same key replays the same bill.
+		idempotencyService.record(org, "addPurchase", idemKey, String.valueOf(saved.getPurchaseId()));
 		return saved;
 	}
 
@@ -264,6 +286,8 @@ public class PurchaseService implements IPurchaseService{
 		Purchase existing = purchaseRepo.findById(dto.getPurchaseId())
 				.filter(p -> scopeMatches(p, user))
 				.orElseThrow(() -> new RuntimeException("Purchase not found: " + dto.getPurchaseId()));
+		if ("VOID".equals(existing.getStatus()))   // Audit #3: a voided bill is read-only
+			throw new RuntimeException("This bill is voided and cannot be edited.");
 
 		float oldQty = existing.getQuantity() != null ? existing.getQuantity() : 0f;
 		Long oldProductId = existing.getProductId();
@@ -367,6 +391,8 @@ public class PurchaseService implements IPurchaseService{
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		Purchase p = purchaseRepo.findById(purchaseId).filter(x -> scopeMatches(x, user))
 				.orElseThrow(() -> new RuntimeException("Purchase not found: " + purchaseId));
+		if ("VOID".equals(p.getStatus()))   // Audit #3: no returns against a voided bill
+			throw new RuntimeException("This bill is voided.");
 		float soldQty = p.getQuantity() != null ? p.getQuantity() : 0f;
 		float rq = returnQty != null ? returnQty : 0f;
 		if (rq <= 0f) throw new RuntimeException("Return quantity must be greater than 0.");
@@ -422,6 +448,35 @@ public class PurchaseService implements IPurchaseService{
 		out.put("returnedValue", returnedValue);
 		out.put("refund", refund);
 		out.put("newDue", p.getDueAmount());
+		return out;
+	}
+
+	/**
+	 * Audit #3: VOID a bill — the books-safe replacement for hard-delete. Reverses the full remaining quantity through
+	 * {@link #purchaseReturn} (stock-out + AP reconcile + GL PURCHASE_RETURN), then soft-stamps the row VOID (record +
+	 * history survive) and read-only. Runs in one @Transactional: if the stock reversal is rejected, nothing changes.
+	 */
+	@Override
+	@Transactional
+	public java.util.Map<String, Object> voidBill(Long purchaseId, String reason) {
+		AuthenticatedUser user = requestUtil.getCurrentUser();
+		Purchase p = purchaseRepo.findById(purchaseId).filter(x -> scopeMatches(x, user))
+				.orElseThrow(() -> new RuntimeException("Purchase not found: " + purchaseId));
+		if ("VOID".equals(p.getStatus()))
+			throw new RuntimeException("This bill is already voided.");
+		float qty = p.getQuantity() != null ? p.getQuantity() : 0f;
+		if (qty <= 0f)
+			throw new RuntimeException("Nothing to void on this bill.");
+
+		// Reuse the full reversal (stock + AP + GL) for the whole remaining quantity, then stamp VOID.
+		java.util.Map<String, Object> out = purchaseReturn(purchaseId, qty, reason);
+		Purchase voided = purchaseRepo.findById(purchaseId).orElse(p);
+		voided.setStatus("VOID");
+		voided.setVoidedBy(user != null ? user.getUserId() : null);
+		voided.setVoidedAt(LocalDateTime.now());
+		voided.setVoidReason(reason);
+		voided.setUpdated(LocalDateTime.now());
+		purchaseRepo.save(voided);
 		return out;
 	}
 

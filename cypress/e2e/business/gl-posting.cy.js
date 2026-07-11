@@ -9,11 +9,16 @@ describe('F3b — events auto-post to the General Ledger', () => {
   const parse = (b) => (typeof b === 'string' ? JSON.parse(b) : b)
   const tb = () => cy.request('/gl/trialBalance').then((r) => parse(r.body))
   const acct = (rows, code) => (rows || []).find((x) => x.code === code) || { debit: 0, credit: 0 }
+  // The trial balance NETS each account to one side, so an absolute "debit > 0" is brittle in a shared org where
+  // other tests (refunds, purchase returns) credit the same account. Assert the signed net (debit − credit) MOVES.
+  const net = (rows, code) => { const a = acct(rows, code); return Number(a.debit) - Number(a.credit) }
 
   it('a credit sale posts AR + Sales, then a receipt posts Cash − AR; balanced throughout', () => {
     cy.request({ method: 'POST', url: '/gl/ensureDefaults', failOnStatusCode: false })
     tb().then((before) => {
       const salesBefore = Number(acct(before.rows, '4000').credit)
+      const arBefore = net(before.rows, '1100')     // AR net before the credit sale
+      const cashBefore = net(before.rows, '1000')   // Cash net before the receipt (the sale is credit-only, no cash)
       const custName = 'GLB_' + Date.now()
       cy.seedProduct({ name: 'GLBP_' + Date.now(), sellingPrice: 100, stock: 5 }).then(({ productId }) => {
         cy.request({
@@ -29,7 +34,7 @@ describe('F3b — events auto-post to the General Ledger', () => {
           expect(afterSale.balanced, 'GL balanced after sale').to.eq(true)
           expect(Number(afterSale.totalDebit)).to.eq(Number(afterSale.totalCredit))
           expect(Number(acct(afterSale.rows, '4000').credit), 'Sales credit increased').to.be.greaterThan(salesBefore)
-          expect(Number(acct(afterSale.rows, '1100').debit), 'AR debit present (credit sale)').to.be.greaterThan(0)
+          expect(net(afterSale.rows, '1100'), 'AR increased by the credit sale').to.be.greaterThan(arBefore)
         })
 
         // receive the payment → the recordPayment hook posts Dr Cash / Cr AR
@@ -41,7 +46,7 @@ describe('F3b — events auto-post to the General Ledger', () => {
             .then((p) => expect(p.body.status).to.eq('SUCCESS'))
           tb().then((afterPay) => {
             expect(afterPay.balanced, 'GL balanced after receipt').to.eq(true)
-            expect(Number(acct(afterPay.rows, '1000').debit), 'Cash debit present after receipt').to.be.greaterThan(0)
+            expect(net(afterPay.rows, '1000'), 'Cash increased by the receipt').to.be.greaterThan(cashBefore)
           })
         })
       })
@@ -51,7 +56,7 @@ describe('F3b — events auto-post to the General Ledger', () => {
   it('a purchase posts Inventory; trial balance stays balanced', () => {
     cy.request({ method: 'POST', url: '/gl/ensureDefaults', failOnStatusCode: false })
     tb().then((before) => {
-      const invBefore = Number(acct(before.rows, '1200').debit)
+      const invBefore = net(before.rows, '1200')   // Inventory net before the purchase (returns credit it elsewhere)
       const stamp = Date.now()
       cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name: 'GLPCo_' + stamp, email: `glpco${stamp}@t.com` } })
       cy.request('/getUserCompany').then((cr) => {
@@ -69,7 +74,7 @@ describe('F3b — events auto-post to the General Ledger', () => {
             tb().then((after) => {
               expect(after.balanced, 'GL balanced after purchase').to.eq(true)
               expect(Number(after.totalDebit)).to.eq(Number(after.totalCredit))
-              expect(Number(acct(after.rows, '1200').debit), 'Inventory debit increased').to.be.greaterThan(invBefore)
+              expect(net(after.rows, '1200'), 'Inventory increased by the purchase').to.be.greaterThan(invBefore)
             })
           })
         })

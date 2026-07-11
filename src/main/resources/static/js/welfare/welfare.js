@@ -8,38 +8,8 @@ var formValidated = true;
 var form=null;
 var formFields = 0;
 
-function resetGlobalError(){
-    $(".alert").html("").hide();
-    $(".error-list").html("");	
-}
-
-function resetForm(){
-	//Reset error Form's error classes and values
-	form = document.getElementsByClassName('form-horizontal')[tableV];
-	formFields = form.length-2;//-2 mean we don't need to loop over buttons (Add & Delete)
-	for(var i=0; i<formFields; i++){
-		$("#"+form[i].id).removeClass("alert-danger");
-	}
-	$(".form-control").val("");
-}
-
-function validateForm(){
-    formValidated = true;
-    var form = document.getElementsByClassName('form-horizontal')[tableV];
-    formFields = form.length-2;//2 is the number of button (add & delete)
-    if (form.checkValidity() === false) {
-      event.preventDefault();
-      event.stopPropagation();
-      // Loop over them and prevent submission
-      for(var i=0; i<formFields; i++){
-    	  if(form[i].validity.valid)
-    		  $("#"+form[i].id).removeClass("alert-danger");
-    	  else
-    		  $("#"+form[i].id).addClass("alert-danger");
-      }
-      formValidated = false;
-    }
-}
+// resetGlobalError / resetForm / validateForm / editRecord are SHARED helpers — defined once in main.js.
+// (Removed the welfare duplicates to satisfy DRY: same function must not live in two files.)
 
 $(document).ready(function() {
 /*	$switchInputs =function(val) {
@@ -171,37 +141,7 @@ const capitalize = (s) => {
   		return s.charAt(0).toUpperCase() + s.slice(1)
 }
 */
-function editRecord(doc){
-	for(var i=0; i<(formFields); i++){
-		if(doc.getElementById(form[i].id)){
-			console.log("form id");
-			var text = doc.getElementById(form[i].id).textContent;
-			if(form[i].tagName=="SELECT"){
-				var labels = text.split(",");
-				labels.forEach(function(entry) {
-					$("#"+form[i].id+" option").each(function(i) {
-						if(text.indexOf($(this).text()) > -1) {
-							$(this).prop('selected', true);
-							//document.getElementById(form[i].id).selectedIndex = i;
-						}else{
-							$(this).prop('selected', false);
-						}                      
-					});
-				});
-			}else{
-				$("#"+form[i].id).val(text);
-			}
-		}
-	}
-}
-/*
-function editRecord(doc){
-	for(var i=0; i<(formFields); i++){
-		if(doc.getElementById(form[i].id)!=null)
-			$("#"+form[i].id).val(doc.getElementById(form[i].id).textContent);
-	}
-}
-*/
+// editRecord is a SHARED helper defined in main.js (see note above). Welfare copy removed for DRY.
 function loadDataTable(){
 	//check if data table exist destroy it
 	if (datatable!=null){

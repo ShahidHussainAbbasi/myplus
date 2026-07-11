@@ -24,7 +24,7 @@ public interface ICustomerService extends org.springframework.data.jpa.repositor
      * onAccountCredit, newDue}.
      */
     java.util.Map<String, Object> receivePayment(Long customerId, java.math.BigDecimal amount, String method,
-            java.time.LocalDate paidOn, String reference);
+            java.time.LocalDate paidOn, String reference, String idempotencyKey);
 
     /** Tenant-scoped customers (own org + caller's pre-migration org-NULL rows). */
     List<Customer> findScoped(Long orgId, Long userId);

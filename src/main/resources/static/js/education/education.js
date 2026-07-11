@@ -822,14 +822,7 @@ function getUserStudentMap(){
 	
 }
 
-function getImgFromUrl(logo_url, callback) {
-    var img = new Image();
-   // var logo_url = serverContext+"resources/a.jpg";
-    img.src = logo_url;
-    img.onload = function () {
-        callback(img);
-    };
-} 
+// getImgFromUrl is a SHARED helper defined in main.js — education duplicate removed for DRY.
 
 /*function toDataURL(url, callback) {
 	var xhr = new XMLHttpRequest();
@@ -2856,8 +2849,9 @@ function sendAlert(e){
 	}).fail(function(){ alert("Could not send alert"); });
 }
 
-// Public-alert contacts CSV import (bound to the PADiv Import button onclick="return checkfile()").
-function checkfile(){
+// Public-alert contacts CSV import (bound to the PADiv Import button onclick="return paImportContacts()").
+// Renamed from checkfile() to avoid a name collision with main.js's checkfile(file) (DRY / no shadowing).
+function paImportContacts(){
 	var input = document.getElementById("csvFile");
 	if (!input || !input.files || input.files.length === 0) { alert("Choose a CSV file first"); return false; }
 	var fd = new FormData();

@@ -107,16 +107,13 @@ describe('Vender CRUD', () => {
   // ─── UPDATE ─────────────────────────────────────────────────────────────────
 
   it('clicks vender row — row is clickable without JS error', () => {
-    // NOTE: editRecord() relies on datatable.row(this).selector.rows.innerHTML which is
-    // not a valid DataTables API — the hidden #venderId field is never populated.
-    // This test only verifies the click fires without crashing the page.
+    // Edit is now triggered by the per-row "Edit" button (not a row click); the checkbox is delete-only.
     cy.get('#tableVender tbody tr').first().then(($row) => {
       if ($row.find('td').length > 0) {
-        // Re-query by index to avoid DataTable re-render detaching the cached reference
-        cy.get('#tableVender tbody tr').first().click()
-        cy.get('#VenderModal').should('have.class', 'open')   // row-click opens the edit modal
+        cy.get('#tableVender tbody tr').first().find('.js-edit-row').click()
+        cy.get('#VenderModal').should('have.class', 'open')   // Edit button opens the edit modal
       } else {
-        cy.log('No venders in table — row click test skipped')
+        cy.log('No venders in table — edit-button test skipped')
       }
     })
   })

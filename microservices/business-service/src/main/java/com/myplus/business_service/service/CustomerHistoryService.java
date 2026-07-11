@@ -109,6 +109,11 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 		return CustomerHistoryRepo.findById(id);
 	}
 
+	/** Audit #3: resolve an invoice by its per-org invoice number (used by Void when only the invoiceNo is known). */
+	public Optional<CustomerHistory> findByOrgAndInvoiceNo(Long organizationId, String invoiceNo) {
+		return CustomerHistoryRepo.findByOrganizationIdAndInvoiceNo(organizationId, invoiceNo);
+	}
+
 	public boolean existsById(Long id) {
 		return CustomerHistoryRepo.existsById(id);
 	}

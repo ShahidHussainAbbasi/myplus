@@ -143,10 +143,10 @@ describe('Customer CRUD', () => {
         cy.log('No customers in table — row-click test skipped')
         return
       }
-      // editRecord() uses doc.getElementById(formControl.id) — IDs in row HTML must
-      // match form control IDs (customerId, name, contact, email, address)
-      cy.wrap(dataRows.first()).click()
-      cy.get('#CustomerModal').should('have.class', 'open')   // row-click opens the edit modal
+      // Edit is triggered by the per-row "Edit" button now (checkbox is delete-only). editRecord() maps
+      // each form control id to the matching row cell div id (customerId, name, contact, email, address).
+      cy.wrap(dataRows.first()).find('.js-edit-row').click()
+      cy.get('#CustomerModal').should('have.class', 'open')   // Edit button opens the edit modal
       cy.get('#customerId').should('not.have.value', '')
       cy.get('#customerName').should('not.have.value', '')
     })

@@ -14,4 +14,9 @@ public interface SaleReturnRepo extends JpaRepository<SaleReturn, Long> {
 	@Query("select r from SaleReturn r where (r.organizationId = :orgId or (r.organizationId is null and r.userId = :userId)) "
 		+ "order by r.dated desc")
 	List<SaleReturn> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+	/** Audit #3: has any return already been recorded against this invoice? (void is blocked if so). */
+	@Query("select count(r) from SaleReturn r where r.invoiceNo = :invoiceNo "
+		+ "and (r.organizationId = :orgId or (r.organizationId is null and r.userId = :userId))")
+	long countByInvoiceScoped(@Param("invoiceNo") String invoiceNo, @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

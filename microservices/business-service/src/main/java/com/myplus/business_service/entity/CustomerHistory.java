@@ -114,6 +114,17 @@ public class CustomerHistory implements Serializable {
     @Column(name = "saga_status")
     private String sagaStatus;            // PENDING | CONFIRMED | FAILED
 
+    // Audit #3 (void/cancel): document lifecycle. ACTIVE by default; a void reverses stock/AR/GL and stamps who/when/why.
+    // Soft — the row and its history survive. A VOID invoice is read-only (no edit/return/re-void).
+    @Column(name = "status")
+    private String status;                // ACTIVE | VOID  (null == ACTIVE for legacy rows)
+    @Column(name = "voided_by")
+    private Long voidedBy;
+    @Column(name = "voided_at")
+    private LocalDateTime voidedAt;
+    @Column(name = "void_reason")
+    private String voidReason;
+
 	/**
 	 * @return the serialversionuid
 	 */

@@ -16,7 +16,7 @@ other money/stock-mutating event is **invisible to the GL and/or AP/AR**, so the
 | **Sale edit** | ✅ delta | ✅ recompute | ✅ **reverse+repost** | `updateSell` posts SALE_RETURN(old)+SALE(new) |
 | **Purchase edit** | ✅ delta | ✅ recompute | ✅ **reverse+repost** | `updatePurchase` posts PURCHASE_RETURN(old)+PURCHASE(new) |
 | **Purchase return** | ✅ reconcile −delta | ✅ payable cut + refund | ✅ **PURCHASE_RETURN** | done end-to-end |
-| **Void / cancel** | ⬜ delete only | ⬜ | ⬜ | deletes bypass GL + audit |
+| **Void / cancel** | ✅ reverse | ✅ recompute | ✅ **SALE_RETURN / PURCHASE_RETURN** | `voidSell`/`voidPurchase`; hard-delete retired; soft VOID + read-only |
 | Receive Payment / Pay Vendor | n/a | ✅ | ✅ hook | — |
 
 **Fix-once pattern (do before scaling to other modules):** centralize a **reversing/adjustment journal + AR/AP
@@ -53,10 +53,13 @@ dispense-returns, e-commerce RMA, and education fee-reversals each rediscover th
   later, not a rewrite. Producers (sale/purchase/returns/edits) now enqueue instead of fire-and-forget → no silent
   drops. **Remaining:**
   finance's intra-service `recordPayment`→`postPayment` hook (lower risk, same JVM) could get a flag/retry later.
-- **Idempotency (MED):** sales have SF-3 idempotency keys; **purchase, receivePayment, payVendor, addPurchase,
-  postEvent do NOT** → double-submit double-posts money/stock/GL. Extend the idempotency-key pattern to all money ops.
-- **Void ≠ delete (MED):** row deletes bypass inventory reversal, AR/AP, GL and audit. Introduce a first-class,
-  audited **void/cancel** that reverses everything.
+- **Idempotency (MED):** ✅ **DONE** — shared `IdempotencyService` + `idempotency_record` (V18) guards
+  `receivePayment` / `payVendor` / `addPurchase` (client key + submit-lock; replay returns the same result, no double
+  charge). GL `postEvent` deduped via an outbox `event_key` + finance `gl_processed_event` unique claim (closes the #4
+  duplicate-journal window). Design `finance-idempotency-design.md`; Cypress `idempotency.cy.js`. (Purchase-form client
+  key deferred — server guard already protects it.)
+- **Void ≠ delete (MED):** ✅ **DONE** — hard-delete retired; `voidSell`/`voidPurchase` reverse inventory + AR/AP +
+  GL and soft-stamp the document VOID (read-only). Dedicated `VOID_INVOICE` privilege deferred to #6.
 - **Immutable audit log (MED):** only `userId` stamped; no append-only who/when/what on money & stock events.
 - **Tax completeness (MED):** single per-product rate applied; no multi-rate, inclusive/exclusive per-org policy in
   all paths, or a **tax-filing (output/input tax) register** — needed for any real jurisdiction.
@@ -79,10 +82,18 @@ for free. Fixing them later means retrofitting every module + reconciling histor
    (mirror-image journals). Wired into **sale return** (`saleReturn`), **purchase return**, AND **edits**
    (`updateSell`/`updatePurchase` now reverse-the-old + repost-the-new = the edit's delta). Every mutating event
    now posts to the GL → **no silent drift**. Cypress `gl-edit-adjustment.cy.js`.
-3. **Void/cancel** as a first-class audited action (uses #2's reversal) — next.
+3. **Void/cancel** as a first-class audited action (uses #2's reversal) — ✅ **DONE**: `voidSell`
+   (`customerHistoryId` or `invoiceNo` + reason) + `voidPurchase` (`purchaseId` + reason) reverse the whole document
+   through the return path (inventory restore → AR/AP recompute → GL reversal via #4 outbox), soft-stamp the header
+   `VOID` (status/voided_by/voided_at/void_reason, Flyway **V17**) and make it read-only (edit/return/re-void
+   rejected). Hard-delete (`deleteSell`/`deletePurchase`) retired to no-op stubs. Rejected if a partial return already
+   exists. Dashboard Void buttons + monolith proxies. Design `docs/finance-void-cancel-design.md`; Cypress
+   `void-cancel.cy.js`.
 4. **Posting reliability** — ✅ **DONE** (transactional `gl_outbox` + afterCommit delivery + `@Scheduled` retry relay
    via `runAs`; producers enqueue instead of fire-and-forget). Cypress `gl-outbox.cy.js`.
-5. **Idempotency** on purchase/receivePayment/payVendor/postEvent.
+5. **Idempotency** — ✅ **DONE**: shared `IdempotencyService` + `idempotency_record` (V18) for
+   receivePayment/payVendor/addPurchase (client key + submit-lock, replay = same result); GL `postEvent` deduped via
+   outbox `event_key` + finance `gl_processed_event` (V3). Cypress `idempotency.cy.js`.
 6. **Immutable audit log** (money + stock events).
 7. Then polish: tax-filing register, period close, store-credit/loyalty, GRN/PO, barcode-first UX, cycle-count.
 

@@ -33,6 +33,9 @@ public class VenderService implements IVenderService {
     @Autowired
     private com.myplus.business_service.service.subledger.SubledgerService subledgerService;   // shared AR/AP settlement
 
+    @Autowired
+    private IdempotencyService idempotencyService;   // Audit #5: shared money-op dedup
+
     public static final String TOKEN_INVALID = "invalidToken";
     public static final String TOKEN_EXPIRED = "expired";
     public static final String TOKEN_VALID = "valid";
@@ -217,11 +220,32 @@ public class VenderService implements IVenderService {
 
 	@Override
 	public java.util.Map<String, Object> payVendor(Long venderId, java.math.BigDecimal amount, String method,
-			java.time.LocalDate paidOn, String reference) {
+			java.time.LocalDate paidOn, String reference, String idempotencyKey) {
 		if (venderId == null) throw new RuntimeException("venderId is required");
 		if (amount == null || amount.signum() <= 0) throw new RuntimeException("A positive amount is required");
 		Vender vendor = venderRepo.findById(venderId)
 				.orElseThrow(() -> new RuntimeException("Vendor not found: " + venderId));
+
+		// Audit #5: dedup a double-click/retry of this vendor payment (same key → same voucher, no second disbursement).
+		final Long org = vendor.getOrganizationId();
+		if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+			java.util.Optional<String> prior = idempotencyService.find(org, "payVendor", idempotencyKey);
+			if (prior.isPresent()) return replayVoucher(prior.get());
+		}
+		return doPayVendor(vendor, venderId, amount, method, paidOn, reference, org, idempotencyKey);
+	}
+
+	/** A replay response for an already-recorded vendor payment (same voucher, no second disbursement). */
+	private java.util.Map<String, Object> replayVoucher(String voucherNo) {
+		java.util.Map<String, Object> out = new java.util.HashMap<>();
+		out.put("success", true);
+		out.put("voucherNo", voucherNo);
+		out.put("replay", true);
+		return out;
+	}
+
+	private java.util.Map<String, Object> doPayVendor(Vender vendor, Long venderId, java.math.BigDecimal amount,
+			String method, java.time.LocalDate paidOn, String reference, Long org, String idempotencyKey) {
 
 		// The vendor's still-owing purchase bills (oldest first) as generic OpenDocs for the shared allocator.
 		java.util.List<com.myplus.business_service.service.subledger.OpenDoc> docs = new java.util.ArrayList<>();
@@ -251,6 +275,9 @@ public class VenderService implements IVenderService {
 				"DISBURSEMENT", "VENDOR", venderId, vendor.getName(), amount, method, paidOn, reference, "BUSINESS",
 				docs, () -> { this.recomputePayable(venderId);
 					return venderRepo.findById(venderId).map(Vender::getDueAmount).orElse(null); });
+
+		// Audit #5: record this payment (atomic with the allocation) so a repeat with the same key replays it.
+		idempotencyService.record(org, "payVendor", idempotencyKey, outcome.voucherNo());
 
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);

@@ -88,6 +88,20 @@ public class PurchaseController {
         }
     }
 
+    /** Audit #3: proxy the books-safe bill Void to business-service. */
+    @RequestMapping(value = "/voidPurchase", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> voidPurchase(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/voidPurchase", params);
+        } catch (Exception e) {
+            LOGGER.error("voidPurchase proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/deletePurchase", method = RequestMethod.POST)
     @ResponseBody
     public Boolean deletePurchase(HttpServletRequest req, HttpServletResponse resp) {

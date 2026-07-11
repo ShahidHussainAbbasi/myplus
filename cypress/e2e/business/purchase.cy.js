@@ -247,11 +247,11 @@ describe('Purchase Table — Row Click', () => {
     cy.get('#tablePurchase tbody').should('exist')
   })
 
-  it('clicking a row opens the edit modal', () => {
+  it('the row Edit button opens the edit modal', () => {
     cy.get('#tablePurchase tbody tr').then(($rows) => {
       const dataRows = $rows.filter((i, r) => Cypress.$(r).find('td').length > 1)
-      if (dataRows.length === 0) return cy.log('No purchases — row click test skipped')
-      cy.wrap(dataRows.first()).find('td').eq(1).click({ force: true })   // a data cell, not the checkbox
+      if (dataRows.length === 0) return cy.log('No purchases — edit-button test skipped')
+      cy.wrap(dataRows.first()).find('.js-edit-row').click({ force: true })   // Edit button, not a row/cell click
       cy.get('#PurchaseModal').should('have.class', 'open')
     })
   })

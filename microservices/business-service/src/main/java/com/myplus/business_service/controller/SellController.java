@@ -547,6 +547,8 @@ public class SellController {
 			CustomerHistory ch = chOpt.get();
 			if (!inMyTenant(ch.getOrganizationId(), ch.getUserId()))
 				return new GenericResponse("NOT_FOUND", "Invoice not found");
+			if ("VOID".equals(ch.getStatus()))   // Audit #3: a voided invoice is read-only
+				return new GenericResponse("FAILED", "This invoice is voided and cannot be edited.");
 
 			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
 			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
@@ -646,28 +648,16 @@ public class SellController {
 		return new GenericResponse("ERROR", "revertSell is no longer supported; use the Sale Return action.");
 	}
 
+	/**
+	 * Audit #3: hard-delete RETIRED — a raw row delete bypassed inventory restore, AR/AP recompute, GL reversal and
+	 * the audit trail, silently drifting the books. Cancellations now go through {@code /voidSell}, which reverses
+	 * everything and keeps the record. Stub kept so the route can't 404; it performs no deletion.
+	 */
 	@RequestMapping(value = "/deleteSell", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteSell( HttpServletRequest req, HttpServletResponse resp ){
-		try {
-		String ids = req.getParameter("checked");
-			if(!StringUtils.isEmpty(ids)) {
-				String idList[] = ids.split(",");
-				for(String id:idList){
-					Long sid = Long.valueOf(id);
-					Sell existing = sellService.findById(sid).orElse(null);
-					if(existing == null) continue;
-					if(inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
-						sellService.deleteById(sid);
-				}
-				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
-			}else {
-				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
-			}
-		} catch (Exception e) {
-			appUtil.le(this.getClass(),e);
-			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
-		}
+		LOGGER.warn("deleteSell is retired; use /voidSell (books-safe void). No rows deleted.");
+		return false;
 	}
 
 	@Transactional
@@ -699,6 +689,8 @@ public class SellController {
 			// G2 (slice 34): a saga sell decremented inventory-service (StockEntry/StockLevel), not local Stock.
 			// Route its return back through inventory (inverse saga) so on-hand is restored, not just local Stock.
 			CustomerHistory ch = existingSell.getCustomerHistory();
+			if (ch != null && "VOID".equals(ch.getStatus()))   // Audit #3: no returns against a voided invoice
+				return new GenericResponse("FAILED", "This invoice is voided.");
 			String reservationId = ch != null ? ch.getReservationId() : null;
 			boolean sagaSell = existingSell.getProductId() != null && reservationId != null;
 
@@ -820,6 +812,100 @@ public class SellController {
 
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > saleReturn " + e.getCause(), e);
+			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");
+		}
+	}
+
+	/**
+	 * Audit #3: VOID an entire invoice — the books-safe replacement for hard-delete. Reverses every line at full
+	 * quantity through the same path a return uses (inventory restore → customer-due recompute → GL SALE_RETURN via
+	 * the #4 outbox), refunds any amount paid, then soft-stamps the header VOID (record + history survive) and makes
+	 * it read-only. Rejected if already VOID or if any partial return was already recorded (would double-reverse).
+	 */
+	@Transactional
+	@PostMapping(value = "/voidSell")
+	@ResponseBody
+	public GenericResponse voidSell(final HttpServletRequest request) {
+		try {
+			Long chId = appUtil.isEmptyOrNull(request.getParameter("customerHistoryId")) ? null
+					: Long.valueOf(request.getParameter("customerHistoryId"));
+			String reason = request.getParameter("reason");
+			String invoiceNo = request.getParameter("invoiceNo");
+			// Resolve by invoiceNo when the id isn't supplied (API ergonomics — the caller often only has the number).
+			if (chId == null && !appUtil.isEmptyOrNull(invoiceNo))
+				chId = customerHistoryService.findByOrgAndInvoiceNo(orgId(), invoiceNo).map(CustomerHistory::getCustomer_history_id).orElse(null);
+			if (chId == null)
+				return new GenericResponse("NOT_FOUND", "No invoice id provided.");
+
+			CustomerHistory ch = customerHistoryService.findById(chId).orElse(null);
+			if (ch == null || !inMyTenant(ch.getOrganizationId(), ch.getUserId()))   // anti-IDOR
+				return new GenericResponse("NOT_FOUND", "Invoice not found.");
+			if ("VOID".equals(ch.getStatus()))
+				return new GenericResponse("FAILED", "This invoice is already voided.");
+			if (saleReturnRepo.countByInvoiceScoped(ch.getInvoiceNo(), orgId(), userId()) > 0)
+				return new GenericResponse("FAILED", "A return was already recorded on this invoice; void is not allowed. Reconcile manually.");
+
+			List<Sell> lines = sellService.findByInvoiceScoped(chId, orgId(), userId());
+			String reservationId = ch.getReservationId();
+			boolean quarantine = "true".equalsIgnoreCase(request.getParameter("quarantine"));   // P11: pharmacy no-restock
+
+			// Reverse every line: restore inventory + accumulate the GL reversal (ex-tax net, tax, COGS).
+			java.math.BigDecimal retSub = java.math.BigDecimal.ZERO, retTax = java.math.BigDecimal.ZERO,
+					retCost = java.math.BigDecimal.ZERO;
+			for (Sell s : lines) {
+				float qty = s.getQuantity() != null ? s.getQuantity() : 0f;
+				if (s.getProductId() != null && reservationId != null) {
+					com.myplus.commerce.contracts.dto.StockReturnRequest rr =
+							new com.myplus.commerce.contracts.dto.StockReturnRequest(java.util.List.of(
+									new com.myplus.commerce.contracts.dto.StockReturnLine(s.getProductId(), qty)));
+					rr.setQuarantine(quarantine);
+					inventoryClient.returnStock(reservationId, rr);
+				} else if (s.getProductId() != null) {
+					inventoryClient.importStock(java.util.List.of(
+							com.myplus.commerce.contracts.dto.StockImportLine.builder()
+									.productId(s.getProductId()).quantity(qty).build()));
+				}
+				retSub = retSub.add(nzbd(s.getTotalAmount()));
+				retTax = retTax.add(nzbd(s.getTaxAmount()));
+				retCost = retCost.add(nzbd(s.getCostPrice()).multiply(java.math.BigDecimal.valueOf(qty)));
+				sellService.deleteById(s.getSellId());
+			}
+
+			// Header: refund whatever was paid, zero the totals, stamp VOID.
+			java.math.BigDecimal refund = nzbd(ch.getPaidAmount());
+			if (refund.signum() > 0)
+				paymentService.refund(chId, refund, orgId(), userId());
+			ch.setSubTotal(java.math.BigDecimal.ZERO);
+			ch.setTaxTotal(java.math.BigDecimal.ZERO);
+			ch.setGrandTotal(java.math.BigDecimal.ZERO);
+			ch.setPaidAmount(java.math.BigDecimal.ZERO);
+			ch.setDueAmount(java.math.BigDecimal.ZERO);
+			ch.setStatus("VOID");
+			ch.setVoidedBy(userId());
+			ch.setVoidedAt(java.time.LocalDateTime.now());
+			ch.setVoidReason(reason);
+			ch.setUpdated(java.time.LocalDateTime.now());
+			customerHistoryService.save(ch);
+
+			Customer customer = ch.getCustomer();
+			if (customer != null)
+				customerService.recomputeDue(customer);
+
+			// GL: one aggregate SALE_RETURN reversing the whole invoice (best-effort via the outbox).
+			try {
+				java.math.BigDecimal retGross = retSub.add(retTax);
+				if (retGross.signum() > 0)
+					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+							.grandTotal(retGross).subTotal(retSub).taxTotal(retTax).cost(retCost).paidAmount(refund)
+							.method("CASH").build());
+			} catch (Exception glEx) {
+				LOGGER.warn(this.getClass().getName() + " > voidSell GL reversal enqueue failed (void applied)", glEx);
+			}
+
+			return new GenericResponse("SUCCESS", "Invoice voided.");
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > voidSell " + e.getCause(), e);
 			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");
 		}
 	}

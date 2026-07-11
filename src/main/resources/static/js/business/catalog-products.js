@@ -9,7 +9,7 @@
 (function (global) {
     'use strict';
 
-    function num(v) { var n = Number(v); return isNaN(n) ? 0 : n; }
+    // Numeric coercion uses the shared s2n() from main.js (was a duplicate local s2n()).
 
     // ── Client-side SKU uniqueness ──────────────────────────────────────────────
     // catalog-service enforces a unique SKU per org (a duplicate → 409 "Product SKU already exists").
@@ -45,17 +45,18 @@
         tableV = 'Product'; getAll = 'Product'; buttonV = 'Product'; deleteV = 'Product';
         loadDataTable();
         refreshSkuIndex();   // keep the client-side duplicate-SKU check current for this screen
+        // Per-row "Edit" button is injected by the global DataTables drawCallback (main.js) — no per-table wiring.
 
         // Row interactions (mirror the generic modal screens):
-        //   • checkbox → bulk-select (update the action bar), not edit
-        //   • other cells → open the edit modal (ignore the add-stock input/button)
-        $('#tableProduct').off('click', 'tbody tr').on('click', 'tbody tr', function (e) {
-            if ($(e.target).is("input[type='checkbox']")) {
+        //   • checkbox → bulk-select (update the action bar)
+        //   • per-row "Edit" button (injected by ensureRowEditButtons) → open the edit modal
+        $('#tableProduct').off('change', "input[type='checkbox']")
+            .on('change', "input[type='checkbox']", function () {
                 if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
-                return;
-            }
-            if ($(e.target).is('input, button') || $(e.target).closest('button').length) return;
-            var rowData = datatable.row(this).data();
+            });
+        $('#tableProduct').off('click', '.js-edit-row').on('click', '.js-edit-row', function (e) {
+            e.stopPropagation();
+            var rowData = datatable.row($(this).closest('tr')).data();
             if (!rowData) return;
             var id = $(rowData[0]).text();   // rowData[0] = "<div id=productId>123</div>"
             if (id) editProduct(id);
@@ -123,7 +124,7 @@
 
     // Add opening stock for a product — feeds the inventory the storefront/POS reservation saga draws down.
     global.addProductStock = function (productId) {
-        var qty = num($('#addstk_' + productId).val());
+        var qty = s2n($('#addstk_' + productId).val());
         if (qty <= 0) { showFormError('Enter a quantity greater than 0 to add stock.'); return; }
         var $btn = $('#addstkbtn_' + productId).prop('disabled', true);
         $.ajax({
@@ -144,7 +145,7 @@
     // Correct on-hand — reduce (a mistaken over-add) by the entered quantity. Uses inventory's audited DECREASE
     // adjustment, which refuses to go below zero ("Insufficient stock"). Pass 'INCREASE' to add via the same path.
     global.adjustProductStock = function (productId, type) {
-        var qty = num($('#addstk_' + productId).val());
+        var qty = s2n($('#addstk_' + productId).val());
         if (qty <= 0) { showFormError('Enter a quantity to correct the on-hand by.'); return; }
         var t = type || 'DECREASE';
         var $btn = $('#lessstkbtn_' + productId).prop('disabled', true);
@@ -200,7 +201,7 @@
         }
         var body = {
             name: $('#prodName').val().trim(), sku: sku,
-            sellingPrice: num($('#prodPrice').val()), taxRate: num($('#prodTax').val()),
+            sellingPrice: s2n($('#prodPrice').val()), taxRate: s2n($('#prodTax').val()),
             unit: $('#prodUnit').val(),
             categoryId: $('#prodCategory').val() ? Number($('#prodCategory').val()) : null,
             manufacturer: $('#prodManufacturer').val(), description: $('#prodDesc').val()

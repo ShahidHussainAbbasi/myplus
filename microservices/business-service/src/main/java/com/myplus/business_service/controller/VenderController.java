@@ -211,7 +211,8 @@ public class VenderController {
 			String reference = request.getParameter("reference");
 			String paidOnStr = request.getParameter("paidOn");
 			java.time.LocalDate paidOn = appUtil.isEmptyOrNull(paidOnStr) ? null : java.time.LocalDate.parse(paidOnStr.trim());
-			java.util.Map<String, Object> result = venderService.payVendor(venderId, amount, method, paidOn, reference);
+			String idempotencyKey = request.getParameter("idempotencyKey");
+			java.util.Map<String, Object> result = venderService.payVendor(venderId, amount, method, paidOn, reference, idempotencyKey);
 			return new GenericResponse("SUCCESS", "Payment recorded.", result);
 		} catch (NumberFormatException nfe) {
 			return new GenericResponse("FAILED", "Invalid amount.");

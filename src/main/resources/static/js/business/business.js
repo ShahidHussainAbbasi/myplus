@@ -638,7 +638,7 @@ function loadDataTable(){
 							// "<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
 							// "<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>",
-						"<div id=purchaseDate>"+obj.updated+" <button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button></div>"
+						"<div id=purchaseDate>"+obj.updated+" "+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Void bill'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>")+ "</div>"
 						]);
 					});
 				} else if (getAll === "Sell") {
@@ -680,6 +680,12 @@ function loadDataTable(){
 								+ " data-invoice='"+escHtml(ch?(ch.invoiceNo||''):'')+"'"
 								+ " data-item='"+escHtml(obj.itemName||'')+"'>"
 								+ "<span class='glyphicon glyphicon-share-alt'></span> Return</button>"
+								// Audit #3: books-safe Void of the whole invoice (or a VOID badge if already voided).
+								+ ((ch && ch.status === 'VOID')
+									? " <span class='label label-default' title='Voided invoice'>VOID</span>"
+									: (ch && ch.customer_history_id
+										? " <button type='button' class='btn btn-xs btn-danger' onclick='openVoidSell(this)' data-chid='"+ch.customer_history_id+"' data-invoice='"+escHtml(ch.invoiceNo||'')+"'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>"
+										: ""))
 						]);
 					});
 				} else if (getAll === "Product") {
@@ -1807,6 +1813,13 @@ $(document).on('click', '.rcv-pay-btn', function (e) {
 	openReceivePayment($(this).data('cid'), $(this).data('name'), $(this).data('due'));
 });
 
+// Audit #5: one idempotency key per submit attempt so a double-click / retry can't double-charge. Generated when the
+// modal opens (reused across retries of the SAME payment); the server dedups on it. Fresh key each time the modal reopens.
+function newIdemKey() {
+	try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+	return String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+}
+
 function openReceivePayment(customerId, name, due) {
 	$("#rcvCustomerId").val(customerId);
 	$("#rcvCustomerName").text(name || ('Customer #' + customerId));
@@ -1816,6 +1829,7 @@ function openReceivePayment(customerId, name, due) {
 	$("#rcvMethod").val('CASH');
 	$("#rcvReference").val('');
 	$("#rcvDate").val(new Date().toISOString().slice(0, 10));
+	window.rcvIdemKey = newIdemKey();   // Audit #5
 	openModal('ReceivePaymentModal');
 }
 
@@ -1823,12 +1837,14 @@ function submitReceivePayment() {
 	var customerId = $("#rcvCustomerId").val();
 	var amount = $("#rcvAmount").val() * 1;
 	if (!customerId || !(amount > 0)) { showFormError('Enter a positive amount to receive.'); return; }
+	if (window._rcvBusy) return; window._rcvBusy = true;   // Audit #5: submit-lock (belt-and-braces with the server key)
 	$.post(serverContext + "receivePayment", {
 		customerId: customerId,
 		amount: amount,
 		method: $("#rcvMethod").val(),
 		paidOn: $("#rcvDate").val(),
-		reference: $("#rcvReference").val()
+		reference: $("#rcvReference").val(),
+		idempotencyKey: window.rcvIdemKey
 	}, function (resp) {
 		if (resp && resp.status === "SUCCESS") {
 			var o = resp.object || {};
@@ -1839,7 +1855,8 @@ function submitReceivePayment() {
 		} else {
 			showFormError((resp && resp.message) || 'Could not record the payment.');
 		}
-	}, 'json').fail(function () { showFormError('Could not record the payment.'); });
+	}, 'json').fail(function () { showFormError('Could not record the payment.'); })
+		.always(function () { window._rcvBusy = false; });
 }
 
 // F1 (AP): Pay Vendor — mirror of Receive Payment. Opens the modal from the vendor row's Pay button, posts /payVendor.
@@ -1857,6 +1874,7 @@ function openPayVendor(venderId, name, due) {
 	$("#pvMethod").val('CASH');
 	$("#pvReference").val('');
 	$("#pvDate").val(new Date().toISOString().slice(0, 10));
+	window.pvIdemKey = newIdemKey();   // Audit #5
 	openModal('PayVendorModal');
 }
 
@@ -1864,12 +1882,14 @@ function submitPayVendor() {
 	var venderId = $("#pvVendorId").val();
 	var amount = $("#pvAmount").val() * 1;
 	if (!venderId || !(amount > 0)) { showFormError('Enter a positive amount to pay.'); return; }
+	if (window._pvBusy) return; window._pvBusy = true;   // Audit #5: submit-lock
 	$.post(serverContext + "payVendor", {
 		venderId: venderId,
 		amount: amount,
 		method: $("#pvMethod").val(),
 		paidOn: $("#pvDate").val(),
-		reference: $("#pvReference").val()
+		reference: $("#pvReference").val(),
+		idempotencyKey: window.pvIdemKey
 	}, function (resp) {
 		if (resp && resp.status === "SUCCESS") {
 			var o = resp.object || {};
@@ -1880,8 +1900,36 @@ function submitPayVendor() {
 		} else {
 			showFormError((resp && resp.message) || 'Could not record the payment.');
 		}
-	}, 'json').fail(function () { showFormError('Could not record the payment.'); });
+	}, 'json').fail(function () { showFormError('Could not record the payment.'); })
+		.always(function () { window._pvBusy = false; });
 }
+
+// Audit #3: Void an entire invoice — the books-safe cancel (reverses stock + customer balance + GL). Confirm +
+// optional reason, POST /voidSell, then refresh the report.
+function openVoidSell(btn){
+	var chId = btn.getAttribute('data-chid');
+	var inv = btn.getAttribute('data-invoice') || '';
+	if(!chId) return;
+	if(!window.confirm('Void invoice ' + inv + '?\n\nThis reverses the stock, the customer balance and the ledger. It cannot be undone.')) return;
+	var reason = window.prompt('Reason for voiding (optional):', '') || '';
+	$.post(serverContext + 'voidSell', { customerHistoryId: chId, reason: reason }, function(resp){
+		if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess('Invoice voided.'); try { loadDataTable(); } catch(e){} }
+		else { alert((resp && resp.message) || 'Void failed.'); }
+	}).fail(function(){ alert('Void failed.'); });
+}
+
+// Audit #3: Void a bill — reverses stock-in + vendor payable + GL. POST /voidPurchase, then refresh purchases.
+$(document).on('click', '.purchase-void-btn', function (e) {
+	e.stopPropagation();
+	var pid = this.getAttribute('data-pid'), inv = this.getAttribute('data-inv') || '';
+	if(!pid) return;
+	if(!window.confirm('Void bill ' + inv + '?\n\nThis reverses the stock-in, the vendor payable and the ledger. It cannot be undone.')) return;
+	var reason = window.prompt('Reason for voiding (optional):', '') || '';
+	$.post(serverContext + 'voidPurchase', { purchaseId: pid, reason: reason }, function(resp){
+		if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess('Bill voided.'); try { loadDataTable(); } catch(e){} }
+		else { alert((resp && resp.message) || 'Void failed.'); }
+	}).fail(function(){ alert('Void failed.'); });
+});
 
 // Purchase Return (debit note) — a per-row Return button opens a small dialog and posts /purchaseReturn.
 $(document).on('click', '.purchase-return-btn', function (e) {

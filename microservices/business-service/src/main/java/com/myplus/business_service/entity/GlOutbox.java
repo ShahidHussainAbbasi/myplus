@@ -23,6 +23,10 @@ public class GlOutbox {
     @Column(name = "event_type", nullable = false, length = 20)
     private String eventType;   // SALE | PURCHASE | SALE_RETURN | PURCHASE_RETURN
 
+    // Audit #5: a stable per-event UUID so finance dedups a duplicate outbox delivery (closes the #4 dup-journal window).
+    @Column(name = "event_key", length = 64)
+    private String eventKey;
+
     private String ref;
 
     @Column(name = "grand_total", precision = 19, scale = 2)

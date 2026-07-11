@@ -136,8 +136,8 @@ describe('Company CRUD', () => {
         cy.log('No companies in table — row click test skipped')
         return
       }
-      cy.wrap(dataRows.first()).click({ force: true })
-      cy.get('#CompanyModal').should('have.class', 'open')   // row-click opens the edit modal
+      cy.wrap(dataRows.first()).find('.js-edit-row').click({ force: true })
+      cy.get('#CompanyModal').should('have.class', 'open')   // Edit button opens the edit modal
     })
   })
 

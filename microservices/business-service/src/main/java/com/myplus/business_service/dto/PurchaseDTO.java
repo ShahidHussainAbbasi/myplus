@@ -64,6 +64,9 @@ public class PurchaseDTO implements Serializable {
 	private String venderName;
 	private BigDecimal paidAmount;
 
+	// Audit #5: client-supplied key to dedup a double-submit of this purchase (blank = no dedup).
+	private String idempotencyKey;
+
 	private Float purchaseExpense;
 
 	private String purchaseExpenseDesc;

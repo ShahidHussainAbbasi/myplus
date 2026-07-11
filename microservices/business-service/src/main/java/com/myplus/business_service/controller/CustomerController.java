@@ -180,11 +180,12 @@ public class CustomerController {
 	@ResponseBody
 	public GenericResponse receivePayment(@RequestParam Long customerId, @RequestParam java.math.BigDecimal amount,
 			@RequestParam(required = false) String method, @RequestParam(required = false) String paidOn,
-			@RequestParam(required = false) String reference) {
+			@RequestParam(required = false) String reference,
+			@RequestParam(required = false) String idempotencyKey) {
 		try {
 			java.time.LocalDate on = appUtil.isEmptyOrNull(paidOn) ? java.time.LocalDate.now() : appUtil.toLocalDateOrNull(paidOn);
 			if (on == null) on = java.time.LocalDate.now();
-			java.util.Map<String, Object> res = customerService.receivePayment(customerId, amount, method, on, reference);
+			java.util.Map<String, Object> res = customerService.receivePayment(customerId, amount, method, on, reference, idempotencyKey);
 			return new GenericResponse("SUCCESS", "Payment received.", res);
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > receivePayment " + e.getCause(), e);

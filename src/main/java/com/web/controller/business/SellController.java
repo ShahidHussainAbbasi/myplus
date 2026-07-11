@@ -178,4 +178,18 @@ public class SellController {
             return Collections.singletonMap("status", "ERROR");
         }
     }
+
+    /** Audit #3: proxy the books-safe invoice Void to business-service. */
+    @PostMapping(value = "/voidSell")
+    @ResponseBody
+    public Map<String, Object> voidSell(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/voidSell", params);
+        } catch (Exception e) {
+            LOGGER.error("voidSell proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
 }

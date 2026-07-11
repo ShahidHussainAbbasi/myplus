@@ -148,6 +148,16 @@ public class Purchase implements Serializable {
 	@Column(name = "purchase_invoice_no")
 	private String purchaseInvoiceNo;
 
+	// Audit #3 (void/cancel): bill lifecycle. ACTIVE by default; a void reverses stock/AP/GL and stamps who/when/why.
+	@Column(name = "status")
+	private String status;                // ACTIVE | VOID  (null == ACTIVE for legacy rows)
+	@Column(name = "voided_by")
+	private Long voidedBy;
+	@Column(name = "voided_at")
+	private LocalDateTime voidedAt;
+	@Column(name = "void_reason")
+	private String voidReason;
+
 	/**
 	 * @return the serialversionuid
 	 */

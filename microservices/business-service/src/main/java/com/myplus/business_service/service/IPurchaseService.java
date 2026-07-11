@@ -18,6 +18,9 @@ public interface IPurchaseService extends org.springframework.data.jpa.repositor
 	/** Purchase Return (debit note): reverse stock-in + reconcile the vendor bill/payable + post a GL reversal. */
 	java.util.Map<String, Object> purchaseReturn(Long purchaseId, Float returnQty, String reason);
 
+	/** Audit #3: VOID a bill — full reversal of the remaining quantity + soft VOID stamp (books-safe cancel). */
+	java.util.Map<String, Object> voidBill(Long purchaseId, String reason);
+
 	/** Tenant-scoped purchases (own org + caller's pre-migration org-NULL rows). */
 	List<Purchase> findScoped(Long orgId, Long userId);
 

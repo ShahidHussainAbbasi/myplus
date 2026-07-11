@@ -572,10 +572,10 @@ $(document).ready(function() {
 	  	$("select").each(function() {
 	  		if(this.value == tab+"Div")
 	  			this.value = tab+"Div"
-	  		else	
-	  			this.selectedIndex = 0 
+	  		else
+	  			this.selectedIndex = 0
 	  	});
-	  	
+
 	  	// having below block on every switch to get it work
 		// Edit table click on row
 		$("#table" + tableV).on( 'click', 'tr', function (e) {
@@ -584,6 +584,11 @@ $(document).ready(function() {
 			var crudHasModal = $('#' + tableV + 'Modal').length > 0;
 			if (crudHasModal && $(e.target).is("input[type='checkbox']")) {
 				if (typeof refreshBulkBar === 'function') refreshBulkBar(tableV);
+				return;
+			}
+			// Explicit-edit UX: on modal (register) screens the row opens ONLY via its per-row "Edit" button
+			// (injected by ensureRowEditButtons), never on a stray click anywhere in the row.
+			if (crudHasModal && !$(e.target).closest('.js-edit-row').length) {
 				return;
 			}
 			resetForm();
@@ -607,6 +612,11 @@ $(document).ready(function() {
 				} else {
 					var html = datatable.row(this).data();// .selector.rows.innerHTML;
 					var doc = getDocument(html);
+					// Make the form/formFields globals current for whichever editRecord() is in effect
+					// (welfare overrides editRecord to read these globals). Guarantees the Edit button
+					// reliably populates the modal form on EVERY dashboard, end-to-end.
+					form = document.getElementsByClassName('form-horizontal')[tableV];
+					if (form) { formFields = form.length - 2; }
 					editRecord(doc);
 					// Modal screens: pop the populated form in its modal (edit mode).
 					if (crudHasModal && typeof openCrudModal === 'function') openCrudModal(tableV);
@@ -617,6 +627,35 @@ $(document).ready(function() {
 		} );
 	  });
 	});
+
+	// ── Explicit per-row Edit button (register/modal screens) ───────────────────────────────────
+	// Replaces the old "click anywhere on the row to edit" with a discoverable Edit button. After every
+	// DataTable draw, inject one Edit button per row into the select (checkbox) cell — but only for tables
+	// whose entity has a modal form (#<Entity>Modal). Sell/Fc and report tables have no modal → unaffected.
+	function ensureRowEditButtons(table) {
+		if (!table) return;
+		var id = table.id || '';                       // "table<Entity>"
+		if (id.indexOf('table') !== 0) return;
+		var entity = id.slice(5);
+		if (!entity || !document.getElementById(entity + 'Modal')) return;   // modal screens only
+		$(table).find('tbody tr').each(function () {
+			var $cb = $(this).find("input[type='checkbox']").first();
+			if (!$cb.length || $(this).find('.js-edit-row').length) return;  // needs a row id; add once per row
+			$cb.closest('td').append(
+				' <button type="button" class="js-edit-row btn btn-xs btn-default" title="Edit record">' +
+				'<span class="glyphicon glyphicon-pencil"></span> Edit</button>'
+			);
+		});
+	}
+	window.ensureRowEditButtons = ensureRowEditButtons;
+	// Register the injector as a GLOBAL DataTables default drawCallback: it becomes part of EVERY table's
+	// config, so it runs after every draw (init, ajax load, sort, search, paging) of every table on every
+	// dashboard — regardless of which module's loadDataTable created it, and it survives destroy()/recreate.
+	if ($.fn && $.fn.dataTable) {
+		$.extend(true, $.fn.dataTable.defaults, {
+			drawCallback: function (settings) { ensureRowEditButtons(settings.nTable); }
+		});
+	}
 
 	$.fn.callAjax = function(method, data) {
 		$.ajax({

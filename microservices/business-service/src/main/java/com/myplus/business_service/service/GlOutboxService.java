@@ -49,6 +49,7 @@ public class GlOutboxService {
         AuthenticatedUser u = requestUtil.getCurrentUser();
         GlOutbox o = new GlOutbox();
         o.setEventType(req.getEventType());
+        o.setEventKey(java.util.UUID.randomUUID().toString());   // Audit #5: dedup key for finance (one per event)
         o.setRef(req.getRef());
         o.setGrandTotal(req.getGrandTotal());
         o.setSubTotal(req.getSubTotal());
@@ -104,7 +105,7 @@ public class GlOutboxService {
 
     private PostingEventRequest toReq(GlOutbox o) {
         return PostingEventRequest.builder()
-                .eventType(o.getEventType()).date(LocalDate.now()).ref(o.getRef())
+                .eventType(o.getEventType()).eventKey(o.getEventKey()).date(LocalDate.now()).ref(o.getRef())
                 .grandTotal(o.getGrandTotal()).subTotal(o.getSubTotal()).taxTotal(o.getTaxTotal())
                 .cost(o.getCost()).paidAmount(o.getPaidAmount()).method(o.getMethod())
                 .build();

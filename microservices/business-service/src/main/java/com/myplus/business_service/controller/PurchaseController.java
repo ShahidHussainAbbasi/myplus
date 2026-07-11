@@ -244,27 +244,35 @@ public class PurchaseController {
 		}
 	}
 
+	/**
+	 * Audit #3: VOID a bill — reverses stock-in + vendor payable + posts a GL PURCHASE_RETURN, then soft-stamps the
+	 * bill VOID (record + audit survive). Books-safe replacement for hard-delete.
+	 */
+	@RequestMapping(value = "/voidPurchase", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse voidPurchase(final HttpServletRequest request) {
+		try {
+			String pid = request.getParameter("purchaseId");
+			if (appUtil.isEmptyOrNull(pid))
+				return new GenericResponse("FAILED", "Purchase id is required.");
+			java.util.Map<String, Object> result = purchaseService.voidBill(Long.valueOf(pid.trim()), request.getParameter("reason"));
+			return new GenericResponse("SUCCESS", "Bill voided.", result);
+		} catch (NumberFormatException nfe) {
+			return new GenericResponse("FAILED", "Invalid purchase id.");
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > voidPurchase " + e.getCause(), e);
+			return new GenericResponse("FAILED", e.getMessage() != null ? e.getMessage() : "An unexpected error occurred. Please contact support.");
+		}
+	}
+
+	/**
+	 * Audit #3: hard-delete RETIRED — bypassed stock/AP/GL reversal + audit. Cancellations go through
+	 * {@code /voidPurchase}. Stub kept so the route can't 404; performs no deletion.
+	 */
 	@RequestMapping(value = "/deletePurchase", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deletePurchase( HttpServletRequest req, HttpServletResponse resp ){
-		try {
-		String ids = req.getParameter("checked");
-			if(!StringUtils.isEmpty(ids)) {
-				String idList[] = ids.split(",");
-				for(String id:idList){
-					Long pid = Long.valueOf(id);
-					Purchase existing = purchaseService.findById(pid).orElse(null);
-					if(existing == null) continue;
-					if(inMyTenant(existing.getOrganizationId(), existing.getUserId())) // anti-IDOR
-						purchaseService.deleteById(pid);
-				}
-				return true;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
-			}else {
-				return false;// new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),"SUCCESS");
-			}
-		} catch (Exception e) {
-			LOGGER.error(this.getClass().getName()+" > deletePurchase "+e.getCause(), e);			
-			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
-		}
+		LOGGER.warn("deletePurchase is retired; use /voidPurchase (books-safe void). No rows deleted.");
+		return false;
 	}
 }

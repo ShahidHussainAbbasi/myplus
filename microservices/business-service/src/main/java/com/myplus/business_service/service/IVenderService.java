@@ -18,6 +18,6 @@ public interface IVenderService extends org.springframework.data.jpa.repository.
 	 *  record a DISBURSEMENT in the shared finance ledger (best-effort). Returns
 	 *  {success, voucherNo, allocated, onAccountAdvance, newDue}. */
 	java.util.Map<String, Object> payVendor(Long venderId, java.math.BigDecimal amount, String method,
-			java.time.LocalDate paidOn, String reference);
+			java.time.LocalDate paidOn, String reference, String idempotencyKey);
 
 }
