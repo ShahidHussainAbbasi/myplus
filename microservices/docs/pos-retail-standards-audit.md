@@ -46,9 +46,13 @@ dispense-returns, e-commerce RMA, and education fee-reversals each rediscover th
 
 ## 2. Standards flags (cross-cutting — fix in the core, once)
 - **Accounting reversal coverage (HIGH):** returns/edits/voids must post reversing journals + AR/AP deltas (see §0).
-- **Posting reliability (HIGH):** GL/ledger posts are **best-effort fire-and-forget** — a failure silently drifts the
-  books with no retry/reconcile. Standard = an **outbox + retry relay** (mirror the saga recovery relay) or a
-  daily reconcile job. Applies to `postEvent`, `recordPayment`, `postPayment`.
+- **Posting reliability (HIGH):** ✅ **DONE for business→finance `postEvent`** — transactional outbox (`gl_outbox`,
+  V16) + `GlOutboxService` (enqueue in-tx + `@TransactionalEventListener(AFTER_COMMIT)` real-time delivery +
+  `@Scheduled` retry relay via `runAs`). The last hop is behind a `GlEventPublisher` seam (`HttpGlEventPublisher`
+  today, `gl.publisher` flag) so a broker (Redis Streams — already in the stack — / Rabbit / Kafka) is a drop-in
+  later, not a rewrite. Producers (sale/purchase/returns/edits) now enqueue instead of fire-and-forget → no silent
+  drops. **Remaining:**
+  finance's intra-service `recordPayment`→`postPayment` hook (lower risk, same JVM) could get a flag/retry later.
 - **Idempotency (MED):** sales have SF-3 idempotency keys; **purchase, receivePayment, payVendor, addPurchase,
   postEvent do NOT** → double-submit double-posts money/stock/GL. Extend the idempotency-key pattern to all money ops.
 - **Void ≠ delete (MED):** row deletes bypass inventory reversal, AR/AP, GL and audit. Introduce a first-class,
@@ -76,7 +80,8 @@ for free. Fixing them later means retrofitting every module + reconciling histor
    (`updateSell`/`updatePurchase` now reverse-the-old + repost-the-new = the edit's delta). Every mutating event
    now posts to the GL → **no silent drift**. Cypress `gl-edit-adjustment.cy.js`.
 3. **Void/cancel** as a first-class audited action (uses #2's reversal) — next.
-4. **Posting reliability** — outbox + retry relay for GL/ledger posts (no silent drift).
+4. **Posting reliability** — ✅ **DONE** (transactional `gl_outbox` + afterCommit delivery + `@Scheduled` retry relay
+   via `runAs`; producers enqueue instead of fire-and-forget). Cypress `gl-outbox.cy.js`.
 5. **Idempotency** on purchase/receivePayment/payVendor/postEvent.
 6. **Immutable audit log** (money + stock events).
 7. Then polish: tax-filing register, period close, store-credit/loyalty, GRN/PO, barcode-first UX, cycle-count.

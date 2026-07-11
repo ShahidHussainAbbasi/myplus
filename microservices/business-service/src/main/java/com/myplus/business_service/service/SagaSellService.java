@@ -39,8 +39,8 @@ public class SagaSellService {
     private final com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;   // SF-3 dedup
     private final com.myplus.business_service.repository.PurchaseRepo purchaseRepo;                 // SF-10 line cost
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.myplus.commerce.contracts.client.FinanceClient financeClient;   // F3b: post the SALE journal to the GL
+    @org.springframework.beans.factory.annotation.Autowired
+    private GlOutboxService glOutboxService;   // #4: durable GL posting via the outbox (replaces direct FinanceClient)
 
     /** @return the invoice number of the recorded sale. */
     public String addSell(CustomerHistoryDTO dto) {
@@ -104,17 +104,15 @@ public class SagaSellService {
         // F3b: auto-post the sale to the General Ledger (Dr Cash/AR, Cr Sales+Tax; + COGS from the line cost).
         // Best-effort — a GL hiccup must never fail the sale (reconcile later). Only on a NEW sale (not edits).
         try {
-            if (financeClient != null) {
-                BigDecimal cost = BigDecimal.ZERO;
-                for (SagaLine l : lines)
-                    if (l.costPrice() != null) cost = cost.add(l.costPrice().multiply(BigDecimal.valueOf(l.quantity())));
-                financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-                        .eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
-                        .grandTotal(ch.getGrandTotal()).subTotal(ch.getSubTotal()).taxTotal(ch.getTaxTotal())
-                        .cost(cost).paidAmount(ch.getPaidAmount()).method(ch.getPaymentMode()).build());
-            }
+            BigDecimal cost = BigDecimal.ZERO;
+            for (SagaLine l : lines)
+                if (l.costPrice() != null) cost = cost.add(l.costPrice().multiply(BigDecimal.valueOf(l.quantity())));
+            glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+                    .eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+                    .grandTotal(ch.getGrandTotal()).subTotal(ch.getSubTotal()).taxTotal(ch.getTaxTotal())
+                    .cost(cost).paidAmount(ch.getPaidAmount()).method(ch.getPaymentMode()).build());
         } catch (Exception ex) {
-            LOG.warn("GL post failed for sale {} (sale recorded; reconcile later)", ch.getInvoiceNo(), ex);
+            LOG.warn("GL enqueue failed for sale {} (sale recorded)", ch.getInvoiceNo(), ex);
         }
         return ch.getInvoiceNo();
     }

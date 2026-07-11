@@ -127,8 +127,8 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;   // SF-11: return audit / credit-note
 
-	@org.springframework.beans.factory.annotation.Autowired(required = false)
-	com.myplus.commerce.contracts.client.FinanceClient financeClient;      // GL: SALE_RETURN reversal journal
+	@org.springframework.beans.factory.annotation.Autowired
+	com.myplus.business_service.service.GlOutboxService glOutboxService;   // #4: durable GL posting via the outbox
 
 	ModelMapper modelMapper = new ModelMapper();
 	{
@@ -606,22 +606,20 @@ public class SellController {
 			// GL: reverse the old posting + repost the new (net = the edit's delta) so the books never drift on an
 			// edit. The unchanged paid portion cancels between the two. Best-effort — never fail the edit.
 			try {
-				if (financeClient != null) {
-					java.math.BigDecimal newCost = java.math.BigDecimal.ZERO;
-					for (com.myplus.business_service.service.SagaLine l : lines)
-						if (l.costPrice() != null) newCost = newCost.add(l.costPrice().multiply(java.math.BigDecimal.valueOf(l.quantity())));
-					String mode = ch.getPaymentMode();
-					if (oldGrand.signum() > 0)
-						financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-								.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
-								.grandTotal(oldGrand).subTotal(oldSub).taxTotal(oldTax).cost(oldCost).paidAmount(oldPaid).method(mode).build());
-					financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-							.eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
-							.grandTotal(nzbd(ch.getGrandTotal())).subTotal(nzbd(ch.getSubTotal())).taxTotal(nzbd(ch.getTaxTotal()))
-							.cost(newCost).paidAmount(nzbd(ch.getPaidAmount())).method(mode).build());
-				}
+				java.math.BigDecimal newCost = java.math.BigDecimal.ZERO;
+				for (com.myplus.business_service.service.SagaLine l : lines)
+					if (l.costPrice() != null) newCost = newCost.add(l.costPrice().multiply(java.math.BigDecimal.valueOf(l.quantity())));
+				String mode = ch.getPaymentMode();
+				if (oldGrand.signum() > 0)
+					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+							.grandTotal(oldGrand).subTotal(oldSub).taxTotal(oldTax).cost(oldCost).paidAmount(oldPaid).method(mode).build());
+				glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+						.eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+						.grandTotal(nzbd(ch.getGrandTotal())).subTotal(nzbd(ch.getSubTotal())).taxTotal(nzbd(ch.getTaxTotal()))
+						.cost(newCost).paidAmount(nzbd(ch.getPaidAmount())).method(mode).build());
 			} catch (Exception glEx) {
-				LOGGER.warn(this.getClass().getName() + " > updateSell GL adjustment failed (edit applied)", glEx);
+				LOGGER.warn(this.getClass().getName() + " > updateSell GL adjustment enqueue failed (edit applied)", glEx);
 			}
 
 			return new GenericResponse("SUCCESS", "Sale updated. Invoice " + ch.getInvoiceNo(), ch.getInvoiceNo());
@@ -808,14 +806,14 @@ public class SellController {
 			// GL: post the SALE_RETURN reversal (best-effort) — reverses Sales/Tax + AR/Cash refund + COGS/Inventory.
 			try {
 				java.math.BigDecimal retGross = retSub.add(retTax);
-				if (financeClient != null && retGross.signum() > 0) {
-					financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+				if (retGross.signum() > 0) {
+					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(retInvoiceNo)
 							.grandTotal(retGross).subTotal(retSub).taxTotal(retTax).cost(retCost).paidAmount(refundedAmount)
 							.method("CASH").build());
 				}
 			} catch (Exception glEx) {
-				LOGGER.warn(this.getClass().getName() + " > saleReturn GL reversal failed (return applied)", glEx);
+				LOGGER.warn(this.getClass().getName() + " > saleReturn GL reversal enqueue failed (return applied)", glEx);
 			}
 
 			return new GenericResponse("SUCCESS", "Sale returned successfully.");

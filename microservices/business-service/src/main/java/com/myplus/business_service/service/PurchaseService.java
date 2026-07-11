@@ -53,8 +53,8 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     IVenderService venderService;                                       // F1 (AP): refresh vendor payable on purchase
 
-    @Autowired(required = false)
-    com.myplus.commerce.contracts.client.FinanceClient financeClient;   // F3b: post the PURCHASE journal to the GL
+    @Autowired
+    GlOutboxService glOutboxService;   // #4: durable GL posting via the outbox (replaces direct FinanceClient)
 
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
@@ -245,13 +245,11 @@ public class PurchaseService implements IPurchaseService{
 
 		// F3b: auto-post the purchase to the GL (Dr Inventory, Cr Cash(paid)/AP(rest)). Best-effort — never fail the purchase.
 		try {
-			if (financeClient != null) {
-				financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-						.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
-						.grandTotal(saved.getTotalAmount()).paidAmount(saved.getPaidAmount()).method("CASH").build());
-			}
+			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+					.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
+					.grandTotal(saved.getTotalAmount()).paidAmount(saved.getPaidAmount()).method("CASH").build());
 		} catch (Exception ex) {
-			LOG.warn("GL post failed for purchase {} (recorded; reconcile later)", saved.getPurchaseInvoiceNo(), ex);
+			LOG.warn("GL enqueue failed for purchase {} (recorded)", saved.getPurchaseInvoiceNo(), ex);
 		}
 		return saved;
 	}
@@ -334,17 +332,15 @@ public class PurchaseService implements IPurchaseService{
 		// GL edit adjustment: reverse the OLD bill + repost the NEW (net = the edit's delta) so the books never
 		// drift on a purchase edit. Best-effort — never fail the edit.
 		try {
-			if (financeClient != null) {
-				if (oldBillTotal.signum() > 0)
-					financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-							.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
-							.grandTotal(oldBillTotal).paidAmount(oldBillPaid).method("CASH").build());
-				financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-						.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
-						.grandTotal(saved.getTotalAmount()).paidAmount(saved.getPaidAmount()).method("CASH").build());
-			}
+			if (oldBillTotal.signum() > 0)
+				glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+						.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
+						.grandTotal(oldBillTotal).paidAmount(oldBillPaid).method("CASH").build());
+			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+					.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
+					.grandTotal(saved.getTotalAmount()).paidAmount(saved.getPaidAmount()).method("CASH").build());
 		} catch (Exception ex) {
-			LOG.warn("GL adjustment failed for purchase edit {} (edit applied)", saved.getPurchaseInvoiceNo(), ex);
+			LOG.warn("GL adjustment enqueue failed for purchase edit {} (edit applied)", saved.getPurchaseInvoiceNo(), ex);
 		}
 		return saved;
 	}
@@ -414,12 +410,11 @@ public class PurchaseService implements IPurchaseService{
 
 		// 3) GL reversal (best-effort): Cr Inventory (returned value), Dr AP (payable cut) + Dr Cash (refund).
 		try {
-			if (financeClient != null)
-				financeClient.postEvent(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-						.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(p.getPurchaseInvoiceNo())
-						.grandTotal(returnedValue).paidAmount(refund).method("CASH").build());
+			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
+					.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(p.getPurchaseInvoiceNo())
+					.grandTotal(returnedValue).paidAmount(refund).method("CASH").build());
 		} catch (Exception ex) {
-			LOG.warn("GL post failed for purchase return {} (return applied; reconcile later)", p.getPurchaseInvoiceNo(), ex);
+			LOG.warn("GL enqueue failed for purchase return {} (return applied)", p.getPurchaseInvoiceNo(), ex);
 		}
 
 		java.util.Map<String, Object> out = new java.util.HashMap<>();

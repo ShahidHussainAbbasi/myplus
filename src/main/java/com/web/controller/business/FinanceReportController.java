@@ -55,4 +55,12 @@ public class FinanceReportController {
             return client.get("/vendorStatement", "venderId=" + (id == null ? "" : id));
         } catch (Exception e) { LOGGER.error("vendorStatement proxy error", e); return Collections.singletonMap("status", "ERROR"); }
     }
+
+    /** Audit #4: read the GL posting outbox (delivery status) for the tenant. */
+    @RequestMapping(value = "/getGlOutbox", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getGlOutbox(final HttpServletRequest request) {
+        try { return client.get("/getGlOutbox"); }
+        catch (Exception e) { LOGGER.error("getGlOutbox proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+    }
 }
