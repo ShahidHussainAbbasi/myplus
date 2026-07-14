@@ -20,4 +20,9 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     @Query("select v from Vehicle v where v.organizationId = :orgId "
             + "or (v.organizationId is null and v.userId = :userId)")
     List<Vehicle> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // P4 — branch (school) scoped read; school-less rows are legacy and stay visible.
+    @Query("select v from Vehicle v where v.organizationId = :orgId "
+            + "and (v.schoolId in :schoolIds or v.schoolId is null)")
+    List<Vehicle> findScopedBySchools(@Param("orgId") Long orgId, @Param("schoolIds") java.util.Collection<Long> schoolIds);
 }

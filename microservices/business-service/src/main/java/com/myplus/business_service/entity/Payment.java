@@ -40,6 +40,9 @@ public class Payment {
     @Column(name = "user_id")
     private Long userId;               // audit: who took the payment
 
+    @Column(name = "store_id")
+    private Long storeId;              // multi-location: the store that took the tender (null = single-store/legacy)
+
     @Column(name = "dated")
     private LocalDateTime dated;
 

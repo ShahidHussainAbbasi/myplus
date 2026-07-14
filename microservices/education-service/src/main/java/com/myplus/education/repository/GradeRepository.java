@@ -21,4 +21,9 @@ public interface GradeRepository extends JpaRepository<Grade, Long> {
     @Query("select g from Grade g where g.organizationId = :orgId "
             + "or (g.organizationId is null and g.userId = :userId)")
     List<Grade> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // P4 — branch (school) scoped read; school-less rows are legacy and stay visible.
+    @Query("select g from Grade g where g.organizationId = :orgId "
+            + "and (g.schoolId in :schoolIds or g.schoolId is null)")
+    List<Grade> findScopedBySchools(@Param("orgId") Long orgId, @Param("schoolIds") java.util.Collection<Long> schoolIds);
 }

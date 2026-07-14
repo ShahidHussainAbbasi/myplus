@@ -50,11 +50,9 @@ public class CustomerController {
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
 	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
-	/** Role-aware visibility: SUPER/owner sees the whole org's customers; others only their own. */
+	/** Role-aware visibility: owner/super AND admin see the whole org's customers; a plain user only their own. */
 	private boolean seesAllOrg() {
-		AuthenticatedUser u = requestUtil.getCurrentUser();
-		return u != null && u.getAuthorities() != null && u.getAuthorities().stream()
-				.anyMatch(a -> "SUPER_PRIVILEGE".equals(a.getAuthority()));
+		return requestUtil.callerSeesWholeOrg();
 	}
 	/** Org-wide for SUPER, own-only for everyone else. */
 	private List<Customer> visibleCustomers() {
@@ -67,10 +65,12 @@ public class CustomerController {
 	public GenericResponse getUserCustomer(@RequestParam(required=false) Integer page,
 			@RequestParam(required=false) Integer size, final HttpServletRequest request) {
 		try {
-			// optional pagination (slice 24): when page&size are sent return that page; else full list (UI contract)
-			List<Customer> objs = (page != null && size != null)
+			// optional pagination (slice 24): when page&size are sent return that page; else full list (UI contract).
+			// Role-aware: the paged org-wide query is ONLY for whole-org viewers (owner/super/admin); a plain
+			// user always gets their OWN rows (previously this branch leaked the whole org to any user).
+			List<Customer> objs = (page != null && size != null && seesAllOrg())
 					? customerService.findScoped(orgId(), userId(), org.springframework.data.domain.PageRequest.of(page, size))
-					: visibleCustomers();   // role-aware: SUPER = org, others = own
+					: visibleCustomers();   // role-aware: whole-org viewers = org, others = own
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 

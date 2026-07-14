@@ -122,6 +122,14 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 String privileges = privilegesObj != null ? privilegesObj.toString() : "";
                 Object orgObj = claims.get("activeOrgId");
                 String orgId = orgObj != null ? String.valueOf(orgObj) : "";
+                // Multi-location (Pattern A): active store/branch + accessible set + role there. Empty until
+                // grants exist (P2+); the callee treats absent headers as single-location (unchanged behaviour).
+                Object locActiveObj = claims.get("activeLocationId");
+                String activeLoc = locActiveObj != null ? String.valueOf(locActiveObj) : "";
+                Object locIdsObj = claims.get("accessibleLocationIds");
+                String locIds = locIdsObj != null ? locIdsObj.toString() : "";
+                Object locRoleObj = claims.get("roleAtLocation");
+                String locRole = locRoleObj != null ? String.valueOf(locRoleObj) : "";
 
                 ServerHttpRequest.Builder builder = request.mutate()
                         // F3: drop ALL client-supplied identity/secret headers before stamping our
@@ -133,12 +141,18 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                             h.remove("X-User-Email");
                             h.remove("X-User-Roles");
                             h.remove("X-User-Privileges");
+                            h.remove("X-Location-Id");
+                            h.remove("X-Location-Ids");
+                            h.remove("X-Loc-Role");
                         })
                         .header("X-User-Id", userId)
                         .header("X-User-Email", email != null ? email : "")
                         .header("X-User-Roles", roles)
                         .header("X-User-Privileges", privileges)
-                        .header("X-Org-Id", orgId);
+                        .header("X-Org-Id", orgId)
+                        .header("X-Location-Id", activeLoc)
+                        .header("X-Location-Ids", locIds)
+                        .header("X-Loc-Role", locRole);
                 if (internalSecret != null && !internalSecret.isEmpty()) {
                     builder.header("X-Internal-Secret", internalSecret);
                 }

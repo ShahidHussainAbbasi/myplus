@@ -22,6 +22,7 @@ import com.myplus.education.repository.SchoolRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /** Flat (legacy) Grade endpoints. userId-scoped; resolves school branch name by schoolId. */
 @Controller
@@ -33,6 +34,9 @@ public class GradeController {
     private SchoolRepository schoolRepository;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -45,6 +49,14 @@ public class GradeController {
     private Long orgId() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
         return u == null ? null : u.getOrganizationId();
+    }
+
+    /** P4 role×branch visibility — see StudentController.visibleStudents() for the rule. */
+    private List<Grade> visibleGrades() {
+        if (requestUtil.isOwnerSuper()) return gradeRepository.findScoped(orgId(), userId());
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return gradeRepository.findScoped(orgId(), userId());
+        return gradeRepository.findScopedBySchools(orgId(), schools);
     }
 
     private GradeDTO toDto(Grade g) {
@@ -73,7 +85,7 @@ public class GradeController {
     @ResponseBody
     public GenericResponse getUserGrade(final HttpServletRequest request) {
         try {
-            List<Grade> objs = gradeRepository.findScoped(orgId(), userId());
+            List<Grade> objs = visibleGrades();
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -89,7 +101,7 @@ public class GradeController {
     public String getUserGrades(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Grade> objs = gradeRepository.findScoped(orgId(), userId());
+            List<Grade> objs = visibleGrades();
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -106,8 +118,8 @@ public class GradeController {
     @ResponseBody
     public GenericResponse getAllGrade(final HttpServletRequest request) {
         try {
-            // Tenant-scoped: "all" means all grades in the active organization, not every tenant's.
-            List<Grade> all = gradeRepository.findScoped(orgId(), userId());
+            // Tenant- AND branch-scoped: every grade the caller may see in the active org.
+            List<Grade> all = visibleGrades();
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -135,12 +147,20 @@ public class GradeController {
             Grade obj = (dto.getId() != null)
                     ? gradeRepository.findById(dto.getId()).orElseGet(Grade::new)
                     : new Grade();
+            // P4 anti-IDOR: an edit names a row by id, so it must live in a branch the caller may access.
+            if (dto.getId() != null && obj.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) {
+                return new GenericResponse("NOT_FOUND", "Grade not found");
+            }
+            Long school = dto.getSchoolId() != null ? dto.getSchoolId() : requestUtil.activeSchoolId();
+            if (!requestUtil.canAccessSchool(school)) {
+                return new GenericResponse("FAILED", "You do not have access to that branch.");
+            }
             obj.setUserId(userId);              // audit: who created/edited
             obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
             obj.setCode(dto.getCode());
             obj.setSection(dto.getSection());
-            obj.setSchoolId(dto.getSchoolId());
+            obj.setSchoolId(school);
             obj.setStatus(dto.getStatus());
             obj.setFee(dto.getFee());
             obj.setRoom(dto.getRoom());
@@ -170,11 +190,9 @@ public class GradeController {
         try {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
-                for (String id : ids.split(",")) {
-                    if (!StringUtils.isEmpty(id)) {
-                        gradeRepository.deleteById(Long.valueOf(id));
-                    }
-                }
+                // Anti-IDOR: the caller's own tenant and own branch only (see ScopedDeleter).
+                scopedDeleter.deleteScoped(gradeRepository, ids,
+                        Grade::getOrganizationId, Grade::getUserId, Grade::getSchoolId);
                 return true;
             }
             return false;

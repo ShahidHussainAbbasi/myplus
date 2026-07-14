@@ -52,6 +52,9 @@ public class SaleReturn implements Serializable {
 	@Column(name = "user_id")
 	private Long userId;
 
+	@Column(name = "store_id")
+	private Long storeId;              // multi-location: the store this return was taken at (null = single-store/legacy)
+
 	@Column(name = "dated")
 	private LocalDateTime dated;
 }

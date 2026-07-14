@@ -37,6 +37,7 @@ import com.myplus.education.service.EmailService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /**
  * Flat Alerts endpoints (slice 16) — system alerts + public-alert contacts, org-scoped, with real
@@ -52,6 +53,7 @@ public class AlertController {
     @Autowired private StaffRepository staffRepository;
     @Autowired private EmailService emailService;
     @Autowired private RequestUtil requestUtil;
+    @Autowired private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired private AppUtil appUtil;
 
     private Long userId() {
@@ -116,9 +118,8 @@ public class AlertController {
         if (StringUtils.isEmpty(ids)) return false;
         // No internal catch: a failure mid-loop must propagate so @Transactional rolls back the
         // whole multi-row delete (all-or-nothing). handleUncaught() turns it into an ERROR envelope.
-        for (String id : ids.split(",")) {
-            if (!StringUtils.isEmpty(id)) alertsRepository.deleteById(Long.valueOf(id));
-        }
+        // Anti-IDOR: only rows in the caller's own tenant are deleted (see ScopedDeleter).
+        scopedDeleter.deleteScoped(alertsRepository, ids, Alerts::getOrganizationId, Alerts::getUserId, null);
         return true;
     }
 

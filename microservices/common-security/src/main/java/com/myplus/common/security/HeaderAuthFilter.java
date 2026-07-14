@@ -58,6 +58,11 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
             try {
                 Long organizationId = parseLongOrNull(orgIdHeader);
                 AuthenticatedUser principal = new AuthenticatedUser(Long.valueOf(userId), email, authorities, organizationId);
+                // Multi-location (Pattern A): active/accessible stores + role at the active location. All
+                // absent => single-location, so the principal keeps its unset defaults and nothing changes.
+                principal.setActiveLocationId(parseLongOrNull(request.getHeader("X-Location-Id")));
+                principal.setAccessibleLocationIds(parseLongSet(request.getHeader("X-Location-Ids")));
+                principal.setRoleAtLocation(cleanHeader(request.getHeader("X-Loc-Role")));
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
                 // Also store in request attributes as a reliable fallback (read by CurrentUser.get()).
@@ -66,6 +71,24 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    /** Trim a header; treat blank / literal "null" as absent. */
+    private String cleanHeader(String v) {
+        if (v == null) return null;
+        String t = v.trim();
+        return (t.isEmpty() || "null".equals(t)) ? null : t;
+    }
+
+    /** Parse a comma-separated list of ids (e.g. "3,7,12") into a Long set; empty when absent/blank. */
+    private Set<Long> parseLongSet(String header) {
+        Set<Long> out = new LinkedHashSet<>();
+        if (header == null || header.isBlank()) return out;
+        for (String part : header.replaceAll("[\\[\\]\"]", "").split(",")) {
+            Long v = parseLongOrNull(part);
+            if (v != null) out.add(v);
+        }
+        return out;
     }
 
     /** Parse a numeric header into a Long, or null when absent/blank/non-numeric. */

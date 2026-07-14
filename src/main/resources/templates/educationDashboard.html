@@ -102,6 +102,9 @@
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> Manage Discounts/Charges</a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GuardianDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Guardians</a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StudentDiv','snavRegister')"><span class="glyphicon glyphicon-education"></span> Manage Students</a></li>
+									<!-- P4: add teachers/admins and assign them to branches (the education twin of the POS
+									     Manage Users screen; showTeam lives in /js/common/team.js). -->
+									<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showTeam();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> Manage Users</a></li>
 								</ul>
 							</div>
 							<div class="snav-dd" id="snavFee">
@@ -155,6 +158,15 @@
 									class="snav-org-select"
 									style="height:32px;border-radius:6px;border:none;padding:0 8px;margin-left:8px;">
 									<option value="">Organization…</option>
+								</select>
+							</span>
+							<!-- P4 active-branch (school) switcher — the education twin of the POS store switcher.
+							     Hidden unless the user can work at 2+ branches. Changing it re-issues the session
+							     JWT with the chosen branch, which is what new students/grades are filed under. -->
+							<span id="branchSwitcherLi" class="snav-org" style="display:none">
+								<select name="branchSwitcher" id="branchSwitcher" title="Active branch"
+									class="snav-org-select"
+									style="height:32px;border-radius:6px;border:none;padding:0 8px;margin-left:8px;">
 								</select>
 							</span>
 						</div>
@@ -237,6 +249,37 @@
 					</div>
 				</div>
 			</div>
+			<!-- P4 Team & Users — same element ids as the commerce dashboard, so /js/common/team.js drives both.
+			     Assigning branches here is what scopes a teacher to a campus. -->
+			<div id="TeamDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+				<h3 class="dash-page-title">Team &amp; Users</h3>
+				<div id="teamMsg" class="alert" style="display:none"></div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name"/></div>
+					<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name"/></div>
+					<div class="col-sm-3"><input id="teamEmail" type="email" class="form-control" placeholder="Email"/></div>
+					<div class="col-sm-2">
+						<select id="teamRole" class="form-control">
+							<option value="USER">Teacher</option>
+							<option value="ADMIN">Admin / Principal</option>
+						</select>
+					</div>
+					<div class="col-sm-1">
+						<button type="button" id="addTeamUser" class="btn btn-success" onclick="addTeamUser()">Add</button>
+					</div>
+				</div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-6">
+						<label style="font-weight:600;font-size:12px;color:#7a889c;margin-bottom:4px;display:block">Assign to branch(es) — leave empty to inherit (owner = all; admin = their own)</label>
+						<select id="teamStores" class="form-control" multiple size="3"></select>
+					</div>
+				</div>
+				<table id="tableTeam" class="table table-bordered table-striped">
+					<thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+
 			<div id="OwnerDiv" class="formDiv">
 				<h3 class="dash-page-title" th:text="#{label.owner.form.heading}">Owner Registration</h3>
 				<div style="margin-bottom:8px">
@@ -2243,6 +2286,10 @@ var serverContext = [[@{/}]];
 	<script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
 
 	<script th:src="@{/js/common/dom-safe.js}"></script>
+	<!-- Team & Users: the SAME screen the commerce dashboard uses. Locations for this vertical are BRANCHES
+	     (schools), so the picker reads /getUserSchool; the grant endpoint resolves the module server-side. -->
+	<script>window.TEAM_LOCATIONS_URL = 'getUserSchool'; window.TEAM_LOCATION_NOUN = 'branch';</script>
+	<script type="text/javascript" th:src="@{/js/common/team.js}"></script>
 	<script type="text/javascript" th:src="@{/js/lib/chart.umd.min.js}"></script>
 	<script type="text/javascript" th:src="@{/js/education/education.js}"></script>
 	<script type="text/javascript" th:src="@{/js/education/educationDashboard.js}"></script>

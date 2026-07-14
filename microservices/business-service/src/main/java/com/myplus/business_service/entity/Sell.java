@@ -48,6 +48,9 @@ public class Sell implements Serializable {
 	@Column(name = "organization_id")
 	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
 
+	@Column(name = "store_id")
+	private Long storeId;              // multi-location: the store this sale occurred at (null = single-store/legacy)
+
 	// @OneToOne(fetch = FetchType.LAZY, optional = true)
 	// @NotFound(action = NotFoundAction.IGNORE)
 	// @JoinColumn(name = "item_id")

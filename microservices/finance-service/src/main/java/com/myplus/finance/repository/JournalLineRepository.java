@@ -28,4 +28,17 @@ public interface JournalLineRepository extends JpaRepository<JournalLine, Long> 
     @Query("SELECT jl FROM JournalLine jl JOIN FETCH jl.entry e WHERE jl.accountId = :accountId "
             + "AND e.organizationId = :orgId ORDER BY e.entryDate ASC, jl.id ASC")
     List<JournalLine> ledgerForAccount(@Param("accountId") Long accountId, @Param("orgId") Long orgId);
+
+    /** Tax register: one account's movement grouped by entry source {@code [source, Σdebit, Σcredit]} over [from,to]. */
+    @Query("SELECT jl.entry.source, COALESCE(SUM(jl.debit),0), COALESCE(SUM(jl.credit),0) FROM JournalLine jl "
+            + "WHERE jl.entry.organizationId = :orgId AND jl.accountId = :accountId "
+            + "AND jl.entry.entryDate >= :from AND jl.entry.entryDate <= :to GROUP BY jl.entry.source")
+    List<Object[]> sumByAccountSourceInRange(@Param("orgId") Long orgId, @Param("accountId") Long accountId,
+            @Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    /** One account's lines within [from,to] (entry fetched) — the tax register's line detail, oldest-first. */
+    @Query("SELECT jl FROM JournalLine jl JOIN FETCH jl.entry e WHERE jl.accountId = :accountId "
+            + "AND e.organizationId = :orgId AND e.entryDate >= :from AND e.entryDate <= :to ORDER BY e.entryDate ASC, jl.id ASC")
+    List<JournalLine> ledgerForAccountInRange(@Param("accountId") Long accountId, @Param("orgId") Long orgId,
+            @Param("from") LocalDate from, @Param("to") LocalDate to);
 }

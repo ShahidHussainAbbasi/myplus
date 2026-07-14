@@ -184,6 +184,57 @@ public class GlService {
         return out;
     }
 
+    /**
+     * Tax-filing register over [from, to] from the TAX account (2100). Grouped by the journal source so output tax
+     * (sales, Cr) nets against returns/voids (Dr), and — when input tax is captured on purchases (Dr) — input nets
+     * against purchase returns (Cr). netPayable = netOutput − netInput. Accrual-accurate + audit-defensible (the
+     * TAX account is the single source; input columns are simply 0 until a tenant enables input tax).
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> taxRegister(LocalDate from, LocalDate to) {
+        Long org = CurrentUser.organizationId();
+        LocalDate f = from != null ? from : LocalDate.now().withDayOfMonth(1);
+        LocalDate t = to != null ? to : LocalDate.now();
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("from", f);
+        out.put("to", t);
+
+        Account tax = accountRepository.findByOrganizationIdAndCode(org, "2100").orElse(null);
+        BigDecimal outputTax = BigDecimal.ZERO, outputAdjusted = BigDecimal.ZERO,
+                inputTax = BigDecimal.ZERO, inputAdjusted = BigDecimal.ZERO;
+        List<Map<String, Object>> lines = new ArrayList<>();
+        if (tax != null) {
+            for (Object[] r : journalLineRepository.sumByAccountSourceInRange(org, tax.getId(), f, t)) {
+                String source = (String) r[0];
+                BigDecimal debit = nz((BigDecimal) r[1]), credit = nz((BigDecimal) r[2]);
+                if ("SALE".equals(source)) outputTax = outputTax.add(credit);
+                else if ("SALE_RETURN".equals(source)) outputAdjusted = outputAdjusted.add(debit);
+                else if ("PURCHASE".equals(source)) inputTax = inputTax.add(debit);
+                else if ("PURCHASE_RETURN".equals(source)) inputAdjusted = inputAdjusted.add(credit);
+            }
+            for (JournalLine jl : journalLineRepository.ledgerForAccountInRange(tax.getId(), org, f, t)) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("date", jl.getEntry().getEntryDate());
+                row.put("source", jl.getEntry().getSource());
+                row.put("ref", jl.getEntry().getSourceRef());
+                row.put("debit", nz(jl.getDebit()));
+                row.put("credit", nz(jl.getCredit()));
+                lines.add(row);
+            }
+        }
+        BigDecimal netOutput = outputTax.subtract(outputAdjusted);
+        BigDecimal netInput = inputTax.subtract(inputAdjusted);
+        out.put("outputTax", outputTax);
+        out.put("outputAdjusted", outputAdjusted);
+        out.put("netOutput", netOutput);
+        out.put("inputTax", inputTax);
+        out.put("inputAdjusted", inputAdjusted);
+        out.put("netInput", netInput);
+        out.put("netPayable", netOutput.subtract(netInput));
+        out.put("lines", lines);
+        return out;
+    }
+
     /** F3c — Profit & Loss over [from, to]: income (credit − debit) − expense (debit − credit) = net profit. */
     @Transactional(readOnly = true)
     public Map<String, Object> profitAndLoss(LocalDate from, LocalDate to) {

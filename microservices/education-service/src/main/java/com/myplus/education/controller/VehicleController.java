@@ -21,6 +21,7 @@ import com.myplus.education.repository.VehicleRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /** Flat (legacy) Vehicle (transport) endpoints. userId-scoped. */
 @Controller
@@ -32,6 +33,9 @@ public class VehicleController {
     private SchoolRepository schoolRepository;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -44,6 +48,14 @@ public class VehicleController {
     private Long orgId() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
         return u == null ? null : u.getOrganizationId();
+    }
+
+    /** P4 role×branch visibility — see StudentController.visibleStudents() for the rule. */
+    private List<Vehicle> visibleVehicles() {
+        if (requestUtil.isOwnerSuper()) return vehicleRepository.findScoped(orgId(), userId());
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return vehicleRepository.findScoped(orgId(), userId());
+        return vehicleRepository.findScopedBySchools(orgId(), schools);
     }
 
     private VehicleDTO toDto(Vehicle v) {
@@ -70,7 +82,7 @@ public class VehicleController {
     @ResponseBody
     public GenericResponse getUserVehicle(final HttpServletRequest request) {
         try {
-            List<Vehicle> objs = vehicleRepository.findScoped(orgId(), userId());
+            List<Vehicle> objs = visibleVehicles();
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -86,7 +98,7 @@ public class VehicleController {
     public String getUserVehicles(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Vehicle> objs = vehicleRepository.findScoped(orgId(), userId());
+            List<Vehicle> objs = visibleVehicles();
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -103,8 +115,8 @@ public class VehicleController {
     @ResponseBody
     public GenericResponse getAllVehicle(final HttpServletRequest request) {
         try {
-            // Tenant-scoped: "all" means all vehicles in the active organization, not every tenant's.
-            List<Vehicle> all = vehicleRepository.findScoped(orgId(), userId());
+            // Tenant- AND branch-scoped: every vehicle the caller may see in the active org.
+            List<Vehicle> all = visibleVehicles();
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -131,6 +143,14 @@ public class VehicleController {
             Vehicle obj = (dto.getId() != null)
                     ? vehicleRepository.findById(dto.getId()).orElseGet(Vehicle::new)
                     : new Vehicle();
+            // P4 anti-IDOR: an edit names a row by id, so it must live in a branch the caller may access.
+            if (dto.getId() != null && obj.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) {
+                return new GenericResponse("NOT_FOUND", "Vehicle not found");
+            }
+            Long school = dto.getSchoolId() != null ? dto.getSchoolId() : requestUtil.activeSchoolId();
+            if (!requestUtil.canAccessSchool(school)) {
+                return new GenericResponse("FAILED", "You do not have access to that branch.");
+            }
             obj.setUserId(userId);              // audit: who created/edited
             obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
@@ -140,7 +160,7 @@ public class VehicleController {
             obj.setOwnerName(dto.getOwnerName());
             obj.setOwnerMobile(dto.getOwnerMobile());
             obj.setStatus(dto.getStatus());
-            obj.setSchoolId(dto.getSchoolId());
+            obj.setSchoolId(school);
             if (obj.getDated() == null) {
                 obj.setDated(LocalDateTime.now());
             }
@@ -161,11 +181,9 @@ public class VehicleController {
         try {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
-                for (String id : ids.split(",")) {
-                    if (!StringUtils.isEmpty(id)) {
-                        vehicleRepository.deleteById(Long.valueOf(id));
-                    }
-                }
+                // Anti-IDOR: the caller's own tenant and own branch only (see ScopedDeleter).
+                scopedDeleter.deleteScoped(vehicleRepository, ids,
+                        Vehicle::getOrganizationId, Vehicle::getUserId, Vehicle::getSchoolId);
                 return true;
             }
             return false;

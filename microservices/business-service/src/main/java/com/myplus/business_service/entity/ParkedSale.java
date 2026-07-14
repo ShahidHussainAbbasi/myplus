@@ -26,6 +26,9 @@ public class ParkedSale {
     @Column(name = "user_id")
     private Long userId;                // the cashier who parked it
 
+    @Column(name = "store_id")
+    private Long storeId;               // multi-location: the store this sale was parked at (a hold is not portable)
+
     private String label;              // e.g. customer name / a note
 
     @Column(name = "item_count")

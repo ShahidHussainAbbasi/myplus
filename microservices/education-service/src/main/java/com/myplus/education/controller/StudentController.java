@@ -40,6 +40,7 @@ import com.myplus.education.service.FeeService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /**
  * Flat (legacy) Student endpoints. userId-scoped; resolves school/grade/guardian display names.
@@ -61,6 +62,9 @@ public class StudentController {
     private FeeService feeService;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -73,6 +77,18 @@ public class StudentController {
     private Long orgId() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
         return u == null ? null : u.getOrganizationId();
+    }
+
+    /**
+     * P4 role×branch visibility. Empty grants ⇒ no branch filter (single-branch / unassigned / legacy ⇒ exactly
+     * today's behaviour). An owner is never narrowed by grants. Otherwise the caller sees their branches' students
+     * — the whole roster of those schools, not just the ones they entered (see StudentRepository for why).
+     */
+    private List<Student> visibleStudents() {
+        if (requestUtil.isOwnerSuper()) return studentRepository.findScoped(orgId(), userId());
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return studentRepository.findScoped(orgId(), userId());
+        return studentRepository.findScopedBySchools(orgId(), schools);
     }
 
     private StudentDTO toDto(Student s) {
@@ -116,7 +132,7 @@ public class StudentController {
     @ResponseBody
     public GenericResponse getUserStudent(final HttpServletRequest request) {
         try {
-            List<Student> objs = studentRepository.findScoped(orgId(), userId());
+            List<Student> objs = visibleStudents();
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -132,7 +148,7 @@ public class StudentController {
     public String getUserStudents(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Student> objs = studentRepository.findScoped(orgId(), userId());
+            List<Student> objs = visibleStudents();
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -149,8 +165,8 @@ public class StudentController {
     @ResponseBody
     public GenericResponse getAllStudent(final HttpServletRequest request) {
         try {
-            // Tenant-scoped: "all" means all students in the active organization, not every tenant's.
-            List<Student> all = studentRepository.findScoped(orgId(), userId());
+            // Tenant- AND branch-scoped: "all" means every student the caller may see in the active org.
+            List<Student> all = visibleStudents();
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -178,6 +194,17 @@ public class StudentController {
             Student obj = (dto.getId() != null)
                     ? studentRepository.findById(dto.getId()).orElseGet(Student::new)
                     : new Student();
+            // P4 anti-IDOR: an edit takes an id from the client, so the row must sit in a branch the caller
+            // may access — otherwise a teacher at Branch B could edit a Branch-A student just by knowing the id.
+            if (dto.getId() != null && obj.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) {
+                return new GenericResponse("NOT_FOUND", "Student not found");
+            }
+            // The branch a student belongs to: what the form chose, else the caller's active branch. Either way
+            // it must be one the caller holds — a client cannot file a student into someone else's school.
+            Long school = dto.getSchoolId() != null ? dto.getSchoolId() : requestUtil.activeSchoolId();
+            if (!requestUtil.canAccessSchool(school)) {
+                return new GenericResponse("FAILED", "You do not have access to that branch.");
+            }
             obj.setUserId(userId);              // audit: who created/edited
             obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
@@ -189,7 +216,7 @@ public class StudentController {
             obj.setGender(dto.getGender());
             obj.setBloodGroup(dto.getBloodGroup());
             obj.setStatus(dto.getStatus());
-            obj.setSchoolId(dto.getSchoolId());
+            obj.setSchoolId(school);
             obj.setGuardianId(dto.getGuardianId());
             obj.setGradeId(dto.getGradeId());
             obj.setVehicleId(dto.getVehicleId());
@@ -235,11 +262,9 @@ public class StudentController {
         try {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
-                for (String id : ids.split(",")) {
-                    if (!StringUtils.isEmpty(id)) {
-                        studentRepository.deleteById(Long.valueOf(id));
-                    }
-                }
+                // Anti-IDOR: the caller's own tenant and own branch only (see ScopedDeleter).
+                scopedDeleter.deleteScoped(studentRepository, ids,
+                        Student::getOrganizationId, Student::getUserId, Student::getSchoolId);
                 return true;
             }
             return false;

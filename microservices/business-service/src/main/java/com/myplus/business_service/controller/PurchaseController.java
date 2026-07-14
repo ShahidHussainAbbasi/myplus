@@ -85,15 +85,19 @@ public class PurchaseController {
 		return (rowOrg != null && rowOrg.equals(orgId()))
 			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
 	}
-	/** Role-aware visibility: SUPER/owner sees the whole org's purchases; others only their own. */
+	/** Role-aware visibility: owner/super AND admin see the whole org's purchases; a plain user only their own. */
 	private boolean seesAllOrg() {
-		AuthenticatedUser u = requestUtil.getCurrentUser();
-		return u != null && u.getAuthorities() != null && u.getAuthorities().stream()
-				.anyMatch(a -> "SUPER_PRIVILEGE".equals(a.getAuthority()));
+		return requestUtil.callerSeesWholeOrg();
 	}
 	private List<Purchase> visiblePurchases() {
-		return seesAllOrg() ? purchaseService.findScoped(orgId(), userId())
-		                    : purchaseService.findOwnScoped(orgId(), userId());
+		if (requestUtil.isOwnerSuper())                       // owner: whole org, all stores, always
+			return purchaseService.findScoped(orgId(), userId());
+		java.util.Set<Long> stores = requestUtil.accessibleStoreIds();
+		if (stores.isEmpty())
+			return seesAllOrg() ? purchaseService.findScoped(orgId(), userId())
+			                    : purchaseService.findOwnScoped(orgId(), userId());
+		return seesAllOrg() ? purchaseService.findScopedByStores(orgId(), stores)
+		                    : purchaseService.findOwnScopedByStores(orgId(), userId(), stores);
 	}
 
 	@RequestMapping(value = "/getUserPurchase", method = RequestMethod.GET)

@@ -85,4 +85,17 @@ public class GlController {
             return finance.get("/gl/balance-sheet", asOf != null && !asOf.isEmpty() ? "asOf=" + asOf : null);
         } catch (Exception e) { LOGGER.error("gl balanceSheet proxy error", e); return "{\"status\":\"ERROR\"}"; }
     }
+
+    /** Tax-filing register over a period (output vs input tax + net payable). */
+    @GetMapping(value = "/taxRegister", produces = "application/json")
+    @ResponseBody
+    public String taxRegister(final HttpServletRequest request) {
+        try {
+            String from = request.getParameter("from"), to = request.getParameter("to");
+            String q = null;
+            if (from != null && !from.isEmpty()) q = "from=" + from;
+            if (to != null && !to.isEmpty()) q = (q == null ? "" : q + "&") + "to=" + to;
+            return finance.get("/gl/tax-register", q);
+        } catch (Exception e) { LOGGER.error("taxRegister proxy error", e); return "{\"status\":\"ERROR\"}"; }
+    }
 }

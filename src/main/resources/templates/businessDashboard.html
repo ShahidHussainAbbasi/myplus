@@ -76,6 +76,14 @@
 			</div>
 			<nav class="app-sidebar__nav" id="nav-subheader">
 					<div class="snav-actions">
+						<!-- P5b active-store switcher. Hidden unless the user can work at 2+ stores (a single-store
+						     business never sees it). Changing it re-issues the session JWT with the chosen store,
+						     which is what new sales/purchases/shifts are stamped with. -->
+						<div id="storeSwitcherWrap" class="snav-store" style="display:none;padding:8px 10px;">
+							<select id="storeSwitcher" title="Active store"
+								style="width:100%;height:32px;border-radius:6px;border:none;padding:0 8px;">
+							</select>
+						</div>
 						<!-- <button class="snav-btn snav-home-btn" onclick="snavHome()">
 							<span class="glyphicon glyphicon-dashboard"></span>
 							<span>Dashboard</span>
@@ -155,6 +163,24 @@
 								<li><a onclick="showTill();document.getElementById('snavTill').classList.remove('snav-open');"><span class="glyphicon glyphicon-briefcase"></span> Cash Drawer</a></li>
 							</ul>
 						</div>
+						<!-- Finance — org-wide GL statements, tax register and the immutable audit trail.
+						     Org-scoped reports (not customer/vendor data); open the dedicated Finance page (#FinanceDiv)
+						     with a report switcher + filter criteria. Owner-only: these expose the whole org's financial
+						     position (UI gate; enforce on the finance-service endpoints too for real access control). -->
+						<div class="snav-dd" id="snavFinance" sec:authorize="hasAuthority('ROLE_OWNER')">
+							<button class="snav-btn" onclick="snavToggle(event,'snavFinance')">
+								<span class="glyphicon glyphicon-usd"></span>
+								<span>Finance</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li><a onclick="showFinance('trialBalance')"><span class="glyphicon glyphicon-list"></span> Trial Balance</a></li>
+								<li><a onclick="showFinance('pnl')"><span class="glyphicon glyphicon-stats"></span> Profit &amp; Loss</a></li>
+								<li><a onclick="showFinance('balanceSheet')"><span class="glyphicon glyphicon-scale"></span> Balance Sheet</a></li>
+								<li><a onclick="showFinance('taxRegister')"><span class="glyphicon glyphicon-th-list"></span> Tax Register</a></li>
+								<li><a onclick="showFinance('auditLog')"><span class="glyphicon glyphicon-eye-open"></span> Audit Log</a></li>
+							</ul>
+						</div>
 						<!-- Settings — org-level config; owner only. -->
 						<div class="snav-dd" id="snavSettings" sec:authorize="hasAuthority('ROLE_OWNER')">
 							<button class="snav-btn" onclick="snavToggle(event,'snavSettings')">
@@ -163,6 +189,7 @@
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
+								<li><a onclick="showStores();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-home"></span> Stores</a></li>
 								<li><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> Tax Settings</a></li>
 							</ul>
 						</div>
@@ -349,6 +376,12 @@
 					</div>
 					<div class="col-sm-1">
 						<button type="button" id="addTeamUser" class="btn btn-success" onclick="addTeamUser()">Add</button>
+					</div>
+				</div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-6">
+						<label style="font-weight:600;font-size:12px;color:#7a889c;margin-bottom:4px;display:block">Assign to store(s) — leave empty to inherit (owner = all; admin = their own)</label>
+						<select id="teamStores" class="form-control" multiple size="3"></select>
 					</div>
 				</div>
 				<table id="tableTeam" class="table table-bordered table-striped">
@@ -607,19 +640,8 @@
 					<button type="button" class="btn btn-info" onclick="openAging('CUSTOMER')" title="Receivables aging report (F2)">
 						<span class="glyphicon glyphicon-time"></span> Receivables Aging
 					</button>
-					<!-- F3: General Ledger financial statements (org-wide) -->
-					<button type="button" class="btn btn-default" onclick="openTrialBalance()" title="Trial Balance (F3)">
-						<span class="glyphicon glyphicon-list"></span> Trial Balance
-					</button>
-					<button type="button" class="btn btn-default" onclick="openPnl()" title="Profit &amp; Loss (F3)">
-						<span class="glyphicon glyphicon-stats"></span> P&amp;L
-					</button>
-					<button type="button" class="btn btn-default" onclick="openBalanceSheet()" title="Balance Sheet (F3)">
-						<span class="glyphicon glyphicon-scale"></span> Balance Sheet
-					</button>
-					<button type="button" class="btn btn-default" onclick="openAuditLog()" title="Immutable audit trail (#6)">
-						<span class="glyphicon glyphicon-eye-open"></span> Audit Log
-					</button>
+					<!-- Org-wide GL statements (Trial Balance / P&L / Balance Sheet / Tax / Audit) moved to the
+					     sidebar "Finance" menu — they are org-scoped reports, not customer data. -->
 					<button type="button" id="deleteCustomer" class="btn btn-danger" style="display:none !important"></button>
 					<span id="bulkBarCustomer" class="crud-bulkbar" style="display:none;margin-left:10px">
 						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
@@ -1515,6 +1537,23 @@
 			</div>
 
 			<!-- G3 (slice 35): per-org tax policy. Owner-only; drives tax on every sale + receipt. -->
+			<!-- Multi-location: manage stores (owner). Creating a store auto-grants the owner access to it. -->
+			<div id="StoresDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+				<h3 class="dash-page-title">Stores</h3>
+				<div id="storeMsg" class="alert" style="display:none"></div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3"><input id="storeName" class="form-control" placeholder="Store name"/></div>
+					<div class="col-sm-2"><input id="storeCode" class="form-control" placeholder="Code (optional)"/></div>
+					<div class="col-sm-3"><input id="storeAddress" class="form-control" placeholder="Address (optional)"/></div>
+					<div class="col-sm-2"><input id="storePhone" class="form-control" placeholder="Phone (optional)"/></div>
+					<div class="col-sm-2"><button type="button" class="btn btn-success" onclick="saveStore()">Add store</button></div>
+				</div>
+				<table id="tableStores" class="table table-bordered table-striped">
+					<thead><tr><th>Name</th><th>Code</th><th>Address</th><th>Phone</th><th>Status</th></tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+
 			<div id="TaxSettingDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
 				<!-- <h4>Tax Settings</h4> -->
 				<form class="form-horizontal" role="form" id="TaxSetting" autocomplete="off" onsubmit="return false;">
@@ -1558,6 +1597,75 @@
 						</button>
 					</div>
 				</form>
+			</div>
+
+			<!-- Finance Reports — org-wide GL statements, tax register, audit trail. Owner-only (matches the
+			     sidebar Finance menu). One page with a report switcher + per-report filter criteria. -->
+			<div id="FinanceDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+				<style>
+					#FinanceDiv .fin-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+					#FinanceDiv .fin-title{font-size:22px;font-weight:800;color:#1f4e8c;margin:0}
+					#FinanceDiv .fin-sub{color:#7a889c;font-size:13px;margin:3px 0 0}
+					#FinanceDiv .fin-tabs{display:flex;flex-wrap:wrap;gap:6px}
+					#FinanceDiv .fin-tab{border:1px solid #d7deea;background:#fff;color:#3a4a61;border-radius:9px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer;line-height:1.2}
+					#FinanceDiv .fin-tab:hover{background:#f3f6fb}
+					#FinanceDiv .fin-tab.active{background:#1e88e5;border-color:#1e88e5;color:#fff}
+					#FinanceDiv .fin-tab .glyphicon{margin-right:5px}
+					#FinanceDiv .fin-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;background:#fff;border:1px solid #e2e7ef;border-radius:14px;padding:16px 20px;margin-bottom:16px}
+					#FinanceDiv .fin-field{display:flex;flex-direction:column;gap:4px}
+					#FinanceDiv .fin-field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#7a889c;margin:0}
+					#FinanceDiv .fin-field input,#FinanceDiv .fin-field select{border:1px solid #d7deea;border-radius:8px;padding:7px 10px;font-size:13px;min-width:150px;background:#fff}
+					#FinanceDiv .fin-results{background:#fff;border:1px solid #e2e7ef;border-radius:14px;padding:18px 20px;min-height:140px;overflow-x:auto}
+				</style>
+				<div class="fin-head">
+					<div>
+						<h3 class="fin-title">Finance Reports</h3>
+						<p class="fin-sub">General Ledger statements, tax register and the audit trail — organization-wide.</p>
+					</div>
+					<div class="fin-tabs" id="finTabs">
+						<button type="button" class="fin-tab" data-report="trialBalance" onclick="showFinance('trialBalance')"><span class="glyphicon glyphicon-list"></span>Trial Balance</button>
+						<button type="button" class="fin-tab" data-report="pnl" onclick="showFinance('pnl')"><span class="glyphicon glyphicon-stats"></span>P&amp;L</button>
+						<button type="button" class="fin-tab" data-report="balanceSheet" onclick="showFinance('balanceSheet')"><span class="glyphicon glyphicon-scale"></span>Balance Sheet</button>
+						<button type="button" class="fin-tab" data-report="taxRegister" onclick="showFinance('taxRegister')"><span class="glyphicon glyphicon-th-list"></span>Tax Register</button>
+						<button type="button" class="fin-tab" data-report="auditLog" onclick="showFinance('auditLog')"><span class="glyphicon glyphicon-eye-open"></span>Audit Log</button>
+					</div>
+				</div>
+				<div class="fin-toolbar">
+					<div class="fin-field" id="finAsOfWrap">
+						<label for="finAsOf">As of</label>
+						<input type="date" id="finAsOf">
+					</div>
+					<div class="fin-field" id="finFromWrap">
+						<label for="finFrom">From</label>
+						<input type="date" id="finFrom">
+					</div>
+					<div class="fin-field" id="finToWrap">
+						<label for="finTo">To</label>
+						<input type="date" id="finTo">
+					</div>
+					<div class="fin-field" id="finActionWrap">
+						<label for="finAction">Action</label>
+						<select id="finAction">
+							<option value="">All actions</option>
+							<option value="SALE">Sale</option>
+							<option value="VOID_SALE">Void sale</option>
+							<option value="PURCHASE">Purchase</option>
+							<option value="PURCHASE_RETURN">Purchase return</option>
+							<option value="PAYMENT">Payment</option>
+						</select>
+					</div>
+					<div class="fin-field" id="finLimitWrap">
+						<label for="finLimit">Rows</label>
+						<input type="number" id="finLimit" min="1" max="1000" value="200" style="min-width:90px">
+					</div>
+					<div class="fin-field">
+						<label>&nbsp;</label>
+						<button type="button" class="btn btn-primary" onclick="runFinanceReport()"><span class="glyphicon glyphicon-refresh"></span> Run</button>
+					</div>
+				</div>
+				<div class="fin-results" id="FinanceResults">
+					<div style="padding:8px;color:#777">Pick a report above and click Run.</div>
+				</div>
 			</div>
 
 			<div id="SRDiv" class="formDiv">
@@ -1707,6 +1815,9 @@
     <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
     <script th:src="@{/js/business/chart.umd.min.js}"></script>
     <script th:src="@{/js/common/dom-safe.js}"></script>
+    <!-- Team & Users: shared with education. Locations for this vertical are STORES. -->
+    <script>window.TEAM_LOCATIONS_URL = 'getStores'; window.TEAM_LOCATION_NOUN = 'store';</script>
+    <script th:src="@{/js/common/team.js}"></script>
     <script th:src="@{/js/business/module-theme.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <script th:src="@{/js/business/businessInvoicePrint.js}"></script>

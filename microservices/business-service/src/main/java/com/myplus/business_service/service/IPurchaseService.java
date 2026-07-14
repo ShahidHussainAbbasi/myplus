@@ -27,4 +27,9 @@ public interface IPurchaseService extends org.springframework.data.jpa.repositor
 	/** OWN purchases only (role-aware) — a non-SUPER caller sees just the purchases they recorded. */
 	List<Purchase> findOwnScoped(Long orgId, Long userId);
 
+	/** Multi-location (P2b): store-aware reads — used when the caller has store grants (non-empty set). */
+	List<Purchase> findScopedByStores(Long orgId, java.util.Collection<Long> storeIds);
+
+	List<Purchase> findOwnScopedByStores(Long orgId, Long userId, java.util.Collection<Long> storeIds);
+
 }

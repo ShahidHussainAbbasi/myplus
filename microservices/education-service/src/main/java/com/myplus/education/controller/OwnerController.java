@@ -20,6 +20,7 @@ import com.myplus.education.repository.OwnerRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /** Flat (legacy) Owner endpoints for the monolith education pages. userId-scoped. */
 @Controller
@@ -29,6 +30,9 @@ public class OwnerController {
     private OwnerRepository ownerRepository;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -149,11 +153,9 @@ public class OwnerController {
         try {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
-                for (String id : ids.split(",")) {
-                    if (!StringUtils.isEmpty(id)) {
-                        ownerRepository.deleteById(Long.valueOf(id));
-                    }
-                }
+                // Anti-IDOR: only rows in the caller's own tenant are deleted (see ScopedDeleter).
+                scopedDeleter.deleteScoped(ownerRepository, ids,
+                        Owner::getOrganizationId, Owner::getUserId, null);
                 return true;
             }
             return false;

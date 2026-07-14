@@ -80,6 +80,9 @@ public class SagaSaleWriter {
         ch.setSubTotal(subTotal);
         ch.setTaxTotal(taxTotal);
         ch.setGrandTotal(grandTotal);
+        // Stamp the store on a NEW invoice only; an edit keeps the store it was raised at, even if the editor's
+        // active store differs (re-homing a sale to another store would silently move the money between them).
+        if (!replaceLines && ch.getStoreId() == null) ch.setStoreId(user.getActiveLocationId());
 
         // Settle: an edit KEEPS the invoice's prior payment and ADDS any new tender; a new sale starts at 0.
         java.math.BigDecimal existingPaid = replaceLines ? nz(ch.getPaidAmount()) : java.math.BigDecimal.ZERO;
@@ -118,6 +121,7 @@ public class SagaSaleWriter {
             Sell sell = new Sell();
             sell.setUserId(user.getUserId());
             sell.setOrganizationId(user.getOrganizationId());
+            sell.setStoreId(user.getActiveLocationId());   // multi-location: the store this sale happened at (null = single-store)
             sell.setProductId(l.productId());        // saga sell: catalog product, no local Stock FK
             sell.setQuantity(l.quantity());
             sell.setSellRate(l.sellRate());          // the ACTUAL sold rate (cashier's rate; falls back to catalog)

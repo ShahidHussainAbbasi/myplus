@@ -27,6 +27,7 @@ import com.myplus.education.repository.SchoolRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /**
  * Flat (legacy) School endpoints consumed by the monolith education pages. Root-mapped so the
@@ -42,6 +43,9 @@ public class SchoolController {
     private OwnerRepository ownerRepository;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -84,6 +88,33 @@ public class SchoolController {
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return "";
+        }
+    }
+
+    /**
+     * P4 — the branches THIS caller may work at, for the branch switcher: their granted schools, or every school
+     * in the org for an owner (grants never narrow an owner) / a caller with no grants (single-branch, unchanged).
+     * The ACTIVE branch is flagged, because only the server knows which one the JWT carries.
+     */
+    @RequestMapping(value = "/getMySchools", method = RequestMethod.GET)
+    @ResponseBody
+    @Transactional(readOnly = true)
+    public GenericResponse getMySchools() {
+        try {
+            java.util.Set<Long> mine = requestUtil.accessibleSchoolIds();
+            Long active = requestUtil.activeSchoolId();
+            List<SchoolDTO> dtos = schoolRepository.findScoped(orgId(), userId()).stream()
+                    .filter(s -> requestUtil.isOwnerSuper() || mine.isEmpty() || mine.contains(s.getId()))
+                    .map(s -> {
+                        SchoolDTO dto = toDto(s, false);
+                        dto.setActive(active != null && active.equals(s.getId()));
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+            return new GenericResponse("SUCCESS", "Branches loaded", dtos);
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return new GenericResponse("ERROR", "Could not load branches.");
         }
     }
 
@@ -201,11 +232,10 @@ public class SchoolController {
         String ids = req.getParameter("checked");
         if (StringUtils.isEmpty(ids)) return false;
         // No internal catch: propagate so @Transactional rolls back the whole multi-row delete.
-        for (String id : ids.split(",")) {
-            if (!StringUtils.isEmpty(id)) {
-                schoolRepository.deleteById(Long.valueOf(id));
-            }
-        }
+        // Anti-IDOR: the caller's own tenant only — and, since a School IS the branch, only a branch they
+        // hold (School::getId is its own location id), so a teacher cannot delete another campus.
+        scopedDeleter.deleteScoped(schoolRepository, ids,
+                School::getOrganizationId, School::getUserId, School::getId);
         return true;
     }
 

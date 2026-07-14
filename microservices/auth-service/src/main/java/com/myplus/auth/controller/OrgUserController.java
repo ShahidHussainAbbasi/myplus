@@ -25,29 +25,82 @@ import java.util.Map;
  * owner — cannot create team members.
  */
 @RestController
-@RequestMapping("/api/auth/org/users")
+@RequestMapping("/api/auth/org")
 @RequiredArgsConstructor
 public class OrgUserController {
 
     private final AuthService authService;
     private final JwtService jwtService;
 
-    @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_OWNER')")
+    @PostMapping("/users")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> create(
-            @RequestBody Map<String, String> body,
+            @RequestBody Map<String, Object> body,
             @RequestHeader("Authorization") String auth) {
         String token = bearer(auth);
         Long callerUserId = jwtService.extractUserId(token);
         Long orgId = orgId(token);
+        // Owner creates ADMIN/USER; admin creates USER only (enforced in the service). storeIds = optional
+        // store grants for the new member (an admin may only grant stores they hold).
         Map<String, Object> created = authService.createOrgUser(
-                body.get("firstName"), body.get("lastName"), body.get("email"), body.get("role"),
-                orgId, callerUserId);
+                str(body.get("firstName")), str(body.get("lastName")), str(body.get("email")), str(body.get("role")),
+                orgId, callerUserId, isOwner(token), toLongList(body.get("storeIds")));
         return ResponseEntity.ok(ApiResponse.success(created,
                 "Team member created — a set-password email was sent."));
     }
 
-    @GetMapping
+    /** Assign store access to a user (owner: any store; admin: only stores they hold). userId omitted = self. */
+    @PostMapping("/locations/grant")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
+    public ResponseEntity<ApiResponse<String>> grantLocations(
+            @RequestBody Map<String, Object> body,
+            @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        Long callerUserId = jwtService.extractUserId(token);
+        Long orgId = orgId(token);
+        Long targetUserId = body.get("userId") != null ? Long.valueOf(String.valueOf(body.get("userId"))) : callerUserId;
+        authService.assignLocations(callerUserId, orgId, isOwner(token), targetUserId,
+                toLongList(body.get("storeIds")), str(body.get("roleAtLocation")));
+        return ResponseEntity.ok(ApiResponse.success("OK", "Store access updated."));
+    }
+
+    /** P5b — the caller's own store grants (any member, not just an owner): feeds the store switcher. */
+    @GetMapping("/locations")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> myLocations(
+            @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        return ResponseEntity.ok(ApiResponse.success(
+                authService.myLocations(jwtService.extractUserId(token), orgId(token)), "OK"));
+    }
+
+    /** P5b — set the ACTIVE store and re-issue the tokens (the location twin of /switch-organization).
+     *  No role gate: the grant itself is the authority, and it is checked server-side. */
+    @PostMapping("/locations/switch")
+    public ResponseEntity<ApiResponse<com.myplus.auth.dto.AuthResponse>> switchLocation(
+            @RequestBody Map<String, Object> body,
+            @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        Long locationId = body.get("storeId") != null ? Long.valueOf(String.valueOf(body.get("storeId"))) : null;
+        return ResponseEntity.ok(ApiResponse.success(
+                authService.switchLocation(jwtService.extractUserId(token), orgId(token), locationId),
+                "Active store switched"));
+    }
+
+    private boolean isOwner(String token) {
+        Object roles = jwtService.extractClaim(token, c -> c.get("roles"));
+        return roles != null && roles.toString().contains("ROLE_OWNER");
+    }
+
+    private static String str(Object o) { return o == null ? null : String.valueOf(o); }
+
+    private static java.util.List<Long> toLongList(Object o) {
+        java.util.List<Long> out = new java.util.ArrayList<>();
+        if (o instanceof java.util.List<?> l)
+            for (Object x : l) { try { out.add(Long.valueOf(String.valueOf(x))); } catch (Exception ignored) {} }
+        return out;
+    }
+
+    @GetMapping("/users")
     @PreAuthorize("hasAuthority('ROLE_OWNER')")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> list(
             @RequestHeader("Authorization") String auth) {

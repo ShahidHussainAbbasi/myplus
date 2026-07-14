@@ -26,6 +26,7 @@ public class ShiftService {
     private final CashierShiftRepo shiftRepo;
     private final CashMovementRepo movementRepo;
     private final CustomerHistoryRepo customerHistoryRepo;
+    private final com.myplus.business_service.util.RequestUtil requestUtil;   // multi-location: the active store
     private final PaymentRepo paymentRepo;
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
@@ -47,6 +48,7 @@ public class ShiftService {
             throw new ValidationException("A shift is already open. Close it before opening a new one.");
         return shiftRepo.save(CashierShift.builder()
                 .organizationId(orgId).userId(userId)
+                .storeId(requestUtil.activeStoreId())      // a shift belongs to the store whose till it opens
                 .openingFloat(nz(openingFloat))
                 .openedAt(LocalDateTime.now())
                 .status(ShiftStatus.OPEN)
@@ -61,6 +63,7 @@ public class ShiftService {
         if (nz(amount).signum() <= 0) throw new ValidationException("Amount must be greater than 0.");
         return movementRepo.save(CashMovement.builder()
                 .organizationId(orgId).userId(userId).shiftId(shift.getId())
+                .storeId(shift.getStoreId())               // follow the shift's store, not the caller's — they cannot differ
                 .type(type).amount(amount.abs()).reason(reason)
                 .build());
     }

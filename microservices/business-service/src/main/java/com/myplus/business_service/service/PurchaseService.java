@@ -81,6 +81,16 @@ public class PurchaseService implements IPurchaseService{
 		return purchaseRepo.findOwnScoped(orgId, userId);
 	}
 
+	@Override
+	public List<Purchase> findScopedByStores(Long orgId, java.util.Collection<Long> storeIds) {
+		return purchaseRepo.findScopedByStores(orgId, storeIds);
+	}
+
+	@Override
+	public List<Purchase> findOwnScopedByStores(Long orgId, Long userId, java.util.Collection<Long> storeIds) {
+		return purchaseRepo.findOwnScopedByStores(orgId, userId, storeIds);
+	}
+
 	public List<Purchase> findAll(Sort sort) {
 		// TODO Auto-generated method stub
 		return purchaseRepo.findAll(sort);
@@ -227,6 +237,7 @@ public class PurchaseService implements IPurchaseService{
 		obj.setDated(LocalDateTime.now());
 		obj.setUserId(user.getUserId());                  // audit
 		obj.setOrganizationId(user.getOrganizationId());  // tenant scope
+		obj.setStoreId(user.getActiveLocationId());       // multi-location: store this purchase was recorded at
 
 		// M3c.4b (slice 84): the purchase is self-describing — copy its batch/rate snapshot straight off the DTO
 		// (StockDTO scalar types already match Purchase; bexpDate parsed via AppUtil) instead of going through a local
@@ -310,6 +321,7 @@ public class PurchaseService implements IPurchaseService{
 		obj.setUpdated(LocalDateTime.now());
 		obj.setUserId(existing.getUserId());
 		obj.setOrganizationId(existing.getOrganizationId());
+		obj.setStoreId(existing.getStoreId());            // preserve the store on edit
 		obj.setProductId(dto.getProductId() != null ? dto.getProductId() : oldProductId);
 		StockDTO snap = dto.getStock();
 		if (snap != null) {
@@ -375,8 +387,11 @@ public class PurchaseService implements IPurchaseService{
 		return saved;
 	}
 
-	/** Anti-IDOR scope check for an edited purchase: caller's org owns it, or (legacy) an org-NULL row keyed to the caller. */
+	/** Anti-IDOR scope check for a purchase the caller named by id: their org owns it (or it is a legacy org-NULL
+	 *  row of theirs), AND (P2c) it sits in a store they can access — an admin at Store B must not edit, return or
+	 *  void a Store-A bill just by knowing its id. The store rule is a no-op for single-store/ungranted callers. */
 	private boolean scopeMatches(Purchase p, AuthenticatedUser user) {
+		if (!requestUtil.canAccessStore(p.getStoreId())) return false;
 		Long orgId = user.getOrganizationId();
 		if (orgId != null && orgId.equals(p.getOrganizationId())) return true;
 		return p.getOrganizationId() == null && user.getUserId() != null && user.getUserId().equals(p.getUserId());

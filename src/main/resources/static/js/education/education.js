@@ -16,6 +16,10 @@ $(document).ready(function() {
 	loadMyOrganizations();
 	$(document).on('change', '#orgSwitcher', switchOrganization);
 
+	// P4 active-branch (school) switcher — hides itself for a single-branch school.
+	loadMyBranches();
+	$(document).on('change', '#branchSwitcher', switchBranch);
+
 	// Attendance roster: populate the class dropdown + default the date to today.
 	if ($("#aGradeDD").length) {
 		getUserGrades("a");
@@ -499,6 +503,41 @@ function switchOrganization() {
 			alert("Could not switch organization");
 			loadMyOrganizations();
 		}
+	});
+}
+
+// ---- P4: active-branch (school) switcher ----
+// The active branch lives in the JWT and is what new students/grades are filed under, so switching means
+// getting a fresh token and reloading. It reuses the vertical-agnostic /switchStore endpoint: auth resolves
+// the location module from the caller's own userType, so a school id goes through the same door as a store id.
+function loadMyBranches() {
+	$.get(serverContext + "getMySchools", function(resp) {
+		var rows = (resp && (resp.collection || resp.data)) || [];
+		if (rows.length < 2) { $("#branchSwitcherLi").hide(); return; }
+		var $s = $("#branchSwitcher").empty();
+		if (!rows.some(function(b) { return b.active; })) {
+			$s.append($("<option>").val("").text("Select a branch…"));
+		}
+		rows.forEach(function(b) {
+			var $o = $("<option>").val(b.id).text(b.branchName || b.name || ("Branch " + b.id));
+			if (b.active) { $o.prop("selected", true); }
+			$s.append($o);
+		});
+		$("#branchSwitcherLi").show();
+	}, "json").fail(function() { $("#branchSwitcherLi").hide(); });
+}
+
+function switchBranch() {
+	var schoolId = $("#branchSwitcher").val();
+	if (!schoolId) { return; }
+	$.ajax({
+		url: serverContext + "switchStore", type: "POST", contentType: "application/json",
+		data: JSON.stringify({ storeId: Number(schoolId) }), dataType: "json",
+		success: function(res) {
+			if (res && res.status === "SUCCESS") { window.location.reload(); }
+			else { alert((res && res.message) || "Could not switch branch."); loadMyBranches(); }
+		},
+		error: function() { alert("Could not switch branch."); loadMyBranches(); }
 	});
 }
 

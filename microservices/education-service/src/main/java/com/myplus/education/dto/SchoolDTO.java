@@ -22,6 +22,9 @@ public class SchoolDTO {
     private String status;
     private Set<Long> ownerIds;
     private Set<String> ownerNames;
+    /** P4: true for the caller's ACTIVE branch (JWT activeLocationId). Set by /getMySchools only — the branch
+     *  switcher must show which branch it is currently on, and only the server knows that. Not persisted. */
+    private Boolean active;
     private String datedStr;
     private String updatedStr;
 }

@@ -1,0 +1,28 @@
+product_id=132, customer_id=787, vender_id=37, companies id=269, item_catalog_map(id)=128, myplusdb_catalog.products(id)=132, purchase_id=67, stock_entries(id)=140, customer_history_id=788, sell_id=174, reservations where id=9, reservation_picks where reservation_ref=9, stock_entries where id=140
+
+stock and item did not recorded any entry
+
+ full industry-standard activity lifecycle for each vertical across UI/UX â service/API â DB, marks each step against the codebase, and proposes the phased sequence.
+ 
+  as per full industry-standards, domain activity lifecycle for each vertical use cases across front-end  UI/UX, back-end service/API, DBs as per technical standards and design patterns of pure software development and microservices level, mark each step against the codebase, and proposes the phase wise sequence.
+  please highlight if something is not implemented already not according to SaaS and domain/busisness, Industry standards and design around per-org/admin configurability
+  
+ addSell submission (where the cart + customer + paid/due are assembled and posted)
+ 
+  
+ 
+ real risk to delete" vs "harmless if left" → park it.
+ 
+ M3c → M4 completion plan (each = its own build/test/commit gate)
+
+- M3c.1 (this step): Backfill product_id onto historical sell + purchase rows (additive — nothing deleted, no behavior change). Foundation for everything else.
+- M3c.2: Make sell rendering / saleReturn / dashboard productId-first (Stock only a fallback); route legacy returns (no reservation) to inventory restock-by-product.
+- M3c.3: Stop the last local-Stock writes (legacy updateStock(Sell), manual add-stock) + delete dead updateStock(PurchaseDTO)/getItemBatchScoped/findByBatchScoped.
+- M3c.4: Drop Stock (entity + Sell.stock/Purchase.stock FK columns + repo/service) — full regression gate.
+- M4.1…: Rewire each itemId touchpoint → productId, then retire Item/ItemCatalogMap (the big one).
+
+ 
+For what's next, the remaining work is polish/features, not core:
+- Tax-filing register and period close — the biggest real accounting-feature gaps.
+- VOID_INVOICE privilege — needs a microservice method-security mechanism (its own cross-cutting slice).
+- Smaller: finance payment-hook retry, idempotency stale-PENDING reaper.

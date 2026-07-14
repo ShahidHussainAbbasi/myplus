@@ -81,12 +81,24 @@ public class OrganizationService {
         return membershipRepository.findByOrganizationId(orgId);
     }
 
-    /** Return the user's primary organization, creating it (+ OWNER membership) if none exists. */
+    /** Return the user's primary organization, creating it (+ OWNER membership) if none exists.
+     *  Precedence: an org they OWN, else one they are an ACTIVE MEMBER of, else a new personal org.
+     *  The membership step is what makes a team member (created by an owner via createOrgUser — they hold a
+     *  membership but own nothing) resolve to their employer's org. Without it their first login minted them
+     *  an empty personal org and the company's catalog/customers/sales became invisible to them. */
     @Transactional
     public Organization getOrCreatePrimaryOrg(User user) {
         List<Organization> owned = organizationRepository.findByOwnerUserId(user.getId());
         if (!owned.isEmpty()) {
             return owned.get(0);
+        }
+        Organization member = membershipRepository.findByUserId(user.getId()).stream()
+                .filter(m -> m.getStatus() == null || "ACTIVE".equalsIgnoreCase(m.getStatus()))
+                .map(m -> organizationRepository.findById(m.getOrganizationId()).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .findFirst().orElse(null);
+        if (member != null) {
+            return member;
         }
         Organization org = organizationRepository.save(Organization.builder()
                 .name(defaultOrgName(user))

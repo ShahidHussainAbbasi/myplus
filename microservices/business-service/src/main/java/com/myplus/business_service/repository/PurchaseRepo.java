@@ -25,6 +25,16 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    List<Purchase> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
    // OWN rows only (role-aware: a non-SUPER caller sees just the purchases they recorded).
+   // Multi-location (P2b): store-aware variants — used only when the caller has store grants (non-empty set).
+   @Query("select p from purchase p where p.organizationId = :orgId "
+        + "and (p.storeId in :storeIds or p.storeId is null)")
+   List<Purchase> findScopedByStores(@Param("orgId") Long orgId, @Param("storeIds") java.util.Collection<Long> storeIds);
+
+   @Query("select p from purchase p where p.organizationId = :orgId and p.userId = :userId "
+        + "and (p.storeId in :storeIds or p.storeId is null)")
+   List<Purchase> findOwnScopedByStores(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                                        @Param("storeIds") java.util.Collection<Long> storeIds);
+
    @Query("select p from purchase p where p.userId = :userId "
         + "and (p.organizationId = :orgId or p.organizationId is null)")
    List<Purchase> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);

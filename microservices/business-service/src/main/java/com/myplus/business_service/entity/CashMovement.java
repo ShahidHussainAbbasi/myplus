@@ -22,6 +22,9 @@ public class CashMovement {
     @Column(name = "user_id")
     private Long userId;
 
+    @Column(name = "store_id")
+    private Long storeId;              // multi-location: the store whose drawer this movement hit
+
     @Column(name = "shift_id")
     private Long shiftId;
 

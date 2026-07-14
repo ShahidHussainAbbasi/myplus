@@ -52,6 +52,12 @@ Cypress.Commands.add('loginAsBusiness', (email = 'demo.business@myplus.com', pas
   cy.loginAs(email, password, '/getBusinessDashboardStats')
 })
 
+// BUSINESS OWNER (ROLE_OWNER, seeded in auth-service SetupDataLoader) — needed to see owner-gated UI
+// like the Finance reports page, Settings and Team. Not a demo account (no write cap).
+Cypress.Commands.add('loginAsOwner', (email = 'owner.business@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getBusinessDashboardStats')
+})
+
 // Pharmacy (slice 33) — the PHARMA vertical reuses the business/trade backend, so it validates via the
 // same business stats endpoint; userType PHARMA routes the user to /pharmaDashboard.
 Cypress.Commands.add('loginAsPharma', (email = 'demo.pharma@myplus.com', password = DEMO_PW) => {
@@ -80,6 +86,38 @@ Cypress.Commands.add('loginAsAgriculture', (email = 'demo.agriculture@myplus.com
 
 Cypress.Commands.add('loginAsAppointment', (email = 'demo.appointment@myplus.com', password = DEMO_PW) => {
   cy.loginAs(email, password, '/appointmentDashboard')
+})
+
+// Multi-location team members (seeded dev-only in auth-service SetupDataLoader, all in the
+// owner.business org): one ADMIN + two cashiers. Store grants are NOT seeded — multi-location.cy.js
+// creates the stores and grants them at runtime, because stores live in business-service.
+// A member's store claims only reach the services on a fresh token, i.e. at login — so grant BEFORE
+// logging in as them.
+Cypress.Commands.add('loginAsStoreAdmin', (email = 'admin.store@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getBusinessDashboardStats')
+})
+
+Cypress.Commands.add('loginAsCashierA', (email = 'cashier.a@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getBusinessDashboardStats')
+})
+
+Cypress.Commands.add('loginAsCashierB', (email = 'cashier.b@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getBusinessDashboardStats')
+})
+
+// Multi-BRANCH education fixture (P4), seeded dev-only alongside the business one: an EDUCATION owner and
+// two teachers in the owner's org. Branch grants point at school ids and are assigned at runtime by
+// multi-branch.cy.js — and, as with stores, they only reach the service on a fresh token, so grant BEFORE login.
+Cypress.Commands.add('loginAsEduOwner', (email = 'owner.education@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getDashboardData')
+})
+
+Cypress.Commands.add('loginAsTeacherA', (email = 'teacher.a@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getDashboardData')
+})
+
+Cypress.Commands.add('loginAsTeacherB', (email = 'teacher.b@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getDashboardData')
 })
 
 // Show a registration section on a dashboard (business by default). Both dashboards use the

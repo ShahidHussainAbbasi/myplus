@@ -35,6 +35,7 @@ import com.myplus.education.repository.StudentRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /**
  * Flat Attendance endpoints — list/delete plus class-roster marking (slice 13). Org-scoped.
@@ -51,6 +52,9 @@ public class AttendanceController {
     private GradeRepository gradeRepository;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -119,11 +123,9 @@ public class AttendanceController {
         try {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
-                for (String id : ids.split(",")) {
-                    if (!StringUtils.isEmpty(id)) {
-                        attendanceRepository.deleteById(Long.valueOf(id));
-                    }
-                }
+                // Anti-IDOR: only rows in the caller's own tenant are deleted (see ScopedDeleter).
+                scopedDeleter.deleteScoped(attendanceRepository, ids,
+                        Attendance::getOrganizationId, Attendance::getUserId, null);
                 return true;
             }
             return false;

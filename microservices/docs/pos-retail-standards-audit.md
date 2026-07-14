@@ -64,8 +64,10 @@ dispense-returns, e-commerce RMA, and education fee-reversals each rediscover th
   idempotent ingest, org-scoped reads) fed by business-service's **`audit_outbox`** (`AuditService`, atomic capture +
   AFTER_COMMIT/relay delivery via `AuditClient`, the #4 outbox pattern). All 10 money/stock ops emit; dashboard Audit
   Log view. Plug-and-play: finance/inventory adopt by adding the client + an outbox emit. Design `finance-audit-log-design.md`.
-- **Tax completeness (MED):** single per-product rate applied; no multi-rate, inclusive/exclusive per-org policy in
-  all paths, or a **tax-filing (output/input tax) register** — needed for any real jurisdiction.
+- **Tax completeness (MED):** 🟡 **Tax-filing register DONE (Phase A)** — output-tax register from the GL TAX account
+  (`GlService.taxRegister`, dashboard Tax Register); per-org configurable (Sales tax toggle). **Phase B TODO** =
+  input tax (purchase-tax capture + `Dr TAX` posting) behind a *Purchase tax* toggle → net payable. Still open:
+  multi-rate. Design `finance-tax-register-design.md`.
 - **Period close / lock (MED):** GL entries are editable-by-absence-of-lock; add a period close that freezes a range.
 - **Voucher/receipt numbering race (LOW):** `count(...)+1` (RCPT-/PV-) can collide under concurrency → per-org sequence.
 - **Quantities `Float` (LOW):** stock/qty are `Float`; money is `BigDecimal(19,2)` ✅ — migrate qty to `BigDecimal` for exactness.
@@ -102,3 +104,22 @@ for free. Fixing them later means retrofitting every module + reconciling histor
 7. Then polish: tax-filing register, period close, store-credit/loyalty, GRN/PO, barcode-first UX, cycle-count.
 
 > Each remains a slice: Document → Design → Implement (UI→API→DB) → mvn → headed Cypress → next.
+
+## 5. Remaining TODOs (resume here)
+Core backlog #1–#6 is complete. Open items, roughly by leverage:
+
+- [ ] **Tax register — Phase B (input tax)** — resume point. Per `finance-tax-register-design.md` §7 Phase B:
+  `TaxSetting.inputTaxEnabled` + the two Tax-Settings checkboxes (Sales tax / Purchase tax), `Purchase.taxRate/taxAmount`
+  (business Flyway **V20**), purchase-form tax field, `PURCHASE` event `taxTotal`, finance `postPurchase`/`postPurchaseReturn`
+  `Dr/Cr TAX` split, extend `tax-register.cy.js`. (Phase A = output tax = ✅ done.)
+- [ ] **Multi-rate tax** — more than one rate per invoice + per-rate breakdown on the register.
+- [ ] **Period close / lock** — freeze a date range so posted GL entries can't change (mentioned in §2).
+- [ ] **`VOID_INVOICE` privilege** — needs a microservice method-security mechanism (business-service has none today);
+  its own cross-cutting slice. Void currently inherits login + tenant scoping.
+- [ ] **Propagate the common-security `runAs` fix** — only business/audit-service were rebuilt against it; a
+  full-reactor `mvn clean install` (all services stopped) before any real deploy keeps every relay consistent.
+- [ ] **finance intra-service payment-hook retry** — `recordPayment`→`postPayment` is still best-effort (same-JVM, low risk).
+- [ ] **Idempotency stale-PENDING reaper** — reap an idempotency_record left PENDING by a crash between claim-commit and work-commit.
+- [ ] Polish backlog: store-credit/loyalty, GRN/PO approval, barcode-first sell UX, cycle-count/variance.
+
+> Cadence per item: Document → Design → Implement (UI→API→DB) → mvn → headed Cypress → next.

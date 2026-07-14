@@ -27,6 +27,9 @@ public class CashierShift {
     @Column(name = "user_id")
     private Long userId;                // the cashier
 
+    @Column(name = "store_id")
+    private Long storeId;               // multi-location: the store this shift was worked at (null = single-store/legacy)
+
     @Column(name = "opening_float", precision = 19, scale = 2)
     private BigDecimal openingFloat;
 

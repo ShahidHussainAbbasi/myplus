@@ -25,6 +25,7 @@ public class ParkedSaleService {
 
     private final ParkedSaleRepo parkedSaleRepo;
     private final ObjectMapper objectMapper;
+    private final com.myplus.business_service.util.RequestUtil requestUtil;   // multi-location: the active store
 
     @Transactional
     public ParkedSale park(ParkSaleDTO dto, Long orgId, Long userId) {
@@ -36,6 +37,7 @@ public class ParkedSaleService {
         }
         return parkedSaleRepo.save(ParkedSale.builder()
                 .organizationId(orgId).userId(userId)
+                .storeId(requestUtil.activeStoreId())      // a hold is resumed at the till it was parked at
                 .label(dto.getLabel() != null && !dto.getLabel().isBlank() ? dto.getLabel().trim() : "Parked sale")
                 .itemCount(dto.getItemCount())
                 .total(dto.getTotal() != null ? dto.getTotal() : BigDecimal.ZERO)

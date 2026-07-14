@@ -20,6 +20,7 @@ import com.myplus.education.repository.GuardianRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /** Flat (legacy) Guardian endpoints. userId-scoped. */
 @Controller
@@ -29,6 +30,9 @@ public class GuardianController {
     private GuardianRepository guardianRepository;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -164,11 +168,9 @@ public class GuardianController {
             if (StringUtils.isEmpty(ids)) {
                 return new GenericResponse(appUtil.SUCCESS, "Invalid input");
             }
-            for (String id : ids.split(",")) {
-                if (!StringUtils.isEmpty(id)) {
-                    guardianRepository.deleteById(Long.valueOf(id));
-                }
-            }
+            // Anti-IDOR: only rows in the caller's own tenant are deleted (see ScopedDeleter).
+            scopedDeleter.deleteScoped(guardianRepository, ids,
+                    Guardian::getOrganizationId, Guardian::getUserId, null);
             return new GenericResponse(appUtil.SUCCESS, "Deleted successfully");
         } catch (Exception e) {
             appUtil.le(getClass(), e);

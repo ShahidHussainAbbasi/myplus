@@ -83,4 +83,12 @@ public class GlController {
             @RequestParam(value = "asOf", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
         return glService.balanceSheet(asOf);
     }
+
+    /** Tax-filing register over a period (defaults: this month → today) — output vs input tax + net payable. */
+    @GetMapping("/tax-register")
+    public Map<String, Object> taxRegister(
+            @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return glService.taxRegister(from, to);
+    }
 }

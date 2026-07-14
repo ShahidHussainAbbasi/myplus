@@ -21,6 +21,11 @@ public interface ISellService extends org.springframework.data.jpa.repository.Jp
 	/** OWN sells only (role-aware visibility) — a non-SUPER caller sees just what they created. */
 	List<Sell> findOwnScoped(Long orgId, Long userId);
 
+	/** Multi-location (P2b): store-aware reads — used when the caller has store grants (non-empty set). */
+	List<Sell> findScopedByStores(Long orgId, java.util.Collection<Long> storeIds);
+
+	List<Sell> findOwnScopedByStores(Long orgId, Long userId, java.util.Collection<Long> storeIds);
+
 	List<Sell> findSellByDates(LocalDateTime sd, LocalDateTime ed, Long orgId, Long userId);
 
 	List<Sell> findSellByStartDate(LocalDateTime sd, Long orgId, Long userId);

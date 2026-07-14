@@ -23,6 +23,7 @@ import com.myplus.education.repository.SubjectRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /** Flat (legacy) Subject endpoints. userId-scoped; carries the linked grade name. */
 @Controller
@@ -34,6 +35,9 @@ public class SubjectController {
     private GradeRepository gradeRepository;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -165,11 +169,9 @@ public class SubjectController {
         try {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
-                for (String id : ids.split(",")) {
-                    if (!StringUtils.isEmpty(id)) {
-                        subjectRepository.deleteById(Long.valueOf(id));
-                    }
-                }
+                // Anti-IDOR: only rows in the caller's own tenant are deleted (see ScopedDeleter).
+                scopedDeleter.deleteScoped(subjectRepository, ids,
+                        Subject::getOrganizationId, Subject::getUserId, null);
                 return true;
             }
             return false;

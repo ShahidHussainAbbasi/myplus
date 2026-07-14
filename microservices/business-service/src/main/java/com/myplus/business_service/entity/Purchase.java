@@ -51,6 +51,9 @@ public class Purchase implements Serializable {
 	@Column(name = "organization_id")
 	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
 
+	@Column(name = "store_id")
+	private Long storeId;              // multi-location: the store this purchase was recorded at (null = single-store/legacy)
+
 	// M3c.4f (slice 88): the Purchase→local-Stock FK was removed; the purchase is self-describing (M3b) + dual-writes to inventory.
 
 	// M3b (slice 75): the purchase is self-describing — its batch/rate snapshot lives here, not on a local Stock row.

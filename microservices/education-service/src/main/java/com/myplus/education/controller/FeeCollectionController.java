@@ -19,6 +19,7 @@ import com.myplus.education.repository.FeeCollectionRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /**
  * Flat (legacy) Fee Collection endpoints — core list/add/delete. userId-scoped.
@@ -32,6 +33,9 @@ public class FeeCollectionController {
     private FeeCollectionRepository feeCollectionRepository;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -138,11 +142,9 @@ public class FeeCollectionController {
         try {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
-                for (String id : ids.split(",")) {
-                    if (!StringUtils.isEmpty(id)) {
-                        feeCollectionRepository.deleteById(Long.valueOf(id));
-                    }
-                }
+                // Anti-IDOR: only rows in the caller's own tenant are deleted (see ScopedDeleter).
+                scopedDeleter.deleteScoped(feeCollectionRepository, ids,
+                        FeeCollection::getOrganizationId, FeeCollection::getUserId, null);
                 return true;
             }
             return false;

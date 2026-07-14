@@ -147,13 +147,33 @@ public class SellController {
 		return (rowOrg != null && rowOrg.equals(orgId()))
 			|| (rowOrg == null && rowUser != null && rowUser.equals(userId()));
 	}
+	/** P2c anti-IDOR: the list queries filter by store, but these endpoints take an id from the client — so the
+	 *  store rule is re-applied per record. Without it an admin at Store B can open/edit a Store-A invoice by id. */
+	private boolean myStore(Long rowStore) {
+		return requestUtil.canAccessStore(rowStore);
+	}
 
-	/** Role-aware visibility (Phase 7a): a SUPER/owner sees the WHOLE org's data; everyone else sees
-	 *  only their own. SUPER_PRIVILEGE travels in the JWT -> gateway X-User-Privileges -> authorities. */
+	/** Role-aware visibility (Phase 7a): owner/super AND admin see the WHOLE org's data; a plain user sees
+	 *  only their own. Privileges travel in the JWT -> gateway X-User-Privileges -> authorities. Centralised
+	 *  in RequestUtil so Customer/Sell/Purchase share one rule. */
 	private boolean seesAllOrg() {
-		AuthenticatedUser u = requestUtil.getCurrentUser();
-		return u != null && u.getAuthorities() != null && u.getAuthorities().stream()
-				.anyMatch(a -> "SUPER_PRIVILEGE".equals(a.getAuthority()));
+		return requestUtil.callerSeesWholeOrg();
+	}
+
+	/**
+	 * Role×location visible sells. Empty store grants => no store filter (single-store / unassigned /
+	 * legacy => current behaviour). Non-empty => constrain to those stores. Role: whole-org viewer sees all
+	 * users in scope; a plain user sees only their own.
+	 */
+	private List<Sell> visibleSells() {
+		if (requestUtil.isOwnerSuper())                       // owner: whole org, all stores, always
+			return sellService.findScoped(orgId(), userId());
+		java.util.Set<Long> stores = requestUtil.accessibleStoreIds();
+		if (stores.isEmpty())
+			return seesAllOrg() ? sellService.findScoped(orgId(), userId())
+			                    : sellService.findOwnScoped(orgId(), userId());
+		return seesAllOrg() ? sellService.findScopedByStores(orgId(), stores)
+		                    : sellService.findOwnScopedByStores(orgId(), userId(), stores);
 	}
 
 
@@ -210,10 +230,13 @@ public class SellController {
 		try {
 			String offset = request.getParameter("q");
 			// tenant-scoped, newest-first. slice 24: page&size -> DB page; else legacy "recent N" offset cap.
-			List<Sell> objs = (page != null && size != null)
+			// Role×location-aware. The paged org-wide query runs only for a whole-org viewer with NO store
+			// constraint; otherwise the store-aware visible list (own for a plain user). Never leaks the org.
+			boolean pagedWholeOrg = requestUtil.isOwnerSuper()
+					|| (seesAllOrg() && requestUtil.accessibleStoreIds().isEmpty());   // no store constraint
+			List<Sell> objs = (page != null && size != null && pagedWholeOrg)
 					? sellService.findScoped(orgId(), userId(), org.springframework.data.domain.PageRequest.of(page, size))
-					: (seesAllOrg() ? sellService.findScoped(orgId(), userId())          // SUPER: whole org
-					                : sellService.findOwnScoped(orgId(), userId()));      // others: own only
+					: visibleSells();
 			if((page == null || size == null) && !(appUtil.isEmptyOrNull(offset) || offset.equals("-1"))) {
 				int limit = Integer.valueOf(offset);
 				if(objs.size() > limit) objs = new ArrayList<>(objs.subList(0, limit));
@@ -279,6 +302,8 @@ public class SellController {
 			Sell clicked = os.get();
 			if (!inMyTenant(clicked.getOrganizationId(), clicked.getUserId()))
 				return new GenericResponse("NOT_FOUND", "Sale not found"); // anti-IDOR (cross-org)
+			if (!myStore(clicked.getStoreId()))
+				return new GenericResponse("NOT_FOUND", "Sale not found"); // anti-IDOR (cross-store)
 			// Role-aware: a non-SUPER caller may only open invoices they created.
 			if (!seesAllOrg() && clicked.getUserId() != null && !clicked.getUserId().equals(userId()))
 				return new GenericResponse("NOT_FOUND", "Sale not found");
@@ -335,8 +360,8 @@ public class SellController {
 		try {
 			if (appUtil.isEmptyOrNull(invoiceNo)) return new GenericResponse("NOT_FOUND", "Invoice not found");
 			CustomerHistory ch = customerHistoryRepo.findByOrganizationIdAndInvoiceNo(orgId(), invoiceNo).orElse(null);
-			if (ch == null || !inMyTenant(ch.getOrganizationId(), ch.getUserId()))
-				return new GenericResponse("NOT_FOUND", "Invoice not found");           // anti-IDOR
+			if (ch == null || !inMyTenant(ch.getOrganizationId(), ch.getUserId()) || !myStore(ch.getStoreId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found");           // anti-IDOR (org + store)
 			if (!seesAllOrg() && ch.getUserId() != null && !ch.getUserId().equals(userId()))
 				return new GenericResponse("NOT_FOUND", "Invoice not found");           // role-aware
 
@@ -453,9 +478,8 @@ public class SellController {
 	@ResponseBody
 	public GenericResponse getAllSell(final HttpServletRequest request) {
 		try {
-			// was findAll() — cross-tenant leak; now org-scoped + role-aware (SUPER = org, others = own).
-			List<Sell> objs = seesAllOrg() ? sellService.findScoped(orgId(), userId())
-			                               : sellService.findOwnScoped(orgId(), userId());
+			// was findAll() — cross-tenant leak; now org + role + location scoped (see visibleSells()).
+			List<Sell> objs = visibleSells();
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -548,8 +572,8 @@ public class SellController {
 			if (!chOpt.isPresent())
 				return new GenericResponse("NOT_FOUND", "Invoice not found");
 			CustomerHistory ch = chOpt.get();
-			if (!inMyTenant(ch.getOrganizationId(), ch.getUserId()))
-				return new GenericResponse("NOT_FOUND", "Invoice not found");
+			if (!inMyTenant(ch.getOrganizationId(), ch.getUserId()) || !myStore(ch.getStoreId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found");   // anti-IDOR (org + store)
 			if ("VOID".equals(ch.getStatus()))   // Audit #3: a voided invoice is read-only
 				return new GenericResponse("FAILED", "This invoice is voided and cannot be edited.");
 
@@ -678,7 +702,8 @@ public class SellController {
 
 			// anti-IDOR: only let the caller return a sale that belongs to their tenant
 			Sell existingSell = sellService.findById(dto.getSellId()).orElse(null);
-			if(existingSell == null || !inMyTenant(existingSell.getOrganizationId(), existingSell.getUserId()))
+			if(existingSell == null || !inMyTenant(existingSell.getOrganizationId(), existingSell.getUserId())
+					|| !myStore(existingSell.getStoreId()))   // a return can only be taken at the store that sold it
 				return new GenericResponse("NOT_FOUND");
 
 			// G2 (slice 34) input validation: return qty must be > 0 and not exceed what was sold on this line —
@@ -793,6 +818,7 @@ public class SellController {
 				cn.setRefundAmount(refundedAmount);
 				cn.setOrganizationId(orgId());
 				cn.setUserId(userId());
+				cn.setStoreId(existingSell.getStoreId());   // the return belongs to the store that made the sale
 				cn.setDated(java.time.LocalDateTime.now());
 				saleReturnRepo.save(cn);
 			} catch (Exception auditOnly) {
@@ -843,8 +869,8 @@ public class SellController {
 				return new GenericResponse("NOT_FOUND", "No invoice id provided.");
 
 			CustomerHistory ch = customerHistoryService.findById(chId).orElse(null);
-			if (ch == null || !inMyTenant(ch.getOrganizationId(), ch.getUserId()))   // anti-IDOR
-				return new GenericResponse("NOT_FOUND", "Invoice not found.");
+			if (ch == null || !inMyTenant(ch.getOrganizationId(), ch.getUserId()) || !myStore(ch.getStoreId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found.");   // anti-IDOR (org + store)
 			if ("VOID".equals(ch.getStatus()))
 				return new GenericResponse("FAILED", "This invoice is already voided.");
 			if (saleReturnRepo.countByInvoiceScoped(ch.getInvoiceNo(), orgId(), userId()) > 0)

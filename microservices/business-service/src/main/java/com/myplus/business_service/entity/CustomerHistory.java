@@ -54,6 +54,9 @@ public class CustomerHistory implements Serializable {
 	@Column(name = "organization_id")
 	private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
 
+	@Column(name = "store_id")
+	private Long storeId;              // multi-location: the store that raised this invoice (null = single-store/legacy)
+
 	@Column(name = "invoice_seq")
 	private Long invoiceSeq;           // per-org running number (1,2,3…); ordering/uniqueness key
 

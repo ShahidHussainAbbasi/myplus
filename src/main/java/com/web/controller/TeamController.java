@@ -58,7 +58,7 @@ public class TeamController {
 
     @RequestMapping(value = "/team/users", method = RequestMethod.POST)
     @ResponseBody
-    public Object createTeamUser(@RequestBody Map<String, String> body) {
+    public Object createTeamUser(@RequestBody Map<String, Object> body) {   // Object: storeIds is an array
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(tokenStore.getAccessToken());

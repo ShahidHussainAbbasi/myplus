@@ -189,6 +189,16 @@ public class SellService implements ISellService {
 		return sellRepo.findOwnScoped(orgId, userId);
 	}
 
+	@Override
+	public List<Sell> findScopedByStores(Long orgId, java.util.Collection<Long> storeIds) {
+		return sellRepo.findScopedByStores(orgId, storeIds);
+	}
+
+	@Override
+	public List<Sell> findOwnScopedByStores(Long orgId, Long userId, java.util.Collection<Long> storeIds) {
+		return sellRepo.findOwnScopedByStores(orgId, userId, storeIds);
+	}
+
 	public List<Sell> findSellByStartDate(LocalDateTime sd, Long orgId, Long userId) {
 		return sellRepo.findSellByStartDate(sd, orgId, userId);
 	}

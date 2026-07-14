@@ -1,11 +1,13 @@
 package com.myplus.auth.config;
 
+import com.myplus.auth.entity.Organization;
 import com.myplus.auth.entity.Privilege;
 import com.myplus.auth.entity.Role;
 import com.myplus.auth.entity.User;
 import com.myplus.auth.repository.PrivilegeRepository;
 import com.myplus.auth.repository.RoleRepository;
 import com.myplus.auth.repository.UserRepository;
+import com.myplus.auth.service.OrganizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -25,6 +27,7 @@ public class SetupDataLoader {
     private final RoleRepository roleRepository;
     private final PrivilegeRepository privilegeRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OrganizationService organizationService;
 
     // F15: never seed a known-password admin in prod. Override via env: APP_SEED_ADMIN=false (prod),
     // or APP_ADMIN_PASSWORD=<strong> if you do seed one.
@@ -160,6 +163,104 @@ public class SetupDataLoader {
                 userRepository.save(u);
             }
             log.info("Demo module users ensured ({} users, demo=true, 50-entry/module cap)", demos.length);
+
+            // A real BUSINESS OWNER for testing owner-gated UI (Finance menu, Settings, Team). Unlike the
+            // demo.* accounts (DEMO_ROLE + 50-write cap) this carries ROLE_OWNER with no cap. Its organization
+            // is auto-provisioned on first login (OrganizationService.getOrCreatePrimaryOrg). Self-healing on
+            // every startup; dev-only (gated by app.seed-demo, which prod sets false) so it is not a prod
+            // known-password leak. Password = the same ${app.demo-password}. Login: owner.business@myplus.com.
+            Role ownerRole = roleRepository.findByName("ROLE_OWNER")
+                    .orElseThrow(() -> new IllegalStateException("ROLE_OWNER not seeded"));
+            User owner = userRepository.findByEmail("owner.business@myplus.com")
+                    .orElseGet(() -> User.builder().username("owner.business").email("owner.business@myplus.com").build());
+            owner.setPassword(passwordEncoder.encode(demoPassword));
+            owner.setFirstName("Owner");
+            owner.setLastName("Business");
+            owner.setEnabled(true);
+            owner.setAccountNonLocked(true);
+            owner.setFailedLoginAttempts(0);
+            owner.setLockTime(null);
+            owner.setUserType("BUSINESS");
+            owner.setDemo(false);
+            owner.setRoles(new HashSet<>(Collections.singletonList(ownerRole)));
+            userRepository.save(owner);
+            log.info("Business OWNER test user ensured: owner.business@myplus.com (ROLE_OWNER, demo=false)");
+
+            // Multi-location team fixture — the owner's ADMIN + two cashiers, in the owner's org, with a KNOWN
+            // password. Needed because the real onboarding path (createOrgUser) sets a throwaway password and
+            // mails a reset link, so no test can ever authenticate as a member it creates. Store grants are NOT
+            // seeded here: stores live in business-service, so the test grants them at runtime via /assignStores.
+            // Same dev-only gate as the accounts above (app.seed-demo=false in prod).
+            Organization ownerOrg = organizationService.getOrCreatePrimaryOrg(owner);
+            Role memberAdminRole = roleRepository.findByName("ADMIN_ROLE")
+                    .orElseThrow(() -> new IllegalStateException("ADMIN_ROLE not seeded"));
+            Role memberUserRole = roleRepository.findByName("ROLE_BUSINESS_USER")
+                    .orElseThrow(() -> new IllegalStateException("ROLE_BUSINESS_USER not seeded"));
+            String[][] members = {
+                    // email, firstName, membership role, global role
+                    {"admin.store@myplus.com",   "Store",   "ADMIN", "ADMIN_ROLE"},
+                    {"cashier.a@myplus.com",     "Cashier", "USER",  "ROLE_BUSINESS_USER"},
+                    {"cashier.b@myplus.com",     "Cashier", "USER",  "ROLE_BUSINESS_USER"},
+            };
+            for (String[] m : members) {
+                final String email = m[0];
+                User u = userRepository.findByEmail(email)
+                        .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
+                u.setPassword(passwordEncoder.encode(demoPassword));
+                u.setFirstName(m[1]);
+                u.setLastName(email.split("@")[0]);
+                u.setEnabled(true);
+                u.setAccountNonLocked(true);
+                u.setFailedLoginAttempts(0);
+                u.setLockTime(null);
+                u.setUserType("BUSINESS");
+                u.setDemo(false);
+                u.setRoles(new HashSet<>(Collections.singletonList(
+                        "ADMIN_ROLE".equals(m[3]) ? memberAdminRole : memberUserRole)));
+                u = userRepository.save(u);
+                organizationService.addMember(u.getId(), ownerOrg.getId(), m[2]);   // idempotent
+            }
+            log.info("Multi-location team fixture ensured in org {}: admin.store@, cashier.a@, cashier.b@",
+                    ownerOrg.getId());
+
+            // P4 — the same fixture for EDUCATION: an owner + two teachers in one org, so the branch (school)
+            // scoping can be tested. Their grants point at school ids, not store ids (module=EDUCATION), and are
+            // assigned at runtime by the spec because schools live in education-service.
+            User eduOwner = userRepository.findByEmail("owner.education@myplus.com")
+                    .orElseGet(() -> User.builder().username("owner.education").email("owner.education@myplus.com").build());
+            eduOwner.setPassword(passwordEncoder.encode(demoPassword));
+            eduOwner.setFirstName("Owner");
+            eduOwner.setLastName("Education");
+            eduOwner.setEnabled(true);
+            eduOwner.setAccountNonLocked(true);
+            eduOwner.setFailedLoginAttempts(0);
+            eduOwner.setLockTime(null);
+            eduOwner.setUserType("EDUCATION");
+            eduOwner.setDemo(false);
+            eduOwner.setRoles(new HashSet<>(Collections.singletonList(ownerRole)));
+            eduOwner = userRepository.save(eduOwner);
+
+            Organization eduOrg = organizationService.getOrCreatePrimaryOrg(eduOwner);
+            Role teacherRole = roleRepository.findByName("ROLE_EDUCATION_USER")
+                    .orElseThrow(() -> new IllegalStateException("ROLE_EDUCATION_USER not seeded"));
+            for (String email : new String[]{"teacher.a@myplus.com", "teacher.b@myplus.com"}) {
+                User t = userRepository.findByEmail(email)
+                        .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
+                t.setPassword(passwordEncoder.encode(demoPassword));
+                t.setFirstName("Teacher");
+                t.setLastName(email.split("@")[0]);
+                t.setEnabled(true);
+                t.setAccountNonLocked(true);
+                t.setFailedLoginAttempts(0);
+                t.setLockTime(null);
+                t.setUserType("EDUCATION");
+                t.setDemo(false);
+                t.setRoles(new HashSet<>(Collections.singletonList(teacherRole)));
+                t = userRepository.save(t);
+                organizationService.addMember(t.getId(), eduOrg.getId(), "USER");   // idempotent
+            }
+            log.info("Multi-branch education fixture ensured in org {}: owner.education@, teacher.a@, teacher.b@",
+                    eduOrg.getId());
         }
 
         // NOTE: real customers are NEVER seeded here. A client is onboarded through self-service signup

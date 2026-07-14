@@ -33,6 +33,13 @@ public class SchoolController {
         return educationClient.get("/getUserSchool", requestUtil.getCurrentUser().getId());
     }
 
+    /** P4 — the branches the logged-in user may work at (their grants; an owner gets all). Feeds the switcher. */
+    @RequestMapping(value = "/getMySchools", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<String> getMySchools() {
+        return educationClient.get("/getMySchools", requestUtil.getCurrentUser().getId());
+    }
+
     @RequestMapping(value = "/getUserSchools", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<String> getUserSchools() {

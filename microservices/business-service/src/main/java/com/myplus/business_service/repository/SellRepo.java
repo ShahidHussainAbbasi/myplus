@@ -37,6 +37,17 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
     List<Sell> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
     // OWN rows only (role-aware visibility, Phase 7a): a non-SUPER caller sees just what they created —
+    // Multi-location (P2b): store-aware variants — used only when the caller has store grants (non-empty set).
+    // Legacy store-NULL rows remain visible so nothing disappears before data is re-saved with a store.
+    @Query("select s from Sell s where s.organizationId = :orgId "
+         + "and (s.storeId in :storeIds or s.storeId is null)")
+    List<Sell> findScopedByStores(@Param("orgId") Long orgId, @Param("storeIds") java.util.Collection<Long> storeIds);
+
+    @Query("select s from Sell s where s.organizationId = :orgId and s.userId = :userId "
+         + "and (s.storeId in :storeIds or s.storeId is null)")
+    List<Sell> findOwnScopedByStores(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                                     @Param("storeIds") java.util.Collection<Long> storeIds);
+
     // their org rows + their legacy org-NULL rows. SUPER callers use findScoped (whole org) instead.
     @Query("select s from Sell s where s.userId = :userId "
          + "and (s.organizationId = :orgId or s.organizationId is null) order by s.sellId desc")

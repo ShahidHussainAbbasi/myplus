@@ -19,6 +19,7 @@ import com.myplus.education.repository.DiscountRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
+import com.myplus.education.util.ScopedDeleter;
 
 /** Flat (legacy) Discount endpoints. userId-scoped. */
 @Controller
@@ -28,6 +29,9 @@ public class DiscountController {
     private DiscountRepository discountRepository;
     @Autowired
     private RequestUtil requestUtil;
+
+    @Autowired
+    private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
 
@@ -154,11 +158,9 @@ public class DiscountController {
         try {
             String ids = req.getParameter("checked");
             if (!StringUtils.isEmpty(ids)) {
-                for (String id : ids.split(",")) {
-                    if (!StringUtils.isEmpty(id)) {
-                        discountRepository.deleteById(Long.valueOf(id));
-                    }
-                }
+                // Anti-IDOR: only rows in the caller's own tenant are deleted (see ScopedDeleter).
+                scopedDeleter.deleteScoped(discountRepository, ids,
+                        Discount::getOrganizationId, Discount::getUserId, null);
                 return true;
             }
             return false;

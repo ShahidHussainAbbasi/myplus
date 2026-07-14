@@ -5,6 +5,10 @@ var tableSellReport;
 
 
 $(document).ready(function() {
+    // P5b active-store switcher (hides itself for a single-store business).
+    loadMyStores();
+    $(document).on('change', '#storeSwitcher', switchStore);
+
     // Sale Detail Report table. Columns (0-based): 0 Date, 1 Invoice#, 2 Product, 3 Qty, 4 List price,
     // 5 Unit price, 6 Line total, 7 Tax, 8 Net, 9 Customer, 10 Contact, 11 Payment, 12 Invoice due, 13 Margin (SF-10).
     tableSellReport = $('#tableSellReport').DataTable( {
@@ -385,12 +389,8 @@ function cancelSellEdit(){
 // ─── Team / Users (owner-only) ────────────────────────────────────────────────
 // The company SUPER owner manages team members. Uses a custom show (not the generic .dropdown path)
 // so it doesn't trigger loadDataTable for a non-existent "Team" entity.
-function showTeam(){
-	$('.formDiv').hide();
-	$('#TeamDiv').show();
-	$('#teamMsg').hide();
-	loadTeamUsers();
-}
+// showTeam / loadTeamUsers / addTeamUser / teamMsg / the location picker now live in /js/common/team.js —
+// one implementation shared with education (which previously had no team screen at all).
 
 // G3 (slice 35): org tax policy. Same direct-show pattern as showTeam (no DataTable entity).
 function showTaxSettings(){
@@ -435,52 +435,79 @@ function saveTaxSetting(){
 	});
 }
 
-function loadTeamUsers(){
-	$.get(serverContext + "team/users", function(resp){
-		var users = (resp && resp.data) ? resp.data : [];
-		var $tb = $('#tableTeam tbody').empty();
-		if(!users.length){ $tb.append('<tr><td colspan="4" class="text-center">No team members yet.</td></tr>'); return; }
-		users.forEach(function(u){
-			$tb.append('<tr><td>' + escHtml(u.name || '') + '</td><td>' + escHtml(u.email || '')
-				+ '</td><td>' + escHtml(u.role || '') + '</td><td>' + (u.enabled ? 'Active' : 'Pending') + '</td></tr>');
-		});
-	}).fail(function(){
-		$('#tableTeam tbody').html('<tr><td colspan="4" class="text-center">Could not load the team.</td></tr>');
-	});
+// ─── Multi-location: Stores (owner) ───────────────────────────────────────────
+function showStores(){
+	$('.formDiv').hide();
+	$('#StoresDiv').show();
+	$('#storeMsg').hide();
+	loadStores();
 }
-
-function addTeamUser(){
-	var body = {
-		firstName: ($('#teamFirstName').val() || '').trim(),
-		lastName:  ($('#teamLastName').val()  || '').trim(),
-		email:     ($('#teamEmail').val()     || '').trim(),
-		role:      $('#teamRole').val()
-	};
-	if(!body.email){ teamMsg('Please enter an email.', true); return; }
-	$.ajax({
-		type: 'POST', url: serverContext + 'team/users', contentType: 'application/json',
-		data: JSON.stringify(body), dataType: 'json',
-		success: function(resp){
-			if(resp && resp.data && resp.data.userId){
-				teamMsg('Team member added — a set-password email was sent to ' + body.email + '.', false);
-				$('#teamFirstName,#teamLastName,#teamEmail').val('');
-				loadTeamUsers();
-			} else {
-				teamMsg((resp && resp.message) || 'Could not add the team member.', true);
-			}
-		},
-		error: function(xhr){
-			var m = (xhr && xhr.responseJSON && xhr.responseJSON.message) || 'Could not add the team member. Please try again.';
-			teamMsg(m, true);
-		}
-	});
-}
-
-function teamMsg(msg, isErr){
-	$('#teamMsg').removeClass('alert-success alert-danger')
+function storeMsg(msg, isErr){
+	$('#storeMsg').removeClass('alert-success alert-danger')
 		.addClass(isErr ? 'alert-danger' : 'alert-success').html(escHtml(msg)).show();
 }
+function loadStores(){
+	$.get(serverContext + 'getStores', function(resp){
+		var rows = (resp && (resp.collection || resp.data)) || [];
+		var $tb = $('#tableStores tbody').empty();
+		if(!rows.length){ $tb.append('<tr><td colspan="5" class="text-center">No stores yet — add your first store above.</td></tr>'); return; }
+		rows.forEach(function(s){
+			$tb.append('<tr><td>'+escHtml(s.name||'')+'</td><td>'+escHtml(s.code||'')+'</td><td>'+escHtml(s.address||'')
+				+'</td><td>'+escHtml(s.phone||'')+'</td><td>'+escHtml(s.status||'')+'</td></tr>');
+		});
+	}, 'json').fail(function(){ $('#tableStores tbody').html('<tr><td colspan="5" class="text-center">Could not load stores.</td></tr>'); });
+}
+function saveStore(){
+	var body = { name:($('#storeName').val()||'').trim(), code:($('#storeCode').val()||'').trim(),
+		address:($('#storeAddress').val()||'').trim(), phone:($('#storePhone').val()||'').trim() };
+	if(!body.name){ storeMsg('Please enter a store name.', true); return; }
+	$.ajax({ type:'POST', url:serverContext+'addStore', contentType:'application/json', data:JSON.stringify(body), dataType:'json',
+		success:function(resp){
+			if(resp && (resp.status==='SUCCESS' || resp.object)){
+				storeMsg('Store created. Pick it in the store switcher to sell from it.', false);
+				$('#storeName,#storeCode,#storeAddress,#storePhone').val('');
+				loadStores();
+				loadMyStores();   // a second store makes the switcher relevant — show it without a re-login
+			} else { storeMsg((resp && resp.message) || 'Could not create the store.', true); }
+		},
+		error:function(){ storeMsg('Could not create the store.', true); }
+	});
+}
+// ── P5b: active-store switcher ────────────────────────────────────────────────────────────────────
+// The active store is what new sales/purchases/shifts get stamped with, and it lives in the JWT — so
+// switching means asking auth-service for a fresh token, then reloading so every section refetches
+// through the new scope. Hidden entirely for a single-store business (nothing to switch between).
+function loadMyStores(){
+	$.get(serverContext + 'getMyStores', function(resp){
+		var rows = (resp && (resp.collection || resp.data)) || [];
+		if(rows.length < 2){ $('#storeSwitcherWrap').hide(); return; }
+		var $s = $('#storeSwitcher').empty();
+		var hasActive = rows.some(function(st){ return st.active; });
+		if(!hasActive){ $s.append($('<option>').val('').text('Select a store…')); }
+		rows.forEach(function(st){
+			var $o = $('<option>').val(st.id).text(st.name + (st.code ? (' (' + st.code + ')') : ''));
+			if(st.active){ $o.prop('selected', true); }
+			$s.append($o);
+		});
+		$('#storeSwitcherWrap').show();
+	}, 'json').fail(function(){ $('#storeSwitcherWrap').hide(); });
+}
 
+function switchStore(){
+	var storeId = $('#storeSwitcher').val();
+	if(!storeId){ return; }
+	$.ajax({ type:'POST', url:serverContext+'switchStore', contentType:'application/json',
+		data:JSON.stringify({ storeId: Number(storeId) }), dataType:'json',
+		success:function(res){
+			// The session token now carries the new active store — reload so every list refetches under it.
+			if(res && res.status === 'SUCCESS'){ window.location.reload(); }
+			else { alert((res && res.message) || 'Could not switch store.'); loadMyStores(); }
+		},
+		error:function(){ alert('Could not switch store.'); loadMyStores(); }
+	});
+}
+
+// Populate the Manage-Users store-assignment multi-select.
 function CIT(data){
 	var q=ZERO,sr=ZERO,dis=ZERO,t=ZERO;
 	data.forEach(function(d){
@@ -1996,7 +2023,7 @@ function buildFinanceDialog(id){
 }
 
 function openStatement(partyType, partyId, name){
-	var url = (partyType === 'VENDOR' ? '/vendorStatement?venderId=' : '/customerStatement?customerId=') + encodeURIComponent(partyId);
+	var url = (partyType === 'VENDOR' ? 'vendorStatement?venderId=' : 'customerStatement?customerId=') + encodeURIComponent(partyId);
 	buildFinanceDialog('StatementDialog').style.display = 'flex';
 	document.getElementById('StatementDialogTitle').textContent = 'Statement — ' + (name || ((partyType === 'VENDOR' ? 'Vendor #' : 'Customer #') + partyId));
 	document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
@@ -2018,7 +2045,7 @@ function openStatement(partyType, partyId, name){
 
 // Aging report (Receivables = CUSTOMER, Payables = VENDOR). Trigger buttons live in the Customer/Vendor toolbars.
 function openAging(partyType){
-	var url = partyType === 'VENDOR' ? '/vendorAging' : '/customerAging';
+	var url = partyType === 'VENDOR' ? 'vendorAging' : 'customerAging';
 	buildFinanceDialog('AgingDialog').style.display = 'flex';
 	document.getElementById('AgingDialogTitle').textContent = (partyType === 'VENDOR' ? 'Payables' : 'Receivables') + ' Aging';
 	document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
@@ -2037,54 +2064,154 @@ function openAging(partyType){
 	}, 'json').fail(function(){ document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load aging.</div>'; });
 }
 
-// F3c: GL financial statements — Trial Balance, P&L, Balance Sheet (org-wide, self-contained dialogs).
-function glFail(){ document.getElementById('GLDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load the report.</div>'; }
+// ─── Finance Reports page (org-wide GL statements + tax register + audit trail) ──────────────────
+// Dedicated #FinanceDiv view with a report switcher + per-report filter criteria (replaces the old
+// modal dialogs). Remembers the last report + filter values in localStorage so reopening lands where
+// you left off. Backend contracts: trial-balance/balance-sheet take ?asOf; pnl/tax-register take
+// ?from&to; audit takes ?action&limit.
+var FIN_REPORTS = {
+	trialBalance: { fields:['asOf'],          run:finRunTrialBalance },
+	pnl:          { fields:['from','to'],     run:finRunPnl },
+	balanceSheet: { fields:['asOf'],          run:finRunBalanceSheet },
+	taxRegister:  { fields:['from','to'],     run:finRunTaxRegister },
+	auditLog:     { fields:['action','limit'], run:finRunAuditLog }
+};
+var finCurrent = 'trialBalance';
 
-function glSection(title, rows, total){
-	var h = '<h5 style="font-weight:700;margin:12px 0 4px">'+escHtml(title)+'</h5><table class="table table-condensed" style="width:100%"><tbody>';
-	(rows||[]).forEach(function(r){ h += '<tr><td>'+escHtml((r.code?r.code+' ':'')+(r.name||''))+'</td><td class="text-right">'+Number(r.amount||0).toFixed(2)+'</td></tr>'; });
-	h += '<tr><th class="text-right">Total '+escHtml(title)+'</th><th class="text-right">'+Number(total||0).toFixed(2)+'</th></tr></tbody></table>';
+function finToday(){ return new Date().toISOString().slice(0,10); }
+function finMonthStart(){ var d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10); }
+function finPrefs(){ try{ return JSON.parse(localStorage.getItem('finPrefs')||'{}'); }catch(e){ return {}; } }
+function finSavePrefs(){
+	try{ localStorage.setItem('finPrefs', JSON.stringify({
+		report:finCurrent, asOf:$('#finAsOf').val(), from:$('#finFrom').val(),
+		to:$('#finTo').val(), action:$('#finAction').val(), limit:$('#finLimit').val() })); }catch(e){}
+}
+
+// Open the Finance view on a given report — called by the sidebar menu + the in-page tab buttons.
+function showFinance(report){
+	if(!FIN_REPORTS[report]) report='trialBalance';
+	finCurrent=report;
+	$('.formDiv').hide();
+	$('#FinanceDiv').show();
+	document.querySelectorAll('#finTabs .fin-tab').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-report')===report); });
+	// seed inputs from saved prefs / sensible defaults (only when empty, so a user's edits survive tab switches)
+	var saved=finPrefs();
+	if(!$('#finAsOf').val()) $('#finAsOf').val(saved.asOf||finToday());
+	if(!$('#finFrom').val()) $('#finFrom').val(saved.from||finMonthStart());
+	if(!$('#finTo').val())   $('#finTo').val(saved.to||finToday());
+	if(saved.action!=null && !$('#finAction').val()) $('#finAction').val(saved.action);
+	if(saved.limit && !$('#finLimit').val())         $('#finLimit').val(saved.limit);
+	// show only the filters this report uses
+	var use=FIN_REPORTS[report].fields;
+	[['asOf','#finAsOfWrap'],['from','#finFromWrap'],['to','#finToWrap'],['action','#finActionWrap'],['limit','#finLimitWrap']]
+		.forEach(function(f){ $(f[1]).toggle(use.indexOf(f[0])>=0); });
+	runFinanceReport();
+}
+
+function runFinanceReport(){
+	finSavePrefs();
+	document.getElementById('FinanceResults').innerHTML='<div style="padding:10px">Loading…</div>';
+	FIN_REPORTS[finCurrent].run();
+}
+function finSet(html){ document.getElementById('FinanceResults').innerHTML=html; }
+function finFail(){ finSet('<div style="padding:10px;color:#c0392b">Could not load the report. Check that finance-service is running.</div>'); }
+function finSection(title, rows, total){
+	var h='<h5 style="font-weight:700;margin:12px 0 4px">'+escHtml(title)+'</h5><table class="table table-condensed" style="width:100%"><tbody>';
+	(rows||[]).forEach(function(r){ h+='<tr><td>'+escHtml((r.code?r.code+' ':'')+(r.name||''))+'</td><td class="text-right">'+Number(r.amount||0).toFixed(2)+'</td></tr>'; });
+	if(!(rows||[]).length) h+='<tr><td colspan="2" style="color:#777">None.</td></tr>';
+	h+='<tr><th class="text-right">Total '+escHtml(title)+'</th><th class="text-right">'+Number(total||0).toFixed(2)+'</th></tr></tbody></table>';
 	return h;
 }
 
-function openTrialBalance(){
-	buildFinanceDialog('GLDialog').style.display='flex';
-	document.getElementById('GLDialogTitle').textContent='Trial Balance';
-	document.getElementById('GLDialogBody').innerHTML='<div style="padding:8px">Loading…</div>';
-	$.get(serverContext+'/gl/trialBalance', function(resp){
+function finRunTrialBalance(){
+	var asOf=$('#finAsOf').val();
+	$.get(serverContext+'gl/trialBalance', asOf?{asOf:asOf}:{}, function(resp){
 		var d=(typeof resp==='string')?JSON.parse(resp):resp; var rows=d.rows||[];
 		var h='<table class="table table-striped" style="width:100%"><thead><tr><th>Code</th><th>Account</th><th class="text-right">Debit</th><th class="text-right">Credit</th></tr></thead><tbody>';
 		rows.forEach(function(r){ h+='<tr><td>'+escHtml(r.code||'')+'</td><td>'+escHtml(r.name||'')+'</td><td class="text-right">'+Number(r.debit||0).toFixed(2)+'</td><td class="text-right">'+Number(r.credit||0).toFixed(2)+'</td></tr>'; });
+		if(!rows.length) h+='<tr><td colspan="4" class="text-center" style="color:#777">No ledger entries yet — post a sale or purchase to populate the GL.</td></tr>';
 		h+='</tbody><tfoot><tr><th colspan="2" class="text-right">Total</th><th class="text-right">'+Number(d.totalDebit||0).toFixed(2)+'</th><th class="text-right">'+Number(d.totalCredit||0).toFixed(2)+'</th></tr></tfoot></table>';
 		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">'+(d.balanced?'Balanced ✓':'NOT balanced')+'</div>';
-		document.getElementById('GLDialogBody').innerHTML=h;
-	}, 'json').fail(glFail);
+		finSet(h);
+	}, 'json').fail(finFail);
 }
 
-function openPnl(){
-	buildFinanceDialog('GLDialog').style.display='flex';
-	document.getElementById('GLDialogTitle').textContent='Profit & Loss';
-	document.getElementById('GLDialogBody').innerHTML='<div style="padding:8px">Loading…</div>';
-	$.get(serverContext+'/gl/pnl', function(resp){
+function finRunPnl(){
+	$.get(serverContext+'gl/pnl', {from:$('#finFrom').val(), to:$('#finTo').val()}, function(resp){
 		var d=(typeof resp==='string')?JSON.parse(resp):resp;
-		var h=glSection('Income', d.income, d.totalIncome)+glSection('Expenses', d.expense, d.totalExpense);
+		var h=finSection('Income', d.income, d.totalIncome)+finSection('Expenses', d.expense, d.totalExpense);
 		var np=Number(d.netProfit||0);
 		h+='<div style="text-align:right;font-size:16px;font-weight:800;color:'+(np>=0?'#0f6e56':'#c0392b')+'">Net Profit: '+np.toFixed(2)+'</div>';
-		document.getElementById('GLDialogBody').innerHTML=h;
-	}, 'json').fail(glFail);
+		finSet(h);
+	}, 'json').fail(finFail);
 }
 
-function openBalanceSheet(){
-	buildFinanceDialog('GLDialog').style.display='flex';
-	document.getElementById('GLDialogTitle').textContent='Balance Sheet';
-	document.getElementById('GLDialogBody').innerHTML='<div style="padding:8px">Loading…</div>';
-	$.get(serverContext+'/gl/balanceSheet', function(resp){
+function finRunBalanceSheet(){
+	var asOf=$('#finAsOf').val();
+	$.get(serverContext+'gl/balanceSheet', asOf?{asOf:asOf}:{}, function(resp){
 		var d=(typeof resp==='string')?JSON.parse(resp):resp;
-		var h=glSection('Assets', d.assets, d.totalAssets)+glSection('Liabilities', d.liabilities, d.totalLiabilities);
+		var h=finSection('Assets', d.assets, d.totalAssets)+finSection('Liabilities', d.liabilities, d.totalLiabilities);
 		var eq=(d.equity||[]).slice();
 		if(Number(d.netIncome||0)!==0) eq.push({code:'',name:'Net income (current period)',amount:d.netIncome});
-		h+=glSection('Equity', eq, d.totalEquity);
+		h+=finSection('Equity', eq, d.totalEquity);
 		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">Assets '+Number(d.totalAssets||0).toFixed(2)+' = Liab + Equity '+(Number(d.totalLiabilities||0)+Number(d.totalEquity||0)).toFixed(2)+(d.balanced?' ✓':' — NOT balanced')+'</div>';
-		document.getElementById('GLDialogBody').innerHTML=h;
-	}, 'json').fail(glFail);
+		finSet(h);
+	}, 'json').fail(finFail);
 }
+
+function finRunTaxRegister(){
+	$.get(serverContext+'taxRegister', {from:$('#finFrom').val(), to:$('#finTo').val()}, function(resp){
+		var d=(typeof resp==='string')?JSON.parse(resp):resp;
+		var f=function(x){return Number(x||0).toFixed(2);};
+		var h='<div style="color:#777;margin-bottom:8px">Period: '+escHtml((d.from||'').toString())+' → '+escHtml((d.to||'').toString())+'</div>';
+		h+='<table class="table" style="width:100%"><tbody>'
+			+'<tr><td>Output tax (sales)</td><td class="text-right">'+f(d.outputTax)+'</td></tr>'
+			+'<tr><td>Less adjustments (returns/voids)</td><td class="text-right">-'+f(d.outputAdjusted)+'</td></tr>'
+			+'<tr><th>Net output tax</th><th class="text-right">'+f(d.netOutput)+'</th></tr>'
+			+'<tr><td>Input tax (purchases)</td><td class="text-right">'+f(d.inputTax)+'</td></tr>'
+			+'<tr><td>Less adjustments (purchase returns)</td><td class="text-right">-'+f(d.inputAdjusted)+'</td></tr>'
+			+'<tr><th>Net input tax</th><th class="text-right">'+f(d.netInput)+'</th></tr>'
+			+'</tbody></table>';
+		var np=Number(d.netPayable||0);
+		h+='<div style="text-align:right;font-size:16px;font-weight:800;color:'+(np>=0?'#0f6e56':'#c0392b')+'">Net tax payable: '+f(np)+'</div>';
+		var lines=d.lines||[];
+		if(lines.length){
+			h+='<h5 style="font-weight:700;margin:14px 0 4px">Register</h5><table class="table table-striped" style="width:100%"><thead><tr><th>Date</th><th>Source</th><th>Ref</th><th class="text-right">Output (Cr)</th><th class="text-right">Adjust/Input (Dr)</th></tr></thead><tbody>';
+			lines.forEach(function(l){
+				h+='<tr><td>'+escHtml((l.date||'').toString())+'</td><td>'+escHtml(l.source||'')+'</td><td>'+escHtml(l.ref||'')+'</td>'
+					+'<td class="text-right">'+(Number(l.credit||0)?f(l.credit):'')+'</td>'
+					+'<td class="text-right">'+(Number(l.debit||0)?f(l.debit):'')+'</td></tr>';
+			});
+			h+='</tbody></table>';
+		}
+		finSet(h);
+	}, 'json').fail(finFail);
+}
+
+function finRunAuditLog(){
+	var q={limit:$('#finLimit').val()||200}; var a=$('#finAction').val(); if(a) q.action=a;
+	$.get(serverContext+'getAuditLog', q, function(resp){
+		var rows=(typeof resp==='string')?JSON.parse(resp):resp;
+		if(!Array.isArray(rows)){ finSet('<div style="padding:10px;color:#c0392b">Could not load the audit log. Check that audit-service is running.</div>'); return; }
+		if(!rows.length){ finSet('<div style="padding:10px;color:#777">No audit events yet.</div>'); return; }
+		var h='<table class="table table-striped" style="width:100%"><thead><tr><th>When</th><th>Action</th><th>Entity</th><th class="text-right">Amount</th><th>User</th><th>Source</th><th>Details</th></tr></thead><tbody>';
+		rows.forEach(function(r){
+			var entity=escHtml((r.entityType||'')+(r.entityRef?(' '+r.entityRef):''));
+			h+='<tr><td>'+escHtml((r.occurredAt||'').toString().replace('T',' '))+'</td>'
+				+'<td>'+escHtml(r.action||'')+'</td><td>'+entity+'</td>'
+				+'<td class="text-right">'+(r.amount!=null?Number(r.amount).toFixed(2):'')+'</td>'
+				+'<td>'+escHtml(r.userId!=null?('#'+r.userId):'')+'</td>'
+				+'<td>'+escHtml(r.sourceService||'')+'</td>'
+				+'<td>'+escHtml(r.details||'')+'</td></tr>';
+		});
+		h+='</tbody></table>';
+		finSet(h);
+	}, 'json').fail(finFail);
+}
+
+// Back-compat shims — any old caller (or the sidebar menu) routes into the page view.
+function openTrialBalance(){ showFinance('trialBalance'); }
+function openPnl(){ showFinance('pnl'); }
+function openBalanceSheet(){ showFinance('balanceSheet'); }
+function openTaxRegister(){ showFinance('taxRegister'); }
+function openAuditLog(){ showFinance('auditLog'); }

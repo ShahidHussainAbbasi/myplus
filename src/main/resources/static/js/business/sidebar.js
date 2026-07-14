@@ -19,6 +19,34 @@
     window.openSidebar = function () { document.body.classList.add('sidebar-open'); };
     window.closeSidebar = function () { document.body.classList.remove('sidebar-open'); };
 
+    // ── "Remember last selection" (shared by every dashboard) ─────────────────────────────────────
+    // The last-picked nav item stays visibly highlighted across the whole UI, and is restored after a
+    // reload, so the user always sees where they are and never has to re-navigate. Works for BOTH nav
+    // shapes: the snav accordion (business/education/appointment) and the flat sb-link rail
+    // (welfare/agriculture). Keyed per page so dashboards don't clobber each other.
+    var NAV_KEY = 'mp_nav_active:' + location.pathname;
+    function navKeyOf(a) { return (a.getAttribute('onclick') || a.textContent || '').replace(/\s+/g, ' ').trim(); }
+
+    // Highlight a nav link + (for the accordion) its parent group button, and KEEP that group's submenu
+    // open so the selection stays visible. Clears any previous highlight/open state first. We manage
+    // .snav-open explicitly (the reliable show mechanism used by both CSS files) rather than relying on
+    // the fragile :has(.snav-active) rule — that was why snavGo items (which remove .snav-open) collapsed
+    // while Finance/showX items (which don't) stayed visible. Optionally persists the choice.
+    function markActive(sb, a, save) {
+        sb.querySelectorAll('.snav-menu a.active, .sb-link.active').forEach(function (el) { el.classList.remove('active'); });
+        sb.querySelectorAll('.snav-btn.snav-active').forEach(function (el) { el.classList.remove('snav-active'); });
+        sb.querySelectorAll('.snav-dd.snav-open').forEach(function (el) { el.classList.remove('snav-open'); });
+        if (!a) return;
+        a.classList.add('active');
+        var dd = a.closest ? a.closest('.snav-dd') : null;
+        if (dd) {
+            dd.classList.add('snav-open');                                   // keep the picked group's menu open
+            var btn = dd.querySelector(':scope > .snav-btn');
+            if (btn) btn.classList.add('snav-active');                        // + highlight its group button
+        }
+        if (save) { try { localStorage.setItem(NAV_KEY, navKeyOf(a)); } catch (e) {} }
+    }
+
     // For the select-nav dashboards (welfare/agriculture): a rail link sets the (now off-screen) section
     // <select> and fires its change handler — the same mechanism the old dropdown used. Marks itself active.
     window.sbNav = function (selectId, value, el) {
@@ -28,8 +56,7 @@
             if (window.jQuery) window.jQuery(s).trigger('change'); else s.dispatchEvent(new Event('change'));
         }
         var sb = document.querySelector('.app-sidebar');
-        if (sb) { sb.querySelectorAll('.sb-link.active').forEach(function (a) { a.classList.remove('active'); }); }
-        if (el) el.classList.add('active');
+        if (sb) markActive(sb, el, true);
         window.closeSidebar();
     };
 
@@ -39,12 +66,33 @@
 
         var sb = document.querySelector('.app-sidebar');
         if (!sb) return;
+
+        // Highlight (+ persist) the picked accordion item; its own onclick still runs the navigation.
         sb.addEventListener('click', function (e) {
             var a = (e.target && e.target.closest) ? e.target.closest('.snav-menu a') : null;
             if (!a) return;
-            sb.querySelectorAll('.snav-menu a.active').forEach(function (el) { el.classList.remove('active'); });
-            a.classList.add('active');
+            markActive(sb, a, true);
             window.closeSidebar();   // close the mobile drawer after navigating
         });
+
+        // Restore the last selection after a reload: re-highlight it AND replay its navigation so the
+        // user lands back on their last view (not the default overview) — the whole point of remembering.
+        // Deferred so it runs AFTER each dashboard's own init (which shows the default view), then overrides it.
+        setTimeout(function () {
+            try {
+                var saved = localStorage.getItem(NAV_KEY);
+                if (!saved) return;
+                var links = sb.querySelectorAll('.snav-menu a, .sb-link');
+                for (var i = 0; i < links.length; i++) {
+                    if (navKeyOf(links[i]) === saved) {
+                        var a = links[i];
+                        var oc = a.getAttribute('onclick');
+                        if (oc) { try { new Function(oc).call(a); } catch (e) {} }   // replay the navigation first
+                        markActive(sb, a, false);                                    // then highlight (matches a real click's order)
+                        break;
+                    }
+                }
+            } catch (e) {}
+        }, 0);
     });
 })();

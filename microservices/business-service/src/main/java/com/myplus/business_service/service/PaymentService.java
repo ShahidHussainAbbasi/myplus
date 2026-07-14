@@ -24,6 +24,7 @@ public class PaymentService {
     static final int SCALE = 2;
 
     private final PaymentRepo paymentRepo;
+    private final com.myplus.business_service.util.RequestUtil requestUtil;   // multi-location: the active store
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
     private static BigDecimal scale(BigDecimal v) { return nz(v).setScale(SCALE, RoundingMode.HALF_UP); }
@@ -75,6 +76,7 @@ public class PaymentService {
                     .amount(scale(t.getAmount()))
                     .reference(t.getReference())
                     .organizationId(orgId).userId(userId)
+                    .storeId(requestUtil.activeStoreId())   // the store that took the tender
                     .build());
         }
     }
@@ -87,6 +89,7 @@ public class PaymentService {
                 .method(PaymentMethod.REFUND)
                 .amount(scale(nz(amount).abs().negate()))
                 .organizationId(orgId).userId(userId)
+                .storeId(requestUtil.activeStoreId())       // the store that handed the money back
                 .build());
     }
 
