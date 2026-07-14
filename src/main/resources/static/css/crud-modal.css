@@ -65,3 +65,59 @@
   .crud-body select.form-control{ height:44px; }
   .crud-body .btn{ min-height:44px; }
 }
+
+/* ── Row actions: the select checkbox + the per-row Edit button ─────────────────────────────────
+ * These two used to be loose siblings in the same cell, so they sat on different baselines, drifted
+ * apart as the column resized, and wrapped onto separate lines on a phone. main.js now wraps them in
+ * .row-actions and this keeps them as one aligned control.
+ */
+.row-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  white-space:nowrap;        /* never split the checkbox from its button */
+}
+
+.row-actions input[type="checkbox"]{
+  flex:0 0 auto;
+  width:16px; height:16px;
+  margin:0;                  /* Bootstrap's stray top-margin is what knocked it off the baseline */
+  cursor:pointer;
+  accent-color:var(--brand, #1E88E5);
+}
+
+.row-actions .js-edit-row{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:3px 10px;
+  border-radius:6px;
+  line-height:1.5;
+  border:1px solid var(--border, #D9E4EF);
+  background:var(--surface, #fff);
+  color:var(--txt2, #3D5166);
+}
+
+.row-actions .js-edit-row:hover{
+  border-color:var(--brand, #1E88E5);
+  color:var(--brand-dark, #1565C0);
+  background:var(--blue-50, #E3F2FD);
+}
+
+.row-actions .js-edit-row:focus-visible{
+  outline:2px solid var(--brand-light, #42A5F5);
+  outline-offset:1px;
+}
+
+/* The cell itself: keep it snug and vertically centred against the data columns. main.js tags it, so no
+ * :has() is needed (it isn't safe on the browser floor this app targets). */
+td.row-actions-cell{ vertical-align:middle; width:1%; }
+
+/* Phones: drop the word, keep the pencil — a full-width tap target beats a truncated label.
+ * The button keeps its title/aria-label, so it stays announced and hoverable. */
+@media (max-width:600px){
+  .row-actions{ gap:8px; }
+  .row-actions .js-edit-row{ padding:6px 9px; }         /* comfortable tap target */
+  .row-actions .js-edit-row .row-actions__label{ display:none; }
+  .row-actions .js-edit-row .glyphicon{ margin:0; }
+}

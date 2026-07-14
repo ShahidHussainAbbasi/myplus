@@ -76,6 +76,16 @@
 			</div>
 			<nav class="app-sidebar__nav" id="nav-subheader">
 					<div class="snav-actions">
+						<!-- Active-ORGANIZATION (tenant) switcher. A user can belong to several orgs (one they own,
+						     plus any they were added to); without this they are pinned to the one they own and can
+						     never work inside the others. Populated by /js/common/org-switcher.js, which re-issues
+						     the session JWT for the chosen tenant. Org is the OUTER scope, store the inner one —
+						     hence it sits above the store switcher. -->
+						<div id="orgSwitcherLi" class="snav-org" style="display:none;padding: 8px 10px;color: rgb(17, 17, 113);font-size: x-small;">
+							<select id="orgSwitcher" title="Active organization"
+								style="width:100%;height:32px;border-radius:6px;border:none;padding:0 8px;">
+							</select>
+						</div>
 						<!-- P5b active-store switcher. Hidden unless the user can work at 2+ stores (a single-store
 						     business never sees it). Changing it re-issues the session JWT with the chosen store,
 						     which is what new sales/purchases/shifts are stamped with. -->
@@ -193,8 +203,9 @@
 								<li><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> Tax Settings</a></li>
 							</ul>
 						</div>
-						<!-- Team management — only the company SUPER owner sees this. -->
-						<div class="snav-dd" id="snavTeam" sec:authorize="hasAuthority('ROLE_OWNER')">
+						<!-- Team management — the owner AND admins/managers (an admin may create USERs in their own
+						     stores; the server enforces that they cannot create another ADMIN). -->
+						<div class="snav-dd" id="snavTeam" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
 							<button class="snav-btn" onclick="snavToggle(event,'snavTeam')">
 								<span class="glyphicon glyphicon-user"></span>
 								<span>Team</span>
@@ -361,7 +372,7 @@
 			<!-- ═══ Team / Users (owner-only) ═══════════════════════════════════════
 			     The company SUPER owner adds ADMIN/USER members (they set their own password via a
 			     reset email) and sees the current team. Server-confined to the owner's org. -->
-			<div id="TeamDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+			<div id="TeamDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
 				<h3 class="dash-page-title">Team &amp; Users</h3>
 				<div id="teamMsg" class="alert" style="display:none"></div>
 				<div class="row" style="margin-bottom:14px">
@@ -371,7 +382,9 @@
 					<div class="col-sm-2">
 						<select id="teamRole" class="form-control">
 							<option value="USER">User</option>
-							<option value="ADMIN">Admin</option>
+							<!-- Only an owner may create an admin (server-enforced) — so don't offer an admin a
+							     choice that can only fail. -->
+							<option value="ADMIN" sec:authorize="hasAuthority('ROLE_OWNER')">Admin</option>
 						</select>
 					</div>
 					<div class="col-sm-1">
@@ -380,12 +393,13 @@
 				</div>
 				<div class="row" style="margin-bottom:14px">
 					<div class="col-sm-6">
-						<label style="font-weight:600;font-size:12px;color:#7a889c;margin-bottom:4px;display:block">Assign to store(s) — leave empty to inherit (owner = all; admin = their own)</label>
-						<select id="teamStores" class="form-control" multiple size="3"></select>
+						<label style="font-weight:600;font-size:12px;color:#7a889c;margin-bottom:4px;display:block">Assign to store(s)</label>
+						<!-- Toggle-chip picker (see /js/common/team.js) — replaces a ctrl+click <select multiple>. -->
+						<div id="teamStores" class="locpick"></div>
 					</div>
 				</div>
 				<table id="tableTeam" class="table table-bordered table-striped">
-					<thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+					<thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Stores</th><th></th></tr></thead>
 					<tbody></tbody>
 				</table>
 			</div>
@@ -1153,11 +1167,15 @@
 									<option value="CREDIT">Credit (on account)</option>
 									<option value="WALLET">Wallet</option>
 									<option value="BANK_TRANSFER">Bank Transfer</option>
-									<option value="INSURANCE">Insurance</option>
+									<!-- Pharmacy-only tender: a retail POS never settles a sale against an insurer. -->
+									<option value="INSURANCE" data-vertical-only="PHARMA">Insurance</option>
 								</select>
 							</div>
-							<!-- P12 (slice 59): insurer-covered portion of a dispense; the rest is the patient co-pay. -->
-							<div class="col-xs-12 col-sm-3 col-md-2">
+							<!-- P12 (slice 59): insurer-covered portion of a dispense; the rest is the patient co-pay.
+							     Pharmacy-only — a POS/retail or e-commerce sale has no insurer, so the field is
+							     noise on those verticals (and an empty box invites the question "should I fill
+							     this in?"). module-theme.js hides it for everything but PHARMA. -->
+							<div class="col-xs-12 col-sm-3 col-md-2" data-vertical-only="PHARMA">
 								<span class="field-label">Insurance covered</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellInsured"
 									name="sellInsured" placeholder="0.00" onkeyup="calculateChange()">
@@ -1229,32 +1247,24 @@
 				</div>
 				<table id="tableSell" class="table table-bordered table-striped">
 					<thead>
+						<!-- POS/retail standard column order: WHEN → WHICH DOCUMENT → WHO → WHAT → MONEY → ACTIONS.
+						     Dropped: "ID" (an internal key an operator never needs) and "Disc Type" (folded into
+						     Discount, so "10" is now unambiguous: "10%" vs "10 (Amt)").
+						     Renamed: "Net Amount (Paid)" → "Line Total". It was never paid, and never net — it is
+						     what this LINE was charged (discounted base + tax). Payment lives on the invoice
+						     (Payment / Invoice Due), not on a line, which is exactly what the old label implied. -->
 						<tr>
-							<th data-field="sellId">ID</th>
-							<!-- <th data-field="checkDelete"></th> -->
-							<!-- <th data-field="sellItemDD">Code</th> -->
+							<th data-field="updated">Dated</th>
 							<th data-field="sellInvoiceNo">Invoice</th>
 							<th data-field="sellCustomerName">Customer</th>
-							<th data-field="sellItemName">Name</th>
-							<th data-field="sellItems">QTY</th>
-							<!-- <th data-field="sellBatchNo">BatchNo</th> -->
-							<!-- <th data-field="sellItemExpiry">Expiry</th> -->
-							<!-- <th data-field="sellPurchaseRate">P/U Price</th> -->
-							<th data-field="sellSellRate" title="The rate this line was actually sold at">Sold Rate</th>
-							<!-- <th data-field="sellCatalogPrice" title="Catalog master price at the time of sale">Catalog</th> -->
-							<th data-field="sellDiscountTypeDD">Disc Type</th>
-							<th data-field="sellDiscount">Discount</th>
-							<th data-field="sellTotalAmount">Total</th>
-							<th data-field="sellDueAmount" title="Amount still owed on THIS invoice only">Invoice Due</th>
-							<th data-field="sellNetAmount">Net Amount (Paid)</th>
-							<!-- <th data-field="sellCN">Customer Name</th> -->
-							<!-- <th data-field="sellCC">Customer Contact</th> -->
-							<!-- <th data-field="sellDuedays">Due Days</th> -->
-	<!-- 						<th data-field="sellsrp">Return profit</th>
-							<th data-field="sellRe">Return reason</th>
-	 -->						<th data-field="updated">Dated</th>
+							<th data-field="sellItemName">Product</th>
+							<th data-field="sellItems">Qty</th>
+							<th data-field="sellSellRate" title="The rate this line was actually sold at (may differ from the catalog price)">Unit Price</th>
+							<th data-field="sellDiscount" title="Discount applied to this line — % of the line, or a flat amount">Discount</th>
 							<th data-field="sellTaxAmount">Tax</th>
+							<th data-field="sellNetAmount" title="What this line was charged: (qty × unit price − discount) + tax">Line Total</th>
 							<th data-field="sellPaymentMode">Payment</th>
+							<th data-field="sellDueAmount" title="Amount still owed on THIS invoice only">Invoice Due</th>
 							<th data-field="sellAction">Actions</th>
 						</tr>
 					</thead>
@@ -1815,9 +1825,12 @@
     <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
     <script th:src="@{/js/business/chart.umd.min.js}"></script>
     <script th:src="@{/js/common/dom-safe.js}"></script>
-    <!-- Team & Users: shared with education. Locations for this vertical are STORES. -->
-    <script>window.TEAM_LOCATIONS_URL = 'getStores'; window.TEAM_LOCATION_NOUN = 'store';</script>
+    <!-- Team & Users: shared with education. Locations for this vertical are STORES. getMyStores (not getStores)
+         so an ADMIN is only offered stores they actually manage — the server would drop the others anyway, and
+         offering them would be a lie. An owner still gets every store. -->
+    <script>window.TEAM_LOCATIONS_URL = 'getMyStores'; window.TEAM_LOCATION_NOUN = 'store';</script>
     <script th:src="@{/js/common/team.js}"></script>
+    <script th:src="@{/js/common/org-switcher.js}"></script>
     <script th:src="@{/js/business/module-theme.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <script th:src="@{/js/business/businessInvoicePrint.js}"></script>
@@ -1855,10 +1868,8 @@
     //     $('select.dropdown').each(function() { this.selectedIndex = 0; });
     // }
 	
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.snav-dd'))
-            document.querySelectorAll('.snav-dd').forEach(function(el) { el.classList.remove('snav-open'); });
-    });
+    // Click-away closing now lives in /js/business/sidebar.js — it spares the group holding the CURRENT
+    // selection, so clicking into the form no longer collapses the nav item you are working under.
     /* ── Dashboard date label ─────────────────────────────── */
     (function() {
         var d = new Date();

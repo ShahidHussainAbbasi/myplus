@@ -151,8 +151,12 @@ public class SagaSellService {
             BigDecimal soldRate = (s.getSellRate() != null && s.getSellRate().compareTo(BigDecimal.ZERO) > 0)
                     ? s.getSellRate() : catalogPrice;
             BigDecimal productTaxRate = product != null ? product.getTaxRate() : null;
-            // The line DISCOUNT reduces the bill; tax the DISCOUNTED base (the UI's discounted net is never submitted).
-            BigDecimal lineTotal = s.getTotalAmount() != null ? s.getTotalAmount() : BigDecimal.ZERO;
+            // The line total is DERIVED here — qty × the rate this line sold at — never taken from the client.
+            // Trusting the submitted totalAmount is how a line came to be stored as rate=1000 (catalog fallback)
+            // with total=850 (the cashier's real price): two numbers from different sources, contradicting each
+            // other, and no way for the row to be right. Derive it and the contradiction cannot be persisted.
+            BigDecimal qty = s.getQuantity() != null ? BigDecimal.valueOf(s.getQuantity()) : BigDecimal.ONE;
+            BigDecimal lineTotal = soldRate.multiply(qty).setScale(2, java.math.RoundingMode.HALF_UP);
             BigDecimal discount = resolveDiscount(s, lineTotal);
             String discountType = resolveDiscountType(s, discount);
             BigDecimal base = lineTotal.subtract(discount);
@@ -164,8 +168,13 @@ public class SagaSellService {
             List<BigDecimal> recentCosts = purchaseRepo.findRecentCosts(productId, orgId, userId,
                     org.springframework.data.domain.PageRequest.of(0, 1));
             if (!recentCosts.isEmpty()) costPrice = recentCosts.get(0);
+            // totalAmount = qty × sold rate (before discount/tax). netAmount = what the customer is actually
+            // charged for this line (discounted base + tax) — DERIVED, not the client's figure. The sell form
+            // posts its "Net Amount" box, which actually holds PROFIT (total − cost×qty − discount); persisting
+            // that made Sell.netAmount mean three different things and made the margin report — which computes
+            // netAmount − cost×qty — subtract the cost twice whenever a purchase rate was present.
             lines.add(new SagaLine(productId, s.getQuantity(), soldRate, discount,
-                    s.getTotalAmount(), s.getNetAmount(), s.getSrp(),
+                    lineTotal, tax.gross(), s.getSrp(),
                     tax.rate(), tax.tax(), tax.gross(), catalogPrice, discountType, costPrice));
         }
         return lines;

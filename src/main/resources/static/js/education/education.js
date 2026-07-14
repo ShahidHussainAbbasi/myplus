@@ -12,9 +12,7 @@ var tableFeeReport;
 	
 $(document).ready(function() {
 
-	// Active-organization (tenant) switcher.
-	loadMyOrganizations();
-	$(document).on('change', '#orgSwitcher', switchOrganization);
+	// The org switcher wires itself up (see /js/common/org-switcher.js).
 
 	// P4 active-branch (school) switcher — hides itself for a single-branch school.
 	loadMyBranches();
@@ -461,50 +459,8 @@ function loadDataTable(){
 	});
 }
 
-// ---- Active organization (tenant) switcher ----
-function loadMyOrganizations() {
-	$.get(serverContext + "getMyOrganizations", function(res) {
-		var $sel = $("#orgSwitcher");
-		if (!res || res.status !== "SUCCESS" || !res.collection || res.collection.length === 0) {
-			// No tenant context (legacy mode / no orgs) — hide the switcher.
-			$("#orgSwitcherLi").hide();
-			return;
-		}
-		$sel.empty();
-		$.each(res.collection, function(i, org) {
-			var sel = org.active ? " selected" : "";
-			$sel.append("<option value='" + org.id + "'" + sel + ">"
-				+ escHtml(org.name) + "</option>");
-		});
-		// A single org is just context; show it but no point switching.
-		$("#orgSwitcherLi").show();
-	}).fail(function() {
-		$("#orgSwitcherLi").hide();
-	});
-}
-
-function switchOrganization() {
-	var orgId = $("#orgSwitcher").val();
-	if (!orgId) { return; }
-	$.ajax({
-		url: serverContext + "switchOrganization",
-		type: "POST",
-		data: { organizationId: orgId },
-		success: function(res) {
-			if (res && res.status === "SUCCESS") {
-				// Token now scoped to the new tenant — reload so every section refetches.
-				window.location.reload();
-			} else {
-				alert((res && res.message) ? res.message : "Could not switch organization");
-				loadMyOrganizations();
-			}
-		},
-		error: function() {
-			alert("Could not switch organization");
-			loadMyOrganizations();
-		}
-	});
-}
+// The active-organization (tenant) switcher now lives in /js/common/org-switcher.js — one implementation,
+// shared with the commerce dashboard (which previously had none, pinning multi-org users to a single tenant).
 
 // ---- P4: active-branch (school) switcher ----
 // The active branch lives in the JWT and is what new students/grades are filed under, so switching means

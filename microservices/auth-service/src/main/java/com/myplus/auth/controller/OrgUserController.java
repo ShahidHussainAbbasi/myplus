@@ -49,7 +49,12 @@ public class OrgUserController {
                 "Team member created — a set-password email was sent."));
     }
 
-    /** Assign store access to a user (owner: any store; admin: only stores they hold). userId omitted = self. */
+    /**
+     * Assign location access to a user (owner: any location; admin: only ones they hold). userId omitted = self.
+     * <p>{@code replace:true} makes the list the member's COMPLETE set — locations left out are revoked. That is
+     * what "reassign" needs: without it the endpoint could only ever add, so an owner could never move someone
+     * from one store to another, or take access away.
+     */
     @PostMapping("/locations/grant")
     @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
     public ResponseEntity<ApiResponse<String>> grantLocations(
@@ -60,8 +65,9 @@ public class OrgUserController {
         Long orgId = orgId(token);
         Long targetUserId = body.get("userId") != null ? Long.valueOf(String.valueOf(body.get("userId"))) : callerUserId;
         authService.assignLocations(callerUserId, orgId, isOwner(token), targetUserId,
-                toLongList(body.get("storeIds")), str(body.get("roleAtLocation")));
-        return ResponseEntity.ok(ApiResponse.success("OK", "Store access updated."));
+                toLongList(body.get("storeIds")), str(body.get("roleAtLocation")),
+                Boolean.parseBoolean(String.valueOf(body.get("replace"))));
+        return ResponseEntity.ok(ApiResponse.success("OK", "Access updated."));
     }
 
     /** P5b — the caller's own store grants (any member, not just an owner): feeds the store switcher. */
@@ -100,8 +106,10 @@ public class OrgUserController {
         return out;
     }
 
+    /** Owner OR admin: an ADMIN may create members (below), so refusing them the list left them managing people
+     *  blind — they could add someone but never see the team. Always confined to the caller's active org. */
     @GetMapping("/users")
-    @PreAuthorize("hasAuthority('ROLE_OWNER')")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> list(
             @RequestHeader("Authorization") String auth) {
         Long orgId = orgId(bearer(auth));

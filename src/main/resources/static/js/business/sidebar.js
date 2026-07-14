@@ -32,6 +32,13 @@
     // .snav-open explicitly (the reliable show mechanism used by both CSS files) rather than relying on
     // the fragile :has(.snav-active) rule — that was why snavGo items (which remove .snav-open) collapsed
     // while Finance/showX items (which don't) stayed visible. Optionally persists the choice.
+    // The accordion group holding the current selection, if any. Written the long way rather than with
+    // :has(), which isn't safe on the browser floor this app targets.
+    function activeGroup(sb) {
+        var marker = sb.querySelector('.snav-menu a.active, .snav-btn.snav-active');
+        return (marker && marker.closest) ? marker.closest('.snav-dd') : null;
+    }
+
     function markActive(sb, a, save) {
         sb.querySelectorAll('.snav-menu a.active, .sb-link.active').forEach(function (el) { el.classList.remove('active'); });
         sb.querySelectorAll('.snav-btn.snav-active').forEach(function (el) { el.classList.remove('snav-active'); });
@@ -73,6 +80,22 @@
             if (!a) return;
             markActive(sb, a, true);
             window.closeSidebar();   // close the mobile drawer after navigating
+        });
+
+        // Clicking away closes any group the user merely PEEKED at — but never the one holding the current
+        // selection. Each dashboard used to do this itself and closed *every* group, which silently undid the
+        // markActive() above: the moment you clicked into the form you were working on, the sidebar forgot
+        // where you were. The selection now survives until you pick something else.
+        document.addEventListener('click', function (e) {
+            var insideMenu = e.target && e.target.closest && e.target.closest('.snav-dd');
+            if (insideMenu) return;
+            var selected = activeGroup(sb);
+            sb.querySelectorAll('.snav-dd.snav-open').forEach(function (dd) {
+                if (dd !== selected) dd.classList.remove('snav-open');
+            });
+            // ...and put the selection back if a "peek" at another group collapsed it (snavToggle closes ALL
+            // groups before opening the one you clicked). Clicking away should leave you exactly where you were.
+            if (selected) selected.classList.add('snav-open');
         });
 
         // Restore the last selection after a reload: re-highlight it AND replay its navigation so the

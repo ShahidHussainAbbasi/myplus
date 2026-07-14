@@ -235,10 +235,43 @@ public class AuthService {
     @Transactional
     public void assignLocations(Long callerUserId, Long callerOrgId, boolean callerIsOwner,
                                 Long targetUserId, java.util.List<Long> storeIds, String roleAtLocation) {
+        assignLocations(callerUserId, callerOrgId, callerIsOwner, targetUserId, storeIds, roleAtLocation, false);
+    }
+
+    /**
+     * As above, but {@code replace=true} makes the request the member's COMPLETE set of locations: locations
+     * missing from it are REVOKED. Without this the screen could only ever add — an owner had no way to move
+     * someone from Store A to Store B, or to take access away at all, which made "assign" a one-way door.
+     *
+     * <p>Revocation respects the same authority as granting: an OWNER may revoke anything, an ADMIN only the
+     * locations they themselves hold — so an admin can never strip a member of a store they do not manage.
+     */
+    @Transactional
+    public void assignLocations(Long callerUserId, Long callerOrgId, boolean callerIsOwner,
+                                Long targetUserId, java.util.List<Long> storeIds, String roleAtLocation,
+                                boolean replace) {
         String module = moduleOf(callerUserId);
-        java.util.List<Long> stores = sanitizeStoreGrants(storeIds, callerUserId, callerOrgId, callerIsOwner, module);
+        // In REPLACE mode an empty list means "none" — it is the member's complete set. The additive path's
+        // "empty ⇒ inherit the caller's own locations" default would otherwise turn a clear into a re-grant.
+        java.util.List<Long> desired = replace
+                ? allowedStoreGrants(storeIds, callerUserId, callerOrgId, callerIsOwner, module)
+                : sanitizeStoreGrants(storeIds, callerUserId, callerOrgId, callerIsOwner, module);
         String role = (roleAtLocation == null ? "USER" : roleAtLocation.trim().toUpperCase());
-        grantLocations(targetUserId, callerOrgId, stores, role, module);
+
+        if (replace) {
+            java.util.Set<Long> keep = new java.util.HashSet<>(desired);
+            // What the caller is ALLOWED to take away: everything (owner) or only their own locations (admin).
+            java.util.Set<Long> revocable = callerIsOwner ? null
+                    : new java.util.HashSet<>(callerStoreIds(callerUserId, callerOrgId, module));
+            for (var g : userLocationAccessRepository
+                    .findByUserIdAndOrganizationIdAndStatus(targetUserId, callerOrgId, "ACTIVE")) {
+                if (!module.equals(g.getModule())) continue;          // never touch another vertical's grants
+                if (keep.contains(g.getLocationId())) continue;       // still wanted
+                if (revocable != null && !revocable.contains(g.getLocationId())) continue;  // not the admin's to remove
+                userLocationAccessRepository.delete(g);
+            }
+        }
+        grantLocations(targetUserId, callerOrgId, desired, role, module);
     }
 
     /**
@@ -268,11 +301,20 @@ public class AuthService {
         }
     }
 
-    /** Locations to grant: owner may grant any (as requested); admin only ones they hold; empty allowed. */
+    /** Locations to grant: owner may grant any (as requested); admin only ones they hold; empty ⇒ an admin
+     *  inherits their own locations (the create-a-member default), an owner grants none. */
     private java.util.List<Long> sanitizeStoreGrants(java.util.List<Long> requested, Long callerUserId,
                                                      Long callerOrgId, boolean callerIsOwner, String module) {
         if (requested == null || requested.isEmpty())
             return callerIsOwner ? java.util.List.of() : callerStoreIds(callerUserId, callerOrgId, module);
+        return allowedStoreGrants(requested, callerUserId, callerOrgId, callerIsOwner, module);
+    }
+
+    /** Exactly what was asked for, minus anything the caller has no authority to grant. No inherit default —
+     *  an empty request stays empty, which is what REPLACE mode needs to express "revoke everything". */
+    private java.util.List<Long> allowedStoreGrants(java.util.List<Long> requested, Long callerUserId,
+                                                    Long callerOrgId, boolean callerIsOwner, String module) {
+        if (requested == null) return java.util.List.of();
         java.util.List<Long> distinct = requested.stream().filter(java.util.Objects::nonNull).distinct().toList();
         if (callerIsOwner) return distinct;
         java.util.Set<Long> allowed = new java.util.HashSet<>(callerStoreIds(callerUserId, callerOrgId, module));
@@ -286,7 +328,9 @@ public class AuthService {
                 .map(com.myplus.auth.entity.UserLocationAccess::getLocationId).distinct().toList();
     }
 
-    /** Owner-only: list the team (members) of the caller's organization. */
+    /** The team (members) of the caller's organization — owner OR admin (both manage people).
+     *  Each row carries the member's CURRENT location grants, so the screen can show who works where and
+     *  pre-fill the picker when reassigning them; without this, assignment was a one-way door. */
     public java.util.List<Map<String, Object>> listOrgUsers(Long callerOrgId) {
         java.util.List<Map<String, Object>> out = new java.util.ArrayList<>();
         for (com.myplus.auth.entity.Membership m : organizationService.membersOf(callerOrgId)) {
@@ -298,6 +342,12 @@ public class AuthService {
                 row.put("email", u.getEmail());
                 row.put("role", m.getRole());
                 row.put("enabled", u.isEnabled());
+                String module = moduleFor(u.getUserType());
+                row.put("locationIds", userLocationAccessRepository
+                        .findByUserIdAndOrganizationIdAndStatus(u.getId(), callerOrgId, "ACTIVE").stream()
+                        .filter(g -> module.equals(g.getModule()))
+                        .map(com.myplus.auth.entity.UserLocationAccess::getLocationId)
+                        .distinct().toList());
                 out.add(row);
             });
         }

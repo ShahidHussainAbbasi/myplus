@@ -102,7 +102,12 @@
         document.querySelectorAll('[data-vertical-only]').forEach(function (el) {
             var allowed = (el.getAttribute('data-vertical-only') || '')
                 .split(',').map(function (s) { return s.trim().toUpperCase(); });
-            el.style.display = allowed.indexOf(mod) !== -1 ? '' : 'none';
+            if (allowed.indexOf(mod) !== -1) { el.style.display = ''; return; }
+            // An <option> cannot be hidden reliably — Safari ignores display:none on it, and it stays
+            // selectable from the keyboard either way. Take it out of the DOM instead, so a retail cashier
+            // cannot pick a tender their vertical does not have.
+            if (el.tagName === 'OPTION') { el.remove(); return; }
+            el.style.display = 'none';
         });
         // [data-feature="rx"] — visible only when the active profile enables that feature.
         document.querySelectorAll('[data-feature]').forEach(function (el) {

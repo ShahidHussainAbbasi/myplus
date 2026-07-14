@@ -645,10 +645,20 @@ $(document).ready(function() {
 		$(table).find('tbody tr').each(function () {
 			var $cb = $(this).find("input[type='checkbox']").first();
 			if (!$cb.length || $(this).find('.js-edit-row').length) return;  // needs a row id; add once per row
-			$cb.closest('td').append(
-				' <button type="button" class="js-edit-row btn btn-xs btn-default" title="Edit record">' +
-				'<span class="glyphicon glyphicon-pencil"></span> Edit</button>'
-			);
+			// Wrap the checkbox and the button in one flex row. Appending them as loose siblings left them on
+			// different baselines and wrapping apart on narrow screens; the wrapper keeps them aligned and
+			// together as a single "row actions" control. Styling lives in /css/crud-modal.css.
+			var $td = $cb.closest('td');
+			var $btn = $('<button type="button" class="js-edit-row btn btn-xs btn-default" title="Edit record" aria-label="Edit record">'
+				+ '<span class="glyphicon glyphicon-pencil"></span>'
+				+ '<span class="row-actions__label">Edit</span></button>');
+			var $wrap = $('<div class="row-actions">');
+			// Move the checkbox into the wrapper (the SAME element — selectors elsewhere read :checked off it)
+			// and put the wrapper where the checkbox was. Deliberately not $td.empty(): a cell may carry other
+			// content on tables I haven't seen, and wiping it would be a silent regression.
+			$td.addClass('row-actions-cell');   // tagged so the CSS needs no :has() (not safe on our browser floor)
+			$wrap.insertBefore($cb);
+			$wrap.append($cb).append($btn);
 		});
 	}
 	window.ensureRowEditButtons = ensureRowEditButtons;

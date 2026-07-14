@@ -615,8 +615,10 @@ function loadDataTable(){
 							"<div id=venderPhone>"+escHtml(obj.phone)+"</div>","<div id=venderMobile>"+escHtml(obj.mobile)+"</div>",
 							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",
 							"<div id=venderDue>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",obj.datedStr,
-							"<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Pay this vendor'><span class='glyphicon glyphicon-usd'></span> Pay</button> "
+							"<div class='row-actions'>"
+							+ "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Pay this vendor'><span class='glyphicon glyphicon-usd'></span> Pay</button> "
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='VENDOR' data-pid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
+							+ "</div>"
 						]);
 					});
 					$("#venderName").prop("readonly", false);
@@ -627,8 +629,10 @@ function loadDataTable(){
 							"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
 							"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
 							"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",obj.updated,
-							"<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> "
+							"<div class='row-actions'>"
+							+ "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> "
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='CUSTOMER' data-pid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
+							+ "</div>"
 						]);
 					});
 				} else if (getAll === "ItemType") {
@@ -665,7 +669,7 @@ function loadDataTable(){
 							// "<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
 							// "<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>",
-						"<div id=purchaseDate>"+obj.updated+" "+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Void bill'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>")+ "</div>"
+						"<div class='row-actions' id=purchaseDate>"+obj.updated+" "+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Void bill'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>")+ "</div>"
 						]);
 					});
 				} else if (getAll === "Sell") {
@@ -677,27 +681,36 @@ function loadDataTable(){
 						// owing; show the positive amount still owed (0 when fully paid).
 						var chDue = (ch && ch.dueAmount != null) ? Number(ch.dueAmount) : 0;
 						var owed = chDue < 0 ? (-chDue) : 0;
+						// Discount + its type in ONE cell: "10%" or "10 (Amt)". A bare "10" in its own column,
+						// with the type in another, made the reader join two cells to know what it meant.
+						var discAmt = (obj.discount != null && obj.discount !== '') ? obj.discount
+									: ((obj.stock && obj.stock.bsellDiscount != null) ? obj.stock.bsellDiscount : '');
+						var discType = (obj.dt != null && obj.dt !== '') ? obj.dt
+									: ((obj.stock && obj.stock.bsellDiscountType != null) ? obj.stock.bsellDiscountType : '');
+						var discCell = (discAmt === '' || Number(discAmt) === 0) ? ''
+									: (discType === '1' || discType === '%') ? (discAmt + '%') : (discAmt + ' (Amt)');
+						// Columns must match tableSell's <thead> exactly, in order:
+						// Dated · Invoice · Customer · Product · Qty · Unit Price · Discount · Tax · Line Total ·
+						// Payment · Invoice Due · Actions
 						allRows.push([
-							"<div id=sellId>"+obj.sellId+"</div>",
+							obj.updated,
 							"<div id=sellInvoiceNo>"+escHtml(ch ? (ch.invoiceNo || '') : '')+"</div>",
 							"<div id=sellCustomerName>"+escHtml(custName)+"</div>",
 							"<div id=sellItemName>"+escHtml(obj.itemName||'')+"</div>",
 							"<div id=sellItems>"+obj.quantity+"</div>",
-							// "<div id=sellItemExpiry>"+(obj.stock&&obj.stock.bexpDate!=null?obj.stock.bexpDate:'')+"</div>",
-							// "<div id=sellPurchaseRate>"+(obj.stock&&obj.stock.bpurchaseRate!=null?obj.stock.bpurchaseRate:'')+"</div>",
-							"<div id=sellSellRate>"+(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:(obj.sellRate!=null?obj.sellRate:''))+"</div>",
-							// "<div id=sellCatalogPrice>"+(obj.catalogPrice!=null?obj.catalogPrice:'')+"</div>",
-							"<div id=sellDiscountTypeDD>"+escHtml(obj.dt!=null&&obj.dt!==''?obj.dt:(obj.stock&&obj.stock.bsellDiscountType!=null?obj.stock.bsellDiscountType:''))+"</div>",
-							"<div id=sellDiscount>"+(obj.stock&&obj.stock.bsellDiscount!=null?obj.stock.bsellDiscount:(obj.discount!=null?obj.discount:''))+"</div>",
-							"<div id=sellTotalAmount>"+obj.totalAmount+"</div>",
-							"<div id=sellDueAmount>"+owed.toFixed(2)+"</div>",
-							"<div id=sellNetAmount>"+obj.netAmount+"</div>",
-							obj.updated,
+							// The rate the line SOLD at. Read obj.sellRate FIRST: it is the server's authoritative
+							// value; stock.bsellRate is the form's echo and is not what was persisted.
+							"<div id=sellSellRate>"+(obj.sellRate!=null?obj.sellRate:(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:''))+"</div>",
+							"<div id=sellDiscount>"+escHtml(String(discCell))+"</div>",
 							"<div id=sellTaxAmount>"+(obj.taxAmount!=null?obj.taxAmount:'')+"</div>",
+							// Line Total = what this line was charged (discounted base + tax) — the server derives it.
+							"<div id=sellNetAmount>"+(obj.netAmount!=null?obj.netAmount:'')+"</div>",
 							"<div id=sellPaymentMode>"+escHtml(ch&&ch.paymentMode?ch.paymentMode:'')+"</div>",
+							"<div id=sellDueAmount>"+owed.toFixed(2)+"</div>",
 							// Actions: G6 (slice 38) Print receipt + G2 (slice 34) Sale Return. Print uses the
 							// invoice number; Return passes its row data via data-* for the partial-qty dialog.
-							((ch && ch.invoiceNo)
+							"<div class='row-actions'>"
+							+ ((ch && ch.invoiceNo)
 								? "<button type='button' class='btn btn-xs btn-default' title='Print receipt' onclick=\"printReceipt('"+escHtml(ch.invoiceNo)+"')\"><span class='glyphicon glyphicon-print'></span></button> "
 								: "")
 							+ "<button type='button' class='btn btn-xs btn-warning' onclick='openSaleReturn(this)'"
@@ -713,6 +726,7 @@ function loadDataTable(){
 									: (ch && ch.customer_history_id
 										? " <button type='button' class='btn btn-xs btn-danger' onclick='openVoidSell(this)' data-chid='"+ch.customer_history_id+"' data-invoice='"+escHtml(ch.invoiceNo||'')+"'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>"
 										: ""))
+								+ "</div>"
 						]);
 					});
 				} else if (getAll === "Product") {
@@ -727,9 +741,11 @@ function loadDataTable(){
 							"<div id=taxRate>"+(obj.taxRate != null ? Number(obj.taxRate).toFixed(2) : '')+"</div>",
 							"<div id=categoryName>"+escHtml(obj.categoryName || '')+"</div>",
 							"<div id=stk_"+obj.id+" class=prod-onhand>…</div>",
-							"<input type=number min=0 step=any id=addstk_"+obj.id+" class='form-control input-sm prod-addstk' style='width:80px;display:inline-block'>"
+							"<div class='row-actions'>"
+								+ "<input type=number min=0 step=any id=addstk_"+obj.id+" class='form-control input-sm prod-addstk' style='width:80px;display:inline-block'>"
 								+ "<button type=button id=addstkbtn_"+obj.id+" class='btn btn-xs btn-success' style='margin-left:4px' title='Add to on-hand' onclick='addProductStock("+obj.id+")'><span class='glyphicon glyphicon-plus'></span></button>"
-								+ "<button type=button id=lessstkbtn_"+obj.id+" class='btn btn-xs btn-warning' style='margin-left:4px' title='Correct / reduce on-hand' onclick='adjustProductStock("+obj.id+")'><span class='glyphicon glyphicon-minus'></span></button>",
+								+ "<button type=button id=lessstkbtn_"+obj.id+" class='btn btn-xs btn-warning' style='margin-left:4px' title='Correct / reduce on-hand' onclick='adjustProductStock("+obj.id+")'><span class='glyphicon glyphicon-minus'></span></button>"
+								+ "</div>",
 							(obj.isActive === false
 								? "<span class='label label-default'>Inactive</span> <button type=button class='btn btn-xs btn-info' style='margin-left:6px' onclick='reactivateProduct("+obj.id+")' title='Reactivate this product'><span class='glyphicon glyphicon-refresh'></span> Reactivate</button>"
 								: "<span class='label label-success'>Active</span>")

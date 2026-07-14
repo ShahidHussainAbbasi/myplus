@@ -1,0 +1,142 @@
+/* Location picker for the Team & Users screen (stores / branches).
+ *
+ * Replaces a native <select multiple size="3">, which was the wrong control for this job: it demands
+ * ctrl+click to pick more than one (undiscoverable, and effectively impossible on touch), silently loses the
+ * selection on a mis-click, shows only three rows at a time, and cannot be styled to match the app.
+ *
+ * This is a set of toggle chips — one tap each, selection always visible, keyboard operable. Tokens come from
+ * theme.css so it inherits the app's palette rather than defining its own.
+ */
+
+.locpick {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 10px;
+  min-height: 52px;
+}
+
+/* Toolbar: live count on the left, bulk actions on the right. */
+.locpick__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.locpick__count {
+  font-size: 12px;
+  color: var(--txt3);
+  font-weight: 600;
+}
+
+.locpick__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.locpick__action {
+  background: none;
+  border: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.locpick__action:hover { background: var(--blue-50); }
+.locpick__action:disabled { color: var(--txt3); cursor: default; background: none; }
+
+/* Optional filter — only rendered once the list is long enough to be worth searching. */
+.locpick__search {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm, 5px);
+  font-size: 13px;
+  color: var(--txt);
+  background: var(--bg);
+}
+
+.locpick__search:focus {
+  outline: none;
+  border-color: var(--brand-light);
+  background: var(--surface);
+}
+
+.locpick__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.locpick__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  background: var(--bg2);
+  color: var(--txt2);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+
+.locpick__chip:hover {
+  border-color: var(--brand-light);
+  color: var(--txt);
+}
+
+/* Keyboard users get the same affordance as mouse users. */
+.locpick__chip:focus-visible {
+  outline: 2px solid var(--brand-light);
+  outline-offset: 2px;
+}
+
+/* Selected state carries THREE signals — fill, border and a tick — so it never depends on colour alone. */
+.locpick__chip[aria-pressed="true"] {
+  background: var(--blue-50);
+  border-color: var(--brand);
+  color: var(--brand-dark);
+}
+
+.locpick__chip-tick {
+  font-size: 10px;
+  opacity: 0;
+  transform: scale(.7);
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+.locpick__chip[aria-pressed="true"] .locpick__chip-tick {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.locpick__chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Empty state: say what to do next, not just that there is nothing here. */
+.locpick__empty {
+  font-size: 13px;
+  color: var(--txt3);
+  padding: 6px 2px;
+}
+
+.locpick__empty a { color: var(--brand); cursor: pointer; }
+
+@media (max-width: 600px) {
+  .locpick__chip { padding: 8px 14px; }   /* a comfortable tap target on touch */
+}

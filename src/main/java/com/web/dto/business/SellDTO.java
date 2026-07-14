@@ -38,6 +38,15 @@ public class SellDTO implements Serializable {
 
 	private Float quantity=1F;
 
+	/**
+	 * The rate this line actually SOLD at — the cashier's price, which may override the catalog price.
+	 * <p>This field was missing, and the omission was silent: the browser sent it, this DTO dropped it on the
+	 * relay, and business-service then fell back to the catalog price. A line sold at 850 off a 1000 catalog
+	 * price was stored as {@code sell_rate=1000, total_amount=850} — internally contradictory, and it inflated
+	 * every margin report (cost 800 → "profit 200" instead of 50). BigDecimal, not Float: this is money.
+	 */
+	private java.math.BigDecimal sellRate;
+
 	private Float totalAmount=0.0F;
 
 	private Float netAmount=0.0F;

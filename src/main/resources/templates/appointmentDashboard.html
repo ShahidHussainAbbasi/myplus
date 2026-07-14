@@ -207,10 +207,8 @@
       $('#' + sel).val(val).trigger('change');
       document.getElementById(ddId).classList.remove('snav-open');
     }
-    document.addEventListener('click', function (e) {
-      if (!e.target.closest('.snav-dd'))
-        document.querySelectorAll('.snav-dd').forEach(function (el) { el.classList.remove('snav-open'); });
-    });
+    // Click-away closing now lives in /js/business/sidebar.js — it spares the group holding the CURRENT
+    // selection, so clicking into the form no longer collapses the nav item you are working under.
 
     // ── data loaders ───────────────────────────────────────────────────
     function loadHospitalsInto(selectId, keep) {
