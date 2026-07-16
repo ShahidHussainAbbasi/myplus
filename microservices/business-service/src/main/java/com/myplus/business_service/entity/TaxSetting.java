@@ -50,7 +50,11 @@ public class TaxSetting {
     /** Master switch — when off, no tax is applied to sales. */
     @Builder.Default
     @Column(name = "enabled")
-    private Boolean enabled = false;
+    private Boolean enabled = false;               // "Sales tax (output)" — charge/record tax on sales
+
+    // Tax register Phase B: independent "Purchase tax (input credit)" toggle — record tax paid on purchases (VAT/GST).
+    @Column(name = "input_tax_enabled")
+    private Boolean inputTaxEnabled = false;
 
     private LocalDateTime updated;
 

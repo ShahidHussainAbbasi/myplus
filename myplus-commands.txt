@@ -26,3 +26,5 @@ For what's next, the remaining work is polish/features, not core:
 - Tax-filing register and period close — the biggest real accounting-feature gaps.
 - VOID_INVOICE privilege — needs a microservice method-security mechanism (its own cross-cutting slice).
 - Smaller: finance payment-hook retry, idempotency stale-PENDING reaper.
+
+

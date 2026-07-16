@@ -7,6 +7,7 @@ import com.myplus.campaign.entity.AudienceMember;
 import com.myplus.campaign.exception.ResourceNotFoundException;
 import com.myplus.campaign.repository.AudienceMemberRepository;
 import com.myplus.campaign.repository.AudienceRepository;
+import com.myplus.common.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -29,6 +30,8 @@ public class AudienceService {
     public AudienceDTO createAudience(AudienceDTO dto) {
         Audience a = modelMapper.map(dto, Audience.class);
         a.setId(null);
+        a.setCreatedBy(CurrentUser.userId());
+        a.setOrganizationId(CurrentUser.organizationId());   // tenant scope
         return toDto(audienceRepository.save(a));
     }
 
@@ -47,7 +50,8 @@ public class AudienceService {
 
     @Transactional(readOnly = true)
     public Page<AudienceDTO> getAll(Pageable pageable) {
-        return audienceRepository.findAll(pageable).map(this::toDto);
+        return audienceRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId(), pageable)
+                .map(this::toDto);
     }
 
     public void deleteAudience(Long id) {
@@ -72,16 +76,20 @@ public class AudienceService {
     }
 
     public void removeMember(Long audienceId, Long memberId) {
+        Audience a = findAudienceOrThrow(audienceId);   // assert the audience is the caller's FIRST (anti-IDOR)
         AudienceMember m = memberRepository.findById(memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found: " + memberId));
+        // ...and that the member actually belongs to that audience — never delete a member by raw id alone.
+        if (m.getAudience() == null || !a.getId().equals(m.getAudience().getId()))
+            throw new ResourceNotFoundException("Member not found: " + memberId);
         memberRepository.delete(m);
-        Audience a = findAudienceOrThrow(audienceId);
         a.setEstimatedSize(Math.max(0, a.getEstimatedSize() - 1));
         audienceRepository.save(a);
     }
 
     @Transactional(readOnly = true)
     public Page<AudienceMemberDTO> getMembers(Long audienceId, Pageable pageable) {
+        findAudienceOrThrow(audienceId);   // members are reachable only through an audience the caller owns
         return memberRepository.findByAudienceId(audienceId, pageable).map(this::toMemberDto);
     }
 
@@ -102,8 +110,10 @@ public class AudienceService {
         return saved.stream().map(this::toMemberDto).collect(Collectors.toList());
     }
 
+    /** Anti-IDOR: by-id only within the caller's tenant. Every audience op (and, through it, member ops)
+     *  funnels through here. */
     private Audience findAudienceOrThrow(Long id) {
-        return audienceRepository.findById(id)
+        return audienceRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Audience not found: " + id));
     }
 

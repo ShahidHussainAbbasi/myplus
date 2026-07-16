@@ -5,6 +5,7 @@ import com.myplus.campaign.dto.CampaignStatsDTO;
 import com.myplus.campaign.entity.Campaign;
 import com.myplus.campaign.exception.ResourceNotFoundException;
 import com.myplus.campaign.repository.CampaignRepository;
+import com.myplus.common.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -26,6 +27,7 @@ public class CampaignService {
         Campaign c = modelMapper.map(dto, Campaign.class);
         c.setId(null);
         c.setCreatedBy(userId);
+        c.setOrganizationId(CurrentUser.organizationId());   // tenant scope — from the caller's JWT
         if (c.getStatus() == null) c.setStatus(Campaign.Status.DRAFT);
         return toDto(campaignRepository.save(c));
     }
@@ -50,10 +52,10 @@ public class CampaignService {
 
     @Transactional(readOnly = true)
     public Page<CampaignDTO> getAllCampaigns(Long userId, Pageable pageable) {
-        Page<Campaign> page = userId != null
-                ? campaignRepository.findByCreatedBy(userId, pageable)
-                : campaignRepository.findAll(pageable);
-        return page.map(this::toDto);
+        // Tenant-scoped: the caller's org only (+ their legacy org-NULL rows). The previous findAll() fallback
+        // returned EVERY tenant's campaigns when no userId was passed — a cross-tenant read.
+        return campaignRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId(), pageable)
+                .map(this::toDto);
     }
 
     public void deleteCampaign(Long id) {
@@ -118,14 +120,18 @@ public class CampaignService {
                 .subject(orig.getSubject())
                 .content(orig.getContent())
                 .templateId(orig.getTemplateId())
-                .createdBy(orig.getCreatedBy())
+                .createdBy(CurrentUser.userId())
+                .organizationId(CurrentUser.organizationId())   // the copy belongs to the caller's tenant
                 .budget(orig.getBudget())
                 .build();
         return toDto(campaignRepository.save(copy));
     }
 
+    /** Anti-IDOR: resolve by id ONLY within the caller's tenant. Every by-id op (get/update/delete/launch/
+     *  pause/cancel/schedule/stats/clone) funnels through here, so this one change scopes them all — the raw
+     *  findById(id) it replaced let any authenticated user reach any tenant's campaign. */
     private Campaign findOrThrow(Long id) {
-        return campaignRepository.findById(id)
+        return campaignRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found: " + id));
     }
 

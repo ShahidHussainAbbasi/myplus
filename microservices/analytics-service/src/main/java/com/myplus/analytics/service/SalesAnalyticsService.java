@@ -4,6 +4,7 @@ import com.myplus.analytics.dto.MetricDTO;
 import com.myplus.analytics.dto.SalesAnalyticsDTO;
 import com.myplus.analytics.entity.AggregatedMetric;
 import com.myplus.analytics.repository.AggregatedMetricRepository;
+import com.myplus.common.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,13 +31,13 @@ public class SalesAnalyticsService {
             YearMonth ym = current.minusMonths(i);
             LocalDate start = ym.atDay(1);
             LocalDate end = ym.atEndOfMonth();
-            List<AggregatedMetric> revMetrics = metricRepo.findByMetricNameAndPeriodTypeAndPeriodStartBetween(
-                    "sales.revenue", AggregatedMetric.PeriodType.MONTHLY, start, end);
+            List<AggregatedMetric> revMetrics = metricRepo.findScopedByName(
+                    "sales.revenue", AggregatedMetric.PeriodType.MONTHLY, start, end, CurrentUser.organizationId());
             BigDecimal revenue = revMetrics.stream()
                     .map(m -> BigDecimal.valueOf(m.getValue()))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            List<AggregatedMetric> countMetrics = metricRepo.findByMetricNameAndPeriodTypeAndPeriodStartBetween(
-                    "sales.count", AggregatedMetric.PeriodType.MONTHLY, start, end);
+            List<AggregatedMetric> countMetrics = metricRepo.findScopedByName(
+                    "sales.count", AggregatedMetric.PeriodType.MONTHLY, start, end, CurrentUser.organizationId());
             int salesCount = countMetrics.stream()
                     .mapToInt(m -> m.getValue().intValue())
                     .sum();
@@ -57,8 +58,8 @@ public class SalesAnalyticsService {
         YearMonth ym = YearMonth.of(year, month);
         LocalDate start = ym.atDay(1);
         LocalDate end = ym.atEndOfMonth();
-        List<AggregatedMetric> metrics = metricRepo.findByMetricNameAndPeriodTypeAndPeriodStartBetween(
-                "sales.revenue", AggregatedMetric.PeriodType.DAILY, start, end);
+        List<AggregatedMetric> metrics = metricRepo.findScopedByName(
+                "sales.revenue", AggregatedMetric.PeriodType.DAILY, start, end, CurrentUser.organizationId());
         List<MetricDTO> result = new ArrayList<>();
         for (AggregatedMetric m : metrics) {
             result.add(MetricDTO.builder()
@@ -72,8 +73,8 @@ public class SalesAnalyticsService {
     }
 
     public List<MetricDTO> getTopMetrics() {
-        List<AggregatedMetric> rev = metricRepo.findByMetricNameAndPeriodType("sales.revenue", AggregatedMetric.PeriodType.MONTHLY);
-        List<AggregatedMetric> cnt = metricRepo.findByMetricNameAndPeriodType("sales.count", AggregatedMetric.PeriodType.MONTHLY);
+        List<AggregatedMetric> rev = metricRepo.findScopedByNameAllPeriods("sales.revenue", AggregatedMetric.PeriodType.MONTHLY, CurrentUser.organizationId());
+        List<AggregatedMetric> cnt = metricRepo.findScopedByNameAllPeriods("sales.count", AggregatedMetric.PeriodType.MONTHLY, CurrentUser.organizationId());
         double totalRevenue = rev.stream().mapToDouble(AggregatedMetric::getValue).sum();
         double totalCount = cnt.stream().mapToDouble(AggregatedMetric::getValue).sum();
         List<MetricDTO> out = new ArrayList<>();

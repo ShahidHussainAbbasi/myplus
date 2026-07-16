@@ -91,7 +91,27 @@ MAIL_USER=<you@gmail.com>                            # full Gmail address
 MAIL_PASSWORD=<gmail app password>                   # empty = no e-mail sent (signup link won't arrive)
 # APP_BASE_URL / RESET_PASSWORD_URL: leave unset locally — links default to http://localhost:8765
 # (the gateway) / http://localhost:8080, which work on the same machine.
+# --- bootstrap seeding: LOCAL ONLY ---
+APP_SEED_DEMO=true                                   # seeds the demo/test logins below. NEVER set this on the VPS.
 ```
+
+> ### ⚠️ Seeded accounts: local only, never in production
+>
+> With `APP_SEED_DEMO=true`, auth-service creates a set of accounts that **all share one password**
+> (`APP_DEMO_PASSWORD`, default `Demo@2025!` — a value committed to this repo):
+>
+> | Account | Why it matters |
+> |---|---|
+> | `owner.business@myplus.com` | **ROLE_OWNER + SUPER_PRIVILEGE, no write cap** — full control of its tenant |
+> | `owner.education@myplus.com` | Same, for the education vertical |
+> | `admin.store@`, `cashier.a@`, `cashier.b@` | Multi-location test team (store admin + two cashiers) |
+> | `teacher.a@`, `teacher.b@` | Multi-branch test team |
+> | `demo.*@myplus.com` (×10) | Per-module demo logins (50-entry write cap) |
+> | `admin@myplus.com` | Seeded by `APP_SEED_ADMIN` |
+>
+> The compose file now defaults **both flags to `false`**, so a deploy is safe unless you opt in. Do
+> **not** put `APP_SEED_DEMO` / `APP_SEED_ADMIN` in the VPS `.env` (§4.3). Real customers are only ever
+> created through signup (`/api/auth/register`) — never seeded.
 
 > `DB_PASSWORD` is used for **both** the MySQL `root` account and the app user `shahid` (which the
 > mysql container auto-creates on first boot; `init-db.sql` then grants it every per-service DB).
@@ -156,6 +176,19 @@ still registering — wait and refresh.
 3. **Product row → Add stock**: add opening stock (feeds inventory).
 4. **Sale → New Sale**: pick the product, qty, take payment → confirm the invoice number appears.
 5. **Sale → Sale Detail Report**: the sale shows with totals/KPIs.
+
+**Multi-location (only if the tenant has more than one store).** A single-store business needs none of
+this — it is the degenerate case and behaves exactly as above.
+
+6. **Settings → Stores**: create a store. The owner is auto-granted it (zero-touch), so it becomes their
+   active store and new sales are stamped with it.
+7. **Team → Manage Users**: add a cashier/admin and assign them store(s) via the chip picker. An **admin**
+   may add USERs in their own stores; only an **owner** may create another admin (server-enforced).
+   *Existing* members are reassigned with **Edit access** on their row — the picker is their complete set,
+   so removing a chip revokes that store.
+8. **Sidebar switchers**: with 2+ orgs an **organization** switcher appears; with 2+ stores an **active
+   store** switcher appears. Both re-issue the session token — the active store is what new sales,
+   purchases, shifts and tenders get stamped with.
 
 ### 3.6 Stop / clean up
 
@@ -242,6 +275,11 @@ GRAFANA_PASSWORD=<strong-random-password>       # REQUIRED for observability; UN
 > Never commit real secrets. `.env` is git-ignored.
 > `APP_BASE_URL` is what makes the verification link clickable from a customer's phone/PC. If it is
 > left at the localhost default, the link is dead — this is the #1 cause of "I can't sign up / verify".
+>
+> **Do NOT add `APP_SEED_DEMO` or `APP_SEED_ADMIN` to the VPS `.env`.** Compose defaults both to
+> `false`; setting either to `true` seeds accounts with a password that is public in this repo —
+> including `owner.business@myplus.com`, which holds **ROLE_OWNER + SUPER_PRIVILEGE with no write
+> cap**. See the warning in §3.1, and prove it after the first boot with the check at the end of §4.6.
 
 ### 4.6 Build + run the POS subset
 
@@ -262,6 +300,29 @@ docker compose ps
 
 First open **http://187.127.125.91:8080** (open port 8080 temporarily — see firewall below) to
 confirm it runs, then put it behind nginx + TLS (§4.8).
+
+#### ✅ Prove there is no known-password account (run on EVERY deploy)
+
+A checklist item nobody executes is worth nothing — so prove it, don't assume it:
+
+```bash
+# 1. None of the seeded accounts should exist at all.
+docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
+  "select email from myplusdb_auth.users
+     where email like 'demo.%' or email like 'owner.%' or email like 'cashier.%'
+        or email like 'teacher.%' or email like 'admin.store%' or email = 'admin@myplus.com';"
+# Expect: NO ROWS. Any row here is a live account whose password is published in this repo.
+
+# 2. The one that matters most must not be able to log in.
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8765/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"owner.business@myplus.com","password":"Demo@2025!"}'
+# Expect: 400/401 — never 200.
+```
+
+If rows come back you deployed with seeding on. Set `APP_SEED_DEMO=false` / `APP_SEED_ADMIN=false`
+(or simply remove them), restart auth-service, **and then delete the seeded rows**: turning the flag
+off stops them being *re-created*, it does not remove what has already been written.
 
 ### 4.7 Firewall — lock down the internal ports
 
@@ -335,6 +396,11 @@ Once stable, build once and pull on the VPS instead of compiling there:
 
 ## 5. Security hardening checklist (before real traffic)
 
+- [ ] **No seeded accounts.** `APP_SEED_DEMO` / `APP_SEED_ADMIN` absent (or `false`) in the VPS `.env`
+      — compose defaults them off. Then *prove* it with the two checks at the end of §4.6: seeding on
+      creates `owner.business@myplus.com` with **ROLE_OWNER + SUPER_PRIVILEGE, no write cap**, and a
+      password that is committed to this repo. Turning the flag off later does **not** delete rows that
+      were already seeded — delete them.
 - [ ] `INTERNAL_SECRET` set to a strong value (gateway↔service trust; empty = protection off).
 - [ ] Strong unique `DB_PASSWORD` and `JWT_SECRET` (never the `.env.example` samples).
 - [ ] MySQL **not** exposed publicly — `ufw` blocks 3306, or remove `ports: ["3306:3306"]` from compose

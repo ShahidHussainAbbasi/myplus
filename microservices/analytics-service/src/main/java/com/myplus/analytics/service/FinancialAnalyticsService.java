@@ -4,6 +4,7 @@ import com.myplus.analytics.dto.FinancialSummaryDTO;
 import com.myplus.analytics.dto.MetricDTO;
 import com.myplus.analytics.entity.AggregatedMetric;
 import com.myplus.analytics.repository.AggregatedMetricRepository;
+import com.myplus.common.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,10 +25,8 @@ public class FinancialAnalyticsService {
     private final AggregatedMetricRepository metricRepo;
 
     public FinancialSummaryDTO getFinancialSummary(LocalDate start, LocalDate end) {
-        List<AggregatedMetric> revenue = metricRepo.findByMetricNameAndPeriodTypeAndPeriodStartBetween(
-                "finance.revenue", AggregatedMetric.PeriodType.MONTHLY, start, end);
-        List<AggregatedMetric> expenses = metricRepo.findByMetricNameAndPeriodTypeAndPeriodStartBetween(
-                "finance.expenses", AggregatedMetric.PeriodType.MONTHLY, start, end);
+        List<AggregatedMetric> revenue = metricRepo.findScopedByName("finance.revenue", AggregatedMetric.PeriodType.MONTHLY, start, end, CurrentUser.organizationId());
+        List<AggregatedMetric> expenses = metricRepo.findScopedByName("finance.expenses", AggregatedMetric.PeriodType.MONTHLY, start, end, CurrentUser.organizationId());
         BigDecimal totalRev = revenue.stream()
                 .map(m -> BigDecimal.valueOf(m.getValue()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -53,8 +52,7 @@ public class FinancialAnalyticsService {
             YearMonth ym = current.minusMonths(i);
             LocalDate start = ym.atDay(1);
             LocalDate end = ym.atEndOfMonth();
-            List<AggregatedMetric> metrics = metricRepo.findByMetricNameAndPeriodTypeAndPeriodStartBetween(
-                    "finance.revenue", AggregatedMetric.PeriodType.MONTHLY, start, end);
+            List<AggregatedMetric> metrics = metricRepo.findScopedByName("finance.revenue", AggregatedMetric.PeriodType.MONTHLY, start, end, CurrentUser.organizationId());
             double sum = metrics.stream().mapToDouble(AggregatedMetric::getValue).sum();
             out.add(MetricDTO.builder()
                     .name("revenue")

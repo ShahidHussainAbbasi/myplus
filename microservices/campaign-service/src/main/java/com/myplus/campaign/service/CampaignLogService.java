@@ -6,6 +6,7 @@ import com.myplus.campaign.entity.CampaignLog;
 import com.myplus.campaign.exception.ResourceNotFoundException;
 import com.myplus.campaign.repository.CampaignLogRepository;
 import com.myplus.campaign.repository.CampaignRepository;
+import com.myplus.common.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,13 +27,13 @@ public class CampaignLogService {
 
     @Transactional(readOnly = true)
     public Page<CampaignLog> getByCampaign(Long campaignId, Pageable pageable) {
+        requireOwnedCampaign(campaignId);   // logs are reachable only through a campaign the caller owns
         return logRepository.findByCampaignId(campaignId, pageable);
     }
 
     @Transactional(readOnly = true)
     public CampaignStatsDTO getStats(Long campaignId) {
-        Campaign c = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found: " + campaignId));
+        Campaign c = requireOwnedCampaign(campaignId);
         long sent = logRepository.countByCampaignIdAndStatus(campaignId, CampaignLog.Status.SENT);
         long delivered = logRepository.countByCampaignIdAndStatus(campaignId, CampaignLog.Status.DELIVERED);
         long opened = logRepository.countByCampaignIdAndStatus(campaignId, CampaignLog.Status.OPENED);
@@ -56,5 +57,11 @@ public class CampaignLogService {
                 .openRate(openRate)
                 .clickRate(clickRate)
                 .build();
+    }
+
+    /** Anti-IDOR: the campaign must belong to the caller's tenant before its logs/stats are exposed. */
+    private Campaign requireOwnedCampaign(Long campaignId) {
+        return campaignRepository.findByIdScoped(campaignId, CurrentUser.organizationId(), CurrentUser.userId())
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found: " + campaignId));
     }
 }

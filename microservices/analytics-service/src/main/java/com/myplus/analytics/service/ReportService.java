@@ -7,6 +7,7 @@ import com.myplus.analytics.entity.ReportExecution;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.analytics.repository.ReportDefinitionRepository;
 import com.myplus.analytics.repository.ReportExecutionRepository;
+import com.myplus.common.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -29,12 +30,13 @@ public class ReportService {
     public ReportDefinitionDTO createReport(ReportDefinitionDTO dto) {
         ReportDefinition r = modelMapper.map(dto, ReportDefinition.class);
         r.setId(null);
+        r.setCreatedBy(CurrentUser.userId());
+        r.setOrganizationId(CurrentUser.organizationId());   // tenant scope
         return toDto(definitionRepo.save(r));
     }
 
     public ReportExecutionDTO executeReport(Long reportId) {
-        ReportDefinition r = definitionRepo.findById(reportId)
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found: " + reportId));
+        ReportDefinition r = findOrThrow(reportId);   // anti-IDOR: only run a report in the caller's tenant
         ReportExecution exec = ReportExecution.builder()
                 .report(r)
                 .status(ReportExecution.Status.RUNNING)
@@ -75,10 +77,9 @@ public class ReportService {
 
     @Transactional(readOnly = true)
     public Page<ReportDefinitionDTO> getAll(Long userId, Pageable pageable) {
-        Page<ReportDefinition> page = userId != null
-                ? definitionRepo.findByCreatedByAndIsActiveTrue(userId, pageable)
-                : definitionRepo.findAll(pageable);
-        return page.map(this::toDto);
+        // Tenant-scoped. The previous findAll() fallback (when userId was null) listed every tenant's reports.
+        return definitionRepo.findScoped(CurrentUser.organizationId(), CurrentUser.userId(), pageable)
+                .map(this::toDto);
     }
 
     public void deleteReport(Long id) {
@@ -87,11 +88,13 @@ public class ReportService {
 
     @Transactional(readOnly = true)
     public Page<ReportExecutionDTO> getExecutions(Long reportId, Pageable pageable) {
+        findOrThrow(reportId);   // executions are reachable only through a report the caller's tenant owns
         return executionRepo.findByReportId(reportId, pageable).map(this::toExecutionDto);
     }
 
     @Transactional(readOnly = true)
     public ReportExecutionDTO getLatestExecution(Long reportId) {
+        findOrThrow(reportId);   // anti-IDOR via the parent report
         Optional<ReportExecution> exec = executionRepo.findTopByReportIdOrderByStartedAtDesc(reportId);
         return exec.map(this::toExecutionDto)
                 .orElseThrow(() -> new ResourceNotFoundException("No executions found for report: " + reportId));
@@ -101,11 +104,15 @@ public class ReportService {
     public ReportExecutionDTO getExecutionById(Long execId) {
         ReportExecution e = executionRepo.findById(execId)
                 .orElseThrow(() -> new ResourceNotFoundException("Execution not found: " + execId));
+        // The execution's parent report must belong to the caller's tenant — never expose one by raw id alone.
+        if (e.getReport() == null) throw new ResourceNotFoundException("Execution not found: " + execId);
+        findOrThrow(e.getReport().getId());
         return toExecutionDto(e);
     }
 
+    /** Anti-IDOR: by-id only within the caller's tenant. All report + execution ops funnel through here. */
     private ReportDefinition findOrThrow(Long id) {
-        return definitionRepo.findById(id)
+        return definitionRepo.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Report not found: " + id));
     }
 

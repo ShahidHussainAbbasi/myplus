@@ -4,6 +4,7 @@ import com.myplus.campaign.dto.TemplateDTO;
 import com.myplus.campaign.entity.Template;
 import com.myplus.campaign.exception.ResourceNotFoundException;
 import com.myplus.campaign.repository.TemplateRepository;
+import com.myplus.common.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -25,6 +26,8 @@ public class TemplateService {
     public TemplateDTO createTemplate(TemplateDTO dto) {
         Template t = modelMapper.map(dto, Template.class);
         t.setId(null);
+        t.setCreatedBy(CurrentUser.userId());
+        t.setOrganizationId(CurrentUser.organizationId());   // tenant scope
         return toDto(templateRepository.save(t));
     }
 
@@ -46,7 +49,8 @@ public class TemplateService {
 
     @Transactional(readOnly = true)
     public Page<TemplateDTO> getAll(Pageable pageable) {
-        return templateRepository.findAll(pageable).map(this::toDto);
+        return templateRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId(), pageable)
+                .map(this::toDto);
     }
 
     public void deleteTemplate(Long id) {
@@ -57,13 +61,13 @@ public class TemplateService {
     @Transactional(readOnly = true)
     public List<TemplateDTO> getByType(String type) {
         Template.Type t = Template.Type.valueOf(type.toUpperCase());
-        return templateRepository.findByTypeAndIsActiveTrue(t).stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
+        return templateRepository.findActiveByTypeScoped(t, CurrentUser.organizationId(), CurrentUser.userId())
+                .stream().map(this::toDto).collect(Collectors.toList());
     }
 
+    /** Anti-IDOR: by-id only within the caller's tenant (get/update/delete all funnel through here). */
     private Template findOrThrow(Long id) {
-        return templateRepository.findById(id)
+        return templateRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Template not found: " + id));
     }
 

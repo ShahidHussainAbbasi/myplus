@@ -183,13 +183,16 @@ spring:
           uri: lb://analytics-service
           predicates:
             - Path=/api/analytics/**
+          # No StripPrefix: analytics-service controllers are mapped at the full /api/analytics/... path
+          # (Dashboard/Report/Sales/Financial all @RequestMapping("/api/analytics/...")). StripPrefix=2 here
+          # stripped the prefix and every request 500'd with "No static resource ..." — the service was
+          # simply unreachable through the gateway. Matches the campaign/business/catalog convention.
           filters:
             - name: CircuitBreaker
               args:
                 name: analytics-service
                 fallbackUri: forward:/fallback
             - name: JwtAuthenticationFilter
-            - StripPrefix=2
         # Shared demo purge (common-service) is mapped at /demo/** — strip for appointment so it matches.
         # Must precede the general appointment route below.
         - id: appointment-demo

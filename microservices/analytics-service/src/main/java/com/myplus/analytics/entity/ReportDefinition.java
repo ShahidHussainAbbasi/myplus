@@ -34,6 +34,9 @@ public class ReportDefinition {
     private LocalDateTime lastRunAt;
     private Long createdBy;
 
+    @Column(name = "organization_id")
+    private Long organizationId;   // tenant scope; created_by kept as audit
+
     @Builder.Default
     private boolean isActive = true;
 

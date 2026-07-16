@@ -59,6 +59,9 @@ public class PurchaseDTO implements Serializable {
 
 	private BigDecimal netAmount;
 
+	// Tax register Phase B: input-tax rate (%) entered on the purchase form when "Purchase tax" is enabled.
+	private BigDecimal taxRate;
+
 	// F1 (AP): the vendor the purchase is billed from + how much was paid at purchase time (defaults to net = cash).
 	private Long venderId;
 	private String venderName;

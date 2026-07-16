@@ -45,6 +45,9 @@ public class Campaign {
 
     private Long createdBy;
 
+    @Column(name = "organization_id")
+    private Long organizationId;   // tenant scope (from the caller's JWT via the gateway); created_by kept as audit
+
     @Builder.Default
     private int totalRecipients = 0;
     @Builder.Default

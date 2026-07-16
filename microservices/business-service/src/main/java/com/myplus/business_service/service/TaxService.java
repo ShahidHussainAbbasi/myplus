@@ -43,6 +43,7 @@ public class TaxService {
         s.setTaxLabel(dto.getTaxLabel() != null && !dto.getTaxLabel().isBlank() ? dto.getTaxLabel().trim() : "Tax");
         s.setTaxRegNo(dto.getTaxRegNo());
         s.setEnabled(Boolean.TRUE.equals(dto.getEnabled()));
+        s.setInputTaxEnabled(Boolean.TRUE.equals(dto.getInputTaxEnabled()));   // Phase B: Purchase tax toggle
         return taxSettingRepo.save(s);
     }
 

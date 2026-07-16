@@ -25,6 +25,9 @@ public class Segment {
 
     private Long createdBy;
 
+    @Column(name = "organization_id")
+    private Long organizationId;   // tenant scope; created_by kept as audit
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 

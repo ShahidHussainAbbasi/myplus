@@ -62,6 +62,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     AuditService auditService;   // Audit #6: append-only audit trail (via audit-service outbox)
 
+    @Autowired
+    TaxService taxService;   // Phase B: input-tax policy (Purchase tax toggle + rate)
+
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
@@ -259,7 +262,20 @@ public class PurchaseService implements IPurchaseService{
 		// F1 (AP): the bill's payment position. The vendor bill = totalAmount (qty × purchase rate = what we owe);
 		// NOTE netAmount here is the sell-vs-cost PROFIT, not the payable. paidAmount defaults to the full bill
 		// (a cash purchase); dueAmount = paid − bill (negative while we still owe). venderId + paidAmount via the mapper.
-		java.math.BigDecimal bill = obj.getTotalAmount() != null ? obj.getTotalAmount() : java.math.BigDecimal.ZERO;
+		// Tax register Phase B: input tax when the org's "Purchase tax" toggle is on. totalAmount stays the goods/net
+		// value; the vendor bill you owe = net + input tax. Off (or 0 rate) → tax 0 → bill = net (unchanged behaviour).
+		java.math.BigDecimal net = nz(obj.getTotalAmount());
+		java.math.BigDecimal tax = java.math.BigDecimal.ZERO;
+		var taxSetting = taxService.settingsFor(org);
+		if (taxSetting != null && Boolean.TRUE.equals(taxSetting.getInputTaxEnabled())) {
+			java.math.BigDecimal rate = TaxService.resolveRate(dto.getTaxRate(), taxSetting);
+			if (rate.signum() > 0) {
+				tax = net.multiply(rate).divide(java.math.BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+				obj.setTaxRate(rate);
+				obj.setTaxAmount(tax);
+			}
+		}
+		java.math.BigDecimal bill = net.add(tax);   // vendor bill = goods + input tax
 		java.math.BigDecimal paid = obj.getPaidAmount() != null ? obj.getPaidAmount() : bill;
 		obj.setPaidAmount(paid);
 		obj.setDueAmount(paid.subtract(bill));
@@ -276,11 +292,12 @@ public class PurchaseService implements IPurchaseService{
 			catch (Exception ex) { LOG.warn("Option B: re-price on receive failed for product {} (purchase recorded)", saved.getProductId(), ex); }
 		}
 
-		// F3b: auto-post the purchase to the GL (Dr Inventory, Cr Cash(paid)/AP(rest)). Best-effort — never fail the purchase.
+		// F3b: auto-post the purchase to the GL (Dr Inventory + Dr TAX(input), Cr Cash(paid)/AP(rest)). Best-effort.
 		try {
 			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 					.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
-					.grandTotal(saved.getTotalAmount()).paidAmount(saved.getPaidAmount()).method("CASH").build());
+					.grandTotal(nz(saved.getTotalAmount()).add(nz(saved.getTaxAmount())))   // bill = net + input tax
+					.taxTotal(nz(saved.getTaxAmount())).paidAmount(saved.getPaidAmount()).method("CASH").build());
 		} catch (Exception ex) {
 			LOG.warn("GL enqueue failed for purchase {} (recorded)", saved.getPurchaseInvoiceNo(), ex);
 		}
@@ -308,7 +325,8 @@ public class PurchaseService implements IPurchaseService{
 		float oldQty = existing.getQuantity() != null ? existing.getQuantity() : 0f;
 		Long oldProductId = existing.getProductId();
 		String oldBatchNo = existing.getBatchNo();   // reconcile against the batch that was originally imported
-		java.math.BigDecimal oldBillTotal = nz(existing.getTotalAmount());   // GL: reverse the OLD posting on edit
+		java.math.BigDecimal oldBillTotal = nz(existing.getTotalAmount());   // GL: reverse the OLD posting on edit (net)
+		java.math.BigDecimal oldTax = nz(existing.getTaxAmount());          // old input tax (reversed on edit)
 		java.math.BigDecimal oldBillPaid = nz(existing.getPaidAmount());
 
 		// Update the record (keep id + original audit/tenant; product is readonly on edit).
@@ -337,7 +355,21 @@ public class PurchaseService implements IPurchaseService{
 		// F1 (AP): recompute the bill's payment position on edit — bill = totalAmount (what we owe; netAmount is
 		// profit). Keep the prior paid unless the edit supplies a new one; dueAmount = paid − bill. venderId may
 		// change on edit, so refresh BOTH the old and new vendor payables.
-		java.math.BigDecimal bill = obj.getTotalAmount() != null ? obj.getTotalAmount() : java.math.BigDecimal.ZERO;
+		// Phase B: recompute input tax on edit (net = totalAmount; the vendor bill = net + tax) when the org's
+		// "Purchase tax" toggle is on. Off (or 0 rate) → tax 0 → bill = net (unchanged behaviour).
+		java.math.BigDecimal newNet = nz(obj.getTotalAmount());
+		java.math.BigDecimal newTax = java.math.BigDecimal.ZERO;
+		var taxSetting = taxService.settingsFor(existing.getOrganizationId());
+		if (taxSetting != null && Boolean.TRUE.equals(taxSetting.getInputTaxEnabled())) {
+			java.math.BigDecimal rate = TaxService.resolveRate(dto.getTaxRate(), taxSetting);
+			if (rate.signum() > 0) {
+				newTax = newNet.multiply(rate).divide(java.math.BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+				obj.setTaxRate(rate);
+			}
+		}
+		obj.setTaxAmount(newTax.signum() > 0 ? newTax : java.math.BigDecimal.ZERO);
+		if (newTax.signum() <= 0) obj.setTaxRate(null);
+		java.math.BigDecimal bill = newNet.add(newTax);   // gross vendor bill
 		java.math.BigDecimal paid = obj.getPaidAmount() != null ? obj.getPaidAmount()
 				: (existing.getPaidAmount() != null ? existing.getPaidAmount() : bill);
 		obj.setPaidAmount(paid);
@@ -373,13 +405,15 @@ public class PurchaseService implements IPurchaseService{
 		// GL edit adjustment: reverse the OLD bill + repost the NEW (net = the edit's delta) so the books never
 		// drift on a purchase edit. Best-effort — never fail the edit.
 		try {
-			if (oldBillTotal.signum() > 0)
+			java.math.BigDecimal oldGross = oldBillTotal.add(oldTax);
+			if (oldGross.signum() > 0)
 				glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 						.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
-						.grandTotal(oldBillTotal).paidAmount(oldBillPaid).method("CASH").build());
+						.grandTotal(oldGross).taxTotal(oldTax).paidAmount(oldBillPaid).method("CASH").build());
 			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 					.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
-					.grandTotal(saved.getTotalAmount()).paidAmount(saved.getPaidAmount()).method("CASH").build());
+					.grandTotal(nz(saved.getTotalAmount()).add(nz(saved.getTaxAmount())))
+					.taxTotal(nz(saved.getTaxAmount())).paidAmount(saved.getPaidAmount()).method("CASH").build());
 		} catch (Exception ex) {
 			LOG.warn("GL adjustment enqueue failed for purchase edit {} (edit applied)", saved.getPurchaseInvoiceNo(), ex);
 		}
@@ -420,10 +454,15 @@ public class PurchaseService implements IPurchaseService{
 		if (rq > soldQty) throw new RuntimeException("Cannot return more than was purchased (" + soldQty + ").");
 		boolean partial = rq < soldQty;
 
-		java.math.BigDecimal total = nz(p.getTotalAmount());
-		java.math.BigDecimal returnedValue = partial
-				? total.multiply(java.math.BigDecimal.valueOf(rq)).divide(java.math.BigDecimal.valueOf(soldQty), 2, java.math.RoundingMode.HALF_UP)
-				: total;
+		// Phase B: reverse on the GROSS bill (goods + input tax). Both are returned proportionally on a partial return.
+		java.math.BigDecimal net = nz(p.getTotalAmount());   // goods value
+		java.math.BigDecimal tax = nz(p.getTaxAmount());     // input tax on the bill (0 unless the org captures it)
+		java.math.BigDecimal frac = partial
+				? java.math.BigDecimal.valueOf(rq).divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP)
+				: java.math.BigDecimal.ONE;
+		java.math.BigDecimal returnedNet = partial ? net.multiply(frac).setScale(2, java.math.RoundingMode.HALF_UP) : net;
+		java.math.BigDecimal returnedTax = partial ? tax.multiply(frac).setScale(2, java.math.RoundingMode.HALF_UP) : tax;
+		java.math.BigDecimal returnedGross = returnedNet.add(returnedTax);
 
 		// 1) reverse the stock-in for this batch (negative delta). A guard rejection rolls the whole return back.
 		if (tradeSagaProperties.isEnabled() && p.getProductId() != null) {
@@ -432,43 +471,46 @@ public class PurchaseService implements IPurchaseService{
 					.expiryDate(p.getBexpDate()).purchasePrice(p.getBpurchaseRate()).build());
 		}
 
-		// 2) reconcile the bill (mirror SF-5 for AP): reduce it by the returned value; the vendor refunds any
-		//    resulting overpayment; dueAmount = paid − new bill.
-		java.math.BigDecimal newBill = total.subtract(returnedValue);
+		// 2) reconcile the bill (mirror SF-5 for AP) on the GROSS bill: reduce it by the returned gross; the vendor
+		//    refunds any resulting overpayment; dueAmount = paid − remaining gross.
+		java.math.BigDecimal grossTotal = net.add(tax);
+		java.math.BigDecimal newGross = grossTotal.subtract(returnedGross);
 		java.math.BigDecimal priorPaid = nz(p.getPaidAmount());
-		java.math.BigDecimal refund = priorPaid.subtract(newBill).max(java.math.BigDecimal.ZERO);   // vendor refunds overpayment
+		java.math.BigDecimal refund = priorPaid.subtract(newGross).max(java.math.BigDecimal.ZERO);   // vendor refunds overpayment
 		java.math.BigDecimal newPaid = priorPaid.subtract(refund);
 		if (partial) {
 			java.math.BigDecimal keepFrac = java.math.BigDecimal.valueOf(soldQty - rq)
 					.divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP);
 			p.setQuantity(soldQty - rq);
-			p.setTotalAmount(newBill);
+			p.setTotalAmount(net.subtract(returnedNet));
+			p.setTaxAmount(tax.subtract(returnedTax));
 			p.setNetAmount(nz(p.getNetAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
 		} else {
 			p.setQuantity(0f);
 			p.setTotalAmount(java.math.BigDecimal.ZERO);
+			p.setTaxAmount(java.math.BigDecimal.ZERO);
 			p.setNetAmount(java.math.BigDecimal.ZERO);
 		}
 		p.setPaidAmount(newPaid);
-		p.setDueAmount(newPaid.subtract(nz(p.getTotalAmount())));
+		p.setDueAmount(newPaid.subtract(nz(p.getTotalAmount()).add(nz(p.getTaxAmount()))));   // paid − remaining gross
 		p.setUpdated(LocalDateTime.now());
 		purchaseRepo.save(p);
 		if (p.getVenderId() != null) venderService.recomputePayable(p.getVenderId());
 
-		// 3) GL reversal (best-effort): Cr Inventory (returned value), Dr AP (payable cut) + Dr Cash (refund).
+		// 3) GL reversal (best-effort): Cr Inventory(returned net) + Cr TAX(returned input tax), Dr AP + Dr Cash(refund).
 		try {
 			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 					.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(p.getPurchaseInvoiceNo())
-					.grandTotal(returnedValue).paidAmount(refund).method("CASH").build());
+					.grandTotal(returnedGross).taxTotal(returnedTax).paidAmount(refund).method("CASH").build());
 		} catch (Exception ex) {
 			LOG.warn("GL enqueue failed for purchase return {} (return applied)", p.getPurchaseInvoiceNo(), ex);
 		}
 
-		auditService.record("PURCHASE_RETURN", "BILL", p.getPurchaseInvoiceNo(), returnedValue, "qty=" + rq);   // #6
+		auditService.record("PURCHASE_RETURN", "BILL", p.getPurchaseInvoiceNo(), returnedGross, "qty=" + rq);   // #6
 
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);
-		out.put("returnedValue", returnedValue);
+		out.put("returnedValue", returnedGross);
 		out.put("refund", refund);
 		out.put("newDue", p.getDueAmount());
 		return out;

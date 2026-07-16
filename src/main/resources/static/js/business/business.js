@@ -403,6 +403,7 @@ function loadTaxSetting(){
 	$.get(serverContext + "getTaxSetting", function(resp){
 		var s = (resp && resp.object) ? resp.object : {};
 		$('#taxEnabled').prop('checked', s.enabled === true);
+		$('#taxInputEnabled').prop('checked', s.inputTaxEnabled === true);
 		$('#taxMode').val(s.taxMode === 'INCLUSIVE' ? 'INCLUSIVE' : 'EXCLUSIVE');
 		$('#taxDefaultRate').val(s.defaultRate != null ? s.defaultRate : '');
 		$('#taxLabel').val(s.taxLabel != null ? s.taxLabel : 'Tax');
@@ -419,6 +420,7 @@ function saveTaxSetting(){
 		dataType: 'json',
 		data: {
 			'enabled': $('#taxEnabled').is(':checked'),
+			'inputTaxEnabled': $('#taxInputEnabled').is(':checked'),
 			'taxMode': $('#taxMode').val(),
 			'defaultRate': $('#taxDefaultRate').val() || '0',
 			'taxLabel': $('#taxLabel').val() || 'Tax',
@@ -669,7 +671,7 @@ function loadDataTable(){
 							// "<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
 							// "<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>",
-						"<div class='row-actions' id=purchaseDate>"+obj.updated+" "+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Void bill'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>")+ "</div>"
+						"<div id=purchaseDate>"+obj.updated+"</div><span class='row-actions'>"+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Void bill'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>")+ "</span>"
 						]);
 					});
 				} else if (getAll === "Sell") {
@@ -1752,7 +1754,16 @@ function newPurchase(){
 	resetPurchaseForm();
 	$('#purchaseId').val('');
 	$('#PurchaseModalTitle').text('New Purchase');
+	refreshPurchaseTaxRow();   // Phase B: show the tax field only when the org enabled "Purchase tax"
 	openModal('PurchaseModal');
+}
+
+// Phase B: the purchase-form tax field is only meaningful when the org's "Purchase tax (input credit)" toggle is on.
+function refreshPurchaseTaxRow(){
+	$.get(serverContext + 'getTaxSetting', function(resp){
+		var s = (resp && resp.object) ? resp.object : {};
+		if (s.inputTaxEnabled === true) $('#purchaseTaxRow').show(); else { $('#purchaseTaxRow').hide(); $('#purchaseTaxRate').val(''); }
+	});
 }
 
 // G2 (slice 34): Sale Return. The per-row "Return" button opens a small self-contained dialog that supports a

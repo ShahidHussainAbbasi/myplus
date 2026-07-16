@@ -11,5 +11,6 @@ public class TaxSettingDTO {
     private BigDecimal defaultRate;  // %, fallback when a product has no rate
     private String taxLabel;         // printed label, e.g. VAT / GST
     private String taxRegNo;         // printed on the receipt
-    private Boolean enabled;
+    private Boolean enabled;          // Sales tax (output) on/off
+    private Boolean inputTaxEnabled;  // Purchase tax (input credit) on/off — independent
 }

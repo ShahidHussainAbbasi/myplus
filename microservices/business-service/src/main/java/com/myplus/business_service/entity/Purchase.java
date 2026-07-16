@@ -125,6 +125,13 @@ public class Purchase implements Serializable {
 	@Column(name = "net_amount", precision = 19, scale = 2)
 	private BigDecimal netAmount = null;
 
+	// Tax register Phase B: input tax on this bill (captured only when the org's "Purchase tax" toggle is on).
+	// totalAmount = the goods/net value; the vendor bill you owe = totalAmount + taxAmount.
+	@Column(name = "tax_rate", precision = 19, scale = 2)
+	private BigDecimal taxRate;
+	@Column(name = "tax_amount", precision = 19, scale = 2)
+	private BigDecimal taxAmount;
+
 	// F1 (AP): the vendor this purchase is billed from, and how much has been paid to them for THIS bill.
 	// dueAmount = paidAmount − netAmount (negative while we still owe the vendor); the vendor's running payable
 	// = −Σ(due). A null vendor / fully-paid purchase carries no payable (cash purchase or legacy row).

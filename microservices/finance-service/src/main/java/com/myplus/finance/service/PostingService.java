@@ -100,14 +100,17 @@ public class PostingService {
     // Reverse a purchase (goods back to vendor): mirror of postPurchase. grand = returned value, paidAmount = cash
     // refunded by the vendor (rest reduces AP), Inventory credited.
     private void postPurchaseReturn(PostEventRequest r) {
-        BigDecimal value = nz(r.getGrandTotal());
+        BigDecimal value = nz(r.getGrandTotal());   // returned bill = returned goods + returned input tax
         if (value.signum() <= 0) return;
+        BigDecimal tax = nz(r.getTaxTotal()).max(BigDecimal.ZERO).min(value);   // input tax reversed
+        BigDecimal net = value.subtract(tax);
         BigDecimal refund = nz(r.getPaidAmount()).max(BigDecimal.ZERO).min(value);
         BigDecimal ap = value.subtract(refund);
         List<JournalLineDTO> lines = new ArrayList<>();
         if (refund.signum() > 0) lines.add(dr(cashAccount(r.getMethod()), refund));
         if (ap.signum() > 0)     lines.add(dr(AP, ap));
-        lines.add(cr(INVENTORY, value));
+        lines.add(cr(INVENTORY, net));
+        if (tax.signum() > 0)    lines.add(cr(TAX, tax));
         post("PURCHASE_RETURN", r.getDate(), r.getRef(), lines);
     }
 
@@ -134,12 +137,15 @@ public class PostingService {
     }
 
     private void postPurchase(PostEventRequest r) {
-        BigDecimal total = nz(r.getGrandTotal());
+        BigDecimal total = nz(r.getGrandTotal());   // bill = goods (net) + input tax
         if (total.signum() <= 0) return;
+        BigDecimal tax = nz(r.getTaxTotal()).max(BigDecimal.ZERO).min(total);   // input tax (reclaimable) — 0 unless the org captures it
+        BigDecimal net = total.subtract(tax);       // goods value → Inventory
         BigDecimal paid = nz(r.getPaidAmount()).max(BigDecimal.ZERO).min(total);
         BigDecimal ap = total.subtract(paid);
         List<JournalLineDTO> lines = new ArrayList<>();
-        lines.add(dr(INVENTORY, total));
+        lines.add(dr(INVENTORY, net));
+        if (tax.signum() > 0) lines.add(dr(TAX, tax));
         if (paid.signum() > 0) lines.add(cr(cashAccount(r.getMethod()), paid));
         if (ap.signum() > 0)   lines.add(cr(AP, ap));
         post("PURCHASE", r.getDate(), r.getRef(), lines);

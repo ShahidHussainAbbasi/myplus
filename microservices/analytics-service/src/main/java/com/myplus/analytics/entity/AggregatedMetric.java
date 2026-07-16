@@ -35,6 +35,9 @@ public class AggregatedMetric {
 
     private String serviceSource;
 
+    @Column(name = "organization_id")
+    private Long organizationId;   // tenant scope — a metric belongs to the org it was computed for
+
     private LocalDateTime computedAt;
 
     @PrePersist

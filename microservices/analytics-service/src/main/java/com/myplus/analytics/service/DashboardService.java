@@ -4,6 +4,7 @@ import com.myplus.analytics.dto.DashboardWidgetDTO;
 import com.myplus.analytics.entity.DashboardWidget;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.analytics.repository.DashboardWidgetRepository;
+import com.myplus.common.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
@@ -41,8 +42,7 @@ public class DashboardService {
     }
 
     public DashboardWidgetDTO updateWidget(Long widgetId, DashboardWidgetDTO dto) {
-        DashboardWidget w = widgetRepo.findById(widgetId)
-                .orElseThrow(() -> new ResourceNotFoundException("Widget not found: " + widgetId));
+        DashboardWidget w = ownWidgetOrThrow(widgetId);
         w.setWidgetType(dto.getWidgetType());
         w.setTitle(dto.getTitle());
         w.setDataSource(dto.getDataSource());
@@ -53,20 +53,30 @@ public class DashboardService {
     }
 
     public void removeWidget(Long widgetId) {
-        DashboardWidget w = widgetRepo.findById(widgetId)
-                .orElseThrow(() -> new ResourceNotFoundException("Widget not found: " + widgetId));
-        widgetRepo.delete(w);
+        widgetRepo.delete(ownWidgetOrThrow(widgetId));
     }
 
     public void reorderWidgets(Long userId, List<Long> widgetIds) {
+        // Bind to the authenticated caller, never a client-supplied userId — a widget is personal.
+        Long caller = CurrentUser.userId();
         for (int i = 0; i < widgetIds.size(); i++) {
-            Long id = widgetIds.get(i);
-            DashboardWidget w = widgetRepo.findById(id).orElse(null);
-            if (w != null && userId.equals(w.getUserId())) {
+            DashboardWidget w = widgetRepo.findById(widgetIds.get(i)).orElse(null);
+            if (w != null && caller != null && caller.equals(w.getUserId())) {
                 w.setPosition(i);
                 widgetRepo.save(w);
             }
         }
+    }
+
+    /** A widget is personal: update/remove are allowed only on the caller's OWN widgets. Previously either
+     *  took a raw widgetId with no owner check, so any user could edit or delete another user's widget. */
+    private DashboardWidget ownWidgetOrThrow(Long widgetId) {
+        DashboardWidget w = widgetRepo.findById(widgetId)
+                .orElseThrow(() -> new ResourceNotFoundException("Widget not found: " + widgetId));
+        Long caller = CurrentUser.userId();
+        if (caller == null || !caller.equals(w.getUserId()))
+            throw new ResourceNotFoundException("Widget not found: " + widgetId);   // don't confirm it exists
+        return w;
     }
 
     private DashboardWidgetDTO toDto(DashboardWidget w) {
