@@ -664,6 +664,9 @@ function loadDataTable(){
 						allRows.push([
 							"<div id=purchaseId>"+obj.purchaseId+"</div>","<input type='checkbox' value="+ obj.purchaseId+ ">",
 							"<div id=purchaseInvoiceNo>"+escHtml(obj.purchaseInvoiceNo)+"</div>","<div id=purchaseItemDD>"+escHtml(obj.iname || obj.icode || (obj.productId ? ('Product #'+obj.productId) : ''))+"</div>",
+							// Vendor column — same pattern as tableVender/venderCompanyDD: backend supplies the name, and
+							// editRecord (main.js) preselects the #purchaseVenderDD option by this text on edit.
+							"<div id=purchaseVenderDD>"+escHtml(obj.venderName||'')+"</div>",
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>",
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
 							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>",

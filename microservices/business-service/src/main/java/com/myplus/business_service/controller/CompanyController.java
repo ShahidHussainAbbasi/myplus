@@ -16,6 +16,7 @@ import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -160,6 +161,7 @@ public class CompanyController {
 		}
 	}
 	
+	@PreAuthorize("hasAuthority('DELETE_COMPANY')")
 	@RequestMapping(value = "/deleteCompany", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteCompany( HttpServletRequest req, HttpServletResponse resp ){

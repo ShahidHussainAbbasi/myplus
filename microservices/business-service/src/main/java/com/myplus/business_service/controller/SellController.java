@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -537,6 +538,16 @@ public class SellController {
 	 * @Transactional endpoint (addSell). By the time this runs the transaction has rolled back, so the
 	 * multi-write (customer + customer-history + sell/stock) is all-or-nothing.
 	 */
+	// A @PreAuthorize denial throws AccessDeniedException. This controller's broad Exception handler above would
+	// otherwise swallow it into a 200 "ERROR" envelope — the op is still blocked, but the status would mislead.
+	// A more-specific handler wins, so access denials return a clean 403 like every other controller.
+	@ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+	public org.springframework.http.ResponseEntity<GenericResponse> handleAccessDenied(
+			org.springframework.security.access.AccessDeniedException e) {
+		return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+				.body(new GenericResponse("FORBIDDEN", "Access denied"));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public GenericResponse handleUncaught(Exception e) {
 		return new GenericResponse("ERROR", e.getMessage());
@@ -668,6 +679,7 @@ public class SellController {
 		return new GenericResponse("ERROR", "addSelling is no longer supported; use addSell.");
 	}
 
+	@PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
 	@RequestMapping(value = "/revertSell", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse reverSell(@Validated final SellDTO dto, final HttpServletRequest request) {
@@ -681,6 +693,7 @@ public class SellController {
 	 * the audit trail, silently drifting the books. Cancellations now go through {@code /voidSell}, which reverses
 	 * everything and keeps the record. Stub kept so the route can't 404; it performs no deletion.
 	 */
+	@PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
 	@RequestMapping(value = "/deleteSell", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteSell( HttpServletRequest req, HttpServletResponse resp ){
@@ -854,6 +867,7 @@ public class SellController {
 	 * it read-only. Rejected if already VOID or if any partial return was already recorded (would double-reverse).
 	 */
 	@Transactional
+	@PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
 	@PostMapping(value = "/voidSell")
 	@ResponseBody
 	public GenericResponse voidSell(final HttpServletRequest request) {

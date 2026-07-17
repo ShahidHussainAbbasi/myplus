@@ -16,6 +16,7 @@ import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -163,6 +164,7 @@ public class ItemTypeController {
 		}
 	}
 
+	@PreAuthorize("hasAuthority('DELETE_ITEM_TYPE')")
 	@RequestMapping(value = "/deleteItemType", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deleteItemType(HttpServletRequest req, HttpServletResponse resp) {

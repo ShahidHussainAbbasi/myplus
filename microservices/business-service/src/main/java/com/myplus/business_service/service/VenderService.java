@@ -210,15 +210,14 @@ public class VenderService implements IVenderService {
 	@Override
 	public void recomputePayable(Long venderId) {
 		if (venderId == null) return;
-		Vender v = venderRepo.findById(venderId).orElse(null);
-		if (v == null) return;
 		// Each purchase stores dueAmount = paid − net (negative while we owe). Payable owed = −Σ(due), floored 0.
 		java.math.BigDecimal sumDue = purchaseRepo.sumDueByVendor(venderId);
 		if (sumDue == null) sumDue = java.math.BigDecimal.ZERO;
 		java.math.BigDecimal owed = sumDue.negate();
 		if (owed.compareTo(java.math.BigDecimal.ZERO) < 0) owed = java.math.BigDecimal.ZERO;
-		v.setDueAmount(owed);
-		venderRepo.save(v);
+		// Targeted update (only due_amount) — a full entity save re-wrote company_id=null when the lazy company
+		// wasn't loaded (Column 'company_id' cannot be null); this also avoids a full-row rewrite.
+		venderRepo.updateDueAmount(venderId, owed);
 	}
 
 	@Override

@@ -16,6 +16,7 @@ import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -115,6 +116,15 @@ public class PurchaseController {
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(pProductIds);
 
+			// Vendor name for the grid + edit-select — mirrors getUserVender resolving companyName from the relation.
+			// The purchase stores venderId (not a relation), so batch-resolve id → name once.
+			java.util.List<Long> pVenderIds = objs.stream().filter(o -> o.getVenderId() != null)
+					.map(com.myplus.business_service.entity.Purchase::getVenderId).distinct()
+					.collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, String> venderNameById = new java.util.HashMap<>();
+			if (!pVenderIds.isEmpty())
+				venderService.findAllById(pVenderIds).forEach(v -> venderNameById.put(v.getId(), v.getName()));
+
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(o ->{
 				modelMapper.addConverter(appUtil.localDateTimeToString);
@@ -140,6 +150,7 @@ public class PurchaseController {
 				sd.setBexpDate(o.getBexpDate() != null ? o.getBexpDate().toString() : null);
 				sd.setStock(o.getQuantity());                 // the purchased quantity
 				dto.setStock(sd);
+				dto.setVenderName(venderNameById.get(o.getVenderId()));   // grid + edit: show/preselect the vendor
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
@@ -252,6 +263,7 @@ public class PurchaseController {
 	 * Audit #3: VOID a bill — reverses stock-in + vendor payable + posts a GL PURCHASE_RETURN, then soft-stamps the
 	 * bill VOID (record + audit survive). Books-safe replacement for hard-delete.
 	 */
+	@PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
 	@RequestMapping(value = "/voidPurchase", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse voidPurchase(final HttpServletRequest request) {
@@ -273,6 +285,7 @@ public class PurchaseController {
 	 * Audit #3: hard-delete RETIRED — bypassed stock/AP/GL reversal + audit. Cancellations go through
 	 * {@code /voidPurchase}. Stub kept so the route can't 404; performs no deletion.
 	 */
+	@PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
 	@RequestMapping(value = "/deletePurchase", method = RequestMethod.POST)
 	@ResponseBody
 	public boolean deletePurchase( HttpServletRequest req, HttpServletResponse resp ){

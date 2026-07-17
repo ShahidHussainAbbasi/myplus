@@ -6,6 +6,7 @@ package com.myplus.business_service.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.query.QueryByExampleExecutor;
@@ -22,6 +23,12 @@ public interface VenderRepo extends JpaRepository<Vender, Long>,QueryByExampleEx
    @Query("select v from Vender v where v.organizationId = :orgId "
         + "or (v.organizationId is null and v.userId = :userId)")
    List<Vender> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   /** Targeted payable update — sets ONLY due_amount, so re-writing the whole row (and its company_id FK) is avoided
+    *  (a full entity save re-wrote company_id as null when the lazy company wasn't loaded). Also cheaper. */
+   @Modifying
+   @Query(value = "update vender set due_amount = :due where vender_id = :id", nativeQuery = true)
+   void updateDueAmount(@Param("id") Long id, @Param("due") java.math.BigDecimal due);
 
 
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "

@@ -109,4 +109,43 @@ describe('Tax register — output tax', () => {
       })
     })
   })
+
+  it('editing a taxed purchase updates the input tax (Phase B edit)', () => {
+    cy.request({ method: 'POST', url: '/gl/ensureDefaults', failOnStatusCode: false })
+    cy.request({ method: 'POST', url: '/saveTaxSetting', form: true, body: { enabled: true, inputTaxEnabled: true, defaultRate: 10, taxMode: 'EXCLUSIVE' }, failOnStatusCode: false })
+    const stamp = Date.now()
+    cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name: 'TXECo_' + stamp, email: `txeco${stamp}@t.com` } })
+    cy.request('/getUserCompany').then((cr) => {
+      const companyId = (cr.body.collection || cr.body.data || []).find((c) => c.name === 'TXECo_' + stamp).id
+      cy.request({ method: 'POST', url: '/addVender', form: true, body: { name: 'TXEVEN_' + stamp, companyId, mobile: '03005556666', email: `txev${stamp}@t.com` } })
+      cy.request('/getUserVender').then((lr) => {
+        const venderId = (lr.body.collection || lr.body.data || []).find((x) => x.name === 'TXEVEN_' + stamp).id
+        cy.seedProduct({ name: 'TXEP_' + stamp, sellingPrice: 100, stock: 0 }).then(({ productId }) => {
+          const inv = 'TXEINV-' + stamp
+          cy.request({
+            method: 'POST', url: '/addPurchase', form: true,
+            body: { productId, quantity: 10, venderId, paidAmount: 0, 'stock.bpurchaseRate': 10, 'stock.bsellRate': 12, totalAmount: 100, netAmount: 100, purchaseInvoiceNo: inv, taxRate: 10 },
+            failOnStatusCode: false,
+          }).then((pr) => expect(pr.body.status, JSON.stringify(pr.body)).to.eq('SUCCESS'))
+
+          reg().then((afterBuy) => {
+            const netInputBuy = Number(afterBuy.netInput)   // input tax for a 100 bill @10% = 10
+            cy.request('/getUserPurchase').then((pl) => {
+              const p = (pl.body.collection || pl.body.data || []).find((x) => x.purchaseInvoiceNo === inv)
+              expect(p, 'purchase row').to.exist
+              // Edit: double the goods to 200 → input tax should become 20 (reverse-old 10 + repost-new 20).
+              cy.request({
+                method: 'POST', url: '/updatePurchase', form: true,
+                body: { purchaseId: p.purchaseId, productId, quantity: 20, venderId, paidAmount: 0, 'stock.bpurchaseRate': 10, 'stock.bsellRate': 12, totalAmount: 200, netAmount: 200, purchaseInvoiceNo: inv, taxRate: 10 },
+                failOnStatusCode: false,
+              }).then((u) => expect(u.body.status, JSON.stringify(u.body)).to.eq('SUCCESS'))
+              reg().then((afterEdit) => {
+                expect(Number(afterEdit.netInput), 'net input tax rose with the edit (10 → 20)').to.be.greaterThan(netInputBuy)
+              })
+            })
+          })
+        })
+      })
+    })
+  })
 })
