@@ -886,7 +886,7 @@ public class SellController {
 	 * it read-only. Rejected if already VOID or if any partial return was already recorded (would double-reverse).
 	 */
 	@Transactional
-	@PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+	@PreAuthorize("hasAuthority('VOID_INVOICE')")
 	@PostMapping(value = "/voidSell")
 	@ResponseBody
 	public GenericResponse voidSell(final HttpServletRequest request) {

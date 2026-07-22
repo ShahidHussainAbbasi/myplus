@@ -674,7 +674,7 @@ function loadDataTable(){
 							// "<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
 							// "<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>",
-						"<div id=purchaseDate>"+obj.updated+"</div><span class='row-actions'>"+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Void bill'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>")+ "</span>"
+						"<div id=purchaseDate>"+obj.updated+"</div><span class='row-actions'>"+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + (window.canVoidInvoice ? " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Void bill'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>" : ""))+ "</span>"
 						]);
 					});
 				} else if (getAll === "Sell") {
@@ -725,10 +725,11 @@ function loadDataTable(){
 								+ " data-invoice='"+escHtml(ch?(ch.invoiceNo||''):'')+"'"
 								+ " data-item='"+escHtml(obj.itemName||'')+"'>"
 								+ "<span class='glyphicon glyphicon-share-alt'></span> Return</button>"
-								// Audit #3: books-safe Void of the whole invoice (or a VOID badge if already voided).
+								// Audit #3: books-safe Void of the whole invoice (or a VOID badge if already voided). The Void
+								// button shows only to a user with the VOID_INVOICE privilege (server @PreAuthorize enforces).
 								+ ((ch && ch.status === 'VOID')
 									? " <span class='label label-default' title='Voided invoice'>VOID</span>"
-									: (ch && ch.customer_history_id
+									: (window.canVoidInvoice && ch && ch.customer_history_id
 										? " <button type='button' class='btn btn-xs btn-danger' onclick='openVoidSell(this)' data-chid='"+ch.customer_history_id+"' data-invoice='"+escHtml(ch.invoiceNo||'')+"'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>"
 										: ""))
 								+ "</div>"

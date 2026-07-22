@@ -121,8 +121,11 @@ Core backlog #1–#6, tax-filing register (Phase A+B) and **period close** are c
 - [x] **Period close / lock** — ✅ DONE (finance single-source; see §2). Design `finance-period-close-design.md`;
   Cypress `period-close.cy.js`.
 - [ ] **Multi-rate tax** — more than one rate per invoice + per-rate breakdown on the register.
-- [ ] **`VOID_INVOICE` privilege** — needs a microservice method-security mechanism (business-service has none today);
-  its own cross-cutting slice. Void currently inherits login + tenant scoping.
+- [x] **`VOID_INVOICE` privilege** — ✅ DONE. business-service already had `@EnableMethodSecurity`; introduced a
+  dedicated `VOID_INVOICE` privilege (auth-service `SetupDataLoader` catalog + `adminPrivileges`) and moved
+  `voidSell`/`voidPurchase` off the coarse `ADMIN_PRIVILEGE` onto it (no regression — admins/owner/super keep it, a
+  cashier does not). Void buttons UI-gated on `window.canVoidInvoice`. Design `void-invoice-privilege-design.md`;
+  Cypress `void-invoice-privilege.cy.js`. (Per-user delegation lands with the future owner user-management form.)
 - [ ] **Propagate the common-security `runAs` fix** — only business/audit-service were rebuilt against it; a
   full-reactor `mvn clean install` (all services stopped) before any real deploy keeps every relay consistent.
 - [ ] **finance intra-service payment-hook retry** — `recordPayment`→`postPayment` is still best-effort (same-JVM, low risk).

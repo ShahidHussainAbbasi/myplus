@@ -269,7 +269,7 @@ public class PurchaseController {
 	 * Audit #3: VOID a bill — reverses stock-in + vendor payable + posts a GL PURCHASE_RETURN, then soft-stamps the
 	 * bill VOID (record + audit survive). Books-safe replacement for hard-delete.
 	 */
-	@PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+	@PreAuthorize("hasAuthority('VOID_INVOICE')")
 	@RequestMapping(value = "/voidPurchase", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse voidPurchase(final HttpServletRequest request) {

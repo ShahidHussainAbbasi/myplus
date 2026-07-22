@@ -1815,6 +1815,9 @@
         // terminology / features / theme in module-theme.js — one shared trade engine, white-labelled (slice 36).
         window.MODULE = [[${module} ?: 'BUSINESS']];
     </script>
+    <!-- Void is gated by the VOID_INVOICE privilege server-side (@PreAuthorize); the sale/purchase Void buttons show
+         only to a holder of it. Set before business.js renders the trade tables. Enforcement is on the server. -->
+    <script sec:authorize="hasAuthority('VOID_INVOICE')" th:inline="none">window.canVoidInvoice = true;</script>
 
     <!-- Register-screen modal + bulk-select styling now lives in the shared /css/crud-modal.css
          (loaded via fragments/header :: header-css) so every dashboard shares one responsive treatment. -->

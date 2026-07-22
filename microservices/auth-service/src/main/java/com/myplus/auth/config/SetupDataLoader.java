@@ -61,6 +61,7 @@ public class SetupDataLoader {
                 "UPDATE_COMPANY", "UPDATE_VENDER", "UPDATE_ITEM", "UPDATE_ITEM_TYPE", "UPDATE_ITEM_UNIT",
                 "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT",
                 "PUBLIC_ALERTS", "SYSTEM_ALERTS",
+                "VOID_INVOICE",
                 "DEMO_PRIVILEGE")) {
             p.put(name, createPrivilegeIfNotExists(name));
         }
@@ -75,7 +76,8 @@ public class SetupDataLoader {
                 "PUBLIC_ALERTS", "SYSTEM_ALERTS"));
         Set<Privilege> adminPrivileges = new HashSet<>(user);
         adminPrivileges.addAll(pick(p, "DELETE_PRIVILEGE", "ADMIN_PRIVILEGE",
-                "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT"));
+                "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT",
+                "VOID_INVOICE"));   // dedicated void right — admins/owner/super keep it (no regression); NOT in `user`
         Set<Privilege> superSet = new HashSet<>(adminPrivileges);
         superSet.addAll(pick(p, "SUPER_PRIVILEGE"));
 
