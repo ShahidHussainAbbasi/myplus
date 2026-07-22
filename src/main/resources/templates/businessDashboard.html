@@ -1654,7 +1654,10 @@
 						<button type="button" class="fin-tab" data-report="balanceSheet" onclick="showFinance('balanceSheet')"><span class="glyphicon glyphicon-scale"></span>Balance Sheet</button>
 						<button type="button" class="fin-tab" data-report="taxRegister" onclick="showFinance('taxRegister')"><span class="glyphicon glyphicon-th-list"></span>Tax Register</button>
 						<button type="button" class="fin-tab" data-report="auditLog" onclick="showFinance('auditLog')"><span class="glyphicon glyphicon-eye-open"></span>Audit Log</button>
+						<button type="button" class="fin-tab" data-report="periodClose" onclick="showFinance('periodClose')"><span class="glyphicon glyphicon-lock"></span>Period Close</button>
 					</div>
+					<!-- Owner/admin can change the period lock; the button visibility matches the server's ADMIN_PRIVILEGE rule. -->
+					<script sec:authorize="hasAuthority('ADMIN_PRIVILEGE')" th:inline="none">window.canClosePeriod = true;</script>
 				</div>
 				<div class="fin-toolbar">
 					<div class="fin-field" id="finAsOfWrap">

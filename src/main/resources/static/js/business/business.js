@@ -2104,7 +2104,8 @@ var FIN_REPORTS = {
 	pnl:          { fields:['from','to'],     run:finRunPnl },
 	balanceSheet: { fields:['asOf'],          run:finRunBalanceSheet },
 	taxRegister:  { fields:['from','to'],     run:finRunTaxRegister },
-	auditLog:     { fields:['action','limit'], run:finRunAuditLog }
+	auditLog:     { fields:['action','limit'], run:finRunAuditLog },
+	periodClose:  { fields:[],                run:finRunPeriodClose }
 };
 var finCurrent = 'trialBalance';
 
@@ -2239,9 +2240,42 @@ function finRunAuditLog(){
 	}, 'json').fail(finFail);
 }
 
+// Period close: read the org's lock state, and (owner/admin) close/reopen. The finance-service is the single
+// source of truth; every dated business op (sale/purchase/payment/edit/void) is rejected in a locked period.
+function finRunPeriodClose(){
+	$.get(serverContext+'gl/periodLock', function(resp){
+		var d=(typeof resp==='string')?JSON.parse(resp):resp;
+		var locked=(d && d.lockedThrough) ? d.lockedThrough : null;
+		var h='<div style="max-width:560px">';
+		h+='<p style="color:#555">Closing the books through a date locks it: sales, purchases, payments, edits and voids dated on or before it are rejected until you reopen. Transactions dated after the lock are unaffected.</p>';
+		h+='<div style="padding:12px;border-radius:6px;margin:10px 0;font-weight:700;background:'+(locked?'#fdecea':'#eafaf1')+';color:'+(locked?'#c0392b':'#0f6e56')+'">'
+			+(locked?('Books are CLOSED through '+escHtml(locked)):'Books are OPEN — no period lock.')+'</div>';
+		if(window.canClosePeriod){
+			h+='<div class="form-group"><label>Lock the books through</label>'
+				+'<input type="date" id="finLockDate" class="form-control" style="max-width:220px" value="'+escHtml(locked||finToday())+'"></div>';
+			h+='<button class="btn btn-danger" onclick="finSetPeriodLock()">Close period</button> ';
+			if(locked) h+='<button class="btn btn-default" onclick="finReopenPeriod()">Reopen (clear lock)</button>';
+		}else{
+			h+='<div style="color:#777">Only an owner/admin can change the period lock.</div>';
+		}
+		h+='</div>';
+		finSet(h);
+	}, 'json').fail(finFail);
+}
+function finSetPeriodLock(){
+	var d=$('#finLockDate').val(); if(!d){ alert('Pick a date to lock through.'); return; }
+	if(!confirm('Close the books through '+d+'? Back-dated sales, purchases, payments, edits and voids will be rejected until you reopen.')) return;
+	$.post(serverContext+'gl/periodLock', {lockedThrough:d}, function(){ finRunPeriodClose(); }).fail(function(){ alert('Could not update the period lock. You may not have permission, or finance-service is down.'); });
+}
+function finReopenPeriod(){
+	if(!confirm('Reopen the books (clear the period lock)? Back-dated changes will be allowed again.')) return;
+	$.post(serverContext+'gl/periodLock', {}, function(){ finRunPeriodClose(); }).fail(function(){ alert('Could not reopen the period.'); });
+}
+
 // Back-compat shims — any old caller (or the sidebar menu) routes into the page view.
 function openTrialBalance(){ showFinance('trialBalance'); }
 function openPnl(){ showFinance('pnl'); }
 function openBalanceSheet(){ showFinance('balanceSheet'); }
 function openTaxRegister(){ showFinance('taxRegister'); }
 function openAuditLog(){ showFinance('auditLog'); }
+function openPeriodClose(){ showFinance('periodClose'); }

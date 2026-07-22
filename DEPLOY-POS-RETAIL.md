@@ -51,6 +51,12 @@ Only edge components publish host ports; the rest are reachable only inside the 
 > GL TAX account — output tax (sales) − input tax (purchases) = net payable. Per-org configurable
 > on the Tax Settings screen; no extra service.
 
+> **Period close / lock** (dashboard → Finance → *Period Close*, owner/admin) freezes the books
+> through a date: back-dated sales, purchases, payments, edits and voids are rejected until reopened.
+> **finance-service is the single source of truth** (`period_lock`, Flyway **V4**); business-service
+> reads it (short cache) to gate its ops and the GL refuses to post into a locked date. No extra
+> service; the lock read tolerates finance being briefly down (fails open, GL is the backstop).
+
 **Approx. RAM for the POS subset:** mysql 1.5 GB + monolith 1 GB + 9 JVMs × 0.75 GB +
 notification 0.5 GB ≈ **~10 GB**. Size the VPS accordingly (≥ 8 GB, 12 GB comfortable).
 The **full stack** (all 19 services) needs ~16 GB — see §9.

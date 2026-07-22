@@ -68,7 +68,12 @@ dispense-returns, e-commerce RMA, and education fee-reversals each rediscover th
   (`GlService.taxRegister`, dashboard Tax Register); per-org configurable (Sales tax toggle). **Phase B TODO** =
   input tax (purchase-tax capture + `Dr TAX` posting) behind a *Purchase tax* toggle → net payable. Still open:
   multi-rate. Design `finance-tax-register-design.md`.
-- **Period close / lock (MED):** GL entries are editable-by-absence-of-lock; add a period close that freezes a range.
+- **Period close / lock (MED):** ✅ **DONE** — **finance-service is the single source of truth** (`period_lock`, one
+  row/org, Flyway **V4**; `PeriodLockService`). `GlService.postJournal` refuses to post into a locked date (hard
+  backstop). business-service reads the lock (`PeriodLockGuard`, short per-org TTL cache to stay off the hot path) and
+  gates all 10 mutating ops: new ops (sale/purchase/receipt/vendor-pay/returns) check **today**, in-place ops
+  (edit/void) check the **original document date**. Owner/admin close/reopen from the Finance panel (Period Close tab)
+  → monolith proxy (`ADMIN_PRIVILEGE`) → finance. Design `finance-period-close-design.md`; Cypress `period-close.cy.js`.
 - **Voucher/receipt numbering race (LOW):** `count(...)+1` (RCPT-/PV-) can collide under concurrency → per-org sequence.
 - **Quantities `Float` (LOW):** stock/qty are `Float`; money is `BigDecimal(19,2)` ✅ — migrate qty to `BigDecimal` for exactness.
 - **Multi-currency (LOW / future):** single implied currency; add currency + FX when needed.
@@ -101,19 +106,21 @@ for free. Fixing them later means retrofitting every module + reconciling histor
    outbox `event_key` + finance `gl_processed_event` (V3). Cypress `idempotency.cy.js`.
 6. **Immutable audit log** — ✅ **DONE**: standalone **audit-service** + business-service `audit_outbox` producer
    (`AuditService`), all 10 money/stock ops emit, dashboard Audit Log view. Cypress `audit-log.cy.js`.
-7. Then polish: tax-filing register, period close, store-credit/loyalty, GRN/PO, barcode-first UX, cycle-count.
+7. Tax-filing register (Phase A output + Phase B input) — ✅ **DONE**. Period close / lock — ✅ **DONE** (finance
+   single-source; see §2). Then polish: multi-rate tax, store-credit/loyalty, GRN/PO, barcode-first UX, cycle-count.
 
 > Each remains a slice: Document → Design → Implement (UI→API→DB) → mvn → headed Cypress → next.
 
 ## 5. Remaining TODOs (resume here)
-Core backlog #1–#6 is complete. Open items, roughly by leverage:
+Core backlog #1–#6, tax-filing register (Phase A+B) and **period close** are complete. Open items, roughly by leverage:
 
-- [ ] **Tax register — Phase B (input tax)** — resume point. Per `finance-tax-register-design.md` §7 Phase B:
-  `TaxSetting.inputTaxEnabled` + the two Tax-Settings checkboxes (Sales tax / Purchase tax), `Purchase.taxRate/taxAmount`
-  (business Flyway **V20**), purchase-form tax field, `PURCHASE` event `taxTotal`, finance `postPurchase`/`postPurchaseReturn`
-  `Dr/Cr TAX` split, extend `tax-register.cy.js`. (Phase A = output tax = ✅ done.)
+- [x] **Tax register — Phase A (output) + Phase B (input tax)** — ✅ DONE. Two independent Tax-Settings checkboxes
+  (Sales tax `enabled` / Purchase tax `inputTaxEnabled`), `Purchase.taxRate/taxAmount`, purchase-form tax field,
+  `PURCHASE`/`PURCHASE_RETURN` event `taxTotal`, finance `postPurchase`/`postPurchaseReturn` `Dr/Cr TAX` split,
+  `tax-register.cy.js` (output + input purchase/void/edit). Design `finance-tax-register-design.md`.
+- [x] **Period close / lock** — ✅ DONE (finance single-source; see §2). Design `finance-period-close-design.md`;
+  Cypress `period-close.cy.js`.
 - [ ] **Multi-rate tax** — more than one rate per invoice + per-rate breakdown on the register.
-- [ ] **Period close / lock** — freeze a date range so posted GL entries can't change (mentioned in §2).
 - [ ] **`VOID_INVOICE` privilege** — needs a microservice method-security mechanism (business-service has none today);
   its own cross-cutting slice. Void currently inherits login + tenant scoping.
 - [ ] **Propagate the common-security `runAs` fix** — only business/audit-service were rebuilt against it; a

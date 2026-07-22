@@ -25,6 +25,7 @@ public class GlController {
 
     private final GlService glService;
     private final PostingService postingService;
+    private final com.myplus.finance.service.PeriodLockService periodLockService;
 
     /** F3b: auto-post a SALE/PURCHASE event to the GL (posting rules applied here). Called by business-service. */
     @PostMapping("/post-event")
@@ -90,5 +91,24 @@ public class GlController {
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return glService.taxRegister(from, to);
+    }
+
+    /** Period close: the org's lock date ({@code lockedThrough} = null when open). */
+    @GetMapping("/period-lock")
+    public Map<String, Object> getPeriodLock() {
+        LocalDate d = periodLockService.lockedThrough();
+        Map<String, Object> m = new java.util.HashMap<>();
+        m.put("lockedThrough", d != null ? d.toString() : null);
+        return m;
+    }
+
+    /** Close the books through a date (or reopen by omitting the date). Owner-gated at the edge (monolith). */
+    @PostMapping("/period-lock")
+    public Map<String, Object> setPeriodLock(
+            @RequestParam(value = "lockedThrough", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate lockedThrough) {
+        LocalDate saved = periodLockService.setLock(lockedThrough);
+        Map<String, Object> m = new java.util.HashMap<>();
+        m.put("lockedThrough", saved != null ? saved.toString() : null);
+        return m;
     }
 }

@@ -210,6 +210,9 @@ public class PurchaseController {
 					return new GenericResponse("SUCCESS", "Purchase updated successfully.");
 				}
 			}
+		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
+			LOGGER.warn("addPurchase rejected (period closed): {}", pce.getMessage());
+			return new GenericResponse("FAILED", pce.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
@@ -230,6 +233,9 @@ public class PurchaseController {
 				return new GenericResponse("FAILED", "Failed to update purchase. Please try again.");
 			}
 			return new GenericResponse("SUCCESS", "Purchase updated successfully.");
+		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
+			LOGGER.warn("updatePurchase rejected (period closed): {}", pce.getMessage());
+			return new GenericResponse("FAILED", pce.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > updatePurchase "+e.getCause(), e);
 			String msg = e.getMessage();

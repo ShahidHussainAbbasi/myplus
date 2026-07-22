@@ -65,6 +65,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     TaxService taxService;   // Phase B: input-tax policy (Purchase tax toggle + rate)
 
+    @Autowired
+    PeriodLockGuard periodLockGuard;   // period close: reject bills/edits/voids dated in a locked period
+
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
@@ -216,6 +219,7 @@ public class PurchaseService implements IPurchaseService{
 	public Purchase addPurchase(PurchaseDTO dto) throws Exception {
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		dto.setUserId(user.getUserId());
+		periodLockGuard.assertOpen(java.time.LocalDate.now());   // period close: a new bill is a today-dated entry
 
 		// Audit #5: dedup a double-click/retry of this purchase (same key → the SAME purchase, no second stock-in or payable).
 		final Long org = user.getOrganizationId();
@@ -321,6 +325,8 @@ public class PurchaseService implements IPurchaseService{
 				.orElseThrow(() -> new RuntimeException("Purchase not found: " + dto.getPurchaseId()));
 		if ("VOID".equals(existing.getStatus()))   // Audit #3: a voided bill is read-only
 			throw new RuntimeException("This bill is voided and cannot be edited.");
+		// Period close: an edit rewrites the ORIGINAL bill in place, so its period must still be open.
+		periodLockGuard.assertOpen(existing.getDated() != null ? existing.getDated().toLocalDate() : java.time.LocalDate.now());
 
 		float oldQty = existing.getQuantity() != null ? existing.getQuantity() : 0f;
 		Long oldProductId = existing.getProductId();
@@ -452,6 +458,8 @@ public class PurchaseService implements IPurchaseService{
 		float rq = returnQty != null ? returnQty : 0f;
 		if (rq <= 0f) throw new RuntimeException("Return quantity must be greater than 0.");
 		if (rq > soldQty) throw new RuntimeException("Cannot return more than was purchased (" + soldQty + ").");
+		// Period close: a purchase return posts a new debit note dated today, so the CURRENT period must be open.
+		periodLockGuard.assertOpen(java.time.LocalDate.now());
 		boolean partial = rq < soldQty;
 
 		// Phase B: reverse on the GROSS bill (goods + input tax). Both are returned proportionally on a partial return.
@@ -529,6 +537,8 @@ public class PurchaseService implements IPurchaseService{
 				.orElseThrow(() -> new RuntimeException("Purchase not found: " + purchaseId));
 		if ("VOID".equals(p.getStatus()))
 			throw new RuntimeException("This bill is already voided.");
+		// Period close: a void reverses the ORIGINAL bill in place, so its period must still be open.
+		periodLockGuard.assertOpen(p.getDated() != null ? p.getDated().toLocalDate() : java.time.LocalDate.now());
 		float qty = p.getQuantity() != null ? p.getQuantity() : 0f;
 		if (qty <= 0f)
 			throw new RuntimeException("Nothing to void on this bill.");

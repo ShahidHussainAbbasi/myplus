@@ -30,6 +30,7 @@ public class GlService {
     private final AccountRepository accountRepository;
     private final JournalEntryRepository journalEntryRepository;
     private final JournalLineRepository journalLineRepository;
+    private final PeriodLockService periodLockService;   // period close: reject posting into a closed period
 
     /** The seeded default chart of accounts: {code, name, type, normalSide}. */
     private static final Object[][] DEFAULT_COA = {
@@ -103,6 +104,7 @@ public class GlService {
     @Transactional
     public Long postJournal(JournalPostRequest req) {
         Long org = CurrentUser.organizationId();
+        periodLockService.assertOpen(req.getEntryDate() != null ? req.getEntryDate() : LocalDate.now());   // period close guard
         validate(req.getLines());   // pure rule first — nothing persists on an invalid journal
         JournalEntry e = JournalEntry.builder()
                 .entryDate(req.getEntryDate() != null ? req.getEntryDate() : LocalDate.now())

@@ -86,6 +86,27 @@ public class GlController {
         } catch (Exception e) { LOGGER.error("gl balanceSheet proxy error", e); return "{\"status\":\"ERROR\"}"; }
     }
 
+    /** Period close: the org's lock date ({@code lockedThrough} = null when open). Any signed-in user may read it. */
+    @GetMapping(value = "/gl/periodLock", produces = "application/json")
+    @ResponseBody
+    public String getPeriodLock() {
+        try { return finance.get("/gl/period-lock"); }
+        catch (Exception e) { LOGGER.error("gl periodLock read proxy error", e); return "{\"status\":\"ERROR\"}"; }
+    }
+
+    /** Close the books through a date, or reopen (blank date). Owner/admin only — a locked period rejects back-dated edits. */
+    @PostMapping(value = "/gl/periodLock", produces = "application/json")
+    @ResponseBody
+    @org.springframework.security.access.prepost.PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    public String setPeriodLock(final HttpServletRequest request) {
+        try {
+            String lockedThrough = request.getParameter("lockedThrough");
+            String path = (lockedThrough != null && !lockedThrough.isEmpty())
+                    ? "/gl/period-lock?lockedThrough=" + lockedThrough : "/gl/period-lock";
+            return finance.postJson(path, java.util.Map.of());
+        } catch (Exception e) { LOGGER.error("gl periodLock set proxy error", e); return "{\"status\":\"ERROR\"}"; }
+    }
+
     /** Tax-filing register over a period (output vs input tax + net payable). */
     @GetMapping(value = "/taxRegister", produces = "application/json")
     @ResponseBody

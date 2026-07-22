@@ -30,4 +30,8 @@ public interface FinanceClient {
     /** F3b: post a SALE/PURCHASE event to the General Ledger (finance-service applies the posting rules). Best-effort. */
     @PostExchange("/gl/post-event")
     void postEvent(@RequestBody com.myplus.commerce.contracts.dto.PostingEventRequest request);
+
+    /** Period close: the org's lock date (or null when open) — read by business-service to gate its ops. */
+    @GetExchange("/gl/period-lock")
+    com.myplus.commerce.contracts.dto.PeriodLockView getPeriodLock();
 }

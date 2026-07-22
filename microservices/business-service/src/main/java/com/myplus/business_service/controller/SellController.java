@@ -134,6 +134,9 @@ public class SellController {
 	@org.springframework.beans.factory.annotation.Autowired
 	com.myplus.business_service.service.GlOutboxService glOutboxService;   // #4: durable GL posting via the outbox
 
+	@Autowired
+	com.myplus.business_service.service.PeriodLockGuard periodLockGuard;   // period close: reject changes in a locked period
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -520,6 +523,10 @@ public class SellController {
 					invoiceNo != null ? "Sale recorded successfully. Invoice " + invoiceNo : "Sale recorded successfully.",
 					invoiceNo);
 
+		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
+			// Period close: the books are locked through the sale's date — surface the reason (nothing written yet).
+			LOGGER.warn("addSell rejected (period closed): {}", pce.getMessage());
+			return new GenericResponse("FAILED", pce.getMessage());
 		} catch (com.myplus.business_service.service.InsufficientStockException stock) {
 			// Business rejection (FEFO reserve refused) — nothing was written yet, so surface the reason to the
 			// cashier verbatim instead of the generic "unexpected error". No rollback drama, just a clean ERROR.
@@ -587,6 +594,8 @@ public class SellController {
 				return new GenericResponse("NOT_FOUND", "Invoice not found");   // anti-IDOR (org + store)
 			if ("VOID".equals(ch.getStatus()))   // Audit #3: a voided invoice is read-only
 				return new GenericResponse("FAILED", "This invoice is voided and cannot be edited.");
+			// Period close: an edit rewrites the ORIGINAL invoice in place, so it must fall in an open period.
+			periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : java.time.LocalDate.now());
 
 			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
 			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
@@ -664,6 +673,10 @@ public class SellController {
 
 			auditService.record("SALE_EDIT", "INVOICE", ch.getInvoiceNo(), nzbd(ch.getGrandTotal()), null);   // #6
 			return new GenericResponse("SUCCESS", "Sale updated. Invoice " + ch.getInvoiceNo(), ch.getInvoiceNo());
+		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
+			// Period close: nothing was written before the guard — surface the reason without the generic rollback message.
+			LOGGER.warn("updateSell rejected (period closed): {}", pce.getMessage());
+			return new GenericResponse("FAILED", pce.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > updateSell " + e.getMessage(), e);
 			// Propagate past @Transactional so the whole edit rolls back (all-or-nothing).
@@ -727,6 +740,9 @@ public class SellController {
 				return new GenericResponse("FAILED", "Return quantity must be greater than 0.");
 			if(retQty > soldQty)
 				return new GenericResponse("FAILED", "Cannot return more than the sold quantity (" + soldQty + ").");
+
+			// Period close: a return posts a new credit dated today, so the CURRENT period must be open.
+			periodLockGuard.assertOpen(java.time.LocalDate.now());
 
 			// G2 (slice 34): a saga sell decremented inventory-service (StockEntry/StockLevel), not local Stock.
 			// Route its return back through inventory (inverse saga) so on-hand is restored, not just local Stock.
@@ -854,6 +870,9 @@ public class SellController {
 			auditService.record("SALE_RETURN", "INVOICE", retInvoiceNo, retSub.add(retTax), "qty=" + retQty);   // #6
 			return new GenericResponse("SUCCESS", "Sale returned successfully.");
 
+		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
+			LOGGER.warn("saleReturn rejected (period closed): {}", pce.getMessage());
+			return new GenericResponse("FAILED", pce.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > saleReturn " + e.getCause(), e);
 			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");
@@ -889,6 +908,8 @@ public class SellController {
 				return new GenericResponse("FAILED", "This invoice is already voided.");
 			if (saleReturnRepo.countByInvoiceScoped(ch.getInvoiceNo(), orgId(), userId()) > 0)
 				return new GenericResponse("FAILED", "A return was already recorded on this invoice; void is not allowed. Reconcile manually.");
+			// Period close: a void zeroes the ORIGINAL invoice in place, so its period must still be open.
+			periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : java.time.LocalDate.now());
 
 			List<Sell> lines = sellService.findByInvoiceScoped(chId, orgId(), userId());
 			String reservationId = ch.getReservationId();
@@ -950,6 +971,9 @@ public class SellController {
 
 			auditService.record("VOID_SALE", "INVOICE", ch.getInvoiceNo(), retSub.add(retTax), reason);   // #6
 			return new GenericResponse("SUCCESS", "Invoice voided.");
+		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
+			LOGGER.warn("voidSell rejected (period closed): {}", pce.getMessage());
+			return new GenericResponse("FAILED", pce.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > voidSell " + e.getCause(), e);
 			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");

@@ -45,9 +45,13 @@ public class SagaSellService {
     @org.springframework.beans.factory.annotation.Autowired
     private AuditService auditService;   // #6: append-only audit trail
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private PeriodLockGuard periodLockGuard;   // period close: reject a sale dated in a closed period
+
     /** @return the invoice number of the recorded sale. */
     public String addSell(CustomerHistoryDTO dto) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
+        periodLockGuard.assertOpen(java.time.LocalDate.now());   // period close: a new sale is a today-dated entry
 
         // SF-3: idempotent submission — one key per checkout attempt (client-supplied; fall back to a generated one
         // for legacy callers). If an invoice already exists for (org, key), this is a double-click / retry: return

@@ -217,6 +217,9 @@ public class VenderController {
 			return new GenericResponse("SUCCESS", "Payment recorded.", result);
 		} catch (NumberFormatException nfe) {
 			return new GenericResponse("FAILED", "Invalid amount.");
+		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
+			LOGGER.warn("payVendor rejected (period closed): {}", pce.getMessage());
+			return new GenericResponse("FAILED", pce.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > payVendor "+e.getCause(), e);
 			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");

@@ -44,6 +44,9 @@ public class CustomerService implements ICustomerService{
 	IdempotencyService idempotencyService;   // Audit #5: shared money-op dedup
 
 	@Autowired
+	PeriodLockGuard periodLockGuard;   // period close: reject receipts dated in a locked period
+
+	@Autowired
 	AuditService auditService;   // Audit #6: append-only audit trail (via audit-service outbox)
 
 	@Autowired
@@ -267,6 +270,8 @@ return customerRepo.exists(example);
 			java.time.LocalDate paidOn, String reference, String idempotencyKey) {
 		if (customerId == null) throw new RuntimeException("customerId is required");
 		if (amount == null || amount.signum() <= 0) throw new RuntimeException("A positive amount is required");
+		// Period close: a receipt is dated on paidOn (or today) — that period must be open.
+		periodLockGuard.assertOpen(paidOn != null ? paidOn : java.time.LocalDate.now());
 
 		Customer customer = this.findById(customerId)
 				.orElseThrow(() -> new RuntimeException("Customer not found: " + customerId));

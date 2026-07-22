@@ -37,6 +37,9 @@ public class VenderService implements IVenderService {
     private IdempotencyService idempotencyService;   // Audit #5: shared money-op dedup
 
     @Autowired
+    private PeriodLockGuard periodLockGuard;   // period close: reject vendor payments dated in a locked period
+
+    @Autowired
     private AuditService auditService;   // Audit #6: append-only audit trail (via audit-service outbox)
 
     public static final String TOKEN_INVALID = "invalidToken";
@@ -225,6 +228,8 @@ public class VenderService implements IVenderService {
 			java.time.LocalDate paidOn, String reference, String idempotencyKey) {
 		if (venderId == null) throw new RuntimeException("venderId is required");
 		if (amount == null || amount.signum() <= 0) throw new RuntimeException("A positive amount is required");
+		// Period close: a vendor payment is dated on paidOn (or today) — that period must be open.
+		periodLockGuard.assertOpen(paidOn != null ? paidOn : java.time.LocalDate.now());
 		Vender vendor = venderRepo.findById(venderId)
 				.orElseThrow(() -> new RuntimeException("Vendor not found: " + venderId));
 
