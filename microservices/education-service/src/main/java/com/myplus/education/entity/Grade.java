@@ -47,7 +47,7 @@ public class Grade {
     @Column(name = "school_id")
     private Long schoolId;
 
-    private Float fee;
+    private Integer fee;   // whole-currency-unit fee (the whole fee system is integer: discount, ledger, vf)
 
     private Long room;
 

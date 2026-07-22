@@ -47,7 +47,7 @@ public class EducationDTOs {
         private LocalTime timeTo;
         private String status;
         private Long schoolId;
-        private Float fee;
+        private Integer fee;   // whole-currency-unit (matches Grade.fee)
         private Long room;
         private LocalDateTime dated;
         private LocalDateTime updated;
@@ -96,7 +96,7 @@ public class EducationDTOs {
         private Long discountId;
         private Integer nd;
         private String di;
-        private Float fee;
+        private Integer fee;   // whole-currency-unit (matches Student.fee)
         private Integer dueDay;
         private Integer vf;
         private String pob;

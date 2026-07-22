@@ -24,7 +24,7 @@ public class AgricultureBaseDTO {
     @Setter @Getter
     private String cropType = null;
     @Setter @Getter
-    private Float amount = null;
+    private java.math.BigDecimal amount = null;   // money: BigDecimal (matches the entity; keeps ModelMapper type-safe)
     @Setter @Getter
     private String datedStr = null;
     @Setter @Getter

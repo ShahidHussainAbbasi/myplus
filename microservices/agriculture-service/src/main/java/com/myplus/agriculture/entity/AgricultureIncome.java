@@ -74,9 +74,9 @@ public class AgricultureIncome implements Serializable {
     @Setter @Getter
     private String incomeName;
 
-    @Column(name = "amount")
+    @Column(name = "amount", precision = 19, scale = 2)
     @Setter @Getter
-    private Float amount;
+    private java.math.BigDecimal amount;   // money: BigDecimal, not Float (float can't represent currency exactly)
 
     @Column(name = "description")
     @Setter @Getter

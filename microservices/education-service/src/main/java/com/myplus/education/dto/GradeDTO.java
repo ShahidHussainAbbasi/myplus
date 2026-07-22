@@ -16,7 +16,7 @@ public class GradeDTO {
     private String timeFromStr;
     private String timeToStr;
     private String status;
-    private Float fee;
+    private Integer fee;   // whole-currency-unit (matches Grade.fee)
     private Long room;
     private String datedStr;
     private String updatedStr;

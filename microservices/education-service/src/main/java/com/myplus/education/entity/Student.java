@@ -84,7 +84,7 @@ public class Student {
     @Column(name = "discount_in")
     private String di;
 
-    private Float fee;
+    private Integer fee;   // whole-currency-unit fee override (see Grade.fee)
 
     private Integer dueDay;
 

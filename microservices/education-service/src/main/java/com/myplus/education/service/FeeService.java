@@ -51,12 +51,13 @@ public class FeeService {
                 .orElseGet(() -> FeeSetting.builder().organizationId(orgId).userId(userId).build());
     }
 
-    /** Monthly due for a student = base fee (student override else grade fee) + vehicle fare − discount. */
+    /** Monthly due for a student = base fee (student override else grade fee) + vehicle fare − discount.
+     *  All whole-currency-unit integers (see Grade.fee); a percentage discount rounds to the nearest unit. */
     public int monthlyDue(Student s) {
-        double base = s.getFee() != null ? s.getFee() : gradeFee(s.getGradeId());
-        double vehicle = s.getVf() != null ? s.getVf() : 0;
-        double discount = discountAmount(s.getDiscountId(), base);
-        return (int) Math.round(Math.max(base + vehicle - discount, 0));
+        int base = s.getFee() != null ? s.getFee() : gradeFee(s.getGradeId());
+        int vehicle = s.getVf() != null ? s.getVf() : 0;
+        int discount = discountAmount(s.getDiscountId(), base);
+        return Math.max(base + vehicle - discount, 0);
     }
 
     /** Aged voucher for one student (faithful to legacy: charge dueMonths when &gt; 1, plus carried balance). */
@@ -131,17 +132,18 @@ public class FeeService {
     }
 
     // ---- helpers ----
-    private double gradeFee(Long gradeId) {
+    private int gradeFee(Long gradeId) {
         if (gradeId == null) return 0;
         Grade g = gradeRepository.findById(gradeId).orElse(null);
         return g != null && g.getFee() != null ? g.getFee() : 0;
     }
 
-    private double discountAmount(Long discountId, double base) {
+    private int discountAmount(Long discountId, int base) {
         if (discountId == null) return 0;
         Discount d = discountRepository.findById(discountId).orElse(null);
         if (d == null || d.getAmount() == null) return 0;
-        return "%".equals(d.getDi()) ? base * d.getAmount() / 100.0 : d.getAmount();
+        // "%" = percentage of base, rounded to the nearest whole currency unit; otherwise a flat amount.
+        return "%".equals(d.getDi()) ? (int) Math.round((double) base * d.getAmount() / 100.0) : d.getAmount();
     }
 
     public String gradeName(Long gradeId) {
