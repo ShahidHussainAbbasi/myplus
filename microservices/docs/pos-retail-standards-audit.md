@@ -51,8 +51,8 @@ dispense-returns, e-commerce RMA, and education fee-reversals each rediscover th
   `@Scheduled` retry relay via `runAs`). The last hop is behind a `GlEventPublisher` seam (`HttpGlEventPublisher`
   today, `gl.publisher` flag) so a broker (Redis Streams — already in the stack — / Rabbit / Kafka) is a drop-in
   later, not a rewrite. Producers (sale/purchase/returns/edits) now enqueue instead of fire-and-forget → no silent
-  drops. **Remaining:**
-  finance's intra-service `recordPayment`→`postPayment` hook (lower risk, same JVM) could get a flag/retry later.
+  drops. finance's intra-service `recordPayment`→`postPayment` hook is now **atomic** (same tx, same DB — a GL-post
+  failure rolls the payment back; no more best-effort swallow), so there is no remaining posting-reliability gap here.
 - **Idempotency (MED):** ✅ **DONE** — shared `IdempotencyService` + `idempotency_record` (V18) guards
   `receivePayment` / `payVendor` / `addPurchase` (client key + submit-lock; replay returns the same result, no double
   charge). GL `postEvent` deduped via an outbox `event_key` + finance `gl_processed_event` unique claim (closes the #4
@@ -126,10 +126,17 @@ Core backlog #1–#6, tax-filing register (Phase A+B) and **period close** are c
   `voidSell`/`voidPurchase` off the coarse `ADMIN_PRIVILEGE` onto it (no regression — admins/owner/super keep it, a
   cashier does not). Void buttons UI-gated on `window.canVoidInvoice`. Design `void-invoice-privilege-design.md`;
   Cypress `void-invoice-privilege.cy.js`. (Per-user delegation lands with the future owner user-management form.)
-- [ ] **Propagate the common-security `runAs` fix** — only business/audit-service were rebuilt against it; a
-  full-reactor `mvn clean install` (all services stopped) before any real deploy keeps every relay consistent.
-- [ ] **finance intra-service payment-hook retry** — `recordPayment`→`postPayment` is still best-effort (same-JVM, low risk).
-- [ ] **Idempotency stale-PENDING reaper** — reap an idempotency_record left PENDING by a crash between claim-commit and work-commit.
+- [ ] **Propagate the common-security `runAs` fix** (build/ops, not code) — only business/audit-service were rebuilt
+  against it; a full-reactor `mvn clean install` (all services stopped) before any real deploy keeps every relay
+  consistent. No source change — a rebuild step in the deploy runbook.
+- [x] **finance intra-service payment→GL post** — ✅ DONE, made **atomic** (not a retry). finance owns both the
+  payment ledger and the GL in one DB, so `PaymentService.record` now posts the journal in its own transaction (the
+  best-effort try/catch that could drift the books — a payment with no journal — is removed). A local tx is the
+  correct atomicity tool intra-service; an outbox is only for cross-service hops. `PaymentServiceReliabilityTest`.
+- [x] **Idempotency stale-PENDING reaper** — ✅ OBSOLETE (no work needed). The **final** `IdempotencyService` design
+  has no PENDING/claim state: `record(org,op,key,ref)` inserts the row **with** its `result_ref` atomically in the
+  caller's transaction, so a row exists only once the work has committed. A crash mid-work rolls the (would-be) row
+  back — there is never a PENDING row to reap. (The reaper was a leftover TODO from the abandoned first-cut claim design.)
 - [ ] Polish backlog: store-credit/loyalty, GRN/PO approval, barcode-first sell UX, cycle-count/variance.
 
 > Cadence per item: Document → Design → Implement (UI→API→DB) → mvn → headed Cypress → next.

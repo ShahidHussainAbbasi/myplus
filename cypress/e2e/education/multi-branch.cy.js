@@ -192,4 +192,31 @@ describe('Multi-branch: schools, grants and role×branch visibility', () => {
       })
     })
   })
+
+  // T9h — the within-tenant leak fix: a fee record is FOR a student, so it inherits that student's branch.
+  // A teacher must see fee records only for students in their branch, not every branch's fees.
+  it('T9h: a teacher sees fee records only for their branch\'s students', () => {
+    const en = `ENFEE${uniq()}`
+    cy.loginAsEduOwner()
+    // A branch-1 student with a known enrollNo, and a fee record against it.
+    cy.request({
+      method: 'POST', url: '/addStudent', form: true,
+      body: { name: `CY_FEE_${uniq()}`, enrollNo: en, status: 'ACTIVE', schoolId: F.branch1 },
+      failOnStatusCode: false,
+    }).then((r) => expect(JSON.stringify(r.body)).to.match(/SUCCESS/))
+    cy.request({
+      method: 'POST', url: '/addFc', form: true,
+      body: { en, da: 1500, f: 1500, fp: 0, dd: 5 }, failOnStatusCode: false,
+    }).then((r) => expect(JSON.stringify(r.body), `addFc: ${JSON.stringify(r.body)}`).to.match(/SUCCESS/))
+
+    // Teacher A (Branch 1) sees the fee; Teacher B (Branch 2) does not.
+    cy.loginAsTeacherA()
+    cy.request('/getUserFc').then((r) => {
+      expect(rows(r.body).map((f) => f.en), 'branch-1 teacher sees the branch-1 fee').to.include(en)
+    })
+    cy.loginAsTeacherB()
+    cy.request('/getUserFc').then((r) => {
+      expect(rows(r.body).map((f) => f.en), 'branch-2 teacher must NOT see the branch-1 fee').to.not.include(en)
+    })
+  })
 })

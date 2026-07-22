@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.education.dto.FeeCollectionDTO;
 import com.myplus.education.entity.FeeCollection;
+import com.myplus.education.entity.Student;
 import com.myplus.education.repository.FeeCollectionRepository;
+import com.myplus.education.repository.StudentRepository;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
@@ -32,6 +34,8 @@ public class FeeCollectionController {
 
     @Autowired
     private FeeCollectionRepository feeCollectionRepository;
+    @Autowired
+    private StudentRepository studentRepository;   // P4: resolve visible students' enrollNos for branch scoping
     @Autowired
     private RequestUtil requestUtil;
 
@@ -71,11 +75,26 @@ public class FeeCollectionController {
         return dto;
     }
 
+    /**
+     * P4 within-tenant leak fix: a fee record is for a student (by enrollNo), so a branch-constrained caller
+     * (teacher with grants) sees only fees for students in their accessible branches. Owner/super or no grants
+     * => org-wide (unchanged). Rows for another branch's student are hidden; orphaned null-enroll rows stay.
+     */
+    private List<FeeCollection> branchVisible(List<FeeCollection> rows) {
+        if (requestUtil.isOwnerSuper()) return rows;
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return rows;
+        java.util.Set<String> visibleEn = studentRepository.findScopedBySchools(orgId(), schools).stream()
+                .map(Student::getEnrollNo).filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        return rows.stream().filter(f -> f.getEn() == null || visibleEn.contains(f.getEn()))
+                .collect(Collectors.toList());
+    }
+
     @RequestMapping(value = "/getUserFc", method = RequestMethod.GET)
     @ResponseBody
     public GenericResponse getUserFc(final HttpServletRequest request) {
         try {
-            List<FeeCollection> objs = feeCollectionRepository.findScoped(orgId(), userId());
+            List<FeeCollection> objs = branchVisible(feeCollectionRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -90,8 +109,8 @@ public class FeeCollectionController {
     @ResponseBody
     public GenericResponse getAllFc(final HttpServletRequest request) {
         try {
-            // Tenant-scoped: "all" means all fee records in the active organization, not every tenant's.
-            List<FeeCollection> all = feeCollectionRepository.findScoped(orgId(), userId());
+            // Tenant- AND branch-scoped: a branch-constrained caller sees only their branches' fee records.
+            List<FeeCollection> all = branchVisible(feeCollectionRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }

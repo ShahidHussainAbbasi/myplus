@@ -87,11 +87,28 @@ public class AttendanceController {
         return dto;
     }
 
+    /**
+     * P4 within-tenant leak fix: attendance belongs to the student it is for (by enrollNo), so a
+     * branch-constrained caller (a teacher with branch grants) must see attendance only for students in their
+     * accessible branches. Owner/super, or a caller with no grants (single-branch / legacy), see org-wide —
+     * unchanged. Rows whose enrollNo maps to a student in another branch are hidden; orphaned null-enroll rows
+     * stay visible to their tenant (the store_id-NULL fallback convention).
+     */
+    private List<Attendance> branchVisible(List<Attendance> rows) {
+        if (requestUtil.isOwnerSuper()) return rows;
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return rows;
+        java.util.Set<String> visibleEn = studentRepository.findScopedBySchools(orgId(), schools).stream()
+                .map(Student::getEnrollNo).filter(Objects::nonNull).collect(Collectors.toSet());
+        return rows.stream().filter(a -> a.getEn() == null || visibleEn.contains(a.getEn()))
+                .collect(Collectors.toList());
+    }
+
     @RequestMapping(value = "/getUserA", method = RequestMethod.GET)
     @ResponseBody
     public GenericResponse getUserA(final HttpServletRequest request) {
         try {
-            List<Attendance> objs = attendanceRepository.findScoped(orgId(), userId());
+            List<Attendance> objs = branchVisible(attendanceRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -106,8 +123,8 @@ public class AttendanceController {
     @ResponseBody
     public GenericResponse getAllA(final HttpServletRequest request) {
         try {
-            // Tenant-scoped: "all" means all attendance in the active organization, not every tenant's.
-            List<Attendance> all = attendanceRepository.findScoped(orgId(), userId());
+            // Tenant- AND branch-scoped: a branch-constrained caller sees only their branches' attendance.
+            List<Attendance> all = branchVisible(attendanceRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }

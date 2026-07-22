@@ -30,7 +30,6 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PostingService postingService;   // F3b: auto-post the receipt/disbursement to the GL
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PaymentService.class);
 
     @Transactional
     public PaymentDTO record(RecordPaymentRequest req) {
@@ -66,9 +65,14 @@ public class PaymentService {
             }
         }
         Payment saved = paymentRepository.save(p);
-        // F3b: auto-post the GL journal (best-effort — a GL hiccup must never fail recording the money).
-        try { postingService.postPayment(saved.getDirection().name(), saved.getAmount(), saved.getMethod()); }
-        catch (Exception ex) { LOG.warn("GL post failed for payment {} (recorded; reconcile later)", saved.getId(), ex); }
+        // Reliability: post the GL journal ATOMICALLY with the payment. finance owns BOTH the payment ledger and the
+        // GL (same DB, same @Transactional — postPayment joins this tx), so a LOCAL transaction is the correct
+        // atomicity tool here: NOT a best-effort swallow (which drifted the books — a recorded payment with no
+        // journal), and NOT an outbox (that pattern is for CROSS-service hops; posting to our own GL in the same DB
+        // needs no relay). postPayment ensureDefaults() seeds the CoA if missing and its journal balances by
+        // construction, so it can only throw on a closed period (which must reject the payment too) or a real DB
+        // fault (which would fail the save anyway) — either way payment + journal commit together or not at all.
+        postingService.postPayment(saved.getDirection().name(), saved.getAmount(), saved.getMethod());
         return toDTO(saved);
     }
 

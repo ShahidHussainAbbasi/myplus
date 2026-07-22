@@ -153,7 +153,8 @@ public class PostingService {
 
     // ---- Payment posting (RECEIPT/DISBURSEMENT — from finance's own ledger) ------------------------------------
 
-    /** Auto-post a receipt/disbursement recorded in the payment ledger. Best-effort caller (never fails the payment). */
+    /** Auto-post a receipt/disbursement recorded in the payment ledger. Runs in the caller's (PaymentService.record)
+     *  transaction, so the payment and its journal are atomic — a failure here rolls the payment back too. */
     @Transactional
     public void postPayment(String direction, BigDecimal amount, String method) {
         BigDecimal amt = nz(amount);
