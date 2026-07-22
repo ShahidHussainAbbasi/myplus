@@ -8,6 +8,7 @@ import com.myplus.inventory.service.WarehouseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,6 +40,7 @@ public class WarehouseController {
         return ResponseEntity.ok(ApiResponse.success(warehouseService.update(id, dto), "Updated"));
     }
 
+    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         warehouseService.delete(id);

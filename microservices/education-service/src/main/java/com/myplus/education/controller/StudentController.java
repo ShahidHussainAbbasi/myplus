@@ -21,6 +21,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -116,16 +117,46 @@ public class StudentController {
         dto.setDateOfBirthStr(appUtil.getLocalDateStr(s.getDateOfBirth()));
         dto.setDatedStr(appUtil.getDateStr(s.getDated()));
         dto.setUpdatedStr(appUtil.getDateStr(s.getUpdated()));
-        if (s.getSchoolId() != null) {
-            schoolRepository.findById(s.getSchoolId()).ifPresent(x -> dto.setSchoolName(x.getBranchName()));
-        }
-        if (s.getGradeId() != null) {
-            gradeRepository.findById(s.getGradeId()).ifPresent(x -> dto.setGradeName(x.getName()));
-        }
-        if (s.getGuardianId() != null) {
-            guardianRepository.findById(s.getGuardianId()).ifPresent(x -> dto.setGuardianName(x.getName()));
-        }
+        // NOTE: school/grade/guardian NAMES are resolved by toDtos() in one batched query each — NOT here.
+        // Doing per-row findById here was an N+1: a 500-student list fired ~1500 extra queries.
         return dto;
+    }
+
+    /**
+     * Map a whole list, resolving the school/grade/guardian display names with ONE query per lookup table
+     * (findAllById over the distinct ids on the page) instead of a findById per row. This is the batch that
+     * replaces the N+1 that toDto used to do.
+     */
+    private List<StudentDTO> toDtos(List<Student> students) {
+        // One query per lookup table over the distinct ids on the page (findAllById), then map in memory.
+        Set<Long> schoolIds = distinct(students, Student::getSchoolId);
+        Set<Long> gradeIds = distinct(students, Student::getGradeId);
+        Set<Long> guardianIds = distinct(students, Student::getGuardianId);
+
+        Map<Long, String> schoolNames = new HashMap<>();
+        if (!schoolIds.isEmpty())
+            schoolRepository.findAllById(schoolIds).forEach(x -> schoolNames.put(x.getId(), x.getBranchName()));
+        Map<Long, String> gradeNames = new HashMap<>();
+        if (!gradeIds.isEmpty())
+            gradeRepository.findAllById(gradeIds).forEach(x -> gradeNames.put(x.getId(), x.getName()));
+        Map<Long, String> guardianNames = new HashMap<>();
+        if (!guardianIds.isEmpty())
+            guardianRepository.findAllById(guardianIds).forEach(x -> guardianNames.put(x.getId(), x.getName()));
+
+        return students.stream().map(s -> {
+            StudentDTO dto = toDto(s);
+            if (s.getSchoolId() != null) dto.setSchoolName(schoolNames.get(s.getSchoolId()));
+            if (s.getGradeId() != null) dto.setGradeName(gradeNames.get(s.getGradeId()));
+            if (s.getGuardianId() != null) dto.setGuardianName(guardianNames.get(s.getGuardianId()));
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /** The distinct non-null values of a Long-valued getter over a list (the ids to batch-load). */
+    private Set<Long> distinct(List<Student> students, java.util.function.Function<Student, Long> idOf) {
+        Set<Long> ids = new java.util.HashSet<>();
+        for (Student s : students) { Long id = idOf.apply(s); if (id != null) ids.add(id); }
+        return ids;
     }
 
     @RequestMapping(value = "/getUserStudent", method = RequestMethod.GET)
@@ -136,7 +167,7 @@ public class StudentController {
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
-            return new GenericResponse("SUCCESS", "", objs.stream().map(this::toDto).collect(Collectors.toList()));
+            return new GenericResponse("SUCCESS", "", toDtos(objs));
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
@@ -170,7 +201,7 @@ public class StudentController {
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
-            return new GenericResponse("SUCCESS", "", all.stream().map(this::toDto).collect(Collectors.toList()));
+            return new GenericResponse("SUCCESS", "", toDtos(all));
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
@@ -256,6 +287,7 @@ public class StudentController {
         }
     }
 
+    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @RequestMapping(value = "/deleteStudent", method = RequestMethod.POST)
     @ResponseBody
     public boolean deleteStudent(HttpServletRequest req) {
@@ -354,6 +386,16 @@ public class StudentController {
      * GenericResponse("ERROR", …) envelope. The @Transactional method has already exited via exception,
      * so its transaction is rolled back — the write is all-or-nothing.
      */
+    // A @PreAuthorize denial throws AccessDeniedException; this controller's broad Exception handler below
+    // would otherwise swallow it into a 200 "ERROR" envelope. A more-specific handler wins → clean 403.
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<GenericResponse> handleAccessDenied(
+            org.springframework.security.access.AccessDeniedException e) {
+        return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                .body(new GenericResponse("FORBIDDEN", "Access denied"));
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseBody
     public GenericResponse handleUncaught(Exception e) {

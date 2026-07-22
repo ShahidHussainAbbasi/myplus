@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -74,11 +75,22 @@ public class GradeController {
         dto.setTimeToStr(g.getTimeTo() == null ? "" : g.getTimeTo().toString());
         dto.setDatedStr(appUtil.getDateStr(g.getDated()));
         dto.setUpdatedStr(appUtil.getDateStr(g.getUpdated()));
-        if (g.getSchoolId() != null) {
-            schoolRepository.findById(g.getSchoolId())
-                    .ifPresent(s -> dto.setSchoolName(s.getBranchName()));
-        }
+        // Branch name resolved in batch by toDtos() — per-row findById here was an N+1 over the grade list.
         return dto;
+    }
+
+    /** Map the list, resolving each grade's branch name with ONE findAllById over the distinct school ids. */
+    private List<GradeDTO> toDtos(List<Grade> grades) {
+        java.util.Set<Long> schoolIds = new java.util.HashSet<>();
+        for (Grade g : grades) if (g.getSchoolId() != null) schoolIds.add(g.getSchoolId());
+        java.util.Map<Long, String> schoolNames = new java.util.HashMap<>();
+        if (!schoolIds.isEmpty())
+            schoolRepository.findAllById(schoolIds).forEach(s -> schoolNames.put(s.getId(), s.getBranchName()));
+        return grades.stream().map(g -> {
+            GradeDTO dto = toDto(g);
+            if (g.getSchoolId() != null) dto.setSchoolName(schoolNames.get(g.getSchoolId()));
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     @RequestMapping(value = "/getUserGrade", method = RequestMethod.GET)
@@ -89,7 +101,7 @@ public class GradeController {
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
-            return new GenericResponse("SUCCESS", "", objs.stream().map(this::toDto).collect(Collectors.toList()));
+            return new GenericResponse("SUCCESS", "", toDtos(objs));
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
@@ -123,7 +135,7 @@ public class GradeController {
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
-            return new GenericResponse("SUCCESS", "", all.stream().map(this::toDto).collect(Collectors.toList()));
+            return new GenericResponse("SUCCESS", "", toDtos(all));
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
@@ -184,6 +196,7 @@ public class GradeController {
         }
     }
 
+    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @RequestMapping(value = "/deleteGrade", method = RequestMethod.POST)
     @ResponseBody
     public boolean deleteGrade(HttpServletRequest req) {

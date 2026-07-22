@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -117,6 +118,7 @@ public class AttendanceController {
         }
     }
 
+    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @RequestMapping(value = "/deleteA", method = RequestMethod.POST)
     @ResponseBody
     public boolean deleteA(HttpServletRequest req) {
@@ -256,6 +258,16 @@ public class AttendanceController {
      * GenericResponse("ERROR", …) envelope. By the time this runs the @Transactional method has already
      * exited via exception, so its transaction has been rolled back — the write is all-or-nothing.
      */
+    // A @PreAuthorize denial throws AccessDeniedException; this controller's broad Exception handler below
+    // would otherwise swallow it into a 200 "ERROR" envelope. A more-specific handler wins → clean 403.
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<GenericResponse> handleAccessDenied(
+            org.springframework.security.access.AccessDeniedException e) {
+        return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                .body(new GenericResponse("FORBIDDEN", "Access denied"));
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseBody
     public GenericResponse handleUncaught(Exception e) {

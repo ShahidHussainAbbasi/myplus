@@ -5,6 +5,7 @@ import com.myplus.inventory.dto.SupplierDTO;
 import com.myplus.inventory.service.SupplierService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -36,6 +37,7 @@ public class SupplierController {
         return ResponseEntity.ok(ApiResponse.success(supplierService.update(id, dto), "Updated"));
     }
 
+    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         supplierService.delete(id);

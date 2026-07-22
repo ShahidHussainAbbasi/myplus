@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -132,6 +133,7 @@ public class LandController {
         }
     }
 
+    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @RequestMapping(value = "/deleteLand", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse deleteLand(HttpServletRequest request) {

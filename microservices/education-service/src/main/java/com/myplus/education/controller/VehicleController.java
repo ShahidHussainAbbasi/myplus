@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -72,10 +73,22 @@ public class VehicleController {
         dto.setSchoolId(v.getSchoolId());
         dto.setDatedStr(appUtil.getDateStr(v.getDated()));
         dto.setUpdatedStr(appUtil.getDateStr(v.getUpdated()));
-        if (v.getSchoolId() != null) {
-            schoolRepository.findById(v.getSchoolId()).ifPresent(s -> dto.setSchoolName(s.getBranchName()));
-        }
+        // Branch name resolved in batch by toDtos() — per-row findById here was an N+1 over the vehicle list.
         return dto;
+    }
+
+    /** Map the list, resolving each vehicle's branch name with ONE findAllById over the distinct school ids. */
+    private List<VehicleDTO> toDtos(List<Vehicle> vehicles) {
+        java.util.Set<Long> schoolIds = new java.util.HashSet<>();
+        for (Vehicle v : vehicles) if (v.getSchoolId() != null) schoolIds.add(v.getSchoolId());
+        java.util.Map<Long, String> schoolNames = new java.util.HashMap<>();
+        if (!schoolIds.isEmpty())
+            schoolRepository.findAllById(schoolIds).forEach(s -> schoolNames.put(s.getId(), s.getBranchName()));
+        return vehicles.stream().map(v -> {
+            VehicleDTO dto = toDto(v);
+            if (v.getSchoolId() != null) dto.setSchoolName(schoolNames.get(v.getSchoolId()));
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     @RequestMapping(value = "/getUserVehicle", method = RequestMethod.GET)
@@ -86,7 +99,7 @@ public class VehicleController {
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
-            return new GenericResponse("SUCCESS", "", objs.stream().map(this::toDto).collect(Collectors.toList()));
+            return new GenericResponse("SUCCESS", "", toDtos(objs));
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
@@ -120,7 +133,7 @@ public class VehicleController {
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
-            return new GenericResponse("SUCCESS", "", all.stream().map(this::toDto).collect(Collectors.toList()));
+            return new GenericResponse("SUCCESS", "", toDtos(all));
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
@@ -175,6 +188,7 @@ public class VehicleController {
         }
     }
 
+    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @RequestMapping(value = "/deleteVehicle", method = RequestMethod.POST)
     @ResponseBody
     public boolean deleteVehicle(HttpServletRequest req) {

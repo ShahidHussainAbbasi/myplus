@@ -14,6 +14,7 @@ import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -225,6 +226,7 @@ public class DonationController {
         }
     }
 
+    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @RequestMapping(value = "/deleteDonator", method = RequestMethod.POST)
     @ResponseBody
     public boolean deleteDonator(HttpServletRequest req) {
@@ -245,6 +247,7 @@ public class DonationController {
         }
     }
 
+    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @RequestMapping(value = "/deleteDonation", method = RequestMethod.POST)
     @ResponseBody
     public boolean deleteDonation(HttpServletRequest req) {
