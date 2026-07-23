@@ -2,6 +2,7 @@ package com.myplus.welfare.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -63,7 +64,7 @@ class DonationRepoScopingTest {
         x.setDonator(d);          // @ManyToOne(optional=false) — required
         x.setOrganizationId(org);
         x.setUserId(user);
-        x.setAmount(10f);
+        x.setAmount((BigDecimal.valueOf(10)));
         return em.persistAndFlush(x);
     }
 
