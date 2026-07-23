@@ -23,6 +23,25 @@ public class FinanceReportController {
     @Autowired
     private FinanceReportService reportService;
 
+    @Autowired
+    private com.myplus.business_service.service.TaxBreakdownService taxBreakdownService;   // multi-rate tax: per-rate split
+
+    /** Multi-rate tax: taxable + tax grouped by rate over [from,to] (output = sales, input = purchases). Sourced from
+     *  the transactional lines; the finance GL register stays the authoritative net-payable summary. */
+    @RequestMapping(value = "/taxBreakdown", method = RequestMethod.GET)
+    @ResponseBody
+    public GenericResponse taxBreakdown(@RequestParam(value = "from", required = false) String from,
+                                        @RequestParam(value = "to", required = false) String to) {
+        try {
+            java.time.LocalDate f = (from == null || from.isBlank()) ? null : java.time.LocalDate.parse(from);
+            java.time.LocalDate t = (to == null || to.isBlank()) ? null : java.time.LocalDate.parse(to);
+            return new GenericResponse("SUCCESS", "Tax breakdown", taxBreakdownService.breakdown(f, t));
+        } catch (Exception e) {
+            LOGGER.error(getClass().getName() + " > taxBreakdown " + e.getMessage(), e);
+            return new GenericResponse("ERROR", "Could not load the tax breakdown.");
+        }
+    }
+
     /** AR aging — outstanding per customer in 0–30/31–60/61–90/90+ buckets. */
     @RequestMapping(value = "/customerAging", method = RequestMethod.GET)
     @ResponseBody

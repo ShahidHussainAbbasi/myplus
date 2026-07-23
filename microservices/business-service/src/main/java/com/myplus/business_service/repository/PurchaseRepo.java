@@ -24,6 +24,18 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
         + "or (p.organizationId is null and p.userId = :userId)")
    List<Purchase> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   // Multi-rate tax: input taxable + tax grouped by rate over [from,to], tenant-scoped, VOID bills excluded. Only
+   // tax-bearing bills (taxRate set). NOTE partial purchase returns are separate debit notes and are NOT netted here
+   // (the GL-sourced register remains the authoritative net-payable; this is an indicative per-rate split of activity).
+   // Row = [rate, sum(totalAmount), sum(taxAmount)].
+   @Query("select p.taxRate, sum(p.totalAmount), sum(p.taxAmount) from purchase p "
+        + "where p.dated between :from and :to and p.taxRate is not null "
+        + "and (p.status is null or p.status <> 'VOID') "
+        + "and (p.organizationId = :orgId or (p.organizationId is null and p.userId = :userId)) "
+        + "group by p.taxRate")
+   List<Object[]> taxBreakdownByRate(@Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to,
+                                     @Param("orgId") Long orgId, @Param("userId") Long userId);
+
    // OWN rows only (role-aware: a non-SUPER caller sees just the purchases they recorded).
    // Multi-location (P2b): store-aware variants — used only when the caller has store grants (non-empty set).
    @Query("select p from purchase p where p.organizationId = :orgId "

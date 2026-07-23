@@ -120,7 +120,11 @@ Core backlog #1–#6, tax-filing register (Phase A+B) and **period close** are c
   `tax-register.cy.js` (output + input purchase/void/edit). Design `finance-tax-register-design.md`.
 - [x] **Period close / lock** — ✅ DONE (finance single-source; see §2). Design `finance-period-close-design.md`;
   Cypress `period-close.cy.js`.
-- [ ] **Multi-rate tax** — more than one rate per invoice + per-rate breakdown on the register.
+- [x] **Multi-rate tax** — ✅ DONE. Per-org **tax-code master** in catalog-service (`tax_code`, Flyway V2) +
+  `Product.taxCodeId`; the code's rate resolves into `ProductRef.taxRate` so the sale hot path is unchanged. Per-rate
+  **breakdown** (`/taxBreakdown`, business-service, grouped from the sell/purchase lines) beneath the GL net-payable
+  register + receipt per-rate summary. Tax Codes CRUD in Tax Settings; product-form code dropdown. Design
+  `multi-rate-tax-design.md`; Cypress `multi-rate-tax.cy.js`. Backward compatible (no code → legacy rate/org default).
 - [x] **`VOID_INVOICE` privilege** — ✅ DONE. business-service already had `@EnableMethodSecurity`; introduced a
   dedicated `VOID_INVOICE` privilege (auth-service `SetupDataLoader` catalog + `adminPrivileges`) and moved
   `voidSell`/`voidPurchase` off the coarse `ADMIN_PRIVILEGE` onto it (no regression — admins/owner/super keep it, a

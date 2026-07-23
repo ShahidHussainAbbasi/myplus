@@ -53,6 +53,16 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
          + "and (s.organizationId = :orgId or s.organizationId is null) order by s.sellId desc")
     List<Sell> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    // Multi-rate tax: output taxable + tax grouped by rate over [from,to], tenant-scoped. Only tax-bearing lines
+    // (taxRate set) — legacy pre-tax sells are excluded. Voided lines are deleted + returns reduce the amounts in
+    // place, so this reflects the net current taxable per rate. Row = [rate, sum(totalAmount), sum(taxAmount)].
+    @Query("select s.taxRate, sum(s.totalAmount), sum(s.taxAmount) from Sell s "
+         + "where s.dated between :from and :to and s.taxRate is not null "
+         + "and (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+         + "group by s.taxRate")
+    List<Object[]> taxBreakdownByRate(@Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to,
+                                      @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     // All line items of one invoice (customer_history), tenant-scoped — used to load a sale for editing
     // so an invoice is never truncated by the report's pagination/recent-N cap.
     @Query("select s from Sell s where s.customerHistory.customer_history_id = :chId "

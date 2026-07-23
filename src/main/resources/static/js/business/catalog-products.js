@@ -67,6 +67,7 @@
     global.newProduct = function () {
         resetProductForm();
         loadCategories();
+        loadTaxCodes('');    // multi-rate tax: fresh dropdown (defaults to "Custom rate…")
         refreshSkuIndex();   // refresh the known SKUs each time the form opens
         $('#ProductModalTitle').text('New Product');
         openModal('ProductModal');
@@ -164,6 +165,26 @@
         });
     };
 
+    // Multi-rate tax: the org's tax codes, loaded once for the product-form dropdown. id -> {name, rate}.
+    var taxCodes = [];
+    function loadTaxCodes(selectedId, cb) {
+        $.get(serverContext + 'catalogTaxCodes', function (resp) {
+            taxCodes = Array.isArray(resp) ? resp : (typeof resp === 'string' ? (JSON.parse(resp) || []) : []);
+            var $sel = $('#prodTaxCode');
+            $sel.find('option:gt(0)').remove();   // keep the "Custom rate…" first option
+            taxCodes.filter(function (c) { return c.active !== false; }).forEach(function (c) {
+                $sel.append('<option value="' + c.id + '">' + escHtml(c.name + ' — ' + Number(c.rate || 0) + '%') + '</option>');
+            });
+            $sel.val(selectedId != null ? String(selectedId) : '');
+            onProdTaxCodeChange();
+            if (cb) cb();
+        }, 'json').fail(function () { if (cb) cb(); });
+    }
+    // A chosen code supplies the rate → hide the custom % input; "Custom rate…" shows it.
+    global.onProdTaxCodeChange = function () {
+        $('#prodTax').toggle(!$('#prodTaxCode').val());
+    };
+
     // Load a product into the form for editing (row-click).
     function editProduct(id) {
         $.get(serverContext + 'getCatalogProduct?id=' + id, function (resp) {
@@ -174,6 +195,7 @@
             $('#prodSku').val(p.sku || '');
             $('#prodPrice').val(p.sellingPrice != null ? p.sellingPrice : '');
             $('#prodTax').val(p.taxRate != null ? p.taxRate : '');
+            loadTaxCodes(p.taxCodeId != null ? p.taxCodeId : '');
             $('#prodUnit').val(p.unit || '');
             // Select by category id (dropdown). Reload the list first so the product's category option is present.
             loadCategories(p.categoryId != null ? p.categoryId : '');
@@ -199,9 +221,13 @@
             showFormError('SKU "' + sku.trim() + '" is already used by another product. Enter a unique SKU.');
             return;
         }
+        // Multi-rate tax: a chosen code supplies the rate (taxCodeId); "Custom rate…" sends a one-off taxRate instead.
+        var codeId = $('#prodTaxCode').val();
         var body = {
             name: $('#prodName').val().trim(), sku: sku,
-            sellingPrice: s2n($('#prodPrice').val()), taxRate: s2n($('#prodTax').val()),
+            sellingPrice: s2n($('#prodPrice').val()),
+            taxCodeId: codeId ? Number(codeId) : null,
+            taxRate: codeId ? null : s2n($('#prodTax').val()),
             unit: $('#prodUnit').val(),
             categoryId: $('#prodCategory').val() ? Number($('#prodCategory').val()) : null,
             manufacturer: $('#prodManufacturer').val(), description: $('#prodDesc').val()

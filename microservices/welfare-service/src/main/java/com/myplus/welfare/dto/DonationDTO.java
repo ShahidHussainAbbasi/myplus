@@ -7,7 +7,7 @@ public class DonationDTO {
     private String donatorName;
     private Long userId = null;
     private String userType = null;
-    private Double amount = null;
+    private java.math.BigDecimal amount = null;   // money: BigDecimal (matches the entity)
     private String receivedBy = null;
     private String datedStr = null;
     private String updatedStr = null;
@@ -27,8 +27,8 @@ public class DonationDTO {
     public String getUserType() { return userType; }
     public void setUserType(String userType) { this.userType = userType; }
 
-    public Double getAmount() { return amount; }
-    public void setAmount(Double amount) { this.amount = amount; }
+    public java.math.BigDecimal getAmount() { return amount; }
+    public void setAmount(java.math.BigDecimal amount) { this.amount = amount; }
 
     public String getReceivedBy() { return receivedBy; }
     public void setReceivedBy(String receivedBy) { this.receivedBy = receivedBy; }

@@ -144,6 +144,40 @@ public class CatalogController {
         }
     }
 
+    // ---- Multi-rate tax: tax-code master (catalog-service) proxies ----
+
+    /** List the org's tax codes (JSON array) — for the Tax Codes screen + the product-form dropdown. */
+    @GetMapping(value = "/catalogTaxCodes", produces = "application/json")
+    @ResponseBody
+    public String taxCodes() {
+        try { return catalog.getString("/tax-codes"); }
+        catch (Exception e) { LOGGER.error("catalogTaxCodes proxy error", e); return "[]"; }
+    }
+
+    /** Create (no id) or update (with id) a tax code → catalog POST/PUT /tax-codes. */
+    @PostMapping("/saveTaxCode")
+    @ResponseBody
+    public Map<String, Object> saveTaxCode(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body.get("id");
+            return (id != null && !id.toString().isBlank())
+                    ? catalog.putJson("/tax-codes/" + id.toString().trim(), body)
+                    : catalog.postJson("/tax-codes", body);
+        } catch (Exception e) { LOGGER.error("saveTaxCode proxy error", e); return failure(e); }
+    }
+
+    /** Delete a tax code → catalog DELETE /tax-codes/{id}. */
+    @PostMapping("/deleteTaxCode")
+    @ResponseBody
+    public Map<String, Object> deleteTaxCode(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body.get("id");
+            if (id == null || id.toString().isBlank()) return Collections.singletonMap("success", false);
+            catalog.delete("/tax-codes/" + id.toString().trim());
+            return Collections.singletonMap("success", true);
+        } catch (Exception e) { LOGGER.error("deleteTaxCode proxy error", e); return failure(e); }
+    }
+
     /** Deactivate the checked products (the Product screen's Delete button) → catalog PUT /products/{id}/deactivate.
      *  Deactivate (not hard-delete) keeps products referenced by past sales/inventory intact; they drop off the list. */
     @PostMapping("/deactivateProduct")

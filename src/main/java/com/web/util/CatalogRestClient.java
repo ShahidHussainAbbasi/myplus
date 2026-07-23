@@ -47,4 +47,14 @@ public class CatalogRestClient {
     public Map<String, Object> putJson(String path, Object body) {
         return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.PUT, body, MediaType.APPLICATION_JSON);
     }
+
+    /** GET returning the raw JSON string — for endpoints that return a JSON ARRAY (e.g. tax-codes list). */
+    public String getString(String path) {
+        return gateway.forString(PREFIX, directBaseUrl, path, HttpMethod.GET, null, null);
+    }
+
+    /** DELETE (multi-rate tax: remove a tax code). Empty body. */
+    public String delete(String path) {
+        return gateway.forString(PREFIX, directBaseUrl, path, HttpMethod.DELETE, null, null);
+    }
 }

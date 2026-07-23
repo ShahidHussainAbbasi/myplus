@@ -38,6 +38,16 @@
         var totals = '';
         if (inv.subTotal != null) totals += row2('Subtotal', money(inv.subTotal));
         if (inv.taxTotal != null && Number(inv.taxTotal) > 0) totals += row2(escHtml(taxLabel), money(inv.taxTotal));
+        // Multi-rate tax: when the invoice mixes rates, break the total tax down per rate (filing/receipt standard).
+        var taxByRate = {};
+        (inv.sales || []).forEach(function (s) {
+            var r = Number(s.taxRate || 0), t = Number(s.taxAmount || 0);
+            if (r > 0 && t) taxByRate[r] = (taxByRate[r] || 0) + t;
+        });
+        var rateKeys = Object.keys(taxByRate);
+        if (rateKeys.length > 1) rateKeys.sort(function (a, b) { return a - b; }).forEach(function (r) {
+            totals += row2('&nbsp;&nbsp;' + escHtml(taxLabel) + ' @' + r + '%', money(taxByRate[r]));
+        });
         totals += row2('TOTAL', money(grand), true);
 
         var pay = '';

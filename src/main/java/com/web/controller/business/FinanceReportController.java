@@ -63,4 +63,17 @@ public class FinanceReportController {
         try { return client.get("/getGlOutbox"); }
         catch (Exception e) { LOGGER.error("getGlOutbox proxy error", e); return Collections.singletonMap("status", "ERROR"); }
     }
+
+    /** Multi-rate tax: per-rate taxable/tax breakdown over [from,to] (output=sales, input=purchases). */
+    @RequestMapping(value = "/taxBreakdown", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> taxBreakdown(final HttpServletRequest request) {
+        try {
+            String from = request.getParameter("from"), to = request.getParameter("to");
+            StringBuilder q = new StringBuilder();
+            if (from != null && !from.isEmpty()) q.append("from=").append(from);
+            if (to != null && !to.isEmpty()) q.append(q.length() > 0 ? "&" : "").append("to=").append(to);
+            return client.get("/taxBreakdown", q.toString());
+        } catch (Exception e) { LOGGER.error("taxBreakdown proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+    }
 }

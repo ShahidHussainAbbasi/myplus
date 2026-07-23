@@ -1332,8 +1332,14 @@
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="prodPrice">Sell Price</label>
 						<div class="col-sm-4"><input type="number" step="any" min="0" class="form-control" id="prodPrice"></div>
-						<label class="control-label col-sm-2" for="prodTax">Tax %</label>
-						<div class="col-sm-4"><input type="number" step="any" min="0" class="form-control" id="prodTax"></div>
+						<label class="control-label col-sm-2" for="prodTaxCode">Tax</label>
+						<div class="col-sm-4">
+							<!-- Multi-rate tax: pick a tax code (its rate applies), or "Custom rate…" for a one-off %. -->
+							<select class="form-control" id="prodTaxCode" onchange="onProdTaxCodeChange()">
+								<option value="">Custom rate…</option>
+							</select>
+							<input type="number" step="any" min="0" class="form-control" id="prodTax" placeholder="Tax %" style="margin-top:6px">
+						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="prodUnit">Unit</label>
@@ -1623,6 +1629,26 @@
 						</button>
 					</div>
 				</form>
+
+				<!-- Multi-rate tax: the tax-code (tax-class) master. Assign a code to a product on the Product form;
+				     the code supplies the rate, so a statutory rate change updates every product using it. -->
+				<hr>
+				<div style="max-width:660px">
+					<h4 style="font-weight:700;color:#1f4e8c">Tax codes <small class="text-muted">(multi-rate)</small></h4>
+					<p class="help-block">Named tax classes, e.g. <em>Standard 18%</em>, <em>Reduced 5%</em>, <em>Zero 0%</em>, <em>Exempt</em>. Products reference a code; changing a code's rate updates every product using it.</p>
+					<table class="table table-condensed" id="taxCodeTable" style="width:100%">
+						<thead><tr><th>Name</th><th class="text-right">Rate %</th><th>Default</th><th style="width:130px"></th></tr></thead>
+						<tbody></tbody>
+					</table>
+					<div class="form-inline" style="margin-top:8px">
+						<input type="hidden" id="tcId">
+						<input type="text" class="form-control" id="tcName" placeholder="Name (e.g. Standard)" style="width:190px">
+						<input type="number" step="any" min="0" class="form-control" id="tcRate" placeholder="Rate %" style="width:110px">
+						<label style="font-weight:normal;margin:0 10px"><input type="checkbox" id="tcDefault"> Default</label>
+						<button type="button" class="btn btn-success btn-sm" onclick="saveTaxCode()"><span class="glyphicon glyphicon-floppy-disk"></span> <span id="tcSaveLabel">Add code</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="resetTaxCodeForm()">Clear</button>
+					</div>
+				</div>
 			</div>
 
 			<!-- Finance Reports — org-wide GL statements, tax register, audit trail. Owner-only (matches the

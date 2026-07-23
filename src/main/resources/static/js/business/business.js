@@ -397,6 +397,7 @@ function showTaxSettings(){
 	$('.formDiv').hide();
 	$('#TaxSettingDiv').show();
 	loadTaxSetting();
+	loadTaxCodesAdmin();   // multi-rate tax: the tax-code master table
 }
 
 function loadTaxSetting(){
@@ -434,6 +435,56 @@ function saveTaxSetting(){
 			}
 		},
 		error: function(){ showFormError('Could not save tax settings.'); }
+	});
+}
+
+// ─── Multi-rate tax: tax-code (tax-class) master CRUD (owner) ─────────────────
+function loadTaxCodesAdmin(){
+	$.get(serverContext + 'catalogTaxCodes', function(resp){
+		var codes = Array.isArray(resp) ? resp : (typeof resp === 'string' ? (JSON.parse(resp) || []) : []);
+		var $tb = $('#taxCodeTable tbody').empty();
+		if(!codes.length){ $tb.append('<tr><td colspan="4" class="text-muted">No tax codes yet — add one below.</td></tr>'); return; }
+		codes.forEach(function(c){
+			$tb.append('<tr>'
+				+ '<td>'+escHtml(c.name||'')+(c.active===false?' <span class="label label-default">inactive</span>':'')+'</td>'
+				+ '<td class="text-right">'+Number(c.rate||0)+'</td>'
+				+ '<td>'+(c.isDefault?'<span class="label label-info">default</span>':'')+'</td>'
+				+ '<td><button type="button" class="btn btn-xs btn-default" onclick="editTaxCode('+c.id+')">Edit</button> '
+				+ '<button type="button" class="btn btn-xs btn-danger" onclick="deleteTaxCode('+c.id+')">Delete</button></td>'
+				+ '</tr>');
+		});
+		window._taxCodes = codes;   // cache for editTaxCode
+	}, 'json').fail(function(){ $('#taxCodeTable tbody').html('<tr><td colspan="4" class="text-danger">Could not load tax codes (is catalog-service up?).</td></tr>'); });
+}
+function resetTaxCodeForm(){
+	$('#tcId').val(''); $('#tcName').val(''); $('#tcRate').val(''); $('#tcDefault').prop('checked', false);
+	$('#tcSaveLabel').text('Add code');
+}
+function editTaxCode(id){
+	var c = (window._taxCodes||[]).filter(function(x){ return x.id===id; })[0];
+	if(!c) return;
+	$('#tcId').val(c.id); $('#tcName').val(c.name||''); $('#tcRate').val(c.rate!=null?c.rate:'');
+	$('#tcDefault').prop('checked', c.isDefault===true);
+	$('#tcSaveLabel').text('Save code');
+}
+function saveTaxCode(){
+	var name = $('#tcName').val().trim();
+	if(!name){ alert('Enter a tax-code name.'); return; }
+	var body = { name:name, rate:Number($('#tcRate').val()||0), isDefault:$('#tcDefault').is(':checked') };
+	var id = $('#tcId').val(); if(id) body.id = Number(id);
+	$.ajax({ type:'POST', url:serverContext+'saveTaxCode', contentType:'application/json', dataType:'json', data:JSON.stringify(body),
+		success:function(resp){
+			if(resp && resp.success===false){ alert((resp.message)||'Could not save the tax code.'); return; }
+			resetTaxCodeForm(); loadTaxCodesAdmin();
+		},
+		error:function(){ alert('Could not save the tax code (admin permission required).'); }
+	});
+}
+function deleteTaxCode(id){
+	if(!window.confirm('Delete this tax code? Products using it fall back to their own rate / the org default.')) return;
+	$.ajax({ type:'POST', url:serverContext+'deleteTaxCode', contentType:'application/json', dataType:'json', data:JSON.stringify({ id:id }),
+		success:function(){ loadTaxCodesAdmin(); },
+		error:function(){ alert('Could not delete the tax code.'); }
 	});
 }
 
@@ -2217,7 +2268,34 @@ function finRunTaxRegister(){
 			h+='</tbody></table>';
 		}
 		finSet(h);
+		finAppendTaxBreakdown();   // multi-rate: per-rate breakdown beneath the net-payable summary
 	}, 'json').fail(finFail);
+}
+
+// Multi-rate tax: append a "taxable + tax by rate" table (from the transactional lines) below the register.
+function finAppendTaxBreakdown(){
+	$.get(serverContext+'taxBreakdown', {from:$('#finFrom').val(), to:$('#finTo').val()}, function(resp){
+		var d=(resp && resp.object) ? resp.object : ((typeof resp==='string')?JSON.parse(resp):resp);
+		var rows=(d && d.rows) ? d.rows : [];
+		if(!rows.length) return;
+		var f=function(x){return Number(x||0).toFixed(2);};
+		var h='<h5 style="font-weight:700;margin:16px 0 4px">Breakdown by rate</h5>'
+			+'<table class="table table-striped" style="width:100%"><thead><tr><th class="text-right">Rate %</th>'
+			+'<th class="text-right">Output taxable</th><th class="text-right">Output tax</th>'
+			+'<th class="text-right">Input taxable</th><th class="text-right">Input tax</th>'
+			+'<th class="text-right">Net tax</th></tr></thead><tbody>';
+		rows.forEach(function(r){
+			h+='<tr><td class="text-right">'+Number(r.rate||0)+'</td>'
+				+'<td class="text-right">'+f(r.outputTaxable)+'</td><td class="text-right">'+f(r.outputTax)+'</td>'
+				+'<td class="text-right">'+f(r.inputTaxable)+'</td><td class="text-right">'+f(r.inputTax)+'</td>'
+				+'<td class="text-right">'+f(r.netTax)+'</td></tr>';
+		});
+		h+='</tbody><tfoot><tr><th class="text-right">Total</th>'
+			+'<th class="text-right">'+f(d.totalOutputTaxable)+'</th><th class="text-right">'+f(d.totalOutputTax)+'</th>'
+			+'<th class="text-right">'+f(d.totalInputTaxable)+'</th><th class="text-right">'+f(d.totalInputTax)+'</th>'
+			+'<th class="text-right">'+f(d.netPayable)+'</th></tr></tfoot></table>';
+		document.getElementById('FinanceResults').insertAdjacentHTML('beforeend', h);
+	}, 'json');
 }
 
 function finRunAuditLog(){

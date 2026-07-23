@@ -86,6 +86,17 @@ Receipt: invoice lines grouped by rate → per-rate tax summary
 - Backward compatible: products with no `tax_code_id` keep using `product.taxRate` / org default — single-rate orgs are
   unaffected.
 
-## 7. Status: DESIGN — awaiting sign-off before implementation.
-Open question for sign-off: **D1 (tax_code in catalog)** vs. tax_code in business-service (keeps all tax policy in one
-service but adds a cross-service rate lookup on the sale path). Recommendation: **D1** — keeps the hot path unchanged.
+## 7. Status: IMPLEMENTED (D1 — tax_code in catalog, user-approved)
+- **catalog-service:** `TaxCode` entity/repo/`TaxCodeDTO`/`TaxCodeService` (org-scoped CRUD, single-default invariant,
+  `ratesByOrg`) + `TaxCodeController` (`/api/catalog/tax-codes`, reads open / mutations `ADMIN_PRIVILEGE`);
+  `Product.taxCodeId` + `ProductService.resolveRate` (code rate → legacy `taxRate` → null) into `ProductRef.taxRate`
+  (hot paths unchanged); Flyway **V2**; `TaxCodeResolutionTest`.
+- **business-service:** `TaxBreakdownService` + `GET /taxBreakdown` (SellRepo/PurchaseRepo `taxBreakdownByRate` group
+  by rate; VOID bills excluded; output net-of-return via in-place line amounts). Pricing unchanged.
+- **monolith:** `CatalogRestClient.getString/delete` + `CatalogController` tax-code proxies (`/catalogTaxCodes`,
+  `/saveTaxCode`, `/deleteTaxCode`); business `FinanceReportController` `/taxBreakdown` proxy; product form Tax-code
+  dropdown + "Custom rate…" (`catalog-products.js`); Tax Codes CRUD in the Tax Settings screen (`business.js`);
+  register "Breakdown by rate" table (`finAppendTaxBreakdown`); receipt per-rate tax summary (`receipt.js`).
+- **Cypress:** `multi-rate-tax.cy.js` (two codes → two coded products → one mixed sale → per-rate breakdown deltas)
+  + `seedProduct` `taxCodeId` passthrough.
+- Backward compatible: no `tax_code_id` → legacy `taxRate` / org default; single-rate orgs unaffected.

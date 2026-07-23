@@ -33,7 +33,8 @@ public class Donation {
     private Long organizationId;       // tenant scope (from gateway X-Org-Id); user_id kept as audit
     @Column(name = "donator_name")
     private String name = null;
-    private Float amount = null;
+    @Column(name = "amount", precision = 19, scale = 2)
+    private java.math.BigDecimal amount = null;   // money: BigDecimal, not Float
     private String receivedBy;
     private LocalDateTime dated;
     private LocalDateTime updated;
@@ -50,8 +51,8 @@ public class Donation {
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
-    public Float getAmount() { return amount; }
-    public void setAmount(Float amount) { this.amount = amount; }
+    public java.math.BigDecimal getAmount() { return amount; }
+    public void setAmount(java.math.BigDecimal amount) { this.amount = amount; }
 
     public String getReceivedBy() { return receivedBy; }
     public void setReceivedBy(String receivedBy) { this.receivedBy = receivedBy; }

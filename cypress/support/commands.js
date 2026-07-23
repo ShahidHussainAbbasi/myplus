@@ -161,6 +161,7 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
   }
   if (overrides.manufacturer) body.manufacturer = overrides.manufacturer
   if (overrides.description) body.description = overrides.description
+  if (overrides.taxCodeId != null) body.taxCodeId = overrides.taxCodeId   // multi-rate tax: assign a tax code
 
   return cy.request({
     method: 'POST', url: '/addProduct', body,

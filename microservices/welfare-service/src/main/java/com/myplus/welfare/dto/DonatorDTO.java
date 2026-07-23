@@ -10,7 +10,7 @@ public class DonatorDTO {
     private String mobile = null;
     private String fName = null;
     private String address = null;
-    private Float amount = null;
+    private java.math.BigDecimal amount = null;   // money: BigDecimal (matches the entity)
     private String receivedBy = null;
     private Boolean showMe = false;
     private String datedStr;
@@ -31,8 +31,8 @@ public class DonatorDTO {
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
 
-    public Float getAmount() { return amount; }
-    public void setAmount(Float amount) { this.amount = amount; }
+    public java.math.BigDecimal getAmount() { return amount; }
+    public void setAmount(java.math.BigDecimal amount) { this.amount = amount; }
 
     public String getReceivedBy() { return receivedBy; }
     public void setReceivedBy(String receivedBy) { this.receivedBy = receivedBy; }
