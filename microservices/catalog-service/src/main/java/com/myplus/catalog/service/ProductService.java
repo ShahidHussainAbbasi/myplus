@@ -22,6 +22,25 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final com.myplus.catalog.repository.TaxCodeRepository taxCodeRepository;   // multi-rate tax: resolve rate from code
+
+    /** This org's tax-code rates by id (one query) — so building refs never does a per-product lookup. */
+    private java.util.Map<Long, BigDecimal> orgCodeRates() {
+        java.util.Map<Long, BigDecimal> m = new java.util.HashMap<>();
+        for (com.myplus.catalog.entity.TaxCode t : taxCodeRepository.findByOrganizationId(CurrentUser.organizationId()))
+            m.put(t.getId(), t.getRate() != null ? t.getRate() : BigDecimal.ZERO);
+        return m;
+    }
+
+    /** The rate to expose for a product: its tax-code's rate when assigned (multi-rate), else the legacy per-product
+     *  rate. Keeps the sale/purchase hot paths unchanged — they still read {@code ProductRef.taxRate}. */
+    static BigDecimal resolveRate(Product p, java.util.Map<Long, BigDecimal> codeRates) {
+        if (p.getTaxCodeId() != null && codeRates != null) {
+            BigDecimal r = codeRates.get(p.getTaxCodeId());
+            if (r != null) return r;
+        }
+        return p.getTaxRate();
+    }
 
     // readOnly tx keeps the session open through toDto()'s lazy category access (open-in-view is false) —
     // otherwise listing a product that HAS a category throws "Could not initialize proxy [Category] - no session".
@@ -112,7 +131,7 @@ public class ProductService {
      *  that HAS a category otherwise throws "Could not initialize proxy [Category] - no session". */
     @Transactional(readOnly = true)
     public com.myplus.commerce.contracts.dto.ProductRef getRef(Long id) {
-        return toRef(getEntity(id));   // scoped — 404 if not this tenant's
+        return toRef(getEntity(id), orgCodeRates());   // scoped — 404 if not this tenant's
     }
 
     /** M4d (slice 93): batch refs by id (tenant-scoped) for the POS read screens — one call instead of N. Missing or
@@ -120,14 +139,15 @@ public class ProductService {
     @Transactional(readOnly = true)
     public java.util.List<com.myplus.commerce.contracts.dto.ProductRef> getRefs(java.util.List<Long> ids) {
         if (ids == null || ids.isEmpty()) return java.util.Collections.emptyList();
+        java.util.Map<Long, BigDecimal> codeRates = orgCodeRates();   // resolved once for the batch (no N+1)
         return productRepository.findAllByIdScoped(ids, CurrentUser.organizationId(), CurrentUser.userId())
-                .stream().map(this::toRef).toList();
+                .stream().map(p -> toRef(p, codeRates)).toList();
     }
 
-    private com.myplus.commerce.contracts.dto.ProductRef toRef(Product p) {
+    private com.myplus.commerce.contracts.dto.ProductRef toRef(Product p, java.util.Map<Long, BigDecimal> codeRates) {
         return com.myplus.commerce.contracts.dto.ProductRef.builder()
                 .id(p.getId()).sku(p.getSku()).name(p.getName()).unit(p.getUnit())
-                .sellingPrice(p.getSellingPrice()).taxRate(p.getTaxRate())
+                .sellingPrice(p.getSellingPrice()).taxRate(resolveRate(p, codeRates))
                 .description(p.getDescription())
                 .category(p.getCategory() != null ? p.getCategory().getName() : null)
                 .manufacturer(p.getManufacturer())
@@ -146,6 +166,7 @@ public class ProductService {
                 .manufacturer(p.getManufacturer())
                 .sellingPrice(p.getSellingPrice())
                 .taxRate(p.getTaxRate())
+                .taxCodeId(p.getTaxCodeId())
                 .isActive(p.getIsActive())
                 .imageUrl(p.getImageUrl())
                 .createdBy(p.getCreatedBy())
@@ -171,6 +192,7 @@ public class ProductService {
         p.setManufacturer(dto.getManufacturer());
         p.setSellingPrice(dto.getSellingPrice());
         p.setTaxRate(dto.getTaxRate());
+        p.setTaxCodeId(dto.getTaxCodeId());   // multi-rate tax: assigned code (null clears → taxRate/org default)
         if (dto.getIsActive() != null) p.setIsActive(dto.getIsActive());
         p.setImageUrl(dto.getImageUrl());
         if (dto.getCreatedBy() != null) p.setCreatedBy(dto.getCreatedBy());

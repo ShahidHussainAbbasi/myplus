@@ -37,6 +37,8 @@ public class FeeCollectionController {
     @Autowired
     private StudentRepository studentRepository;   // P4: resolve visible students' enrollNos for branch scoping
     @Autowired
+    private com.myplus.education.service.FeeService feeService;   // reads the org's fee-branch-scope policy
+    @Autowired
     private RequestUtil requestUtil;
 
     @Autowired
@@ -76,11 +78,14 @@ public class FeeCollectionController {
     }
 
     /**
-     * P4 within-tenant leak fix: a fee record is for a student (by enrollNo), so a branch-constrained caller
-     * (teacher with grants) sees only fees for students in their accessible branches. Owner/super or no grants
-     * => org-wide (unchanged). Rows for another branch's student are hidden; orphaned null-enroll rows stay.
+     * Fee-collection visibility. By org policy (FeeSetting.feeCollectionBranchScoped, default FALSE) a fee can
+     * be viewed/collected from ANY branch — a parent may pay at any campus — so the default is org-wide. Only
+     * when the owner opts INTO branch scoping does a fee become visible solely to the student's branch (a fee
+     * is for a student, resolved by enrollNo). Owner/super always see org-wide.
      */
     private List<FeeCollection> branchVisible(List<FeeCollection> rows) {
+        if (!Boolean.TRUE.equals(feeService.settingFor(orgId(), userId()).getFeeCollectionBranchScoped()))
+            return rows;   // org-wide (the default): fees are collectible at any branch
         if (requestUtil.isOwnerSuper()) return rows;
         java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
         if (schools.isEmpty()) return rows;

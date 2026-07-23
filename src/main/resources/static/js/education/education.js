@@ -2803,6 +2803,7 @@ function loadFeeSetting(){
 		$("#fsPaymentMode").val(o.paymentMode || "BOTH");
 		$("#fsAutoRegister").prop("checked", !!o.autoRegisterDues);
 		$("#fsAging").prop("checked", !!o.agingEnabled);
+		$("#fsFeeBranchScoped").prop("checked", !!o.feeCollectionBranchScoped);
 		$("#fsDueDay").val(o.dueDay != null ? o.dueDay : 10);
 	});
 }
@@ -2812,7 +2813,8 @@ function saveFeeSetting(){
 		paymentMode: $("#fsPaymentMode").val(),
 		autoRegisterDues: $("#fsAutoRegister").is(":checked"),
 		agingEnabled: $("#fsAging").is(":checked"),
-		dueDay: $("#fsDueDay").val()
+		dueDay: $("#fsDueDay").val(),
+		feeCollectionBranchScoped: $("#fsFeeBranchScoped").is(":checked")
 	}, function(res){
 		alert(res && res.message ? res.message : (res && res.status === "SUCCESS" ? "Saved" : "Save failed"));
 	}).fail(function(){ alert("Save failed"); });

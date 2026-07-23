@@ -193,12 +193,12 @@ describe('Multi-branch: schools, grants and role×branch visibility', () => {
     })
   })
 
-  // T9h — the within-tenant leak fix: a fee record is FOR a student, so it inherits that student's branch.
-  // A teacher must see fee records only for students in their branch, not every branch's fees.
-  it('T9h: a teacher sees fee records only for their branch\'s students', () => {
+  // T9h — fee collection is ORG-WIDE by default (feeCollectionBranchScoped=false): a parent may pay at any
+  // campus, so a fee for a branch-1 student is visible from any branch. Then flip the org setting ON and
+  // confirm it becomes branch-scoped; restore the default afterwards so other tests/reruns are unaffected.
+  it('T9h: fee collection is org-wide by default, branch-scoped when the owner enables it', () => {
     const en = `ENFEE${uniq()}`
     cy.loginAsEduOwner()
-    // A branch-1 student with a known enrollNo, and a fee record against it.
     cy.request({
       method: 'POST', url: '/addStudent', form: true,
       body: { name: `CY_FEE_${uniq()}`, enrollNo: en, status: 'ACTIVE', schoolId: F.branch1 },
@@ -209,14 +209,60 @@ describe('Multi-branch: schools, grants and role×branch visibility', () => {
       body: { en, da: 1500, f: 1500, fp: 0, dd: 5 }, failOnStatusCode: false,
     }).then((r) => expect(JSON.stringify(r.body), `addFc: ${JSON.stringify(r.body)}`).to.match(/SUCCESS/))
 
-    // Teacher A (Branch 1) sees the fee; Teacher B (Branch 2) does not.
-    cy.loginAsTeacherA()
-    cy.request('/getUserFc').then((r) => {
-      expect(rows(r.body).map((f) => f.en), 'branch-1 teacher sees the branch-1 fee').to.include(en)
-    })
+    const teacherBSeesFee = (shouldSee) =>
+      cy.request('/getUserFc').then((r) => {
+        const seen = rows(r.body).map((f) => f.en).includes(en)
+        expect(seen, `branch-2 teacher ${shouldSee ? 'should' : 'should NOT'} see the branch-1 fee`).to.eq(shouldSee)
+      })
+    const setFeeBranchScoped = (on) =>
+      cy.request({ method: 'POST', url: '/saveFeeSetting', form: true,
+        body: { feeCollectionBranchScoped: on }, failOnStatusCode: false })
+        .then((r) => expect(JSON.stringify(r.body)).to.match(/SUCCESS/))
+
+    // Default (org-wide): a branch-2 teacher CAN see a branch-1 fee.
     cy.loginAsTeacherB()
-    cy.request('/getUserFc').then((r) => {
-      expect(rows(r.body).map((f) => f.en), 'branch-2 teacher must NOT see the branch-1 fee').to.not.include(en)
+    teacherBSeesFee(true)
+
+    // Owner turns branch scoping ON -> the branch-2 teacher no longer sees it.
+    cy.loginAsEduOwner()
+    cy.then(() => setFeeBranchScoped(true))
+    cy.loginAsTeacherB()
+    teacherBSeesFee(false)
+
+    // Restore the default so the org state is clean for reruns / other specs.
+    cy.loginAsEduOwner()
+    cy.then(() => setFeeBranchScoped(false))
+  })
+
+  // T9i — a teacher must not mark attendance for a student in a branch they don't belong to. markAttendanceBulk
+  // marks by enrollNo; the server only marks students in the caller's accessible branches and skips the rest.
+  it('T9i: a teacher cannot mark attendance for another branch\'s student', () => {
+    const en = `ENATT${uniq()}`
+    cy.loginAsEduOwner()
+    cy.request({
+      method: 'POST', url: '/addStudent', form: true,
+      body: { name: `CY_ATT_${uniq()}`, enrollNo: en, status: 'ACTIVE', schoolId: F.branch1 },
+      failOnStatusCode: false,
+    }).then((r) => expect(JSON.stringify(r.body)).to.match(/SUCCESS/))
+
+    const mark = (status) => ({ dateStr: '01-01-2027', rows: [{ enrollNo: en, status }] })
+
+    // Teacher B (Branch 2) marking the Branch-1 student -> skipped, 0 saved.
+    cy.loginAsTeacherB()
+    cy.request({
+      method: 'POST', url: '/markAttendanceBulk', headers: { 'Content-Type': 'application/json' },
+      body: mark('Absent'), failOnStatusCode: false,
+    }).then((r) => {
+      expect(JSON.stringify(r.body), `teacher B marked another branch: ${JSON.stringify(r.body)}`).to.match(/0 record/)
+    })
+
+    // Teacher A (Branch 1) can mark their own student -> 1 saved (the guard is not deny-all).
+    cy.loginAsTeacherA()
+    cy.request({
+      method: 'POST', url: '/markAttendanceBulk', headers: { 'Content-Type': 'application/json' },
+      body: mark('Present'), failOnStatusCode: false,
+    }).then((r) => {
+      expect(JSON.stringify(r.body), 'branch-1 teacher can mark their student').to.match(/1 record/)
     })
   })
 })

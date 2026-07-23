@@ -2250,6 +2250,13 @@
 						<div class="col-sm-6"><input type="number" min="1" max="28" class="form-control" id="fsDueDay"/></div>
 					</div>
 					<div class="form-group">
+						<label class="control-label col-sm-5" for="fsFeeBranchScoped">Restrict fee collection to each branch</label>
+						<div class="col-sm-6">
+							<input type="checkbox" id="fsFeeBranchScoped"/>
+							<span style="color:#7a889c;font-size:12px;margin-left:6px">Off (default): a fee can be collected at any branch. On: only the student's branch sees it.</span>
+						</div>
+					</div>
+					<div class="form-group">
 						<div class="col-sm-offset-5 col-sm-6">
 							<button type="button" class="btn btn-success" onclick="saveFeeSetting()"><span class="glyphicon glyphicon-floppy-disk"></span> Save Settings</button>
 						</div>

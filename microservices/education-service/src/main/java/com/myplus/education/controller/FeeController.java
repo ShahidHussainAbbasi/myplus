@@ -69,6 +69,7 @@ public class FeeController {
             o.put("agingEnabled", Boolean.TRUE.equals(s.getAgingEnabled()));
             o.put("autoRegisterDues", Boolean.TRUE.equals(s.getAutoRegisterDues()));
             o.put("paymentMode", s.getPaymentMode());
+            o.put("feeCollectionBranchScoped", Boolean.TRUE.equals(s.getFeeCollectionBranchScoped()));
             return new GenericResponse("SUCCESS", "", o);
         } catch (Exception e) {
             appUtil.le(getClass(), e);
@@ -84,7 +85,8 @@ public class FeeController {
                                           @RequestParam(required = false) Integer dueDay,
                                           @RequestParam(required = false) Boolean agingEnabled,
                                           @RequestParam(required = false) Boolean autoRegisterDues,
-                                          @RequestParam(required = false) String paymentMode) {
+                                          @RequestParam(required = false) String paymentMode,
+                                          @RequestParam(required = false) Boolean feeCollectionBranchScoped) {
         try {
             Long org = orgId();
             FeeSetting s = feeSettingRepository.findByOrganizationId(org)
@@ -95,6 +97,7 @@ public class FeeController {
             if (agingEnabled != null) s.setAgingEnabled(agingEnabled);
             if (autoRegisterDues != null) s.setAutoRegisterDues(autoRegisterDues);
             if (paymentMode != null) s.setPaymentMode(paymentMode);
+            if (feeCollectionBranchScoped != null) s.setFeeCollectionBranchScoped(feeCollectionBranchScoped);
             feeSettingRepository.save(s);
             return new GenericResponse("SUCCESS", "Fee settings saved");
         } catch (Exception e) {

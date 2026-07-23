@@ -104,6 +104,15 @@ public class AttendanceController {
                 .collect(Collectors.toList());
     }
 
+    /** The students the caller may see for roster/marking: owner/super or no-grants ⇒ org-wide (unchanged);
+     *  a branch-constrained teacher ⇒ only their branches' students. Mirrors StudentController.visibleStudents. */
+    private List<Student> visibleStudents() {
+        if (requestUtil.isOwnerSuper()) return studentRepository.findScoped(orgId(), userId());
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return studentRepository.findScoped(orgId(), userId());
+        return studentRepository.findScopedBySchools(orgId(), schools);
+    }
+
     @RequestMapping(value = "/getUserA", method = RequestMethod.GET)
     @ResponseBody
     public GenericResponse getUserA(final HttpServletRequest request) {
@@ -163,7 +172,7 @@ public class AttendanceController {
     public GenericResponse getUserStudentMap() {
         try {
             Map<String, Object> map = new LinkedHashMap<>();
-            for (Student s : studentRepository.findScoped(orgId(), userId())) {
+            for (Student s : visibleStudents()) {   // branch-scoped: a teacher's lookup map holds only their students
                 if (appUtil.isEmptyOrNull(s.getEnrollNo())) continue;
                 Map<String, Object> v = new LinkedHashMap<>();
                 v.put("name", s.getName());
@@ -198,7 +207,9 @@ public class AttendanceController {
 
             String gn = gradeName(gradeId);
             List<Map<String, Object>> roster = new ArrayList<>();
-            for (Student s : studentRepository.findScoped(orgId(), userId())) {
+            // Branch-scoped: a teacher only rosters their branches' students. Passing another branch's gradeId
+            // yields no matches (those students aren't in the visible set) — no cross-branch roster leak.
+            for (Student s : visibleStudents()) {
                 if (!Objects.equals(s.getGradeId(), gradeId)) continue;
                 Attendance a = existing.get(s.getEnrollNo());
                 Map<String, Object> row = new LinkedHashMap<>();
@@ -234,18 +245,21 @@ public class AttendanceController {
             LocalDate date = appUtil.isEmptyOrNull(req.getDateStr()) ? LocalDate.now() : appUtil.getLocalDate(req.getDateStr());
             String gn = gradeName(req.getGradeId());
 
+            // Only students the caller may see (branch-scoped). A row for a student outside the caller's
+            // branches (or a non-existent enrollNo) is skipped below — a teacher cannot mark another branch.
             Map<String, Student> students = new LinkedHashMap<>();
-            for (Student s : studentRepository.findScoped(org, uid)) {
+            for (Student s : visibleStudents()) {
                 if (s.getEnrollNo() != null) students.put(s.getEnrollNo(), s);
             }
 
             int saved = 0;
             for (BulkAttendanceRequest.Row r : req.getRows()) {
                 if (r == null || appUtil.isEmptyOrNull(r.getEnrollNo())) continue;
+                Student s = students.get(r.getEnrollNo());
+                if (s == null) continue;   // not a student this caller may mark — skip (was: marked regardless)
                 Attendance a = attendanceRepository
                         .findFirstByOrganizationIdAndEnAndAttDate(org, r.getEnrollNo(), date)
                         .orElseGet(Attendance::new);
-                Student s = students.get(r.getEnrollNo());
                 a.setOrganizationId(org);       // tenant scope
                 a.setUserId(uid);               // audit: who marked it (teacher-activity analytics)
                 a.setEn(r.getEnrollNo());

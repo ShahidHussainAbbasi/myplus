@@ -48,6 +48,15 @@ public class FeeSetting {
     @Column(name = "payment_mode")
     private String paymentMode = "BOTH";
 
+    /**
+     * Branch-scoping policy for fee collection. Default FALSE = a fee can be viewed/collected from ANY branch
+     * (a parent may pay at any campus). Set TRUE to restrict each branch's staff to their own branch's fees.
+     * Attendance is always branch-level (a teacher marks only their own branch) — not configurable here.
+     */
+    @Builder.Default
+    @Column(name = "fee_collection_branch_scoped")
+    private Boolean feeCollectionBranchScoped = false;
+
     private LocalDateTime updated;
 
     @PrePersist @PreUpdate

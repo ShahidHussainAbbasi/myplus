@@ -17,6 +17,8 @@ public class ProductDTO {
     private String manufacturer;
     private BigDecimal sellingPrice;
     private BigDecimal taxRate;
+    private Long taxCodeId;         // multi-rate tax: assigned tax-code (null = use taxRate / org default)
+    private String taxCodeName;     // read-only, for display in the product list/form
     private Boolean isActive;
     private String imageUrl;
     private Long createdBy;

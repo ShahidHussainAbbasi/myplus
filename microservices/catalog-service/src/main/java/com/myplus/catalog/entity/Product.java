@@ -36,7 +36,11 @@ public class Product {
     private String manufacturer;
 
     private BigDecimal sellingPrice;
+    /** Legacy/custom per-product rate — the fallback when {@code taxCodeId} is null (single-rate orgs unaffected). */
     private BigDecimal taxRate;
+    /** Multi-rate tax: the assigned tax-code (local id → {@code tax_code.id}); its rate wins over {@code taxRate}. */
+    @Column(name = "tax_code_id")
+    private Long taxCodeId;
 
     @Builder.Default
     private Boolean isActive = true;
