@@ -56,6 +56,13 @@ public class ProductController {
         return productService.getRef(id);
     }
 
+    /** Barcode-first sell: resolve a scanned code (barcode or sku) to a ProductRef — GET /products/lookup?code=X.
+     *  404 when nothing matches (tenant-scoped, active only). */
+    @GetMapping("/lookup")
+    public com.myplus.commerce.contracts.dto.ProductRef lookup(@RequestParam("code") String code) {
+        return productService.lookup(code);
+    }
+
     /** M4d (slice 93): batch refs by id for the POS read screens — GET /products/refs?ids=1,2,3 (tenant-scoped). */
     @GetMapping("/refs")
     public java.util.List<com.myplus.commerce.contracts.dto.ProductRef> getRefs(

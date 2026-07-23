@@ -5,6 +5,7 @@ import com.myplus.common.web.ApiResponse;
 import com.myplus.marketplace.dto.OrderDTO;
 import com.myplus.marketplace.service.OrderService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -43,6 +44,7 @@ public class OrderController {
     }
 
     /** Back-office refund (E6, slice 70). {@code amount} optional — omitted/0 = full remaining refund. */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")   // a refund moves money — admin/owner only
     @PostMapping("/{id}/refund")
     public ApiResponse<OrderDTO> refund(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> body) {
         java.math.BigDecimal amount = null;
@@ -53,6 +55,7 @@ public class OrderController {
     }
 
     /** Back-office process a return (E10, slice 71) — stock back (G2) + refund (card) → RETURNED. */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")   // a return issues a card refund — admin/owner only
     @PostMapping("/{id}/return")
     public ApiResponse<OrderDTO> processReturn(@PathVariable Long id) {
         return ApiResponse.success(

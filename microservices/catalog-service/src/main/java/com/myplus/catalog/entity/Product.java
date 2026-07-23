@@ -20,6 +20,11 @@ public class Product {
     @Column(nullable = false)
     private String sku;
 
+    /** Scannable code (manufacturer EAN/UPC) — distinct from the internal {@code sku}. Barcode-first sell resolves a
+     *  scan by barcode OR sku. Nullable; a product with no barcode is still found by its sku. */
+    @Column(name = "barcode")
+    private String barcode;
+
     @Column(nullable = false)
     private String name;
 

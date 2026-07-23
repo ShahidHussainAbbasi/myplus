@@ -27,10 +27,10 @@ dispense-returns, e-commerce RMA, and education fee-reversals each rediscover th
 | # | Step | UI | API | DB | Grade / gap |
 |---|---|:--:|:--:|:--:|---|
 | R1 | Onboard org / **store / terminal / register** | 🟡 | 🟡 | 🟡 | org+roles ✅; no store/terminal/register entity (cashier-shift exists) |
-| R2 | Catalog (product/category/unit/**barcode**) | ✅ | ✅ | ✅ | barcode field exists; **barcode-scan sell UX ⬜ (commented out)** |
+| R2 | Catalog (product/category/unit/**barcode**) | ✅ | ✅ | ✅ | `Product.barcode` (V3) + `/products/lookup`; **barcode-scan sell UX ✅** (scan box → auto-add) |
 | R3 | Supplier + **PO → GRN → receive** | 🟡 | ✅ | ✅ | single-step purchase only; **no PO/GRN approval workflow** |
 | R4 | Opening stock / **stock-take / cycle count** | 🟡 | ✅ | ✅ | adjust/transfer API ✅; **no cycle-count/variance UI** |
-| R5 | Counter sale (scan→cart→qty/disc) | 🟡 | ✅ | ✅ | works; barcode-first + cart polish 🟡 |
+| R5 | Counter sale (scan→cart→qty/disc) | ✅ | ✅ | ✅ | barcode-first scan→cart done; cart discount polish 🟡 |
 | R6 | Tax on lines+totals | ✅ | ✅ | ✅ | G3; **multi-rate / inclusive-toggle / tax-filing register ⬜** |
 | R7 | Tender (cash/card/credit/split/change) | ✅ | ✅ | ✅ | G5; **split collapses to one method in GL** |
 | R8 | Finalize (saga) + **receipt** | ✅ | ✅ | ✅ | thermal receipt ✅ |
@@ -141,6 +141,9 @@ Core backlog #1–#6, tax-filing register (Phase A+B) and **period close** are c
   has no PENDING/claim state: `record(org,op,key,ref)` inserts the row **with** its `result_ref` atomically in the
   caller's transaction, so a row exists only once the work has committed. A crash mid-work rolls the (would-be) row
   back — there is never a PENDING row to reap. (The reaper was a leftover TODO from the abandoned first-cut claim design.)
-- [ ] Polish backlog: store-credit/loyalty, GRN/PO approval, barcode-first sell UX, cycle-count/variance.
+- [x] **Barcode-first sell UX** — ✅ DONE. `Product.barcode` (catalog V3) + `/products/lookup` (barcode|sku, active,
+  scoped); sell-screen scan box auto-adds a cart line at list price (qty-increment on re-scan), autofocused, wedge-
+  scanner friendly; product form Barcode field. Design `barcode-first-sell-design.md`; Cypress `barcode-scan.cy.js`.
+- [ ] Polish backlog: store-credit/loyalty, GRN/PO approval, cycle-count/variance.
 
 > Cadence per item: Document → Design → Implement (UI→API→DB) → mvn → headed Cypress → next.

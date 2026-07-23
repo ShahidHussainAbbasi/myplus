@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public class ProductDTO {
     private Long id;
     private String sku;
+    private String barcode;     // barcode-first sell: scannable EAN/UPC (distinct from sku)
     private String name;
     private String description;
     private Long categoryId;

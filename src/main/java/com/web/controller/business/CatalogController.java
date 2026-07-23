@@ -144,6 +144,21 @@ public class CatalogController {
         }
     }
 
+    /** Barcode-first sell: resolve a scanned code (barcode or sku) to a ProductRef → catalog /products/lookup.
+     *  A miss (404) or downstream hiccup returns {} so the sell screen shows "not found" without a scary error. */
+    @GetMapping(value = "/lookupProduct", produces = "application/json")
+    @ResponseBody
+    public String lookupProduct(final HttpServletRequest request) {
+        String code = request.getParameter("code");
+        if (code == null || code.isBlank()) return "{}";
+        try {
+            return catalog.getString("/products/lookup?code="
+                    + java.net.URLEncoder.encode(code.trim(), java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            return "{}";   // not found is normal on a mis-scan — no error log
+        }
+    }
+
     // ---- Multi-rate tax: tax-code master (catalog-service) proxies ----
 
     /** List the org's tax codes (JSON array) — for the Tax Codes screen + the product-form dropdown. */

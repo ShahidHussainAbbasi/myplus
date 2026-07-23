@@ -134,6 +134,16 @@ public class ProductService {
         return toRef(getEntity(id), orgCodeRates());   // scoped — 404 if not this tenant's
     }
 
+    /** Barcode-first sell: resolve a scanned code (barcode or sku, active, scoped) to a ProductRef, or 404. */
+    @Transactional(readOnly = true)
+    public com.myplus.commerce.contracts.dto.ProductRef lookup(String code) {
+        if (code == null || code.isBlank()) throw new ResourceNotFoundException("No code");
+        java.util.List<Product> hits = productRepository.findByCodeScoped(
+                code.trim(), CurrentUser.organizationId(), CurrentUser.userId());
+        if (hits.isEmpty()) throw new ResourceNotFoundException("No product for code: " + code);
+        return toRef(hits.get(0), orgCodeRates());
+    }
+
     /** M4d (slice 93): batch refs by id (tenant-scoped) for the POS read screens — one call instead of N. Missing or
      *  foreign ids are simply omitted. readOnly tx keeps the session open for toRef()'s lazy category (see getRef). */
     @Transactional(readOnly = true)
@@ -158,6 +168,7 @@ public class ProductService {
         return ProductDTO.builder()
                 .id(p.getId())
                 .sku(p.getSku())
+                .barcode(p.getBarcode())
                 .name(p.getName())
                 .description(p.getDescription())
                 .categoryId(p.getCategory() != null ? p.getCategory().getId() : null)
@@ -177,6 +188,7 @@ public class ProductService {
 
     private Product fromDto(ProductDTO dto, Product p) {
         p.setSku(dto.getSku());
+        p.setBarcode(dto.getBarcode() != null && !dto.getBarcode().isBlank() ? dto.getBarcode().trim() : null);
         p.setName(dto.getName());
         p.setDescription(dto.getDescription());
         if (dto.getCategoryId() != null) {

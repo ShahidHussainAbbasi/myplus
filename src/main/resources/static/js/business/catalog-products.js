@@ -193,6 +193,7 @@
             $('#productId').val(p.id);
             $('#prodName').val(p.name || '');
             $('#prodSku').val(p.sku || '');
+            $('#prodBarcode').val(p.barcode || '');
             $('#prodPrice').val(p.sellingPrice != null ? p.sellingPrice : '');
             $('#prodTax').val(p.taxRate != null ? p.taxRate : '');
             loadTaxCodes(p.taxCodeId != null ? p.taxCodeId : '');
@@ -225,6 +226,7 @@
         var codeId = $('#prodTaxCode').val();
         var body = {
             name: $('#prodName').val().trim(), sku: sku,
+            barcode: $('#prodBarcode').val().trim() || null,
             sellingPrice: s2n($('#prodPrice').val()),
             taxCodeId: codeId ? Number(codeId) : null,
             taxRate: codeId ? null : s2n($('#prodTax').val()),

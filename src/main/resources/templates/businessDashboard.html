@@ -976,11 +976,21 @@
 					enctype="utf8" id="Sell" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-12">
-							<input type="number" class="form-control" id="sellId" name="id" readonly="readonly"/> 
+							<input type="number" class="form-control" id="sellId" name="id" readonly="readonly"/>
 						</div>
 					</div>
+					<!-- Barcode-first sell: scan a product's barcode/SKU (a wedge scanner types the code + Enter) → the
+					     matching product is auto-added to the cart at its list price. Server validates stock at submit. -->
 					<div class="form-group">
-						<label class="control-label col-sm-2 req">Item</label> 
+						<label class="control-label col-sm-2" for="sellScan"><span class="glyphicon glyphicon-barcode"></span> Scan</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="sellScan" placeholder="Scan or type barcode / SKU, then Enter" autocomplete="off"
+								onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();sellScanAdd();}">
+						</div>
+						<div class="col-sm-6"><span id="sellScanMsg" class="help-block" style="margin:6px 0 0"></span></div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2 req">Item</label>
 						<div class="col-sm-4">
 							<select required="required"
 								class="form-control onChangeSelect selectpicker" id="sellItemDD" name="itemId" data-live-search="true">
@@ -1328,6 +1338,8 @@
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodName"></div>
 						<label class="control-label col-sm-2" for="prodSku">SKU / Code</label>
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodSku"></div>
+						<label class="control-label col-sm-2" for="prodBarcode">Barcode</label>
+						<div class="col-sm-4"><input type="text" class="form-control" id="prodBarcode" placeholder="EAN / UPC (scannable)"></div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="prodPrice">Sell Price</label>
@@ -1906,6 +1918,8 @@
         if (btn) btn.classList.add('snav-active');
         $('#' + sel).val(val).trigger('change');
         document.getElementById(ddId).classList.remove('snav-open');
+        // Barcode-first: land the cursor in the scan box when opening a New Sale (wedge scanner ready).
+        if (val === 'sellDiv') setTimeout(function(){ var s = document.getElementById('sellScan'); if (s) s.focus(); }, 150);
     }
 
     // function snavHome() {

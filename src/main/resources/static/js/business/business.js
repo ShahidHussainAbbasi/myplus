@@ -219,6 +219,52 @@ function UIT(id){
 	});
 }
 
+// ─── Barcode-first sell: scan a barcode/SKU → resolve → add a cart line ────────
+// A wedge scanner types the code + Enter into #sellScan. We look the product up (barcode or sku), then append a
+// cart line at the catalog price (qty 1), or increment the qty if it's already in the cart. The server still
+// validates stock at addSell (FEFO reserve), so a scan of an out-of-stock item is rejected at submit.
+function sellScanAdd(){
+	var $in = $('#sellScan');
+	var code = ($in.val() || '').trim();
+	if(!code) return;
+	$in.val('');
+	$.get(serverContext + 'lookupProduct', { code: code }, function(resp){
+		var ref = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : null) : resp;
+		if(!ref || ref.id == null){ sellScanMsg('No product for "' + code + '"', true); $in.focus(); return; }
+		scanAddToCart(ref);
+		sellScanMsg('Added ' + (ref.name || ref.sku || ('#' + ref.id)) + ' ×' + cartQty(ref.id), false);
+		$in.focus();
+	}, 'json').fail(function(){ sellScanMsg('Lookup failed (is catalog-service up?).', true); $in.focus(); });
+}
+function sellScanMsg(msg, err){ $('#sellScanMsg').text(msg).css('color', err ? '#c0392b' : '#0f6e56'); }
+function cartQty(pid){ var d = data.find(function(x){ return String(x.productId) === String(pid); }); return d ? d.quantity : 1; }
+
+function scanAddToCart(ref){
+	var pid = ref.id;
+	var price = (ref.sellingPrice != null) ? Number(ref.sellingPrice) : 0;
+	var name = ref.name || ref.sku || ('#' + pid);
+	var idx = data.findIndex(function(d){ return String(d.productId) === String(pid); });
+	if(idx >= 0){
+		// Already scanned → bump qty on the existing line (cart + grid).
+		data[idx].quantity = (Number(data[idx].quantity) || 0) + 1;
+		tablesi.rows().every(function(){
+			var row = this.data();
+			if(String(row[0]) === String(pid)){ row[2] = data[idx].quantity; this.data(row); }
+		});
+		tablesi.draw(false);
+	} else {
+		// New line — mirror the shape a manual "Add to Cart" pushes (data[] is submitted as `sales`).
+		var obj = {
+			productId: pid, itemId: pid, itemName: name,
+			quantity: 1, sellRate: price, description: ref.description || '',
+			stock: { itemId: pid, itemName: name, bsellRate: price, bsellDiscount: '', bsellDiscountType: '0' }
+		};
+		data.push(obj);
+		tablesi.row.add([pid, name, 1, price, '', '', "<button id='DII' onclick=UIT(" + pid + ")>Del</button>"]).draw();
+	}
+	calculateChange();   // recompute Change & Due from the live cart total
+}
+
 // ─── Edit an existing sale (invoice) ──────────────────────────────────────────
 // Clicking a row in the Sell report loads that row's WHOLE invoice (all line items + customer +
 // paid/due) back into the cart (iDiv) and the sell form, in an "editing INV-xxxx" state. Saving

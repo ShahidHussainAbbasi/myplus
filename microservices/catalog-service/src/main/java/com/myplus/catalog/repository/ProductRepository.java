@@ -44,6 +44,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.sku = :sku AND " + SCOPE)
     Optional<Product> findBySkuScoped(@Param("sku") String sku, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /** Barcode-first sell: exact scan lookup by barcode OR sku, active only, tenant-scoped. Barcode match preferred
+     *  (ordered first) — returned as a list so an ambiguous code (one product's barcode == another's sku) can't throw. */
+    @Query("SELECT p FROM Product p WHERE (p.barcode = :code OR p.sku = :code) AND p.isActive = true AND " + SCOPE
+         + " ORDER BY CASE WHEN p.barcode = :code THEN 0 ELSE 1 END, p.id ASC")
+    List<Product> findByCodeScoped(@Param("code") String code, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT p FROM Product p WHERE p.category.id = :categoryId AND " + SCOPE)
     Page<Product> findByCategoryScoped(@Param("categoryId") Long categoryId, @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
