@@ -48,6 +48,26 @@ public class SagaSellService {
     @org.springframework.beans.factory.annotation.Autowired
     private PeriodLockGuard periodLockGuard;   // period close: reject a sale dated in a closed period
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private StoreCreditService storeCreditService;   // SF-5 Model B: redeem store credit at checkout
+
+    /** Cap a STORE_CREDIT tender to the customer's balance (never trust the client / overdraw). Mutates the tender
+     *  amount in the dto so settle uses the real value; returns the amount that will be redeemed (0 if none / no
+     *  identified customer / zero balance). */
+    private BigDecimal capStoreCreditTender(com.myplus.business_service.dto.CustomerHistoryDTO dto, Long customerId) {
+        if (dto.getTenders() == null) return BigDecimal.ZERO;
+        for (com.myplus.business_service.dto.TenderDTO t : dto.getTenders()) {
+            if (t != null && "STORE_CREDIT".equalsIgnoreCase(t.getMethod())) {
+                BigDecimal want = t.getAmount() != null ? t.getAmount() : BigDecimal.ZERO;
+                BigDecimal cap = (customerId != null && want.signum() > 0)
+                        ? want.min(storeCreditService.balance(customerId)) : BigDecimal.ZERO;
+                t.setAmount(cap);   // settle counts STORE_CREDIT as paid → the capped value is the real paid amount
+                return cap;
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
     /** @return the invoice number of the recorded sale. */
     public String addSell(CustomerHistoryDTO dto) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
@@ -64,6 +84,12 @@ public class SagaSellService {
             LOG.info("addSell idempotent replay for key {} -> existing invoice {}", idempotencyKey, already.get().getInvoiceNo());
             return already.get().getInvoiceNo();
         }
+
+        // Store credit (SF-5 Model B): a STORE_CREDIT tender is capped to the customer's balance BEFORE settling
+        // (never trust the client amount, never overdraw). Requires an identified (existing) customer — a fresh
+        // customer has no credit. The tender is settled at the capped amount; we redeem exactly that after the write.
+        Long scCustomerId = (dto.getCustomer() != null) ? dto.getCustomer().getCustomerId() : null;
+        BigDecimal scRedeem = capStoreCreditTender(dto, scCustomerId);
 
         // SF-1/SF-2: the ONE authoritative line build (catalog price + sold rate + discount + tax + catalog
         // snapshot), shared with updateSell so add and edit produce identical lines.
@@ -108,6 +134,13 @@ public class SagaSellService {
                     reservationId, ch.getInvoiceNo(), confirmFailure);
         }
 
+        // Store credit (SF-5 Model B): redeem the capped amount from the customer's balance now that the sale is
+        // written (ledger −amount + cached balance). Best-effort — the sale is already recorded.
+        if (scRedeem != null && scRedeem.signum() > 0 && scCustomerId != null) {
+            try { storeCreditService.redeem(scCustomerId, scRedeem, ch.getInvoiceNo()); }
+            catch (Exception ex) { LOG.warn("store-credit redeem failed for {} (sale recorded)", ch.getInvoiceNo(), ex); }
+        }
+
         // F3b: auto-post the sale to the General Ledger (Dr Cash/AR, Cr Sales+Tax; + COGS from the line cost).
         // Best-effort — a GL hiccup must never fail the sale (reconcile later). Only on a NEW sale (not edits).
         try {
@@ -117,7 +150,9 @@ public class SagaSellService {
             glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
                     .eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
                     .grandTotal(ch.getGrandTotal()).subTotal(ch.getSubTotal()).taxTotal(ch.getTaxTotal())
-                    .cost(cost).paidAmount(ch.getPaidAmount()).method(ch.getPaymentMode()).build());
+                    .cost(cost).paidAmount(ch.getPaidAmount()).method(ch.getPaymentMode())
+                    .storeCredit(scRedeem).build())    // store-credit portion → Dr 2200 (not Cash)
+                    ;
         } catch (Exception ex) {
             LOG.warn("GL enqueue failed for sale {} (sale recorded)", ch.getInvoiceNo(), ex);
         }

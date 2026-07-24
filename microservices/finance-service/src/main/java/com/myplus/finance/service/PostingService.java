@@ -33,7 +33,7 @@ public class PostingService {
 
     // Default chart-of-accounts codes (see GlService.DEFAULT_COA).
     private static final String CASH = "1000", BANK = "1010", AR = "1100", INVENTORY = "1200",
-            AP = "2000", TAX = "2100", SALES = "4000", COGS = "5000";
+            AP = "2000", TAX = "2100", STORE_CREDIT = "2200", SALES = "4000", COGS = "5000";
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
 
@@ -82,6 +82,8 @@ public class PostingService {
         if (grand.signum() <= 0) return;
         BigDecimal sub = nz(r.getSubTotal()), tax = nz(r.getTaxTotal());
         BigDecimal refund = nz(r.getPaidAmount()).max(BigDecimal.ZERO).min(grand);
+        BigDecimal sc = nz(r.getStoreCredit()).max(BigDecimal.ZERO).min(refund);   // refund issued as store credit (⊆ refund)
+        BigDecimal cash = refund.subtract(sc);                                     // the rest handed back as cash
         BigDecimal ar = grand.subtract(refund);
         List<JournalLineDTO> lines = new ArrayList<>();
         if (sub.signum() > 0 || tax.signum() > 0) {
@@ -90,7 +92,8 @@ public class PostingService {
         } else {
             lines.add(dr(SALES, grand));
         }
-        if (refund.signum() > 0) lines.add(cr(cashAccount(r.getMethod()), refund));
+        if (sc.signum() > 0)     lines.add(cr(STORE_CREDIT, sc));   // we now owe the customer store credit
+        if (cash.signum() > 0)   lines.add(cr(cashAccount(r.getMethod()), cash));
         if (ar.signum() > 0)     lines.add(cr(AR, ar));
         post("SALE_RETURN", r.getDate(), r.getRef(), lines);
         BigDecimal cost = nz(r.getCost());
@@ -119,9 +122,12 @@ public class PostingService {
         if (grand.signum() <= 0) return;
         BigDecimal sub = nz(r.getSubTotal()), tax = nz(r.getTaxTotal());
         BigDecimal paid = nz(r.getPaidAmount()).max(BigDecimal.ZERO).min(grand);   // cap tender at the bill
+        BigDecimal sc = nz(r.getStoreCredit()).max(BigDecimal.ZERO).min(paid);     // store-credit redeemed (⊆ paid)
+        BigDecimal cash = paid.subtract(sc);                                       // the rest of the tender is cash/card
         BigDecimal ar = grand.subtract(paid);
         List<JournalLineDTO> lines = new ArrayList<>();
-        if (paid.signum() > 0) lines.add(dr(cashAccount(r.getMethod()), paid));
+        if (sc.signum() > 0)   lines.add(dr(STORE_CREDIT, sc));   // reduce the liability we owed the customer
+        if (cash.signum() > 0) lines.add(dr(cashAccount(r.getMethod()), cash));
         if (ar.signum() > 0)   lines.add(dr(AR, ar));
         // Cr side = sub + tax = grand. If the caller didn't split sub/tax, credit the whole to Sales so it balances.
         if (sub.signum() > 0 || tax.signum() > 0) {

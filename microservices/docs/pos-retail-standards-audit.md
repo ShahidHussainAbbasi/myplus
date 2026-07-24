@@ -36,7 +36,7 @@ dispense-returns, e-commerce RMA, and education fee-reversals each rediscover th
 | R8 | Finalize (saga) + **receipt** | ✅ | ✅ | ✅ | thermal receipt ✅ |
 | R9 | **Sale return / refund** → inventory | ✅ | ✅ | ✅ | stock+money ✅ (G2/SF-5); **no GL reversal, no credit-note money in GL** |
 | R10 | Hold/park + resume; **void line/sale** | 🟡 | 🟡 | 🟡 | park/hold ✅; **void/cancel as audited action ⬜** |
-| R11 | Customer attach / **credit sale / store credit** | 🟡 | ✅ | ✅ | AR ✅; **store-credit/overpay ledger ⬜ (SF-5 Model B)** |
+| R11 | Customer attach / **credit sale / store credit** | ✅ | ✅ | ✅ | AR ✅; **store credit ✅ (SF-5 Model B — ledger + GL 2200 + redeem tender)** |
 | R12 | Discounts / **coupons / loyalty** at POS | 🟡 | 🟡 | 🟡 | line discount only; coupons exist for e-com not POS; **loyalty ⬜** |
 | R13 | Cash drawer / shift / X-Z | ✅ | ✅ | ✅ | day-close ✅ |
 | R14 | Low-stock / near-expiry alerts on dashboard | 🟡 | ✅ | ✅ | StockAlert + inventory alerts exist; dashboard wiring 🟡 |
@@ -144,6 +144,10 @@ Core backlog #1–#6, tax-filing register (Phase A+B) and **period close** are c
 - [x] **Barcode-first sell UX** — ✅ DONE. `Product.barcode` (catalog V3) + `/products/lookup` (barcode|sku, active,
   scoped); sell-screen scan box auto-adds a cart line at list price (qty-increment on re-scan), autofocused, wedge-
   scanner friendly; product form Barcode field. Design `barcode-first-sell-design.md`; Cypress `barcode-scan.cy.js`.
-- [ ] Polish backlog: store-credit/loyalty, GRN/PO approval, cycle-count/variance.
+- [x] **Store credit (SF-5 Model B)** — ✅ DONE. `store_credit_txn` ledger + cached `Customer.creditBalance` (business
+  V24); returns issue credit (`refundAs=CREDIT`), checkout redeems via a `STORE_CREDIT` tender (server-capped); GL
+  liability `2200` + posting split (`PostingEventRequest.storeCredit`); void re-issues, edit blocked. Design
+  `store-credit-design.md`; Cypress `store-credit.cy.js`. (Loyalty points still open.)
+- [ ] Polish backlog: loyalty points, GRN/PO approval, cycle-count/variance.
 
 > Cadence per item: Document → Design → Implement (UI→API→DB) → mvn → headed Cypress → next.

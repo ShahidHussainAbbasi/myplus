@@ -70,6 +70,19 @@ public class CustomerController {
         }
     }
 
+    /** SF-5 Model B: the customer's store-credit balance → business-service /customerCredit (checkout "apply credit"). */
+    @RequestMapping(value = "/customerCredit", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> customerCredit(final HttpServletRequest request) {
+        try {
+            String id = request.getParameter("customerId");
+            return client.get("/customerCredit", "customerId=" + (id == null ? "" : id));
+        } catch (Exception e) {
+            LOGGER.error("customerCredit proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     /** Receive Payment (AR subledger) → business-service /receivePayment: allocates the receipt to the customer's
      *  open invoices, recomputes their due, and records it in the shared finance ledger. */
     @RequestMapping(value = "/receivePayment", method = RequestMethod.POST)

@@ -63,6 +63,11 @@ public class Customer implements Serializable {
     @Column(name = "due_amount", precision = 19, scale = 2)
     private BigDecimal dueAmount;
 
+    /** Store credit (SF-5 Model B): redeemable credit the customer holds (a liability). Cached — summed from
+     *  store_credit_txn by recomputeCredit. Null == 0. */
+    @Column(name = "credit_balance", precision = 19, scale = 2)
+    private BigDecimal creditBalance;
+
     @Column(name = "due_date")
     private LocalDate dueDate;
 	

@@ -72,6 +72,7 @@ public class GlOutboxService {
         o.setTaxTotal(req.getTaxTotal());
         o.setCost(req.getCost());
         o.setPaidAmount(req.getPaidAmount());
+        o.setStoreCredit(req.getStoreCredit());   // SF-5 Model B: carry the store-credit split to finance (GL 2200)
         o.setMethod(req.getMethod());
         o.setStatus("PENDING");
         o.setAttempts(0);
@@ -109,6 +110,7 @@ public class GlOutboxService {
                 .eventType(o.getEventType()).eventKey(o.getEventKey()).date(LocalDate.now()).ref(o.getRef())
                 .grandTotal(o.getGrandTotal()).subTotal(o.getSubTotal()).taxTotal(o.getTaxTotal())
                 .cost(o.getCost()).paidAmount(o.getPaidAmount()).method(o.getMethod())
+                .storeCredit(o.getStoreCredit())
                 .build();
     }
 }

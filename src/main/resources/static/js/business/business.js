@@ -933,12 +933,24 @@ function onSellCustomerSelect(sel) {
 		document.getElementById("sellCustomerDD").style.removeProperty('border-color');
 		var due = Number(opt.data('due'));
 		window.selectedCustomerDue = isNaN(due) ? 0 : due;   // existing customer's running balance
+		loadCustomerCredit(customerId);                      // SF-5 Model B: show/offer store credit
 	} else {
 		$("#sellCN").val('');
 		$("#sellCC").val('');
 		window.selectedCustomerDue = null;                   // no account context (nothing picked)
+		$('#sellStoreCreditWrap').hide(); $('#sellStoreCredit').val('');
 	}
 	refreshAccountDuePreview();
+}
+
+// SF-5 Model B: fetch the selected customer's store-credit balance; show the "apply credit" field only if they have any.
+function loadCustomerCredit(customerId){
+	$('#sellStoreCreditWrap').hide(); $('#sellStoreCredit').val('');
+	if(!customerId) return;
+	$.get(serverContext + 'customerCredit', { customerId: customerId }, function(resp){
+		var bal = (resp && resp.object != null) ? Number(resp.object) : 0;
+		if(bal > 0){ $('#sellCreditAvail').text(bal.toFixed(2)); $('#sellStoreCreditWrap').show(); }
+	}, 'json');
 }
 
 function onCustomerModeChange(mode) {
@@ -1636,8 +1648,10 @@ function calculateChange() {
     // SF-1/SF-2: while EDITING, the bill is already partly covered by what was paid before, so the preview must
     // count it: due = bill − (priorPaid + additionalReceived + insured). The server derives the real due the same way.
     var priorPaid = (window.editingInvoice && window.editingPaid) ? Number(window.editingPaid) : 0;
+    // SF-5 Model B: applied store credit counts as paid (capped at the bill for the preview; server caps at balance).
+    var storeCredit = ($("#sellStoreCredit").val() * ONE) || 0;
     // SF-7: round money to 2 decimals so the on-screen change/due can't show float drift (e.g. 0.30000000004).
-    var change = Math.round((recAm + insured + priorPaid - sellTotal) * 100) / 100;
+    var change = Math.round((recAm + insured + priorPaid + storeCredit - sellTotal) * 100) / 100;
 
     // sellCh keeps the SIGNED change/due (received − bill) — addSell submits this as customer.dueAmount.
     // Do not change its meaning; the display fields below are derived from it.
@@ -1888,7 +1902,9 @@ function buildSaleReturnDialog(){
 		+ "<input type='number' id='srQty' class='form-control' step='any' min='1' style='margin-bottom:12px'>"
 		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Reason (optional)</label>"
 		+ "<input type='text' id='srReason' class='form-control' maxlength='200' placeholder='e.g. damaged, expired, customer change' style='margin-bottom:8px'>"
-		// P11 (slice 55): quarantine returned stock (not restocked) — defaulted on for pharmacy.
+		// SF-5 Model B: any overpayment on the return goes back as cash (default) or as store credit.
+		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Refund overpayment as</label>"
+		+ "<select id='srRefundAs' class='form-control' style='margin-bottom:8px'><option value='CASH'>Cash</option><option value='CREDIT'>Store credit</option></select>"
 		+ "<label style='display:block;font-size:13px;margin-bottom:8px'><input type='checkbox' id='srQuarantine' style='margin-right:6px'>Quarantine returned stock (do not restock)</label>"
 		+ "<div id='srError' style='color:#c0392b;font-size:12px;min-height:16px;margin-bottom:8px'></div>"
 		+ "<div style='text-align:right'>"
@@ -1940,7 +1956,8 @@ function submitSaleReturn(){
 		url: serverContext + "saleReturn",
 		dataType: "json",
 		data: { 'sellId': sellId, 'sellSId': stockId, 'quantity': qty, 'reason': document.getElementById('srReason').value,
-			'quarantine': document.getElementById('srQuarantine').checked },
+			'quarantine': document.getElementById('srQuarantine').checked,
+			'refundAs': document.getElementById('srRefundAs').value },
 		success: function(data){
 			btn.disabled = false;
 			if (data && (data.status === 'SUCCESS' || data.message)) {

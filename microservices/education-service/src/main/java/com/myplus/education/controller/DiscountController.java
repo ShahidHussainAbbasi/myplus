@@ -16,7 +16,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.education.dto.DiscountDTO;
 import com.myplus.education.entity.Discount;
+import com.myplus.education.entity.Student;
 import com.myplus.education.repository.DiscountRepository;
+import com.myplus.education.repository.StudentRepository;
+import com.myplus.education.service.SettingsService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
@@ -28,6 +31,10 @@ public class DiscountController {
 
     @Autowired
     private DiscountRepository discountRepository;
+    @Autowired
+    private StudentRepository studentRepository;   // derive a discount's branch from students who use it
+    @Autowired
+    private SettingsService settingsService;       // reads the org's edu.discount.branchScoped policy
     @Autowired
     private RequestUtil requestUtil;
 
@@ -63,11 +70,27 @@ public class DiscountController {
         return dto;
     }
 
+    /**
+     * Discount branch visibility — OFF by default (org-wide), opt-in per org via {@code edu.discount.branchScoped}
+     * on the Configuration screen. When on, a discount is visible only if a student in the caller's accessible
+     * branches uses it (derived via Student.discountId). Owner/super or no branch grants ⇒ org-wide.
+     */
+    private List<Discount> branchVisible(List<Discount> rows) {
+        if (!settingsService.getBool("edu.discount.branchScoped")) return rows;   // org-wide (default)
+        if (requestUtil.isOwnerSuper()) return rows;
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return rows;
+        java.util.Set<Long> visibleDiscountIds = studentRepository.findScopedBySchools(orgId(), schools).stream()
+                .map(Student::getDiscountId).filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        return rows.stream().filter(d -> d.getId() != null && visibleDiscountIds.contains(d.getId()))
+                .collect(Collectors.toList());
+    }
+
     @RequestMapping(value = "/getUserDiscount", method = RequestMethod.GET)
     @ResponseBody
     public GenericResponse getUserDiscount(final HttpServletRequest request) {
         try {
-            List<Discount> objs = discountRepository.findScoped(orgId(), userId());
+            List<Discount> objs = branchVisible(discountRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -83,7 +106,7 @@ public class DiscountController {
     public String getUserDiscounts(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Discount> objs = discountRepository.findScoped(orgId(), userId());
+            List<Discount> objs = branchVisible(discountRepository.findScoped(orgId(), userId()));
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -100,8 +123,8 @@ public class DiscountController {
     @ResponseBody
     public GenericResponse getAllDiscount(final HttpServletRequest request) {
         try {
-            // Tenant-scoped: "all" means all discounts in the active organization, not every tenant's.
-            List<Discount> all = discountRepository.findScoped(orgId(), userId());
+            // Tenant- + (opt-in) branch-scoped: see branchVisible().
+            List<Discount> all = branchVisible(discountRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }

@@ -421,7 +421,7 @@ $(document).ready(function() {
 				// Proceed when the cart has items AND (payment received OR still owing OR we're editing an existing
 				// invoice — a fully-paid edit has no new payment and zero due but must still be submittable). SF-8:
 				// grouped explicitly (was `A && B && C || D`, which let a no-item owing state through).
-				if(data && data.length>0 && ($("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0 || window.editingInvoice)){
+				if(data && data.length>0 && ($("#sellRec").val()*ONE>0 || $("#sellCh").val()*ONE < 0 || ($("#sellStoreCredit").val()*ONE>0) || window.editingInvoice)){
 					// A NEW (manually entered) customer who owes a balance must give a mobile so the due
 					// can be followed up. An existing customer chosen from sellCustomerDD is already on
 					// file (their contact may legitimately be blank) — don't force a mobile in that case.
@@ -438,6 +438,8 @@ $(document).ready(function() {
 
 
 					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
+					// SF-5 Model B: redeeming store credit needs an identified (existing) customer — send the selected id.
+					if (isSelectMode && $("#sellCustomerDD").val()) customer.customerId = Number($("#sellCustomerDD").val());
 					var customerHistory = {"customer":customer, "sales":data};
 					// G5 (slice 37): record how the sale is paid. One tender from the chosen method + amount received;
 					// CREDIT = on account (not counted as paid). Backend settles paid/due against the grand total.
@@ -451,6 +453,11 @@ $(document).ready(function() {
 					var insured = $("#sellInsured").val()*ONE || 0;
 					if (insured > 0) {
 						customerHistory.tenders.push({ "method": "INSURANCE", "amount": insured, "reference": "" });
+					}
+					// SF-5 Model B: applied store credit → a STORE_CREDIT tender (server caps it at the balance).
+					var scApply = $("#sellStoreCredit").val()*ONE || 0;
+					if (scApply > 0 && customer.customerId) {
+						customerHistory.tenders.push({ "method": "STORE_CREDIT", "amount": scApply, "reference": "" });
 					}
 					// Editing an existing invoice -> update it in place (same invoice #, stock & dues
 					// adjusted by the deltas); otherwise create a new sale.

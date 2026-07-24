@@ -137,6 +137,9 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.service.PeriodLockGuard periodLockGuard;   // period close: reject changes in a locked period
 
+	@Autowired
+	com.myplus.business_service.service.StoreCreditService storeCreditService;   // SF-5 Model B: issue credit on returns
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -594,6 +597,11 @@ public class SellController {
 				return new GenericResponse("NOT_FOUND", "Invoice not found");   // anti-IDOR (org + store)
 			if ("VOID".equals(ch.getStatus()))   // Audit #3: a voided invoice is read-only
 				return new GenericResponse("FAILED", "This invoice is voided and cannot be edited.");
+			// SF-5 Model B: a sale settled with store credit can't be edited in place (the shared apply path would
+			// re-settle the tender without reconciling the credit ledger). Void it and re-enter instead.
+			if (paymentService.forInvoice(chId).stream()
+					.anyMatch(p -> p.getMethod() == com.myplus.business_service.entity.PaymentMethod.STORE_CREDIT))
+				return new GenericResponse("FAILED", "This sale was paid with store credit — void it and re-enter to change it.");
 			// Period close: an edit rewrites the ORIGINAL invoice in place, so it must fall in an open period.
 			periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : java.time.LocalDate.now());
 
@@ -775,6 +783,7 @@ public class SellController {
 			// return just reduces what the customer owes). See the re-settle block for the REFUND tender.
 			boolean partial = retQty > 0f && retQty < soldQty;
 			java.math.BigDecimal refundedAmount = java.math.BigDecimal.ZERO;   // SF-11: recorded on the return audit
+			java.math.BigDecimal storeCreditIssued = java.math.BigDecimal.ZERO;   // SF-5 Model B: overpayment issued as credit
 			// GL SALE_RETURN: capture the returned line's ex-tax net, tax and COGS BEFORE the line is adjusted/deleted.
 			float retFrac = soldQty > 0f ? (retQty / soldQty) : 1f;
 			java.math.BigDecimal retSub = nzbd(existingSell.getTotalAmount()).multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
@@ -822,8 +831,16 @@ public class SellController {
 				java.math.BigDecimal priorPaid = nzbd(ch.getPaidAmount());
 				java.math.BigDecimal refund = priorPaid.subtract(grandTotal);   // > 0 only when overpaid
 				if (refund.signum() > 0) {
-					paymentService.refund(ch.getCustomer_history_id(), refund, orgId(), userId());
-					ch.setPaidAmount(priorPaid.subtract(refund));   // = grandTotal; the refunded cash leaves paidAmount
+					// SF-5 Model B: refund as CASH (default) or as STORE CREDIT (opt-in) when the customer is known.
+					String refundAs = request.getParameter("refundAs");
+					Customer cust = ch.getCustomer();
+					if ("CREDIT".equalsIgnoreCase(refundAs) && cust != null && cust.getCustomerId() != null) {
+						storeCreditService.issue(cust.getCustomerId(), refund, "RETURN", ch.getInvoiceNo());   // +credit, org keeps the cash
+						storeCreditIssued = refund;
+					} else {
+						paymentService.refund(ch.getCustomer_history_id(), refund, orgId(), userId());  // cash back (REFUND tender)
+					}
+					ch.setPaidAmount(priorPaid.subtract(refund));   // = grandTotal; the returned value leaves paidAmount
 					refundedAmount = refund;                        // SF-11: capture for the return audit record
 				}
 				ch.setDueAmount(nzbd(ch.getPaidAmount()).subtract(grandTotal));   // ≤ 0 (owing or settled)
@@ -861,7 +878,7 @@ public class SellController {
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(retInvoiceNo)
 							.grandTotal(retGross).subTotal(retSub).taxTotal(retTax).cost(retCost).paidAmount(refundedAmount)
-							.method("CASH").build());
+							.method("CASH").storeCredit(storeCreditIssued).build());   // credit-issue portion → Cr 2200 (not Cash)
 				}
 			} catch (Exception glEx) {
 				LOGGER.warn(this.getClass().getName() + " > saleReturn GL reversal enqueue failed (return applied)", glEx);
@@ -937,10 +954,19 @@ public class SellController {
 				sellService.deleteById(s.getSellId());
 			}
 
-			// Header: refund whatever was paid, zero the totals, stamp VOID.
+			// Header: return whatever was paid, zero the totals, stamp VOID. SF-5 Model B: the portion paid WITH store
+			// credit is returned AS store credit (re-issued, not cash) so we don't hand out cash the sale never took;
+			// the rest is a cash REFUND.
 			java.math.BigDecimal refund = nzbd(ch.getPaidAmount());
-			if (refund.signum() > 0)
-				paymentService.refund(chId, refund, orgId(), userId());
+			java.math.BigDecimal scPaid = paymentService.forInvoice(chId).stream()
+					.filter(p -> p.getMethod() == com.myplus.business_service.entity.PaymentMethod.STORE_CREDIT)
+					.map(p -> nzbd(p.getAmount())).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+			java.math.BigDecimal creditReissue = refund.min(scPaid);                 // credit portion → back as credit
+			java.math.BigDecimal cashRefund = refund.subtract(creditReissue).max(java.math.BigDecimal.ZERO);
+			if (cashRefund.signum() > 0)
+				paymentService.refund(chId, cashRefund, orgId(), userId());
+			if (creditReissue.signum() > 0 && ch.getCustomer() != null && ch.getCustomer().getCustomerId() != null)
+				storeCreditService.issue(ch.getCustomer().getCustomerId(), creditReissue, "RETURN", ch.getInvoiceNo());
 			ch.setSubTotal(java.math.BigDecimal.ZERO);
 			ch.setTaxTotal(java.math.BigDecimal.ZERO);
 			ch.setGrandTotal(java.math.BigDecimal.ZERO);
@@ -964,7 +990,7 @@ public class SellController {
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
 							.grandTotal(retGross).subTotal(retSub).taxTotal(retTax).cost(retCost).paidAmount(refund)
-							.method("CASH").build());
+							.method("CASH").storeCredit(creditReissue).build());   // re-issued credit portion → Cr 2200
 			} catch (Exception glEx) {
 				LOGGER.warn(this.getClass().getName() + " > voidSell GL reversal enqueue failed (void applied)", glEx);
 			}

@@ -26,4 +26,6 @@ public class PostingEventRequest {
     private BigDecimal cost;        // COGS (SALE) — Σ(line cost × qty)
     private BigDecimal paidAmount;  // tendered at sale / paid at purchase
     private String method;          // CASH | CARD | BANK | CHEQUE (→ cash vs bank account)
+    private BigDecimal storeCredit; // store credit portion: on SALE = redeemed (Dr 2200 not Cash); on SALE_RETURN =
+                                    // issued (Cr 2200 not Cash). Null/0 = the classic cash posting (no regression).
 }

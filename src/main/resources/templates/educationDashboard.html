@@ -118,6 +118,8 @@
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FVDiv','snavFee')"><span class="glyphicon glyphicon-list-alt"></span> Fee Voucher/Ledger</a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','FEE_REPORT','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FRDiv','snavFee')"><span class="glyphicon glyphicon-stats"></span> Fee Report</a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FeeSettingDiv','snavFee')"><span class="glyphicon glyphicon-cog"></span> Fee Settings</a></li>
+									<!-- Owner Configuration: the generic per-tenant settings screen (branch policies etc.). -->
+									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showConfig();document.getElementById('snavFee').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> Configuration</a></li>
 								</ul>
 							</div>
 							<div class="snav-dd" id="snavReport">
@@ -2262,6 +2264,16 @@
 						</div>
 					</div>
 				</div>
+			</div>
+
+			<!-- Owner Configuration — the generic per-tenant settings screen. It renders itself from the
+			     education-service catalog (/getConfig); each toggle saves immediately (/saveConfig). Adding a
+			     configurable policy needs a catalog entry in the service, not a change here. -->
+			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+				<h4>Configuration</h4>
+				<p style="color:#7a889c">Owner setup. Changes apply to this organization only and take effect immediately.</p>
+				<div id="configMsg" class="alert" style="display:none"></div>
+				<div id="configBody">Loading…</div>
 			</div>
 			<form th:action="@{/impStudents}" method="post" enctype="multipart/form-data" style="display: none">
 			    <input type="file" th:name="file">

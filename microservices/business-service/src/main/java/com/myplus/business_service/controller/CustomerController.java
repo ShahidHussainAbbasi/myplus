@@ -41,6 +41,9 @@ public class CustomerController {
 	ICustomerService customerService;
 
 	@Autowired
+	com.myplus.business_service.service.StoreCreditService storeCreditService;   // SF-5 Model B: store-credit balance
+
+	@Autowired
 	AppUtil appUtil;
 	
 	@Autowired
@@ -175,6 +178,18 @@ public class CustomerController {
 		}
 	}
 	
+	/** SF-5 Model B: the customer's redeemable store-credit balance (for the checkout "apply store credit" UI). */
+	@RequestMapping(value = "/customerCredit", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse customerCredit(@RequestParam Long customerId) {
+		try {
+			return new GenericResponse("SUCCESS", "Store credit", storeCreditService.balance(customerId));
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > customerCredit " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load store credit.");
+		}
+	}
+
 	/** Receive Payment (AR subledger): FIFO-allocate a receipt to the customer's open invoices, recompute their
 	 *  due, and record it in the shared finance ledger. Returns {receiptNo, allocated, onAccountCredit, newDue}. */
 	@RequestMapping(value = "/receivePayment", method = RequestMethod.POST)

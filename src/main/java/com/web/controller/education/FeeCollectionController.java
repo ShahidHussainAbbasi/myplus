@@ -68,6 +68,19 @@ public class FeeCollectionController {
         return educationClient.post("/saveFeeSetting", request, requestUtil.getCurrentUser().getId());
     }
 
+    // Owner Configuration screen — the generic per-tenant settings catalog + save (education-service).
+    @RequestMapping(value = "/getConfig", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<String> getConfig() {
+        return educationClient.get("/getConfig", requestUtil.getCurrentUser().getId());
+    }
+
+    @RequestMapping(value = "/saveConfig", method = RequestMethod.POST)
+    @ResponseBody
+    public ResponseEntity<String> saveConfig(HttpServletRequest request) {
+        return educationClient.post("/saveConfig", request, requestUtil.getCurrentUser().getId());
+    }
+
     @RequestMapping(value = "/getAllFc", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<String> getAllFc() {

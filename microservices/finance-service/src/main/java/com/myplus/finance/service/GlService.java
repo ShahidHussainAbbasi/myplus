@@ -40,6 +40,7 @@ public class GlService {
             {"1200", "Inventory", AccountType.ASSET, NormalSide.DEBIT},
             {"2000", "Accounts Payable", AccountType.LIABILITY, NormalSide.CREDIT},
             {"2100", "Tax Payable", AccountType.LIABILITY, NormalSide.CREDIT},
+            {"2200", "Store Credit", AccountType.LIABILITY, NormalSide.CREDIT},
             {"3000", "Owner's Equity", AccountType.EQUITY, NormalSide.CREDIT},
             {"3100", "Retained Earnings", AccountType.EQUITY, NormalSide.CREDIT},
             {"4000", "Sales", AccountType.INCOME, NormalSide.CREDIT},
@@ -51,14 +52,17 @@ public class GlService {
 
     // ---- Chart of accounts ------------------------------------------------------------------------------------
 
-    /** Create the default chart of accounts for the org if it has none, then return the full list. Idempotent. */
+    /** Ensure EACH default account exists for the org, then return the full list. Idempotent PER account (not
+     *  all-or-nothing) so an account newly added to {@link #DEFAULT_COA} — e.g. 2200 Store Credit — backfills orgs
+     *  whose chart was seeded before it existed. Without this, a new posting rule hits "Account code not found". */
     @Transactional
     public List<AccountDTO> ensureDefaults() {
         Long org = CurrentUser.organizationId();
-        if (accountRepository.countByOrganizationId(org) == 0) {
-            for (Object[] a : DEFAULT_COA) {
+        for (Object[] a : DEFAULT_COA) {
+            String code = (String) a[0];
+            if (accountRepository.findByOrganizationIdAndCode(org, code).isEmpty()) {
                 accountRepository.save(Account.builder()
-                        .code((String) a[0]).name((String) a[1])
+                        .code(code).name((String) a[1])
                         .type((AccountType) a[2]).normalSide((NormalSide) a[3])
                         .organizationId(org).build());
             }

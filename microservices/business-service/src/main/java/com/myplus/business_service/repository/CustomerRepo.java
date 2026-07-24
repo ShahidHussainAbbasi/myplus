@@ -37,4 +37,10 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
    @Query("select c from Customer c where c.userId = :userId "
         + "and (c.organizationId = :orgId or c.organizationId is null)")
    List<Customer> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   // Store credit: update ONLY the cached credit_balance (targeted, not a full-entity save — a full save can rewrite
+   // other columns to null when the entity isn't fully loaded, as it did on the vendor side).
+   @org.springframework.data.jpa.repository.Modifying
+   @Query(value = "update customer set credit_balance = :bal where customer_id = :id", nativeQuery = true)
+   void updateCreditBalance(@Param("id") Long id, @Param("bal") java.math.BigDecimal bal);
 }

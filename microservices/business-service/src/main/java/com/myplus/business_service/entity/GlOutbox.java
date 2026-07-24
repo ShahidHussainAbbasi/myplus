@@ -40,6 +40,10 @@ public class GlOutbox implements com.myplus.business_service.service.outbox.Outb
     @Column(name = "paid_amount", precision = 19, scale = 2)
     private BigDecimal paidAmount;
 
+    /** SF-5 Model B: store-credit portion of the event (redeemed on SALE / issued on SALE_RETURN → GL 2200). */
+    @Column(name = "store_credit", precision = 19, scale = 2)
+    private BigDecimal storeCredit;
+
     @Column(length = 30)
     private String method;
 

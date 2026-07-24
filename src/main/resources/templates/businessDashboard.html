@@ -1200,6 +1200,12 @@
 								<input type="number" step="any" min="0" class="form-control" id="sellInsured"
 									name="sellInsured" placeholder="0.00" onkeyup="calculateChange()">
 							</div>
+							<!-- SF-5 Model B: apply the selected customer's store credit as a tender (server caps it at the balance). -->
+							<div class="col-xs-12 col-sm-3 col-md-2" id="sellStoreCreditWrap" style="display:none">
+								<span class="field-label">Store credit (<span id="sellCreditAvail">0</span> avail)</span>
+								<input type="number" step="any" min="0" class="form-control" id="sellStoreCredit"
+									placeholder="0.00" onkeyup="calculateChange()">
+							</div>
 							<!-- Edit only: what was already paid on this invoice. "Amount Received" is then ADDITIONAL payment;
 							     the server keeps the prior payment and adds the new tender (SF-1/SF-2). -->
 							<div class="col-xs-12 col-sm-3 col-md-2" id="sellPaidSoFarWrap" style="display:none">

@@ -24,4 +24,5 @@ public class PostEventRequest {
     private BigDecimal cost;
     private BigDecimal paidAmount;
     private String method;
+    private BigDecimal storeCredit;   // SALE = redeemed (Dr 2200); SALE_RETURN = issued (Cr 2200); null/0 = cash posting
 }

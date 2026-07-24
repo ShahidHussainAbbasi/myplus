@@ -17,7 +17,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.education.dto.GuardianDTO;
 import com.myplus.education.entity.Guardian;
+import com.myplus.education.entity.Student;
 import com.myplus.education.repository.GuardianRepository;
+import com.myplus.education.repository.StudentRepository;
+import com.myplus.education.service.SettingsService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
@@ -29,6 +32,10 @@ public class GuardianController {
 
     @Autowired
     private GuardianRepository guardianRepository;
+    @Autowired
+    private StudentRepository studentRepository;   // derive a guardian's branch from the students who reference it
+    @Autowired
+    private SettingsService settingsService;       // reads the org's edu.guardian.branchScoped policy
     @Autowired
     private RequestUtil requestUtil;
 
@@ -68,11 +75,29 @@ public class GuardianController {
         return dto;
     }
 
+    /**
+     * Guardian branch visibility — OFF by default (org-wide: a parent may have children at several campuses),
+     * opt-in per org via {@code edu.guardian.branchScoped} on the Configuration screen. When on, a guardian is
+     * visible only if a student in the caller's accessible branches references them (derived via
+     * Student.guardianId — no guardian.school_id needed, and a cross-campus parent stays visible from either
+     * branch). Owner/super or a caller with no branch grants ⇒ org-wide regardless.
+     */
+    private List<Guardian> branchVisible(List<Guardian> rows) {
+        if (!settingsService.getBool("edu.guardian.branchScoped")) return rows;   // org-wide (default)
+        if (requestUtil.isOwnerSuper()) return rows;
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return rows;
+        java.util.Set<Long> visibleGuardianIds = studentRepository.findScopedBySchools(orgId(), schools).stream()
+                .map(Student::getGuardianId).filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        return rows.stream().filter(g -> g.getId() != null && visibleGuardianIds.contains(g.getId()))
+                .collect(Collectors.toList());
+    }
+
     @RequestMapping(value = "/getUserGuardian", method = RequestMethod.GET)
     @ResponseBody
     public GenericResponse getUserGuardian(final HttpServletRequest request) {
         try {
-            List<Guardian> objs = guardianRepository.findScoped(orgId(), userId());
+            List<Guardian> objs = branchVisible(guardianRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -88,7 +113,7 @@ public class GuardianController {
     public String getUserGuardians(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Guardian> objs = guardianRepository.findScoped(orgId(), userId());
+            List<Guardian> objs = branchVisible(guardianRepository.findScoped(orgId(), userId()));
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -105,8 +130,8 @@ public class GuardianController {
     @ResponseBody
     public GenericResponse getAllGuardian(final HttpServletRequest request) {
         try {
-            // Tenant-scoped: "all" means all guardians in the active organization, not every tenant's.
-            List<Guardian> all = guardianRepository.findScoped(orgId(), userId());
+            // Tenant- + (opt-in) branch-scoped: see branchVisible().
+            List<Guardian> all = branchVisible(guardianRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
