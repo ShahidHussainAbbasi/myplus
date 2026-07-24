@@ -1,6 +1,9 @@
 # Slice 104–106 — M4e.d: delete the Item entity (convergence finale)
 
-**Branch:** feature/commerce-gaps · **Status:** d1–d3 green; d4 (destructive) pending apply
+**Branch:** feature/commerce-gaps · **Status:** ✅ COMPLETE — d1–d3 green; d4 `V8__drop_item_tables.sql` present in
+the chain and applied in sequence (DBs now at V25 boot clean against the Item-free schema). Convergence is DONE:
+`Item`/`ItemCatalogMap`/`ProductSyncService`/`ItemRepo`/`CatalogMigration*` deleted, POS + pharmacy productId-native,
+bridge specs retired. (Optional certainty check on an old DB: `SHOW TABLES LIKE 'item'` should return nothing.)
 
 The last step of the Item→Product convergence: the catalog `Product` is now the single product master
 end-to-end, so the legacy business-service `Item` entity + its `item_catalog_map` bridge are removed —

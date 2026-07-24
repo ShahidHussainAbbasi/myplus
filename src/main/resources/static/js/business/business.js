@@ -2421,4 +2421,57 @@ function openPnl(){ showFinance('pnl'); }
 function openBalanceSheet(){ showFinance('balanceSheet'); }
 function openTaxRegister(){ showFinance('taxRegister'); }
 function openAuditLog(){ showFinance('auditLog'); }
+
+// ===== Owner Configuration (generic per-tenant settings, shared common-settings backend) =====
+// Self-renders from the business-service catalog (/getBusinessConfig → ApiResponse{data:[...]}): each row is one
+// configurable policy grouped by section. A toggle saves immediately (/saveBusinessConfig key=&value=). Adding a
+// new setting is a catalog entry in the service (BusinessSettingsCatalog) — no change here.
+function showBusinessConfig(){
+	$('.formDiv').hide();
+	$('#ConfigDiv').show();
+	$('#businessConfigMsg').hide();
+	loadBusinessConfig();
+}
+
+function loadBusinessConfig(){
+	$('#businessConfigBody').text('Loading…');
+	$.get(serverContext + 'getBusinessConfig', function(res){
+		var items = (res && res.data) || [];
+		if(!items.length){ $('#businessConfigBody').html('<p style="color:#7a889c">No configurable settings.</p>'); return; }
+		var groups = {};
+		items.forEach(function(it){ (groups[it.group] = groups[it.group] || []).push(it); });
+		var html = '';
+		Object.keys(groups).forEach(function(g){
+			html += '<h4 style="margin-top:18px">' + escHtml(g) + '</h4>';
+			groups[g].forEach(function(it){
+				var on = String(it.value) === 'true';
+				if(it.type === 'BOOL'){
+					html += '<div class="form-group" style="margin-bottom:12px">'
+						+ '<label class="control-label col-sm-5" for="bcfg_' + escHtml(it.key) + '">' + escHtml(it.label) + '</label>'
+						+ '<div class="col-sm-7">'
+						+ '<input type="checkbox" id="bcfg_' + escHtml(it.key) + '" data-key="' + escHtml(it.key) + '"'
+						+ (on ? ' checked' : '') + ' onchange="saveBusinessConfigToggle(this)"/>'
+						+ '<div style="color:#7a889c;font-size:12px;margin-top:3px">' + escHtml(it.help || '') + '</div>'
+						+ '</div></div>';
+				}
+			});
+		});
+		$('#businessConfigBody').html('<div class="form-horizontal">' + html + '</div>');
+	}, 'json').fail(function(){ $('#businessConfigBody').html('<p style="color:#c0392b">Could not load configuration.</p>'); });
+}
+
+function saveBusinessConfigToggle(el){
+	var key = el.getAttribute('data-key');
+	var value = el.checked ? 'true' : 'false';
+	$.post(serverContext + 'saveBusinessConfig', { key: key, value: value }, function(res){
+		var ok = res && res.success;
+		$('#businessConfigMsg').removeClass('alert-success alert-danger')
+			.addClass(ok ? 'alert-success' : 'alert-danger')
+			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
+		if(!ok){ el.checked = !el.checked; }   // revert the toggle if the save failed
+	}).fail(function(){
+		el.checked = !el.checked;
+		$('#businessConfigMsg').removeClass('alert-success').addClass('alert-danger').text('Save failed').show();
+	});
+}
 function openPeriodClose(){ showFinance('periodClose'); }

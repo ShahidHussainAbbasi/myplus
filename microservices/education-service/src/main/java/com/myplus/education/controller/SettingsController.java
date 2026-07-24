@@ -1,6 +1,6 @@
 package com.myplus.education.controller;
 
-import com.myplus.education.service.SettingsService;
+import com.myplus.common.settings.SettingsService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 
@@ -13,14 +13,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
- * Owner Configuration screen backend — the generic per-tenant settings surface. {@code getConfig} returns the
- * whole catalog with each entry's effective value (for the self-rendering UI); {@code saveConfig} upserts one
- * override. Reading config is open to any member (behaviour needs it), but WRITING is owner-gated.
+ * Owner Configuration screen backend — thin adapter over the shared {@link SettingsService} (common-settings).
+ * The engine (resolution, org-scoping, catalog aggregation, unknown-key guard) lives in the shared library; this
+ * class only translates to education's {@code GenericResponse} envelope so the existing dashboard JS and monolith
+ * proxy keep working. The canonical shared REST surface ({@code /settings}, common-web ApiResponse) is also live
+ * for anything that prefers it. Reading config is open to any member (behaviour needs it); WRITING is owner-gated.
  */
 @Controller
 public class SettingsController {
 
-    @Autowired private SettingsService settingsService;
+    @Autowired private SettingsService settingsService;   // shared common-settings engine
     @Autowired private AppUtil appUtil;
 
     @RequestMapping(value = "/getConfig", method = RequestMethod.GET)

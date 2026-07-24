@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>common-settings</artifactId>
+  <name>common-settings</name>
+  <description>Shared per-tenant configuration store: a code-defined catalog (what an owner may configure) +
+    a self-rendering /settings API, over an SPI so each service owns its own storage table. Owner sets up
+    per-org policy; behaviour reads getBool(key). Opt-in per service via dependency; auto-wires the beans.</description>
+
+  <!-- Compile-only: every consumer is a Boot web service that supplies these at runtime. common-security
+       (CurrentUser) and common-web (ApiResponse) are real inter-lib deps. NO JPA here by design — the store
+       is an SPI, so each service keeps its own org_setting table in its own package (no cross-module
+       @EntityScan needed). -->
+  <dependencies>
+    <dependency><groupId>com.myplus</groupId><artifactId>common-security</artifactId><version>1.0.0-SNAPSHOT</version><scope>provided</scope></dependency>
+    <dependency><groupId>com.myplus</groupId><artifactId>common-web</artifactId><version>1.0.0-SNAPSHOT</version><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId><scope>provided</scope></dependency>
+  </dependencies>
+</project>

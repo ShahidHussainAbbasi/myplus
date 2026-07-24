@@ -1,4 +1,4 @@
-package com.myplus.education.entity;
+package com.myplus.business_service.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -6,12 +6,9 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * A per-tenant configuration override — one row per (organization, setting_key). This is the generic,
- * extensible settings store an owner edits from the Configuration screen: adding a new configurable policy
- * is a catalog entry ({@link com.myplus.education.config.EducationSettingsCatalog}) + a read call, with NO schema
- * change. The catalog holds the DEFAULTS; this table holds only the values an owner has changed.
- *
- * value is stored as a String and interpreted per the catalog's declared type (BOOL / INT / TEXT / CHOICE).
+ * business-service's per-tenant configuration overrides — one row per (organization, setting_key). Backs the
+ * shared common-settings engine via {@code JpaSettingsStore}. The entity lives here (in the service's own
+ * package, scanned normally) so the shared lib carries no @Entity and needs no cross-module @EntityScan.
  */
 @Entity
 @Table(name = "org_setting", uniqueConstraints = {
@@ -25,10 +22,10 @@ public class OrgSetting {
     private Long id;
 
     @Column(name = "organization_id", nullable = false)
-    private Long organizationId;   // tenant scope
+    private Long organizationId;
 
     @Column(name = "user_id")
-    private Long userId;           // audit: who last changed it
+    private Long userId;
 
     @Column(name = "setting_key", nullable = false, length = 100)
     private String settingKey;

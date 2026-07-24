@@ -29,6 +29,7 @@ $catalog = [ordered]@{
     'business-service'    = 8083
     'finance-service'     = 8094
     'audit-service'       = 8095
+    'party-service'       = 8096
     'education-service'   = 8084
     'welfare-service'     = 8085
     'agriculture-service' = 8086

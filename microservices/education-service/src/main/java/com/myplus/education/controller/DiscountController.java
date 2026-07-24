@@ -19,7 +19,7 @@ import com.myplus.education.entity.Discount;
 import com.myplus.education.entity.Student;
 import com.myplus.education.repository.DiscountRepository;
 import com.myplus.education.repository.StudentRepository;
-import com.myplus.education.service.SettingsService;
+import com.myplus.common.settings.SettingsService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;

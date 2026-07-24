@@ -1,0 +1,76 @@
+package com.myplus.common.settings;
+
+import com.myplus.common.security.CurrentUser;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * The shared settings engine. Aggregates every service's {@link SettingsCatalogProvider}s into one catalog,
+ * and reads/writes per-tenant overrides through the service's {@link SettingsStore}. Behaviour code calls
+ * {@link #getBool(String)} — override if set, else the catalog default. All scoped to the caller's org.
+ *
+ * This class is registered by {@code CommonSettingsAutoConfiguration} (via @Import), so a consuming service
+ * only needs a dependency + one {@link SettingsStore} bean + its catalog provider(s).
+ */
+@Service
+public class SettingsService {
+
+    private final SettingsStore store;
+    private final Map<String, SettingEntry> catalog = new LinkedHashMap<>();
+
+    public SettingsService(SettingsStore store, List<SettingsCatalogProvider> providers) {
+        this.store = store;
+        if (providers != null)
+            for (SettingsCatalogProvider p : providers)
+                for (SettingEntry e : p.entries())
+                    catalog.putIfAbsent(e.key(), e);   // first registration wins; keys are globally unique
+    }
+
+    /** Effective boolean for the caller's org (override else catalog default; false if key unknown). */
+    public boolean getBool(String key) {
+        return "true".equalsIgnoreCase(effective(key));
+    }
+
+    /** Effective raw value for the caller's org (override else catalog default; null if key unknown). */
+    public String effective(String key) {
+        Long org = CurrentUser.organizationId();
+        if (org != null) {
+            String v = store.find(org, key).orElse(null);
+            if (v != null) return v;
+        }
+        SettingEntry e = catalog.get(key);
+        return e == null ? null : e.defaultValue();
+    }
+
+    /** The whole catalog with each entry's effective value + whether it is an org override — feeds the UI. */
+    public List<Map<String, Object>> catalogForOrg() {
+        Long org = CurrentUser.organizationId();
+        Map<String, String> overrides = new LinkedHashMap<>();
+        if (org != null)
+            for (SettingsStore.Stored s : store.findAll(org)) overrides.put(s.key(), s.value());
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (SettingEntry e : catalog.values()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("key", e.key());
+            m.put("label", e.label());
+            m.put("help", e.help());
+            m.put("type", e.type().name());
+            m.put("group", e.group());
+            m.put("value", overrides.getOrDefault(e.key(), e.defaultValue()));
+            m.put("isDefault", !overrides.containsKey(e.key()));
+            out.add(m);
+        }
+        return out;
+    }
+
+    /** Upsert an override for the caller's org. Rejects keys not in the catalog (no free-form settings). */
+    public void set(String key, String value) {
+        if (!catalog.containsKey(key))
+            throw new IllegalArgumentException("Unknown setting: " + key);
+        store.upsert(CurrentUser.organizationId(), CurrentUser.userId(), key, value);
+    }
+}

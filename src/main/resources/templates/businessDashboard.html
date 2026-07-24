@@ -201,6 +201,7 @@
 							<ul class="snav-menu">
 								<li><a onclick="showStores();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-home"></span> Stores</a></li>
 								<li><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> Tax Settings</a></li>
+								<li><a onclick="showBusinessConfig();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> Configuration</a></li>
 							</ul>
 						</div>
 						<!-- Team management — the owner AND admins/managers (an admin may create USERs in their own
@@ -1597,6 +1598,15 @@
 					<thead><tr><th>Name</th><th>Code</th><th>Address</th><th>Phone</th><th>Status</th></tr></thead>
 					<tbody></tbody>
 				</table>
+			</div>
+
+			<!-- Owner Configuration — self-renders from the business-service common-settings catalog (/getBusinessConfig).
+			     Each policy is one catalog entry in the service; a toggle saves immediately (/saveBusinessConfig). -->
+			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+				<h4 style="margin-bottom:4px">Configuration</h4>
+				<p style="color:#7a889c;margin-bottom:16px">Turn features on or off for your organization. Changes apply immediately.</p>
+				<div id="businessConfigMsg" class="alert" style="display:none"></div>
+				<div id="businessConfigBody">Loading…</div>
 			</div>
 
 			<div id="TaxSettingDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
