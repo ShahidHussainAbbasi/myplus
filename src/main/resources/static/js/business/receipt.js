@@ -54,6 +54,12 @@
         if (inv.paymentMode) pay += row2('Paid by', escHtml(inv.paymentMode));
         if (inv.tenderedAmount != null && Number(inv.tenderedAmount) > 0) pay += row2('Tendered', money(inv.tenderedAmount));
         if (inv.changeAmount != null && Number(inv.changeAmount) > 0) pay += row2('Change', money(inv.changeAmount));
+        // SF-5 Model B: store credit redeemed on this sale + the customer's remaining balance.
+        if (inv.storeCreditApplied != null && Number(inv.storeCreditApplied) > 0) {
+            pay += row2('Store credit applied', money(inv.storeCreditApplied));
+            if (inv.customer && inv.customer.creditBalance != null)
+                pay += row2('Store credit balance', money(inv.customer.creditBalance));
+        }
         // Owed on this sale = −dueAmount when negative (dueAmount = paid − bill).
         var owed = (inv.dueAmount != null && Number(inv.dueAmount) < 0) ? (-Number(inv.dueAmount)) : 0;
         if (owed > 0) pay += row2('Due', money(owed));

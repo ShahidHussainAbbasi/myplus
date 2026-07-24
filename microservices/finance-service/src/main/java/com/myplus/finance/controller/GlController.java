@@ -8,6 +8,7 @@ import com.myplus.finance.service.GlService;
 import com.myplus.finance.service.PostingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -27,14 +28,18 @@ public class GlController {
     private final PostingService postingService;
     private final com.myplus.finance.service.PeriodLockService periodLockService;
 
-    /** F3b: auto-post a SALE/PURCHASE event to the GL (posting rules applied here). Called by business-service. */
+    /** F3b: auto-post a SALE/PURCHASE event to the GL (posting rules applied here). Called by business-service.
+     *  NOT @PreAuthorize-gated: this is INTERNAL service-to-service (business outbox → FinanceClient), triggered
+     *  by ordinary user actions (a cashier's sale). Its authority is the gateway INTERNAL_SECRET trust boundary,
+     *  not a user privilege — the privilege check belongs at the originating sale, not this downstream post. */
     @PostMapping("/post-event")
     public java.util.Map<String, Object> postEvent(@RequestBody PostEventRequest req) {
         postingService.postEvent(req);
         return java.util.Map.of("posted", true);
     }
 
-    /** Ensure the tenant has the default chart of accounts (idempotent), then return it. */
+    /** Ensure the tenant has the default chart of accounts (idempotent), then return it. GL setup — admin/owner. */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
     @PostMapping("/accounts/ensure-defaults")
     public List<AccountDTO> ensureDefaults() {
         return glService.ensureDefaults();
@@ -45,12 +50,15 @@ public class GlController {
         return glService.listAccounts();
     }
 
+    /** Create a GL account — chart-of-accounts setup, admin/owner only. */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
     @PostMapping("/accounts")
     public AccountDTO addAccount(@RequestBody AccountDTO dto) {
         return glService.addAccount(dto);
     }
 
-    /** Post a balanced journal (Σdr = Σcr enforced). Returns {entryId}. */
+    /** Post a balanced journal (Σdr = Σcr enforced). Returns {entryId}. Manual GL entry — admin/owner only. */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
     @PostMapping("/journal")
     public Map<String, Object> postJournal(@RequestBody JournalPostRequest req) {
         return Map.of("entryId", glService.postJournal(req));
@@ -93,7 +101,8 @@ public class GlController {
         return glService.taxRegister(from, to);
     }
 
-    /** Period close: the org's lock date ({@code lockedThrough} = null when open). */
+    /** Period close: the org's lock date ({@code lockedThrough} = null when open).
+     *  NOT gated: read, and called INTERNALLY by business-service (FinanceClient) to gate its dated ops. */
     @GetMapping("/period-lock")
     public Map<String, Object> getPeriodLock() {
         LocalDate d = periodLockService.lockedThrough();
@@ -102,7 +111,9 @@ public class GlController {
         return m;
     }
 
-    /** Close the books through a date (or reopen by omitting the date). Owner-gated at the edge (monolith). */
+    /** Close the books through a date (or reopen by omitting the date). Admin/owner — freezing the books is a
+     *  policy change (was only hidden in the monolith UI; now enforced server-side too). Not called internally. */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
     @PostMapping("/period-lock")
     public Map<String, Object> setPeriodLock(
             @RequestParam(value = "lockedThrough", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate lockedThrough) {

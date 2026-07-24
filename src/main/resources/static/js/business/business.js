@@ -727,7 +727,8 @@ function loadDataTable(){
 							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value="+ obj.customerId+ ">",
 							"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
 							"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
-							"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",obj.updated,
+							"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
+							"<div id=creditBalance>"+(obj.creditBalance!=null?Number(obj.creditBalance).toFixed(2):'0.00')+"</div>",obj.updated,
 							"<div class='row-actions'>"
 							+ "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> "
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='CUSTOMER' data-pid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"

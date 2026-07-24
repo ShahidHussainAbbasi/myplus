@@ -61,6 +61,8 @@ public class CustomerHistoryDTO {
 
     private BigDecimal changeAmount;
 
+    private BigDecimal storeCreditApplied;   // SF-5 Model B: store credit redeemed on this sale (for the receipt)
+
     // SF-3: client-supplied idempotency key (one per checkout attempt). addSell dedups on (org, key) so a
     // double-click / network retry records ONE invoice instead of two. Null for legacy callers.
     private String idempotencyKey;

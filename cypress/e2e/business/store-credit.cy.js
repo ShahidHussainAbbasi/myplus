@@ -60,7 +60,14 @@ describe('Store credit (SF-5 Model B)', () => {
                     sales: [{ productId: p2, quantity: 1, sellRate: 60, totalAmount: 60, netAmount: 60 }],
                     tenders: [{ method: 'STORE_CREDIT', amount: 60 }], grandTotal: 60,
                   }, failOnStatusCode: false,
-                }).then((r2) => expect(r2.body.status, JSON.stringify(r2.body)).to.eq('SUCCESS'))
+                }).then((r2) => {
+                  expect(r2.body.status, JSON.stringify(r2.body)).to.eq('SUCCESS')
+                  // Receipt polish: the redeem sale's receipt reports the store credit applied.
+                  cy.request(`/getReceipt?invoiceNo=${encodeURIComponent(r2.body.object)}`).then((rc) => {
+                    const inv = parse(rc.body).object
+                    expect(Number(inv.storeCreditApplied), 'receipt shows store credit applied').to.eq(60)
+                  })
+                })
                 credit(cid).then((b) => expect(b, 'balance after redeeming 60').to.eq(40))
                 tb().then((after) => {
                   expect(after.balanced, 'GL balanced after redeem').to.eq(true)

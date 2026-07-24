@@ -75,5 +75,7 @@ rather than cash. Everything else (inventory restore, AR recompute, audit, per-l
   "Store credit (N avail)" field (shown on customer-select via `/customerCredit`) → STORE_CREDIT tender + selected
   `customerId`; `calculateChange` + submit-guard count applied credit.
 - **Cypress `store-credit.cy.js`:** return→issue (balance +100, GL 2200 credited) → redeem 60 (balance 40, 2200
-  debited) → over-redeem capped to 0. Light follow-ups (not done): customer-grid Credit column, receipt store-credit
-  line, loyalty points.
+  debited, receipt shows storeCreditApplied) → over-redeem capped to 0.
+- **Polish (done):** customer grid **Credit** column (`CustomerDTO.creditBalance` already carried); receipt "Store
+  credit applied / Store credit balance" lines (`CustomerHistoryDTO.storeCreditApplied` populated in `getReceipt` from
+  the Σ STORE_CREDIT tenders). **Loyalty points** remain a separate future slice.

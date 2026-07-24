@@ -28,3 +28,4 @@ For what's next, the remaining work is polish/features, not core:
 - Smaller: finance payment-hook retry, idempotency stale-PENDING reaper.
 
 
+

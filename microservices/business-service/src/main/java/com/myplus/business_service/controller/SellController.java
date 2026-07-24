@@ -391,6 +391,11 @@ public class SellController {
 			out.setChangeAmount(ch.getChangeAmount());
 			if (ch.getCustomer() != null) out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
 
+			// SF-5 Model B: store credit applied on this sale (Σ STORE_CREDIT tenders) — printed on the receipt.
+			out.setStoreCreditApplied(paymentService.forInvoice(ch.getCustomer_history_id()).stream()
+					.filter(p -> p.getMethod() == com.myplus.business_service.entity.PaymentMethod.STORE_CREDIT)
+					.map(p -> nzbd(p.getAmount())).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
+
 			var ts = taxService.settingsFor(orgId());                                  // tax label/reg-no for the header
 			out.setTaxLabel(ts.getTaxLabel());
 			out.setTaxRegNo(ts.getTaxRegNo());
