@@ -21,12 +21,11 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                 SettingEntry.bool("pos.receipt.showTaxBreakdown",
                         "Show tax breakdown on receipts",
                         "On (default): the receipt lists tax per rate. Off: a single tax total.",
-                        true, "Receipts"),
-                SettingEntry.bool("pos.sale.negativeStockAllowed",
-                        "Allow selling into negative stock",
-                        "Off (default): a sale is refused when stock is insufficient. On: the sale proceeds and "
-                                + "stock may go negative (correct later).",
-                        false, "Sales")
+                        true, "Receipts")
         );
+        // NOTE: an earlier "pos.sale.negativeStockAllowed" toggle was removed deliberately. Most "Insufficient
+        // stock" cases are expired/held batches excluded from sellable (fix the data — add a fresh batch / correct
+        // expiry), not a true shortage; deliberate overselling into negative inventory is not a policy this system
+        // offers. Don't re-add a toggle without also building the cross-service oversell path behind it.
     }
 }

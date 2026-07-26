@@ -16,6 +16,7 @@ public class StudentDTO {
     private String feeMode;
     private String email;
     private String mobile;
+    private Long partyId;   // P3: shared party/contact master id
     private String address;
     private String dateOfBirthStr;
     private String gender;

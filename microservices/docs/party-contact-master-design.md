@@ -81,6 +81,20 @@ shared lib. It also becomes the home for future CRM (segments, comms preferences
   proxies). **NEXT = P2** (finance uses the shared partyId) then **P3** (education/welfare/pharmacy/marketplace bridges
   + cross-module contact view).
 
+## 10. Status update — P2 SKIPPED (deferred); P3 STARTED (education Student)
+**P2 (finance re-points to the shared partyId) is deferred** — the finance ledger stores the LOCAL customerId/venderId
+today (written by `SubledgerService.settle`, read back by the same ids for statements/aging). Re-pointing needs a
+destructive migration of existing ledger rows + updating every reader, for thin value (AR/AP statements are separate
+anyway). Revisit only when a merged AR+AP-by-identity view is actually needed. **P3 (bridge more modules) is the value
+path** and was chosen next.
+
+**P3 — education Student bridge (IMPLEMENTED):** education-service `Student.partyId` (Flyway **V6**) + targeted
+`StudentRepository.updatePartyId` + `PartyClientConfig` (lb://party-service, GatewayIdentityForwarding interceptor so
+the upsert is org-scoped) + `PartyBridgeService.bridgeStudent` (best-effort, once, skip-if-bridged) wired into
+`addStudent` after save; `StudentDTO.partyId` on reads; `commerce-contracts` added to education pom. Cypress
+`education/party-bridge.cy.js` (two students sharing a mobile → same partyId). Build: education-service + party-service
+up. **NEXT P3 = welfare Donor, then pharmacy Patient** (same pattern per service), then the cross-module contact view.
+
 ## 8. Status: P0 IMPLEMENTED (scaffold); P1+ pending
 Sign-off given (D1 new service, D2 additive bridge, D3 contact-primary/email-secondary, D4 P0 first).
 - **party-service** (new, port **8096**, DB `myplusdb_party`, pkg `com.myplus.party`): `Party` entity + `PartyRepository`

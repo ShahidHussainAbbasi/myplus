@@ -23,6 +23,11 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
             + "or (s.organizationId is null and s.userId = :userId)")
     List<Student> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /** Party bridge: stamp ONLY party_id (targeted — never a full-entity save, which could clobber other columns). */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "update student set party_id = :partyId where student_id = :id", nativeQuery = true)
+    void updatePartyId(@Param("id") Long id, @Param("partyId") Long partyId);
+
     // P4 — branch (school) scoped read, the education twin of business's findScopedByStores. Rows with no
     // school are legacy and stay visible (they drain as they are re-saved), exactly as with store_id.
     //

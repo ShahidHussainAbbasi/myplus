@@ -53,6 +53,10 @@ public class Student {
 
     private String address;
 
+    /** Party bridge (P3): shared party/contact master id (party-service). Stamped best-effort on write; null until bridged. */
+    @Column(name = "party_id")
+    private Long partyId;
+
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 

@@ -54,6 +54,8 @@ public class StudentController {
     @Autowired
     private StudentRepository studentRepository;
     @Autowired
+    private com.myplus.education.service.PartyBridgeService partyBridgeService;   // P3: shared party master bridge
+    @Autowired
     private SchoolRepository schoolRepository;
     @Autowired
     private GradeRepository gradeRepository;
@@ -101,6 +103,7 @@ public class StudentController {
         dto.setFeeMode(s.getFeeMode());
         dto.setEmail(s.getEmail());
         dto.setMobile(s.getMobile());
+        dto.setPartyId(s.getPartyId());   // P3: shared party master id
         dto.setAddress(s.getAddress());
         dto.setGender(s.getGender());
         dto.setBloodGroup(s.getBloodGroup());
@@ -277,6 +280,7 @@ public class StudentController {
                     && Boolean.TRUE.equals(feeService.settingFor(orgId, userId).getAutoRegisterDues())) {
                 feeService.registerOpeningDue(orgId, userId, saved);
             }
+            partyBridgeService.bridgeStudent(saved);   // P3: link to the shared party master (best-effort, once)
             return appUtil.isEmptyOrNull(saved)
                     ? new GenericResponse("FAILED", "")
                     : new GenericResponse("SUCCESS", "");
