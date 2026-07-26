@@ -30,8 +30,17 @@
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','landDiv',this)"><span class="glyphicon glyphicon-map-marker"></span><span>Register Land</span></a>
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','agricultureExpenseDiv',this)"><span class="glyphicon glyphicon-minus-sign"></span><span>Add Expense</span></a>
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','agricultureIncomeDiv',this)"><span class="glyphicon glyphicon-plus-sign"></span><span>Add Income</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','ConfigDiv',this);showConfig()"><span class="glyphicon glyphicon-wrench"></span><span>Configuration</span></a>
 		</nav>
 	</aside>
+			<!-- Owner Configuration — self-renders from the agriculture-service common-settings catalog
+			     (/getAgricultureConfig). A toggle saves immediately (/saveAgricultureConfig). -->
+			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" style="display:none">
+				<h3 class="dash-page-title">Configuration</h3>
+				<p style="color:#7a889c;margin-bottom:16px">Turn features on or off for your organization. Changes apply immediately.</p>
+				<div id="agriConfigMsg" class="alert" style="display:none"></div>
+				<div id="agriConfigBody">Loading…</div>
+			</div>
 			<div id="agricultureExpenseDiv" class="formDiv" style="display:none">
 				<h3 class="dash-page-title" th:text="#{label.expense.form.heading}">Expense Form</h3>
 				<div style="margin-bottom:8px">

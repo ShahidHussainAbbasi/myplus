@@ -35,6 +35,22 @@ public class PharmaClientsConfig {
         return proxy(builder, "http://inventory-service/api/inventory", InventoryClient.class);
     }
 
+    @Bean
+    public com.myplus.commerce.contracts.client.PartyClient partyClient(@LoadBalanced RestClient.Builder builder) {
+        // Hardening: bound the party call with a short timeout so a SLOW party-service fails fast to best-effort.
+        org.springframework.http.client.SimpleClientHttpRequestFactory rf =
+                new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        rf.setConnectTimeout(1000);
+        rf.setReadTimeout(2000);
+        RestClient restClient = builder.clone()
+                .baseUrl("http://party-service/api/party/parties")
+                .requestFactory(rf)
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .build();
+        return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient)).build()
+                .createClient(com.myplus.commerce.contracts.client.PartyClient.class);   // P3: shared party/contact master
+    }
+
     private <T> T proxy(RestClient.Builder builder, String baseUrl, Class<T> type) {
         RestClient restClient = builder.clone()
                 .baseUrl(baseUrl)

@@ -20,6 +20,7 @@ public class PrescriptionDTO {
     private String diagnosis;
     private String notes;
     private String status;
+    private Long partyId;   // P3: shared party/contact master id
     private LocalDateTime createdAt;
     private List<PrescriptionItemDTO> items = new ArrayList<>();
 }

@@ -40,6 +40,11 @@ public class Prescription {
 
     private Long userId;
 
+    /** Party bridge (P3): shared party/contact master id (party-service). Stamped best-effort on write (by patient
+     *  phone); null until bridged — so a prescription patient links to the same party as their POS customer. */
+    @Column(name = "party_id")
+    private Long partyId;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 

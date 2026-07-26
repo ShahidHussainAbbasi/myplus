@@ -1,4 +1,4 @@
-package com.myplus.education.config;
+package com.myplus.welfare.config;
 
 import com.myplus.commerce.contracts.client.PartyClient;
 import com.myplus.common.security.GatewayIdentityForwarding;
@@ -10,13 +10,18 @@ import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
 /**
- * Party bridge (P3): the {@link PartyClient} proxy for education-service — load-balanced @HttpExchange at
- * {@code lb://party-service/api/party/parties}. Re-propagates the gateway identity (X-Org-Id / X-User-*) via
- * {@link GatewayIdentityForwarding#interceptor()} so party-service scopes the upsert to the caller's org (else the
- * party would be created org-less). Reuses the @LoadBalanced RestClient.Builder already defined for notifications.
+ * Party bridge (P3): the {@link PartyClient} proxy for welfare-service — load-balanced @HttpExchange at
+ * {@code lb://party-service/api/party/parties}. Re-propagates the gateway identity via
+ * {@link GatewayIdentityForwarding#interceptor()} so party-service scopes the upsert to the caller's org.
  */
 @Configuration
 public class PartyClientConfig {
+
+    @Bean
+    @LoadBalanced
+    public RestClient.Builder loadBalancedRestClientBuilder() {
+        return RestClient.builder();
+    }
 
     @Bean
     public PartyClient partyClient(@LoadBalanced RestClient.Builder builder) {

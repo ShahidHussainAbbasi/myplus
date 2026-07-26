@@ -32,9 +32,18 @@
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','DonatorDiv',this)"><span class="glyphicon glyphicon-user"></span><span>Add Donator</span></a>
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','DonationDiv',this)"><span class="glyphicon glyphicon-gift"></span><span>Add Donation</span></a>
 			<a class="sb-link" sec:authorize="hasAuthority('READ_PRIVILEGE')" onclick="sbNav('registrationType','DonationsDiv',this)"><span class="glyphicon glyphicon-list"></span><span>View Donations</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','ConfigDiv',this);showConfig()"><span class="glyphicon glyphicon-wrench"></span><span>Configuration</span></a>
 		</nav>
 	</aside>
 	<div id="content" class="content-cls">
+		<!-- Owner Configuration — self-renders from the welfare-service common-settings catalog (/getWelfareConfig).
+		     Each policy is a catalog entry in the service; a toggle saves immediately (/saveWelfareConfig). -->
+		<div id="ConfigDiv" class="formDiv" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" style="display:none">
+			<h3 class="dash-page-title">Configuration</h3>
+			<p style="color:#7a889c;margin-bottom:16px">Turn features on or off for your organization. Changes apply immediately.</p>
+			<div id="welfareConfigMsg" class="alert" style="display:none"></div>
+			<div id="welfareConfigBody">Loading…</div>
+		</div>
 		<div id=DonatorDiv class="formDiv" style="display:none">
 			<h3 class="dash-page-title" th:text="#{label.donator.form.heading}">Donator Registration Form</h3>
 			<div style="margin-bottom:8px">

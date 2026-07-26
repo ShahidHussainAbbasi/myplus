@@ -22,7 +22,7 @@
 | Money = BigDecimal(19,2) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (int fees by design) | ✅ | ✅ | n/a |
 | Schema via Flyway (deploy-reproducible) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Cypress lifecycle gate | ✅ (73) | ✅ | ✅ | ✅ | 🟡 (10) | 🟡 | ✅ (13) | ⬜ (1) | ⬜ (1) | 🟡 (3) |
-| Per-org **configuration store** (`common-settings`: catalog + overrides + Config screen) | ✅ | 🔒 | 🔒 | 🔒 | 🔒 | 🔒 | ✅ | 🔒 | 🔒 | 🔒 |
+| Per-org **configuration store** (`common-settings`: catalog + overrides + Config screen) | ✅ | 🔒 | 🔒 | 🔒 | 🔒 | 🔒 | ✅ | ✅ | ✅ | 🔒 |
 | Reliability (outbox / idempotency on money ops) | ✅ | – | ✅ (saga) | ✅ | inherits | 🟡 | – | – | – | – |
 
 **Headline foundation gaps:**
@@ -124,8 +124,8 @@ Most mature non-commerce vertical; the **only** vertical with the configuration 
 | Receipts / statements | ⬜ | ⬜ | – | ⬜ |
 | Campaigns / pledges / recurring | ⬜ | ⬜ | – | ⬜ |
 | Reports / analytics | ⬜ | ⬜ | – | ⬜ |
-| Cypress lifecycle gate | ⬜ (1 spec) | | | ⬜ |
-| **Configuration** | ⬜ | ⬜ | – | 🔒 |
+| Cypress lifecycle gate | 🟡 (2 specs: lifecycle + config) | | | 🟡 |
+| **Configuration** | **Configuration screen** (self-rendering) | `common-settings` engine (`/getConfig`+`/saveConfig` adapter → shared `SettingsService`); wired toggles `requireDonor`, `allowDuplicateNames` | `org_setting` (Flyway V5) | ✅ (2026-07-26) |
 
 **Welfare gaps:** it's a thin CRUD skeleton — no receipts, no campaigns/pledges, no reporting, near-zero test coverage. Below SaaS-product standard for a donations domain.
 
@@ -139,8 +139,8 @@ Most mature non-commerce vertical; the **only** vertical with the configuration 
 | Income / expense | forms | add/list/delete (BigDecimal amount) | `agriculture_income/expense` | ✅ |
 | Per-crop / per-season P&L | ⬜ | ⬜ | – | ⬜ |
 | Reports / analytics | ⬜ | ⬜ | – | ⬜ |
-| Cypress gate | ⬜ (1) | | | ⬜ |
-| **Configuration** | ⬜ | ⬜ | – | 🔒 |
+| Cypress gate | 🟡 (2: lifecycle + config) | | | 🟡 |
+| **Configuration** | **Configuration screen** (self-rendering) | `common-settings` engine (`/getConfig`+`/saveConfig` adapter → shared `SettingsService`); wired toggle `requireLand` (both income & expense) | `org_setting` (Flyway V4) | ✅ (2026-07-26) |
 
 **Agriculture gaps:** same shape as welfare — CRUD skeleton, no analytical layer (crop/season P&L is the core value), no gate.
 
@@ -167,8 +167,8 @@ Most mature non-commerce vertical; the **only** vertical with the configuration 
 The user's recurring requirement — *"owner sets up anything from configuration, works per customer"* — is now **first-class shared infrastructure**, the industry-standard SaaS shape, with rollout in progress:
 
 - **Shared library (`common-settings`, built 2026-07-24):** code-defined catalog (`SettingEntry` key/label/type/default/group) + per-org override table + self-rendering Config screen + `getBool()` override-else-default. Adding a policy = one catalog entry, no schema change. **Design:** SPI (`SettingsCatalogProvider` = *what* is configurable; `SettingsStore` = *where* overrides persist) so the lib carries **no `@Entity`** — each service owns its own `org_setting` table (data ownership stays with the service; no cross-module `@EntityScan`). The engine (`SettingsService`) + REST (`SettingsController`, `/settings`) + wiring (`@AutoConfiguration`, inert until a service supplies a `SettingsStore`) are written **once**.
-- **Consumers live:** business/POS (owner Configuration screen) and education (migrated off its in-service copy — the duplication is deleted, not forked). A new consumer is ~40 lines: a `SettingsCatalogProvider` + a JPA `SettingsStore` + a Flyway `org_setting` table.
-- **The remaining gap:** roll to the other services and turn each hard-coded policy (POS tax/receipt/rounding, pharma safety/insurer, marketplace shipping/coupon, appointment hours/slots) into an owner toggle; behaviour-wire the two POS starter flags; fold business's bespoke Tax/Stores/period-lock screens into the store.
+- **Consumers live (4):** business/POS, education, **welfare, and agriculture** (2026-07-26). Education was migrated off its in-service copy (duplication deleted, not forked); welfare/agri are fresh consumers. A new consumer is ~40 lines: a `SettingsCatalogProvider` + a JPA `SettingsStore` + a Flyway `org_setting` table + (for the UI) a monolith proxy + a Config screen. Each ships **behaviour-wired** toggles (no dead toggles): POS receipt tax-breakdown; education guardian/discount branch scope; welfare `requireDonor` + `allowDuplicateNames`; agri `requireLand`.
+- **The remaining gap:** roll to the rest (catalog/inventory/finance/pharma/marketplace/appointment) and turn each hard-coded policy (pharma safety/insurer, marketplace shipping/coupon, appointment hours/slots) into an owner toggle; fold business's bespoke Tax/Stores/period-lock screens into the store.
 
 **Candidate settings to migrate/introduce once the lib exists** (illustrative, per vertical): POS — receipt footer, rounding mode, default tax code, low-stock threshold, negative-stock allowed; fold in existing Tax/Stores/period-lock. Pharma — controlled-drug schedules, insurer master, which safety checks are hard-stops. Marketplace — shipping/coupon policy, storefront terms, guest-checkout on/off. Education — staff/subject branch scope (+ existing fee flags). Appointment — working hours, slot length, cancellation window. Welfare/Agri — receipt/category masters.
 
@@ -237,7 +237,8 @@ Ordered by **risk-reduction × leverage** (shared foundations first, then the th
 
 **Phase A — Shared configuration foundation (highest leverage; unblocks every vertical). — 🟢 IN PROGRESS.**
 ✅ Done: extracted `common-settings` (SPI + shared `SettingsService`/`SettingsController` + `@AutoConfiguration`); business/POS Configuration screen live; education migrated onto the lib (in-service copy deleted). Gates: `business/org-config.cy.js` (new), `education/owner-config.cy.js` (unchanged — regression guard on the migration).
-▶ Remaining: behaviour-wire the two POS starter flags; roll the lib to the next consumers (welfare/agri are cheapest — pure toggles); fold business's bespoke Tax/Stores/period-lock into the store where clean. *Gate: extend each vertical's config spec.*
+✅ Also done (2026-07-26): POS receipt tax-breakdown behaviour-wired; **welfare + agriculture rolled onto the lib** (4 consumers total) with wired toggles + Config screens + Cypress gates (`welfare/config.cy.js`, `agriculture/config.cy.js`).
+▶ Remaining: roll the lib to catalog/inventory/finance/pharma/marketplace/appointment; fold business's bespoke Tax/Stores/period-lock into the store where clean. *Gate: extend each vertical's config spec.*
 
 **Phase B — Authz completion (finish the security spine).**
 Pharma Rx/dispense gates; marketplace coupon/order-status gates; appointment booking role model (define receptionist vs admin, then gate). Closes the 🟡 authz tail. *Gate: extend method-authz.cy.js per service.*

@@ -92,8 +92,35 @@ path** and was chosen next.
 `StudentRepository.updatePartyId` + `PartyClientConfig` (lb://party-service, GatewayIdentityForwarding interceptor so
 the upsert is org-scoped) + `PartyBridgeService.bridgeStudent` (best-effort, once, skip-if-bridged) wired into
 `addStudent` after save; `StudentDTO.partyId` on reads; `commerce-contracts` added to education pom. Cypress
-`education/party-bridge.cy.js` (two students sharing a mobile → same partyId). Build: education-service + party-service
-up. **NEXT P3 = welfare Donor, then pharmacy Patient** (same pattern per service), then the cross-module contact view.
+`education/party-bridge.cy.js` (two students sharing a mobile → same partyId). Build: education-service + party-service up.
+
+**P3b — welfare Donator bridge (IMPLEMENTED):** welfare-service `Donator.partyId` (Flyway **V4**) + targeted
+`DonatorRepo.updatePartyId` + `PartyClientConfig` (defines its own @LoadBalanced builder — welfare had none) +
+`PartyBridgeService.bridgeDonator` (partyType DONOR, contact=mobile, no email) wired into `addDonator` after save;
+`DonatorDTO.partyId` (manual getter, auto-mapped by modelMapper); `commerce-contracts` added to welfare pom. Cypress
+`welfare/party-bridge.cy.js`.
+
+**P3c — pharmacy Prescription patient bridge (IMPLEMENTED):** pharmacy has NO Patient entity — the patient is
+denormalized `patientName`/`patientPhone` on `Prescription`, and dispensing reuses the business Customer (already
+bridged in P1). So P3c stamps `Prescription.partyId` (Flyway **V4**) found by patient phone → a prescription patient
+dedupes to the same party as their POS customer. `PrescriptionRepository.updatePartyId` + `partyClient` bean added to
+the existing `PharmaClientsConfig` + `PartyBridgeService.bridgePrescription` (partyType PATIENT) wired into
+`PrescriptionService.create` after save; `PrescriptionDTO.partyId` (create response carries it). Cypress
+`pharmacy/party-bridge.cy.js`. **P3 module bridges COMPLETE** (business/education/welfare/pharmacy). **NEXT = the
+cross-module contact view** (list a party's roles/records across modules) — the payoff the bridges enable.
+
+## 11. Risks & mitigations (coupling / bottleneck)
+party-service is a shared dependency, so the honest risks + how the design addresses them:
+
+| Risk | Mitigation (in place) | Further (if needed) |
+|---|---|---|
+| **Availability coupling** — party down breaks 4 modules' writes | Bridge is **best-effort** (try/catch, never fails the domain write); entity saves with `party_id=null`. **DONE: short client timeout** (connect 1s / read 2s) + **lightweight circuit breaker** (5 consecutive fails → skip for 30s), so a SLOW party-service fails fast to best-effort instead of tying up request threads | full async (`@Async` + `runAs`) if the request-thread cost matters |
+| **DB-connection bottleneck** — HTTP call held a domain tx open | **DONE: after-commit** — bridge moved to `@TransactionalEventListener(AFTER_COMMIT)` + `REQUIRES_NEW`, so the domain tx/connection is released BEFORE the party call | full async (`@Async` + `runAs`) if the request-thread cost matters |
+| **Write amplification** — every write hits party | **Skip-when-bridged guard** (`party_id != null` → no-op) → one-time per party; repeat writes cost 0 | — |
+| **Identity correctness** — phone reuse / bad merge | party is a LINK, module records are never destroyed; dedup is a hint on `(org, contact)` | explicit, reversible merge/split tooling + owner confirm |
+| **Read fan-out** (contact view) coupling party→N module DBs | (not built yet) | best-effort PARALLEL aggregation w/ per-module timeouts, OR modules publish role events → party holds a denormalized index |
+
+**Key property:** party-service is a **soft** dependency — down/slow degrades the shared-identity feature, never breaks a sale/registration. The after-commit move (this session) removed the only hard-coupling (a DB tx held across the network call). The handler runs on the request thread (after commit / inline when no tx), so `GatewayIdentityForwarding` still forwards the caller's org — no `runAs` needed. NOTE: because the stamp lands after the write's response body is serialized, a create response carries `party_id=null`; read it back with a follow-up GET (the DB is stamped before the HTTP response returns, since AFTER_COMMIT is synchronous).
 
 ## 8. Status: P0 IMPLEMENTED (scaffold); P1+ pending
 Sign-off given (D1 new service, D2 additive bridge, D3 contact-primary/email-secondary, D4 P0 first).

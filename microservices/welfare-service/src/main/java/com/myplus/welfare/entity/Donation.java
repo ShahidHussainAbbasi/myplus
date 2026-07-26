@@ -23,9 +23,11 @@ public class Donation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    // optional = true: a donation may be anonymous (donation box / walk-in cash) when the org's
+    // welfare.donation.requireDonor policy is off. donator_id is nullable (Flyway V6).
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @NotFound(action = NotFoundAction.IGNORE)
-    @JoinColumn(name = "donator_id")
+    @JoinColumn(name = "donator_id", nullable = true)
     private Donator donator;
 
     private Long userId;

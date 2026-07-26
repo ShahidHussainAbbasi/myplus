@@ -31,9 +31,15 @@ public class Donator {
     private LocalDateTime dated;
     private LocalDateTime updated;
     private Boolean showMe = null;
+    /** Party bridge (P3): shared party/contact master id (party-service). Stamped best-effort on write; null until bridged. */
+    @Column(name = "party_id")
+    private Long partyId = null;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Long getPartyId() { return partyId; }
+    public void setPartyId(Long partyId) { this.partyId = partyId; }
 
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }

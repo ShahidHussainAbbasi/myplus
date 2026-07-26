@@ -23,6 +23,11 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     @Query("SELECT p FROM Prescription p WHERE " + SCOPE + " ORDER BY p.createdAt DESC")
     List<Prescription> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /** Party bridge: stamp ONLY party_id (targeted — never a full-entity save, which could clobber other columns). */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "update prescriptions set party_id = :partyId where id = :id", nativeQuery = true)
+    void updatePartyId(@Param("id") Long id, @Param("partyId") Long partyId);
+
     @Query("SELECT p FROM Prescription p WHERE p.id = :id AND " + SCOPE)
     Optional<Prescription> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

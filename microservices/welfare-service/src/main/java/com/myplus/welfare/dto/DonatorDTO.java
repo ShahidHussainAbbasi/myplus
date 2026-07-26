@@ -15,9 +15,13 @@ public class DonatorDTO {
     private Boolean showMe = false;
     private String datedStr;
     private String updatedStr;
+    private Long partyId = null;   // P3: shared party/contact master id
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Long getPartyId() { return partyId; }
+    public void setPartyId(Long partyId) { this.partyId = partyId; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

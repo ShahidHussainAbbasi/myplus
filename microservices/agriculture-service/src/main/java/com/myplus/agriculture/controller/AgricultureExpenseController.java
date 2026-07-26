@@ -40,6 +40,8 @@ public class AgricultureExpenseController {
     RequestUtil requestUtil;
     @Autowired
     AppUtil appUtil;
+    @Autowired
+    com.myplus.common.settings.SettingsService settingsService;   // common-settings: per-org entry policy
 
     private final ModelMapper modelMapper = new ModelMapper();
 
@@ -56,6 +58,10 @@ public class AgricultureExpenseController {
     public GenericResponse addAgricultureExpense(final AgricultureExpenseDTO dto, final HttpServletRequest request) {
         try {
             Long userId = requestUtil.getCurrentUser().getUserId();
+            // Owner-configurable: agri.entry.requireLand ON forces every entry to reference a plot (per-plot P&L).
+            if (appUtil.isEmptyOrNull(dto.getLandId()) && settingsService.getBool("agri.entry.requireLand")) {
+                return new GenericResponse(appUtil.INVALID, "A land/plot is required for every expense entry.");
+            }
             AgricultureExpense obj;
             if (appUtil.isEmptyOrNull(dto.getId())) {
                 obj = new AgricultureExpense(userId, dto.getLandId(), dto.getExpenseName(), appUtil.getLocalDate(dto.getUpdatedStr()));
@@ -69,11 +75,15 @@ public class AgricultureExpenseController {
             obj.setOrganizationId(orgId());        // tenant scope
             obj.setDated(LocalDate.now());
             obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
-            Optional<Land> optional = landService.findById(dto.getLandId());
-            if (optional.isPresent()) {
-                Land land = optional.get();
-                obj.setLandId(land.getId());
-                obj.setLandName(land.getLandName());
+            // Resolve the plot only when one was given (null landId is valid when agri.entry.requireLand is off —
+            // findById(null) would otherwise throw). Plot stays unset for an unattributed entry.
+            if (!appUtil.isEmptyOrNull(dto.getLandId())) {
+                Optional<Land> optional = landService.findById(dto.getLandId());
+                if (optional.isPresent()) {
+                    Land land = optional.get();
+                    obj.setLandId(land.getId());
+                    obj.setLandName(land.getLandName());
+                }
             }
             if (service.save(obj).getId() > 0) {
                 return new GenericResponse(appUtil.SUCCESS, "Expense added successfully");

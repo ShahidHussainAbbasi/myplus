@@ -38,11 +38,15 @@ public class DonationController {
     @Autowired
     IDonatorService donatorService;
     @Autowired
+    com.myplus.welfare.service.PartyBridgeService partyBridgeService;   // P3: shared party master bridge
+    @Autowired
     IDonationService donationService;
     @Autowired
     RequestUtil requestUtil;
     @Autowired
     AppUtil appUtil;
+    @Autowired
+    com.myplus.common.settings.SettingsService settingsService;   // common-settings: per-org donation/donor policy
 
     private final ModelMapper modelMapper = new ModelMapper();
 
@@ -161,11 +165,14 @@ public class DonationController {
             AuthenticatedUser user = requestUtil.getCurrentUser();
             LocalDateTime dated = LocalDateTime.now();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                // dup-name check within the active tenant (was a userId-only Example probe)
-                boolean exists = donatorService.findScoped(orgId(), userId()).stream()
-                        .anyMatch(d -> d.getName() != null && d.getName().equalsIgnoreCase(dto.getName()));
-                if (exists) {
-                    return new GenericResponse("FOUND", "The Donator " + dto.getName() + " already exists");
+                // dup-name check within the active tenant (was a userId-only Example probe). Owner-configurable:
+                // welfare.donator.allowDuplicateNames ON lets orgs keep same-name donors (families, common names).
+                if (!settingsService.getBool("welfare.donator.allowDuplicateNames")) {
+                    boolean exists = donatorService.findScoped(orgId(), userId()).stream()
+                            .anyMatch(d -> d.getName() != null && d.getName().equalsIgnoreCase(dto.getName()));
+                    if (exists) {
+                        return new GenericResponse("FOUND", "The Donator " + dto.getName() + " already exists");
+                    }
                 }
             } else {
                 Donator existing = donatorService.getOne(dto.getId());
@@ -183,6 +190,7 @@ public class DonationController {
             if (appUtil.isEmptyOrNull(obj)) {
                 return new GenericResponse("FAILED", "Your donator can't be added, please contact your Admin");
             }
+            partyBridgeService.bridgeDonator(obj);   // P3: link to the shared party master (best-effort, once)
             return new GenericResponse("SUCCESS", "");
         } catch (Exception e) {
             LOGGER.error(getClass().getName() + " > addDonator", e);
@@ -198,6 +206,12 @@ public class DonationController {
             Donation obj = new Donation();
             LocalDateTime dated = LocalDateTime.now();
 
+            // Owner-configurable: welfare.donation.requireDonor ON forces every donation to name a donor
+            // (attribution/audit for grant-funded charities). Default off = today's behaviour.
+            if (appUtil.isEmptyOrNull(dto.getDonatorId()) && settingsService.getBool("welfare.donation.requireDonor")) {
+                return new GenericResponse("INVALID", "A donor is required for every donation.");
+            }
+
             if (!appUtil.isEmptyOrNull(dto.getId())) {
                 Donation existing = donationService.getOne(dto.getId());
                 if (existing != null && !appUtil.isEmptyOrNull(existing.getDated())) {
@@ -210,8 +224,11 @@ public class DonationController {
             }
             obj.setUserId(user.getUserId());                  // audit
             obj.setOrganizationId(user.getOrganizationId());  // tenant scope
-            Donator donator = donatorService.getOne(dto.getDonatorId());
-            obj.setDonator(donator);
+            // Resolve the donor only when one was given (a donation may be anonymous when
+            // welfare.donation.requireDonor is off — getOne(null) would otherwise throw).
+            if (!appUtil.isEmptyOrNull(dto.getDonatorId())) {
+                obj.setDonator(donatorService.getOne(dto.getDonatorId()));
+            }
             obj.setDated(dated);
             obj.setUpdated(LocalDateTime.now());
 

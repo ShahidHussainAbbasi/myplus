@@ -50,8 +50,19 @@ public class TradeClientsConfig {
 
     @Bean
     public com.myplus.commerce.contracts.client.PartyClient partyClient(@LoadBalanced RestClient.Builder builder) {
-        return proxy(builder, "http://party-service/api/party/parties",
-                com.myplus.commerce.contracts.client.PartyClient.class);
+        // Hardening: bound the party call with a short timeout so a SLOW party-service fails fast to best-effort
+        // (the bridge is off the domain tx + retried on next write) rather than tying up the request thread.
+        org.springframework.http.client.SimpleClientHttpRequestFactory rf =
+                new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        rf.setConnectTimeout(1000);
+        rf.setReadTimeout(2000);
+        RestClient restClient = builder.clone()
+                .baseUrl("http://party-service/api/party/parties")
+                .requestFactory(rf)
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .build();
+        return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient)).build()
+                .createClient(com.myplus.commerce.contracts.client.PartyClient.class);
     }
 
     /** Build a declarative client over a cloned, load-balanced RestClient (clone isolates per-client config). */

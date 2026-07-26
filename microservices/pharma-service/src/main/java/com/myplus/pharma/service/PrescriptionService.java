@@ -27,6 +27,7 @@ public class PrescriptionService {
 
     private final PrescriptionRepository prescriptionRepo;
     private final PrescriptionItemRepository itemRepo;
+    private final PartyBridgeService partyBridgeService;   // P3: link the patient to the shared party master
 
     @Transactional
     public PrescriptionDTO create(PrescriptionDTO dto, Long orgId, Long userId) {
@@ -62,6 +63,7 @@ public class PrescriptionService {
                     .dispensedQuantity(0)
                     .build());
         }
+        partyBridgeService.bridgePrescription(p);   // P3: link the patient to the shared party master (best-effort, once)
         return toDTO(p);
     }
 
@@ -87,6 +89,7 @@ public class PrescriptionService {
         d.setDiagnosis(p.getDiagnosis());
         d.setNotes(p.getNotes());
         d.setStatus(p.getStatus() != null ? p.getStatus().name() : null);
+        d.setPartyId(p.getPartyId());   // P3: shared party master id
         d.setCreatedAt(p.getCreatedAt());
         d.setItems(itemRepo.findByPrescriptionId(p.getId()).stream().map(i -> {
             PrescriptionItemDTO id = new PrescriptionItemDTO();

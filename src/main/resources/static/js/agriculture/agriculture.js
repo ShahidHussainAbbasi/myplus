@@ -170,3 +170,55 @@ function loadLastCropAttached(destinationId){
 		alert(xhr.responseText);
 	});
 }
+// ===== Owner Configuration (generic per-tenant settings, shared common-settings backend) =====
+// Self-renders from the agriculture-service catalog (/getAgricultureConfig → GenericResponse.collection): each row
+// is one configurable policy grouped by section. A toggle saves immediately (/saveAgricultureConfig key=&value=).
+// Adding a new setting is a catalog entry in the service (AgricultureSettingsCatalog) — no change here.
+function showConfig(){
+	$('.formDiv').hide();
+	$('#ConfigDiv').show();
+	$('#agriConfigMsg').hide();
+	loadConfig();
+}
+
+function loadConfig(){
+	$('#agriConfigBody').text('Loading…');
+	$.get(serverContext + 'getAgricultureConfig', function(res){
+		var items = (res && (res.collection || res.object)) || [];
+		if(!items.length){ $('#agriConfigBody').html('<p style="color:#7a889c">No configurable settings.</p>'); return; }
+		var groups = {};
+		items.forEach(function(it){ (groups[it.group] = groups[it.group] || []).push(it); });
+		var html = '';
+		Object.keys(groups).forEach(function(g){
+			html += '<h4 style="margin-top:18px">' + escHtml(g) + '</h4>';
+			groups[g].forEach(function(it){
+				var on = String(it.value) === 'true';
+				if(it.type === 'BOOL'){
+					html += '<div class="form-group" style="margin-bottom:12px">'
+						+ '<label class="control-label col-sm-5" for="cfg_' + escHtml(it.key) + '">' + escHtml(it.label) + '</label>'
+						+ '<div class="col-sm-7">'
+						+ '<input type="checkbox" id="cfg_' + escHtml(it.key) + '" data-key="' + escHtml(it.key) + '"'
+						+ (on ? ' checked' : '') + ' onchange="saveConfigToggle(this)"/>'
+						+ '<div style="color:#7a889c;font-size:12px;margin-top:3px">' + escHtml(it.help || '') + '</div>'
+						+ '</div></div>';
+				}
+			});
+		});
+		$('#agriConfigBody').html('<div class="form-horizontal">' + html + '</div>');
+	}, 'json').fail(function(){ $('#agriConfigBody').html('<p style="color:#c0392b">Could not load configuration.</p>'); });
+}
+
+function saveConfigToggle(el){
+	var key = el.getAttribute('data-key');
+	var value = el.checked ? 'true' : 'false';
+	$.post(serverContext + 'saveAgricultureConfig', { key: key, value: value }, function(res){
+		var ok = res && (res.status === 'SUCCESS');
+		$('#agriConfigMsg').removeClass('alert-success alert-danger')
+			.addClass(ok ? 'alert-success' : 'alert-danger')
+			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
+		if(!ok){ el.checked = !el.checked; }
+	}).fail(function(){
+		el.checked = !el.checked;
+		$('#agriConfigMsg').removeClass('alert-success').addClass('alert-danger').text('Save failed').show();
+	});
+}
