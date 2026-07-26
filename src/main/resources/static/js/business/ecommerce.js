@@ -56,15 +56,23 @@
     };
 
     global.cancelOrder = function (id) {
-        if (!confirm('Cancel this order and return its stock to inventory?')) return;
-        $.ajax({
-            type: 'POST', url: serverContext + 'updateOrderStatus', contentType: 'application/json', dataType: 'json',
-            data: JSON.stringify({ id: id, status: 'CANCELLED' }),
-            success: function (resp) {
-                if (resp && resp.success) { showSaleSuccess('Order cancelled — stock returned.'); loadOrders(); }
-                else showFormError((resp && resp.message) || 'Could not cancel the order.');
-            },
-            error: function () { showFormError('Could not cancel the order.'); }
+        uiConfirm({
+            title: 'Cancel this order?',
+            message: 'The order is cancelled and its stock returns to inventory.',
+            confirmText: 'Cancel order',
+            cancelText: 'Keep order',
+            tone: 'danger'
+        }).then(function (ok) {
+            if (!ok) return;
+            $.ajax({
+                type: 'POST', url: serverContext + 'updateOrderStatus', contentType: 'application/json', dataType: 'json',
+                data: JSON.stringify({ id: id, status: 'CANCELLED' }),
+                success: function (resp) {
+                    if (resp && resp.success) { showSaleSuccess('Order cancelled — stock returned.'); loadOrders(); }
+                    else showFormError((resp && resp.message) || 'Could not cancel the order.');
+                },
+                error: function () { showFormError('Could not cancel the order.'); }
+            });
         });
     };
 

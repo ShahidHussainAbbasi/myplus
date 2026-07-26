@@ -527,10 +527,17 @@ function saveTaxCode(){
 	});
 }
 function deleteTaxCode(id){
-	if(!window.confirm('Delete this tax code? Products using it fall back to their own rate / the org default.')) return;
-	$.ajax({ type:'POST', url:serverContext+'deleteTaxCode', contentType:'application/json', dataType:'json', data:JSON.stringify({ id:id }),
-		success:function(){ loadTaxCodesAdmin(); },
-		error:function(){ alert('Could not delete the tax code.'); }
+	uiConfirm({
+		title: 'Delete this tax code?',
+		message: 'Products using it fall back to their own rate, or the organisation default.',
+		confirmText: 'Delete tax code',
+		tone: 'danger'
+	}).then(function(ok){
+		if(!ok) return;
+		$.ajax({ type:'POST', url:serverContext+'deleteTaxCode', contentType:'application/json', dataType:'json', data:JSON.stringify({ id:id }),
+			success:function(){ loadTaxCodesAdmin(); },
+			error:function(){ uiAlert({ title:'Delete failed', message:'Could not delete the tax code.', tone:'danger' }); }
+		});
 	});
 }
 
@@ -1282,11 +1289,18 @@ function calculateNet(val){
 		//$("#itemSellAmount").val(0.0);
 		$('#itemSellAmount').addClass("alert-danger"); 
 		$('#itemPurchaseAmount').addClass("alert-danger"); 
-		var r = confirm("Please reivew your Sell and Purchase unit prices");
-		if (r != true){
-			$("#itemSellAmount").val(0.0);
-			$("#itemPurchaseAmount").val(0.0);
-		}
+		uiConfirm({
+			title: 'Selling below cost',
+			message: 'The sell price is lower than the purchase price, so this line makes a loss. Keep the prices as entered?',
+			confirmText: 'Keep prices',
+			cancelText: 'Clear them',
+			tone: 'warning'
+		}).then(function (keep) {
+			if (!keep) {
+				$("#itemSellAmount").val(0.0);
+				$("#itemPurchaseAmount").val(0.0);
+			}
+		});
 	}
 }
 
@@ -2085,12 +2099,20 @@ function openVoidSell(btn){
 	var chId = btn.getAttribute('data-chid');
 	var inv = btn.getAttribute('data-invoice') || '';
 	if(!chId) return;
-	if(!window.confirm('Void invoice ' + inv + '?\n\nThis reverses the stock, the customer balance and the ledger. It cannot be undone.')) return;
-	var reason = window.prompt('Reason for voiding (optional):', '') || '';
-	$.post(serverContext + 'voidSell', { customerHistoryId: chId, reason: reason }, function(resp){
-		if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess('Invoice voided.'); try { loadDataTable(); } catch(e){} }
-		else { alert((resp && resp.message) || 'Void failed.'); }
-	}).fail(function(){ alert('Void failed.'); });
+	// One dialog for the whole decision — this used to be a confirm() followed by a second prompt() popup.
+	uiPromptConfirm({
+		title: 'Void invoice ' + inv + '?',
+		message: 'This reverses the stock, the customer balance and the ledger. It cannot be undone.',
+		input: { label: 'Reason for voiding (optional)', placeholder: 'e.g. wrong customer', maxlength: 255 },
+		confirmText: 'Void invoice',
+		tone: 'danger'
+	}).then(function(reason){
+		if(reason === null) return;
+		$.post(serverContext + 'voidSell', { customerHistoryId: chId, reason: reason }, function(resp){
+			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess('Invoice voided.'); try { loadDataTable(); } catch(e){} }
+			else { uiAlert({ title: 'Void failed', message: (resp && resp.message) || 'The invoice could not be voided.', tone: 'danger' }); }
+		}).fail(function(){ uiAlert({ title: 'Void failed', message: 'The invoice could not be voided.', tone: 'danger' }); });
+	});
 }
 
 // Audit #3: Void a bill — reverses stock-in + vendor payable + GL. POST /voidPurchase, then refresh purchases.
@@ -2098,12 +2120,19 @@ $(document).on('click', '.purchase-void-btn', function (e) {
 	e.stopPropagation();
 	var pid = this.getAttribute('data-pid'), inv = this.getAttribute('data-inv') || '';
 	if(!pid) return;
-	if(!window.confirm('Void bill ' + inv + '?\n\nThis reverses the stock-in, the vendor payable and the ledger. It cannot be undone.')) return;
-	var reason = window.prompt('Reason for voiding (optional):', '') || '';
-	$.post(serverContext + 'voidPurchase', { purchaseId: pid, reason: reason }, function(resp){
-		if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess('Bill voided.'); try { loadDataTable(); } catch(e){} }
-		else { alert((resp && resp.message) || 'Void failed.'); }
-	}).fail(function(){ alert('Void failed.'); });
+	uiPromptConfirm({
+		title: 'Void bill ' + inv + '?',
+		message: 'This reverses the stock-in, the vendor payable and the ledger. It cannot be undone.',
+		input: { label: 'Reason for voiding (optional)', placeholder: 'e.g. duplicate entry', maxlength: 255 },
+		confirmText: 'Void bill',
+		tone: 'danger'
+	}).then(function(reason){
+		if(reason === null) return;
+		$.post(serverContext + 'voidPurchase', { purchaseId: pid, reason: reason }, function(resp){
+			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess('Bill voided.'); try { loadDataTable(); } catch(e){} }
+			else { uiAlert({ title: 'Void failed', message: (resp && resp.message) || 'The bill could not be voided.', tone: 'danger' }); }
+		}).fail(function(){ uiAlert({ title: 'Void failed', message: 'The bill could not be voided.', tone: 'danger' }); });
+	});
 });
 
 // Purchase Return (debit note) — a per-row Return button opens a small dialog and posts /purchaseReturn.
@@ -2448,13 +2477,29 @@ function finRunPeriodClose(){
 	}, 'json').fail(finFail);
 }
 function finSetPeriodLock(){
-	var d=$('#finLockDate').val(); if(!d){ alert('Pick a date to lock through.'); return; }
-	if(!confirm('Close the books through '+d+'? Back-dated sales, purchases, payments, edits and voids will be rejected until you reopen.')) return;
-	$.post(serverContext+'gl/periodLock', {lockedThrough:d}, function(){ finRunPeriodClose(); }).fail(function(){ alert('Could not update the period lock. You may not have permission, or finance-service is down.'); });
+	var d=$('#finLockDate').val(); if(!d){ uiAlert({ title:'Pick a date', message:'Choose the date to lock the books through.', tone:'warning' }); return; }
+	uiConfirm({
+		title: 'Close the books through ' + d + '?',
+		message: 'Back-dated sales, purchases, payments, edits and voids will be rejected until you reopen the period.',
+		confirmText: 'Close the books',
+		tone: 'warning'
+	}).then(function(ok){
+		if(!ok) return;
+		$.post(serverContext+'gl/periodLock', {lockedThrough:d}, function(){ finRunPeriodClose(); })
+			.fail(function(){ uiAlert({ title:'Could not close the period', message:'You may not have permission, or finance-service is down.', tone:'danger' }); });
+	});
 }
 function finReopenPeriod(){
-	if(!confirm('Reopen the books (clear the period lock)? Back-dated changes will be allowed again.')) return;
-	$.post(serverContext+'gl/periodLock', {}, function(){ finRunPeriodClose(); }).fail(function(){ alert('Could not reopen the period.'); });
+	uiConfirm({
+		title: 'Reopen the books?',
+		message: 'This clears the period lock — back-dated changes will be allowed again.',
+		confirmText: 'Reopen period',
+		tone: 'warning'
+	}).then(function(ok){
+		if(!ok) return;
+		$.post(serverContext+'gl/periodLock', {}, function(){ finRunPeriodClose(); })
+			.fail(function(){ uiAlert({ title:'Could not reopen', message:'The period lock could not be cleared.', tone:'danger' }); });
+	});
 }
 
 // Back-compat shims — any old caller (or the sidebar menu) routes into the page view.

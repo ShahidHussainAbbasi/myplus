@@ -24,17 +24,25 @@
   // purge-capable service (POS, catalog, inventory, finance, party, pharmacy, education, welfare, agriculture,
   // appointment, marketplace, campaign, analytics). It is destructive and cannot be undone, so confirm first.
   window.resetDemo = function () {
-    if (!window.confirm('Reset the demo?\n\nThis permanently deletes THIS account\'s data — sales, products, '
-        + 'stock, ledger entries, contacts, students, donations, appointments — across every module, and '
-        + 'restarts the entry allowance. It cannot be undone.')) {
-      return;
-    }
-    jQuery.post('/demo/reset')
-      .done(function (d) {
-        if (window.toast) { toast((d && d.message) || 'Demo reset.'); }
-        setTimeout(function () { window.location.reload(); }, 900);
-      })
-      .fail(function () { alert('Could not reset the demo right now. Please try again.'); });
+    uiConfirm({
+      title: 'Reset the demo?',
+      message: 'This permanently deletes THIS account\'s data — sales, products, stock, ledger entries, '
+        + 'contacts, students, donations, appointments — across every module, and restarts the entry '
+        + 'allowance.\n\nIt cannot be undone.',
+      confirmText: 'Reset everything',
+      cancelText: 'Keep my data',
+      tone: 'danger'
+    }).then(function (ok) {
+      if (!ok) return;
+      jQuery.post('/demo/reset')
+        .done(function (d) {
+          if (window.toast) { toast((d && d.message) || 'Demo reset.'); }
+          setTimeout(function () { window.location.reload(); }, 900);
+        })
+        .fail(function () {
+          uiAlert({ title: 'Reset failed', message: 'Could not reset the demo right now. Please try again.', tone: 'danger' });
+        });
+    });
   };
 
   jQuery(document).ajaxError(function (e, xhr) {

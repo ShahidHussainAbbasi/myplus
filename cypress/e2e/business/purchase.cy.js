@@ -264,10 +264,10 @@ describe('Purchase Table — Row Click', () => {
       if (dataRows.length === 0) return cy.log('No purchases — bulk-delete test skipped')
       cy.wrap(dataRows.first()).find('input[type="checkbox"]').check({ force: true })
       cy.get('#bulkBarPurchase').should('be.visible').and('contain', 'selected')
-      cy.get('#bulkBarPurchase').contains('Delete').click()     // → shared confirm popup
-      cy.get('#confirmDeleteModal').should('have.class', 'open')
-      cy.get('#confirmDeleteModal').contains('Cancel').click()
-      cy.get('#confirmDeleteModal').should('not.have.class', 'open')
+      cy.get('#bulkBarPurchase').contains('Delete').click()     // → shared confirm dialog
+      cy.get('.uiC-card').should('be.visible')
+      cy.get('.uiC-cancel').click()
+      cy.get('.uiC-backdrop').should('not.exist')
       cy.get('#bulkBarPurchase').contains('Clear').click()      // clear the selection
       cy.get('#bulkBarPurchase').should('not.be.visible')
     })

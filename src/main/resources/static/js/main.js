@@ -541,13 +541,16 @@ $(document).ready(function() {
 				showFormError('Please select at least one record to delete.');
 				return false;
 			}
-			var r = confirm("Are you sure you want to delete?");
-			if (r != true)
-				return false;
-
-			$(this).callAjax("delete" + deleteV, {
-				checked : ids
+			var count = ids.split(",").length;
+			uiConfirm({
+				title: count === 1 ? 'Delete this record?' : 'Delete ' + count + ' records?',
+				message: 'This removes ' + (count === 1 ? 'it' : 'them') + ' from your records and cannot be undone.',
+				confirmText: count === 1 ? 'Delete' : 'Delete ' + count,
+				tone: 'danger'
+			}).then(function (ok) {
+				if (ok) performBulkDelete(deleteV, ids);
 			});
+			return false;
 		});
 
 		// All button get initialized when user switch form
@@ -677,6 +680,16 @@ $(document).ready(function() {
 			drawCallback: function (settings) { ensureRowEditButtons(settings.nTable); }
 		});
 	}
+
+	/**
+	 * The ONE bulk-delete implementation (DRY). Two entry points confirm in their own way and then land here:
+	 * the toolbar's #delete<Entity> button (generic uiConfirm) and crud-modal.js's #confirmDeleteModal (which
+	 * lists the selected record names). Keeping the delete here is what stops the bulk path from asking twice —
+	 * it used to click #delete<Entity>, whose handler then raised a second, native confirm().
+	 */
+	window.performBulkDelete = function (entity, ids) {
+		$(document).callAjax("delete" + entity, { checked : ids });
+	};
 
 	$.fn.callAjax = function(method, data) {
 		$.ajax({

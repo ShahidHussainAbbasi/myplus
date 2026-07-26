@@ -12,13 +12,28 @@ describe('Reset demo clears data + counter', () => {
     cy.loginAs('demo.appointment@myplus.com', 'Demo@2025!', '/appointmentDashboard')
     cy.visit('/appointmentDashboard')
 
-    // The Reset demo button lives in the demo banner (demo accounts only).
+    // The Reset demo button lives in the demo banner (demo accounts only), and now opens the app's themed
+    // confirm dialog instead of window.confirm — so the test has to confirm it explicitly.
     cy.intercept('POST', '**/demo/reset').as('reset')
-    cy.contains('Reset demo').should('be.visible').click()   // Cypress auto-accepts the confirm()
+    cy.contains('Reset demo').should('be.visible').click()
+    cy.get('[data-ui-confirm="ok"]').should('be.visible').click()
     cy.wait('@reset').its('response.statusCode').should('eq', 200)
 
     // demo.js reloads the page; after the purge the appointments table is empty.
     cy.get('#apptTableBody', { timeout: 15000 }).should('contain', 'No appointments')
+  })
+
+  it('does NOT reset when the confirmation is dismissed', () => {
+    // The whole point of the dialog: "Cancel" must leave the data alone. Guards the shared uiConfirm component.
+    cy.loginAs('demo.appointment@myplus.com', 'Demo@2025!', '/appointmentDashboard')
+    cy.visit('/appointmentDashboard')
+
+    cy.intercept('POST', '**/demo/reset').as('reset')
+    cy.contains('Reset demo').should('be.visible').click()
+    cy.contains('button', 'Keep my data').should('be.visible').click()
+    cy.get('.uiC-backdrop').should('not.exist')
+    cy.wait(500)
+    cy.get('@reset.all').should('have.length', 0)
   })
 
   it('lets the OWNER demo account reset too, and clears data beyond its own module', () => {
@@ -40,6 +55,7 @@ describe('Reset demo clears data + counter', () => {
       cy.visit('/businessDashboard')
       cy.intercept('POST', '**/demo/reset').as('reset')
       cy.contains('Reset demo data').should('be.visible').click()
+      cy.get('[data-ui-confirm="ok"]').should('be.visible').click()
       cy.wait('@reset').then((i) => {
         expect(i.response.statusCode, 'owner is allowed to reset').to.eq(200)
         expect(String(i.response.body.message), 'reports what it cleared').to.contain('services')

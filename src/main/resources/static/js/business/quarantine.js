@@ -44,7 +44,18 @@
     global.loadQuarantine = loadQuarantine;
 
     global.disposeQuarantineLot = function (id) {
-        if (!confirm('Dispose this quarantined lot? It will be removed from inventory.')) return;
+        uiConfirm({
+            title: 'Dispose this quarantined lot?',
+            message: 'The lot is written off and removed from inventory. This cannot be undone.',
+            confirmText: 'Dispose lot',
+            tone: 'danger'
+        }).then(function (ok) {
+            if (!ok) return;
+            disposeQuarantineLotNow(id);
+        });
+    };
+
+    function disposeQuarantineLotNow(id) {
         $.ajax({
             type: 'POST', url: serverContext + 'disposeQuarantine', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ id: id }),

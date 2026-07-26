@@ -43,21 +43,31 @@
         refreshBulkBar(entity);
     };
 
-    // Bulk Delete → open the shared confirm modal listing the selection; confirm reuses #delete<Entity>.
+    /**
+     * Bulk Delete → the app-wide confirm dialog (uiConfirm), listing what is about to go. This used to be a
+     * bespoke #confirmDeleteModal in each dashboard's HTML, which then clicked #delete<Entity> — whose handler
+     * raised a SECOND, native confirm(). Now there is one confirmation, one look, and one delete implementation
+     * (main.js performBulkDelete).
+     */
     global.confirmBulkDelete = function (entity) {
         var $checked = $("#table" + entity + " input[type='checkbox']:checked");
         if (!$checked.length) return;
         var names = $checked.map(function () {
             // first visible data column after the checkbox (name) — id column is hidden, so td:eq(1)
-            return $(this).closest('tr').find('td:eq(1)').text().trim();
+            return $(this).closest('tr').find('td:eq(1)').text().trim() || '(record)';
         }).get();
-        $('#confirmDeleteCount').text(names.length);
-        var $list = $('#confirmDeleteList').empty();
-        names.forEach(function (nm) { $list.append($('<li>').text(nm || '(record)')); });
-        $('#confirmDeleteYes').off('click').on('click', function () {
-            $('#delete' + entity).click();          // reuse the generic delete (ids + callAjax + reload)
-            closeModal('confirmDeleteModal');
+        var ids = $checked.map(function () { return this.value; }).get().join(',');
+
+        var shown = names.slice(0, 8).map(function (n) { return '•  ' + n; }).join('\n');
+        if (names.length > 8) shown += '\n…and ' + (names.length - 8) + ' more';
+
+        uiConfirm({
+            title: names.length === 1 ? 'Delete this record?' : 'Delete ' + names.length + ' records?',
+            message: shown + '\n\nThis cannot be undone.',
+            confirmText: names.length === 1 ? 'Delete' : 'Delete ' + names.length,
+            tone: 'danger'
+        }).then(function (ok) {
+            if (ok) performBulkDelete(entity, ids);
         });
-        openModal('confirmDeleteModal');
     };
 })(window);

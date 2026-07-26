@@ -527,23 +527,8 @@
 		</div>
 		<th:block th:replace="~{footer :: footer}" />
 	</div>
-	<!-- Shared confirm-delete modal (reused by every register screen's bulk Delete) -->
-	<div id="confirmDeleteModal" class="crud-overlay">
-	  <div class="crud-box" style="max-width:420px">
-		<div class="crud-head">
-			<h4>Confirm delete</h4>
-			<button type="button" class="crud-x" onclick="closeModal('confirmDeleteModal')">&times;</button>
-		</div>
-		<div class="crud-body">
-			<p>Delete <b><span id="confirmDeleteCount">0</span></b> selected record(s)?</p>
-			<ul id="confirmDeleteList" class="text-muted" style="max-height:160px;overflow:auto"></ul>
-			<div class="text-right">
-				<button type="button" class="btn btn-default" onclick="closeModal('confirmDeleteModal')">Cancel</button>
-				<button type="button" id="confirmDeleteYes" class="btn btn-danger">Delete</button>
-			</div>
-		</div>
-	  </div>
-	</div>
+	<!-- The bulk-delete confirmation is no longer page markup: confirmBulkDelete() raises the shared app
+	     dialog (/js/common/confirm-dialog.js), so every destructive confirm looks the same. -->
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>

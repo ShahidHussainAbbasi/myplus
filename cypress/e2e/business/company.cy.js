@@ -205,9 +205,9 @@ describe('Company CRUD', () => {
     cy.get('#bulkBarCompany').should('be.visible').and('contain', 'selected')
 
     cy.intercept('POST', '/deleteCompany').as('deleteCompany')
-    cy.get('#bulkBarCompany').contains('Delete').click()        // → opens the confirm modal
-    cy.get('#confirmDeleteModal').should('have.class', 'open')
-    cy.get('#confirmDeleteYes').click()                          // → reuses the generic delete
+    cy.get('#bulkBarCompany').contains('Delete').click()        // → opens the shared confirm dialog
+    cy.get('.uiC-card').should('be.visible').and('contain', name)   // it lists what is about to go
+    cy.get('[data-ui-confirm="ok"]').click()                     // → reuses the generic delete
     cy.wait('@deleteCompany').then((interception) => {
       expect(interception.response.body).to.be.true
     })
