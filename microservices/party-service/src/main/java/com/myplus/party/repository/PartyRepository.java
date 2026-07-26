@@ -22,6 +22,10 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
     @Query("SELECT p FROM Party p WHERE p.id = :id AND " + SCOPE)
     Optional<Party> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /** Bulk backfill: the parties of this batch this tenant may touch — ONE query instead of a scoped read per row. */
+    @Query("SELECT p FROM Party p WHERE p.id IN :ids AND " + SCOPE)
+    List<Party> findAllByIdScoped(@Param("ids") List<Long> ids, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT p FROM Party p WHERE p.organizationId = :orgId AND p.contact = :contact")
     Optional<Party> findByOrgAndContact(@Param("orgId") Long orgId, @Param("contact") String contact);
 

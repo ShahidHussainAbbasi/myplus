@@ -48,4 +48,15 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
    @org.springframework.data.jpa.repository.Modifying
    @Query(value = "update customer set party_id = :partyId where customer_id = :id", nativeQuery = true)
    void updatePartyId(@Param("id") Long id, @Param("partyId") Long partyId);
+
+   // P4 contact-view backfill: already-bridged rows, walked by an id cursor so the admin job can resume in batches.
+   @Query("select c from Customer c where c.partyId is not null and c.customerId > :afterId "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId)) "
+        + "order by c.customerId asc")
+   List<Customer> findBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId,
+                                   @Param("userId") Long userId, Pageable pageable);
+
+   @Query("select count(c) from Customer c where c.partyId is not null and c.customerId > :afterId "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
+   long countBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

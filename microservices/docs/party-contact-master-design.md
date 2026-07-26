@@ -109,6 +109,13 @@ the existing `PharmaClientsConfig` + `PartyBridgeService.bridgePrescription` (pa
 `pharmacy/party-bridge.cy.js`. **P3 module bridges COMPLETE** (business/education/welfare/pharmacy). **NEXT = the
 cross-module contact view** (list a party's roles/records across modules) — the payoff the bridges enable.
 
+## 12. P4 — cross-module contact view
+
+The payoff slice (the bridges made one person one partyId; P4 makes that visible) has its own design doc:
+[`party-contact-view-design.md`](party-contact-view-design.md) — denormalized `party_role_link` index written by these
+same bridges (piggybacked on `upsert`, no extra call), read as one org-scoped query. Agriculture is out of scope: it
+has no party-bearing entity.
+
 ## 11. Risks & mitigations (coupling / bottleneck)
 party-service is a shared dependency, so the honest risks + how the design addresses them:
 

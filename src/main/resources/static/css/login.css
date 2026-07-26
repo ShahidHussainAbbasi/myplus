@@ -117,6 +117,11 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg)}
 }
 .field-input:focus{border-color:var(--brand);box-shadow:0 0 0 4px rgba(21,101,192,.14)}
 .field-input::placeholder{color:var(--txt3)}
+/* Show/hide password eye (positioning is set inline by /js/common/password-toggle.js; this only adds the
+   hover/focus polish where login.css is loaded — login + the two registration screens). */
+.pw-toggle{transition:color .15s,background .15s}
+.pw-toggle:hover{color:var(--brand);background:rgba(21,101,192,.08)}
+.pw-toggle:focus{outline:none;color:var(--brand);box-shadow:0 0 0 3px rgba(21,101,192,.18)}
 
 /* Language row */
 .locale-row{display:flex;align-items:center;gap:6px;margin-bottom:22px}

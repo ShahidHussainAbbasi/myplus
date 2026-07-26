@@ -20,4 +20,14 @@ public interface DonatorRepo extends JpaRepository<Donator, Long>, QueryByExampl
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query(value = "update donator set party_id = :partyId where id = :id", nativeQuery = true)
     void updatePartyId(@Param("id") Long id, @Param("partyId") Long partyId);
+
+    // P4 contact-view backfill: already-bridged rows, walked by an id cursor so the admin job can resume in batches.
+    @Query("select d from Donator d where d.partyId is not null and d.id > :afterId "
+         + "and (d.organizationId = :orgId or (d.organizationId is null and d.userId = :userId)) order by d.id asc")
+    List<Donator> findBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId,
+                                   @Param("userId") Long userId, org.springframework.data.domain.Pageable pageable);
+
+    @Query("select count(d) from Donator d where d.partyId is not null and d.id > :afterId "
+         + "and (d.organizationId = :orgId or (d.organizationId is null and d.userId = :userId))")
+    long countBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

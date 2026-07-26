@@ -35,6 +35,17 @@ public interface VenderRepo extends JpaRepository<Vender, Long>,QueryByExampleEx
    @Query(value = "update vender set party_id = :partyId where vender_id = :id", nativeQuery = true)
    void updatePartyId(@Param("id") Long id, @Param("partyId") Long partyId);
 
+   // P4 contact-view backfill: already-bridged rows, walked by an id cursor (its own — vendor ids are independent
+   // of customer ids, so a shared cursor would skip rows).
+   @Query("select v from Vender v where v.partyId is not null and v.id > :afterId "
+        + "and (v.organizationId = :orgId or (v.organizationId is null and v.userId = :userId)) order by v.id asc")
+   List<Vender> findBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId,
+                                 @Param("userId") Long userId, org.springframework.data.domain.Pageable pageable);
+
+   @Query("select count(v) from Vender v where v.partyId is not null and v.id > :afterId "
+        + "and (v.organizationId = :orgId or (v.organizationId is null and v.userId = :userId))")
+   long countBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
 
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "
 //    		+ "p.mobile = :mobile AND a.FK_patient_id = p.patient_id",nativeQuery=true)

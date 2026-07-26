@@ -1,6 +1,7 @@
 package com.myplus.commerce.contracts.client;
 
 import com.myplus.commerce.contracts.dto.PartyRef;
+import com.myplus.commerce.contracts.dto.PartyRoleRef;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.service.annotation.GetExchange;
@@ -23,4 +24,18 @@ public interface PartyClient {
     /** Resolve a party by its id. */
     @GetExchange("/{id}")
     PartyRef get(@PathVariable("id") Long id);
+
+    /**
+     * Record a role link for a party whose id is ALREADY known — used by the per-module backfill (rows bridged before
+     * P4 have a party_id but no link, and the skip-guard means they never bridge again). Idempotent server-side.
+     */
+    @PostExchange("/{id}/roles")
+    void link(@PathVariable("id") Long id, @RequestBody PartyRoleRef role);
+
+    /**
+     * Bulk variant for the backfill: ONE call per batch instead of one per row (a per-row call would make backfilling
+     * a large customer table N round trips). Each item carries its own {@code partyId}. Returns the number linked.
+     */
+    @PostExchange("/roles/bulk")
+    Integer linkBulk(@RequestBody java.util.List<PartyRoleRef> links);
 }

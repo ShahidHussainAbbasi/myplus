@@ -15,4 +15,11 @@ public class PartyRef {
     private String contact;
     private String email;
     private String address;
+
+    /**
+     * OPTIONAL role link recorded alongside the identity (P4 contact view). When set, the upsert also records
+     * "this party is {@code role} in {@code module} with id {@code localId}" in the same transaction — so a module
+     * bridges identity AND role in ONE call. {@code null} = identity-only upsert (the original P0/P1 behaviour).
+     */
+    private PartyRoleRef role;
 }

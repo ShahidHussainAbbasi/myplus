@@ -28,6 +28,16 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     @Query(value = "update student set party_id = :partyId where student_id = :id", nativeQuery = true)
     void updatePartyId(@Param("id") Long id, @Param("partyId") Long partyId);
 
+    // P4 contact-view backfill: already-bridged rows, walked by an id cursor so the admin job can resume in batches.
+    @Query("select s from Student s where s.partyId is not null and s.id > :afterId "
+            + "and (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) order by s.id asc")
+    List<Student> findBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId,
+                                   @Param("userId") Long userId, Pageable pageable);
+
+    @Query("select count(s) from Student s where s.partyId is not null and s.id > :afterId "
+            + "and (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
+    long countBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     // P4 — branch (school) scoped read, the education twin of business's findScopedByStores. Rows with no
     // school are legacy and stay visible (they drain as they are re-saved), exactly as with store_id.
     //

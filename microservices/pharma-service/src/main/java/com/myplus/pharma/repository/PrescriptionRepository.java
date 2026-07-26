@@ -30,4 +30,12 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
 
     @Query("SELECT p FROM Prescription p WHERE p.id = :id AND " + SCOPE)
     Optional<Prescription> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // P4 contact-view backfill: already-bridged rows, walked by an id cursor so the admin job can resume in batches.
+    @Query("SELECT p FROM Prescription p WHERE p.partyId IS NOT NULL AND p.id > :afterId AND " + SCOPE + " ORDER BY p.id ASC")
+    List<Prescription> findBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId,
+                                        @Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT COUNT(p) FROM Prescription p WHERE p.partyId IS NOT NULL AND p.id > :afterId AND " + SCOPE)
+    long countBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

@@ -13,4 +13,10 @@ public class PartyDTO {
     private String address;
     private String notes;
     private Boolean active;
+
+    /**
+     * OPTIONAL on an upsert REQUEST (P4): record the caller's role link in the same transaction, so a module bridges
+     * identity and role in one call. Null = identity-only upsert (original behaviour). Not populated on responses.
+     */
+    private PartyRoleDTO role;
 }
