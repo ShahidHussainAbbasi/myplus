@@ -71,6 +71,10 @@ public class Vender implements Serializable {
 	@Column(name = "email")
 	private String email;
 
+	/** Party bridge (P1): shared party/contact master id (party-service). Stamped best-effort on write; null until bridged. */
+	@Column(name = "party_id")
+	private Long partyId;
+
 	@Column(name = "description")
 	private String description;
 

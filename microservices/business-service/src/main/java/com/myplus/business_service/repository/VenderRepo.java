@@ -30,6 +30,11 @@ public interface VenderRepo extends JpaRepository<Vender, Long>,QueryByExampleEx
    @Query(value = "update vender set due_amount = :due where vender_id = :id", nativeQuery = true)
    void updateDueAmount(@Param("id") Long id, @Param("due") java.math.BigDecimal due);
 
+   // Party bridge: stamp ONLY party_id (targeted — never a full-entity save).
+   @Modifying
+   @Query(value = "update vender set party_id = :partyId where vender_id = :id", nativeQuery = true)
+   void updatePartyId(@Param("id") Long id, @Param("partyId") Long partyId);
+
 
 //    @Query(value = "SELECT * FROM appointment a,patient p WHERE a.FK_doctor_id = :doctor_id AND a.date = :date AND "
 //    		+ "p.mobile = :mobile AND a.FK_patient_id = p.patient_id",nativeQuery=true)

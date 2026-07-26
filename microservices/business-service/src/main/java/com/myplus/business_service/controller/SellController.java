@@ -140,6 +140,9 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.service.StoreCreditService storeCreditService;   // SF-5 Model B: issue credit on returns
 
+	@Autowired
+	com.myplus.common.settings.SettingsService settingsService;   // common-settings: per-org receipt/sale policy toggles
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -399,6 +402,8 @@ public class SellController {
 			var ts = taxService.settingsFor(orgId());                                  // tax label/reg-no for the header
 			out.setTaxLabel(ts.getTaxLabel());
 			out.setTaxRegNo(ts.getTaxRegNo());
+			// common-settings: owner's per-rate tax-breakdown preference (default true) rides on the receipt.
+			out.setShowTaxBreakdown(settingsService.getBool("pos.receipt.showTaxBreakdown"));
 
 			// M4d (slice 94): line names from catalog ProductRef (a printed receipt needs no itemId) — no Item load.
 			java.util.List<Long> sagaProductIds = lines.stream()

@@ -52,7 +52,7 @@ The most mature lifecycle; the commerce backbone the other commerce verticals re
 | Tax | Tax Settings, multi-rate tax codes | tax_code master → ProductRef.taxRate; per-rate breakdown | catalog `tax_code` | ✅ |
 | **Org configuration** | **Configuration screen** (self-rendering, Settings ▸ Configuration) | `common-settings` (`/settings` + monolith `/getBusinessConfig`/`/saveBusinessConfig` proxy) | `org_setting` (business DB, Flyway V26) | ✅ (screen live; migrate legacy Tax/Stores/period-lock in) |
 
-**POS gaps:** the owner Configuration screen now exists on `common-settings` (starter flags: `pos.receipt.showTaxBreakdown`, `pos.sale.negativeStockAllowed` — **behaviour-wiring of the flags is the remaining follow-on**). Legacy Tax/Stores/period-lock remain bespoke screens to fold in. Plus the standing GL-reversal-drift items tracked in `pos-retail-standards-audit.md`.
+**POS gaps:** the owner Configuration screen now exists on `common-settings`. `pos.receipt.showTaxBreakdown` is **behaviour-wired** (2026-07-26 — the flag rides on `/getReceipt` and `receipt.js` collapses per-rate rows when off; gate `business/receipt-tax-breakdown.cy.js`); `pos.sale.negativeStockAllowed` is registered but **not yet wired** (a cross-service oversell slice — contract `allowNegative` + inventory reserve). Legacy Tax/Stores/period-lock remain bespoke screens to fold in. Plus the standing GL-reversal-drift items tracked in `pos-retail-standards-audit.md`.
 
 ---
 

@@ -44,6 +44,9 @@ public class CustomerController {
 	com.myplus.business_service.service.StoreCreditService storeCreditService;   // SF-5 Model B: store-credit balance
 
 	@Autowired
+	com.myplus.business_service.service.PartyBridgeService partyBridgeService;   // P1: shared party master bridge
+
+	@Autowired
 	AppUtil appUtil;
 	
 	@Autowired
@@ -170,6 +173,7 @@ public class CustomerController {
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED", "Failed to save customer. Please try again.");
 			}else {
+				partyBridgeService.bridgeCustomer(obj);   // P1: link to the shared party master (best-effort)
 				return new GenericResponse("SUCCESS", "Customer saved successfully.");
 			}
 		} catch (Exception e) {

@@ -31,6 +31,7 @@ public class VenderDTO implements Serializable {
 	private String description;
 	// F1 (AP): running payable owed to this vendor (for the vendor table's Due column + Pay Vendor).
 	private java.math.BigDecimal dueAmount;
+	private Long partyId;               // P1: shared party/contact master id
 	private String datedStr;
 	private String updatedStr;
 

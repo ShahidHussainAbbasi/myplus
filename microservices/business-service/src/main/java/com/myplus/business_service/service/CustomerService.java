@@ -47,6 +47,9 @@ public class CustomerService implements ICustomerService{
 	PeriodLockGuard periodLockGuard;   // period close: reject receipts dated in a locked period
 
 	@Autowired
+	PartyBridgeService partyBridgeService;   // P1: link the customer to the shared party master (best-effort, once)
+
+	@Autowired
 	AuditService auditService;   // Audit #6: append-only audit trail (via audit-service outbox)
 
 	@Autowired
@@ -247,6 +250,10 @@ return customerRepo.exists(example);
 			customerObj.setOrganizationId(actor.getOrganizationId());                       // tenant scope
 		}
 		this.save(customerObj);
+
+		// P1: link to the shared party master (best-effort, once). No-op for an already-bridged repeat customer, so
+		// the hot path pays nothing; only a brand-new customer's first save makes the one upsert call.
+		partyBridgeService.bridgeCustomer(customerObj);
 
 		return customerObj;
 	}

@@ -69,6 +69,18 @@ shared lib. It also becomes the home for future CRM (segments, comms preferences
 - **D3:** de-dup match key = `(org, contact)` primary, `(org, email)` secondary — confirm (some orgs reuse contacts?).
 - **D4:** scope of slice 1 = **P0 scaffold only** (recommended) so we validate the service before touching modules.
 
+## 9. Status update — P1 IMPLEMENTED (business Customer/Vender bridge)
+- **business-service:** `Customer.partyId` + `Vender.partyId` (Flyway **V27** — V26 was taken by org_setting; additive); targeted `updatePartyId`
+  on both repos (no full-entity save → no clobber); `PartyClient` bean (`lb://party-service/api/party/parties`);
+  **`PartyBridgeService`** — best-effort `bridgeCustomer`/`bridgeVender`: skip when already bridged (`partyId != null`)
+  so the repeat-sale hot path pays nothing; else `partyClient.upsert(PartyRef)` (find-or-create by contact→email) +
+  stamp. Wired at register (`addCustomer`, `addVender`) AND the sale path (`CustomerService.saveUpdateCustomer`).
+  `CustomerDTO.partyId` + `VenderDTO.partyId` exposed on reads.
+- **Cypress `business/party-bridge.cy.js`:** a customer + a vendor sharing a contact resolve to the SAME partyId
+  (cross-type de-dup = one identity). Build: commerce-contracts + business-service + monolith unchanged (existing
+  proxies). **NEXT = P2** (finance uses the shared partyId) then **P3** (education/welfare/pharmacy/marketplace bridges
+  + cross-module contact view).
+
 ## 8. Status: P0 IMPLEMENTED (scaffold); P1+ pending
 Sign-off given (D1 new service, D2 additive bridge, D3 contact-primary/email-secondary, D4 P0 first).
 - **party-service** (new, port **8096**, DB `myplusdb_party`, pkg `com.myplus.party`): `Party` entity + `PartyRepository`

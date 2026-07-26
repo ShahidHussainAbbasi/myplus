@@ -68,6 +68,11 @@ public class Customer implements Serializable {
     @Column(name = "credit_balance", precision = 19, scale = 2)
     private BigDecimal creditBalance;
 
+    /** Party bridge (P1): the shared party/contact master id (party-service). Stamped best-effort on write; null
+     *  until bridged. Lets a POS customer, a vendor and (later) a pharmacy patient resolve to ONE identity. */
+    @Column(name = "party_id")
+    private Long partyId;
+
     @Column(name = "due_date")
     private LocalDate dueDate;
 	

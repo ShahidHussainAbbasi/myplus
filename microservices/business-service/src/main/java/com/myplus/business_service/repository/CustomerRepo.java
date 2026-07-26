@@ -43,4 +43,9 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
    @org.springframework.data.jpa.repository.Modifying
    @Query(value = "update customer set credit_balance = :bal where customer_id = :id", nativeQuery = true)
    void updateCreditBalance(@Param("id") Long id, @Param("bal") java.math.BigDecimal bal);
+
+   // Party bridge: stamp ONLY party_id (targeted — never a full-entity save, which could clobber other columns).
+   @org.springframework.data.jpa.repository.Modifying
+   @Query(value = "update customer set party_id = :partyId where customer_id = :id", nativeQuery = true)
+   void updatePartyId(@Param("id") Long id, @Param("partyId") Long partyId);
 }

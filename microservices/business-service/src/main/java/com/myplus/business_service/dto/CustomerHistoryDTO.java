@@ -71,4 +71,8 @@ public class CustomerHistoryDTO {
     private String taxLabel;
 
     private String taxRegNo;
+
+    // common-settings (pos.receipt.showTaxBreakdown): whether the receipt should list tax per rate. The owner
+    // toggles this on the Configuration screen; the client honours it (default true when absent = back-compat).
+    private Boolean showTaxBreakdown;
 }

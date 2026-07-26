@@ -49,6 +49,8 @@ public class CustomerDTO implements Serializable {
 
     private BigDecimal creditBalance;   // SF-5 Model B: redeemable store credit the customer holds
 
+    private Long partyId;               // P1: shared party/contact master id
+
     private LocalDate dueDate;
 	
 	private String dated;

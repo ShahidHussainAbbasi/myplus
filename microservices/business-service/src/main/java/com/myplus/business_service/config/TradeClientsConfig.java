@@ -48,6 +48,12 @@ public class TradeClientsConfig {
         return proxy(builder, "http://audit-service/api/audit", AuditClient.class);
     }
 
+    @Bean
+    public com.myplus.commerce.contracts.client.PartyClient partyClient(@LoadBalanced RestClient.Builder builder) {
+        return proxy(builder, "http://party-service/api/party/parties",
+                com.myplus.commerce.contracts.client.PartyClient.class);
+    }
+
     /** Build a declarative client over a cloned, load-balanced RestClient (clone isolates per-client config). */
     private <T> T proxy(RestClient.Builder builder, String baseUrl, Class<T> type) {
         RestClient restClient = builder.clone()

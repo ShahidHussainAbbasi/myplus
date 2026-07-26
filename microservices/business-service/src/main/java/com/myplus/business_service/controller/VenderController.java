@@ -39,6 +39,9 @@ public class VenderController {
 
 	@Autowired
 	IVenderService venderService;
+
+	@Autowired
+	com.myplus.business_service.service.PartyBridgeService partyBridgeService;   // P1: shared party master bridge
 	
 	@Autowired
 	ICompanyService companyService;
@@ -182,6 +185,7 @@ public class VenderController {
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED", "Failed to save vender. Please try again.");
 			}else {
+				partyBridgeService.bridgeVender(obj);   // P1: link to the shared party master (best-effort)
 				return new GenericResponse("SUCCESS", "Vender saved successfully.");
 			}
 		} catch (Exception e) {
