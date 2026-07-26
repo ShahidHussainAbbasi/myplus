@@ -47,6 +47,80 @@ spring:
               args:
                 name: auth-service
                 fallbackUri: forward:/fallback
+        # ---- Shared demo purge (common-service) for the FULL-PATH services --------------------------------
+        # Every service-parent child exposes the purge at /demo/purge, but these services map their own
+        # controllers at the full /api/<module>/... path and therefore have no StripPrefix. Without a stripped
+        # route of their own, /api/<module>/demo/purge would arrive as-is and 404 — the same reason
+        # `appointment-demo` exists below. Each of these MUST precede its general route to win the match.
+        - id: inventory-demo
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/demo/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: inventory-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: finance-demo
+          uri: lb://finance-service
+          predicates:
+            - Path=/api/finance/demo/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: finance-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: party-demo
+          uri: lb://party-service
+          predicates:
+            - Path=/api/party/demo/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: party-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: catalog-demo
+          uri: lb://catalog-service
+          predicates:
+            - Path=/api/catalog/demo/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: catalog-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: campaign-demo
+          uri: lb://campaign-service
+          predicates:
+            - Path=/api/campaign/demo/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: campaign-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: analytics-demo
+          uri: lb://analytics-service
+          predicates:
+            - Path=/api/analytics/demo/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: analytics-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        # NOTE: audit-service deliberately has NO demo route. Its ledger is append-only by design (that is the
+        # point of an audit trail), so "Reset demo" does not erase it.
+        # ----------------------------------------------------------------------------------------------------
         - id: inventory-service
           uri: lb://inventory-service
           predicates:

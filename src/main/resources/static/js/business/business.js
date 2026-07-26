@@ -732,6 +732,8 @@ function loadDataTable(){
 							"<div class='row-actions'>"
 							+ "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> "
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='CUSTOMER' data-pid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
+							// Contact-360: this customer's identity + roles across modules (owner/admin only, and only when bridged to a party).
+							+ ((window.canViewContact360 && obj.partyId) ? " <button type=button class='btn btn-xs btn-default' onclick='openContact360("+obj.partyId+",\""+escHtml(obj.name||'')+"\")' title='View this contact across modules'><span class='glyphicon glyphicon-user'></span> 360</button>" : "")
 							+ "</div>"
 						]);
 					});
@@ -2187,6 +2189,46 @@ function openStatement(partyType, partyId, name){
 		h += '</tbody><tfoot><tr><th colspan="5" class="text-right">Closing balance</th><th class="text-right">'+closing+'</th></tr></tfoot></table>';
 		document.getElementById('StatementDialogBody').innerHTML = h;
 	}, 'json').fail(function(){ document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load the statement.</div>'; });
+}
+
+// Contact-360 (party contact view): one shared identity + every module role it plays. Owner/admin only (the button is
+// gated by window.canViewContact360 and the server re-checks). Reads /partyRoles?id= (proxy → party-service).
+var CONTACT360_MODULES = {
+	business:    { label:'Point of Sale', cls:'label-primary' },
+	education:   { label:'Education',      cls:'label-success' },
+	welfare:     { label:'Welfare',        cls:'label-info' },
+	pharma:      { label:'Pharmacy',       cls:'label-warning' },
+	marketplace: { label:'Online Store',   cls:'label-danger' }
+};
+function openContact360(partyId, name){
+	buildFinanceDialog('Contact360Dialog').style.display = 'flex';
+	document.getElementById('Contact360DialogTitle').textContent = 'Contact across modules — ' + (name || ('#'+partyId));
+	document.getElementById('Contact360DialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
+	$.get(serverContext + 'partyRoles?id=' + encodeURIComponent(partyId), function(resp){
+		var d = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : {}) : (resp || {});
+		var p = d.party, roles = d.roles || [];
+		if (!p || p.id == null) { document.getElementById('Contact360DialogBody').innerHTML = '<div style="padding:8px;color:#777">No linked contact yet.</div>'; return; }
+		var h = '<table class="table" style="width:100%;margin-bottom:12px"><tbody>'
+			+ '<tr><th style="width:120px">Name</th><td>'+escHtml(p.name||'')+'</td></tr>'
+			+ (p.contact ? '<tr><th>Contact</th><td>'+escHtml(p.contact)+'</td></tr>' : '')
+			+ (p.email ? '<tr><th>Email</th><td>'+escHtml(p.email)+'</td></tr>' : '')
+			+ '<tr><th>Party ID</th><td>#'+escHtml(String(p.id))+'</td></tr>'
+			+ '</tbody></table>';
+		h += '<h5 style="font-weight:700;margin:6px 0 8px">Roles across modules</h5>';
+		if (!roles.length) { h += '<div style="color:#777">No module roles recorded yet.</div>'; }
+		else {
+			h += '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+			roles.forEach(function(r){
+				var m = CONTACT360_MODULES[(r.module||'').toLowerCase()] || { label:(r.module||'?'), cls:'label-default' };
+				h += '<span class="label '+m.cls+'" style="font-size:12px;padding:6px 10px">'
+					+ escHtml(m.label) + ' · ' + escHtml(r.role||'')
+					+ (r.label ? ' <span style="opacity:.85">('+escHtml(r.label)+')</span>' : '')
+					+ '</span>';
+			});
+			h += '</div>';
+		}
+		document.getElementById('Contact360DialogBody').innerHTML = h;
+	}, 'json').fail(function(){ document.getElementById('Contact360DialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load the contact view.</div>'; });
 }
 
 // Aging report (Receivables = CUSTOMER, Payables = VENDOR). Trigger buttons live in the Customer/Vendor toolbars.

@@ -27,6 +27,42 @@ Memory: [[project-demo-quota]]. Commits a7aa140 (A/B) · bc125ee (demo-credentia
   APPOINTMENT/EDUCATION/BUSINESS/WELFARE/AGRICULTURE for the demo principal's own module. auth-service is NOT
   a service-parent child, so it never gets the purge.
 
+## Update (2026-07-26) — reset brought back in line with the platform
+
+The reset had gone stale as services were added. Three fixes:
+
+1. **Purge fans out to ALL purge-capable services**, not the caller's "own" module. The shared
+   `DemoPurgeController` was already auto-applied to all 15 `service-parent` children — the reset just never
+   called them. The old `userType → one service` map cleared business-service but left the same demo's catalog
+   products, inventory stock, finance AR/AP + GL journal, party contacts and (despite the `PHARMA` entry) all
+   of pharma-service behind, so a "reset" left stock without products and ledger rows without invoices. Now
+   `PURGE_PATHS` is a flat list of 13 services; each purge is org-scoped and privilege-guarded, so a service
+   holding nothing for that org simply deletes 0, and adding a service never silently drifts again.
+   **Excluded on purpose:** `audit-service` (append-only by design — the audit trail survives a reset) and
+   `notification-service` (delivery logs, no tenant business data).
+2. **Gateway routes for the full-path services.** `/api/<module>/demo/purge` only resolved for the
+   StripPrefix=2 services; catalog/inventory/finance/party/campaign/analytics map controllers at their full
+   path and would have 404'd. Added `<svc>-demo` stripped routes (the same fix `appointment-demo` already had),
+   each placed **before** its general route.
+3. **The owner test account can reset.** `owner.business@myplus.com` is seeded `demo=false` (uncapped), so it
+   had no banner, and both the gateway reset and the purge refused it. It now carries a new
+   **`DEMO_RESET_PRIVILEGE`** via its own **`DEMO_RESET_ROLE`** — deliberately NOT added to `ROLE_OWNER`, which
+   real customers' owners hold: nobody paying for the product gets a one-click "delete my organisation".
+   Guards are now `DEMO_PRIVILEGE or DEMO_RESET_PRIVILEGE` (purge, gateway counter reset, monolith fan-out),
+   and the header shows a separate uncapped "Owner demo account — Reset demo data" bar for it.
+
+Also: `resetDemo()` now **confirms before running** (it deletes data across every module) and reports what it
+cleared; the monolith's `RestTemplate` is bounded (2s connect / 8s read) so one unresponsive service can't hang
+the page — a timed-out purge is reported as "run it again to finish", which is safe because purges are idempotent.
+
+**Known collateral (accepted):** auth-service is not purged (it is not a `service-parent` child), so
+`user_location_access` grants can outlive the stores they point at after a reset. Specs assign stores at runtime,
+so this only affects hand-made fixtures.
+
+**Gate:** `cypress/e2e/demo/demo-reset.cy.js` — the original demo-account test plus an owner-account test that
+creates data in *two* services (customer + catalog product), resets from the button, and asserts both are gone.
+⚠ That test really does wipe the owner org; run it alone if you have hand-made data there.
+
 ## Verified
 - API: 50 creates pass, 51st → DEMO_LIMIT + message; TTL→midnight; non-demo bypass; purge **50→0**;
   non-demo purge **blocked (403)**.

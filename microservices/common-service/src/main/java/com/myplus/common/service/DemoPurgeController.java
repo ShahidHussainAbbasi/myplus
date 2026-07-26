@@ -24,9 +24,10 @@ import java.util.stream.Collectors;
  * whichever tenancy column each entity carries ({@code organizationId} or {@code userId}) for the caller
  * only — so it is tenant-safe and never touches another account's data.
  * <p>
- * Guarded to demo accounts two ways: {@code @PreAuthorize("hasAuthority('DEMO_PRIVILEGE')")} and an
- * explicit authority check (so it stays safe even if a service lacks method security). Mapped at
- * {@code /demo/purge}; the gateway routes {@code /api/<module>/demo/**} here (StripPrefix).
+ * Guarded two ways — {@code @PreAuthorize} and an explicit authority check (so it stays safe even if a
+ * service lacks method security) — to {@code DEMO_PRIVILEGE} (capped demo accounts) or
+ * {@code DEMO_RESET_PRIVILEGE} (the dev-seeded owner test account). Mapped at {@code /demo/purge}; the
+ * gateway routes {@code /api/<module>/demo/**} here (StripPrefix).
  */
 @RestController
 @RequestMapping("/demo")
@@ -35,15 +36,20 @@ public class DemoPurgeController {
     @PersistenceContext
     private EntityManager em;
 
+    /** The two authorities allowed to purge: a capped demo account, or the dev-seeded owner test account
+     *  (DEMO_RESET_PRIVILEGE, granted only by DEMO_ROLE/DEMO_RESET_ROLE — never by ROLE_OWNER, so a real
+     *  customer's owner can never wipe their organisation from a button). */
+    private static final Set<String> RESET_AUTHORITIES = Set.of("DEMO_PRIVILEGE", "DEMO_RESET_PRIVILEGE");
+
     @DeleteMapping("/purge")
-    @PreAuthorize("hasAuthority('DEMO_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('DEMO_PRIVILEGE') or hasAuthority('DEMO_RESET_PRIVILEGE')")
     @Transactional
     public ResponseEntity<Map<String, Object>> purge(@AuthenticationPrincipal AuthenticatedUser user) {
         boolean demo = user != null && user.getAuthorities() != null
-                && user.getAuthorities().stream().anyMatch(a -> "DEMO_PRIVILEGE".equals(a.getAuthority()));
+                && user.getAuthorities().stream().anyMatch(a -> RESET_AUTHORITIES.contains(a.getAuthority()));
         if (!demo) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("success", false, "message", "Demo accounts only"));
+                    .body(Map.of("success", false, "message", "Demo/reset accounts only"));
         }
         Long org = user.getOrganizationId();
         Long uid = user.getUserId();

@@ -20,12 +20,19 @@
   }
   window.showDemoUpsell = showDemoUpsell;
 
-  // "Reset demo" — clear the demo write counters at the gateway so the trial restarts.
+  // "Reset demo" — clears the write counters at the gateway AND deletes this account's own org data in every
+  // purge-capable service (POS, catalog, inventory, finance, party, pharmacy, education, welfare, agriculture,
+  // appointment, marketplace, campaign, analytics). It is destructive and cannot be undone, so confirm first.
   window.resetDemo = function () {
+    if (!window.confirm('Reset the demo?\n\nThis permanently deletes THIS account\'s data — sales, products, '
+        + 'stock, ledger entries, contacts, students, donations, appointments — across every module, and '
+        + 'restarts the entry allowance. It cannot be undone.')) {
+      return;
+    }
     jQuery.post('/demo/reset')
       .done(function (d) {
         if (window.toast) { toast((d && d.message) || 'Demo reset.'); }
-        setTimeout(function () { window.location.reload(); }, 600);
+        setTimeout(function () { window.location.reload(); }, 900);
       })
       .fail(function () { alert('Could not reset the demo right now. Please try again.'); });
   };

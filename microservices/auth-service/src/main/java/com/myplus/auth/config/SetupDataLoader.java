@@ -62,7 +62,13 @@ public class SetupDataLoader {
                 "DELETE_COMPANY", "DELETE_VENDER", "DELETE_ITEM", "DELETE_ITEM_TYPE", "DELETE_ITEM_UNIT",
                 "PUBLIC_ALERTS", "SYSTEM_ALERTS",
                 "VOID_INVOICE",
-                "DEMO_PRIVILEGE")) {
+                "DEMO_PRIVILEGE",
+                // Right to run "Reset demo" (clear write counters + purge the caller's own org data).
+                // DELIBERATELY separate from DEMO_PRIVILEGE (which also means "capped at 50/module"), so the
+                // dev-seeded owner test account can reset without being a capped demo account — and so it can
+                // never be granted implicitly to a real customer's owner, who must not have a one-click
+                // "delete my organisation" button. Only DEMO_ROLE and DEMO_RESET_ROLE carry it.
+                "DEMO_RESET_PRIVILEGE")) {
             p.put(name, createPrivilegeIfNotExists(name));
         }
 
@@ -112,6 +118,7 @@ public class SetupDataLoader {
         // only real limit (enforced at the gateway), not the privilege set.
         Set<Privilege> demoSet = new HashSet<>(superSet);
         demoSet.add(p.get("DEMO_PRIVILEGE"));
+        demoSet.add(p.get("DEMO_RESET_PRIVILEGE"));   // demo accounts may reset themselves (unchanged behaviour)
         Role demoRole = createOrUpdateRole("DEMO_ROLE", demoSet);
 
         if (seedAdmin && userRepository.findByEmail("admin@myplus.com").isEmpty()) {
@@ -184,9 +191,14 @@ public class SetupDataLoader {
             owner.setLockTime(null);
             owner.setUserType("BUSINESS");
             owner.setDemo(false);
-            owner.setRoles(new HashSet<>(Collections.singletonList(ownerRole)));
+            // ROLE_OWNER *plus* a second, single-privilege role carrying DEMO_RESET_PRIVILEGE — so this dev test
+            // account can run "Reset demo" (clear counters + purge its OWN org) while staying uncapped. The
+            // privilege rides a SEPARATE role on purpose: adding it to ROLE_OWNER would hand every real customer's
+            // owner a one-click "delete my organisation" button. Seeded only here, inside the dev-only seed flag.
+            Role demoResetRole = createOrUpdateRole("DEMO_RESET_ROLE", pick(p, "DEMO_RESET_PRIVILEGE"));
+            owner.setRoles(new HashSet<>(Arrays.asList(ownerRole, demoResetRole)));
             userRepository.save(owner);
-            log.info("Business OWNER test user ensured: owner.business@myplus.com (ROLE_OWNER, demo=false)");
+            log.info("Business OWNER test user ensured: owner.business@myplus.com (ROLE_OWNER + DEMO_RESET_ROLE, demo=false)");
 
             // Multi-location team fixture — the owner's ADMIN + two cashiers, in the owner's org, with a KNOWN
             // password. Needed because the real onboarding path (createOrgUser) sets a throwaway password and

@@ -21,6 +21,7 @@ import java.util.UUID;
 public class CustomerAccountService {
 
     private final StorefrontCustomerRepository repo;
+    private final PartyBridgeService partyBridgeService;   // P3: link the shopper to the shared party master
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     @Transactional
@@ -37,7 +38,9 @@ public class CustomerAccountService {
                 .passwordHash(encoder.encode(password))
                 .sessionToken(UUID.randomUUID().toString() + "-" + UUID.randomUUID())
                 .build();
-        return session(repo.save(c));
+        StorefrontCustomer saved = repo.save(c);
+        partyBridgeService.bridgeStorefrontCustomer(saved);   // P3: link to the shared party master (best-effort, after commit)
+        return session(saved);
     }
 
     @Transactional

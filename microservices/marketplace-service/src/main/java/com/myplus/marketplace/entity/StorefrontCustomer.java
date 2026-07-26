@@ -31,6 +31,11 @@ public class StorefrontCustomer {
     @Column(name = "session_token")
     private String sessionToken;
 
+    /** Party bridge (P3): shared party/contact master id (party-service). Stamped best-effort after register commits
+     *  (via runAs, since register is anonymous); null until bridged — so an online shopper links to their POS identity. */
+    @Column(name = "party_id")
+    private Long partyId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

@@ -61,6 +61,27 @@ public class MarketplaceClientsConfig {
                 .createClient(CatalogClient.class);
     }
 
+    /** P3 party bridge: the shared contact master. Same identity-forwarding + internal-secret recipe (the storefront
+     *  register is anonymous, so the bridge stamps the org via runAs → the interceptor forwards it). Short timeout so
+     *  a slow party-service fails fast to best-effort. */
+    @Bean
+    public com.myplus.commerce.contracts.client.PartyClient partyClient(@LoadBalanced RestClient.Builder builder) {
+        org.springframework.http.client.SimpleClientHttpRequestFactory rf =
+                new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        rf.setConnectTimeout(1000);
+        rf.setReadTimeout(2000);
+        RestClient restClient = builder.clone()
+                .baseUrl("http://party-service/api/party/parties")
+                .requestFactory(rf)
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .requestInterceptor(internalSecretInterceptor())
+                .build();
+        return HttpServiceProxyFactory
+                .builderFor(RestClientAdapter.create(restClient))
+                .build()
+                .createClient(com.myplus.commerce.contracts.client.PartyClient.class);
+    }
+
     /** Stamp X-Internal-Secret on the outbound call (no inbound request to forward it from, since the storefront
      *  order is anonymous). No-op when the secret is unset (dev). */
     private ClientHttpRequestInterceptor internalSecretInterceptor() {

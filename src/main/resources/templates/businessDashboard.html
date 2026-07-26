@@ -1873,6 +1873,8 @@
     <!-- Void is gated by the VOID_INVOICE privilege server-side (@PreAuthorize); the sale/purchase Void buttons show
          only to a holder of it. Set before business.js renders the trade tables. Enforcement is on the server. -->
     <script sec:authorize="hasAuthority('VOID_INVOICE')" th:inline="none">window.canVoidInvoice = true;</script>
+    <!-- Contact-360 (party contact view) is sensitive (cross-module roles) → owner/admin only; the server enforces too. -->
+    <script sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')" th:inline="none">window.canViewContact360 = true;</script>
 
     <!-- Register-screen modal + bulk-select styling now lives in the shared /css/crud-modal.css
          (loaded via fragments/header :: header-css) so every dashboard shares one responsive treatment. -->

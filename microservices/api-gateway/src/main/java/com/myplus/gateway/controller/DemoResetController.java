@@ -20,9 +20,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * On-demand demo reset: clears the calling demo user's write counters (Redis {@code demo:{userId}:*}),
- * so a demo account can "restart" its 50/module trial without waiting for the daily roll-over. Reached
- * via the gateway's own path (not a routed /api/** service); reads the Bearer JWT itself.
+ * On-demand demo reset: clears the calling user's write counters (Redis {@code demo:{userId}:*}), so a demo
+ * account can "restart" its 50/module trial without waiting for the daily roll-over. Reached via the gateway's
+ * own path (not a routed /api/** service); reads the Bearer JWT itself.
+ * <p>Allowed for {@code demo=true} accounts and for holders of {@code DEMO_RESET_PRIVILEGE} (the dev-seeded
+ * owner test account, which is uncapped so has no counters to clear — for it this call is a harmless no-op and
+ * the data purge is the part that matters).
  */
 @RestController
 public class DemoResetController {
@@ -55,17 +58,21 @@ public class DemoResetController {
                     .body(Map.of("success", false, "message", "Missing token")));
         }
         String userId;
-        boolean demo;
+        boolean mayReset;
         try {
             Claims c = Jwts.parser().verifyWith(signingKey).build()
                     .parseSignedClaims(auth.substring(7)).getPayload();
             userId = String.valueOf(c.get("userId"));
-            demo = Boolean.TRUE.equals(c.get("demo", Boolean.class));
+            // A capped demo account, OR any account holding DEMO_RESET_PRIVILEGE — the dev-seeded owner test
+            // account is uncapped (demo=false) but is still allowed to restart its own demo data.
+            Object privileges = c.get("privileges");
+            mayReset = Boolean.TRUE.equals(c.get("demo", Boolean.class))
+                    || (privileges != null && privileges.toString().contains("DEMO_RESET_PRIVILEGE"));
         } catch (Exception e) {
             return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("success", false, "message", "Invalid token")));
         }
-        if (!demo) {
+        if (!mayReset) {
             return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("success", false, "message", "Not a demo account")));
         }
