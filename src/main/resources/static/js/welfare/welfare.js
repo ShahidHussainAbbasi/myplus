@@ -177,7 +177,8 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=donatorId>"+ obj.id+ "</div>","<input type='checkbox' value='"+ obj.id+ "' id='"+ obj.id+ "'>",
-							"<div id=donatorName>"+escHtml(obj.name)+"</div>", "<div id=donatorFName>"+escHtml(obj.fName)+"</div>",
+							// Contact-360 rides in the name cell (no new column): this donor's roles across modules.
+							"<div id=donatorName>"+escHtml(obj.name)+contact360Button(obj.partyId)+"</div>", "<div id=donatorFName>"+escHtml(obj.fName)+"</div>",
 							"<div id=donatorMobile>"+escHtml(obj.mobile)+"</div>", "<div id=donatorAddress>"+escHtml(obj.address)+"</div>",
 							"<div id=donatorDated>"+escHtml(obj.datedStr)+"</div>"
 							];

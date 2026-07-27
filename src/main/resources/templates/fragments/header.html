@@ -44,6 +44,8 @@
         <!-- App-themed confirm/prompt/alert (uiConfirm/uiPromptConfirm/uiAlert) — replaces the browser's
              unstyled window.confirm. Must load before the module scripts that call it. -->
         <script th:src="@{/js/common/confirm-dialog.js}"></script>
+        <!-- Contact-360 (cross-module contact view) — shared by business/education/welfare/pharmacy rows. -->
+        <script th:src="@{/js/common/party-contact.js}"></script>
         <!-- Demo free-trial: surfaces the gateway's DEMO_LIMIT (50/module cap) as an upsell prompt. -->
         <script th:src="@{/js/demo.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing

@@ -235,6 +235,9 @@
 	<script th:inline="javascript">
 var serverContext = [[@{/}]];
 	</script>
+	<!-- Contact-360 (a donor's roles across modules) is sensitive → owner/admin only; the server enforces too. -->
+	<script sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')"
+	        th:inline="none">window.canViewContact360 = true;</script>
 	<!-- header-js loads jQuery + shared libs; must come before dom-safe.js / welfare.js which use $ -->
 	<th:block th:replace="~{fragments/header :: header-js}"></th:block>
 	<script th:src="@{/js/common/dom-safe.js}"></script>

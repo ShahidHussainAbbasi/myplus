@@ -92,7 +92,8 @@
             lastPrescriptions.forEach(function (p) {
                 var at = String(p.createdAt || '').replace('T', ' ').substring(0, 16);
                 var tr = $('<tr>');
-                tr.append($('<td>').text(p.patientName || ''));
+                // Contact-360 rides in the patient cell: a pharmacy patient is often also a POS customer.
+                tr.append($('<td>').text(p.patientName || '').append(contact360Button(p.partyId)));
                 tr.append($('<td>').text(p.doctorName || ''));
                 tr.append($('<td>').text((p.items || []).length));
                 tr.append($('<td>').text(p.status || ''));

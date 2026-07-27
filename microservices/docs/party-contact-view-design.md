@@ -273,12 +273,31 @@ sequenceDiagram
 - [x] 4 backfill endpoints (owner-gated, cursor + `limit`, one bulk call per batch, returns `remaining`)
 - [x] Gate written: `cypress/e2e/party/contact-view.cy.js` (6 cases)
 
-**P4b — business/POS drawer**
-- [ ] monolith `PartyContactController` proxy `/getPartyContact`
-- [ ] `#PartyContactDiv` drawer + customer-list action + `business.js` functions (`SUPER_PRIVILEGE`)
-- [ ] Gate: extend the spec with the UI path
+**P4b — business/POS panel** — DONE (concurrent session, `522b5265`/`b665eccf`).
+- [x] monolith proxy `GET /partyRoles?id=` (`com.web.controller.business.PartyController`), owner/admin-gated on
+      top of party-service's own gate (defence in depth); a 404 degrades to "no contact view", not an error
+- [x] customer-row "360" action + panel, gated by `window.canViewContact360`
+- [x] Gate: `cypress/e2e/business/contact-360.cy.js` (owner sees the role; cashier denied)
 
-**P4c — roll to education / welfare / pharmacy dashboards** (same drawer, per-dashboard proxy). Agriculture: n/a (§1).
+**P4c — the other verticals** — CODE-COMPLETE 2026-07-26, awaiting the Cypress gate.
+- [x] **Extracted the panel to `/js/common/party-contact.js`** and deleted business.js's copy — four verticals now
+      use it, so it lives in one file (DRY). Exposes `openContact360(partyId)` + `contact360Button(partyId)`;
+      the button helper holds the gate AND the "only when bridged" rule, so no call site repeats them. Built with
+      DOM APIs/`textContent` (no escaping burden, no `escHtml` dependency) and styled like the shared confirm
+      dialog. The name is no longer passed in — the panel shows the party's own name, so nothing has to be escaped
+      into an `onclick`.
+- [x] Loaded globally from `fragments/header :: header-js`; no new proxy needed — `/partyRoles` is monolith-wide,
+      not module-scoped (unlike the config screens, which collided on `/getConfig`).
+- [x] Row actions: education students, welfare donors, pharmacy prescriptions (all ride in the existing name/
+      patient cell, so no dashboard table gains a column). Pharmacy reuses the trade dashboard, which already sets
+      the flag; education + welfare templates set `window.canViewContact360` under the same authority expression.
+- [x] **Marketplace backfill** — the 5th bridge (P3d, concurrent session) already records its role link, but was
+      the only module without a `PartyLinkController`, so pre-index shoppers could never be indexed. Added
+      (org-only scope: a storefront account has no owning user).
+- [x] Gate: `cypress/e2e/education/contact-360.cy.js` (role indexed → dashboard loads the shared component → panel
+      renders identity + Education chip).
+
+Agriculture stays out of scope: no party-bearing entity (§1).
 
 ---
 

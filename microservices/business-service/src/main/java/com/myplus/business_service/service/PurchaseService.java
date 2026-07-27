@@ -317,14 +317,14 @@ public class PurchaseService implements IPurchaseService{
 	@Transactional
 	public Purchase updatePurchase(PurchaseDTO dto) throws Exception {
 		AuthenticatedUser user = requestUtil.getCurrentUser();
-		if (dto.getPurchaseId() == null) throw new RuntimeException("updatePurchase requires a purchaseId");
+		if (dto.getPurchaseId() == null) throw new BusinessRuleException("updatePurchase requires a purchaseId");
 
 		// Anti-IDOR: the edited purchase must belong to the caller's tenant.
 		Purchase existing = purchaseRepo.findById(dto.getPurchaseId())
 				.filter(p -> scopeMatches(p, user))
-				.orElseThrow(() -> new RuntimeException("Purchase not found: " + dto.getPurchaseId()));
+				.orElseThrow(() -> new BusinessRuleException("Purchase not found: " + dto.getPurchaseId()));
 		if ("VOID".equals(existing.getStatus()))   // Audit #3: a voided bill is read-only
-			throw new RuntimeException("This bill is voided and cannot be edited.");
+			throw new BusinessRuleException("This bill is voided and cannot be edited.");
 		// Period close: an edit rewrites the ORIGINAL bill in place, so its period must still be open.
 		periodLockGuard.assertOpen(existing.getDated() != null ? existing.getDated().toLocalDate() : java.time.LocalDate.now());
 
@@ -451,13 +451,13 @@ public class PurchaseService implements IPurchaseService{
 	public java.util.Map<String, Object> purchaseReturn(Long purchaseId, Float returnQty, String reason) {
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		Purchase p = purchaseRepo.findById(purchaseId).filter(x -> scopeMatches(x, user))
-				.orElseThrow(() -> new RuntimeException("Purchase not found: " + purchaseId));
+				.orElseThrow(() -> new BusinessRuleException("Purchase not found: " + purchaseId));
 		if ("VOID".equals(p.getStatus()))   // Audit #3: no returns against a voided bill
-			throw new RuntimeException("This bill is voided.");
+			throw new BusinessRuleException("This bill is voided.");
 		float soldQty = p.getQuantity() != null ? p.getQuantity() : 0f;
 		float rq = returnQty != null ? returnQty : 0f;
-		if (rq <= 0f) throw new RuntimeException("Return quantity must be greater than 0.");
-		if (rq > soldQty) throw new RuntimeException("Cannot return more than was purchased (" + soldQty + ").");
+		if (rq <= 0f) throw new BusinessRuleException("Return quantity must be greater than 0.");
+		if (rq > soldQty) throw new BusinessRuleException("Cannot return more than was purchased (" + soldQty + ").");
 		// Period close: a purchase return posts a new debit note dated today, so the CURRENT period must be open.
 		periodLockGuard.assertOpen(java.time.LocalDate.now());
 		boolean partial = rq < soldQty;
@@ -534,14 +534,14 @@ public class PurchaseService implements IPurchaseService{
 	public java.util.Map<String, Object> voidBill(Long purchaseId, String reason) {
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		Purchase p = purchaseRepo.findById(purchaseId).filter(x -> scopeMatches(x, user))
-				.orElseThrow(() -> new RuntimeException("Purchase not found: " + purchaseId));
+				.orElseThrow(() -> new BusinessRuleException("Purchase not found: " + purchaseId));
 		if ("VOID".equals(p.getStatus()))
-			throw new RuntimeException("This bill is already voided.");
+			throw new BusinessRuleException("This bill is already voided.");
 		// Period close: a void reverses the ORIGINAL bill in place, so its period must still be open.
 		periodLockGuard.assertOpen(p.getDated() != null ? p.getDated().toLocalDate() : java.time.LocalDate.now());
 		float qty = p.getQuantity() != null ? p.getQuantity() : 0f;
 		if (qty <= 0f)
-			throw new RuntimeException("Nothing to void on this bill.");
+			throw new BusinessRuleException("Nothing to void on this bill.");
 
 		// Reuse the full reversal (stock + AP + GL) for the whole remaining quantity, then stamp VOID.
 		java.util.Map<String, Object> out = purchaseReturn(purchaseId, qty, reason);

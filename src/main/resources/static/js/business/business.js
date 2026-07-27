@@ -9,6 +9,19 @@ $(document).ready(function() {
     loadMyStores();
     $(document).on('change', '#storeSwitcher', switchStore);
 
+    // Hide voided sale/purchase rows by default; a per-table "Show voided" button flips it. Voided rows carry the
+    // .row-voided class (added in createdRow). Other list tables never have voided rows, so this filter is a no-op
+    // there. Registered once, globally, for all DataTables on the page.
+    if (window.hideVoided === undefined) window.hideVoided = true;
+    if (!window._voidFilterInstalled && $.fn && $.fn.dataTable) {
+        window._voidFilterInstalled = true;
+        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex){
+            if (window.hideVoided === false) return true;                 // showing everything
+            var tr = settings.aoData[dataIndex] && settings.aoData[dataIndex].nTr;
+            return !(tr && tr.className && tr.className.indexOf('row-voided') > -1);
+        });
+    }
+
     // Sale Detail Report table. Columns (0-based): 0 Date, 1 Invoice#, 2 Product, 3 Qty, 4 List price,
     // 5 Unit price, 6 Line total, 7 Tax, 8 Net, 9 Customer, 10 Contact, 11 Payment, 12 Invoice due, 13 Margin (SF-10).
     tableSellReport = $('#tableSellReport').DataTable( {
@@ -140,6 +153,7 @@ $(document).ready(function() {
     // Show dashboard on page load
     $('#DashboardDiv').show();
     getDashboardData();
+    loadPosFeatureFlags();   // owner-configurable UI toggles (e.g. barcode scanning) — apply on load
 
     $("#addInviceItem").off().click(function() {
 //    	window.open(window.location.hostname + ':' + window.location.port+""+serverContext+"reports/createdocument.docx");
@@ -658,9 +672,21 @@ function loadDataTable(){
 		"pageLength": (offset == -1 ? 100 : Number(offset)),
 		"order": [[0, "desc"]],
 		"autoWidth": true,
+		// A voided sale/purchase is a finalized, read-only record — grey the row so it reads as inactive. The
+		// VOID badge (instead of edit/return actions) + the row-click guard already prevent any action on it.
+		"createdRow": function(row){ if (typeof isVoidedRow==='function' && isVoidedRow(getDocument($(row).html()))) $(row).addClass('row-voided'); },
 		dom: 'Bfrtip',
 		buttons: [
-			'pageLength',
+			'pageLength'
+		].concat((tableV === 'Sell' || tableV === 'Purchase') ? [{
+			// Voided rows are hidden by default (they're finalized/read-only). This toggles them in/out of the list.
+			text: (window.hideVoided === false ? 'Hide voided' : 'Show voided'),
+			action: function(e, dt, node){
+				window.hideVoided = (window.hideVoided === false);
+				node.text(window.hideVoided === false ? 'Hide voided' : 'Show voided');
+				dt.draw();
+			}
+		}] : []).concat([
 			{extend: 'excelHtml5', footer: true},
 			{extend: 'print', footer: true},
 			{
@@ -669,7 +695,7 @@ function loadDataTable(){
 				pageSize: 'LEGAL',
 				footer: true
 			}
-		],
+		]),
 		"ajax": {
 			// Load ALL records so DataTables handles Next/Back pagination and search locally.
 			// Search: DataTables filters the loaded set first; re-open the section to refresh from DB.
@@ -701,6 +727,10 @@ function loadDataTable(){
 
 				userId = collections[0].userId;
 				datatable.columns([0]).visible(false);
+				// NOTE: delete is retired for purchases (a posted bill is voided, never hard-deleted). We do NOT hide
+				// the checkbox COLUMN — the per-row Edit button (ensureRowEditButtons) is injected into that same
+				// cell and needs the checkbox present. Instead the delete checkbox itself is hidden via CSS
+				// (#tablePurchase input[type=checkbox]) so Edit stays but there's no delete affordance.
 
 				// Build all rows first, then add in one shot so draw() fires only once
 				var allRows = [];
@@ -722,7 +752,8 @@ function loadDataTable(){
 							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",
 							"<div id=venderDue>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",obj.datedStr,
 							"<div class='row-actions'>"
-							+ "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Pay this vendor'><span class='glyphicon glyphicon-usd'></span> Pay</button> "
+							// Pay only makes sense when something is owed — hide it when the payable is 0.
+							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Pay this vendor'><span class='glyphicon glyphicon-usd'></span> Pay</button> " : "")
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='VENDOR' data-pid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
 							+ "</div>"
 						]);
@@ -737,10 +768,12 @@ function loadDataTable(){
 							"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
 							"<div id=creditBalance>"+(obj.creditBalance!=null?Number(obj.creditBalance).toFixed(2):'0.00')+"</div>",obj.updated,
 							"<div class='row-actions'>"
-							+ "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+(obj.dueAmount!=null?obj.dueAmount:0)+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> "
+							// Receive only makes sense when the customer owes something — hide it when the due is 0.
+							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> " : "")
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='CUSTOMER' data-pid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
-							// Contact-360: this customer's identity + roles across modules (owner/admin only, and only when bridged to a party).
-							+ ((window.canViewContact360 && obj.partyId) ? " <button type=button class='btn btn-xs btn-default' onclick='openContact360("+obj.partyId+",\""+escHtml(obj.name||'')+"\")' title='View this contact across modules'><span class='glyphicon glyphicon-user'></span> 360</button>" : "")
+							// Contact-360: this customer's identity + roles across modules (the shared helper applies the
+							// owner/admin gate and the "only when bridged" rule in one place for every vertical).
+							+ contact360Button(obj.partyId)
 							+ "</div>"
 						]);
 					});
@@ -776,12 +809,19 @@ function loadDataTable(){
 							"<div id=purchaseVenderDD>"+escHtml(obj.venderName||'')+"</div>",
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>",
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
-							"<div id=purchaseDiscountTypeDD>"+obj.stock.bpurchaseDiscountType+"</div>",
-							"<div id=purchaseDiscount>"+obj.stock.bpurchaseDiscount+"</div>",
-							// "<div id=purchaseTotalAmount>"+obj.totalAmount+"</div>",
-							// "<div id=purchaseNetAmount>"+obj.netAmount+"</div>",
+							// Total = the vendor bill you owe for this line = goods (totalAmount) + input tax (taxAmount,
+							// 0 unless the org captures purchase tax). Aligns with the "Total" header. The orphaned
+							// discount cells (no header) were removed — they were displaying UNDER the Total/Profit
+							// headers, which is why "Profit" showed a discount. No Profit on a purchase.
+							"<div id=purchaseTotalAmount>"+(obj.totalAmount!=null?((Number(obj.totalAmount)||0)+(Number(obj.taxAmount)||0)):'')+"</div>",
+							// Amount paid to the vendor. Shown here AND read by editRecord to pre-fill #purchasePaid on edit
+							// (editRecord matches a form field id to the row cell of the same id).
+							"<div id=purchasePaid>"+(obj.paidAmount!=null?obj.paidAmount:'')+"</div>",
+							// Due = what's still owed on this bill = gross (goods + tax) − paid, floored at 0. Derived
+							// (display-only; no form field), consistent with the Total and Paid columns.
+							"<div id=purchaseDue>"+(obj.totalAmount!=null?Math.max(0,((Number(obj.totalAmount)||0)+(Number(obj.taxAmount)||0))-(Number(obj.paidAmount)||0)).toFixed(2):'')+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>",
-						"<div id=purchaseDate>"+obj.updated+"</div><span class='row-actions'>"+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return to vendor'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + (window.canVoidInvoice ? " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Void bill'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>" : ""))+ "</span>"
+						"<div id=purchaseDate>"+obj.updated+"</div><span class='row-actions'>"+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return some or all stock to the vendor — reduces on-hand and the payable by the returned portion. The bill stays active.'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + (window.canVoidInvoice ? " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Cancel the WHOLE bill — reverses all stock-in and the payable, and makes it read-only. Use for a mistaken purchase.'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>" : ""))+ "</span>"
 						]);
 					});
 				} else if (getAll === "Sell") {
@@ -825,20 +865,21 @@ function loadDataTable(){
 							+ ((ch && ch.invoiceNo)
 								? "<button type='button' class='btn btn-xs btn-default' title='Print receipt' onclick=\"printReceipt('"+escHtml(ch.invoiceNo)+"')\"><span class='glyphicon glyphicon-print'></span></button> "
 								: "")
-							+ "<button type='button' class='btn btn-xs btn-warning' onclick='openSaleReturn(this)'"
-								+ " data-sellid='"+obj.sellId+"'"
-								+ " data-stockid='"+(obj.stock&&obj.stock.stockId!=null?obj.stock.stockId:'')+"'"
-								+ " data-qty='"+(obj.quantity!=null?obj.quantity:'')+"'"
-								+ " data-invoice='"+escHtml(ch?(ch.invoiceNo||''):'')+"'"
-								+ " data-item='"+escHtml(obj.itemName||'')+"'>"
-								+ "<span class='glyphicon glyphicon-share-alt'></span> Return</button>"
-								// Audit #3: books-safe Void of the whole invoice (or a VOID badge if already voided). The Void
-								// button shows only to a user with the VOID_INVOICE privilege (server @PreAuthorize enforces).
-								+ ((ch && ch.status === 'VOID')
-									? " <span class='label label-default' title='Voided invoice'>VOID</span>"
-									: (window.canVoidInvoice && ch && ch.customer_history_id
-										? " <button type='button' class='btn btn-xs btn-danger' onclick='openVoidSell(this)' data-chid='"+ch.customer_history_id+"' data-invoice='"+escHtml(ch.invoiceNo||'')+"'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>"
-										: ""))
+							// A voided invoice is read-only: show ONLY the VOID badge (no Return, no Void). Otherwise show
+							// Return, plus Void for a privileged user.
+							+ ((ch && ch.status === 'VOID')
+								? "<span class='label label-default' title='Voided invoice — read-only'>VOID</span>"
+								: ("<button type='button' class='btn btn-xs btn-warning' onclick='openSaleReturn(this)'"
+									+ " title='Return some or all items — restocks them and refunds only the returned portion. The invoice stays active.'"
+									+ " data-sellid='"+obj.sellId+"'"
+									+ " data-stockid='"+(obj.stock&&obj.stock.stockId!=null?obj.stock.stockId:'')+"'"
+									+ " data-qty='"+(obj.quantity!=null?obj.quantity:'')+"'"
+									+ " data-invoice='"+escHtml(ch?(ch.invoiceNo||''):'')+"'"
+									+ " data-item='"+escHtml(obj.itemName||'')+"'>"
+									+ "<span class='glyphicon glyphicon-share-alt'></span> Return</button>"
+									+ ((window.canVoidInvoice && ch && ch.customer_history_id)
+										? " <button type='button' class='btn btn-xs btn-danger' title='Cancel the WHOLE invoice — reverses every line, refunds all paid, and makes it read-only. Use for a mistaken sale.' onclick='openVoidSell(this)' data-chid='"+ch.customer_history_id+"' data-invoice='"+escHtml(ch.invoiceNo||'')+"'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>"
+										: "")))
 								+ "</div>"
 						]);
 					});
@@ -1655,9 +1696,6 @@ function calculateSRP(){
 
 function calculateChange() {
 
-	$("#dueDateTemp").hide();
-	$('#displayDateWrapper').hide();
-
 	var recAm = ($("#sellRec").val() * ONE) || 0;
     // P12 (slice 59): insurance covers part of the bill; the patient only owes the remainder (the co-pay).
     var insured = ($("#sellInsured") && $("#sellInsured").val() ? $("#sellInsured").val() * ONE : 0) || 0;
@@ -1681,15 +1719,19 @@ function calculateChange() {
     // Account preview (existing customer only): previous balance + this sale = new total outstanding.
     refreshAccountDuePreview(dueThis);
 
-    if (change < 0) {
-        // Customer owes money — show due date field
-        $("#dueDateTemp").show();
-        $('#displayDateWrapper').show();
-    } else {
-        // Fully paid — hide due date field
-        $("#dueDateTemp").hide();
-        $('#displayDateWrapper').hide();
-    }
+    // The Due Date only makes sense when the sale leaves a balance: show the WHOLE field group (label + input) and
+    // require it when Due (this sale) > 0; hide it entirely when fully paid.
+    $('#sellDueDateWrap').toggle(change < 0);
+}
+
+// Payment method change. "Credit (on account)" collects nothing now — the whole bill goes on account — so the
+// Amount Received field is meaningless: hide it and zero it (Due (this sale) then shows the full amount, and the
+// Due Date becomes required via calculateChange). Any other method shows Received again. Change is left as-is.
+function onSellPayMethodChange(){
+    var isCredit = ($('#sellPayMethod').val() === 'CREDIT');
+    if (isCredit) { $('#sellRec').val(''); $('#sellRecWrap').hide(); }
+    else { $('#sellRecWrap').show(); }
+    calculateChange();
 }
 
 // Show the running-balance impact for a known (dropdown-selected) customer. window.selectedCustomerDue
@@ -1911,7 +1953,8 @@ function buildSaleReturnDialog(){
 	d.innerHTML =
 		"<div style='background:#fff;border-radius:10px;max-width:420px;width:92%;padding:22px 24px;"
 		+ "box-shadow:0 12px 40px rgba(0,0,0,.3)'>"
-		+ "<h4 style='margin:0 0 14px;font-weight:700'>Sale Return</h4>"
+		+ "<h4 style='margin:0 0 4px;font-weight:700'>Sale Return</h4>"
+		+ "<div style='font-size:12px;color:#7a889c;margin-bottom:12px'>Take back some or all items — restocks them and refunds the returned portion. The invoice stays active. (To cancel the whole sale, use Void.)</div>"
 		+ "<div style='font-size:13px;color:#444;margin-bottom:12px'>"
 		+ "Invoice <b id='srInvoice'></b> &middot; <span id='srItem'></span><br>"
 		+ "Sold quantity: <b id='srSold'></b></div>"
@@ -2220,45 +2263,8 @@ function openStatement(partyType, partyId, name){
 	}, 'json').fail(function(){ document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load the statement.</div>'; });
 }
 
-// Contact-360 (party contact view): one shared identity + every module role it plays. Owner/admin only (the button is
-// gated by window.canViewContact360 and the server re-checks). Reads /partyRoles?id= (proxy → party-service).
-var CONTACT360_MODULES = {
-	business:    { label:'Point of Sale', cls:'label-primary' },
-	education:   { label:'Education',      cls:'label-success' },
-	welfare:     { label:'Welfare',        cls:'label-info' },
-	pharma:      { label:'Pharmacy',       cls:'label-warning' },
-	marketplace: { label:'Online Store',   cls:'label-danger' }
-};
-function openContact360(partyId, name){
-	buildFinanceDialog('Contact360Dialog').style.display = 'flex';
-	document.getElementById('Contact360DialogTitle').textContent = 'Contact across modules — ' + (name || ('#'+partyId));
-	document.getElementById('Contact360DialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
-	$.get(serverContext + 'partyRoles?id=' + encodeURIComponent(partyId), function(resp){
-		var d = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : {}) : (resp || {});
-		var p = d.party, roles = d.roles || [];
-		if (!p || p.id == null) { document.getElementById('Contact360DialogBody').innerHTML = '<div style="padding:8px;color:#777">No linked contact yet.</div>'; return; }
-		var h = '<table class="table" style="width:100%;margin-bottom:12px"><tbody>'
-			+ '<tr><th style="width:120px">Name</th><td>'+escHtml(p.name||'')+'</td></tr>'
-			+ (p.contact ? '<tr><th>Contact</th><td>'+escHtml(p.contact)+'</td></tr>' : '')
-			+ (p.email ? '<tr><th>Email</th><td>'+escHtml(p.email)+'</td></tr>' : '')
-			+ '<tr><th>Party ID</th><td>#'+escHtml(String(p.id))+'</td></tr>'
-			+ '</tbody></table>';
-		h += '<h5 style="font-weight:700;margin:6px 0 8px">Roles across modules</h5>';
-		if (!roles.length) { h += '<div style="color:#777">No module roles recorded yet.</div>'; }
-		else {
-			h += '<div style="display:flex;flex-wrap:wrap;gap:8px">';
-			roles.forEach(function(r){
-				var m = CONTACT360_MODULES[(r.module||'').toLowerCase()] || { label:(r.module||'?'), cls:'label-default' };
-				h += '<span class="label '+m.cls+'" style="font-size:12px;padding:6px 10px">'
-					+ escHtml(m.label) + ' · ' + escHtml(r.role||'')
-					+ (r.label ? ' <span style="opacity:.85">('+escHtml(r.label)+')</span>' : '')
-					+ '</span>';
-			});
-			h += '</div>';
-		}
-		document.getElementById('Contact360DialogBody').innerHTML = h;
-	}, 'json').fail(function(){ document.getElementById('Contact360DialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load the contact view.</div>'; });
-}
+// Contact-360 moved to the shared /js/common/party-contact.js (P4c): education, welfare and pharmacy show the
+// same panel, so openContact360/contact360Button live in ONE place and every vertical calls them.
 
 // Aging report (Receivables = CUSTOMER, Payables = VENDOR). Trigger buttons live in the Customer/Vendor toolbars.
 function openAging(partyType){
@@ -2509,6 +2515,28 @@ function openBalanceSheet(){ showFinance('balanceSheet'); }
 function openTaxRegister(){ showFinance('taxRegister'); }
 function openAuditLog(){ showFinance('auditLog'); }
 
+// ===== Owner-configurable POS feature flags (common-settings) applied to the UI =====
+// Some Configuration toggles change what the POS UI shows (not just server behaviour). We read them once on load
+// from the same /getBusinessConfig catalog and apply them. Defaults are ON, so a fresh org / a config-read hiccup
+// leaves every feature visible (fail-open). Currently: pos.barcode.enabled → the scan box + product Barcode field.
+function loadPosFeatureFlags(){
+	$.get(serverContext + 'getBusinessConfig', function(res){
+		var items = (res && res.data) || [];
+		var byKey = {};
+		items.forEach(function(it){ byKey[it.key] = String(it.value) === 'true'; });
+		// absent key → default ON (the feature ships enabled)
+		window.posBarcodeEnabled = ('pos.barcode.enabled' in byKey) ? byKey['pos.barcode.enabled'] : true;
+		window.posAutoPrintReceipt = ('pos.receipt.autoPrint' in byKey) ? byKey['pos.receipt.autoPrint'] : true;
+		applyPosBarcodeVisibility();
+	}, 'json').fail(function(){ window.posBarcodeEnabled = true; window.posAutoPrintReceipt = true; applyPosBarcodeVisibility(); });
+}
+function applyPosBarcodeVisibility(){
+	var on = window.posBarcodeEnabled !== false;
+	$('#sellScanRow').toggle(on);          // sell screen scan box
+	$('#prodBarcodeLabel').toggle(on);     // product form Barcode label
+	$('#prodBarcodeWrap').toggle(on);      // product form Barcode input
+}
+
 // ===== Owner Configuration (generic per-tenant settings, shared common-settings backend) =====
 // Self-renders from the business-service catalog (/getBusinessConfig → ApiResponse{data:[...]}): each row is one
 // configurable policy grouped by section. A toggle saves immediately (/saveBusinessConfig key=&value=). Adding a
@@ -2556,6 +2584,9 @@ function saveBusinessConfigToggle(el){
 			.addClass(ok ? 'alert-success' : 'alert-danger')
 			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
 		if(!ok){ el.checked = !el.checked; }   // revert the toggle if the save failed
+		// Apply behaviour-affecting flags immediately (no reload).
+		else if(key === 'pos.barcode.enabled'){ window.posBarcodeEnabled = (value === 'true'); applyPosBarcodeVisibility(); }
+		else if(key === 'pos.receipt.autoPrint'){ window.posAutoPrintReceipt = (value === 'true'); }
 	}).fail(function(){
 		el.checked = !el.checked;
 		$('#businessConfigMsg').removeClass('alert-success').addClass('alert-danger').text('Save failed').show();

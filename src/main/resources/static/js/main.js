@@ -305,7 +305,8 @@ $(document).ready(function() {
 			+ String(d.getMonth() + 1).padStart(2, '0') + '-'
 			+ String(d.getDate()).padStart(2, '0');
 		$('#dueDate').val(formatted);
-	});	
+		document.getElementById('dueDateTemp').style.removeProperty('border-color');   // clear the required-field flag
+	});
 
 	$('#purchaseDate').datepicker({
 		format: 'dd-mm-yyyy',
@@ -436,6 +437,14 @@ $(document).ready(function() {
 						}
 					}
 
+
+					// A sale that leaves a balance (Credit, or a partial payment) needs a due date so the
+					// receivable can be followed up — the field is required, not optional, whenever there's a due.
+					if ($("#sellCh").val()*ONE < 0 && !$('#dueDate').val()) {
+						document.getElementById("dueDateTemp").style.setProperty('border-color', 'red', 'important');
+						showFormError('Please set a due date for the outstanding amount.');
+						return;
+					}
 
 					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
 					// SF-5 Model B: redeeming store credit needs an identified (existing) customer — send the selected id.
@@ -615,7 +624,16 @@ $(document).ready(function() {
 				showFormError('Edit is not allowed. Please delete and submit a new record.');
 				}
 			}else{
-				if (tableV=="Sell"){ 
+				// A voided sale/purchase is read-only — the server rejects an edit. Block opening the form and
+				// show a clear message instead of loading a record that can't be saved.
+				if (isVoidedRow(getDocument(datatable.row(this).data()))) {
+					var voidNoun = (tableV === 'Sell') ? 'invoice' : (tableV === 'Purchase' ? 'bill' : 'record');
+					var voidMsg = 'This ' + voidNoun + ' is voided and cannot be edited.';
+					if (typeof uiAlert === 'function') uiAlert({ title: 'Voided ' + voidNoun, message: voidMsg, tone: 'danger' });
+					else showFormError(voidMsg);
+					return;
+				}
+				if (tableV=="Sell"){
 					// Sell: a sale is a multi-line invoice — load the WHOLE invoice (all its lines +
 					// customer) into the cart (iDiv) so the user can review/update and save in place.
 					var sdoc = getDocument(datatable.row(this).data());
@@ -828,8 +846,10 @@ function jsonPost(method,data) {
 			// slice 22: show the system-generated per-org invoice number returned by addSell
 			if (data.object) {
 				showSaleSuccess('Sale recorded — Invoice ' + data.object);
-				// G6 (slice 38): auto-print the receipt for a new sale (hidden iframe — no popup block).
-				if (method === 'addSell' && typeof printReceipt === 'function') { printReceipt(data.object); }
+				// G6 (slice 38): auto-print the receipt for a new sale (hidden iframe — no popup block). Owner-
+				// configurable (pos.receipt.autoPrint, default ON); when off, the cashier reprints from the sale's
+				// Print button instead.
+				if (method === 'addSell' && window.posAutoPrintReceipt !== false && typeof printReceipt === 'function') { printReceipt(data.object); }
 				// P6 (slice 43): if this sale is dispensing a prescription, record the dispense against it.
 				if (method === 'addSell' && window.dispensingPrescriptionId && typeof dispensePrescription === 'function') {
 					dispensePrescription(data.object);
@@ -1193,6 +1213,15 @@ function loadBSDD(remoteMethod,DDID) {
 
 function getDocument(html){
 	return new DOMParser().parseFromString(html, "text/html");
+}
+
+// A voided sale/purchase renders a "VOID" badge in its row instead of edit actions. The server rejects an edit/void
+// of a voided record; detect the badge so the UI can block opening the form and show a clear message instead.
+function isVoidedRow(doc){
+	if(!doc || !doc.querySelectorAll) return false;
+	var labels = doc.querySelectorAll('.label');
+	for(var i=0;i<labels.length;i++){ if((labels[i].textContent||'').trim().toUpperCase()==='VOID') return true; }
+	return false;
 }
 
 var DateDiff = {

@@ -233,15 +233,21 @@ public class PurchaseController {
 				return new GenericResponse("FAILED", "Failed to update purchase. Please try again.");
 			}
 			return new GenericResponse("SUCCESS", "Purchase updated successfully.");
-		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
-			LOGGER.warn("updatePurchase rejected (period closed): {}", pce.getMessage());
-			return new GenericResponse("FAILED", pce.getMessage());
+		} catch (com.myplus.business_service.service.BusinessRuleException | com.myplus.business_service.service.PeriodClosedException rule) {
+			// Expected user-facing rejection (voided bill, closed period, etc.) — surface the reason, no ERROR/stack trace.
+			LOGGER.warn("updatePurchase rejected: {}", rule.getMessage());
+			return new GenericResponse("FAILED", rule.getMessage());
 		} catch (Exception e) {
-			LOGGER.error(this.getClass().getName()+" > updatePurchase "+e.getCause(), e);
+			// A remote inventory rejection (e.g. reducing a bill below stock already sold) surfaces its message; a
+			// genuine fault falls back to the generic text.
 			String msg = e.getMessage();
-			boolean businessRejection = msg != null
-					&& (msg.toLowerCase().contains("cannot reduce") || msg.toLowerCase().contains("not found"));
-			return new GenericResponse("ERROR", businessRejection ? msg : "An unexpected error occurred. Please contact support.");
+			boolean reduceRejection = msg != null && msg.toLowerCase().contains("cannot reduce");
+			if (reduceRejection) {
+				LOGGER.warn("updatePurchase rejected: {}", msg);
+				return new GenericResponse("FAILED", msg);
+			}
+			LOGGER.error(this.getClass().getName()+" > updatePurchase "+e.getCause(), e);
+			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
 		}
 	}
 	
@@ -259,6 +265,10 @@ public class PurchaseController {
 			return new GenericResponse("SUCCESS", "Purchase returned successfully.", result);
 		} catch (NumberFormatException nfe) {
 			return new GenericResponse("FAILED", "Invalid purchase id or quantity.");
+		} catch (com.myplus.business_service.service.BusinessRuleException | com.myplus.business_service.service.PeriodClosedException rule) {
+			// Expected user-facing rejection (e.g. voided bill, over-return) — surface the reason, no ERROR/stack trace.
+			LOGGER.warn("purchaseReturn rejected: {}", rule.getMessage());
+			return new GenericResponse("FAILED", rule.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > purchaseReturn " + e.getCause(), e);
 			return new GenericResponse("FAILED", e.getMessage() != null ? e.getMessage() : "An unexpected error occurred. Please contact support.");
@@ -281,6 +291,10 @@ public class PurchaseController {
 			return new GenericResponse("SUCCESS", "Bill voided.", result);
 		} catch (NumberFormatException nfe) {
 			return new GenericResponse("FAILED", "Invalid purchase id.");
+		} catch (com.myplus.business_service.service.BusinessRuleException | com.myplus.business_service.service.PeriodClosedException rule) {
+			// Expected user-facing rejection (e.g. already voided) — surface the reason, no scary ERROR/stack trace.
+			LOGGER.warn("voidPurchase rejected: {}", rule.getMessage());
+			return new GenericResponse("FAILED", rule.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > voidPurchase " + e.getCause(), e);
 			return new GenericResponse("FAILED", e.getMessage() != null ? e.getMessage() : "An unexpected error occurred. Please contact support.");

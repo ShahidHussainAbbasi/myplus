@@ -76,4 +76,38 @@ public class PartyBridgeService {
             LOG.warn("party bridge (storefront customer {}) failed after commit — will retry on next write", req.id(), e);
         }
     }
+
+    // Backfill batch cap: it reuses the hot-path party client (2s read timeout), so a batch must finish well inside
+    // that. Call again with the returned cursor to continue — the link write is idempotent.
+    private static final int MAX_BATCH = 200;
+
+    /**
+     * One-time backfill for shoppers bridged BEFORE the role index: they already carry a party_id, so the skip-guard
+     * means they never bridge again and would have no role link. Batched by id cursor, idempotent — re-run until
+     * remaining is 0. Unlike the write path this runs under a real owner/admin identity (an admin triggers it), so
+     * no runAs is needed.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> backfillLinks(int limit, Long afterId) {
+        Long orgId = com.myplus.common.security.CurrentUser.organizationId();
+        long after = afterId == null ? 0L : afterId;
+        var page = org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, MAX_BATCH)));
+        java.util.List<PartyRoleRef> batch = new java.util.ArrayList<>();
+        for (StorefrontCustomer c : repo.findBridgedAfter(after, orgId, page)) {
+            after = Math.max(after, c.getId());
+            batch.add(PartyRoleRef.builder().partyId(c.getPartyId())
+                    .module("marketplace").role("CUSTOMER").localId(c.getId()).label(c.getName()).build());
+        }
+        int linked = 0;
+        if (partyClient != null && !batch.isEmpty()) {   // ONE call per batch, not one per row
+            try {
+                Integer n = partyClient.linkBulk(batch);
+                linked = n == null ? 0 : n;
+            } catch (Exception e) {
+                LOG.warn("party link backfill batch of {} failed", batch.size(), e);
+            }
+        }
+        return java.util.Map.of("scanned", batch.size(), "linked", linked, "lastId", after,
+                "remaining", repo.countBridgedAfter(after, orgId));
+    }
 }

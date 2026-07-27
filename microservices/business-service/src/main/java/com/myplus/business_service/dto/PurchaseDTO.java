@@ -62,6 +62,13 @@ public class PurchaseDTO implements Serializable {
 	// Tax register Phase B: input-tax rate (%) entered on the purchase form when "Purchase tax" is enabled.
 	private BigDecimal taxRate;
 
+	// The input tax money on this bill (0 unless the org captures purchase tax). Gross bill = totalAmount + taxAmount.
+	private BigDecimal taxAmount;
+
+	// Audit #3: ACTIVE | VOID (null == ACTIVE). The list read needs it so the UI shows a VOID badge (not Return/Void
+	// buttons), greys the row, and the hide-voided filter can catch it.
+	private String status;
+
 	// F1 (AP): the vendor the purchase is billed from + how much was paid at purchase time (defaults to net = cash).
 	private Long venderId;
 	private String venderName;

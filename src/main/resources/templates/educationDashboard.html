@@ -2283,6 +2283,9 @@
 		</div>
 	    <!-- The bulk-delete confirmation is no longer page markup: confirmBulkDelete() raises the shared app
 	         dialog (/js/common/confirm-dialog.js), so every destructive confirm looks the same. -->
+	    <!-- Contact-360 (a student's roles across modules) is sensitive → owner/admin only; server enforces too. -->
+	    <script sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')"
+	            th:inline="none">window.canViewContact360 = true;</script>
 	    <th:block th:replace="~{fragments/header :: header-js}"></th:block>
  	</div>
 	<script th:inline="javascript">

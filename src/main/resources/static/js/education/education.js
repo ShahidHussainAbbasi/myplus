@@ -345,7 +345,8 @@ function loadDataTable(){
 						arr = [
 							"<div id=studentId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
 							"<div id=studentEnrollNo>"+escHtml(obj.enrollNo)+"</div>","<div id=studentStatus>"+escHtml(obj.status)+"</div>","<div id=studentEnrollDate>"+escHtml(obj.enrollDate)+"</div>",
-							"<div id=studentName>"+escHtml(obj.name)+"</div>","<div id=studentSchoolDD>"+escHtml(obj.schoolName)+"</div>",
+							// Contact-360 rides in the name cell (no new column): this student's roles across modules.
+						"<div id=studentName>"+escHtml(obj.name)+contact360Button(obj.partyId)+"</div>","<div id=studentSchoolDD>"+escHtml(obj.schoolName)+"</div>",
 							"<div id=studentGradeDD>"+escHtml(obj.gradeName)+"</div>","<div id=studentGuardianDD>"+escHtml(obj.guardianName)+"</div>",
 							"<div id=studentGender>"+escHtml(obj.gender)+"</div>","<div id=studentFee>"+escHtml(obj.fee)+"</div>","<div id=studentFeeMode>"+escHtml(obj.feeMode)+"</div>",
 							"<div id=studentMN>"+escHtml(obj.mn)+"</div>","<div id=studentBloodBroup>"+escHtml(obj.bloodGroup)+"</div>",

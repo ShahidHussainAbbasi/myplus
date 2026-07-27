@@ -8,6 +8,16 @@
 <style>
 #dueCustTableBody tr td:nth-child(3){font-weight:700;color:#c62828}
 #DashboardDiv canvas{display:block}
+/* A voided sale/purchase row is finalized & read-only — grey it so it reads as inactive. Its cells are dimmed,
+   but the VOID badge stays legible. Row-click edit is blocked in main.js; no Return/Void actions are rendered. */
+tr.row-voided > td{color:#9aa4b2;background:#f7f8fa;text-decoration:line-through}
+tr.row-voided > td .label{color:#fff;text-decoration:none}
+tr.row-voided > td .row-actions{text-decoration:none}
+/* A voided row is action-less: hide its per-row Edit button (the row-click also blocks it with a message). */
+tr.row-voided .js-edit-row{display:none !important}
+/* Delete is retired for purchases (a posted bill is voided, never hard-deleted). Hide just the delete checkbox —
+   the per-row Edit button lives in the same cell and must stay. */
+#tablePurchase input[type="checkbox"]{display:none !important}
 .dataTables_wrapper{padding:0}
 .dataTables_wrapper .row:first-child{margin-bottom:10px}
 .dataTables_wrapper .row:last-child{margin-top:10px}
@@ -943,7 +953,7 @@
 						<tr>
 							<th data-field="purchaseId">ID</th>
 							<th data-field="checkDelete"></th>
-							<th data-field="purchaseInvoiceNo">Purchase Invoice No</th>
+							<th data-field="purchaseInvoiceNo">Invoice No</th>
 							<th data-field="purchaseItemName">Name</th>
 							<th data-field="purchaseVenderDD">Vendor</th>
 							<th data-field="purchaseQuantity">QTY</th>
@@ -957,8 +967,11 @@
 							<!-- <th data-field="sellDiscountTypeDD">S/U Disc Type</th> -->
 		 					<!-- <th data-field="sellDiscount">S/U Discount</th> -->
 							<th data-field="purchaseTotalAmount">Total</th>
-							<th data-field="purchaseNetAmount">Profit</th>
-						 	<th data-field="purchaseExpiry">Expire Date</th> 
+							<th data-field="purchasePaid">Paid</th>
+							<th data-field="purchaseDue">Due</th>
+							<!-- No "Profit" column: profit is realized on SALE, not on a purchase. A purchase records what
+							     you paid the vendor (P/U Price → Total); margin lives on the Sale Detail Report. -->
+						 	<th data-field="purchaseExpiry">Expire Date</th>
 							<th data-field="purchaseDate">DateTime</th>
 						</tr>
 					</thead>
@@ -983,7 +996,7 @@
 					</div>
 					<!-- Barcode-first sell: scan a product's barcode/SKU (a wedge scanner types the code + Enter) → the
 					     matching product is auto-added to the cart at its list price. Server validates stock at submit. -->
-					<div class="form-group">
+					<div class="form-group" id="sellScanRow">
 						<label class="control-label col-sm-2" for="sellScan"><span class="glyphicon glyphicon-barcode"></span> Scan</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellScan" placeholder="Scan or type barcode / SKU, then Enter" autocomplete="off"
@@ -1183,7 +1196,7 @@
 						<div class="form-group" style="padding-top: 8px; padding-bottom: 25px;">
 							<div class="col-xs-12 col-sm-3 col-md-2">
 								<span class="field-label">Payment Method</span>
-								<select class="form-control" id="sellPayMethod" name="sellPayMethod">
+								<select class="form-control" id="sellPayMethod" name="sellPayMethod" onchange="onSellPayMethodChange()">
 									<option value="CASH" selected>Cash</option>
 									<option value="CARD">Card</option>
 									<option value="CREDIT">Credit (on account)</option>
@@ -1214,7 +1227,7 @@
 								<span class="field-label">Already paid</span>
 								<input type="number" step="any" class="form-control" id="sellPaidSoFar" readonly="readonly" title="Paid on this invoice so far">
 							</div>
-							<div class="col-xs-12 col-sm-3 col-md-2">
+							<div class="col-xs-12 col-sm-3 col-md-2" id="sellRecWrap">
 								<span class="field-label" id="sellRecLabel">Amount Received</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellRec"
 									name="sellRec" placeholder=" Received " onkeyup="calculateChange()">
@@ -1227,8 +1240,10 @@
 								<span class="field-label">Due (this sale)</span>
 								<input type="number" step="any" class="form-control" id="sellDueThis" readonly="readonly" placeholder="0" title="Amount still owed on this sale">
 							</div>
-							<div class="col-xs-12 col-sm-3 col-md-2">
-								<span class="field-label">Due Date (optional)</span>
+							<!-- Due Date is shown & required ONLY when the sale leaves a balance (Due this sale > 0);
+							     hidden entirely otherwise — a fully-paid sale has nothing to follow up. -->
+							<div class="col-xs-12 col-sm-3 col-md-2" id="sellDueDateWrap" style="display:none">
+								<span class="field-label" id="sellDueDateLabel">Due Date *</span>
 								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control" placeholder="dd/mm/yyyy"/>
 								<input type="hidden" id="dueDate" name="dueDate"/>
 							</div>
@@ -1346,8 +1361,8 @@
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodName"></div>
 						<label class="control-label col-sm-2" for="prodSku">SKU / Code</label>
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodSku"></div>
-						<label class="control-label col-sm-2" for="prodBarcode">Barcode</label>
-						<div class="col-sm-4"><input type="text" class="form-control" id="prodBarcode" placeholder="EAN / UPC (scannable)"></div>
+						<label class="control-label col-sm-2" for="prodBarcode" id="prodBarcodeLabel">Barcode</label>
+						<div class="col-sm-4" id="prodBarcodeWrap"><input type="text" class="form-control" id="prodBarcode" placeholder="EAN / UPC (scannable)"></div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="prodPrice">Sell Price</label>
@@ -1923,8 +1938,11 @@
         if (btn) btn.classList.add('snav-active');
         $('#' + sel).val(val).trigger('change');
         document.getElementById(ddId).classList.remove('snav-open');
-        // Barcode-first: land the cursor in the scan box when opening a New Sale (wedge scanner ready).
-        if (val === 'sellDiv') setTimeout(function(){ var s = document.getElementById('sellScan'); if (s) s.focus(); }, 150);
+        // Barcode-first: land the cursor in the scan box when opening a New Sale (wedge scanner ready) — unless the
+        // owner disabled barcode scanning (pos.barcode.enabled=false hides the scan box).
+        if (val === 'sellDiv' && window.posBarcodeEnabled !== false) setTimeout(function(){ var s = document.getElementById('sellScan'); if (s) s.focus(); }, 150);
+        // Sync the Amount Received visibility to the current payment method (a prior Credit sale may have hidden it).
+        if (val === 'sellDiv' && typeof onSellPayMethodChange === 'function') onSellPayMethodChange();
     }
 
     // function snavHome() {
