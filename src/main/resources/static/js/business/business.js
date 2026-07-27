@@ -678,7 +678,9 @@ function loadDataTable(){
 		dom: 'Bfrtip',
 		buttons: [
 			'pageLength'
-		].concat((tableV === 'Sell' || tableV === 'Purchase') ? [{
+		].concat((tableV === 'Purchase') ? [{
+				// Purchase only: voiding a SALE deletes its line rows (Option B), so tableSell never has a voided row to
+				// reveal — the toggle would be a dead no-op there. Voided sales remain traceable via the Audit Log + receipt.
 			// Voided rows are hidden by default (they're finalized/read-only). This toggles them in/out of the list.
 			text: (window.hideVoided === false ? 'Hide voided' : 'Show voided'),
 			action: function(e, dt, node){
