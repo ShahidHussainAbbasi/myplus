@@ -795,8 +795,12 @@ public class SellController {
 			java.math.BigDecimal refundedAmount = java.math.BigDecimal.ZERO;   // SF-11: recorded on the return audit
 			java.math.BigDecimal storeCreditIssued = java.math.BigDecimal.ZERO;   // SF-5 Model B: overpayment issued as credit
 			// GL SALE_RETURN: capture the returned line's ex-tax net, tax and COGS BEFORE the line is adjusted/deleted.
+			// Ex-tax net must be the DISCOUNTED net the sale actually posted = netAmount − taxAmount (netAmount is the
+			// discounted, tax-inclusive line total). Using totalAmount (qty×rate, PRE-discount) over-reverses Sales+AR
+			// by the discount — the same drift fixed in voidSell.
 			float retFrac = soldQty > 0f ? (retQty / soldQty) : 1f;
-			java.math.BigDecimal retSub = nzbd(existingSell.getTotalAmount()).multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
+			java.math.BigDecimal retSub = nzbd(existingSell.getNetAmount()).subtract(nzbd(existingSell.getTaxAmount()))
+					.multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
 			java.math.BigDecimal retTax = nzbd(existingSell.getTaxAmount()).multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
 			java.math.BigDecimal retCost = nzbd(existingSell.getCostPrice()).multiply(java.math.BigDecimal.valueOf(retQty)).setScale(2, java.math.RoundingMode.HALF_UP);
 			String retInvoiceNo = ch != null ? ch.getInvoiceNo() : null;
@@ -942,9 +946,9 @@ public class SellController {
 			String reservationId = ch.getReservationId();
 			boolean quarantine = "true".equalsIgnoreCase(request.getParameter("quarantine"));   // P11: pharmacy no-restock
 
-			// Reverse every line: restore inventory + accumulate the GL reversal (ex-tax net, tax, COGS).
-			java.math.BigDecimal retSub = java.math.BigDecimal.ZERO, retTax = java.math.BigDecimal.ZERO,
-					retCost = java.math.BigDecimal.ZERO;
+			// Reverse every line: restore inventory + accumulate COGS. The Sales/Tax/AR reversal uses the header's
+			// POSTED totals (captured below), NOT per-line totalAmount (pre-discount) — see the GL enqueue note.
+			java.math.BigDecimal retCost = java.math.BigDecimal.ZERO;
 			for (Sell s : lines) {
 				float qty = s.getQuantity() != null ? s.getQuantity() : 0f;
 				if (s.getProductId() != null && reservationId != null) {
@@ -958,8 +962,6 @@ public class SellController {
 							com.myplus.commerce.contracts.dto.StockImportLine.builder()
 									.productId(s.getProductId()).quantity(qty).build()));
 				}
-				retSub = retSub.add(nzbd(s.getTotalAmount()));
-				retTax = retTax.add(nzbd(s.getTaxAmount()));
 				retCost = retCost.add(nzbd(s.getCostPrice()).multiply(java.math.BigDecimal.valueOf(qty)));
 				sellService.deleteById(s.getSellId());
 			}
@@ -977,6 +979,11 @@ public class SellController {
 				paymentService.refund(chId, cashRefund, orgId(), userId());
 			if (creditReissue.signum() > 0 && ch.getCustomer() != null && ch.getCustomer().getCustomerId() != null)
 				storeCreditService.issue(ch.getCustomer().getCustomerId(), creditReissue, "RETURN", ch.getInvoiceNo());
+			// GL reversal MUST mirror exactly what the SALE posted — the header totals (post-discount). Do NOT rebuild
+			// from Sell.totalAmount (that is the PRE-discount qty×rate, so a discounted invoice would over-reverse Sales
+			// AND AR by the discount amount, drifting the books). Capture the posted totals BEFORE zeroing the header.
+			java.math.BigDecimal origSub = nzbd(ch.getSubTotal()), origTax = nzbd(ch.getTaxTotal()),
+					origGrand = nzbd(ch.getGrandTotal());
 			ch.setSubTotal(java.math.BigDecimal.ZERO);
 			ch.setTaxTotal(java.math.BigDecimal.ZERO);
 			ch.setGrandTotal(java.math.BigDecimal.ZERO);
@@ -993,19 +1000,19 @@ public class SellController {
 			if (customer != null)
 				customerService.recomputeDue(customer);
 
-			// GL: one aggregate SALE_RETURN reversing the whole invoice (best-effort via the outbox).
+			// GL: one aggregate SALE_RETURN reversing the whole invoice with the SAME (post-discount) totals the sale
+			// posted, so Sales + AR net back to zero exactly. COGS is per-line (cost is never discounted). Best-effort.
 			try {
-				java.math.BigDecimal retGross = retSub.add(retTax);
-				if (retGross.signum() > 0)
+				if (origGrand.signum() > 0)
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
-							.grandTotal(retGross).subTotal(retSub).taxTotal(retTax).cost(retCost).paidAmount(refund)
+							.grandTotal(origGrand).subTotal(origSub).taxTotal(origTax).cost(retCost).paidAmount(refund)
 							.method("CASH").storeCredit(creditReissue).build());   // re-issued credit portion → Cr 2200
 			} catch (Exception glEx) {
 				LOGGER.warn(this.getClass().getName() + " > voidSell GL reversal enqueue failed (void applied)", glEx);
 			}
 
-			auditService.record("VOID_SALE", "INVOICE", ch.getInvoiceNo(), retSub.add(retTax), reason);   // #6
+			auditService.record("VOID_SALE", "INVOICE", ch.getInvoiceNo(), origGrand, reason);   // #6
 			return new GenericResponse("SUCCESS", "Invoice voided.");
 		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
 			LOGGER.warn("voidSell rejected (period closed): {}", pce.getMessage());

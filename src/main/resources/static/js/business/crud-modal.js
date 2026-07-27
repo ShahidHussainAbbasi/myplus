@@ -12,7 +12,14 @@
 (function (global) {
     'use strict';
 
-    global.openModal  = function (id) { $('#' + id).addClass('open'); };
+    global.openModal  = function (id) {
+        $('#' + id).addClass('open');
+        // Land the cursor in the first field so a record can be typed straight away — on a tall form the modal
+        // opens with its inputs below the fold otherwise. Desktop only (focus-flow skips touch/narrow screens).
+        if (typeof focusFirstField === 'function') {
+            window.requestAnimationFrame(function () { focusFirstField(document.getElementById(id)); });
+        }
+    };
     global.closeModal = function (id) { $('#' + id).removeClass('open'); };
 
     // Toolbar "+ New": open the entity modal for a fresh record.

@@ -18,6 +18,8 @@
         <link rel="stylesheet" th:href="@{/css/crud-modal.css}"/>
         <link rel="stylesheet" th:href="@{/css/team-picker.css}"/>
         <link rel="stylesheet" th:href="@{/css/jquery.timepicker.min.css}"/>
+        <!-- The app's own date/datetime calendar (see /js/common/date-picker.js) — no third-party picker. -->
+        <link rel="stylesheet" th:href="@{/css/date-picker.css}"/>
     </th:block>
 
     <th:block th:fragment="header-js">
@@ -46,6 +48,13 @@
         <script th:src="@{/js/common/confirm-dialog.js}"></script>
         <!-- Contact-360 (cross-module contact view) — shared by business/education/welfare/pharmacy rows. -->
         <script th:src="@{/js/common/party-contact.js}"></script>
+        <!-- Focus flow: on these long dashboards, bring a revealed section / opened record / rejected field
+             into view and land the cursor in it, so nobody hunts and scrolls. Desktop-only auto-focus. -->
+        <script th:src="@{/js/common/focus-flow.js}"></script>
+        <!-- Date pickers: the app's own calendar, bound in ONE place (binding a second plugin to the same input
+             is what cleared fields on blur). Zero dependencies — nothing to vendor. Emits exactly the
+             dd-MM-yyyy / dd-MM-yyyy HH:mm:ss / dd-MMM-yyyy / MM-yyyy strings the services already parse. -->
+        <script th:src="@{/js/common/date-picker.js}"></script>
         <!-- Demo free-trial: surfaces the gateway's DEMO_LIMIT (50/module cap) as an upsell prompt. -->
         <script th:src="@{/js/demo.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing

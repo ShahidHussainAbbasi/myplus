@@ -125,7 +125,7 @@ function validateForm(){
     formValidated = true;
     var form = document.getElementsByClassName('form-horizontal')[tableV];
     if(form && !form.checkValidity()){
-        var missing = [];
+        var missing = [], invalid = [], firstBad = null;
         formFields = form.length - 2;
         for(var i = 0; i < formFields; i++){
             if(!form[i].id) continue;
@@ -138,15 +138,29 @@ function validateForm(){
                 visualEl.style.removeProperty('border-color');
             } else {
                 visualEl.style.setProperty('border-color', 'red', 'important');
+                if(!firstBad) firstBad = el;                 // remember it: we'll take the user straight there
                 var label = $('label[for="' + form[i].id + '"]').text().replace(/\s*\*\s*$/, '').replace('req','').trim()
                     || el.placeholder || el.name || form[i].id;
-                missing.push(label);
+                // A blank field and an out-of-range value are different problems. Reporting a min/step violation
+                // as "please fill in the required fields" sends the user hunting for an empty box that isn't there.
+                if(form[i].validity.valueMissing){
+                    missing.push(label);
+                } else if(form[i].validity.rangeUnderflow){
+                    invalid.push(label + ' (must be at least ' + form[i].min + ')');
+                } else if(form[i].validity.rangeOverflow){
+                    invalid.push(label + ' (must be at most ' + form[i].max + ')');
+                } else {
+                    invalid.push(label);
+                }
             }
         }
         formValidated = false;
-        if(missing.length > 0){
-            showFormError('Please fill in the required fields: ' + missing.join(', '));
-        }
+        var msgs = [];
+        if(missing.length > 0) msgs.push('Please fill in the required fields: ' + missing.join(', '));
+        if(invalid.length > 0) msgs.push('Please correct: ' + invalid.join(', '));
+        if(msgs.length > 0) showFormError(msgs.join('. '));
+        // Naming the bad field isn't much help on a form taller than the screen — go to it.
+        if(firstBad && typeof focusInvalid === 'function') focusInvalid(firstBad);
     } else {
         clearFormError();
     }
@@ -262,88 +276,13 @@ $(document).ready(function() {
 	    });
 	});	
 
-	$(".datePickerWithMonthName").datetimepicker({
-		useCurrent: true,
-		format : 'DD-MMM-YYYY',
-		showTodayButton: true,
-		showClear:true,
-		showClose:true
-	});
+	// EVERY date/datetime field in the app is bound in ONE place — /js/common/date-picker.js. Binding a second
+	// plugin to the same input is what caused the "date clears when you tab out" bug: each re-parses the value
+	// with its own format on blur and the loser writes back an empty string. Do not re-add picker bindings here.
+	// #dueDateTemp used to be bound here with bootstrap-datepicker; it now opts in via
+	// data-dp="date" data-dp-iso="#dueDate", so the shared calendar writes both the visible value and the hidden
+	// ISO one it feeds.
 
-	$(".monthYearDatePicker").datetimepicker({
-		useCurrent: true,
-		format : 'MM-YYYY',
-//		showTodayButton: true,
-		showClear:true,
-		showClose:true
-	});
-
-	$(".purchaseDate").datetimepicker({
-		useCurrent: true,
-		format : 'DD-MM-YYYY HH:mm:ss',
-		showTodayButton: true,
-		showClear:true,
-		showClose:true
-	});
-    
-	$(".datePicker").datetimepicker({
-		useCurrent: true,
-		format : 'DD-MM-YYYY',
-		showTodayButton: true,
-		showClear:true,
-		showClose:true
-	});
-
-
-	$('#dueDateTemp').datepicker({
-		format: 'dd/mm/yyyy',
-		autoclose: true
-	}).on('changeDate', function(e) {
-		// Write yyyy-MM-dd into the hidden field for form submission
-		var d = e.date;
-		var formatted = d.getFullYear() + '-'
-			+ String(d.getMonth() + 1).padStart(2, '0') + '-'
-			+ String(d.getDate()).padStart(2, '0');
-		$('#dueDate').val(formatted);
-		document.getElementById('dueDateTemp').style.removeProperty('border-color');   // clear the required-field flag
-	});
-
-	$('#purchaseDate').datepicker({
-		format: 'dd-mm-yyyy',
-		autoclose: true
-	}).on('purchaseDate', function(e) {
-		// Write yyyy-MM-dd into the hidden field for form submission
-		var d = e.date;
-		var formatted = d.getFullYear() + '-'
-			+ String(d.getMonth() + 1).padStart(2, '0') + '-'
-			+ String(d.getDate()).padStart(2, '0');
-		$('#purchaseDate').val(formatted);
-	});	
-
-	$('#purchaseExpiry').datepicker({
-		format: 'dd-mm-yyyy',
-		autoclose: true
-	}).on('purchaseExpiry', function(e) {
-		// Write yyyy-MM-dd into the hidden field for form submission
-		var d = e.date;
-		var formatted = d.getFullYear() + '-'
-			+ String(d.getMonth() + 1).padStart(2, '0') + '-'
-			+ String(d.getDate()).padStart(2, '0');
-		$('#purchaseExpiry').val(formatted);
-	});	
-
-	$('.datetimepicker').datetimepicker({
-	   format: 'DD-MM-YYYY HH:mm:ss',
-	   useCurrent: false,
-		showTodayButton: true,
-		showClear:true,
-		showClose:true,
-		toolbarPlacement: 'top'
-	   }).on('dp.show', function() {
-	   if($(this).data("DateTimePicker").date() === null)
-	     $(this).data("DateTimePicker").date(moment());
-	 });
-	
     $('input.timepicker').timepicker({ 
     	timeFormat: 'HH:mm',
         defaultTime: '8',
@@ -487,17 +426,29 @@ $(document).ready(function() {
 					    	showFormError('Please add items to the cart and enter a valid payment amount.');
 					    }
 			}else{
-				// Purchase: block client-side when no item is selected or quantity <= 0
-				// (a "0" passes the generic required-field check, which only tests for non-empty).
+				// Purchase (add AND edit — this handler serves both): block client-side when no item is selected,
+				// or quantity <= 0, or the unit purchase price <= 0. A "0" passes the generic required-field check,
+				// which only tests for non-empty — and a zero-cost bill is not a harmless typo: it silently wrecks
+				// margin on every sale of that batch and posts a zero COGS/inventory value to the ledger.
 				if(buttonV=="Purchase"){
 					var pItem = $("#purchaseItemDD").val();
 					var pQty = $("#purchaseQuantity").val()*1;
 					if(!pItem || !(pQty > 0)){
 						$("#purchaseQuantity").css('border-color','red');
 						showFormError('Select an item and enter a quantity greater than 0.');
+						if (typeof focusInvalid === 'function') focusInvalid(document.getElementById(pItem ? 'purchaseQuantity' : 'purchaseItemDD'));
 						return false;
 					}
 					$("#purchaseQuantity").css('border-color','');
+
+					var pRate = $("#purchasePurchaseRate").val()*1;   // '' -> 0, non-numeric -> NaN; both rejected
+					if(!(pRate > 0)){
+						$("#purchasePurchaseRate").css('border-color','red');
+						showFormError('Enter a purchase price (P/U Price) greater than 0.');
+						if (typeof focusInvalid === 'function') focusInvalid(document.getElementById('purchasePurchaseRate'));
+						return false;
+					}
+					$("#purchasePurchaseRate").css('border-color','');
 				}
 				validateForm();
 			    if(formValidated){
@@ -580,7 +531,10 @@ $(document).ready(function() {
 	$(function() {
 	  $('.dropdown').change(function(){
 	    $('.formDiv').hide();
-	    $('#' + $(this).val()).show();
+	    var $shown = $('#' + $(this).val()).show();
+	    // These dashboards are taller than the viewport: scroll the section the user just picked under the
+	    // sticky header and put the cursor in its first field, instead of leaving them to hunt and scroll.
+	    if (typeof revealSection === 'function') revealSection($shown[0]);
 	    var tab = ($(this).val()).replace("Div","");
 	  	if(tab){
 			$switchInputs(capitalize(tab));

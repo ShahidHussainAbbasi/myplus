@@ -882,7 +882,9 @@ tr.row-voided .js-edit-row{display:none !important}
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="purchasePurchaseRate">P/U Price</label>
 						<div class="col-sm-4">
-							<input type="number" step="any" class="form-control" id="purchasePurchaseRate"
+							<!-- min=0.01: `required` alone accepts "0", and a zero-cost bill wrecks margin/COGS. 0.01 is the
+							     smallest representable amount (money is BigDecimal(19,2)). The JS submit guard checks it too. -->
+							<input type="number" step="any" min="0.01" class="form-control" id="purchasePurchaseRate"
 								name="stock.bpurchaseRate" placeholder=" Purchase Amount 0.0" required="required" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
 						</div>
 						<label class="control-label col-sm-2" for="purchaseSellAmount">S/U Price</label>
@@ -1244,7 +1246,10 @@ tr.row-voided .js-edit-row{display:none !important}
 							     hidden entirely otherwise — a fully-paid sale has nothing to follow up. -->
 							<div class="col-xs-12 col-sm-3 col-md-2" id="sellDueDateWrap" style="display:none">
 								<span class="field-label" id="sellDueDateLabel">Due Date *</span>
-								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control" placeholder="dd/mm/yyyy"/>
+								<!-- data-dp joins the shared calendar without a magic class; data-dp-iso mirrors the pick
+								     into the hidden #dueDate as yyyy-MM-dd, which is what the app actually reads. -->
+								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control"
+								       data-dp="date" data-dp-iso="#dueDate" placeholder="dd-mm-yyyy"/>
 								<input type="hidden" id="dueDate" name="dueDate"/>
 							</div>
 						</div>

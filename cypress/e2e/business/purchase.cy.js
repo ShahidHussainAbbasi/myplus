@@ -256,6 +256,35 @@ describe('Purchase Table — Row Click', () => {
     })
   })
 
+  // A zero P/U price used to save: `required` only tests for non-empty, so "0" sailed through — and a zero-cost
+  // bill wrecks margin on every sale of that batch and posts a zero COGS/inventory value to the ledger.
+  it('refuses to save a purchase whose P/U price is 0', () => {
+    cy.get('#purchasePurchaseRate').should('have.attr', 'min', '0.01')   // browser-level rule
+
+    cy.intercept('POST', '/addPurchase').as('addPurchase')
+    cy.window().then((w) => w.newEntity('Purchase'))        // the "+ New" path, so the error surfaces as it does live
+    cy.get('#PurchaseModal').should('have.class', 'open')
+
+    cy.get('#purchaseItemDD option').then(($opts) => {
+      // option[0] is the "Nothing Selected" placeholder; a real item is needed or the ITEM guard fires first.
+      const real = $opts.toArray().find((o) => o.value && o.value !== '')
+      if (!real) return cy.log('No items in this org — P/U price validation test skipped')
+
+      cy.get('#purchaseItemDD').invoke('val', real.value).trigger('change')
+      cy.get('#purchaseQuantity').clear({ force: true }).type('2', { force: true })
+      cy.get('#purchasePurchaseRate').clear({ force: true }).type('0', { force: true })
+      cy.get('#addPurchase').click({ force: true })
+
+      cy.contains('greater than 0', { timeout: 4000 }).should('be.visible')
+      cy.wait(500)
+      cy.get('@addPurchase.all').should('have.length', 0)   // nothing was posted
+
+      // …and a real price clears the block (the guard isn't just refusing everything).
+      cy.get('#purchasePurchaseRate').clear({ force: true }).type('25', { force: true })
+      cy.get('#purchasePurchaseRate').should('have.value', '25')
+    })
+  })
+
   // Checkbox → bulk-action bar → confirm popup → Cancel. Kept NON-destructive (Cancel, not confirm) so it
   // doesn't reverse real stock; the actual delete path is covered by the deletePurchase API tests above.
   it('checking a row reveals the bulk-action bar; Delete opens the confirm popup; Cancel closes it', () => {

@@ -19,7 +19,7 @@ up -d --build` (no service list) — see §9 *Deploy the full stack*.
 
 | Component | Container | Host port | Role |
 |-----------|-----------|-----------|------|
-| MySQL 8 | `myplus-mysql` | 3306 | Per-service DBs (`myplusdb` = business-service, `myplusdb_auth`, `myplusdb_catalog`, `myplusdb_inventory`, `myplusdb_finance`, `myplusdb_audit`). The monolith owns **no** database (P5). |
+| MySQL 8 | `myplus-mysql` | 3306 | Per-service DBs (`myplusdb` = business-service, `myplusdb_auth`, `myplusdb_catalog`, `myplusdb_inventory`, `myplusdb_finance`, `myplusdb_audit`, `myplusdb_party`). The monolith owns **no** database (P5). |
 | Redis | `myplus-redis` | – (internal) | Demo-quota / rate-limit counter |
 | Eureka | `myplus-eureka` | 8761 | Service discovery |
 | Config server | `myplus-config` | 8888 | Centralised config |
@@ -47,6 +47,12 @@ Only edge components publish host ports; the rest are reachable only inside the 
 > retried, so *selling still works if audit is down* — events just queue and deliver later). It
 > also backs the dashboard **Audit Log** view, so it is included in the POS subset.
 
+> **party-service** (port 8096, DB `myplusdb_party`) is the shared contact/CRM master. business-service
+> best-effort links each customer/vendor to a shared `partyId` on write (off the domain transaction,
+> short timeout + circuit breaker), so *selling and registering still work if party is down* — the
+> record just saves with a null `party_id` and re-links on the next write. It backs the owner
+> **Contact 360** view. Optional for bare POS, but included in the subset since the bridge is wired.
+
 > **Tax register** (dashboard → *Tax Register*) is a report served by **finance-service** from the
 > GL TAX account — output tax (sales) − input tax (purchases) = net payable. Per-org configurable
 > on the Tax Settings screen; no extra service.
@@ -57,9 +63,10 @@ Only edge components publish host ports; the rest are reachable only inside the 
 > reads it (short cache) to gate its ops and the GL refuses to post into a locked date. No extra
 > service; the lock read tolerates finance being briefly down (fails open, GL is the backstop).
 
-**Approx. RAM for the POS subset:** mysql 1.5 GB + monolith 1 GB + 9 JVMs × 0.75 GB +
-notification 0.5 GB ≈ **~10 GB**. Size the VPS accordingly (≥ 8 GB, 12 GB comfortable).
-The **full stack** (all 19 services) needs ~16 GB — see §9.
+**Approx. RAM for the POS subset:** mysql 1.5 GB + monolith 1 GB + 10 JVMs × 0.75 GB +
+notification 0.5 GB ≈ **~11 GB**. Size the VPS accordingly (≥ 8 GB, 12 GB comfortable). To trim,
+party-service is the one droppable JVM (best-effort — POS runs without it, `party_id` stays null).
+The **full stack** (all 20 services) needs ~16 GB — see §9.
 
 ```
 Browser ──▶ :8080 monolith (UI) ──▶ :8765 gateway ──▶ auth / catalog / inventory / business
@@ -133,7 +140,7 @@ The microservices are one Maven reactor. Build the common libraries + the POS se
 # from repo root
 cd microservices
 # Fast: only the POS services + their upstream common libs (-am pulls in commerce-contracts, common-*)
-mvn -q -DskipTests -pl eureka-server,config-server,api-gateway,auth-service,notification-service,catalog-service,inventory-service,business-service,finance-service,audit-service -am install
+mvn -q -DskipTests -pl eureka-server,config-server,api-gateway,auth-service,notification-service,catalog-service,inventory-service,business-service,finance-service,audit-service,party-service -am install
 cd ..
 
 # Build the monolith (UI) jar -> target/myplus.jar
@@ -149,7 +156,7 @@ mvn -q -DskipTests clean package
 cd microservices
 docker compose up -d --build \
   mysql redis eureka-server config-server api-gateway \
-  auth-service notification-service catalog-service inventory-service business-service finance-service audit-service monolith
+  auth-service notification-service catalog-service inventory-service business-service finance-service audit-service party-service monolith
 ```
 
 Compose starts these in dependency order (mysql/redis → config/eureka → gateway → services →
@@ -291,13 +298,13 @@ GRAFANA_PASSWORD=<strong-random-password>       # REQUIRED for observability; UN
 
 ```bash
 cd /opt/myplus/microservices
-mvn -q -DskipTests -pl eureka-server,config-server,api-gateway,auth-service,notification-service,catalog-service,inventory-service,business-service,finance-service,audit-service -am install
+mvn -q -DskipTests -pl eureka-server,config-server,api-gateway,auth-service,notification-service,catalog-service,inventory-service,business-service,finance-service,audit-service,party-service -am install
 cd /opt/myplus && mvn -q -DskipTests clean package        # monolith jar
 cd /opt/myplus/microservices
 
 docker compose up -d --build \
   mysql redis eureka-server config-server api-gateway \
-  auth-service notification-service catalog-service inventory-service business-service finance-service audit-service monolith
+  auth-service notification-service catalog-service inventory-service business-service finance-service audit-service party-service monolith
 
 docker compose ps
 ```
@@ -519,7 +526,7 @@ After secrets are set and jars are built:
 ```bash
 cd microservices && docker compose up -d --build \
   mysql redis eureka-server config-server api-gateway \
-  auth-service notification-service catalog-service inventory-service business-service finance-service audit-service monolith
+  auth-service notification-service catalog-service inventory-service business-service finance-service audit-service party-service monolith
 # open http://localhost:8080  (local)  /  https://<your-domain>  (VPS)
 ```
 

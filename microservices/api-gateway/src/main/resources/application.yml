@@ -118,8 +118,31 @@ spring:
                 fallbackUri: forward:/fallback
             - name: JwtAuthenticationFilter
             - StripPrefix=2
-        # NOTE: audit-service deliberately has NO demo route. Its ledger is append-only by design (that is the
-        # point of an audit trail), so "Reset demo" does not erase it.
+        # audit-service IS purged on demo reset (owner's call): a demo tenant restarting from zero shouldn't keep
+        # an audit trail of records that no longer exist. The append-only guarantee still holds for real tenants —
+        # the purge is gated to DEMO_PRIVILEGE / DEMO_RESET_PRIVILEGE, which no paying customer's user carries.
+        - id: audit-demo
+          uri: lb://audit-service
+          predicates:
+            - Path=/api/audit/demo/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: audit-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
+        - id: notification-demo
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/demo/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: notification-service
+                fallbackUri: forward:/fallback
+            - name: JwtAuthenticationFilter
+            - StripPrefix=2
         # ----------------------------------------------------------------------------------------------------
         - id: inventory-service
           uri: lb://inventory-service

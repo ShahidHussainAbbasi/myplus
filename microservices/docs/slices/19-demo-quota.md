@@ -38,8 +38,11 @@ The reset had gone stale as services were added. Three fixes:
    of pharma-service behind, so a "reset" left stock without products and ledger rows without invoices. Now
    `PURGE_PATHS` is a flat list of 13 services; each purge is org-scoped and privilege-guarded, so a service
    holding nothing for that org simply deletes 0, and adding a service never silently drifts again.
-   **Excluded on purpose:** `audit-service` (append-only by design — the audit trail survives a reset) and
-   `notification-service` (delivery logs, no tenant business data).
+   **No exclusions** (owner's call, 2026-07-27): a reset removes everything the account created across all **15**
+   purge-capable services, the audit trail and notification logs included — a demo tenant restarting from zero
+   shouldn't keep anything describing records that no longer exist. The audit trail's append-only guarantee still
+   holds where it matters: the purge is gated to `DEMO_PRIVILEGE`/`DEMO_RESET_PRIVILEGE`, which no real customer's
+   user carries. `audit` is purged **last**, so the trail outlives the records it describes.
 2. **Gateway routes for the full-path services.** `/api/<module>/demo/purge` only resolved for the
    StripPrefix=2 services; catalog/inventory/finance/party/campaign/analytics map controllers at their full
    path and would have 404'd. Added `<svc>-demo` stripped routes (the same fix `appointment-demo` already had),

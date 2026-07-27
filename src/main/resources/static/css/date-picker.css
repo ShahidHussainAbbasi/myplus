@@ -1,0 +1,175 @@
+/*
+ * The app's date/datetime calendar (see /js/common/date-picker.js). Same visual language as the shared confirm
+ * dialog: Corporate Blue header, rounded card, generous tap targets. Fixed-positioned and above the CRUD modal
+ * layer, so a calendar opened from inside a modal is never clipped by its overflow.
+ */
+
+.dp-pop {
+    position: fixed;
+    z-index: 100002;                /* above .crud-overlay (1050) and the shared dialogs (100000) */
+    width: 296px;
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 18px 48px rgba(2, 6, 23, .24);
+    font-family: inherit;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* Header ─────────────────────────────────────────────────────────────────────────────────────────── */
+.dp-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 10px;
+    background: linear-gradient(135deg, #0D3B8C, #1565C0);
+}
+.dp-title {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+}
+.dp-sel {
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, .32);
+    border-radius: 7px;
+    padding: 3px 6px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    max-width: 108px;
+}
+.dp-sel option { color: #0f172a; background: #fff; }
+.dp-nav {
+    width: 30px; height: 30px;
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, .16);
+    border: 1px solid rgba(255, 255, 255, .32);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+}
+.dp-nav:hover { background: rgba(255, 255, 255, .3); }
+
+/* Day grid ───────────────────────────────────────────────────────────────────────────────────────── */
+.dp-dow, .dp-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: 0 8px;
+}
+.dp-dow {
+    padding-top: 10px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    text-align: center;
+}
+.dp-days { padding-bottom: 6px; gap: 2px; }
+.dp-day {
+    height: 36px;
+    border: 1px solid transparent;
+    background: none;
+    border-radius: 9px;
+    color: #0f172a;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+.dp-day:hover { background: #e8eef7; }
+.dp-day.is-out { color: #cbd5e1; cursor: default; }
+.dp-day.is-out:hover { background: none; }
+.dp-day.is-today { border-color: #1565C0; font-weight: 700; }
+.dp-day.is-sel { background: #1565C0; color: #fff; font-weight: 700; }
+.dp-day.is-sel:hover { background: #0D3B8C; }
+
+/* Month grid (MM-yyyy fields) ────────────────────────────────────────────────────────────────────── */
+.dp-months {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 12px 10px 6px;
+}
+.dp-month {
+    height: 42px;
+    border: 1px solid transparent;
+    background: none;
+    border-radius: 9px;
+    color: #0f172a;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.dp-month:hover { background: #e8eef7; }
+.dp-month.is-sel { background: #1565C0; color: #fff; }
+
+/* Time row ───────────────────────────────────────────────────────────────────────────────────────── */
+.dp-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border-top: 1px solid #e2e8f0;
+}
+.dp-time-label {
+    flex: 1;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+.dp-num {
+    width: 46px;
+    padding: 5px 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-family: inherit;
+    text-align: center;
+    color: #0f172a;
+}
+.dp-num:focus { outline: none; border-color: #1565C0; box-shadow: 0 0 0 3px rgba(21, 101, 192, .18); }
+.dp-colon { color: #64748b; font-weight: 700; }
+
+/* Footer ─────────────────────────────────────────────────────────────────────────────────────────── */
+.dp-foot {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    padding: 8px 12px 12px;
+    border-top: 1px solid #e2e8f0;
+}
+.dp-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+}
+.dp-btn:hover { background: #f8fafc; }
+.dp-btn.dp-clear { color: #b42318; border-color: #fecdca; }
+.dp-btn.dp-clear:hover { background: #fef3f2; }
+
+/* The bound input while its calendar is open */
+input.dp-active {
+    border-color: #1565C0 !important;
+    box-shadow: 0 0 0 3px rgba(21, 101, 192, .18);
+}
+
+@media (max-width: 380px) {
+    .dp-pop { width: calc(100vw - 16px); }
+}

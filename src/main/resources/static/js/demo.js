@@ -27,8 +27,8 @@
     uiConfirm({
       title: 'Reset the demo?',
       message: 'This permanently deletes THIS account\'s data — sales, products, stock, ledger entries, '
-        + 'contacts, students, donations, appointments — across every module, and restarts the entry '
-        + 'allowance.\n\nIt cannot be undone.',
+        + 'contacts, students, donations, appointments and the audit trail — across every module, and '
+        + 'restarts the entry allowance.\n\nIt cannot be undone.',
       confirmText: 'Reset everything',
       cancelText: 'Keep my data',
       tone: 'danger'

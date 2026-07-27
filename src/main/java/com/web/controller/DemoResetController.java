@@ -63,8 +63,10 @@ public class DemoResetController {
     // added, leaving stock without products and ledger rows without invoices. A service holding nothing for
     // this org just deletes 0.
     //
-    // NOT in the list: audit-service (append-only by design — the audit trail survives a demo reset) and
-    // notification-service (delivery logs, no tenant business data).
+    // NO exclusions: a reset removes EVERYTHING this account created, in all 15 purge-capable services —
+    // including the audit trail and notification logs. A demo tenant restarting from zero should keep nothing that
+    // describes records which no longer exist. The audit trail's append-only guarantee still holds where it
+    // matters: the purge is gated to DEMO_PRIVILEGE / DEMO_RESET_PRIVILEGE, which no real customer's user carries.
     private static final List<String> PURGE_PATHS = List.of(
             "/api/business/demo/purge",
             "/api/education/demo/purge",
@@ -78,7 +80,9 @@ public class DemoResetController {
             "/api/party/demo/purge",
             "/api/marketplace/demo/purge",
             "/api/campaign/demo/purge",
-            "/api/analytics/demo/purge");
+            "/api/analytics/demo/purge",
+            "/api/notifications/demo/purge",
+            "/api/audit/demo/purge");        // last: clear the trail only after the records it describes are gone
 
     /** Authorities allowed to reset: a capped demo account, or the dev-seeded owner test account. */
     private static final Set<String> RESET_AUTHORITIES = Set.of("DEMO_PRIVILEGE", "DEMO_RESET_PRIVILEGE");

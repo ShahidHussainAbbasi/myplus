@@ -84,9 +84,9 @@ $(document).ready(function() {
 	});
 */
 
-	$("#pickerDateBirth").datetimepicker({
-		format : 'DD/MM/YYYY'
-	});
+	// (Removed: a bootstrap-datetimepicker binding for #pickerDateBirth, an element that exists in no live
+	//  template — only in the dead templates/fragments/js copies. Every real date field is bound by the shared
+	//  /js/common/date-picker.js; nothing else may bind a picker, or fields start clearing on blur again.)
 
 	$(window).load(function() {
 

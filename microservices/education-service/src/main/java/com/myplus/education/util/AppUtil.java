@@ -23,6 +23,8 @@ public class AppUtil {
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    /** The month pickers (.monthYearDatePicker → alert period sdStr/edStr) submit MM-yyyy, not a full date. */
+    private final DateTimeFormatter monthYearFormatter = DateTimeFormatter.ofPattern("MM-yyyy");
 
     public final String SUCCESS = "SUCCESS";
     public final String FAILED = "FAILED";
@@ -48,8 +50,28 @@ public class AppUtil {
         return date == null ? "" : dateFormatter.format(date);
     }
 
+    /**
+     * Parse a UI date. Accepts every shape the dashboards actually send, because they are not all
+     * {@code dd-MM-yyyy}: the alert period fields (sdStr/edStr) come from a MONTH picker and send
+     * {@code MM-yyyy}, which used to throw here and fail the save. Order: dd-MM-yyyy → ISO (yyyy-MM-dd) →
+     * MM-yyyy (taken as the 1st of that month). Empty keeps the previous "today" behaviour.
+     * Mirrors business-service's AppUtil, which is already lenient the same way.
+     */
     public LocalDate getLocalDate(String dateStr) {
-        return StringUtils.isEmpty(dateStr) ? LocalDate.now() : LocalDate.parse(dateStr, dateFormatter);
+        if (StringUtils.isEmpty(dateStr)) return LocalDate.now();
+        String s = dateStr.trim();
+        try {
+            return LocalDate.parse(s, dateFormatter);                       // dd-MM-yyyy (the common case)
+        } catch (java.time.format.DateTimeParseException ignored) { }
+        try {
+            return LocalDate.parse(s);                                      // ISO yyyy-MM-dd
+        } catch (java.time.format.DateTimeParseException ignored) { }
+        try {
+            return java.time.YearMonth.parse(s, monthYearFormatter).atDay(1);   // MM-yyyy → 1st of the month
+        } catch (java.time.format.DateTimeParseException e) {
+            LOGGER.warn("Unparseable date '{}' — falling back to today", s);
+            return LocalDate.now();
+        }
     }
 
     public LocalDateTime firstDateTimeOfMonth() {

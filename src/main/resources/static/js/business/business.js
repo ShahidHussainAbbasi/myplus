@@ -1793,28 +1793,15 @@ function escSR(s){
 	});
 }
 
-// Show/hide the custom date-range pickers based on the Period select (0 = current month, 4 = custom).
-// The eonasdan datetimepicker mis-initialises when bound to a display:none field (its global
-// document-ready init runs while these wrappers are hidden), so the calendar never opens. Re-create
-// the pickers the moment they become visible. Format stays dd-MM-yyyy HH:mm:ss — the backend's
-// getDateTime() parses sd/ed strictly with that pattern.
+// The custom date-range fields (#srsd/#sred) carry class="datetimepicker", so the shared picker
+// (/js/common/date-picker.js) already owns them — re-binding a second plugin here is exactly what made date
+// fields clear on blur elsewhere. It also removes the reason this function existed: the old eonasdan widget
+// mis-initialised when bound to a display:none field, so the pickers had to be re-created each time the
+// wrapper became visible. The shared picker builds its calendar on focus and positions it then, so a field
+// that starts hidden is a non-issue. Format is unchanged (dd-MM-yyyy HH:mm:ss — what the backend's
+// getDateTime() parses for sd/ed). Kept as a hook for the toggle below.
 function initSRDatePickers(){
-	['#srsd', '#sred'].forEach(function(sel){
-		var $el = $(sel);
-		if (!$el.length) return;
-		try { if ($el.data('DateTimePicker')) $el.data('DateTimePicker').destroy(); } catch (e) {}
-		$el.datetimepicker({
-			format: 'DD-MM-YYYY HH:mm:ss',
-			useCurrent: false,
-			showTodayButton: true,
-			showClear: true,
-			showClose: true,
-			toolbarPlacement: 'top'
-		}).on('dp.show', function(){
-			var dtp = $(this).data('DateTimePicker');
-			if (dtp && dtp.date() === null) dtp.date(moment());
-		});
-	});
+	if (typeof initDatePickers === 'function') initDatePickers();   // pick up any newly rendered field
 }
 function toggleSRCustomRange(){
 	var custom = $('#dateRangeDDSR').val() === '4';
