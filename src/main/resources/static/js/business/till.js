@@ -30,48 +30,48 @@
                 $('#tillOpenPanel').show();
                 $('#tillStatus').show().removeClass('alert-info').addClass('alert-warning').text('No open shift. Open the till to start.');
             }
-        }).fail(function () { showFormError('Could not load the shift.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadTheShift')); });
     }
     global.loadCurrentShift = loadCurrentShift;
 
     global.openShift = function () {
         $.post(serverContext + 'openShift', { openingFloat: $('#tillFloat').val() || '0' }, function (resp) {
-            if (resp && resp.status === 'SUCCESS') { showSaleSuccess('Shift opened.'); $('#tillFloat').val(''); loadCurrentShift(); }
+            if (resp && resp.status === 'SUCCESS') { showSaleSuccess(t('ui.js.shiftOpened')); $('#tillFloat').val(''); loadCurrentShift(); }
             else { showFormError((resp && resp.message) || 'Could not open the shift.'); }
-        }, 'json').fail(function () { showFormError('Could not open the shift.'); });
+        }, 'json').fail(function () { showFormError(t('ui.js.couldNotOpenTheShift')); });
     };
 
     global.addCashMovement = function () {
         var amt = $('#tillMoveAmount').val();
-        if (!amt || Number(amt) <= 0) { showFormError('Enter an amount greater than 0.'); return; }
+        if (!amt || Number(amt) <= 0) { showFormError(t('ui.js.enterAnAmountGreaterThan0')); return; }
         $.post(serverContext + 'cashMovement',
             { type: $('#tillMoveType').val(), amount: amt, reason: $('#tillMoveReason').val() || '' },
             function (resp) {
                 if (resp && resp.status === 'SUCCESS') {
-                    showSaleSuccess('Cash movement recorded.');
+                    showSaleSuccess(t('ui.js.cashMovementRecorded'));
                     $('#tillMoveAmount').val(''); $('#tillMoveReason').val('');
                     loadShiftReport();
                 } else { showFormError((resp && resp.message) || 'Could not record the movement.'); }
-            }, 'json').fail(function () { showFormError('Could not record the movement.'); });
+            }, 'json').fail(function () { showFormError(t('ui.js.couldNotRecordTheMovement')); });
     };
 
     global.loadShiftReport = function () {
         $.get(serverContext + 'shiftReport', function (resp) {
             if (resp && resp.status === 'SUCCESS' && resp.object) renderShiftReport(resp.object, false);
             else showFormError((resp && resp.message) || 'No open shift.');
-        }).fail(function () { showFormError('Could not load the report.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadTheReport')); });
     };
 
     global.closeShift = function () {
         $.post(serverContext + 'closeShift', { countedCash: $('#tillCounted').val() || '0', notes: $('#tillCloseNotes').val() || '' },
             function (resp) {
                 if (resp && resp.status === 'SUCCESS' && resp.object) {
-                    showSaleSuccess('Shift closed.');
+                    showSaleSuccess(t('ui.js.shiftClosed'));
                     renderShiftReport(resp.object, true);
                     $('#tillCounted').val(''); $('#tillCloseNotes').val('');
                     loadCurrentShift();
                 } else { showFormError((resp && resp.message) || 'Could not close the shift.'); }
-            }, 'json').fail(function () { showFormError('Could not close the shift.'); });
+            }, 'json').fail(function () { showFormError(t('ui.js.couldNotCloseTheShift')); });
     };
 
     function renderShiftReport(r, isZ) {

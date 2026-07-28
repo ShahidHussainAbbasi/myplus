@@ -39,7 +39,7 @@
                 tr.append($('<td>').html(action));
                 $b.append(tr);
             });
-        }).fail(function () { showFormError('Could not load orders.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadOrders')); });
     }
     global.loadOrders = loadOrders;
 
@@ -48,19 +48,19 @@
             type: 'POST', url: serverContext + 'updateOrderStatus', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ id: id, status: status }),
             success: function (resp) {
-                if (resp && resp.success) { showSaleSuccess('Order → ' + status); loadOrders(); }
+                if (resp && resp.success) { showSaleSuccess(t('ui.js.order') + status); loadOrders(); }
                 else showFormError((resp && resp.message) || 'Could not update the order.');
             },
-            error: function () { showFormError('Could not update the order.'); }
+            error: function () { showFormError(t('ui.js.couldNotUpdateTheOrder')); }
         });
     };
 
     global.cancelOrder = function (id) {
         uiConfirm({
-            title: 'Cancel this order?',
-            message: 'The order is cancelled and its stock returns to inventory.',
-            confirmText: 'Cancel order',
-            cancelText: 'Keep order',
+            title: t('ui.js.cancelThisOrder'),
+            message: t('ui.js.theOrderIsCancelledAndItsStock'),
+            confirmText: t('ui.js.cancelOrder'),
+            cancelText: t('ui.js.keepOrder'),
             tone: 'danger'
         }).then(function (ok) {
             if (!ok) return;
@@ -68,10 +68,10 @@
                 type: 'POST', url: serverContext + 'updateOrderStatus', contentType: 'application/json', dataType: 'json',
                 data: JSON.stringify({ id: id, status: 'CANCELLED' }),
                 success: function (resp) {
-                    if (resp && resp.success) { showSaleSuccess('Order cancelled — stock returned.'); loadOrders(); }
+                    if (resp && resp.success) { showSaleSuccess(t('ui.js.orderCancelledStockReturned')); loadOrders(); }
                     else showFormError((resp && resp.message) || 'Could not cancel the order.');
                 },
-                error: function () { showFormError('Could not cancel the order.'); }
+                error: function () { showFormError(t('ui.js.couldNotCancelTheOrder')); }
             });
         });
     };
@@ -84,7 +84,7 @@
         $.ajax({
             type: 'POST', url: serverContext + 'recordOrder', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ invoiceNo: invoiceNo, customerName: $('#sellCN').val(), total: total }),
-            success: function (resp) { if (resp && resp.success) showSaleSuccess('Order ' + invoiceNo + ' created.'); }
+            success: function (resp) { if (resp && resp.success) showSaleSuccess(t('ui.js.order2') + invoiceNo + ' created.'); }
         });
     };
 })(window);

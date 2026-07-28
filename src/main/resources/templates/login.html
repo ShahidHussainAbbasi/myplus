@@ -7,9 +7,10 @@
     <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
-    <!-- Arabic-script webfonts, loaded only for RTL locales (Inter has no Arabic coverage). -->
-    <link th:if="${isRtl}" rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap"/>
+    <!-- Script webfont for languages Inter does not cover (Arabic, Urdu, Devanagari) — each language
+         declares its own; Latin-script visitors download nothing extra. -->
+    <link th:if="${langWebfont}" rel="stylesheet"
+          th:href="'https://fonts.googleapis.com/css2?family=' + ${langWebfont} + '&display=swap'"/>
     <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
     <link rel="stylesheet" th:href="@{/css/login.css}"/>
     <link rel="stylesheet" th:href="@{/css/lang-switcher.css}"/>

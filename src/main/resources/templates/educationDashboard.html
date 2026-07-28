@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${htmlLang}" th:dir="${htmlDir}">
 <head>
 <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
-<title>Education Dashboard — MyPlus</title>
+<title th:text="#{ui.educationDashboardMyplus}">Education Dashboard — MyPlus</title>
 <th:block th:replace="~{fragments/header :: header-css}"></th:block>
 <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
 <link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
@@ -38,7 +38,7 @@
 </style>
 </head>
 <body class="has-sidebar">
-<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu" th:aria-label="#{ui.openMenu}"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
 <div class="sidebar-backdrop" onclick="closeSidebar()"></div>
    	<div id="container">
 		<th:block th:replace="~{fragments/header :: header}" />
@@ -46,39 +46,39 @@
 			<!-- Nav selects: off-screen so main.js change events fire and Cypress can reach them -->
 			<div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
 				<select name="registrationType" id="registrationType" class="dropdown show panel-heading" tabindex="-1">
-					<option value="">Manage Registrations</option>
-					<option value="OwnerDiv">Owners</option>
-					<option value="SchoolDiv">Campus</option>
-					<option value="VehicleDiv">Vehicles</option>
-					<option value="GradeDiv">Classes</option>
-					<option value="StaffDiv">Employee</option>
-					<option value="SubjectDiv">Subjects</option>
-					<option value="DiscountDiv">Manage Discounts/Charges</option>
-					<option value="GuardianDiv">Guardians</option>
-					<option value="StudentDiv">Manage Students</option>
+					<option value="" th:text="#{ui.manageRegistrations}">Manage Registrations</option>
+					<option value="OwnerDiv" th:text="#{ui.owners}">Owners</option>
+					<option value="SchoolDiv" th:text="#{ui.campus}">Campus</option>
+					<option value="VehicleDiv" th:text="#{ui.vehicles}">Vehicles</option>
+					<option value="GradeDiv" th:text="#{ui.classes}">Classes</option>
+					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
+					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
+					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
+					<option value="GuardianDiv" th:text="#{ui.guardians}">Guardians</option>
+					<option value="StudentDiv" th:text="#{ui.manageStudents}">Manage Students</option>
 				</select>
 				<select name="feeType" id="feeType" class="dropdown show panel-heading" tabindex="-1">
-					<option value="">Manage Fee</option>
-					<option value="FcDiv">Fee Collection</option>
-					<option value="FVDiv">Fee Voucher/Ledger</option>
-					<option value="FRDiv">Fee Report</option>
-					<option value="FeeSettingDiv">Fee Settings</option>
+					<option value="" th:text="#{ui.manageFee}">Manage Fee</option>
+					<option value="FcDiv" th:text="#{ui.feeCollection}">Fee Collection</option>
+					<option value="FVDiv" th:text="#{ui.feeVoucherLedger}">Fee Voucher/Ledger</option>
+					<option value="FRDiv" th:text="#{ui.feeReport}">Fee Report</option>
+					<option value="FeeSettingDiv" th:text="#{ui.feeSettings}">Fee Settings</option>
 				</select>
 				<select name="reportType" id="reportType" class="dropdown show panel-heading" tabindex="-1">
-					<option value="">View Reports</option>
-					<option value="FRDiv">Fee Report</option>
+					<option value="" th:text="#{ui.viewReports}">View Reports</option>
+					<option value="FRDiv" th:text="#{ui.feeReport}">Fee Report</option>
 				</select>
 				<select name="attendanceType" id="attendanceType" class="dropdown show panel-heading" tabindex="-1">
-					<option value="">Manage Attendance</option>
-					<option value="ADiv">Attendance</option>
+					<option value="" th:text="#{ui.manageAttendance}">Manage Attendance</option>
+					<option value="ADiv" th:text="#{ui.attendance}">Attendance</option>
 				</select>
 				<select name="communicationType" id="communicationType" class="dropdown show panel-heading" tabindex="-1">
-					<option value="">Manage Alerts</option>
-					<option value="PADiv">Public Alerts</option>
-					<option value="AlertsDiv">System Alerts</option>
+					<option value="" th:text="#{ui.manageAlerts}">Manage Alerts</option>
+					<option value="PADiv" th:text="#{ui.publicAlerts}">Public Alerts</option>
+					<option value="AlertsDiv" th:text="#{ui.systemAlerts}">System Alerts</option>
 				</select>
 			</div>
-			<nav class="app-sidebar" id="app-sidebar"><div class="app-sidebar__brand"><span class="glyphicon glyphicon-th-large"></span><span class="app-sidebar__brand-text">MyPlus</span><button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button></div>
+			<nav class="app-sidebar" id="app-sidebar"><div class="app-sidebar__brand"><span class="glyphicon glyphicon-th-large"></span><span class="app-sidebar__brand-text">MyPlus</span><button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu" th:title="#{ui.collapseMenu}"><span class="glyphicon glyphicon-menu-hamburger"></span></button></div>
 				<div class="container-fluid">
 					<div class="snav-inner">
 						<div class="snav-left">
@@ -90,84 +90,84 @@
 							<div class="snav-dd" id="snavRegister">
 								<button class="snav-btn" onclick="snavToggle(event,'snavRegister')">
 									<span class="glyphicon glyphicon-pencil"></span>
-									<span>Register</span>
+									<span th:text="#{ui.register}">Register</span>
 									<span class="snav-caret">&#9660;</span>
 								</button>
 								<ul class="snav-menu">
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','OwnerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Owners</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SchoolDiv','snavRegister')"><span class="glyphicon glyphicon-home"></span> Campus</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','VehicleDiv','snavRegister')"><span class="glyphicon glyphicon-road"></span> Vehicles</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradeDiv','snavRegister')"><span class="glyphicon glyphicon-th-large"></span> Classes</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> Employee</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> Subjects</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> Manage Discounts/Charges</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GuardianDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> Guardians</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StudentDiv','snavRegister')"><span class="glyphicon glyphicon-education"></span> Manage Students</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','OwnerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.owners}">Owners</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SchoolDiv','snavRegister')"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.campus}">Campus</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','VehicleDiv','snavRegister')"><span class="glyphicon glyphicon-road"></span> <span th:text="#{ui.vehicles}">Vehicles</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradeDiv','snavRegister')"><span class="glyphicon glyphicon-th-large"></span> <span th:text="#{ui.classes}">Classes</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GuardianDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.guardians}">Guardians</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StudentDiv','snavRegister')"><span class="glyphicon glyphicon-education"></span> <span th:text="#{ui.manageStudents}">Manage Students</span></a></li>
 									<!-- P4: add teachers/admins and assign them to branches (the education twin of the POS
 									     Manage Users screen; showTeam lives in /js/common/team.js). -->
-									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"><a onclick="showTeam();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> Manage Users</a></li>
+									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"><a onclick="showTeam();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.manageUsers}">Manage Users</span></a></li>
 								</ul>
 							</div>
 							<div class="snav-dd" id="snavFee">
 								<button class="snav-btn" onclick="snavToggle(event,'snavFee')">
 									<span class="glyphicon glyphicon-usd"></span>
-									<span>Fee</span>
+									<span th:text="#{ui.fee}">Fee</span>
 									<span class="snav-caret">&#9660;</span>
 								</button>
 								<ul class="snav-menu">
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FcDiv','snavFee')"><span class="glyphicon glyphicon-plus-sign"></span> Fee Collection</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FVDiv','snavFee')"><span class="glyphicon glyphicon-list-alt"></span> Fee Voucher/Ledger</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','FEE_REPORT','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FRDiv','snavFee')"><span class="glyphicon glyphicon-stats"></span> Fee Report</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FeeSettingDiv','snavFee')"><span class="glyphicon glyphicon-cog"></span> Fee Settings</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FcDiv','snavFee')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.feeCollection}">Fee Collection</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FVDiv','snavFee')"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.feeVoucherLedger}">Fee Voucher/Ledger</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','FEE_REPORT','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FRDiv','snavFee')"><span class="glyphicon glyphicon-stats"></span> <span th:text="#{ui.feeReport}">Fee Report</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FeeSettingDiv','snavFee')"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.feeSettings}">Fee Settings</span></a></li>
 									<!-- Owner Configuration: the generic per-tenant settings screen (branch policies etc.). -->
-									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showConfig();document.getElementById('snavFee').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> Configuration</a></li>
+									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showConfig();document.getElementById('snavFee').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
 								</ul>
 							</div>
 							<div class="snav-dd" id="snavReport">
 								<button class="snav-btn" onclick="snavToggle(event,'snavReport')">
 									<span class="glyphicon glyphicon-stats"></span>
-									<span>Reports</span>
+									<span th:text="#{ui.reports}">Reports</span>
 									<span class="snav-caret">&#9660;</span>
 								</button>
 								<ul class="snav-menu">
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','FEE_REPORT','SUPER_PRIVILEGE')"><a onclick="snavGo('reportType','FRDiv','snavReport')"><span class="glyphicon glyphicon-file"></span> Fee Report</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','FEE_REPORT','SUPER_PRIVILEGE')"><a onclick="snavGo('reportType','FRDiv','snavReport')"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.feeReport}">Fee Report</span></a></li>
 								</ul>
 							</div>
 							<div class="snav-dd" id="snavAttendance">
 								<button class="snav-btn" onclick="snavToggle(event,'snavAttendance')">
 									<span class="glyphicon glyphicon-check"></span>
-									<span>Attendance</span>
+									<span th:text="#{ui.attendance}">Attendance</span>
 									<span class="snav-caret">&#9660;</span>
 								</button>
 								<ul class="snav-menu">
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','MANAGE_ATTENDANCE','SUPER_PRIVILEGE')"><a onclick="snavGo('attendanceType','ADiv','snavAttendance')"><span class="glyphicon glyphicon-ok"></span> Attendance</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','MANAGE_ATTENDANCE','SUPER_PRIVILEGE')"><a onclick="snavGo('attendanceType','ADiv','snavAttendance')"><span class="glyphicon glyphicon-ok"></span> <span th:text="#{ui.attendance}">Attendance</span></a></li>
 								</ul>
 							</div>
 							<div class="snav-dd" id="snavAlerts">
 								<button class="snav-btn" onclick="snavToggle(event,'snavAlerts')">
 									<span class="glyphicon glyphicon-bell"></span>
-									<span>Alerts</span>
+									<span th:text="#{ui.alerts}">Alerts</span>
 									<span class="snav-caret">&#9660;</span>
 								</button>
 								<ul class="snav-menu">
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','PUBLIC_ALERTS','SUPER_PRIVILEGE')"><a onclick="snavGo('communicationType','PADiv','snavAlerts')"><span class="glyphicon glyphicon-bullhorn"></span> Public Alerts</a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SYSTEM_ALERTS','SUPER_PRIVILEGE')"><a onclick="snavGo('communicationType','AlertsDiv','snavAlerts')"><span class="glyphicon glyphicon-envelope"></span> System Alerts</a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','PUBLIC_ALERTS','SUPER_PRIVILEGE')"><a onclick="snavGo('communicationType','PADiv','snavAlerts')"><span class="glyphicon glyphicon-bullhorn"></span> <span th:text="#{ui.publicAlerts}">Public Alerts</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SYSTEM_ALERTS','SUPER_PRIVILEGE')"><a onclick="snavGo('communicationType','AlertsDiv','snavAlerts')"><span class="glyphicon glyphicon-envelope"></span> <span th:text="#{ui.systemAlerts}">System Alerts</span></a></li>
 								</ul>
 							</div>
 							<!-- Active-organization (tenant) switcher. Populated from /getMyOrganizations;
 							     changing it re-issues the session JWT scoped to the chosen org. -->
 							<span id="orgSwitcherLi" class="snav-org">
-								<select name="orgSwitcher" id="orgSwitcher" title="Active organization"
+								<select name="orgSwitcher" id="orgSwitcher" title="Active organization" th:title="#{ui.activeOrganization}"
 									class="snav-org-select"
 									style="height:32px;border-radius:6px;border:none;padding:0 8px;margin-left:8px;">
-									<option value="">Organization…</option>
+									<option value="" th:text="#{ui.organization}">Organization…</option>
 								</select>
 							</span>
 							<!-- P4 active-branch (school) switcher — the education twin of the POS store switcher.
 							     Hidden unless the user can work at 2+ branches. Changing it re-issues the session
 							     JWT with the chosen branch, which is what new students/grades are filed under. -->
 							<span id="branchSwitcherLi" class="snav-org" style="display:none">
-								<select name="branchSwitcher" id="branchSwitcher" title="Active branch"
+								<select name="branchSwitcher" id="branchSwitcher" title="Active branch" th:title="#{ui.activeBranch}"
 									class="snav-org-select"
 									style="height:32px;border-radius:6px;border:none;padding:0 8px;margin-left:8px;">
 								</select>
@@ -177,77 +177,77 @@
 				</div>
 			</nav>
 			<div>
-				<div id="globalError" class="alert alert-danger text-center" style="display:none">error</div>	
+				<div id="globalError" class="alert alert-danger text-center" style="display:none" th:text="#{ui.error}">error</div>	
 			</div>
 			<div id="DashboardDiv" class="formDiv dashbo">
 				<div class="an-head">
 					<div>
-						<h3 class="an-title">School Analytics</h3>
-						<div class="an-sub">Business, performance &amp; operations — at a glance</div>
+						<h3 class="an-title" th:text="#{ui.schoolAnalytics}">School Analytics</h3>
+						<div class="an-sub" th:text="#{ui.businessPerformanceAndOperationsAtA}">Business, performance &amp; operations — at a glance</div>
 					</div>
-					<button id="anRefresh" class="an-btn" type="button"><span class="glyphicon glyphicon-refresh"></span> Refresh</button>
+					<button id="anRefresh" class="an-btn" type="button"><span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.refresh}">Refresh</span></button>
 				</div>
-				<div id="anError" class="an-error" style="display:none">error</div>
+				<div id="anError" class="an-error" style="display:none" th:text="#{ui.error}">error</div>
 
 				<!-- KPI headlines (populated by educationDashboard.js) -->
 				<div class="an-kpis" id="anKpis"></div>
 
 				<!-- FINANCE -->
-				<div class="an-section-title"><span class="dot dot-fin"></span> Finance &amp; Fee Collection</div>
+				<div class="an-section-title"><span class="dot dot-fin"></span> <span th:text="#{ui.financeFeeCollection}">Finance &amp; Fee Collection</span></div>
 				<div class="an-grid">
 					<div class="an-panel an-wide">
-						<div class="an-panel-h">Monthly collection vs due — last 12 months</div>
+						<div class="an-panel-h" th:text="#{ui.monthlyCollectionVsDueLast12}">Monthly collection vs due — last 12 months</div>
 						<div class="an-canvas-wrap"><canvas id="chFeeTrend"></canvas></div>
 					</div>
 					<div class="an-panel">
-						<div class="an-panel-h">Payment methods</div>
+						<div class="an-panel-h" th:text="#{ui.paymentMethods}">Payment methods</div>
 						<div class="an-canvas-wrap"><canvas id="chPayModes"></canvas></div>
 					</div>
 					<div class="an-panel">
-						<div class="an-panel-h">Collection by class</div>
+						<div class="an-panel-h" th:text="#{ui.collectionByClass}">Collection by class</div>
 						<div class="an-canvas-wrap"><canvas id="chCollClass"></canvas></div>
 					</div>
 				</div>
 
 				<!-- STUDENTS -->
-				<div class="an-section-title"><span class="dot dot-stu"></span> Students &amp; Enrollment</div>
+				<div class="an-section-title"><span class="dot dot-stu"></span> <span th:text="#{ui.studentsEnrollment}">Students &amp; Enrollment</span></div>
 				<div class="an-grid">
 					<div class="an-panel an-wide">
-						<div class="an-panel-h">Enrollment trend — last 12 months</div>
+						<div class="an-panel-h" th:text="#{ui.enrollmentTrendLast12Months}">Enrollment trend — last 12 months</div>
 						<div class="an-canvas-wrap"><canvas id="chEnrollTrend"></canvas></div>
 					</div>
 					<div class="an-panel">
-						<div class="an-panel-h">Students per class</div>
+						<div class="an-panel-h" th:text="#{ui.studentsPerClass}">Students per class</div>
 						<div class="an-canvas-wrap"><canvas id="chStudentsClass"></canvas></div>
 					</div>
 					<div class="an-panel">
-						<div class="an-panel-h">Gender split</div>
+						<div class="an-panel-h" th:text="#{ui.genderSplit}">Gender split</div>
 						<div class="an-canvas-wrap"><canvas id="chGender"></canvas></div>
 					</div>
 					<div class="an-panel">
-						<div class="an-panel-h">Student status</div>
+						<div class="an-panel-h" th:text="#{ui.studentStatus}">Student status</div>
 						<div class="an-canvas-wrap"><canvas id="chStatus"></canvas></div>
 					</div>
 				</div>
 
 				<!-- ATTENDANCE -->
-				<div class="an-section-title"><span class="dot dot-att"></span> Attendance &amp; Performance</div>
+				<div class="an-section-title"><span class="dot dot-att"></span> <span th:text="#{ui.attendancePerformance}">Attendance &amp; Performance</span></div>
 				<div class="an-grid">
 					<div class="an-panel an-wide">
-						<div class="an-panel-h">Attendance rate — recent days</div>
+						<div class="an-panel-h" th:text="#{ui.attendanceRateRecentDays}">Attendance rate — recent days</div>
 						<div class="an-canvas-wrap"><canvas id="chAttTrend"></canvas></div>
 					</div>
 					<div class="an-panel">
-						<div class="an-panel-h">Attendance rate by class</div>
+						<div class="an-panel-h" th:text="#{ui.attendanceRateByClass}">Attendance rate by class</div>
 						<div class="an-canvas-wrap"><canvas id="chAttClass"></canvas></div>
 					</div>
 				</div>
 
 				<!-- STAFF -->
-				<div class="an-section-title"><span class="dot dot-staff"></span> Staff &amp; HR</div>
+				<div class="an-section-title"><span class="dot dot-staff"></span> <span th:text="#{ui.staffHr}">Staff &amp; HR</span></div>
 				<div class="an-grid">
 					<div class="an-panel">
-						<div class="an-panel-h">Staff by designation</div>
+						<div class="an-panel-h" th:text="#{ui.staffByDesignation}">Staff by designation</div>
 						<div class="an-canvas-wrap"><canvas id="chStaffDesig"></canvas></div>
 					</div>
 				</div>
@@ -255,34 +255,34 @@
 			<!-- P4 Team & Users — same element ids as the commerce dashboard, so /js/common/team.js drives both.
 			     Assigning branches here is what scopes a teacher to a campus. -->
 			<div id="TeamDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
-				<h3 class="dash-page-title">Team &amp; Users</h3>
+				<h3 class="dash-page-title" th:text="#{ui.teamAndUsers}">Team &amp; Users</h3>
 				<div id="teamMsg" class="alert" style="display:none"></div>
 				<!-- .form-toolbar (see /css/responsive.css): wraps as a unit at every width. The plain 12-column
 				     .row put the Add button in a col-sm-1 — 64px on a tablet, which clipped its label. -->
 				<div class="row form-toolbar" style="margin-bottom:14px">
-					<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name"/></div>
-					<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name"/></div>
-					<div class="col-sm-3"><input id="teamEmail" type="email" class="form-control" placeholder="Email"/></div>
+					<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name" th:placeholder="#{ui.firstName}"/></div>
+					<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name" th:placeholder="#{ui.lastName}"/></div>
+					<div class="col-sm-3"><input id="teamEmail" type="email" class="form-control" placeholder="Email" th:placeholder="#{ui.email}"/></div>
 					<div class="col-sm-2">
 						<select id="teamRole" class="form-control">
-							<option value="USER">Teacher</option>
+							<option value="USER" th:text="#{ui.teacher}">Teacher</option>
 							<!-- Only an owner may create an admin (server-enforced). -->
-							<option value="ADMIN" sec:authorize="hasAuthority('ROLE_OWNER')">Admin / Principal</option>
+							<option value="ADMIN" sec:authorize="hasAuthority('ROLE_OWNER')" th:text="#{ui.adminPrincipal}">Admin / Principal</option>
 						</select>
 					</div>
 					<div class="col-sm-1">
-						<button type="button" id="addTeamUser" class="btn btn-success" onclick="addTeamUser()">Add</button>
+						<button type="button" id="addTeamUser" class="btn btn-success" onclick="addTeamUser()" th:text="#{ui.add}">Add</button>
 					</div>
 				</div>
 				<div class="row" style="margin-bottom:14px">
 					<div class="col-sm-6">
-						<label style="font-weight:600;font-size:12px;color:#7a889c;margin-bottom:4px;display:block">Assign to branch(es)</label>
+						<label style="font-weight:600;font-size:12px;color:#7a889c;margin-bottom:4px;display:block" th:text="#{ui.assignToBranchEs}">Assign to branch(es)</label>
 						<!-- Toggle-chip picker (see /js/common/team.js) — replaces a ctrl+click <select multiple>. -->
 						<div id="teamStores" class="locpick"></div>
 					</div>
 				</div>
 				<table id="tableTeam" class="table table-bordered table-striped">
-					<thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Branches</th><th></th></tr></thead>
+					<thead><tr><th th:text="#{ui.name}">Name</th><th th:text="#{ui.email}">Email</th><th th:text="#{ui.role}">Role</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.branches}">Branches</th><th></th></tr></thead>
 					<tbody></tbody>
 				</table>
 			</div>
@@ -291,18 +291,18 @@
 				<h3 class="dash-page-title" th:text="#{label.owner.form.heading}">Owner Registration</h3>
 				<div style="margin-bottom:8px">
 					<button type="button" id="newOwner" class="btn btn-success" onclick="newEntity('Owner')">
-						<span class="glyphicon glyphicon-plus-sign"></span> New Owner
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newOwner}">New Owner</span>
 					</button>
 					<span id="bulkBarOwner" class="crud-bulkbar" style="display:none;margin-left:10px">
-						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Owner')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Owner')">Clear</button>
+						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Owner')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Owner')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
 				<div id="OwnerModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
-						<h4 id="OwnerModalTitle">New Owner</h4>
+						<h4 id="OwnerModalTitle" th:text="#{ui.newOwner}">New Owner</h4>
 						<button type="button" class="crud-x" onclick="resetForm();closeModal('OwnerModal')">&times;</button>
 					</div>
 					<div class="crud-body">
@@ -314,44 +314,44 @@
 						</div>
 					</div>
 					<div class="form-group">				
-						<label class="control-label col-sm-2 req" for="ownerName">Owner name</label>
+						<label class="control-label col-sm-2 req" for="ownerName" th:text="#{ui.ownerName2}">Owner name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="ownerName" name="name"
-								placeholder=" Owner Name" required="required"> 
+								placeholder=" Owner Name" th:placeholder="#{ui.ownerName}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2 req" for="ownerMobile">Mobile</label>
+						<label class="control-label col-sm-2 req" for="ownerMobile" th:text="#{ui.mobile2}">Mobile</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="ownerMobile" name="mobile"
-								placeholder="Mobile Number" required="required"> 
+								placeholder="Mobile Number" th:placeholder="#{ui.mobileNumber}" required="required"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="ownerAddress">Address</label>
+						<label class="control-label col-sm-2 req" for="ownerAddress" th:text="#{ui.address2}">Address</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="ownerAddress"
-								name="address" placeholder="Complete Address" required="required">
+								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}" required="required">
 						</div>
-						<label class="control-label col-sm-2" for="ownerEmail">Email</label>
+						<label class="control-label col-sm-2" for="ownerEmail" th:text="#{ui.email}">Email</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="ownerEmail" name="email"
-								placeholder="Email address">
+								placeholder="Email address" th:placeholder="#{ui.emailAddress2}">
 						</div>
 					</div>
 					<div class="form-group">
 	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="ownerStatus">Status</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="ownerStatus" name="status" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addOwner" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetOwner" class="btn btn-warning" onclick="resetForm();closeModal('OwnerModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="button" id="deleteOwner" class="btn btn-danger" style="display:none"></button>
 						<button type="reset" class="resetForm" style="display:none"></button>
@@ -363,14 +363,14 @@
 				<table id="tableOwner" class="table table-striped">
 					<thead>
 						<tr>
-							<th data-field="ownerId">Id</th>
-							<th data-field="checkDelete">Check</th>
-							<th data-field="name">Name</th>
-							<th data-field="mobile">Mobile</th>
-							<th data-field="address">Address</th>
-							<th data-field="email">Email</th>
-							<th data-field="ownerStatus">Status</th>
-							<th data-field="ownderDated">Dated</th>
+							<th data-field="ownerId" th:text="#{ui.id2}">Id</th>
+							<th data-field="checkDelete" th:text="#{ui.check}">Check</th>
+							<th data-field="name" th:text="#{ui.name}">Name</th>
+							<th data-field="mobile" th:text="#{ui.mobile2}">Mobile</th>
+							<th data-field="address" th:text="#{ui.address2}">Address</th>
+							<th data-field="email" th:text="#{ui.email}">Email</th>
+							<th data-field="ownerStatus" th:text="#{ui.status}">Status</th>
+							<th data-field="ownderDated" th:text="#{ui.dated}">Dated</th>
 						</tr>
 					</thead>
 				</table>
@@ -379,18 +379,18 @@
 				<h3 class="dash-page-title" th:text="#{label.School.form.heading}">School Registration</h3>
 				<div style="margin-bottom:8px">
 					<button type="button" id="newSchool" class="btn btn-success" onclick="newEntity('School')">
-						<span class="glyphicon glyphicon-plus-sign"></span> New Campus
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newCampus}">New Campus</span>
 					</button>
 					<span id="bulkBarSchool" class="crud-bulkbar" style="display:none;margin-left:10px">
-						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('School')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('School')">Clear</button>
+						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('School')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('School')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
 				<div id="SchoolModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
-						<h4 id="SchoolModalTitle">New Campus</h4>
+						<h4 id="SchoolModalTitle" th:text="#{ui.newCampus}">New Campus</h4>
 						<button type="button" class="crud-x" onclick="resetForm();closeModal('SchoolModal')">&times;</button>
 					</div>
 					<div class="crud-body">
@@ -413,41 +413,41 @@
 						<label class="control-label col-sm-2 req" for="schoolAddress" th:text="#{label.address}">Address</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="schoolAddress"
-								name="address" placeholder="Complete Address" required="required">
+								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}" required="required">
 						</div>
 	 				</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="schoolBranchName" th:text="#{label.branch}">Branch Name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="schoolBranchName"
-								name="branchName" placeholder="Branch name">
+								name="branchName" placeholder="Branch name" th:placeholder="#{ui.branchName}">
 						</div>
 						<label class="control-label col-sm-2" for="schoolPhone" th:text="#{label.phone}">Phone Number</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="schoolPhone" name="phone"
-								placeholder="Phone Number"> 
+								placeholder="Phone Number" th:placeholder="#{ui.phoneNumber}"> 
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="schoolEmail" th:text="#{label.email}">Email</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="schoolEmail" name="email"
-								placeholder="Email address">
+								placeholder="Email address" th:placeholder="#{ui.emailAddress2}">
 						</div>
 	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="schoolStatus">Status</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="schoolStatus" name="status" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addSchool" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetSchool" class="btn btn-warning" onclick="resetForm();closeModal('SchoolModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="button" id="deleteSchool" class="btn btn-danger" style="display:none"></button>
 						<button type="reset" class="resetForm" style="display:none"></button>
@@ -460,15 +460,15 @@
 					<table id="tableSchool" class="table table-striped">
 						<thead>
 							<tr>
-								<th data-field="schoolId">Id</th>
-								<th data-field="checkDelete">Check</th>
-								<th data-field="owner">Owner</th>
-								<th data-field="address">Address</th>
-								<th data-field="branchName">Branch Name</th>
-								<th data-field="phone">Phone</th>
-								<th data-field="email">Email</th>
-								<th data-field="schoolStatus">Status</th>
-								<th data-field="schoolDated">Dated</th>
+								<th data-field="schoolId" th:text="#{ui.id2}">Id</th>
+								<th data-field="checkDelete" th:text="#{ui.check}">Check</th>
+								<th data-field="owner" th:text="#{ui.owner}">Owner</th>
+								<th data-field="address" th:text="#{ui.address2}">Address</th>
+								<th data-field="branchName" th:text="#{ui.branchName2}">Branch Name</th>
+								<th data-field="phone" th:text="#{ui.phone}">Phone</th>
+								<th data-field="email" th:text="#{ui.email}">Email</th>
+								<th data-field="schoolStatus" th:text="#{ui.status}">Status</th>
+								<th data-field="schoolDated" th:text="#{ui.dated}">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -478,18 +478,18 @@
 				<h3 class="dash-page-title" th:text="#{label.grade.form.heading}">Class Registration</h3>
 				<div style="margin-bottom:8px">
 					<button type="button" id="newGrade" class="btn btn-success" onclick="newEntity('Grade')">
-						<span class="glyphicon glyphicon-plus-sign"></span> New Class
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newClass}">New Class</span>
 					</button>
 					<span id="bulkBarGrade" class="crud-bulkbar" style="display:none;margin-left:10px">
-						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Grade')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Grade')">Clear</button>
+						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Grade')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Grade')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
 				<div id="GradeModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
-						<h4 id="GradeModalTitle">New Class</h4>
+						<h4 id="GradeModalTitle" th:text="#{ui.newClass}">New Class</h4>
 						<button type="button" class="crud-x" onclick="resetForm();closeModal('GradeModal')">&times;</button>
 					</div>
 					<div class="crud-body">
@@ -504,43 +504,43 @@
 						</div>
 					</div>				
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="gradeSchoolDD">Select Campus</label> 
+						<label class="control-label col-sm-2 req" for="gradeSchoolDD" th:text="#{ui.selectCampus}">Select Campus</label> 
 						<div class="col-sm-4">
 							<select class="form-control" id="gradeSchoolDD" name="schoolId" required="required">
 							</select>
 						</div>
-						<label class="control-label col-sm-2 req" for="gradeName">Class name</label> 
+						<label class="control-label col-sm-2 req" for="gradeName" th:text="#{ui.className}">Class name</label> 
 						<div class="col-sm-4">
 							<input id="gradeName" class="form-control" type="text"	name="name" value="" required="required"/>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="gradeCode">Code/Batch</label> 
+						<label class="control-label col-sm-2" for="gradeCode" th:text="#{ui.codeBatch}">Code/Batch</label> 
 						<div class="col-sm-4">
 							<input id="gradeCode" class="form-control" type="text"	name="code"/>
 						</div>
-						<label class="control-label col-sm-2" for="gradeFee">Fee</label> 
+						<label class="control-label col-sm-2" for="gradeFee" th:text="#{ui.fee}">Fee</label> 
 						<div class="col-sm-4">
-							<input id="gradeFee" class="form-control" type="number" step="any" min="0"	name="fee" placeholder="Enter fee"/>
+							<input id="gradeFee" class="form-control" type="number" step="any" min="0"	name="fee" placeholder="Enter fee" th:placeholder="#{ui.enterFee}"/>
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" th:text="#{label.start.time}" for="gradeTimeFromStr">Time Start</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control timepicker text-center" id="gradeTimeFromStr"
-								name="timeFromStr" placeholder="Enter start time">
+								name="timeFromStr" placeholder="Enter start time" th:placeholder="#{ui.enterStartTime}">
 						</div>
-						<label class="control-label col-sm-2" for="gradeTimeToStr">Time End</label>
+						<label class="control-label col-sm-2" for="gradeTimeToStr" th:text="#{ui.timeEnd}">Time End</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control timepicker text-center" id="gradeTimeToStr"
-								name="timeToStr" placeholder="Enter end time">
+								name="timeToStr" placeholder="Enter end time" th:placeholder="#{ui.enterEndTime}">
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" th:text="#{label.select.room}">Room</label> 
 						<div class="col-sm-4">
 							<select class="form-control" id="gradeRoom" name="room">
-								<option class="dropdown-item" value=""> Nothing Selected </option>
+								<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}"> Nothing Selected </option>
 								<option th:each="i : ${#numbers.sequence(1, 50)}" th:value="${i}"
 									th:text="${i}" th:selected="${i==24}" value=""></option>
 							</select>
@@ -548,17 +548,17 @@
 	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="gradeStatus">Status</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="gradeStatus" name="status" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addGrade" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetGrade" class="btn btn-warning" onclick="resetForm();closeModal('GradeModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="button" id="deleteGrade" class="btn btn-danger" style="display:none"></button>
 						<button type="reset" class="resetForm" style="display:none"></button>
@@ -571,17 +571,17 @@
 					<table id="tableGrade" class="table table-striped">
 						<thead>
 							<tr>
-								<th data-field="gradeId">Id</th>
-								<th data-field="checkDelete">Check</th>
-								<th data-field="schoolName">Branch Name</th>
-								<th data-field="name">Name</th>
-								<th data-field="code">Code</th>
-								<th data-field="GradeFee">Fee</th>
-								<th data-field="timeFromStr">Time From</th>
-								<th data-field="timeToStr">Time To</th>
-								<th data-field="room">Room</th>
-								<th data-field="gradeStatus">Status</th>
-								<th data-field="gradeDated">Dated</th>
+								<th data-field="gradeId" th:text="#{ui.id2}">Id</th>
+								<th data-field="checkDelete" th:text="#{ui.check}">Check</th>
+								<th data-field="schoolName" th:text="#{ui.branchName2}">Branch Name</th>
+								<th data-field="name" th:text="#{ui.name}">Name</th>
+								<th data-field="code" th:text="#{ui.code}">Code</th>
+								<th data-field="GradeFee" th:text="#{ui.fee}">Fee</th>
+								<th data-field="timeFromStr" th:text="#{ui.timeFrom}">Time From</th>
+								<th data-field="timeToStr" th:text="#{ui.timeTo}">Time To</th>
+								<th data-field="room" th:text="#{ui.room}">Room</th>
+								<th data-field="gradeStatus" th:text="#{ui.status}">Status</th>
+								<th data-field="gradeDated" th:text="#{ui.dated}">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -591,18 +591,18 @@
 				<h3 class="dash-page-title" th:text="#{label.staff.form.heading}">Staff Registration</h3>
 				<div style="margin-bottom:8px">
 					<button type="button" id="newStaff" class="btn btn-success" onclick="newEntity('Staff')">
-						<span class="glyphicon glyphicon-plus-sign"></span> New Employee
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newEmployee}">New Employee</span>
 					</button>
 					<span id="bulkBarStaff" class="crud-bulkbar" style="display:none;margin-left:10px">
-						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Staff')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Staff')">Clear</button>
+						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Staff')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Staff')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
 				<div id="StaffModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
-						<h4 id="StaffModalTitle">New Employee</h4>
+						<h4 id="StaffModalTitle" th:text="#{ui.newEmployee}">New Employee</h4>
 						<button type="button" class="crud-x" onclick="resetForm();closeModal('StaffModal')">&times;</button>
 					</div>
 					<div class="crud-body">
@@ -617,51 +617,51 @@
 						</div>
 					</div>				
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="staffName">Employee name</label>
+						<label class="control-label col-sm-2 req" for="staffName" th:text="#{ui.employeeName2}">Employee name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="staffName" name="name"
-								placeholder=" Employee Name" required="required"> 
+								placeholder=" Employee Name" th:placeholder="#{ui.employeeName}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2" for="staffEmail">Email</label>
+						<label class="control-label col-sm-2" for="staffEmail" th:text="#{ui.email}">Email</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="staffEmail" name="email"
-								placeholder="Email address">
+								placeholder="Email address" th:placeholder="#{ui.emailAddress2}">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="staffMobile">Mobile</label>
+						<label class="control-label col-sm-2 req" for="staffMobile" th:text="#{ui.mobile2}">Mobile</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control req" id="staffMobile" name="mobile"
-								placeholder="Mobile Number" required="required"> 
+								placeholder="Mobile Number" th:placeholder="#{ui.mobileNumber}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2" for="staffPhone">Phone</label>
+						<label class="control-label col-sm-2" for="staffPhone" th:text="#{ui.phone}">Phone</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="staffPhone"
-								name="phone" placeholder="Phone number">
+								name="phone" placeholder="Phone number" th:placeholder="#{ui.phoneNumber2}">
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" th:text="#{label.timeIn}" for="staffTimeInStr">Time In</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control timepicker text-center" id="staffTimeInStr"
-								name="timeInStr" placeholder=" Time In ">
+								name="timeInStr" placeholder=" Time In " th:placeholder="#{ui.timeIn}">
 						</div>
 						<label class="control-label col-sm-2" th:text="#{label.timeOut}" for="staffTimeOutStr">Time Out</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control timepicker text-center" id="staffTimeOutStr"
-								name="timeOutStr" placeholder=" Time Out ">
+								name="timeOutStr" placeholder=" Time Out " th:placeholder="#{ui.timeOut}">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 required" for="staffDesignation">Designation</label>
+						<label class="control-label col-sm-2 required" for="staffDesignation" th:text="#{ui.designation}">Designation</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="staffDesignation" name="designation"
-								placeholder="Designation"> 
+								placeholder="Designation" th:placeholder="#{ui.designation}"> 
 						</div>
-						<label class="control-label col-sm-2" for="staffQualification">Qualification</label>
+						<label class="control-label col-sm-2" for="staffQualification" th:text="#{ui.qualification}">Qualification</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="staffQualification"
-								name="qualification" placeholder="Qualification">
+								name="qualification" placeholder="Qualification" th:placeholder="#{ui.qualification}">
 						</div>
 					</div>
 	 				<div class="form-group">
@@ -676,26 +676,26 @@
 						<label class="control-label col-sm-2 req" th:text="#{label.select.gender}" for="staffGender">Select Gender</label>
 						<div class="col-sm-4">
 							<select	class="form-control" id="staffGender" name="gender" required="required">
-								<option class="dropdown-item" value="">Nothing Selected</option>						
-								<option class="dropdown-item" value="Male">Male</option>
-			 					<option class="dropdown-item" value="Female">Female</option>
+								<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}">Nothing Selected</option>						
+								<option class="dropdown-item" value="Male" th:text="#{ui.male}">Male</option>
+			 					<option class="dropdown-item" value="Female" th:text="#{ui.female}">Female</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="staffDOB">Date of Birth</label>
+						<label class="control-label col-sm-2" for="staffDOB" th:text="#{ui.dateOfBirth}">Date of Birth</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="staffDOB" name="staffDOB"
-								placeholder="Select DOB"> 
+								placeholder="Select DOB" th:placeholder="#{ui.selectDob}"> 
 						</div>					
 						<label class="control-label col-sm-2" th:text="#{label.select.martial.status}" for="staffMartialStatus">Martial Status</label>
 						<div class="col-sm-4">
 							<select	class="form-control" id="staffMartialStatus" name="martialStatus">
-								<option class="dropdown-item" value="">Nothing Selected</option>						
-								<option class="dropdown-item" value="Single" selected="selected">Single</option>
-			 					<option class="dropdown-item" value="Married">Married</option>
-			 					<option class="dropdown-item" value="Divorced">Divorced</option>
-			 					<option class="dropdown-item" value="Widowed">Widowed</option>
+								<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}">Nothing Selected</option>						
+								<option class="dropdown-item" value="Single" selected="selected" th:text="#{ui.single}">Single</option>
+			 					<option class="dropdown-item" value="Married" th:text="#{ui.married}">Married</option>
+			 					<option class="dropdown-item" value="Divorced" th:text="#{ui.divorced}">Divorced</option>
+			 					<option class="dropdown-item" value="Widowed" th:text="#{ui.widowed}">Widowed</option>
 			 				</select>
 						</div>
 									
@@ -709,22 +709,22 @@
 						<label class="control-label col-sm-2" th:text="#{label.address}" for="staffAddress">Address</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="staffAddress"
-								name="address" placeholder="Complete Address">
+								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}">
 						</div>
 	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="staffStatus">Status</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="staffStatus" name="status" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addStaff" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetStaff" class="btn btn-warning" onclick="resetForm();closeModal('StaffModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="button" id="deleteStaff" class="btn btn-danger" style="display:none"></button>
 						<button type="reset" class="resetForm" style="display:none"></button>
@@ -737,24 +737,24 @@
 					<table id="tableStaff" class="table table-striped">
 						<thead>
 							<tr>
-								<th data-field="staffId">Id</th>
-								<th data-field="checkDelete">Check</th>
-								<th data-field="name">Name</th>
-								<th data-field="email">Email</th>
-								<th data-field="mobile">Mobile</th>
-								<th data-field="phone">Phone</th>
-	 							<th data-field="timeIn">Time In</th>
-								<th data-field="timeOut">Time Out</th>
-	 							<th data-field="designation">Designation</th>
-								<th data-field="qualification">Qualification</th>
+								<th data-field="staffId" th:text="#{ui.id2}">Id</th>
+								<th data-field="checkDelete" th:text="#{ui.check}">Check</th>
+								<th data-field="name" th:text="#{ui.name}">Name</th>
+								<th data-field="email" th:text="#{ui.email}">Email</th>
+								<th data-field="mobile" th:text="#{ui.mobile2}">Mobile</th>
+								<th data-field="phone" th:text="#{ui.phone}">Phone</th>
+	 							<th data-field="timeIn" th:text="#{ui.timeIn}">Time In</th>
+								<th data-field="timeOut" th:text="#{ui.timeOut}">Time Out</th>
+	 							<th data-field="designation" th:text="#{ui.designation}">Designation</th>
+								<th data-field="qualification" th:text="#{ui.qualification}">Qualification</th>
 	<!-- 							<th data-field="staffSchoolDD">Schools</th> -->
-								<th data-field="staffGradeDD">Classes</th>
-								<th data-field="gender">Gender</th>
-								<th data-field="staffDOB">Date of Birth</th>
-	 							<th data-field="martialStatus">Martial Status</th>
-								<th data-field="address">Address</th>
-								<th data-field="status">Status</th>
-								<th data-field="staffDated">Dated</th>
+								<th data-field="staffGradeDD" th:text="#{ui.classes}">Classes</th>
+								<th data-field="gender" th:text="#{ui.gender}">Gender</th>
+								<th data-field="staffDOB" th:text="#{ui.dateOfBirth}">Date of Birth</th>
+	 							<th data-field="martialStatus" th:text="#{ui.martialStatus}">Martial Status</th>
+								<th data-field="address" th:text="#{ui.address2}">Address</th>
+								<th data-field="status" th:text="#{ui.status}">Status</th>
+								<th data-field="staffDated" th:text="#{ui.dated}">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -764,18 +764,18 @@
 				<h3 class="dash-page-title" th:text="#{label.guardian.form.heading}">Guardian Registration</h3>
 				<div style="margin-bottom:8px">
 					<button type="button" id="newGuardian" class="btn btn-success" onclick="newEntity('Guardian')">
-						<span class="glyphicon glyphicon-plus-sign"></span> New Guardian
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newGuardian}">New Guardian</span>
 					</button>
 					<span id="bulkBarGuardian" class="crud-bulkbar" style="display:none;margin-left:10px">
-						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Guardian')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Guardian')">Clear</button>
+						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Guardian')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Guardian')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
 				<div id="GuardianModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
-						<h4 id="GuardianModalTitle">New Guardian</h4>
+						<h4 id="GuardianModalTitle" th:text="#{ui.newGuardian}">New Guardian</h4>
 						<button type="button" class="crud-x" onclick="resetForm();closeModal('GuardianModal')">&times;</button>
 					</div>
 					<div class="crud-body">
@@ -790,75 +790,75 @@
 						</div>
 					</div>				
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="guardianName">Guardian Name</label>
+						<label class="control-label col-sm-2 req" for="guardianName" th:text="#{ui.guardianName}">Guardian Name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="guardianName" name="name"
-								placeholder=" Guardian Name" required="required"> 
+								placeholder=" Guardian Name" th:placeholder="#{ui.guardianName}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2 req" for="guardianMobile">Mobile</label>
+						<label class="control-label col-sm-2 req" for="guardianMobile" th:text="#{ui.mobile2}">Mobile</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="guardianMobile" name="mobile"
-								placeholder="Mobile Number" required="required"> 
+								placeholder="Mobile Number" th:placeholder="#{ui.mobileNumber}" required="required"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="relationDD">Relation</label>
+						<label class="control-label col-sm-2 req" for="relationDD" th:text="#{ui.relation}">Relation</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="relationDD" name="relation">
-								<option class="dropdown-item" value="Father" selected="selected">Father</option>					
-								<option class="dropdown-item" value="Mother">Mother</option>
-			 					<option class="dropdown-item" value="Aunt">Aunt</option>
-			 					<option class="dropdown-item" value="Grandfather">Grandfather</option>
-			 					<option class="dropdown-item" value="Grandmother">Grandmother</option>
-			 					<option class="dropdown-item" value="Guardian">Guardian</option>
-			 					<option class="dropdown-item" value="Self">Self</option>
+								<option class="dropdown-item" value="Father" selected="selected" th:text="#{ui.father}">Father</option>					
+								<option class="dropdown-item" value="Mother" th:text="#{ui.mother}">Mother</option>
+			 					<option class="dropdown-item" value="Aunt" th:text="#{ui.aunt}">Aunt</option>
+			 					<option class="dropdown-item" value="Grandfather" th:text="#{ui.grandfather}">Grandfather</option>
+			 					<option class="dropdown-item" value="Grandmother" th:text="#{ui.grandmother}">Grandmother</option>
+			 					<option class="dropdown-item" value="Guardian" th:text="#{ui.guardian}">Guardian</option>
+			 					<option class="dropdown-item" value="Self" th:text="#{ui.self}">Self</option>
 			 				</select>
 						</div>
-						<label class="control-label col-sm-2 req" for="guardianPermAddress">Address</label>
+						<label class="control-label col-sm-2 req" for="guardianPermAddress" th:text="#{ui.address2}">Address</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="guardianPermAddress"
-								name="permAddress" placeholder="Permanent Address" required="required">
+								name="permAddress" placeholder="Permanent Address" th:placeholder="#{ui.permanentAddress}" required="required">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="guardianEmail">Email</label>
+						<label class="control-label col-sm-2" for="guardianEmail" th:text="#{ui.email}">Email</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="guardianEmail" name="email"
-								placeholder="Email address">
+								placeholder="Email address" th:placeholder="#{ui.emailAddress2}">
 						</div>
-						<label class="control-label col-sm-2" for="guardianPhone">Phone</label>
+						<label class="control-label col-sm-2" for="guardianPhone" th:text="#{ui.phone}">Phone</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="guardianPhone"
-								name="phone" placeholder="Phone number">
+								name="phone" placeholder="Phone number" th:placeholder="#{ui.phoneNumber2}">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="guardianCNIC">CNIC</label>
+						<label class="control-label col-sm-2" for="guardianCNIC"><span th:text="#{ui.cnic}">CNIC</span></label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="guardianCNIC" name="cnic"
-								placeholder="Computerized National Identity Card"> 
+								placeholder="Computerized National Identity Card" th:placeholder="#{ui.computerizedNationalIdentityCard}"> 
 						</div>
-						<label class="control-label col-sm-2" for="guardianOccupation">Occupation</label>
+						<label class="control-label col-sm-2" for="guardianOccupation" th:text="#{ui.occupation}">Occupation</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="guardianOccupation"
-								name="occupation" placeholder="Occupation">
+								name="occupation" placeholder="Occupation" th:placeholder="#{ui.occupation}">
 						</div>
 					</div>
 					<div class="form-group">
 	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="guardianStatus">Status</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="guardianStatus" name="status" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addGuardian" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetGuardian" class="btn btn-warning" onclick="resetForm();closeModal('GuardianModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="button" id="deleteGuardian" class="btn btn-danger" style="display:none"></button>
 						<button type="reset" class="resetForm" style="display:none"></button>
@@ -869,18 +869,18 @@
 				</div>
 				<table id="tableGuardian" class="table table-striped">
 					<thead>
-						<th data-field="guardianId">Id</th>
-						<th data-field="checkDelete">Check</th>
-						<th data-field="name">Name</th>
-						<th data-field="mobile">Mobile</th>
-						<th data-field="relationDD">Relation</th>
-						<th data-field="permAddress">Address</th>
-						<th data-field="email">Email</th>
-						<th data-field="phone">Phone</th>
-						<th data-field="guardianCNIC">CNIC</th>
-						<th data-field="occupation">Occupation</th>
-						<th data-field="guardianStatus">Status</th>
-						<th data-field="guardianDated">Dated</th>
+						<th data-field="guardianId" th:text="#{ui.id2}">Id</th>
+						<th data-field="checkDelete" th:text="#{ui.check}">Check</th>
+						<th data-field="name" th:text="#{ui.name}">Name</th>
+						<th data-field="mobile" th:text="#{ui.mobile2}">Mobile</th>
+						<th data-field="relationDD" th:text="#{ui.relation}">Relation</th>
+						<th data-field="permAddress" th:text="#{ui.address2}">Address</th>
+						<th data-field="email" th:text="#{ui.email}">Email</th>
+						<th data-field="phone" th:text="#{ui.phone}">Phone</th>
+						<th data-field="guardianCNIC"><span th:text="#{ui.cnic}">CNIC</span></th>
+						<th data-field="occupation" th:text="#{ui.occupation}">Occupation</th>
+						<th data-field="guardianStatus" th:text="#{ui.status}">Status</th>
+						<th data-field="guardianDated" th:text="#{ui.dated}">Dated</th>
 					</thead>
 				</table>
 			</div>		
@@ -888,34 +888,34 @@
 				<h3 class="dash-page-title" th:text="#{label.student.form.heading}">Student Registration</h3>
 				<!-- Bulk CSV import (slice 15): download a template, upload a filled CSV, see a summary. -->
 				<div class="panel panel-default" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
-					<div class="panel-heading"><b>Import Students (CSV)</b></div>
+					<div class="panel-heading"><b th:text="#{ui.importStudentsCsv}">Import Students (CSV)</b></div>
 					<div class="panel-body form-inline">
 						<button type="button" class="btn btn-link" onclick="downloadStudentTemplate()">
-							<span class="glyphicon glyphicon-download-alt"></span> Download template
+							<span class="glyphicon glyphicon-download-alt"></span> <span th:text="#{ui.downloadTemplate}">Download template</span>
 						</button>
 						<input type="file" id="impStudentsFile" accept=".csv" class="form-control" style="display:inline-block;width:auto;margin:0 8px"/>
 						<button type="button" class="btn btn-primary" onclick="importStudents()">
-							<span class="glyphicon glyphicon-upload"></span> Import
+							<span class="glyphicon glyphicon-upload"></span> <span th:text="#{ui.import}">Import</span>
 						</button>
-						<span class="text-muted" style="margin-left:8px">Columns: enrollNo, name, gradeName, gender, guardianName, mobile, status</span>
+						<span class="text-muted" style="margin-left:8px" th:text="#{ui.columnsEnrollnoNameGradenameGenderGuardianname}">Columns: enrollNo, name, gradeName, gender, guardianName, mobile, status</span>
 						<div id="impStudentsSummary" style="margin-top:12px"></div>
 					</div>
 				</div>
 				<br />
 				<div style="margin-bottom:8px">
 					<button type="button" id="newStudent" class="btn btn-success" onclick="newEntity('Student')">
-						<span class="glyphicon glyphicon-plus-sign"></span> New Student
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newStudent}">New Student</span>
 					</button>
 					<span id="bulkBarStudent" class="crud-bulkbar" style="display:none;margin-left:10px">
-						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Student')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Student')">Clear</button>
+						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Student')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Student')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
 				<div id="StudentModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
-						<h4 id="StudentModalTitle">New Student</h4>
+						<h4 id="StudentModalTitle" th:text="#{ui.newStudent}">New Student</h4>
 						<button type="button" class="crud-x" onclick="resetForm();closeModal('StudentModal')">&times;</button>
 					</div>
 					<div class="crud-body">
@@ -927,46 +927,46 @@
 						</div>
 					</div>								
 	 				<div class="form-group">
-						<label class="control-label col-sm-2" for="studentYS">Session Year Start</label>
+						<label class="control-label col-sm-2" for="studentYS" th:text="#{ui.sessionYearStart}">Session Year Start</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="studentYS" name="ys"
-								placeholder="Year start"> 
+								placeholder="Year start" th:placeholder="#{ui.yearStart}"> 
 						</div>
-						<label class="control-label col-sm-2" for="studentYE">Session Year End</label>
+						<label class="control-label col-sm-2" for="studentYE" th:text="#{ui.sessionYearEnd}">Session Year End</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="studentYE" name="ye"
-								placeholder="Year end"> 
+								placeholder="Year end" th:placeholder="#{ui.yearEnd}"> 
 						</div>
 					</div>
 					<nav class="form-divider">
-						Mandatory Fields
+						<span th:text="#{ui.mandatoryFields}">Mandatory Fields</span>
 					</nav>				
 	 				<div class="form-group">
-						<label class="control-label col-sm-2 req" for="studentEnrollNo">Enroll No</label>
+						<label class="control-label col-sm-2 req" for="studentEnrollNo" th:text="#{ui.enrollNo}">Enroll No</label>
 						<div class="col-sm-2">
 							<input type="text" class="form-control" id="studentEnrollNo" name="enrollNo"
-								placeholder="Enrollment number" required="required"> 
+								placeholder="Enrollment number" th:placeholder="#{ui.enrollmentNumber}" required="required"> 
 						</div>
 						<div class="col-sm-2">
 							<select class="form-control" id="studentStatus" name="status" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 						
-						<label class="control-label col-sm-2 req" for="studentEnrollDate">Enroll Date</label>
+						<label class="control-label col-sm-2 req" for="studentEnrollDate" th:text="#{ui.enrollDate}">Enroll Date</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="studentEnrollDate" name="enrollDate"
-								placeholder="Select Enroll Date" required="required"> 
+								placeholder="Select Enroll Date" th:placeholder="#{ui.selectEnrollDate}" required="required"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="studentName">Student Name</label>
+						<label class="control-label col-sm-2 req" for="studentName" th:text="#{ui.studentName}">Student Name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="studentName" name="name"
-								placeholder=" Student Name" required="required"> 
+								placeholder=" Student Name" th:placeholder="#{ui.studentName}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2 req" for="studentSchoolDD">Select Campus</label> 
+						<label class="control-label col-sm-2 req" for="studentSchoolDD" th:text="#{ui.selectCampus}">Select Campus</label> 
 						<div class="col-sm-4">
 							<select class="form-control" id="studentSchoolDD" name="schoolId" required="required">
 							</select>
@@ -976,96 +976,96 @@
 						<label class="control-label col-sm-2 req" th:text="#{label.select.grade}" for="studentGradeDD">Select Class</label> 
 						<div class="col-sm-4">
 							<select class="form-control" id="studentGradeDD" name="gradeId" required="required">
-							<option class="dropdown-item" value=""> Nothing Selected </option>
+							<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}"> Nothing Selected </option>
 							</select>
 						</div>
-						<label class="control-label col-sm-2 req" for="studentGuardianDD">Select Guardian</label> 
+						<label class="control-label col-sm-2 req" for="studentGuardianDD" th:text="#{ui.selectGuardian}">Select Guardian</label> 
 						<div class="col-sm-4">
 							<select class="form-control" id="studentGuardianDD" name="guardianId" required="required">
-							<option class="dropdown-item" value=""> Nothing Selected </option>
+							<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}"> Nothing Selected </option>
 							</select>
 						</div>
 					</div>
 					<nav class="form-divider">
-						Recommended Fields
+						<span th:text="#{ui.recommendedFields}">Recommended Fields</span>
 					</nav>
 	 				<div class="form-group">
-						<label class="control-label col-sm-2" for="studentMobile">Mobile</label>
+						<label class="control-label col-sm-2" for="studentMobile" th:text="#{ui.mobile2}">Mobile</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="studentMobile" name="mobile"
-								placeholder="default is Guardian's"> 
+								placeholder="default is Guardian's" th:placeholder="#{ui.defaultIsGuardianS}"> 
 						</div>
-						<label class="control-label col-sm-2" for="studentMobile">WatsApp</label>
+						<label class="control-label col-sm-2" for="studentMobile" th:text="#{ui.watsapp}">WatsApp</label>
 						<div class="col-sm-4">
 								<input type="text" class="form-control" id="studentWA" name="wa"
-									placeholder="default is Guardian's"> 
+									placeholder="default is Guardian's" th:placeholder="#{ui.defaultIsGuardianS}"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="studentEmail">Email</label>
+						<label class="control-label col-sm-2" for="studentEmail" th:text="#{ui.email}">Email</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="studentEmail" name="email"
-								placeholder="default is Guardian's">
+								placeholder="default is Guardian's" th:placeholder="#{ui.defaultIsGuardianS}">
 						</div>
-						<label class="control-label col-sm-2" for="studentAddress">Address</label>
+						<label class="control-label col-sm-2" for="studentAddress" th:text="#{ui.address2}">Address</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="studentAddress" name="address"
-								placeholder="default is Guardian's"> 
+								placeholder="default is Guardian's" th:placeholder="#{ui.defaultIsGuardianS}"> 
 						</div>
 					</div>
 	 				<div class="form-group">
 						<label class="control-label col-sm-2" th:text="#{label.select.gender}" for="studentGender">Gender</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="studentGender" name="gender">
-								<option class="dropdown-item" value=""> Nothing Selected </option>
-								<option class="dropdown-item" value="Male" selected="selected">Male</option>
-			 					<option class="dropdown-item" value="Female">Female</option>
+								<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}"> Nothing Selected </option>
+								<option class="dropdown-item" value="Male" selected="selected" th:text="#{ui.male}">Male</option>
+			 					<option class="dropdown-item" value="Female" th:text="#{ui.female}">Female</option>
 			 				</select>
 						</div>
-						<label class="control-label col-sm-2" for="studentReligion">Religion</label>
+						<label class="control-label col-sm-2" for="studentReligion" th:text="#{ui.religion}">Religion</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="studentReligion" name="religion">
-								<option class="dropdown-item" value=""> ISLAM </option>
-								<option class="dropdown-item" value="CHRISTIAN">CHRISTIAN</option>
-			 					<option class="dropdown-item" value="AHMADI">AHMADI</option>
-			 					<option class="dropdown-item" value="SIKH">SIKH</option>
-			 					<option class="dropdown-item" value="HINDU">HINDU</option>
-			 					<option class="dropdown-item" value="OTHER">OTHER</option>
+								<option class="dropdown-item" value="" th:text="#{ui.islam}"> ISLAM </option>
+								<option class="dropdown-item" value="CHRISTIAN" th:text="#{ui.christian}">CHRISTIAN</option>
+			 					<option class="dropdown-item" value="AHMADI" th:text="#{ui.ahmadi}">AHMADI</option>
+			 					<option class="dropdown-item" value="SIKH" th:text="#{ui.sikh}">SIKH</option>
+			 					<option class="dropdown-item" value="HINDU" th:text="#{ui.hindu}">HINDU</option>
+			 					<option class="dropdown-item" value="OTHER" th:text="#{ui.other}">OTHER</option>
 			 				</select>
 						</div>
 					</div>				
 					<nav class="form-divider">
-						Optional Fields
+						<span th:text="#{ui.optionalFields}">Optional Fields</span>
 					</nav>
 	 				<div class="form-group">
-						<label class="control-label col-sm-2" for="studentFee">Student Fee</label>
+						<label class="control-label col-sm-2" for="studentFee" th:text="#{ui.studentFee}">Student Fee</label>
 						<div class="col-sm-2">
 							<select class="form-control" id="studentFeeMode" name="feeMode">
-								<option class="dropdown-item" value=""> Nothing Selected </option>
-								<option class="dropdown-item" value="Monthly" selected="selected">Monthly</option>
-			 					<option class="dropdown-item" value="Randomly">Randomly</option>
+								<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}"> Nothing Selected </option>
+								<option class="dropdown-item" value="Monthly" selected="selected" th:text="#{ui.monthly}">Monthly</option>
+			 					<option class="dropdown-item" value="Randomly" th:text="#{ui.randomly}">Randomly</option>
 			 				</select>
 						</div>
 						<div class="col-sm-2">
 							<input type="number" step="any" min="0" class="form-control" id="studentFee" name="fee"
-								placeholder="Default's Class fee"> 
+								placeholder="Default's Class fee" th:placeholder="#{ui.defaultSClassFee}"> 
 						</div>
-						<label class="control-label col-sm-2" for="studentDueDay">Due day of fee payment</label>
+						<label class="control-label col-sm-2" for="studentDueDay" th:text="#{ui.dueDayOfFeePayment}">Due day of fee payment</label>
 						<div class="col-sm-4">
-							<input type="number" placeholder="default is 10" class="form-control" id="studentDueDay" name="dueDay"
+							<input type="number" placeholder="default is 10" th:placeholder="#{ui.defaultIs10}" class="form-control" id="studentDueDay" name="dueDay"
 							 min="0" max="31"> 						
 						</div>
 					</div>
 	 				<div class="form-group">
-						<label class="control-label col-sm-2" for="studentMN">Mother Name</label> 
+						<label class="control-label col-sm-2" for="studentMN" th:text="#{ui.motherName2}">Mother Name</label> 
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="studentMN" name="mn"
-								placeholder=" Mother name "/> 
+								placeholder=" Mother name " th:placeholder="#{ui.motherName}"/> 
 						</div>
 						<label class="control-label col-sm-2" th:text="#{label.select.blood.group}" for="studentBloodBroup">Blood Group</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="studentBloodBroup" name="bloodGroup">
-								<option class="dropdown-item" value=""> Nothing Selected </option>
+								<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}"> Nothing Selected </option>
 								<option class="dropdown-item" value="A+">A+</option>
 			 					<option class="dropdown-item" value="A-">A-</option>
 								<option class="dropdown-item" value="B+">B+</option>
@@ -1078,35 +1078,35 @@
 						</div>
 					</div>
 	 				<div class="form-group">
-						<label class="control-label col-sm-2" for="studentDateOfBirth">Date of Birth</label>
+						<label class="control-label col-sm-2" for="studentDateOfBirth" th:text="#{ui.dateOfBirth}">Date of Birth</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="studentDateOfBirth" name="dateOfBirth"
-								placeholder="Select DOB"> 
+								placeholder="Select DOB" th:placeholder="#{ui.selectDob}"> 
 						</div>
-						<label class="control-label col-sm-2" for="studentPOB">Place of birth</label> 
+						<label class="control-label col-sm-2" for="studentPOB" th:text="#{ui.placeOfBirth}">Place of birth</label> 
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="studentPOB" name="pob"
-								placeholder="Place of birth"> 
+								placeholder="Place of birth" th:placeholder="#{ui.placeOfBirth}"> 
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" th:text="#{label.select.discount}" for="studentDiscountDD">Select Discount</label> 
 						<div class="col-sm-4">
 							<select class="form-control" id="studentDiscountDD" name="discountId">
-								<option class="dropdown-item" value=""> Nothing Selected </option>
+								<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}"> Nothing Selected </option>
 							</select>
 						</div>
 		 				<div id="newDiscDiv">
-							<label class="control-label col-sm-2" for="studentND">New Discount</label> 
+							<label class="control-label col-sm-2" for="studentND" th:text="#{ui.newDiscount2}">New Discount</label> 
 							<div class="col-sm-2">
 								<select id="studentDIDD" name="di" class="form-control">
-				 					<option class="dropdown-item" value="amount" selected="selected">amount</option>
+				 					<option class="dropdown-item" value="amount" selected="selected" th:text="#{ui.amount3}">amount</option>
 									<option class="dropdown-item" value="%">%</option>
 								</select>
 							</div>					
 							<div class="col-sm-2">
 								<input type="number" class="form-control" id="studentND" name="nd"
-									placeholder=" New discount "> 
+									placeholder=" New discount " th:placeholder="#{ui.newDiscount}"> 
 							</div>
 						</div>
 					</div>
@@ -1114,21 +1114,21 @@
 						<label class="control-label col-sm-2" th:text="#{label.select.vehicle}" for="studentVehicleDD">Select Vehicle</label> 
 						<div class="col-sm-4">
 							<select class="form-control" id="studentVehicleDD" name="vehicleId">
-							<option class="dropdown-item" value=""> Nothing Selected </option>
+							<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}"> Nothing Selected </option>
 							</select>
 						</div>
-						<label class="control-label col-sm-2" for="studentvf">Vehicle Fare</label> 
+						<label class="control-label col-sm-2" for="studentvf" th:text="#{ui.vehicleFare}">Vehicle Fare</label> 
 						<div class="col-sm-4">
 							<input type="number" class="form-control" id="studentvf" name="vf"
-								placeholder=" Vehicle Fare "> 
+								placeholder=" Vehicle Fare " th:placeholder="#{ui.vehicleFare}"> 
 						</div>
 					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addStudent" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetStudent" class="btn btn-warning" onclick="resetForm();closeModal('StudentModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="button" id="deleteStudent" class="btn btn-danger" style="display:none"></button>
 						<button type="reset" class="resetForm" style="display:none"></button>
@@ -1140,35 +1140,35 @@
 					<div class="form-group">
 						<table id="tableStudent" class="table table-striped">
 							<thead>
-								<th data-field="staffId">Id</th>
-								<th data-field="checkDelete">Check</th>
-								<th data-field="studentEnrollNo">Enroll No</th>
-								<th data-field="studentStatus">Status</th>
-								<th data-field="studentEnrollDate">Enroll Date</th>
-								<th data-field="studentName">Name</th>
-								<th data-field="studentSchoolDD">Campus</th>
-								<th data-field="studentGradeDD">Class</th>
-								<th data-field="studentGuardianDD">Guardian</th>
-								<th data-field="studentGender">Gender</th>
-								<th data-field="studentFee">Fee</th>
-								<th data-field="studentFeeMode">Fee Mode</th>
-								<th data-field="studentMN">Mother name</th>
-								<th data-field="studentBloodBroup">Blood Group</th>
-								<th data-field="studentVehicleDD">Vehicle</th>
-								<th data-field="studentvf">Vehicle Fare</th>
-								<th data-field="studentDateOfBirth">DOB</th>
-								<th data-field="studentPOB">POB</th>
-								<th data-field="studentDiscountDD">Disc. Name</th>
-								<th data-field="studentND">Disc. amount</th>
-								<th data-field="studentDIDD">Disc. type</th>
-								<th data-field="studentDueDay">Due Day</th>
-								<th data-field="studentMobile">Mobile</th>
-								<th data-field="studentWA">WatsApp</th>
-								<th data-field="studentEmail">Email</th>
-								<th data-field="studentAddress">Address</th>
-								<th data-field="studentDated">Updated</th>
-								<th data-field="studentYS">Year Start</th>
-								<th data-field="studentYE">Year End</th>
+								<th data-field="staffId" th:text="#{ui.id2}">Id</th>
+								<th data-field="checkDelete" th:text="#{ui.check}">Check</th>
+								<th data-field="studentEnrollNo" th:text="#{ui.enrollNo}">Enroll No</th>
+								<th data-field="studentStatus" th:text="#{ui.status}">Status</th>
+								<th data-field="studentEnrollDate" th:text="#{ui.enrollDate}">Enroll Date</th>
+								<th data-field="studentName" th:text="#{ui.name}">Name</th>
+								<th data-field="studentSchoolDD" th:text="#{ui.campus}">Campus</th>
+								<th data-field="studentGradeDD" th:text="#{ui.class}">Class</th>
+								<th data-field="studentGuardianDD" th:text="#{ui.guardian}">Guardian</th>
+								<th data-field="studentGender" th:text="#{ui.gender}">Gender</th>
+								<th data-field="studentFee" th:text="#{ui.fee}">Fee</th>
+								<th data-field="studentFeeMode" th:text="#{ui.feeMode}">Fee Mode</th>
+								<th data-field="studentMN" th:text="#{ui.motherName}">Mother name</th>
+								<th data-field="studentBloodBroup" th:text="#{ui.bloodGroup}">Blood Group</th>
+								<th data-field="studentVehicleDD" th:text="#{ui.vehicle}">Vehicle</th>
+								<th data-field="studentvf" th:text="#{ui.vehicleFare}">Vehicle Fare</th>
+								<th data-field="studentDateOfBirth"><span th:text="#{ui.dob}">DOB</span></th>
+								<th data-field="studentPOB"><span th:text="#{ui.pob}">POB</span></th>
+								<th data-field="studentDiscountDD" th:text="#{ui.discName}">Disc. Name</th>
+								<th data-field="studentND" th:text="#{ui.discAmount}">Disc. amount</th>
+								<th data-field="studentDIDD" th:text="#{ui.discType2}">Disc. type</th>
+								<th data-field="studentDueDay" th:text="#{ui.dueDay}">Due Day</th>
+								<th data-field="studentMobile" th:text="#{ui.mobile2}">Mobile</th>
+								<th data-field="studentWA" th:text="#{ui.watsapp}">WatsApp</th>
+								<th data-field="studentEmail" th:text="#{ui.email}">Email</th>
+								<th data-field="studentAddress" th:text="#{ui.address2}">Address</th>
+								<th data-field="studentDated" th:text="#{ui.updated}">Updated</th>
+								<th data-field="studentYS" th:text="#{ui.yearStart2}">Year Start</th>
+								<th data-field="studentYE" th:text="#{ui.yearEnd2}">Year End</th>
 							</thead>
 						</table>
 					</div>
@@ -1177,18 +1177,18 @@
 				<h3 class="dash-page-title" th:text="#{label.subject.form.heading}">Subject Registration</h3>
 				<div style="margin-bottom:8px">
 					<button type="button" id="newSubject" class="btn btn-success" onclick="newEntity('Subject')">
-						<span class="glyphicon glyphicon-plus-sign"></span> New Subject
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newSubject}">New Subject</span>
 					</button>
 					<span id="bulkBarSubject" class="crud-bulkbar" style="display:none;margin-left:10px">
-						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Subject')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Subject')">Clear</button>
+						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Subject')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Subject')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
 				<div id="SubjectModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
-						<h4 id="SubjectModalTitle">New Subject</h4>
+						<h4 id="SubjectModalTitle" th:text="#{ui.newSubject}">New Subject</h4>
 						<button type="button" class="crud-x" onclick="resetForm();closeModal('SubjectModal')">&times;</button>
 					</div>
 					<div class="crud-body">
@@ -1217,42 +1217,42 @@
 						<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="subjectStatus">Status</label>
 						<div class="col-sm-4">
 							<select	class="form-control" id="subjectStatus" name="status" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 						
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="subjectName">Subject name</label>
+						<label class="control-label col-sm-2 req" for="subjectName" th:text="#{ui.subjectName2}">Subject name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="subjectName" name="name"
-								placeholder=" Subject Name" required="required"> 
+								placeholder=" Subject Name" th:placeholder="#{ui.subjectName}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2" for="subjectCode">Code</label>
+						<label class="control-label col-sm-2" for="subjectCode" th:text="#{ui.code}">Code</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="subjectCode" name="code"
-								placeholder="Subject Code">
+								placeholder="Subject Code" th:placeholder="#{ui.subjectCode}">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="subjectPublisher">Publisher</label>
+						<label class="control-label col-sm-2" for="subjectPublisher" th:text="#{ui.publisher}">Publisher</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="subjectPublisher" name="publisher"
-								placeholder=" Enter Publisher"> 
+								placeholder=" Enter Publisher" th:placeholder="#{ui.enterPublisher}"> 
 						</div>
-						<label class="control-label col-sm-2" for="subjectEdition">Edition</label>
+						<label class="control-label col-sm-2" for="subjectEdition" th:text="#{ui.edition}">Edition</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="subjectEdition"
-								name="edition" placeholder="Enter Edition">
+								name="edition" placeholder="Enter Edition" th:placeholder="#{ui.enterEdition}">
 						</div>
 					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addSubject" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetSubject" class="btn btn-warning" onclick="resetForm();closeModal('SubjectModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="button" id="deleteSubject" class="btn btn-danger" style="display:none"></button>
 						<button type="reset" class="resetForm" style="display:none"></button>
@@ -1265,15 +1265,15 @@
 					<table id="tableSubject" class="table table-striped">
 						<thead>
 							<tr>
-								<th data-field="subjectId">Id</th>
-								<th data-field="checkDelete">Check</th>
-								<th data-field="gradeName">Class</th>
-								<th data-field="name">Name</th>
-								<th data-field="code">code</th>
-								<th data-field="publisher">Publisher</th>
-								<th data-field="edition">Edition</th>
-								<th data-field="status">Status</th>
-								<th data-field="subjectDated">Dated</th>
+								<th data-field="subjectId" th:text="#{ui.id2}">Id</th>
+								<th data-field="checkDelete" th:text="#{ui.check}">Check</th>
+								<th data-field="gradeName" th:text="#{ui.class}">Class</th>
+								<th data-field="name" th:text="#{ui.name}">Name</th>
+								<th data-field="code" th:text="#{ui.code2}">code</th>
+								<th data-field="publisher" th:text="#{ui.publisher}">Publisher</th>
+								<th data-field="edition" th:text="#{ui.edition}">Edition</th>
+								<th data-field="status" th:text="#{ui.status}">Status</th>
+								<th data-field="subjectDated" th:text="#{ui.dated}">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -1283,18 +1283,18 @@
 				<h3 class="dash-page-title" th:text="#{label.vehicle.form.heading}">Vehicle Registration</h3>
 				<div style="margin-bottom:8px">
 					<button type="button" id="newVehicle" class="btn btn-success" onclick="newEntity('Vehicle')">
-						<span class="glyphicon glyphicon-plus-sign"></span> New Vehicle
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newVehicle}">New Vehicle</span>
 					</button>
 					<span id="bulkBarVehicle" class="crud-bulkbar" style="display:none;margin-left:10px">
-						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Vehicle')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Vehicle')">Clear</button>
+						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Vehicle')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Vehicle')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
 				<div id="VehicleModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
-						<h4 id="VehicleModalTitle">New Vehicle</h4>
+						<h4 id="VehicleModalTitle" th:text="#{ui.newVehicle}">New Vehicle</h4>
 						<button type="button" class="crud-x" onclick="resetForm();closeModal('VehicleModal')">&times;</button>
 					</div>
 					<div class="crud-body">
@@ -1309,7 +1309,7 @@
 						</div>
 					</div>				
 					<div class="form-group">		
-						<label class="control-label col-sm-2" for="vehicleSchoolDD">Select Campus</label> 
+						<label class="control-label col-sm-2" for="vehicleSchoolDD" th:text="#{ui.selectCampus}">Select Campus</label> 
 						<div class="col-sm-4">
 							<select class="form-control" id="vehicleSchoolDD" name="schoolId">
 							</select>
@@ -1317,50 +1317,50 @@
 						<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="vehicleStatus">Status</label>
 						<div class="col-sm-4">
 							<select	class="form-control" id="vehicleStatus" name="status" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group">		
-						<label class="control-label col-sm-2 req" for="vehicleName">Vehicle name</label>
+						<label class="control-label col-sm-2 req" for="vehicleName" th:text="#{ui.vehicleName2}">Vehicle name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="vehicleName" name="name"
-								placeholder=" Vehicle Name" required="required"> 
+								placeholder=" Vehicle Name" th:placeholder="#{ui.vehicleName}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2 req" for="vehicleNumber">Number</label>
+						<label class="control-label col-sm-2 req" for="vehicleNumber" th:text="#{ui.number}">Number</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="vehicleNumber" name="number"
-								placeholder=" Vehicle Number" required="required"> 
+								placeholder=" Vehicle Number" th:placeholder="#{ui.vehicleNumber}" required="required"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="vehicleDriverName">Driver Name</label>
+						<label class="control-label col-sm-2 req"  for="vehicleDriverName" th:text="#{ui.driverName}">Driver Name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="vehicleDriverName" name="driverName"
-								placeholder=" Driver Name" required="required"> 
+								placeholder=" Driver Name" th:placeholder="#{ui.driverName}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2 req"  for="vehicleDriverMobile">Driver Mobile</label>
+						<label class="control-label col-sm-2 req"  for="vehicleDriverMobile" th:text="#{ui.driverMobile}">Driver Mobile</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="vehicleDriverMobile" name="driverMobile"
-								placeholder=" Driver Mobile" required="required"> 
+								placeholder=" Driver Mobile" th:placeholder="#{ui.driverMobile}" required="required"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="vehicleOwnerName">Owner Name</label>
+						<label class="control-label col-sm-2 req"  for="vehicleOwnerName" th:text="#{ui.ownerName}">Owner Name</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="vehicleOwnerName" name="ownerName"
-								placeholder=" Owner Name" required="required"> 
+								placeholder=" Owner Name" th:placeholder="#{ui.ownerName}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2 req" for="vehicleOwnerMobile">Owner Mobile</label>
+						<label class="control-label col-sm-2 req" for="vehicleOwnerMobile" th:text="#{ui.ownerMobile}">Owner Mobile</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="vehicleOwnerMobile" name="ownerMobile"
-								placeholder=" Owner Mobile" required="required"> 
+								placeholder=" Owner Mobile" th:placeholder="#{ui.ownerMobile}" required="required"> 
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center">
 						<button type="button" id="addVehicle" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 	<!-- 					<button type="button" id="inactiveVehicle" class="btn btn-secondary">
 							<span class="glyphicon glyphicon-ban-circle"></span> Inactive
@@ -1368,7 +1368,7 @@
 	 -->					
 	 					<button type="button" id="deleteVehicle" class="btn btn-danger" style="display:none"></button>
 						<button type="button" id="resetVehicle" class="btn btn-warning" onclick="resetForm();closeModal('VehicleModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
@@ -1380,38 +1380,38 @@
 					<table id="tableVehicle" class="table table-striped">
 						<thead>
 							<tr>
-								<th data-field="vehicleId">Id</th>
-								<th data-field="checkDelete">Check</th>
-								<th data-field="vehicleSchoolDD">School</th>
-								<th data-field="vehicleName">Vehicle</th>
-								<th data-field="vehicleNumber">Number</th>
-								<th data-field="vehicleDriverName">Driver Name</th>
-								<th data-field="vehicleDriverMobile">Driver Mobile</th>
-								<th data-field="vehicleOwnerName">Owner Name</th>
-								<th data-field="vehicleOwnerMobile">Owner Mobile</th>
-								<th data-field="vehicleStatus">Status</th>
-								<th data-field="vehicleDated">Dated</th>
+								<th data-field="vehicleId" th:text="#{ui.id2}">Id</th>
+								<th data-field="checkDelete" th:text="#{ui.check}">Check</th>
+								<th data-field="vehicleSchoolDD" th:text="#{ui.school}">School</th>
+								<th data-field="vehicleName" th:text="#{ui.vehicle}">Vehicle</th>
+								<th data-field="vehicleNumber" th:text="#{ui.number}">Number</th>
+								<th data-field="vehicleDriverName" th:text="#{ui.driverName}">Driver Name</th>
+								<th data-field="vehicleDriverMobile" th:text="#{ui.driverMobile}">Driver Mobile</th>
+								<th data-field="vehicleOwnerName" th:text="#{ui.ownerName}">Owner Name</th>
+								<th data-field="vehicleOwnerMobile" th:text="#{ui.ownerMobile}">Owner Mobile</th>
+								<th data-field="vehicleStatus" th:text="#{ui.status}">Status</th>
+								<th data-field="vehicleDated" th:text="#{ui.dated}">Dated</th>
 							</tr>
 						</thead>
 					</table>
 				</div>
 			</div>		
 			<div id="DiscountDiv" class="formDiv">
-				<h3 class="dash-page-title">Discount Management</h3>
+				<h3 class="dash-page-title" th:text="#{ui.discountManagement}">Discount Management</h3>
 				<div style="margin-bottom:8px">
 					<button type="button" id="newDiscount" class="btn btn-success" onclick="newEntity('Discount')">
-						<span class="glyphicon glyphicon-plus-sign"></span> New Discount / Charge
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newDiscountCharge}">New Discount / Charge</span>
 					</button>
 					<span id="bulkBarDiscount" class="crud-bulkbar" style="display:none;margin-left:10px">
-						<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Discount')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Discount')">Clear</button>
+						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+						<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Discount')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Discount')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
 				<div id="DiscountModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
-						<h4 id="DiscountModalTitle">New Discount / Charge</h4>
+						<h4 id="DiscountModalTitle" th:text="#{ui.newDiscountCharge}">New Discount / Charge</h4>
 						<button type="button" class="crud-x" onclick="resetForm();closeModal('DiscountModal')">&times;</button>
 					</div>
 					<div class="crud-body">
@@ -1429,54 +1429,54 @@
 							</select>
 						</div>
 	 -->					
-						<label class="control-label col-sm-2 req" for="discountName">Discount name</label>
+						<label class="control-label col-sm-2 req" for="discountName" th:text="#{ui.discountName}">Discount name</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="discountNameDD" name="name" required="required">
-								<option class="dropdown-item" value="">Nothing Selected</option>					
-								<option class="dropdown-item" value="Admission">Admission</option>
-			 					<option class="dropdown-item" value="Scholarship">Scholarship</option>
-			 					<option class="dropdown-item" value="Performance">Performance</option>
-			 					<option class="dropdown-item" value="Charity">Charity</option>
-			 					<option class="dropdown-item" value="Reference">Reference</option>
-			 					<option class="dropdown-item" value="Sibling">Sibling</option>
+								<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}">Nothing Selected</option>					
+								<option class="dropdown-item" value="Admission" th:text="#{ui.admission}">Admission</option>
+			 					<option class="dropdown-item" value="Scholarship" th:text="#{ui.scholarship}">Scholarship</option>
+			 					<option class="dropdown-item" value="Performance" th:text="#{ui.performance}">Performance</option>
+			 					<option class="dropdown-item" value="Charity" th:text="#{ui.charity}">Charity</option>
+			 					<option class="dropdown-item" value="Reference" th:text="#{ui.reference}">Reference</option>
+			 					<option class="dropdown-item" value="Sibling" th:text="#{ui.sibling}">Sibling</option>
 			 				</select>
 						</div>
 		 				<label class="control-label col-sm-2 req" th:text="#{label.DiscountIn}" for="discountType">Discount Type</label>
 						<div class="col-sm-4">
 							<select	class="form-control" id="discountTypeDD" name="di" required="required">
-								<option class="dropdown-item" value="amount">amount is amount.</option>
-			 					<option class="dropdown-item" value="amount" selected="selected">amount</option>
+								<option class="dropdown-item" value="amount" th:text="#{ui.amountIsAmount}">amount is amount.</option>
+			 					<option class="dropdown-item" value="amount" selected="selected" th:text="#{ui.amount3}">amount</option>
 								<option class="dropdown-item" value="%">%</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group">		
-						<label class="control-label col-sm-2" for="discountAmount">Fixed Amount</label>
+						<label class="control-label col-sm-2" for="discountAmount" th:text="#{ui.fixedAmount}">Fixed Amount</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="discountAmount" name="amount"
-								placeholder=" Discount Amount"> 
+								placeholder=" Discount Amount" th:placeholder="#{ui.discountAmount}"> 
 						</div>
 						<label class="control-label col-sm-2" th:text="#{label.description}" for="discountDescription">Description</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="discountDescription" name="description"
-								placeholder=" Discount Description"> 
+								placeholder=" Discount Description" th:placeholder="#{ui.discountDescription}"> 
 						</div>
 					</div>
 					<div class="form-group">		
 	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="discountStatus">Status</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="discountStatus" name="status" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addDiscount" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetDiscount" class="btn btn-warning" onclick="resetForm();closeModal('DiscountModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="button" id="deleteDiscount" class="btn btn-danger" style="display:none"></button>
 						<button type="reset" class="resetForm" style="display:none"></button>
@@ -1489,36 +1489,36 @@
 					<table id="tableDiscount" class="table table-striped">
 						<thead>
 							<tr>
-								<th data-field="discountId">Id</th>
-								<th data-field="checkDelete">Check</th>
-								<th data-field="discountName">Discount Name</th>
-								<th data-field="discountType">Type</th>
-								<th data-field="discountAmount">Amount</th>
-								<th data-field="discountDescription">Description</th>
-								<th data-field="discountStatus">Status</th>
+								<th data-field="discountId" th:text="#{ui.id2}">Id</th>
+								<th data-field="checkDelete" th:text="#{ui.check}">Check</th>
+								<th data-field="discountName" th:text="#{ui.discountName2}">Discount Name</th>
+								<th data-field="discountType" th:text="#{ui.type}">Type</th>
+								<th data-field="discountAmount" th:text="#{ui.amount}">Amount</th>
+								<th data-field="discountDescription" th:text="#{ui.description}">Description</th>
+								<th data-field="discountStatus" th:text="#{ui.status}">Status</th>
 							</tr>
 						</thead>
 					</table>
 				</div>
 			</div>		
 			<div id="PADiv" class="formDiv">
-				<h4>Public Alerts</h4>
+				<h4 th:text="#{ui.publicAlerts}">Public Alerts</h4>
 				<form action="/educationDashboard.html" method="POST" class="form-horizontal" role="form" enctype="multipart/form-data" id="PAForm" autocomplete="off">
 				<!-- <form method="POST" enctype="multipart/form-data" id="maForm"> -->
 				<!-- <form th:action="@{/importCSV}" method="post" id="maForm" enctype="multipart/form-data"> -->
 					<div class="" style="padding-bottom: 15px;padding-top: 10px;">
-				    	<input type="file" name="file" id="csvFile" accept=".csv" class="btn btn-primary" style="float: left" title="Choose CSV file">
+				    	<input type="file" name="file" id="csvFile" accept=".csv" class="btn btn-primary" style="float: left" title="Choose CSV file" th:title="#{ui.chooseCsvFile}">
 						<input type="button" id="paBtn" value="Import" onclick="return paImportContacts()" class="btn btn-success" style="margin-left: 10px;">
 					</div>
 				</form>
 				<table id="tablePA" class="table table-striped">
 			        <thead>
 			            <tr>
-			            	<th>Id</th>
-							<th>Dated</th>
-							<th>Channel</th>
-							<th>Target</th>
-							<th>Status</th>
+			            	<th th:text="#{ui.id2}">Id</th>
+							<th th:text="#{ui.dated}">Dated</th>
+							<th th:text="#{ui.channel}">Channel</th>
+							<th th:text="#{ui.target}">Target</th>
+							<th th:text="#{ui.status}">Status</th>
 			            </tr>
 			        </thead>
 	   		    </table>
@@ -1526,22 +1526,22 @@
 					enctype="utf8" id="PA" autocomplete="off">
 					<div class="" style="padding-bottom: 15px;padding-top: 10px;">
 						<input type="text" class="form-control" style="margin-bottom: 5px" id="pah" name="pah"
-							placeholder="Heading" title="Subject" required="required">
-						<textarea class="form-control" style="margin-bottom: 5px" rows="5" id="pam" name="pam" title="Message details" placeholder="Message details ..." required="required"></textarea> 
-						<input type="text" class="form-control" style="margin-bottom: 10px" id="pas" name="pas" title="Signature" placeholder="Signature">
+							placeholder="Heading" th:placeholder="#{ui.heading}" title="Subject" th:title="#{ui.subject}" required="required">
+						<textarea class="form-control" style="margin-bottom: 5px" rows="5" id="pam" name="pam" title="Message details" th:title="#{ui.messageDetails2}" placeholder="Message details ..." th:placeholder="#{ui.messageDetails}" required="required"></textarea> 
+						<input type="text" class="form-control" style="margin-bottom: 10px" id="pas" name="pas" title="Signature" th:title="#{ui.signature}" placeholder="Signature" th:placeholder="#{ui.signature}">
 					</div>
 					<div class="form-group">
 						<input type="checkbox" name="isEmail" id="email" class="btn default">
-							<span class="glyphicon glyphicon-envelope"></span> Email
+							<span class="glyphicon glyphicon-envelope"></span> <span th:text="#{ui.email}">Email</span>
 						</input>
 						<input type="checkbox" name="isMobile" id="mobile" class="btn default">
-							<span class="glyphicon glyphicon-phone"></span> Mobile
+							<span class="glyphicon glyphicon-phone"></span> <span th:text="#{ui.mobile2}">Mobile</span>
 						</input>
 						<input type="checkbox" name="isAll" id="all" checked="checked" class="btn default" >
-							<span class="glyphicon glyphicon-random"></span> All
+							<span class="glyphicon glyphicon-random"></span> <span th:text="#{ui.all}">All</span>
 						</input>
 						<button type="button" id="sendPA" class="btn btn-success">
-							<span class="glyphicon glyphicon-send"></span> Send
+							<span class="glyphicon glyphicon-send"></span> <span th:text="#{ui.send}">Send</span>
 						</button>
 					</div>
 				</form>   		    
@@ -1559,39 +1559,39 @@
 						</div>
 					</div>				
 					<div class="form-group">		
-						<label class="control-label col-sm-2 req" for="acdd">Select Consumers</label>
+						<label class="control-label col-sm-2 req" for="acdd" th:text="#{ui.selectConsumers2}">Select Consumers</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control selectpicker" id="acdd" name="c" required="required" title="Select consumers…" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
-																<option class="dropdown-item" value="Students">Students</option>
-			 					<option class="dropdown-item" value="Guardians">Guardians</option>
-								<option class="dropdown-item" value="Employees">Employees</option>
-			 					<option class="dropdown-item" value="Drivers">Drivers</option>
-								<option class="dropdown-item" value="Public">Public</option>
-								<option class="dropdown-item" value="All">All</option>
+							<select multiple="multiple"	class="form-control selectpicker" id="acdd" name="c" required="required" title="Select consumers…" th:title="#{ui.selectConsumers}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+																<option class="dropdown-item" value="Students" th:text="#{ui.students}">Students</option>
+			 					<option class="dropdown-item" value="Guardians" th:text="#{ui.guardians}">Guardians</option>
+								<option class="dropdown-item" value="Employees" th:text="#{ui.employees}">Employees</option>
+			 					<option class="dropdown-item" value="Drivers" th:text="#{ui.drivers}">Drivers</option>
+								<option class="dropdown-item" value="Public" th:text="#{ui.public}">Public</option>
+								<option class="dropdown-item" value="All" th:text="#{ui.all}">All</option>
 			 				</select>
 						</div>
-						<label class="control-label col-sm-2 req" for="atdd">Alert Type</label>
+						<label class="control-label col-sm-2 req" for="atdd" th:text="#{ui.alertType}">Alert Type</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control selectpicker" id="atdd" name="at" required="required" title="Select alert type…" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
-																<option class="dropdown-item" value="Notice Board">Notice Board</option>
-			 					<option class="dropdown-item" value="Late Fee">Late Fee</option>
-								<option class="dropdown-item" value="Fee Reviwed">Fee Reviwed</option>
-			 					<option class="dropdown-item" value="Timing Issue">Timing Issue</option>
-								<option class="dropdown-item" value="Performace">Performace</option>
-								<option class="dropdown-item" value="Policies Reviwed">Policies Reviwed</option>
-								<option class="dropdown-item" value="Ethics">Ethics</option>
-								<option class="dropdown-item" value="Promotions">Promotions</option>
-								<option class="dropdown-item" value="Holidays">Holidays</option>
-								<option class="dropdown-item" value="Vacations">Vacations</option>
-								<option class="dropdown-item" value="Attendance">Attendance</option>
+							<select multiple="multiple"	class="form-control selectpicker" id="atdd" name="at" required="required" title="Select alert type…" th:title="#{ui.selectAlertType}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+																<option class="dropdown-item" value="Notice Board" th:text="#{ui.noticeBoard}">Notice Board</option>
+			 					<option class="dropdown-item" value="Late Fee" th:text="#{ui.lateFee}">Late Fee</option>
+								<option class="dropdown-item" value="Fee Reviwed" th:text="#{ui.feeReviwed}">Fee Reviwed</option>
+			 					<option class="dropdown-item" value="Timing Issue" th:text="#{ui.timingIssue}">Timing Issue</option>
+								<option class="dropdown-item" value="Performace" th:text="#{ui.performace}">Performace</option>
+								<option class="dropdown-item" value="Policies Reviwed" th:text="#{ui.policiesReviwed}">Policies Reviwed</option>
+								<option class="dropdown-item" value="Ethics" th:text="#{ui.ethics}">Ethics</option>
+								<option class="dropdown-item" value="Promotions" th:text="#{ui.promotions}">Promotions</option>
+								<option class="dropdown-item" value="Holidays" th:text="#{ui.holidays}">Holidays</option>
+								<option class="dropdown-item" value="Vacations" th:text="#{ui.vacations}">Vacations</option>
+								<option class="dropdown-item" value="Attendance" th:text="#{ui.attendance}">Attendance</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group">		
-						<label class="control-label col-sm-2 req" for="adcdd">Delivery Channel</label>
+						<label class="control-label col-sm-2 req" for="adcdd" th:text="#{ui.deliveryChannel}">Delivery Channel</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control selectpicker" id="adcdd" name="dc" required="required" title="Select channels…" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
-											 					<option class="dropdown-item" value="Email">Email</option>
+							<select multiple="multiple"	class="form-control selectpicker" id="adcdd" name="dc" required="required" title="Select channels…" th:title="#{ui.selectChannels}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+											 					<option class="dropdown-item" value="Email" th:text="#{ui.email}">Email</option>
 								<option class="dropdown-item" value="SMS">SMS</option>
 								<option class="dropdown-item" value="Watts App">Watts App</option>
 			 					<option class="dropdown-item" value="Facebook">Facebook</option>
@@ -1599,31 +1599,31 @@
 			 					<option class="dropdown-item" value="Instagram">Instagram</option>
 			 				</select>
 						</div>
-						<label class="control-label col-sm-2 req" for="adpdd">Delivery Channel</label>
+						<label class="control-label col-sm-2 req" for="adpdd" th:text="#{ui.deliveryChannel}">Delivery Channel</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control selectpicker" id="adpdd" name="dp" required="required" title="Select frequency…" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
-																<option class="dropdown-item" value="Daily">Daily</option>
-			 					<option class="dropdown-item" value="Weekly">Weekly</option>
-								<option class="dropdown-item" value="Monthly">Monthly</option>
-			 					<option class="dropdown-item" value="Quartly">Quartly</option>
-								<option class="dropdown-item" value="Yearly">Yearly</option>
-								<option class="dropdown-item" value="Random">Random</option>
+							<select multiple="multiple"	class="form-control selectpicker" id="adpdd" name="dp" required="required" title="Select frequency…" th:title="#{ui.selectFrequency}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+																<option class="dropdown-item" value="Daily" th:text="#{ui.daily}">Daily</option>
+			 					<option class="dropdown-item" value="Weekly" th:text="#{ui.weekly}">Weekly</option>
+								<option class="dropdown-item" value="Monthly" th:text="#{ui.monthly}">Monthly</option>
+			 					<option class="dropdown-item" value="Quartly" th:text="#{ui.quartly}">Quartly</option>
+								<option class="dropdown-item" value="Yearly" th:text="#{ui.yearly}">Yearly</option>
+								<option class="dropdown-item" value="Random" th:text="#{ui.random}">Random</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="adtdd">Delivery Type</label>
+						<label class="control-label col-sm-2 req" for="adtdd" th:text="#{ui.deliveryType}">Delivery Type</label>
 						<div class="col-sm-4">
 							<select	class="form-control" id="adtdd" name="dt" required="required">
-																<option class="dropdown-item" value="Manual">Manual</option>
-			 					<option class="dropdown-item" value="Auto">Auto</option>
+																<option class="dropdown-item" value="Manual" th:text="#{ui.manual}">Manual</option>
+			 					<option class="dropdown-item" value="Auto" th:text="#{ui.auto}">Auto</option>
 			 				</select>
 						</div>
 	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="ast">Status</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="ast" name="st" required="required">
-								<option class="dropdown-item" value="Active" selected="selected">Active</option>
-			 					<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
+			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 					</div>
@@ -1631,48 +1631,48 @@
 						<label class="control-label col-sm-2" th:text="#{label.start.date}"  for="asd">Start Date</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="asd" name="sdStr"
-								placeholder=" Start Date"> 
+								placeholder=" Start Date" th:placeholder="#{ui.startDate2}"> 
 						</div>
 						<label class="control-label col-sm-2" th:text="#{label.end.date}"  for="aed">End Date</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="aed" name="edStr"
-								placeholder=" End Date"> 
+								placeholder=" End Date" th:placeholder="#{ui.endDate2}"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="ah">Heading</label>
+						<label class="control-label col-sm-2 req"  for="ah" th:text="#{ui.heading}">Heading</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="ah" name="ah"
-								placeholder=" Message heading " required="required"> 
+								placeholder=" Message heading " th:placeholder="#{ui.messageHeading}" required="required"> 
 						</div>
 						<div class="col-sm-6">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="am">Details</label>
+						<label class="control-label col-sm-2 req"  for="am" th:text="#{ui.details}">Details</label>
 						<div class="col-sm-10">
-							<textarea class="form-control" rows="5" id="am" name="am" placeholder="Enter message detail here..." required="required"></textarea> 
+							<textarea class="form-control" rows="5" id="am" name="am" placeholder="Enter message detail here..." th:placeholder="#{ui.enterMessageDetailHere}" required="required"></textarea> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2"  for="as">Signature</label>
+						<label class="control-label col-sm-2"  for="as" th:text="#{ui.signature}">Signature</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="as" name="as"
-								placeholder=" Message signature "> 
+								placeholder=" Message signature " th:placeholder="#{ui.messageSignature}"> 
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center">
 						<button type="button" id="addAlerts" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="deleteAlerts" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+							<span class="glyphicon glyphicon-minus-sign"></span> <span th:text="#{ui.delete}">Delete</span>
 						</button>
 						<button type="reset" id="resetAlerts" class="btn btn-warning">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="reset" id="sendAlerts" class="btn btn-primary">
-							<span class="glyphicon glyphicon-send"></span> Send
+							<span class="glyphicon glyphicon-send"></span> <span th:text="#{ui.send}">Send</span>
 						</button>
 						<button type="reset" class="resetForm"/>						
 					</div>
@@ -1681,19 +1681,19 @@
 					<table id="tableAlerts" class="table table-striped">
 						<thead>
 							<tr>
-								<th data-field="alertId">Id</th>
-								<th data-field="checkAlerts">Check</th>
-								<th data-field="acdd">Consumer</th>
-								<th data-field="atdd">Type</th>
-								<th data-field="adcdd">Del. Channel</th>
-								<th data-field="adpdd">Del. Period</th>
-								<th data-field="adtdd">Del. Type</th>
-								<th data-field="ast">Status</th>
-								<th data-field="asd">Start Date</th>
-								<th data-field="aed">End Date</th>
-								<th data-field="ah">Heading</th>
-								<th data-field="am">Message</th>
-								<th data-field="as">Signature</th>
+								<th data-field="alertId" th:text="#{ui.id2}">Id</th>
+								<th data-field="checkAlerts" th:text="#{ui.check}">Check</th>
+								<th data-field="acdd" th:text="#{ui.consumer}">Consumer</th>
+								<th data-field="atdd" th:text="#{ui.type}">Type</th>
+								<th data-field="adcdd" th:text="#{ui.delChannel}">Del. Channel</th>
+								<th data-field="adpdd" th:text="#{ui.delPeriod}">Del. Period</th>
+								<th data-field="adtdd" th:text="#{ui.delType}">Del. Type</th>
+								<th data-field="ast" th:text="#{ui.status}">Status</th>
+								<th data-field="asd" th:text="#{ui.startDate2}">Start Date</th>
+								<th data-field="aed" th:text="#{ui.endDate2}">End Date</th>
+								<th data-field="ah" th:text="#{ui.heading}">Heading</th>
+								<th data-field="am" th:text="#{ui.message}">Message</th>
+								<th data-field="as" th:text="#{ui.signature}">Signature</th>
 							</tr>
 						</thead>
 					</table>
@@ -1713,14 +1713,14 @@
 						</div>
 					</div>				
 					<div class="form-group">		
-						<label class="control-label col-sm-2 req" for="fcen">Enter Enroll No</label>
+						<label class="control-label col-sm-2 req" for="fcen" th:text="#{ui.enterEnrollNo}">Enter Enroll No</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="inputFc" name="en"
-								placeholder=" Enter Enroll No " required="required" onkeypress="handleEnterKey(event,'enter','findFc')"> 
+								placeholder=" Enter Enroll No " th:placeholder="#{ui.enterEnrollNo}" required="required" onkeypress="handleEnterKey(event,'enter','findFc')"> 
 						</div>
 						<div class="col-sm-6">
 							<button type="button" id="findFc" class="btn btn-success">
-								<span class="glyphicon glyphicon-search"></span> Search
+								<span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.search}">Search</span>
 							</button>
 	<!-- 						<button type="button" id="printFc" onclick="printFc2()" class="btn btn-success">
 								<span class="glyphicon glyphicon-print"></span> Print
@@ -1739,15 +1739,15 @@
 						<table id="" class="display table" style="width:100%">
 							<thead>
 								<tr>
-									<th>Student</th>
-									<th>Gaurdian</th>
-									<th>School</th>
-									<th>Class</th>
-									<th>Fee</th>
-									<th>V. Fare</th>
-									<th>Discount</th>
-									<th>Due Amount</th>
-									<th>Due Date</th>
+									<th th:text="#{ui.student}">Student</th>
+									<th th:text="#{ui.gaurdian}">Gaurdian</th>
+									<th th:text="#{ui.school}">School</th>
+									<th th:text="#{ui.class}">Class</th>
+									<th th:text="#{ui.fee}">Fee</th>
+									<th th:text="#{ui.vFare}">V. Fare</th>
+									<th th:text="#{ui.discount}">Discount</th>
+									<th th:text="#{ui.dueAmount}">Due Amount</th>
+									<th th:text="#{ui.dueDate}">Due Date</th>
 								</tr>	
 							</thead>
 							<tbody>
@@ -1766,19 +1766,19 @@
 						</table>
 						<table id="fcDT" class="display table" style="width:100%">
 							<thead>
-								<tr><th rowspan="1" colspan="12" style="margin: 0px;padding: 3px">Fee details since last payment</th></tr>
+								<tr><th rowspan="1" colspan="12" style="margin: 0px;padding: 3px" th:text="#{ui.feeDetailsSinceLastPayment}">Fee details since last payment</th></tr>
 								<tr>
-									<th>Date</th>
-									<th>Payer</th>
-									<th>Payee</th>
-									<th>Fee</th>
-									<th>V. Fee</th>
-									<th>Discount</th>
-									<th>Other payment</th>
-									<th>Other desc.</th>
-									<th>Due Amount</th>
-									<th>paid</th>
-									<th>Balance</th>
+									<th th:text="#{ui.date2}">Date</th>
+									<th th:text="#{ui.payer}">Payer</th>
+									<th th:text="#{ui.payee}">Payee</th>
+									<th th:text="#{ui.fee}">Fee</th>
+									<th th:text="#{ui.vFee}">V. Fee</th>
+									<th th:text="#{ui.discount}">Discount</th>
+									<th th:text="#{ui.otherPayment}">Other payment</th>
+									<th th:text="#{ui.otherDesc}">Other desc.</th>
+									<th th:text="#{ui.dueAmount}">Due Amount</th>
+									<th th:text="#{ui.paid2}">paid</th>
+									<th th:text="#{ui.balance}">Balance</th>
 								</tr>	
 							</thead>
 							<!-- <tbody>
@@ -1815,72 +1815,72 @@
 						</table> -->
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="fcf">Total payment</label>
+						<label class="control-label col-sm-2 req" for="fcf" th:text="#{ui.totalPayment}">Total payment</label>
 						<div class="col-sm-4">
 							<input type="number" class="form-control" id="fcfp" name="fp" onkeyup="getDB()"
-								placeholder=" Enter fee amount " required="required"> 
+								placeholder=" Enter fee amount " th:placeholder="#{ui.enterFeeAmount}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2" for="fcdb">Balance</label>
+						<label class="control-label col-sm-2" for="fcdb" th:text="#{ui.balance}">Balance</label>
 						<div class="col-sm-4">
 							<input type="number" class="form-control" id="fcdb" name="db" readonly="readonly"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="fcod">Other dues</label>
+						<label class="control-label col-sm-2" for="fcod" th:text="#{ui.otherDues}">Other dues</label>
 						<div class="col-sm-4">
 							<input type="number" class="form-control" id="fcod" name="od"
-								placeholder=" Enter other dues "> 
+								placeholder=" Enter other dues " th:placeholder="#{ui.enterOtherDues}"> 
 						</div>
-						<label class="control-label col-sm-2" for="fcodd">Description</label>
+						<label class="control-label col-sm-2" for="fcodd" th:text="#{ui.description}">Description</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="fcodd" name="odd"
-								placeholder=" Dues descriptions "/> 
+								placeholder=" Dues descriptions " th:placeholder="#{ui.duesDescriptions}"/> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="fcp">Payer</label>
+						<label class="control-label col-sm-2 req" for="fcp" th:text="#{ui.payer}">Payer</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="fcp" name="p"
-								placeholder=" Submit By " required="required"/> 
+								placeholder=" Submit By " th:placeholder="#{ui.submitBy}" required="required"/> 
 						</div>
-						<label class="control-label col-sm-2 req" for="fcrb">Payee</label>
+						<label class="control-label col-sm-2 req" for="fcrb" th:text="#{ui.payee}">Payee</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="fcrb" name="rb"
-								placeholder=" Revieved by " required="required"/> 
+								placeholder=" Revieved by " th:placeholder="#{ui.revievedBy}" required="required"/> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="fcri">Recieved In</label>
+						<label class="control-label col-sm-2 req"  for="fcri" th:text="#{ui.recievedIn}">Recieved In</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="fcri" name="ri" required="required">
-																<option class="dropdown-item" value="Cash">Cash</option>
-								<option class="dropdown-item" value="Check">Check</option>
+																<option class="dropdown-item" value="Cash" th:text="#{ui.cash}">Cash</option>
+								<option class="dropdown-item" value="Check" th:text="#{ui.check}">Check</option>
 							</select>	
 						</div>
 						<div id="cnd">
-							<label class="control-label col-sm-2"  for="cn">Check No</label>
+							<label class="control-label col-sm-2"  for="cn" th:text="#{ui.checkNo}">Check No</label>
 							<div class="col-sm-4">
 								<input type="text" class="form-control" id="fccn" name="cn"
-									placeholder=" Check number "/> 
+									placeholder=" Check number " th:placeholder="#{ui.checkNumber}"/> 
 							</div>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="fcpd">Payment date</label>
+						<label class="control-label col-sm-2" for="fcpd" th:text="#{ui.paymentDate2}">Payment date</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="fcpd" name="pdStr"
-								placeholder=" Payment Date"> 
+								placeholder=" Payment Date" th:placeholder="#{ui.paymentDate}"> 
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center;margin-top: 30px;margin-bottom: 0;">
 						<button type="button" id="addFc" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
+							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="deleteFc" class="btn btn-danger">
-							<span class="glyphicon glyphicon-minus-sign"></span> Delete
+							<span class="glyphicon glyphicon-minus-sign"></span> <span th:text="#{ui.delete}">Delete</span>
 						</button>
 						<button type="reset" id="resetFc" class="btn btn-warning">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
+							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="reset" class="resetForm"/>						
 					</div>
@@ -1889,45 +1889,45 @@
 					<table id="tableFc" class="table table-striped">
 						<thead>
 							<tr>
-								<th data-field="fcId">Id</th>
-								<th data-field="checkfc">Check</th>
-								<th data-field="fcen">Enroll No</th>
-								<th>Date</th>
-								<th>Payer</th>
-								<th>Payee</th>
-								<th>Fee</th>
-								<th>V. Fee</th>
-								<th>Discount</th>
-								<th data-field="fchdt">Discount Type</th>
-								<th>Other payment</th>
-								<th>Other desc.</th>
-								<th>Due Amount</th>
-								<th>paid</th>
-								<th>Balance</th>
-								<th>Due Day</th>
-								<th data-field="fcri">Recieved In.</th>
-								<th data-field="fccn">Check No.</th>
+								<th data-field="fcId" th:text="#{ui.id2}">Id</th>
+								<th data-field="checkfc" th:text="#{ui.check}">Check</th>
+								<th data-field="fcen" th:text="#{ui.enrollNo}">Enroll No</th>
+								<th th:text="#{ui.date2}">Date</th>
+								<th th:text="#{ui.payer}">Payer</th>
+								<th th:text="#{ui.payee}">Payee</th>
+								<th th:text="#{ui.fee}">Fee</th>
+								<th th:text="#{ui.vFee}">V. Fee</th>
+								<th th:text="#{ui.discount}">Discount</th>
+								<th data-field="fchdt" th:text="#{ui.discountType}">Discount Type</th>
+								<th th:text="#{ui.otherPayment}">Other payment</th>
+								<th th:text="#{ui.otherDesc}">Other desc.</th>
+								<th th:text="#{ui.dueAmount}">Due Amount</th>
+								<th th:text="#{ui.paid2}">paid</th>
+								<th th:text="#{ui.balance}">Balance</th>
+								<th th:text="#{ui.dueDay}">Due Day</th>
+								<th data-field="fcri" th:text="#{ui.recievedIn2}">Recieved In.</th>
+								<th data-field="fccn" th:text="#{ui.checkNo2}">Check No.</th>
 							</tr>
 						</thead>
 					</table>
 				</div>
 			</div>		
 			<div id="FVDiv" class="formDiv">
-				<h4>Fee Voucher &amp; Ledger</h4>
+				<h4 th:text="#{ui.feeVoucherAndLedger}">Fee Voucher &amp; Ledger</h4>
 				<br/>
 				<div class="form-inline" style="margin-bottom:14px">
 					<div class="form-group">
-						<label class="control-label" for="fvEnroll">Student (enroll no)</label>
-						<input type="text" class="form-control" id="fvEnroll" placeholder="e.g. ENR-001" style="margin:0 8px"/>
+						<label class="control-label" for="fvEnroll" th:text="#{ui.studentEnrollNo}">Student (enroll no)</label>
+						<input type="text" class="form-control" id="fvEnroll" placeholder="e.g. ENR-001" th:placeholder="#{ui.eGEnr001}" style="margin:0 8px"/>
 					</div>
-					<button type="button" class="btn btn-primary" onclick="loadFV()"><span class="glyphicon glyphicon-list-alt"></span> Generate Voucher</button>
-					<button type="button" class="btn btn-default" onclick="loadFL()"><span class="glyphicon glyphicon-th-list"></span> Show Ledger</button>
+					<button type="button" class="btn btn-primary" onclick="loadFV()"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.generateVoucher}">Generate Voucher</span></button>
+					<button type="button" class="btn btn-default" onclick="loadFL()"><span class="glyphicon glyphicon-th-list"></span> <span th:text="#{ui.showLedger}">Show Ledger</span></button>
 				</div>
 				<div id="fvVoucher" style="display:none;margin-bottom:18px"></div>
 				<div id="flLedgerWrap" style="display:none">
 					<h5 id="flHeader"></h5>
 					<table class="table table-striped">
-						<thead><tr><th>Date</th><th>Fee</th><th>Discount</th><th>Other</th><th>Due</th><th>Paid</th><th>Balance</th><th>Payee</th><th>Received By</th><th>Mode</th></tr></thead>
+						<thead><tr><th th:text="#{ui.date2}">Date</th><th th:text="#{ui.fee}">Fee</th><th th:text="#{ui.discount}">Discount</th><th th:text="#{ui.other2}">Other</th><th th:text="#{ui.due}">Due</th><th th:text="#{ui.paid}">Paid</th><th th:text="#{ui.balance}">Balance</th><th th:text="#{ui.payee}">Payee</th><th th:text="#{ui.receivedBy}">Received By</th><th th:text="#{ui.mode}">Mode</th></tr></thead>
 						<tbody id="flBody"></tbody>
 					</table>
 				</div>
@@ -1935,16 +1935,16 @@
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="FV" autocomplete="off" style="display:none">
 	 				<div class="form-group" sec:authorize="hasAuthority('SUPER_PRIVILEGE')">
-						<label class="control-label col-sm-2 req"  for="fvp">Period</label>
+						<label class="control-label col-sm-2 req"  for="fvp" th:text="#{ui.period}">Period</label>
 						<div class="col-sm-2">
 							<select class="form-control" id="dateRangeDDFV" name="vp" required="required">
-								<option class="dropdown-item" value=0 selected="selected">Current month</option>
-								<option class="dropdown-item" value=1>Date Range</option>
-								<option class="dropdown-item" value=2>Custom</option>
+								<option class="dropdown-item" value=0 selected="selected" th:text="#{ui.currentMonth}">Current month</option>
+								<option class="dropdown-item" value=1 th:text="#{ui.dateRange}">Date Range</option>
+								<option class="dropdown-item" value=2 th:text="#{ui.custom}">Custom</option>
 							</select>	
 						</div>
 						<div id="customFV" style="display: none">
-							<label class="control-label col-sm-2" for="fvYearDD">Year</label>
+							<label class="control-label col-sm-2" for="fvYearDD" th:text="#{ui.year}">Year</label>
 							<div class="col-sm-2">
 							<select class="form-control" id="fvYearDD" required="required">
 								<option class="dropdown-item" value=2019>2019</option>
@@ -1953,62 +1953,62 @@
 								<option class="dropdown-item" value=2022>2022</option>
 							</select>	
 							</div>
-							<label class="control-label col-sm-2" for="fvMonthsDD">Months</label>
+							<label class="control-label col-sm-2" for="fvMonthsDD" th:text="#{ui.months}">Months</label>
 							<div class="col-sm-2">
 							<select multiple="multiple" class="selectpicker" id="fvMonthsDD" required="required">
-								<option class="dropdown-item" value=1>January</option>
-								<option class="dropdown-item" value=2>February</option>
-								<option class="dropdown-item" value=3>March</option>
-								<option class="dropdown-item" value=4>April</option>
-								<option class="dropdown-item" value=5>May</option>
-								<option class="dropdown-item" value=6>June</option>
-								<option class="dropdown-item" value=7>July</option>
-								<option class="dropdown-item" value=8>August</option>
-								<option class="dropdown-item" value=9>September</option>
-								<option class="dropdown-item" value=10>October</option>
-								<option class="dropdown-item" value=11>November</option>
-								<option class="dropdown-item" value=12>December</option>
+								<option class="dropdown-item" value=1 th:text="#{ui.january}">January</option>
+								<option class="dropdown-item" value=2 th:text="#{ui.february}">February</option>
+								<option class="dropdown-item" value=3 th:text="#{ui.march}">March</option>
+								<option class="dropdown-item" value=4 th:text="#{ui.april}">April</option>
+								<option class="dropdown-item" value=5 th:text="#{ui.may}">May</option>
+								<option class="dropdown-item" value=6 th:text="#{ui.june}">June</option>
+								<option class="dropdown-item" value=7 th:text="#{ui.july}">July</option>
+								<option class="dropdown-item" value=8 th:text="#{ui.august}">August</option>
+								<option class="dropdown-item" value=9 th:text="#{ui.september}">September</option>
+								<option class="dropdown-item" value=10 th:text="#{ui.october}">October</option>
+								<option class="dropdown-item" value=11 th:text="#{ui.november}">November</option>
+								<option class="dropdown-item" value=12 th:text="#{ui.december}">December</option>
 							</select>	
 							</div>
 						</div>
 						<div id="dateRangeFV" style="display: none">
-							<label class="control-label col-sm-2" for="fvsd">From</label>
+							<label class="control-label col-sm-2" for="fvsd" th:text="#{ui.from}">From</label>
 							<div class="col-sm-2">
 								<input type="text" class="form-control monthYearDatePicker" id="fvsd" name="sdStr"
-									placeholder=" Start Date"> 
+									placeholder=" Start Date" th:placeholder="#{ui.startDate2}"> 
 							</div>
-							<label class="control-label col-sm-2" for="fved">To</label>
+							<label class="control-label col-sm-2" for="fved" th:text="#{ui.to}">To</label>
 							<div class="col-sm-2">
 								<input type="text" class="form-control monthYearDatePicker" id="fved" name="edStr"
-									placeholder=" End Date"> 
+									placeholder=" End Date" th:placeholder="#{ui.endDate2}"> 
 							</div>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="fIssueDate">Issue date</label>
+						<label class="control-label col-sm-2 req"  for="fIssueDate" th:text="#{ui.issueDate2}">Issue date</label>
 						<div class="col-sm-2">
-							<input type="text" class="form-control datePickerWithMonthName" id="fIssueDate" placeholder=" Issue Date" required="required"> 
+							<input type="text" class="form-control datePickerWithMonthName" id="fIssueDate" placeholder=" Issue Date" th:placeholder="#{ui.issueDate}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2 req"  for="fDueDate">Due date</label>
+						<label class="control-label col-sm-2 req"  for="fDueDate" th:text="#{ui.dueDate3}">Due date</label>
 						<div class="col-sm-2">
 							<input type="text" class="form-control datePickerWithMonthName" id="fDueDate" name="dueDate"
-								placeholder=" Due Date" required="required"> 
+								placeholder=" Due Date" th:placeholder="#{ui.dueDate}" required="required"> 
 						</div>
-						<label class="control-label col-sm-2 req"  for="fValidDate">Valid date</label>
+						<label class="control-label col-sm-2 req"  for="fValidDate" th:text="#{ui.validDate2}">Valid date</label>
 						<div class="col-sm-2">
 							<input type="text" class="form-control datePickerWithMonthName" id="fValidDate" name="validDate"
-								placeholder=" Valid Date" required="required"> 
+								placeholder=" Valid Date" th:placeholder="#{ui.validDate}" required="required"> 
 						</div>
 					</div>			
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="fvb">Voucher by</label>
+						<label class="control-label col-sm-2 req"  for="fvb" th:text="#{ui.voucherBy}">Voucher by</label>
 						<div class="col-sm-2">
 							<select class="onChangeSelect selectpicker req" id="fvb" name="vb" required="required" onchange="loadFVIBSDD(this,'fviDD')">
-								<option class="dropdown-item" value='' selected="selected">Not selected</option>
-								<option class="dropdown-item" value='Students'>Students</option>
-								<option class="dropdown-item" value='Guardians'>Guardians</option>
-								<option class="dropdown-item" value='Grades'>Classes</option>
-								<option class="dropdown-item" value='Schools'>Campuses</option>
+								<option class="dropdown-item" value='' selected="selected" th:text="#{ui.notSelected}">Not selected</option>
+								<option class="dropdown-item" value='Students' th:text="#{ui.students}">Students</option>
+								<option class="dropdown-item" value='Guardians' th:text="#{ui.guardians}">Guardians</option>
+								<option class="dropdown-item" value='Grades' th:text="#{ui.classes}">Classes</option>
+								<option class="dropdown-item" value='Schools' th:text="#{ui.campuses}">Campuses</option>
 							</select>	
 						</div>
 						<label class="control-label col-sm-2 req" for="fvi" th:text="#{label.please.select}">Please select</label>
@@ -2020,22 +2020,26 @@
 						<label class="control-label col-sm-2" for="incl_excl_selected" th:text="#{label.incl_excl_selected}">Incl/Excl</label>
 						<div class="col-sm-2">
 							<select class="onChangeSelect selectpicker" id="incl_excl_selected" name="inclExclSelected"  onchange="populateArrearsDiv('fviDD')">
-								<option class="dropdown-item" selected="selected">Default All</option>
-								<option class="dropdown-item" value='include'>Include Selected</option>
-								<option class="dropdown-item" value='exclude'>Exclude Selected</option>
+								<!-- Explicit empty value: with none, the option TEXT was submitted, so a translated
+								     label would have changed the posted value. (Nothing reads this field today —
+								     FeeVoucherDTO.inclExclSelected is declared but never consumed — but the two
+								     sibling options are value-carrying and this one must not be the odd one out.) -->
+								<option class="dropdown-item" value="" selected="selected" th:text="#{ui.defaultAll}">Default All</option>
+								<option class="dropdown-item" value='include' th:text="#{ui.includeSelected}">Include Selected</option>
+								<option class="dropdown-item" value='exclude' th:text="#{ui.excludeSelected}">Exclude Selected</option>
 							</select>	
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="fOthers">Others</label>
+						<label class="control-label col-sm-2" for="fOthers" th:text="#{ui.others}">Others</label>
 						<div class="col-sm-2">
 							<input type="text" class="form-control" id="fOthers"
-								placeholder=" Enter name "> 
+								placeholder=" Enter name " th:placeholder="#{ui.enterName}"> 
 						</div>
-						<label class="control-label col-sm-2"  for="fCharges">Charges</label>
+						<label class="control-label col-sm-2"  for="fCharges" th:text="#{ui.charges}">Charges</label>
 						<div class="col-sm-2">
 							<input type="number" class="form-control" id="fCharges"
-								placeholder=" Enter value " required="required"> 
+								placeholder=" Enter value " th:placeholder="#{ui.enterValue}" required="required"> 
 						</div>
 					</div>			
 					<div class="form-group">
@@ -2048,10 +2052,10 @@
 					</div>
 					<div class="form-group" style="text-align: center; margin-top: 25px;">
 						<button type="button" id="printFV" onclick="loadFV()" class="btn btn-success" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
-							<span class="glyphicon glyphicon-print"></span> Print Voucher
+							<span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.printVoucher}">Print Voucher</span>
 						</button>
 						<button type="button" id="printFL" onclick="loadFL()" class="btn btn-success" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
-							<span class="glyphicon glyphicon-print"></span> Print Ledger
+							<span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.printLedger}">Print Ledger</span>
 						</button>
 						<button type="reset" class="resetForm"/>
 					</div>
@@ -2059,70 +2063,70 @@
 			</div>		
 	
 			<div id="ADiv" class="formDiv">
-				<h4>Attendance</h4>
+				<h4 th:text="#{ui.attendance}">Attendance</h4>
 				<br />
 				<!-- Class-roster marking: pick a class + date, load the roster, mark, and save in one go. -->
 				<div class="form-inline" style="margin-bottom:16px">
 					<div class="form-group">
-						<label class="control-label" for="aGradeDD">Class</label>
+						<label class="control-label" for="aGradeDD" th:text="#{ui.class}">Class</label>
 						<select class="form-control" id="aGradeDD" name="gradeId" style="margin:0 10px"></select>
 					</div>
 					<div class="form-group">
-						<label class="control-label" for="aDate">Date</label>
+						<label class="control-label" for="aDate" th:text="#{ui.date2}">Date</label>
 						<input type="date" class="form-control" id="aDate" style="margin:0 10px"/>
 					</div>
-					<button type="button" class="btn btn-primary" onclick="loadClassRoster()">Load Roster</button>
+					<button type="button" class="btn btn-primary" onclick="loadClassRoster()" th:text="#{ui.loadRoster}">Load Roster</button>
 				</div>
 				<div id="aRosterWrap" style="display:none">
 					<div style="margin-bottom:10px;overflow:hidden">
-						<button type="button" class="btn btn-default btn-sm" onclick="aMarkAll('Present')">Mark all Present</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="aMarkAll('Absent')">Mark all Absent</button>
-						<button type="button" class="btn btn-success" style="float:right" onclick="saveAttendance()">Save Attendance</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="aMarkAll('Present')" th:text="#{ui.markAllPresent}">Mark all Present</button>
+						<button type="button" class="btn btn-default btn-sm" onclick="aMarkAll('Absent')" th:text="#{ui.markAllAbsent}">Mark all Absent</button>
+						<button type="button" class="btn btn-success" style="float:right" onclick="saveAttendance()" th:text="#{ui.saveAttendance}">Save Attendance</button>
 					</div>
 					<table class="table table-striped" id="aRosterTable">
 						<thead>
 							<tr>
-								<th>Enroll No</th><th>Student</th><th>Status</th>
-								<th>Time In</th><th>Time Out</th><th>Remark</th>
+								<th th:text="#{ui.enrollNo}">Enroll No</th><th th:text="#{ui.student}">Student</th><th th:text="#{ui.status}">Status</th>
+								<th th:text="#{ui.timeIn}">Time In</th><th th:text="#{ui.timeOut}">Time Out</th><th th:text="#{ui.remark}">Remark</th>
 							</tr>
 						</thead>
 						<tbody id="aRosterBody"></tbody>
 					</table>
 				</div>
-				<div id="aRosterEmpty" class="text-muted" style="display:none">No students found for this class.</div>
+				<div id="aRosterEmpty" class="text-muted" style="display:none" th:text="#{ui.noStudentsFoundForThisClass}">No students found for this class.</div>
 			</div>
 	
 			<div id="FRDiv" class="formDiv">
-				<h4>Fee Report</h4>
+				<h4 th:text="#{ui.feeReport}">Fee Report</h4>
 				<br/>
 				<div class="form-inline" style="margin-bottom:14px">
 					<div class="form-group">
-						<label class="control-label" for="frScope">Scope</label>
+						<label class="control-label" for="frScope" th:text="#{ui.scope}">Scope</label>
 						<select class="form-control" id="frScope" style="margin:0 8px">
-							<option value="ALL" selected="selected">All</option>
-							<option value="STUDENT">Student (enroll no)</option>
-							<option value="GUARDIAN">Guardian (id)</option>
-							<option value="CLASS">Class (id)</option>
-							<option value="CAMPUS">Campus (id)</option>
+							<option value="ALL" selected="selected" th:text="#{ui.all}">All</option>
+							<option value="STUDENT" th:text="#{ui.studentEnrollNo}">Student (enroll no)</option>
+							<option value="GUARDIAN" th:text="#{ui.guardianId}">Guardian (id)</option>
+							<option value="CLASS" th:text="#{ui.classId}">Class (id)</option>
+							<option value="CAMPUS" th:text="#{ui.campusId}">Campus (id)</option>
 						</select>
 					</div>
 					<div class="form-group">
-						<label class="control-label" for="frId">Id</label>
-						<input type="text" class="form-control" id="frId" placeholder="(when not All)" style="margin:0 8px"/>
+						<label class="control-label" for="frId" th:text="#{ui.id2}">Id</label>
+						<input type="text" class="form-control" id="frId" placeholder="(when not All)" th:placeholder="#{ui.whenNotAll}" style="margin:0 8px"/>
 					</div>
 					<div class="form-group">
-						<label class="control-label" for="frFrom">From</label>
+						<label class="control-label" for="frFrom" th:text="#{ui.from}">From</label>
 						<input type="date" class="form-control" id="frFrom" style="margin:0 8px"/>
-						<label class="control-label" for="frTo">To</label>
+						<label class="control-label" for="frTo" th:text="#{ui.to}">To</label>
 						<input type="date" class="form-control" id="frTo" style="margin:0 8px"/>
 					</div>
-					<button type="button" class="btn btn-primary" onclick="loadFR()"><span class="glyphicon glyphicon-sunglasses"></span> View</button>
+					<button type="button" class="btn btn-primary" onclick="loadFR()"><span class="glyphicon glyphicon-sunglasses"></span> <span th:text="#{ui.view}">View</span></button>
 				</div>
 				<table id="frTable" class="table table-striped">
 					<thead><tr>
-						<th>Enroll No</th><th>Student</th><th>Class</th><th>Campus</th><th>Date</th>
-						<th>Payee</th><th>Received By</th><th>Fee</th><th>Discount</th><th>Other</th>
-						<th>Due</th><th>Paid</th><th>Balance</th>
+						<th th:text="#{ui.enrollNo}">Enroll No</th><th th:text="#{ui.student}">Student</th><th th:text="#{ui.class}">Class</th><th th:text="#{ui.campus}">Campus</th><th th:text="#{ui.date2}">Date</th>
+						<th th:text="#{ui.payee}">Payee</th><th th:text="#{ui.receivedBy}">Received By</th><th th:text="#{ui.fee}">Fee</th><th th:text="#{ui.discount}">Discount</th><th th:text="#{ui.other2}">Other</th>
+						<th th:text="#{ui.due}">Due</th><th th:text="#{ui.paid}">Paid</th><th th:text="#{ui.balance}">Balance</th>
 					</tr></thead>
 					<tbody id="frBody"></tbody>
 					<tfoot><tr id="frTotals"></tr></tfoot>
@@ -2131,38 +2135,38 @@
 				<form action="/" method="POST" class="form-horizontal" role="form"
 					enctype="utf8" id="FR" autocomplete="off" style="display:none">
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="frb">Fee By</label>
+						<label class="control-label col-sm-2 req"  for="frb" th:text="#{ui.feeBy}">Fee By</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="frb" name="rb" required="required">
-								<option class="dropdown-item" value=-1 selected="selected">All</option>
-								<option class="dropdown-item" value=0>Student</option>
-								<option class="dropdown-item" value=1>Guardian</option>
-								<option class="dropdown-item" value=2>Class</option>
-								<option class="dropdown-item" value=3>Campus</option>
+								<option class="dropdown-item" value=-1 selected="selected" th:text="#{ui.all}">All</option>
+								<option class="dropdown-item" value=0 th:text="#{ui.student}">Student</option>
+								<option class="dropdown-item" value=1 th:text="#{ui.guardian}">Guardian</option>
+								<option class="dropdown-item" value=2 th:text="#{ui.class}">Class</option>
+								<option class="dropdown-item" value=3 th:text="#{ui.campus}">Campus</option>
 							</select>	
 						</div>
 						<div id="fvidiv">
-							<label class="control-label col-sm-2" for="fri">Enter Id</label>
+							<label class="control-label col-sm-2" for="fri" th:text="#{ui.enterId}">Enter Id</label>
 							<div class="col-sm-4">
 								<input type="text" class="form-control" id="fri" name="ri"
-									placeholder=" Enter Id "> 
+									placeholder=" Enter Id " th:placeholder="#{ui.enterId}"> 
 							</div>					
 						</div>					
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="frbs">Status By</label>
+						<label class="control-label col-sm-2 req"  for="frbs" th:text="#{ui.statusBy}">Status By</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="frbs" name="rbs" required="required">
-								<option class="dropdown-item" value="" selected="selected">All</option>
-								<option class="dropdown-item" value="Active">Active</option>
-								<option class="dropdown-item" value="Inactive">Inactive</option>
+								<option class="dropdown-item" value="" selected="selected" th:text="#{ui.all}">All</option>
+								<option class="dropdown-item" value="Active" th:text="#{ui.active}">Active</option>
+								<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 							</select>	
 						</div>
-						<label class="control-label col-sm-2 req"  for="frp">Period</label>
+						<label class="control-label col-sm-2 req"  for="frp" th:text="#{ui.period}">Period</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="dateRangeDDFR" name="rp" required="required">
-								<option class="dropdown-item" value=0 selected="selected">Current month</option>
-								<option class="dropdown-item" value=1>Custom range</option>
+								<option class="dropdown-item" value=0 selected="selected" th:text="#{ui.currentMonth}">Current month</option>
+								<option class="dropdown-item" value=1 th:text="#{ui.customRange}">Custom range</option>
 							</select>	
 						</div>
 					</div>
@@ -2170,45 +2174,45 @@
 						<div id="dateRangeFR" style="display: none">
 							<div class="col-sm-6">
 							</div>
-							<label class="control-label col-sm-2" for="frsd">Date Range</label>
+							<label class="control-label col-sm-2" for="frsd" th:text="#{ui.dateRange}">Date Range</label>
 							<div class="col-sm-2">
 								<input type="text" class="form-control datePicker" id="frsd" name="sdStr"
-									placeholder=" Start Date"> 
+									placeholder=" Start Date" th:placeholder="#{ui.startDate2}"> 
 							</div>
 							<div class="col-sm-2">
 								<input type="text" class="form-control datePicker" id="fred" name="edStr"
-									placeholder=" End Date"> 
+									placeholder=" End Date" th:placeholder="#{ui.endDate2}"> 
 							</div>
 						</div>
 					</div>
 					<div class="form-group" style="text-align: center; margin-top: 25px;">
 						<button type="button" id="printFR" onclick="loadFR()" class="btn btn-success">
-							<span class="glyphicon glyphicon-sunglasses"></span> View
+							<span class="glyphicon glyphicon-sunglasses"></span> <span th:text="#{ui.view}">View</span>
 						</button>
 					</div>
 					<div class="form-group">
 						<table id="tableFeeReport" class="table table-striped">
 					        <thead>
 					            <tr>
-									<th>Campus</th>
-									<th>Class</th>
-									<th>Guardian</th>
-									<th>Student</th>
-									<th>Fee</th>
-									<th>Others</th>
-									<th>Desc.</th>
-									<th>Discount</th>
-									<th>Payer</th>
-									<th>Payee</th>
-									<th>Date</th>
-									<th>Due</th>
-									<th>Paid</th>
-									<th>Balance</th>
+									<th th:text="#{ui.campus}">Campus</th>
+									<th th:text="#{ui.class}">Class</th>
+									<th th:text="#{ui.guardian}">Guardian</th>
+									<th th:text="#{ui.student}">Student</th>
+									<th th:text="#{ui.fee}">Fee</th>
+									<th th:text="#{ui.others}">Others</th>
+									<th th:text="#{ui.desc}">Desc.</th>
+									<th th:text="#{ui.discount}">Discount</th>
+									<th th:text="#{ui.payer}">Payer</th>
+									<th th:text="#{ui.payee}">Payee</th>
+									<th th:text="#{ui.date2}">Date</th>
+									<th th:text="#{ui.due}">Due</th>
+									<th th:text="#{ui.paid}">Paid</th>
+									<th th:text="#{ui.balance}">Balance</th>
 					            </tr>
 					        </thead>
 							<tfoot>
 					            <tr>
-					                <th>Totals:</th>
+					                <th th:text="#{ui.totals}">Totals:</th>
 					                <th></th>
 					                <th></th>
 					                <th></th>
@@ -2229,41 +2233,41 @@
 				</form>
 			</div>		
 			<div id="FeeSettingDiv" class="formDiv">
-				<h4>Fee Settings</h4>
-				<p class="text-muted">Controls how dues are registered at student registration and how guardians pay. Applies to this organization and can be changed anytime.</p>
+				<h4 th:text="#{ui.feeSettings}">Fee Settings</h4>
+				<p class="text-muted" th:text="#{ui.controlsHowDuesAreRegisteredAt}">Controls how dues are registered at student registration and how guardians pay. Applies to this organization and can be changed anytime.</p>
 				<div class="form-horizontal" style="max-width:560px">
 					<div class="form-group">
-						<label class="control-label col-sm-5" for="fsPaymentMode">Payment mode</label>
+						<label class="control-label col-sm-5" for="fsPaymentMode" th:text="#{ui.paymentMode}">Payment mode</label>
 						<div class="col-sm-6">
 							<select class="form-control" id="fsPaymentMode">
-								<option value="BOTH">Both (guardian voucher or independent)</option>
-								<option value="GUARDIAN_VOUCHER">Guardian voucher (consolidated)</option>
-								<option value="INDEPENDENT">Independent (per student)</option>
+								<option value="BOTH" th:text="#{ui.bothGuardianVoucherOrIndependent}">Both (guardian voucher or independent)</option>
+								<option value="GUARDIAN_VOUCHER" th:text="#{ui.guardianVoucherConsolidated}">Guardian voucher (consolidated)</option>
+								<option value="INDEPENDENT" th:text="#{ui.independentPerStudent}">Independent (per student)</option>
 							</select>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-5" for="fsAutoRegister">Auto-register dues at registration</label>
+						<label class="control-label col-sm-5" for="fsAutoRegister" th:text="#{ui.autoRegisterDuesAtRegistration}">Auto-register dues at registration</label>
 						<div class="col-sm-6"><input type="checkbox" id="fsAutoRegister"/></div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-5" for="fsAging">Multi-month aging</label>
+						<label class="control-label col-sm-5" for="fsAging" th:text="#{ui.multiMonthAging}">Multi-month aging</label>
 						<div class="col-sm-6"><input type="checkbox" id="fsAging"/></div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-5" for="fsDueDay">Due day of month</label>
+						<label class="control-label col-sm-5" for="fsDueDay" th:text="#{ui.dueDayOfMonth}">Due day of month</label>
 						<div class="col-sm-6"><input type="number" min="1" max="28" class="form-control" id="fsDueDay"/></div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-5" for="fsFeeBranchScoped">Restrict fee collection to each branch</label>
+						<label class="control-label col-sm-5" for="fsFeeBranchScoped" th:text="#{ui.restrictFeeCollectionToEachBranch}">Restrict fee collection to each branch</label>
 						<div class="col-sm-6">
 							<input type="checkbox" id="fsFeeBranchScoped"/>
-							<span style="color:#7a889c;font-size:12px;margin-left:6px">Off (default): a fee can be collected at any branch. On: only the student's branch sees it.</span>
+							<span style="color:#7a889c;font-size:12px;margin-left:6px" th:text="#{ui.offDefaultAFeeCanBe}">Off (default): a fee can be collected at any branch. On: only the student's branch sees it.</span>
 						</div>
 					</div>
 					<div class="form-group">
 						<div class="col-sm-offset-5 col-sm-6">
-							<button type="button" class="btn btn-success" onclick="saveFeeSetting()"><span class="glyphicon glyphicon-floppy-disk"></span> Save Settings</button>
+							<button type="button" class="btn btn-success" onclick="saveFeeSetting()"><span class="glyphicon glyphicon-floppy-disk"></span> <span th:text="#{ui.saveSettings}">Save Settings</span></button>
 						</div>
 					</div>
 				</div>
@@ -2273,10 +2277,10 @@
 			     education-service catalog (/getConfig); each toggle saves immediately (/saveConfig). Adding a
 			     configurable policy needs a catalog entry in the service, not a change here. -->
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
-				<h4>Configuration</h4>
-				<p style="color:#7a889c">Owner setup. Changes apply to this organization only and take effect immediately.</p>
+				<h4 th:text="#{ui.configuration}">Configuration</h4>
+				<p style="color:#7a889c" th:text="#{ui.ownerSetupChangesApplyToThis}">Owner setup. Changes apply to this organization only and take effect immediately.</p>
 				<div id="configMsg" class="alert" style="display:none"></div>
-				<div id="configBody">Loading…</div>
+				<div id="configBody" th:text="#{ui.loading2}">Loading…</div>
 			</div>
 			<form th:action="@{/impStudents}" method="post" enctype="multipart/form-data" style="display: none">
 			    <input type="file" th:name="file">

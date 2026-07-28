@@ -99,18 +99,18 @@
     // Inline quick-add a category, then reload the dropdown with the new one selected.
     global.addCategoryInline = function () {
         var name = $('#prodCategoryNew').val().trim();
-        if (!name) { showFormError('Enter a category name.'); return; }
+        if (!name) { showFormError(t('ui.js.enterACategoryName')); return; }
         $.ajax({
             type: 'POST', url: serverContext + 'addCategory', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ name: name }),
             success: function (resp) {
                 if (resp && resp.success && resp.data) {
-                    showSaleSuccess('Category added.');
+                    showSaleSuccess(t('ui.js.categoryAdded'));
                     $('#prodCategoryNew').val('');
                     loadCategories(resp.data.id);
                 } else { showFormError((resp && resp.message) || 'Could not add the category.'); }
             },
-            error: function () { showFormError('Could not add the category.'); }
+            error: function () { showFormError(t('ui.js.couldNotAddTheCategory')); }
         });
     };
 
@@ -126,19 +126,19 @@
     // Add opening stock for a product — feeds the inventory the storefront/POS reservation saga draws down.
     global.addProductStock = function (productId) {
         var qty = s2n($('#addstk_' + productId).val());
-        if (qty <= 0) { showFormError('Enter a quantity greater than 0 to add stock.'); return; }
+        if (qty <= 0) { showFormError(t('ui.js.enterAQuantityGreaterThan0To')); return; }
         var $btn = $('#addstkbtn_' + productId).prop('disabled', true);
         $.ajax({
             type: 'POST', url: serverContext + 'addProductStock', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ productId: productId, quantity: qty }),
             success: function (resp) {
                 if (resp && resp.success) {
-                    showSaleSuccess('Added ' + qty + ' to stock.');
+                    showSaleSuccess(t('ui.js.added') + qty + ' to stock.');
                     $('#addstk_' + productId).val('');
                     refreshStock(productId);
                 } else { showFormError((resp && resp.message) || 'Could not add stock.'); }
             },
-            error: function () { showFormError('Could not add stock.'); },
+            error: function () { showFormError(t('ui.js.couldNotAddStock')); },
             complete: function () { $btn.prop('disabled', false); }
         });
     };
@@ -147,7 +147,7 @@
     // adjustment, which refuses to go below zero ("Insufficient stock"). Pass 'INCREASE' to add via the same path.
     global.adjustProductStock = function (productId, type) {
         var qty = s2n($('#addstk_' + productId).val());
-        if (qty <= 0) { showFormError('Enter a quantity to correct the on-hand by.'); return; }
+        if (qty <= 0) { showFormError(t('ui.js.enterAQuantityToCorrectTheOn')); return; }
         var t = type || 'DECREASE';
         var $btn = $('#lessstkbtn_' + productId).prop('disabled', true);
         $.ajax({
@@ -160,7 +160,7 @@
                     refreshStock(productId);
                 } else { showFormError((resp && resp.message) || 'Could not correct stock (not enough on hand?).'); }
             },
-            error: function () { showFormError('Could not correct stock.'); },
+            error: function () { showFormError(t('ui.js.couldNotCorrectStock')); },
             complete: function () { $btn.prop('disabled', false); }
         });
     };
@@ -189,7 +189,7 @@
     function editProduct(id) {
         $.get(serverContext + 'getCatalogProduct?id=' + id, function (resp) {
             var p = (resp && resp.data) ? resp.data : null;
-            if (!p) { showFormError('Could not load the product.'); return; }
+            if (!p) { showFormError(t('ui.js.couldNotLoadTheProduct')); return; }
             $('#productId').val(p.id);
             $('#prodName').val(p.name || '');
             $('#prodSku').val(p.sku || '');
@@ -207,19 +207,19 @@
             openModal('ProductModal');
             updateReadOnly(true);   // make the key fields readonly when editing
 
-        }).fail(function () { showFormError('Could not load the product.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadTheProduct')); });
     }
     global.editProduct = editProduct;
 
     // Submit: add a new product, or update the one being edited (hidden #productId set).
     global.saveProduct = function () {
-        if (!$('#prodName').val().trim()) { showFormError('Product name is required.'); return; }
+        if (!$('#prodName').val().trim()) { showFormError(t('ui.js.productNameIsRequired')); return; }
         var id = $('#productId').val();
         // Client-side uniqueness: block a duplicate SKU before the round-trip (server still enforces it).
         var sku = $('#prodSku').val();
         if (isDuplicateSku(sku, id)) {
             $('#prodSku').addClass('alert-danger').focus();
-            showFormError('SKU "' + sku.trim() + '" is already used by another product. Enter a unique SKU.');
+            showFormError(t('ui.js.sku') + sku.trim() + '" is already used by another product. Enter a unique SKU.');
             return;
         }
         // Multi-rate tax: a chosen code supplies the rate (taxCodeId); "Custom rate…" sends a one-off taxRate instead.
@@ -248,24 +248,24 @@
                     if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
                 } else { showFormError((resp && resp.message) || 'Could not save the product.'); }
             },
-            error: function () { showFormError('Could not save the product.'); }
+            error: function () { showFormError(t('ui.js.couldNotSaveTheProduct')); }
         });
     };
 
     // Delete = deactivate the checked products (they drop off the active list, stay intact for history).
     global.deactivateProducts = function () {
         var ids = $("#tableProduct input[type='checkbox']:checked").map(function () { return this.value; }).get().join(',');
-        if (!ids) { showFormError('Select at least one product to remove.'); return; }
+        if (!ids) { showFormError(t('ui.js.selectAtLeastOneProductToRemove')); return; }
         $.ajax({
             type: 'POST', url: serverContext + 'deactivateProduct', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ checked: ids }),
             success: function (resp) {
                 if (resp && resp.success) {
-                    showSaleSuccess('Product(s) removed.'); resetProductForm(); loadDataTable();
+                    showSaleSuccess(t('ui.js.productSRemoved')); resetProductForm(); loadDataTable();
                     if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
                 } else { showFormError((resp && resp.message) || 'Could not remove the product(s).'); }
             },
-            error: function () { showFormError('Could not remove the product(s).'); }
+            error: function () { showFormError(t('ui.js.couldNotRemoveTheProductS')); }
         });
     };
 
@@ -281,10 +281,10 @@
             type: 'POST', url: serverContext + 'activateProduct', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ id: productId }),
             success: function (resp) {
-                if (resp && resp.success) { showSaleSuccess('Product reactivated.'); loadDataTable(); }
+                if (resp && resp.success) { showSaleSuccess(t('ui.js.productReactivated')); loadDataTable(); }
                 else { showFormError((resp && resp.message) || 'Could not reactivate the product.'); }
             },
-            error: function () { showFormError('Could not reactivate the product.'); }
+            error: function () { showFormError(t('ui.js.couldNotReactivateTheProduct')); }
         });
     };
 
@@ -295,7 +295,7 @@
             var v = $(this).val();
             if (isDuplicateSku(v, $('#productId').val())) {
                 $(this).addClass('alert-danger');
-                showFormError('SKU "' + v.trim() + '" is already used by another product. Enter a unique SKU.');
+                showFormError(t('ui.js.sku') + v.trim() + '" is already used by another product. Enter a unique SKU.');
             } else {
                 $(this).removeClass('alert-danger');
             }

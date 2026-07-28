@@ -39,15 +39,15 @@
                 tr.append($('<td>').append(btn));
                 $b.append(tr);
             });
-        }).fail(function () { showFormError('Could not load the quarantine register.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadTheQuarantineRegister')); });
     }
     global.loadQuarantine = loadQuarantine;
 
     global.disposeQuarantineLot = function (id) {
         uiConfirm({
-            title: 'Dispose this quarantined lot?',
-            message: 'The lot is written off and removed from inventory. This cannot be undone.',
-            confirmText: 'Dispose lot',
+            title: t('ui.js.disposeThisQuarantinedLot'),
+            message: t('ui.js.theLotIsWrittenOffAndRemoved'),
+            confirmText: t('ui.js.disposeLot'),
             tone: 'danger'
         }).then(function (ok) {
             if (!ok) return;
@@ -60,10 +60,10 @@
             type: 'POST', url: serverContext + 'disposeQuarantine', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ id: id }),
             success: function (resp) {
-                if (resp && resp.success) { showSaleSuccess('Lot disposed.'); loadQuarantine(); }
+                if (resp && resp.success) { showSaleSuccess(t('ui.js.lotDisposed')); loadQuarantine(); }
                 else showFormError((resp && resp.message) || 'Could not dispose the lot.');
             },
-            error: function () { showFormError('Could not dispose the lot.'); }
+            error: function () { showFormError(t('ui.js.couldNotDisposeTheLot')); }
         });
     };
 })(window);

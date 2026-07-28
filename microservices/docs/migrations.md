@@ -41,3 +41,33 @@ ALTER TABLE payment
 
 Applied 2026-06-26 on dev `myplusdb`. (General rule: any new enum value on an `@Enumerated(STRING)` field needs an
 ALTER … MODIFY of its MySQL enum column — ddl-auto won't add it.)
+
+---
+
+## Pending #5 — pharma: dead tables kept on purpose (review finding D2)
+
+`myplusdb_pharma` carries four tables with **no entity and no repository** anywhere in pharma-service:
+
+| Table | Origin |
+|-------|--------|
+| `medicines` | the pre-catalog medicine master, replaced by the catalog Product (slice 100 / M5) |
+| `pharmacy_stock` | pharmacy's own stock, replaced by inventory-service `StockEntry` |
+| `drug_categories` | fed the old `DrugCategory` entity, deleted in the pharmacy review (D2) |
+| `medicine_profile` | created by `V2__pharma_rebase.sql` for a model that was never built |
+
+They are **deliberately not dropped**. The Java side is gone (the orphan `DrugCategory` entity was deleted), so
+nothing reads or writes them and `ddl-auto: validate` ignores unmapped tables — they cost nothing but disk. A
+drop is irreversible, and whether any deployment still holds rows in them has not been established.
+
+Before dropping, per environment:
+
+```sql
+SELECT 'medicines' t, COUNT(*) n FROM medicines
+UNION ALL SELECT 'pharmacy_stock', COUNT(*) FROM pharmacy_stock
+UNION ALL SELECT 'drug_categories', COUNT(*) FROM drug_categories
+UNION ALL SELECT 'medicine_profile', COUNT(*) FROM medicine_profile;
+```
+
+All zero everywhere → ship a `V6__drop_dead_pharma_tables.sql` (drop `medicines` last: `pharmacy_stock`,
+`drug_categories` and the legacy `prescription_items.medicine_id` / `dispensing.medicine_id` FKs reference it).
+Any non-zero → export first; those rows are the only copy of the pre-catalog pharmacy data.

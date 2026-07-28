@@ -1107,14 +1107,9 @@ function handleTabKey(event,action,elementId)
     }
 }
 
-function handleKey(event,action,elementId)
-{
-	if (event.keyCode === 105 &&  action == "click") {
-        $("#"+elementId+".div.button").click();
-	}else if (event.keyCode === 73 &&  action == "focus") {
-		$("#"+elementId).click();
-    }
-}
+/* The duplicate handleKey that used to live here (keyCode 105/73) silently OVERRODE the one
+ * above, so the only caller — <body onkeypress="handleKey(event,'click','sellItemDD')"> — never
+ * fired on Enter. Removed: the definition above is the one every caller expects. */
 
 /**
  * Displays overlay with "Please wait" text. Based on bootstrap modal. Contains

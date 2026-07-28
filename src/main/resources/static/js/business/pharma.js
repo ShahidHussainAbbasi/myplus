@@ -29,16 +29,16 @@
             var html = "<option value=''>Select medicine</option>";
             list.forEach(function (p) { if (p.isActive === false) return; html += "<option value='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>"; });
             $(selectSel).html(html);
-        }).fail(function () { showFormError('Could not load medicines.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadMedicines')); });
     }
     function loadRxItemOptions() { loadMedicineOptions('#rxMedicine'); }
 
     global.addRxItem = function () {
         var $opt = $('#rxMedicine option:selected');
         var productId = $('#rxMedicine').val();
-        if (!productId) { showFormError('Pick a medicine (register it on the Product screen first).'); return; }
+        if (!productId) { showFormError(t('ui.js.pickAMedicineRegisterItOnThe')); return; }
         var qty = num($('#rxQty').val());
-        if (qty <= 0) { showFormError('Enter a quantity.'); return; }
+        if (qty <= 0) { showFormError(t('ui.js.enterAQuantity')); return; }
         rxItems.push({
             productId: Number(productId), medicineName: $opt.text().trim(),
             quantity: qty, dosage: $('#rxDosage').val(), frequency: $('#rxFreq').val(), duration: $('#rxDuration').val()
@@ -63,8 +63,8 @@
     global.removeRxItem = function (i) { rxItems.splice(i, 1); renderRxItems(); };
 
     global.savePrescription = function () {
-        if (!$('#rxPatient').val().trim()) { showFormError('Patient name is required.'); return; }
-        if (rxItems.length === 0) { showFormError('Add at least one prescribed item.'); return; }
+        if (!$('#rxPatient').val().trim()) { showFormError(t('ui.js.patientNameIsRequired')); return; }
+        if (rxItems.length === 0) { showFormError(t('ui.js.addAtLeastOnePrescribedItem')); return; }
         $.ajax({
             type: 'POST', url: serverContext + 'addPrescription', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({
@@ -75,12 +75,12 @@
             }),
             success: function (resp) {
                 if (resp && resp.success) {
-                    showSaleSuccess('Prescription recorded.');
+                    showSaleSuccess(t('ui.js.prescriptionRecorded'));
                     $('#Prescription')[0].reset(); rxItems = []; renderRxItems();
                     loadPrescriptions();
                 } else { showFormError((resp && resp.message) || 'Could not save the prescription.'); }
             },
-            error: function () { showFormError('Could not save the prescription.'); }
+            error: function () { showFormError(t('ui.js.couldNotSaveThePrescription')); }
         });
     };
 
@@ -109,7 +109,7 @@
                 tr.append($('<td>').html(action));
                 $b.append(tr);
             });
-        }).fail(function () { showFormError('Could not load prescriptions.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadPrescriptions')); });
     }
     global.loadPrescriptions = loadPrescriptions;
 
@@ -150,9 +150,9 @@
                 // dialog so the pharmacist has to actively acknowledge it before dispensing.
                 if (severe.length) {
                     uiConfirm({
-                        title: 'Severe drug interaction',
+                        title: t('ui.js.severeDrugInteraction'),
                         message: severe.join('\n') + '\n\nDispense anyway?',
-                        confirmText: 'Dispense anyway',
+                        confirmText: t('ui.js.dispenseAnyway'),
                         tone: 'danger'
                     }).then(function (ok) { if (!ok) cancelDispense(); });
                 }
@@ -207,36 +207,36 @@
                 tr.append($('<td>').text(c.controlledSubstance ? 'Yes' : ''));
                 $b.append(tr);
             });
-        }).fail(function () { showFormError('Could not load clinical flags.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadClinicalFlags')); });
     }
     global.loadClinical = loadClinical;
 
     global.saveClinical = function () {
         var productId = $('#clItem').val();
-        if (!productId) { showFormError('Pick a medicine.'); return; }
+        if (!productId) { showFormError(t('ui.js.pickAMedicine')); return; }
         $.ajax({
             type: 'POST', url: serverContext + 'saveClinical', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ productId: Number(productId), medicineName: $('#clItem option:selected').text().trim(),
                 rxRequired: $('#clRx').is(':checked'), controlledSubstance: $('#clControlled').is(':checked') }),
             success: function (resp) {
-                if (resp && resp.success) { showSaleSuccess('Flags saved.'); $('#clRx,#clControlled').prop('checked', false); loadClinical(); }
+                if (resp && resp.success) { showSaleSuccess(t('ui.js.flagsSaved')); $('#clRx,#clControlled').prop('checked', false); loadClinical(); }
                 else showFormError((resp && resp.message) || 'Could not save flags.');
             },
-            error: function () { showFormError('Could not save flags.'); }
+            error: function () { showFormError(t('ui.js.couldNotSaveFlags')); }
         });
     };
 
     global.addInteraction = function () {
         var a = $('#clInterA').val(), b = $('#clInterB').val();
-        if (!a || !b || a === b) { showFormError('Pick two different medicines.'); return; }
+        if (!a || !b || a === b) { showFormError(t('ui.js.pickTwoDifferentMedicines')); return; }
         $.ajax({
             type: 'POST', url: serverContext + 'addInteraction', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ productId1: Number(a), productId2: Number(b), severity: $('#clSeverity').val(), description: $('#clInterDesc').val() }),
             success: function (resp) {
-                if (resp && resp.success) { showSaleSuccess('Interaction added.'); $('#clInterDesc').val(''); }
+                if (resp && resp.success) { showSaleSuccess(t('ui.js.interactionAdded')); $('#clInterDesc').val(''); }
                 else showFormError((resp && resp.message) || 'Could not add interaction.');
             },
-            error: function () { showFormError('Could not add interaction.'); }
+            error: function () { showFormError(t('ui.js.couldNotAddInteraction')); }
         });
     };
 
@@ -280,7 +280,7 @@
                 tr.append($('<td>').text(d.invoiceNo || ''));
                 $b.append(tr);
             });
-        }).fail(function () { showFormError('Could not load the controlled register.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadTheControlledRegister')); });
     }
     global.loadControlledRegister = loadControlledRegister;
 
@@ -288,9 +288,9 @@
     // window.confirm — per the project standard.
     global.cancelPrescription = function (id) {
         uiConfirm({
-            title: 'Cancel this prescription?',
-            message: 'It can no longer be dispensed. Anything already dispensed stays on the record.',
-            confirmText: 'Cancel prescription',
+            title: t('ui.js.cancelThisPrescription'),
+            message: t('ui.js.itCanNoLongerBeDispensedAnything'),
+            confirmText: t('ui.js.cancelPrescription'),
             tone: 'danger'
         }).then(function (ok) {
             if (!ok) return;
@@ -298,10 +298,10 @@
                 type: 'POST', url: serverContext + 'cancelPrescription', contentType: 'application/json', dataType: 'json',
                 data: JSON.stringify({ prescriptionId: id }),
                 success: function (resp) {
-                    if (resp && resp.success) { showSaleSuccess('Prescription cancelled.'); loadPrescriptions(); }
+                    if (resp && resp.success) { showSaleSuccess(t('ui.js.prescriptionCancelled')); loadPrescriptions(); }
                     else showFormError((resp && resp.message) || 'Could not cancel the prescription.');
                 },
-                error: function () { showFormError('Could not cancel the prescription.'); }
+                error: function () { showFormError(t('ui.js.couldNotCancelThePrescription')); }
             });
         });
     };
@@ -323,7 +323,7 @@
             data: JSON.stringify({ prescriptionId: id, invoiceNo: invoiceNo, items: items }),
             success: function (resp) {
                 if (resp && resp.success) {
-                    showSaleSuccess('Dispense recorded against Rx #' + id + '.');
+                    showSaleSuccess(t('ui.js.dispenseRecordedAgainstRx') + id + '.');
                     // B4: the server records only what the prescription can account for — capped lines, items not
                     // on the script, a repeat post. The stock already left the counter, so surface every one.
                     var warnings = (resp.data && resp.data.warnings) || [];
@@ -333,7 +333,7 @@
                     showFormError((resp && resp.message) || 'Could not record the dispense.');
                 }
             },
-            error: function () { showFormError('Could not record the dispense.'); },
+            error: function () { showFormError(t('ui.js.couldNotRecordTheDispense')); },
             complete: function () { window.dispensingPrescriptionId = null; $('#dispenseBanner').hide(); }
         });
     };

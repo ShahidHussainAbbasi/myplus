@@ -3,8 +3,10 @@ package com.myplus.pharma.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -125,6 +127,18 @@ class SafetyServiceTest {
         assertThatThrownBy(() -> safety.upsertClinical(clinical(11L, true, false), ORG, USER))
                 .isInstanceOf(RuntimeException.class);
         assertThat(clinicalRepo.findAll()).isEmpty();   // rolled back — no half-saved flag
+    }
+
+    // ── C2: the basket's controlled flags resolve in one call, not one per line ───────────────────────
+    @Test
+    void controlled_lookup_for_a_basket_is_a_single_catalog_call() {
+        when(catalogClient.getProducts(List.of(10L, 20L, 30L))).thenReturn(List.of(
+                ProductRef.builder().id(10L).controlledSubstance(true).build(),
+                ProductRef.builder().id(20L).controlledSubstance(false).build(),
+                ProductRef.builder().id(30L).controlledSubstance(true).build()));
+
+        assertThat(safety.controlledSet(List.of(10L, 20L, 30L), ORG, USER)).containsExactlyInAnyOrder(10L, 30L);
+        verify(catalogClient, times(1)).getProducts(anyList());   // one round trip for the whole basket
     }
 
     @Test

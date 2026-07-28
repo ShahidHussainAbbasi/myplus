@@ -123,6 +123,7 @@ public class PrescriptionService {
         return byRx;
     }
 
+    @Transactional(readOnly = true)
     public PrescriptionDTO get(Long id, Long orgId, Long userId) {
         Prescription p = prescriptionRepo.findByIdScoped(id, orgId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));

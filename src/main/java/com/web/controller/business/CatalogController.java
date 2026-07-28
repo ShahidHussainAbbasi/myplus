@@ -48,6 +48,13 @@ public class CatalogController {
      */
     @SuppressWarnings("unchecked")
     private Map<String, Object> failure(Exception e) {
+        // The demo free-trial cap (403 DEMO_LIMIT) arrives as a DemoLimitException, which is NOT an
+        // HttpStatusCodeException — so it used to fall straight through to the bare {success:false} below and the
+        // "register at maxtheservice.com" upsell was lost. Worse, a capped write then looked like an unexplained
+        // failure: two rounds of pharmacy test triage were spent on one. Let it reach DemoLimitAdvice, which
+        // renders the upsell uniformly for every dashboard.
+        if (e instanceof com.web.error.DemoLimitException dle) throw dle;
+
         if (e instanceof HttpStatusCodeException he) {
             try {
                 Map<String, Object> body = objectMapper.readValue(he.getResponseBodyAsString(), Map.class);

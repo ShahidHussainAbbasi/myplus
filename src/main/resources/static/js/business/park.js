@@ -20,7 +20,7 @@
     }
 
     global.parkCurrentSale = function () {
-        if (!data || data.length === 0) { showFormError('Cart is empty — nothing to park.'); return; }
+        if (!data || data.length === 0) { showFormError(t('ui.js.cartIsEmptyNothingToPark')); return; }
         var cart = buildCartPayload();
         var label = (cart.customer.name && cart.customer.name.trim())
             ? cart.customer.name.trim() : ('Parked ' + new Date().toLocaleTimeString());
@@ -32,12 +32,12 @@
             data: JSON.stringify({ label: label, itemCount: data.length, total: total, cart: cart }),
             success: function (resp) {
                 if (resp && resp.status === 'SUCCESS') {
-                    showSaleSuccess('Sale parked.');
+                    showSaleSuccess(t('ui.js.saleParked'));
                     if (typeof resetCart === 'function') resetCart();
                     else { data.length = 0; if (typeof tablesi !== 'undefined' && tablesi) tablesi.clear().draw(); }
                 } else { showFormError((resp && resp.message) || 'Could not park the sale.'); }
             },
-            error: function () { showFormError('Could not park the sale.'); }
+            error: function () { showFormError(t('ui.js.couldNotParkTheSale')); }
         });
     };
 
@@ -65,7 +65,7 @@
                     + "<button class='btn btn-xs btn-danger' onclick='discardParked(" + p.id + ")'>Discard</button>"));
                 $b.append(tr);
             });
-        }).fail(function () { showFormError('Could not load parked sales.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotLoadParkedSales')); });
     }
     global.loadParkedSales = loadParkedSales;
 
@@ -75,16 +75,16 @@
                 $('#sellType').val('sellDiv').trigger('change');   // open the New Sale section
                 rebuildCartFromResumed(resp.object);
                 discardParked(id, true);                            // it's back in the cart now
-                showSaleSuccess('Parked sale resumed.');
+                showSaleSuccess(t('ui.js.parkedSaleResumed'));
             } else { showFormError((resp && resp.message) || 'Could not resume the parked sale.'); }
-        }).fail(function () { showFormError('Could not resume the parked sale.'); });
+        }).fail(function () { showFormError(t('ui.js.couldNotResumeTheParkedSale')); });
     };
 
     global.discardParked = function (id, silent) {
         $.post(serverContext + 'deleteParked', { id: id }, function (resp) {
-            if (resp && resp.status === 'SUCCESS') { if (!silent) { showSaleSuccess('Parked sale discarded.'); loadParkedSales(); } }
+            if (resp && resp.status === 'SUCCESS') { if (!silent) { showSaleSuccess(t('ui.js.parkedSaleDiscarded')); loadParkedSales(); } }
             else if (!silent) { showFormError((resp && resp.message) || 'Could not discard.'); }
-        }, 'json').fail(function () { if (!silent) showFormError('Could not discard the parked sale.'); });
+        }, 'json').fail(function () { if (!silent) showFormError(t('ui.js.couldNotDiscardTheParkedSale')); });
     };
 
     function rebuildCartFromResumed(cart) {

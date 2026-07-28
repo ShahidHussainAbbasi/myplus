@@ -1,6 +1,5 @@
 package com.web.controller.pharma;
 
-import java.util.Collections;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.web.util.GatewayClient;
 import com.web.util.PharmaRestClient;
 
 /** Monolith proxy for pharmacy safety (P7, slice 44) → pharma-service via the gateway (/api/pharma/...). */
@@ -25,32 +25,46 @@ public class PharmaSafetyController {
     @Autowired
     private PharmaRestClient client;
 
+    // Relay the SERVICE's own message on failure. A bare {success:false} turned a precise, actionable rejection
+    // ("Product not found: 999") into a silent one — the screen said "could not save" and the reason was lost.
     @RequestMapping(value = "/checkSafety", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> checkSafety(@RequestBody final Map<String, Object> body) {
         try { return client.postJson("/safety/check", body); }
-        catch (Exception e) { LOGGER.error("checkSafety proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) {
+            LOGGER.error("checkSafety proxy error", e);
+            return GatewayClient.errorMap(e, "Could not run the safety check.");
+        }
     }
 
     @RequestMapping(value = "/getClinical", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> getClinical(final HttpServletRequest request) {
         try { return client.get("/clinical"); }
-        catch (Exception e) { LOGGER.error("getClinical proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) {
+            LOGGER.error("getClinical proxy error", e);
+            return GatewayClient.errorMap(e, "Could not load clinical flags.");
+        }
     }
 
     @RequestMapping(value = "/saveClinical", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> saveClinical(@RequestBody final Map<String, Object> body) {
         try { return client.postJson("/clinical", body); }
-        catch (Exception e) { LOGGER.error("saveClinical proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) {
+            LOGGER.error("saveClinical proxy error", e);
+            return GatewayClient.errorMap(e, "Could not save flags.");
+        }
     }
 
     @RequestMapping(value = "/addInteraction", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> addInteraction(@RequestBody final Map<String, Object> body) {
         try { return client.postJson("/interactions", body); }
-        catch (Exception e) { LOGGER.error("addInteraction proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) {
+            LOGGER.error("addInteraction proxy error", e);
+            return GatewayClient.errorMap(e, "Could not add the interaction.");
+        }
     }
 
     /** P8 (slice 45): the controlled-substance register. */
@@ -58,6 +72,9 @@ public class PharmaSafetyController {
     @ResponseBody
     public Map<String, Object> controlledRegister(final HttpServletRequest request) {
         try { return client.get("/controlled-register"); }
-        catch (Exception e) { LOGGER.error("controlledRegister proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) {
+            LOGGER.error("controlledRegister proxy error", e);
+            return GatewayClient.errorMap(e, "Could not load the controlled register.");
+        }
     }
 }

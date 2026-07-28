@@ -31,6 +31,8 @@ class SupportedLanguageTest {
     void resolvesEachShippedLanguage() {
         assertEquals(SupportedLanguage.ENGLISH, SupportedLanguage.from(Locale.forLanguageTag("en")));
         assertEquals(SupportedLanguage.FRENCH,  SupportedLanguage.from(Locale.forLanguageTag("fr")));
+        assertEquals(SupportedLanguage.SPANISH, SupportedLanguage.from(Locale.forLanguageTag("es")));
+        assertEquals(SupportedLanguage.HINDI,   SupportedLanguage.from(Locale.forLanguageTag("hi")));
         assertEquals(SupportedLanguage.ARABIC,  SupportedLanguage.from(Locale.forLanguageTag("ar")));
         assertEquals(SupportedLanguage.URDU,    SupportedLanguage.from(Locale.forLanguageTag("ur")));
     }
@@ -42,6 +44,10 @@ class SupportedLanguageTest {
         assertEquals(SupportedLanguage.ARABIC, SupportedLanguage.from(new Locale("ar", "SA")));
         assertEquals(SupportedLanguage.URDU,   SupportedLanguage.from(Locale.forLanguageTag("ur-PK")));
         assertEquals(SupportedLanguage.FRENCH, SupportedLanguage.from(Locale.CANADA_FRENCH));
+        // Spanish has far more speakers outside Spain than in it — every variant must resolve.
+        assertEquals(SupportedLanguage.SPANISH, SupportedLanguage.from(Locale.forLanguageTag("es-MX")));
+        assertEquals(SupportedLanguage.SPANISH, SupportedLanguage.from(new Locale("es", "ES")));
+        assertEquals(SupportedLanguage.HINDI,   SupportedLanguage.from(Locale.forLanguageTag("hi-IN")));
     }
 
     @Test
@@ -54,11 +60,28 @@ class SupportedLanguageTest {
     @Test
     void onlyShippedTagsAreAccepted() {
         assertTrue(SupportedLanguage.isSupported("ar"));
+        assertTrue(SupportedLanguage.isSupported("es"));
+        assertTrue(SupportedLanguage.isSupported("hi"));
         assertTrue(SupportedLanguage.isSupported("UR"), "matching must be case-insensitive");
         assertFalse(SupportedLanguage.isSupported("zz"));
         assertFalse(SupportedLanguage.isSupported(null));
-        // es_ES has a partial legacy bundle but is not offered in the switcher.
-        assertFalse(SupportedLanguage.isSupported("es"));
+    }
+
+    /**
+     * Font need is a per-language property, NOT something derived from direction: Hindi is
+     * left-to-right yet still needs a Devanagari face, which a direction-keyed rule would miss.
+     */
+    @Test
+    void onlyNonLatinScriptsDeclareAWebfont() {
+        assertTrue(SupportedLanguage.HINDI.hasWebfont(), "Devanagari is not covered by the UI font");
+        assertFalse(SupportedLanguage.HINDI.isRtl(), "Hindi is left-to-right");
+
+        assertTrue(SupportedLanguage.ARABIC.hasWebfont());
+        assertTrue(SupportedLanguage.URDU.hasWebfont());
+
+        assertFalse(SupportedLanguage.ENGLISH.hasWebfont(), "Latin script needs no extra download");
+        assertFalse(SupportedLanguage.FRENCH.hasWebfont());
+        assertFalse(SupportedLanguage.SPANISH.hasWebfont());
     }
 
     @Test
@@ -107,6 +130,33 @@ class SupportedLanguageTest {
 
             assertTrue(missing.isEmpty(),
                     bundle + " is missing " + missing.size() + " key(s): " + missing);
+        }
+    }
+
+    /**
+     * No bundle may contain U+FFFD, the Unicode replacement character.
+     *
+     * The committed Spanish bundle had 26 such lines: someone had saved a Latin-1 file as UTF-8
+     * years ago, so every accented character was already destroyed and users read
+     * "credenciales no v�lidas". Nothing failed — the file was valid UTF-8, the keys all
+     * resolved, and the damage was invisible to every other check. This is the only cheap way to
+     * catch that class of corruption, and it matters most for the languages nobody on the team reads.
+     */
+    @Test
+    void noBundleContainsCorruptedCharacters() throws IOException {
+        for (SupportedLanguage lang : SupportedLanguage.values()) {
+            final String bundle = lang == SupportedLanguage.ENGLISH
+                    ? "/messages.properties"
+                    : "/messages_" + lang.getTag() + ".properties";
+
+            try (InputStream in = getClass().getResourceAsStream(bundle)) {
+                assertNotNull(in, "missing bundle: " + bundle);
+                final String body = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                final int at = body.indexOf('�');
+
+                assertTrue(at < 0, () -> bundle + " contains U+FFFD near: "
+                        + body.substring(Math.max(0, at - 60), Math.min(body.length(), at + 20)));
+            }
         }
     }
 

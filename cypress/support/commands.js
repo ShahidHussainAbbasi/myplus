@@ -59,7 +59,7 @@ Cypress.Commands.add('loginAsOwner', (email = 'owner.business@myplus.com', passw
 })
 
 // Pharmacy (slice 33) — the PHARMA vertical reuses the business/trade backend, so it validates via the
-// same business stats endpoint; userType PHARMA routes the user to /pharmaDashboard.
+// same business stats endpoint; userType PHARMA routes the user to the shared /businessDashboard.
 Cypress.Commands.add('loginAsPharma', (email = 'demo.pharma@myplus.com', password = DEMO_PW) => {
   cy.loginAs(email, password, '/getBusinessDashboardStats')
 })

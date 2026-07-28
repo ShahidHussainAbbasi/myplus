@@ -6,6 +6,8 @@ import java.util.Locale;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
@@ -30,6 +32,12 @@ import org.springframework.web.servlet.support.RequestContextUtils;
 @Component
 public class LocaleInterceptor implements HandlerInterceptor {
 
+    /** Only this key subset is exposed to the browser. */
+    private static final String JS_PREFIX = "ui.js.";
+
+    @Autowired
+    private MessageSource messageSource;
+
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
                            ModelAndView mav) {
@@ -43,7 +51,16 @@ public class LocaleInterceptor implements HandlerInterceptor {
         mav.addObject("htmlLang", lang.getTag());
         mav.addObject("htmlDir", lang.getDirection());
         mav.addObject("isRtl", lang.isRtl());
+        // Separate from isRtl: Hindi is left-to-right but still needs a Devanagari webfont.
+        mav.addObject("langWebfont", lang.getWebfont());
         mav.addObject("currentLang", lang);
         mav.addObject("supportedLanguages", Arrays.asList(SupportedLanguage.values()));
+
+        // Strings the module scripts need (alerts, confirms, empty states). Only the ui.js.* subset
+        // crosses to the browser — server-only copy (validation text, emails) never ships.
+        if (messageSource instanceof JsMessageSource) {
+            mav.addObject("jsMessages",
+                    ((JsMessageSource) messageSource).getMessagesWithPrefix(JS_PREFIX, locale));
+        }
     }
 }

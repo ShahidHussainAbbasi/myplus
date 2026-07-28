@@ -7,11 +7,13 @@
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
         <link rel="preconnect" href="https://fonts.googleapis.com"/>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
-        <!-- Arabic-script webfonts: Inter has no Arabic coverage, so without these the UI falls back
-             to whatever the OS provides (often a mismatched serif, sometimes boxes). Loaded ONLY for
-             RTL locales — an English or French visitor never downloads them. -->
-        <link th:if="${isRtl}" rel="stylesheet"
-              href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap"/>
+        <!-- Script webfont for languages Inter does not cover (Arabic, Urdu, Devanagari). Without it
+             the UI falls back to whatever the OS has — often a mismatched serif, sometimes boxes.
+             Each language declares its OWN font (SupportedLanguage.getWebfont), so exactly one family
+             is fetched and Latin-script visitors download nothing extra. Keyed on the font rather than
+             on direction because Hindi is left-to-right but still needs one. -->
+        <link th:if="${langWebfont}" rel="stylesheet"
+              th:href="'https://fonts.googleapis.com/css2?family=' + ${langWebfont} + '&display=swap'"/>
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-datepicker.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-select.min.css}"/>
@@ -35,6 +37,13 @@
     </th:block>
 
     <th:block th:fragment="header-js">
+        <!-- Translated strings for the module scripts, from the SAME bundle Thymeleaf renders the
+             markup with (see JsMessageSource + LocaleInterceptor). th:inline="javascript" escapes
+             the values, so translated copy cannot inject script. Must precede i18n.js. -->
+        <script th:inline="javascript">/*<![CDATA[*/
+            window.__MSG = /*[[${jsMessages}]]*/ {};
+        /*]]>*/</script>
+        <script th:src="@{/js/common/i18n.js}"></script>
         <script th:src="@{/js/jquery.min.js}"></script>
         <script th:src="@{/js/jquery-3.3.1.js}"></script>
         <script th:src="@{/js/moment.js}"></script>
@@ -74,6 +83,8 @@
         <script th:src="@{/js/common/responsive-tables.js}"></script>
         <!-- Language menu affordance only — switching is a plain ?lang= link handled server-side. -->
         <script th:src="@{/js/common/lang-switcher.js}"></script>
+        <!-- The self-rendering Configuration screen, shared by all four dashboards. -->
+        <script th:src="@{/js/common/settings-form.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing
              AJAX call, so jQuery $.post/$.ajax pass Spring Security's CSRF check. -->
         <script>
@@ -106,7 +117,7 @@
                 <button type="button" class="navbar-toggle collapsed"
                         data-toggle="collapse" data-target="#main-navbar-collapse"
                         aria-expanded="false">
-                    <span class="sr-only">Toggle navigation</span>
+                    <span class="sr-only" th:text="#{ui.toggleNavigation}">Toggle navigation</span>
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
@@ -122,12 +133,12 @@
                 <ul class="nav navbar-nav">
                     <li>
                         <a th:href="@{/home}">
-                            <span class="glyphicon glyphicon-home"></span> Home
+                            <span class="glyphicon glyphicon-home"></span> <span th:text="#{label.pages.home.title}">Home</span>
                         </a>
                     </li>
                     <li>
                         <a th:href="@{/dashboard}">
-                            <span class="glyphicon glyphicon-dashboard"></span> Dashboard
+                            <span class="glyphicon glyphicon-dashboard"></span> <span th:text="#{label.my.dashBoard}">Dashboard</span>
                         </a>
                     </li>
                 </ul>
@@ -149,14 +160,14 @@
                         </span>
                         <a href="#" onclick="document.getElementById('logoutForm').submit(); return false;"
                            style="display:inline-flex;align-items:center;gap:6px;background:#e23b4e;color:#fff;border-radius:8px;padding:6px 14px;font-weight:600;font-size:12.5px;text-decoration:none;box-shadow:0 2px 8px rgba(226,59,78,.35)">
-                            <span class="glyphicon glyphicon-log-out"></span> Logout
+                            <span class="glyphicon glyphicon-log-out"></span> <span th:text="#{label.pages.logout}">Logout</span>
                         </a>
                         <form style="display:none" id="logoutForm"
                               method="post" th:action="@{/logout}"></form>
                     </li>
                     <li th:if="${#authorization.expression('!isAuthenticated()')}">
                         <a th:href="@{/login}">
-                            <span class="glyphicon glyphicon-log-in"></span> Sign in
+                            <span class="glyphicon glyphicon-log-in"></span> <span th:text="#{label.form.login}">Sign in</span>
                         </a>
                     </li>
                 </ul>

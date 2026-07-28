@@ -34,15 +34,15 @@ $(document).ready(function() {
         columnDefs: [ { targets: [3,4,5,6,7,8,12,13], className: 'num' } ],
         buttons: [
         	'pageLength',
-            { extend: 'copyHtml5', footer: true, title: 'Sale Detail Report' },
-            { extend: 'csvHtml5', footer: true, title: 'Sale Detail Report' },
-            { extend: 'excelHtml5', footer: true, title: 'Sale Detail Report' },
-            { extend: 'print', footer: true, title: 'Sale Detail Report' },
+            { extend: 'copyHtml5', footer: true, title: t('ui.js.saleDetailReport') },
+            { extend: 'csvHtml5', footer: true, title: t('ui.js.saleDetailReport') },
+            { extend: 'excelHtml5', footer: true, title: t('ui.js.saleDetailReport') },
+            { extend: 'print', footer: true, title: t('ui.js.saleDetailReport') },
         	{ extend: 'pdfHtml5',
               orientation: 'landscape',
               pageSize: 'LEGAL',
               footer: true,
-              title: 'Sale Detail Report'
+              title: t('ui.js.saleDetailReport')
             }
         ],
 	    
@@ -219,7 +219,7 @@ $(document).ready(function() {
 			// (#sellTotal). Standard POS: Due = bill − Received for THIS invoice.
 			calculateChange();
         }else{
-        	showFormError('Please select an item and enter a valid quantity.');
+        	showFormError(t('ui.js.pleaseSelectAnItemAndEnterA'));
         	return false;
         }
     });
@@ -474,7 +474,7 @@ function loadTaxSetting(){
 		$('#taxLabel').val(s.taxLabel != null ? s.taxLabel : 'Tax');
 		$('#taxRegNo').val(s.taxRegNo != null ? s.taxRegNo : '');
 	}).fail(function(){
-		showFormError('Could not load tax settings.');
+		showFormError(t('ui.js.couldNotLoadTaxSettings'));
 	});
 }
 
@@ -498,7 +498,7 @@ function saveTaxSetting(){
 				showFormError((data && data.status ? data.status : 'Save failed') + (data && data.message ? ': ' + data.message : '.'));
 			}
 		},
-		error: function(){ showFormError('Could not save tax settings.'); }
+		error: function(){ showFormError(t('ui.js.couldNotSaveTaxSettings')); }
 	});
 }
 
@@ -533,7 +533,7 @@ function editTaxCode(id){
 }
 function saveTaxCode(){
 	var name = $('#tcName').val().trim();
-	if(!name){ alert('Enter a tax-code name.'); return; }
+	if(!name){ alert(t('ui.js.enterATaxCodeName')); return; }
 	var body = { name:name, rate:Number($('#tcRate').val()||0), isDefault:$('#tcDefault').is(':checked') };
 	var id = $('#tcId').val(); if(id) body.id = Number(id);
 	$.ajax({ type:'POST', url:serverContext+'saveTaxCode', contentType:'application/json', dataType:'json', data:JSON.stringify(body),
@@ -541,20 +541,20 @@ function saveTaxCode(){
 			if(resp && resp.success===false){ alert((resp.message)||'Could not save the tax code.'); return; }
 			resetTaxCodeForm(); loadTaxCodesAdmin();
 		},
-		error:function(){ alert('Could not save the tax code (admin permission required).'); }
+		error:function(){ alert(t('ui.js.couldNotSaveTheTaxCodeAdmin')); }
 	});
 }
 function deleteTaxCode(id){
 	uiConfirm({
-		title: 'Delete this tax code?',
-		message: 'Products using it fall back to their own rate, or the organisation default.',
-		confirmText: 'Delete tax code',
+		title: t('ui.js.deleteThisTaxCode'),
+		message: t('ui.js.productsUsingItFallBackToTheir'),
+		confirmText: t('ui.js.deleteTaxCode'),
 		tone: 'danger'
 	}).then(function(ok){
 		if(!ok) return;
 		$.ajax({ type:'POST', url:serverContext+'deleteTaxCode', contentType:'application/json', dataType:'json', data:JSON.stringify({ id:id }),
 			success:function(){ loadTaxCodesAdmin(); },
-			error:function(){ uiAlert({ title:'Delete failed', message:'Could not delete the tax code.', tone:'danger' }); }
+			error:function(){ uiAlert({ title:t('ui.js.deleteFailed'), message:t('ui.js.couldNotDeleteTheTaxCode'), tone:'danger' }); }
 		});
 	});
 }
@@ -627,7 +627,7 @@ function switchStore(){
 			if(res && res.status === 'SUCCESS'){ window.location.reload(); }
 			else { alert((res && res.message) || 'Could not switch store.'); loadMyStores(); }
 		},
-		error:function(){ alert('Could not switch store.'); loadMyStores(); }
+		error:function(){ alert(t('ui.js.couldNotSwitchStore')); loadMyStores(); }
 	});
 }
 
@@ -1337,10 +1337,10 @@ function calculateNet(val){
 		$('#itemSellAmount').addClass("alert-danger"); 
 		$('#itemPurchaseAmount').addClass("alert-danger"); 
 		uiConfirm({
-			title: 'Selling below cost',
-			message: 'The sell price is lower than the purchase price, so this line makes a loss. Keep the prices as entered?',
-			confirmText: 'Keep prices',
-			cancelText: 'Clear them',
+			title: t('ui.js.sellingBelowCost'),
+			message: t('ui.js.theSellPriceIsLowerThanThe'),
+			confirmText: t('ui.js.keepPrices'),
+			cancelText: t('ui.js.clearThem'),
 			tone: 'warning'
 		}).then(function (keep) {
 			if (!keep) {
@@ -1407,7 +1407,7 @@ function loadStock(label,value){
         		if($("#sellDiscountTypeDD").data('selectpicker')) $("#sellDiscountTypeDD").selectpicker('refresh');
 	    		if(batchStock <= 0){
 	    			$("#sellItems").addClass("alert-danger");
- 	    			showFormError('No stock available. Please purchase this item first.');
+ 	    			showFormError(t('ui.js.noStockAvailablePleasePurchaseThisItem'));
 	    			resetBSDD('sellItemDD');
 	    			return false;
 	    		}else{
@@ -1526,7 +1526,7 @@ function getStockByBatch(batchNo){
 	        		if($("#sellDiscountTypeDD").data('selectpicker')) $("#sellDiscountTypeDD").selectpicker('refresh');
 		    		if(batchStock <= 0){
 		    			$("#sellItems").addClass("alert-danger");
- 		    			showFormError('No stock available. Please purchase this item first.');
+ 		    			showFormError(t('ui.js.noStockAvailablePleasePurchaseThisItem'));
 		    			resetBSDD('sellItemDD');
 		    			return false;
 		    		}else{
@@ -1618,7 +1618,7 @@ function calculateNetSell(){
 	$("#sellStock").val(batchStock);
 	if(batchStock < qty){
 		$("#sellItems").addClass("alert-danger");
- 		showFormError('Quantity exceeds available stock. Please reduce the quantity or purchase more stock.');
+ 		showFormError(t('ui.js.quantityExceedsAvailableStockPleaseReduceThe'));
 		return false;
 	}
 	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val()*ONE:0;
@@ -1687,7 +1687,7 @@ function calculateNetSell(){
 function calculateSRP(){
 	var s= $("#sellSellRate").val()*ONE;
 	if(!s || s<=0){
- 		showFormError('Please select a valid sold item record to return.');
+ 		showFormError(t('ui.js.pleaseSelectAValidSoldItemRecord'));
 		return false;
 	}
 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
@@ -1855,7 +1855,7 @@ function loadSR(){
 	var sd = $('#srsd').val();
 	var ed = $('#sred').val();
 	if (rp === '4' && !sd && !ed){
-		showFormError('Please pick a start and/or end date for the custom range.');
+		showFormError(t('ui.js.pleasePickAStartAndOrEnd'));
 		return;
 	}
 	$.ajax({
@@ -1870,7 +1870,7 @@ function loadSR(){
 			}
 			var rows = (data && data.collection) ? data.collection : [];
 			if(!rows.length){
-				showFormError('No sales found for the selected period.');
+				showFormError(t('ui.js.noSalesFoundForTheSelectedPeriod'));
 				return;
 			}
 			clearFormError();
@@ -1999,8 +1999,8 @@ function submitSaleReturn(){
 	var sold = parseFloat(d.dataset.sold) || 0;
 	var qty = parseFloat(document.getElementById('srQty').value);
 	var err = document.getElementById('srError');
-	if (!qty || qty <= 0) { err.textContent = 'Enter a quantity greater than 0.'; return false; }
-	if (qty > sold)       { err.textContent = 'Cannot return more than the sold quantity (' + sold + ').'; return false; }
+	if (!qty || qty <= 0) { err.textContent = t('ui.js.enterAQuantityGreaterThan0'); return false; }
+	if (qty > sold)       { err.textContent = t('ui.js.cannotReturnMoreThanTheSoldQuantity') + sold + ').'; return false; }
 
 	var btn = document.getElementById('srSubmit');
 	btn.disabled = true;
@@ -2024,7 +2024,7 @@ function submitSaleReturn(){
 		},
 		error: function (e) {
 			btn.disabled = false;
-			err.textContent = 'An error occurred. Please try again.';
+			err.textContent = t('ui.js.anErrorOccurredPleaseTryAgain');
 		}
 	});
 }
@@ -2061,7 +2061,7 @@ function openReceivePayment(customerId, name, due) {
 function submitReceivePayment() {
 	var customerId = $("#rcvCustomerId").val();
 	var amount = $("#rcvAmount").val() * 1;
-	if (!customerId || !(amount > 0)) { showFormError('Enter a positive amount to receive.'); return; }
+	if (!customerId || !(amount > 0)) { showFormError(t('ui.js.enterAPositiveAmountToReceive')); return; }
 	if (window._rcvBusy) return; window._rcvBusy = true;   // Audit #5: submit-lock (belt-and-braces with the server key)
 	$.post(serverContext + "receivePayment", {
 		customerId: customerId,
@@ -2080,7 +2080,7 @@ function submitReceivePayment() {
 		} else {
 			showFormError((resp && resp.message) || 'Could not record the payment.');
 		}
-	}, 'json').fail(function () { showFormError('Could not record the payment.'); })
+	}, 'json').fail(function () { showFormError(t('ui.js.couldNotRecordThePayment')); })
 		.always(function () { window._rcvBusy = false; });
 }
 
@@ -2106,7 +2106,7 @@ function openPayVendor(venderId, name, due) {
 function submitPayVendor() {
 	var venderId = $("#pvVendorId").val();
 	var amount = $("#pvAmount").val() * 1;
-	if (!venderId || !(amount > 0)) { showFormError('Enter a positive amount to pay.'); return; }
+	if (!venderId || !(amount > 0)) { showFormError(t('ui.js.enterAPositiveAmountToPay')); return; }
 	if (window._pvBusy) return; window._pvBusy = true;   // Audit #5: submit-lock
 	$.post(serverContext + "payVendor", {
 		venderId: venderId,
@@ -2125,7 +2125,7 @@ function submitPayVendor() {
 		} else {
 			showFormError((resp && resp.message) || 'Could not record the payment.');
 		}
-	}, 'json').fail(function () { showFormError('Could not record the payment.'); })
+	}, 'json').fail(function () { showFormError(t('ui.js.couldNotRecordThePayment')); })
 		.always(function () { window._pvBusy = false; });
 }
 
@@ -2137,17 +2137,17 @@ function openVoidSell(btn){
 	if(!chId) return;
 	// One dialog for the whole decision — this used to be a confirm() followed by a second prompt() popup.
 	uiPromptConfirm({
-		title: 'Void invoice ' + inv + '?',
-		message: 'This reverses the stock, the customer balance and the ledger. It cannot be undone.',
+		title: t('ui.js.voidInvoice') + inv + '?',
+		message: t('ui.js.thisReversesTheStockTheCustomerBalance'),
 		input: { label: 'Reason for voiding (optional)', placeholder: 'e.g. wrong customer', maxlength: 255 },
-		confirmText: 'Void invoice',
+		confirmText: t('ui.js.voidInvoice2'),
 		tone: 'danger'
 	}).then(function(reason){
 		if(reason === null) return;
 		$.post(serverContext + 'voidSell', { customerHistoryId: chId, reason: reason }, function(resp){
-			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess('Invoice voided.'); try { loadDataTable(); } catch(e){} }
-			else { uiAlert({ title: 'Void failed', message: (resp && resp.message) || 'The invoice could not be voided.', tone: 'danger' }); }
-		}).fail(function(){ uiAlert({ title: 'Void failed', message: 'The invoice could not be voided.', tone: 'danger' }); });
+			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.invoiceVoided')); try { loadDataTable(); } catch(e){} }
+			else { uiAlert({ title: t('ui.js.voidFailed'), message: (resp && resp.message) || 'The invoice could not be voided.', tone: 'danger' }); }
+		}).fail(function(){ uiAlert({ title: t('ui.js.voidFailed'), message: t('ui.js.theInvoiceCouldNotBeVoided'), tone: 'danger' }); });
 	});
 }
 
@@ -2157,17 +2157,17 @@ $(document).on('click', '.purchase-void-btn', function (e) {
 	var pid = this.getAttribute('data-pid'), inv = this.getAttribute('data-inv') || '';
 	if(!pid) return;
 	uiPromptConfirm({
-		title: 'Void bill ' + inv + '?',
-		message: 'This reverses the stock-in, the vendor payable and the ledger. It cannot be undone.',
+		title: t('ui.js.voidBill') + inv + '?',
+		message: t('ui.js.thisReversesTheStockInTheVendor'),
 		input: { label: 'Reason for voiding (optional)', placeholder: 'e.g. duplicate entry', maxlength: 255 },
-		confirmText: 'Void bill',
+		confirmText: t('ui.js.voidBill2'),
 		tone: 'danger'
 	}).then(function(reason){
 		if(reason === null) return;
 		$.post(serverContext + 'voidPurchase', { purchaseId: pid, reason: reason }, function(resp){
-			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess('Bill voided.'); try { loadDataTable(); } catch(e){} }
-			else { uiAlert({ title: 'Void failed', message: (resp && resp.message) || 'The bill could not be voided.', tone: 'danger' }); }
-		}).fail(function(){ uiAlert({ title: 'Void failed', message: 'The bill could not be voided.', tone: 'danger' }); });
+			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.billVoided')); try { loadDataTable(); } catch(e){} }
+			else { uiAlert({ title: t('ui.js.voidFailed'), message: (resp && resp.message) || 'The bill could not be voided.', tone: 'danger' }); }
+		}).fail(function(){ uiAlert({ title: t('ui.js.voidFailed'), message: t('ui.js.theBillCouldNotBeVoided'), tone: 'danger' }); });
 	});
 });
 
@@ -2207,12 +2207,12 @@ function submitPurchaseReturn(){
 	var pid = d.dataset.pid, sold = parseFloat(d.dataset.sold) || 0;
 	var qty = parseFloat(document.getElementById('prQty').value);
 	var err = document.getElementById('prError');
-	if(!qty || qty <= 0){ err.textContent = 'Enter a quantity greater than 0.'; return; }
-	if(qty > sold){ err.textContent = 'Cannot return more than purchased (' + sold + ').'; return; }
+	if(!qty || qty <= 0){ err.textContent = t('ui.js.enterAQuantityGreaterThan0'); return; }
+	if(qty > sold){ err.textContent = t('ui.js.cannotReturnMoreThanPurchased') + sold + ').'; return; }
 	$.post(serverContext + 'purchaseReturn', { purchaseId: pid, quantity: qty, reason: document.getElementById('prReason').value }, function(resp){
-		if(resp && resp.status === 'SUCCESS'){ d.style.display='none'; if(typeof showSaleSuccess==='function') showSaleSuccess('Purchase returned to vendor.'); loadDataTable(); }
+		if(resp && resp.status === 'SUCCESS'){ d.style.display='none'; if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.purchaseReturnedToVendor')); loadDataTable(); }
 		else { err.textContent = (resp && resp.message) || 'Return failed.'; }
-	}, 'json').fail(function(){ err.textContent = 'An error occurred. Please try again.'; });
+	}, 'json').fail(function(){ err.textContent = t('ui.js.anErrorOccurredPleaseTryAgain'); });
 }
 
 // F2: Statement of account + Aging — self-contained dialogs (no template modal needed), like the sale-return dialog.
@@ -2238,7 +2238,7 @@ function buildFinanceDialog(id){
 function openStatement(partyType, partyId, name){
 	var url = (partyType === 'VENDOR' ? 'vendorStatement?venderId=' : 'customerStatement?customerId=') + encodeURIComponent(partyId);
 	buildFinanceDialog('StatementDialog').style.display = 'flex';
-	document.getElementById('StatementDialogTitle').textContent = 'Statement — ' + (name || ((partyType === 'VENDOR' ? 'Vendor #' : 'Customer #') + partyId));
+	document.getElementById('StatementDialogTitle').textContent = t('ui.js.statement') + (name || ((partyType === 'VENDOR' ? 'Vendor #' : 'Customer #') + partyId));
 	document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
 	$.get(serverContext + url, function(resp){
 		var lines = (resp && (resp.collection || resp.data)) || [];
@@ -2476,28 +2476,28 @@ function finRunPeriodClose(){
 	}, 'json').fail(finFail);
 }
 function finSetPeriodLock(){
-	var d=$('#finLockDate').val(); if(!d){ uiAlert({ title:'Pick a date', message:'Choose the date to lock the books through.', tone:'warning' }); return; }
+	var d=$('#finLockDate').val(); if(!d){ uiAlert({ title:t('ui.js.pickADate'), message:t('ui.js.chooseTheDateToLockTheBooks'), tone:'warning' }); return; }
 	uiConfirm({
-		title: 'Close the books through ' + d + '?',
-		message: 'Back-dated sales, purchases, payments, edits and voids will be rejected until you reopen the period.',
-		confirmText: 'Close the books',
+		title: t('ui.js.closeTheBooksThrough') + d + '?',
+		message: t('ui.js.backDatedSalesPurchasesPaymentsEditsAnd'),
+		confirmText: t('ui.js.closeTheBooks'),
 		tone: 'warning'
 	}).then(function(ok){
 		if(!ok) return;
 		$.post(serverContext+'gl/periodLock', {lockedThrough:d}, function(){ finRunPeriodClose(); })
-			.fail(function(){ uiAlert({ title:'Could not close the period', message:'You may not have permission, or finance-service is down.', tone:'danger' }); });
+			.fail(function(){ uiAlert({ title:t('ui.js.couldNotCloseThePeriod'), message:t('ui.js.youMayNotHavePermissionOrFinance'), tone:'danger' }); });
 	});
 }
 function finReopenPeriod(){
 	uiConfirm({
-		title: 'Reopen the books?',
-		message: 'This clears the period lock — back-dated changes will be allowed again.',
-		confirmText: 'Reopen period',
+		title: t('ui.js.reopenTheBooks'),
+		message: t('ui.js.thisClearsThePeriodLockBackDated'),
+		confirmText: t('ui.js.reopenPeriod'),
 		tone: 'warning'
 	}).then(function(ok){
 		if(!ok) return;
 		$.post(serverContext+'gl/periodLock', {}, function(){ finRunPeriodClose(); })
-			.fail(function(){ uiAlert({ title:'Could not reopen', message:'The period lock could not be cleared.', tone:'danger' }); });
+			.fail(function(){ uiAlert({ title:t('ui.js.couldNotReopen'), message:t('ui.js.thePeriodLockCouldNotBeCleared'), tone:'danger' }); });
 	});
 }
 
@@ -2542,30 +2542,14 @@ function showBusinessConfig(){
 }
 
 function loadBusinessConfig(){
-	$('#businessConfigBody').text('Loading…');
-	$.get(serverContext + 'getBusinessConfig', function(res){
-		var items = (res && res.data) || [];
-		if(!items.length){ $('#businessConfigBody').html('<p style="color:#7a889c">No configurable settings.</p>'); return; }
-		var groups = {};
-		items.forEach(function(it){ (groups[it.group] = groups[it.group] || []).push(it); });
-		var html = '';
-		Object.keys(groups).forEach(function(g){
-			html += '<h4 style="margin-top:18px">' + escHtml(g) + '</h4>';
-			groups[g].forEach(function(it){
-				var on = String(it.value) === 'true';
-				if(it.type === 'BOOL'){
-					html += '<div class="form-group" style="margin-bottom:12px">'
-						+ '<label class="control-label col-sm-5" for="bcfg_' + escHtml(it.key) + '">' + escHtml(it.label) + '</label>'
-						+ '<div class="col-sm-7">'
-						+ '<input type="checkbox" id="bcfg_' + escHtml(it.key) + '" data-key="' + escHtml(it.key) + '"'
-						+ (on ? ' checked' : '') + ' onchange="saveBusinessConfigToggle(this)"/>'
-						+ '<div style="color:#7a889c;font-size:12px;margin-top:3px">' + escHtml(it.help || '') + '</div>'
-						+ '</div></div>';
-				}
-			});
-		});
-		$('#businessConfigBody').html('<div class="form-horizontal">' + html + '</div>');
-	}, 'json').fail(function(){ $('#businessConfigBody').html('<p style="color:#c0392b">Could not load configuration.</p>'); });
+	// Rendering lives in /js/common/settings-form.js — one renderer for all four dashboards, so a new
+	// setting TYPE is added once rather than four times (this file used to carry its own copy).
+	renderSettingsForm({
+		container:  '#businessConfigBody',
+		loadUrl:    'getBusinessConfig',
+		onChangeFn: 'saveBusinessConfigToggle',
+		fieldPrefix:'bcfg'
+	});
 }
 
 function saveBusinessConfigToggle(el){

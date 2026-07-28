@@ -2,6 +2,11 @@
 
 <head>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
+<link rel="stylesheet" th:href="@{/css/lang-switcher.css}"/>
+<!-- Script webfont for languages Bootstrap's default face does not cover (Arabic, Urdu, Devanagari). -->
+<link th:if="${langWebfont}" rel="stylesheet"
+      th:href="'https://fonts.googleapis.com/css2?family=' + ${langWebfont} + '&display=swap'"/>
+<link th:if="${isRtl}" rel="stylesheet" th:href="@{/css/rtl.css}"/>
 <title th:text="#{label.pages.home.title}">Title</title>
 <script th:inline="javascript">
 	function validate() {
@@ -37,8 +42,9 @@ label{padding-left:0 !important}
     <div class="container">
         <div class="row wrapper">
             <h1 th:text="#{label.form.loginTitle}">Header</h1>
-             <a href="?lang=en" th:text="#{label.form.loginEnglish}">login</a> | 
-             <a href="?lang=es_ES" th:text="#{label.form.loginSpanish}">login</a>
+             <!-- Was a hardcoded English|Spanish pair pointing at ?lang=es_ES; the shared switcher
+                  lists every shipped language from SupportedLanguage, so this page can't fall behind. -->
+             <th:block th:replace="~{fragments/lang-switcher :: lang-switcher}"></th:block>
             <br/><br/>
             
             <form name='f' action="login" method='POST' onsubmit="return validate();">
@@ -73,6 +79,8 @@ label{padding-left:0 !important}
             <a class="btn btn-info btn-cls" th:href="@{/forgetPassword.html}" th:text="#{message.resetPassword}">reset</a>
         </div>
     </div>
+<!-- Language menu affordance only — switching is a plain ?lang= link handled server-side. -->
+<script th:src="@{/js/common/lang-switcher.js}"></script>
 </body>
 
 </html>

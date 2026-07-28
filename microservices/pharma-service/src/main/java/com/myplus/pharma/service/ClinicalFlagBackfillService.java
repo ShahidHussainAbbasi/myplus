@@ -42,21 +42,32 @@ public class ClinicalFlagBackfillService {
         long after = afterId == null ? 0L : afterId;
         var page = PageRequest.of(0, Math.max(1, Math.min(limit, MAX_BATCH)));
 
-        int scanned = 0, pushed = 0, failed = 0;
+        int scanned = 0, pushed = 0, failed = 0, malformed = 0;   // malformed = row carries no product_id at all
+        // Rows whose product_id matches no catalog product. Reported SEPARATELY from failures on purpose: a
+        // failure means "catalog was unhappy, re-run and it may succeed", whereas an orphan will never succeed
+        // no matter how often you re-run — it needs the data fixed. Expect some: V3 renamed item_id → product_id
+        // without translating the values, so legacy rows can still hold old business itemIds.
+        java.util.List<Long> orphaned = new java.util.ArrayList<>();
+
         for (MedicineClinical c : clinicalRepo.findAfter(after, orgId, userId, page)) {
             after = Math.max(after, c.getId());
             scanned++;
-            if (c.getProductId() == null) continue;
+            if (c.getProductId() == null) { malformed++; continue; }
             try {
                 // Idempotent: writing the same two booleans again is a no-op at the destination.
                 catalogClient.updateClinicalFlags(c.getProductId(), c.isRxRequired(), c.isControlledSubstance());
                 pushed++;
+            } catch (org.springframework.web.client.HttpClientErrorException.NotFound nf) {
+                orphaned.add(c.getProductId());
+                LOG.warn("clinical-flag backfill: product {} is not in catalog — flag cannot be enforced until the "
+                        + "row is repointed or removed", c.getProductId());
             } catch (Exception e) {
                 failed++;
                 LOG.warn("clinical-flag backfill failed for product {} — re-run to retry", c.getProductId(), e);
             }
         }
-        return Map.of("scanned", scanned, "pushed", pushed, "failed", failed, "lastId", after,
-                "remaining", clinicalRepo.countAfter(after, orgId, userId));
+        return Map.of("scanned", scanned, "pushed", pushed, "failed", failed, "malformed", malformed,
+                "orphaned", orphaned.size(), "orphanedProductIds", orphaned,
+                "lastId", after, "remaining", clinicalRepo.countAfter(after, orgId, userId));
     }
 }

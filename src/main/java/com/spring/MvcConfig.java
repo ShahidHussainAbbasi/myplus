@@ -1,14 +1,12 @@
 package com.spring;
 
-import java.util.Locale;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.support.ReloadableResourceBundleMessageSource;
 import org.springframework.validation.Validator;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.context.request.RequestContextListener;
@@ -19,12 +17,12 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 
 import com.validation.EmailValidator;
 import com.validation.PasswordMatchesValidator;
 import com.web.util.SupportedLocaleChangeInterceptor;
+import com.web.util.SupportedLocaleResolver;
 
 @Configuration
 @ComponentScan(basePackages = { "com.web" })
@@ -41,10 +39,10 @@ public class MvcConfig implements WebMvcConfigurer {
         super.addInterceptors(registry);
         registry.addInterceptor(activityInterceptor);
     }*/    
-/*
+    /** From {@link MessageSourceConfig} — safe to inject now that this class no longer defines the bean. */
     @Autowired
     private MessageSource messageSource;
-*/
+
     @Override
     public void addViewControllers(final ViewControllerRegistry registry) {
 //        registry.addViewController("/").setViewName("forward:/login");
@@ -140,27 +138,21 @@ public class MvcConfig implements WebMvcConfigurer {
 
     // beans
 
-    @Bean
-    public LocaleResolver localeResolver() {
-        final CookieLocaleResolver cookieLocaleResolver = new CookieLocaleResolver();
-        cookieLocaleResolver.setDefaultLocale(Locale.ENGLISH);
-        return cookieLocaleResolver;
-    }
+    /** Organization default language — the fallback when a visitor's browser asks for nothing we ship. */
+    @Value("${app.locale.default:en}")
+    private String defaultLanguageTag;
 
     @Bean
-    public MessageSource messageSource() {
-    final ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
-    	messageSource.setBasename("classpath:messages");
-    	messageSource.setUseCodeAsDefaultMessage(true);
-	    messageSource.setDefaultEncoding("UTF-8");
-	    messageSource.setCacheSeconds(0);
-	    // Without this, a server whose system locale is (say) de_DE would fall back to messages_de
-	    // rather than to the base bundle — the same page then renders differently per host.
-	    // Every language reachable through the whitelisted ?lang= switch has its own bundle, so
-	    // the base bundle is only ever a safety net.
-	    messageSource.setFallbackToSystemLocale(false);
-	    return messageSource;
-	}
+    public LocaleResolver localeResolver() {
+        // Was CookieLocaleResolver with a hardcoded ENGLISH default, so a first-time visitor whose
+        // browser asked for Urdu or Arabic still got English. SupportedLocaleResolver checks the
+        // visitor's own choice, then Accept-Language (region), then this org default.
+        return new SupportedLocaleResolver("MYPLUS_LOCALE", defaultLanguageTag);
+    }
+
+    // The messageSource bean lives in MessageSourceConfig, NOT here. Defining it here while this class also
+    // field-injects LocaleInterceptor (which needs a MessageSource) made MvcConfig depend on a bean it was
+    // itself still creating — an unresolvable cycle at startup. Don't move it back.
 
     @Bean
     public EmailValidator usernameValidator() {
@@ -181,7 +173,8 @@ public class MvcConfig implements WebMvcConfigurer {
     @Override
     public Validator getValidator() {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
-        validator.setValidationMessageSource(messageSource());
+        // The injected bean, not a self-call — messageSource() no longer exists on this class.
+        validator.setValidationMessageSource(messageSource);
         return validator;
     }
 

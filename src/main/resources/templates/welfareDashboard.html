@@ -10,107 +10,107 @@
 
 </head>
 <body class="has-sidebar">
-<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu" th:aria-label="#{ui.openMenu}"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
 <div class="sidebar-backdrop" onclick="closeSidebar()"></div>
 	<th:block th:replace="~{fragments/header :: header}" />
 	<!-- Section select — off-screen so welfare.js's change handler still drives section-show + Cypress can reach it -->
 	<div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
 		<select name="registrationType" id="registrationType" class="dropdown show panel-heading" tabindex="-1">
-			<option class="dropdown-item" value="">Nothing Selected</option>
-			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonatorDiv">Add Donator</option>
-			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonationDiv">Add Donation</option>
-			<option sec:authorize="hasAuthority('READ_PRIVILEGE')" class="dropdown-item" value="DonationsDiv">View Donations</option>
+			<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}">Nothing Selected</option>
+			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonatorDiv" th:text="#{ui.addDonator}">Add Donator</option>
+			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="DonationDiv" th:text="#{ui.addDonation}">Add Donation</option>
+			<option sec:authorize="hasAuthority('READ_PRIVILEGE')" class="dropdown-item" value="DonationsDiv" th:text="#{ui.viewDonations}">View Donations</option>
 		</select>
 	</div>
 	<aside class="app-sidebar" id="app-sidebar">
 		<div class="app-sidebar__brand">
 			<span class="glyphicon glyphicon-th-large"></span>
 			<span class="app-sidebar__brand-text">MyPlus</span>
-			<button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+			<button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu" th:title="#{ui.collapseMenu}"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
 		</div>
 		<nav class="app-sidebar__nav">
-			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','DonatorDiv',this)"><span class="glyphicon glyphicon-user"></span><span>Add Donator</span></a>
-			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','DonationDiv',this)"><span class="glyphicon glyphicon-gift"></span><span>Add Donation</span></a>
-			<a class="sb-link" sec:authorize="hasAuthority('READ_PRIVILEGE')" onclick="sbNav('registrationType','DonationsDiv',this)"><span class="glyphicon glyphicon-list"></span><span>View Donations</span></a>
-			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','ConfigDiv',this);showConfig()"><span class="glyphicon glyphicon-wrench"></span><span>Configuration</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','DonatorDiv',this)"><span class="glyphicon glyphicon-user"></span><span th:text="#{ui.addDonator}">Add Donator</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','DonationDiv',this)"><span class="glyphicon glyphicon-gift"></span><span th:text="#{ui.addDonation}">Add Donation</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('READ_PRIVILEGE')" onclick="sbNav('registrationType','DonationsDiv',this)"><span class="glyphicon glyphicon-list"></span><span th:text="#{ui.viewDonations}">View Donations</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','ConfigDiv',this);showConfig()"><span class="glyphicon glyphicon-wrench"></span><span th:text="#{ui.configuration}">Configuration</span></a>
 		</nav>
 	</aside>
 	<div id="content" class="content-cls">
 		<!-- Owner Configuration — self-renders from the welfare-service common-settings catalog (/getWelfareConfig).
 		     Each policy is a catalog entry in the service; a toggle saves immediately (/saveWelfareConfig). -->
 		<div id="ConfigDiv" class="formDiv" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" style="display:none">
-			<h3 class="dash-page-title">Configuration</h3>
-			<p style="color:#7a889c;margin-bottom:16px">Turn features on or off for your organization. Changes apply immediately.</p>
+			<h3 class="dash-page-title" th:text="#{ui.configuration}">Configuration</h3>
+			<p style="color:#7a889c;margin-bottom:16px" th:text="#{ui.turnFeaturesOnOrOffFor}">Turn features on or off for your organization. Changes apply immediately.</p>
 			<div id="welfareConfigMsg" class="alert" style="display:none"></div>
-			<div id="welfareConfigBody">Loading…</div>
+			<div id="welfareConfigBody" th:text="#{ui.loading2}">Loading…</div>
 		</div>
 		<div id=DonatorDiv class="formDiv" style="display:none">
 			<h3 class="dash-page-title" th:text="#{label.donator.form.heading}">Donator Registration Form</h3>
 			<div style="margin-bottom:8px">
 				<button type="button" id="newDonator" class="btn btn-success" onclick="newEntity('Donator')">
-					<span class="glyphicon glyphicon-plus-sign"></span> New Donator
+					<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newDonator}">New Donator</span>
 				</button>
 				<span id="bulkBarDonator" class="crud-bulkbar" style="display:none;margin-left:10px">
-					<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-					<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Donator')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-					<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Donator')">Clear</button>
+					<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+					<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Donator')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+					<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Donator')" th:text="#{ui.clear}">Clear</button>
 				</span>
 			</div>
 			<div id="DonatorModal" class="crud-overlay">
 			  <div class="crud-box">
 				<div class="crud-head">
-					<h4 id="DonatorModalTitle">New Donator</h4>
+					<h4 id="DonatorModalTitle" th:text="#{ui.newDonator}">New Donator</h4>
 					<button type="button" class="crud-x" onclick="resetForm();closeModal('DonatorModal')">&times;</button>
 				</div>
 				<div class="crud-body">
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Donator" autocomplete="off">
 				<div class="form-group" style="display: none">
-					<label class="control-label col-sm-2" for="donatorId">Id:</label>
+					<label class="control-label col-sm-2" for="donatorId" th:text="#{ui.id3}">Id:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="donatorId" name="id"/> 
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="donatorShowMe">Select Option:</label>
+					<label class="control-label col-sm-2" for="donatorShowMe" th:text="#{ui.selectOption}">Select Option:</label>
 					<div class="col-sm-4">
 						<select name="showMe" id="donatorShowMe" class="show form-control" required="required">
-							<option class="dropdown-item" value="">Nothing Selected</option>
-							<option class="dropdown-item" value="true">Show my donation</option>
-							<option class="dropdown-item" value="false">Hide my donation</option>
+							<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}">Nothing Selected</option>
+							<option class="dropdown-item" value="true" th:text="#{ui.showMyDonation}">Show my donation</option>
+							<option class="dropdown-item" value="false" th:text="#{ui.hideMyDonation}">Hide my donation</option>
 						</select>
 					</div>
-					<label class="control-label col-sm-2" for="donatorName">Name:</label>
+					<label class="control-label col-sm-2" for="donatorName" th:text="#{ui.name2}">Name:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="donatorName" name="name"
-							placeholder="Donator Name" required="required"> 
+							placeholder="Donator Name" th:placeholder="#{ui.donatorName}" required="required"> 
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="donatorFName">Ref. Name:</label>
+					<label class="control-label col-sm-2" for="donatorFName" th:text="#{ui.refName}">Ref. Name:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="donatorFName" name="fName"
-							placeholder="Any reference"> 
+							placeholder="Any reference" th:placeholder="#{ui.anyReference}"> 
 					</div>
-					<label class="control-label col-sm-2" for="mobile">Mobile:</label>
+					<label class="control-label col-sm-2" for="mobile" th:text="#{ui.mobile}">Mobile:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id="donatorMobile" name="mobile"
-							placeholder="Mobile Number" required="required"> 
+							placeholder="Mobile Number" th:placeholder="#{ui.mobileNumber}" required="required"> 
 					</div>
 				</div>
 				<div class="form-group">
-					<label class="control-label col-sm-2" for="donatorAddress">Address:</label>
+					<label class="control-label col-sm-2" for="donatorAddress" th:text="#{ui.address}">Address:</label>
 					<div class="col-sm-10">
 						<input type="text" class="form-control" id="donatorAddress"
-							name="address" placeholder="Compalete Address" required="required">
+							name="address" placeholder="Compalete Address" th:placeholder="#{ui.compaleteAddress}" required="required">
 					</div>
 				</div>
 				<div class="form-group text-center">
 					<button type="button" id="addDonator" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 					</button>
 					<button type="button" id="resetDonator" class="btn btn-warning" onclick="resetForm();closeModal('DonatorModal')">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
+						<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 					</button>
 					<button type="button" id="deleteDonator" class="btn btn-danger" style="display:none"></button>
 					<button type="reset" class="resetForm" style="display:none"></button>
@@ -123,13 +123,13 @@
 				<table id="tableDonator" class="table table-bordered table-striped">
 					<thead>
 						<tr>
-							<th class="col-sm-1" data-field="id">ID</th>
-							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-2" data-field="name">Name</th>
-							<th class="col-sm-3" data-field="fName">Ref. Name</th>
-							<th class="col-sm-1" data-field="mobile">Mobile</th>
-							<th class="col-sm-3" data-field="address">Address</th>
-							<th class="col-sm-1" data-field="dated">Dated</th>
+							<th class="col-sm-1" data-field="id" th:text="#{ui.id}">ID</th>
+							<th class="col-sm-1" data-field="checkDelete" th:text="#{ui.check}">Check</th>
+							<th class="col-sm-2" data-field="name" th:text="#{ui.name}">Name</th>
+							<th class="col-sm-3" data-field="fName" th:text="#{ui.refName2}">Ref. Name</th>
+							<th class="col-sm-1" data-field="mobile" th:text="#{ui.mobile2}">Mobile</th>
+							<th class="col-sm-3" data-field="address" th:text="#{ui.address2}">Address</th>
+							<th class="col-sm-1" data-field="dated" th:text="#{ui.dated}">Dated</th>
 						</tr>
 					</thead>
 				</table>
@@ -139,25 +139,25 @@
 			<h3 class="dash-page-title" th:text="#{label.donation.form.heading}">Donation Registration Form</h3>
 			<div style="margin-bottom:8px">
 				<button type="button" id="newDonation" class="btn btn-success" onclick="newEntity('Donation')">
-					<span class="glyphicon glyphicon-plus-sign"></span> New Donation
+					<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newDonation}">New Donation</span>
 				</button>
 				<span id="bulkBarDonation" class="crud-bulkbar" style="display:none;margin-left:10px">
-					<span class="label label-info"><span class="bulk-count">0</span> selected</span>
-					<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Donation')"><span class="glyphicon glyphicon-trash"></span> Delete</button>
-					<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Donation')">Clear</button>
+					<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
+					<button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete('Donation')"><span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.delete}">Delete</span></button>
+					<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Donation')" th:text="#{ui.clear}">Clear</button>
 				</span>
 			</div>
 			<div id="DonationModal" class="crud-overlay">
 			  <div class="crud-box">
 				<div class="crud-head">
-					<h4 id="DonationModalTitle">New Donation</h4>
+					<h4 id="DonationModalTitle" th:text="#{ui.newDonation}">New Donation</h4>
 					<button type="button" class="crud-x" onclick="resetForm();closeModal('DonationModal')">&times;</button>
 				</div>
 				<div class="crud-body">
 			<form action="/" method="POST" class="form-horizontal" role="form"
 				enctype="utf8" id="Donation" autocomplete="off">
 				<div class="form-group" style="display: none">
-					<label class="control-label col-sm-2" for="donationId">Id:</label>
+					<label class="control-label col-sm-2" for="donationId" th:text="#{ui.id3}">Id:</label>
 					<div class="col-sm-4">
 						<input type="text" class="form-control" id=donationId name="id"/> 
 					</div>
@@ -179,10 +179,10 @@
 				</div>
 				<div class="form-group text-center">
 					<button type="button" id="addDonation" class="btn btn-success">
-						<span class="glyphicon glyphicon-plus-sign"></span> Submit
+						<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 					</button>
 					<button type="button" id="resetDonation" class="btn btn-warning" onclick="resetForm();closeModal('DonationModal')">
-						<span class="glyphicon glyphicon-refresh"></span> Cancel
+						<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 					</button>
 					<button type="button" id="deleteDonation" class="btn btn-danger" style="display:none"></button>
 					<button type="reset" class="resetForm" style="display:none"></button>
@@ -195,12 +195,12 @@
 				<table id="tableDonation" class="table table-bordered table-striped">
 					<thead>
 						<tr>
-							<th class="col-sm-1" data-field="id">ID</th>
-							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-3" data-field="name">Donator</th>
-							<th class="col-sm-2" data-field="amount">Amount</th>
-							<th class="col-sm-3" data-field="receivedBy">Received By</th>
-							<th class="col-sm-2" data-field="dated">Dated</th>
+							<th class="col-sm-1" data-field="id" th:text="#{ui.id}">ID</th>
+							<th class="col-sm-1" data-field="checkDelete" th:text="#{ui.check}">Check</th>
+							<th class="col-sm-3" data-field="name" th:text="#{ui.donator}">Donator</th>
+							<th class="col-sm-2" data-field="amount" th:text="#{ui.amount}">Amount</th>
+							<th class="col-sm-3" data-field="receivedBy" th:text="#{ui.receivedBy}">Received By</th>
+							<th class="col-sm-2" data-field="dated" th:text="#{ui.dated}">Dated</th>
 						</tr>
 					</thead>
 				</table>
@@ -215,14 +215,14 @@
 					<table id="tableDonations" class="table table-bordered table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="id">ID</th>
-								<th class="col-sm-2" data-field="name">Name</th>
-								<th class="col-sm-2" data-field="fName">Ref. Name</th>
-								<th class="col-sm-1" data-field="mobile">Mobile</th>
-								<th class="col-sm-3" data-field="address">Address</th>
-								<th class="col-sm-1" data-field="amount">Amount</th>
-								<th class="col-sm-1" data-field="receivedBy">Received By</th>
-								<th class="col-sm-1" data-field="dated">Dated</th>
+								<th class="col-sm-1" data-field="id" th:text="#{ui.id}">ID</th>
+								<th class="col-sm-2" data-field="name" th:text="#{ui.name}">Name</th>
+								<th class="col-sm-2" data-field="fName" th:text="#{ui.refName2}">Ref. Name</th>
+								<th class="col-sm-1" data-field="mobile" th:text="#{ui.mobile2}">Mobile</th>
+								<th class="col-sm-3" data-field="address" th:text="#{ui.address2}">Address</th>
+								<th class="col-sm-1" data-field="amount" th:text="#{ui.amount}">Amount</th>
+								<th class="col-sm-1" data-field="receivedBy" th:text="#{ui.receivedBy}">Received By</th>
+								<th class="col-sm-1" data-field="dated" th:text="#{ui.dated}">Dated</th>
 							</tr>
 						</thead>
 					</table>

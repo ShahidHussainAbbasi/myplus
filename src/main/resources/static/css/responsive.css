@@ -21,6 +21,29 @@
 
 
 /* ══════════════════════════════════════════════════════════════════════════
+   0. SCRIPT TYPEFACE (non-Latin, left-to-right)
+   ══════════════════════════════════════════════════════════════════════════
+   Hindi is Devanagari, which the UI font (Inter) does not cover — without this the
+   whole page falls back to whatever the OS happens to have. It lives here rather than
+   in rtl.css because Hindi is left-to-right: font need and text direction are separate
+   concerns (see SupportedLanguage.getWebfont). The Arabic/Urdu stacks are in rtl.css.
+   Inter stays in the stack so digits, emails and SKUs keep the UI's own numerals. */
+
+html[lang="hi"] body,
+html[lang="hi"] .form-control,
+html[lang="hi"] .btn,
+html[lang="hi"] input,
+html[lang="hi"] select,
+html[lang="hi"] textarea{
+  font-family:'Noto Sans Devanagari','Nirmala UI',Inter,sans-serif;
+}
+/* Devanagari sits on a headline stroke with tall matras above and below it; the default
+   1.4-ish leading clips them in dense grids. */
+html[lang="hi"] .table > tbody > tr > td,
+html[lang="hi"] .table > thead > tr > th{ line-height:1.8; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
    1. TABLE SCROLLERS
    ══════════════════════════════════════════════════════════════════════════
    theme.css hides body overflow-x on phones, and only .dataTables_wrapper and

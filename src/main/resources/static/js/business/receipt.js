@@ -121,13 +121,13 @@
 
     // Fetch the authoritative receipt by invoice number, then print.
     global.printReceipt = function (invoiceNo) {
-        if (!invoiceNo) { if (global.showFormError) showFormError('No invoice to print.'); return; }
+        if (!invoiceNo) { if (global.showFormError) showFormError(t('ui.js.noInvoiceToPrint')); return; }
         $.get(serverContext + 'getReceipt?invoiceNo=' + encodeURIComponent(invoiceNo), function (resp) {
             if (!resp || resp.status !== 'SUCCESS' || !resp.object) {
                 if (global.showFormError) showFormError((resp && resp.message) || 'Could not load the receipt.');
                 return;
             }
             printInvoiceObject(resp.object);
-        }).fail(function () { if (global.showFormError) showFormError('Could not load the receipt.'); });
+        }).fail(function () { if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReceipt')); });
     };
 })(window);

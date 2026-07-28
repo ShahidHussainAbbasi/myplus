@@ -93,6 +93,35 @@ class PrescriptionServiceTest {
         assertThat(service.list(999L, 999L)).isEmpty();   // another tenant sees nothing
     }
 
+    // ── C1: the list is bounded and free of the per-row item query ───────────────────────────────────
+    @Test
+    void list_is_bounded_and_newest_first() {
+        for (int i = 0; i < 5; i++) service.create(sample("Bulk" + i), ORG, USER);
+
+        assertThat(service.list(ORG, USER, 3)).hasSize(3);          // capped, not "everything ever recorded"
+        List<PrescriptionDTO> all = service.list(ORG, USER);
+        assertThat(all).hasSize(5);                                 // default limit is well above 5
+        // Newest first. Asserted as "descending by createdAt" rather than naming a row, because five inserts can
+        // land on the same timestamp and the contract is the ordering, not which of two ties wins.
+        assertThat(all).extracting(PrescriptionDTO::getCreatedAt).isSortedAccordingTo(java.util.Comparator.reverseOrder());
+    }
+
+    @Test
+    void list_loads_every_prescriptions_items_without_a_query_per_row() {
+        for (int i = 0; i < 4; i++) service.create(sample("Item" + i), ORG, USER);
+
+        List<PrescriptionDTO> out = service.list(ORG, USER);
+
+        // The N+1 fix groups one item query across the page — every row must still carry its own items, which is
+        // exactly what a careless grouping would get wrong.
+        assertThat(out).hasSize(4);
+        assertThat(out).allSatisfy(d -> {
+            assertThat(d.getItems()).hasSize(1);
+            assertThat(d.getItems().get(0).getProductId()).isEqualTo(555L);
+            assertThat(d.getItems().get(0).getFrequency()).isEqualTo("TDS");
+        });
+    }
+
     // ── B5: intake validation ────────────────────────────────────────────────────────────────────────
     @Test
     void an_item_with_no_quantity_is_rejected() {

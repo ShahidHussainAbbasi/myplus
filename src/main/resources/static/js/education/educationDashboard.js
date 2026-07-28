@@ -151,7 +151,7 @@
 		if (isEmpty) {
 			destroy(id);
 			el.style.display = 'none';
-			if (!ov) { ov = document.createElement('div'); ov.className = 'an-empty'; ov.textContent = 'No data yet'; wrap.appendChild(ov); }
+			if (!ov) { ov = document.createElement('div'); ov.className = 'an-empty'; ov.textContent = t('ui.js.noDataYet'); wrap.appendChild(ov); }
 			return false;
 		}
 		el.style.display = '';

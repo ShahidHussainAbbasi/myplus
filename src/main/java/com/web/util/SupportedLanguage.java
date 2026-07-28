@@ -17,10 +17,14 @@ import java.util.stream.Collectors;
  */
 public enum SupportedLanguage {
 
-    ENGLISH("en", "English",  "EN", Direction.LTR),
-    FRENCH ("fr", "Français", "FR", Direction.LTR),
-    ARABIC ("ar", "العربية",  "ع",  Direction.RTL),
-    URDU   ("ur", "اردو",     "اُر", Direction.RTL);
+    ENGLISH("en", "English",  "EN", Direction.LTR, null),
+    FRENCH ("fr", "Français", "FR", Direction.LTR, null),
+    SPANISH("es", "Español",  "ES", Direction.LTR, null),
+    // Devanagari: the UI font (Inter) has no coverage, so Hindi needs a webfont even though it is
+    // left-to-right. Font need is therefore its own property, NOT something derived from direction.
+    HINDI  ("hi", "हिन्दी",     "हि", Direction.LTR, "Noto+Sans+Devanagari:wght@400;500;600;700"),
+    ARABIC ("ar", "العربية",  "ع",  Direction.RTL, "Noto+Naskh+Arabic:wght@400;500;600;700"),
+    URDU   ("ur", "اردو",     "اُر", Direction.RTL, "Noto+Nastaliq+Urdu:wght@400;500;600;700");
 
     public enum Direction { LTR, RTL }
 
@@ -28,12 +32,26 @@ public enum SupportedLanguage {
     private final String endonym;
     private final String shortLabel;
     private final Direction direction;
+    private final String webfont;
 
-    SupportedLanguage(String tag, String endonym, String shortLabel, Direction direction) {
+    SupportedLanguage(String tag, String endonym, String shortLabel, Direction direction, String webfont) {
         this.tag = tag;
         this.endonym = endonym;
         this.shortLabel = shortLabel;
         this.direction = direction;
+        this.webfont = webfont;
+    }
+
+    /**
+     * Google Fonts family spec for scripts the UI font does not cover, or {@code null} for the
+     * Latin-script languages that Inter already handles.
+     */
+    public String getWebfont() {
+        return webfont;
+    }
+
+    public boolean hasWebfont() {
+        return webfont != null;
     }
 
     public String getTag() {
