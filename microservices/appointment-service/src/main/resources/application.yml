@@ -18,7 +18,11 @@ spring:
     show-sql: false
     open-in-view: false
   flyway:
-    enabled: false   # brand-new service: Hibernate ddl-auto creates the myplusdb_appointment schema
+    # This service owns its schema through migrations like every other service. baseline-on-migrate stamps the
+    # EXISTING myplusdb_appointment (built by the old ddl-auto:update) as V1 instead of trying to re-create it,
+    # so a live database upgrades in place while a fresh one is built by V1__baseline.sql.
+    baseline-on-migrate: true
+    baseline-version: 1
 
 eureka:
   client:

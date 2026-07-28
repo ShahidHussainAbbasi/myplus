@@ -74,7 +74,23 @@ class FlywayMigrationTest {
                 "SELECT version FROM flyway_schema_history WHERE success = 1 AND version IS NOT NULL "
                         + "ORDER BY installed_rank", String.class);
         // If a later migration is added without being listed here, this is the reminder to prove it too.
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6");
+    }
+
+    @Test
+    void the_dead_medicine_schema_is_gone() {
+        // V6. The tables are the visible half; the half that mattered is the dead FK columns they left on LIVE
+        // tables, which MySQL was still enforcing long after Hibernate stopped mapping them.
+        for (String dead : List.of("medicines", "drug_categories", "pharmacy_stock", "medicine_profile")) {
+            Integer n = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.TABLES "
+                            + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?", Integer.class, dead);
+            assertThat(n).as("dead table %s should be dropped", dead).isZero();
+        }
+        assertThat(hasColumn("prescription_items", "medicine_id")).isFalse();
+        assertThat(hasColumn("dispensing", "medicine_id")).isFalse();
+        assertThat(hasColumn("drug_interactions", "medicine1_id")).isFalse();
+        assertThat(hasColumn("drug_interactions", "medicine2_id")).isFalse();
     }
 
     @Test

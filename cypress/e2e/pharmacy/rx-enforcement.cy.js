@@ -92,6 +92,19 @@ describe('Pharmacy — prescription-only enforcement', () => {
     })
   })
 
+  it('the severe-interaction acknowledgement setting is wired, and defaults to ON', () => {
+    // Regression guard: this setting was declared in BusinessSettingsCatalog but read NOWHERE — it rendered on
+    // the Configuration screen and changed nothing. A toggle that does nothing is worse than no toggle.
+    cy.request('/getBusinessConfig').then((r) => {
+      const entry = (r.body.data || []).find((e) => e.key === 'pharmacy.interaction.blockSevere')
+      expect(entry, 'blockSevere is in the settings catalog').to.exist
+      expect(String(entry.value), 'defaults ON — a safety step must be the do-nothing state').to.eq('true')
+    })
+    // ...and the UI actually consumes it (the bug was that nothing did).
+    cy.visit('/businessDashboard')
+    cy.window().its('pharmaBlockSevere').should('not.be.undefined')
+  })
+
   it('a cashier without ADMIN cannot flag a medicine (gate holds through the new catalog path)', () => {
     // The flag now travels pharma → catalog; both ends are ADMIN-gated. Uses the same accounts as
     // cypress/e2e/pharmacy/method-authz.cy.js.

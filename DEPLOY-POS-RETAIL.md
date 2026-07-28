@@ -550,6 +550,39 @@ docker compose up -d --build
 docker compose ps
 ```
 
+#### ⚠️ Pharmacy only — run the clinical-flag backfill once, right after first start
+
+Skip this unless you deploy **pharma-service**. The "prescription required" / "controlled substance" flags now
+live on the **catalog product**, because the sell guard reads them off the `ProductRef` it already fetches per
+line (no extra call at checkout — see `microservices/docs/pharmacy-rx-enforcement-design.md`). Flags set before
+this cutover still sit in `myplusdb_pharma.medicine_clinical`, and the two tables are in **different databases**,
+so no Flyway script can copy them across.
+
+**Until this runs, a prescription-only medicine sells like any other product.** It is part of the deploy, not a
+follow-up. Idempotent — safe to re-run, and a no-op on a fresh install with no flags.
+
+```bash
+# Owner/admin token, then call until "remaining" is 0 (batches of 200, cursor via lastId)
+curl -s -X POST "https://<your-domain>/api/pharma/clinical-flags/backfill?limit=200" \
+     -H "Authorization: Bearer $TOKEN"
+# -> {"scanned":200,"pushed":198,"failed":0,"malformed":0,"orphaned":2,
+#     "orphanedProductIds":[...],"lastId":200,"remaining":57}
+curl -s -X POST "https://<your-domain>/api/pharma/clinical-flags/backfill?limit=200&afterId=200" \
+     -H "Authorization: Bearer $TOKEN"
+```
+
+Reading the result:
+- `pushed` — flags now enforced at the till.
+- `failed` — catalog rejected the write (down / transient). **Re-run**; it will retry those.
+- `orphaned` — the row's `product_id` matches no catalog product, so the flag can never be enforced. Re-running
+  will **not** fix it: the data needs repointing or deleting. Expect a few on databases that predate the
+  productId rebase, whose rows still hold old business item ids (`V3__pharma_itemid_to_productid.sql` renamed
+  the column without translating the values). `orphanedProductIds` lists them.
+- `malformed` — row has no `product_id` at all.
+
+Verify with a real sale: flag a medicine on **Clinical & Safety**, then try to sell it without a prescription —
+it must be refused naming the product.
+
 Notes:
 - **RAM:** the full stack is ~16 GB. On an 8–12 GB VPS, stick to the POS subset (§3.3/§4.6) or add
   swap (§4.1) and expect slower boots.

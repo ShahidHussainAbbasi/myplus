@@ -39,11 +39,14 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                                 + "unless it was started from a prescription (Dispense). Off: the flag is advisory "
                                 + "only. Flags are set per medicine on the Clinical & Safety screen.",
                         true, "Pharmacy"),
+                // Default ON: this is a safety step, so the safe state is the one you get by doing nothing. The UI
+                // also treats an absent key / failed config read as ON for the same reason.
                 SettingEntry.bool("pharmacy.interaction.blockSevere",
                         "Require acknowledgement of severe drug interactions",
-                        "On: a SEVERE interaction between items being dispensed must be acknowledged before the "
-                                + "dispense proceeds. Off (default): interactions are shown as warnings.",
-                        false, "Pharmacy")
+                        "On (default): a SEVERE interaction between items being dispensed must be acknowledged in a "
+                                + "dialog before the dispense proceeds. Off: severe interactions are shown as "
+                                + "warnings alongside the others.",
+                        true, "Pharmacy")
         );
         // NOTE: an earlier "pos.sale.negativeStockAllowed" toggle was removed deliberately. Most "Insufficient
         // stock" cases are expired/held batches excluded from sellable (fix the data — add a fresh batch / correct

@@ -39,6 +39,72 @@ reinvent.**
 
 ---
 
+## 1b. Database standards (every service, no exceptions)
+
+Added 2026-07-28 after a platform-wide schema audit. Each rule exists because its absence caused a real defect —
+the incident is named so the rule is arguable, not folklore.
+
+**D1. Every service owns its schema through Flyway.** No service may rely on `ddl-auto` to create tables. A
+service whose schema exists only as a side effect of Hibernate is not reproducible on a fresh deploy. Adopt an
+existing database with a `V1__baseline.sql` generated from it (`mysqldump --no-data`, `AUTO_INCREMENT` stripped)
+plus `baseline-on-migrate: true`. _Incident: appointment-service ran on `flyway.enabled=false` + `ddl-auto:update`
+and was the one service that could not be brought onto `validate` or indexed._
+
+**D2. Migrations must execute in `mvn test`, on an empty database.** At least one test per service must boot with
+`spring.flyway.enabled=true` and `ddl-auto=validate` against a throwaway container. Testing against a
+Hibernate-invented schema proves the code and nothing about the deploy. _Incident: all three pharma tests disabled
+Flyway, so V2's rebase and V3's state-aware `item_id → product_id` rename — the most intricate SQL in the service
+— had never run in CI. Pattern: `pharma-service` · `FlywayMigrationTest`._
+
+**D3. Index every scoped column.** `organization_id` carries the platform's most common predicate; unindexed, every
+scoped read is a full scan. Composite `(organization_id, user_id)` where the NULL-fallback scope applies,
+`(organization_id)` alone where rows are org-only. Add it with the column, not after a customer complains.
+_Incident: 36 tables across 8 databases had none._
+
+**D4. An entity-vs-table diff is a starting point, NEVER evidence of a dead table.** Schema can be load-bearing
+with no `@Table` pointing at it. Confirmed cases: `@JoinTable` collection tables (`roles_privileges`,
+`users_roles`, `schools_owners`, `staff_grades`) and `@SequenceGenerator` tables (`cust_seq`, `sell_seq`,
+`purch_seq`, `vender_seq`, `item_type_seq`, `item_unit_seq` — on MySQL a sequence generator *is* a table). Before
+calling anything dead, grep `@JoinTable` and `sequenceName` **multi-line** — `staff_grades` was nearly declared
+dead because its `name =` sits on a different line from the `@JoinTable(` token.
+
+**D5. Never drop a table on inference. Count it, in every environment.** "Unmapped" and "empty on dev" are not the
+same claim, and neither survives contact with production. _Incident: `myplusdb.company` looked like a dead
+monolith leftover and holds **336 rows that were never migrated** to `companies`._ Where a drop is justified, say
+which environments were counted and why the risk is acceptable — pharma's dead schema was dropped because that
+vertical is **pre-production**; inventory's identical-looking orphans were not, because it ships to customers.
+
+**D6. Dead FK columns on LIVE tables outrank dead tables.** The visible mess is the orphan table; the real one is
+the constraint MySQL still enforces on a table you use daily. Drop the FK, then the column, then the table.
+_Incident: `prescription_items`, `dispensing` and `drug_interactions` each carried an enforced FK into the dead
+`medicines` table long after Hibernate stopped mapping the column._
+
+**D7. Migrations are idempotent and re-runnable.** Guard every DDL statement on `information_schema`
+(`CREATE TABLE IF NOT EXISTS`, guarded `ADD COLUMN`, `DROP … IF EXISTS`, constraint names resolved at runtime
+because they are auto-generated and differ per environment).
+
+**D8. Deleting an entity is a code change, not a schema change.** Remove the Java, leave the table, record it.
+Git restores a class; nothing restores rows. Verify zero references first — including the entity-only-referenced-
+by-its-own-repository "dead pair" shape (`Segment` + `SegmentRepository`).
+
+## 1c. Configuration standards
+
+**C1. A toggle that changes nothing is worse than no toggle.** Declaring a `SettingEntry` is half the work; the
+flag must be read on the path it governs. _This failed twice: `pos.sale.negativeStockAllowed` (removed by design)
+and `pharmacy.interaction.blockSevere` (declared, rendered as a working checkbox, read nowhere)._
+
+**C2. Gate-test both halves.** Assert the key is in the catalog with the intended default **and** that the
+consumer honours it. A catalog-only assertion passes for a setting nothing reads.
+
+**C3. Safety flags default ON, and fail ON.** For a flag guarding a safety or compliance step, the do-nothing
+state must be the safe one, and an absent key or failed config read must resolve to the safe one too.
+
+**C4. Verify the OFF path actually works.** A "require X" toggle switched off must be supported end to end —
+schema included. _Incident: `welfare.donation.requireDonor` OFF still failed, because `donation.donator_id` was
+`NOT NULL`._
+
+---
+
 ## 2. Per-vertical activity lifecycle (UI → API → DB)
 The full industry-standard lifecycle for each vertical, graded ✅/🟡/⬜ against the codebase, lives in
 **`commerce-verticals-blueprint.md`** (the master map) and **`commerce-backend-audit.md`** (backend gaps G1–G6).

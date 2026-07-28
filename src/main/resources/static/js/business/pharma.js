@@ -147,8 +147,12 @@
                 });
                 if (msgs.length) showFormError(msgs.join('  '));
                 // B1/E3: a SEVERE interaction must not look like "pick a medicine". It gets the shared confirm
-                // dialog so the pharmacist has to actively acknowledge it before dispensing.
-                if (severe.length) {
+                // dialog so the pharmacist has to actively acknowledge it before dispensing. Owner-configurable
+                // (pharmacy.interaction.blockSevere); when off, a severe interaction is shown as a warning like
+                // the rest. Defaults to ON — an unset flag or a failed config read must not drop a safety step.
+                if (severe.length && window.pharmaBlockSevere === false) {
+                    showFormError(severe.join('  '));
+                } else if (severe.length) {
                     uiConfirm({
                         title: t('ui.js.severeDrugInteraction'),
                         message: severe.join('\n') + '\n\nDispense anyway?',

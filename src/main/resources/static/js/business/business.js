@@ -2520,8 +2520,11 @@ function loadPosFeatureFlags(){
 		// absent key → default ON (the feature ships enabled)
 		window.posBarcodeEnabled = ('pos.barcode.enabled' in byKey) ? byKey['pos.barcode.enabled'] : true;
 		window.posAutoPrintReceipt = ('pos.receipt.autoPrint' in byKey) ? byKey['pos.receipt.autoPrint'] : true;
+		// Pharmacy: must a SEVERE drug interaction be acknowledged before dispensing? Fail-open like the others
+		// means fail-SAFE here — absent key / config hiccup ⇒ the acknowledgement is still required.
+		window.pharmaBlockSevere = ('pharmacy.interaction.blockSevere' in byKey) ? byKey['pharmacy.interaction.blockSevere'] : true;
 		applyPosBarcodeVisibility();
-	}, 'json').fail(function(){ window.posBarcodeEnabled = true; window.posAutoPrintReceipt = true; applyPosBarcodeVisibility(); });
+	}, 'json').fail(function(){ window.posBarcodeEnabled = true; window.posAutoPrintReceipt = true; window.pharmaBlockSevere = true; applyPosBarcodeVisibility(); });
 }
 function applyPosBarcodeVisibility(){
 	var on = window.posBarcodeEnabled !== false;
@@ -2564,6 +2567,7 @@ function saveBusinessConfigToggle(el){
 		// Apply behaviour-affecting flags immediately (no reload).
 		else if(key === 'pos.barcode.enabled'){ window.posBarcodeEnabled = (value === 'true'); applyPosBarcodeVisibility(); }
 		else if(key === 'pos.receipt.autoPrint'){ window.posAutoPrintReceipt = (value === 'true'); }
+		else if(key === 'pharmacy.interaction.blockSevere'){ window.pharmaBlockSevere = (value === 'true'); }
 	}).fail(function(){
 		el.checked = !el.checked;
 		$('#businessConfigMsg').removeClass('alert-success').addClass('alert-danger').text('Save failed').show();
