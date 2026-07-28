@@ -545,6 +545,12 @@ public class SellController {
 			// cashier verbatim instead of the generic "unexpected error". No rollback drama, just a clean ERROR.
 			LOGGER.warn("addSell rejected (insufficient stock): {}", stock.getMessage());
 			return new GenericResponse("ERROR", stock.getMessage());
+		} catch (com.myplus.common.web.exception.ValidationException clinical) {
+			// B1: a clinical/business rule refused the sale (e.g. prescription-only medicine with no prescription).
+			// Nothing was written — surface the reason verbatim, exactly like the stock rejection above, or the
+			// generic handler below would bury it under "An unexpected error occurred".
+			LOGGER.warn("addSell rejected (clinical rule): {}", clinical.getMessage());
+			return new GenericResponse("ERROR", clinical.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > addSell "+e.getCause(), e);
 			// Propagate past the @Transactional boundary so customer + history + sell roll back
@@ -695,6 +701,11 @@ public class SellController {
 			// Period close: nothing was written before the guard — surface the reason without the generic rollback message.
 			LOGGER.warn("updateSell rejected (period closed): {}", pce.getMessage());
 			return new GenericResponse("FAILED", pce.getMessage());
+		} catch (com.myplus.common.web.exception.ValidationException clinical) {
+			// B1: an edit that introduces a prescription-only line is refused on the same rule as a new sale —
+			// updateSell shares buildLines, so the guard applies here too and its reason must survive.
+			LOGGER.warn("updateSell rejected (clinical rule): {}", clinical.getMessage());
+			return new GenericResponse("ERROR", clinical.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > updateSell " + e.getMessage(), e);
 			// Propagate past @Transactional so the whole edit rolls back (all-or-nothing).

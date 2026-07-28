@@ -70,6 +70,21 @@ public class ProductController {
         return productService.getRefs(ids);
     }
 
+    /**
+     * B1: set the pharmacy clinical flags on a product. Catalog is the single writer (see
+     * docs/pharmacy-rx-enforcement-design.md D2); the pharmacy Clinical &amp; Safety screen calls through here.
+     * ADMIN-gated like the rest of the clinical surface — clearing {@code controlledSubstance} drops later
+     * dispenses off the regulatory register, and setting {@code rxRequired} governs whether the tills refuse a sale.
+     */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PutMapping("/{id}/clinical-flags")
+    public com.myplus.commerce.contracts.dto.ProductRef updateClinicalFlags(
+            @PathVariable Long id,
+            @RequestParam(required = false) Boolean rxRequired,
+            @RequestParam(required = false) Boolean controlledSubstance) {
+        return productService.updateClinicalFlags(id, rxRequired, controlledSubstance);
+    }
+
     /** M4e.c (slice 103): tenant-scoped product count for the dashboard KPI — GET /products/count. */
     @GetMapping("/count")
     public long count() {

@@ -24,6 +24,7 @@ import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 
 import com.validation.EmailValidator;
 import com.validation.PasswordMatchesValidator;
+import com.web.util.SupportedLocaleChangeInterceptor;
 
 @Configuration
 @ComponentScan(basePackages = { "com.web" })
@@ -119,13 +120,22 @@ public class MvcConfig implements WebMvcConfigurer {
     @org.springframework.beans.factory.annotation.Autowired
     private com.web.util.FeatureFlagsInterceptor featureFlagsInterceptor;
 
+    @Autowired
+    private com.web.util.LocaleInterceptor localeInterceptor;
+
     @Override
     public void addInterceptors(final InterceptorRegistry registry) {
-        final LocaleChangeInterceptor localeChangeInterceptor = new LocaleChangeInterceptor();
+        // ?lang= is user-supplied, so it is whitelisted to the shipped languages — an unsupported
+        // tag would otherwise be stored in the locale cookie and every page would render raw
+        // message keys until the user cleared it. See SupportedLocaleChangeInterceptor.
+        final LocaleChangeInterceptor localeChangeInterceptor = new SupportedLocaleChangeInterceptor();
         localeChangeInterceptor.setParamName("lang");
+        localeChangeInterceptor.setIgnoreInvalidLocale(true);
         registry.addInterceptor(localeChangeInterceptor);
         // Expose captcha/2FA feature flags to every view (incl. static view-controllers).
         registry.addInterceptor(featureFlagsInterceptor);
+        // Expose the active language + text direction to every view — same reason as above.
+        registry.addInterceptor(localeInterceptor);
     }
 
     // beans
@@ -144,6 +154,11 @@ public class MvcConfig implements WebMvcConfigurer {
     	messageSource.setUseCodeAsDefaultMessage(true);
 	    messageSource.setDefaultEncoding("UTF-8");
 	    messageSource.setCacheSeconds(0);
+	    // Without this, a server whose system locale is (say) de_DE would fall back to messages_de
+	    // rather than to the base bundle — the same page then renders differently per host.
+	    // Every language reachable through the whitelisted ?lang= switch has its own bundle, so
+	    // the base bundle is only ever a safety net.
+	    messageSource.setFallbackToSystemLocale(false);
 	    return messageSource;
 	}
 

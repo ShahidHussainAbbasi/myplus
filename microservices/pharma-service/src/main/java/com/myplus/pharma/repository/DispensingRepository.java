@@ -35,5 +35,6 @@ public interface DispensingRepository extends JpaRepository<Dispensing, Long> {
         + "(d.organizationId = :orgId OR (d.organizationId IS NULL AND d.dispensedBy = :userId)) "
         + "ORDER BY d.dispensedAt DESC")
     List<Dispensing> findControlledScoped(@org.springframework.data.repository.query.Param("orgId") Long orgId,
-                                          @org.springframework.data.repository.query.Param("userId") Long userId);
+                                          @org.springframework.data.repository.query.Param("userId") Long userId,
+                                          org.springframework.data.domain.Pageable pageable);
 }

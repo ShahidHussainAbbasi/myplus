@@ -99,6 +99,27 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg)}
 .card-header h2{font-size:26px;font-weight:800;color:var(--txt);letter-spacing:-0.03em;margin-bottom:6px}
 .card-header p{font-size:14px;color:var(--txt3)}
 
+/* "Users online" badge — filled by /js/common/live-users.js, hidden until the count is positive.
+   Light-card counterpart of the .nav-live pill on the landing page. */
+.live-users{
+  display:inline-flex;align-items:center;gap:7px;margin-top:12px;
+  font-size:12.5px;font-weight:500;color:var(--txt2);
+  background:rgba(21,101,192,0.07);border:1px solid rgba(21,101,192,0.16);
+  border-radius:100px;padding:5px 13px;white-space:nowrap;
+}
+.live-users[hidden]{display:none}
+.live-users b{font-weight:700;color:var(--txt)}
+.live-users-dot{
+  width:7px;height:7px;border-radius:50%;background:#22C55E;flex-shrink:0;
+  box-shadow:0 0 0 0 rgba(34,197,94,0.7);animation:liveUsersPulse 2s infinite;
+}
+@keyframes liveUsersPulse{
+  0%{box-shadow:0 0 0 0 rgba(34,197,94,0.6)}
+  70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}
+  100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}
+}
+@media (prefers-reduced-motion:reduce){.live-users-dot{animation:none}}
+
 /* Form fields */
 .field-group{margin-bottom:18px}
 .field-label{display:block;font-size:13px;font-weight:600;color:var(--txt2);margin-bottom:7px}

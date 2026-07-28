@@ -389,6 +389,10 @@ $(document).ready(function() {
 					// SF-5 Model B: redeeming store credit needs an identified (existing) customer — send the selected id.
 					if (isSelectMode && $("#sellCustomerDD").val()) customer.customerId = Number($("#sellCustomerDD").val());
 					var customerHistory = {"customer":customer, "sales":data};
+					// B1 (pharmacy): declare the prescription this sale dispenses. Its presence is what lets a
+					// prescription-only medicine through the server-side sell guard; the post-sale dispense call
+					// then reconciles what was actually sold against what was prescribed.
+					if (window.dispensingPrescriptionId) customerHistory.prescriptionId = window.dispensingPrescriptionId;
 					// G5 (slice 37): record how the sale is paid. One tender from the chosen method + amount received;
 					// CREDIT = on account (not counted as paid). Backend settles paid/due against the grand total.
 					var payMethod = $("#sellPayMethod").val() || 'CASH';

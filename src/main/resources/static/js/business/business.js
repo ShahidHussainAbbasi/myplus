@@ -211,6 +211,8 @@ $(document).ready(function() {
 					data.push(obj);
 					// tablesi.row.add(arr).draw();
 				}
+			// B1 (pharmacy): same early warning on the manual Add-to-Cart path as on the scan path.
+			if (typeof rxNoticeIfNeeded === 'function') rxNoticeIfNeeded(obj.productId, obj.itemName);
 			resetForm();
 			resetBSDD('sellItemDD');
 			// Cart changed (item added / qty updated) → recompute Change & Due from the live cart total
@@ -276,6 +278,8 @@ function scanAddToCart(ref){
 		data.push(obj);
 		tablesi.row.add([pid, name, 1, price, '', '', "<button id='DII' onclick=UIT(" + pid + ")>Del</button>"]).draw();
 	}
+	// B1 (pharmacy): warn early if this is a prescription-only medicine; the server still refuses it at submit.
+	if (typeof rxNoticeIfNeeded === 'function') rxNoticeIfNeeded(pid, name);
 	calculateChange();   // recompute Change & Due from the live cart total
 }
 

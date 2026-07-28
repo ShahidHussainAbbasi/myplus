@@ -7,6 +7,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
         <link rel="preconnect" href="https://fonts.googleapis.com"/>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+        <!-- Arabic-script webfonts: Inter has no Arabic coverage, so without these the UI falls back
+             to whatever the OS provides (often a mismatched serif, sometimes boxes). Loaded ONLY for
+             RTL locales — an English or French visitor never downloads them. -->
+        <link th:if="${isRtl}" rel="stylesheet"
+              href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap"/>
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-datepicker.min.css}">
         <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap-select.min.css}"/>
@@ -23,6 +28,10 @@
         <!-- The one responsive contract (767/991/1199) for every dashboard. Loaded LAST so it settles
              disagreements between theme.css, sidebar.css and crud-modal.css instead of adding a fourth. -->
         <link rel="stylesheet" th:href="@{/css/responsive.css}"/>
+        <link rel="stylesheet" th:href="@{/css/lang-switcher.css}"/>
+        <!-- RTL corrections for Arabic/Urdu. After responsive.css so it wins, and only for RTL
+             locales so an LTR page neither downloads nor evaluates it. -->
+        <link th:if="${isRtl}" rel="stylesheet" th:href="@{/css/rtl.css}"/>
     </th:block>
 
     <th:block th:fragment="header-js">
@@ -63,6 +72,8 @@
         <!-- Wide grids (Fee Register = 13 columns) were clipped by the mobile body overflow rule rather
              than scrollable. Wraps each table in its own scroller once, at DOM-ready. -->
         <script th:src="@{/js/common/responsive-tables.js}"></script>
+        <!-- Language menu affordance only — switching is a plain ?lang= link handled server-side. -->
+        <script th:src="@{/js/common/lang-switcher.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing
              AJAX call, so jQuery $.post/$.ajax pass Spring Security's CSRF check. -->
         <script>
@@ -121,6 +132,9 @@
                     </li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
+                    <li style="display:flex;align-items:center;padding:9px 4px">
+                        <th:block th:replace="~{fragments/lang-switcher :: lang-switcher}"></th:block>
+                    </li>
                     <!-- Logged-in user info + logout -->
                     <li th:if="${#authorization.expression('isAuthenticated()')}"
                         style="display:flex;align-items:center;gap:10px;padding:5px 4px">

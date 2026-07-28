@@ -1,4 +1,4 @@
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${htmlLang}" th:dir="${htmlDir}">
 <head>
 <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
 <title>Business Dashboard — MyPlus</title>
@@ -1496,9 +1496,10 @@ tr.row-voided .js-edit-row{display:none !important}
 				</form>
 				<h5>Flagged medicines</h5>
 				<table id="tableClinical" class="table table-bordered table-striped">
-					<thead><tr><th>Medicine</th><th>Item ID</th><th>Rx required</th><th>Controlled</th></tr></thead>
+					<thead><tr><th>Medicine</th><th>Product</th><th>Rx required</th><th>Controlled</th></tr></thead>
 					<tbody id="clinicalBody"></tbody>
 				</table>
+				<div id="clinicalEmpty" class="text-muted" style="display:none">No medicines flagged yet.</div>
 			</div>
 
 			<!-- Pharmacy P5 (slice 41): prescription intake. PHARMA only. -->

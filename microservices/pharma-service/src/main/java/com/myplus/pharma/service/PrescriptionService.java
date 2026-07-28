@@ -9,11 +9,15 @@ import com.myplus.pharma.entity.PrescriptionItem;
 import com.myplus.pharma.repository.PrescriptionItemRepository;
 import com.myplus.pharma.repository.PrescriptionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -85,8 +89,38 @@ public class PrescriptionService {
         return toDTO(p);
     }
 
+    /** Default page size for the prescriptions list — the screen shows recent scripts, not the whole history. */
+    public static final int DEFAULT_LIMIT = 200;
+
+    // Annotated on BOTH entry points: this delegates by self-invocation, which bypasses the proxy, so the
+    // annotation on the 3-arg overload alone would never apply to a call that arrives here.
+    @Transactional(readOnly = true)
     public List<PrescriptionDTO> list(Long orgId, Long userId) {
-        return prescriptionRepo.findScoped(orgId, userId).stream().map(this::toDTO).collect(Collectors.toList());
+        return list(orgId, userId, DEFAULT_LIMIT);
+    }
+
+    /**
+     * Newest-first, BOUNDED, and free of the N+1 this used to run: it returned every prescription the org had ever
+     * recorded and then issued one item query per row. Now it is one page query plus one item query for the page.
+     */
+    @Transactional(readOnly = true)
+    public List<PrescriptionDTO> list(Long orgId, Long userId, int limit) {
+        int size = limit <= 0 ? DEFAULT_LIMIT : Math.min(limit, 1000);
+        List<Prescription> page = prescriptionRepo.findScoped(orgId, userId, PageRequest.of(0, size));
+        if (page.isEmpty()) return List.of();
+
+        Map<Long, List<PrescriptionItem>> itemsByRx = itemsFor(page.stream().map(Prescription::getId).toList());
+        return page.stream()
+                .map(p -> toDTO(p, itemsByRx.getOrDefault(p.getId(), List.of())))
+                .collect(Collectors.toList());
+    }
+
+    /** One query for the whole page's items, grouped by prescription id. */
+    private Map<Long, List<PrescriptionItem>> itemsFor(List<Long> prescriptionIds) {
+        Map<Long, List<PrescriptionItem>> byRx = new HashMap<>();
+        for (Object[] row : itemRepo.findByPrescriptionIds(prescriptionIds))
+            byRx.computeIfAbsent((Long) row[0], k -> new ArrayList<>()).add((PrescriptionItem) row[1]);
+        return byRx;
     }
 
     public PrescriptionDTO get(Long id, Long orgId, Long userId) {
@@ -126,7 +160,13 @@ public class PrescriptionService {
         return s.name();
     }
 
+    /** Single-prescription mapping — fetches its own items (one row, so no N+1 to avoid). */
     private PrescriptionDTO toDTO(Prescription p) {
+        return toDTO(p, itemRepo.findByPrescriptionId(p.getId()));
+    }
+
+    /** Mapping with the items supplied — used by the list path, which loads a whole page's items in one query. */
+    private PrescriptionDTO toDTO(Prescription p, List<PrescriptionItem> items) {
         PrescriptionDTO d = new PrescriptionDTO();
         d.setId(p.getId());
         d.setPatientName(p.getPatientName());
@@ -140,7 +180,7 @@ public class PrescriptionService {
         d.setStatus(displayStatus(p));
         d.setPartyId(p.getPartyId());   // P3: shared party master id
         d.setCreatedAt(p.getCreatedAt());
-        d.setItems(itemRepo.findByPrescriptionId(p.getId()).stream().map(i -> {
+        d.setItems(items.stream().map(i -> {
             PrescriptionItemDTO id = new PrescriptionItemDTO();
             id.setId(i.getId());
             id.setProductId(i.getProductId());

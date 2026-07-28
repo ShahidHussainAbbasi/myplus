@@ -56,6 +56,12 @@ public class DispenseService {
         List<String> warnings = new ArrayList<>();
         int recorded = 0;
 
+        // C2: resolve the controlled flags for the whole basket ONCE, instead of asking per dispensed line.
+        java.util.Set<Long> controlledIds = safetyService.controlledSet(
+                (req == null || req.getItems() == null) ? List.of()
+                        : req.getItems().stream().map(DispenseRequest.Line::getProductId).toList(),
+                orgId, userId);
+
         if (req != null && req.getItems() != null) {
             for (DispenseRequest.Line line : req.getItems()) {
                 if (line.getProductId() == null || line.getQuantity() <= 0) continue;
@@ -83,7 +89,7 @@ public class DispenseService {
                 pi.setDispensedQuantity(pi.getDispensedQuantity() + give);
                 itemRepo.save(pi);
                 recorded++;
-                boolean controlled = safetyService.isControlled(pi.getProductId(), orgId, userId);  // P7: flag for the controlled register
+                boolean controlled = controlledIds.contains(pi.getProductId());   // P7: flag for the controlled register
                 dispensingRepo.save(Dispensing.builder()
                         .prescriptionItem(pi).productId(pi.getProductId()).medicineName(pi.getMedicineName())
                         .quantity(give).dispensedBy(userId).patientName(rx.getPatientName())

@@ -21,6 +21,10 @@ public class ProductDTO {
     private Long taxCodeId;         // multi-rate tax: assigned tax-code (null = use taxRate / org default)
     private String taxCodeName;     // read-only, for display in the product list/form
     private Boolean isActive;
+    /** Pharmacy clinical flags (B1) — read-only here; set via PUT /products/{id}/clinical-flags. Carried so the
+     *  product list can mark a medicine "Rx" without a second round trip. */
+    private Boolean rxRequired;
+    private Boolean controlledSubstance;
     private String imageUrl;
     private Long createdBy;
     private LocalDateTime createdAt;

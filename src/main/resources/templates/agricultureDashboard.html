@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${htmlLang}" th:dir="${htmlDir}">
 <head>
 	<link rel="icon" type="image/jpg" sizes="60x50" th:href="@{favicon.jpeg}"/>
 	<th:block th:replace="~{fragments/header :: header-css}"></th:block>

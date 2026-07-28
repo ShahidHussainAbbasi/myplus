@@ -139,14 +139,51 @@
                 if (!rep) return;
                 var msgs = [];
                 if (rep.controlledItems && rep.controlledItems.length) msgs.push('⚠ Controlled substance(s) on this dispense.');
+                var severe = [];
                 (rep.interactions || []).forEach(function (i) {
-                    msgs.push('⚠ Interaction (' + (i.severity || '') + '): ' + (i.description || 'items interact'));
+                    var line = '⚠ Interaction (' + (i.severity || '') + '): ' + (i.description || 'items interact');
+                    if (String(i.severity || '').toUpperCase() === 'SEVERE') severe.push(line);
+                    else msgs.push(line);
                 });
                 if (msgs.length) showFormError(msgs.join('  '));
+                // B1/E3: a SEVERE interaction must not look like "pick a medicine". It gets the shared confirm
+                // dialog so the pharmacist has to actively acknowledge it before dispensing.
+                if (severe.length) {
+                    uiConfirm({
+                        title: 'Severe drug interaction',
+                        message: severe.join('\n') + '\n\nDispense anyway?',
+                        confirmText: 'Dispense anyway',
+                        tone: 'danger'
+                    }).then(function (ok) { if (!ok) cancelDispense(); });
+                }
             }
         });
     }
     global.checkSafetyForItems = checkSafetyForItems;
+
+    // ── Rx notice on the sell screen (B1) ────────────────────────────────────
+    // The SERVER is the gate (SagaSellService refuses a prescription-only line on a sale that declares no
+    // prescription). This is only the courtesy that tells the cashier before they reach Complete Sale. Defined
+    // here, not in business.js, because it is pharmacy behaviour — business.js just calls it if it exists.
+    var rxFlagged = null;   // Set of productIds flagged rx-required; loaded once per page
+
+    function loadRxFlags(then) {
+        if (rxFlagged) { then(); return; }
+        $.get(serverContext + 'getClinical', function (resp) {
+            rxFlagged = new Set();
+            ((resp && resp.data) || []).forEach(function (c) { if (c.rxRequired) rxFlagged.add(String(c.productId)); });
+            then();
+        }).fail(function () { rxFlagged = new Set(); then(); });   // degrade quietly — the server still enforces
+    }
+
+    global.rxNoticeIfNeeded = function (productId, name) {
+        if (window.dispensingPrescriptionId) return;    // already dispensing a prescription — nothing to warn about
+        loadRxFlags(function () {
+            if (!rxFlagged.has(String(productId))) return;
+            showFormError((name || ('Product #' + productId)) + ' is prescription-only — start this sale from the '
+                + 'prescription (Dispense), or record the prescription first.');
+        });
+    };
 
     // ── Clinical & Safety (P7) ───────────────────────────────────────────────
     global.showClinical = function () {
@@ -160,10 +197,12 @@
         $.get(serverContext + 'getClinical', function (resp) {
             var list = (resp && resp.data) ? resp.data : [];
             var $b = $('#clinicalBody').empty();
+            $('#clinicalEmpty').toggle(list.length === 0);
             list.forEach(function (c) {
                 var tr = $('<tr>');
                 tr.append($('<td>').text(c.medicineName || ''));
                 tr.append($('<td>').text(c.productId));
+                // These are read back from the catalog master, so what's shown is what the tills actually enforce.
                 tr.append($('<td>').text(c.rxRequired ? 'Yes' : ''));
                 tr.append($('<td>').text(c.controlledSubstance ? 'Yes' : ''));
                 $b.append(tr);

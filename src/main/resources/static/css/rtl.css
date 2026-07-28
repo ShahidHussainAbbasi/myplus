@@ -1,0 +1,205 @@
+/* ============================================================================
+ * rtl.css — right-to-left layout for Arabic and Urdu.
+ *
+ * Activated by dir="rtl" on <html>, which LocaleInterceptor sets from the resolved
+ * locale (see SupportedLanguage). Loaded last, and only for RTL locales, so an
+ * English/French page never pays for it.
+ *
+ * Scope note: the modern parts of this app are flexbox and CSS grid, and those honour
+ * `dir` on their own — .kpi-card, .crud-head, .snav-*, .an-grid and the responsive
+ * flex rows all mirror with no help. What does NOT mirror is Bootstrap 3, which lays
+ * its grid out with `float: left` and hard-codes `text-align`/`padding-left`. Almost
+ * everything below is therefore a Bootstrap 3 correction, not a redesign.
+ *
+ * Deliberately NOT mirrored:
+ *   - Chart.js canvases (axis direction is a chart config, not CSS)
+ *   - Latin-script brand marks and code/SKU/barcode fields, which stay LTR
+ * ========================================================================== */
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. TYPEFACE
+   ══════════════════════════════════════════════════════════════════════════
+   Inter (the app font) has no Arabic-script coverage, so without this the whole UI
+   falls back to whatever the OS happens to have — usually a mismatched serif, and on
+   some Windows installs a row of boxes. The Latin stack is kept as a fallback so
+   digits, emails and SKUs still render in Inter. */
+
+html[dir="rtl"][lang="ar"] body,
+html[dir="rtl"][lang="ar"] .form-control,
+html[dir="rtl"][lang="ar"] .btn,
+html[dir="rtl"][lang="ar"] input,
+html[dir="rtl"][lang="ar"] select,
+html[dir="rtl"][lang="ar"] textarea{
+  font-family:'Noto Naskh Arabic','Segoe UI',Tahoma,Inter,sans-serif;
+}
+
+/* Urdu is set in Nastaliq, which readers strongly prefer to Naskh. It is a tall,
+   sloping style: without the extra leading, descenders of one line collide with the
+   line below in dense tables. If it ever reads as too heavy for the dashboards,
+   swapping this one stack to 'Noto Naskh Arabic' is the whole change. */
+html[dir="rtl"][lang="ur"] body,
+html[dir="rtl"][lang="ur"] .form-control,
+html[dir="rtl"][lang="ur"] .btn,
+html[dir="rtl"][lang="ur"] input,
+html[dir="rtl"][lang="ur"] select,
+html[dir="rtl"][lang="ur"] textarea{
+  font-family:'Noto Nastaliq Urdu','Noto Naskh Arabic','Segoe UI',Inter,sans-serif;
+}
+html[dir="rtl"][lang="ur"] body{ line-height:2.1; }
+html[dir="rtl"][lang="ur"] .table > tbody > tr > td,
+html[dir="rtl"][lang="ur"] .table > thead > tr > th{ line-height:2.2; padding-top:10px; padding-bottom:10px; }
+
+/* Latin content inside an RTL page — emails, SKUs, barcodes, invoice numbers, money —
+   must stay left-to-right or the browser reorders the characters around punctuation.
+   `unicode-bidi: plaintext` lets each field pick its own direction from its content,
+   which is what makes a mixed Arabic/Latin table read correctly. */
+html[dir="rtl"] input[type="email"],
+html[dir="rtl"] input[type="url"],
+html[dir="rtl"] input[type="tel"],
+html[dir="rtl"] input[type="number"],
+html[dir="rtl"] input[type="password"],
+html[dir="rtl"] code, html[dir="rtl"] kbd, html[dir="rtl"] pre{
+  direction:ltr;
+  text-align:left;
+  unicode-bidi:plaintext;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. APP SHELL — the sidebar rail moves to the right
+   ══════════════════════════════════════════════════════════════════════════ */
+
+html[dir="rtl"] body.has-sidebar{ padding-left:0; padding-right:var(--sb-w); }
+html[dir="rtl"] body.has-sidebar.sidebar-collapsed{ padding-right:var(--sb-w-collapsed); }
+
+html[dir="rtl"] .app-sidebar{
+  left:auto; right:0;
+  box-shadow:-2px 0 14px rgba(9,30,66,.20);
+}
+
+/* The active-item marker is an inset shadow on the left edge; on the right rail it
+   belongs on the right edge or it points away from the content. */
+html[dir="rtl"] .app-sidebar .snav-btn.snav-active,
+html[dir="rtl"] .app-sidebar .snav-menu > li > a.active,
+html[dir="rtl"] .app-sidebar .sb-link.active{
+  box-shadow:inset -3px 0 0 var(--sb-accent);
+}
+
+/* Submenu indent flips side. */
+html[dir="rtl"] .app-sidebar .snav-menu > li > a{ padding-left:18px; padding-right:48px; }
+
+html[dir="rtl"] .app-sidebar .snav-caret{ margin-left:0; margin-right:auto; }
+html[dir="rtl"] .app-sidebar__toggle{ margin-left:0; margin-right:auto; }
+
+/* Mobile drawer slides in from the right. */
+@media (max-width:991px){
+  html[dir="rtl"] body.has-sidebar{ padding-right:0; }
+  html[dir="rtl"] .app-sidebar{ transform:translateX(100%); }
+  html[dir="rtl"] body.sidebar-open .app-sidebar{ transform:translateX(0); }
+  html[dir="rtl"] #sidebar-mobile-btn{ left:auto; right:10px; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. BOOTSTRAP 3 GRID — float-based, so it must be told to mirror
+   ══════════════════════════════════════════════════════════════════════════
+   This is the single biggest cause of a "translated but broken" RTL page: without it
+   every form row lays out left-to-right while the text inside runs right-to-left. */
+
+html[dir="rtl"] .col-xs-1,  html[dir="rtl"] .col-sm-1,  html[dir="rtl"] .col-md-1,  html[dir="rtl"] .col-lg-1,
+html[dir="rtl"] .col-xs-2,  html[dir="rtl"] .col-sm-2,  html[dir="rtl"] .col-md-2,  html[dir="rtl"] .col-lg-2,
+html[dir="rtl"] .col-xs-3,  html[dir="rtl"] .col-sm-3,  html[dir="rtl"] .col-md-3,  html[dir="rtl"] .col-lg-3,
+html[dir="rtl"] .col-xs-4,  html[dir="rtl"] .col-sm-4,  html[dir="rtl"] .col-md-4,  html[dir="rtl"] .col-lg-4,
+html[dir="rtl"] .col-xs-5,  html[dir="rtl"] .col-sm-5,  html[dir="rtl"] .col-md-5,  html[dir="rtl"] .col-lg-5,
+html[dir="rtl"] .col-xs-6,  html[dir="rtl"] .col-sm-6,  html[dir="rtl"] .col-md-6,  html[dir="rtl"] .col-lg-6,
+html[dir="rtl"] .col-xs-7,  html[dir="rtl"] .col-sm-7,  html[dir="rtl"] .col-md-7,  html[dir="rtl"] .col-lg-7,
+html[dir="rtl"] .col-xs-8,  html[dir="rtl"] .col-sm-8,  html[dir="rtl"] .col-md-8,  html[dir="rtl"] .col-lg-8,
+html[dir="rtl"] .col-xs-9,  html[dir="rtl"] .col-sm-9,  html[dir="rtl"] .col-md-9,  html[dir="rtl"] .col-lg-9,
+html[dir="rtl"] .col-xs-10, html[dir="rtl"] .col-sm-10, html[dir="rtl"] .col-md-10, html[dir="rtl"] .col-lg-10,
+html[dir="rtl"] .col-xs-11, html[dir="rtl"] .col-sm-11, html[dir="rtl"] .col-md-11, html[dir="rtl"] .col-lg-11,
+html[dir="rtl"] .col-xs-12, html[dir="rtl"] .col-sm-12, html[dir="rtl"] .col-md-12, html[dir="rtl"] .col-lg-12{
+  float:right;
+}
+
+/* An offset pushes from the start edge, which is now the right. */
+html[dir="rtl"] .col-sm-offset-1{ margin-left:0; margin-right:8.33333333%; }
+html[dir="rtl"] .col-sm-offset-2{ margin-left:0; margin-right:16.66666667%; }
+html[dir="rtl"] .col-sm-offset-3{ margin-left:0; margin-right:25%; }
+html[dir="rtl"] .col-sm-offset-4{ margin-left:0; margin-right:33.33333333%; }
+html[dir="rtl"] .col-sm-offset-5{ margin-left:0; margin-right:41.66666667%; }
+html[dir="rtl"] .col-sm-offset-6{ margin-left:0; margin-right:50%; }
+
+/* Labels in a horizontal form are right-aligned against the field in LTR; the mirror
+   of that is left-aligned. */
+@media (min-width:768px){
+  html[dir="rtl"] .form-horizontal .control-label{ text-align:left; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. FLOAT / ALIGNMENT UTILITIES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+html[dir="rtl"] .pull-left{ float:right !important; }
+html[dir="rtl"] .pull-right{ float:left !important; }
+html[dir="rtl"] .navbar-left{ float:right !important; }
+html[dir="rtl"] .navbar-right{ float:left !important; margin-right:0; margin-left:-15px; }
+html[dir="rtl"] .text-left{ text-align:right; }
+html[dir="rtl"] .text-right{ text-align:left; }
+html[dir="rtl"] .close{ float:left; }
+
+/* Bootstrap indents these from the left in code. */
+html[dir="rtl"] .checkbox, html[dir="rtl"] .radio{ padding-left:0; padding-right:20px; }
+html[dir="rtl"] .checkbox input[type="checkbox"], html[dir="rtl"] .radio input[type="radio"]{
+  margin-left:0; margin-right:-20px;
+}
+html[dir="rtl"] .list-unstyled, html[dir="rtl"] .list-inline{ padding-right:0; }
+html[dir="rtl"] .dropdown-menu{ left:auto; right:0; text-align:right; }
+html[dir="rtl"] .input-group-addon:first-child{ border-right:1px solid #ccc; border-left:0; }
+html[dir="rtl"] .input-group-addon:last-child{ border-left:1px solid #ccc; border-right:0; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. TABLES
+   ══════════════════════════════════════════════════════════════════════════
+   Data grids are the app's core surface, so headers and cells must start on the
+   right. Numeric columns are the exception — see below. */
+
+html[dir="rtl"] .table > thead > tr > th,
+html[dir="rtl"] .table > tbody > tr > td{ text-align:right; }
+
+/* A column explicitly marked .text-right is a money/quantity column: it stays aligned
+   to the far side so the digits still line up as a block, which is the whole reason
+   it was tagged in the first place. */
+html[dir="rtl"] .table > thead > tr > th.text-right,
+html[dir="rtl"] .table > tbody > tr > td.text-right{ text-align:left; }
+
+/* The scroller starts at the right-hand (first) column rather than the left. */
+html[dir="rtl"] .table-scroll{ direction:rtl; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   6. APP COMPONENTS
+   ══════════════════════════════════════════════════════════════════════════
+   Flex components mirror on their own; these are the ones with a hard-coded side. */
+
+html[dir="rtl"] .cart-hint{ margin-left:0; margin-right:auto; }
+html[dir="rtl"] .field-label{ text-align:right; margin:0 2px 4px 0; }
+html[dir="rtl"] .crud-bulkbar{ margin-left:0; margin-right:10px; }
+html[dir="rtl"] .crud-bulkbar .btn{ margin-left:0; margin-right:4px; }
+html[dir="rtl"] .form-toolbar > [class*="col-"]{ float:none; }   /* flex row — the float override above must not apply */
+html[dir="rtl"] .an-panel.an-wide{ direction:rtl; }
+html[dir="rtl"] .dash-page-title, html[dir="rtl"] .dash-page-sub{ text-align:right; }
+
+/* Login split-screen: brand panel and form swap sides. */
+html[dir="rtl"] .login-wrap{ flex-direction:row-reverse; }
+
+/* The users-online badge and its pulsing dot are flex — only the nudge needs flipping. */
+html[dir="rtl"] .nav-live{ margin-left:0; margin-right:6px; }
+
+/* Glyphicon arrows point the wrong way once the reading direction flips. */
+html[dir="rtl"] .glyphicon-arrow-right::before{ content:"\e091"; }   /* → becomes ← */
+html[dir="rtl"] .glyphicon-arrow-left::before{ content:"\e092"; }
+html[dir="rtl"] .glyphicon-chevron-right::before{ content:"\e079"; }
+html[dir="rtl"] .glyphicon-chevron-left::before{ content:"\e080"; }

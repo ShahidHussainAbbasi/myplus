@@ -11,6 +11,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -26,6 +27,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import com.security.AuthServerAuthenticationProvider;
 import com.security.CsrfCookieFilter;
 import com.security.RevokeTokenLogoutHandler;
+import com.security.SessionRegistryLogoutHandler;
 import com.security.TokenStore;
 import com.security.google2fa.CustomWebAuthenticationDetailsSource;
 import com.web.util.AuthServerClient;
@@ -100,6 +102,7 @@ public class SecSecurityConfig {
                     "/expiredAccount*", "/registration*", "/registerHospital*",
                     "/appointmentReq", "appointmentDashboard", "/services",
                     "/api/demo-request",
+                    "/api/live-users",   // public "users online" badge on the landing/login headers
                     "/store", "/storefront/**",
                     "/appointment", "/islamicChannels*", "/loadDoctorsByHospital",
                     "/loadDoctorDetails", "/addDonation", "/badUser*",
@@ -142,6 +145,9 @@ public class SecSecurityConfig {
             .logout(logout -> logout
                 // Revoke the JWT at the auth-service before the session is torn down (server mode).
                 .addLogoutHandler(revokeTokenLogoutHandler)
+                // invalidateHttpSession(false) below means no HttpSessionDestroyedEvent fires on
+                // logout, so the registry must be told explicitly or the user stays "online".
+                .addLogoutHandler(sessionRegistryLogoutHandler())
                 .logoutSuccessHandler(myLogoutSuccessHandler)
                 .invalidateHttpSession(false)
                 .logoutSuccessUrl("/logout.html?logSucc=true")
@@ -171,6 +177,28 @@ public class SecSecurityConfig {
     @Bean
     public SessionRegistry sessionRegistry() {
         return new SessionRegistryImpl();
+    }
+
+    /**
+     * Declared here rather than component-scanned: constructor-injecting the SessionRegistry into a
+     * {@code @Component} would make that bean depend on this config class while this class is still
+     * being populated. Taking it from {@link #sessionRegistry()} keeps the wiring one-directional,
+     * matching how the registry is passed to sessionManagement above.
+     */
+    @Bean
+    public SessionRegistryLogoutHandler sessionRegistryLogoutHandler() {
+        return new SessionRegistryLogoutHandler(sessionRegistry());
+    }
+
+    /**
+     * SessionRegistryImpl only drops a session when it receives an HttpSessionDestroyedEvent, and
+     * Spring publishes that event only if this bean exists. Without it the registry keeps every
+     * session that ever logged in — so the "users online" count on the landing page would climb
+     * forever and never decay on logout or timeout.
+     */
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
     }
 
 }

@@ -10,4 +10,10 @@ public interface IUserService {
 
     List<String> getUsersFromSessionRegistry();
 
+    /**
+     * How many distinct users hold a live session right now — the true figure, before any
+     * display multiplier. See {@code LiveUserCountService} for the number shown to visitors.
+     */
+    int getLoggedInUserCount();
+
 }

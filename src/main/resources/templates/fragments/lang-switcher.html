@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Language switcher — one fragment for every page (dashboards, login, landing).
+
+  Each language is listed by its ENDONYM (its name in its own script), because a menu
+  that says "Arabic" is only readable by someone who already reads English — which is
+  exactly the person who does not need the switcher.
+
+  The link keeps the visitor where they are: `?lang=xx` is appended to the CURRENT path
+  rather than pointing at a fixed page, so switching language on the fee report does not
+  bounce you back to the dashboard. LocaleChangeInterceptor reads the parameter and
+  CookieLocaleResolver persists it, so the choice survives the redirect and later visits.
+
+  Model attributes come from LocaleInterceptor (currentLang / supportedLanguages).
+-->
+<th:block th:fragment="lang-switcher">
+  <div class="lang-switch" th:with="langs=${supportedLanguages}">
+    <button type="button" class="lang-switch__btn" onclick="langSwitchToggle(event)"
+            th:title="#{label.language.choose}" aria-haspopup="true" aria-expanded="false">
+      <span class="glyphicon glyphicon-globe" aria-hidden="true"></span>
+      <span class="lang-switch__current" th:text="${currentLang != null ? currentLang.endonym : 'English'}">English</span>
+      <span class="lang-switch__caret glyphicon glyphicon-chevron-down" aria-hidden="true"></span>
+    </button>
+    <ul class="lang-switch__menu" role="menu">
+      <li th:each="l : ${langs}">
+        <!-- A bare "?lang=xx" is a relative reference: the browser keeps the current path and
+             replaces only the query, so the visitor stays on the page they were reading. -->
+        <a role="menuitem"
+           th:href="'?lang=' + ${l.tag}"
+           th:lang="${l.tag}"
+           th:dir="${l.direction}"
+           th:classappend="${currentLang != null and currentLang.tag == l.tag} ? 'is-active' : ''"
+           th:text="${l.endonym}">English</a>
+      </li>
+    </ul>
+  </div>
+</th:block>
+
+</body>
+</html>

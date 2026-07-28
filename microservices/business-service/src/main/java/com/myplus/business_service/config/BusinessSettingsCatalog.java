@@ -31,7 +31,19 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "Auto-print receipt after a sale",
                         "On (default): the receipt opens to print automatically when a sale is completed. "
                                 + "Off: no auto-print — reprint any time from the sale's Print button.",
-                        true, "Receipts")
+                        true, "Receipts"),
+                // Pharmacy (review B1). Inert for a non-pharmacy tenant: no product of theirs carries the flag.
+                SettingEntry.bool("pharmacy.rx.requirePrescription",
+                        "Require a prescription for prescription-only medicines",
+                        "On (default): a sale containing a medicine flagged 'prescription required' is refused "
+                                + "unless it was started from a prescription (Dispense). Off: the flag is advisory "
+                                + "only. Flags are set per medicine on the Clinical & Safety screen.",
+                        true, "Pharmacy"),
+                SettingEntry.bool("pharmacy.interaction.blockSevere",
+                        "Require acknowledgement of severe drug interactions",
+                        "On: a SEVERE interaction between items being dispensed must be acknowledged before the "
+                                + "dispense proceeds. Off (default): interactions are shown as warnings.",
+                        false, "Pharmacy")
         );
         // NOTE: an earlier "pos.sale.negativeStockAllowed" toggle was removed deliberately. Most "Insufficient
         // stock" cases are expired/held batches excluded from sellable (fix the data — add a fresh batch / correct

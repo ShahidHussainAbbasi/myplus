@@ -134,6 +134,22 @@ public class ProductService {
         return toRef(getEntity(id), orgCodeRates());   // scoped — 404 if not this tenant's
     }
 
+    /**
+     * B1: set a product's pharmacy clinical flags. Catalog is the SINGLE writer for these two — the pharmacy
+     * Clinical &amp; Safety screen funnels here rather than keeping a second copy in medicine_clinical, because two
+     * sources of truth for a regulatory flag drift silently. Scoped via getEntity (anti-IDOR).
+     * Either argument may be null to leave that flag unchanged.
+     */
+    @Transactional
+    public com.myplus.commerce.contracts.dto.ProductRef updateClinicalFlags(Long id, Boolean rxRequired,
+                                                                            Boolean controlledSubstance) {
+        Product p = getEntity(id);
+        if (rxRequired != null) p.setRxRequired(rxRequired);
+        if (controlledSubstance != null) p.setControlledSubstance(controlledSubstance);
+        productRepository.save(p);
+        return toRef(p, orgCodeRates());
+    }
+
     /** Barcode-first sell: resolve a scanned code (barcode or sku, active, scoped) to a ProductRef, or 404. */
     @Transactional(readOnly = true)
     public com.myplus.commerce.contracts.dto.ProductRef lookup(String code) {
@@ -161,6 +177,9 @@ public class ProductService {
                 .description(p.getDescription())
                 .category(p.getCategory() != null ? p.getCategory().getName() : null)
                 .manufacturer(p.getManufacturer())
+                // B1: the sell guard reads these off the ref it already fetches — no extra call at checkout.
+                .rxRequired(Boolean.TRUE.equals(p.getRxRequired()))
+                .controlledSubstance(Boolean.TRUE.equals(p.getControlledSubstance()))
                 .build();
     }
 
@@ -179,6 +198,8 @@ public class ProductService {
                 .taxRate(p.getTaxRate())
                 .taxCodeId(p.getTaxCodeId())
                 .isActive(p.getIsActive())
+                .rxRequired(Boolean.TRUE.equals(p.getRxRequired()))
+                .controlledSubstance(Boolean.TRUE.equals(p.getControlledSubstance()))
                 .imageUrl(p.getImageUrl())
                 .createdBy(p.getCreatedBy())
                 .createdAt(p.getCreatedAt())

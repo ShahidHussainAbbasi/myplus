@@ -16,7 +16,7 @@
  */
 
 const SIDEBAR_W = 238;          // --sb-w in sidebar.css
-const MOBILE_BP = 900;          // sidebar.css off-canvas breakpoint
+const MOBILE_BP = 991;          // sidebar.css off-canvas breakpoint — the app's tablet edge
 
 const MODULES = [
   { name: 'Business',    login: () => cy.loginAsBusiness(),    route: '/businessDashboard' },
@@ -28,7 +28,11 @@ const MODULES = [
 
 const DEVICES = [
   { label: 'iPhone 13 (390×844)',  w: 390,  h: 844,  mobile: true  },
-  { label: 'iPad (768×1024)',      w: 768,  h: 1024, mobile: true  },   // ≤900 ⇒ off-canvas
+  { label: 'iPad (768×1024)',      w: 768,  h: 1024, mobile: true  },   // ≤991 ⇒ off-canvas
+  // 960 sat in the old 900–991 dead-zone: drawer nav had NOT kicked in (rail still took 238px)
+  // while col-sm-* was already in its cramped band, so the content had neither the rail's room
+  // nor the drawer's full width. Locks the breakpoint alignment to one edge.
+  { label: 'Tablet landscape (960×600)', w: 960, h: 600, mobile: true },
   { label: 'Laptop (1280×800)',    w: 1280, h: 800,  mobile: false },
   { label: 'Desktop (1680×1050)',  w: 1680, h: 1050, mobile: false },
 ];
@@ -143,6 +147,161 @@ describe('Responsive app-shell across dashboards & devices', () => {
       cy.get('#CustomerModal').should('have.class', 'open');
       // The overlay scrolls; the Submit button must be reachable and clickable.
       cy.get('#addCustomer').scrollIntoView().should('be.visible');
+      assertNoHorizontalOverflow();
+    });
+  });
+
+  /* ══════════════════════════════════════════════════════════════════════════
+   * Wide grids must SCROLL, not clip.
+   *
+   * theme.css hides body overflow-x below 767px while only .dataTables_wrapper and
+   * .table-responsive carried a scroller of their own. Only 3 of ~37 dashboard grids
+   * are DataTables and .table-responsive appeared in no template, so every other
+   * table had its right-hand columns cut off by the body rule and unreachable — not
+   * merely awkward to read, but impossible to see at all.
+   *
+   * /js/common/responsive-tables.js now wraps each grid in .table-scroll.
+   * ════════════════════════════════════════════════════════════════════════ */
+
+  // Proves the columns are genuinely REACHABLE, which is what the clip took away:
+  // the grid sits in a scroller, and scrolling it to the end brings the last
+  // header cell inside the viewport.
+  function assertGridFullyReachable(tableSelector) {
+    cy.get(tableSelector).should('exist').then(($t) => {
+      const table = $t[0];
+      const wrap = table.parentElement;
+
+      expect(wrap.classList.contains('table-scroll'), `${tableSelector} sits in a .table-scroll`)
+        .to.be.true;
+
+      const maxScroll = wrap.scrollWidth - wrap.clientWidth;
+      if (maxScroll <= 1) return;    // fits at this width — nothing to reach
+
+      wrap.scrollLeft = maxScroll;
+      expect(wrap.scrollLeft, 'the wrapper actually scrolls (it is not clipped)')
+        .to.be.closeTo(maxScroll, 2);
+
+      const lastCell = table.querySelector('thead th:last-child');
+      if (!lastCell) return;
+      const cell = lastCell.getBoundingClientRect();
+      expect(cell.right, 'last column is on-screen once scrolled to the end')
+        .to.be.at.most(window.innerWidth + 2);
+      expect(cell.width, 'last column has real width (not squashed to nothing)')
+        .to.be.greaterThan(0);
+    });
+  }
+
+  describe('Education — wide grids scroll instead of clipping', () => {
+    beforeEach(() => cy.loginAsEducation());
+
+    // 13 columns — the worst case in the app, and fully unreachable on a phone before this.
+    it('iPhone 13: Fee Report (13 columns) is scrollable end-to-end', () => {
+      cy.viewport(390, 844);
+      cy.visit('/educationDashboard');
+      cy.get('#feeType').select('FRDiv', { force: true });
+      cy.get('#FRDiv').should('be.visible');
+
+      assertGridFullyReachable('#frTable');
+      assertNoHorizontalOverflow();      // the page itself still must not move sideways
+    });
+
+    it('iPad: Students grid is scrollable and the page does not shift', () => {
+      cy.viewport(768, 1024);
+      cy.openSection('StudentDiv', '/educationDashboard');
+      assertGridFullyReachable('#tableStudent');
+      assertNoHorizontalOverflow();
+    });
+  });
+
+  describe('Pharmacy — clinical grids scroll instead of clipping', () => {
+    beforeEach(() => cy.loginAsPharma());
+
+    it('iPhone 13: prescription + controlled-substance registers are reachable', () => {
+      cy.viewport(390, 844);
+      cy.visit('/businessDashboard');
+
+      // Pharmacy screens are vertical-gated (data-vertical-only="PHARMA") and revealed by
+      // pharma.js rather than a nav select, so drive the same entry point the sidebar uses.
+      cy.window().then((w) => w.showPrescriptions());
+      cy.get('#PrescriptionDiv').should('be.visible');
+      assertGridFullyReachable('#tablePrescription');
+      assertNoHorizontalOverflow();
+
+      cy.window().then((w) => w.showPharmAlerts());
+      cy.get('#PharmAlertsDiv').should('be.visible');
+      assertGridFullyReachable('#tableControlled');
+      assertNoHorizontalOverflow();
+    });
+  });
+
+  /* ══════════════════════════════════════════════════════════════════════════
+   * Tablet band (768–991px): no field may collapse below a usable width.
+   *
+   * Every dashboard form is .form-horizontal with col-sm-* cells sized for a 1400px
+   * desktop. At 768px a col-sm-1 cell is ~64px, so the prescription intake's Qty /
+   * Freq / Duration inputs existed but could not be typed into. /css/responsive.css
+   * turns the row into a wrapping flex line with a 170px floor.
+   * ════════════════════════════════════════════════════════════════════════ */
+
+  const USABLE_MIN = 120;   // 170px cell − Bootstrap's 15px gutters, with tolerance
+
+  describe('Pharmacy — prescription intake is usable on a tablet', () => {
+    beforeEach(() => cy.loginAsPharma());
+
+    it('iPad: the col-sm-1 Qty / Freq / Duration inputs are wide enough to use', () => {
+      cy.viewport(768, 1024);
+      cy.visit('/businessDashboard');
+      cy.window().then((w) => w.showPrescriptions());
+      cy.get('#PrescriptionDiv').should('be.visible');
+
+      ['#rxQty', '#rxFreq', '#rxDuration', '#rxDosage', '#rxMedicine'].forEach((sel) => {
+        cy.get(sel).then(($el) => {
+          expect($el[0].getBoundingClientRect().width, `${sel} is usably wide on a tablet`)
+            .to.be.at.least(USABLE_MIN);
+        });
+      });
+
+      assertNoHorizontalOverflow();
+    });
+
+    it('iPad: the Clinical & Safety interaction row does not cram four selects onto one line', () => {
+      cy.viewport(768, 1024);
+      cy.visit('/businessDashboard');
+      cy.window().then((w) => w.showClinical());
+      cy.get('#ClinicalDiv').should('be.visible');
+
+      ['#clInterA', '#clInterB', '#clSeverity'].forEach((sel) => {
+        cy.get(sel).then(($el) => {
+          expect($el[0].getBoundingClientRect().width, `${sel} is usably wide on a tablet`)
+            .to.be.at.least(USABLE_MIN);
+        });
+      });
+
+      assertNoHorizontalOverflow();
+    });
+  });
+
+  describe('Education — Team toolbar wraps instead of clipping its Add button', () => {
+    beforeEach(() => cy.loginAsEducation());
+
+    it('iPad: the toolbar Add button keeps its full label', () => {
+      cy.viewport(768, 1024);
+      cy.visit('/educationDashboard');
+      cy.window().then((w) => w.showTeam());
+      cy.get('#TeamDiv').should('be.visible');
+
+      // The button was in a col-sm-1 (~64px) — its label overflowed the cell.
+      cy.get('#addTeamUser').then(($b) => {
+        const btn = $b[0];
+        expect(btn.scrollWidth, 'Add button label is not clipped')
+          .to.be.at.most(btn.clientWidth + 2);
+      });
+
+      cy.get('#teamEmail').then(($el) => {
+        expect($el[0].getBoundingClientRect().width, 'email field stays usable')
+          .to.be.at.least(USABLE_MIN);
+      });
+
       assertNoHorizontalOverflow();
     });
   });

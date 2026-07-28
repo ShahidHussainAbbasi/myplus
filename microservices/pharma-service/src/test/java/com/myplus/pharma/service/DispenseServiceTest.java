@@ -50,6 +50,10 @@ class DispenseServiceTest {
 
     private static final Long ORG = 1L, USER = 1L, ITEM = 555L;
 
+    /** B1: the controlled flag comes from catalog now — mocked so this test is about dispensing, not wiring. */
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.myplus.commerce.contracts.client.CatalogClient catalogClient;
+
     @Autowired private PrescriptionService prescriptionService;
     @Autowired private DispenseService dispenseService;
     @Autowired private PrescriptionRepository prescriptionRepo;

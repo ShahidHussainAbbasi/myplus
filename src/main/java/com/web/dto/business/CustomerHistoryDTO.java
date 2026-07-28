@@ -48,4 +48,9 @@ public class CustomerHistoryDTO {
     // SF-3: idempotency key (one per checkout) — carried through to business-service so a double-click / retry
     // dedups to ONE invoice. Without this field the proxy would drop it on deserialize.
     private String idempotencyKey;
+
+    // B1 (pharmacy): the prescription this sale dispenses. Same reason as the key above — the proxy deserializes
+    // into this DTO, so a field that is missing here never reaches business-service and the rx guard would refuse
+    // every dispense sale.
+    private Long prescriptionId;
 }

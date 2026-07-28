@@ -51,6 +51,9 @@ public class SagaSellService {
     @org.springframework.beans.factory.annotation.Autowired
     private StoreCreditService storeCreditService;   // SF-5 Model B: redeem store credit at checkout
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.myplus.common.settings.SettingsService settingsService;   // B1: per-org pharmacy rx policy
+
     /** Cap a STORE_CREDIT tender to the customer's balance (never trust the client / overdraw). Mutates the tender
      *  amount in the dto so settle uses the real value; returns the amount that will be redeemed (0 if none / no
      *  identified customer / zero balance). */
@@ -174,6 +177,9 @@ public class SagaSellService {
         Long orgId = user.getOrganizationId();
         Long userId = user.getUserId();
         var taxSetting = taxService.settingsFor(orgId);   // G3: the org's tax policy, once per sale
+        // B1: read the pharmacy policy ONCE per sale, not per line. Inert for a non-pharmacy tenant — no product
+        // of theirs carries the flag, so the check below never fires.
+        boolean requireRx = settingsService.getBool("pharmacy.rx.requirePrescription");
         List<SagaLine> lines = new ArrayList<>();
         for (SellDTO s : dto.getSales()) {
             // M4e (slice 101): productId-native — every caller (POS + pharmacy) submits productId now.
@@ -182,6 +188,15 @@ public class SagaSellService {
             ProductRef product = catalogClient.getProduct(productId);
             String pName = (product != null && product.getName() != null) ? product.getName()
                     : (s.getItemName() != null ? s.getItemName() : ("product " + productId));
+            // B1: a prescription-only medicine may not leave the counter on a sale that declares no prescription.
+            // Server-side and privilege-independent — this is a clinical rule, not a permission, so it binds a
+            // super-user too. Costs nothing extra: the flag rides on the ref this loop already fetched.
+            if (requireRx && product != null && Boolean.TRUE.equals(product.getRxRequired())
+                    && dto.getPrescriptionId() == null) {
+                throw new com.myplus.common.web.exception.ValidationException(pName
+                        + " is prescription-only — start this sale from the prescription (Dispense), or record the"
+                        + " prescription first.");
+            }
             if (productNames != null) productNames.put(productId, pName);
             BigDecimal catalogPrice = (product != null && product.getSellingPrice() != null)
                     ? product.getSellingPrice() : BigDecimal.ZERO;

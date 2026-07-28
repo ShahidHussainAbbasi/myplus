@@ -28,4 +28,24 @@ public class UserService implements IUserService {
             .collect(Collectors.toList());
     }
 
+    /**
+     * Counts principals rather than sessions: {@code maximumSessions(1)} in SecSecurityConfig means
+     * one session per user anyway, and "users online" is the figure being reported.
+     *
+     * {@code getAllSessions(u, false)} excludes sessions already marked expired by concurrency control;
+     * sessions destroyed by logout or timeout are pruned from the registry by the
+     * {@code HttpSessionEventPublisher} registered in SecSecurityConfig. Without that publisher this
+     * count would only ever climb.
+     */
+    @Override
+    public int getLoggedInUserCount() {
+        int live = 0;
+        for (Object principal : sessionRegistry.getAllPrincipals()) {
+            if (!sessionRegistry.getAllSessions(principal, false).isEmpty()) {
+                live++;
+            }
+        }
+        return live;
+    }
+
 }

@@ -43,4 +43,11 @@ public interface CatalogClient {
      *  via headers; guarded server-side (a null/≤0 price never wipes the master). */
     @PutExchange("/products/{id}/price")
     void updatePrice(@PathVariable Long id, @RequestParam("price") BigDecimal price);
+
+    /** B1: set a product's pharmacy clinical flags. Catalog is the single writer for these — the pharmacy
+     *  Clinical &amp; Safety screen goes through here. Either flag may be null to leave it unchanged. */
+    @PutExchange("/products/{id}/clinical-flags")
+    ProductRef updateClinicalFlags(@PathVariable Long id,
+                                   @RequestParam("rxRequired") Boolean rxRequired,
+                                   @RequestParam("controlledSubstance") Boolean controlledSubstance);
 }

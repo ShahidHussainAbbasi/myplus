@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" th:lang="${htmlLang}" th:dir="${htmlDir}">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -7,8 +7,13 @@
     <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <!-- Arabic-script webfonts, loaded only for RTL locales (Inter has no Arabic coverage). -->
+    <link th:if="${isRtl}" rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap"/>
     <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
     <link rel="stylesheet" th:href="@{/css/login.css}"/>
+    <link rel="stylesheet" th:href="@{/css/lang-switcher.css}"/>
+    <link th:if="${isRtl}" rel="stylesheet" th:href="@{/css/rtl.css}"/>
 </head>
 <body>
 <div class="login-wrap">
@@ -74,13 +79,18 @@
             <div class="card-header">
                 <h2>Welcome back</h2>
                 <p>Sign in to your MyPlus account</p>
+                <!-- Users online — filled by /js/common/live-users.js, hidden until the count is positive. -->
+                <span class="live-users" data-live-users hidden aria-live="polite">
+                    <span class="live-users-dot" aria-hidden="true"></span>
+                    <b data-live-users-count>0</b>&nbsp;users online
+                </span>
             </div>
 
+            <!-- Was a hardcoded English/Spanish pair; now the shared switcher, so adding a language
+                 is a SupportedLanguage constant plus a bundle and nothing here changes. -->
             <div class="locale-row">
-                <span>Language:</span>
-                <a href="?lang=en" class="locale-link" th:text="#{label.form.loginEnglish}">English</a>
-                <span style="color:var(--border)">|</span>
-                <a href="?lang=es_ES" class="locale-link" th:text="#{label.form.loginSpanish}">Español</a>
+                <span th:text="#{label.language} + ':'">Language:</span>
+                <th:block th:replace="~{fragments/lang-switcher :: lang-switcher}"></th:block>
             </div>
 
             <form name="f" th:action="@{/login}" method="POST"
@@ -189,6 +199,10 @@
 <script th:src="@{/js/common/ajax-overlay.js}"></script>
 <script th:src="@{/js/login.js}"></script>
 <script th:src="@{/js/common/password-toggle.js}"></script>
+<!-- Fills the "users online" badge in the card header (shared with the landing page). -->
+<script th:src="@{/js/common/live-users.js}"></script>
+<!-- Language menu affordance only — switching is a plain ?lang= link handled server-side. -->
+<script th:src="@{/js/common/lang-switcher.js}"></script>
 <script>
 // Pre-fill from a "Try the demo" hand-off (Book-a-Demo). Creds are public demo accounts; we only fill
 // the form (the user still clicks Sign in) and show a small trial hint.

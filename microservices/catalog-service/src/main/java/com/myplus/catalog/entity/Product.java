@@ -50,6 +50,20 @@ public class Product {
     @Builder.Default
     private Boolean isActive = true;
 
+    /**
+     * Pharmacy clinical flags (review B1). They live HERE, on the product master, because the sell saga already
+     * fetches a {@link com.myplus.commerce.contracts.dto.ProductRef} per line — so the rx guard costs no extra
+     * call at checkout. pharma-service owns the richer clinical layer but no longer these two.
+     * Non-null by contract (schema is NOT NULL DEFAULT FALSE): the sell guard never reasons about null.
+     */
+    @Builder.Default
+    @Column(name = "rx_required", nullable = false)
+    private Boolean rxRequired = false;
+
+    @Builder.Default
+    @Column(name = "controlled_substance", nullable = false)
+    private Boolean controlledSubstance = false;
+
     private String imageUrl;
     private Long createdBy;
 

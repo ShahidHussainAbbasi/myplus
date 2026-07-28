@@ -19,8 +19,10 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     // P5 (slice 41): tenant-scoped, NULL-fallback per the multi-tenancy standard.
     String SCOPE = "(p.organizationId = :orgId OR (p.organizationId IS NULL AND p.userId = :userId))";
 
+    /** Newest-first page. BOUNDED on purpose — the unpaged version returned every prescription the org had ever
+     *  taken, and the list screen only ever shows the recent ones. */
     @Query("SELECT p FROM Prescription p WHERE " + SCOPE + " ORDER BY p.createdAt DESC")
-    List<Prescription> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+    List<Prescription> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
     /** Party bridge: stamp ONLY party_id (targeted — never a full-entity save, which could clobber other columns). */
     @org.springframework.data.jpa.repository.Modifying

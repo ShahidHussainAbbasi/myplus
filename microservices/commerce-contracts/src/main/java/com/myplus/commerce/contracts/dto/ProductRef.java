@@ -27,6 +27,14 @@ public class ProductRef {
     private String category;       // M4d — category name
     private String manufacturer;   // M4d
 
+    /**
+     * Pharmacy clinical flags (review B1). Carried here so the sell saga can enforce "prescription-only" from the
+     * ref it ALREADY fetches per line — the same reason {@code taxRate} rides along. Null on refs built by older
+     * callers/tests; treat null as false.
+     */
+    private Boolean rxRequired;
+    private Boolean controlledSubstance;
+
     /** Back-compat constructor for price-focused callers (sell saga, tests) written before M4d added display fields. */
     public ProductRef(Long id, String sku, String name, String unit, BigDecimal sellingPrice, BigDecimal taxRate) {
         this.id = id;

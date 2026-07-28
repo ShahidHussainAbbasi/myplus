@@ -43,6 +43,14 @@ public class CustomerHistoryDTO {
 
     private Long invoiceSeq;     // per-org running number (slice 22)
 
+    /**
+     * Pharmacy (review B1): the prescription this sale dispenses, when the cashier started from Dispense. Its
+     * PRESENCE is what lets a prescription-only line through the sell guard; whether the script actually covers
+     * the basket is reconciled straight after by pharma-service's dispense call (which warns on off-script and
+     * capped quantities) — verifying it here would put pharma-service on the checkout path.
+     */
+    private Long prescriptionId;
+
     private String invoiceNo;    // display invoice number, e.g. INV-000123
 
     // G3 (slice 35): invoice tax summary for the receipt + tax report.

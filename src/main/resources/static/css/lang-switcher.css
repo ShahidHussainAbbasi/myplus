@@ -1,0 +1,68 @@
+/* ============================================================================
+ * lang-switcher.css — the language menu (see templates/fragments/lang-switcher.html).
+ *
+ * Built with flexbox and logical offsets so it needs no RTL overrides of its own: the
+ * menu opens from the inline-start edge in both directions.
+ * ========================================================================== */
+
+.lang-switch{ position:relative; display:inline-block; }
+
+.lang-switch__btn{
+  display:inline-flex; align-items:center; gap:7px;
+  height:34px; padding:0 12px;
+  font-size:13px; font-weight:600; line-height:1;
+  color:var(--txt2,#3D5166);
+  background:var(--surface,#fff);
+  border:1px solid var(--border,#D9E4EF); border-radius:8px;
+  cursor:pointer; white-space:nowrap;
+  transition:border-color .15s ease, color .15s ease, background .15s ease;
+}
+.lang-switch__btn:hover{ border-color:var(--brand,#1E88E5); color:var(--brand-dark,#1565C0); }
+.lang-switch__btn:focus-visible{ outline:2px solid var(--brand-light,#42A5F5); outline-offset:1px; }
+.lang-switch__btn > .glyphicon{ font-size:13px; opacity:.8; }
+.lang-switch__caret{ font-size:9px; opacity:.7; transition:transform .15s ease; }
+.lang-switch.is-open .lang-switch__caret{ transform:rotate(180deg); }
+
+.lang-switch__menu{
+  position:absolute; top:calc(100% + 6px); inset-inline-start:0;
+  z-index:1200; min-width:170px; margin:0; padding:6px;
+  list-style:none;
+  background:var(--surface,#fff);
+  border:1px solid var(--border,#D9E4EF); border-radius:10px;
+  box-shadow:0 10px 30px rgba(9,30,66,.16);
+  opacity:0; visibility:hidden; transform:translateY(-4px);
+  transition:opacity .14s ease, transform .14s ease, visibility .14s;
+}
+.lang-switch.is-open .lang-switch__menu{ opacity:1; visibility:visible; transform:translateY(0); }
+
+.lang-switch__menu > li{ margin:0; }
+.lang-switch__menu > li > a{
+  display:block; padding:8px 12px; border-radius:7px;
+  font-size:14px; color:var(--txt2,#3D5166); text-decoration:none; cursor:pointer;
+  /* Each entry is written in its own script, so it sets its own direction (th:dir). */
+  text-align:start;
+}
+.lang-switch__menu > li > a:hover,
+.lang-switch__menu > li > a:focus{ background:var(--blue-50,#E3F2FD); color:var(--brand-dark,#1565C0); }
+.lang-switch__menu > li > a.is-active{
+  background:var(--blue-50,#E3F2FD); color:var(--brand-dark,#1565C0); font-weight:700;
+}
+
+/* Nastaliq and Naskh need more room than a Latin menu row. */
+.lang-switch__menu > li > a[lang="ur"]{ font-family:'Noto Nastaliq Urdu','Noto Naskh Arabic',inherit; line-height:2; }
+.lang-switch__menu > li > a[lang="ar"]{ font-family:'Noto Naskh Arabic',inherit; }
+
+/* ── On a dark bar (the app navbar and the marketing nav) ─────────────────── */
+#header .lang-switch__btn,
+nav#nav .lang-switch__btn{
+  color:rgba(255,255,255,.9);
+  background:rgba(255,255,255,.10);
+  border-color:rgba(255,255,255,.20);
+}
+#header .lang-switch__btn:hover,
+nav#nav .lang-switch__btn:hover{ background:rgba(255,255,255,.18); color:#fff; border-color:rgba(255,255,255,.4); }
+
+@media (max-width:767px){
+  .lang-switch__btn{ height:32px; padding:0 9px; font-size:12px; }
+  .lang-switch__current{ display:none; }   /* globe + caret only — the menu still names every language */
+}
