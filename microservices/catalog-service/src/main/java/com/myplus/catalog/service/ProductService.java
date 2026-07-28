@@ -60,12 +60,20 @@ public class ProductService {
         return toDto(getEntity(id));
     }
 
+    /** Trim to null: an optional code is either a real value or absent — never the empty string. */
+    private static String normalize(String s) {
+        return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
     @Transactional
     public ProductDTO create(ProductDTO dto) {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
-        if (productRepository.existsBySkuScoped(dto.getSku(), orgId, userId)) {
-            throw new DuplicateResourceException("Product SKU already exists: " + dto.getSku());
+        // Only a REAL sku can be a duplicate. Checking a blank one matched every other product saved
+        // without a code, so the second such product was rejected with "SKU already exists: ".
+        String sku = normalize(dto.getSku());
+        if (sku != null && productRepository.existsBySkuScoped(sku, orgId, userId)) {
+            throw new DuplicateResourceException("Product SKU already exists: " + sku);
         }
         Product p = fromDto(dto, new Product());
         p.setOrganizationId(orgId);
@@ -77,9 +85,12 @@ public class ProductService {
     @Transactional
     public ProductDTO update(Long id, ProductDTO dto) {
         Product p = getEntity(id);   // scoped — anti-IDOR
-        if (dto.getSku() != null && !dto.getSku().equals(p.getSku())
-                && productRepository.existsBySkuScoped(dto.getSku(), CurrentUser.organizationId(), CurrentUser.userId())) {
-            throw new DuplicateResourceException("Product SKU already exists: " + dto.getSku());
+        // Same rule as create: a blank sku is "cleared", not a duplicate. Clearing the code on an
+        // existing product must be allowed, so only a real, CHANGED value is checked.
+        String sku = normalize(dto.getSku());
+        if (sku != null && !sku.equals(p.getSku())
+                && productRepository.existsBySkuScoped(sku, CurrentUser.organizationId(), CurrentUser.userId())) {
+            throw new DuplicateResourceException("Product SKU already exists: " + sku);
         }
         fromDto(dto, p);
         return toDto(productRepository.save(p));
@@ -208,8 +219,11 @@ public class ProductService {
     }
 
     private Product fromDto(ProductDTO dto, Product p) {
-        p.setSku(dto.getSku());
-        p.setBarcode(dto.getBarcode() != null && !dto.getBarcode().isBlank() ? dto.getBarcode().trim() : null);
+        // SKU is OPTIONAL. Store blank as NULL, exactly as barcode already does: '' is a value that
+        // collides with every other blank-SKU product, whereas NULL is "not set" and any number of
+        // products may share it.
+        p.setSku(normalize(dto.getSku()));
+        p.setBarcode(normalize(dto.getBarcode()));
         p.setName(dto.getName());
         p.setDescription(dto.getDescription());
         if (dto.getCategoryId() != null) {

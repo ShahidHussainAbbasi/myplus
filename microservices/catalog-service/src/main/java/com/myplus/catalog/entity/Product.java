@@ -17,7 +17,10 @@ public class Product {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    /** Internal stock code. OPTIONAL — many retailers don't code every line, and a shop may enter
+     *  products by name alone. Nullable rather than blank so that "no code" cannot collide with
+     *  another product that also has no code (see ProductService.normalize). */
+    @Column(nullable = true)
     private String sku;
 
     /** Scannable code (manufacturer EAN/UPC) — distinct from the internal {@code sku}. Barcode-first sell resolves a

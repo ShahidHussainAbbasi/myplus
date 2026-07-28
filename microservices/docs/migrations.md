@@ -71,3 +71,31 @@ UNION ALL SELECT 'medicine_profile', COUNT(*) FROM medicine_profile;
 All zero everywhere → ship a `V6__drop_dead_pharma_tables.sql` (drop `medicines` last: `pharmacy_stock`,
 `drug_categories` and the legacy `prescription_items.medicine_id` / `dispensing.medicine_id` FKs reference it).
 Any non-zero → export first; those rows are the only copy of the pre-catalog pharmacy data.
+
+---
+
+## Dead-entity sweep (2026-07-28) — Java removed, tables kept
+
+An audit compared every `@Table`/`@JoinTable` in all 14 services against the 204 real tables in `myplusdb*`,
+then checked each entity class for references. Findings and what was done:
+
+**Deleted (unreferenced Java, no schema change):**
+
+| Class | Service | Evidence |
+|-------|---------|----------|
+| `entity/DrugCategory.java` | pharma | no repository, no service, no query; table `drug_categories` is empty |
+| `entity/Segment.java` + `repository/SegmentRepository.java` | campaign | a dead pair — the entity was referenced ONLY by its own repository, and that repository was never injected anywhere. Table `campaign_segments` remains |
+| `com/persistence/model/BaseEntity.java` | monolith | `@MappedSuperclass`, abstract, zero subclasses |
+| `com/web/dto/education/DiscountDTO.java` | monolith | stray `@Entity` on a DTO, referenced nowhere |
+
+**NOT dead — deliberately kept** (an entity-vs-table diff flags these, so don't "clean" them later):
+`roles_privileges`, `users_roles` (auth), `schools_owners`, `staff_grades` (education) are `@JoinTable`
+collection tables. They have no `@Table` of their own and no entity class **by design** — dropping them
+would break `@ManyToMany` mapping. `staff_grades` in particular is easy to miss: its `name = "staff_grades"`
+sits on a different line from the `@JoinTable(` token, so a single-line grep does not find it.
+
+**Unmapped tables left in place** (no entity, but NOT dropped — a drop is irreversible and these have not been
+confirmed empty across every environment): `myplusdb_inventory.categories`, `myplusdb_inventory.products`
+(superseded by catalog-service's product master), plus the four pharma tables in "Pending #5" above.
+Verified row counts on dev at the time of the sweep: all zero except `myplusdb_pharma.medicine_profile`,
+which holds **1 row of Cypress debris** (`CyBrand` / `CyMed_1782237989720`, org 20).

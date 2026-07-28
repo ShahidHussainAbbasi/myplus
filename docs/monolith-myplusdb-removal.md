@@ -104,8 +104,16 @@ flowchart TB
   `DataSourceAutoConfiguration`/`HibernateJpaAutoConfiguration`/`DataSourceTransactionManagerAutoConfiguration`;
   deleted `PersistenceJPAConfig` + `persistence.properties`; dropped `JDBC_URL`/`DB_*`/`DDL_AUTO` env and the
   `mysql` dependency from the compose monolith. **The monolith boots with no DataSource** (verified: up on
-  8080, login + proxied modules work). Inert JPA deps + stray `@Entity` DTOs (`BaseEntity`/`DiscountDTO`/
-  `CustomerHistoryDTO`) remain harmless on the classpath (optional dep cleanup later).
+  8080, login + proxied modules work).
+- **P6 — stray JPA cleanup: ✅ DONE.** The leftovers P5 left "harmless on the classpath" are gone. Deleted
+  `com/persistence/model/BaseEntity.java` (`@MappedSuperclass`, abstract, **zero** subclasses or references) and
+  `com/web/dto/education/DiscountDTO.java` (an `@Entity` mapped to `discount` — a DTO annotated as an entity,
+  referenced nowhere; education-service owns discounts and has its own unrelated `DiscountDTO`). Removed an
+  unused `jakarta.persistence.Column` import from `com/web/dto/business/CustomerHistoryDTO.java` — the
+  annotation was never applied, and that DTO is very much alive (it carries the sale payload), so only the
+  import went. **`src/main/java` now contains no `jakarta.persistence` reference at all**; the only remaining
+  mentions are commented-out lines in three excluded `*IntegrationTest` files. Nothing referenced any of it, so
+  no behaviour changed; git history is the record if a class is ever wanted back.
 
 > **✅ myplusdb removal COMPLETE (P1–P5).** The monolith is a pure UI + gateway client with no database;
 > identity is the in-memory `User` principal built from the JWT. All domain data lives in the microservices.

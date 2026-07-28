@@ -225,7 +225,10 @@
         // Multi-rate tax: a chosen code supplies the rate (taxCodeId); "Custom rate…" sends a one-off taxRate instead.
         var codeId = $('#prodTaxCode').val();
         var body = {
-            name: $('#prodName').val().trim(), sku: sku,
+            // SKU is optional — send null, not '', so "no code" is absent rather than a value that
+            // collides with every other uncoded product. (The service normalises too; this keeps the
+            // payload honest and matches how barcode has always been sent.)
+            name: $('#prodName').val().trim(), sku: (sku || '').trim() || null,
             barcode: $('#prodBarcode').val().trim() || null,
             sellingPrice: s2n($('#prodPrice').val()),
             taxCodeId: codeId ? Number(codeId) : null,
