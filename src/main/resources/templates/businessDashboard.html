@@ -386,7 +386,9 @@ tr.row-voided .js-edit-row{display:none !important}
 			<div id="TeamDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
 				<h3 class="dash-page-title">Team &amp; Users</h3>
 				<div id="teamMsg" class="alert" style="display:none"></div>
-				<div class="row" style="margin-bottom:14px">
+				<!-- .form-toolbar (see /css/responsive.css): wraps as a unit at every width. The plain 12-column
+				     .row put the Add button in a col-sm-1 — 64px on a tablet, which clipped its label. -->
+				<div class="row form-toolbar" style="margin-bottom:14px">
 					<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name"/></div>
 					<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name"/></div>
 					<div class="col-sm-3"><input id="teamEmail" type="email" class="form-control" placeholder="Email"/></div>
@@ -1135,13 +1137,13 @@ tr.row-voided .js-edit-row{display:none !important}
 						<table id="tablesi" class="display" style="width:100%;">
 							<thead>
 								<tr>
-									<th class="col-sm-1">Item id</th>
-									<th class="col-sm-2">Name/Code</th>
-									<th class="col-sm-2">QTY</th>
-									<th class="col-sm-2">Price</th>
-									<th class="col-sm-2">Disc</th>
-									<th class="col-sm-2">Total</th>
-									<th class="col-sm-1">Action</th>
+									<th>Item id</th>
+									<th>Name/Code</th>
+									<th>QTY</th>
+									<th>Price</th>
+									<th>Disc</th>
+									<th>Total</th>
+									<th>Action</th>
 								</tr>
 							</thead>
 							<tfoot>
@@ -1607,7 +1609,7 @@ tr.row-voided .js-edit-row{display:none !important}
 			<div id="StoresDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
 				<h3 class="dash-page-title">Stores</h3>
 				<div id="storeMsg" class="alert" style="display:none"></div>
-				<div class="row" style="margin-bottom:14px">
+				<div class="row form-toolbar" style="margin-bottom:14px">
 					<div class="col-sm-3"><input id="storeName" class="form-control" placeholder="Store name"/></div>
 					<div class="col-sm-2"><input id="storeCode" class="form-control" placeholder="Code (optional)"/></div>
 					<div class="col-sm-3"><input id="storeAddress" class="form-control" placeholder="Address (optional)"/></div>

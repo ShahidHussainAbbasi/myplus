@@ -43,9 +43,14 @@
 
 .crud-bulkbar .btn{ margin-left:4px; }
 
-/* Tablet / phone: modal becomes a full-height sheet that scrolls internally, so
- * the action buttons at the bottom are always reachable regardless of form height. */
-@media (max-width:768px){
+/* Phone: modal becomes a full-height sheet that scrolls internally, so the action
+ * buttons at the bottom are always reachable regardless of form height.
+ *
+ * 767px, not 768 — at exactly 768px Bootstrap's col-sm-* grid is live, so the old
+ * edge stacked the fields to full width while the grid still floated them, giving
+ * a one-pixel-wide band of broken layout. Tablets (768–991) now get the wrapping
+ * flex treatment in /css/responsive.css instead of this full stack. */
+@media (max-width:767px){
   .crud-overlay{ padding:0; }
   .crud-box{
     max-width:100%; min-height:100%;

@@ -1,9 +1,13 @@
 package com.myplus.pharma.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.LocalDate;
 import java.util.List;
 
+import com.myplus.common.web.exception.ResourceNotFoundException;
+import com.myplus.common.web.exception.ValidationException;
 import com.myplus.pharma.dto.PrescriptionDTO;
 import com.myplus.pharma.dto.PrescriptionItemDTO;
 import com.myplus.pharma.repository.PrescriptionItemRepository;
@@ -87,5 +91,55 @@ class PrescriptionServiceTest {
         service.create(sample("Bob"), ORG, USER);
         assertThat(service.list(ORG, USER)).hasSize(1);
         assertThat(service.list(999L, 999L)).isEmpty();   // another tenant sees nothing
+    }
+
+    // ── B5: intake validation ────────────────────────────────────────────────────────────────────────
+    @Test
+    void an_item_with_no_quantity_is_rejected() {
+        // Left unchecked this is worse than a typo: recomputeStatus reads "dispensed 0 of 0" as satisfied and
+        // the first dispense marks the whole prescription FULLY_DISPENSED.
+        PrescriptionDTO d = sample("Carol");
+        d.getItems().get(0).setQuantity(0);
+
+        assertThatThrownBy(() -> service.create(d, ORG, USER))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("quantity");
+        assertThat(prescriptionRepo.findAll()).isEmpty();   // nothing half-written
+    }
+
+    @Test
+    void an_item_with_no_medicine_is_rejected() {
+        PrescriptionDTO d = sample("Dave");
+        d.getItems().get(0).setProductId(null);
+
+        assertThatThrownBy(() -> service.create(d, ORG, USER))
+                .isInstanceOf(ValidationException.class);
+        assertThat(prescriptionRepo.findAll()).isEmpty();
+    }
+
+    @Test
+    void valid_until_before_the_prescribed_date_is_rejected() {
+        PrescriptionDTO d = sample("Erin");
+        d.setPrescribedDate(LocalDate.now());
+        d.setValidUntil(LocalDate.now().minusDays(1));
+
+        assertThatThrownBy(() -> service.create(d, ORG, USER))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    // ── B2: cancel makes the CANCELLED state reachable ───────────────────────────────────────────────
+    @Test
+    void cancel_withdraws_the_prescription_and_is_idempotent() {
+        Long id = service.create(sample("Frank"), ORG, USER).getId();
+
+        assertThat(service.cancel(id, ORG, USER).getStatus()).isEqualTo("CANCELLED");
+        assertThat(service.cancel(id, ORG, USER).getStatus()).isEqualTo("CANCELLED");   // repeat is a no-op
+    }
+
+    @Test
+    void cancel_is_org_scoped() {
+        Long id = service.create(sample("Grace"), ORG, USER).getId();
+        assertThatThrownBy(() -> service.cancel(id, 999L, 999L))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 }

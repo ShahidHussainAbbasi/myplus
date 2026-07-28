@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.web.util.GatewayClient;
 import com.web.util.PharmaRestClient;
 
 /** Monolith proxy for prescriptions (P5, slice 41) → pharma-service via the gateway (/api/pharma/prescriptions). */
@@ -39,11 +40,16 @@ public class PharmaPrescriptionController {
         catch (Exception e) { LOGGER.error("getPrescription proxy error", e); return Collections.singletonMap("success", false); }
     }
 
+    // The service's validation messages are the whole point of these screens' error handling ("this prescription
+    // expired on ...", "quantity must be greater than zero"), so relay them instead of a bare success:false.
     @RequestMapping(value = "/addPrescription", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> addPrescription(@RequestBody final Map<String, Object> body) {
         try { return client.postJson("/prescriptions", body); }
-        catch (Exception e) { LOGGER.error("addPrescription proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) {
+            LOGGER.error("addPrescription proxy error", e);
+            return GatewayClient.errorMap(e, "Could not save the prescription.");
+        }
     }
 
     /** P6 (slice 43): record a dispense against a prescription (fulfilled by a trade sale). */
@@ -55,7 +61,18 @@ public class PharmaPrescriptionController {
             return client.postJson("/prescriptions/" + id + "/dispense", body);
         } catch (Exception e) {
             LOGGER.error("dispensePrescription proxy error", e);
-            return Collections.singletonMap("success", false);
+            return GatewayClient.errorMap(e, "Could not record the dispense.");
+        }
+    }
+
+    /** Withdraw a prescription (no further dispensing); already-dispensed quantities stay on the record. */
+    @RequestMapping(value = "/cancelPrescription", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> cancelPrescription(@RequestBody final Map<String, Object> body) {
+        try { return client.postJson("/prescriptions/" + body.get("prescriptionId") + "/cancel", body); }
+        catch (Exception e) {
+            LOGGER.error("cancelPrescription proxy error", e);
+            return GatewayClient.errorMap(e, "Could not cancel the prescription.");
         }
     }
 }

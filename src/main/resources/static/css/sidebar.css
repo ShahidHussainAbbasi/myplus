@@ -103,7 +103,10 @@ body.sidebar-collapsed .app-sidebar .app-sidebar__toggle{ margin:0; }
 /* mobile: off-canvas drawer + hamburger + backdrop */
 #sidebar-mobile-btn{ display:none; position:fixed; top:9px; left:10px; z-index:1045; width:40px; height:40px; border:0; border-radius:8px; background:var(--sb-bg); color:#fff; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(9,30,66,.3); }
 .sidebar-backdrop{ display:none; }
-@media (max-width:900px){
+/* 991px, not 900 — the app's tablet edge (see /css/responsive.css). At 900 a 960px-wide
+   tablet kept the 238px rail while its forms were already in the cramped col-sm-* band,
+   so the content had neither the rail's room nor the drawer's full width. */
+@media (max-width:991px){
   body.has-sidebar{ padding-left:0; }
   .app-sidebar{ transform:translateX(-100%); width:var(--sb-w); }
   body.sidebar-open .app-sidebar{ transform:translateX(0); }

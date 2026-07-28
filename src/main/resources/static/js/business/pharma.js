@@ -98,10 +98,14 @@
                 tr.append($('<td>').text((p.items || []).length));
                 tr.append($('<td>').text(p.status || ''));
                 tr.append($('<td>').text(at));
-                // Dispense is a normal sale that fulfils this Rx — only offer it while not fully dispensed.
-                var action = (p.status === 'FULLY_DISPENSED')
-                    ? '<span class="text-muted">dispensed</span>'
-                    : "<button class='btn btn-xs btn-success' onclick='dispenseFromPrescription(" + p.id + ")'>Dispense</button>";
+                // Dispense is a normal sale that fulfils this Rx — only offer it while the script is still live.
+                // EXPIRED is derived server-side from validUntil, so it appears here without any nightly job.
+                var action;
+                if (p.status === 'FULLY_DISPENSED') action = '<span class="text-muted">dispensed</span>';
+                else if (p.status === 'CANCELLED') action = '<span class="text-muted">cancelled</span>';
+                else if (p.status === 'EXPIRED') action = '<span class="text-muted">expired</span>';
+                else action = "<button class='btn btn-xs btn-success' onclick='dispenseFromPrescription(" + p.id + ")'>Dispense</button>"
+                           + " <button class='btn btn-xs btn-default' onclick='cancelPrescription(" + p.id + ")'>Cancel</button>";
                 tr.append($('<td>').html(action));
                 $b.append(tr);
             });
@@ -241,6 +245,28 @@
     }
     global.loadControlledRegister = loadControlledRegister;
 
+    // Withdraw a prescription (script cancelled / entered in error). Uses the shared confirm dialog — never
+    // window.confirm — per the project standard.
+    global.cancelPrescription = function (id) {
+        uiConfirm({
+            title: 'Cancel this prescription?',
+            message: 'It can no longer be dispensed. Anything already dispensed stays on the record.',
+            confirmText: 'Cancel prescription',
+            tone: 'danger'
+        }).then(function (ok) {
+            if (!ok) return;
+            $.ajax({
+                type: 'POST', url: serverContext + 'cancelPrescription', contentType: 'application/json', dataType: 'json',
+                data: JSON.stringify({ prescriptionId: id }),
+                success: function (resp) {
+                    if (resp && resp.success) { showSaleSuccess('Prescription cancelled.'); loadPrescriptions(); }
+                    else showFormError((resp && resp.message) || 'Could not cancel the prescription.');
+                },
+                error: function () { showFormError('Could not cancel the prescription.'); }
+            });
+        });
+    };
+
     global.cancelDispense = function () {
         window.dispensingPrescriptionId = null;
         $('#dispenseBanner').hide();
@@ -257,8 +283,18 @@
             type: 'POST', url: serverContext + 'dispensePrescription', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ prescriptionId: id, invoiceNo: invoiceNo, items: items }),
             success: function (resp) {
-                if (resp && resp.success) showSaleSuccess('Dispense recorded against Rx #' + id + '.');
+                if (resp && resp.success) {
+                    showSaleSuccess('Dispense recorded against Rx #' + id + '.');
+                    // B4: the server records only what the prescription can account for — capped lines, items not
+                    // on the script, a repeat post. The stock already left the counter, so surface every one.
+                    var warnings = (resp.data && resp.data.warnings) || [];
+                    if (warnings.length) showFormError(warnings.join('  '));
+                    loadPrescriptions();
+                } else {
+                    showFormError((resp && resp.message) || 'Could not record the dispense.');
+                }
             },
+            error: function () { showFormError('Could not record the dispense.'); },
             complete: function () { window.dispensingPrescriptionId = null; $('#dispenseBanner').hide(); }
         });
     };

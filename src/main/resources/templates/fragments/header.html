@@ -20,6 +20,9 @@
         <link rel="stylesheet" th:href="@{/css/jquery.timepicker.min.css}"/>
         <!-- The app's own date/datetime calendar (see /js/common/date-picker.js) — no third-party picker. -->
         <link rel="stylesheet" th:href="@{/css/date-picker.css}"/>
+        <!-- The one responsive contract (767/991/1199) for every dashboard. Loaded LAST so it settles
+             disagreements between theme.css, sidebar.css and crud-modal.css instead of adding a fourth. -->
+        <link rel="stylesheet" th:href="@{/css/responsive.css}"/>
     </th:block>
 
     <th:block th:fragment="header-js">
@@ -57,6 +60,9 @@
         <script th:src="@{/js/common/date-picker.js}"></script>
         <!-- Demo free-trial: surfaces the gateway's DEMO_LIMIT (50/module cap) as an upsell prompt. -->
         <script th:src="@{/js/demo.js}"></script>
+        <!-- Wide grids (Fee Register = 13 columns) were clipped by the mobile body overflow rule rather
+             than scrollable. Wraps each table in its own scroller once, at DOM-ready. -->
+        <script th:src="@{/js/common/responsive-tables.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing
              AJAX call, so jQuery $.post/$.ajax pass Spring Security's CSRF check. -->
         <script>

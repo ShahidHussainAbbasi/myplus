@@ -30,7 +30,8 @@
 .an-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
 .an-panel{background:#fff;border:1px solid #e8edf5;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(13,35,83,.05);min-width:0}
 .an-panel.an-wide{grid-column:span 2}
-@media(max-width:780px){.an-panel.an-wide{grid-column:span 1}}
+/* 767px = the app's phone edge (see /css/responsive.css); 780 was an odd edge of its own. */
+@media(max-width:767px){.an-panel.an-wide{grid-column:span 1}}
 .an-panel-h{font-size:13px;font-weight:700;color:#334155;margin-bottom:10px}
 .an-canvas-wrap{position:relative;height:260px}
 .an-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px}
@@ -256,7 +257,9 @@
 			<div id="TeamDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
 				<h3 class="dash-page-title">Team &amp; Users</h3>
 				<div id="teamMsg" class="alert" style="display:none"></div>
-				<div class="row" style="margin-bottom:14px">
+				<!-- .form-toolbar (see /css/responsive.css): wraps as a unit at every width. The plain 12-column
+				     .row put the Add button in a col-sm-1 — 64px on a tablet, which clipped its label. -->
+				<div class="row form-toolbar" style="margin-bottom:14px">
 					<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name"/></div>
 					<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name"/></div>
 					<div class="col-sm-3"><input id="teamEmail" type="email" class="form-control" placeholder="Email"/></div>
@@ -360,14 +363,14 @@
 				<table id="tableOwner" class="table table-striped">
 					<thead>
 						<tr>
-							<th class="col-sm-1" data-field="ownerId">Id</th>
-							<th class="col-sm-1" data-field="checkDelete">Check</th>
-							<th class="col-sm-2" data-field="name">Name</th>
-							<th class="col-sm-1" data-field="mobile">Mobile</th>
-							<th class="col-sm-3" data-field="address">Address</th>
-							<th class="col-sm-2" data-field="email">Email</th>
-							<th class="col-sm-3" data-field="ownerStatus">Status</th>
-							<th class="col-sm-2" data-field="ownderDated">Dated</th>
+							<th data-field="ownerId">Id</th>
+							<th data-field="checkDelete">Check</th>
+							<th data-field="name">Name</th>
+							<th data-field="mobile">Mobile</th>
+							<th data-field="address">Address</th>
+							<th data-field="email">Email</th>
+							<th data-field="ownerStatus">Status</th>
+							<th data-field="ownderDated">Dated</th>
 						</tr>
 					</thead>
 				</table>
@@ -457,15 +460,15 @@
 					<table id="tableSchool" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="schoolId">Id</th>
-								<th class="col-sm-1" data-field="checkDelete">Check</th>
-								<th class="col-sm-2" data-field="owner">Owner</th>
-								<th class="col-sm-2" data-field="address">Address</th>
-								<th class="col-sm-2" data-field="branchName">Branch Name</th>
-								<th class="col-sm-1" data-field="phone">Phone</th>
-								<th class="col-sm-1" data-field="email">Email</th>
-								<th class="col-sm-1" data-field="schoolStatus">Status</th>
-								<th class="col-sm-1" data-field="schoolDated">Dated</th>
+								<th data-field="schoolId">Id</th>
+								<th data-field="checkDelete">Check</th>
+								<th data-field="owner">Owner</th>
+								<th data-field="address">Address</th>
+								<th data-field="branchName">Branch Name</th>
+								<th data-field="phone">Phone</th>
+								<th data-field="email">Email</th>
+								<th data-field="schoolStatus">Status</th>
+								<th data-field="schoolDated">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -568,17 +571,17 @@
 					<table id="tableGrade" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="gradeId">Id</th>
-								<th class="col-sm-1" data-field="checkDelete">Check</th>
-								<th class="col-sm-2" data-field="schoolName">Branch Name</th>
-								<th class="col-sm-2" data-field="name">Name</th>
-								<th class="col-sm-1" data-field="code">Code</th>
-								<th class="col-sm-1" data-field="GradeFee">Fee</th>
-								<th class="col-sm-1" data-field="timeFromStr">Time From</th>
-								<th class="col-sm-1" data-field="timeToStr">Time To</th>
-								<th class="col-sm-1" data-field="room">Room</th>
-								<th class="col-sm-1" data-field="gradeStatus">Status</th>
-								<th class="col-sm-1" data-field="gradeDated">Dated</th>
+								<th data-field="gradeId">Id</th>
+								<th data-field="checkDelete">Check</th>
+								<th data-field="schoolName">Branch Name</th>
+								<th data-field="name">Name</th>
+								<th data-field="code">Code</th>
+								<th data-field="GradeFee">Fee</th>
+								<th data-field="timeFromStr">Time From</th>
+								<th data-field="timeToStr">Time To</th>
+								<th data-field="room">Room</th>
+								<th data-field="gradeStatus">Status</th>
+								<th data-field="gradeDated">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -734,24 +737,24 @@
 					<table id="tableStaff" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="staffId">Id</th>
-								<th class="col-sm-1" data-field="checkDelete">Check</th>
-								<th class="col-sm-1" data-field="name">Name</th>
-								<th class="col-sm-1" data-field="email">Email</th>
-								<th class="col-sm-1" data-field="mobile">Mobile</th>
-								<th class="col-sm-1" data-field="phone">Phone</th>
-	 							<th class="col-sm-1" data-field="timeIn">Time In</th>
-								<th class="col-sm-1" data-field="timeOut">Time Out</th>
-	 							<th class="col-sm-1" data-field="designation">Designation</th>
-								<th class="col-sm-1" data-field="qualification">Qualification</th>
-	<!-- 							<th class="col-sm-1" data-field="staffSchoolDD">Schools</th> -->
-								<th class="col-sm-1" data-field="staffGradeDD">Classes</th>
-								<th class="col-sm-1" data-field="gender">Gender</th>
-								<th class="col-sm-1" data-field="staffDOB">Date of Birth</th>
-	 							<th class="col-sm-1" data-field="martialStatus">Martial Status</th>
-								<th class="col-sm-1" data-field="address">Address</th>
-								<th class="col-sm-1" data-field="status">Status</th>
-								<th class="col-sm-1" data-field="staffDated">Dated</th>
+								<th data-field="staffId">Id</th>
+								<th data-field="checkDelete">Check</th>
+								<th data-field="name">Name</th>
+								<th data-field="email">Email</th>
+								<th data-field="mobile">Mobile</th>
+								<th data-field="phone">Phone</th>
+	 							<th data-field="timeIn">Time In</th>
+								<th data-field="timeOut">Time Out</th>
+	 							<th data-field="designation">Designation</th>
+								<th data-field="qualification">Qualification</th>
+	<!-- 							<th data-field="staffSchoolDD">Schools</th> -->
+								<th data-field="staffGradeDD">Classes</th>
+								<th data-field="gender">Gender</th>
+								<th data-field="staffDOB">Date of Birth</th>
+	 							<th data-field="martialStatus">Martial Status</th>
+								<th data-field="address">Address</th>
+								<th data-field="status">Status</th>
+								<th data-field="staffDated">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -866,18 +869,18 @@
 				</div>
 				<table id="tableGuardian" class="table table-striped">
 					<thead>
-						<th class="col-sm-1" data-field="guardianId">Id</th>
-						<th class="col-sm-1" data-field="checkDelete">Check</th>
-						<th class="col-sm-1" data-field="name">Name</th>
-						<th class="col-sm-1" data-field="mobile">Mobile</th>
-						<th class="col-sm-1" data-field="relationDD">Relation</th>
-						<th class="col-sm-1" data-field="permAddress">Address</th>
-						<th class="col-sm-1" data-field="email">Email</th>
-						<th class="col-sm-1" data-field="phone">Phone</th>
-						<th class="col-sm-1" data-field="guardianCNIC">CNIC</th>
-						<th class="col-sm-1" data-field="occupation">Occupation</th>
-						<th class="col-sm-1" data-field="guardianStatus">Status</th>
-						<th class="col-sm-1" data-field="guardianDated">Dated</th>
+						<th data-field="guardianId">Id</th>
+						<th data-field="checkDelete">Check</th>
+						<th data-field="name">Name</th>
+						<th data-field="mobile">Mobile</th>
+						<th data-field="relationDD">Relation</th>
+						<th data-field="permAddress">Address</th>
+						<th data-field="email">Email</th>
+						<th data-field="phone">Phone</th>
+						<th data-field="guardianCNIC">CNIC</th>
+						<th data-field="occupation">Occupation</th>
+						<th data-field="guardianStatus">Status</th>
+						<th data-field="guardianDated">Dated</th>
 					</thead>
 				</table>
 			</div>		
@@ -1137,35 +1140,35 @@
 					<div class="form-group">
 						<table id="tableStudent" class="table table-striped">
 							<thead>
-								<th class="col-sm-1" data-field="staffId">Id</th>
-								<th class="col-sm-1" data-field="checkDelete">Check</th>
-								<th class="col-sm-1" data-field="studentEnrollNo">Enroll No</th>
-								<th class="col-sm-1" data-field="studentStatus">Status</th>
-								<th class="col-sm-1" data-field="studentEnrollDate">Enroll Date</th>
-								<th class="col-sm-1" data-field="studentName">Name</th>
-								<th class="col-sm-1" data-field="studentSchoolDD">Campus</th>
-								<th class="col-sm-1" data-field="studentGradeDD">Class</th>
-								<th class="col-sm-1" data-field="studentGuardianDD">Guardian</th>
-								<th class="col-sm-1" data-field="studentGender">Gender</th>
-								<th class="col-sm-1" data-field="studentFee">Fee</th>
-								<th class="col-sm-1" data-field="studentFeeMode">Fee Mode</th>
-								<th class="col-sm-1" data-field="studentMN">Mother name</th>
-								<th class="col-sm-1" data-field="studentBloodBroup">Blood Group</th>
-								<th class="col-sm-1" data-field="studentVehicleDD">Vehicle</th>
-								<th class="col-sm-1" data-field="studentvf">Vehicle Fare</th>
-								<th class="col-sm-1" data-field="studentDateOfBirth">DOB</th>
-								<th class="col-sm-1" data-field="studentPOB">POB</th>
-								<th class="col-sm-1" data-field="studentDiscountDD">Disc. Name</th>
-								<th class="col-sm-1" data-field="studentND">Disc. amount</th>
-								<th class="col-sm-1" data-field="studentDIDD">Disc. type</th>
-								<th class="col-sm-1" data-field="studentDueDay">Due Day</th>
-								<th class="col-sm-1" data-field="studentMobile">Mobile</th>
-								<th class="col-sm-1" data-field="studentWA">WatsApp</th>
-								<th class="col-sm-1" data-field="studentEmail">Email</th>
-								<th class="col-sm-1" data-field="studentAddress">Address</th>
-								<th class="col-sm-1" data-field="studentDated">Updated</th>
-								<th class="col-sm-1" data-field="studentYS">Year Start</th>
-								<th class="col-sm-1" data-field="studentYE">Year End</th>
+								<th data-field="staffId">Id</th>
+								<th data-field="checkDelete">Check</th>
+								<th data-field="studentEnrollNo">Enroll No</th>
+								<th data-field="studentStatus">Status</th>
+								<th data-field="studentEnrollDate">Enroll Date</th>
+								<th data-field="studentName">Name</th>
+								<th data-field="studentSchoolDD">Campus</th>
+								<th data-field="studentGradeDD">Class</th>
+								<th data-field="studentGuardianDD">Guardian</th>
+								<th data-field="studentGender">Gender</th>
+								<th data-field="studentFee">Fee</th>
+								<th data-field="studentFeeMode">Fee Mode</th>
+								<th data-field="studentMN">Mother name</th>
+								<th data-field="studentBloodBroup">Blood Group</th>
+								<th data-field="studentVehicleDD">Vehicle</th>
+								<th data-field="studentvf">Vehicle Fare</th>
+								<th data-field="studentDateOfBirth">DOB</th>
+								<th data-field="studentPOB">POB</th>
+								<th data-field="studentDiscountDD">Disc. Name</th>
+								<th data-field="studentND">Disc. amount</th>
+								<th data-field="studentDIDD">Disc. type</th>
+								<th data-field="studentDueDay">Due Day</th>
+								<th data-field="studentMobile">Mobile</th>
+								<th data-field="studentWA">WatsApp</th>
+								<th data-field="studentEmail">Email</th>
+								<th data-field="studentAddress">Address</th>
+								<th data-field="studentDated">Updated</th>
+								<th data-field="studentYS">Year Start</th>
+								<th data-field="studentYE">Year End</th>
 							</thead>
 						</table>
 					</div>
@@ -1262,15 +1265,15 @@
 					<table id="tableSubject" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="subjectId">Id</th>
-								<th class="col-sm-1" data-field="checkDelete">Check</th>
-								<th class="col-sm-2" data-field="gradeName">Class</th>
-								<th class="col-sm-1" data-field="name">Name</th>
-								<th class="col-sm-1" data-field="code">code</th>
-								<th class="col-sm-1" data-field="publisher">Publisher</th>
-								<th class="col-sm-1" data-field="edition">Edition</th>
-								<th class="col-sm-1" data-field="status">Status</th>
-								<th class="col-sm-1" data-field="subjectDated">Dated</th>
+								<th data-field="subjectId">Id</th>
+								<th data-field="checkDelete">Check</th>
+								<th data-field="gradeName">Class</th>
+								<th data-field="name">Name</th>
+								<th data-field="code">code</th>
+								<th data-field="publisher">Publisher</th>
+								<th data-field="edition">Edition</th>
+								<th data-field="status">Status</th>
+								<th data-field="subjectDated">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -1377,17 +1380,17 @@
 					<table id="tableVehicle" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="vehicleId">Id</th>
-								<th class="col-sm-1" data-field="checkDelete">Check</th>
-								<th class="col-sm-2" data-field="vehicleSchoolDD">School</th>
-								<th class="col-sm-1" data-field="vehicleName">Vehicle</th>
-								<th class="col-sm-1" data-field="vehicleNumber">Number</th>
-								<th class="col-sm-1" data-field="vehicleDriverName">Driver Name</th>
-								<th class="col-sm-1" data-field="vehicleDriverMobile">Driver Mobile</th>
-								<th class="col-sm-1" data-field="vehicleOwnerName">Owner Name</th>
-								<th class="col-sm-1" data-field="vehicleOwnerMobile">Owner Mobile</th>
-								<th class="col-sm-1" data-field="vehicleStatus">Status</th>
-								<th class="col-sm-1" data-field="vehicleDated">Dated</th>
+								<th data-field="vehicleId">Id</th>
+								<th data-field="checkDelete">Check</th>
+								<th data-field="vehicleSchoolDD">School</th>
+								<th data-field="vehicleName">Vehicle</th>
+								<th data-field="vehicleNumber">Number</th>
+								<th data-field="vehicleDriverName">Driver Name</th>
+								<th data-field="vehicleDriverMobile">Driver Mobile</th>
+								<th data-field="vehicleOwnerName">Owner Name</th>
+								<th data-field="vehicleOwnerMobile">Owner Mobile</th>
+								<th data-field="vehicleStatus">Status</th>
+								<th data-field="vehicleDated">Dated</th>
 							</tr>
 						</thead>
 					</table>
@@ -1486,13 +1489,13 @@
 					<table id="tableDiscount" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="discountId">Id</th>
-								<th class="col-sm-1" data-field="checkDelete">Check</th>
-								<th class="col-sm-1" data-field="discountName">Discount Name</th>
-								<th class="col-sm-2" data-field="discountType">Type</th>
-								<th class="col-sm-1" data-field="discountAmount">Amount</th>
-								<th class="col-sm-1" data-field="discountDescription">Description</th>
-								<th class="col-sm-1" data-field="discountStatus">Status</th>
+								<th data-field="discountId">Id</th>
+								<th data-field="checkDelete">Check</th>
+								<th data-field="discountName">Discount Name</th>
+								<th data-field="discountType">Type</th>
+								<th data-field="discountAmount">Amount</th>
+								<th data-field="discountDescription">Description</th>
+								<th data-field="discountStatus">Status</th>
 							</tr>
 						</thead>
 					</table>
@@ -1511,11 +1514,11 @@
 				<table id="tablePA" class="table table-striped">
 			        <thead>
 			            <tr>
-			            	<th class="col-sm-1">Id</th>
-							<th class="col-sm-2">Dated</th>
-							<th class="col-sm-3">Channel</th>
-							<th class="col-sm-3">Target</th>
-							<th class="col-sm-3">Status</th>
+			            	<th>Id</th>
+							<th>Dated</th>
+							<th>Channel</th>
+							<th>Target</th>
+							<th>Status</th>
 			            </tr>
 			        </thead>
 	   		    </table>
@@ -1678,19 +1681,19 @@
 					<table id="tableAlerts" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="alertId">Id</th>
-								<th class="col-sm-1" data-field="checkAlerts">Check</th>
-								<th class="col-sm-1" data-field="acdd">Consumer</th>
-								<th class="col-sm-1" data-field="atdd">Type</th>
-								<th class="col-sm-1" data-field="adcdd">Del. Channel</th>
-								<th class="col-sm-1" data-field="adpdd">Del. Period</th>
-								<th class="col-sm-1" data-field="adtdd">Del. Type</th>
-								<th class="col-sm-1" data-field="ast">Status</th>
-								<th class="col-sm-1" data-field="asd">Start Date</th>
-								<th class="col-sm-1" data-field="aed">End Date</th>
-								<th class="col-sm-1" data-field="ah">Heading</th>
-								<th class="col-sm-1" data-field="am">Message</th>
-								<th class="col-sm-1" data-field="as">Signature</th>
+								<th data-field="alertId">Id</th>
+								<th data-field="checkAlerts">Check</th>
+								<th data-field="acdd">Consumer</th>
+								<th data-field="atdd">Type</th>
+								<th data-field="adcdd">Del. Channel</th>
+								<th data-field="adpdd">Del. Period</th>
+								<th data-field="adtdd">Del. Type</th>
+								<th data-field="ast">Status</th>
+								<th data-field="asd">Start Date</th>
+								<th data-field="aed">End Date</th>
+								<th data-field="ah">Heading</th>
+								<th data-field="am">Message</th>
+								<th data-field="as">Signature</th>
 							</tr>
 						</thead>
 					</table>
@@ -1736,15 +1739,15 @@
 						<table id="" class="display table" style="width:100%">
 							<thead>
 								<tr>
-									<th class="col-sm-2">Student</th>
-									<th class="col-sm-2">Gaurdian</th>
-									<th class="col-sm-2">School</th>
-									<th class="col-sm-1">Class</th>
-									<th class="col-sm-1">Fee</th>
-									<th class="col-sm-1">V. Fare</th>
-									<th class="col-sm-1">Discount</th>
-									<th class="col-sm-1">Due Amount</th>
-									<th class="col-sm-1">Due Date</th>
+									<th>Student</th>
+									<th>Gaurdian</th>
+									<th>School</th>
+									<th>Class</th>
+									<th>Fee</th>
+									<th>V. Fare</th>
+									<th>Discount</th>
+									<th>Due Amount</th>
+									<th>Due Date</th>
 								</tr>	
 							</thead>
 							<tbody>
@@ -1765,17 +1768,17 @@
 							<thead>
 								<tr><th rowspan="1" colspan="12" style="margin: 0px;padding: 3px">Fee details since last payment</th></tr>
 								<tr>
-									<th class="col-sm-1">Date</th>
-									<th class="col-sm-2">Payer</th>
-									<th class="col-sm-1">Payee</th>
-									<th class="col-sm-1">Fee</th>
-									<th class="col-sm-1">V. Fee</th>
-									<th class="col-sm-1">Discount</th>
-									<th class="col-sm-1">Other payment</th>
-									<th class="col-sm-1">Other desc.</th>
-									<th class="col-sm-1">Due Amount</th>
-									<th class="col-sm-1">paid</th>
-									<th class="col-sm-1">Balance</th>
+									<th>Date</th>
+									<th>Payer</th>
+									<th>Payee</th>
+									<th>Fee</th>
+									<th>V. Fee</th>
+									<th>Discount</th>
+									<th>Other payment</th>
+									<th>Other desc.</th>
+									<th>Due Amount</th>
+									<th>paid</th>
+									<th>Balance</th>
 								</tr>	
 							</thead>
 							<!-- <tbody>
@@ -1785,15 +1788,15 @@
 						<!-- <table class="table" id="fcDT">
 							<thead>
 								<tr>
-									<th class="col-sm-2">Student</th>
-									<th class="col-sm-2">Gaurdian</th>
-									<th class="col-sm-2">School</th>
-									<th class="col-sm-1">Grade</th>
-									<th class="col-sm-1">Fee</th>
-									<th class="col-sm-1">V. Fare</th>
-									<th class="col-sm-1">Discount</th>
-									<th class="col-sm-1">Due Amount</th>
-									<th class="col-sm-2">Due Date</th>
+									<th>Student</th>
+									<th>Gaurdian</th>
+									<th>School</th>
+									<th>Grade</th>
+									<th>Fee</th>
+									<th>V. Fare</th>
+									<th>Discount</th>
+									<th>Due Amount</th>
+									<th>Due Date</th>
 								</tr>	
 							</thead>
 							<tbody>
@@ -1886,24 +1889,24 @@
 					<table id="tableFc" class="table table-striped">
 						<thead>
 							<tr>
-								<th class="col-sm-1" data-field="fcId">Id</th>
-								<th class="col-sm-1" data-field="checkfc">Check</th>
-								<th class="col-sm-1" data-field="fcen">Enroll No</th>
-								<th class="col-sm-1">Date</th>
-								<th class="col-sm-2">Payer</th>
-								<th class="col-sm-1">Payee</th>
-								<th class="col-sm-1">Fee</th>
-								<th class="col-sm-1">V. Fee</th>
-								<th class="col-sm-1">Discount</th>
-								<th class="col-sm-1" data-field="fchdt">Discount Type</th>
-								<th class="col-sm-1">Other payment</th>
-								<th class="col-sm-1">Other desc.</th>
-								<th class="col-sm-1">Due Amount</th>
-								<th class="col-sm-1">paid</th>
-								<th class="col-sm-1">Balance</th>
-								<th class="col-sm-1">Due Day</th>
-								<th class="col-sm-1" data-field="fcri">Recieved In.</th>
-								<th class="col-sm-1" data-field="fccn">Check No.</th>
+								<th data-field="fcId">Id</th>
+								<th data-field="checkfc">Check</th>
+								<th data-field="fcen">Enroll No</th>
+								<th>Date</th>
+								<th>Payer</th>
+								<th>Payee</th>
+								<th>Fee</th>
+								<th>V. Fee</th>
+								<th>Discount</th>
+								<th data-field="fchdt">Discount Type</th>
+								<th>Other payment</th>
+								<th>Other desc.</th>
+								<th>Due Amount</th>
+								<th>paid</th>
+								<th>Balance</th>
+								<th>Due Day</th>
+								<th data-field="fcri">Recieved In.</th>
+								<th data-field="fccn">Check No.</th>
 							</tr>
 						</thead>
 					</table>
@@ -2187,20 +2190,20 @@
 						<table id="tableFeeReport" class="table table-striped">
 					        <thead>
 					            <tr>
-									<th class="col-sm-1">Campus</th>
-									<th class="col-sm-1">Class</th>
-									<th class="col-sm-1">Guardian</th>
-									<th class="col-sm-1">Student</th>
-									<th class="col-sm-1">Fee</th>
-									<th class="col-sm-1">Others</th>
-									<th class="col-sm-1">Desc.</th>
-									<th class="col-sm-1">Discount</th>
-									<th class="col-sm-1">Payer</th>
-									<th class="col-sm-1">Payee</th>
-									<th class="col-sm-1">Date</th>
-									<th class="col-sm-1">Due</th>
-									<th class="col-sm-1">Paid</th>
-									<th class="col-sm-1">Balance</th>
+									<th>Campus</th>
+									<th>Class</th>
+									<th>Guardian</th>
+									<th>Student</th>
+									<th>Fee</th>
+									<th>Others</th>
+									<th>Desc.</th>
+									<th>Discount</th>
+									<th>Payer</th>
+									<th>Payee</th>
+									<th>Date</th>
+									<th>Due</th>
+									<th>Paid</th>
+									<th>Balance</th>
 					            </tr>
 					        </thead>
 							<tfoot>

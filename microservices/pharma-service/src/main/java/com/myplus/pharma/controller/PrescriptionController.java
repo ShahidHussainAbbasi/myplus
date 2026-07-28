@@ -41,6 +41,14 @@ public class PrescriptionController {
         return ApiResponse.success(prescriptionService.get(id, CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
+    /** Withdraw a prescription so it can no longer be dispensed. Anything already dispensed stays recorded. */
+    @PreAuthorize("hasAuthority('WRITE_PRIVILEGE')")
+    @PostMapping("/{id}/cancel")
+    public ApiResponse<PrescriptionDTO> cancel(@PathVariable Long id) {
+        return ApiResponse.success(
+                prescriptionService.cancel(id, CurrentUser.organizationId(), CurrentUser.userId()), "Prescription cancelled");
+    }
+
     /** P6 (slice 43): record a dispense against this prescription, fulfilled by a trade sale (invoiceNo). */
     @PreAuthorize("hasAuthority('WRITE_PRIVILEGE')")
     @PostMapping("/{id}/dispense")

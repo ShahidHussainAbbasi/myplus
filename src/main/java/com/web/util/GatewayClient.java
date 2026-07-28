@@ -47,6 +47,10 @@ public class GatewayClient {
     private static final ParameterizedTypeReference<Boolean> BOOLEAN_TYPE =
             new ParameterizedTypeReference<>() {};
 
+    /** Thread-safe once configured; used only to read the {@code message} out of an upstream error envelope. */
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     @Value("${gateway.url:http://localhost:8765}")
     private String gatewayUrl;
 
@@ -129,10 +133,42 @@ public class GatewayClient {
     }
 
     private static String extractDemoMessage(String body) {
-        java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("\"message\"\\s*:\\s*\"([^\"]*)\"").matcher(body);
-        return m.find() ? m.group(1)
+        String msg = extractMessage(body);
+        return msg != null ? msg
                 : "You've reached the 50-entry demo limit. Register at maxtheservice.com to unlock the full features.";
+    }
+
+    /**
+     * Pull {@code "message"} out of an upstream {@code ApiResponse} envelope; null if there isn't one.
+     *
+     * Parsed, NOT pattern-matched: the previous regex ({@code "message"\s*:\s*"([^"]*)"}) stopped at the first
+     * escaped quote, so a perfectly ordinary service message like {@code "Paracetamol" needs a quantity} arrived
+     * as a lone backslash. Any message containing a quote, backslash or newline hit it.
+     */
+    private static String extractMessage(String body) {
+        if (body == null || body.isBlank()) return null;
+        try {
+            com.fasterxml.jackson.databind.JsonNode node = JSON.readTree(body).path("message");
+            return node.isTextual() && !node.asText().isBlank() ? node.asText() : null;
+        } catch (Exception e) {
+            return null;   // not JSON (HTML error page, empty body) — caller falls back to its own wording
+        }
+    }
+
+    /**
+     * Turn a failed proxied call into the envelope the dashboard JS already understands
+     * ({@code {success:false, message:...}}), keeping the SERVICE's own message where there is one.
+     *
+     * Without this a proxy's {@code catch (Exception)} collapses every upstream 4xx into a bare
+     * {@code {success:false}}, so a deliberate, actionable rejection ("This prescription expired on
+     * 2026-05-01 and cannot be dispensed.") reaches the user as a generic "could not save".
+     */
+    public static Map<String, Object> errorMap(Exception e, String fallbackMessage) {
+        String message = (e instanceof HttpClientErrorException he) ? extractMessage(he.getResponseBodyAsString()) : null;
+        Map<String, Object> out = new java.util.HashMap<>();
+        out.put("success", false);
+        out.put("message", message != null ? message : fallbackMessage);
+        return out;
     }
 
     private HttpHeaders buildHeaders(boolean serverMode, MediaType contentType) {

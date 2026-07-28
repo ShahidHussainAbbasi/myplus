@@ -1,0 +1,203 @@
+/* ============================================================================
+ * responsive.css — the app's ONE responsive contract, shared by every dashboard
+ * (business/pharmacy, education, welfare, agriculture) via fragments/header :: header-css.
+ *
+ * Loaded LAST so it settles disagreements between theme.css, sidebar.css and
+ * crud-modal.css rather than adding a fourth opinion.
+ *
+ * ── The breakpoint scale ────────────────────────────────────────────────────
+ * Bootstrap 3's own scale, used verbatim so grid classes and our rules agree:
+ *
+ *   ≤ 767px    phone            col-sm-* has already collapsed to full width
+ *   768–991px  tablet           col-sm-* is live — this is the band that hurt
+ *   992–1199px small laptop     sidebar rail is back, content is narrow
+ *   ≥ 1200px   desktop
+ *
+ * Before this file there were four competing edges — 767 (theme), 768 (modal),
+ * 780 (education analytics) and 900 (sidebar) — so a device landing between them
+ * got a half-converted layout: drawer nav but desktop forms, or stacked fields
+ * inside a still-cramped grid. Everything now switches on 767 / 991 / 1199.
+ * ========================================================================== */
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. TABLE SCROLLERS
+   ══════════════════════════════════════════════════════════════════════════
+   theme.css hides body overflow-x on phones, and only .dataTables_wrapper and
+   .table-responsive had a scroller of their own. Since only 3 of ~37 dashboard
+   grids are DataTables and .table-responsive is used nowhere, every other table
+   -- Fee Register (13 cols), Grade (10), prescription intake (6), controlled
+   register (5) -- had its right-hand columns CLIPPED rather than scrollable.
+   /js/common/responsive-tables.js puts this wrapper around them at DOM-ready. */
+
+.table-scroll{
+  width:100%;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;   /* momentum scrolling on iOS */
+}
+.table-scroll > table{ margin-bottom:0; }
+
+/* Below the desktop band, hold a floor width so columns stay readable instead of
+   compressing to two characters a cell. Above it the table fits and never scrolls.
+   Scoped to .table — the floor is right for a data grid, but it would force a
+   needless scroll on the narrow ad-hoc tables some screens build (e.g. the
+   education arrears input grid, which is two columns of form fields). */
+@media (max-width:991px){
+  .table-scroll > table.table{ min-width:640px; }
+}
+
+/* A scrollable region has to announce itself, or a cut-off right edge reads as
+   missing data rather than as more data. A persistent thin scrollbar says so
+   without painting anything over the table's own cells. */
+@media (max-width:991px){
+  .table-scroll::-webkit-scrollbar{ height:7px; }
+  .table-scroll::-webkit-scrollbar-thumb{ background:rgba(13,35,83,.28); border-radius:4px; }
+  .table-scroll::-webkit-scrollbar-track{ background:rgba(13,35,83,.06); }
+  .table-scroll{ scrollbar-width:thin; scrollbar-color:rgba(13,35,83,.28) rgba(13,35,83,.06); }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. TABLET (768–991px) — the band that was actually broken
+   ══════════════════════════════════════════════════════════════════════════
+   Every dashboard form is .form-horizontal with col-sm-* cells sized for a
+   1400px desktop. At 768px a col-sm-1 cell is ~64px wide, so the prescription
+   intake's Qty / Freq / Duration inputs and the education toolbars' Add button
+   were unusable — the fields existed but could not be typed into comfortably.
+
+   Rather than hand-tuning col-md-* onto ~50 cells across four dashboards (which
+   the next screen added would miss), the row becomes a wrapping flex line with a
+   width floor: fields keep their natural order, share the line while they fit,
+   and drop to the next line instead of shrinking below a usable size. */
+
+@media (min-width:768px) and (max-width:991px){
+
+  .formDiv .form-horizontal .form-group,
+  .crud-body .form-horizontal .form-group{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-end;
+  }
+  /* Inline display:none on a hidden .form-group (e.g. the id carriers) is an inline
+     style and still outranks the rule above, so hidden rows stay hidden. */
+
+  .formDiv .form-horizontal .form-group > [class*="col-"],
+  .crud-body .form-horizontal .form-group > [class*="col-"]{
+    float:none;
+    width:auto;
+    flex:1 1 170px;
+    min-width:170px;      /* the floor: no more 64px inputs */
+    margin-bottom:8px;
+  }
+
+  /* The label heads its own line — at this width a floated label column steals
+     room the inputs need, and a wrapped row reads better with the label on top. */
+  .formDiv .form-horizontal .form-group > label.control-label,
+  .crud-body .form-horizontal .form-group > label.control-label{
+    float:none;
+    width:100%;
+    flex:0 0 100%;
+    min-width:0;
+    text-align:left;
+    padding-top:0;
+    margin-bottom:4px;
+  }
+
+  /* A desktop offset was a spacer against a fixed 12-col line; in a wrapping flex
+     row it only pushes the field out of alignment. */
+  .formDiv .form-horizontal .form-group > [class*="col-sm-offset-"],
+  .crud-body .form-horizontal .form-group > [class*="col-sm-offset-"]{ margin-left:0; }
+
+  /* text-align no longer centres flex items — restate the intent as justification. */
+  .formDiv .form-horizontal .form-group.text-center,
+  .crud-body .form-horizontal .form-group.text-center{
+    justify-content:center;
+    gap:8px;
+  }
+  .formDiv .form-horizontal .form-group.text-center > .btn,
+  .crud-body .form-horizontal .form-group.text-center > .btn{
+    flex:0 0 auto;
+    min-width:0;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. TOOLBAR ROWS (all widths)
+   ══════════════════════════════════════════════════════════════════════════
+   The "add a row" strips above Team / Stores grids are a plain .row of col-sm-*
+   cells ending in a col-sm-1 button — 64px on a tablet, which clipped the label.
+   Marked .form-toolbar in the templates so they wrap as a unit at every width
+   instead of relying on the 12-column arithmetic staying balanced. */
+
+.form-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+}
+.form-toolbar > [class*="col-"]{
+  float:none;
+  width:auto;
+  padding-left:0;
+  padding-right:0;
+  flex:1 1 190px;
+  min-width:170px;
+}
+/* The trailing action is content-sized — it should not stretch to a field's width. */
+.form-toolbar > [class*="col-"]:last-child{
+  flex:0 0 auto;
+  min-width:0;
+}
+.form-toolbar > [class*="col-"]:last-child > .btn{ white-space:nowrap; }
+
+@media (max-width:767px){
+  /* One control per line on a phone, action button full width at the end. */
+  .form-toolbar > [class*="col-"]{ flex:1 1 100%; }
+  .form-toolbar > [class*="col-"]:last-child{ flex:1 1 100%; }
+  .form-toolbar > [class*="col-"]:last-child > .btn{ width:100%; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. PHONE (≤767px)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width:767px){
+
+  /* iOS zooms the page when a focused input's font-size is under 16px, and it does
+     NOT zoom back out — which is how a correctly-stacked form still ends up half
+     off-screen. crud-modal.css already does this inside modals; the dashboards'
+     inline forms (prescription intake, fee collection, attendance) need it too. */
+  .formDiv input.form-control,
+  .formDiv select.form-control,
+  .formDiv textarea.form-control{ font-size:16px; }
+
+  .formDiv input.form-control:not(.input-sm),
+  .formDiv select.form-control:not(.input-sm){ height:44px; }
+
+  /* Comfortable tap targets — 44px is the platform minimum on both iOS and Android. */
+  .formDiv .btn:not(.btn-sm):not(.btn-xs){ min-height:44px; }
+
+  /* Offsets are desktop spacers; on a stacked form they indent fields for no reason. */
+  .formDiv [class*="col-sm-offset-"],
+  .crud-body [class*="col-sm-offset-"]{ margin-left:0; }
+
+  /* An action bar of buttons stacks rather than overflowing its row. */
+  .formDiv .form-group.text-center > .btn{
+    display:block;
+    width:100%;
+    margin:6px 0 0;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. SMALL LAPTOP (992–1199px)
+   ══════════════════════════════════════════════════════════════════════════
+   The sidebar rail is back at this width and takes 238px, so the desktop
+   28px content gutter leaves the wide grids less room than they need. */
+
+@media (min-width:992px) and (max-width:1199px){
+  #content{ padding:18px 20px; }
+}
