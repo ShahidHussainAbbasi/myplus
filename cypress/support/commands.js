@@ -112,6 +112,31 @@ Cypress.Commands.add('loginAsEduOwner', (email = 'owner.education@myplus.com', p
   cy.loginAs(email, password, '/getDashboardData')
 })
 
+// ── Per-module OWNER logins (ROLE_OWNER, demo=false, own org; seeded in auth-service SetupDataLoader) ──
+// Prefer these over the demo.* logins for any spec that seeds more than a handful of rows: a demo account is
+// capped at 50 writes per module, and the cap surfaces as an arbitrary later write failing rather than as a
+// quota message. Each owner also has its OWN organization, so they double as cross-tenant isolation fixtures.
+Cypress.Commands.add('loginAsPharmaOwner', (email = 'owner.pharma@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getBusinessDashboardStats')   // PHARMA reuses the trade backend
+})
+Cypress.Commands.add('loginAsWelfareOwner', (email = 'owner.welfare@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getUserDonator')
+})
+Cypress.Commands.add('loginAsAgricultureOwner', (email = 'owner.agriculture@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/agricultureDashboard')
+})
+Cypress.Commands.add('loginAsAppointmentOwner', (email = 'owner.appointment@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/appointmentDashboard')
+})
+Cypress.Commands.add('loginAsMarketplaceOwner', (email = 'owner.marketplace@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getOrders')
+})
+
+// NOTE: owner.inventory@ / owner.campaign@ / owner.analytics@ ARE seeded, but get no login command here on
+// purpose. Those user types have no monolith dashboard (MySimpleUrlAuthenticationSuccessHandler falls them back
+// to "/"), so a UI-session command would need a validate endpoint none of them owns. Test those services the way
+// method-authz.cy.js does — POST /api/auth/login at the gateway and send a Bearer token.
+
 Cypress.Commands.add('loginAsTeacherA', (email = 'teacher.a@myplus.com', password = DEMO_PW) => {
   cy.loginAs(email, password, '/getDashboardData')
 })

@@ -180,24 +180,12 @@ public class SetupDataLoader {
             // known-password leak. Password = the same ${app.demo-password}. Login: owner.business@myplus.com.
             Role ownerRole = roleRepository.findByName("ROLE_OWNER")
                     .orElseThrow(() -> new IllegalStateException("ROLE_OWNER not seeded"));
-            User owner = userRepository.findByEmail("owner.business@myplus.com")
-                    .orElseGet(() -> User.builder().username("owner.business").email("owner.business@myplus.com").build());
-            owner.setPassword(passwordEncoder.encode(demoPassword));
-            owner.setFirstName("Owner");
-            owner.setLastName("Business");
-            owner.setEnabled(true);
-            owner.setAccountNonLocked(true);
-            owner.setFailedLoginAttempts(0);
-            owner.setLockTime(null);
-            owner.setUserType("BUSINESS");
-            owner.setDemo(false);
             // ROLE_OWNER *plus* a second, single-privilege role carrying DEMO_RESET_PRIVILEGE — so this dev test
             // account can run "Reset demo" (clear counters + purge its OWN org) while staying uncapped. The
             // privilege rides a SEPARATE role on purpose: adding it to ROLE_OWNER would hand every real customer's
             // owner a one-click "delete my organisation" button. Seeded only here, inside the dev-only seed flag.
             Role demoResetRole = createOrUpdateRole("DEMO_RESET_ROLE", pick(p, "DEMO_RESET_PRIVILEGE"));
-            owner.setRoles(new HashSet<>(Arrays.asList(ownerRole, demoResetRole)));
-            userRepository.save(owner);
+            User owner = ensureOwner("owner.business@myplus.com", "Business", "BUSINESS", ownerRole, demoResetRole);
             log.info("Business OWNER test user ensured: owner.business@myplus.com (ROLE_OWNER + DEMO_RESET_ROLE, demo=false)");
 
             // Multi-location team fixture — the owner's ADMIN + two cashiers, in the owner's org, with a KNOWN
@@ -240,21 +228,8 @@ public class SetupDataLoader {
             // P4 — the same fixture for EDUCATION: an owner + two teachers in one org, so the branch (school)
             // scoping can be tested. Their grants point at school ids, not store ids (module=EDUCATION), and are
             // assigned at runtime by the spec because schools live in education-service.
-            User eduOwner = userRepository.findByEmail("owner.education@myplus.com")
-                    .orElseGet(() -> User.builder().username("owner.education").email("owner.education@myplus.com").build());
-            eduOwner.setPassword(passwordEncoder.encode(demoPassword));
-            eduOwner.setFirstName("Owner");
-            eduOwner.setLastName("Education");
-            eduOwner.setEnabled(true);
-            eduOwner.setAccountNonLocked(true);
-            eduOwner.setFailedLoginAttempts(0);
-            eduOwner.setLockTime(null);
-            eduOwner.setUserType("EDUCATION");
-            eduOwner.setDemo(false);
-            eduOwner.setRoles(new HashSet<>(Collections.singletonList(ownerRole)));
-            eduOwner = userRepository.save(eduOwner);
-
-            Organization eduOrg = organizationService.getOrCreatePrimaryOrg(eduOwner);
+            User eduOwner = ensureOwner("owner.education@myplus.com", "Education", "EDUCATION", ownerRole);
+            Organization eduOrg = organizationService.getOrCreatePrimaryOrg(eduOwner);   // already created; re-read
             Role teacherRole = roleRepository.findByName("ROLE_EDUCATION_USER")
                     .orElseThrow(() -> new IllegalStateException("ROLE_EDUCATION_USER not seeded"));
             for (String email : new String[]{"teacher.a@myplus.com", "teacher.b@myplus.com"}) {
@@ -275,11 +250,68 @@ public class SetupDataLoader {
             }
             log.info("Multi-branch education fixture ensured in org {}: owner.education@, teacher.a@, teacher.b@",
                     eduOrg.getId());
+
+            // An OWNER for every remaining module. Business and Education are seeded above because they also carry
+            // extra fixtures (the demo-reset role, the store/branch teams); these need only the account itself.
+            //
+            // Why every module gets one: the demo.* accounts are capped at 50 writes per module, so any spec that
+            // seeds more than that fails partway through at an unrelated-looking write. Pharmacy hit exactly this —
+            // its specs seed products per test and there was no uncapped pharmacy login to fall back to.
+            // Password is the same ${app.demo-password}; each gets its own organization, so they are also the
+            // fixtures for cross-tenant isolation tests.
+            String[][] moduleOwners = {
+                    {"owner.pharma@myplus.com",       "Pharma",      "PHARMA"},
+                    {"owner.welfare@myplus.com",      "Welfare",     "WELFARE"},
+                    {"owner.agriculture@myplus.com",  "Agriculture", "AGRICULTURE"},
+                    {"owner.appointment@myplus.com",  "Appointment", "APPOINTMENT"},
+                    {"owner.inventory@myplus.com",    "Inventory",   "INVENTORY"},
+                    {"owner.marketplace@myplus.com",  "Marketplace", "MARKETPLACE"},
+                    {"owner.campaign@myplus.com",     "Campaign",    "CAMPAIGN"},
+                    {"owner.analytics@myplus.com",    "Analytics",   "ANALYTICS"},
+            };
+            for (String[] o : moduleOwners) {
+                ensureOwner(o[0], o[1], o[2], ownerRole);
+            }
+            log.info("Module OWNER test users ensured ({}, ROLE_OWNER, demo=false, own org): {}",
+                    moduleOwners.length,
+                    Arrays.stream(moduleOwners).map(o -> o[0]).collect(java.util.stream.Collectors.joining(", ")));
         }
 
         // NOTE: real customers are NEVER seeded here. A client is onboarded through self-service signup
         // (POST /api/auth/register) or the operator endpoint (POST /api/auth/admin/provision-tenant) —
         // see slice 32. Seeding a known-password customer row used to run in prod; that has been removed.
+    }
+
+    /**
+     * Create/refresh a dev OWNER test account for one module, and make sure it has an organization.
+     *
+     * An owner is what a real customer's admin looks like: ROLE_OWNER (the super privilege set, scoped to their own
+     * org by X-Org-Id) and {@code demo=false}, so it is NOT subject to the 50-entry/module demo cap. That cap is the
+     * reason these exist — a Cypress spec that seeds more than 50 rows fails at an arbitrary later write when run as
+     * a demo.* account, which reads as a product bug rather than a quota.
+     *
+     * Self-healing: re-runs on every startup reset the password/enabled/lock state, so a locked-out or
+     * password-drifted fixture repairs itself. Dev-only — the whole block is gated by {@code app.seed-demo}.
+     */
+    private User ensureOwner(String email, String lastName, String userType, Role ownerRole, Role... extraRoles) {
+        User u = userRepository.findByEmail(email)
+                .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
+        u.setPassword(passwordEncoder.encode(demoPassword));
+        u.setFirstName("Owner");
+        u.setLastName(lastName);
+        u.setEnabled(true);
+        u.setAccountNonLocked(true);
+        u.setFailedLoginAttempts(0);
+        u.setLockTime(null);
+        u.setUserType(userType);
+        u.setDemo(false);
+        Set<Role> roles = new HashSet<>();
+        roles.add(ownerRole);
+        Collections.addAll(roles, extraRoles);
+        u.setRoles(roles);
+        u = userRepository.save(u);
+        organizationService.getOrCreatePrimaryOrg(u);   // idempotent — every owner needs a tenant to scope into
+        return u;
     }
 
     private Privilege createPrivilegeIfNotExists(String name) {
