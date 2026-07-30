@@ -36,9 +36,24 @@ jwt:
   secret: ${JWT_SECRET}            # no default in prod
 
 # F15: in prod don't seed the known-password admin; set ADMIN_PASSWORD if you intentionally seed one.
+#
+# Every seeding flag is listed here EXPLICITLY. seed-demo used to be omitted, so it inherited the dev default of
+# TRUE and only docker-compose's override stopped a non-compose prod deploy from creating known-password accounts.
+# An omitted flag is not a disabled flag — if you add a new one, add it here too.
+#
+# Defence in depth: SetupDataLoader ALSO hard-blocks test fixtures whenever the prod profile is active, and
+# refuses to seed any account whose password was not explicitly supplied. These settings are the first gate,
+# not the only one.
 app:
   seed-admin: ${SEED_ADMIN:false}
   admin-password: ${ADMIN_PASSWORD:}
+  # Public demo tenants are a PRODUCT feature (50-entry cap + upsell), so this may be turned on deliberately —
+  # but only together with an explicit strong DEMO_PASSWORD. Off unless asked for.
+  seed-demo: ${SEED_DEMO:false}
+  demo-password: ${DEMO_PASSWORD:}
+  # Dev test fixtures (owner./admin./user. ladder, store & branch teams). NEVER in production; the code blocks
+  # these under the prod profile regardless of this value.
+  seed-test-fixtures: false
 
 # F2: enforce the gateway↔service internal trust secret in prod.
 gateway:

@@ -131,11 +131,19 @@ public class FeeCollectionController {
     public GenericResponse addFc(final FeeCollectionDTO dto, final HttpServletRequest request) {
         try {
             Long userId = userId();
-            FeeCollection obj = (dto.getId() != null)
-                    ? feeCollectionRepository.findById(dto.getId()).orElseGet(FeeCollection::new)
-                    : new FeeCollection();
+            Long orgId = orgId();
+            // Anti-IDOR: an edit names a fee record by a client-supplied id, so it must be resolved WITHIN
+            // the caller's tenant. A bare findById followed by the setOrganizationId below would have moved
+            // another school's PAYMENT RECORD into this one — the money row leaves its owner's books.
+            FeeCollection obj;
+            if (dto.getId() != null) {
+                obj = feeCollectionRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) return new GenericResponse("NOT_FOUND", "Fee record not found");
+            } else {
+                obj = new FeeCollection();
+            }
             obj.setUserId(userId);              // audit: who created/edited
-            obj.setOrganizationId(orgId());     // tenant scope
+            obj.setOrganizationId(orgId);       // tenant scope
             obj.setEn(dto.getEn());
             obj.setDt(dto.getDt());
             obj.setD(dto.getD());

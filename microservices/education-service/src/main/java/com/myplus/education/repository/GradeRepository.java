@@ -26,4 +26,14 @@ public interface GradeRepository extends JpaRepository<Grade, Long> {
     @Query("select g from Grade g where g.organizationId = :orgId "
             + "and (g.schoolId in :schoolIds or g.schoolId is null)")
     List<Grade> findScopedBySchools(@Param("orgId") Long orgId, @Param("schoolIds") java.util.Collection<Long> schoolIds);
+
+    /**
+     * Anti-IDOR: resolve ONE class by a client-supplied id within the caller's tenant. Used where a
+     * grade is ATTACHED to another record (staff assignment) — an unchecked findById there let a
+     * caller pull another tenant's class onto their own staff member.
+     */
+    @Query("select g from Grade g where g.id = :id and (g.organizationId = :orgId "
+            + "or (g.organizationId is null and g.userId = :userId))")
+    java.util.Optional<Grade> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId,
+                                             @Param("userId") Long userId);
 }

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.myplus.common.security.AuthenticatedUser;
+import com.myplus.common.settings.SettingsService;
 import com.myplus.education.dto.StaffDTO;
 import com.myplus.education.entity.Grade;
 import com.myplus.education.entity.Staff;
@@ -43,6 +44,8 @@ public class StaffController {
     private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
+    @Autowired
+    private SettingsService settingsService;   // reads the org's edu.staff.branchScoped policy
 
     private Long userId() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
@@ -81,11 +84,36 @@ public class StaffController {
         return dto;
     }
 
+    /**
+     * Staff branch visibility — OFF by default (org-wide), opt-in per org via {@code edu.staff.branchScoped}
+     * on the Configuration screen. When on, a staff member is visible only if they are assigned to a class at
+     * one of the caller's accessible branches (derived via Staff.grades → Grade.schoolId — no staff.school_id
+     * needed, and a teacher covering two campuses stays visible from either).
+     *
+     * Three escape hatches, matching GuardianController: setting off, owner/super, or a caller with no branch
+     * grants ⇒ org-wide. A staff member assigned to NO class has no derivable branch and stays visible under
+     * every setting — hiding them would make rows vanish the moment the toggle flips (design D4).
+     */
+    private List<Staff> branchVisible(List<Staff> rows) {
+        if (!settingsService.getBool("edu.staff.branchScoped")) return rows;   // org-wide (default)
+        if (requestUtil.isOwnerSuper()) return rows;
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return rows;
+        // ONE query for the whole request — the branch's class ids — then an in-memory membership test.
+        java.util.Set<Long> branchGradeIds = gradeRepository.findScopedBySchools(orgId(), schools).stream()
+                .map(Grade::getId).filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        return rows.stream().filter(s -> {
+            List<Grade> assigned = s.getGrades();
+            if (assigned == null || assigned.isEmpty()) return true;   // D4: unattributed stays visible
+            return assigned.stream().anyMatch(g -> g != null && branchGradeIds.contains(g.getId()));
+        }).collect(Collectors.toList());
+    }
+
     @RequestMapping(value = "/getUserStaff", method = RequestMethod.GET)
     @ResponseBody
     public GenericResponse getUserStaff(final HttpServletRequest request) {
         try {
-            List<Staff> objs = staffRepository.findScoped(orgId(), userId());
+            List<Staff> objs = branchVisible(staffRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -101,7 +129,8 @@ public class StaffController {
     public String getUserStaffs(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Staff> objs = staffRepository.findScoped(orgId(), userId());
+            // Scoped too: a picker that offered staff the list screen hides would be a way around the policy.
+            List<Staff> objs = branchVisible(staffRepository.findScoped(orgId(), userId()));
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -118,8 +147,9 @@ public class StaffController {
     @ResponseBody
     public GenericResponse getAllStaff(final HttpServletRequest request) {
         try {
-            // Tenant-scoped: "all" means all staff in the active organization, not every tenant's.
-            List<Staff> all = staffRepository.findScoped(orgId(), userId());
+            // Tenant-scoped: "all" means all staff in the active organization, not every tenant's — and,
+            // when the branch policy is on, all staff at the caller's branches.
+            List<Staff> all = branchVisible(staffRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "");
             }
@@ -143,9 +173,16 @@ public class StaffController {
                     return new GenericResponse("FOUND", "The Staff '" + dto.getName() + "' already exists");
                 }
             }
-            Staff obj = (dto.getId() != null)
-                    ? staffRepository.findById(dto.getId()).orElseGet(Staff::new)
-                    : new Staff();
+            // Anti-IDOR: an edit names a row by a client-supplied id, so it must be resolved WITHIN the
+            // caller's tenant. A bare findById followed by the setOrganizationId below would have moved
+            // another org's row into this one — taking it from its owner, not merely editing it.
+            Staff obj;
+            if (dto.getId() != null) {
+                obj = staffRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) return new GenericResponse("NOT_FOUND", "Staff not found");
+            } else {
+                obj = new Staff();
+            }
             obj.setUserId(userId);              // audit: who created/edited
             obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
@@ -167,11 +204,13 @@ public class StaffController {
             if (!appUtil.isEmptyOrNull(dto.getTimeOutStr())) {
                 obj.setTimeOut(LocalTime.parse(dto.getTimeOutStr()));
             }
+            // Scoped too: an unchecked findById here let a caller attach ANOTHER tenant's class to their
+            // own staff member, leaking that class back through every staff read.
             if (dto.getGradeIds() != null) {
                 List<Grade> grades = new ArrayList<>();
                 for (Long gid : dto.getGradeIds()) {
                     if (!appUtil.isEmptyOrNull(gid)) {
-                        gradeRepository.findById(gid).ifPresent(grades::add);
+                        gradeRepository.findByIdScoped(gid, orgId, userId).ifPresent(grades::add);
                     }
                 }
                 obj.setGrades(grades);

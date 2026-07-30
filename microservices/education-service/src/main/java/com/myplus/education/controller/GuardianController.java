@@ -156,9 +156,16 @@ public class GuardianController {
                     return new GenericResponse("FOUND", "The Guardian '" + dto.getName() + "' already exists");
                 }
             }
-            Guardian obj = (dto.getId() != null)
-                    ? guardianRepository.findById(dto.getId()).orElseGet(Guardian::new)
-                    : new Guardian();
+            // Anti-IDOR: an edit names a row by a client-supplied id, so it must be resolved WITHIN the
+            // caller's tenant. A bare findById followed by the setOrganizationId below would have moved
+            // another org's guardian into this one — taking the row from its owner, not merely editing it.
+            Guardian obj;
+            if (dto.getId() != null) {
+                obj = guardianRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) return new GenericResponse("NOT_FOUND", "Guardian not found");
+            } else {
+                obj = new Guardian();
+            }
             obj.setUserId(userId);              // audit: who created/edited
             obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());

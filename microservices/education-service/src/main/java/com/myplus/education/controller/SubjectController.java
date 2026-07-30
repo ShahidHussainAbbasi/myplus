@@ -41,6 +41,8 @@ public class SubjectController {
     private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
+    @Autowired
+    private com.myplus.common.settings.SettingsService settingsService;   // edu.subject.branchScoped policy
 
     private Long userId() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
@@ -71,12 +73,37 @@ public class SubjectController {
         return dto;
     }
 
+    /**
+     * Subject branch visibility — OFF by default (org-wide: one shared curriculum), opt-in per org via
+     * {@code edu.subject.branchScoped}. When on, a subject is visible only if the class it is attached to
+     * sits at one of the caller's accessible branches (derived via Subject.grade → Grade.schoolId).
+     *
+     * Escape hatches as elsewhere: setting off, owner/super, or no branch grants ⇒ org-wide. A subject
+     * attached to NO class stays visible under every setting (design D4).
+     *
+     * Callers must hold an open transaction — {@code Subject.grade} is LAZY and this service runs with
+     * {@code open-in-view: false}. Every caller below is already {@code @Transactional(readOnly = true)}.
+     */
+    private List<Subject> branchVisible(List<Subject> rows) {
+        if (!settingsService.getBool("edu.subject.branchScoped")) return rows;   // org-wide (default)
+        if (requestUtil.isOwnerSuper()) return rows;
+        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
+        if (schools.isEmpty()) return rows;
+        java.util.Set<Long> branchGradeIds = gradeRepository.findScopedBySchools(orgId(), schools).stream()
+                .map(Grade::getId).filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        return rows.stream().filter(s -> {
+            Grade g = s.getGrade();
+            if (g == null || g.getId() == null) return true;   // D4: unattributed stays visible
+            return branchGradeIds.contains(g.getId());
+        }).collect(Collectors.toList());
+    }
+
     @RequestMapping(value = "/getUserSubject", method = RequestMethod.GET)
     @ResponseBody
     @Transactional(readOnly = true)
     public GenericResponse getUserSubject(final HttpServletRequest request) {
         try {
-            List<Subject> objs = subjectRepository.findScoped(orgId(), userId());
+            List<Subject> objs = branchVisible(subjectRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(objs)) {
                 return new GenericResponse("NOT_FOUND", "", new java.util.ArrayList<SubjectDTO>());
             }
@@ -87,12 +114,16 @@ public class SubjectController {
         }
     }
 
+    // readOnly tx added with the branch filter: Subject.grade is LAZY and this service runs with
+    // open-in-view:false, so branchVisible() must navigate it inside an open session.
     @RequestMapping(value = "/getUserSubjects", method = RequestMethod.GET)
     @ResponseBody
+    @Transactional(readOnly = true)
     public String getUserSubjects(final HttpServletRequest request) {
         StringBuffer sb = new StringBuffer();
         try {
-            List<Subject> objs = subjectRepository.findScoped(orgId(), userId());
+            // Scoped too: a picker offering subjects the list screen hides would be a way around the policy.
+            List<Subject> objs = branchVisible(subjectRepository.findScoped(orgId(), userId()));
             sb.append("<option value=''>Nothing Selected</option>");
             objs.forEach(d -> {
                 if (d != null && d.getId() != null) {
@@ -111,7 +142,7 @@ public class SubjectController {
     public GenericResponse getAllSubject(final HttpServletRequest request) {
         try {
             // Tenant-scoped: "all" means all subjects in the active organization, not every tenant's.
-            List<Subject> all = subjectRepository.findScoped(orgId(), userId());
+            List<Subject> all = branchVisible(subjectRepository.findScoped(orgId(), userId()));
             if (appUtil.isEmptyOrNull(all)) {
                 return new GenericResponse("NOT_FOUND", "", new java.util.ArrayList<SubjectDTO>());
             }
@@ -136,9 +167,16 @@ public class SubjectController {
                     return new GenericResponse("FOUND", "The Subject '" + dto.getName() + "' already exists");
                 }
             }
-            Subject obj = (dto.getId() != null)
-                    ? subjectRepository.findById(dto.getId()).orElseGet(Subject::new)
-                    : new Subject();
+            // Anti-IDOR: an edit names a row by a client-supplied id, so it must be resolved WITHIN the
+            // caller's tenant. A bare findById followed by the setOrganizationId below would have moved
+            // another org's row into this one — taking it from its owner, not merely editing it.
+            Subject obj;
+            if (dto.getId() != null) {
+                obj = subjectRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) return new GenericResponse("NOT_FOUND", "Subject not found");
+            } else {
+                obj = new Subject();
+            }
             obj.setUserId(userId);              // audit: who created/edited
             obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());
@@ -146,8 +184,9 @@ public class SubjectController {
             obj.setPublisher(dto.getPublisher());
             obj.setEdition(dto.getEdition());
             obj.setStatus(dto.getStatus());
+            // Scoped: an unchecked findById let a caller attach ANOTHER tenant's class to their subject.
             if (dto.getGradeId() != null) {
-                Grade g = gradeRepository.findById(dto.getGradeId()).orElse(null);
+                Grade g = gradeRepository.findByIdScoped(dto.getGradeId(), orgId, userId).orElse(null);
                 obj.setGrade(g);
             }
             if (obj.getDated() == null) {

@@ -137,6 +137,38 @@ Cypress.Commands.add('loginAsMarketplaceOwner', (email = 'owner.marketplace@mypl
 // to "/"), so a UI-session command would need a validate endpoint none of them owns. Test those services the way
 // method-authz.cy.js does — POST /api/auth/login at the gateway and send a Bearer token.
 
+// ── The full account ladder: <tier>.<module>@myplus.com ───────────────────────────────────────────────
+// Every module is seeded with four tiers (auth-service SetupDataLoader), all on the same password:
+//   demo   DEMO_ROLE     full module privileges, but CAPPED at 50 writes/module
+//   user   ROLE_*_USER   write/update; no DELETE_PRIVILEGE, no ADMIN_PRIVILEGE
+//   admin  ADMIN_ROLE    adds DELETE_PRIVILEGE + ADMIN_PRIVILEGE + VOID_INVOICE
+//   owner  ROLE_OWNER    the super set, uncapped
+// user/admin/owner of one module share ONE organization, so a privilege test varies role while holding tenant
+// constant. One command instead of 40 near-identical ones — pass the tier and module.
+//
+//   cy.loginAsTier('admin', 'pharma')     → admin.pharma@myplus.com
+//   cy.loginAsTier('user', 'welfare')     → user.welfare@myplus.com
+//
+// Modules whose userType has no monolith dashboard (inventory/campaign/analytics) are intentionally absent —
+// use the gateway Bearer-token flow for those (see cypress/e2e/security/method-authz.cy.js).
+const MODULE_VALIDATE_PATH = {
+  business: '/getBusinessDashboardStats',
+  pharma: '/getBusinessDashboardStats',      // PHARMA reuses the trade backend
+  marketplace: '/getOrders',
+  education: '/getDashboardData',
+  welfare: '/getUserDonator',
+  agriculture: '/agricultureDashboard',
+  appointment: '/appointmentDashboard',
+}
+
+Cypress.Commands.add('loginAsTier', (tier, module, password = DEMO_PW) => {
+  const validatePath = MODULE_VALIDATE_PATH[module]
+  // Fail loudly rather than silently logging in and validating against the wrong endpoint.
+  expect(validatePath, `no monolith validate path for module "${module}" — use the gateway token flow instead`)
+    .to.be.a('string')
+  cy.loginAs(`${tier}.${module}@myplus.com`, password, validatePath)
+})
+
 Cypress.Commands.add('loginAsTeacherA', (email = 'teacher.a@myplus.com', password = DEMO_PW) => {
   cy.loginAs(email, password, '/getDashboardData')
 })

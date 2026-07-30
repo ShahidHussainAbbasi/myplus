@@ -306,9 +306,14 @@ public class AttendanceController {
         return new GenericResponse("ERROR", e.getMessage());
     }
 
+    /**
+     * Display-only class name. Scoped: the id reaches here from a request parameter, so an unscoped
+     * lookup would confirm another tenant's class name back to the caller — small, but it is still
+     * their data leaking through an attendance screen.
+     */
     private String gradeName(Long gradeId) {
         if (appUtil.isEmptyOrNull(gradeId)) return "";
-        Grade g = gradeRepository.findById(gradeId).orElse(null);
+        Grade g = gradeRepository.findByIdScoped(gradeId, orgId(), userId()).orElse(null);
         return g == null ? "" : g.getName();
     }
 }

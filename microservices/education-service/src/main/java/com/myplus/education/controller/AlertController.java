@@ -89,7 +89,15 @@ public class AlertController {
     public GenericResponse addAlerts(final HttpServletRequest request) {
         try {
             Long id = parseLong(request.getParameter("id"));
-            Alerts a = (id != null) ? alertsRepository.findById(id).orElseGet(Alerts::new) : new Alerts();
+            // Anti-IDOR: an edit names a row by a client-supplied id, so resolve it WITHIN the caller's
+            // tenant — a bare findById plus the setOrganizationId below would move another org's alert here.
+            Alerts a;
+            if (id != null) {
+                a = alertsRepository.findByIdScoped(id, orgId(), userId()).orElse(null);
+                if (a == null) return new GenericResponse("NOT_FOUND", "Alert not found");
+            } else {
+                a = new Alerts();
+            }
             a.setUserId(userId());           // audit
             a.setOrganizationId(orgId());    // tenant scope
             a.setC(joinMulti(request, "c"));
@@ -141,7 +149,9 @@ public class AlertController {
 
             Long id = parseLong(request.getParameter("id"));
             if (id != null) {
-                alertsRepository.findById(id).ifPresent(a -> { a.setSt("Sent"); alertsRepository.save(a); });
+                // Scoped: marking someone else's alert "Sent" would rewrite another tenant's record.
+                alertsRepository.findByIdScoped(id, orgId(), userId())
+                        .ifPresent(a -> { a.setSt("Sent"); alertsRepository.save(a); });
             }
             return new GenericResponse("SUCCESS", "Sent to " + result.get("sent") + ", failed " + result.get("failed"), result);
         } catch (Exception e) {

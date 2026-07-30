@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DiscountRepository extends JpaRepository<Discount, Long> {
@@ -20,4 +21,13 @@ public interface DiscountRepository extends JpaRepository<Discount, Long> {
     @Query("select d from Discount d where d.organizationId = :orgId "
             + "or (d.organizationId is null and d.userId = :userId)")
     List<Discount> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * Anti-IDOR: resolve ONE row by an id the client supplied, under the same tenant rule as
+     * {@link #findScoped}. An edit that fetched by bare id then stamped organizationId would move
+     * another tenant's row into the caller's org — silently taking it from its owner.
+     */
+    @Query("select d from Discount d where d.id = :id and (d.organizationId = :orgId "
+            + "or (d.organizationId is null and d.userId = :userId))")
+    Optional<Discount> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

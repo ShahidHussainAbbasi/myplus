@@ -320,10 +320,13 @@ A checklist item nobody executes is worth nothing — so prove it, don't assume 
 
 ```bash
 # 1. None of the seeded accounts should exist at all.
+#    Prefixes, NOT specific names: the seed set is a full ladder per module (demo./user./admin./owner.<module>@)
+#    plus the named team fixtures, so matching exact addresses would miss every account added later.
 docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
   "select email from myplusdb_auth.users
-     where email like 'demo.%' or email like 'owner.%' or email like 'cashier.%'
-        or email like 'teacher.%' or email like 'admin.store%' or email = 'admin@myplus.com';"
+     where email like 'demo.%' or email like 'owner.%' or email like 'admin.%'
+        or email like 'user.%' or email like 'cashier.%' or email like 'teacher.%'
+        or email = 'admin@myplus.com';"
 # Expect: NO ROWS. Any row here is a live account whose password is published in this repo.
 
 # 2. The one that matters most must not be able to log in.
@@ -333,9 +336,25 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8765/api/auth/
 # Expect: 400/401 — never 200.
 ```
 
-If rows come back you deployed with seeding on. Set `APP_SEED_DEMO=false` / `APP_SEED_ADMIN=false`
-(or simply remove them), restart auth-service, **and then delete the seeded rows**: turning the flag
-off stops them being *re-created*, it does not remove what has already been written.
+If rows come back you deployed with seeding on. Set `APP_SEED_DEMO=false` / `APP_SEED_ADMIN=false` /
+`APP_SEED_TEST_FIXTURES=false` (or simply remove them), restart auth-service, **and then delete the seeded
+rows**: turning the flag off stops them being *re-created*, it does not remove what has already been written.
+
+> #### ⚠️ Known gap — the microservices do not run the `prod` profile
+>
+> `SPRING_PROFILES_ACTIVE: prod` is set on the **monolith container only**. Every microservice, `auth-service`
+> included, starts on the `default` profile and therefore requests `auth-service/default` from config-server —
+> so **`application-prod.yml` is never applied to them**. Its `seed-admin: false`, the mandatory `JWT_SECRET`,
+> and the mandatory `INTERNAL_SECRET` are all inert for the services today.
+>
+> What actually protects production right now is (a) the `:-false` seeding defaults in this compose file and
+> (b) auth-service refusing to seed any account whose password was not explicitly supplied. Both hold, but they
+> are the *only* layers — the profile-based ones are not in play.
+>
+> **Recommended fix:** add `SPRING_PROFILES_ACTIVE: prod` to every service in `docker-compose.yml`. Do it
+> deliberately, not casually: it also activates the rest of `application-prod.yml`, which makes `JWT_SECRET` and
+> `INTERNAL_SECRET` mandatory with no defaults, so any service missing them will fail to start. Set those in
+> `.env` first (§4.5 already lists them), then roll the profile out and verify each service comes up.
 
 ### 4.7 Firewall — lock down the internal ports
 

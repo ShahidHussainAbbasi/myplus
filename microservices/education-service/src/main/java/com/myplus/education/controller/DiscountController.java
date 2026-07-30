@@ -148,9 +148,16 @@ public class DiscountController {
                     return new GenericResponse("FOUND", "The Discount '" + dto.getName() + "' already exists");
                 }
             }
-            Discount obj = (dto.getId() != null)
-                    ? discountRepository.findById(dto.getId()).orElseGet(Discount::new)
-                    : new Discount();
+            // Anti-IDOR: an edit names a row by a client-supplied id, so it must be resolved WITHIN the
+            // caller's tenant. A bare findById followed by the setOrganizationId below would have moved
+            // another org's row into this one — taking it from its owner, not merely editing it.
+            Discount obj;
+            if (dto.getId() != null) {
+                obj = discountRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) return new GenericResponse("NOT_FOUND", "Discount not found");
+            } else {
+                obj = new Discount();
+            }
             obj.setUserId(userId);              // audit: who created/edited
             obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());

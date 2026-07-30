@@ -33,15 +33,74 @@ public class SetupDataLoader {
     // or APP_ADMIN_PASSWORD=<strong> if you do seed one.
     @org.springframework.beans.factory.annotation.Value("${app.seed-admin:true}")
     private boolean seedAdmin;
-    @org.springframework.beans.factory.annotation.Value("${app.admin-password:Admin@2025!}")
+    @org.springframework.beans.factory.annotation.Value("${app.admin-password:}")
     private String adminPassword;
     // Per-module demo (sandbox) users — gated by its OWN flag so prod can keep an admin without ever
     // seeding shared demo accounts (set APP_SEED_DEMO=false in prod). DEMO tenants are capped at 50
     // entries/module by the gateway; userType routes each to its own module dashboard.
     @org.springframework.beans.factory.annotation.Value("${app.seed-demo:true}")
     private boolean seedDemo;
-    @org.springframework.beans.factory.annotation.Value("${app.demo-password:Demo@2025!}")
+    @org.springframework.beans.factory.annotation.Value("${app.demo-password:}")
     private String demoPassword;
+    /**
+     * DEV TEST FIXTURES — the owner./admin./user. privilege ladder and the named store/branch teams. These are
+     * test scaffolding, NOT product: they exist so Cypress can log in at a known privilege tier without hitting
+     * the demo write cap. Separated from {@code app.seed-demo} because a public demo tenant IS a product feature
+     * and may legitimately run in production, whereas a fixture never may.
+     * Hard-blocked under the {@code prod} profile regardless of this flag — see {@link #fixturesAllowed()}.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.seed-test-fixtures:true}")
+    private boolean seedTestFixtures;
+
+    /** Fallback ONLY for non-prod: prod must supply APP_DEMO_PASSWORD explicitly (see demoPassword()). */
+    private static final String DEV_DEMO_PASSWORD = "Demo@2025!";
+
+    /** The password actually used for seeded accounts this run — resolved once in {@link #onStart()}. */
+    private String demoPw;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.core.env.Environment environment;
+
+    /** True when this JVM is running the production profile. */
+    private boolean isProd() {
+        for (String p : environment.getActiveProfiles()) {
+            if ("prod".equalsIgnoreCase(p)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Test fixtures may never be created in production, whatever the config says.
+     *
+     * A flag alone is not a control: {@code application-prod.yml} set {@code seed-admin:false} but was silent on
+     * {@code seed-demo}, so it inherited the dev default of TRUE and only docker-compose's override stood between
+     * a non-compose prod deploy and 45 known-password accounts. This is the second, independent gate that does not
+     * depend on anyone remembering an env var.
+     */
+    private boolean fixturesAllowed() {
+        if (!seedTestFixtures) return false;
+        if (isProd()) {
+            log.warn("app.seed-test-fixtures=true but the 'prod' profile is active — REFUSING to seed dev test "
+                    + "fixtures (owner./admin./user. accounts). This is a hard block, not a config default.");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * The password for seeded demo accounts. In prod it must be supplied explicitly; there is no default, because
+     * a default here is a published credential on a live system. Returns null when demo seeding must be skipped.
+     */
+    private String demoPassword() {
+        if (demoPassword != null && !demoPassword.isBlank()) return demoPassword;
+        if (isProd()) {
+            log.error("app.seed-demo=true but APP_DEMO_PASSWORD is not set under the 'prod' profile — SKIPPING "
+                    + "demo seeding. Set an explicit strong password to run demo tenants in production, or set "
+                    + "APP_SEED_DEMO=false to silence this.");
+            return null;
+        }
+        return DEV_DEMO_PASSWORD;
+    }
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
@@ -121,11 +180,25 @@ public class SetupDataLoader {
         demoSet.add(p.get("DEMO_RESET_PRIVILEGE"));   // demo accounts may reset themselves (unchanged behaviour)
         Role demoRole = createOrUpdateRole("DEMO_ROLE", demoSet);
 
-        if (seedAdmin && userRepository.findByEmail("admin@myplus.com").isEmpty()) {
+        // Same rule as the demo password: prod must supply APP_ADMIN_PASSWORD explicitly. The dev default is a
+        // published credential, and application-prod.yml maps ADMIN_PASSWORD to EMPTY — so an unguarded prod run
+        // with seed-admin=true would have created admin@myplus.com with a blank password.
+        String adminPw = adminPassword;
+        if ((adminPw == null || adminPw.isBlank()) && isProd()) {
+            if (seedAdmin) {
+                log.error("app.seed-admin=true but APP_ADMIN_PASSWORD is not set under the 'prod' profile — "
+                        + "SKIPPING admin seeding rather than creating a blank-password account.");
+            }
+            adminPw = null;
+        } else if (adminPw == null || adminPw.isBlank()) {
+            adminPw = "Admin@2025!";   // dev convenience only; unreachable under the prod profile
+        }
+
+        if (seedAdmin && adminPw != null && userRepository.findByEmail("admin@myplus.com").isEmpty()) {
             User admin = User.builder()
                     .username("admin")
                     .email("admin@myplus.com")
-                    .password(passwordEncoder.encode(adminPassword))
+                    .password(passwordEncoder.encode(adminPw))
                     .firstName("Default")
                     .lastName("Admin")
                     .enabled(true)
@@ -137,10 +210,15 @@ public class SetupDataLoader {
             log.info("Default admin user created: admin@myplus.com");
         }
 
-        // Per-module DEMO users (dev seed flag) — self-healing on every startup so a restart always
-        // yields a working login. demo=true -> the gateway caps writes at 50/module and the UI shows the
-        // "register at maxtheservice.com" upsell. userType routes each to its own module dashboard.
-        if (seedDemo) {
+        // Resolve the seeding password ONCE. Null means "no safe password available" (prod with no explicit
+        // APP_DEMO_PASSWORD), in which case nothing password-bearing is seeded at all.
+        demoPw = demoPassword();
+
+        // Per-module DEMO users — the PRODUCT's try-before-buy tenants, not test fixtures. demo=true means the
+        // gateway caps writes at 50/module and the UI shows the "register at maxtheservice.com" upsell, so these
+        // may legitimately run in production — but only with an explicitly supplied password (see demoPassword()).
+        // Self-healing on every startup so a restart always yields a working login.
+        if (seedDemo && demoPw != null) {
             // One demo account per domain microservice. email, userType. All get DEMO_ROLE (full module
             // privileges + DEMO_PRIVILEGE); userType routes each to its own module dashboard.
             String[][] demos = {
@@ -159,7 +237,7 @@ public class SetupDataLoader {
                 final String email = d[0];
                 User u = userRepository.findByEmail(email)
                         .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
-                u.setPassword(passwordEncoder.encode(demoPassword));
+                u.setPassword(passwordEncoder.encode(demoPw));
                 u.setFirstName("Demo");
                 u.setLastName(d[1]);
                 u.setEnabled(true);
@@ -172,12 +250,17 @@ public class SetupDataLoader {
                 userRepository.save(u);
             }
             log.info("Demo module users ensured ({} users, demo=true, 50-entry/module cap)", demos.length);
+        }
 
+        // ── DEV TEST FIXTURES (never production) ───────────────────────────────────────────────────────
+        // Everything below is test scaffolding, not product: the owner./admin./user. privilege ladder and the
+        // named store/branch teams. Gated by its OWN flag AND hard-blocked under the prod profile, so it cannot
+        // reach a live system through a forgotten env var — which is exactly how the demo flag was exposed.
+        if (fixturesAllowed()) {
             // A real BUSINESS OWNER for testing owner-gated UI (Finance menu, Settings, Team). Unlike the
             // demo.* accounts (DEMO_ROLE + 50-write cap) this carries ROLE_OWNER with no cap. Its organization
             // is auto-provisioned on first login (OrganizationService.getOrCreatePrimaryOrg). Self-healing on
-            // every startup; dev-only (gated by app.seed-demo, which prod sets false) so it is not a prod
-            // known-password leak. Password = the same ${app.demo-password}. Login: owner.business@myplus.com.
+            // every startup. Login: owner.business@myplus.com.
             Role ownerRole = roleRepository.findByName("ROLE_OWNER")
                     .orElseThrow(() -> new IllegalStateException("ROLE_OWNER not seeded"));
             // ROLE_OWNER *plus* a second, single-privilege role carrying DEMO_RESET_PRIVILEGE — so this dev test
@@ -208,7 +291,7 @@ public class SetupDataLoader {
                 final String email = m[0];
                 User u = userRepository.findByEmail(email)
                         .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
-                u.setPassword(passwordEncoder.encode(demoPassword));
+                u.setPassword(passwordEncoder.encode(demoPw));
                 u.setFirstName(m[1]);
                 u.setLastName(email.split("@")[0]);
                 u.setEnabled(true);
@@ -235,7 +318,7 @@ public class SetupDataLoader {
             for (String email : new String[]{"teacher.a@myplus.com", "teacher.b@myplus.com"}) {
                 User t = userRepository.findByEmail(email)
                         .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
-                t.setPassword(passwordEncoder.encode(demoPassword));
+                t.setPassword(passwordEncoder.encode(demoPw));
                 t.setFirstName("Teacher");
                 t.setLastName(email.split("@")[0]);
                 t.setEnabled(true);
@@ -251,8 +334,13 @@ public class SetupDataLoader {
             log.info("Multi-branch education fixture ensured in org {}: owner.education@, teacher.a@, teacher.b@",
                     eduOrg.getId());
 
-            // An OWNER for every remaining module. Business and Education are seeded above because they also carry
-            // extra fixtures (the demo-reset role, the store/branch teams); these need only the account itself.
+            // The remaining 8 module OWNERs — 10 in total across the platform.
+            //
+            // NOT IN THIS LIST, because they are seeded ABOVE with extra fixtures rather than being missing:
+            //   • owner.business@    — needs DEMO_RESET_ROLE too, and anchors the store team (admin.store@,
+            //                          cashier.a@, cashier.b@) used by the multi-location specs
+            //   • owner.education@   — anchors the branch team (teacher.a@, teacher.b@)
+            // All 10 go through ensureOwner(), so the account shape is identical either way.
             //
             // Why every module gets one: the demo.* accounts are capped at 50 writes per module, so any spec that
             // seeds more than that fails partway through at an unrelated-looking write. Pharmacy hit exactly this —
@@ -275,6 +363,48 @@ public class SetupDataLoader {
             log.info("Module OWNER test users ensured ({}, ROLE_OWNER, demo=false, own org): {}",
                     moduleOwners.length,
                     Arrays.stream(moduleOwners).map(o -> o[0]).collect(java.util.stream.Collectors.joining(", ")));
+
+            // ── The full privilege ladder, for every module ────────────────────────────────────────────────
+            // Per module the platform now seeds four accounts, all on ${app.demo-password}:
+            //   demo.<m>@   DEMO_ROLE  — full module privileges BUT capped at 50 writes/module (the upsell demo)
+            //   user.<m>@   ROLE_<M>_USER — WRITE/UPDATE, no DELETE_PRIVILEGE, no ADMIN_PRIVILEGE
+            //   admin.<m>@  ADMIN_ROLE — adds DELETE_PRIVILEGE + ADMIN_PRIVILEGE + VOID_INVOICE
+            //   owner.<m>@  ROLE_OWNER — the super set, uncapped
+            //
+            // admin/user are seeded as MEMBERS OF THE OWNER'S ORG on purpose. A privilege test needs two accounts
+            // that differ only by role inside one tenant; if they sat in separate orgs, a refusal would prove
+            // org-scoping worked, not that the privilege gate did. This is the shape cypress/e2e/security/
+            // method-authz.cy.js already relies on for business + education.
+            //
+            // The named fixtures seeded above (admin.store@, cashier.a/b@, teacher.a/b@) are KEPT — existing specs
+            // reference them by name, and they carry location/branch grants these generic ones deliberately do not.
+            String[][] moduleTeams = {
+                    // email prefix   display     userType        per-module USER role
+                    {"business",     "Business",    "BUSINESS",    "ROLE_BUSINESS_USER"},
+                    {"education",    "Education",   "EDUCATION",   "ROLE_EDUCATION_USER"},
+                    {"pharma",       "Pharma",      "PHARMA",      "ROLE_PHARMA_USER"},
+                    {"welfare",      "Welfare",     "WELFARE",     "ROLE_WELFARE_USER"},
+                    {"agriculture",  "Agriculture", "AGRICULTURE", "ROLE_AGRICULTURE_USER"},
+                    {"appointment",  "Appointment", "APPOINTMENT", "ROLE_APPOINTMENT_USER"},
+                    {"inventory",    "Inventory",   "INVENTORY",   "ROLE_INVENTORY_USER"},
+                    {"marketplace",  "Marketplace", "MARKETPLACE", "ROLE_MARKETPLACE_SELLER"},
+                    {"campaign",     "Campaign",    "CAMPAIGN",    "ROLE_CAMPAIGN_USER"},
+                    {"analytics",    "Analytics",   "ANALYTICS",   "ROLE_ANALYTICS_USER"},
+            };
+            Role genericAdminRole = roleRepository.findByName("ADMIN_ROLE")
+                    .orElseThrow(() -> new IllegalStateException("ADMIN_ROLE not seeded"));
+            for (String[] m : moduleTeams) {
+                User modOwner = userRepository.findByEmail("owner." + m[0] + "@myplus.com")
+                        .orElseThrow(() -> new IllegalStateException("owner." + m[0] + "@ not seeded — it must be"
+                                + " created before its team, since the team joins ITS organization"));
+                Long orgId = organizationService.getOrCreatePrimaryOrg(modOwner).getId();   // idempotent
+                Role userRole = roleRepository.findByName(m[3])
+                        .orElseThrow(() -> new IllegalStateException(m[3] + " not seeded"));
+                ensureMember("admin." + m[0] + "@myplus.com", "Admin", m[1], m[2], genericAdminRole, orgId, "ADMIN");
+                ensureMember("user."  + m[0] + "@myplus.com", "User",  m[1], m[2], userRole,         orgId, "USER");
+            }
+            log.info("Module ADMIN + USER test users ensured ({} modules): admin.<module>@ / user.<module>@, "
+                    + "each a member of that module's owner org", moduleTeams.length);
         }
 
         // NOTE: real customers are NEVER seeded here. A client is onboarded through self-service signup
@@ -296,7 +426,7 @@ public class SetupDataLoader {
     private User ensureOwner(String email, String lastName, String userType, Role ownerRole, Role... extraRoles) {
         User u = userRepository.findByEmail(email)
                 .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
-        u.setPassword(passwordEncoder.encode(demoPassword));
+        u.setPassword(passwordEncoder.encode(demoPw));
         u.setFirstName("Owner");
         u.setLastName(lastName);
         u.setEnabled(true);
@@ -312,6 +442,31 @@ public class SetupDataLoader {
         u = userRepository.save(u);
         organizationService.getOrCreatePrimaryOrg(u);   // idempotent — every owner needs a tenant to scope into
         return u;
+    }
+
+    /**
+     * Create/refresh a dev team member (admin or plain user) INSIDE an existing organization.
+     *
+     * The org membership is the point. A privilege test is only meaningful when the accounts differ by ROLE while
+     * sharing a TENANT — otherwise a refusal could just as easily be org-scoping doing its job, and the test proves
+     * nothing about @PreAuthorize. Same self-healing reset as {@link #ensureOwner}.
+     */
+    private void ensureMember(String email, String firstName, String lastName, String userType,
+                              Role role, Long orgId, String membershipRole) {
+        User u = userRepository.findByEmail(email)
+                .orElseGet(() -> User.builder().username(email.split("@")[0]).email(email).build());
+        u.setPassword(passwordEncoder.encode(demoPw));
+        u.setFirstName(firstName);
+        u.setLastName(lastName);
+        u.setEnabled(true);
+        u.setAccountNonLocked(true);
+        u.setFailedLoginAttempts(0);
+        u.setLockTime(null);
+        u.setUserType(userType);
+        u.setDemo(false);
+        u.setRoles(new HashSet<>(Collections.singletonList(role)));
+        u = userRepository.save(u);
+        organizationService.addMember(u.getId(), orgId, membershipRole);   // idempotent
     }
 
     private Privilege createPrivilegeIfNotExists(String name) {

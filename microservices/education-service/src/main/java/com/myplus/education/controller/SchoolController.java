@@ -190,9 +190,16 @@ public class SchoolController {
                 }
             }
 
-            School obj = (dto.getId() != null)
-                    ? schoolRepository.findById(dto.getId()).orElseGet(School::new)
-                    : new School();
+            // Anti-IDOR: an edit names a branch by a client-supplied id, so it must be resolved WITHIN the
+            // caller's tenant. A bare findById followed by the setOrganizationId below would have moved
+            // another org's branch — and every student filed under it — into this one.
+            School obj;
+            if (dto.getId() != null) {
+                obj = schoolRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) return new GenericResponse("NOT_FOUND", "School not found");
+            } else {
+                obj = new School();
+            }
             obj.setUserId(userId);          // audit: who created/edited
             obj.setOrganizationId(orgId);   // tenant scope
             obj.setName(dto.getName());
@@ -206,11 +213,13 @@ public class SchoolController {
             }
             obj.setUpdated(LocalDateTime.now());
 
+            // Scoped too: an unchecked findById here let a caller attach ANOTHER tenant's owner to their
+            // own branch, leaking that owner's name/contact back through every school read.
             Set<Owner> owners = new HashSet<>();
             if (dto.getOwnerIds() != null) {
                 for (Long id : dto.getOwnerIds()) {
                     if (!appUtil.isEmptyOrNull(id)) {
-                        ownerRepository.findById(id).ifPresent(owners::add);
+                        ownerRepository.findByIdScoped(id, orgId, userId).ifPresent(owners::add);
                     }
                 }
             }

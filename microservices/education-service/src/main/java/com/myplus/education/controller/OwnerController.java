@@ -124,9 +124,16 @@ public class OwnerController {
                     return new GenericResponse("FOUND", "The Owner '" + dto.getName() + "' already exists");
                 }
             }
-            Owner obj = (dto.getId() != null)
-                    ? ownerRepository.findById(dto.getId()).orElseGet(Owner::new)
-                    : new Owner();
+            // Anti-IDOR: an edit names a row by a client-supplied id, so it must be resolved WITHIN the
+            // caller's tenant. A bare findById followed by the setOrganizationId below would have moved
+            // another org's row into this one — taking it from its owner, not merely editing it.
+            Owner obj;
+            if (dto.getId() != null) {
+                obj = ownerRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) return new GenericResponse("NOT_FOUND", "Owner not found");
+            } else {
+                obj = new Owner();
+            }
             obj.setUserId(userId);              // audit: who created/edited
             obj.setOrganizationId(orgId);       // tenant scope
             obj.setName(dto.getName());

@@ -30,7 +30,23 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                         "Restrict discounts to their branch",
                         "Off (default): fee discounts are visible org-wide. On: a branch sees only discounts applied "
                                 + "to a student at that branch.",
+                        false, "Branch policy"),
+                SettingEntry.bool("edu.staff.branchScoped",
+                        "Restrict staff to their branch",
+                        "Off (default): the staff list is visible org-wide. On: a branch sees only staff assigned to "
+                                + "a class at that branch. A teacher who covers two campuses stays visible at both, "
+                                + "and staff assigned to no class stay visible everywhere.",
+                        false, "Branch policy"),
+                SettingEntry.bool("edu.subject.branchScoped",
+                        "Restrict subjects to their branch",
+                        "Off (default): the subject list is visible org-wide (one shared curriculum). On: a branch "
+                                + "sees only subjects attached to a class at that branch. A subject attached to no "
+                                + "class stays visible everywhere.",
                         false, "Branch policy")
+                // NOTE: fee-collection branch scoping is deliberately NOT here. It already exists as
+                // FeeSetting.feeCollectionBranchScoped on the Fee Settings screen (see FeeCollectionController
+                // .branchVisible). Adding a second switch for the same behaviour would give the owner two
+                // controls that can disagree — and nothing to say which one wins.
         );
     }
 }

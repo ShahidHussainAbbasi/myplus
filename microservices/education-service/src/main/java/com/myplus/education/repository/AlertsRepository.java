@@ -19,5 +19,14 @@ public interface AlertsRepository extends JpaRepository<Alerts, Long> {
     @Query("select a from Alerts a where a.organizationId = :orgId "
             + "or (a.organizationId is null and a.userId = :userId)")
     List<Alerts> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * Anti-IDOR: resolve ONE alert by a client-supplied id within the caller's tenant. Guards both the
+     * edit path (which stamps organizationId) and the "mark as sent" path.
+     */
+    @Query("select a from Alerts a where a.id = :id and (a.organizationId = :orgId "
+            + "or (a.organizationId is null and a.userId = :userId))")
+    java.util.Optional<Alerts> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId,
+                                              @Param("userId") Long userId);
 }
 

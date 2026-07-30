@@ -166,10 +166,17 @@ services:
       # owner.business@myplus.com — which carries ROLE_OWNER + SUPER_PRIVILEGE with no write cap — plus the
       # multi-location test team (admin.store@, cashier.a/b@, owner.education@, teacher.a/b@). All share
       # ${APP_DEMO_PASSWORD}, whose default is committed to this repo. Safe default here, opt in for local dev:
-      #   echo "APP_SEED_DEMO=true"  >> .env      # local only — NEVER on the VPS
+      #   echo "APP_SEED_DEMO=true"          >> .env   # local only — NEVER on the VPS
+      #   echo "APP_SEED_TEST_FIXTURES=true" >> .env   # local only — the Cypress login ladder
       APP_SEED_ADMIN: ${APP_SEED_ADMIN:-false}
       APP_SEED_DEMO: ${APP_SEED_DEMO:-false}
-      APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-Demo@2025!}   # only used when APP_SEED_DEMO=true
+      # owner./admin./user. privilege ladder + store/branch teams. Test scaffolding: auth-service refuses to
+      # create these under the prod profile even if this is somehow true.
+      APP_SEED_TEST_FIXTURES: ${APP_SEED_TEST_FIXTURES:-false}
+      # No default any more. An unset password means seeding is SKIPPED rather than falling back to the
+      # credential committed to this repo — that fallback was the actual exposure, not the flags.
+      APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-}
     networks: [myplus-net]
     depends_on:
       mysql:

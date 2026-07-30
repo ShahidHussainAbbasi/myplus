@@ -24,4 +24,15 @@ public interface SchoolRepository extends JpaRepository<School, Long> {
     @Query("select s from School s where s.organizationId = :orgId "
             + "or (s.organizationId is null and s.userId = :userId)")
     List<School> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * Anti-IDOR: resolve ONE branch by a client-supplied id under the same tenant rule as
+     * {@link #findScoped}. An edit that fetched by bare id then stamped organizationId would move
+     * another tenant's branch into the caller's org — taking the branch, and every student filed
+     * under it, from its owner.
+     */
+    @Query("select s from School s where s.id = :id and (s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId))")
+    java.util.Optional<School> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId,
+                                              @Param("userId") Long userId);
 }

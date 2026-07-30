@@ -40,11 +40,22 @@ app:
   base-url: ${APP_BASE_URL:http://localhost:8765}
   verification-token-expiry-hours: 24
   password-reset-token-expiry-hours: 1
-  # Bootstrap seeding (dev defaults true). In prod set BOTH to false (env APP_SEED_ADMIN / APP_SEED_DEMO)
-  # so no known-password admin and no shared demo users are created. Real customers come only through
-  # signup (/api/auth/register) — never seeded. See slice 32.
+  # Bootstrap seeding — DEV defaults. Three independent concerns, because they carry different risk:
+  #   seed-admin        the platform operator account
+  #   seed-demo         PUBLIC DEMO tenants — a product feature (50-entry cap + "register at maxtheservice.com"
+  #                     upsell), so it may legitimately run in prod, but only with an explicit password
+  #   seed-test-fixtures  owner./admin./user. privilege ladder + store/branch teams — TEST SCAFFOLDING, never prod
+  #
+  # Passwords have NO default on purpose: under the prod profile SetupDataLoader skips any account whose password
+  # was not explicitly supplied, rather than creating one with a published or blank credential. Locally the code
+  # falls back to Demo@2025! / Admin@2025! so nothing needs configuring for dev or Cypress.
+  #
+  # Real customers are never seeded — they arrive via signup (/api/auth/register). See slice 32.
   seed-admin: ${APP_SEED_ADMIN:true}
   seed-demo: ${APP_SEED_DEMO:true}
+  seed-test-fixtures: ${APP_SEED_TEST_FIXTURES:true}
+  admin-password: ${APP_ADMIN_PASSWORD:}
+  demo-password: ${APP_DEMO_PASSWORD:}
 
 management:
   endpoints:
