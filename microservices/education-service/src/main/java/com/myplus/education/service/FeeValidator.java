@@ -47,12 +47,12 @@ public final class FeeValidator {
         // credit ledger (0.2b); a correction is a different operation with a different audit meaning.
         // Allowing negatives as a back-door adjustment makes a negative receipt and a refund
         // indistinguishable in the ledger afterwards.
-        negative(problems, "Fee", dto.getFee());
-        negative(problems, "Due amount", dto.getDueAmount());
-        negative(problems, "Fee paid", dto.getFeePaid());
-        negative(problems, "Other dues", dto.getOtherDues());
-        negative(problems, "Vehicle fee", dto.getVehicleFee());
-        negative(problems, "Discount", dto.getDiscount());
+        Validations.negative(problems, "Fee", dto.getFee());
+        Validations.negative(problems, "Due amount", dto.getDueAmount());
+        Validations.negative(problems, "Fee paid", dto.getFeePaid());
+        Validations.negative(problems, "Other dues", dto.getOtherDues());
+        Validations.negative(problems, "Vehicle fee", dto.getVehicleFee());
+        Validations.negative(problems, "Discount", dto.getDiscount());
 
         // B4 — a discount is bounded, but by WHAT depends on how it is expressed. Comparing a percentage
         // against the fee would wrongly reject "10%" on a fee of 5, and comparing an amount against 100
@@ -88,12 +88,6 @@ public final class FeeValidator {
 
     private static boolean positive(Integer v) {
         return v != null && v > 0;
-    }
-
-    private static void negative(List<String> problems, String label, Integer value) {
-        if (value != null && value < 0) {
-            problems.add(label + " cannot be negative (" + value + ")");
-        }
     }
 
     /** The UI offers "amount" and "%"; anything unset is treated as an amount, which is the safer reading. */

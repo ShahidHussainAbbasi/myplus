@@ -1,6 +1,6 @@
 # Slice B — Fee collection validation
 
-**Status: DESIGN — awaiting approval. No code written.**
+**Status: DONE — implemented, `mvn test` + Cypress gate GREEN.**
 Closes audit **finding B** (`education-review-audit.md`): *"`addFc` (money in) has zero validation."*
 
 ---
@@ -182,15 +182,15 @@ sequenceDiagram
 
 ## 4. Implement — checklist
 
-- [ ] `FeeValidator.validate(dto)` — pure, returns a list of per-field problems (empty = valid)
-- [ ] negatives refused on `fee`, `dueAmount`, `feePaid`, `discount`, `vehicleFee`, `otherDues` (D2)
-- [ ] `discount <= fee` (B4); `dueDayOfMonth` within 1–31 when present
-- [ ] `addFc` calls it FIRST, returns every problem at once rather than one at a time
-- [ ] student-exists check widened to any charging row (D3), still skipped on edit
-- [ ] `registerOpeningDue` returns without saving when the monthly due is 0 (D4)
-- [ ] `@PositiveOrZero` on the DTO money fields as a second layer (D1)
-- [ ] `min="0"` on the form's money inputs
-- [ ] tests: `FeeValidatorTest` (pure, every rule + the valid case) + `cypress/e2e/education/fee-validation.cy.js`
+- [x] `FeeValidator.validate(dto)` — pure, returns a list of per-field problems (empty = valid)
+- [x] negatives refused on `fee`, `dueAmount`, `feePaid`, `discount`, `vehicleFee`, `otherDues` (D2)
+- [x] `discount <= fee` (B4); `dueDayOfMonth` within 1–31 when present
+- [x] `addFc` calls it FIRST, returns every problem at once rather than one at a time
+- [x] student-exists check widened to any charging row (D3), still skipped on edit
+- [x] `registerOpeningDue` returns without saving when the monthly due is 0 (D4)
+- [~] `@PositiveOrZero` on the DTO — **NOT DONE, deliberately**: education uses `@Valid` in zero places, so the annotations would never execute (see the correction in D1)
+- [x] `min="0"` on the form's money inputs
+- [x] tests: `FeeValidatorTest` (pure, every rule + the valid case) + `cypress/e2e/education/fee-validation.cy.js`
 
 ## 5. Test
 
@@ -217,10 +217,9 @@ Pure unit: every rule in `FeeValidatorTest`.
 home beyond fee credit. That is a real gap, but it is a *feature* with its own audit and GL meaning — not
 something to smuggle in as a negative number. Worth its own slice if schools ask for it.
 
-**The other education forms.** `addStudent`, `addGrade`, `addDiscount` and `addVehicle` are equally unvalidated;
-`addGrade` and `addVehicle` both carry money (class fee, fare). This slice deliberately covers only the fee
-path — the one that reaches the shared ledger. The rest deserve the same treatment as a follow-on, now that
-there is a validator to copy.
+**The other education forms.** `addStudent`, `addGrade`, `addDiscount` and `addVehicle` are equally unvalidated.
+This slice deliberately covers only the fee path — the one that reaches the shared ledger. The rest are handled
+in **§8 below**.
 
 ## 7. Risks
 
@@ -232,3 +231,69 @@ there is a validator to copy.
 - **Fail-closed on money is the right default, and it will surface bad existing habits.** If clerks have been
   using negative amounts as ad-hoc corrections, those attempts now fail loudly. That is the point, but it should
   be expected rather than discovered.
+
+---
+
+## 8. §6 follow-on — the other education forms (B2, implemented)
+
+### The scope is NARROWER than §6 assumed, and the correction matters
+
+§6 said *"`addGrade` and `addVehicle` both carry money (class fee, fare)"*. Checking the code before designing
+against that sentence:
+
+| Form | Carries money? | Reality |
+|---|---|---|
+| `addGrade` | **YES** | `Grade.fee` → `gradeFee()` → `monthlyDue()` — it is the base of every opening due |
+| `addDiscount` | **YES** | `Discount.amount`, interpreted by `Discount.di` |
+| `addVehicle` | **NO** | `Vehicle` has no fare column at all. The vehicle fare lives on **`Student.vf`** |
+| `addStudent` | **NO (reachable)** | `StudentDTO` exposes neither `fee` nor `vf`, so neither can be set through the API |
+
+So two forms are validated here, not four. Validating a `Vehicle` fare that does not exist would be theatre.
+
+### D8 — `Discount` repeats the fee's amount-vs-percentage rule, and it is sharper here
+
+`FeeService.discountAmount` is explicit:
+
+```java
+// "%" = percentage of base, rounded to the nearest whole currency unit; otherwise a flat amount.
+return "%".equals(d.getDi()) ? (int) Math.round((double) base * d.getAmount() / 100.0) : d.getAmount();
+```
+
+A discount above 100% therefore computes a reduction **larger than the fee itself**. `monthlyDue` floors the
+result with `Math.max(…, 0)`, so it never goes negative — which is exactly why this is worth refusing at entry:
+the damage is silent. The parent is billed 0 and nothing anywhere says the discount was nonsense.
+
+Same rule as the fee form, one difference: a discount is defined **without a fee in context**, so an *amount*
+discount can only be checked for `>= 0`. The `<= fee` comparison belongs where a fee exists — which slice B
+already does on the collection itself.
+
+### D9 — Shared primitives, not a copied helper
+
+`FeeValidator` already owns `negative(...)`. Rather than paste it, the shared checks move to `Validations`
+and both validators call it — the no-duplicate-functions rule applies to validation helpers as much as to JS.
+
+### D10 — Coherence checks that cost nothing
+
+A class whose `timeTo` precedes `timeFrom`, or a discount whose `endDate` precedes its `startDate`, is
+nonsense that no screen can render sensibly. Both are refused; neither needs a policy decision.
+
+### What is NOT added
+
+No `@Valid`, for the reason corrected in D1 — it would replace specific messages with a generic 400.
+No name/mobile-format rules: those are cosmetic, vary by country, and would refuse legitimate data.
+
+### Test
+
+| # | Case | Expected |
+|---|---|---|
+| 1 | `addGrade` with `fee = -1` | refused, names the field |
+| 2 | `addGrade` with `fee = 0` | **allowed** — a free class is legitimate (and B3 now skips its opening due) |
+| 3 | `addGrade` with `timeTo` before `timeFrom` | refused |
+| 4 | `addDiscount` with `amount = -5` | refused |
+| 5 | `addDiscount` `di = "%"`, `amount = 150` | refused — it would discount more than the fee |
+| 6 | `addDiscount` `di = "%"`, `amount = 100` | allowed (a full scholarship) |
+| 7 | `addDiscount` `di = amount`, `amount = 50000` | allowed — no fee in context to bound it (D8) |
+| 8 | `addDiscount` with `endDate` before `startDate` | refused |
+| 9 | A valid grade and a valid discount | saved, unchanged |
+
+Gate: extends `cypress/e2e/education/fee-validation.cy.js`. Unit: `FormValidatorTest`.

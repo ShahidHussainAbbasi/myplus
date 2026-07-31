@@ -184,6 +184,15 @@ public class GradeController {
             if (!appUtil.isEmptyOrNull(dto.getTimeToStr())) {
                 obj.setTimeTo(LocalTime.parse(dto.getTimeToStr()));
             }
+
+            // Slice B §8: a negative class fee would propagate into the fee ledger for EVERY student in the
+            // class, via gradeFee() → monthlyDue() → the opening due. Validated after parsing so the time
+            // ordering is judged on real LocalTimes rather than re-parsed strings.
+            java.util.List<String> problems =
+                    com.myplus.education.service.FormValidator.validateGrade(dto, obj.getTimeFrom(), obj.getTimeTo());
+            if (!problems.isEmpty()) {
+                return new GenericResponse("FAILED", String.join("; ", problems));
+            }
             if (obj.getDated() == null) {
                 obj.setDated(LocalDateTime.now());
             }

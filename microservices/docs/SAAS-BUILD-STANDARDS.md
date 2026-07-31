@@ -135,6 +135,22 @@ key the UI actually reads. Related: **D9** (a rename must move every one of thos
 Git restores a class; nothing restores rows. Verify zero references first — including the entity-only-referenced-
 by-its-own-repository "dead pair" shape (`Segment` + `SegmentRepository`).
 
+**D13. A Lombok module can fail with ~90 errors that all have ONE cause — always fix the FIRST error and
+rebuild before reading the rest.** A structural error (a duplicate method, a syntax error) aborts javac's
+annotation processing, so every `@Data`/`@Getter`/`@Builder`-generated method in the module vanishes at once.
+The output then blames files nobody touched:
+
+```
+[ERROR] FeeCollectionController.java:[336,20] method glMethod(String) is already defined   ← the ONLY real error
+[ERROR] AlertChannel.java … cannot find symbol: method getC()                              ← collateral
+[ERROR] OrgSetting.java  … cannot find symbol: method builder()                            ← collateral
+[ERROR] Term.java        … cannot find symbol: method getStartDate()                       ← collateral
+```
+
+Symptom to recognise: mass `cannot find symbol` on *getters, setters and `builder()`* across unrelated entities.
+That is never a real refactor gap — it is annotation processing having been switched off. Do not start
+"fixing" the collateral; it does not exist.
+
 **D12. education has TWO `FeeCollectionDTO` classes — check which one a controller binds before writing against
 it.** `com.myplus.education.dto.FeeCollectionDTO` is the flat/legacy shape `addFc` binds;
 `com.myplus.education.dto.EducationDTOs.FeeCollectionDTO` is the nested REST shape. They carry the same field

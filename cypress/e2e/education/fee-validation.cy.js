@@ -202,6 +202,51 @@ describe('Education — fee collection validation (finding B)', () => {
     })
   })
 
+  // ── §8: the other money-carrying forms ──────────────────────────────────────────────────────
+
+  it('a negative CLASS FEE is refused — it would reach every student in the class', () => {
+    cy.request({ method: 'POST', url: '/addGrade', form: true, failOnStatusCode: false,
+      body: { name: 'FVNEG' + Date.now(), fee: -1, status: 'Active' } })
+      .then((r) => {
+        const b = refused(r, 'negative class fee')
+        expect(b.message).to.contain('Class fee')
+      })
+  })
+
+  it('a FREE class is allowed — zero is legitimate', () => {
+    cy.request({ method: 'POST', url: '/addGrade', form: true, failOnStatusCode: false,
+      body: { name: 'FVFREE' + Date.now(), fee: 0, status: 'Active' } })
+      .then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
+  })
+
+  it('a PERCENTAGE discount above 100% is refused', () => {
+    // discountAmount() computes base * amount / 100, and monthlyDue floors the result at 0 — so without
+    // this the parent is silently billed nothing.
+    cy.request({ method: 'POST', url: '/addDiscount', form: true, failOnStatusCode: false,
+      body: { name: 'FVD150' + Date.now(), di: '%', amount: 150, status: 'Active' } })
+      .then((r) => {
+        const b = refused(r, '150% discount')
+        expect(b.message).to.contain('150')
+      })
+  })
+
+  it('a 100% discount is allowed, and so is a large AMOUNT discount', () => {
+    const stamp = Date.now()
+    cy.request({ method: 'POST', url: '/addDiscount', form: true, failOnStatusCode: false,
+      body: { name: 'FVD100' + stamp, di: '%', amount: 100, status: 'Active' } })
+      .then((r) => expect(parse(r.body).status, `full scholarship: ${JSON.stringify(r.body)}`).to.eq('SUCCESS'))
+    // No fee in context bounds an AMOUNT discount, so a large one must not be refused.
+    cy.request({ method: 'POST', url: '/addDiscount', form: true, failOnStatusCode: false,
+      body: { name: 'FVDBIG' + stamp, di: 'amount', amount: 50000, status: 'Active' } })
+      .then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
+  })
+
+  it('a negative discount amount is refused', () => {
+    cy.request({ method: 'POST', url: '/addDiscount', form: true, failOnStatusCode: false,
+      body: { name: 'FVDNEG' + Date.now(), di: 'amount', amount: -5, status: 'Active' } })
+      .then((r) => refused(r, 'negative discount'))
+  })
+
   it('registering into a class WITH a fee still creates the opening due', () => {
     // The other half of B3: the guard must suppress only the EMPTY row, never a real due.
     const stamp = Date.now()
