@@ -24,50 +24,50 @@ public class FeeCollection {
     private Long organizationId;
 
     @Column(name = "enroll_no")
-    private String en;
+    private String enrollNo;
 
     @Column(name = "discount_type")
-    private String dt;
+    private String discountType;
 
     @Column(name = "discount")
-    private Integer d;
+    private Integer discount;
 
     @Column(name = "due_day_of_month")
-    private Integer dd;
+    private Integer dueDayOfMonth;
 
     @Column(name = "due_amount")
-    private Integer da;
+    private Integer dueAmount;
 
     @Column(name = "fee")
-    private Integer f;
+    private Integer fee;
 
     @Column(name = "fee_paid")
-    private Integer fp;
+    private Integer feePaid;
 
     @Column(name = "payment_date")
-    private LocalDate pd;
+    private LocalDate paymentDate;
 
     @Column(name = "other_dues")
-    private Integer od;
+    private Integer otherDues;
 
     @Column(name = "other_dues_description")
-    private String odd;
+    private String otherDuesDescription;
 
     @Column(name = "payee")
-    private String p;
+    private String payee;
 
     @Column(name = "recieved_by")
-    private String rb;
+    private String receivedBy;
 
     @Column(name = "recieved_in")
-    private String ri;
+    private String receivedIn;
 
     @Column(name = "check_no")
-    private String cn;
+    private String checkNo;
 
     @Column(name = "vehicle_fee")
-    private Integer vf;
+    private Integer vehicleFee;
 
     @Column(name = "due_balance")
-    private Integer db;
+    private Integer dueBalance;
 }

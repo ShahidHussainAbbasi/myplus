@@ -15,7 +15,7 @@ import java.util.Optional;
 public interface FeeCollectionRepository extends JpaRepository<FeeCollection, Long> {
     Page<FeeCollection> findByUserId(Long userId, Pageable pageable);
     List<FeeCollection> findByUserId(Long userId);
-    Page<FeeCollection> findByUserIdAndEn(Long userId, String enrollNo, Pageable pageable);
+    Page<FeeCollection> findByUserIdAndEnrollNo(Long userId, String enrollNo, Pageable pageable);
     long countByUserId(Long userId);
 
     /** Tenant-scoped read: active org rows + caller's not-yet-migrated (NULL-org) rows. See 01-school. */
@@ -24,7 +24,7 @@ public interface FeeCollectionRepository extends JpaRepository<FeeCollection, Lo
     List<FeeCollection> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /** A student's fee records within a tenant (ledger / previous balance / aging). */
-    List<FeeCollection> findByOrganizationIdAndEnOrderByIdAsc(Long organizationId, String en);
+    List<FeeCollection> findByOrganizationIdAndEnrollNoOrderByIdAsc(Long organizationId, String enrollNo);
 
     /**
      * Anti-IDOR: resolve ONE row by an id the client supplied, under the same tenant rule as

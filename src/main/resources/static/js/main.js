@@ -664,6 +664,13 @@ $(document).ready(function() {
 	 * it used to click #delete<Entity>, whose handler then raised a second, native confirm().
 	 */
 	window.performBulkDelete = function (entity, ids) {
+		// Most entities post to /delete<Entity>. Some do not: a catalog Product is DEACTIVATED, never
+		// deleted, because a removed product still owns its SKU and is referenced by past sales. The
+		// generic path used to post /deleteProduct regardless — an endpoint that does not exist — so bulk
+		// delete on the Product screen 404'd. A module registers its own handler as window.bulkDelete<Entity>
+		// and that wins; everything else keeps the convention.
+		var override = window["bulkDelete" + entity];
+		if (typeof override === "function") { override(ids); return; }
 		$(document).callAjax("delete" + entity, { checked : ids });
 	};
 
@@ -703,25 +710,48 @@ $(document).ready(function() {
 			}, error: function(data, textStatus, errorThrown) {
 				hideWait();
 				resetGlobalError();
-                if(textStatus==="parsererror"){
-                	window.location.href = serverContext + "login?message=" + errorThrown;
-		        }
-		        else if(data.responseJSON.error.indexOf("InternalError") > -1){
-		            window.location.href = serverContext + "login?message=" + data.responseJSON.message;
-		        }
 
-				var errors = $.parseJSON(data.responseJSON.message);
-	         	$.each( errors, function( index,item ){
-	            	if (item.field){
-	            		$("[name="+item.field+"]").addClass("alert-danger");
-	            		$("#globalError").show().append(escHtml(item.defaultMessage)+"<br/>");
-	            		$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
-	            	}
-	            	else {
-	            		$("#globalError").show().append(escHtml(item.defaultMessage)+"<br/>");
-	            		$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
-	            	}
-	         	});
+				// An error handler must never throw. This one assumed every failure carried
+				// {error, message} JSON with `message` holding a JSON-encoded validation array — so a plain
+				// 404/500 (whose body is Spring's HTML error page, or JSON with no `message`) crashed on
+				// `responseJSON.error.indexOf` and the REAL failure never reached the user. Read defensively
+				// and fall back to reporting the HTTP status, which is always available.
+				var body = data ? data.responseJSON : null;
+
+				if (textStatus === "parsererror") {
+					window.location.href = serverContext + "login?message=" + errorThrown;
+					return;
+				}
+				if (body && typeof body.error === "string" && body.error.indexOf("InternalError") > -1) {
+					window.location.href = serverContext + "login?message=" + (body.message || "");
+					return;   // was missing — the handler used to redirect and then keep parsing
+				}
+
+				// The validation-array shape: message is a JSON string of {field, defaultMessage} entries.
+				var errors = null;
+				if (body && typeof body.message === "string") {
+					try { errors = JSON.parse(body.message); } catch (e) { errors = null; }
+				}
+
+				if (Array.isArray(errors) && errors.length) {
+					$.each(errors, function (index, item) {
+						if (item && item.field) {
+							$("[name=" + item.field + "]").addClass("alert-danger");
+						}
+						$("#globalError").show().append(escHtml((item && item.defaultMessage) || "") + "<br/>");
+					});
+					$('html, body').animate({ scrollTop: $('#globalError').offset().top }, 'slow');
+					return;
+				}
+
+				// Anything else — 404, 500, an HTML error page, a proxy failure. Say what actually happened
+				// instead of dying silently in the handler.
+				var status = data && data.status ? data.status : 0;
+				var detail = (body && (body.message || body.error))
+					|| (status === 404 ? 'That action is not available on the server.'
+					  : status === 403 ? 'You do not have permission to do that.'
+					  : errorThrown || 'Unexpected error');
+				showFormError('Request failed (' + (status || 'network') + '): ' + detail);
             }
 		}).fail(function(data) {
 			hideWait();

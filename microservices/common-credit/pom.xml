@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>common-credit</artifactId>
+  <name>common-credit</name>
+  <description>Shared party-credit rules: an append-only signed ledger, a redemption capped at the balance so it
+    can never overdraw, and a cached balance refreshed after every write. Storage and the cached-balance owner
+    come from a CreditStore SPI, so POS store credit (Customer) and school fee credit (Student) share one set of
+    rules without sharing a table. Holds NO @Entity.</description>
+
+  <dependencies>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-context</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+  </dependencies>
+</project>

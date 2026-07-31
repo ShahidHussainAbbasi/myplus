@@ -119,6 +119,9 @@
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FVDiv','snavFee')"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.feeVoucherLedger}">Fee Voucher/Ledger</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','FEE_REPORT','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FRDiv','snavFee')"><span class="glyphicon glyphicon-stats"></span> <span th:text="#{ui.feeReport}">Fee Report</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('feeType','FeeSettingDiv','snavFee')"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.feeSettings}">Fee Settings</span></a></li>
+									<!-- Slice 0.2a/0.2b: receivables views over the shared subledger engines. -->
+									<li><a onclick="showFeeAging()"><span class="glyphicon glyphicon-time"></span> <span th:text="#{ui.feeArrears}">Fee Arrears</span></a></li>
+									<li><a onclick="showFeeStatement()"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.feeStatement}">Student Statement</span></a></li>
 									<!-- Owner Configuration: the generic per-tenant settings screen (branch policies etc.). -->
 									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showConfig();document.getElementById('snavFee').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
 								</ul>
@@ -1715,7 +1718,7 @@
 					<div class="form-group">		
 						<label class="control-label col-sm-2 req" for="fcen" th:text="#{ui.enterEnrollNo}">Enter Enroll No</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="inputFc" name="en"
+							<input type="text" class="form-control" id="inputFc" name="enrollNo"
 								placeholder=" Enter Enroll No " th:placeholder="#{ui.enterEnrollNo}" required="required" onkeypress="handleEnterKey(event,'enter','findFc')"> 
 						</div>
 						<div class="col-sm-6">
@@ -1728,12 +1731,12 @@
 	 -->					</div>
 					</div>
 					<div id="fcCalculaton" class="form-group" style="display: none">	
-						<input type="number" class="form-control" id="fchf" name="f"/> 
-						<input type="number" class="form-control" id="fchvf" name="vf"/> 
-						<input type="number" class="form-control" id="fchd" name="d"/> 
-						<input type="text" class="form-control" id="fchdt" name="dt"/> 
-						<input type="number" class="form-control" id="fchda" name="da"/> 
-						<input type="text" class="form-control" id="fchdd" name="dd"/>
+						<input type="number" class="form-control" id="fchf" name="fee"/> 
+						<input type="number" class="form-control" id="fchvf" name="vehicleFee"/> 
+						<input type="number" class="form-control" id="fchd" name="discount"/> 
+						<input type="text" class="form-control" id="fchdt" name="discountType"/> 
+						<input type="number" class="form-control" id="fchda" name="dueAmount"/> 
+						<input type="text" class="form-control" id="fchdd" name="dueDayOfMonth"/>
 					</div>			
 					<div class="form-group" id="fcDetail">
 						<table id="" class="display table" style="width:100%">
@@ -1817,42 +1820,42 @@
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="fcf" th:text="#{ui.totalPayment}">Total payment</label>
 						<div class="col-sm-4">
-							<input type="number" class="form-control" id="fcfp" name="fp" onkeyup="getDB()"
+							<input type="number" class="form-control" id="fcfp" name="feePaid" onkeyup="getDB()"
 								placeholder=" Enter fee amount " th:placeholder="#{ui.enterFeeAmount}" required="required"> 
 						</div>
 						<label class="control-label col-sm-2" for="fcdb" th:text="#{ui.balance}">Balance</label>
 						<div class="col-sm-4">
-							<input type="number" class="form-control" id="fcdb" name="db" readonly="readonly"> 
+							<input type="number" class="form-control" id="fcdb" name="dueBalance" readonly="readonly"> 
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="fcod" th:text="#{ui.otherDues}">Other dues</label>
 						<div class="col-sm-4">
-							<input type="number" class="form-control" id="fcod" name="od"
+							<input type="number" class="form-control" id="fcod" name="otherDues"
 								placeholder=" Enter other dues " th:placeholder="#{ui.enterOtherDues}"> 
 						</div>
 						<label class="control-label col-sm-2" for="fcodd" th:text="#{ui.description}">Description</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="fcodd" name="odd"
+							<input type="text" class="form-control" id="fcodd" name="otherDuesDescription"
 								placeholder=" Dues descriptions " th:placeholder="#{ui.duesDescriptions}"/> 
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="fcp" th:text="#{ui.payer}">Payer</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="fcp" name="p"
+							<input type="text" class="form-control" id="fcp" name="payee"
 								placeholder=" Submit By " th:placeholder="#{ui.submitBy}" required="required"/> 
 						</div>
 						<label class="control-label col-sm-2 req" for="fcrb" th:text="#{ui.payee}">Payee</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="fcrb" name="rb"
+							<input type="text" class="form-control" id="fcrb" name="receivedBy"
 								placeholder=" Revieved by " th:placeholder="#{ui.revievedBy}" required="required"/> 
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2 req"  for="fcri" th:text="#{ui.recievedIn}">Recieved In</label>
 						<div class="col-sm-4">
-							<select class="form-control" id="fcri" name="ri" required="required">
+							<select class="form-control" id="fcri" name="receivedIn" required="required">
 																<option class="dropdown-item" value="Cash" th:text="#{ui.cash}">Cash</option>
 								<option class="dropdown-item" value="Check" th:text="#{ui.check}">Check</option>
 							</select>	
@@ -1860,7 +1863,7 @@
 						<div id="cnd">
 							<label class="control-label col-sm-2"  for="cn" th:text="#{ui.checkNo}">Check No</label>
 							<div class="col-sm-4">
-								<input type="text" class="form-control" id="fccn" name="cn"
+								<input type="text" class="form-control" id="fccn" name="checkNo"
 									placeholder=" Check number " th:placeholder="#{ui.checkNumber}"/> 
 							</div>
 						</div>
@@ -2276,6 +2279,60 @@
 			<!-- Owner Configuration — the generic per-tenant settings screen. It renders itself from the
 			     education-service catalog (/getConfig); each toggle saves immediately (/saveConfig). Adding a
 			     configurable policy needs a catalog entry in the service, not a change here. -->
+			<!-- Slice 0.2a: fee arrears, aged 0-30/31-60/61-90/90+ by the SHARED AgingCalculator (the same engine
+			     behind POS receivables). Read-only: the numbers come from the fee ledger, never typed. -->
+			<div id="FeeAgingDiv" class="formDiv">
+				<h3 class="dash-page-title" th:text="#{ui.feeArrears}">Fee Arrears</h3>
+				<p class="text-muted" th:text="#{ui.feeArrearsHelp}">Outstanding fees per student, grouped by how long they have been due.</p>
+				<div class="table-scroll">
+					<table id="tableFeeAging" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th th:text="#{ui.student}">Student</th>
+								<th th:text="#{ui.days0to30}">0-30 days</th>
+								<th th:text="#{ui.days31to60}">31-60 days</th>
+								<th th:text="#{ui.days61to90}">61-90 days</th>
+								<th th:text="#{ui.days90plus}">90+ days</th>
+								<th th:text="#{ui.total}">Total</th>
+								<th></th>
+							</tr>
+						</thead>
+						<tbody id="feeAgingBody"></tbody>
+					</table>
+				</div>
+				<div id="feeAgingEmpty" class="text-muted" style="display:none" th:text="#{ui.noArrears}">No outstanding fees.</div>
+			</div>
+
+			<!-- Slice 0.2a: one student's statement of account, built by the SHARED StatementBuilder. -->
+			<div id="FeeStatementDiv" class="formDiv">
+				<h3 class="dash-page-title" th:text="#{ui.feeStatement}">Student Statement</h3>
+				<div class="form-inline" style="margin-bottom:16px">
+					<div class="form-group">
+						<label class="control-label" for="stmtEnrollNo" th:text="#{ui.enrollNo}">Enroll No</label>
+						<input type="text" class="form-control" id="stmtEnrollNo" style="margin:0 10px"/>
+					</div>
+					<button type="button" class="btn btn-primary" onclick="loadFeeStatement()">
+						<span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.view}">View</span>
+					</button>
+				</div>
+				<div class="table-scroll">
+					<table id="tableFeeStatement" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th th:text="#{ui.date}">Date</th>
+								<th th:text="#{ui.reference}">Ref</th>
+								<th th:text="#{ui.type}">Type</th>
+								<th th:text="#{ui.charge}">Charge</th>
+								<th th:text="#{ui.payment}">Payment</th>
+								<th th:text="#{ui.balance}">Balance</th>
+							</tr>
+						</thead>
+						<tbody id="feeStatementBody"></tbody>
+					</table>
+				</div>
+				<div id="feeStatementEmpty" class="text-muted" style="display:none" th:text="#{ui.noStatementRows}">No entries for this student.</div>
+			</div>
+
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.configuration}">Configuration</h4>
 				<p style="color:#7a889c" th:text="#{ui.ownerSetupChangesApplyToThis}">Owner setup. Changes apply to this organization only and take effect immediately.</p>

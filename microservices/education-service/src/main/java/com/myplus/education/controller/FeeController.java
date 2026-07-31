@@ -145,7 +145,7 @@ public class FeeController {
             Long org = orgId();
             Student s = studentRepository.findScoped(org, userId()).stream()
                     .filter(x -> enrollNo.equalsIgnoreCase(x.getEnrollNo())).findFirst().orElse(null);
-            List<FeeCollection> rows = feeCollectionRepository.findByOrganizationIdAndEnOrderByIdAsc(org, enrollNo);
+            List<FeeCollection> rows = feeCollectionRepository.findByOrganizationIdAndEnrollNoOrderByIdAsc(org, enrollNo);
 
             Map<String, Object> header = new LinkedHashMap<>();
             header.put("enrollNo", enrollNo);
@@ -153,8 +153,8 @@ public class FeeController {
             header.put("gradeName", s == null ? "" : feeService.gradeName(s.getGradeId()));
             header.put("schoolName", s == null ? "" : feeService.schoolName(s.getSchoolId()));
             header.put("guardianName", s == null ? "" : feeService.guardianName(s.getGuardianId()));
-            int paid = rows.stream().mapToInt(r -> r.getFp() == null ? 0 : r.getFp()).sum();
-            int fee = rows.stream().mapToInt(r -> r.getF() == null ? 0 : r.getF()).sum();
+            int paid = rows.stream().mapToInt(r -> r.getFeePaid() == null ? 0 : r.getFeePaid()).sum();
+            int fee = rows.stream().mapToInt(r -> r.getFee() == null ? 0 : r.getFee()).sum();
             header.put("totalFee", fee);
             header.put("totalPaid", paid);
             header.put("balance", fee - paid);
@@ -194,20 +194,20 @@ public class FeeController {
             List<Map<String, Object>> rows = new ArrayList<>();
             int tFee = 0, tDis = 0, tOd = 0, tDue = 0, tPaid = 0, tBal = 0;
             for (FeeCollection f : all) {
-                if (scope != null && !scope.contains(f.getEn())) continue;
-                if (from != null && (f.getPd() == null || f.getPd().isBefore(from))) continue;
-                if (to != null && (f.getPd() == null || f.getPd().isAfter(to))) continue;
-                Student s = byEn.get(f.getEn());
-                int fee = i(f.getF()), paid = i(f.getFp()), dis = i(f.getD()), od = i(f.getOd()), da = i(f.getDa());
+                if (scope != null && !scope.contains(f.getEnrollNo())) continue;
+                if (from != null && (f.getPaymentDate() == null || f.getPaymentDate().isBefore(from))) continue;
+                if (to != null && (f.getPaymentDate() == null || f.getPaymentDate().isAfter(to))) continue;
+                Student s = byEn.get(f.getEnrollNo());
+                int fee = i(f.getFee()), paid = i(f.getFeePaid()), dis = i(f.getDiscount()), od = i(f.getOtherDues()), da = i(f.getDueAmount());
                 int bal = fee - paid;
                 Map<String, Object> r = new LinkedHashMap<>();
-                r.put("enrollNo", f.getEn());
+                r.put("enrollNo", f.getEnrollNo());
                 r.put("studentName", s == null ? "" : s.getName());
                 r.put("gradeName", s == null ? "" : feeService.gradeName(s.getGradeId()));
                 r.put("schoolName", s == null ? "" : feeService.schoolName(s.getSchoolId()));
-                r.put("paymentDateStr", appUtil.getLocalDateStr(f.getPd()));
-                r.put("payee", f.getP());
-                r.put("receivedBy", f.getRb());
+                r.put("paymentDateStr", appUtil.getLocalDateStr(f.getPaymentDate()));
+                r.put("payee", f.getPayee());
+                r.put("receivedBy", f.getReceivedBy());
                 r.put("fee", fee);
                 r.put("discount", dis);
                 r.put("otherDues", od);
@@ -254,16 +254,16 @@ public class FeeController {
 
     private Map<String, Object> ledgerRow(FeeCollection f) {
         Map<String, Object> r = new LinkedHashMap<>();
-        r.put("paymentDateStr", appUtil.getLocalDateStr(f.getPd()));
-        r.put("fee", i(f.getF()));
-        r.put("discount", i(f.getD()));
-        r.put("otherDues", i(f.getOd()));
-        r.put("dueAmount", i(f.getDa()));
-        r.put("feePaid", i(f.getFp()));
-        r.put("balance", i(f.getF()) - i(f.getFp()));
-        r.put("payee", f.getP());
-        r.put("receivedBy", f.getRb());
-        r.put("receivedIn", f.getRi());
+        r.put("paymentDateStr", appUtil.getLocalDateStr(f.getPaymentDate()));
+        r.put("fee", i(f.getFee()));
+        r.put("discount", i(f.getDiscount()));
+        r.put("otherDues", i(f.getOtherDues()));
+        r.put("dueAmount", i(f.getDueAmount()));
+        r.put("feePaid", i(f.getFeePaid()));
+        r.put("balance", i(f.getFee()) - i(f.getFeePaid()));
+        r.put("payee", f.getPayee());
+        r.put("receivedBy", f.getReceivedBy());
+        r.put("receivedIn", f.getReceivedIn());
         return r;
     }
 

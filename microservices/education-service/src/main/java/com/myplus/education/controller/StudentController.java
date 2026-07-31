@@ -118,6 +118,7 @@ public class StudentController {
         dto.setYsStr(appUtil.getLocalDateStr(s.getYs()));
         dto.setYeStr(appUtil.getLocalDateStr(s.getYe()));
         dto.setDateOfBirthStr(appUtil.getLocalDateStr(s.getDateOfBirth()));
+        dto.setCreditBalance(s.getCreditBalance());   // slice 0.2b: fee credit held for this student
         dto.setDatedStr(appUtil.getDateStr(s.getDated()));
         dto.setUpdatedStr(appUtil.getDateStr(s.getUpdated()));
         // NOTE: school/grade/guardian NAMES are resolved by toDtos() in one batched query each — NOT here.

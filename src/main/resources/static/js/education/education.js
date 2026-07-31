@@ -418,14 +418,14 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						arr = [
 							"<div id=fcId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=inputFc>"+escHtml(obj.en)+"</div>","<div id=fcpd>"+escHtml(obj.pdStr)+"</div>",
-							"<div id=fcp>"+escHtml(obj.p)+"</div>","<div id=fcrb>"+escHtml(obj.rb)+"</div>",
-							"<div id=fchf>"+escHtml(obj.f)+"</div>","<div id=fchvf>"+escHtml(obj.vf)+"</div>",
-							"<div id=fchd>"+escHtml(obj.d)+"</div>","<div id=fchdt>"+escHtml(obj.dt)+"</div>",
-							"<div id=fcod>"+escHtml(obj.od)+"</div>","<div id=fcodd>"+escHtml(obj.odd)+"</div>",
-							"<div id=fchda>"+escHtml(obj.da)+"</div>","<div id=fcfp>"+escHtml(obj.fp)+"</div>", 
-							"<div id=fcdb>"+escHtml(obj.db)+"</div>","<div id=fchdd>"+escHtml(obj.dd)+"</div>", 
-							"<div id=fcri>"+escHtml(obj.ri)+"</div>","<div id=fccn>"+escHtml(obj.cn)+"</div>"
+							"<div id=inputFc>"+escHtml(obj.enrollNo)+"</div>","<div id=fcpd>"+escHtml(obj.pdStr)+"</div>",
+							"<div id=fcp>"+escHtml(obj.payee)+"</div>","<div id=fcrb>"+escHtml(obj.receivedBy)+"</div>",
+							"<div id=fchf>"+escHtml(obj.fee)+"</div>","<div id=fchvf>"+escHtml(obj.vehicleFee)+"</div>",
+							"<div id=fchd>"+escHtml(obj.discount)+"</div>","<div id=fchdt>"+escHtml(obj.discountType)+"</div>",
+							"<div id=fcod>"+escHtml(obj.otherDues)+"</div>","<div id=fcodd>"+escHtml(obj.otherDuesDescription)+"</div>",
+							"<div id=fchda>"+escHtml(obj.dueAmount)+"</div>","<div id=fcfp>"+escHtml(obj.feePaid)+"</div>", 
+							"<div id=fcdb>"+escHtml(obj.dueBalance)+"</div>","<div id=fchdd>"+escHtml(obj.dueDayOfMonth)+"</div>", 
+							"<div id=fcri>"+escHtml(obj.receivedIn)+"</div>","<div id=fccn>"+escHtml(obj.checkNo)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});
@@ -769,10 +769,10 @@ function fd(l){
 	l.forEach(function(obj,i){
 		var t = $("#fcDT").DataTable();
 		t.row.add( [
-			"<div id=fcdpd>"+dateToDMY(new Date(obj.pd))+"</div>","<div id=fcdp>"+escHtml(obj.p)+"</div>","<div id=fcdri>"+escHtml(obj.rb)+"</div>",
-			"<div id=fcdhf>"+escHtml(obj.f)+"</div>","<div id=fcdhvf>"+escHtml(obj.vf)+"</div>","<div id=fcdhd>"+escHtml(obj.d)+"</div>",
-			"<div id=fcdod>"+escHtml(obj.od)+"</div>","<div id=fcdodd>"+escHtml(obj.odd)+"</div>","<div id=fcdhda>"+escHtml(obj.da)+"</div>",
-			"<div id=fcdfp>"+escHtml(obj.fp)+"</div>", "<div id=fcddb>"+escHtml(obj.db)+"</div>",
+			"<div id=fcdpd>"+dateToDMY(new Date(obj.paymentDate))+"</div>","<div id=fcdp>"+escHtml(obj.payee)+"</div>","<div id=fcdri>"+escHtml(obj.receivedBy)+"</div>",
+			"<div id=fcdhf>"+escHtml(obj.fee)+"</div>","<div id=fcdhvf>"+escHtml(obj.vehicleFee)+"</div>","<div id=fcdhd>"+escHtml(obj.discount)+"</div>",
+			"<div id=fcdod>"+escHtml(obj.otherDues)+"</div>","<div id=fcdodd>"+escHtml(obj.otherDuesDescription)+"</div>","<div id=fcdhda>"+escHtml(obj.dueAmount)+"</div>",
+			"<div id=fcdfp>"+escHtml(obj.feePaid)+"</div>", "<div id=fcddb>"+escHtml(obj.dueBalance)+"</div>",
 		] ).draw( false );			
 	});
 }
@@ -2906,4 +2906,78 @@ function sendPublicAlert(e){
 	$.post(serverContext + "sendPA", $("#PA").serialize(), function(res){
 		alert(res && res.message ? res.message : "Sent");
 	}).fail(function(){ alert("Could not send"); });
+}
+
+// ─── Fee receivables (slice 0.2a): arrears aging + student statement ──────────────────────────────
+// Read-only views over the SHARED subledger engines (AgingCalculator / StatementBuilder) — the same code that
+// produces POS receivables aging and customer statements. Nothing here computes money; it renders what the
+// service returns, so a school's arrears and a shop's can never disagree.
+
+function showFeeAging(){
+	$('.formDiv').hide();
+	$('#FeeAgingDiv').show();
+	if (typeof revealSection === 'function') revealSection('FeeAgingDiv');
+	loadFeeAging();
+}
+
+function loadFeeAging(){
+	$.get(serverContext + 'getFeeAging', function(res){
+		var list = (res && (res.collection || res.object)) || [];
+		var $b = $('#feeAgingBody').empty();
+		$('#feeAgingEmpty').toggle(list.length === 0);
+		list.forEach(function(r){
+			var tr = $('<tr>');
+			tr.append($('<td>').text(r.partyName || ''));
+			tr.append($('<td>').text(r.b0_30));
+			tr.append($('<td>').text(r.b31_60));
+			tr.append($('<td>').text(r.b61_90));
+			// 90+ is the column a bursar acts on, so make it visually findable rather than one number among five.
+			tr.append($('<td>').html('<strong>' + escHtml(String(r.b90plus)) + '</strong>'));
+			tr.append($('<td>').text(r.total));
+			// The enroll no is embedded in the party label as "Name (EN)" — pull it back out to jump to the
+			// statement, so a bursar can go from "who owes" straight to "what for" without retyping.
+			var m = /\(([^)]+)\)\s*$/.exec(r.partyName || '');
+			var en = m ? m[1] : '';
+			tr.append($('<td>').html(en
+				? "<button class='btn btn-xs btn-default' onclick=\"openFeeStatement('" + escHtml(en) + "')\">"
+					+ t('ui.js.statement') + "</button>"
+				: ''));
+			$b.append(tr);
+		});
+	}, 'json').fail(function(){ showFormError(t('ui.js.couldNotLoadArrears')); });
+}
+
+function showFeeStatement(){
+	$('.formDiv').hide();
+	$('#FeeStatementDiv').show();
+	if (typeof revealSection === 'function') revealSection('FeeStatementDiv');
+}
+
+/** Jump straight from an arrears row to that student's statement. */
+function openFeeStatement(enrollNo){
+	showFeeStatement();
+	$('#stmtEnrollNo').val(enrollNo);
+	loadFeeStatement();
+}
+
+function loadFeeStatement(){
+	var en = ($('#stmtEnrollNo').val() || '').trim();
+	if(!en){ showFormError(t('ui.js.enterEnrollNo')); return; }
+	$.get(serverContext + 'getFeeStatement?enrollNo=' + encodeURIComponent(en), function(res){
+		var list = (res && (res.collection || res.object)) || [];
+		var $b = $('#feeStatementBody').empty();
+		$('#feeStatementEmpty').toggle(list.length === 0);
+		list.forEach(function(l){
+			var tr = $('<tr>');
+			tr.append($('<td>').text(String(l.date || '').substring(0, 10)));
+			tr.append($('<td>').text(l.docNo || ''));
+			tr.append($('<td>').text(l.type || ''));
+			// A charge and a payment are opposite movements; showing a blank rather than 0 keeps the column
+			// scannable — the eye follows the non-empty side down the page.
+			tr.append($('<td>').text(Number(l.debit) ? l.debit : ''));
+			tr.append($('<td>').text(Number(l.credit) ? l.credit : ''));
+			tr.append($('<td>').html('<strong>' + escHtml(String(l.balance)) + '</strong>'));
+			$b.append(tr);
+		});
+	}, 'json').fail(function(){ showFormError(t('ui.js.couldNotLoadStatement')); });
 }

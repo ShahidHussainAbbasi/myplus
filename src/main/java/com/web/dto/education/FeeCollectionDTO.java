@@ -21,7 +21,7 @@ public class FeeCollectionDTO implements Serializable {
 	private Long userId;
 
 	@ValidateEmpty
-	private String en;
+	private String enrollNo;
 
 	private String sn;
 
@@ -39,42 +39,42 @@ public class FeeCollectionDTO implements Serializable {
 	@Getter@Setter
 	private Long grId;
 	
-	private String dt;
+	private String discountType;
 
-	private Integer d;
+	private Integer discount;
 
-	private Integer dd;
+	private Integer dueDayOfMonth;
 
-	private Integer da;
+	private Integer dueAmount;
 
 	@Getter@Setter
-	private Float f;
+	private Float fee;
 
 	@ValidateEmpty
-	private Integer fp;
+	private Integer feePaid;
 
 	private String pdStr;
 
-	private Integer od;
+	private Integer otherDues;
 
-	private String odd;
-
-	@ValidateEmpty
-	private String p;
+	private String otherDuesDescription;
 
 	@ValidateEmpty
-	private String rb;
+	private String payee;
 
 	@ValidateEmpty
-	private String ri;
+	private String receivedBy;
 
-	private String cn;
+	@ValidateEmpty
+	private String receivedIn;
 
-	private Integer vf;
+	private String checkNo;
+
+	private Integer vehicleFee;
 
 	private LocalDate lpd;
 
-	private Integer db;
+	private Integer dueBalance;
 
 	/**
 	 * @return the id
@@ -93,15 +93,15 @@ public class FeeCollectionDTO implements Serializable {
 	/**
 	 * @return the en
 	 */
-	public String getEn() {
-		return en;
+	public String getEnrollNo() {
+		return enrollNo;
 	}
 
 	/**
 	 * @param en the en to set
 	 */
-	public void setEn(String en) {
-		this.en = en;
+	public void setEnrollNo(String en) {
+		this.enrollNo = en;
 	}
 
 	/**
@@ -191,71 +191,71 @@ public class FeeCollectionDTO implements Serializable {
 	/**
 	 * @return the dt
 	 */
-	public String getDt() {
-		return dt;
+	public String getDiscountType() {
+		return discountType;
 	}
 
 	/**
 	 * @return the d
 	 */
-	public Integer getD() {
-		return d;
+	public Integer getDiscount() {
+		return discount;
 	}
 
 	/**
 	 * @param d the d to set
 	 */
-	public void setD(Integer d) {
-		this.d = d;
+	public void setDiscount(Integer d) {
+		this.discount = d;
 	}
 
 	/**
 	 * @param dt the dt to set
 	 */
-	public void setDt(String dt) {
-		this.dt = dt;
+	public void setDiscountType(String dt) {
+		this.discountType = dt;
 	}
 
 	/**
 	 * @return the da
 	 */
-	public Integer getDa() {
-		return da;
+	public Integer getDueAmount() {
+		return dueAmount;
 	}
 
 	/**
 	 * @param da the da to set
 	 */
-	public void setDa(Integer da) {
-		this.da = da;
+	public void setDueAmount(Integer da) {
+		this.dueAmount = da;
 	}
 
 	/**
 	 * @return the dd
 	 */
-	public Integer getDd() {
-		return dd;
+	public Integer getDueDayOfMonth() {
+		return dueDayOfMonth;
 	}
 
 	/**
 	 * @param ddStr the dd to set
 	 */
-	public void setDd(Integer dd) {
-		this.dd = dd;
+	public void setDueDayOfMonth(Integer dd) {
+		this.dueDayOfMonth = dd;
 	}
 
 	/**
 	 * @return the fp
 	 */
-	public Integer getFp() {
-		return fp;
+	public Integer getFeePaid() {
+		return feePaid;
 	}
 
 	/**
 	 * @param fp the fp to set
 	 */
-	public void setFp(Integer fp) {
-		this.fp = fp;
+	public void setFeePaid(Integer fp) {
+		this.feePaid = fp;
 	}
 
 	/**
@@ -275,99 +275,99 @@ public class FeeCollectionDTO implements Serializable {
 	/**
 	 * @return the od
 	 */
-	public Integer getOd() {
-		return od;
+	public Integer getOtherDues() {
+		return otherDues;
 	}
 
 	/**
 	 * @param od the od to set
 	 */
-	public void setOd(Integer od) {
-		this.od = od;
+	public void setOtherDues(Integer od) {
+		this.otherDues = od;
 	}
 
 	/**
 	 * @return the odd
 	 */
-	public String getOdd() {
-		return odd;
+	public String getOtherDuesDescription() {
+		return otherDuesDescription;
 	}
 
 	/**
 	 * @param odd the odd to set
 	 */
-	public void setOdd(String odd) {
-		this.odd = odd;
+	public void setOtherDuesDescription(String odd) {
+		this.otherDuesDescription = odd;
 	}
 
 	/**
 	 * @return the p
 	 */
-	public String getP() {
-		return p;
+	public String getPayee() {
+		return payee;
 	}
 
 	/**
 	 * @param p the p to set
 	 */
-	public void setP(String p) {
-		this.p = p;
+	public void setPayee(String p) {
+		this.payee = p;
 	}
 
 	/**
 	 * @return the rb
 	 */
-	public String getRb() {
-		return rb;
+	public String getReceivedBy() {
+		return receivedBy;
 	}
 
 	/**
 	 * @param rb the rb to set
 	 */
-	public void setRb(String rb) {
-		this.rb = rb;
+	public void setReceivedBy(String rb) {
+		this.receivedBy = rb;
 	}
 
 	/**
 	 * @return the ri
 	 */
-	public String getRi() {
-		return ri;
+	public String getReceivedIn() {
+		return receivedIn;
 	}
 
 	/**
 	 * @param ri the ri to set
 	 */
-	public void setRi(String ri) {
-		this.ri = ri;
+	public void setReceivedIn(String ri) {
+		this.receivedIn = ri;
 	}
 
 	/**
 	 * @return the cn
 	 */
-	public String getCn() {
-		return cn;
+	public String getCheckNo() {
+		return checkNo;
 	}
 
 	/**
 	 * @param cn the cn to set
 	 */
-	public void setCn(String cn) {
-		this.cn = cn;
+	public void setCheckNo(String cn) {
+		this.checkNo = cn;
 	}
 
 	/**
 	 * @return the vf
 	 */
-	public Integer getVf() {
-		return vf;
+	public Integer getVehicleFee() {
+		return vehicleFee;
 	}
 
 	/**
 	 * @param vf the vf to set
 	 */
-	public void setVf(Integer vf) {
-		this.vf = vf;
+	public void setVehicleFee(Integer vf) {
+		this.vehicleFee = vf;
 	}
 
 	/**
@@ -387,15 +387,15 @@ public class FeeCollectionDTO implements Serializable {
 	/**
 	 * @return the db
 	 */
-	public Integer getDb() {
-		return db;
+	public Integer getDueBalance() {
+		return dueBalance;
 	}
 
 	/**
 	 * @param db the db to set
 	 */
-	public void setDb(Integer db) {
-		this.db = db;
+	public void setDueBalance(Integer db) {
+		this.dueBalance = db;
 	}
 
 	/**

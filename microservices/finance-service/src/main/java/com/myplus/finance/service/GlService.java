@@ -44,6 +44,10 @@ public class GlService {
             {"3000", "Owner's Equity", AccountType.EQUITY, NormalSide.CREDIT},
             {"3100", "Retained Earnings", AccountType.EQUITY, NormalSide.CREDIT},
             {"4000", "Sales", AccountType.INCOME, NormalSide.CREDIT},
+            // Slice 0.1: school fee revenue gets its own income line rather than being merged into Sales — a
+            // school's P&L should read "Fee Income". ensureDefaults() backfills this for orgs whose chart was
+            // seeded earlier (same path 2200 Store Credit took).
+            {"4100", "Fee Income", AccountType.INCOME, NormalSide.CREDIT},
             {"5000", "Cost of Goods Sold", AccountType.EXPENSE, NormalSide.DEBIT},
             {"5100", "Purchases / Expenses", AccountType.EXPENSE, NormalSide.DEBIT},
     };

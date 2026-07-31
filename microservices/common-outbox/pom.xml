@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>common-outbox</artifactId>
+  <name>common-outbox</name>
+  <description>Shared transactional-outbox delivery state machine: idempotent per row, retry with attempt
+    counter, dead-letter after N. Transport and payload come from an OutboxDelivery channel (Strategy), so this
+    module knows nothing domain-specific and holds NO @Entity — each service keeps its own outbox table. Extracted
+    from business-service, where one implementation already served both the GL and audit outboxes.</description>
+
+  <!-- Deliberately tiny. No JPA, no web, no common-* deps: the SPI is plain interfaces over the consumer's own
+       entity, so a service supplies its table and its client. All `provided` — every consumer is a Boot service
+       that already ships these at runtime.
+       spring-boot-autoconfigure is required for @AutoConfiguration on CommonOutboxAutoConfiguration, which is how
+       OutboxRelay gets registered without consumers changing their @ComponentScan root. -->
+  <dependencies>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-context</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId><scope>provided</scope></dependency>
+  </dependencies>
+</project>

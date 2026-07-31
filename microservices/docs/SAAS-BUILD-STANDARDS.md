@@ -83,6 +83,23 @@ _Incident: `prescription_items`, `dispensing` and `drug_interactions` each carri
 (`CREATE TABLE IF NOT EXISTS`, guarded `ADD COLUMN`, `DROP … IF EXISTS`, constraint names resolved at runtime
 because they are auto-generated and differ per environment).
 
+**D9. Renaming an entity field touches SEVEN places, and only four of them fail at compile time.** Miss one of
+the rest and the service starts (or compiles) and breaks in use. Checklist, in the order they bite:
+
+| # | Form | Fails at | Example that caught us |
+|---|---|---|---|
+| 1 | field declaration + getters/setters | compile | — |
+| 2 | **method references** — no `()`, so a `getFoo()` pattern misses them | compile | `FeeCollection::getPd` |
+| 3 | callers **on a different entity that shares the short name** | compile | `Student.vf` vs `FeeCollection.vehicleFee` — one file used both |
+| 3b | **Lombok `@Builder` methods** — named from the field, so `.en(x)` becomes `.enrollNo(x)` in every builder chain | compile, **in the caller** | `FeeCollectionDTO.builder().en(…)` |
+| 4 | **derived query method names** — `findByOrganizationIdAndEn…` resolves `en` as a property | **context startup** | `No property 'en' found for type 'FeeCollection'` |
+| 5 | **JPQL / `Sort.by("…")` / `@OrderBy` strings** | **runtime, per query** | — |
+| 6 | **JSON contract** — a controller returning the entity means the field name IS the API; form `name=` must match the bound DTO | **runtime, in the browser** | `obj.fp` → `obj.feePaid`; `name="ri"` → `name="receivedIn"` |
+
+Two force-multipliers: check `@Column(name=…)` **first** — if the DB columns are already readable, the rename
+is Java-only with **no migration** (that was true for `FeeCollection`); and scope every sweep per-form or
+per-region, never globally, because short names collide across entities and across HTML forms.
+
 **D8. Deleting an entity is a code change, not a schema change.** Remove the Java, leave the table, record it.
 Git restores a class; nothing restores rows. Verify zero references first — including the entity-only-referenced-
 by-its-own-repository "dead pair" shape (`Segment` + `SegmentRepository`).

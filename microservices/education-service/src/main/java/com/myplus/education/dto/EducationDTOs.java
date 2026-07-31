@@ -178,22 +178,22 @@ public class EducationDTOs {
     public static class FeeCollectionDTO {
         private Long id;
         private Long userId;
-        private String en;
-        private String dt;
-        private Integer d;
-        private Integer dd;
-        private Integer da;
-        private Integer f;
-        private Integer fp;
-        private LocalDate pd;
-        private Integer od;
-        private String odd;
-        private String p;
-        private String rb;
-        private String ri;
-        private String cn;
-        private Integer vf;
-        private Integer db;
+        private String enrollNo;
+        private String discountType;
+        private Integer discount;
+        private Integer dueDayOfMonth;
+        private Integer dueAmount;
+        private Integer fee;
+        private Integer feePaid;
+        private LocalDate paymentDate;
+        private Integer otherDues;
+        private String otherDuesDescription;
+        private String payee;
+        private String receivedBy;
+        private String receivedIn;
+        private String checkNo;
+        private Integer vehicleFee;
+        private Integer dueBalance;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor

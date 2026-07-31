@@ -31,7 +31,7 @@ public class VenderService implements IVenderService {
     private PurchaseRepo purchaseRepo;                                          // F1 (AP): FIFO across open bills
 
     @Autowired
-    private com.myplus.business_service.service.subledger.SubledgerService subledgerService;   // shared AR/AP settlement
+    private com.myplus.common.subledger.SubledgerService subledgerService;   // shared AR/AP settlement
 
     @Autowired
     private IdempotencyService idempotencyService;   // Audit #5: shared money-op dedup
@@ -255,9 +255,9 @@ public class VenderService implements IVenderService {
 			String method, java.time.LocalDate paidOn, String reference, Long org, String idempotencyKey) {
 
 		// The vendor's still-owing purchase bills (oldest first) as generic OpenDocs for the shared allocator.
-		java.util.List<com.myplus.business_service.service.subledger.OpenDoc> docs = new java.util.ArrayList<>();
+		java.util.List<com.myplus.common.subledger.OpenDoc> docs = new java.util.ArrayList<>();
 		for (Purchase bill : purchaseRepo.findOpenPurchasesByVendor(venderId)) {
-			docs.add(new com.myplus.business_service.service.subledger.OpenDoc() {
+			docs.add(new com.myplus.common.subledger.OpenDoc() {
 				public java.math.BigDecimal outstanding() {
 					java.math.BigDecimal due = bill.getDueAmount() != null ? bill.getDueAmount() : java.math.BigDecimal.ZERO;
 					return due.negate();   // due = paid - net (negative while we owe)
@@ -278,7 +278,7 @@ public class VenderService implements IVenderService {
 
 		// ONE shared settlement path (FIFO allocate + best-effort finance-ledger record); recomputePayable refreshes
 		// the vendor's running payable and returns the fresh value for the response.
-		com.myplus.business_service.service.subledger.SettleOutcome outcome = subledgerService.settle(
+		com.myplus.common.subledger.SettleOutcome outcome = subledgerService.settle(
 				"DISBURSEMENT", "VENDOR", venderId, vendor.getName(), amount, method, paidOn, reference, "BUSINESS",
 				docs, () -> { this.recomputePayable(venderId);
 					return venderRepo.findById(venderId).map(Vender::getDueAmount).orElse(null); });

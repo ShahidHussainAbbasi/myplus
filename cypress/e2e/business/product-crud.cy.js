@@ -296,4 +296,44 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
       cy.get('#bulkBarProduct').should('be.visible').and('contain', 'selected')
     })
   })
+
+  /**
+   * Regression: the bulk Delete button on the Product screen used to POST /deleteProduct — an endpoint that
+   * does not exist, because a product is DEACTIVATED, never deleted (a removed product still owns its SKU and
+   * is referenced by past sales). The shared performBulkDelete built the URL as "delete" + entity for every
+   * screen, so this 404'd, and main.js's error handler then crashed on the 404 body and swallowed it.
+   *
+   * The fix is a per-module override (window.bulkDeleteProduct). This asserts the whole path end to end:
+   * no failed request, and the product actually leaves the active list.
+   */
+  it('bulk Delete deactivates the product — no 404 to /deleteProduct', () => {
+    cy.seedProduct({ name: 'PBULK_' + Date.now(), stock: 2 }).then(({ productId, name }) => {
+      cy.visit('/businessDashboard')
+
+      // Fail loudly if anything posts to the endpoint that never existed.
+      cy.intercept('POST', '**/deleteProduct', (req) => {
+        throw new Error('bulk delete posted to /deleteProduct — the override is not wired')
+      }).as('deadEndpoint')
+      cy.intercept('POST', '**/deactivateProduct').as('deactivate')
+
+      cy.window().then((w) => w.showProducts())
+      cy.get('#addstkbtn_' + productId, { timeout: 10000 }).should('exist')
+      cy.get('#tableProduct tbody').find("input[type='checkbox']").first().check()
+      cy.get('#bulkBarProduct').should('be.visible')
+
+      cy.contains('#bulkBarProduct button', 'Delete').click()
+      cy.get('[data-ui-confirm="ok"]').click()          // shared confirm dialog
+
+      cy.wait('@deactivate').its('response.statusCode').should('eq', 200)
+
+      // Gone from the active list, still intact underneath.
+      cy.request('/getUserProduct?q=-1').then((r) => {
+        const active = (r.body.collection || []).find((p) => p.id === productId)
+        expect(active, 'deactivated product drops off the active list').to.not.exist
+      })
+      cy.request('/getCatalogProduct?id=' + productId).then((r) => {
+        expect(JSON.stringify(r.body), 'the product itself survives (history keeps its SKU)').to.contain(name)
+      })
+    })
+  })
 })

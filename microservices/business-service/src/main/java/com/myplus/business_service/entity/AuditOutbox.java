@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Data
 @Entity
 @Table(name = "audit_outbox", indexes = { @Index(name = "idx_audit_outbox_pending", columnList = "status,id") })
-public class AuditOutbox implements com.myplus.business_service.service.outbox.OutboxEntry {
+public class AuditOutbox implements com.myplus.common.outbox.OutboxEntry {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

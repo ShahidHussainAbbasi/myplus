@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Data
 @Entity
 @Table(name = "gl_outbox", indexes = { @Index(name = "idx_outbox_pending", columnList = "status,id") })
-public class GlOutbox implements com.myplus.business_service.service.outbox.OutboxEntry {
+public class GlOutbox implements com.myplus.common.outbox.OutboxEntry {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

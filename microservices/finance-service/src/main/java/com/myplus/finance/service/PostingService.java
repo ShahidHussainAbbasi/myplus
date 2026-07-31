@@ -33,7 +33,8 @@ public class PostingService {
 
     // Default chart-of-accounts codes (see GlService.DEFAULT_COA).
     private static final String CASH = "1000", BANK = "1010", AR = "1100", INVENTORY = "1200",
-            AP = "2000", TAX = "2100", STORE_CREDIT = "2200", SALES = "4000", COGS = "5000";
+            AP = "2000", TAX = "2100", STORE_CREDIT = "2200", SALES = "4000", COGS = "5000",
+            FEE_INCOME = "4100";   // slice 0.1: education fee revenue, kept off 4000 Sales
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
 
@@ -72,6 +73,9 @@ public class PostingService {
         else if ("PURCHASE".equalsIgnoreCase(type)) postPurchase(req);
         else if ("SALE_RETURN".equalsIgnoreCase(type)) postSaleReturn(req);
         else if ("PURCHASE_RETURN".equalsIgnoreCase(type)) postPurchaseReturn(req);
+        else if ("FEE_CHARGE".equalsIgnoreCase(type)) postFeeCharge(req);
+        else if ("FEE_CREDIT_ISSUED".equalsIgnoreCase(type)) postFeeCreditIssued(req);
+        else if ("FEE_CREDIT_APPLIED".equalsIgnoreCase(type)) postFeeCreditApplied(req);
         else throw new IllegalArgumentException("Unknown event type: " + type);
     }
 
@@ -115,6 +119,61 @@ public class PostingService {
         lines.add(cr(INVENTORY, net));
         if (tax.signum() > 0)    lines.add(cr(TAX, tax));
         post("PURCHASE_RETURN", r.getDate(), r.getRef(), lines);
+    }
+
+    /**
+     * Slice 0.2a — a school fee CHARGE (a monthly due raised): Dr 1100 AR = Cr 4100 Fee Income.
+     *
+     * This is the education analogue of {@link #postSale}'s AR leg, minus tax and COGS (tuition is generally not
+     * taxable, and a service has no inventory cost). Revenue is recognised when the fee is CHARGED — the accrual
+     * basis POS and Pharmacy already use — so a school's unpaid fees appear on the balance sheet as an asset.
+     *
+     * The payment side is deliberately NOT here. A fee receipt goes through the same path a customer receipt
+     * does: {@code PaymentService.record()} → {@link #postPayment} → Dr Cash = Cr AR, allocated across open
+     * documents by the shared SubledgerService. Slice 0.1's FEE_COLLECTION rule was REMOVED for exactly this
+     * reason — under accrual it would recognise revenue a second time, and it was a third implementation of a
+     * concept finance already had.
+     */
+    private void postFeeCharge(PostEventRequest r) {
+        BigDecimal charged = nz(r.getGrandTotal());
+        if (charged.signum() <= 0) return;   // nothing charged is not an accounting event
+        post("FEE_CHARGE", r.getDate(), r.getRef(),
+                List.of(dr(AR, charged), cr(FEE_INCOME, charged)));
+    }
+
+    /**
+     * Slice 0.2b — a parent overpaid: the school received cash it does not yet own.
+     *
+     *     Dr Cash|Bank   =   Cr 2200 Store/Fee Credit
+     *
+     * The surplus is a LIABILITY, not income — the school is holding the parent's money until a future charge
+     * consumes it. Account 2200 and this direction are exactly what POS uses when a return issues store credit
+     * ({@code cr(STORE_CREDIT, sc)}), so both verticals report held customer money in one place.
+     *
+     * Only the SURPLUS comes here; the part of the tender that actually settled dues posts through the normal
+     * receipt path (Dr Cash = Cr AR).
+     */
+    private void postFeeCreditIssued(PostEventRequest r) {
+        BigDecimal surplus = nz(r.getGrandTotal());
+        if (surplus.signum() <= 0) return;
+        post("FEE_CREDIT_ISSUED", r.getDate(), r.getRef(),
+                List.of(dr(cashAccount(r.getMethod()), surplus), cr(STORE_CREDIT, surplus)));
+    }
+
+    /**
+     * Slice 0.2b — credit the school already held is spent against a fee.
+     *
+     *     Dr 2200 Store/Fee Credit   =   Cr 1100 AR
+     *
+     * No cash moves: the liability shrinks and the receivable clears. Posting this through the cash receipt path
+     * instead would record the same money as received twice — once when the parent overpaid, once when the credit
+     * was used. Mirrors POS's redeem leg, {@code dr(STORE_CREDIT, sc)}.
+     */
+    private void postFeeCreditApplied(PostEventRequest r) {
+        BigDecimal used = nz(r.getGrandTotal());
+        if (used.signum() <= 0) return;
+        post("FEE_CREDIT_APPLIED", r.getDate(), r.getRef(),
+                List.of(dr(STORE_CREDIT, used), cr(AR, used)));
     }
 
     private void postSale(PostEventRequest r) {

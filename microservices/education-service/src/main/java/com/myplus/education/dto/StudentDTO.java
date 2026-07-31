@@ -6,6 +6,10 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class StudentDTO {
+    /** Slice 0.2b: fee credit the school holds for this student. Read-only here — the ledger owns it. Without
+     *  this the fee screens cannot show a parent the money already paid in, which is the point of holding it. */
+    private java.math.BigDecimal creditBalance;
+
     private Long id;
     private Long userId;
     private String name;

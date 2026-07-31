@@ -87,6 +87,24 @@ public class FeeCollectionController {
         return educationClient.get("/getAllFc", requestUtil.getCurrentUser().getId());
     }
 
+
+    /** Slice 0.2a: fee aging buckets (0-30/31-60/61-90/90+) per student, from the shared AgingCalculator. */
+    @RequestMapping(value = "/getFeeAging", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<String> getFeeAging() {
+        return educationClient.get("/getFeeAging", requestUtil.getCurrentUser().getId());
+    }
+
+    /** Slice 0.2a: one student's statement of account (charges, payments, running balance). */
+    @RequestMapping(value = "/getFeeStatement", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<String> getFeeStatement(HttpServletRequest request) {
+        return educationClient.get("/getFeeStatement?enrollNo="
+                + java.net.URLEncoder.encode(String.valueOf(request.getParameter("enrollNo")),
+                        java.nio.charset.StandardCharsets.UTF_8),
+                requestUtil.getCurrentUser().getId());
+    }
+
     @RequestMapping(value = "/addFc", method = RequestMethod.POST)
     @ResponseBody
     public ResponseEntity<String> addFc(HttpServletRequest request) {

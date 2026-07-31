@@ -256,8 +256,11 @@
     };
 
     // Delete = deactivate the checked products (they drop off the active list, stay intact for history).
-    global.deactivateProducts = function () {
-        var ids = $("#tableProduct input[type='checkbox']:checked").map(function () { return this.value; }).get().join(',');
+    // `preselectedIds` comes from the shared bulk-delete path (main.js performBulkDelete → bulkDeleteProduct),
+    // which has already collected and confirmed them; called with no argument it reads the checkboxes itself.
+    global.deactivateProducts = function (preselectedIds) {
+        var ids = preselectedIds
+            || $("#tableProduct input[type='checkbox']:checked").map(function () { return this.value; }).get().join(',');
         if (!ids) { showFormError(t('ui.js.selectAtLeastOneProductToRemove')); return; }
         $.ajax({
             type: 'POST', url: serverContext + 'deactivateProduct', contentType: 'application/json', dataType: 'json',
@@ -271,6 +274,11 @@
             error: function () { showFormError(t('ui.js.couldNotRemoveTheProductS')); }
         });
     };
+
+    // The shared bulk-delete path looks for window.bulkDelete<Entity> before falling back to POST
+    // /delete<Entity>. Registering it here is what stops the Product screen posting to /deleteProduct,
+    // which does not exist — a product is deactivated, never deleted.
+    global.bulkDeleteProduct = function (ids) { global.deactivateProducts(ids); };
 
     // "Show inactive" toggle — include deactivated products in the list (with a Status column + Reactivate action).
     global.toggleShowInactiveProducts = function (checked) {

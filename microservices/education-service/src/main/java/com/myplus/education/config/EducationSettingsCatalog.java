@@ -42,7 +42,14 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                         "Off (default): the subject list is visible org-wide (one shared curriculum). On: a branch "
                                 + "sees only subjects attached to a class at that branch. A subject attached to no "
                                 + "class stays visible everywhere.",
-                        false, "Branch policy")
+                        false, "Branch policy"),
+                SettingEntry.bool("edu.fee.creditOnOverpayment",
+                        "Carry an overpayment forward as fee credit",
+                        "On (default): if a parent pays more than is owed, the surplus is held as fee credit and "
+                                + "applied automatically to the next charge. Off: the payment is refused and only "
+                                + "the outstanding amount may be collected — for schools that do not hold "
+                                + "parent money.",
+                        true, "Fees")
                 // NOTE: fee-collection branch scoping is deliberately NOT here. It already exists as
                 // FeeSetting.feeCollectionBranchScoped on the Fee Settings screen (see FeeCollectionController
                 // .branchVisible). Adding a second switch for the same behaviour would give the owner two

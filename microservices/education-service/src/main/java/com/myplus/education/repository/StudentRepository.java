@@ -14,6 +14,17 @@ import java.util.List;
 public interface StudentRepository extends JpaRepository<Student, Long> {
     Page<Student> findByUserId(Long userId, Pageable pageable);
     List<Student> findByUserId(Long userId);
+
+    /** Slice 0.2b: targeted update of the cached credit balance — never a full-entity save, which would clobber
+     *  columns another request may have changed in the meantime. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("update Student s set s.creditBalance = :bal where s.id = :id")
+    void updateCreditBalance(@org.springframework.data.repository.query.Param("id") Long id,
+                             @org.springframework.data.repository.query.Param("bal") java.math.BigDecimal bal);
+
+    /** Slice 0.2a: resolve one student by enrolment number within a tenant — an indexed lookup, so settling a fee
+     *  payment costs one row read rather than scanning the org's students. */
+    java.util.Optional<Student> findByOrganizationIdAndEnrollNo(Long organizationId, String enrollNo);
     Page<Student> findBySchoolId(Long schoolId, Pageable pageable);
     Page<Student> findByGradeId(Long gradeId, Pageable pageable);
     long countByUserId(Long userId);

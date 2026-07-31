@@ -53,7 +53,7 @@ public class CustomerService implements ICustomerService{
 	AuditService auditService;   // Audit #6: append-only audit trail (via audit-service outbox)
 
 	@Autowired
-	com.myplus.business_service.service.subledger.SubledgerService subledgerService;   // shared AR/AP settlement
+	com.myplus.common.subledger.SubledgerService subledgerService;   // shared AR/AP settlement
 
 	// @Autowired
 	// ObjectMapperUtils objectMapperUtils;
@@ -306,9 +306,9 @@ return customerRepo.exists(example);
 			String method, java.time.LocalDate paidOn, String reference, Long org, String idempotencyKey) {
 
 		// The customer's still-owing invoices (oldest first) as generic OpenDocs for the shared allocator.
-		java.util.List<com.myplus.business_service.service.subledger.OpenDoc> docs = new java.util.ArrayList<>();
+		java.util.List<com.myplus.common.subledger.OpenDoc> docs = new java.util.ArrayList<>();
 		for (CustomerHistory inv : customerHistoryRepo.findOpenInvoicesByCustomer(customerId)) {
-			docs.add(new com.myplus.business_service.service.subledger.OpenDoc() {
+			docs.add(new com.myplus.common.subledger.OpenDoc() {
 				public java.math.BigDecimal outstanding() {
 					java.math.BigDecimal due = inv.getDueAmount() != null ? inv.getDueAmount() : java.math.BigDecimal.ZERO;
 					return due.negate();   // due = paid - bill (negative while owing)
@@ -329,7 +329,7 @@ return customerRepo.exists(example);
 
 		// ONE shared settlement path (FIFO allocate + best-effort finance-ledger record); recomputeDue refreshes
 		// the customer's running balance and returns the fresh due for the response.
-		com.myplus.business_service.service.subledger.SettleOutcome outcome = subledgerService.settle(
+		com.myplus.common.subledger.SettleOutcome outcome = subledgerService.settle(
 				"RECEIPT", "CUSTOMER", customerId, customer.getName(), amount, method, paidOn, reference, "BUSINESS",
 				docs, () -> { this.recomputeDue(customer); return customer.getDueAmount(); });
 

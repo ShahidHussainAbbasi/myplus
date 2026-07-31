@@ -86,7 +86,7 @@ public class AnalyticsController {
             out.put("attendanceByClass", attendanceByClass(attendance));
             out.put("genderSplit", countBy(students, s -> norm(s.getGender(), "Unspecified")));
             out.put("studentStatus", countBy(students, s -> norm(s.getStatus(), "Active")));
-            out.put("paymentModes", sumBy(fees, f -> norm(f.getRi(), "Cash"), f -> nz(f.getFp())));
+            out.put("paymentModes", sumBy(fees, f -> norm(f.getReceivedIn(), "Cash"), f -> nz(f.getFeePaid())));
             out.put("staffByDesignation", countBy(staff, s -> norm(s.getDesignation(), "Other")));
 
             return new GenericResponse("SUCCESS", out);
@@ -109,10 +109,10 @@ public class AnalyticsController {
                 .filter(s -> s.getStatus() == null || s.getStatus().equalsIgnoreCase("Active")).count();
 
         long collectedThisMonth = fees.stream()
-                .filter(f -> f.getPd() != null && YearMonth.from(f.getPd()).equals(thisMonth))
-                .mapToLong(f -> nz(f.getFp())).sum();
-        long collectedTotal = fees.stream().mapToLong(f -> nz(f.getFp())).sum();
-        long outstanding = fees.stream().mapToLong(f -> nz(f.getDb())).sum();
+                .filter(f -> f.getPaymentDate() != null && YearMonth.from(f.getPaymentDate()).equals(thisMonth))
+                .mapToLong(f -> nz(f.getFeePaid())).sum();
+        long collectedTotal = fees.stream().mapToLong(f -> nz(f.getFeePaid())).sum();
+        long outstanding = fees.stream().mapToLong(f -> nz(f.getDueBalance())).sum();
         long billed = collectedTotal + outstanding;
         double collectionRate = billed > 0 ? (collectedTotal * 100.0 / billed) : 0;
 
@@ -160,12 +160,12 @@ public class AnalyticsController {
         Map<YearMonth, long[]> byMonth = new TreeMap<>();
         months.forEach(m -> byMonth.put(m, new long[2])); // [0]=collected, [1]=due
         for (FeeCollection f : fees) {
-            if (f.getPd() == null) continue;
-            YearMonth m = YearMonth.from(f.getPd());
+            if (f.getPaymentDate() == null) continue;
+            YearMonth m = YearMonth.from(f.getPaymentDate());
             long[] cell = byMonth.get(m);
             if (cell == null) continue;
-            cell[0] += nz(f.getFp());
-            cell[1] += nz(f.getDa()) + nz(f.getOd());
+            cell[0] += nz(f.getFeePaid());
+            cell[1] += nz(f.getDueAmount()) + nz(f.getOtherDues());
         }
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("labels", months.stream().map(this::monthLabel).toList());
@@ -216,9 +216,9 @@ public class AnalyticsController {
         }
         Map<String, Long> m = new LinkedHashMap<>();
         for (FeeCollection f : fees) {
-            Long gid = f.getEn() == null ? null : enrollToClass.get(f.getEn());
+            Long gid = f.getEnrollNo() == null ? null : enrollToClass.get(f.getEnrollNo());
             String label = gradeNames.getOrDefault(gid, "Unassigned");
-            m.merge(label, (long) nz(f.getFp()), Long::sum);
+            m.merge(label, (long) nz(f.getFeePaid()), Long::sum);
         }
         return labelsAndData(m);
     }

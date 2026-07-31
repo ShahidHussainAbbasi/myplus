@@ -28,22 +28,22 @@ public class FeeCollectionService {
     public FeeCollectionDTO create(FeeCollectionDTO dto) {
         FeeCollection e = FeeCollection.builder()
                 .userId(dto.getUserId())
-                .en(dto.getEn())
-                .dt(dto.getDt())
-                .d(dto.getD())
-                .dd(dto.getDd())
-                .da(dto.getDa())
-                .f(dto.getF())
-                .fp(dto.getFp())
-                .pd(dto.getPd())
-                .od(dto.getOd())
-                .odd(dto.getOdd())
-                .p(dto.getP())
-                .rb(dto.getRb())
-                .ri(dto.getRi())
-                .cn(dto.getCn())
-                .vf(dto.getVf())
-                .db(dto.getDb())
+                .enrollNo(dto.getEnrollNo())
+                .discountType(dto.getDiscountType())
+                .discount(dto.getDiscount())
+                .dueDayOfMonth(dto.getDueDayOfMonth())
+                .dueAmount(dto.getDueAmount())
+                .fee(dto.getFee())
+                .feePaid(dto.getFeePaid())
+                .paymentDate(dto.getPaymentDate())
+                .otherDues(dto.getOtherDues())
+                .otherDuesDescription(dto.getOtherDuesDescription())
+                .payee(dto.getPayee())
+                .receivedBy(dto.getReceivedBy())
+                .receivedIn(dto.getReceivedIn())
+                .checkNo(dto.getCheckNo())
+                .vehicleFee(dto.getVehicleFee())
+                .dueBalance(dto.getDueBalance())
                 .build();
         return toDto(feeCollectionRepository.save(e));
     }
@@ -51,22 +51,22 @@ public class FeeCollectionService {
     @Transactional
     public FeeCollectionDTO update(Long id, FeeCollectionDTO dto) {
         FeeCollection e = getEntity(id);
-        e.setEn(dto.getEn());
-        e.setDt(dto.getDt());
-        e.setD(dto.getD());
-        e.setDd(dto.getDd());
-        e.setDa(dto.getDa());
-        e.setF(dto.getF());
-        e.setFp(dto.getFp());
-        e.setPd(dto.getPd());
-        e.setOd(dto.getOd());
-        e.setOdd(dto.getOdd());
-        e.setP(dto.getP());
-        e.setRb(dto.getRb());
-        e.setRi(dto.getRi());
-        e.setCn(dto.getCn());
-        e.setVf(dto.getVf());
-        e.setDb(dto.getDb());
+        e.setEnrollNo(dto.getEnrollNo());
+        e.setDiscountType(dto.getDiscountType());
+        e.setDiscount(dto.getDiscount());
+        e.setDueDayOfMonth(dto.getDueDayOfMonth());
+        e.setDueAmount(dto.getDueAmount());
+        e.setFee(dto.getFee());
+        e.setFeePaid(dto.getFeePaid());
+        e.setPaymentDate(dto.getPaymentDate());
+        e.setOtherDues(dto.getOtherDues());
+        e.setOtherDuesDescription(dto.getOtherDuesDescription());
+        e.setPayee(dto.getPayee());
+        e.setReceivedBy(dto.getReceivedBy());
+        e.setReceivedIn(dto.getReceivedIn());
+        e.setCheckNo(dto.getCheckNo());
+        e.setVehicleFee(dto.getVehicleFee());
+        e.setDueBalance(dto.getDueBalance());
         return toDto(feeCollectionRepository.save(e));
     }
 
@@ -84,22 +84,22 @@ public class FeeCollectionService {
         return FeeCollectionDTO.builder()
                 .id(e.getId())
                 .userId(e.getUserId())
-                .en(e.getEn())
-                .dt(e.getDt())
-                .d(e.getD())
-                .dd(e.getDd())
-                .da(e.getDa())
-                .f(e.getF())
-                .fp(e.getFp())
-                .pd(e.getPd())
-                .od(e.getOd())
-                .odd(e.getOdd())
-                .p(e.getP())
-                .rb(e.getRb())
-                .ri(e.getRi())
-                .cn(e.getCn())
-                .vf(e.getVf())
-                .db(e.getDb())
+                .enrollNo(e.getEnrollNo())
+                .discountType(e.getDiscountType())
+                .discount(e.getDiscount())
+                .dueDayOfMonth(e.getDueDayOfMonth())
+                .dueAmount(e.getDueAmount())
+                .fee(e.getFee())
+                .feePaid(e.getFeePaid())
+                .paymentDate(e.getPaymentDate())
+                .otherDues(e.getOtherDues())
+                .otherDuesDescription(e.getOtherDuesDescription())
+                .payee(e.getPayee())
+                .receivedBy(e.getReceivedBy())
+                .receivedIn(e.getReceivedIn())
+                .checkNo(e.getCheckNo())
+                .vehicleFee(e.getVehicleFee())
+                .dueBalance(e.getDueBalance())
                 .build();
     }
 }

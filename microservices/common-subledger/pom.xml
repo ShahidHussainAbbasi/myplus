@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>common-subledger</artifactId>
+  <name>common-subledger</name>
+  <description>Shared subledger settlement + aging: FIFO-allocate a payment across a party's open documents,
+    record it in finance-service, and bucket outstanding amounts by age (0-30/31-60/61-90/90+). Party- and
+    domain-agnostic via the OpenDoc SPI — AR customers, AP vendors, education fees, welfare pledges all supply
+    their own documents. Extracted from business-service, whose own javadoc already declared it reusable by any
+    future vertical. Holds NO @Entity: each service keeps its own document tables.</description>
+
+  <!-- commerce-contracts is a real dependency (FinanceClient, PaymentRecordRequest/Result, PaymentAllocationRef).
+       Everything else is provided by the consuming Boot service at runtime. -->
+  <dependencies>
+    <dependency><groupId>com.myplus</groupId><artifactId>commerce-contracts</artifactId><version>1.0.0-SNAPSHOT</version><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-context</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><scope>provided</scope></dependency>
+    <!-- The aging + statement engines are pure, so they get real unit tests that run on every `mvn test`. -->
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+  </dependencies>
+</project>

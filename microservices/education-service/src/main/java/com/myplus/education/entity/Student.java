@@ -88,6 +88,13 @@ public class Student {
     @Column(name = "discount_in")
     private String di;
 
+    /** Slice 0.2b: cached fee-credit balance — money the school holds for this student (normally an
+     *  overpayment carried forward). A PROJECTION of fee_credit_txn, not the source of truth, so a fee list can
+     *  show it without re-summing the ledger per row. BigDecimal because it is currency (see the money standard),
+     *  even though fees themselves are whole-unit integers here. */
+    @Column(name = "credit_balance", precision = 19, scale = 2)
+    private java.math.BigDecimal creditBalance;
+
     private Integer fee;   // whole-currency-unit fee override (see Grade.fee)
 
     private Integer dueDay;

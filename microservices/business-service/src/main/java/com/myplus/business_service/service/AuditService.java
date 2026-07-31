@@ -18,8 +18,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.myplus.business_service.entity.AuditOutbox;
 import com.myplus.business_service.repository.AuditOutboxRepo;
-import com.myplus.business_service.service.outbox.OutboxDelivery;
-import com.myplus.business_service.service.outbox.OutboxRelay;
+import com.myplus.common.outbox.OutboxDelivery;
+import com.myplus.common.outbox.OutboxRelay;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.commerce.contracts.client.AuditClient;
 import com.myplus.commerce.contracts.dto.AuditEventRequest;

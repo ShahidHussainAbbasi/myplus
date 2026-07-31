@@ -37,6 +37,9 @@
     <module>common-service</module>
     <module>common-web</module>
     <module>common-settings</module>
+    <module>common-outbox</module>
+    <module>common-subledger</module>
+    <module>common-credit</module>
     <module>commerce-domain</module>
     <module>commerce-contracts</module>
     <module>common-notify</module>

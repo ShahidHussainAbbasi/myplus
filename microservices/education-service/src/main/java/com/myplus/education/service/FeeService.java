@@ -55,6 +55,9 @@ public class FeeService {
      *  All whole-currency-unit integers (see Grade.fee); a percentage discount rounds to the nearest unit. */
     public int monthlyDue(Student s) {
         int base = s.getFee() != null ? s.getFee() : gradeFee(s.getGradeId());
+        // NOTE: this is Student.vf, NOT FeeCollection.vehicleFee — Student still uses the short name. Renaming
+        // Student's fields is a separate change (slice 0.4 covered FeeCollection only), so the two must not be
+        // conflated here.
         int vehicle = s.getVf() != null ? s.getVf() : 0;
         int discount = discountAmount(s.getDiscountId(), base);
         return Math.max(base + vehicle - discount, 0);
@@ -64,14 +67,14 @@ public class FeeService {
     public Map<String, Object> voucherForStudent(Long orgId, Student s, boolean aging) {
         int monthly = monthlyDue(s);
         List<FeeCollection> fcs = feeCollectionRepository
-                .findByOrganizationIdAndEnOrderByIdAsc(orgId, s.getEnrollNo());
-        LocalDate lpd = fcs.stream().map(FeeCollection::getPd).filter(Objects::nonNull)
+                .findByOrganizationIdAndEnrollNoOrderByIdAsc(orgId, s.getEnrollNo());
+        LocalDate lpd = fcs.stream().map(FeeCollection::getPaymentDate).filter(Objects::nonNull)
                 .max(LocalDate::compareTo)
                 .orElse(s.getEnrollDate() != null ? s.getEnrollDate() : LocalDate.now());
         int dm = monthsBetween(lpd, LocalDate.now());
         int months = aging ? (dm > 1 ? dm : 1) : 1;
         int prevBalance = fcs.isEmpty() ? 0
-                : (fcs.get(fcs.size() - 1).getDb() == null ? 0 : fcs.get(fcs.size() - 1).getDb());
+                : (fcs.get(fcs.size() - 1).getDueBalance() == null ? 0 : fcs.get(fcs.size() - 1).getDueBalance());
         int total = monthly * months + prevBalance;
 
         Map<String, Object> m = new LinkedHashMap<>();
@@ -115,19 +118,19 @@ public class FeeService {
     public void registerOpeningDue(Long orgId, Long userId, Student s) {
         if (s == null || s.getEnrollNo() == null || s.getEnrollNo().isBlank()) return;
         List<FeeCollection> existing = feeCollectionRepository
-                .findByOrganizationIdAndEnOrderByIdAsc(orgId, s.getEnrollNo());
+                .findByOrganizationIdAndEnrollNoOrderByIdAsc(orgId, s.getEnrollNo());
         if (!existing.isEmpty()) return;
         int monthly = monthlyDue(s);
         FeeCollection fc = new FeeCollection();
         fc.setOrganizationId(orgId);
         fc.setUserId(userId);
-        fc.setEn(s.getEnrollNo());
-        fc.setF(monthly);
-        fc.setFp(0);
-        fc.setDa(monthly);
-        fc.setDb(0);
-        fc.setPd(s.getEnrollDate() != null ? s.getEnrollDate() : LocalDate.now());
-        fc.setRi("OPENING_DUE");
+        fc.setEnrollNo(s.getEnrollNo());
+        fc.setFee(monthly);
+        fc.setFeePaid(0);
+        fc.setDueAmount(monthly);
+        fc.setDueBalance(0);
+        fc.setPaymentDate(s.getEnrollDate() != null ? s.getEnrollDate() : LocalDate.now());
+        fc.setReceivedIn("OPENING_DUE");
         feeCollectionRepository.save(fc);
     }
 
