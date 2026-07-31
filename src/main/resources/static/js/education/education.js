@@ -3116,3 +3116,149 @@ function pinTerm(id, pin) {
 		else ayNotify((res && res.message) || 'Could not change the pinned term');
 	});
 }
+
+/* ══ Slice 1.2 — Examinations ═════════════════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-1.2-examinations.md
+ *
+ * Two levels: the exam (term + weight) and its papers (subject, out of N, on a date). The class shown
+ * per paper is DERIVED server-side from the subject (D2) — nothing here stores or guesses it.
+ *
+ * The lock (D5) is enforced by the SERVICE; this only reflects it, so the UI can never be the thing
+ * that grants an edit. Same hook style as 1.1: one #registrationType change listener serves both the
+ * dropdown and the sidebar, because snavGo() sets that select and fires change.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'ExamDiv') loadExams();
+});
+
+function loadExams() {
+	// Terms come from 1.1. With none defined an exam cannot exist (D3), so say that up front rather
+	// than letting the user fill the form and hit a server refusal.
+	$.get(serverContext + 'getAcademicYears', function (res) {
+		var years = (res && res.collection) || [];
+		var $term = $('#exTerm').empty();
+		var any = false;
+		years.forEach(function (y) {
+			(y.terms || []).forEach(function (t) {
+				any = true;
+				$term.append($('<option>').val(t.id).text(y.name + ' · ' + t.name));
+			});
+		});
+		$('#exNoTerms').toggle(!any);
+		$('#exAdd').prop('disabled', !any);
+		if (typeof $term.selectpicker === 'function') { try { $term.selectpicker('refresh'); } catch (e) {} }
+	});
+
+	$.get(serverContext + 'getUserSubjects', function (data) {
+		// getUserSubjects answers with <option> markup, the same contract the other pickers use.
+		var $s = $('#exPaperSubject').empty().append(data);
+		if (typeof $s.selectpicker === 'function') { try { $s.selectpicker('refresh'); } catch (e) {} }
+	});
+
+	$.get(serverContext + 'getExams', function (res) {
+		var exams = (res && res.collection) || [];
+		var $body = $('#tableExam tbody').empty();
+		var $picker = $('#exPaperExam').empty();
+		$('#exEmpty').toggle(exams.length === 0);
+
+		exams.forEach(function (e) {
+			$picker.append($('<option>').val(e.id).text(e.name));
+			var papers = e.papers || [];
+			var $status = $('<span>').text(e.status || 'DRAFT');
+			if (e.locked) $status.addClass('label label-warning');
+
+			if (!papers.length) {
+				$body.append($('<tr>')
+					.append($('<td>').text(e.name))
+					.append($('<td>').text(e.termId == null ? '' : String(e.termId)))
+					.append($('<td colspan="4">').addClass('text-muted').text('—'))
+					.append($('<td>').append($status))
+					.append($('<td>').append(examActions(e))));
+				return;
+			}
+			papers.forEach(function (p, i) {
+				$body.append($('<tr>')
+					.append($('<td>').text(i === 0 ? e.name : ''))
+					.append($('<td>').text(i === 0 && e.termId != null ? String(e.termId) : ''))
+					.append($('<td>').text(p.subjectName || ''))
+					.append($('<td>').text(p.gradeName || ''))     // derived, D2
+					.append($('<td>').text(p.maxMarks == null ? '' : p.maxMarks))
+					.append($('<td>').text(p.examDateStr || ''))
+					.append($('<td>').append(i === 0 ? $status : $()))
+					.append($('<td>').append(i === 0 ? examActions(e) : $())));
+			});
+		});
+		if (typeof $picker.selectpicker === 'function') { try { $picker.selectpicker('refresh'); } catch (e) {} }
+	});
+}
+
+/** Publish / lock / unlock. Unlocking re-opens results to restatement, so it is confirmed. */
+function examActions(e) {
+	var $wrap = $('<span>');
+	if (e.status === 'DRAFT') {
+		$wrap.append($('<button type="button" class="btn btn-xs btn-default">')
+			.text('Publish').on('click', function () { setExamStatus(e.id, 'PUBLISHED'); }));
+	} else if (e.status === 'PUBLISHED') {
+		$wrap.append($('<button type="button" class="btn btn-xs btn-default">')
+			.text('Lock').on('click', function () { setExamStatus(e.id, 'LOCKED'); }));
+	} else if (e.status === 'LOCKED') {
+		$wrap.append($('<button type="button" class="btn btn-xs btn-warning">')
+			.text('Unlock').on('click', function () {
+				var msg = 'Unlocking lets the exam definition change, which restates marks already entered. Continue?';
+				if (typeof uiConfirm === 'function') { uiConfirm(msg, function () { setExamStatus(e.id, 'PUBLISHED'); }); return; }
+				setExamStatus(e.id, 'PUBLISHED');
+			}));
+	}
+	return $wrap;
+}
+
+function setExamStatus(id, status) {
+	$.post(serverContext + 'setExamStatus', { id: id, status: status }, function (res) {
+		if (res && res.status === 'SUCCESS') loadExams();
+		else ayNotify((res && res.message) || 'Could not change the exam status');
+	});
+}
+
+function saveExam() {
+	var name = $.trim($('#exName').val());
+	var termId = $('#exTerm').val();
+	if (!name) { ayNotify('Exam name is required'); return; }
+	if (!termId) { ayNotify('Create an academic year and at least one term first'); return; }
+	$.post(serverContext + 'addExam', {
+		name: name,
+		type: $('#exType').val(),
+		termId: termId,
+		weightPercent: $('#exWeight').val()
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			$('#exName, #exType, #exWeight').val('');
+			// The weight-total notice rides on the SUCCESS message (D4: a warning, never a block).
+			if (res.message && res.message.indexOf('total') > -1) ayNotify(res.message);
+			loadExams();
+		} else {
+			ayNotify((res && res.message) || 'Could not save the exam');
+		}
+	});
+}
+
+function saveExamPaper() {
+	var examId = $('#exPaperExam').val();
+	var subjectId = $('#exPaperSubject').val();
+	if (!examId) { ayNotify('Add an exam first'); return; }
+	if (!subjectId) { ayNotify('Select a subject'); return; }
+	$.post(serverContext + 'addExamPaper', {
+		examId: examId,
+		subjectId: subjectId,
+		maxMarks: $('#exMaxMarks').val(),
+		passMarks: $('#exPassMarks').val(),
+		examDateStr: $('#exPaperDate').val()
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			$('#exPaperDate').val('');
+			loadExams();
+		} else {
+			// A locked exam answers FAILED with a message naming the fix — show it verbatim.
+			ayNotify((res && res.message) || 'Could not save the paper');
+		}
+	});
+}

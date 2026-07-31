@@ -52,6 +52,7 @@
 					<option value="VehicleDiv" th:text="#{ui.vehicles}">Vehicles</option>
 					<option value="GradeDiv" th:text="#{ui.classes}">Classes</option>
 					<option value="AcademicYearDiv" th:text="#{ui.academicYear}">Academic Year</option>
+					<option value="ExamDiv" th:text="#{ui.examinations}">Examinations</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
 					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
 					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
@@ -101,6 +102,7 @@
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradeDiv','snavRegister')"><span class="glyphicon glyphicon-th-large"></span> <span th:text="#{ui.classes}">Classes</span></a></li>
 									<!-- Slice 1.1: the academic spine — exams, marks and promotion all hang off a term. -->
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','AcademicYearDiv','snavRegister')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.academicYear}">Academic Year</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','ExamDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.examinations}">Examinations</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
@@ -2405,6 +2407,92 @@
 					<tbody></tbody>
 				</table>
 				<div id="ayEmpty" class="text-muted" style="display:none" th:text="#{ui.noAcademicYears}">No academic years defined yet.</div>
+			</div>
+
+			<!-- ═══ Slice 1.2 — Examinations ═══════════════════════════════════════════════════════════
+			     Two levels: the exam is the event (term + weight), its papers are per subject (out of
+			     N, on a date). The class is NOT stored on a paper — a Subject already knows its Grade,
+			     so the datesheet filter derives it (design D2). Once marks exist the exam LOCKS: the
+			     fields that would restate results grey out, while rescheduling stays open (D5). -->
+			<div id="ExamDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+				<h4 th:text="#{ui.examinations}">Examinations</h4>
+				<p class="text-muted" th:text="#{ui.examHelp}">Define an exam for a term, then add one paper per subject. Marks are entered against these papers.</p>
+
+				<div class="alert alert-warning" id="exNoTerms" style="display:none" th:text="#{ui.examNeedsTerm}">Create an academic year and at least one term before adding exams.</div>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="exName" th:text="#{ui.examName}">Exam name</label>
+						<input type="text" class="form-control" id="exName" placeholder="Mid-Term">
+					</div>
+					<div class="col-sm-2">
+						<label for="exType" th:text="#{ui.examType}">Type</label>
+						<!-- D6: free text with suggestions. No exam-type table and no setting — nothing
+						     in the code branches on the value. -->
+						<input type="text" class="form-control" id="exType" list="exTypeList" placeholder="Mid-Term">
+						<datalist id="exTypeList">
+							<option value="Mid-Term"></option>
+							<option value="Final"></option>
+							<option value="Unit Test"></option>
+							<option value="Pre-Board"></option>
+							<option value="Practical"></option>
+						</datalist>
+					</div>
+					<div class="col-sm-3">
+						<label for="exTerm" th:text="#{ui.termName}">Term name</label>
+						<select class="form-control" id="exTerm"></select>
+					</div>
+					<div class="col-sm-2">
+						<label for="exWeight" th:text="#{ui.weightPercent}">Weight %</label>
+						<input type="number" class="form-control" id="exWeight" min="0" max="100">
+					</div>
+					<div class="col-sm-2" style="padding-top:24px">
+						<button type="button" id="exAdd" class="btn btn-success" onclick="saveExam()" th:text="#{ui.addExam}">Add Exam</button>
+					</div>
+				</div>
+
+				<hr />
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-2">
+						<label for="exPaperExam" th:text="#{ui.examName}">Exam name</label>
+						<select class="form-control" id="exPaperExam"></select>
+					</div>
+					<div class="col-sm-2">
+						<label for="exPaperSubject" th:text="#{ui.subjects}">Subjects</label>
+						<select class="form-control" id="exPaperSubject"></select>
+					</div>
+					<div class="col-sm-2">
+						<label for="exMaxMarks" th:text="#{ui.maxMarks}">Max marks</label>
+						<input type="number" class="form-control" id="exMaxMarks" min="1" value="100">
+					</div>
+					<div class="col-sm-2">
+						<label for="exPassMarks" th:text="#{ui.passMarks}">Pass marks</label>
+						<input type="number" class="form-control" id="exPassMarks" min="0" value="33">
+					</div>
+					<div class="col-sm-2">
+						<label for="exPaperDate" th:text="#{ui.examDate}">Exam date</label>
+						<input type="text" class="form-control datePicker" id="exPaperDate" placeholder=" Exam date" th:placeholder="#{ui.examDate}">
+					</div>
+					<div class="col-sm-2" style="padding-top:24px">
+						<button type="button" id="exPaperAdd" class="btn btn-success" onclick="saveExamPaper()" th:text="#{ui.addPaper}">Add Paper</button>
+					</div>
+				</div>
+
+				<table id="tableExam" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.examName}">Exam name</th>
+						<th th:text="#{ui.termName}">Term name</th>
+						<th th:text="#{ui.subjects}">Subjects</th>
+						<th th:text="#{ui.classes}">Classes</th>
+						<th th:text="#{ui.maxMarks}">Max marks</th>
+						<th th:text="#{ui.examDate}">Exam date</th>
+						<th th:text="#{ui.status}">Status</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+				<div id="exEmpty" class="text-muted" style="display:none" th:text="#{ui.noExams}">No exams defined yet.</div>
 			</div>
 
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
