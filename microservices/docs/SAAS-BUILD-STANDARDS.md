@@ -135,6 +135,20 @@ key the UI actually reads. Related: **D9** (a rename must move every one of thos
 Git restores a class; nothing restores rows. Verify zero references first — including the entity-only-referenced-
 by-its-own-repository "dead pair" shape (`Segment` + `SegmentRepository`).
 
+**D12. education has TWO `FeeCollectionDTO` classes — check which one a controller binds before writing against
+it.** `com.myplus.education.dto.FeeCollectionDTO` is the flat/legacy shape `addFc` binds;
+`com.myplus.education.dto.EducationDTOs.FeeCollectionDTO` is the nested REST shape. They carry the same field
+names, so an IDE import completes happily and the mistake only surfaces at compile time — and then as
+`cannot find symbol: variable FeeValidator` at the *call site*, because the helper class itself failed to
+compile. The error names the wrong file.
+
+The same split exists for `SchoolDTO` (its own javadoc says "Separate from the REST `EducationDTOs.SchoolDTO`").
+Before writing a validator, mapper or test against a DTO, grep the controller's imports for which one it uses:
+
+```bash
+grep -n "^import .*\.dto\." <Controller>.java
+```
+
 **D11. A duplicate DOM id is a silent wrong-element bug — and you must ignore commented-out markup when hunting
 for them.** `getElementById` returns whichever element comes first, so a page with two `#foo` reads or writes the
 wrong one with no error anywhere. This has bitten twice: the alerts table emitted `<div id=acdd>` per row,

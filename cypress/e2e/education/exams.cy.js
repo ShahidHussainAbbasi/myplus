@@ -199,15 +199,21 @@ describe('Education — examinations (slice 1.2)', () => {
     seedTerm().then((termId) => {
       post('/addExam', { name, termId })
       findExam(name).then((e) => {
-        cy.loginAsEducation()   // demo.education@ — a different org
-        cy.request('/getExams').then((r) => {
-          expect(rows(r.body).map((x) => x.name), 'not visible across tenants').to.not.include(name)
+        // Bearer token, not a session switch: the monolith runs maximumSessions(1), so logging a second
+        // identity in here would expire this test's own session (see cy.asOtherTenant).
+        cy.asOtherTenant((auth) => {
+          cy.request({ url: `${GW}/api/education/getExams`, headers: auth, failOnStatusCode: false })
+            .then((r) => {
+              expect(rows(r.body).map((x) => x.name), 'not visible across tenants').to.not.include(name)
+            })
+          // Same id, different tenant: refused, not silently re-parented.
+          cy.request({
+            method: 'POST', url: `${GW}/api/education/addExam`,
+            headers: auth, form: true, body: { id: e.id, name: 'STOLEN', termId: 1 }, failOnStatusCode: false,
+          }).then((r) => {
+            expect((r.body || {}).status, `takeover attempt: ${JSON.stringify(r.body)}`).to.not.eq('SUCCESS')
+          })
         })
-        // Same id, different tenant: refused, not silently re-parented.
-        post('/addExam', { id: e.id, name: 'STOLEN', termId: 1 }).then((r) => {
-          expect(parse(r.body).status, JSON.stringify(r.body)).to.not.eq('SUCCESS')
-        })
-        cy.loginAsEduOwner()
         findExam(name).then((e2) => expect(e2.name, 'still ours, unchanged').to.eq(name))
       })
     })

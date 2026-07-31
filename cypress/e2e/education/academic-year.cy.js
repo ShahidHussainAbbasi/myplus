@@ -112,9 +112,11 @@ describe('Education — academic year & term (slice 1.1)', () => {
   it("another tenant's academic years are invisible", () => {
     const name = 'AYISO' + Date.now()
     addYear(name)
-    cy.loginAsEducation()   // demo.education@ — a different org
-    cy.request('/getAcademicYears').then((r) => {
-      expect(rows(r.body).map((x) => x.name), 'the other tenant sees nothing of ours').to.not.include(name)
+    cy.asOtherTenant((auth) => {
+      cy.request({ url: `${GW}/api/education/getAcademicYears`, headers: auth, failOnStatusCode: false })
+        .then((r) => {
+          expect(rows(r.body).map((x) => x.name), 'the other tenant sees nothing of ours').to.not.include(name)
+        })
     })
   })
 
@@ -141,12 +143,16 @@ describe('Education — academic year & term (slice 1.1)', () => {
     const name = 'AYIDOR' + Date.now()
     addYear(name)
     findYear(name).then((y) => {
-      cy.loginAsEducation()
       // Same id, different tenant: must be refused, NOT silently taken over (finding A's shape).
-      post('/addAcademicYear', { id: y.id, name: 'STOLEN' }).then((r) => {
-        expect(parse(r.body).status, JSON.stringify(r.body)).to.not.eq('SUCCESS')
+      cy.asOtherTenant((auth) => {
+        cy.request({
+          method: 'POST', url: `${GW}/api/education/addAcademicYear`,
+          headers: auth, form: true, body: { id: y.id, name: 'STOLEN' }, failOnStatusCode: false,
+        }).then((r) => {
+          expect((r.body || {}).status, `takeover attempt: ${JSON.stringify(r.body)}`).to.not.eq('SUCCESS')
+        })
       })
-      cy.loginAsEduOwner()
+      // No switch back needed — the owner's browser session was never touched.
       findYear(name).then((y2) => expect(y2.name, 'still ours, unchanged').to.eq(name))
     })
   })

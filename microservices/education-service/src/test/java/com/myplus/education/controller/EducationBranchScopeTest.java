@@ -103,8 +103,13 @@ class EducationBranchScopeTest {
 
         @InjectMocks private StaffController controller;
 
+        /** Ids matter here: the PICKER renders {@code <option value=ID>} and SKIPS id-less rows, so a
+         *  fixture without one can never appear in it — the list path maps to DTOs and does not care. */
+        private long nextStaffId = 1;
+
         private Staff staff(String name, Grade... assigned) {
             Staff s = new Staff();
+            s.setId(nextStaffId++);
             s.setName(name);
             s.setGrades(assigned.length == 0 ? List.of() : List.of(assigned));
             return s;
@@ -217,8 +222,12 @@ class EducationBranchScopeTest {
 
         @InjectMocks private SubjectController controller;
 
+        /** See the staff fixture: the picker skips id-less rows, so subjects need ids to be assertable. */
+        private long nextSubjectId = 1;
+
         private Subject subject(String name, Grade attached) {
             Subject s = new Subject();
+            s.setId(nextSubjectId++);
             s.setName(name);
             s.setGrade(attached);
             return s;
@@ -264,6 +273,27 @@ class EducationBranchScopeTest {
 
             assertThat(names(controller.getUserSubject(null)))
                     .contains("BranchA Maths", "BranchB Maths");
+        }
+
+        @Test
+        void the_picker_is_scoped_too() {
+            // Coverage gap found alongside the staff fixture fix: SubjectController.getUserSubjects DOES
+            // scope (it calls branchVisible), but nothing asserted it — while the staff twin was asserted.
+            // The design's point stands for both: a dropdown offering what the list hides is a way around
+            // the policy.
+            when(settingsService.getBool("edu.subject.branchScoped")).thenReturn(true);
+            when(requestUtil.isOwnerSuper()).thenReturn(false);
+            when(requestUtil.accessibleSchoolIds()).thenReturn(Set.of(SCHOOL_A));
+
+            String html = controller.getUserSubjects(null);
+
+            assertThat(html).contains("BranchA Maths");
+            assertThat(html)
+                    .as("a dropdown offering what the list hides is a way around the policy")
+                    .doesNotContain("BranchB Maths");
+            assertThat(html)
+                    .as("design D4 — an unattached subject stays visible in the picker too")
+                    .contains("Shared Ethics");
         }
     }
 }

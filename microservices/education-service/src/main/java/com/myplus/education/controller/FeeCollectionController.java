@@ -19,6 +19,7 @@ import com.myplus.education.entity.FeeCollection;
 import com.myplus.education.entity.Student;
 import com.myplus.education.repository.FeeCollectionRepository;
 import com.myplus.education.repository.StudentRepository;
+import com.myplus.education.service.FeeValidator;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
@@ -56,7 +57,7 @@ public class FeeCollectionController {
     private com.myplus.common.credit.CreditService creditService;   // slice 0.2b: fee credit (shared rules)
     @Autowired
     private com.myplus.common.settings.SettingsService settingsService;   // edu.fee.creditOnOverpayment
-
+    
     private Long userId() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
         return u == null ? null : u.getUserId();
@@ -341,6 +342,17 @@ public class FeeCollectionController {
         try {
             Long userId = userId();
             Long orgId = orgId();
+
+            // Slice B (D1): validate BEFORE anything is written or posted. A negative feePaid would otherwise
+            // reach settleFeePayment → the shared subledger → a GL receipt, posting a negative cash receipt
+            // into a ledger three other verticals share — far more expensive to unpick there than to refuse here.
+            java.util.List<String> problems = FeeValidator.validate(dto);
+            if (!problems.isEmpty()) {
+                // Every problem at once: a clerk fixing one field per round trip is how a form earns its
+                // reputation.
+                return new GenericResponse("FAILED", String.join("; ", problems));
+            }
+
             // Anti-IDOR: an edit names a fee record by a client-supplied id, so it must be resolved WITHIN
             // the caller's tenant. A bare findById followed by the setOrganizationId below would have moved
             // another school's PAYMENT RECORD into this one — the money row leaves its owner's books.
@@ -401,12 +413,16 @@ public class FeeCollectionController {
 
             if (isNew) {
                 String refusal = checkOverpayment(orgId, obj, tendered);
-                // A tendered payment needs a student to settle against — check BEFORE saving, so a refusal never
-                // leaves a fee row behind holding money that was never applied to anything.
-                if (refusal == null && tendered > 0
+                // Slice B (B2/D3): ANY charging row needs a real student, not just a tendered payment.
+                // 0.2a checked only `tendered > 0`, which was right for protecting money already handed over —
+                // but a row with dueAmount > 0 and feePaid = 0 then sat in arrears and aging FOREVER against a
+                // student nobody could find: a permanent, uncollectable debit no screen could explain.
+                // Deliberately CREATE-only: an edit of an existing row whose student was since removed must stay
+                // correctable, or the only way to fix a bad row would be to recreate the student.
+                if (refusal == null && FeeValidator.isChargingRow(dto)
                         && studentRepository.findByOrganizationIdAndEnrollNo(orgId, obj.getEnrollNo()).isEmpty()) {
                     refusal = "No student found for enrolment number '" + obj.getEnrollNo()
-                            + "'. Register the student before collecting fees.";
+                            + "'. Register the student before recording fees or dues.";
                 }
                 if (refusal != null) return new GenericResponse("FAILED", refusal);
             }

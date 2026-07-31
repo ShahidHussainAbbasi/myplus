@@ -121,6 +121,13 @@ public class FeeService {
                 .findByOrganizationIdAndEnrollNoOrderByIdAsc(orgId, s.getEnrollNo());
         if (!existing.isEmpty()) return;
         int monthly = monthlyDue(s);
+        // Slice B (B3/D4): a zero opening due is not a fact worth recording. When the student's class has no
+        // fee configured this wrote fee=0, dueAmount=0, receivedIn=OPENING_DUE — harmless to money, but noise
+        // in every ledger and voucher, and the reason the 0.2a tests had to filter on `dueAmount > 0` rather
+        // than count rows. A test forced to work around production data is a signal, not a nuisance.
+        // Existing zero rows are LEFT ALONE (DB standard D5: never act on inference about live data);
+        // this only stops new ones. The student is unaffected — they still appear in every student list.
+        if (monthly <= 0) return;
         FeeCollection fc = new FeeCollection();
         fc.setOrganizationId(orgId);
         fc.setUserId(userId);

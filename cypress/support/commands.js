@@ -241,3 +241,33 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
     }).then(() => result)
   })
 })
+
+/**
+ * Run a block AS A DIFFERENT TENANT, without touching the current browser session.
+ *
+ * Why this exists: the monolith runs `maximumSessions(1)` with `sessionFixation.none()`, so logging a
+ * second identity in from inside a test expires the first session — and the assertion then fails with
+ * "This session has been expired", which has nothing to do with what was being tested. A Bearer token
+ * through the gateway is stateless, so the calling test's session survives and no switch-back is needed.
+ *
+ * It is also the STRONGER assertion: it proves the SERVICE enforces org scoping, independently of any
+ * UI session at all.
+ *
+ * Usage:
+ *   asOtherTenant((auth) => {
+ *     cy.request({ url: `${GW}/api/education/getThings`, headers: auth, failOnStatusCode: false })
+ *   })
+ */
+Cypress.Commands.add('asOtherTenant', (fn, email = 'demo.education@myplus.com') => {
+  return cy.request({
+    method: 'POST', url: 'http://localhost:8765/api/auth/login',
+    headers: { 'Content-Type': 'application/json' },
+    body: { email, password: DEMO_PW }, failOnStatusCode: false,
+  }).then((login) => {
+    // Assert the positive first: a failed login here would otherwise surface as a confusing 401 later.
+    expect(login.status, `login as ${email}: ${JSON.stringify(login.body)}`).to.eq(200)
+    const token = login.body && login.body.data && login.body.data.accessToken
+    expect(token, `no access token in ${JSON.stringify(login.body).slice(0, 200)}`).to.be.a('string')
+    return fn({ Authorization: `Bearer ${token}` })
+  })
+})

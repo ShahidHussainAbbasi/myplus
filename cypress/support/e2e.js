@@ -50,4 +50,11 @@ Cypress.on('uncaught:exception', (err) => {
   ) {
     return false
   }
+  // jspdf's autotable plugin throws while initialising on dashboard load. Third-party, pre-existing,
+  // and unrelated to anything under test — but it only surfaces on SOME loads, so it turns whichever
+  // spec happens to hit it red. Matched on the file rather than the message so the suppression stays
+  // narrow: a real error in our own code still fails the test.
+  if (err.stack && err.stack.includes('jspdf.plugin.autotable')) {
+    return false
+  }
 })

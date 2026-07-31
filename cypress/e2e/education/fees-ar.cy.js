@@ -88,22 +88,34 @@ describe('Education — fee dues as receivables (AR)', () => {
     })
   })
 
-  it('an overpayment is refused with a clear reason (fee credit arrives in 0.2b)', () => {
+  /**
+   * SUPERSEDED BY 0.2b — this asserted that an overpayment is REFUSED, which was true only until fee
+   * credit shipped. The title even said so ("fee credit arrives in 0.2b"). It has been stale-red since,
+   * because the 0.2b checkpoint ran fee-credit + the business regressions but not this spec.
+   *
+   * The refusal path still EXISTS for schools that turn the carry-forward policy off, and
+   * `checkOverpayment` is the only thing standing between them and an over-applied payment — so the case
+   * is kept, rewritten against the surviving contract rather than deleted. Carry-forward itself is
+   * covered by fee-credit.cy.js; what is asserted here is the AR consequence: the due must not end up
+   * over-settled either way.
+   */
+  it('an overpayment is CARRIED FORWARD as credit, and the due is settled exactly (0.2b)', () => {
     const en = 'OVER' + Date.now()
     seedStudent(en)
     fee(en, 1000, 0)
     fee(en, 0, 5000).then((b) => {
-      expect(b.status, JSON.stringify(b)).to.not.eq('SUCCESS')
-      expect(String(b.message), 'the refusal explains itself').to.match(/exceeds the total owed/i)
+      expect(b.status, JSON.stringify(b)).to.eq('SUCCESS')
+      expect(String(b.message), 'the surplus is explained, not silently swallowed').to.match(/credit/i)
     })
-    // And it must leave nothing half-applied: the 1000 due is untouched and no money was recorded anywhere.
     cy.request('/getUserFc').then((r) => {
       const mine = rows(r.body).filter((f) => f.enrollNo === en)
       const charged = mine.filter((f) => Number(f.dueAmount) > 0)   // excludes the opening-due row
-      expect(charged.length, 'the refused payment created no charge row').to.eq(1)
-      expect(Number(charged[0].dueBalance), 'the due is still fully outstanding').to.eq(1000)
+      expect(charged.length, 'the payment created no extra charge row').to.eq(1)
+      // The point for AR: the 1000 due is CLEARED, and the surplus went to credit rather than
+      // over-settling the row into a negative balance.
+      expect(Number(charged[0].dueBalance), 'the due is fully settled, not over-settled').to.eq(0)
       const applied = mine.reduce((sum, f) => sum + Number(f.feePaid || 0), 0)
-      expect(applied, 'no part of the refused payment was applied').to.eq(0)
+      expect(applied, 'only what was owed is applied here — the rest is credit').to.eq(1000)
     })
   })
 
