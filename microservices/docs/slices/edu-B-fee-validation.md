@@ -234,7 +234,7 @@ in **§8 below**.
 
 ---
 
-## 8. §6 follow-on — the other education forms (B2, implemented)
+## 8. §6 follow-on — the other education forms — DONE & GREEN
 
 ### The scope is NARROWER than §6 assumed, and the correction matters
 

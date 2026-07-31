@@ -3400,3 +3400,76 @@ function saveMarks() {
 		}
 	});
 }
+
+/* ══ Slice 1.4 — Grading Scale ════════════════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-1.4-grading-scales.md
+ *
+ * Bands are an entity (a table); the two policies live in Configuration with the other per-org
+ * settings. Validation is server-side and whole-scale — a band is only correct relative to its
+ * neighbours — so this shows the refusal verbatim rather than pre-judging it.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'GradingDiv') loadGradingScale();
+});
+
+function loadGradingScale() {
+	$.get(serverContext + 'getGradingScale', function (res) {
+		var data = (res && res.object) || {};
+		var bands = data.bands || [];
+		var $body = $('#tableGrading tbody').empty();
+		// An empty scale is legitimate (D2), so say what it means and offer the preset rather than
+		// showing a bare empty table.
+		$('#grEmpty').toggle(!bands.length);
+
+		bands.forEach(function (b) {
+			var $del = $('<button type="button" class="btn btn-xs btn-danger">')
+				.text('Delete')
+				.on('click', function () { deleteGradeBand(b.id, b.name); });
+			$body.append($('<tr>')
+				.append($('<td>').text(b.name))
+				.append($('<td>').text(b.minPercent))
+				.append($('<td>').text(b.maxPercent))
+				.append($('<td>').text(b.gpaPoints == null ? '' : b.gpaPoints))
+				.append($('<td>').append($del)));
+		});
+	});
+}
+
+function saveGradeBand() {
+	var name = $.trim($('#grName').val());
+	if (!name) { ayNotify('Band name is required'); return; }
+	$.post(serverContext + 'saveGradeBand', {
+		name: name,
+		minPercent: $('#grMin').val(),
+		maxPercent: $('#grMax').val(),
+		gpaPoints: $('#grGpa').val()
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			$('#grName, #grMin, #grMax, #grGpa').val('');
+			loadGradingScale();
+		} else {
+			// The server names the overlapping pair or the uncovered range — show it as-is.
+			ayNotify((res && res.message) || 'Could not save the band');
+		}
+	});
+}
+
+function deleteGradeBand(id, name) {
+	var msg = 'Delete the "' + name + '" band? Marks in its range will show a percentage with no grade '
+		+ 'until another band covers them.';
+	var go = function () {
+		$.post(serverContext + 'deleteGradeBand', { checked: id }, function (res) {
+			if (res && res.status === 'SUCCESS') loadGradingScale();
+			else ayNotify((res && res.message) || 'Could not delete the band');
+		});
+	};
+	if (typeof uiConfirm === 'function') { uiConfirm(msg, go); return; }
+	go();
+}
+
+function applyGradingPreset() {
+	$.post(serverContext + 'applyGradingPreset', {}, function (res) {
+		if (res && res.status === 'SUCCESS') loadGradingScale();
+		else ayNotify((res && res.message) || 'Could not apply the preset');
+	});
+}

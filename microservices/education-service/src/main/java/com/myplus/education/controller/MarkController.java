@@ -24,6 +24,7 @@ import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.education.entity.Exam;
 import com.myplus.education.entity.ExamPaper;
 import com.myplus.education.entity.ExamStatus;
+import com.myplus.education.entity.GradeBand;
 import com.myplus.education.entity.Mark;
 import com.myplus.education.entity.Student;
 import com.myplus.education.entity.Subject;
@@ -33,6 +34,7 @@ import com.myplus.education.repository.MarkRepository;
 import com.myplus.education.repository.StudentRepository;
 import com.myplus.education.repository.SubjectRepository;
 import com.myplus.education.service.EduAuditService;
+import com.myplus.education.service.GradingService;
 import com.myplus.education.service.MarksValidator;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
@@ -55,6 +57,7 @@ public class MarkController {
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private EduAuditService auditService;
+    @Autowired private GradingService gradingService;   // slice 1.4 — derived percentage + band
     @Autowired private RequestUtil requestUtil;
     @Autowired private AppUtil appUtil;
 
@@ -127,6 +130,9 @@ public class MarkController {
                 existing.put(m.getStudentEnrollNo(), m);
             }
 
+            // Slice 1.4: the grading scale, read ONCE per request rather than per student.
+            List<GradeBand> scale = gradingService.scale(org, uid);
+
             List<Map<String, Object>> rows = new ArrayList<>();
             for (Student s : visibleStudents()) {
                 if (appUtil.isEmptyOrNull(s.getEnrollNo())) continue;
@@ -139,6 +145,12 @@ public class MarkController {
                 r.put("marksObtained", m == null ? null : m.getMarksObtained());
                 r.put("absent", m != null && m.isAbsent());
                 r.put("remarks", m == null ? null : m.getRemarks());
+                // Slice 1.4: percentage and band are DERIVED (D4) — never stored on the mark. The scale is
+                // read ONCE above, not per student, so a 40-row sheet costs one query rather than forty.
+                Double pct = m == null ? null : gradingService.percentFor(m, paper);
+                r.put("percent", pct);
+                GradeBand band = gradingService.bandFor(scale, pct);
+                r.put("grade", band == null ? null : band.getName());
                 rows.add(r);
             }
 
@@ -174,6 +186,9 @@ public class MarkController {
                     .anyMatch(s -> enrollNo.trim().equals(s.getEnrollNo()));
             if (!visible) return new GenericResponse("NOT_FOUND", "Student not found");
 
+            // Slice 1.4: one scale read for the whole transcript, not one per mark.
+            List<GradeBand> scale = gradingService.scale(org, uid);
+
             List<Map<String, Object>> out = new ArrayList<>();
             for (Mark m : markRepository.findByStudentScoped(enrollNo.trim(), org, uid)) {
                 ExamPaper p = examPaperRepository.findByIdScoped(m.getExamPaperId(), org, uid).orElse(null);
@@ -189,6 +204,13 @@ public class MarkController {
                 r.put("absent", m.isAbsent());
                 r.put("maxMarks", p == null ? null : p.getMaxMarks());
                 r.put("passMarks", p == null ? null : p.getPassMarks());
+                // Derived, never stored (D4). Null percent = the paper does not count toward an average
+                // (absent with the policy off, or not yet marked).
+                Double pct = gradingService.percentFor(m, p);
+                r.put("percent", pct);
+                GradeBand band = gradingService.bandFor(scale, pct);
+                r.put("grade", band == null ? null : band.getName());
+                r.put("gpaPoints", band == null ? null : band.getGpaPoints());
                 out.add(r);
             }
             return new GenericResponse("SUCCESS", "", out);

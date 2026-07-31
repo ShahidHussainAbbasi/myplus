@@ -54,6 +54,22 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                 // FeeSetting.feeCollectionBranchScoped on the Fee Settings screen (see FeeCollectionController
                 // .branchVisible). Adding a second switch for the same behaviour would give the owner two
                 // controls that can disagree — and nothing to say which one wins.
+                ,
+                // ── Slice 1.4: grading policy. The BANDS are an entity (grade_band), not settings — a list
+                // does not fit a scalar store. Only these two scalar policies live here.
+                SettingEntry.bool("edu.grading.absentCountsAsZero",
+                        "Absence counts as zero",
+                        "On (default): a paper the student did not sit counts as 0% in averages and report "
+                                + "cards. Off: the paper is excluded from BOTH sides of the average, as if it "
+                                + "were never set — for schools that run supplementary exams. Marks entry keeps "
+                                + "'absent' and a genuine zero apart, so either policy can be applied honestly.",
+                        true, "Grading"),
+                SettingEntry.bool("edu.grading.roundHalfUp",
+                        "Round percentages up at the halfway point",
+                        "On (default): 74.45% becomes 74.5%. Off: percentages are truncated instead. Only "
+                                + "affects the boundary case, but it decides which band a mark falls into when "
+                                + "it lands exactly between two.",
+                        true, "Grading")
         );
     }
 }

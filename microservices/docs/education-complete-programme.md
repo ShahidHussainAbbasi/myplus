@@ -118,21 +118,21 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 
 | Slice | What | Why first |
 |---|---|---|
-| **0.1** | **Fee collection → GL** via `GlOutbox` + `PostingEventRequest`, mirroring `SellController` | school revenue enters the books; unlocks P&L, trial balance, period close for education with no new UI |
-| **0.2** | **Fee dues → `finance-service` AR** — a student's outstanding fee becomes a receivable with aging | replaces the bespoke arrears screen with the platform's statements/aging |
-| **0.3** | **Performance remediation** — education review finding D: `AnalyticsController` loads 5 whole tables + 24 loops per render; 17 dup-checks use `findScoped().stream().anyMatch()` | performance-priority; do before adding academic tables that make it worse |
-| **0.4** | **Column-name remediation** — `Attendance` (`en`,`sn`,`grid`,`gn`,`dt`) and `FeeCollection` (`d`,`dd`,`da`,`f`,`fp`,`pd`,`od`,`odd`,`p`,`rb`,`ri`,`cn`,`vf`,`db`) renamed behind Flyway | every academic report will read these; fix before building on them |
+| **0.1** ✅ **DONE** | **Fee collection → GL** via `GlOutbox` + `PostingEventRequest`, mirroring `SellController` | school revenue enters the books; unlocks P&L, trial balance, period close for education with no new UI |
+| **0.2** ✅ **DONE** (0.2a AR + 0.2b fee credit) | **Fee dues → `finance-service` AR** — a student's outstanding fee becomes a receivable with aging | replaces the bespoke arrears screen with the platform's statements/aging |
+| **0.3** ⬜ OPEN | **Performance remediation** — education review finding D: `AnalyticsController` loads 5 whole tables + 24 loops per render; 17 dup-checks use `findScoped().stream().anyMatch()` | performance-priority; do before adding academic tables that make it worse |
+| **0.4** 🟨 PARTLY — `FeeCollection` DONE; `Attendance`/`Student` still cryptic | **Column-name remediation** — `Attendance` (`en`,`sn`,`grid`,`gn`,`dt`) and `FeeCollection` (`d`,`dd`,`da`,`f`,`fp`,`pd`,`od`,`odd`,`p`,`rb`,`ri`,`cn`,`vf`,`db`) renamed behind Flyway | every academic report will read these; fix before building on them |
 
 ### Phase 1 — The academic record (the core capability gap)
 
 | Slice | What | Depends on |
 |---|---|---|
-| **1.1** | **Academic year & term** as a first-class entity; wire existing attendance + fees to it | — **keystone** |
-| **1.2** | **Examinations** — exam definition (term, type, max marks, weighting) per grade/subject | 1.1 |
-| **1.3** | **Marks entry** — per student × subject × exam; teacher-facing grid; **every edit audited** via `audit-service` | 1.2 |
-| **1.4** | **Grading scales** — owner-configurable bands/GPA/pass mark via common-settings | 1.3 |
-| **1.5** | **Report cards** — printable per term + cumulative transcript | 1.4 |
-| **1.6** | **Promotion** — roll a class forward at year end, with retained students | 1.1, 1.3 |
+| **1.1** ✅ **DONE** | **Academic year & term** as a first-class entity; wire existing attendance + fees to it | — **keystone** |
+| **1.2** ✅ **DONE** | **Examinations** — exam definition (term, type, max marks, weighting) per grade/subject | 1.1 |
+| **1.3** ✅ **DONE** | **Marks entry** — per student × subject × exam; teacher-facing grid; **every edit audited** via `audit-service` | 1.2 |
+| **1.4** ✅ **DONE** | **Grading scales** — owner-configurable bands/GPA/pass mark via common-settings | 1.3 |
+| **1.5** 🔵 **next** | **Report cards** — printable per term + cumulative transcript | 1.4 |
+| **1.6** ⬜ | **Promotion** — roll a class forward at year end, with retained students | 1.1, 1.3 |
 
 > 1.1–1.6 share one term/exam/marks spine. **Design them together, implement as six slices** — designing
 > separately means three migrations over the same tables.
@@ -275,7 +275,7 @@ Existing settings already follow this (`edu.staff.branchScoped`, `edu.subject.br
 
 | # | Decision | Gates |
 |---|---|---|
-| **D-1** | **Jurisdiction** — grading scale, statutory return format, TC format are country/state specific | 1.4, 5.3 |
+| **D-1** | **Jurisdiction** — statutory return format + TC format are country/state specific. **NOT a blocker for 1.4**: grading bands/GPA/pass mark are per-org configurable, which is this row's own answer — the platform never needs to know the board. D-1 shapes only which DEFAULT preset ships and the statutory formats in 5.3. | ~~1.4~~ **5.3 only** |
 | **D-2** | **Customer shape** — single school, group, or government department? Changes whether Phase 5 outranks Phase 2 | phase order |
 | ~~**D-3**~~ | ~~Privilege map~~ — **RESOLVED 2026-07-31.** Three tiers: `WRITE_PRIVILEGE` for day-to-day records, `ADMIN_PRIVILEGE` for money/structure/policy, `DELETE_PRIVILEGE` for deletes. Every write endpoint gated; gate `education/privilege-map.cy.js`. **Marks entry lands in the ADMIN tier.** | ~~1.3~~ unblocked |
 | **D-4** | **Online payment provider** | 3.2 |
@@ -293,3 +293,41 @@ Existing settings already follow this (`edu.staff.branchScoped`, `edu.subject.br
 - **Cryptic columns (0.4)** touch live data — needs the D5 treatment: count rows per environment, never drop on
   inference.
 - **Marks are contested data.** Audit from day one (1.3), not retrofitted.
+
+---
+
+## Progress log
+
+Kept current as slices land — this table, not memory or a chat message, is the source of truth for "what next".
+
+| Slice | Status | Design doc | Gate |
+|---|---|---|---|
+| 0.1 fees → GL | ✅ done | `slices/edu-0.1-fees-to-gl.md` | `education/fees-to-gl.cy.js` |
+| 0.2a fees → AR | ✅ done | `slices/edu-0.2-fees-to-ar.md` | `education/fees-ar.cy.js` |
+| 0.2b fee credit | ✅ done | `slices/edu-0.2b-fee-credit.md` | `education/fee-credit.cy.js` |
+| Branch-scope settings | ✅ done | `slices/edu-branch-scope-settings.md` | `education/branch-scope-settings.cy.js` |
+| D-3 privilege map | ✅ done | — | `education/privilege-map.cy.js` |
+| 1.1 academic year & term | ✅ done | `slices/edu-1.1-academic-year-term.md` | `education/academic-year.cy.js` |
+| 1.2 examinations | ✅ done | `slices/edu-1.2-examinations.md` | `education/exams.cy.js` |
+| 1.3 marks entry | ✅ done | `slices/edu-1.3-marks-entry.md` | `education/marks.cy.js` |
+| Finding B — fee validation | ✅ done | `slices/edu-B-fee-validation.md` | `education/fee-validation.cy.js` |
+| Finding B §8 — grade/discount validation | ✅ done | same doc, §8 | same gate |
+| 1.4 grading scales | ✅ done | `slices/edu-1.4-grading-scales.md` | `education/grading.cy.js` |
+| **1.5 report cards** | 🔵 **next** | — | — |
+| 1.6 promotion | ⬜ | — | — |
+
+### Carried requirements (must not be lost between slices)
+
+| From | Requirement | Lands in |
+|---|---|---|
+| 1.2 §7 → 1.3 | the exam lock is inert until marks set it | ✅ done in 1.3 (D4) |
+| 1.2 D5 → 1.3 | audit exam lock/unlock | ✅ done in 1.3 (D5) |
+| 1.4 D4 → **1.5** | grading is derived, so a published report card must be **snapshotted**, not re-derived | 1.5 |
+| 1.2 D4 → **1.5** | a term whose exam weights do not total 100 must be **refused**, not computed | 1.5 |
+| 1.2 §6 → 1.3 → 1.4 → **1.5** | exam eligibility by attendance % — deferred three times, now explicitly 1.5 | 1.5 |
+
+### Open findings (outside the slice sequence)
+
+- `Student.fee` and `Student.vf` are persisted columns with **no DTO field** — money unreachable through the API.
+- 0.3 performance remediation (finding D) — still open, and the academic tables now make it more urgent.
+- 0.4 remainder — `Attendance` (`en`/`sn`/`grid`/`gn`) and `Student` (`vf`/`nd`/`di`/`mn`/`wa`/`pob`/`ys`/`ye`).

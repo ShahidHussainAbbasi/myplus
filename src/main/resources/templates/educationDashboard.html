@@ -54,6 +54,7 @@
 					<option value="AcademicYearDiv" th:text="#{ui.academicYear}">Academic Year</option>
 					<option value="ExamDiv" th:text="#{ui.examinations}">Examinations</option>
 					<option value="MarksDiv" th:text="#{ui.marksEntry}">Marks Entry</option>
+					<option value="GradingDiv" th:text="#{ui.gradingScale}">Grading Scale</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
 					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
 					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
@@ -105,6 +106,7 @@
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','AcademicYearDiv','snavRegister')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.academicYear}">Academic Year</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','ExamDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.examinations}">Examinations</span></a></li>
 									<li><a onclick="snavGo('registrationType','MarksDiv','snavRegister')"><span class="glyphicon glyphicon-pencil"></span> <span th:text="#{ui.marksEntry}">Marks Entry</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradingDiv','snavRegister')"><span class="glyphicon glyphicon-star"></span> <span th:text="#{ui.gradingScale}">Grading Scale</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
@@ -2538,6 +2540,54 @@
 					<tbody></tbody>
 				</table>
 				<div id="mkEmpty" class="text-muted" style="display:none" th:text="#{ui.noStudentsForPaper}">No students in this class, or no paper selected.</div>
+			</div>
+
+			<!-- ═══ Slice 1.4 — Grading Scale ══════════════════════════════════════════════════════════
+			     Bands are an ENTITY, not settings (design D1) — a list does not fit a scalar store. The two
+			     scalar POLICIES (absence-counts-as-zero, rounding) live in Configuration with the other
+			     per-org settings, so there is one place for toggles and one for the table.
+			     Nothing is seeded: the preset is offered, never assumed (D2). -->
+			<div id="GradingDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+				<h4 th:text="#{ui.gradingScale}">Grading Scale</h4>
+				<p class="text-muted" th:text="#{ui.gradingHelp}">Define the bands this school grades by. Ranges include both ends and must cover 0–100% with no gaps or overlaps. Pass/fail comes from each exam paper's pass marks, not from here.</p>
+
+				<div class="alert alert-info" id="grEmpty" style="display:none">
+					<span th:text="#{ui.noGradingScale}">No grading scale yet — marks will show a percentage with no letter.</span>
+					<button type="button" class="btn btn-sm btn-primary" style="margin-left:10px" onclick="applyGradingPreset()" th:text="#{ui.usePreset}">Use a standard scale</button>
+				</div>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="grName" th:text="#{ui.bandName}">Band name</label>
+						<input type="text" class="form-control" id="grName" placeholder="A">
+					</div>
+					<div class="col-sm-2">
+						<label for="grMin" th:text="#{ui.minPercent}">Min %</label>
+						<input type="number" class="form-control" id="grMin" min="0" max="100">
+					</div>
+					<div class="col-sm-2">
+						<label for="grMax" th:text="#{ui.maxPercent}">Max %</label>
+						<input type="number" class="form-control" id="grMax" min="0" max="100">
+					</div>
+					<div class="col-sm-2">
+						<label for="grGpa" th:text="#{ui.gpaPoints}">GPA points</label>
+						<input type="number" class="form-control" id="grGpa" min="0" step="0.1">
+					</div>
+					<div class="col-sm-3" style="padding-top:24px">
+						<button type="button" id="grAdd" class="btn btn-success" onclick="saveGradeBand()" th:text="#{ui.addBand}">Add Band</button>
+					</div>
+				</div>
+
+				<table id="tableGrading" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.bandName}">Band name</th>
+						<th th:text="#{ui.minPercent}">Min %</th>
+						<th th:text="#{ui.maxPercent}">Max %</th>
+						<th th:text="#{ui.gpaPoints}">GPA points</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
 			</div>
 
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
