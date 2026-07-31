@@ -206,12 +206,13 @@ describe('Multi-branch: schools, grants and role×branch visibility', () => {
     }).then((r) => expect(JSON.stringify(r.body)).to.match(/SUCCESS/))
     cy.request({
       method: 'POST', url: '/addFc', form: true,
-      body: { en, da: 1500, f: 1500, fp: 0, dd: 5 }, failOnStatusCode: false,
+      // Slice 0.4 renamed the fee fields (en→enrollNo, da→dueAmount, f→fee, fp→feePaid, dd→dueDayOfMonth).
+      body: { enrollNo: en, dueAmount: 1500, fee: 1500, feePaid: 0, dueDayOfMonth: 5 }, failOnStatusCode: false,
     }).then((r) => expect(JSON.stringify(r.body), `addFc: ${JSON.stringify(r.body)}`).to.match(/SUCCESS/))
 
     const teacherBSeesFee = (shouldSee) =>
       cy.request('/getUserFc').then((r) => {
-        const seen = rows(r.body).map((f) => f.en).includes(en)
+        const seen = rows(r.body).map((f) => f.enrollNo).includes(en)
         expect(seen, `branch-2 teacher ${shouldSee ? 'should' : 'should NOT'} see the branch-1 fee`).to.eq(shouldSee)
       })
     const setFeeBranchScoped = (on) =>

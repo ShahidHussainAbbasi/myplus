@@ -157,10 +157,25 @@ describe('Security: a tenant cannot take over another tenant\'s record by saving
 
     before(() => {
       cy.loginAsEduOwner()
-      post('/addFc', { en: victimEnroll, f: 5000, fp: 5000, dt: 'Percent', d: 0 }).then((r) => {
+      // Slice 0.2a: a tendered payment settles against a STUDENT, so one must exist — a fee for an unknown
+      // enrolment number is now refused rather than silently failing to settle.
+      post('/addStudent', { name: `CY_FEEOWNER_${uniq()}`, enrollNo: victimEnroll, status: 'ACTIVE' })
+        .then((r) => expect(JSON.stringify(r.body), 'student for the fee owner created').to.match(/SUCCESS/))
+      // Slice 0.4 renamed the fee fields (f→fee, dt→discountType, d→discount).
+      post('/addFc', { enrollNo: victimEnroll, fee: 5000, dueAmount: 5000, feePaid: 5000,
+                       discountType: 'Percent', discount: 0 }).then((r) => {
         expect(JSON.stringify(r.body), 'fee record created by tenant A').to.match(/SUCCESS/)
       })
-      findBy('/getUserFc', (x) => x.en === victimEnroll).then((row) => {
+      // Print what the list actually returned — a null here can mean an empty list, an unauthenticated
+      // redirect (HTML, not JSON), or an enrollNo that did not bind. The bare "expected null" said none of that.
+      cy.request({ url: '/getUserFc', failOnStatusCode: false }).then((r) => {
+        const got = rows(r.body).map((x) => x.enrollNo)
+        cy.log(`getUserFc returned ${got.length} row(s); looking for ${victimEnroll}`)
+        expect(JSON.stringify(r.body).slice(0, 300), 'getUserFc returned JSON, not an HTML redirect')
+          .to.not.match(/<!DOCTYPE|<html/i)
+        expect(got, `enrolments returned: ${JSON.stringify(got.slice(0, 20))}`).to.include(victimEnroll)
+      })
+      findBy('/getUserFc', (x) => x.enrollNo === victimEnroll).then((row) => {
         expect(row, 'fee record readable by its owner').to.not.be.null
         feeId = row.id != null ? row.id : row.fcId
         expect(feeId, 'fee record id captured').to.exist
@@ -169,14 +184,14 @@ describe('Security: a tenant cannot take over another tenant\'s record by saving
 
     it('tenant B cannot overwrite another school\'s payment record', () => {
       cy.loginAsEducation()
-      cy.then(() => post('/addFc', { id: feeId, en: victimEnroll, f: 1, fp: 1 })).then((r) => {
+      cy.then(() => post('/addFc', { id: feeId, enrollNo: victimEnroll, fee: 1, feePaid: 1 })).then((r) => {
         expect(JSON.stringify(r.body), 'fee takeover must be refused').to.not.match(/SUCCESS/)
       })
     })
 
     it('the original payment is unchanged in the owning school\'s books', () => {
       cy.loginAsEduOwner()
-      findBy('/getUserFc', (x) => x.en === victimEnroll).then((row) => {
+      findBy('/getUserFc', (x) => x.enrollNo === victimEnroll).then((row) => {
         expect(row, 'fee record still belongs to tenant A').to.not.be.null
         expect(Number(row.f), 'the fee amount was not rewritten').to.eq(5000)
       })

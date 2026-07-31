@@ -100,6 +100,25 @@ Two force-multipliers: check `@Column(name=…)` **first** — if the DB columns
 is Java-only with **no migration** (that was true for `FeeCollection`); and scope every sweep per-form or
 per-region, never globally, because short names collide across entities and across HTML forms.
 
+**D10. A persisted field that no read returns is invisible — check the READ path, not just the write.** An entity
+column with no matching DTO field is written correctly, compiles cleanly, passes every service test, and then
+fails in the browser as `undefined`/`NaN`. Nothing between the column and the screen complains.
+
+This bit **three times in one programme**, always the same shape: `dueBalance` / `vehicleFee` / `checkNo`
+(collected by the fee form, on the entity, absent from `FeeCollectionDTO` — silently dropped on every save since
+the screen was written), then `Student.creditBalance` (persisted by the credit ledger, never returned, so the UI
+could not show a parent money the school was holding).
+
+When adding or relying on a field, walk the whole path in both directions:
+
+```
+form field name  →  DTO field  →  entity column          (write)
+entity column    →  DTO field  →  JSON key  →  UI read   (read)
+```
+
+Two cheap checks that would have caught all three: diff the entity's fields against the DTO's, and grep the JSON
+key the UI actually reads. Related: **D9** (a rename must move every one of those hops together).
+
 **D8. Deleting an entity is a code change, not a schema change.** Remove the Java, leave the table, record it.
 Git restores a class; nothing restores rows. Verify zero references first — including the entity-only-referenced-
 by-its-own-repository "dead pair" shape (`Segment` + `SegmentRepository`).

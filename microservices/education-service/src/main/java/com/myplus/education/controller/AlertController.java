@@ -83,6 +83,8 @@ public class AlertController {
         }
     }
 
+    // D-3 privilege map: day-to-day record; a read-only or guest role must not write
+    @PreAuthorize("hasAuthority('WRITE_PRIVILEGE')")
     @RequestMapping(value = "/addAlerts", method = RequestMethod.POST)
     @ResponseBody
     @Transactional
@@ -178,6 +180,8 @@ public class AlertController {
     }
 
     // CSV columns: name,email,mobile,userType
+    // D-3 privilege map: money / structure / policy — not routine data entry
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
     @RequestMapping(value = "/importCSV", method = RequestMethod.POST)
     @ResponseBody
     @Transactional

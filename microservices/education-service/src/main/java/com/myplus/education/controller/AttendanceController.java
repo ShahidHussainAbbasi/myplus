@@ -232,6 +232,8 @@ public class AttendanceController {
     }
 
     /** Mark a whole class roster in one request — upsert one row per student per day. */
+    // D-3 privilege map: day-to-day record; a read-only or guest role must not write
+    @PreAuthorize("hasAuthority('WRITE_PRIVILEGE')")
     @RequestMapping(value = "/markAttendanceBulk", method = RequestMethod.POST)
     @ResponseBody
     @Transactional

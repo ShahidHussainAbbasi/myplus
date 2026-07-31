@@ -1,6 +1,6 @@
 # Slice 0.2b — Fee credit (overpayment carried forward)
 
-**Status: IMPLEMENTED — awaiting the headed Cypress gate.**
+**Status: DONE — headed Cypress GREEN (2026-07-31), POS regressions green.**
 Follows 0.2a (fees→AR, green). Programme: `education-complete-programme.md` Phase 0.2.
 
 ---

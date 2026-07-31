@@ -142,6 +142,8 @@ public class GuardianController {
         }
     }
 
+    // D-3 privilege map: day-to-day record; a read-only or guest role must not write
+    @PreAuthorize("hasAuthority('WRITE_PRIVILEGE')")
     @RequestMapping(value = "/addGuardian", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse addGuardian(final GuardianDTO dto, final HttpServletRequest request) {

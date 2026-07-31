@@ -330,6 +330,8 @@ public class FeeCollectionController {
         return receivedIn.trim().toUpperCase().startsWith("CHE") ? "CHEQUE" : "CASH";
     }
 
+    // D-3 privilege map: money / structure / policy — not routine data entry
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
     @RequestMapping(value = "/addFc", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse addFc(final FeeCollectionDTO dto, final HttpServletRequest request) {

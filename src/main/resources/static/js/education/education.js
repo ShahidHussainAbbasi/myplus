@@ -404,13 +404,16 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						i++;
 						arr = [
-							"<div id=alertId>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
-							"<div id=acdd>"+escHtml(obj.consumers)+"</div>","<div id=atdd>"+escHtml(obj.alertType)+"</div>",
-							"<div id=adcdd>"+escHtml(obj.deliveryChannel)+"</div>","<div id=adpdd>"+escHtml(obj.deliveryPeriod)+"</div>",
-							"<div id=adtdd>"+escHtml(obj.deliveryType)+"</div>","<div id=ast>"+escHtml(obj.status)+"</div>",
-							"<div id=asd>"+escHtml(obj.startDateStr)+"</div>", "<div id=aed>"+escHtml(obj.endDateStr)+"</div>",
-							"<div id=ah>"+escHtml(obj.heading)+"</div>","<div id=am>"+escHtml(obj.message)+"</div>",
-							"<div id=as>"+escHtml(obj.signature)+"</div>"
+							// Display-only cells: NO id attributes. Every one of these names (acdd, atdd, ah, am, as …) is
+							// also a FORM field id on this page, so emitting them per row created duplicate ids —
+							// getElementById then returned the table cell instead of the form control once a row rendered.
+							"<div>"+escHtml(obj.id)+"</div>","<input type='checkbox' value="+ obj.id+ " id="+ obj.id+ ">",
+							"<div>"+escHtml(obj.consumers)+"</div>","<div>"+escHtml(obj.alertType)+"</div>",
+							"<div>"+escHtml(obj.deliveryChannel)+"</div>","<div>"+escHtml(obj.deliveryPeriod)+"</div>",
+							"<div>"+escHtml(obj.deliveryType)+"</div>","<div>"+escHtml(obj.status)+"</div>",
+							"<div>"+escHtml(obj.startDateStr)+"</div>", "<div>"+escHtml(obj.endDateStr)+"</div>",
+							"<div>"+escHtml(obj.heading)+"</div>","<div>"+escHtml(obj.message)+"</div>",
+							"<div>"+escHtml(obj.signature)+"</div>"
 							];
 						datatable.row.add(arr).draw();
 					});

@@ -111,6 +111,8 @@ public class OwnerController {
         }
     }
 
+    // D-3 privilege map: money / structure / policy — not routine data entry
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
     @RequestMapping(value = "/addOwner", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse addOwner(final OwnerDTO dto, final HttpServletRequest request) {

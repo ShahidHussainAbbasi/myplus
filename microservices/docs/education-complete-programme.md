@@ -277,7 +277,7 @@ Existing settings already follow this (`edu.staff.branchScoped`, `edu.subject.br
 |---|---|---|
 | **D-1** | **Jurisdiction** — grading scale, statutory return format, TC format are country/state specific | 1.4, 5.3 |
 | **D-2** | **Customer shape** — single school, group, or government department? Changes whether Phase 5 outranks Phase 2 | phase order |
-| **D-3** | **Privilege map** — education review finding C: every create/update is currently open to any USER. Which role may enter marks, edit marks, collect fees? | 1.3 especially |
+| ~~**D-3**~~ | ~~Privilege map~~ — **RESOLVED 2026-07-31.** Three tiers: `WRITE_PRIVILEGE` for day-to-day records, `ADMIN_PRIVILEGE` for money/structure/policy, `DELETE_PRIVILEGE` for deletes. Every write endpoint gated; gate `education/privilege-map.cy.js`. **Marks entry lands in the ADMIN tier.** | ~~1.3~~ unblocked |
 | **D-4** | **Online payment provider** | 3.2 |
 | **D-5** | **Document storage backend** — DB blob, filesystem, or S3-compatible | 4.3 |
 

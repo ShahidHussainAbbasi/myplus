@@ -212,6 +212,8 @@ public class StudentController {
         }
     }
 
+    // D-3 privilege map: day-to-day record; a read-only or guest role must not write
+    @PreAuthorize("hasAuthority('WRITE_PRIVILEGE')")
     @RequestMapping(value = "/addStudent", method = RequestMethod.POST)
     @ResponseBody
     @Transactional

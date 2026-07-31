@@ -1677,7 +1677,7 @@
 						<button type="reset" id="sendAlerts" class="btn btn-primary">
 							<span class="glyphicon glyphicon-send"></span> <span th:text="#{ui.send}">Send</span>
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="reset" class="resetForm" style="display:none"></button>						
 					</div>
 				</form>
 				<div>
@@ -1885,7 +1885,7 @@
 						<button type="reset" id="resetFc" class="btn btn-warning">
 							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
-						<button type="reset" class="resetForm"/>						
+						<button type="reset" class="resetForm" style="display:none"></button>						
 					</div>
 				</form>
 				<div>
@@ -2060,7 +2060,7 @@
 						<button type="button" id="printFL" onclick="loadFL()" class="btn btn-success" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 							<span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.printLedger}">Print Ledger</span>
 						</button>
-						<button type="reset" class="resetForm"/>
+						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
 			</div>		
@@ -2404,7 +2404,13 @@ var serverContext = [[@{/}]];
 				if (SKIP[this.id] || $(this).hasClass('panel-heading')) return;
 				var $s = $(this);
 				// Tear down any prior bootstrap-select so the unified options below apply cleanly.
-				try { $s.selectpicker('destroy'); } catch (e) {}
+				// ONLY if one was actually initialised: calling destroy() on a plain <select> makes the
+				// plugin bridge construct an instance and immediately destroy it, which removes the
+				// generated wrapper *together with the original <select>*. That silently deleted every
+				// education dropdown from the DOM on page load (the try/catch hid it).
+				if ($s.data('selectpicker')) {
+					try { $s.selectpicker('destroy'); } catch (e) {}
+				}
 				$s.addClass('selectpicker')
 				  .attr('data-live-search', 'true')   // searchable
 				  .attr('data-size', '8')

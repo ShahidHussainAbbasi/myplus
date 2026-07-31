@@ -3,8 +3,12 @@
  * Design: microservices/docs/slices/edu-0.1-fees-to-gl.md
  *
  * Before this slice, education-service wrote a FeeCollection row and stopped: a school's entire revenue was
- * invisible to the journal, trial balance, P&L and period close that finance-service already runs. Now a fee
- * enqueues a FEE_COLLECTION event on a transactional outbox, and finance posts Dr Cash|Bank = Cr 4100 Fee Income.
+ * invisible to the journal, trial balance, P&L and period close that finance-service already runs.
+ *
+ * NOTE — 0.2a moved education to ACCRUAL and RETIRED the FEE_COLLECTION posting rule this slice introduced.
+ * A fee now posts in two legs: FEE_CHARGE (Dr 1100 AR = Cr 4100 Fee Income) and, when money is tendered, a
+ * receipt (Dr Cash|Bank = Cr 1100 AR). These assertions still hold because each scenario charges AND pays in one
+ * row, so the net movement on Cash and Fee Income is unchanged — but the mechanism is two events, not one.
  *
  * Asserts the SIGNED NET movement of each account rather than an absolute figure — the org is shared with other
  * specs, so an absolute "Fee Income = 5000" is brittle while "Fee Income moved by 5000" is not. Same convention
@@ -19,6 +23,14 @@ describe('Education — fee collection posts to the GL', () => {
   const tb = () => cy.request('/gl/trialBalance').then((r) => parse(r.body))
   const acct = (rows, code) => (rows || []).find((x) => x.code === code) || { debit: 0, credit: 0 }
   const net = (rows, code) => { const a = acct(rows, code); return Number(a.debit) - Number(a.credit) }
+
+  // Slice 0.2a: a tendered payment settles against a STUDENT, so every scenario seeds one. This spec predates
+  // that guard — it used invented enrolment numbers, which are now refused rather than silently unsettled.
+  const seedStudent = (enrollNo) =>
+    cy.request({
+      method: 'POST', url: '/addStudent', form: true, failOnStatusCode: false,
+      body: { name: 'GL ' + enrollNo, enrollNo, status: 'ACTIVE' },
+    }).then((r) => expect(JSON.stringify(r.body), 'student created').to.match(/SUCCESS/))
 
   // The fee form posts as form params (the monolith proxy forwards them verbatim to education-service).
   // `/addFc` answers with a GenericResponse; Cypress auto-parses it when the content-type is JSON, so assert on
@@ -55,7 +67,9 @@ describe('Education — fee collection posts to the GL', () => {
       const feeIncomeBefore = net(before.rows, '4100')   // income is a credit account → net goes DOWN
       const cashBefore = net(before.rows, '1000')
 
-      collectFee('CY' + Date.now(), 5000, 'Cash')   // asserts SUCCESS internally
+      const en = 'CY' + Date.now()
+      seedStudent(en)
+      collectFee(en, 5000, 'Cash')   // asserts SUCCESS internally
 
       // Delivery is AFTER_COMMIT over HTTP — allow the journal a moment to land.
       cy.wait(1500)
@@ -76,7 +90,9 @@ describe('Education — fee collection posts to the GL', () => {
       const bankBefore = net(before.rows, '1010')
       const cashBefore = net(before.rows, '1000')
 
-      collectFee('CYQ' + Date.now(), 2500, 'Check')
+      const enq = 'CYQ' + Date.now()
+      seedStudent(enq)
+      collectFee(enq, 2500, 'Check')
       cy.wait(1500)
       tb().then((after) => {
         expect(net(after.rows, '1010') - bankBefore, 'Bank debited').to.eq(2500)
@@ -90,7 +106,9 @@ describe('Education — fee collection posts to the GL', () => {
     cy.request({ method: 'POST', url: '/gl/ensureDefaults', failOnStatusCode: false })
     tb().then((before) => {
       const feeIncomeBefore = net(before.rows, '4100')
-      collectFee('CYZ' + Date.now(), 0, 'Cash')
+      const enz = 'CYZ' + Date.now()
+      seedStudent(enz)
+      collectFee(enz, 0, 'Cash')
       cy.wait(1200)
       tb().then((after) => {
         expect(net(after.rows, '4100'), 'no journal for a zero collection').to.eq(feeIncomeBefore)
@@ -100,7 +118,9 @@ describe('Education — fee collection posts to the GL', () => {
 
   it("the school's income now appears on the P&L", () => {
     // The point of the whole slice: revenue that was previously invisible to the books.
-    collectFee('CYP' + Date.now(), 1500, 'Cash')
+    const enp = 'CYP' + Date.now()
+    seedStudent(enp)
+    collectFee(enp, 1500, 'Cash')
     cy.wait(1500)
     cy.request({ url: '/gl/pnl', failOnStatusCode: false }).then((r) => {
       expect(r.status).to.eq(200)
