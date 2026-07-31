@@ -95,6 +95,18 @@ the rest and the service starts (or compiles) and breaks in use. Checklist, in t
 | 4 | **derived query method names** — `findByOrganizationIdAndEn…` resolves `en` as a property | **context startup** | `No property 'en' found for type 'FeeCollection'` |
 | 5 | **JPQL / `Sort.by("…")` / `@OrderBy` strings** | **runtime, per query** | — |
 | 6 | **JSON contract** — a controller returning the entity means the field name IS the API; form `name=` must match the bound DTO | **runtime, in the browser** | `obj.fp` → `obj.feePaid`; `name="ri"` → `name="receivedIn"` |
+| 7 | **selectors built by CONCATENATION** — `$("#" + table + "GradeDD")` contains no literal `aGradeDD`, so every grep for the old name comes back clean | **runtime, SILENTLY** | renaming `aGradeDD` → `attendanceGrade` left the roster dropdown permanently empty |
+
+Row 7 is the worst of the seven because **jQuery on an empty set is a no-op**: no exception, no console error,
+no failed request — the element simply never fills. Before declaring any id/field sweep clean, grep for the
+*construction*, not just the name:
+
+```bash
+grep -on '"#"[[:space:]]*+[^;)]*' path/to/*.js     # every dynamically-built selector
+```
+
+Then check whether any of them can resolve to a name you just changed. The same applies to `name=` attributes
+assembled in JS and to `getElementById(prefix + suffix)`.
 
 Two force-multipliers: check `@Column(name=…)` **first** — if the DB columns are already readable, the rename
 is Java-only with **no migration** (that was true for `FeeCollection`); and scope every sweep per-form or

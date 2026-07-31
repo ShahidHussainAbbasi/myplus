@@ -1,6 +1,6 @@
 # Slice 1.1 — Academic year & term (the Phase 1 keystone)
 
-**Status: DESIGN — awaiting approval. No code written.**
+**Status: IMPLEMENTED — awaiting `mvn` verification + the Cypress gate.**
 Programme: `education-complete-programme.md` Phase 1.1. First slice of the academic record.
 
 ---
@@ -181,13 +181,17 @@ sequenceDiagram
 
 ## 4. Implement — checklist
 
-- [ ] `AcademicYear` + `Term` entities, repositories (org-scoped `findScoped`, indexed)
-- [ ] `TermService.currentTerm()` — the single place the rule lives (D3)
-- [ ] Flyway `V10` — `academic_year`, `term`, `attendance.term_id`, `fee_collection.term_id` (all nullable)
-- [ ] `AcademicYearController` — CRUD + `/getCurrentTerm`, `ADMIN_PRIVILEGE`
-- [ ] stamp `term_id` on new `Attendance` and `FeeCollection` rows
-- [ ] monolith proxies + Academic Year screen + i18n keys × 6 bundles
-- [ ] tests: current-term resolution (pure, all four branches) + Cypress `education/academic-year.cy.js`
+- [x] `AcademicYear` + `Term` entities, repositories (org-scoped `findScoped` + `findByIdScoped`, indexed)
+- [x] `TermService.currentTerm()` — the single place the rule lives (D3), with `resolveCurrent()` split
+      out as a **pure static** so every branch is testable without a database
+- [x] Flyway `V10` — `academic_year`, `term`, `attendance.term_id`, `fee_collection.term_id` (all
+      nullable; the two `ALTER`s are guarded on `information_schema` so the script stays re-runnable)
+- [x] `AcademicYearController` — CRUD + `/getCurrentTerm` + `/pinCurrentTerm`, `ADMIN_PRIVILEGE` on
+      writes, `DELETE_PRIVILEGE` on deletes
+- [x] stamp `term_id` on new `Attendance` and `FeeCollection` rows — resolved **once per batch**, and
+      only when the row has no term yet, so an existing stamp is never rewritten
+- [x] monolith proxy + Academic Year screen + 9 i18n keys × 6 bundles (verified aligned, no U+FFFD)
+- [x] tests: `TermServiceTest` (8 cases, pure) + Cypress `education/academic-year.cy.js` (7 cases)
 
 ## 5. Test
 

@@ -19,8 +19,8 @@ $(document).ready(function() {
 	$(document).on('change', '#branchSwitcher', switchBranch);
 
 	// Attendance roster: populate the class dropdown + default the date to today.
-	if ($("#aGradeDD").length) {
-		getUserGrades("a");
+	if ($("#attendanceGrade").length) {
+		getUserGrades("a", "attendanceGrade");
 		var _t = new Date();
 		$("#aDate").val(_t.getFullYear() + "-" + ("0"+(_t.getMonth()+1)).slice(-2) + "-" + ("0"+_t.getDate()).slice(-2));
 	}
@@ -523,7 +523,7 @@ function aRosterRow(r) {
 }
 
 function loadClassRoster() {
-	var gradeId = $("#aGradeDD").val();
+	var gradeId = $("#attendanceGrade").val();
 	if (!gradeId) { alert("Please select a class"); return; }
 	$.get(serverContext + "getClassRoster?gradeId=" + encodeURIComponent(gradeId)
 			+ "&dateStr=" + encodeURIComponent(aDateStr()), function(res) {
@@ -560,7 +560,7 @@ function saveAttendance() {
 		url: serverContext + "markAttendanceBulk",
 		type: "POST",
 		contentType: "application/json",
-		data: JSON.stringify({ gradeId: $("#aGradeDD").val(), dateStr: aDateStr(), rows: rows }),
+		data: JSON.stringify({ gradeId: $("#attendanceGrade").val(), dateStr: aDateStr(), rows: rows }),
 		success: function(res) {
 			alert(res && res.message ? res.message : (res && res.status === "SUCCESS" ? "Saved" : "Save failed"));
 		},
@@ -620,13 +620,26 @@ function getUserSubjects(table) {
 	});
 }
 
-function getUserGrades(table) {	
-    $("#"+table+"GradeDD").empty().append("<option value = ''> Please wait....  </option>");
-    $.get(serverContext+ "getUserGrades",function(data){
-    	$("#"+table.toLowerCase()+"GradeDD").empty().append(data);
-    })
-	.fail(function(data) {
-		$("#"+table.toLowerCase()+"GradeDD").empty().append("<option value = ''> System error  </option>");
+/**
+ * Populates a class dropdown.
+ *
+ * The id is <table>GradeDD by convention (staffGradeDD, studentGradeDD, subjectGradeDD). `targetId`
+ * overrides that for dropdowns named after what they ARE rather than by the prefix — the attendance
+ * roster's #attendanceGrade. Without this the id was built by string concatenation, so renaming that
+ * one element silently left the dropdown empty with no error anywhere.
+ *
+ * The selector is resolved ONCE: the original built it three times, and only two of them lowercased
+ * `table`, so a mixed-case caller would have shown "Please wait…" into one element and the results
+ * into another.
+ */
+function getUserGrades(table, targetId) {
+	var sel = "#" + (targetId || (String(table).toLowerCase() + "GradeDD"));
+	$(sel).empty().append("<option value = ''> Please wait....  </option>");
+	$.get(serverContext + "getUserGrades", function (data) {
+		$(sel).empty().append(data);
+	})
+	.fail(function (data) {
+		$(sel).empty().append("<option value = ''> System error  </option>");
 	});
 }
 
@@ -2983,4 +2996,123 @@ function loadFeeStatement(){
 			$b.append(tr);
 		});
 	}, 'json').fail(function(){ showFormError(t('ui.js.couldNotLoadStatement')); });
+}
+
+/* ══ Slice 1.1 — Academic Year & Term ═════════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-1.1-academic-year-term.md
+ *
+ * The owner defines the years and terms the school actually runs; "current" is DERIVED from today's
+ * date by the service (D3), so nothing here computes it — the banner just displays what the server
+ * resolved. Pinning is the one explicit override.
+ *
+ * Loading is hooked to the #registrationType change event rather than to the sidebar link, because
+ * snavGo() sets that select and fires change — one hook covers both navigation paths (DRY).
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'AcademicYearDiv') loadAcademicYears();
+});
+
+function ayNotify(msg) {
+	if (typeof uiAlert === 'function') { uiAlert(msg); return; }
+	alert(msg);
+}
+
+function loadAcademicYears() {
+	$.get(serverContext + 'getAcademicYears', function (res) {
+		var years = (res && res.collection) || [];
+		var $body = $('#tableAcademicYear tbody').empty();
+		var $picker = $('#ayTermYear').empty();
+
+		$('#ayEmpty').toggle(years.length === 0);
+		years.forEach(function (y) {
+			$picker.append($('<option>').val(y.id).text(y.name));
+			var terms = y.terms || [];
+			if (!terms.length) {
+				// A year with no terms yet is still worth showing — otherwise "Add Year" looks like it failed.
+				$body.append($('<tr>')
+					.append($('<td>').text(y.name))
+					.append($('<td colspan="5">').addClass('text-muted').text('—')));
+				return;
+			}
+			terms.forEach(function (t) {
+				var $pin = $('<button type="button">')
+					.addClass(t.pinnedCurrent ? 'btn btn-xs btn-warning' : 'btn btn-xs btn-default')
+					.text(t.pinnedCurrent ? 'Unpin' : 'Pin as current')
+					.on('click', function () { pinTerm(t.id, !t.pinnedCurrent); });
+				$body.append($('<tr>')
+					.append($('<td>').text(y.name))
+					.append($('<td>').text(t.name))
+					.append($('<td>').text(t.startDateStr || ''))
+					.append($('<td>').text(t.endDateStr || ''))
+					.append($('<td>').text(t.pinnedCurrent ? 'Pinned' : ''))
+					.append($('<td>').append($pin)));
+			});
+		});
+		// .text() escapes, so no escHtml() is needed here — the values never touch innerHTML.
+		if (typeof $picker.selectpicker === 'function') { try { $picker.selectpicker('refresh'); } catch (e) {} }
+		loadCurrentTermBanner();
+	});
+}
+
+/** Shows what the SERVER resolved as current — never recomputed here, so there is one rule (D3). */
+function loadCurrentTermBanner() {
+	$.get(serverContext + 'getCurrentTerm', function (res) {
+		var t = res && res.object;
+		var $b = $('#ayCurrentTerm');
+		if (!t) {
+			// A school with no terms is a permanently valid state, not an error.
+			$b.removeClass('alert-info').addClass('alert-warning')
+			  .text('No current term — attendance and fees are being recorded without one.').show();
+			return;
+		}
+		$b.removeClass('alert-warning').addClass('alert-info')
+		  .text('Current term: ' + t.name + (t.pinnedCurrent ? ' (pinned)' : '') +
+		        (t.startDateStr ? ' · ' + t.startDateStr + ' – ' + (t.endDateStr || '') : '')).show();
+	});
+}
+
+function saveAcademicYear() {
+	var name = $.trim($('#ayName').val());
+	if (!name) { ayNotify('Year name is required'); return; }
+	$.post(serverContext + 'addAcademicYear', {
+		name: name,
+		startDateStr: $('#ayStart').val(),
+		endDateStr: $('#ayEnd').val()
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			$('#ayName, #ayStart, #ayEnd').val('');
+			loadAcademicYears();
+		} else {
+			ayNotify((res && res.message) || 'Could not save the academic year');
+		}
+	});
+}
+
+function saveTerm() {
+	var yearId = $('#ayTermYear').val();
+	var name = $.trim($('#ayTermName').val());
+	if (!yearId) { ayNotify('Create an academic year first'); return; }
+	if (!name) { ayNotify('Term name is required'); return; }
+	$.post(serverContext + 'addTerm', {
+		academicYearId: yearId,
+		name: name,
+		sequence: $('#ayTermSeq').val(),
+		startDateStr: $('#ayTermStart').val(),
+		endDateStr: $('#ayTermEnd').val()
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			$('#ayTermName, #ayTermStart, #ayTermEnd').val('');
+			loadAcademicYears();
+		} else {
+			ayNotify((res && res.message) || 'Could not save the term');
+		}
+	});
+}
+
+/** Pinning is exclusive per tenant — the server unpins the others, so no client-side bookkeeping. */
+function pinTerm(id, pin) {
+	$.post(serverContext + 'pinCurrentTerm', { id: id, pinned: pin ? 'true' : 'false' }, function (res) {
+		if (res && res.status === 'SUCCESS') loadAcademicYears();
+		else ayNotify((res && res.message) || 'Could not change the pinned term');
+	});
 }

@@ -45,6 +45,9 @@ public class FeeCollectionController {
     private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
+
+    @Autowired
+    private com.myplus.education.service.TermService termService;   // slice 1.1 — current-term stamping
     @Autowired
     private com.myplus.education.service.GlOutboxService glOutboxService;   // slice 0.1: fee revenue → GL
     @Autowired
@@ -407,6 +410,12 @@ public class FeeCollectionController {
                 }
                 if (refusal != null) return new GenericResponse("FAILED", refusal);
             }
+
+            // Slice 1.1 (D4): stamp the term a NEW collection belongs to, so "Term 1 dues" can be asked
+            // without re-deriving it from dates later. Never rewritten on edit — moving a historical
+            // receipt into another term would silently restate a closed term's revenue. Null when the
+            // school has not defined terms, which stays a permanently valid state.
+            if (obj.getTermId() == null) obj.setTermId(termService.currentTermId(orgId, userId()));
 
             FeeCollection saved = feeCollectionRepository.save(obj);
             if (appUtil.isEmptyOrNull(saved)) return new GenericResponse("FAILED", "");

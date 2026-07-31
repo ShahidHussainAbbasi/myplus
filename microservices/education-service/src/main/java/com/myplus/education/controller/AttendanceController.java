@@ -58,6 +58,8 @@ public class AttendanceController {
     private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
+    @Autowired
+    private com.myplus.education.service.TermService termService;   // slice 1.1 — current-term stamping
 
     private Long userId() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
@@ -247,6 +249,11 @@ public class AttendanceController {
             LocalDate date = appUtil.isEmptyOrNull(req.getDateStr()) ? LocalDate.now() : appUtil.getLocalDate(req.getDateStr());
             String gn = gradeName(req.getGradeId());
 
+            // Slice 1.1 (D4): resolve the current term ONCE per batch, never per row — a 40-student
+            // class would otherwise re-read every term 40 times. Null is a legitimate answer (the
+            // school has not defined terms) and stamps a null term_id, exactly as before this slice.
+            final Long currentTermId = termService.currentTermId(org, uid);
+
             // Only students the caller may see (branch-scoped). A row for a student outside the caller's
             // branches (or a non-existent enrollNo) is skipped below — a teacher cannot mark another branch.
             Map<String, Student> students = new LinkedHashMap<>();
@@ -274,6 +281,10 @@ public class AttendanceController {
                 a.setOut(appUtil.isEmptyOrNull(r.getTimeOutStr()) ? null : LocalTime.parse(r.getTimeOutStr()));
                 a.setAttDate(date);
                 a.setDt(LocalDateTime.now());
+                // Stamp only when the row has no term yet: new rows get one, and a row written before
+                // terms existed picks one up when re-marked. An existing stamp is never rewritten, so
+                // re-saving today's register cannot silently move it into another term.
+                if (a.getTermId() == null) a.setTermId(currentTermId);
                 attendanceRepository.save(a);
                 saved++;
             }

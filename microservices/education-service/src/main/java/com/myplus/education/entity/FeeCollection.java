@@ -70,4 +70,11 @@ public class FeeCollection {
 
     @Column(name = "due_balance")
     private Integer dueBalance;
+
+    /**
+     * Slice 1.1 (D4): which term this collection belongs to. NULLABLE and never backfilled — see
+     * {@link Attendance#getTermId()}. Lets "Term 1 dues" be asked without re-deriving it from dates.
+     */
+    @Column(name = "term_id")
+    private Long termId;
 }

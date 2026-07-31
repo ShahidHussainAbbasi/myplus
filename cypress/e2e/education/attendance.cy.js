@@ -22,13 +22,13 @@ describe('Education — attendance roster', () => {
 
     // Class dropdown is populated from the org's grades — pick the first real grade (demo-account safe;
     // the org may not have a class literally named "Grade 1").
-    cy.get('#aGradeDD', { timeout: 10000 }).find('option').then(($opts) => {
+    cy.get('#attendanceGrade', { timeout: 10000 }).find('option').then(($opts) => {
       const real = [...$opts].find((o) => o.value && o.value.trim() !== '')
       if (!real) {
         cy.log('No class in this org — attendance roster not applicable')
         return
       }
-      cy.get('#aGradeDD').select(real.value, { force: true })
+      cy.get('#attendanceGrade').select(real.value, { force: true })
       cy.wait(SLOW)
       cy.contains('button', 'Load Roster').click()
       cy.wait(SLOW)

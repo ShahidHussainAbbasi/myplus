@@ -56,6 +56,14 @@ public class Attendance {
     @Column(name = "remarks")
     private String rem;
 
+    /**
+     * Slice 1.1 (D4): which term this attendance belongs to. NULLABLE and never backfilled — rows
+     * written before terms existed keep NULL, and reports treat NULL as "before terms existed" rather
+     * than hiding the row. A school that has not set terms up keeps working exactly as before.
+     */
+    @Column(name = "term_id")
+    private Long termId;
+
     @PrePersist
     void prePersist() {
         if (status == null) status = "Active";

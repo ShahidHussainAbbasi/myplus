@@ -51,6 +51,7 @@
 					<option value="SchoolDiv" th:text="#{ui.campus}">Campus</option>
 					<option value="VehicleDiv" th:text="#{ui.vehicles}">Vehicles</option>
 					<option value="GradeDiv" th:text="#{ui.classes}">Classes</option>
+					<option value="AcademicYearDiv" th:text="#{ui.academicYear}">Academic Year</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
 					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
 					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
@@ -98,6 +99,8 @@
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SchoolDiv','snavRegister')"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.campus}">Campus</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','VehicleDiv','snavRegister')"><span class="glyphicon glyphicon-road"></span> <span th:text="#{ui.vehicles}">Vehicles</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradeDiv','snavRegister')"><span class="glyphicon glyphicon-th-large"></span> <span th:text="#{ui.classes}">Classes</span></a></li>
+									<!-- Slice 1.1: the academic spine — exams, marks and promotion all hang off a term. -->
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','AcademicYearDiv','snavRegister')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.academicYear}">Academic Year</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
@@ -1562,9 +1565,9 @@
 						</div>
 					</div>				
 					<div class="form-group">		
-						<label class="control-label col-sm-2 req" for="acdd" th:text="#{ui.selectConsumers2}">Select Consumers</label>
+						<label class="control-label col-sm-2 req" for="alertConsumers" th:text="#{ui.selectConsumers2}">Select Consumers</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control selectpicker" id="acdd" name="c" required="required" title="Select consumers…" th:title="#{ui.selectConsumers}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+							<select multiple="multiple"	class="form-control selectpicker" id="alertConsumers" name="c" required="required" title="Select consumers…" th:title="#{ui.selectConsumers}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
 																<option class="dropdown-item" value="Students" th:text="#{ui.students}">Students</option>
 			 					<option class="dropdown-item" value="Guardians" th:text="#{ui.guardians}">Guardians</option>
 								<option class="dropdown-item" value="Employees" th:text="#{ui.employees}">Employees</option>
@@ -1573,9 +1576,9 @@
 								<option class="dropdown-item" value="All" th:text="#{ui.all}">All</option>
 			 				</select>
 						</div>
-						<label class="control-label col-sm-2 req" for="atdd" th:text="#{ui.alertType}">Alert Type</label>
+						<label class="control-label col-sm-2 req" for="alertType" th:text="#{ui.alertType}">Alert Type</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control selectpicker" id="atdd" name="at" required="required" title="Select alert type…" th:title="#{ui.selectAlertType}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+							<select multiple="multiple"	class="form-control selectpicker" id="alertType" name="at" required="required" title="Select alert type…" th:title="#{ui.selectAlertType}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
 																<option class="dropdown-item" value="Notice Board" th:text="#{ui.noticeBoard}">Notice Board</option>
 			 					<option class="dropdown-item" value="Late Fee" th:text="#{ui.lateFee}">Late Fee</option>
 								<option class="dropdown-item" value="Fee Reviwed" th:text="#{ui.feeReviwed}">Fee Reviwed</option>
@@ -1591,9 +1594,9 @@
 						</div>
 					</div>
 					<div class="form-group">		
-						<label class="control-label col-sm-2 req" for="adcdd" th:text="#{ui.deliveryChannel}">Delivery Channel</label>
+						<label class="control-label col-sm-2 req" for="alertDeliveryChannel" th:text="#{ui.deliveryChannel}">Delivery Channel</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control selectpicker" id="adcdd" name="dc" required="required" title="Select channels…" th:title="#{ui.selectChannels}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+							<select multiple="multiple"	class="form-control selectpicker" id="alertDeliveryChannel" name="dc" required="required" title="Select channels…" th:title="#{ui.selectChannels}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
 											 					<option class="dropdown-item" value="Email" th:text="#{ui.email}">Email</option>
 								<option class="dropdown-item" value="SMS">SMS</option>
 								<option class="dropdown-item" value="Watts App">Watts App</option>
@@ -1602,9 +1605,9 @@
 			 					<option class="dropdown-item" value="Instagram">Instagram</option>
 			 				</select>
 						</div>
-						<label class="control-label col-sm-2 req" for="adpdd" th:text="#{ui.deliveryChannel}">Delivery Channel</label>
+						<label class="control-label col-sm-2 req" for="alertDeliveryPeriod" th:text="#{ui.deliveryChannel}">Delivery Channel</label>
 						<div class="col-sm-4">
-							<select multiple="multiple"	class="form-control selectpicker" id="adpdd" name="dp" required="required" title="Select frequency…" th:title="#{ui.selectFrequency}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
+							<select multiple="multiple"	class="form-control selectpicker" id="alertDeliveryPeriod" name="dp" required="required" title="Select frequency…" th:title="#{ui.selectFrequency}" data-live-search="true" data-actions-box="true" data-selected-text-format="count &gt; 2" data-width="100%">
 																<option class="dropdown-item" value="Daily" th:text="#{ui.daily}">Daily</option>
 			 					<option class="dropdown-item" value="Weekly" th:text="#{ui.weekly}">Weekly</option>
 								<option class="dropdown-item" value="Monthly" th:text="#{ui.monthly}">Monthly</option>
@@ -1615,52 +1618,52 @@
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="adtdd" th:text="#{ui.deliveryType}">Delivery Type</label>
+						<label class="control-label col-sm-2 req" for="alertDeliveryType" th:text="#{ui.deliveryType}">Delivery Type</label>
 						<div class="col-sm-4">
-							<select	class="form-control" id="adtdd" name="dt" required="required">
+							<select	class="form-control" id="alertDeliveryType" name="dt" required="required">
 																<option class="dropdown-item" value="Manual" th:text="#{ui.manual}">Manual</option>
 			 					<option class="dropdown-item" value="Auto" th:text="#{ui.auto}">Auto</option>
 			 				</select>
 						</div>
-	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="ast">Status</label>
+	 					<label class="control-label col-sm-2 req" th:text="#{label.select.status}" for="alertStatus">Status</label>
 						<div class="col-sm-4">
-							<select class="form-control" id="ast" name="st" required="required">
+							<select class="form-control" id="alertStatus" name="st" required="required">
 								<option class="dropdown-item" value="Active" selected="selected" th:text="#{ui.active}">Active</option>
 			 					<option class="dropdown-item" value="Inactive" th:text="#{ui.inactive}">Inactive</option>
 			 				</select>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" th:text="#{label.start.date}"  for="asd">Start Date</label>
+						<label class="control-label col-sm-2" th:text="#{label.start.date}"  for="alertStartDate">Start Date</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control datePicker" id="asd" name="sdStr"
+							<input type="text" class="form-control datePicker" id="alertStartDate" name="sdStr"
 								placeholder=" Start Date" th:placeholder="#{ui.startDate2}"> 
 						</div>
-						<label class="control-label col-sm-2" th:text="#{label.end.date}"  for="aed">End Date</label>
+						<label class="control-label col-sm-2" th:text="#{label.end.date}"  for="alertEndDate">End Date</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control datePicker" id="aed" name="edStr"
+							<input type="text" class="form-control datePicker" id="alertEndDate" name="edStr"
 								placeholder=" End Date" th:placeholder="#{ui.endDate2}"> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="ah" th:text="#{ui.heading}">Heading</label>
+						<label class="control-label col-sm-2 req"  for="alertHeading" th:text="#{ui.heading}">Heading</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="ah" name="ah"
+							<input type="text" class="form-control" id="alertHeading" name="ah"
 								placeholder=" Message heading " th:placeholder="#{ui.messageHeading}" required="required"> 
 						</div>
 						<div class="col-sm-6">
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req"  for="am" th:text="#{ui.details}">Details</label>
+						<label class="control-label col-sm-2 req"  for="alertMessage" th:text="#{ui.details}">Details</label>
 						<div class="col-sm-10">
-							<textarea class="form-control" rows="5" id="am" name="am" placeholder="Enter message detail here..." th:placeholder="#{ui.enterMessageDetailHere}" required="required"></textarea> 
+							<textarea class="form-control" rows="5" id="alertMessage" name="am" placeholder="Enter message detail here..." th:placeholder="#{ui.enterMessageDetailHere}" required="required"></textarea> 
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2"  for="as" th:text="#{ui.signature}">Signature</label>
+						<label class="control-label col-sm-2"  for="alertSignature" th:text="#{ui.signature}">Signature</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="as" name="as"
+							<input type="text" class="form-control" id="alertSignature" name="as"
 								placeholder=" Message signature " th:placeholder="#{ui.messageSignature}"> 
 						</div>
 					</div>
@@ -2071,8 +2074,8 @@
 				<!-- Class-roster marking: pick a class + date, load the roster, mark, and save in one go. -->
 				<div class="form-inline" style="margin-bottom:16px">
 					<div class="form-group">
-						<label class="control-label" for="aGradeDD" th:text="#{ui.class}">Class</label>
-						<select class="form-control" id="aGradeDD" name="gradeId" style="margin:0 10px"></select>
+						<label class="control-label" for="attendanceGrade" th:text="#{ui.class}">Class</label>
+						<select class="form-control" id="attendanceGrade" name="gradeId" style="margin:0 10px"></select>
 					</div>
 					<div class="form-group">
 						<label class="control-label" for="aDate" th:text="#{ui.date2}">Date</label>
@@ -2331,6 +2334,77 @@
 					</table>
 				</div>
 				<div id="feeStatementEmpty" class="text-muted" style="display:none" th:text="#{ui.noStatementRows}">No entries for this student.</div>
+			</div>
+
+			<!-- ═══ Slice 1.1 — Academic Year & Term ══════════════════════════════════════════════════
+			     Structure, not daily work: the owner defines the years and terms the school actually
+			     runs. There is deliberately no "how many terms" setting — creating a term IS the
+			     configuration (design D2). "Current" is derived from today's date; the pin is the
+			     explicit override for a school holding a term open to finish entering marks (D3). -->
+			<div id="AcademicYearDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+				<h4 th:text="#{ui.academicYear}">Academic Year</h4>
+				<p class="text-muted" th:text="#{ui.academicYearHelp}">Define the years and terms this school runs. Exams, marks and report cards are all recorded against a term.</p>
+
+				<div class="alert alert-info" id="ayCurrentTerm" style="display:none"></div>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="ayName" th:text="#{ui.yearName}">Year name</label>
+						<input type="text" class="form-control" id="ayName" placeholder="2026-27">
+					</div>
+					<div class="col-sm-3">
+						<label for="ayStart" th:text="#{ui.startDate2}">Start Date</label>
+						<input type="text" class="form-control datePicker" id="ayStart" placeholder=" Start Date" th:placeholder="#{ui.startDate2}">
+					</div>
+					<div class="col-sm-3">
+						<label for="ayEnd" th:text="#{ui.endDate}">End Date</label>
+						<input type="text" class="form-control datePicker" id="ayEnd" placeholder=" End Date" th:placeholder="#{ui.endDate}">
+					</div>
+					<div class="col-sm-3" style="padding-top:24px">
+						<button type="button" id="ayAdd" class="btn btn-success" onclick="saveAcademicYear()" th:text="#{ui.addYear}">Add Year</button>
+					</div>
+				</div>
+
+				<hr />
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="ayTermYear" th:text="#{ui.academicYear}">Academic Year</label>
+						<select class="form-control" id="ayTermYear"></select>
+					</div>
+					<div class="col-sm-2">
+						<label for="ayTermName" th:text="#{ui.termName}">Term name</label>
+						<input type="text" class="form-control" id="ayTermName" placeholder="Term 1">
+					</div>
+					<div class="col-sm-1">
+						<label for="ayTermSeq" th:text="#{ui.sequence}">#</label>
+						<input type="number" class="form-control" id="ayTermSeq" min="1" value="1">
+					</div>
+					<div class="col-sm-2">
+						<label for="ayTermStart" th:text="#{ui.startDate2}">Start Date</label>
+						<input type="text" class="form-control datePicker" id="ayTermStart" placeholder=" Start Date" th:placeholder="#{ui.startDate2}">
+					</div>
+					<div class="col-sm-2">
+						<label for="ayTermEnd" th:text="#{ui.endDate}">End Date</label>
+						<input type="text" class="form-control datePicker" id="ayTermEnd" placeholder=" End Date" th:placeholder="#{ui.endDate}">
+					</div>
+					<div class="col-sm-2" style="padding-top:24px">
+						<button type="button" id="ayTermAdd" class="btn btn-success" onclick="saveTerm()" th:text="#{ui.addTerm}">Add Term</button>
+					</div>
+				</div>
+
+				<table id="tableAcademicYear" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.academicYear}">Academic Year</th>
+						<th th:text="#{ui.termName}">Term name</th>
+						<th th:text="#{ui.startDate2}">Start Date</th>
+						<th th:text="#{ui.endDate}">End Date</th>
+						<th th:text="#{ui.current}">Current</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+				<div id="ayEmpty" class="text-muted" style="display:none" th:text="#{ui.noAcademicYears}">No academic years defined yet.</div>
 			</div>
 
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
