@@ -3262,3 +3262,141 @@ function saveExamPaper() {
 		}
 	});
 }
+
+/* ══ Slice 1.3 — Marks Entry ══════════════════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-1.3-marks-entry.md
+ *
+ * The grid is the unit of work: a teacher marks one paper for one class and saves once, exactly like
+ * the attendance roster. Absent is a CHECKBOX, never a zero (D2) — they are different facts.
+ *
+ * Per-row failures (D3) are shown next to the count, and a partial save is never rendered as a clean
+ * success: the server answers PARTIAL for that case precisely so the UI cannot round it up.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'MarksDiv') loadMarksExams();
+});
+
+/** Papers are nested inside their exam, so one /getExams call populates both dropdowns. */
+var mkExamCache = [];
+
+function loadMarksExams() {
+	$.get(serverContext + 'getExams', function (res) {
+		mkExamCache = (res && res.collection) || [];
+		var $ex = $('#mkExam').empty();
+		mkExamCache.forEach(function (e) {
+			// A DRAFT exam cannot take marks (D4) — leave it out rather than fail on save.
+			if (e.status === 'DRAFT') return;
+			$ex.append($('<option>').val(e.id).text(e.name + (e.locked ? ' (locked)' : '')));
+		});
+		if (typeof $ex.selectpicker === 'function') { try { $ex.selectpicker('refresh'); } catch (err) {} }
+		loadMarksPapers();
+	});
+}
+
+$(document).on('change', '#mkExam', loadMarksPapers);
+
+function loadMarksPapers() {
+	var examId = $('#mkExam').val();
+	var exam = mkExamCache.filter(function (e) { return String(e.id) === String(examId); })[0];
+	var $p = $('#mkPaper').empty();
+	((exam && exam.papers) || []).forEach(function (p) {
+		var label = (p.subjectName || 'Paper') + (p.gradeName ? ' · ' + p.gradeName : '')
+			+ (p.maxMarks != null ? ' (max ' + p.maxMarks + ')' : '');
+		$p.append($('<option>').val(p.id).text(label));
+	});
+	if (typeof $p.selectpicker === 'function') { try { $p.selectpicker('refresh'); } catch (err) {} }
+}
+
+function loadMarksSheet() {
+	var paperId = $('#mkPaper').val();
+	if (!paperId) { ayNotify('Select an exam and paper first'); return; }
+	$.get(serverContext + 'getMarksSheet', { examPaperId: paperId }, function (res) {
+		if (!res || res.status !== 'SUCCESS' || !res.object) {
+			ayNotify((res && res.message) || 'Could not load the marksheet');
+			return;
+		}
+		var sheet = res.object;
+		var rows = sheet.rows || [];
+		var $body = $('#tableMarks tbody').empty();
+		$('#mkEmpty').toggle(rows.length === 0);
+		$('#mkErrors').hide().empty();
+		$('#mkInfo').show().text(
+			(sheet.examName || '') + ' · ' + (sheet.subjectName || '') +
+			(sheet.gradeName ? ' · ' + sheet.gradeName : '') +
+			' · max ' + (sheet.maxMarks == null ? '—' : sheet.maxMarks) +
+			(sheet.passMarks == null ? '' : ', pass ' + sheet.passMarks));
+
+		rows.forEach(function (r) {
+			var $marks = $('<input type="number" class="form-control mkMark">')
+				.attr('min', 0).attr('data-enroll', r.enrollNo);
+			if (sheet.maxMarks != null) $marks.attr('max', sheet.maxMarks);
+			if (r.marksObtained != null) $marks.val(r.marksObtained);
+
+			var $absent = $('<input type="checkbox" class="mkAbsent">')
+				.attr('data-enroll', r.enrollNo).prop('checked', !!r.absent);
+			// Absent and a mark are contradictory input, so the UI makes them mutually exclusive
+			// rather than letting the server reject the row later.
+			$absent.on('change', function () {
+				if (this.checked) $marks.val('').prop('disabled', true);
+				else $marks.prop('disabled', false);
+			});
+			if (r.absent) $marks.prop('disabled', true);
+
+			$body.append($('<tr>')
+				.append($('<td>').text(r.enrollNo))
+				.append($('<td>').text(r.name || ''))
+				.append($('<td>').append($marks))
+				.append($('<td>').append($absent))
+				.append($('<td>').append($('<input type="text" class="form-control mkRemark">')
+					.attr('data-enroll', r.enrollNo).val(r.remarks || ''))));
+		});
+	});
+}
+
+function saveMarks() {
+	var paperId = $('#mkPaper').val();
+	if (!paperId) { ayNotify('Select an exam and paper first'); return; }
+
+	var rows = [];
+	$('#tableMarks tbody tr').each(function () {
+		var $tr = $(this);
+		var enroll = $tr.find('.mkMark').attr('data-enroll');
+		if (!enroll) return;
+		var raw = $.trim($tr.find('.mkMark').val());
+		rows.push({
+			enrollNo: enroll,
+			// '' must travel as null, not 0 — a blank row is "not marked yet", and 0 is a real score.
+			marksObtained: raw === '' ? null : parseInt(raw, 10),
+			absent: $tr.find('.mkAbsent').is(':checked'),
+			remarks: $tr.find('.mkRemark').val()
+		});
+	});
+	if (!rows.length) { ayNotify('Load a sheet first'); return; }
+
+	$.ajax({
+		url: serverContext + 'saveMarksBulk',
+		type: 'POST',
+		contentType: 'application/json',
+		data: JSON.stringify({ examPaperId: parseInt(paperId, 10), rows: rows }),
+		success: function (res) {
+			var $err = $('#mkErrors');
+			if (res && (res.status === 'SUCCESS' || res.status === 'PARTIAL')) {
+				var errs = (res.object && res.object.errors) || [];
+				if (errs.length) {
+					// D3: valid rows WERE saved. Say both halves — "saved" alone would hide the rejects,
+					// and "failed" alone would imply the good rows were lost.
+					$err.show().empty().append($('<strong>').text(res.message));
+				} else {
+					$err.hide().empty();
+				}
+				loadMarksSheet();
+				loadMarksExams();   // the first mark may have LOCKED the exam (D4)
+			} else {
+				ayNotify((res && res.message) || 'Could not save the marks');
+			}
+		},
+		error: function (xhr) {
+			ayNotify('Could not save the marks: ' + (xhr.responseText || xhr.status));
+		}
+	});
+}

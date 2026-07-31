@@ -135,6 +135,25 @@ key the UI actually reads. Related: **D9** (a rename must move every one of thos
 Git restores a class; nothing restores rows. Verify zero references first — including the entity-only-referenced-
 by-its-own-repository "dead pair" shape (`Segment` + `SegmentRepository`).
 
+**D11. A duplicate DOM id is a silent wrong-element bug — and you must ignore commented-out markup when hunting
+for them.** `getElementById` returns whichever element comes first, so a page with two `#foo` reads or writes the
+wrong one with no error anywhere. This has bitten twice: the alerts table emitted `<div id=acdd>` per row,
+colliding with the form's `<select id="acdd">` (`cy.select()` got a `<div>`), and `#fvidiv` appeared on both the
+live voucher form and a hidden legacy form.
+
+**Never audit this with a naive grep.** `grep -oP 'id="\K[^"]+' t.html | sort | uniq -d` reported **12**
+duplicates in `educationDashboard.html`; **11 were inside HTML comments** and one was real. Comment-aware check:
+
+```python
+live = re.sub(r'<!--.*?-->', '', html, flags=re.S)     # strip comments FIRST
+dupes = [k for k, v in Counter(re.findall(r'id="([^"]+)"', live)).items() if v > 1]
+```
+
+Expect two more false positives: ids built by JS template literals (`id="${s.id}"`) are unique at runtime, and
+table renderers that emit ids per row are duplicates in the DOM but appear once in the source — those need the
+runtime check (`document.querySelectorAll('[id="foo"]').length`), not a source scan. Table cells are display-only:
+give them **no id at all** rather than one that collides with a form field.
+
 ## 1c. Configuration standards
 
 **C1. A toggle that changes nothing is worse than no toggle.** Declaring a `SettingEntry` is half the work; the

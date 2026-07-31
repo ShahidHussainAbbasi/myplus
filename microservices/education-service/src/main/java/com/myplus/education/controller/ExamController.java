@@ -56,6 +56,7 @@ public class ExamController {
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private RequestUtil requestUtil;
     @Autowired private AppUtil appUtil;
+    @Autowired private com.myplus.education.service.EduAuditService auditService;   // slice 1.3 (D5)
 
     private Long userId() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
@@ -341,9 +342,18 @@ public class ExamController {
             } catch (Exception ex) {
                 return new GenericResponse("ERROR", "Unknown status: " + statusStr);
             }
+            ExamStatus previous = exam.getStatus();
             exam.setStatus(target);
             exam.setUpdated(LocalDateTime.now());
             examRepository.save(exam);
+
+            // Slice 1.3 (D5), the commitment 1.2 deferred: unlocking re-opens results to silent
+            // restatement, so it is the single most important status change to have on the record.
+            if (previous != target && (target == ExamStatus.LOCKED || previous == ExamStatus.LOCKED)) {
+                auditService.record(target == ExamStatus.LOCKED ? "EXAM_LOCKED" : "EXAM_UNLOCKED",
+                        "Exam", String.valueOf(exam.getId()),
+                        "status " + (previous == null ? "(none)" : previous.name()) + " → " + target.name());
+            }
             return new GenericResponse("SUCCESS", "Exam is now " + target.name());
         } catch (Exception e) {
             appUtil.le(getClass(), e);
