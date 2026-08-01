@@ -120,8 +120,7 @@ public class OwnerController {
             Long userId = userId();
             Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = ownerRepository.findScoped(orgId, userId).stream()
-                        .anyMatch(o -> o.getName() != null && o.getName().equalsIgnoreCase(dto.getName()));
+                boolean exists = ownerRepository.existsByNameScoped(dto.getName(), orgId, userId);
                 if (exists) {
                     return new GenericResponse("FOUND", "The Owner '" + dto.getName() + "' already exists");
                 }

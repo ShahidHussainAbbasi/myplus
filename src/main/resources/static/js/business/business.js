@@ -1929,6 +1929,13 @@ function loadSR(){
 
 function resetPurchaseForm(){
 	resetBSDD('purchaseItemDD');
+	// B2B-P0 (#8): the vendor dues row is driven by the vendor SELECT's change event, so a native form reset
+	// clears the number but leaves the row on screen — an empty "Outstanding due" against no vendor at all.
+	// Hide it with the rest of the form; it reappears the moment a vendor is picked.
+	var wrap = document.getElementById('purchaseVendorDuesWrap');
+	var box = document.getElementById('purchaseVendorDues');
+	if (wrap) wrap.style.display = 'none';
+	if (box) box.value = '';
 }
 
 // Toolbar "+ New Purchase" → open the form modal fresh (mirrors newProduct/newEntity, but also

@@ -30,4 +30,18 @@ public interface DiscountRepository extends JpaRepository<Discount, Long> {
     @Query("select d from Discount d where d.id = :id and (d.organizationId = :orgId "
             + "or (d.organizationId is null and d.userId = :userId))")
     Optional<Discount> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // ── Finding D: the duplicate check as an indexed EXISTS, not a full-table load ───────────────
+    // Case-insensitivity comes from the column COLLATION (utf8mb4 …_ci), not from lower(): wrapping
+    // the column in a function would also defeat the index (slice doc D4, recorded in V16).
+    @Query("select case when count(d) > 0 then true else false end from Discount d "
+            + "where (d.organizationId = :orgId or (d.organizationId is null and d.userId = :userId)) "
+            + "and d.name = :name")
+    boolean existsByNameScoped(@Param("name") String name, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Values already duplicated in this tenant — enables the UNIQUE follow-up on clean data (D3). */
+    @Query("select d.name from Discount d where (d.organizationId = :orgId "
+            + "or (d.organizationId is null and d.userId = :userId)) and d.name is not null "
+            + "group by d.name having count(d) > 1")
+    List<String> findDuplicateNamesScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 }

@@ -20,7 +20,7 @@ backlog at the end are updated as work lands, so the findings stay readable as t
 | **A** | Cross-tenant record **takeover** on save — 7 controllers | 🔴 **Critical** | Any authenticated user, any tenant | ✅ **fixed** — 9 repos + 7 saves + 3 child refs (+2 more found by the sweep); gate `save-takeover-idor.cy.js` |
 | **B** | Fee collection (money in) has **no validation at all** | 🟠 High | Financial integrity | ✅ **fixed** — `slices/edu-B-fee-validation.md` (+§8); gate `fee-validation.cy.js`. **Partly stale when written** — overpayment was already fixed by 0.2a/0.2b |
 | **C** | Writes are **ungated** — only deletes carry a privilege check | 🟠 High | Any USER can alter fees, staff, grades | ✅ **fixed** — 3-tier map (WRITE / ADMIN / DELETE), 21 → 44 gates, zero ungated writes; gate `privilege-map.cy.js` |
-| **D** | Analytics loads **5 whole tables** per dashboard render | 🟠 High | Degrades with school size | 🔴 **OPEN — the last one.** Unchanged since the audit, and the academic tables (1.1–1.5) make it more urgent |
+| **D** | Analytics loads **5 whole tables** per dashboard render | 🟠 High | Degrades with school size | 📐 **design written** — `slices/edu-D-analytics-perf.md`. Re-measured and still accurate; the design also found that the 12 duplicate checks are a **check-then-act race**, not just a slow scan |
 | **E** | 2 unit tests for 94 classes; no service-level test at all | 🟡 Medium | Everything above went unnoticed | 🟡 **partly** — 2 → 8 unit test classes + 26 Cypress specs; still no repository/scoping test for most controllers |
 
 ---

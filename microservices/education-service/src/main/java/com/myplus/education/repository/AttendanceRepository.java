@@ -53,4 +53,43 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
             + "group by a.en")
     List<Object[]> summariseByStudent(@Param("from") LocalDate from, @Param("to") LocalDate to,
                                       @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // ── Finding D: dashboard aggregates ─────────────────────────────────────────────────────────
+    // Attendance is the biggest table in the service — one row per student per day, ~400k rows a year
+    // for a 2,000-student school. The dashboard used to load ALL of it into heap and loop three times.
+    // These three queries return a handful of rows each and never hydrate an entity.
+    //
+    // "Present" is defined ONCE, here, as lower(status) in ('present','p') — the same rule
+    // summariseByStudent uses. It previously also existed as AnalyticsController.isPresent(); that
+    // Java copy is gone, because two definitions of "was this child at school" is one too many.
+
+    /** Whole-tenant present/total — the attendance-rate KPI, as two numbers instead of 400k rows. */
+    @Query("select sum(case when lower(a.status) in ('present', 'p') then 1 else 0 end), count(a) "
+            + "from Attendance a where a.organizationId = :orgId "
+            + "or (a.organizationId is null and a.userId = :userId)")
+    // Declared List<Object[]> rather than Object[]: a single-row projection is ambiguous across
+    // Hibernate versions (row vs row-wrapped-in-a-list). Taking element 0 is unambiguous everywhere.
+    List<Object[]> summariseAllScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * Present/total per DAY, newest first.
+     *
+     * <p>Ordered descending and sliced by the caller so the semantics of the old code survive exactly:
+     * it showed "the last 30 days that actually have records", which is NOT the last 30 calendar days —
+     * a school with no weekend records would otherwise show gaps it never used to show.
+     */
+    @Query("select a.attDate, "
+            + "sum(case when lower(a.status) in ('present', 'p') then 1 else 0 end), count(a) "
+            + "from Attendance a where (a.organizationId = :orgId "
+            + "or (a.organizationId is null and a.userId = :userId)) and a.attDate is not null "
+            + "group by a.attDate order by a.attDate desc")
+    List<Object[]> summariseByDayScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Present/total per class, using the denormalised grade name the rows already carry. */
+    @Query("select a.gn, "
+            + "sum(case when lower(a.status) in ('present', 'p') then 1 else 0 end), count(a) "
+            + "from Attendance a where a.organizationId = :orgId "
+            + "or (a.organizationId is null and a.userId = :userId) "
+            + "group by a.gn order by a.gn")
+    List<Object[]> summariseByGradeNameScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 }

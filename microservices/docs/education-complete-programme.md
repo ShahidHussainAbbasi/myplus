@@ -318,7 +318,7 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 1.4 grading scales | ✅ done | `slices/edu-1.4-grading-scales.md` | `education/grading.cy.js` |
 | 1.5 report cards | ✅ done | `slices/edu-1.5-report-cards.md` | `education/report-cards.cy.js` |
 | 1.6 promotion | ✅ done — **Phase 1 complete** | `slices/edu-1.6-promotion.md` | `education/promotion.cy.js` |
-| **finding D — analytics perf** | 🔵 **next** | `education-review-audit.md` | — |
+| **finding D — analytics perf** | 🔨 **implemented, awaiting `mvn` + gate** | `slices/edu-D-analytics-perf.md` | `education/dashboard.cy.js` (unchanged) + `analytics-perf.cy.js` |
 
 ### Carried requirements (must not be lost between slices)
 

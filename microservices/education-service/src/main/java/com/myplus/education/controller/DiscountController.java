@@ -144,8 +144,7 @@ public class DiscountController {
             Long userId = userId();
             Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = discountRepository.findScoped(orgId, userId).stream()
-                        .anyMatch(o -> o.getName() != null && o.getName().equalsIgnoreCase(dto.getName()));
+                boolean exists = discountRepository.existsByNameScoped(dto.getName(), orgId, userId);
                 if (exists) {
                     return new GenericResponse("FOUND", "The Discount '" + dto.getName() + "' already exists");
                 }

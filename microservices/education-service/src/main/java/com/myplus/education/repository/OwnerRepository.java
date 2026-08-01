@@ -30,4 +30,18 @@ public interface OwnerRepository extends JpaRepository<Owner, Long> {
     @Query("select o from Owner o where o.id = :id and (o.organizationId = :orgId "
             + "or (o.organizationId is null and o.userId = :userId))")
     Optional<Owner> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // ── Finding D: the duplicate check as an indexed EXISTS, not a full-table load ───────────────
+    // Case-insensitivity comes from the column COLLATION (utf8mb4 …_ci), not from lower(): wrapping
+    // the column in a function would also defeat the index (slice doc D4, recorded in V16).
+    @Query("select case when count(o) > 0 then true else false end from Owner o "
+            + "where (o.organizationId = :orgId or (o.organizationId is null and o.userId = :userId)) "
+            + "and o.name = :name")
+    boolean existsByNameScoped(@Param("name") String name, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Values already duplicated in this tenant — enables the UNIQUE follow-up on clean data (D3). */
+    @Query("select o.name from Owner o where (o.organizationId = :orgId "
+            + "or (o.organizationId is null and o.userId = :userId)) and o.name is not null "
+            + "group by o.name having count(o) > 1")
+    List<String> findDuplicateNamesScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 }

@@ -224,8 +224,7 @@ public class StudentController {
             Long userId = userId();
             Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId()) && !appUtil.isEmptyOrNull(dto.getEnrollNo())) {
-                boolean exists = studentRepository.findScoped(orgId, userId).stream()
-                        .anyMatch(s -> s.getEnrollNo() != null && s.getEnrollNo().equalsIgnoreCase(dto.getEnrollNo()));
+                boolean exists = studentRepository.existsByEnrollNoScoped(dto.getEnrollNo(), orgId, userId);
                 if (exists) {
                     return new GenericResponse("FOUND", "A student with enroll no '" + dto.getEnrollNo() + "' already exists");
                 }

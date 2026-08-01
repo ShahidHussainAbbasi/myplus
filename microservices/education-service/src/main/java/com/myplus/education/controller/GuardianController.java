@@ -151,9 +151,7 @@ public class GuardianController {
             Long userId = userId();
             Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = guardianRepository.findScoped(orgId, userId).stream()
-                        .anyMatch(g -> g.getName() != null && g.getName().equalsIgnoreCase(dto.getName())
-                                && g.getCnic() != null && g.getCnic().equalsIgnoreCase(dto.getCnic()));
+                boolean exists = guardianRepository.existsByNameAndCnicScoped(dto.getName(), dto.getCnic(), orgId, userId);
                 if (exists) {
                     return new GenericResponse("FOUND", "The Guardian '" + dto.getName() + "' already exists");
                 }

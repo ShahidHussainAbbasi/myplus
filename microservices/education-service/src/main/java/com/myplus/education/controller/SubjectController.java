@@ -163,8 +163,7 @@ public class SubjectController {
             Long userId = userId();
             Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = subjectRepository.findScoped(orgId, userId).stream()
-                        .anyMatch(s -> s.getName() != null && s.getName().equalsIgnoreCase(dto.getName()));
+                boolean exists = subjectRepository.existsByNameScoped(dto.getName(), orgId, userId);
                 if (exists) {
                     return new GenericResponse("FOUND", "The Subject '" + dto.getName() + "' already exists");
                 }

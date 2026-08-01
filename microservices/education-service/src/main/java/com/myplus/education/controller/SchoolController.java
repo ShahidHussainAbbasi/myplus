@@ -185,8 +185,7 @@ public class SchoolController {
             Long orgId = orgId();
             // Duplicate branch check on create — scoped to the active tenant.
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = schoolRepository.findScoped(orgId, userId).stream()
-                        .anyMatch(s -> s.getBranchName() != null && s.getBranchName().equalsIgnoreCase(dto.getBranchName()));
+                boolean exists = schoolRepository.existsByBranchNameScoped(dto.getBranchName(), orgId, userId);
                 if (exists) {
                     return new GenericResponse("FOUND", "The School branch '" + dto.getBranchName() + "' already exists");
                 }

@@ -36,4 +36,16 @@ public interface GradeRepository extends JpaRepository<Grade, Long> {
             + "or (g.organizationId is null and g.userId = :userId))")
     java.util.Optional<Grade> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId,
                                              @Param("userId") Long userId);
+
+    // ── Finding D: the duplicate check as an indexed EXISTS, not a full-table load ───────────────
+    // Composite: a class name is unique WITHIN a branch, so "Class 5" may legitimately exist at two
+    // campuses. The null-safe schoolId comparison reproduces Objects.equals() from the old Java check —
+    // a plain `=` would never match two rows that both have no branch.
+    // Case-insensitivity comes from the column COLLATION (slice doc D4).
+    @Query("select case when count(g) > 0 then true else false end from Grade g "
+            + "where (g.organizationId = :orgId or (g.organizationId is null and g.userId = :userId)) "
+            + "and g.name = :name "
+            + "and ((:schoolId is null and g.schoolId is null) or g.schoolId = :schoolId)")
+    boolean existsByNameAndSchoolScoped(@Param("name") String name, @Param("schoolId") Long schoolId,
+                                        @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

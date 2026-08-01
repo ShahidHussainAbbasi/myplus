@@ -169,8 +169,7 @@ public class StaffController {
             Long userId = userId();
             Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = staffRepository.findScoped(orgId, userId).stream()
-                        .anyMatch(s -> s.getName() != null && s.getName().equalsIgnoreCase(dto.getName()));
+                boolean exists = staffRepository.existsByNameScoped(dto.getName(), orgId, userId);
                 if (exists) {
                     return new GenericResponse("FOUND", "The Staff '" + dto.getName() + "' already exists");
                 }

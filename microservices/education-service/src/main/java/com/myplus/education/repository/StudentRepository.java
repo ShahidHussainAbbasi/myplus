@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -58,4 +59,70 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     @Query("select s from Student s where s.organizationId = :orgId "
             + "and (s.schoolId in :schoolIds or s.schoolId is null)")
     List<Student> findScopedBySchools(@Param("orgId") Long orgId, @Param("schoolIds") java.util.Collection<Long> schoolIds);
+
+    // ── Finding D: dashboard aggregates ─────────────────────────────────────────────────────────
+    // Counted in the database instead of loading every student to call .size() and .stream().filter().
+
+    @Query("select count(s) from Student s where s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId)")
+    long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Enrolled this calendar year — the "fresh students" KPI. */
+    @Query("select count(s) from Student s where (s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId)) "
+            + "and s.enrollDate >= :yearStart and s.enrollDate <= :yearEnd")
+    long countEnrolledBetweenScoped(@Param("yearStart") LocalDate yearStart, @Param("yearEnd") LocalDate yearEnd,
+                                    @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Active = status null or 'Active', preserving the old Java predicate exactly. */
+    @Query("select count(s) from Student s where (s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId)) "
+            + "and (s.status is null or lower(s.status) = 'active')")
+    long countActiveScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Enrolments per month within a bounded window — the 12-month trend, bounded in SQL not in Java. */
+    @Query("select year(s.enrollDate), month(s.enrollDate), count(s) from Student s "
+            + "where (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+            + "and s.enrollDate >= :from and s.enrollDate <= :to "
+            + "group by year(s.enrollDate), month(s.enrollDate)")
+    List<Object[]> countByEnrolMonthScoped(@Param("from") LocalDate from, @Param("to") LocalDate to,
+                                           @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("select s.gradeId, count(s) from Student s where s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId) group by s.gradeId")
+    List<Object[]> countByGradeScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("select s.gender, count(s) from Student s where s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId) group by s.gender order by s.gender")
+    List<Object[]> countByGenderScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("select s.status, count(s) from Student s where s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId) group by s.status order by s.status")
+    List<Object[]> countByStatusScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * Finding D — the duplicate check as an indexed EXISTS instead of loading every student.
+     *
+     * <p>Case-insensitivity comes from the column COLLATION (utf8mb4 …_ci), not from {@code lower()}:
+     * wrapping the column in a function would be explicit and would also defeat the index, leaving a
+     * query that looks careful and still scans the table. See slice doc D4 — this dependency is
+     * load-bearing and is recorded in the V16 migration too.
+     */
+    @Query("select case when count(s) > 0 then true else false end from Student s "
+            + "where (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+            + "and s.enrollNo = :enrollNo")
+    boolean existsByEnrollNoScoped(@Param("enrollNo") String enrollNo,
+                                   @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * Enrolment numbers already duplicated in this tenant.
+     *
+     * <p>Not used by any screen. It exists so the UNIQUE constraint that would actually close the
+     * check-then-act race can be applied later on data known to be clean — adding UNIQUE blind would
+     * fail the migration on any tenant that already holds duplicates (DB standard D5).
+     */
+    @Query("select s.enrollNo from Student s where (s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId)) and s.enrollNo is not null "
+            + "group by s.enrollNo having count(s) > 1")
+    List<String> findDuplicateEnrollNosScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 }

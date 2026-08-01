@@ -151,9 +151,7 @@ public class GradeController {
             Long userId = userId();
             Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = gradeRepository.findScoped(orgId, userId).stream().anyMatch(g ->
-                        g.getName() != null && g.getName().equalsIgnoreCase(dto.getName())
-                                && java.util.Objects.equals(g.getSchoolId(), dto.getSchoolId()));
+                boolean exists = gradeRepository.existsByNameAndSchoolScoped(dto.getName(), dto.getSchoolId(), orgId, userId);
                 if (exists) {
                     return new GenericResponse("FOUND", "The Grade '" + dto.getName() + "' already exists");
                 }

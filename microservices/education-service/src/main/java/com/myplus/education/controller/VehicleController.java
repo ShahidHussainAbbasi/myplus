@@ -149,8 +149,7 @@ public class VehicleController {
             Long userId = userId();
             Long orgId = orgId();
             if (appUtil.isEmptyOrNull(dto.getId())) {
-                boolean exists = vehicleRepository.findScoped(orgId, userId).stream()
-                        .anyMatch(v -> v.getNumber() != null && v.getNumber().equalsIgnoreCase(dto.getNumber()));
+                boolean exists = vehicleRepository.existsByNumberScoped(dto.getNumber(), orgId, userId);
                 if (exists) {
                     return new GenericResponse("FOUND", "A vehicle '" + dto.getNumber() + "' already exists");
                 }

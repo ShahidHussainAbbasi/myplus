@@ -32,6 +32,43 @@ const setConfig = (key, value) =>
 const configEntry = (key) =>
   cy.request('/getBusinessConfig').then((r) => list(r.body).find((e) => e.key === key))
 
+/**
+ * A vendor must belong to a company (Vender.company is @ManyToOne(optional=false)), so get one first.
+ * Reuse before create: addCompany has a known duplicate-check bug (see the header of company.cy.js) that
+ * blocks the insert once ANY company exists, so the create path may only run when the org has none.
+ */
+const ensureCompany = () =>
+  cy.request('/getUserCompany').then((r) => {
+    // NB: GenericResponse has no `data` field — a List lands in `collection` (the Collection<?> constructor
+    // overload wins over Object). Read it through list(), never r.body.data, or this silently sees nothing.
+    const found = list(r.body)
+    if (found.length && found[0].id) return cy.wrap(found[0].id)
+    return cy.request({ method: 'POST', url: '/addCompany', form: true, failOnStatusCode: false,
+      body: { name: 'B2B_Co_' + uniq(), phone: '042-1234567', email: 'b2b' + uniq() + '@t.com',
+        address: 'Lahore' } })
+      .then((c) => {
+        expect(c.body.status, `addCompany: ${JSON.stringify(c.body)}`).to.be.oneOf(['SUCCESS', 'FOUND'])
+        return cy.request('/getUserCompany')
+      })
+      .then((r2) => {
+        const made = list(r2.body)
+        expect(made.length, 'a company exists for the vendor to belong to').to.be.greaterThan(0)
+        return cy.wrap(made[0].id)
+      })
+  })
+
+/** @ValidMobileNumber wants ^((\+923)|(00923)|(03))-?\d{2}\d{7}$ — i.e. "03" followed by exactly 9 digits. */
+const mobile = () => '03' + Math.floor(1e8 + Math.random() * 9e8)
+
+/** Create a vendor and PROVE it was created — an unasserted fixture makes the test that follows vacuous. */
+const addVendor = (name) =>
+  ensureCompany().then((companyId) =>
+    cy.request({ method: 'POST', url: '/addVender', form: true, failOnStatusCode: false,
+      body: { name, companyId, mobile: mobile(), email: 'v' + uniq() + '@t.com' } })
+      .then((r) => {
+        expect(r.body.status, `addVender ${name}: ${JSON.stringify(r.body)}`).to.be.oneOf(['SUCCESS', 'FOUND'])
+      }))
+
 /** A product costed at 100/unit: seeded, then purchased at 100 so findRecentCosts has a rate to read. */
 const costedProduct = (costRate = 100) =>
   cy.seedProduct({ name: 'Margin_' + uniq(), sellingPrice: 150, stock: 0 }).then(({ productId }) =>
@@ -151,9 +188,18 @@ describe('B2B-P0 — customer type, margin policy, vendor dues, promo footer', (
 
     it('the form offers all four types and defaults to Walk-in', () => {
       cy.openSection('CustomerDiv')
-      cy.get('#customerType', { timeout: 10000 }).should('exist')
+      // The form lives in a crud-overlay modal — assert on what the shopkeeper actually sees, not just on
+      // DOM presence, or a field hidden by a broken modal would still pass.
+      cy.get('#newCustomer').click()
+      cy.get('#CustomerModal').should('have.class', 'open')
+
+      cy.get('#customerType', { timeout: 10000 }).should('be.visible')
       cy.get('#customerType option').should('have.length', 4)
+      cy.get('#customerType option').then(($o) => {
+        expect([...$o].map((o) => o.value)).to.deep.eq(['WALK_IN', 'RETAILER', 'WHOLESALE', 'VIP'])
+      })
       cy.get('#customerType').should('have.value', 'WALK_IN')
+
       // The list must render the column too — editRecord() refills the form from the rendered row, so a
       // missing column silently resets the type on every edit.
       cy.get('#tableCustomer th[data-field="customerType"]').should('exist')
@@ -222,10 +268,9 @@ describe('B2B-P0 — customer type, margin policy, vendor dues, promo footer', (
   describe('Vendor dues on purchase (#8)', () => {
 
     it('the vendor dropdown carries the outstanding payable', () => {
-      // Guarantee at least one vendor exists so this asserts something.
-      const vname = 'DueVend_' + uniq()
-      cy.request({ method: 'POST', url: '/addVender', form: true, failOnStatusCode: false,
-        body: { name: vname, contact: 'V' + uniq() } })
+      // Guarantee at least one vendor exists so this asserts something. Without the assertion inside
+      // addVendor, a broken /addVender would leave this test passing on vendors other specs happened to seed.
+      addVendor('DueVend_' + uniq())
 
       cy.request('/getUserVenders').then((r) => {
         const html = String(r.body && r.body.object != null ? r.body.object : r.body)
@@ -235,12 +280,50 @@ describe('B2B-P0 — customer type, margin policy, vendor dues, promo footer', (
       })
     })
 
-    it('the purchase screen has the vendor dues field, hidden until a vendor is picked', () => {
-      cy.openSection('purchaseDiv')
-      cy.get('#purchaseVendorDuesWrap', { timeout: 10000 }).should('exist')
-      cy.get('#purchaseVendorDues').should('exist')
-      // A cash purchase has no payable to report, so nothing is shown until a vendor is chosen.
-      cy.get('#purchaseVendorDuesWrap').should('not.be.visible')
+    it('picking a vendor reveals what they were already owed; a cash purchase shows nothing', () => {
+      // A vendor carrying a real payable: bill 100, pay 0.
+      const vname = 'DueVend_' + uniq()
+      addVendor(vname)
+
+      cy.request('/getUserVenders').then((vr) => {
+        const html = String(vr.body && vr.body.object != null ? vr.body.object : vr.body)
+        const id = (new RegExp('<option value=(\\d+)[^>]*>' + vname).exec(html) || [])[1]
+        expect(id, `vendor ${vname} is in the dropdown`).to.exist
+
+        cy.seedProduct({ name: 'DueProd_' + uniq(), sellingPrice: 20 }).then(({ productId }) => {
+          cy.request({
+            method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
+            body: {
+              productId, venderId: id, quantity: 10, purchaseRate: 10,
+              'stock.bpurchaseRate': 10, 'stock.bsellRate': 20,
+              totalAmount: 100, netAmount: 100, paidAmount: 0,   // on credit → the vendor is owed 100
+              purchaseInvoiceNo: 'DUE-' + uniq(),
+            },
+          }).then((p) => expect(p.body.status, JSON.stringify(p.body)).to.eq('SUCCESS'))
+
+          // Purchase hangs off the #purchaseType nav select, not #registrationType — hence the dedicated command.
+          cy.openPurchaseSection('purchaseDiv')
+          cy.get('#newPurchase').click()
+          cy.get('#PurchaseModal').should('have.class', 'open')
+
+          // A cash purchase has no payable to report, so the row stays hidden until a vendor is chosen.
+          cy.get('#purchaseVendorDuesWrap', { timeout: 10000 }).should('exist').and('not.be.visible')
+
+          // #purchaseVenderDD is a bootstrap-select, so the real <select> is hidden — force the change.
+          cy.get('#purchaseVenderDD', { timeout: 10000 })
+            .find(`option[value="${id}"]`).should('exist')
+          cy.get('#purchaseVenderDD').select(String(id), { force: true })
+
+          cy.get('#purchaseVendorDuesWrap').should('be.visible')
+          cy.get('#purchaseVendorDues').should(($b) => {
+            expect(Number($b.val()), 'the payable this vendor already carries').to.be.closeTo(100, 0.01)
+          })
+
+          // Back to "no vendor" (cash) → nothing to report, so the row goes away again.
+          cy.get('#purchaseVenderDD').select('', { force: true })
+          cy.get('#purchaseVendorDuesWrap').should('not.be.visible')
+        })
+      })
     })
   })
 

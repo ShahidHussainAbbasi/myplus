@@ -161,7 +161,7 @@ sequenceDiagram
 - [ ] Document type (receipt vs invoice) from `customerType` — **deferred to Phase 3** with the rest of the document work; nothing in Phase 0 reads the channel yet
 - [x] i18n: 7 new keys into **all six** bundles (1,250 keys each, aligned)
 - [x] Unit tests: `MarginPolicyTest` (10) + `CustomerTypeTest` — pure logic, run on every `mvn test`
-- [x] Cypress gate: `cypress/e2e/business/b2b-customer-type.cy.js` (C2 both halves — catalog default **and** changed behaviour)
+- [x] Cypress gate: `cypress/e2e/business/b2b-customer-type.cy.js` — **PASSED headed 2026-08-01** (C2 both halves: catalog default **and** changed behaviour)
 - [ ] Migration test (D2) — Testcontainers V29 replay, pending with the service's other migration tests
 
 ## 5. Test

@@ -30,4 +30,15 @@ public interface GuardianRepository extends JpaRepository<Guardian, Long> {
     @Query("select g from Guardian g where g.id = :id and (g.organizationId = :orgId "
             + "or (g.organizationId is null and g.userId = :userId))")
     Optional<Guardian> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // ── Finding D: the duplicate check as an indexed EXISTS, not a full-table load ───────────────
+    // Composite name + CNIC: two guardians may share a name, so the identity document is what makes
+    // it a duplicate. The old Java check required BOTH to be non-null and equal, which this reproduces
+    // — a guardian with no CNIC recorded is therefore never treated as a duplicate, same as before.
+    // Case-insensitivity comes from the column COLLATION (slice doc D4).
+    @Query("select case when count(g) > 0 then true else false end from Guardian g "
+            + "where (g.organizationId = :orgId or (g.organizationId is null and g.userId = :userId)) "
+            + "and g.name = :name and g.cnic = :cnic")
+    boolean existsByNameAndCnicScoped(@Param("name") String name, @Param("cnic") String cnic,
+                                      @Param("orgId") Long orgId, @Param("userId") Long userId);
 }
