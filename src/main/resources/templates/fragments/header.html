@@ -34,6 +34,9 @@
         <!-- RTL corrections for Arabic/Urdu. After responsive.css so it wins, and only for RTL
              locales so an LTR page neither downloads nor evaluates it. -->
         <link th:if="${isRtl}" rel="stylesheet" th:href="@{/css/rtl.css}"/>
+        <!-- Slice 1.5: paper rules for every screen (report cards are the first real consumer). Last, and
+             media-scoped, so it can only ever affect printing. -->
+        <link rel="stylesheet" media="print" th:href="@{/css/print.css}"/>
     </th:block>
 
     <th:block th:fragment="header-js">

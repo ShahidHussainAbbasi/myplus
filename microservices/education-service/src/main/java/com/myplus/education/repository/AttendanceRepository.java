@@ -29,4 +29,28 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     @Query("select a from Attendance a where a.organizationId = :orgId "
             + "or (a.organizationId is null and a.userId = :userId)")
     List<Attendance> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * Slice 1.5 — per-student present/total for a date range, aggregated IN THE DATABASE.
+     * Returns {@code [enrollNo, present, total]} rows: ONE query for a whole class, never one per student.
+     * Attendance is the biggest table in the service (a row per student per day), so pulling it into heap
+     * to count is the mistake finding D is about — this is the shape the rest of that work should take.
+     *
+     * <p><b>Keyed on the DATE RANGE, not on {@code term_id}, deliberately.</b> 1.1 D5 added {@code term_id}
+     * but never backfilled it ("don't infer history"), so keying a term summary on it would silently report
+     * 0/0 for every term that predates 1.1 — a report card confidently stating a child attended nothing.
+     * A term IS a date range, so the range is both correct and complete.
+     *
+     * <p>"Present" follows the convention already in {@code AnalyticsController.isPresent}: "present" or "p",
+     * case-insensitively. Encoded once here and once there; unifying it belongs with the finding-D pass.
+     */
+    @Query("select a.en, "
+            + "sum(case when lower(a.status) in ('present', 'p') then 1 else 0 end), "
+            + "count(a) "
+            + "from Attendance a where (a.organizationId = :orgId "
+            + "or (a.organizationId is null and a.userId = :userId)) "
+            + "and a.attDate >= :from and a.attDate <= :to "
+            + "group by a.en")
+    List<Object[]> summariseByStudent(@Param("from") LocalDate from, @Param("to") LocalDate to,
+                                      @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

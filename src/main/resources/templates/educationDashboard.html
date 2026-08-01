@@ -55,6 +55,7 @@
 					<option value="ExamDiv" th:text="#{ui.examinations}">Examinations</option>
 					<option value="MarksDiv" th:text="#{ui.marksEntry}">Marks Entry</option>
 					<option value="GradingDiv" th:text="#{ui.gradingScale}">Grading Scale</option>
+					<option value="ReportCardDiv" th:text="#{ui.reportCards}">Report Cards</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
 					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
 					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
@@ -107,6 +108,9 @@
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','ExamDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.examinations}">Examinations</span></a></li>
 									<li><a onclick="snavGo('registrationType','MarksDiv','snavRegister')"><span class="glyphicon glyphicon-pencil"></span> <span th:text="#{ui.marksEntry}">Marks Entry</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradingDiv','snavRegister')"><span class="glyphicon glyphicon-star"></span> <span th:text="#{ui.gradingScale}">Grading Scale</span></a></li>
+									<!-- Slice 1.5: preview is open (it shows the same marks the marksheet does); PUBLISHING is
+									     ADMIN and enforced server-side, so this entry stays visible to teachers. -->
+									<li><a onclick="snavGo('registrationType','ReportCardDiv','snavRegister')"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.reportCards}">Report Cards</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
@@ -2588,6 +2592,63 @@
 					</tr></thead>
 					<tbody></tbody>
 				</table>
+			</div>
+
+			<!-- Slice 1.5 — report cards. Preview is derived; Publish snapshots (design D1), so the printed
+			     card never changes when the grading scale is re-banded later. -->
+			<div id="ReportCardDiv" class="formDiv">
+				<h4 th:text="#{ui.reportCards}">Report Cards</h4>
+				<p class="text-muted" th:text="#{ui.reportCardHelp}">Preview a card from live marks, then publish it. A published card is a permanent record: correcting one issues a new version and keeps the old one.</p>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="rcTerm" th:text="#{ui.term}">Term</label>
+						<select class="form-control" id="rcTerm" onchange="loadReportCardStudents()"></select>
+					</div>
+					<div class="col-sm-3">
+						<label for="rcStudent" th:text="#{ui.student}">Student</label>
+						<select class="form-control" id="rcStudent"></select>
+					</div>
+					<div class="col-sm-6" style="padding-top:24px">
+						<button type="button" class="btn btn-primary" onclick="previewReportCard()" th:text="#{ui.preview}">Preview</button>
+						<button type="button" class="btn btn-success" id="rcPublish" onclick="publishReportCard()" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" th:text="#{ui.publish}">Publish</button>
+						<button type="button" class="btn btn-default" onclick="loadTranscript()" th:text="#{ui.transcript}">Transcript</button>
+						<button type="button" class="btn btn-default" onclick="window.print()" th:text="#{ui.print}">Print</button>
+					</div>
+				</div>
+
+				<div id="rcWeightWarning" class="alert alert-warning" style="display:none"></div>
+				<div id="rcMsg" class="alert" style="display:none"></div>
+
+				<div id="rcCard" style="display:none">
+					<div id="rcHeader" class="rc-header"></div>
+					<table id="tableReportCard" class="table table-bordered table-striped">
+						<thead><tr>
+							<th th:text="#{ui.exam}">Exam</th>
+							<th th:text="#{ui.subject}">Subject</th>
+							<th th:text="#{ui.marksObtained}">Marks</th>
+							<th th:text="#{ui.maxMarks}">Max</th>
+							<th th:text="#{ui.percent}">%</th>
+							<th th:text="#{ui.gradeLetter}">Grade</th>
+						</tr></thead>
+						<tbody></tbody>
+					</table>
+					<div id="rcTotals" class="rc-totals"></div>
+				</div>
+
+				<div id="rcTranscript" style="display:none">
+					<h5 th:text="#{ui.transcript}">Transcript</h5>
+					<table id="tableTranscript" class="table table-bordered table-striped">
+						<thead><tr>
+							<th th:text="#{ui.term}">Term</th>
+							<th th:text="#{ui.percent}">%</th>
+							<th th:text="#{ui.gradeLetter}">Grade</th>
+							<th th:text="#{ui.issuedOn}">Issued</th>
+							<th th:text="#{ui.version}">Version</th>
+						</tr></thead>
+						<tbody></tbody>
+					</table>
+				</div>
 			</div>
 
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">

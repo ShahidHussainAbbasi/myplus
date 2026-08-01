@@ -1,0 +1,97 @@
+/*
+ * Print styles — slice 1.5 (report cards).
+ *
+ * D7: "printable" is a print stylesheet, not a generated PDF. A stored PDF would drag in the undecided
+ * document-storage backend (blocking decision D-5, which gates phase 4.3) and a whole blob lifecycle,
+ * to reproduce something the browser already does well. Schools print from the browser today.
+ *
+ * Shared, not report-card-specific: any screen in the app benefits from chrome disappearing on paper.
+ * Kept as its own file rather than appended to theme.css so it can be loaded once and reasoned about.
+ */
+
+@media print {
+
+	/* Chrome that means nothing on paper. */
+	.sidebar,
+	.navbar,
+	.topbar,
+	.snav,
+	.lang-switcher,
+	.org-switcher,
+	.btn,
+	button,
+	.alert,
+	.no-print {
+		display: none !important;
+	}
+
+	/* Print only the panel the user is looking at — .formDiv panels are shown/hidden by the nav, so the
+	   hidden ones must not reappear just because print ignores layout. */
+	.formDiv {
+		display: none !important;
+	}
+	.formDiv.printing,
+	#ReportCardDiv.printing {
+		display: block !important;
+	}
+
+	body {
+		background: #fff !important;
+		color: #000 !important;
+		margin: 0;
+		padding: 0;
+		font-size: 12pt;
+	}
+
+	/* The app clips wide content on screen (see responsive.css); on paper it must not scroll or clip. */
+	.table-scroll {
+		overflow: visible !important;
+	}
+
+	table {
+		width: 100% !important;
+		border-collapse: collapse !important;
+		page-break-inside: auto;
+	}
+
+	tr {
+		page-break-inside: avoid;
+		page-break-after: auto;
+	}
+
+	th, td {
+		border: 1px solid #000 !important;
+		padding: 4px 6px !important;
+		color: #000 !important;
+		background: #fff !important;
+	}
+
+	/* One card per sheet when a class is printed in a batch. */
+	.rc-page-break {
+		page-break-after: always;
+	}
+
+	.rc-header {
+		margin-bottom: 10pt;
+	}
+
+	.rc-totals {
+		margin-top: 10pt;
+		font-weight: bold;
+	}
+
+	/* A withdrawn or superseded card must never be mistaken for a current one on paper. */
+	.rc-superseded::after,
+	.rc-withdrawn::after {
+		display: block;
+		margin-top: 6pt;
+		font-weight: bold;
+		letter-spacing: 2px;
+	}
+	.rc-superseded::after {
+		content: "SUPERSEDED";
+	}
+	.rc-withdrawn::after {
+		content: "WITHDRAWN";
+	}
+}

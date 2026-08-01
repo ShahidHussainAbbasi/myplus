@@ -2,6 +2,7 @@ package com.myplus.education.controller;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -31,11 +32,11 @@ import com.myplus.education.entity.Subject;
 import com.myplus.education.repository.ExamPaperRepository;
 import com.myplus.education.repository.ExamRepository;
 import com.myplus.education.repository.MarkRepository;
-import com.myplus.education.repository.StudentRepository;
 import com.myplus.education.repository.SubjectRepository;
 import com.myplus.education.service.EduAuditService;
 import com.myplus.education.service.GradingService;
 import com.myplus.education.service.MarksValidator;
+import com.myplus.education.service.StudentVisibilityService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
@@ -55,9 +56,9 @@ public class MarkController {
     @Autowired private ExamPaperRepository examPaperRepository;
     @Autowired private ExamRepository examRepository;
     @Autowired private SubjectRepository subjectRepository;
-    @Autowired private StudentRepository studentRepository;
     @Autowired private EduAuditService auditService;
     @Autowired private GradingService gradingService;   // slice 1.4 — derived percentage + band
+    @Autowired private StudentVisibilityService studentVisibilityService;
     @Autowired private RequestUtil requestUtil;
     @Autowired private AppUtil appUtil;
 
@@ -73,10 +74,7 @@ public class MarkController {
 
     /** Branch-scoped roster — the same rule attendance uses, reused rather than re-derived (DRY). */
     private List<Student> visibleStudents() {
-        if (requestUtil.isOwnerSuper()) return studentRepository.findScoped(orgId(), userId());
-        Set<Long> schools = requestUtil.accessibleSchoolIds();
-        if (schools.isEmpty()) return studentRepository.findScoped(orgId(), userId());
-        return studentRepository.findScopedBySchools(orgId(), schools);
+        return studentVisibilityService.visibleStudents(orgId(), userId());
     }
 
     /** Request body for the grid save. */
@@ -189,13 +187,29 @@ public class MarkController {
             // Slice 1.4: one scale read for the whole transcript, not one per mark.
             List<GradeBand> scale = gradingService.scale(org, uid);
 
+            List<Mark> marks = markRepository.findByStudentScoped(enrollNo.trim(), org, uid);
+
+            // Slice 1.5 D8 — this loop USED to do three scoped lookups per mark: 30 marks was 90 queries,
+            // and 1.5 prints a whole class on top of it (~3,600). Papers, subjects and exams are now read
+            // ONCE and indexed. Same batch-not-per-row discipline as 1.1's term stamping and 1.4's scale.
+            Set<Long> paperIds = new LinkedHashSet<>();
+            for (Mark m : marks) if (m.getExamPaperId() != null) paperIds.add(m.getExamPaperId());
+            Map<Long, ExamPaper> paperById = new HashMap<>();
+            if (!paperIds.isEmpty()) {
+                for (ExamPaper p : examPaperRepository.findByIdsScoped(paperIds, org, uid)) {
+                    paperById.put(p.getId(), p);
+                }
+            }
+            Map<Long, Subject> subjectById = new HashMap<>();
+            for (Subject s : subjectRepository.findScoped(org, uid)) subjectById.put(s.getId(), s);
+            Map<Long, Exam> examById = new HashMap<>();
+            for (Exam e : examRepository.findScoped(org, uid)) examById.put(e.getId(), e);
+
             List<Map<String, Object>> out = new ArrayList<>();
-            for (Mark m : markRepository.findByStudentScoped(enrollNo.trim(), org, uid)) {
-                ExamPaper p = examPaperRepository.findByIdScoped(m.getExamPaperId(), org, uid).orElse(null);
-                Subject subj = p == null ? null
-                        : subjectRepository.findByIdScoped(p.getSubjectId(), org, uid).orElse(null);
-                Exam exam = p == null ? null
-                        : examRepository.findByIdScoped(p.getExamId(), org, uid).orElse(null);
+            for (Mark m : marks) {
+                ExamPaper p = paperById.get(m.getExamPaperId());
+                Subject subj = p == null ? null : subjectById.get(p.getSubjectId());
+                Exam exam = p == null ? null : examById.get(p.getExamId());
                 Map<String, Object> r = new LinkedHashMap<>();
                 r.put("markId", m.getId());
                 r.put("examName", exam == null ? null : exam.getName());

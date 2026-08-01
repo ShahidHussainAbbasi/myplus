@@ -3473,3 +3473,172 @@ function applyGradingPreset() {
 		else ayNotify((res && res.message) || 'Could not apply the preset');
 	});
 }
+
+/* ══ Slice 1.5 — Report Cards & Transcript ════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-1.5-report-cards.md
+ *
+ * Preview is DERIVED from live marks; Publish SNAPSHOTS (D1). That distinction is the whole slice, so
+ * the UI never hides which one it is showing — an issued card carries its version and issue date, a
+ * preview does not.
+ *
+ * DOM is built with .text() and jQuery construction rather than string concatenation, so student and
+ * subject names cannot inject markup.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'ReportCardDiv') loadReportCardTerms();
+});
+
+function loadReportCardTerms() {
+	$.get(serverContext + 'getAcademicYears', function (res) {
+		var years = (res && res.collection) || [];
+		var $term = $('#rcTerm').empty();
+		var any = false;
+		years.forEach(function (y) {
+			(y.terms || []).forEach(function (tm) {
+				any = true;
+				$term.append($('<option>').val(tm.id).text(y.name + ' · ' + tm.name));
+			});
+		});
+		if (!any) {
+			// 1.1's "a null term is permanently valid" meets a hard requirement here, as it did for exams.
+			rcMessage(t('ui.js.rcNoTerms'), 'alert-warning');
+		}
+		if (typeof $term.selectpicker === 'function') { try { $term.selectpicker('refresh'); } catch (e) {} }
+		loadReportCardStudents();
+	});
+}
+
+function loadReportCardStudents() {
+	$.get(serverContext + 'getUserStudent', function (res) {
+		var students = (res && res.collection) || [];
+		var $s = $('#rcStudent').empty();
+		students.forEach(function (st) {
+			if (!st.enrollNo) return;
+			$s.append($('<option>').val(st.enrollNo).text(st.enrollNo + ' · ' + (st.name || '')));
+		});
+		if (typeof $s.selectpicker === 'function') { try { $s.selectpicker('refresh'); } catch (e) {} }
+	});
+}
+
+function rcMessage(msg, cls) {
+	var $m = $('#rcMsg');
+	if (!msg) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(msg).show();
+}
+
+function previewReportCard() {
+	var enrollNo = $('#rcStudent').val();
+	var termId = $('#rcTerm').val();
+	if (!enrollNo || !termId) { ayNotify(t('ui.js.rcPickStudentTerm')); return; }
+	$.get(serverContext + 'getReportCardPreview', { enrollNo: enrollNo, termId: termId }, function (res) {
+		if (!res || res.status !== 'SUCCESS' || !res.object) {
+			rcMessage((res && res.message) || t('ui.js.rcCouldNotPreview'), 'alert-danger');
+			$('#rcCard').hide();
+			return;
+		}
+		renderReportCard(res.object);
+		// Shown verbatim: the server names the total AND the exams that make it up, because "70%" with
+		// no explanation reads as a bug rather than as a setup step still to finish (D2).
+		var warn = res.object.weightWarning;
+		$('#rcWeightWarning').toggle(!!warn).text(warn || '');
+		$('#rcPublish').prop('disabled', res.object.publishable === false);
+	});
+}
+
+function renderReportCard(card) {
+	$('#rcTranscript').hide();
+	$('#rcCard').show();
+	rcMessage('');
+
+	var header = (card.studentName || '') + ' · ' + (card.enrollNo || '')
+		+ (card.gradeName ? ' · ' + card.gradeName : '')
+		+ ' · ' + (card.termName || '');
+	if (card.issued) {
+		// An issued card says so, with its version — a preview must never be mistaken for a record.
+		header += ' — ' + t('ui.js.rcIssued') + ' ' + (card.issuedOn || '')
+			+ ' (v' + card.version
+			+ (card.status && card.status !== 'PUBLISHED' ? ', ' + card.status : '') + ')';
+	}
+	$('#rcHeader').text(header);
+	$('#rcCard').removeClass('rc-superseded rc-withdrawn');
+	if (card.status === 'SUPERSEDED') $('#rcCard').addClass('rc-superseded');
+	if (card.status === 'WITHDRAWN') $('#rcCard').addClass('rc-withdrawn');
+
+	var $body = $('#tableReportCard tbody').empty();
+	(card.rows || []).forEach(function (r) {
+		$body.append($('<tr>')
+			.append($('<td>').text(r.examName || ''))
+			.append($('<td>').text(r.subjectName || ''))
+			// Absent prints as a word, never as 0 — 1.3 D2's distinction has to survive onto the paper.
+			.append($('<td>').text(r.absent ? t('ui.js.rcAbsent')
+				: (r.marksObtained == null ? '' : r.marksObtained)))
+			.append($('<td>').text(r.maxMarks == null ? '' : r.maxMarks))
+			.append($('<td>').text(r.percent == null ? '' : r.percent + '%'))
+			.append($('<td>').text(r.grade || '')));
+	});
+
+	var totals = t('ui.js.rcTermTotal') + ': '
+		+ (card.termPercent == null ? '—' : card.termPercent + '%')
+		+ (card.termGradeName ? ' · ' + card.termGradeName : '')
+		+ (card.termGpa == null ? '' : ' · GPA ' + card.termGpa);
+	if (card.classRank != null) {
+		totals += ' · ' + t('ui.js.rcRank') + ' ' + card.classRank
+			+ (card.classSize ? '/' + card.classSize : '');
+	}
+	if (card.attendanceTotal != null) {
+		totals += ' · ' + t('ui.js.rcAttendance') + ' '
+			+ (card.attendancePresent == null ? 0 : card.attendancePresent) + '/' + card.attendanceTotal;
+	}
+	$('#rcTotals').text(totals);
+}
+
+function publishReportCard() {
+	var enrollNo = $('#rcStudent').val();
+	var termId = $('#rcTerm').val();
+	if (!enrollNo || !termId) { ayNotify(t('ui.js.rcPickStudentTerm')); return; }
+	var go = function () {
+		$.post(serverContext + 'publishReportCard', { enrollNo: enrollNo, termId: termId }, function (res) {
+			if (res && res.status === 'SUCCESS') {
+				rcMessage(res.message, 'alert-success');
+				// Re-read from the SNAPSHOT rather than keeping the preview on screen: what was stored
+				// is what the parent gets, and showing anything else here would hide a mismatch.
+				$.get(serverContext + 'getReportCard', { enrollNo: enrollNo, termId: termId }, function (r2) {
+					if (r2 && r2.status === 'SUCCESS' && r2.object) renderReportCard(r2.object);
+				});
+			} else {
+				rcMessage((res && res.message) || t('ui.js.rcCouldNotPublish'), 'alert-danger');
+			}
+		});
+	};
+	if (typeof uiConfirm === 'function') { uiConfirm(t('ui.js.rcConfirmPublish'), go); return; }
+	go();
+}
+
+function loadTranscript() {
+	var enrollNo = $('#rcStudent').val();
+	if (!enrollNo) { ayNotify(t('ui.js.rcPickStudentTerm')); return; }
+	$.get(serverContext + 'getTranscript', { enrollNo: enrollNo }, function (res) {
+		var cards = (res && res.collection) || [];
+		$('#rcCard').hide();
+		$('#rcTranscript').show();
+		var $body = $('#tableTranscript tbody').empty();
+		if (!cards.length) {
+			// A term with no published card is ABSENT from the transcript, not zero (D6) — say so, or an
+			// empty table reads as "this student failed everything".
+			$body.append($('<tr>').append($('<td colspan="5">').addClass('text-muted')
+				.text(t('ui.js.rcNoneIssued'))));
+			return;
+		}
+		cards.forEach(function (c) {
+			var $open = $('<button type="button" class="btn btn-xs btn-default">')
+				.text(t('ui.js.rcOpen'))
+				.on('click', function () { renderReportCard(c); });
+			$body.append($('<tr>')
+				.append($('<td>').text(c.termName || ''))
+				.append($('<td>').text(c.termPercent == null ? '' : c.termPercent + '%'))
+				.append($('<td>').text(c.termGradeName || ''))
+				.append($('<td>').text(c.issuedOn || ''))
+				.append($('<td>').text('v' + c.version).append(' ').append($open)));
+		});
+	});
+}

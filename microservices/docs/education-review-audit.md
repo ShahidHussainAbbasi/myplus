@@ -12,13 +12,16 @@ Surface: 94 Java classes · **19 controllers** · Flyway V1–V7 · **2 unit tes
 
 ## Findings at a glance
 
-| # | Finding | Severity | Blast radius |
-|---|---|---|---|
-| **A** | Cross-tenant record **takeover** on save — 7 controllers | 🔴 **Critical** | Any authenticated user, any tenant |
-| **B** | Fee collection (money in) has **no validation at all** | 🟠 High | Financial integrity |
-| **C** | Writes are **ungated** — only deletes carry a privilege check | 🟠 High | Any USER can alter fees, staff, grades |
-| **D** | Analytics loads **5 whole tables** per dashboard render | 🟠 High | Degrades with school size |
-| **E** | 2 unit tests for 94 classes; no service-level test at all | 🟡 Medium | Everything above went unnoticed |
+**Status as of 2026-07-31** — the audit below is the ORIGINAL text, kept as written. Only this table and the
+backlog at the end are updated as work lands, so the findings stay readable as they were first stated.
+
+| # | Finding | Severity | Blast radius | Status |
+|---|---|---|---|---|
+| **A** | Cross-tenant record **takeover** on save — 7 controllers | 🔴 **Critical** | Any authenticated user, any tenant | ✅ **fixed** — 9 repos + 7 saves + 3 child refs (+2 more found by the sweep); gate `save-takeover-idor.cy.js` |
+| **B** | Fee collection (money in) has **no validation at all** | 🟠 High | Financial integrity | ✅ **fixed** — `slices/edu-B-fee-validation.md` (+§8); gate `fee-validation.cy.js`. **Partly stale when written** — overpayment was already fixed by 0.2a/0.2b |
+| **C** | Writes are **ungated** — only deletes carry a privilege check | 🟠 High | Any USER can alter fees, staff, grades | ✅ **fixed** — 3-tier map (WRITE / ADMIN / DELETE), 21 → 44 gates, zero ungated writes; gate `privilege-map.cy.js` |
+| **D** | Analytics loads **5 whole tables** per dashboard render | 🟠 High | Degrades with school size | 🔴 **OPEN — the last one.** Unchanged since the audit, and the academic tables (1.1–1.5) make it more urgent |
+| **E** | 2 unit tests for 94 classes; no service-level test at all | 🟡 Medium | Everything above went unnoticed | 🟡 **partly** — 2 → 8 unit test classes + 26 Cypress specs; still no repository/scoping test for most controllers |
 
 ---
 
@@ -150,16 +153,22 @@ them tries to edit another tenant's record by id, which is why finding A survive
 
 Ordered by risk, each step gated on your confirmation:
 
-| Step | Work | Why this order |
-|---|---|---|
-| **1** | **Fix A** — scope guard on all 7 saves + the 2 child-reference lookups. Mirror `StudentController:233`. Cypress gate that *attempts* the takeover cross-tenant. | Data belonging to one school silently moving to another is the only finding that is actively dangerous today |
-| **2** | **Fix B** — validate `addFc`: non-negative amounts, payment ≤ due, enroll-no must resolve to a student in the caller's org | Money, and the fix is small and self-contained |
-| **3** | **Decide C** — agree a privilege map (who may edit fees vs record attendance vs manage staff), then apply. Needs your input; I won't guess | Requires a policy decision, not a code decision |
-| **4** | **Fix D** — replace the analytics table-loads with aggregate queries; convert the 17 duplicate checks to `exists…Scoped`; page the unbounded finders | Real, but it degrades gradually rather than corrupting anything |
-| **5** | **Fix E** — service tests for the fee lifecycle + scoping, so 1–4 stay fixed | Locks the rest in |
+| Step | Work | Why this order | Status |
+|---|---|---|---|
+| **1** | **Fix A** — scope guard on all 7 saves + the 2 child-reference lookups. Mirror `StudentController:233`. Cypress gate that *attempts* the takeover cross-tenant. | Data belonging to one school silently moving to another is the only finding that is actively dangerous today | ✅ done |
+| **2** | **Fix B** — validate `addFc`: non-negative amounts, payment ≤ due, enroll-no must resolve to a student in the caller's org | Money, and the fix is small and self-contained | ✅ done |
+| **3** | **Decide C** — agree a privilege map (who may edit fees vs record attendance vs manage staff), then apply. Needs your input; I won't guess | Requires a policy decision, not a code decision | ✅ done — 3-tier map chosen by the user |
+| **4** | **Fix D** — replace the analytics table-loads with aggregate queries; convert the 17 duplicate checks to `exists…Scoped`; page the unbounded finders | Real, but it degrades gradually rather than corrupting anything | 🔴 **next / open** |
+| **5** | **Fix E** — service tests for the fee lifecycle + scoping, so 1–4 stay fixed | Locks the rest in | 🟡 partly |
 
-**My recommendation: start at step 1.** It's a contained change (one guard, seven places, one template
-already proven in three controllers) and it closes the only finding where a customer can lose data today.
+~~**My recommendation: start at step 1.**~~ Steps 1–3 are done. **Step 4 (finding D) is the only review item
+left**, and it has grown since the audit: 9 controllers still do `findScoped(...).stream()` full-table scans on
+every save, and `getStudentMarks` was found to be N+1 while designing 1.5 (three scoped lookups per mark —
+a class of 40 costs ~3,600 queries). 1.5 batches its own read; the rest is step 4.
+
+**Sequencing note:** finding D competes with Phase 1.5/1.6 for the next slot. D degrades with school size and
+nothing in Phase 1 depends on it, so it can land either side of 1.5 — but it should not slip past 1.6, because
+promotion adds another whole-table read to the same dashboard.
 
 ---
 

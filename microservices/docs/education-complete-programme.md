@@ -131,8 +131,8 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 | **1.2** ✅ **DONE** | **Examinations** — exam definition (term, type, max marks, weighting) per grade/subject | 1.1 |
 | **1.3** ✅ **DONE** | **Marks entry** — per student × subject × exam; teacher-facing grid; **every edit audited** via `audit-service` | 1.2 |
 | **1.4** ✅ **DONE** | **Grading scales** — owner-configurable bands/GPA/pass mark via common-settings | 1.3 |
-| **1.5** 🔵 **next** | **Report cards** — printable per term + cumulative transcript | 1.4 |
-| **1.6** ⬜ | **Promotion** — roll a class forward at year end, with retained students | 1.1, 1.3 |
+| **1.5** ✅ **DONE** | **Report cards** — printable per term + cumulative transcript | 1.4 |
+| **1.6** 🔵 **next** | **Promotion** — roll a class forward at year end, with retained students | 1.1, 1.3 |
 
 > 1.1–1.6 share one term/exam/marks spine. **Design them together, implement as six slices** — designing
 > separately means three migrations over the same tables.
@@ -313,8 +313,8 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | Finding B — fee validation | ✅ done | `slices/edu-B-fee-validation.md` | `education/fee-validation.cy.js` |
 | Finding B §8 — grade/discount validation | ✅ done | same doc, §8 | same gate |
 | 1.4 grading scales | ✅ done | `slices/edu-1.4-grading-scales.md` | `education/grading.cy.js` |
-| **1.5 report cards** | 🔵 **next** | — | — |
-| 1.6 promotion | ⬜ | — | — |
+| 1.5 report cards | ✅ done | `slices/edu-1.5-report-cards.md` | `education/report-cards.cy.js` |
+| **1.6 promotion** | 🔵 **next** | — | — |
 
 ### Carried requirements (must not be lost between slices)
 
@@ -322,9 +322,10 @@ Kept current as slices land — this table, not memory or a chat message, is the
 |---|---|---|
 | 1.2 §7 → 1.3 | the exam lock is inert until marks set it | ✅ done in 1.3 (D4) |
 | 1.2 D5 → 1.3 | audit exam lock/unlock | ✅ done in 1.3 (D5) |
-| 1.4 D4 → **1.5** | grading is derived, so a published report card must be **snapshotted**, not re-derived | 1.5 |
-| 1.2 D4 → **1.5** | a term whose exam weights do not total 100 must be **refused**, not computed | 1.5 |
-| 1.2 §6 → 1.3 → 1.4 → **1.5** | exam eligibility by attendance % — deferred three times, now explicitly 1.5 | 1.5 |
+| 1.4 D4 → **1.5** | grading is derived, so a published report card must be **snapshotted**, not re-derived | ✅ done in 1.5 (D1) |
+| 1.2 D4 → **1.5** | a term whose exam weights do not total 100 must be **refused**, not computed | ✅ done in 1.5 (D2) |
+| 1.2 §6 → 1.3 → 1.4 → **1.5** | exam eligibility by attendance % — deferred three times, now explicitly 1.5 | ⚠️ **partly.** 1.5 built the attendance aggregate it was waiting on and established that eligibility can only be a **computed flag, not a gate** (there is no exam-registration step to block). The `edu.exam.minAttendancePercent` setting is **not built** — it needs the first `INT` entry in the shared `common-settings`, which is a scope decision |
+| 1.5 D1 → **1.6** | promotion must read the SNAPSHOT, not re-derive a term's result | 1.6 |
 
 ### Open findings (outside the slice sequence)
 

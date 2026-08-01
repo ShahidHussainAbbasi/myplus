@@ -67,6 +67,9 @@ public class StudentController {
     private RequestUtil requestUtil;
 
     @Autowired
+    private com.myplus.education.service.StudentVisibilityService studentVisibilityService;
+
+    @Autowired
     private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
@@ -88,10 +91,9 @@ public class StudentController {
      * — the whole roster of those schools, not just the ones they entered (see StudentRepository for why).
      */
     private List<Student> visibleStudents() {
-        if (requestUtil.isOwnerSuper()) return studentRepository.findScoped(orgId(), userId());
-        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
-        if (schools.isEmpty()) return studentRepository.findScoped(orgId(), userId());
-        return studentRepository.findScopedBySchools(orgId(), schools);
+        // Extracted in 1.5: the rule itself lives in StudentVisibilityService, because three controllers
+        // held byte-identical copies of a VISIBILITY check and a fourth was about to be written.
+        return studentVisibilityService.visibleStudents(orgId(), userId());
     }
 
     private StudentDTO toDto(Student s) {

@@ -69,7 +69,23 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                         "On (default): 74.45% becomes 74.5%. Off: percentages are truncated instead. Only "
                                 + "affects the boundary case, but it decides which band a mark falls into when "
                                 + "it lands exactly between two.",
-                        true, "Grading")
+                        true, "Grading"),
+                // ── Slice 1.5: what a report CARD shows. The card's contents are a snapshot (report_card),
+                // not settings; these two decide only what is RENDERED from it.
+                SettingEntry.bool("edu.reportCard.showRank",
+                        "Show class rank on report cards",
+                        "Off (default): position in class is never printed. Several jurisdictions prohibit "
+                                + "publishing rank, so this is opt-in rather than opt-out. Rank is always "
+                                + "RECORDED when a card is issued, so turning this on later cannot invent a "
+                                + "position for cards issued while it was off — and turning it off does not "
+                                + "erase what was already printed. Ties share a rank.",
+                        false, "Report card"),
+                SettingEntry.bool("edu.reportCard.showAttendance",
+                        "Show attendance on report cards",
+                        "On (default): the card shows days present out of days recorded for the term. "
+                                + "Counted from the term's date range, so terms recorded before attendance was "
+                                + "linked to terms are still summarised correctly.",
+                        true, "Report card")
         );
     }
 }

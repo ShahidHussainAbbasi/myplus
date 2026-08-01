@@ -25,6 +25,19 @@ public interface ExamPaperRepository extends JpaRepository<ExamPaper, Long> {
             + "or (p.organizationId is null and p.userId = :userId) order by p.examDate, p.timeFrom")
     List<ExamPaper> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /** Slice 1.5 (D8) — the papers of SEVERAL exams in one query, for a whole term's report cards. */
+    @Query("select p from ExamPaper p where p.examId in :examIds and (p.organizationId = :orgId "
+            + "or (p.organizationId is null and p.userId = :userId)) "
+            + "order by p.examDate, p.timeFrom")
+    List<ExamPaper> findByExamIdsScoped(@Param("examIds") java.util.Collection<Long> examIds,
+                                        @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Slice 1.5 (D8) — resolve MANY papers by id in one query, still tenant-scoped. */
+    @Query("select p from ExamPaper p where p.id in :ids and (p.organizationId = :orgId "
+            + "or (p.organizationId is null and p.userId = :userId))")
+    List<ExamPaper> findByIdsScoped(@Param("ids") java.util.Collection<Long> ids,
+                                    @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     /** Anti-IDOR: resolve ONE paper by a client-supplied id within the caller's tenant. */
     @Query("select p from ExamPaper p where p.id = :id and (p.organizationId = :orgId "
             + "or (p.organizationId is null and p.userId = :userId))")

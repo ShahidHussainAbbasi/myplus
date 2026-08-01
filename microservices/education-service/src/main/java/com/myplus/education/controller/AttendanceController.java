@@ -55,6 +55,9 @@ public class AttendanceController {
     private RequestUtil requestUtil;
 
     @Autowired
+    private com.myplus.education.service.StudentVisibilityService studentVisibilityService;
+
+    @Autowired
     private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired
     private AppUtil appUtil;
@@ -109,10 +112,7 @@ public class AttendanceController {
     /** The students the caller may see for roster/marking: owner/super or no-grants ⇒ org-wide (unchanged);
      *  a branch-constrained teacher ⇒ only their branches' students. Mirrors StudentController.visibleStudents. */
     private List<Student> visibleStudents() {
-        if (requestUtil.isOwnerSuper()) return studentRepository.findScoped(orgId(), userId());
-        java.util.Set<Long> schools = requestUtil.accessibleSchoolIds();
-        if (schools.isEmpty()) return studentRepository.findScoped(orgId(), userId());
-        return studentRepository.findScopedBySchools(orgId(), schools);
+        return studentVisibilityService.visibleStudents(orgId(), userId());
     }
 
     @RequestMapping(value = "/getUserA", method = RequestMethod.GET)
