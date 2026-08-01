@@ -1261,7 +1261,24 @@ function loadUserCompanies(table) {
 	});
 }
 
-function loadUserVenders(table) {	
+/**
+ * B2B-P0 (#8): show what the chosen vendor is already owed, before more credit is taken on.
+ *
+ * Delegated from document so it survives selectpicker('refresh') replacing the control, and reads the
+ * data-due the server already put on the option — no round trip per selection. Hidden for a cash purchase
+ * (no vendor = no payable to report).
+ */
+$(document).on('change', '#purchaseVenderDD', function () {
+	var due = Number($(this).find(':selected').data('due'));
+	var wrap = document.getElementById('purchaseVendorDuesWrap');
+	var box = document.getElementById('purchaseVendorDues');
+	if (!wrap || !box) return;
+	if (!$(this).val()) { wrap.style.display = 'none'; box.value = ''; return; }
+	box.value = isNaN(due) ? 0 : due;
+	wrap.style.display = '';
+});
+
+function loadUserVenders(table) {
     $.get(serverContext+ "getUserVenders",function(data){
     	$("#"+table.toLowerCase()+"VenderDD").empty().append(data).selectpicker('refresh');
     })

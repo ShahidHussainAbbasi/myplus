@@ -98,6 +98,13 @@ public class SagaSellService {
         // snapshot), shared with updateSell so add and edit produce identical lines.
         java.util.Map<Long, String> productNames = new java.util.HashMap<>();   // for a friendly out-of-stock message
         List<SagaLine> lines = buildLines(dto, productNames);
+
+        // B2B-P0 (#3): whole-invoice margin policy, checked BEFORE anything is reserved or written — a sale
+        // refused here has touched no stock and no ledger. The per-line warning on the sell screen cannot do
+        // this: an invoice-level discount is applied after the lines are entered, so the sale can finish at or
+        // below cost without any single line looking wrong.
+        assertMarginPolicy(lines, dto);
+
         List<StockReservationLine> reservationLines = new ArrayList<>();
         for (SagaLine l : lines) {
             reservationLines.add(new StockReservationLine(l.productId(), BigDecimal.valueOf(l.quantity())));
@@ -172,6 +179,50 @@ public class SagaSellService {
      * the catalog price is snapshotted. {@code productNames} (nullable) is filled productId→name for a friendly
      * out-of-stock message on the reserve step.
      */
+    /** The margin-policy values; anything else in config resolves to WARN (standard C3 — fail ON). */
+    private static final java.util.Set<String> MARGIN_POLICIES = java.util.Set.of("off", "warn", "block");
+
+    /**
+     * Whole-invoice margin guard (#3).
+     *
+     * <p>Sums {@code net − cost×qty} across the sale. Lines with **no recorded cost** are excluded from both
+     * sides rather than counted as pure profit: {@code costPrice} is null for legacy sells and for products
+     * never purchased through the system, and treating those as 100% margin would make the guard silently
+     * useless on exactly the sales most likely to be mispriced.
+     *
+     * <p>If NO line has a cost, there is nothing to judge and the sale proceeds untouched — a shop that has
+     * never recorded a purchase must not be blocked from selling.
+     *
+     * <p>{@code block} throws before any reservation or write. {@code warn} records the sale and returns a
+     * message through the existing warnings channel. Default and fail-safe value is {@code warn}.
+     */
+    void assertMarginPolicy(List<SagaLine> lines, CustomerHistoryDTO dto) {
+        String policy = settingsService.getChoice("pos.sale.marginPolicy", MARGIN_POLICIES, "warn");
+        if ("off".equals(policy) || lines == null || lines.isEmpty()) return;
+
+        BigDecimal net = BigDecimal.ZERO, cost = BigDecimal.ZERO;
+        boolean anyCostKnown = false;
+        for (SagaLine l : lines) {
+            if (l.costPrice() == null) continue;          // unknown cost — excluded from BOTH sides
+            anyCostKnown = true;
+            net = net.add(l.netAmount() == null ? BigDecimal.ZERO : l.netAmount());
+            cost = cost.add(l.costPrice().multiply(BigDecimal.valueOf(l.quantity())));
+        }
+        if (!anyCostKnown) return;                        // nothing to judge
+
+        BigDecimal margin = net.subtract(cost);
+        if (margin.signum() > 0) return;
+
+        String msg = "This sale makes no profit (margin " + margin.setScale(2, java.math.RoundingMode.HALF_UP)
+                + " on costed lines).";
+        if ("block".equals(policy)) {
+            throw new com.myplus.common.web.exception.ValidationException(msg
+                    + " Selling at or below cost is blocked for this organization.");
+        }
+        LOG.warn("Zero/negative margin sale allowed by policy=warn: margin={} lines={}", margin, lines.size());
+        dto.getWarnings().add(msg);
+    }
+
     public List<SagaLine> buildLines(CustomerHistoryDTO dto, java.util.Map<Long, String> productNames) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
         Long orgId = user.getOrganizationId();

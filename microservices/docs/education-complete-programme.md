@@ -132,7 +132,10 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 | **1.3** ✅ **DONE** | **Marks entry** — per student × subject × exam; teacher-facing grid; **every edit audited** via `audit-service` | 1.2 |
 | **1.4** ✅ **DONE** | **Grading scales** — owner-configurable bands/GPA/pass mark via common-settings | 1.3 |
 | **1.5** ✅ **DONE** | **Report cards** — printable per term + cumulative transcript | 1.4 |
-| **1.6** 🔵 **next** | **Promotion** — roll a class forward at year end, with retained students | 1.1, 1.3 |
+| **1.6** ✅ **DONE** | **Promotion** — roll a class forward at year end, with retained students | 1.1, 1.3, **1.5** |
+
+> **Phase 1 is COMPLETE (2026-08-01).** All six slices shipped and Cypress-green: the academic record runs
+> end to end from academic year → term → exam → marks → grading scale → report card → promotion.
 
 > 1.1–1.6 share one term/exam/marks spine. **Design them together, implement as six slices** — designing
 > separately means three migrations over the same tables.
@@ -314,7 +317,8 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | Finding B §8 — grade/discount validation | ✅ done | same doc, §8 | same gate |
 | 1.4 grading scales | ✅ done | `slices/edu-1.4-grading-scales.md` | `education/grading.cy.js` |
 | 1.5 report cards | ✅ done | `slices/edu-1.5-report-cards.md` | `education/report-cards.cy.js` |
-| **1.6 promotion** | 🔵 **next** | — | — |
+| 1.6 promotion | ✅ done — **Phase 1 complete** | `slices/edu-1.6-promotion.md` | `education/promotion.cy.js` |
+| **finding D — analytics perf** | 🔵 **next** | `education-review-audit.md` | — |
 
 ### Carried requirements (must not be lost between slices)
 
@@ -325,7 +329,8 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 1.4 D4 → **1.5** | grading is derived, so a published report card must be **snapshotted**, not re-derived | ✅ done in 1.5 (D1) |
 | 1.2 D4 → **1.5** | a term whose exam weights do not total 100 must be **refused**, not computed | ✅ done in 1.5 (D2) |
 | 1.2 §6 → 1.3 → 1.4 → **1.5** | exam eligibility by attendance % — deferred three times, now explicitly 1.5 | ⚠️ **partly.** 1.5 built the attendance aggregate it was waiting on and established that eligibility can only be a **computed flag, not a gate** (there is no exam-registration step to block). The `edu.exam.minAttendancePercent` setting is **not built** — it needs the first `INT` entry in the shared `common-settings`, which is a scope decision |
-| 1.5 D1 → **1.6** | promotion must read the SNAPSHOT, not re-derive a term's result | 1.6 |
+| 1.5 D1 → **1.6** | promotion must read the SNAPSHOT, not re-derive a term's result | ✅ done in 1.6 (D2) |
+| 1.6 → **next** | `edu.exam.minAttendancePercent` is REGISTERED but no screen consumes it — a setting nothing reads is decorative (slice B's `@PositiveOrZero` lesson). Wire the eligibility flag onto the marksheet + report card, or drop the setting | open |
 
 ### Open findings (outside the slice sequence)
 

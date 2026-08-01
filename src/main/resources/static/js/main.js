@@ -899,12 +899,20 @@ function editRecord(doc){
 				var labels = text.split(",");
 				labels.forEach(function(entry) {
 					$("#"+form[i].id+" option").each(function() {
-						if(text === (($(this).text()).split(" ~ ")[0])) {
+						// Match on the option VALUE first, then fall back to its text.
+						//
+						// The text match is what the older selects rely on (their rows render a display
+						// label, sometimes "Label ~ extra"). But a select whose row renders a CODE — an
+						// enum like customerType, whose cell holds WALK_IN while the option reads
+						// "Walk-in (retail)" — could never match by text, so editing silently reset it to
+						// the first option. Checking the value first fixes that without changing what the
+						// text-matched selects do.
+						if($(this).val() === text || text === (($(this).text()).split(" ~ ")[0])) {
 							text = $(this).text();//update text if it is with siplitter
 							$(this).prop('selected', true);
 						}else{
 							$(this).prop('selected', false);
-						}  
+						}
 					});
 				});
 			}else{

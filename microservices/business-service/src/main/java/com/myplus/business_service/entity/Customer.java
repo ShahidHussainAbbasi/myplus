@@ -45,9 +45,16 @@ public class Customer implements Serializable {
 	@Column(name = "name", nullable = false)
 	private String name;
 
-	// @Enumerated(EnumType.STRING) 
-	// @Column(name = "customer_type")
-	// private CustomerType customerType;	
+	/**
+	 * How the shop classifies this customer; the B2B/B2C channel is DERIVED from it
+	 * ({@link CustomerType#isB2B()}), so there is one field to set and no second column to disagree with.
+	 * Null on rows written before V29 and by older clients — always read it through
+	 * {@link CustomerType#orDefault}, which yields WALK_IN (today's behaviour).
+	 * VARCHAR-backed on purpose: adding a value later must not need an ALTER … MODIFY.
+	 */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "customer_type", length = 16)
+	private CustomerType customerType;
 
 	@Column(name = "contact", unique = true, nullable = false)
 	private String contact;

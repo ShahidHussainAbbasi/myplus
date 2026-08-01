@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.business_service.entity.Customer;
+import com.myplus.business_service.entity.enums.CustomerType;
 import com.myplus.business_service.service.ICustomerService;
 // import com.myplus.business_service.service.ICustomerService;
 import com.myplus.business_service.dto.CustomerDTO;
@@ -162,6 +163,9 @@ public class CustomerController {
 					// carries a blank due from the form, so preserve the real balance instead of wiping it.
 					obj.setDueAmount(existing.getDueAmount());
 					obj.setDueDate(existing.getDueDate());
+					// B2B-P0: an edit that does not carry the channel must not silently demote a trade account
+					// back to walk-in. Only a value the caller actually sent may change it.
+					if (dto.getCustomerType() == null) obj.setCustomerType(existing.getCustomerType());
 				}
 			}else {
 				obj.setDated(dated);
@@ -169,6 +173,11 @@ public class CustomerController {
 			obj.setUpdated(dated);
 			obj.setUserId(user.getUserId());                  // audit: who created it
 			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
+			// B2B-P0: the channel is never left unknown. V29 backfilled every existing row to WALK_IN, so a new
+			// customer saved from a caller that does not send the field (the older form, an integration) must land
+			// on the same value — otherwise "no type" would mean WALK_IN for old rows and NULL for new ones, and
+			// every consumer would need its own null rule.
+			obj.setCustomerType(CustomerType.orDefault(obj.getCustomerType()));
 			obj = customerService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED", "Failed to save customer. Please try again.");

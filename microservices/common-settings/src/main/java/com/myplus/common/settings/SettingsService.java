@@ -35,6 +35,46 @@ public class SettingsService {
         return "true".equalsIgnoreCase(effective(key));
     }
 
+    /**
+     * Effective whole number for the caller's org (override else catalog default).
+     *
+     * <p>Returns {@code fallback} when the key is unknown OR the stored value is not a number. A malformed
+     * override must not throw: these are read on behaviour paths (a promotion pass mark, an attendance
+     * threshold), and a settings typo bringing down the operation that reads it would be a worse failure
+     * than quietly using the caller's stated default. The caller passes the fallback so the choice is
+     * visible at the call site rather than buried here.
+     */
+    public int getInt(String key, int fallback) {
+        String v = effective(key);
+        if (v == null || v.isBlank()) return fallback;
+        try {
+            return Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    /**
+     * Effective value of a SELECT setting, lower-cased and validated against a known set.
+     *
+     * <p>Returns {@code fallback} when the key is unknown, unset, or holds a value outside {@code allowed}.
+     * That last case is the point: a policy setting like {@code pos.sale.marginPolicy} drives a branch, and
+     * an unrecognised value must resolve to the caller's stated safe default rather than silently falling
+     * through every branch to "do nothing". Standard C3 — a safety flag fails ON.
+     *
+     * <p>An extension of this port rather than a second mechanism, for the same reason {@code getInt} is:
+     * SELECT already exists in {@link SettingEntry.SettingType} and {@code settings-form.js} already
+     * renders it; only a typed reader was missing.
+     *
+     * @param allowed the valid values, lower-case; {@code fallback} must be one of them
+     */
+    public String getChoice(String key, java.util.Set<String> allowed, String fallback) {
+        String v = effective(key);
+        if (v == null || v.isBlank()) return fallback;
+        String norm = v.trim().toLowerCase(java.util.Locale.ROOT);
+        return (allowed != null && allowed.contains(norm)) ? norm : fallback;
+    }
+
     /** Effective raw value for the caller's org (override else catalog default; null if key unknown). */
     public String effective(String key) {
         Long org = CurrentUser.organizationId();

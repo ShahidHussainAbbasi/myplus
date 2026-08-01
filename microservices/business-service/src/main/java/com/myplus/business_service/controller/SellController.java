@@ -404,6 +404,9 @@ public class SellController {
 			out.setTaxRegNo(ts.getTaxRegNo());
 			// common-settings: owner's per-rate tax-breakdown preference (default true) rides on the receipt.
 			out.setShowTaxBreakdown(settingsService.getBool("pos.receipt.showTaxBreakdown"));
+			// #13: the promo footer. getBool returns false for an unset key, which is the intended default —
+			// a paying customer must never find it on their invoices without having chosen it.
+			out.setShowPromo(settingsService.getBool("pos.receipt.showPromo"));
 
 			// M4d (slice 94): line names from catalog ProductRef (a printed receipt needs no itemId) — no Item load.
 			java.util.List<Long> sagaProductIds = lines.stream()
@@ -532,9 +535,15 @@ public class SellController {
 			// dropped). SagaSellService persists customer + invoice header + lines and manages its own committed
 			// transactions (REQUIRES_NEW), so it is safe to call inside this @Transactional.
 			String invoiceNo = sagaSellService.addSell(dto);
-			return new GenericResponse("SUCCESS",
-					invoiceNo != null ? "Sale recorded successfully. Invoice " + invoiceNo : "Sale recorded successfully.",
-					invoiceNo);
+			String msg = invoiceNo != null
+					? "Sale recorded successfully. Invoice " + invoiceNo
+					: "Sale recorded successfully.";
+			// #3: the sale went through, but anything the margin policy flagged must reach the cashier —
+			// a warning that only reaches the log is a warning nobody acts on.
+			if (dto.getWarnings() != null && !dto.getWarnings().isEmpty()) {
+				msg = msg + "  " + String.join("  ", dto.getWarnings());
+			}
+			return new GenericResponse("SUCCESS", msg, invoiceNo);
 
 		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
 			// Period close: the books are locked through the sale's date — surface the reason (nothing written yet).

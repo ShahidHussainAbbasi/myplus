@@ -3474,6 +3474,207 @@ function applyGradingPreset() {
 	});
 }
 
+/* ══ Slice 1.6 — Promotion ════════════════════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-1.6-promotion.md
+ *
+ * Plan, then apply. Nothing is stored until Apply, and Apply stays DISABLED until a plan is on screen —
+ * this rewrites the class of every child in a roster, so the UI never offers it as a one-click action.
+ *
+ * UNDECIDED rows are shown but never sent: a student with no issued report card is a decision the school
+ * must make, not one a default should make for them.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'PromotionDiv') loadPromotionScreen();
+});
+
+function loadPromotionScreen() {
+	$('#prRun').prop('disabled', true);
+	$('#tablePromotion tbody').empty();
+	$('#prSummary').hide();
+	prMessage('');
+
+	$.get(serverContext + 'getAcademicYears', function (res) {
+		var years = (res && res.collection) || [];
+		var $y = $('#prYear').empty();
+		years.forEach(function (y) { $y.append($('<option>').val(y.id).text(y.name)); });
+		if (!years.length) prMessage(t('ui.js.prNoYears'), 'alert-warning');
+		if (typeof $y.selectpicker === 'function') { try { $y.selectpicker('refresh'); } catch (e) {} }
+	});
+
+	$.get(serverContext + 'getUserGrades', function (data) {
+		// getUserGrades answers with <option> markup, the contract the other class pickers use.
+		var $from = $('#prFromGrade').empty().append(data);
+		// The target list carries a blank first entry: no target = the final class, whose students
+		// graduate (D5). That is a legitimate choice, so it is offered rather than hidden.
+		var $to = $('#prToGrade').empty()
+			.append($('<option>').val('').text(t('ui.js.prNoTargetGraduate')))
+			.append(data);
+		[$from, $to].forEach(function ($s) {
+			if (typeof $s.selectpicker === 'function') { try { $s.selectpicker('refresh'); } catch (e) {} }
+		});
+	});
+}
+
+function prMessage(msg, cls) {
+	var $m = $('#prMsg');
+	if (!msg) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(msg).show();
+}
+
+function loadPromotionPlan() {
+	var yearId = $('#prYear').val();
+	if (!yearId) { ayNotify(t('ui.js.prPickYear')); return; }
+	var params = { academicYearId: yearId };
+	if ($('#prFromGrade').val()) params.fromGradeId = $('#prFromGrade').val();
+	if ($('#prToGrade').val()) params.toGradeId = $('#prToGrade').val();
+
+	$.get(serverContext + 'getPromotionPlan', params, function (res) {
+		if (!res || res.status !== 'SUCCESS' || !res.object) {
+			prMessage((res && res.message) || t('ui.js.prCouldNotPlan'), 'alert-danger');
+			return;
+		}
+		var plan = res.object;
+		var rows = plan.rows || [];
+		var $body = $('#tablePromotion tbody').empty();
+		$('#prRun').prop('disabled', rows.length === 0);
+
+		if (!rows.length) {
+			prMessage(t('ui.js.prNoStudents'), 'alert-warning');
+			$('#prSummary').hide();
+			return;
+		}
+		prMessage('');
+
+		rows.forEach(function (r) {
+			// Each row is editable: the proposal is a suggestion, and an override is recorded as such.
+			var $sel = $('<select class="form-control prDecision">')
+				.attr('data-enroll', r.enrollNo)
+				.append($('<option>').val('').text(t('ui.js.prUndecided')))
+				.append($('<option>').val('PROMOTED').text(t('ui.js.prPromoted')))
+				.append($('<option>').val('RETAINED').text(t('ui.js.prRetained')))
+				.append($('<option>').val('GRADUATED').text(t('ui.js.prGraduated')));
+			$sel.val(r.proposed || '');
+
+			var $tr = $('<tr>')
+				.append($('<td>').text(r.enrollNo || ''))
+				.append($('<td>').text(r.name || ''))
+				.append($('<td>').text(r.yearPercent == null ? '—' : r.yearPercent + '%'))
+				.append($('<td>').append($sel))
+				.append($('<td>').text(r.reason || ''));
+
+			if (r.alreadyDecided) {
+				// Already decided this year: shown for context, but not re-sent. The DB constraint would
+				// refuse it anyway (D6); disabling it here explains why rather than producing an error.
+				$sel.prop('disabled', true).val('');
+				$tr.addClass('text-muted');
+			} else if (r.undecided) {
+				$tr.addClass('warning');
+			}
+			$body.append($tr);
+		});
+
+		var summary = t('ui.js.prPlanSummary')
+			.replace('{total}', plan.total)
+			.replace('{undecided}', plan.undecided)
+			.replace('{decided}', plan.alreadyDecided);
+		if (plan.requirePass) {
+			summary += ' · ' + t('ui.js.prPassMark').replace('{min}', plan.minPercent);
+		}
+		if (plan.graduating) summary += ' · ' + t('ui.js.prGraduatingBatch');
+		$('#prSummary').show().text(summary);
+	});
+}
+
+function runPromotion() {
+	var yearId = $('#prYear').val();
+	if (!yearId) { ayNotify(t('ui.js.prPickYear')); return; }
+
+	var rows = [];
+	$('#tablePromotion tbody .prDecision').each(function () {
+		if (this.disabled) return;              // already decided this year
+		if (!this.value) return;                // UNDECIDED is never sent — the school must choose
+		rows.push({ enrollNo: this.getAttribute('data-enroll'), outcome: this.value });
+	});
+	if (!rows.length) { ayNotify(t('ui.js.prNothingToApply')); return; }
+
+	var payload = {
+		academicYearId: Number(yearId),
+		fromGradeId: $('#prFromGrade').val() ? Number($('#prFromGrade').val()) : null,
+		toGradeId: $('#prToGrade').val() ? Number($('#prToGrade').val()) : null,
+		rows: rows
+	};
+
+	var go = function () {
+		$.ajax({
+			url: serverContext + 'runPromotion',
+			method: 'POST',
+			contentType: 'application/json',
+			data: JSON.stringify(payload),
+			success: function (res) {
+				// PARTIAL is not SUCCESS: if anything was skipped the message says so rather than
+				// letting the screen imply a clean run.
+				var cls = res && res.status === 'SUCCESS' ? 'alert-success' : 'alert-warning';
+				prMessage((res && res.message) || '', cls);
+				var problems = res && res.object && res.object.problems;
+				if (problems && problems.length) {
+					prMessage(((res && res.message) || '') + ' — ' + problems.join('; '), 'alert-warning');
+				}
+				loadPromotionPlan();
+				loadPromotionHistory();
+			},
+			error: function (xhr) {
+				prMessage(t('ui.js.prCouldNotApply') + ': ' + (xhr.responseText || xhr.status), 'alert-danger');
+			}
+		});
+	};
+	uiConfirmOrRun(t('ui.js.prConfirmApply').replace('{n}', rows.length), go);
+}
+
+/** The shared confirm dialog, with the plain fallback every other education action uses. */
+function uiConfirmOrRun(msg, go) {
+	if (typeof uiConfirm === 'function') { uiConfirm(msg, go); return; }
+	go();
+}
+
+function loadPromotionHistory() {
+	var yearId = $('#prYear').val();
+	if (!yearId) return;
+	$.get(serverContext + 'getPromotionHistory', { academicYearId: yearId }, function (res) {
+		var found = (res && res.collection) || [];
+		var $body = $('#tablePromotionHistory tbody').empty();
+		found.forEach(function (p) {
+			var $undo = $('<button type="button" class="btn btn-xs btn-default">')
+				.text(t('ui.js.prUndo'))
+				.prop('disabled', p.status !== 'APPLIED')
+				.on('click', function () { undoPromotion(p.id); });
+			var $tr = $('<tr>')
+				.append($('<td>').text((p.enrollNo || '') + ' · ' + (p.studentName || '')))
+				// The STORED names, so a class renamed since still reads as it did (D3).
+				.append($('<td>').text(p.fromGradeName || ''))
+				.append($('<td>').text(p.toGradeName || '—'))
+				.append($('<td>').text((p.outcome || '') + (p.overridden ? ' *' : '')))
+				.append($('<td>').text(p.reason || ''))
+				.append($('<td>').append($undo));
+			if (p.status === 'REVERSED') $tr.addClass('text-muted');
+			$body.append($tr);
+		});
+	});
+}
+
+function undoPromotion(id) {
+	uiConfirmOrRun(t('ui.js.prConfirmUndo'), function () {
+		$.post(serverContext + 'undoPromotion', { id: id }, function (res) {
+			if (res && res.status === 'SUCCESS') {
+				prMessage(res.message, 'alert-success');
+				loadPromotionPlan();
+				loadPromotionHistory();
+			} else {
+				prMessage((res && res.message) || t('ui.js.prCouldNotUndo'), 'alert-danger');
+			}
+		});
+	});
+}
+
 /* ══ Slice 1.5 — Report Cards & Transcript ════════════════════════════════════════════════════════
  * Design: microservices/docs/slices/edu-1.5-report-cards.md
  *

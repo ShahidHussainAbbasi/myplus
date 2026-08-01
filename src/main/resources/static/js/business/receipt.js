@@ -99,6 +99,13 @@
             + (pay ? '<hr>' + pay : '')
             + regNo
             + '<div class="rc-foot">Thank you for your business</div>'
+            // B2B-P0 (#13). OFF unless the org turned it on: this prints on a document our customer hands to
+            // THEIR customer, so it is opt-in (or enabled for trials), never a surprise on a paying client's
+            // invoices. Absent flag = off, which is the safe direction for a promo (unlike a safety flag).
+            + (inv.showPromo === true
+                ? '<div class="rc-foot" style="opacity:.75;margin-top:4px">Powered by MaxTheService'
+                  + '<br>maxtheservice.com</div>'
+                : '')
             + '</body></html>';
     }
 

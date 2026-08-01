@@ -105,8 +105,13 @@ public class VenderController {
 
 			sb.append("<option value=''>Nothing Selected</option>");
 			objs.forEach(d -> {
-				sb.append("<option value=" + d.getId() + ">" +d.getName() + "</option>");
-				// sb.append("<option value=" + d.getId() + ">" +d.getIcode()+" ~ "+d.getIname() + "</option>");
+				// B2B-P0 (#8): carry the vendor's outstanding payable on the option, exactly as the customer
+				// dropdown carries data-due. The purchase screen reads it on select to show what this vendor
+				// is already owed BEFORE more credit is taken on — no extra round trip per selection.
+				java.math.BigDecimal due = d.getDueAmount() == null ? java.math.BigDecimal.ZERO : d.getDueAmount();
+				sb.append("<option value=" + d.getId() + " data-due=\"" + due.toPlainString() + "\">")
+				  .append(d.getName())
+				  .append("</option>");
 			});
 			return sb.toString();
 

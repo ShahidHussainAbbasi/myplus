@@ -83,4 +83,19 @@ public class CustomerHistoryDTO {
     // common-settings (pos.receipt.showTaxBreakdown): whether the receipt should list tax per rate. The owner
     // toggles this on the Configuration screen; the client honours it (default true when absent = back-compat).
     private Boolean showTaxBreakdown;
+
+    // common-settings (pos.receipt.showPromo): whether to print the "Powered by MaxTheService" footer.
+    // OFF unless the org opted in — this appears on a document our customer hands to THEIR customer, so
+    // absent/null means off (unlike a safety flag, where absent means on).
+    private Boolean showPromo;
+
+    /**
+     * Things the cashier must be TOLD about a sale that still went through — currently the zero/negative
+     * margin warning (#3). Server-populated on the way out; ignored on the way in.
+     *
+     * <p>Same pattern as {@code PrescriptionDTO.warnings}: the money has already changed hands by the time
+     * these are raised, so anything the system could not enforce has to be said out loud rather than only
+     * logged. Initialised so callers never null-check.
+     */
+    private java.util.List<String> warnings = new java.util.ArrayList<>();
 }

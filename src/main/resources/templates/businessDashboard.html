@@ -717,6 +717,21 @@ tr.row-voided .js-edit-row{display:none !important}
 								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}"> 
 						</div>
 					</div>
+					<div class="form-group">
+						<!-- B2B-P0: how this customer is served. The B2B/B2C channel is DERIVED from it
+						     (CustomerType.isB2B) — one field to set, no second column that could disagree.
+						     Defaults to Walk-in, which is exactly today's behaviour for every existing customer. -->
+						<label class="control-label col-sm-2" for="customerType" th:text="#{ui.customerType}">Customer type</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="customerType" name="customerType">
+								<option value="WALK_IN" selected="selected" th:text="#{ui.custTypeWalkIn}">Walk-in (retail)</option>
+								<option value="RETAILER" th:text="#{ui.custTypeRetailer}">Retailer (trade)</option>
+								<option value="WHOLESALE" th:text="#{ui.custTypeWholesale}">Wholesale (trade)</option>
+								<option value="VIP" th:text="#{ui.custTypeVip}">VIP (retail)</option>
+							</select>
+							<div style="color:#7a889c;font-size:12px;margin-top:3px" th:text="#{ui.custTypeHelp}">Trade customers get account pricing and terms as those features arrive.</div>
+						</div>
+					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addCustomer" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
@@ -791,6 +806,9 @@ tr.row-voided .js-edit-row{display:none !important}
 								<th data-field="customerContact" th:text="#{ui.contact}">Contact</th>
 								<th data-field="customerEmail" th:text="#{ui.email}">Email</th>
 								<th data-field="customerAddress" th:text="#{ui.address2}">Address</th>
+								<!-- B2B-P0: also what makes the type editable — editRecord() fills the form from the
+								     rendered row, so a field with no column cannot round-trip through an edit. -->
+								<th data-field="customerType" th:text="#{ui.customerType}">Customer type</th>
 								<th data-field="dueAmount" th:text="#{ui.due}">Due</th>
 								<th data-field="creditBalance" th:text="#{ui.credit}">Credit</th>
 								<th data-field="dated" th:text="#{ui.dated}">Dated</th>
@@ -849,6 +867,19 @@ tr.row-voided .js-edit-row{display:none !important}
 							<input type="number" step="any" min="0" class="form-control" id="purchasePaid" name="paidAmount" placeholder="Blank = paid in full (cash)" th:placeholder="#{ui.blankPaidInFullCash}"/>
 						</div>
 					</div>
+						<!-- B2B-P0 (#8): what this vendor is already owed, shown BEFORE the buyer commits to more credit.
+						     The sell screen has shown the customer's balance for a while; the purchase screen never did, so
+						     the one person deciding whether to buy on account was the one without the number. Read-only,
+						     hidden until a vendor is picked (a cash purchase has no payable to report). -->
+						<div class="form-group" id="purchaseVendorDuesWrap" style="display:none">
+							<label class="control-label col-sm-2" for="purchaseVendorDues" th:text="#{ui.outstandingDue2}">Outstanding due</label>
+							<div class="col-sm-4">
+								<input type="number" step="any" class="form-control" id="purchaseVendorDues" readonly="readonly"
+								       placeholder="0" style="background-color:#fff7e6;"
+								       title="What this vendor was already owed before this purchase"
+								       th:title="#{ui.whatThisVendorWasAlreadyOwed}">
+							</div>
+						</div>
 					<!-- Tax register Phase B: input-tax rate. Only effective when the org's "Purchase tax" toggle is on;
 					     hidden otherwise (shown by loadTaxSetting / newPurchase based on the tax setting). -->
 					<div class="form-group" id="purchaseTaxRow" style="display:none">

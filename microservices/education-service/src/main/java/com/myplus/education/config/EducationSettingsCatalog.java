@@ -85,7 +85,29 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                         "On (default): the card shows days present out of days recorded for the term. "
                                 + "Counted from the term's date range, so terms recorded before attendance was "
                                 + "linked to terms are still summarised correctly.",
-                        true, "Report card")
+                        true, "Report card"),
+                // ── Slice 1.6: the promotion rule. The class LADDER is deliberately not here — the target
+                // class is a per-batch decision the admin makes on screen (D1), not org configuration.
+                SettingEntry.bool("edu.promotion.requirePass",
+                        "Require a pass mark to be promoted",
+                        "Off (default): every student is promoted, which matches no-detention policies. "
+                                + "On: a student whose year average is below the pass mark below is proposed "
+                                + "for retention. The proposal can always be overridden per student — this "
+                                + "setting decides the default, never the outcome.",
+                        false, "Promotion"),
+                SettingEntry.intOf("edu.promotion.minPercent",
+                        "Promotion pass mark (%)",
+                        "The year average a student must reach to be promoted. Only consulted when the "
+                                + "setting above is on. Averaged over the report cards actually ISSUED for "
+                                + "the year, so a term with no card does not count against the student.",
+                        33, "Promotion"),
+                SettingEntry.intOf("edu.exam.minAttendancePercent",
+                        "Minimum attendance for exam eligibility (%)",
+                        "0 (default) disables the check. Above 0, a student below this attendance for the "
+                                + "term is flagged as ineligible on the marksheet and the report card. It is "
+                                + "a FLAG, not a block: students are not registered for papers individually, "
+                                + "so there is nothing for the system to refuse — the school acts on it.",
+                        0, "Promotion")
         );
     }
 }

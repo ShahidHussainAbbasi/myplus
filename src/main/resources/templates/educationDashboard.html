@@ -56,6 +56,7 @@
 					<option value="MarksDiv" th:text="#{ui.marksEntry}">Marks Entry</option>
 					<option value="GradingDiv" th:text="#{ui.gradingScale}">Grading Scale</option>
 					<option value="ReportCardDiv" th:text="#{ui.reportCards}">Report Cards</option>
+					<option value="PromotionDiv" th:text="#{ui.promotion}">Promotion</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
 					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
 					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
@@ -111,6 +112,9 @@
 									<!-- Slice 1.5: preview is open (it shows the same marks the marksheet does); PUBLISHING is
 									     ADMIN and enforced server-side, so this entry stays visible to teachers. -->
 									<li><a onclick="snavGo('registrationType','ReportCardDiv','snavRegister')"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.reportCards}">Report Cards</span></a></li>
+									<!-- Slice 1.6: the most destructive operation in the product — ADMIN only, and the
+									     server enforces it regardless of what this menu shows. -->
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','PromotionDiv','snavRegister')"><span class="glyphicon glyphicon-circle-arrow-up"></span> <span th:text="#{ui.promotion}">Promotion</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
@@ -2649,6 +2653,59 @@
 						<tbody></tbody>
 					</table>
 				</div>
+			</div>
+
+			<!-- Slice 1.6 — promotion. Plan first, apply second (design D1/D7): this rewrites the class of
+			     every child in a roster, so nothing here runs without a reviewed plan on screen. -->
+			<div id="PromotionDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+				<h4 th:text="#{ui.promotion}">Promotion</h4>
+				<p class="text-muted" th:text="#{ui.promotionHelp}">Move a class forward at year end. Choose the class students are leaving and the class they are joining, review the proposal for each student, then apply. Leave the target class empty for the final class — those students graduate.</p>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="prYear" th:text="#{ui.academicYear}">Academic Year</label>
+						<select class="form-control" id="prYear"></select>
+					</div>
+					<div class="col-sm-3">
+						<label for="prFromGrade" th:text="#{ui.fromClass}">From class</label>
+						<select class="form-control" id="prFromGrade"></select>
+					</div>
+					<div class="col-sm-3">
+						<label for="prToGrade" th:text="#{ui.toClass}">To class</label>
+						<select class="form-control" id="prToGrade"></select>
+					</div>
+					<div class="col-sm-3" style="padding-top:24px">
+						<button type="button" class="btn btn-primary" onclick="loadPromotionPlan()" th:text="#{ui.plan}">Plan</button>
+						<button type="button" class="btn btn-danger" id="prRun" onclick="runPromotion()" disabled th:text="#{ui.applyPromotion}">Apply</button>
+					</div>
+				</div>
+
+				<div id="prSummary" class="alert alert-info" style="display:none"></div>
+				<div id="prMsg" class="alert" style="display:none"></div>
+
+				<table id="tablePromotion" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.enrollNo}">Enroll No</th>
+						<th th:text="#{ui.name}">Name</th>
+						<th th:text="#{ui.yearAverage}">Year average</th>
+						<th th:text="#{ui.decision}">Decision</th>
+						<th th:text="#{ui.reason}">Reason</th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+
+				<h5 style="margin-top:24px" th:text="#{ui.promotionHistory}">Promotion history</h5>
+				<table id="tablePromotionHistory" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.student}">Student</th>
+						<th th:text="#{ui.fromClass}">From class</th>
+						<th th:text="#{ui.toClass}">To class</th>
+						<th th:text="#{ui.decision}">Decision</th>
+						<th th:text="#{ui.reason}">Reason</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
 			</div>
 
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">

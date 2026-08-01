@@ -42,4 +42,19 @@ public record SettingEntry(String key, String label, String help, SettingType ty
                                       String group, List<Option> options) {
         return new SettingEntry(key, label, help, SettingType.SELECT, def, group, options);
     }
+
+    /**
+     * A whole-number policy — a threshold, a count, a percentage.
+     *
+     * <p>Added for education slice 1.6 (promotion pass mark, exam attendance minimum). {@link
+     * SettingType#INT} was already in this enum and {@code settings-form.js} already renders it as a number
+     * input; only this factory and {@link SettingsService#getInt(String)} were missing, so an INT setting
+     * could be declared but never conveniently read.
+     *
+     * <p>Deliberately an extension of this port rather than a second mechanism: a separate integer-settings
+     * path would be a duplicate implementation of a capability that already exists.
+     */
+    public static SettingEntry intOf(String key, String label, String help, int def, String group) {
+        return new SettingEntry(key, label, help, SettingType.INT, Integer.toString(def), group);
+    }
 }
