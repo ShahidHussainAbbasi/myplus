@@ -334,6 +334,41 @@ public class SetupDataLoader {
             log.info("Multi-branch education fixture ensured in org {}: owner.education@, teacher.a@, teacher.b@",
                     eduOrg.getId());
 
+            // B2B P0.5 — the MULTI-MODULE fixture: ONE login that belongs to a commerce org AND a school.
+            //
+            // This is the case the platform could not previously express. Routing used to key off the single
+            // User.userType, so such a person was pinned to one module forever; it now follows the ACTIVE ORG.
+            // No real customer runs two modules yet (confirmed), so the fixture has to be seeded rather than
+            // borrowed — otherwise the two-org hop stays untested, which is exactly the gap org-switcher.cy.js
+            // documented in its own scope note.
+            //
+            // A DEDICATED account on purpose: adding a second membership to owner.business@ would silently
+            // change what every existing commerce spec sees in the org switcher. ROLE_OWNER carries the full
+            // cross-module privilege set, so this user genuinely works in both dashboards rather than merely
+            // landing on them. userType stays BUSINESS precisely so the tests prove the ORG wins over it.
+            // Built directly rather than via ensureOwner(): that helper calls getOrCreatePrimaryOrg(), which
+            // would mint a THIRD organization of its own before these memberships exist — leaving the fixture
+            // in an org nobody asked for and showing three entries in the switcher. Seeding the memberships
+            // first means the login's default active org resolves to the commerce org below.
+            final String mmEmail = "multi.module@myplus.com";
+            User multiModule = userRepository.findByEmail(mmEmail)
+                    .orElseGet(() -> User.builder().username(mmEmail.split("@")[0]).email(mmEmail).build());
+            multiModule.setPassword(passwordEncoder.encode(demoPw));
+            multiModule.setFirstName("Multi");
+            multiModule.setLastName("Module");
+            multiModule.setEnabled(true);
+            multiModule.setAccountNonLocked(true);
+            multiModule.setFailedLoginAttempts(0);
+            multiModule.setLockTime(null);
+            multiModule.setUserType("BUSINESS");
+            multiModule.setDemo(false);
+            multiModule.setRoles(new HashSet<>(Collections.singletonList(ownerRole)));
+            multiModule = userRepository.save(multiModule);
+            organizationService.addMember(multiModule.getId(), ownerOrg.getId(), "ADMIN");   // idempotent
+            organizationService.addMember(multiModule.getId(), eduOrg.getId(), "ADMIN");     // idempotent
+            log.info("Multi-module fixture ensured: multi.module@ is a member of commerce org {} AND education org {}",
+                    ownerOrg.getId(), eduOrg.getId());
+
             // The remaining 8 module OWNERs — 10 in total across the platform.
             //
             // NOT IN THIS LIST, because they are seeded ABOVE with extra fixtures rather than being missing:

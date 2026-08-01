@@ -1,7 +1,12 @@
 # Finding D — analytics & read performance
 
-**Status: IMPLEMENTED — awaiting `mvn` verification + the Cypress gate.**
-Flyway **V16** adds 15 indexes, so education-service must be repackaged and restarted before the gate.
+**Status: DONE — `mvn test` + Cypress gate GREEN (2026-08-01).**
+`dashboard.cy.js` passed **unchanged** — the contract held, which is what makes this a rewrite and not a
+redesign — plus `analytics-perf.cy.js`. Flyway **V16** (15 indexes) applied cleanly.
+
+**This closes the education review.** Findings A, B, C and D are all resolved; E is partly done (2 → 10 unit
+test classes). Two follow-ups are named in §6 and are NOT part of this slice: the UNIQUE constraints that
+would close the check-then-act race, and a Testcontainers test for the empty-tenant aggregate path.
 Closes the last open item in `education-review-audit.md`: *"Analytics loads 5 whole tables per dashboard
 render"*, plus its two relatives — the in-memory duplicate checks and the unbounded finders.
 

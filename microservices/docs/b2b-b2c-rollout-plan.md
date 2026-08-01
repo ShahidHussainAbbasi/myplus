@@ -1,6 +1,6 @@
 # B2B + B2C — what exists today, and how to start both
 
-**Status:** IN DELIVERY — **Phase 0 DONE & Cypress-green (2026-08-01)**; Phase 0.5 is next.
+**Status:** IN DELIVERY — **Phases 0 and 0.5 DONE & Cypress-green (2026-08-01)**; Phase 1 (credit limit) is next.
 Per-phase state is tracked in the Delivery phases section below; the slice doc for each shipped phase is linked there. Analysis sections 1-3b remain as written unless a finding contradicts them.
 **Companion to:** [`oms-b2b-b2c-implementation-plan.md`](oms-b2b-b2c-implementation-plan.md) (gap analysis),
 [`oms-program-plan.md`](oms-program-plan.md) (tracker), [`customer-requirements-plan.md`](customer-requirements-plan.md)
@@ -209,10 +209,21 @@ an owner changes a setting.
 `company.cy.js` reads `res.body.data`, which `GenericResponse` does not have (lists land in `collection`), so
 its vendor test silently skips and its cleanup never finds its company — pre-existing, awaiting the user's call.
 
-### Phase 0.5 — one login reaches every module *(next)*
-- Route on the active org's type so a live customer on two modules does not need two accounts
+### Phase 0.5 — one login reaches every module — ✅ **DONE, Cypress-green 2026-08-01**
+Slice doc: `slices/b2b-P05-org-type-routing.md` · gate: `cypress/e2e/business/org-type-routing.cy.js`
+- Route on the **active org's** type, not `User.userType`, so one account reaches every module it belongs to
+- `activeOrgType` JWT claim (from the existing `Organization.type`) · `OrgView.type` · one shared `ModuleRouter`
+- **No schema change, no migration** — the column already exists and is populated; NULL falls back to `userType`
+- Also fixed: the type→dashboard map was duplicated in `AppController` and `determineTargetUrl` and
+  **already disagreed** on `APPOINTMENT` (one `ModuleRouter` now)
+- Also fixed: **six** sites resolved the location module from a *person's* `userType` while holding the org
+  — the design named two, implementation found four more (`createOrgUser`, `assignLocations`,
+  `listOrgUsers`, `myLocations`). Half-fixing would have been worse than none: `myLocations` feeds the store
+  switcher while `addLocationClaims` mints the token, so a split offers a store the token then refuses
+- Fixture `multi.module@myplus.com` seeded into both a commerce org and a school (no live customer runs two
+  modules, so the two-org hop had to be seeded)
 
-### Phase 1 — B2B accounts & credit — ⬜ not started *(= OMS B4, customer req #9)*
+### Phase 1 — B2B accounts & credit — 🟡 **NEXT** *(= OMS B4, customer req #9)*
 - Credit limit + payment terms on the customer (party-service owns the account; finance owns the balance)
 - Credit check at order validation → **warn** (configurable `off | warn | block`)
 - Inline on the sell screen, beside the dues block that already exists

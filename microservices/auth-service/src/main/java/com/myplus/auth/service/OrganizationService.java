@@ -139,13 +139,17 @@ public class OrganizationService {
                     org.getId(),
                     org.getName(),
                     m.getRole(),
-                    org.getId().equals(activeOrgId)));
+                    org.getId().equals(activeOrgId),
+                    org.getType()));
         }
         return views;
     }
 
     /** Lightweight view of an organization for the switcher UI. */
-    public record OrgView(Long id, String name, String role, boolean active) {
+    public record OrgView(Long id, String name, String role, boolean active, String type) {
+        // B2B P0.5: `type` lets the switcher label each org with its module — "Springfield High —
+        // Education" vs "Springfield Store — Retail" — which is the difference between a usable
+        // switcher and a list of indistinguishable names for a multi-module customer.
     }
 
     private String defaultOrgName(User user) {

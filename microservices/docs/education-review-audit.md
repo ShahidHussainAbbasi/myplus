@@ -20,8 +20,17 @@ backlog at the end are updated as work lands, so the findings stay readable as t
 | **A** | Cross-tenant record **takeover** on save — 7 controllers | 🔴 **Critical** | Any authenticated user, any tenant | ✅ **fixed** — 9 repos + 7 saves + 3 child refs (+2 more found by the sweep); gate `save-takeover-idor.cy.js` |
 | **B** | Fee collection (money in) has **no validation at all** | 🟠 High | Financial integrity | ✅ **fixed** — `slices/edu-B-fee-validation.md` (+§8); gate `fee-validation.cy.js`. **Partly stale when written** — overpayment was already fixed by 0.2a/0.2b |
 | **C** | Writes are **ungated** — only deletes carry a privilege check | 🟠 High | Any USER can alter fees, staff, grades | ✅ **fixed** — 3-tier map (WRITE / ADMIN / DELETE), 21 → 44 gates, zero ungated writes; gate `privilege-map.cy.js` |
-| **D** | Analytics loads **5 whole tables** per dashboard render | 🟠 High | Degrades with school size | 📐 **design written** — `slices/edu-D-analytics-perf.md`. Re-measured and still accurate; the design also found that the 12 duplicate checks are a **check-then-act race**, not just a slow scan |
-| **E** | 2 unit tests for 94 classes; no service-level test at all | 🟡 Medium | Everything above went unnoticed | 🟡 **partly** — 2 → 8 unit test classes + 26 Cypress specs; still no repository/scoping test for most controllers |
+| **D** | Analytics loads **5 whole tables** per dashboard render | 🟠 High | Degrades with school size | ✅ **fixed** — `slices/edu-D-analytics-perf.md`; gate `dashboard.cy.js` (unchanged) + `analytics-perf.cy.js`. Five table loads → SQL aggregates; 12 duplicate checks → indexed `EXISTS` (V16). **Also found:** those checks are a **check-then-act race**, not just a slow scan — made cheap here, closed by the UNIQUE follow-up |
+| **E** | 2 unit tests for 94 classes; no service-level test at all | 🟡 Medium | Everything above went unnoticed | 🟡 **partly** — 2 → 10 unit test classes + 28 Cypress specs; still no repository/scoping test for most controllers, and no Testcontainers test for the empty-tenant aggregate path (finding D §6) |
+
+> ## ✅ The review is closed (2026-08-01)
+> A, B, C and D are fixed and Cypress-green; E is materially improved and its remainder is tracked below.
+> **Two follow-ups outlive this review** and are deliberately not folded into it:
+> 1. **UNIQUE constraints on the 12 duplicate-checked columns** — the actual fix for the race. Needs a
+>    per-tenant duplicate audit first, which `findDuplicate*Scoped()` (shipped in finding D) makes possible.
+>    Adding them blind fails the migration on any tenant already holding duplicates (DB standard D5).
+> 2. **A Testcontainers test for an empty tenant** — SQL `sum()` returns NULL where the replaced Java
+>    returned 0. Guarded twice in code, but unproven by a test the demo org cannot exercise.
 
 ---
 
@@ -158,17 +167,22 @@ Ordered by risk, each step gated on your confirmation:
 | **1** | **Fix A** — scope guard on all 7 saves + the 2 child-reference lookups. Mirror `StudentController:233`. Cypress gate that *attempts* the takeover cross-tenant. | Data belonging to one school silently moving to another is the only finding that is actively dangerous today | ✅ done |
 | **2** | **Fix B** — validate `addFc`: non-negative amounts, payment ≤ due, enroll-no must resolve to a student in the caller's org | Money, and the fix is small and self-contained | ✅ done |
 | **3** | **Decide C** — agree a privilege map (who may edit fees vs record attendance vs manage staff), then apply. Needs your input; I won't guess | Requires a policy decision, not a code decision | ✅ done — 3-tier map chosen by the user |
-| **4** | **Fix D** — replace the analytics table-loads with aggregate queries; convert the 17 duplicate checks to `exists…Scoped`; page the unbounded finders | Real, but it degrades gradually rather than corrupting anything | 🔴 **next / open** |
+| **4** | **Fix D** — replace the analytics table-loads with aggregate queries; convert the 17 duplicate checks to `exists…Scoped`; page the unbounded finders | Real, but it degrades gradually rather than corrupting anything | ✅ done (paging deliberately scoped out — see below) |
 | **5** | **Fix E** — service tests for the fee lifecycle + scoping, so 1–4 stay fixed | Locks the rest in | 🟡 partly |
 
-~~**My recommendation: start at step 1.**~~ Steps 1–3 are done. **Step 4 (finding D) is the only review item
-left**, and it has grown since the audit: 9 controllers still do `findScoped(...).stream()` full-table scans on
-every save, and `getStudentMarks` was found to be N+1 while designing 1.5 (three scoped lookups per mark —
-a class of 40 costs ~3,600 queries). 1.5 batches its own read; the rest is step 4.
+~~**My recommendation: start at step 1.**~~ **All five steps are addressed; 1–4 are done and green.**
 
-**Sequencing note:** finding D competes with Phase 1.5/1.6 for the next slot. D degrades with school size and
-nothing in Phase 1 depends on it, so it can land either side of 1.5 — but it should not slip past 1.6, because
-promotion adds another whole-table read to the same dashboard.
+**Two corrections to step 4 as originally written**, recorded so the difference does not read as an omission:
+
+- **"17 duplicate checks" was 12**, across 9 controllers (three of the 17 grep hits were the CSV-import
+  lookups in `StudentController`, which are batch maps rather than per-save scans and are correct as they are).
+- **"Page the unbounded finders" was deliberately NOT done wholesale.** After the analytics fix, `attendance`
+  — the only table where it mattered — is never loaded whole again. Paging `grade`/`staff`/`subject`
+  (tens of rows) would be ceremony, and paging `student` changes a UI contract, so it is its own slice.
+  Rationale in `slices/edu-D-analytics-perf.md` D5.
+
+Also fixed along the way: `getStudentMarks` was N+1 (three scoped lookups **per mark** — a class of 40 cost
+~3,600 queries), found while designing 1.5 and batched there.
 
 ---
 

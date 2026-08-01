@@ -20,6 +20,9 @@ public class AuthServerLoginResponse {
     private String firstName;
     private String lastName;
     private String userType;
+
+    // B2B P0.5: the module of the ACTIVE tenant. Routing prefers this over userType; null falls back.
+    private String activeOrgType;
     private Set<String> roles;
     private Set<String> privileges;
     private boolean twoFactorRequired;
@@ -48,6 +51,9 @@ public class AuthServerLoginResponse {
 
     public String getUserType() { return userType; }
     public void setUserType(String userType) { this.userType = userType; }
+
+    public String getActiveOrgType() { return activeOrgType; }
+    public void setActiveOrgType(String activeOrgType) { this.activeOrgType = activeOrgType; }
 
     public Set<String> getRoles() { return roles; }
     public void setRoles(Set<String> roles) { this.roles = roles; }

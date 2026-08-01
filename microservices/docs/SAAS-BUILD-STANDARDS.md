@@ -61,6 +61,21 @@ scoped read is a full scan. Composite `(organization_id, user_id)` where the NUL
 `(organization_id)` alone where rows are org-only. Add it with the column, not after a customer complains.
 _Incident: 36 tables across 8 databases had none._
 
+**D3b. Scoping the read is not the same as indexing the QUERY — and "we already indexed that table" hides it.**
+A `(organization_id, user_id)` index serves `WHERE org = ?`. It does **not** serve `WHERE org = ? AND name = ?`
+or a `GROUP BY att_date` — those need `(organization_id, <filter column>)`. Index the predicate the query
+actually runs, not the one the table was first indexed for. _Incident: education finding D. Every education
+table was already indexed by V7's scoped-index pass, and the dashboard still loaded five whole tables while
+twelve save endpoints each scanned an entire table to answer "does this name exist" — V16 added a second,
+complementary set. See `slices/edu-D-analytics-perf.md`._
+
+**D3c. If a case-insensitive comparison moves from Java into SQL, it starts depending on the COLLATION — write
+that down where it is relied on.** `equalsIgnoreCase()` in a stream becomes `=` in SQL, which is
+case-insensitive only because the column collation is (`utf8mb4_0900_ai_ci`). The explicit-looking alternative,
+`lower(col) = lower(?)`, is honest and **defeats the index** — a query that looks careful and still scans.
+Choose the collation-dependent form, and record the dependency in the migration that adds the index, so a
+future collation change is understood to change twelve duplicate checks at once.
+
 **D4. An entity-vs-table diff is a starting point, NEVER evidence of a dead table.** Schema can be load-bearing
 with no `@Table` pointing at it. Confirmed cases: `@JoinTable` collection tables (`roles_privileges`,
 `users_roles`, `schools_owners`, `staff_grades`) and `@SequenceGenerator` tables (`cust_seq`, `sell_seq`,
@@ -213,7 +228,7 @@ fulfillment.
 
 ## 3. Where we are (status, 2026-08-01)
 
-**In flight:** **B2B/B2C rollout** — Phase 0 ✅ green 2026-08-01 (`feature/b2b-b2c`); plan of record
+**In flight:** **B2B/B2C rollout** — Phases 0 + 0.5 ✅ green 2026-08-01 (`feature/b2b-b2c`); plan of record
 [`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md). Also open: `feature/education-review` (finding B),
 `feature/pharmacy-review` (step 6), OMS O1 (design awaiting approval).
 

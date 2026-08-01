@@ -13,6 +13,21 @@
  * Markup contract (identical on every dashboard):
  *   <span id="orgSwitcherLi"><select id="orgSwitcher"></select></span>
  */
+/**
+ * "Name — Module" for the switcher. Falls back to the bare name when the org has no type (every tenant
+ * created before Organization.type was populated), so those users see exactly what they see today.
+ */
+function orgLabel(org) {
+	if (!org || !org.type) { return (org && org.name) ? org.name : ''; }
+	// ui.js.* is the ONLY prefix JsMessageSource ships to the browser (see LocaleInterceptor) — a
+	// plain ui.module.* key would never resolve here and every org would silently show a bare name.
+	var key = 'ui.js.module.' + String(org.type).toLowerCase();
+	var label = (typeof t === 'function') ? t(key) : null;
+	// t() returns the key itself when a translation is missing — never show "ui.module.business" to a user.
+	if (!label || label === key) { return org.name; }
+	return org.name + ' — ' + label;
+}
+
 function loadMyOrganizations() {
 	$.get(serverContext + 'getMyOrganizations', function (res) {
 		var $sel = $('#orgSwitcher');
@@ -23,7 +38,10 @@ function loadMyOrganizations() {
 		}
 		$sel.empty();
 		$.each(res.collection, function (i, org) {
-			var $o = $('<option>').val(org.id).text(org.name);   // .text() — never inject a tenant's name
+			// B2B P0.5: label each org with its MODULE. A customer running "Springfield" as both a school and
+			// a shop sees two identical names otherwise — and picking the wrong one silently lands them in the
+			// wrong module. .text() throughout: a tenant name is never injected as HTML.
+			var $o = $('<option>').val(org.id).text(orgLabel(org));
 			if (org.active) { $o.prop('selected', true); }
 			$sel.append($o);
 		});
@@ -43,8 +61,11 @@ function switchOrganization() {
 		data: { organizationId: orgId },
 		success: function (res) {
 			if (res && res.status === 'SUCCESS') {
-				// The session token is now scoped to the new tenant — reload so every section refetches.
-				window.location.reload();
+				// B2B P0.5: go through /dashboard rather than reloading this page. The new tenant may be a
+				// DIFFERENT module, and a reload would keep you on (say) the commerce dashboard while every
+				// call underneath it is now scoped to a school. /dashboard re-decides server-side via
+				// ModuleRouter, so the browser never has to know the type→dashboard map.
+				window.location = serverContext + 'dashboard';
 			} else {
 				alert((res && res.message) ? res.message : 'Could not switch organization');
 				loadMyOrganizations();

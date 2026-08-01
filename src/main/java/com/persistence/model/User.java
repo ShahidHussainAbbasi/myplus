@@ -14,6 +14,13 @@ public class User {
 
     private String userType;
 
+    /**
+     * B2B P0.5 — the module of the ACTIVE organization (same vocabulary as {@link #userType}). Routing
+     * prefers this so one login reaches every module the user belongs to; null falls back to userType.
+     * Refreshed by the org switcher, since switching tenant must change where the user lands.
+     */
+    private String activeOrgType;
+
     private String firstName;
 
     private String lastName;
@@ -34,6 +41,14 @@ public class User {
         super();
         this.secret = Base32.random();
         this.enabled = false;
+    }
+
+    public String getActiveOrgType() {
+        return activeOrgType;
+    }
+
+    public void setActiveOrgType(final String activeOrgType) {
+        this.activeOrgType = activeOrgType;
     }
 
     public Long getId() {

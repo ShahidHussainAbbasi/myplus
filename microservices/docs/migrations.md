@@ -164,6 +164,19 @@ All are composite `(organization_id, user_id)`, because the scope predicate is t
 `(organization_id = :orgId OR (organization_id IS NULL AND user_id = :userId))` — one index covers both legs.
 Every statement is `information_schema`-guarded, so re-running is a no-op.
 
+**Follow-up — education `V16` (2026-08-01, finding D).** A second, *complementary* index set on education:
+V7 above covers the **scope predicate** `(organization_id, user_id)`; V16 covers **scope + the filter column**
+— `(organization_id, name)` for the nine duplicate checks that became `EXISTS` queries, and
+`(organization_id, att_date)` / `(organization_id, payment_date)` / `(organization_id, grade_id)` for the
+dashboard aggregates that replaced five whole-table loads. Neither set makes the other redundant: one serves
+`WHERE org = ?`, the other `WHERE org = ? AND name = ?`. Detail: `slices/edu-D-analytics-perf.md`.
+
+> **Open check for whoever next touches education indexes:** row 1 of this doc says Hibernate once added
+> `uq_owner_org_name(organization_id, name)` automatically. No education entity carries a name-based
+> `@UniqueConstraint` today, so if that unique index still exists in a live database, V16's
+> `idx_owner_org_name` duplicates it and should be dropped — and `owner` already has the UNIQUE that finding
+> D deliberately did *not* add elsewhere. Verify per environment before acting (standard D5).
+
 **Deliberately excluded — `gl_outbox` and `audit_outbox`.** They already carry `(status, id)`, which is exactly
 what the relay drains (`findTop100ByStatusOrderByIdAsc`); the org-scoped read on them is a debug path only.
 A second index on a high-write outbox would cost insert throughput for no gain on the hot path.

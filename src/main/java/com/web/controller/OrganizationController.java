@@ -30,7 +30,10 @@ public class OrganizationController {
     @Autowired
     private TokenStore tokenStore;
 
-    /** Organizations the current user belongs to: {status, collection:[{id,name,role,active}]}. */
+    @Autowired
+    private com.web.util.RequestUtil requestUtil;
+
+    /** Organizations the current user belongs to: {status, collection:[{id,name,role,active,type}]}. */
     @RequestMapping(value = "/getMyOrganizations", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> getMyOrganizations() {
@@ -72,7 +75,19 @@ public class OrganizationController {
             if (res.getRefreshToken() != null) {
                 tokenStore.setRefreshToken(res.getRefreshToken());
             }
+            // B2B P0.5 (R8): the principal is built from the LOGIN response and is not rebuilt on a switch,
+            // so without this it keeps describing the previous tenant — and ModuleRouter would send the user
+            // straight back to the module they just switched away from. Mutating the principal held by the
+            // SecurityContext is the narrowest fix: no re-authentication, and the session keeps its identity
+            // and authorities (which are unchanged — privileges are per user, not per org).
+            com.persistence.model.User principal = requestUtil.getCurrentUser();
+            if (principal != null) {
+                principal.setActiveOrgType(res.getActiveOrgType());
+            }
             out.put("status", "SUCCESS");
+            // The client uses this to decide whether the switch changed module (and so whether the target
+            // dashboard changes); it always redirects through /dashboard, which re-decides server-side.
+            out.put("activeOrgType", res.getActiveOrgType());
         } catch (Exception e) {
             // e.g. 403 from auth-service when the user is not a member of the target org.
             out.put("status", "ERROR");

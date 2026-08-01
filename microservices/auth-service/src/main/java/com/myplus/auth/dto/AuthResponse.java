@@ -22,6 +22,13 @@ public class AuthResponse {
     private String lastName;
     // Drives dashboard routing in the monolith front-end (BUSINESS/EDUCATION/WELFARE/AGRICULTURE).
     private String userType;
+
+    /**
+     * B2B P0.5 — the MODULE of the tenant this token is scoped to (same vocabulary as {@link #userType}).
+     * Clients route on this in preference to {@code userType}, so one login reaches every module it belongs
+     * to. NULL for tenants whose {@code Organization.type} was never set; consumers fall back to userType.
+     */
+    private String activeOrgType;
     private Set<String> roles;
     // Flattened privileges (Model A) so privilege-based clients (the monolith) can rebuild
     // their authority set directly from the login response without parsing the JWT.

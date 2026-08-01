@@ -90,6 +90,9 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
         principal.setFirstName(response.getFirstName());
         principal.setLastName(response.getLastName());
         principal.setUserType(response.getUserType());
+        // B2B P0.5: the module of the tenant this session is scoped to — ModuleRouter prefers it over
+        // userType so a multi-module user lands on the org they are actually working in.
+        principal.setActiveOrgType(response.getActiveOrgType());
         principal.setEnabled(true);
         principal.setDemo(response.isDemo());
 

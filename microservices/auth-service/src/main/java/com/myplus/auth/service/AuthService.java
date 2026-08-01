@@ -106,7 +106,7 @@ public class AuthService {
         String accessToken = jwtService.generateAccessToken(userDetails, claims);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
 
-        return buildAuthResponse(user, accessToken, refreshToken.getToken());
+        return buildAuthResponse(user, accessToken, refreshToken.getToken(), claims);
     }
 
     /**
@@ -187,7 +187,10 @@ public class AuthService {
 
         // Location grants for the new member: an ADMIN may grant only locations they hold (never widen scope);
         // an ADMIN with no explicit choice inherits their own. Stores for commerce, schools for education.
-        String locModule = moduleFor(userType);
+        // B2B P0.5: the ORG being joined decides which of those it is — an admin whose own type is BUSINESS
+        // adding a member to a school must grant school branches, not same-numbered stores.
+        String locModule = moduleForOrg(
+                callerOrgId == null ? null : organizationService.findById(callerOrgId), userType);
         java.util.List<Long> grantStores =
                 sanitizeStoreGrants(storeIds, callerUserId, callerOrgId, callerIsOwner, locModule);
         // Global role drives privileges: ADMIN -> ADMIN_ROLE (admin set); USER -> ROLE_<type>_USER.
@@ -250,7 +253,7 @@ public class AuthService {
     public void assignLocations(Long callerUserId, Long callerOrgId, boolean callerIsOwner,
                                 Long targetUserId, java.util.List<Long> storeIds, String roleAtLocation,
                                 boolean replace) {
-        String module = moduleOf(callerUserId);
+        String module = moduleOf(callerUserId, callerOrgId);   // B2B P0.5: the org being worked in decides
         // In REPLACE mode an empty list means "none" — it is the member's complete set. The additive path's
         // "empty ⇒ inherit the caller's own locations" default would otherwise turn a clear into a re-grant.
         java.util.List<Long> desired = replace
@@ -283,8 +286,26 @@ public class AuthService {
         return "EDUCATION".equalsIgnoreCase(userType) ? "EDUCATION" : "BUSINESS";
     }
 
-    private String moduleOf(Long userId) {
-        return moduleFor(userRepository.findById(userId).map(User::getUserType).orElse(null));
+    /**
+     * B2B P0.5 — the location module for the tenant the user is actually working in.
+     *
+     * <p>Resolution order is the platform-wide one: the ACTIVE ORG's type, then the user's own type when the
+     * org has none (every tenant created before {@code Organization.type} was populated). Keeping the fallback
+     * is what makes this change invisible to existing tenants.
+     */
+    static String moduleForOrg(Organization activeOrg, String userType) {
+        String orgType = (activeOrg != null) ? activeOrg.getType() : null;
+        return moduleFor((orgType != null && !orgType.isBlank()) ? orgType : userType);
+    }
+
+    /**
+     * B2B P0.5 — the module for a user AS THEY ARE WORKING IN {@code orgId}. Prefer this everywhere an org
+     * is in scope: once one login can be active in another module's org, the person's own type stops being
+     * a reliable answer to "which module's locations are we talking about".
+     */
+    private String moduleOf(Long userId, Long orgId) {
+        return moduleForOrg(orgId == null ? null : organizationService.findById(orgId),
+                userRepository.findById(userId).map(User::getUserType).orElse(null));
     }
 
     /** Write one ACTIVE grant per location (skips duplicates). */
@@ -333,6 +354,10 @@ public class AuthService {
      *  pre-fill the picker when reassigning them; without this, assignment was a one-way door. */
     public java.util.List<Map<String, Object>> listOrgUsers(Long callerOrgId) {
         java.util.List<Map<String, Object>> out = new java.util.ArrayList<>();
+        // B2B P0.5: the module is a property of the ORG being listed, so resolve it ONCE here rather than
+        // per member from each person's own type — in a school, every row's grants are school branches even
+        // for a member whose userType says BUSINESS. (Also one findById instead of one per row.)
+        final Organization listOrg = (callerOrgId == null) ? null : organizationService.findById(callerOrgId);
         for (com.myplus.auth.entity.Membership m : organizationService.membersOf(callerOrgId)) {
             userRepository.findById(m.getUserId()).ifPresent(u -> {
                 Map<String, Object> row = new HashMap<>();
@@ -342,7 +367,7 @@ public class AuthService {
                 row.put("email", u.getEmail());
                 row.put("role", m.getRole());
                 row.put("enabled", u.isEnabled());
-                String module = moduleFor(u.getUserType());
+                String module = moduleForOrg(listOrg, u.getUserType());
                 row.put("locationIds", userLocationAccessRepository
                         .findByUserIdAndOrganizationIdAndStatus(u.getId(), callerOrgId, "ACTIVE").stream()
                         .filter(g -> module.equals(g.getModule()))
@@ -405,7 +430,7 @@ public class AuthService {
         String accessToken = jwtService.generateAccessToken(userDetails, claims);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
 
-        return buildAuthResponse(user, accessToken, refreshToken.getToken());
+        return buildAuthResponse(user, accessToken, refreshToken.getToken(), claims);
     }
 
     @Transactional
@@ -415,13 +440,30 @@ public class AuthService {
         refreshTokenService.verifyExpiration(token);
         User user = token.getUser();
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        String accessToken = jwtService.generateAccessToken(userDetails, buildClaims(user));
+        Map<String, Object> claims = buildClaims(user);
+        String accessToken = jwtService.generateAccessToken(userDetails, claims);
 
-        return buildAuthResponse(user, accessToken, token.getToken());
+        return buildAuthResponse(user, accessToken, token.getToken(), claims);
     }
 
-    /** Build the standard login/refresh response, including roles + flattened privileges (Model A). */
-    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
+    /**
+     * Build the standard login/refresh response, including roles + flattened privileges (Model A).
+     *
+     * <p>B2B P0.5: takes the claims that were just minted rather than re-deriving anything, so the response
+     * body and the token it accompanies can never disagree about the active tenant. Clients that build a
+     * principal from the response (the monolith does — see {@code AuthServerAuthenticationProvider}) then see
+     * exactly what the token says.
+     */
+    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken,
+                                           Map<String, Object> claims) {
+        Object orgType = (claims != null) ? claims.get("activeOrgType") : null;
+        return buildAuthResponseBuilder(user, accessToken, refreshToken)
+                .activeOrgType(orgType != null ? orgType.toString() : null)
+                .build();
+    }
+
+    private AuthResponse.AuthResponseBuilder buildAuthResponseBuilder(User user, String accessToken,
+                                                                      String refreshToken) {
         return AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -434,8 +476,7 @@ public class AuthService {
                 .roles(CustomUserDetailsService.getRoleNames(user.getRoles()))
                 .privileges(CustomUserDetailsService.getPrivilegeNames(user.getRoles()))
                 .twoFactorRequired(false)
-                .demo(user.isDemo())
-                .build();
+                .demo(user.isDemo());
     }
 
     @Transactional
@@ -528,6 +569,12 @@ public class AuthService {
         claims.put("privileges", new ArrayList<>(CustomUserDetailsService.getPrivilegeNames(user.getRoles())));
         // Active tenant the request is scoped to. The gateway copies this into X-Org-Id.
         claims.put("activeOrgId", activeOrg != null ? activeOrg.getId() : null);
+        // B2B P0.5: which MODULE that tenant is (BUSINESS/PHARMA/MARKETPLACE/EDUCATION/WELFARE/AGRICULTURE/
+        // APPOINTMENT) — the same vocabulary as User.userType, deliberately, so the two can never drift into
+        // separate dialects. This is what lets ONE login reach every module: routing follows the org the user
+        // is working in, not the single type stamped on the person. NULL for tenants created before the column
+        // was populated; every consumer falls back to userType, which is exactly today's behaviour.
+        claims.put("activeOrgType", activeOrg != null ? activeOrg.getType() : null);
         // Tenant entitlement (slice 32): the plan is the source of truth for limits; trialEndsAt time-boxes
         // a TRIAL. The gateway will move from the demo boolean to these without a breaking change.
         if (activeOrg != null) {
@@ -565,7 +612,11 @@ public class AuthService {
         if (activeOrg != null) {
             // Only this user's own vertical: a school id and a store id are both just numbers, so mixing
             // modules here would hand an education user "access" to a same-numbered store.
-            String module = moduleFor(user.getUserType());
+            // B2B P0.5: read the module from the ACTIVE ORG, falling back to userType. Once one login can be
+            // active in another module's org, userType and the org's module disagree — and filtering by the
+            // person's type would select the wrong module's grants, which is precisely what the line above
+            // exists to prevent. The safety property is unchanged; only where we learn the module has moved.
+            String module = moduleForOrg(activeOrg, user.getUserType());
             var grants = userLocationAccessRepository
                     .findByUserIdAndOrganizationIdAndStatus(user.getId(), activeOrg.getId(), "ACTIVE");
             var seen = new java.util.LinkedHashSet<Long>();
@@ -596,9 +647,10 @@ public class AuthService {
             throw new ValidationException("Not a member of the requested organization");
         }
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        String accessToken = jwtService.generateAccessToken(userDetails, buildClaims(user, orgId));
+        Map<String, Object> claims = buildClaims(user, orgId);
+        String accessToken = jwtService.generateAccessToken(userDetails, claims);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
-        return buildAuthResponse(user, accessToken, refreshToken.getToken());
+        return buildAuthResponse(user, accessToken, refreshToken.getToken(), claims);
     }
 
     /**
@@ -614,7 +666,9 @@ public class AuthService {
         if (orgId == null || !organizationService.isMember(userId, orgId)) {
             throw new ValidationException("Not a member of the active organization");
         }
-        String module = moduleFor(user.getUserType());
+        // B2B P0.5: same resolution as addLocationClaims — the grant check must ask about the module of the
+        // org being worked in, or a user active in another module's org is refused their own store.
+        String module = moduleForOrg(organizationService.findById(orgId), user.getUserType());
         boolean holdsGrant = userLocationAccessRepository
                 .findByUserIdAndOrganizationIdAndStatus(userId, orgId, "ACTIVE").stream()
                 .filter(g -> module.equals(g.getModule()))
@@ -623,17 +677,19 @@ public class AuthService {
             throw new ValidationException("You do not have access to that store.");
         }
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
-        String accessToken = jwtService.generateAccessToken(userDetails,
-                buildClaims(user, organizationService.findById(orgId), locationId));
+        Map<String, Object> claims = buildClaims(user, organizationService.findById(orgId), locationId);
+        String accessToken = jwtService.generateAccessToken(userDetails, claims);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
-        return buildAuthResponse(user, accessToken, refreshToken.getToken());
+        return buildAuthResponse(user, accessToken, refreshToken.getToken(), claims);
     }
 
     /** The caller's location grants in the active org (id + role) — feeds the store/branch switcher. */
     public java.util.List<Map<String, Object>> myLocations(Long userId, Long orgId) {
         java.util.List<Map<String, Object>> out = new java.util.ArrayList<>();
         if (orgId == null) return out;
-        String module = moduleOf(userId);
+        // B2B P0.5: must match addLocationClaims exactly — if the switcher's list and the token's claims
+        // disagreed about the module, the UI would offer a store the token refuses to accept.
+        String module = moduleOf(userId, orgId);
         for (var g : userLocationAccessRepository.findByUserIdAndOrganizationIdAndStatus(userId, orgId, "ACTIVE")) {
             if (!module.equals(g.getModule())) continue;
             Map<String, Object> row = new HashMap<>();

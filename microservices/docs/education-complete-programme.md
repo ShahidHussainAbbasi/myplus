@@ -142,9 +142,13 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 
 ### Phase 2 — Daily teaching operations
 
+> **Phase 2 is the current phase** (Phase 1 complete 2026-08-01, education review closed the same day).
+> 2.1 is the keystone: 2.2 substitution reads the timetable, and 2.3 staff attendance is what makes a
+> substitution necessary — so the order below is a dependency chain, not a preference.
+
 | Slice | What |
 |---|---|
-| **2.1** | **Timetable** — class × period × subject × teacher × room, with clash detection |
+| **2.1** 📐 **design** | **Timetable** — class × period × subject × teacher × room, with clash detection — `slices/edu-2.1-timetable.md` |
 | **2.2** | **Substitution** — cover an absent teacher from the timetable |
 | **2.3** | **Staff attendance & leave** — presence, leave types, balances |
 | **2.4** | **Homework / assignments** — set, submit, mark (attachments via `document-service`) |
@@ -318,7 +322,8 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 1.4 grading scales | ✅ done | `slices/edu-1.4-grading-scales.md` | `education/grading.cy.js` |
 | 1.5 report cards | ✅ done | `slices/edu-1.5-report-cards.md` | `education/report-cards.cy.js` |
 | 1.6 promotion | ✅ done — **Phase 1 complete** | `slices/edu-1.6-promotion.md` | `education/promotion.cy.js` |
-| **finding D — analytics perf** | 🔨 **implemented, awaiting `mvn` + gate** | `slices/edu-D-analytics-perf.md` | `education/dashboard.cy.js` (unchanged) + `analytics-perf.cy.js` |
+| finding D — analytics perf | ✅ done — **the education review is CLOSED** | `slices/edu-D-analytics-perf.md` | `education/dashboard.cy.js` (unchanged) + `analytics-perf.cy.js` |
+| **2.1 timetable** | 📐 **design, awaiting approval** | `slices/edu-2.1-timetable.md` | `education/timetable.cy.js` |
 
 ### Carried requirements (must not be lost between slices)
 

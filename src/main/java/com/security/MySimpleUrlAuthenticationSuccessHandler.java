@@ -17,7 +17,6 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.stereotype.Component;
 
 import com.persistence.model.User;
-import com.web.util.AppUtil;
 
 @Component("myAuthenticationSuccessHandler")
 public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
@@ -28,9 +27,6 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
     @Autowired
     ActiveUserStore activeUserStore;
     
-    @Autowired
-    AppUtil appUtil;
-
     @Override
     public void onAuthenticationSuccess(final HttpServletRequest request, final HttpServletResponse response, final Authentication authentication) throws IOException {
         handle(request, response, authentication);
@@ -92,29 +88,17 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
 //        }
 //    }
 
-    // Dashboards that actually exist in the monolith UI. A userType that maps to one of these lands on
-    // its dashboard; any other (e.g. a microservice demo account without a monolith UI yet) falls back
-    // to the landing page so it never 404s.
-    private static final java.util.Set<String> KNOWN_DASHBOARDS = java.util.Set.of(
-            "/businessDashboard", "/educationDashboard", "/welfareDashboard",
-            "/agricultureDashboard", "/appointmentDashboard");
-
-    // Commerce verticals all share the ONE dashboard (/businessDashboard), white-labelled by user type
-    // (POS=BUSINESS, Pharmacy=PHARMA, Store=ECOMMERCE) — slice 36. No per-vertical routes.
-    private static final java.util.Set<String> COMMERCE_TYPES = java.util.Set.of("BUSINESS", "PHARMA", "MARKETPLACE");
-
-    //Navigate user to the dash board on the base of user type
+    /**
+     * Navigate the user to their dashboard.
+     *
+     * <p>B2B P0.5: the type&rarr;dashboard map moved to {@link com.web.util.ModuleRouter}, which is now the
+     * single implementation shared with {@code AppController.dashboard()}. The two used to keep their own
+     * copies and had already drifted (APPOINTMENT routed here but not there). Routing also now prefers the
+     * ACTIVE ORG's module over the user's own type, so one login reaches every module it belongs to.
+     */
     protected String determineTargetUrl(final Authentication authentication) {
-             if (authentication.getPrincipal() instanceof User) {
-        	 User user = ((User)authentication.getPrincipal());
-        	 if(!appUtil.isEmptyOrNull(user) && !appUtil.isEmptyOrNull(user.getUserType())){
-        	         String type = user.getUserType().toUpperCase();
-        	         if (COMMERCE_TYPES.contains(type)) return "/businessDashboard";  // one shared commerce dashboard
-            		 String dash = "/"+user.getUserType().toLowerCase()+"Dashboard";
-            		 return KNOWN_DASHBOARDS.contains(dash) ? dash : "/";
-            }else {
-                return "/";
-            }
+        if (authentication.getPrincipal() instanceof User) {
+            return com.web.util.ModuleRouter.dashboardFor((User) authentication.getPrincipal());
         } else {
             throw new IllegalStateException();
         }
