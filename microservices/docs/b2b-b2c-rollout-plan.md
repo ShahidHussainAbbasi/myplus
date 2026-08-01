@@ -1,6 +1,7 @@
 # B2B + B2C — what exists today, and how to start both
 
-**Status:** ANALYSIS — for review before any code.
+**Status:** IN DELIVERY — **Phase 0 DONE & Cypress-green (2026-08-01)**; Phase 0.5 is next.
+Per-phase state is tracked in the Delivery phases section below; the slice doc for each shipped phase is linked there. Analysis sections 1-3b remain as written unless a finding contradicts them.
 **Companion to:** [`oms-b2b-b2c-implementation-plan.md`](oms-b2b-b2c-implementation-plan.md) (gap analysis),
 [`oms-program-plan.md`](oms-program-plan.md) (tracker), [`customer-requirements-plan.md`](customer-requirements-plan.md)
 (the 12 customer requirements).
@@ -184,26 +185,46 @@ surfaces — no second model.
 Both channels progress together: each phase either completes B2C or adds the B2B counterpart, and every
 phase ships behind defaults that preserve today's behaviour.
 
-### Phase 0 — Foundation + quick wins *(days)*
-- `CustomerType` enum + Flyway (all existing → **B2C**) · B2B toggle on the customer form
-- Customer requirements **#3** (submit-time margin check), **#8** (purchase-side dues), **#13** (promo, off by default)
-- Mark OMS Phase 0 ✅ — **G2 is already done** (`saleReturn` restores inventory via the saga)
+### Phase 0 — Foundation + quick wins — ✅ **DONE, Cypress-green 2026-08-01**
+Slice doc: `slices/b2b-P0-customer-type.md` · gate: `cypress/e2e/business/b2b-customer-type.cy.js`
+- ✅ `CustomerType` + `Customer.customerType` + business-service **V29** (additive nullable, backfill, index, `information_schema`-guarded)
+- ✅ **#3** whole-invoice margin check — `pos.sale.marginPolicy` (`off|warn|block`, default **warn**), enforced before any stock reservation
+- ✅ **#8** vendor dues on the purchase screen, via `data-due` on the vendor options (no extra round trip)
+- ✅ **#13** promo footer — `pos.receipt.showPromo`, **off** by default
+- ✅ i18n ×6 bundles · `MarginPolicyTest` + `CustomerTypeTest` on `mvn test`
+- ✅ OMS Phase 0 marked — **G2 already done** (`saleReturn` restores inventory via the saga)
 
-*Delivers:* the flag everything else keys off, plus three visible wins. Nothing behaves differently yet.
+**Two deviations from this plan, deliberate:**
+1. **Four types, not a two-value B2C/B2B enum.** `WALK_IN`/`VIP` = B2C, `RETAILER`/`WHOLESALE` = B2B, with the
+   channel **derived** (`CustomerType.channel()`). A shopkeeper sets *how they serve a customer*, not an
+   abstract channel; a separate channel column could disagree with the type and nothing would arbitrate.
+   Existing rows backfill to `WALK_IN`, which is the same "everything is B2C today" the plan intended.
+2. **Receipt-vs-invoice by `customerType` moved to Phase 3**, with the rest of the document work. Nothing in
+   Phase 0 reads the channel yet — Phase 0 only establishes it.
 
-### Phase 1 — B2B accounts & credit *(= OMS B4, customer req #9)*
+*Delivered:* the flag everything else keys off, plus three visible wins. Nothing behaves differently unless
+an owner changes a setting.
+
+**Carried forward (not blockers):** D2 migration test (Testcontainers V29 replay) still unticked;
+`company.cy.js` reads `res.body.data`, which `GenericResponse` does not have (lists land in `collection`), so
+its vendor test silently skips and its cleanup never finds its company — pre-existing, awaiting the user's call.
+
+### Phase 0.5 — one login reaches every module *(next)*
+- Route on the active org's type so a live customer on two modules does not need two accounts
+
+### Phase 1 — B2B accounts & credit — ⬜ not started *(= OMS B4, customer req #9)*
 - Credit limit + payment terms on the customer (party-service owns the account; finance owns the balance)
 - Credit check at order validation → **warn** (configurable `off | warn | block`)
 - Inline on the sell screen, beside the dues block that already exists
 
 *Delivers:* controlled credit selling. Statements and ageing already exist and light up immediately.
 
-### Phase 2 — B2B pricing *(= OMS B1, customer req #10)*
+### Phase 2 — B2B pricing — ⬜ not started *(= OMS B1, customer req #10)*
 - Price lists: customer-specific and volume tiers, in catalog + a `commerce-pricing` library
 - Resolution order **base → contract → tier → promotion**, cached off the sell hot path
 - Covers customer-wise *and* product-wise discount in one model rather than two
 
-### Phase 3 — Documents & reports *(customer reqs #1, #4, #5, #6, #2)*
+### Phase 3 — Documents & reports — ⬜ not started *(customer reqs #1, #4, #5, #6, #2; + receipt-vs-invoice, moved from Phase 0)*
 - **F1** batch/expiry captured on purchase → **#2**, then **#4** receipt lines
 - Return series `CRN-`/`DBN-` → **#1**
 - Statement/invoice PDF+CSV download → **#5** (`jspdf` already vendored)

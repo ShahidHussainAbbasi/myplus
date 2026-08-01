@@ -1,6 +1,8 @@
 # Customer requirements — review, analysis & implementation plan
 
-**Status:** ANALYSIS v2 — reconciled with your answers and with the existing OMS program.
+**Status:** IN DELIVERY — **#3, #8, #13 SHIPPED** in B2B Phase 0 (Cypress-green 2026-08-01); the rest
+unchanged. Delivery state per requirement is the **State** column in §3; the plan of record for sequencing
+is `b2b-b2c-rollout-plan.md`.
 **Scope:** 12 requirements (1–13, no 12) for POS / Retail + Pharmacy.
 **Method:** every claim checked against the code and against the OMS docs — not assumed.
 
@@ -49,20 +51,20 @@ You confirmed a booker **is** a supplier. That removes the new-party-type proble
 
 ## 3. Revised effort
 
-| # | Requirement | Today | Effort | Home |
-|---|---|---|---|---|
-| 3 | Consent when profit ≤ 0 | 🟢 **built** | XS (verify + submit-time check) | business-service |
-| 8 | Previous dues on sale/purchase | 🟢 built on sale | XS (purchase side) | monolith UI |
-| 13 | MaxTheService promo | 🔴 new | XS | receipt/statement renderer |
-| 1 | Return invoices | 🟡 returns work | S | business-service |
-| 4 | Receipt: batch, expiry, prev. bal, line no. | 🟡 | S (after F1) | receipt.js |
-| 5 | Statement download | 🟡 on-screen only | S | monolith UI |
-| 2 | Batch # on purchase | 🔴 fields commented out | M | **F1 — do first** |
-| 7 | Stock cap + expiry e-mail | 🟡 alerts exist | M | inventory + notification |
-| 9 | Dues limit | 🔴 | M | **= OMS B4** |
-| 10 | Customer/product discount | 🔴 | M | **= OMS B1** |
-| 11 | Supplier targets & bonuses | 🔴 | M *(was L)* | business-service |
-| 6 | Multi-dimension reports | 🟡 one report | M *(was L)* | **= F2** |
+| # | Requirement | Today | Effort | Home | **State** |
+|---|---|---|---|---|---|
+| 3 | Consent when profit ≤ 0 | 🟢 **built** | XS (verify + submit-time check) | business-service | ✅ **SHIPPED** B2B P0 — `pos.sale.marginPolicy`, default `warn` |
+| 8 | Previous dues on sale/purchase | 🟢 built on sale | XS (purchase side) | monolith UI | ✅ **SHIPPED** B2B P0 — `data-due` on vendor options |
+| 13 | MaxTheService promo | 🔴 new | XS | receipt/statement renderer | ✅ **SHIPPED** B2B P0 — `pos.receipt.showPromo`, off by default |
+| 1 | Return invoices | 🟡 returns work | S | business-service | ⬜ Phase 3 |
+| 4 | Receipt: batch, expiry, prev. bal, line no. | 🟡 | S (after F1) | receipt.js | ⬜ Phase 3 (needs F1) |
+| 5 | Statement download | 🟡 on-screen only | S | monolith UI | ⬜ Phase 3 |
+| 2 | Batch # on purchase | 🔴 fields commented out | M | **F1 — do first** | ⬜ Phase 3 — **gates #4** |
+| 7 | Stock cap + expiry e-mail | 🟡 alerts exist | M | inventory + notification | ⬜ unscheduled |
+| 9 | Dues limit | 🔴 | M | **= OMS B4** | ⬜ **Phase 1** |
+| 10 | Customer/product discount | 🔴 | M | **= OMS B1** | ⬜ **Phase 2** |
+| 11 | Supplier targets & bonuses | 🔴 | M *(was L)* | business-service | ⬜ unscheduled |
+| 6 | Multi-dimension reports | 🟡 one report | M *(was L)* | **= F2** | ⬜ Phase 3 |
 
 **#6 dropped from L to M** on your clarification: *"option to select or add filter to view/export"* is a
 **filterable report with column/dimension selection** — not an interactive pivot engine. That is a

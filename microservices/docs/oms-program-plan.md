@@ -23,7 +23,7 @@ Branch **`feature/oms`**. Update the status column as slices land.
 | Track | Scope | Status |
 |---|---|---|
 | **A — Config/Authz rollout** | `common-settings` → catalog/inventory/finance/pharma/marketplace/appointment; finish `@PreAuthorize` tail | ⬜ |
-| **B — B2B commercial** | account hierarchy+roles (party) → contract/tiered pricing + `/price/calculate` (catalog + `commerce-pricing`) → quotes→approval→order → credit limits/terms (finance AR) | ⬜ |
+| **B — B2B commercial** | account hierarchy+roles (party) → contract/tiered pricing + `/price/calculate` (catalog + `commerce-pricing`) → quotes→approval→order → credit limits/terms (finance AR) | 🟡 **foundation landed** — `Customer.customerType` ships in B2B Phase 0 (✅ green 2026-08-01, branch `feature/b2b-b2c`). **B4 credit limits = B2B Phase 1, B1 pricing = B2B Phase 2** — plan of record is [`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md); do NOT build them standalone here or the work is done twice |
 | **C — Platform** | event broker + **CQRS analytics read-model** → hash-chained audit → metrics/SLOs → object storage → API versioning → shared `config-screen.js` | ⬜ |
 
 ## Housekeeping / prerequisites

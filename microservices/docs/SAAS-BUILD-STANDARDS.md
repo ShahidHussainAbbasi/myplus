@@ -211,7 +211,11 @@ fulfillment.
 
 ---
 
-## 3. Where we are (status, 2026-06-27)
+## 3. Where we are (status, 2026-08-01)
+
+**In flight:** **B2B/B2C rollout** — Phase 0 ✅ green 2026-08-01 (`feature/b2b-b2c`); plan of record
+[`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md). Also open: `feature/education-review` (finding B),
+`feature/pharmacy-review` (step 6), OMS O1 (design awaiting approval).
 
 **Phase 1 — POS / shared core: DONE, all headed-Cypress green.**
 G1 expired-stock block · G2 returns→inventory · G3 tax engine · G5 payments/tender · G6 receipts · day-close
