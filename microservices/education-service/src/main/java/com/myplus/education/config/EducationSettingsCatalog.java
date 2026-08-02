@@ -107,7 +107,23 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                                 + "term is flagged as ineligible on the marksheet and the report card. It is "
                                 + "a FLAG, not a block: students are not registered for papers individually, "
                                 + "so there is nothing for the system to refuse — the school acts on it.",
-                        0, "Promotion")
+                        0, "Promotion"),
+                // ── Slice 2.3: staff attendance & leave. The leave TYPES are an entity (a list); only
+                // these two scalar policies live here — the 1.1/1.4 split applied again.
+                SettingEntry.intOf("edu.attendance.staffGraceMinutes",
+                        "Lateness grace period (minutes)",
+                        "How long after their contracted start a staff member may arrive before the "
+                                + "register records LATE instead of PRESENT. Derived when the register is "
+                                + "marked, so the threshold is one org-wide policy rather than a judgement "
+                                + "made row by row.",
+                        15, "Staff attendance"),
+                SettingEntry.bool("edu.leave.requireApproval",
+                        "Leave requests need approval",
+                        "On (default): a request is submitted as PENDING and a head approves it. Off: it is "
+                                + "recorded as approved immediately — for small schools where the person "
+                                + "entering it is the person deciding. Either way the approved days become "
+                                + "absences, so the substitution screen knows which lessons need cover.",
+                        true, "Staff attendance")
         );
     }
 }

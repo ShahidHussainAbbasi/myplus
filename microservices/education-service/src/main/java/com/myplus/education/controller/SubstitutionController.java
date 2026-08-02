@@ -22,6 +22,7 @@ import com.myplus.education.repository.*;
 import com.myplus.education.service.ClashDetector;
 import com.myplus.education.service.FreeTeacherFinder;
 import com.myplus.education.service.FreeTeacherFinder.Candidate;
+import com.myplus.education.service.StaffAbsenceService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
@@ -47,6 +48,7 @@ public class SubstitutionController {
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private GradeRepository gradeRepository;
     @Autowired private StaffRepository staffRepository;
+    @Autowired private StaffAbsenceService staffAbsenceService;   // 2.3: the ONE absence cascade
     @Autowired private RequestUtil requestUtil;
     @Autowired private AppUtil appUtil;
 
@@ -191,49 +193,19 @@ public class SubstitutionController {
             Staff staff = staffRepository.findByIdScoped(staffId, org, uid).orElse(null);
             if (staff == null) return new GenericResponse("NOT_FOUND", "Teacher not found");
 
-            // Idempotent: marking someone absent twice is a double-click, not an error.
-            if (staffAbsenceRepository.findOneScoped(staffId, date, org, uid).isPresent()) {
-                return new GenericResponse("SUCCESS", staff.getName() + " is already marked absent");
-            }
-            staffAbsenceRepository.save(StaffAbsence.builder()
-                    .staffId(staffId)
-                    .staffName(staff.getName())
-                    .absenceDate(date)
-                    .reason(StringUtils.hasText(request.getParameter("reason"))
-                            ? request.getParameter("reason").trim() : null)
-                    .userId(uid).organizationId(org)
-                    .dated(LocalDateTime.now()).updated(LocalDateTime.now())
-                    .build());
-
-            // Their lessons that day become explicitly UNCOVERED (D5) rather than silently missing.
-            int opened = openUncoveredLessons(org, uid, staffId, date,
-                    parseLong(request.getParameter("termId")));
+            // Delegated to StaffAbsenceService (extracted in 2.3): opening an absence is now reachable
+            // from the register and from leave approval too, and three copies of this cascade would drift
+            // into an unsupervised classroom. Idempotent — a double-click is not an error.
+            int opened = staffAbsenceService.openAbsence(org, uid, staffId, staff.getName(), date,
+                    StringUtils.hasText(request.getParameter("reason"))
+                            ? request.getParameter("reason").trim() : null,
+                    null);
             return new GenericResponse("SUCCESS",
                     staff.getName() + " marked absent — " + opened + " lesson(s) need cover");
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
         }
-    }
-
-    /** Write an UNCOVERED row per lesson the absent teacher was due to take that day. */
-    private int openUncoveredLessons(Long org, Long uid, Long staffId, LocalDate date, Long termId) {
-        DayOfWeek day = date.getDayOfWeek();
-        int n = 0;
-        for (TimetableEntry e : timetableEntryRepository.findByTermScoped(termId, org, uid)) {
-            if (!staffId.equals(e.getStaffId()) || e.getDayOfWeek() != day) continue;
-            if (substitutionRepository.findOneScoped(e.getId(), date, org, uid).isPresent()) continue;
-            substitutionRepository.save(Substitution.builder()
-                    .timetableEntryId(e.getId())
-                    .subDate(date)
-                    .absentStaffId(staffId)
-                    .status(SubstitutionStatus.UNCOVERED)
-                    .userId(uid).organizationId(org)
-                    .dated(LocalDateTime.now()).updated(LocalDateTime.now())
-                    .build());
-            n++;
-        }
-        return n;
     }
 
     /**
@@ -252,16 +224,9 @@ public class SubstitutionController {
             StaffAbsence absence = staffAbsenceRepository.findByIdScoped(id, org, uid).orElse(null);
             if (absence == null) return new GenericResponse("NOT_FOUND", "Absence not found");
 
-            int cancelled = 0;
-            for (Substitution s : substitutionRepository.findByDateScoped(absence.getAbsenceDate(), org, uid)) {
-                if (!Objects.equals(s.getAbsentStaffId(), absence.getStaffId())) continue;
-                if (s.getStatus() == SubstitutionStatus.CANCELLED) continue;
-                s.setStatus(SubstitutionStatus.CANCELLED);
-                s.setUpdated(LocalDateTime.now());
-                substitutionRepository.save(s);
-                cancelled++;
-            }
-            staffAbsenceRepository.delete(absence);
+            // Same cascade, one owner (2.3): substitutions become CANCELLED and are KEPT, because the
+            // school acted on them; the absence itself is a fact that turned out false, so it goes.
+            int cancelled = staffAbsenceService.clearAbsence(org, uid, absence);
             return new GenericResponse("SUCCESS",
                     "Absence cleared — " + cancelled + " substitution(s) cancelled");
         } catch (Exception e) {

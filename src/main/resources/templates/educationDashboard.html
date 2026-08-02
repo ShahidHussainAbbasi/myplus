@@ -59,6 +59,8 @@
 					<option value="PromotionDiv" th:text="#{ui.promotion}">Promotion</option>
 					<option value="TimetableDiv" th:text="#{ui.timetable}">Timetable</option>
 					<option value="SubstitutionDiv" th:text="#{ui.substitution}">Substitution</option>
+					<option value="StaffRegisterDiv" th:text="#{ui.staffRegister}">Staff Register</option>
+					<option value="LeaveDiv" th:text="#{ui.leave}">Leave</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
 					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
 					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
@@ -121,6 +123,10 @@
 									<li><a onclick="snavGo('registrationType','TimetableDiv','snavRegister')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.timetable}">Timetable</span></a></li>
 									<!-- Slice 2.2: everyone reads today's cover list; only ADMIN assigns it (enforced server-side). -->
 									<li><a onclick="snavGo('registrationType','SubstitutionDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.substitution}">Substitution</span></a></li>
+									<!-- Slice 2.3: the register is ADMIN (it decides who was paid to be here);
+									     Leave is open because a teacher requests their own. -->
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffRegisterDiv','snavRegister')"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.staffRegister}">Staff Register</span></a></li>
+									<li><a onclick="snavGo('registrationType','LeaveDiv','snavRegister')"><span class="glyphicon glyphicon-plane"></span> <span th:text="#{ui.leave}">Leave</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
@@ -2659,6 +2665,122 @@
 						<tbody></tbody>
 					</table>
 				</div>
+			</div>
+
+			<!-- Slice 2.3 — the staff register. Marking ABSENT or LEAVE writes 2.2's StaffAbsence, so the
+			     lessons appear on the substitution screen immediately; correcting to PRESENT clears it. -->
+			<div id="StaffRegisterDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+				<h4 th:text="#{ui.staffRegister}">Staff Register</h4>
+				<p class="text-muted" th:text="#{ui.staffRegisterHelp}">Mark who was in today. Anyone marked absent or on leave appears on the Substitution screen with their lessons needing cover. Lateness is worked out from each person's contracted start time plus the grace period in Configuration.</p>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="srDate" th:text="#{ui.date}">Date</label>
+						<input type="date" class="form-control" id="srDate" onchange="loadStaffRegister()">
+					</div>
+					<div class="col-sm-9" style="padding-top:24px">
+						<button type="button" class="btn btn-success" onclick="saveStaffRegister()" th:text="#{ui.saveRegister}">Save register</button>
+						<button type="button" class="btn btn-default" onclick="markAllPresent()" th:text="#{ui.allPresent}">All present</button>
+					</div>
+				</div>
+
+				<div id="srMsg" class="alert" style="display:none"></div>
+				<table id="tableStaffRegister" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.teacher}">Teacher</th>
+						<th th:text="#{ui.designation}">Designation</th>
+						<th th:text="#{ui.status}">Status</th>
+						<th th:text="#{ui.timeIn}">Time in</th>
+						<th th:text="#{ui.remarks}">Remarks</th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+
+			<!-- Slice 2.3 — leave. Requesting is open (a teacher asks for their own); deciding is ADMIN,
+			     because an approval writes absences that pull other teachers into cover. -->
+			<div id="LeaveDiv" class="formDiv">
+				<h4 th:text="#{ui.leave}">Leave</h4>
+				<p class="text-muted" th:text="#{ui.leaveHelp}">Request time off and track balances. A balance is worked out from approved requests — it is never stored, so it cannot drift. A request over the balance is still recorded; the overage is shown to whoever approves it.</p>
+
+				<div id="lvMsg" class="alert" style="display:none"></div>
+
+				<!-- Leave types (ADMIN) -->
+				<div sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+					<h5 th:text="#{ui.leaveTypes}">Leave types</h5>
+					<div class="row" style="margin-bottom:14px">
+						<div class="col-sm-3">
+							<label for="ltName" th:text="#{ui.leaveTypeName}">Type name</label>
+							<input type="text" class="form-control" id="ltName" placeholder="Casual">
+						</div>
+						<div class="col-sm-2">
+							<label for="ltQuota" th:text="#{ui.annualQuota}">Days per year</label>
+							<input type="number" class="form-control" id="ltQuota" min="0">
+						</div>
+						<div class="col-sm-3" style="padding-top:24px">
+							<label style="font-weight:normal"><input type="checkbox" id="ltPaid" checked> <span th:text="#{ui.paidLeave}">Paid</span></label>
+							<button type="button" class="btn btn-success" onclick="saveLeaveType()" th:text="#{ui.addLeaveType}">Add type</button>
+						</div>
+					</div>
+					<table id="tableLeaveTypes" class="table table-bordered table-striped">
+						<thead><tr>
+							<th th:text="#{ui.leaveTypeName}">Type</th>
+							<th th:text="#{ui.annualQuota}">Days per year</th>
+							<th th:text="#{ui.paidLeave}">Paid</th>
+							<th></th>
+						</tr></thead>
+						<tbody></tbody>
+					</table>
+				</div>
+
+				<!-- Request -->
+				<h5 style="margin-top:20px" th:text="#{ui.requestLeave}">Request leave</h5>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="lrStaff" th:text="#{ui.teacher}">Teacher</label>
+						<select class="form-control" id="lrStaff" onchange="loadLeaveBalances()"></select>
+					</div>
+					<div class="col-sm-2">
+						<label for="lrType" th:text="#{ui.leaveTypeName}">Type</label>
+						<select class="form-control" id="lrType"></select>
+					</div>
+					<div class="col-sm-2">
+						<label for="lrFrom" th:text="#{ui.fromDate}">From</label>
+						<input type="date" class="form-control" id="lrFrom">
+					</div>
+					<div class="col-sm-2">
+						<label for="lrTo" th:text="#{ui.toDate}">To</label>
+						<input type="date" class="form-control" id="lrTo">
+					</div>
+					<div class="col-sm-3" style="padding-top:24px">
+						<button type="button" class="btn btn-primary" onclick="saveLeaveRequest()" th:text="#{ui.submitRequest}">Submit</button>
+					</div>
+				</div>
+
+				<h5 th:text="#{ui.balances}">Balances</h5>
+				<table id="tableLeaveBalances" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.leaveTypeName}">Type</th>
+						<th th:text="#{ui.annualQuota}">Days per year</th>
+						<th th:text="#{ui.taken}">Taken</th>
+						<th th:text="#{ui.remaining}">Remaining</th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+
+				<h5 style="margin-top:20px" th:text="#{ui.leaveRequests}">Requests</h5>
+				<table id="tableLeaveRequests" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.teacher}">Teacher</th>
+						<th th:text="#{ui.leaveTypeName}">Type</th>
+						<th th:text="#{ui.fromDate}">From</th>
+						<th th:text="#{ui.toDate}">To</th>
+						<th th:text="#{ui.days}">Days</th>
+						<th th:text="#{ui.status}">Status</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
 			</div>
 
 			<!-- Slice 2.2 — substitution. The morning screen: who is out, and who covers their lessons.

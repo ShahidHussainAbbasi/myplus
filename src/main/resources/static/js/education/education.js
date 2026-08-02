@@ -3474,6 +3474,268 @@ function applyGradingPreset() {
 	});
 }
 
+/* ══ Slice 2.3 — Staff register & Leave ═══════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-2.3-staff-attendance-leave.md
+ *
+ * Two screens, one join: marking ABSENT/LEAVE on the register, and approving a leave request, BOTH write
+ * 2.2's staff absence — so the substitution screen learns about it either way. The server owns that
+ * convergence; this file just reports what it says.
+ *
+ * Balances are DERIVED server-side. Nothing here caches them, and `remaining: null` means UNCAPPED — it
+ * must never render as 0, which would read as "none left".
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'StaffRegisterDiv') loadStaffRegisterScreen();
+	if (this.value === 'LeaveDiv') loadLeaveScreen();
+});
+
+var SR_STATUSES = ['PRESENT', 'ABSENT', 'LATE', 'HALF_DAY', 'LEAVE'];
+
+function srMessage(msg, cls) {
+	var $m = $('#srMsg');
+	if (!msg) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(msg).show();
+}
+
+function lvMessage(msg, cls) {
+	var $m = $('#lvMsg');
+	if (!msg) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(msg).show();
+}
+
+function loadStaffRegisterScreen() {
+	if (!$('#srDate').val()) $('#srDate').val(new Date().toISOString().slice(0, 10));
+	loadStaffRegister();
+}
+
+function loadStaffRegister() {
+	$.get(serverContext + 'getStaffRegister', { date: $('#srDate').val() }, function (res) {
+		if (!res || res.status !== 'SUCCESS' || !res.object) {
+			srMessage((res && res.message) || t('ui.js.srCouldNotLoad'), 'alert-danger');
+			return;
+		}
+		srMessage('');
+		var $body = $('#tableStaffRegister tbody').empty();
+		(res.object.rows || []).forEach(function (r) {
+			var $sel = $('<select class="form-control input-sm srStatus">')
+				.attr('data-staff', r.staffId)
+				.append($('<option>').val('').text('—'));
+			SR_STATUSES.forEach(function (s) {
+				$sel.append($('<option>').val(s).text(t('ui.js.sr' + s)));
+			});
+			$sel.val(r.status || '');
+
+			var $in = $('<input type="time" class="form-control input-sm srTimeIn">')
+				.attr('data-staff', r.staffId).val(r.timeIn || '');
+			var $rem = $('<input type="text" class="form-control input-sm srRemarks">')
+				.attr('data-staff', r.staffId).val(r.remarks || '');
+
+			$body.append($('<tr>')
+				.append($('<td>').text(r.staffName || ''))
+				.append($('<td>').text(r.designation || ''))
+				.append($('<td>').append($sel))
+				// Shown so it is clear what LATE is measured against — the server derives it, not the clerk.
+				.append($('<td>').append($in).append(r.contractedIn
+					? $('<div>').addClass('text-muted').text(t('ui.js.srDueAt') + ' ' + r.contractedIn) : ''))
+				.append($('<td>').append($rem)));
+		});
+		if (!(res.object.rows || []).length) {
+			$body.append($('<tr>').append($('<td colspan="5">').addClass('text-muted')
+				.text(t('ui.js.srNoStaff'))));
+		}
+	});
+}
+
+function markAllPresent() {
+	$('#tableStaffRegister tbody .srStatus').val('PRESENT');
+}
+
+function saveStaffRegister() {
+	var rows = [];
+	$('#tableStaffRegister tbody .srStatus').each(function () {
+		if (!this.value) return;   // unmarked stays unmarked; blank is not a status
+		var id = this.getAttribute('data-staff');
+		rows.push({
+			staffId: Number(id),
+			status: this.value,
+			timeIn: $('.srTimeIn[data-staff="' + id + '"]').val(),
+			remarks: $('.srRemarks[data-staff="' + id + '"]').val()
+		});
+	});
+	if (!rows.length) { ayNotify(t('ui.js.srNothingMarked')); return; }
+
+	$.ajax({
+		url: serverContext + 'markStaffAttendanceBulk',
+		method: 'POST',
+		contentType: 'application/json',
+		data: JSON.stringify({ dateStr: $('#srDate').val(), rows: rows }),
+		success: function (res) {
+			// PARTIAL is not SUCCESS — if a row could not be read, say so rather than implying a clean save.
+			var cls = res && res.status === 'SUCCESS' ? 'alert-success' : 'alert-warning';
+			srMessage((res && res.message) || '', cls);
+			loadStaffRegister();
+		},
+		error: function (xhr) {
+			srMessage(t('ui.js.srCouldNotSave') + ': ' + (xhr.responseText || xhr.status), 'alert-danger');
+		}
+	});
+}
+
+function loadLeaveScreen() {
+	loadLeaveTypes();
+	$.get(serverContext + 'getUserStaffs', function (data) {
+		var $s = $('#lrStaff').empty().append(data);
+		if (typeof $s.selectpicker === 'function') { try { $s.selectpicker('refresh'); } catch (e) {} }
+		loadLeaveBalances();
+	});
+	loadLeaveRequests();
+}
+
+function loadLeaveTypes() {
+	$.get(serverContext + 'getLeaveTypes', function (res) {
+		var types = (res && res.collection) || [];
+		var $body = $('#tableLeaveTypes tbody').empty();
+		var $sel = $('#lrType').empty();
+		types.forEach(function (ty) {
+			var $del = $('<button type="button" class="btn btn-xs btn-danger">')
+				.text(t('ui.js.ltDelete'))
+				.on('click', function () { deleteLeaveType(ty.id, ty.name); });
+			$body.append($('<tr>')
+				.append($('<td>').text(ty.name))
+				// A null quota is UNCAPPED, not zero.
+				.append($('<td>').text(ty.annualQuota == null ? t('ui.js.ltUncapped') : ty.annualQuota))
+				.append($('<td>').text(ty.paid ? t('ui.js.ttYes') : t('ui.js.ttNo')))
+				.append($('<td>').append($del)));
+			$sel.append($('<option>').val(ty.id).text(ty.name));
+		});
+		if (typeof $sel.selectpicker === 'function') { try { $sel.selectpicker('refresh'); } catch (e) {} }
+	});
+}
+
+function saveLeaveType() {
+	var name = $.trim($('#ltName').val());
+	if (!name) { ayNotify(t('ui.js.ltNameRequired')); return; }
+	$.post(serverContext + 'saveLeaveType', {
+		name: name,
+		annualQuota: $('#ltQuota').val(),
+		paid: $('#ltPaid').is(':checked') ? 'true' : 'false'
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			$('#ltName, #ltQuota').val('');
+			$('#ltPaid').prop('checked', true);
+			loadLeaveTypes();
+			loadLeaveBalances();
+		} else {
+			lvMessage((res && res.message) || t('ui.js.ltCouldNotSave'), 'alert-danger');
+		}
+	});
+}
+
+function deleteLeaveType(id, name) {
+	uiConfirmOrRun(t('ui.js.ltConfirmDelete').replace('{name}', name), function () {
+		$.post(serverContext + 'deleteLeaveType', { id: id }, function (res) {
+			if (res && res.status === 'SUCCESS') { loadLeaveTypes(); loadLeaveBalances(); }
+			// Refused while requests reference it — show that reason verbatim.
+			else lvMessage((res && res.message) || t('ui.js.ltCouldNotDelete'), 'alert-warning');
+		});
+	});
+}
+
+function loadLeaveBalances() {
+	var params = {};
+	if ($('#lrStaff').val()) params.staffId = $('#lrStaff').val();
+	$.get(serverContext + 'getLeaveBalances', params, function (res) {
+		var balances = (res && res.collection) || [];
+		var $body = $('#tableLeaveBalances tbody').empty();
+		balances.forEach(function (b) {
+			// remaining === null means UNCAPPED. Rendering 0 here would read as "none left".
+			var remaining = b.remaining == null ? t('ui.js.ltUncapped') : b.remaining;
+			var $tr = $('<tr>')
+				.append($('<td>').text(b.leaveTypeName || ''))
+				.append($('<td>').text(b.quota == null ? t('ui.js.ltUncapped') : b.quota))
+				.append($('<td>').text(b.taken))
+				.append($('<td>').text(remaining));
+			if (b.remaining != null && b.remaining < 0) $tr.addClass('danger');
+			$body.append($tr);
+		});
+	});
+}
+
+function loadLeaveRequests() {
+	$.get(serverContext + 'getLeaveRequests', {}, function (res) {
+		var requests = (res && res.collection) || [];
+		var $body = $('#tableLeaveRequests tbody').empty();
+		requests.forEach(function (r) {
+			var $actions = $('<span>');
+			if (r.status === 'PENDING') {
+				$actions.append($('<button type="button" class="btn btn-xs btn-success">')
+					.text(t('ui.js.lrApprove'))
+					.on('click', function () { decideLeaveRequest(r.id, 'APPROVED'); }));
+				$actions.append(' ');
+				$actions.append($('<button type="button" class="btn btn-xs btn-default">')
+					.text(t('ui.js.lrReject'))
+					.on('click', function () { decideLeaveRequest(r.id, 'REJECTED'); }));
+			} else if (r.status === 'APPROVED') {
+				$actions.append($('<button type="button" class="btn btn-xs btn-default">')
+					.text(t('ui.js.lrCancel'))
+					.on('click', function () { decideLeaveRequest(r.id, 'CANCELLED'); }));
+			}
+			var $tr = $('<tr>')
+				.append($('<td>').text(r.staffName || ''))
+				// The STORED type name: renaming a type must not retitle a past decision.
+				.append($('<td>').text(r.leaveTypeName || ''))
+				.append($('<td>').text(r.fromDate || ''))
+				.append($('<td>').text(r.toDate || ''))
+				.append($('<td>').text(r.daysCounted == null ? '' : r.daysCounted))
+				.append($('<td>').text(r.status || ''))
+				.append($('<td>').append($actions));
+			if (r.status === 'REJECTED' || r.status === 'CANCELLED') $tr.addClass('text-muted');
+			$body.append($tr);
+		});
+		if (!requests.length) {
+			$body.append($('<tr>').append($('<td colspan="7">').addClass('text-muted')
+				.text(t('ui.js.lrNone'))));
+		}
+	});
+}
+
+function saveLeaveRequest() {
+	var staffId = $('#lrStaff').val(), typeId = $('#lrType').val();
+	var from = $('#lrFrom').val(), to = $('#lrTo').val();
+	if (!staffId || !typeId || !from || !to) { ayNotify(t('ui.js.lrFillAll')); return; }
+	$.post(serverContext + 'saveLeaveRequest', {
+		staffId: staffId, leaveTypeId: typeId, fromDate: from, toDate: to,
+		reason: $.trim($('#lrReason') ? $('#lrReason').val() || '' : '')
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			// The message carries the day count AND any overage — show it verbatim rather than
+			// re-judging it here. Over-quota warns; it never blocks.
+			var over = res.object && res.object.overage > 0;
+			lvMessage(res.message, over ? 'alert-warning' : 'alert-success');
+			loadLeaveRequests();
+			loadLeaveBalances();
+		} else {
+			lvMessage((res && res.message) || t('ui.js.lrCouldNotSave'), 'alert-danger');
+		}
+	});
+}
+
+function decideLeaveRequest(id, decision) {
+	var msg = decision === 'APPROVED' ? t('ui.js.lrConfirmApprove')
+		: decision === 'REJECTED' ? t('ui.js.lrConfirmReject') : t('ui.js.lrConfirmCancel');
+	uiConfirmOrRun(msg, function () {
+		$.post(serverContext + 'decideLeaveRequest', { id: id, decision: decision }, function (res) {
+			if (res && res.status === 'SUCCESS') {
+				lvMessage(res.message, 'alert-success');
+				loadLeaveRequests();
+				loadLeaveBalances();
+			} else {
+				lvMessage((res && res.message) || t('ui.js.lrCouldNotDecide'), 'alert-danger');
+			}
+		});
+	});
+}
+
 /* ══ Slice 2.2 — Substitution ═════════════════════════════════════════════════════════════════════
  * Design: microservices/docs/slices/edu-2.2-substitution.md
  *

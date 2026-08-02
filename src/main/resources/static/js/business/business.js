@@ -822,11 +822,15 @@ function loadDataTable(){
 							// editRecord (main.js) preselects the #purchaseVenderDD option by this text on edit.
 							"<div id=purchaseVenderDD>"+escHtml(obj.venderName||'')+"</div>",
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>",
+							// B2B-P3a (#2): batch/lot. Header position 7, so the cell goes here — a <th> with no cell
+							// shifts every later column (the tableCustomer lesson from P0).
+							"<div id=purchaseBatchNo>"+escHtml((obj.stock && obj.stock.batchNo)||'')+"</div>",
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
 							// Total = the vendor bill you owe for this line = goods (totalAmount) + input tax (taxAmount,
 							// 0 unless the org captures purchase tax). Aligns with the "Total" header. The orphaned
 							// discount cells (no header) were removed — they were displaying UNDER the Total/Profit
 							// headers, which is why "Profit" showed a discount. No Profit on a purchase.
+							// (Their <th>s remain COMMENTED OUT in businessDashboard.html — header and cell agree.)
 							"<div id=purchaseTotalAmount>"+(obj.totalAmount!=null?((Number(obj.totalAmount)||0)+(Number(obj.taxAmount)||0)):'')+"</div>",
 							// Amount paid to the vendor. Shown here AND read by editRecord to pre-fill #purchasePaid on edit
 							// (editRecord matches a form field id to the row cell of the same id).

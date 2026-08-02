@@ -57,15 +57,15 @@ You confirmed a booker **is** a supplier. That removes the new-party-type proble
 | 3 | Consent when profit ≤ 0 | 🟢 **built** | XS (verify + submit-time check) | business-service | ✅ **SHIPPED** B2B P0 — `pos.sale.marginPolicy`, default `warn` |
 | 8 | Previous dues on sale/purchase | 🟢 built on sale | XS (purchase side) | monolith UI | ✅ **SHIPPED** B2B P0 — `data-due` on vendor options |
 | 13 | MaxTheService promo | 🔴 new | XS | receipt/statement renderer | ✅ **SHIPPED** B2B P0 — `pos.receipt.showPromo`, off by default |
-| 1 | Return invoices | 🟡 returns work | S | business-service | ⬜ Phase 3 |
-| 4 | Receipt: batch, expiry, prev. bal, line no. | 🟡 | S (after F1) | receipt.js | ⬜ Phase 3 (needs F1) |
-| 5 | Statement download | 🟡 on-screen only | S | monolith UI | ⬜ Phase 3 |
-| 2 | Batch # on purchase | 🔴 fields commented out | M | **F1 — do first** | ⬜ Phase 3 — **gates #4** |
+| 1 | Return invoices | 🟡 returns work | S | business-service | ⬜ Phase **3c** (designed) |
+| 4 | Receipt: batch, expiry, prev. bal, line no. | 🟡 | S (after F1) | receipt.js | ⬜ Phase **3b** (designed; needs 3a) |
+| 5 | Statement download | 🟡 on-screen only | S | monolith UI | ⬜ Phase **3d** (designed; jspdf already vendored) |
+| 2 | Batch # on purchase | 🔴 | **XS** *(was M)* | **F1 — do first** | 🟡 **Phase 3a building** — entity+service already do it; only the DTO binding was missing. **Gates #4** |
 | 7 | Stock cap + expiry e-mail | 🟡 alerts exist | M | inventory + notification | ⬜ unscheduled |
 | 9 | Dues limit | 🔴 | M | **= OMS B4** | ✅ **SHIPPED** Phase 1, green 2026-08-02 (customer + supplier; warn = take confirmation) |
 | 10 | Customer/product discount | 🔴 | M | **= OMS B1** | ✅ **SHIPPED** Phase 2, green 2026-08-02 (contract + tier rules; reason persisted). Mgmt screen outstanding |
 | 11 | Supplier targets & bonuses | 🔴 | M *(was L)* | business-service | ⬜ unscheduled |
-| 6 | Multi-dimension reports | 🟡 one report | M *(was L)* | **= F2** | ⬜ Phase 3 |
+| 6 | Multi-dimension reports | 🟡 one report | M *(was L)* | **= F2** | ⬜ Phase **3e** (designed) |
 
 **#6 dropped from L to M** on your clarification: *"option to select or add filter to view/export"* is a
 **filterable report with column/dimension selection** — not an interactive pivot engine. That is a

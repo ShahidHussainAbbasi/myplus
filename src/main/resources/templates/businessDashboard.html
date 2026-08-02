@@ -981,8 +981,17 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 						<label class="control-label col-sm-2" for="purchaseExpiry" th:text="#{ui.expireDate}">Expire Date</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control datePicker" id="purchaseExpiry" 
+							<input type="text" class="form-control datePicker" id="purchaseExpiry"
 							name="stock.bexpDate" placeholder="Expiry date" th:placeholder="#{ui.expiryDate}"/>
+						</div>
+						<label class="control-label col-sm-2" for="purchaseBatchNo" th:text="#{ui.batchNo}">Batch #</label>
+						<div class="col-sm-4">
+							<!-- B2B-P3a (#2): optional — a pharmacy needs batches, a hardware shop does not.
+							     Feeds inventory's FEFO, which already keys on batch + expiry. Nested "stock.*"
+							     like every sibling field here: StockDTO already carries batchNo, and ModelMapper
+							     flattens it onto Purchase.batchNo — no DTO change needed. -->
+							<input type="text" class="form-control" id="purchaseBatchNo" name="stock.batchNo"
+							       placeholder="Batch / lot number" th:placeholder="#{ui.batchNoPlaceholder}"/>
 						</div>
 					</div>
 
@@ -1031,7 +1040,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<th data-field="purchaseQuantity" th:text="#{ui.qty2}">QTY</th>
 							<!-- Stock column removed: it duplicated QTY (the purchase line's stored 'stock' = purchased qty).
 							     Live on-hand now lives on the purchase FORM's "Stock In Hand" field instead. -->
-							<!-- <th data-field="purchaseBatchNo">Batch #</th> -->
+							<th data-field="purchaseBatchNo" th:text="#{ui.batchNo}">Batch #</th>
 							<th data-field="purchasePurchaseRate" th:text="#{ui.pUPrice}">P/U Price</th>
 							<th data-field="purchaseSellRate" th:text="#{ui.sUPrice}">S/U Price</th>
 							<!-- <th data-field="purchaseDiscountTypeDD">P/U Disc Type</th> -->

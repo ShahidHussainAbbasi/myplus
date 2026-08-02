@@ -1,7 +1,7 @@
 # Education Management System — complete programme
 
 **Status: IN DELIVERY — Phase 0 and Phase 1 COMPLETE and Cypress-green; the education review is CLOSED.**
-Currently in **Phase 2** (2.1 timetable ✅, 2.2 substitution ✅; **2.3 staff attendance & leave is next**). Produced 2026-07-30; last
+Currently in **Phase 2** (2.1 ✅, 2.2 ✅; **2.3 staff attendance & leave 🔨 implemented, awaiting its gate**). Produced 2026-07-30; last
 updated 2026-08-02. Supersedes `education-feature-gap-analysis.md` (kept as the raw inventory).
 
 | Shipped so far | |
@@ -10,7 +10,7 @@ updated 2026-08-02. Supersedes `education-feature-gap-analysis.md` (kept as the 
 | **Phase 1** | 1.1 academic year & term · 1.2 examinations · 1.3 marks entry · 1.4 grading scales · 1.5 report cards · 1.6 promotion — **all six green** |
 | **Review** | findings A (cross-tenant save takeover), B (fee validation), C (privilege gating), D (analytics perf) fixed; E partly |
 | **Phase 2** | 2.1 timetable ✅ green (run 2, after an unexplained run-1 red — see the slice doc) · 2.2 substitution ✅ green |
-| **Now** | Phase 2.3 staff attendance & leave — not started |
+| **Now** | Phase 2.3 staff attendance & leave — 🔨 implemented, awaiting `mvn` + the Cypress gate |
 
 **Goal:** an education management system complete enough for a department of education — every stakeholder,
 every department, on one multi-tenant platform.
@@ -66,7 +66,7 @@ A department of education is not one user. Each stakeholder is a first-class sur
 
 ## 2. Current state
 
-**Measured 2026-08-02: 36 entities · 27 controllers · Flyway V1–V18.**
+**Measured 2026-08-02: 40 entities · 29 controllers · Flyway V1–V19** (V19 = 2.3, awaiting its gate).
 _(As first written, 2026-07-30: 15 entities · 19 controllers · 22 screens · Flyway V1–V7 — kept so the
 distance travelled is visible.)_
 
@@ -75,7 +75,7 @@ multi-school branch scoping, owner-configurable policy, org-scoping (hardened in
 **plus the entire academic record shipped since**: academic year & term, examinations, marks entry, grading
 scales, report cards, promotion, and the timetable.
 
-**Absent:** staff attendance & leave, homework, discipline log, admissions, HR/payroll, the
+**Absent:** homework, discipline log, admissions, HR/payroll, the
 parent and student portals, and every facility register beyond a vehicle list.
 
 ### 2.1 The composition gap — the biggest structural finding
@@ -167,7 +167,7 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 |---|---|
 | **2.1** ✅ **DONE** | **Timetable** — class × period × subject × teacher × room, with clash detection — `slices/edu-2.1-timetable.md` |
 | **2.2** ✅ **DONE** | **Substitution** — cover an absent teacher from the timetable — `slices/edu-2.2-substitution.md` |
-| **2.3** 🔵 **next** | **Staff attendance & leave** — presence, leave types, balances. **Must WRITE `staff_absence` (2.2), not build a parallel absence concept** |
+| **2.3** 🔨 **implemented** | **Staff attendance & leave** — presence, leave types, balances. **Must WRITE `staff_absence` (2.2), not build a parallel absence concept** — `slices/edu-2.3-staff-attendance-leave.md` |
 | **2.4** | **Homework / assignments** — set, submit, mark (attachments via `document-service`) |
 | **2.5** | **Discipline / behaviour log** |
 
@@ -341,7 +341,8 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 1.6 promotion | ✅ done — **Phase 1 complete** | `slices/edu-1.6-promotion.md` | `education/promotion.cy.js` |
 | finding D — analytics perf | ✅ done — **the education review is CLOSED** | `slices/edu-D-analytics-perf.md` | `education/dashboard.cy.js` (unchanged) + `analytics-perf.cy.js` |
 | 2.1 timetable | ✅ done | `slices/edu-2.1-timetable.md` | `education/timetable.cy.js` |
-| 2.2 substitution | ✅ done | `slices/edu-2.2-substitution.md` | `education/substitution.cy.js` |
+| 2.2 substitution | ✅ done |
+| **2.3 staff attendance & leave** | 🔨 **implemented, awaiting `mvn` + gate** | `slices/edu-2.3-staff-attendance-leave.md` | `education/staff-leave.cy.js` | `slices/edu-2.2-substitution.md` | `education/substitution.cy.js` |
 
 ### Carried requirements (must not be lost between slices)
 
@@ -353,7 +354,9 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 1.2 D4 → **1.5** | a term whose exam weights do not total 100 must be **refused**, not computed | ✅ done in 1.5 (D2) |
 | 1.2 §6 → 1.3 → 1.4 → **1.5** | exam eligibility by attendance % — deferred three times, now explicitly 1.5 | ⚠️ **partly.** 1.5 built the attendance aggregate it was waiting on and established that eligibility can only be a **computed flag, not a gate** (there is no exam-registration step to block). The `edu.exam.minAttendancePercent` setting is **not built** — it needs the first `INT` entry in the shared `common-settings`, which is a scope decision |
 | 1.5 D1 → **1.6** | promotion must read the SNAPSHOT, not re-derive a term's result | ✅ done in 1.6 (D2) |
-| 2.2 → **2.3** | 2.2 owns a minimal `StaffAbsence` (staffId + date + reason). **2.3 must WRITE these rows from its leave/register flow, not create a parallel absence concept** — `StaffAbsence.leaveId` is reserved for the link | 2.3 |
+| 2.2 → **2.3** | 2.2 owns a minimal `StaffAbsence` (staffId + date + reason). **2.3 must WRITE these rows from its leave/register flow, not create a parallel absence concept** — `StaffAbsence.leaveId` is reserved for the link | ✅ honoured in 2.3's design (D3): register AND leave-approval both write it, and cancellation reuses 2.2's cascade |
+| 2.3 §6 → **platform** | student `attendance` has **no UNIQUE key** on (org, student, date) — the same check-then-act race as finding D, still open. Found while designing 2.3 | open |
+| 2.3 D4 → **holiday calendar** | leave-day arithmetic cannot skip weekends/public holidays: the platform has no such concept, and the weekend is not Sat–Sun everywhere this ships | own slice |
 | 2.1 §6 → **platform** | `GatewayClient` has no HTTP connect/read timeouts (standard D3e) — one slow downstream pins a monolith thread. Not education's to fix alone | open |
 | 1.6 → **next** | `edu.exam.minAttendancePercent` is REGISTERED but no screen consumes it — a setting nothing reads is decorative (slice B's `@PositiveOrZero` lesson). Wire the eligibility flag onto the marksheet + report card, or drop the setting | open |
 

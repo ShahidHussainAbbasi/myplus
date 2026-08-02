@@ -20,7 +20,15 @@
     function buildHtml(inv) {
         var profile = global.VERTICAL_PROFILE || {};
         var brand = profile.brand || 'MyPlus';
-        var title = profile.receiptTitle || 'SALES RECEIPT';
+        // B2B-P3b-1 (deferred from Phase 0): a trade account gets an INVOICE, a retail shopper a RECEIPT.
+        // Driven by the SAME Customer.customerType that drives pricing and credit, so the three can never
+        // disagree about who this buyer is. Unconditional and safe: V29 back-filled every existing customer
+        // to WALK_IN, so the wording only changes for an account an owner deliberately marked as trade.
+        var B2B_TYPES = ['RETAILER', 'WHOLESALE'];
+        var custType = String((inv.customer && inv.customer.customerType) || '').toUpperCase();
+        var isTrade = B2B_TYPES.indexOf(custType) !== -1;
+        var title = isTrade ? t('ui.js.docInvoice')
+                            : (profile.receiptTitle || t('ui.js.docReceipt'));
         var taxLabel = inv.taxLabel || 'Tax';
         var cust = inv.customer || {};
         var dated = inv.dated ? String(inv.dated).replace('T', ' ').substring(0, 16) : '';
