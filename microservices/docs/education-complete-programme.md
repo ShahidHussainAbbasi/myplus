@@ -1,7 +1,16 @@
 # Education Management System — complete programme
 
-**Status: PROGRAMME PLAN — no code written.** Supersedes `education-feature-gap-analysis.md` (kept as the raw
-inventory). Produced 2026-07-30.
+**Status: IN DELIVERY — Phase 0 and Phase 1 COMPLETE and Cypress-green; the education review is CLOSED.**
+Currently in **Phase 2** (2.1 timetable ✅, 2.2 substitution ✅; **2.3 staff attendance & leave is next**). Produced 2026-07-30; last
+updated 2026-08-02. Supersedes `education-feature-gap-analysis.md` (kept as the raw inventory).
+
+| Shipped so far | |
+|---|---|
+| **Phase 0** | fees → GL, fees → AR, fee credit, branch-scope settings, cryptic-column rename (part), D-3 privilege map |
+| **Phase 1** | 1.1 academic year & term · 1.2 examinations · 1.3 marks entry · 1.4 grading scales · 1.5 report cards · 1.6 promotion — **all six green** |
+| **Review** | findings A (cross-tenant save takeover), B (fee validation), C (privilege gating), D (analytics perf) fixed; E partly |
+| **Phase 2** | 2.1 timetable ✅ green (run 2, after an unexplained run-1 red — see the slice doc) · 2.2 substitution ✅ green |
+| **Now** | Phase 2.3 staff attendance & leave — not started |
 
 **Goal:** an education management system complete enough for a department of education — every stakeholder,
 every department, on one multi-tenant platform.
@@ -37,17 +46,17 @@ Non-negotiable. Every slice below is measured against these; they are not restat
 
 ## 1. Who the system serves
 
-A department of education is not one user. Each stakeholder is a first-class surface, and today only the first
-row exists.
+A department of education is not one user. Each stakeholder is a first-class surface. _Status column updated
+2026-08-02 — Phase 1 and 2.1 moved three rows._
 
 | Stakeholder | Needs | Today |
 |---|---|---|
 | **School admin / clerk** | enrolment, fees, attendance, records | ✅ served |
-| **Teacher** | timetable, mark entry, attendance, homework, my classes | ❌ nothing teacher-specific |
-| **Head / principal** | school-wide results, staff performance, finance | 🟡 dashboard only |
+| **Teacher** | timetable, mark entry, attendance, homework, my classes | 🟡 **marks entry + a teacher timetable view** shipped (1.3, 2.1); homework and a teacher home screen still absent |
+| **Head / principal** | school-wide results, staff performance, finance | 🟡 dashboard + report cards + promotion; staff performance still absent |
 | **Parent / guardian** | results, attendance, fee dues, homework, pay online, meet teacher | ❌ no portal at all |
 | **Student** | timetable, results, homework, materials | ❌ no portal at all |
-| **Accountant** | receivables, arrears, expenses, payroll, books | 🟡 fee collection only, **not in the ledger** |
+| **Accountant** | receivables, arrears, expenses, payroll, books | 🟡 **fees now reach the ledger** (AR + GL + aging + statements, Phase 0); expenses and payroll still absent |
 | **Transport in-charge** | routes, stops, who rides which bus | 🟡 vehicle register only |
 | **Librarian / hostel warden / nurse** | domain registers | ❌ |
 | **HR** | staff records, attendance, leave, payroll, certification | 🟡 staff master only |
@@ -57,27 +66,32 @@ row exists.
 
 ## 2. Current state
 
-15 entities · 19 controllers · 22 screens · Flyway V1–V7.
+**Measured 2026-08-02: 36 entities · 27 controllers · Flyway V1–V18.**
+_(As first written, 2026-07-30: 15 entities · 19 controllers · 22 screens · Flyway V1–V7 — kept so the
+distance travelled is visible.)_
 
 **Strong:** enrolment, guardians, staff master, student attendance, fee collection, discounts, alerts,
-multi-school branch scoping, owner-configurable policy, org-scoping (hardened in the education review).
+multi-school branch scoping, owner-configurable policy, org-scoping (hardened in the education review) —
+**plus the entire academic record shipped since**: academic year & term, examinations, marks entry, grading
+scales, report cards, promotion, and the timetable.
 
-**Absent:** the entire academic record (exams, marks, grading, report cards, promotion), timetable, staff
-attendance, admissions, portals, and every facility register beyond a vehicle list.
+**Absent:** staff attendance & leave, homework, discipline log, admissions, HR/payroll, the
+parent and student portals, and every facility register beyond a vehicle list.
 
 ### 2.1 The composition gap — the biggest structural finding
 
 ```
-business-service composes → Audit, Catalog, Finance, Inventory, Party   (5)
-education-service composes → Party                                       (1)
+business-service  composes → Audit, Catalog, Finance, Inventory, Party        (5)
+education-service composes → Audit, Finance, Notification, Party              (4)   ← was 1
 ```
 
-Sixteen sibling services exist. Education uses one. Concretely: **fee collection never reaches the general
-ledger.** `business-service` enqueues every sale to `GlOutbox` → `finance-service` (journal, trial balance,
-P&L, period close). Education enqueues nothing, so a school's revenue is invisible to the books the platform
-already maintains.
+**✅ LARGELY CLOSED (Phase 0, 2026-07-30/31).** As first written this read *"education composes 1"*, and the
+concrete symptom was that **fee collection never reached the general ledger**. That is fixed: education now
+enqueues to its own `gl_outbox` → `finance-service` (0.1 fees→GL, 0.2a fees→AR, 0.2b fee credit), audits
+marks and report-card publication through `audit-service`, and reaches parents via `notification-service`.
 
-This is a §1.2 violation, and fixing it is cheaper than any new feature.
+Still uncomposed and still correct to reuse rather than build: `catalog` + the sell saga (books/uniforms),
+`inventory` (library stock), `appointment` (parent–teacher meetings), `campaign`, `analytics`.
 
 ---
 
@@ -143,14 +157,17 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 ### Phase 2 — Daily teaching operations
 
 > **Phase 2 is the current phase** (Phase 1 complete 2026-08-01, education review closed the same day).
-> 2.1 is the keystone: 2.2 substitution reads the timetable, and 2.3 staff attendance is what makes a
-> substitution necessary — so the order below is a dependency chain, not a preference.
+> 2.1 is the keystone: 2.2 substitution reads the timetable. **CORRECTED 2026-08-02:** this note used to add
+> *"and 2.3 staff attendance is what makes a substitution necessary — so the order is a dependency chain"*,
+> which read literally puts 2.3 BEFORE 2.2. There is no staff-attendance data today (`Attendance` is
+> student-only). Resolved in 2.2's design: **2.2 owns a minimal `StaffAbsence` record and 2.3 later absorbs
+> it** — see `slices/edu-2.2-substitution.md` §1.
 
 | Slice | What |
 |---|---|
-| **2.1** 📐 **design** | **Timetable** — class × period × subject × teacher × room, with clash detection — `slices/edu-2.1-timetable.md` |
-| **2.2** | **Substitution** — cover an absent teacher from the timetable |
-| **2.3** | **Staff attendance & leave** — presence, leave types, balances |
+| **2.1** ✅ **DONE** | **Timetable** — class × period × subject × teacher × room, with clash detection — `slices/edu-2.1-timetable.md` |
+| **2.2** ✅ **DONE** | **Substitution** — cover an absent teacher from the timetable — `slices/edu-2.2-substitution.md` |
+| **2.3** 🔵 **next** | **Staff attendance & leave** — presence, leave types, balances. **Must WRITE `staff_absence` (2.2), not build a parallel absence concept** |
 | **2.4** | **Homework / assignments** — set, submit, mark (attachments via `document-service`) |
 | **2.5** | **Discipline / behaviour log** |
 
@@ -323,7 +340,8 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 1.5 report cards | ✅ done | `slices/edu-1.5-report-cards.md` | `education/report-cards.cy.js` |
 | 1.6 promotion | ✅ done — **Phase 1 complete** | `slices/edu-1.6-promotion.md` | `education/promotion.cy.js` |
 | finding D — analytics perf | ✅ done — **the education review is CLOSED** | `slices/edu-D-analytics-perf.md` | `education/dashboard.cy.js` (unchanged) + `analytics-perf.cy.js` |
-| **2.1 timetable** | 📐 **design, awaiting approval** | `slices/edu-2.1-timetable.md` | `education/timetable.cy.js` |
+| 2.1 timetable | ✅ done | `slices/edu-2.1-timetable.md` | `education/timetable.cy.js` |
+| 2.2 substitution | ✅ done | `slices/edu-2.2-substitution.md` | `education/substitution.cy.js` |
 
 ### Carried requirements (must not be lost between slices)
 
@@ -335,6 +353,8 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 1.2 D4 → **1.5** | a term whose exam weights do not total 100 must be **refused**, not computed | ✅ done in 1.5 (D2) |
 | 1.2 §6 → 1.3 → 1.4 → **1.5** | exam eligibility by attendance % — deferred three times, now explicitly 1.5 | ⚠️ **partly.** 1.5 built the attendance aggregate it was waiting on and established that eligibility can only be a **computed flag, not a gate** (there is no exam-registration step to block). The `edu.exam.minAttendancePercent` setting is **not built** — it needs the first `INT` entry in the shared `common-settings`, which is a scope decision |
 | 1.5 D1 → **1.6** | promotion must read the SNAPSHOT, not re-derive a term's result | ✅ done in 1.6 (D2) |
+| 2.2 → **2.3** | 2.2 owns a minimal `StaffAbsence` (staffId + date + reason). **2.3 must WRITE these rows from its leave/register flow, not create a parallel absence concept** — `StaffAbsence.leaveId` is reserved for the link | 2.3 |
+| 2.1 §6 → **platform** | `GatewayClient` has no HTTP connect/read timeouts (standard D3e) — one slow downstream pins a monolith thread. Not education's to fix alone | open |
 | 1.6 → **next** | `edu.exam.minAttendancePercent` is REGISTERED but no screen consumes it — a setting nothing reads is decorative (slice B's `@PositiveOrZero` lesson). Wire the eligibility flag onto the marksheet + report card, or drop the setting | open |
 
 ### Open findings (outside the slice sequence)

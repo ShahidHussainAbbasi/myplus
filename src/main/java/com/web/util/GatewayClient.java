@@ -62,6 +62,20 @@ public class GatewayClient {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    /**
+     * Added 2026-08-02 while diagnosing a timetable failure that took hours to pin down.
+     *
+     * <p>Every downstream error used to vanish here: {@link #execute} handles 401 and 403 and lets
+     * everything else propagate, so the monolith's catch-all handler turned it into a generic
+     * {@code "Error Occurred"} 500. The service's real status, message and body — the only things that
+     * say what actually went wrong — were never recorded anywhere. That is true for EVERY module's
+     * proxy, not just education.
+     *
+     * <p>This logger changes no behaviour. It writes down what the downstream said, then the exception
+     * propagates exactly as before.
+     */
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GatewayClient.class);
+
     // ---- Public, return-type-specific entry points ----
 
     public ResponseEntity<String> forStringEntity(String servicePrefix, String directBaseUrl, String path,
@@ -109,8 +123,29 @@ public class GatewayClient {
             if (respBody != null && respBody.contains("DEMO_LIMIT")) {
                 throw new com.web.error.DemoLimitException(extractDemoMessage(respBody));
             }
+            log.warn("Downstream FORBIDDEN {} {} -> 403; body={}", method, url, abbreviate(respBody));
+            throw e;
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            // Every other 4xx/5xx. Previously invisible: it propagated to the monolith's catch-all
+            // handler, which replaced it with a generic "Error Occurred" 500 — so the service's own
+            // message never reached the log OR the browser.
+            log.warn("Downstream FAILED {} {} -> {}; body={}",
+                    method, url, e.getStatusCode(), abbreviate(e.getResponseBodyAsString()));
+            throw e;
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            // Transport failure: connect refused, or a read that never returned. Worth its own line
+            // because the RestTemplate below has NO timeouts, so this is the shape a hung downstream
+            // takes — and it is indistinguishable from an application error without this log.
+            log.warn("Downstream UNREACHABLE {} {} -> {}", method, url, e.getMessage());
             throw e;
         }
+    }
+
+    /** Response bodies can be large; enough to identify the error, not enough to flood the log. */
+    private static String abbreviate(String s) {
+        if (s == null) return "(none)";
+        String flat = s.replaceAll("\\s+", " ").trim();
+        return flat.length() <= 500 ? flat : flat.substring(0, 500) + "…";
     }
 
     private static final java.util.Set<String> HOP_BY_HOP = java.util.Set.of(

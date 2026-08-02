@@ -35,6 +35,15 @@ public class SellDTO implements Serializable {
 
 	private Float quantity=1F;
 
+	/**
+	 * B2B-P2 (#10): WHY this line is priced the way it is — e.g. "Wholesale price −12%" or "Contract price".
+	 * Server-populated on the way out; ignored on the way in.
+	 *
+	 * <p>The reason is the point of the slice, not decoration: today a trade customer's price is a number a
+	 * cashier typed and nothing records why, which is exactly what makes a disputed invoice unanswerable.
+	 */
+	private String priceReason;
+
 	private BigDecimal totalAmount = BigDecimal.ZERO;
 
 	private BigDecimal netAmount = BigDecimal.ZERO;

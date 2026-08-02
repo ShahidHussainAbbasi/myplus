@@ -1,6 +1,6 @@
 # finance — Phase 2: AP subledger (Vendor Payments) — Design
 
-**STATUS: F1 DONE ✅ (headed-Cypress green — `pay-vendor.cy.js` + `receive-payment.cy.js` regression, after rebuilding the finance-service jar so the `PV-` numbering shipped).** Includes the shared `SubledgerService` refactor + full Pay Vendor UI.
+**Status:** F1 DONE ✅ (headed-Cypress green — `pay-vendor.cy.js` + `receive-payment.cy.js` regression, after rebuilding the finance-service jar so the `PV-` numbering shipped).** Includes the shared `SubledgerService` refactor + full Pay Vendor UI.
 
 **Branch:** `feature/finance-ledger` · **Slice:** F1 (AP / Pay Vendor) · **Roadmap:** AR ✅ → **AP ✅** → F2 statements/aging → General Ledger
 **Companion:** `finance-service-design.md` (AR / Phase 1). This mirrors AR faithfully on the payables side.

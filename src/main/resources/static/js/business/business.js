@@ -756,7 +756,8 @@ function loadDataTable(){
 							"<div id=venderCompanyDD>"+escHtml(obj.companyName)+"</div>",
 							"<div id=venderPhone>"+escHtml(obj.phone)+"</div>","<div id=venderMobile>"+escHtml(obj.mobile)+"</div>",
 							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",
-							"<div id=venderDue>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",obj.datedStr,
+							"<div id=venderDue>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
+							"<div id=venderCreditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",obj.datedStr,
 							"<div class='row-actions'>"
 							// Pay only makes sense when something is owed — hide it when the payable is 0.
 							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Pay this vendor'><span class='glyphicon glyphicon-usd'></span> Pay</button> " : "")
@@ -771,6 +772,13 @@ function loadDataTable(){
 							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value="+ obj.customerId+ ">",
 							"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
 							"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
+							// B2B-P0/P1: these three cells MUST exist. The header has a column for each, and DataTables
+							// requires row arrays to match the column count exactly — a missing cell shifts every later
+							// column and throws "Requested unknown parameter". editRecord() also refills the form FROM
+							// this row, so the id on each div is the form field it feeds.
+							"<div id=customerType>"+escHtml(obj.customerType||'WALK_IN')+"</div>",
+							"<div id=creditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",
+							"<div id=paymentTermsDays>"+(obj.paymentTermsDays!=null?obj.paymentTermsDays:'')+"</div>",
 							"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
 							"<div id=creditBalance>"+(obj.creditBalance!=null?Number(obj.creditBalance).toFixed(2):'0.00')+"</div>",obj.updated,
 							"<div class='row-actions'>"
@@ -973,7 +981,10 @@ function loadSellCustomers() {
 	$.get(serverContext + "getUserCustomer", function(res) {
 		if (res && res.collection) {
 			$.each(res.collection, function(i, c) {
-				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '">' + escHtml(c.name) + '</option>');
+				// B2B-P1 (#9): carry the credit limit alongside the balance the option already carries, so the
+				// screen can show "available" live while typing without a call per keystroke. Only a HINT —
+				// the server re-checks against the current balance, which another till may have moved.
+				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '" data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '">' + escHtml(c.name) + '</option>');
 			});
 		}
 	}).fail(function() {
@@ -990,11 +1001,14 @@ function onSellCustomerSelect(sel) {
 		document.getElementById("sellCustomerDD").style.removeProperty('border-color');
 		var due = Number(opt.data('due'));
 		window.selectedCustomerDue = isNaN(due) ? 0 : due;   // existing customer's running balance
+		var lim = opt.attr('data-credit-limit');
+		window.selectedCustomerLimit = (lim === '' || lim == null || isNaN(Number(lim))) ? null : Number(lim);
 		loadCustomerCredit(customerId);                      // SF-5 Model B: show/offer store credit
 	} else {
 		$("#sellCN").val('');
 		$("#sellCC").val('');
 		window.selectedCustomerDue = null;                   // no account context (nothing picked)
+		window.selectedCustomerLimit = null;
 		$('#sellStoreCreditWrap').hide(); $('#sellStoreCredit').val('');
 	}
 	refreshAccountDuePreview();
@@ -1760,6 +1774,28 @@ function onSellPayMethodChange(){
 // Show the running-balance impact for a known (dropdown-selected) customer. window.selectedCustomerDue
 // holds their current outstanding balance; null for a walk-in/manual customer or while editing, in which
 // case the account row stays hidden. Re-derives this sale's due if not passed (e.g. on customer select).
+/**
+ * B2B-P1 (#9): show the customer's limit and what is left of it, and flag an overage before the cashier
+ * hits Complete Sale. Purely a HINT — the authoritative check runs server-side at submit, because this
+ * page's copy of the balance is as old as the dropdown and another till may have sold to them since.
+ * Hidden entirely for a customer with no limit, which is every customer until an owner sets one.
+ */
+function refreshCreditLimitHint(newTotalDue) {
+	var wrap = document.getElementById('sellCreditLimitWrap');
+	var availWrap = document.getElementById('sellCreditAvailableWrap');
+	if (!wrap || !availWrap) { return; }
+	var limit = window.selectedCustomerLimit;
+	// Both fields appear and disappear together — an "Available" with no "Limit" beside it means nothing.
+	if (limit == null) { wrap.style.display = 'none'; availWrap.style.display = 'none'; return; }
+	var available = limit - (Number(newTotalDue) || 0);
+	$('#sellCreditLimit').val(limit.toFixed(2));
+	$('#sellCreditAvailable').val(available.toFixed(2));
+	// Red only when actually over — an "available" of 0 is at the limit, which is allowed.
+	$('#sellCreditAvailable').css('background-color', available < 0 ? '#ffd7d7' : '#eaffea');
+	wrap.style.display = '';
+	availWrap.style.display = '';
+}
+
 function refreshAccountDuePreview(dueThis) {
 	if (dueThis == null) {
 		var recAm = ($("#sellRec").val() * ONE) || 0;
@@ -1775,6 +1811,7 @@ function refreshAccountDuePreview(dueThis) {
 	$("#sellPrevDue").val(prev.toFixed(2));
 	$("#sellNewTotalDue").val((prev + dueThis).toFixed(2));
 	$("#sellAccountRow").show();
+	refreshCreditLimitHint(prev + dueThis);
 }
 
 // function calculateChange(){

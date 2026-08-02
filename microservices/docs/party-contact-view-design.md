@@ -1,6 +1,8 @@
 # Cross-module contact view (party roles) — design
 
-**Status:** DESIGN — awaiting sign-off. Follows P3 (all four module bridges live, `854dd28b`). This is **P4**, the
+**Status:** DESIGN — awaiting sign-off. Follows P3 (**all FIVE module bridges are now live** — business
+Customer/Vender, education Student, welfare Donator, pharmacy Rx-patient and marketplace shopper; this line
+said "four" before the marketplace bridge landed). This is **P4**, the
 payoff slice of [`party-contact-master-design.md`](party-contact-master-design.md): the bridges made one person ONE
 `partyId`; this makes that visible.
 

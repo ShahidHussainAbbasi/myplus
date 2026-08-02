@@ -1,5 +1,7 @@
 # Commerce backend audit — vs POS/retail + pharmacy industry standards (slice 33)
 
+**Status:** AUDIT (point-in-time, slice 33) - kept as written. Its findings are tracked to closure in the slice docs and `SAAS-BUILD-STANDARDS.md` §3, NOT by editing the findings here.
+
 Done before the "UI follows the backend" redesign, so the UI is built on a **verified** base.
 **Verdict: the architecture is genuinely industry-standard. It is not yet 100% complete — there are specific,
 mostly-additive gaps (a few compliance-critical for pharmacy) to close first.**

@@ -1,6 +1,6 @@
 # Slice 1.2 — Examinations
 
-**Status: IMPLEMENTED — awaiting `mvn` verification + the Cypress gate.**
+**Status: ✅ DONE — `mvn test` + Cypress gate GREEN.** (Programme row 1.2 ✅, "all six green".)
 Programme: `education-complete-programme.md` Phase 1.2. Depends on **1.1** (academic year & term), which is done.
 Feeds 1.3 (marks entry) → 1.4 (grading scales) → 1.5 (report cards).
 

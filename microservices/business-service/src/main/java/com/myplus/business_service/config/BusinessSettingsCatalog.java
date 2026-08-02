@@ -65,6 +65,35 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         List.of(new SettingEntry.Option("off", "Off — no check"),
                                 new SettingEntry.Option("warn", "Warn (default) — record it and tell the cashier"),
                                 new SettingEntry.Option("block", "Block — refuse the sale"))),
+                // B2B-P1 (#9) — the credit limit guard, customer side.
+                //
+                // WARN here means TAKE CONFIRMATION, not "record it and mention it afterwards": the sale is
+                // held, the cashier is asked, and nothing is written unless they accept. A note after the
+                // money has moved is not consent — undoing it would mean a void.
+                //
+                // Safe as a default because the check is INERT without a limit: every existing customer has
+                // credit_limit NULL, so this fires only for an account an owner deliberately gave a limit.
+                SettingEntry.select("pos.sale.creditLimitPolicy",
+                        "When a sale would exceed the customer's credit limit",
+                        "Compares what the customer already owes plus the unpaid part of this sale against "
+                                + "their credit limit. Warn (default): the cashier is asked to confirm before "
+                                + "anything is recorded. Block: the sale is refused and cannot be confirmed "
+                                + "past. Off: no check. Customers with no credit limit set are never checked.",
+                        "warn", "Point of Sale",
+                        List.of(new SettingEntry.Option("off", "Off — no check"),
+                                new SettingEntry.Option("warn", "Warn (default) — ask the cashier to confirm"),
+                                new SettingEntry.Option("block", "Block — refuse the sale"))),
+                // B2B-P1 (#9) — the supplier side. Same rule, opposite direction: this caps what WE owe.
+                SettingEntry.select("pos.purchase.creditLimitPolicy",
+                        "When a purchase would exceed the supplier's credit limit",
+                        "Compares what you already owe this supplier plus the unpaid part of this bill "
+                                + "against their credit limit. Warn (default): you are asked to confirm before "
+                                + "anything is recorded. Block: the purchase is refused. Off: no check. "
+                                + "Suppliers with no credit limit set are never checked.",
+                        "warn", "Purchasing",
+                        List.of(new SettingEntry.Option("off", "Off — no check"),
+                                new SettingEntry.Option("warn", "Warn (default) — ask before recording"),
+                                new SettingEntry.Option("block", "Block — refuse the purchase"))),
                 // B2B-P0 (#13). OFF by default, deliberately: this prints on documents our customers hand to
                 // THEIR customers. Enabled for trial accounts, or by a paying customer's own choice.
                 SettingEntry.bool("pos.receipt.showPromo",

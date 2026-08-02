@@ -213,6 +213,15 @@ public class PurchaseController {
 		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
 			LOGGER.warn("addPurchase rejected (period closed): {}", pce.getMessage());
 			return new GenericResponse("FAILED", pce.getMessage());
+		} catch (com.myplus.business_service.service.CreditConfirmationRequiredException confirm) {
+			// B2B-P1 (#9, supplier side): over the vendor's credit limit under policy=warn, not yet
+			// acknowledged. Nothing was written and no stock came in. CONFIRM, not ERROR — nothing failed.
+			LOGGER.info("addPurchase awaiting credit-limit confirmation: {}", confirm.getMessage());
+			return new GenericResponse("CONFIRM", confirm.getMessage());
+		} catch (com.myplus.common.web.exception.ValidationException blocked) {
+			// policy=block — surface the reason verbatim instead of the generic handler's "unexpected error".
+			LOGGER.warn("addPurchase rejected (credit limit): {}", blocked.getMessage());
+			return new GenericResponse("ERROR", blocked.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");

@@ -51,6 +51,13 @@ public class Vender implements Serializable {
 	@Column(name = "due_amount", precision = 19, scale = 2)
 	private BigDecimal dueAmount;
 
+	/**
+	 * B2B P1 (#9, supplier side): the most WE are willing to owe this vendor. NULL = no limit.
+	 * Mirrors {@code Customer.creditLimit}, but caps a PAYABLE rather than a receivable.
+	 */
+	@Column(name = "credit_limit", precision = 19, scale = 2)
+	private BigDecimal creditLimit;
+
 	private String name;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)

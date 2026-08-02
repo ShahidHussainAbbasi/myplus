@@ -1,5 +1,7 @@
 # Welfare + Agriculture — common-settings rollout (design)
 
+**Status:** ✅ DONE - welfare and agriculture are the 3rd and 4th `common-settings` consumers; both have their Configuration proxies (`WelfareConfigController`, `AgricultureConfigController`) wired to the shared engine.
+
 **Goal:** make `common-settings` carry its **3rd and 4th consumers** (welfare, agriculture) and give these two thin
 verticals their first owner-configurable surface — a self-rendering Configuration screen backed by real,
 behaviour-wired toggles. No dead toggles (the lesson from the removed `pos.sale.negativeStockAllowed`): every flag

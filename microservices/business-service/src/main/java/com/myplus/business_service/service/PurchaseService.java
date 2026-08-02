@@ -32,6 +32,57 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     PurchaseRepo purchaseRepo;
 
+    private static final java.util.Set<String> CREDIT_POLICIES = java.util.Set.of(
+            com.myplus.common.credit.CreditLimitPolicy.OFF,
+            com.myplus.common.credit.CreditLimitPolicy.WARN,
+            com.myplus.common.credit.CreditLimitPolicy.BLOCK);
+
+    /**
+     * Supplier credit-limit guard (#9, B2B P1) — the mirror of the customer-side check in
+     * {@code SagaSellService.assertCreditPolicy}, capping a PAYABLE instead of a receivable.
+     *
+     * <p>Same three policies, same shared arithmetic from {@code common-credit}, and the same reason for
+     * running before the write: {@code block} must refuse having changed nothing, and {@code warn} must ask
+     * while the bill can still simply not be recorded.
+     *
+     * <p>Inert unless the vendor has a limit — which is every vendor until an owner sets one.
+     *
+     * @param unpaidOnThisBill bill minus what is being paid now (already floored by the caller's arithmetic)
+     * @param acknowledged     the operator has seen the warning and chosen to continue (from the DTO —
+     *                         deliberately NOT a column on Purchase: it describes this submission, not the bill)
+     */
+    void assertVendorCreditPolicy(Purchase obj, java.math.BigDecimal unpaidOnThisBill,
+                                  boolean acknowledged) {
+        if (obj == null || obj.getVenderId() == null || venderRepo == null || settingsService == null) return;
+        String policy = settingsService.getChoice("pos.purchase.creditLimitPolicy", CREDIT_POLICIES,
+                com.myplus.common.credit.CreditLimitPolicy.WARN);
+        if (com.myplus.common.credit.CreditLimitPolicy.OFF.equals(policy)) return;
+
+        com.myplus.business_service.entity.Vender vender = venderRepo.findById(obj.getVenderId()).orElse(null);
+        if (vender == null || vender.getCreditLimit() == null) return;   // no limit set = no check
+
+        // NOTE: this is an ADD-only guard. An edit re-prices an existing bill, and Purchase carries its own
+        // dueAmount, so an edit would need the same "do not double-count" subtraction the sell edit does.
+        // Not wired here — flagged in the slice doc rather than half-done.
+        com.myplus.common.credit.CreditLimitPolicy.Verdict verdict =
+                com.myplus.common.credit.CreditLimitPolicy.evaluate(
+                        vender.getDueAmount(), unpaidOnThisBill, null, vender.getCreditLimit());
+        String name = (vender.getName() == null || vender.getName().isBlank()) ? "This supplier" : vender.getName();
+        String msg = "You would owe " + name + " "
+                + verdict.exposure().setScale(2, java.math.RoundingMode.HALF_UP)
+                + ", which is " + verdict.over().setScale(2, java.math.RoundingMode.HALF_UP)
+                + " over the credit limit of " + verdict.limit().setScale(2, java.math.RoundingMode.HALF_UP) + ".";
+
+        switch (com.myplus.common.credit.CreditLimitPolicy.decide(verdict, policy, acknowledged)) {
+            case PROCEED -> { /* within the limit, or knowingly accepted */ }
+            case CONFIRM -> throw new CreditConfirmationRequiredException(msg + " Continue?");
+            case REFUSE -> throw new com.myplus.common.web.exception.ValidationException(
+                    msg + " Buying beyond the supplier credit limit is blocked for this organization.");
+        }
+    }
+
+
+
 /*    @Autowired
     IBatchService batchService;
 */
@@ -67,6 +118,12 @@ public class PurchaseService implements IPurchaseService{
 
     @Autowired
     PeriodLockGuard periodLockGuard;   // period close: reject bills/edits/voids dated in a locked period
+
+    @Autowired
+    com.myplus.business_service.repository.VenderRepo venderRepo;   // B2B-P1 (#9): supplier credit limit
+
+    @Autowired
+    com.myplus.common.settings.SettingsService settingsService;     // B2B-P1 (#9): the purchase-side policy
 
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
@@ -283,6 +340,12 @@ public class PurchaseService implements IPurchaseService{
 		java.math.BigDecimal paid = obj.getPaidAmount() != null ? obj.getPaidAmount() : bill;
 		obj.setPaidAmount(paid);
 		obj.setDueAmount(paid.subtract(bill));
+
+		// B2B-P1 (#9, supplier side): would this bill take us past what we are willing to owe this vendor?
+		// Checked BEFORE the write and before any stock-in, so `block` refuses having changed nothing and
+		// `warn` asks while the decision is still reversible. Inert unless the vendor has a limit set.
+		assertVendorCreditPolicy(obj, bill.subtract(paid), Boolean.TRUE.equals(dto.getCreditAcknowledged()));
+
 		Purchase saved = this.save(obj);
 		if (saved.getVenderId() != null) venderService.recomputePayable(saved.getVenderId());   // F1 (AP)
 		pushPurchaseToInventory(saved, dto, user);        // dual-write stock-in to inventory (authoritative)

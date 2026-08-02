@@ -90,6 +90,16 @@ public class CustomerHistoryDTO {
     private Boolean showPromo;
 
     /**
+     * B2B P1 (#9): the operator has SEEN the credit-limit warning and chosen to continue.
+     *
+     * <p>Inbound only. Under {@code warn} the first submit of an over-limit sale is answered {@code CONFIRM}
+     * with nothing written; the client asks, and re-submits with this set. Under {@code block} it is ignored
+     * entirely — that is the whole difference between the two policies: nobody on the till can consent past
+     * {@code block}.
+     */
+    private Boolean creditAcknowledged;
+
+    /**
      * Things the cashier must be TOLD about a sale that still went through — currently the zero/negative
      * margin warning (#3). Server-populated on the way out; ignored on the way in.
      *

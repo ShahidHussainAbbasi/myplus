@@ -1,6 +1,6 @@
 # Slice B2B-P0 — the customer channel flag (+ three quick wins)
 
-**Status:** DESIGN → implementing.
+**Status:** ✅ **DONE — Cypress-green 2026-08-01** (`cypress/e2e/business/b2b-customer-type.cy.js`).
 **Branch:** `feature/b2b-b2c`
 **Parent:** [`b2b-b2c-rollout-plan.md`](../b2b-b2c-rollout-plan.md) Phase 0 ·
 [`b2b-shared-library-review.md`](../b2b-shared-library-review.md)

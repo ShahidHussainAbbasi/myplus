@@ -576,6 +576,15 @@ tr.row-voided .js-edit-row{display:none !important}
 								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}"> 
 						</div>
 					</div>
+					<!-- B2B-P1 (#9, supplier side): the most we are willing to owe this vendor. Blank = no limit. -->
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="venderCreditLimit" th:text="#{ui.creditLimit}">Credit limit</label>
+						<div class="col-sm-4">
+							<input type="number" step="any" min="0" class="form-control" id="venderCreditLimit" name="creditLimit"
+							       placeholder="0" th:placeholder="#{ui.noLimit}">
+							<div style="color:#7a889c;font-size:12px;margin-top:3px" th:text="#{ui.vendorCreditLimitHelp}">Leave blank for no limit. You are asked to confirm before buying past it.</div>
+						</div>
+					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addVender" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
@@ -602,6 +611,9 @@ tr.row-voided .js-edit-row{display:none !important}
 								<th data-field="venderEemail" th:text="#{ui.email}">Email</th>
 								<th data-field="venderAddress" th:text="#{ui.address2}">Address</th>
 								<th data-field="venderDue" th:text="#{ui.due}">Due</th>
+								<!-- B2B-P1: editRecord() refills the form from the row — a missing column silently
+								     blanks the field on every edit. Matches the form input id. -->
+								<th data-field="venderCreditLimit" th:text="#{ui.creditLimit}">Credit limit</th>
 								<th data-field="dated" th:text="#{ui.dated}">Dated</th>
 								<th data-field="venderAction"></th>
 							</tr>
@@ -732,6 +744,23 @@ tr.row-voided .js-edit-row{display:none !important}
 							<div style="color:#7a889c;font-size:12px;margin-top:3px" th:text="#{ui.custTypeHelp}">Trade customers get account pricing and terms as those features arrive.</div>
 						</div>
 					</div>
+					<!-- B2B-P1 (#9): credit limit + payment terms. Both BLANK by default, and blank means
+					     "no limit" / "no terms" — i.e. exactly today's behaviour. The guard only ever fires
+					     for an account the owner has deliberately given a number. -->
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="creditLimit" th:text="#{ui.creditLimit}">Credit limit</label>
+						<div class="col-sm-4">
+							<input type="number" step="any" min="0" class="form-control" id="creditLimit" name="creditLimit"
+							       placeholder="0" th:placeholder="#{ui.noLimit}">
+							<div style="color:#7a889c;font-size:12px;margin-top:3px" th:text="#{ui.creditLimitHelp}">Leave blank for no limit. The cashier is asked to confirm before going past it.</div>
+						</div>
+						<label class="control-label col-sm-2" for="paymentTermsDays" th:text="#{ui.paymentTerms}">Payment terms (days)</label>
+						<div class="col-sm-4">
+							<input type="number" step="1" min="0" class="form-control" id="paymentTermsDays" name="paymentTermsDays"
+							       placeholder="0" th:placeholder="#{ui.noTerms}">
+							<div style="color:#7a889c;font-size:12px;margin-top:3px" th:text="#{ui.paymentTermsHelp}">Net days. Fills in the invoice due date; blank keeps it manual.</div>
+						</div>
+					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addCustomer" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
@@ -809,6 +838,11 @@ tr.row-voided .js-edit-row{display:none !important}
 								<!-- B2B-P0: also what makes the type editable — editRecord() fills the form from the
 								     rendered row, so a field with no column cannot round-trip through an edit. -->
 								<th data-field="customerType" th:text="#{ui.customerType}">Customer type</th>
+								<!-- B2B-P1: editRecord() refills the form FROM the rendered row, so a field with no
+								     column here would silently reset to blank on every edit (the bug the
+								     customerType column was added to prevent). -->
+								<th data-field="creditLimit" th:text="#{ui.creditLimit}">Credit limit</th>
+								<th data-field="paymentTermsDays" th:text="#{ui.paymentTerms}">Payment terms (days)</th>
 								<th data-field="dueAmount" th:text="#{ui.due}">Due</th>
 								<th data-field="creditBalance" th:text="#{ui.credit}">Credit</th>
 								<th data-field="dated" th:text="#{ui.dated}">Dated</th>
@@ -1303,6 +1337,16 @@ tr.row-voided .js-edit-row{display:none !important}
 								<input type="number" step="any" class="form-control" id="sellNewTotalDue" readonly="readonly"
 									placeholder="0" title="Total the customer will owe after this sale" th:title="#{ui.totalTheCustomerWillOweAfter}"
 									style="background-color:#ffecec; font-weight:bold;">
+							</div>
+							<!-- B2B-P1 (#9): the limit and what is left of it, shown only for a customer who has one.
+							     A hint while typing; the server re-checks at submit against the CURRENT balance. -->
+							<div class="col-xs-6 col-sm-3 col-md-2" id="sellCreditLimitWrap" style="display:none">
+								<span class="field-label" th:text="#{ui.creditLimit}">Credit limit</span>
+								<input type="number" step="any" class="form-control" id="sellCreditLimit" readonly="readonly" placeholder="0">
+							</div>
+							<div class="col-xs-6 col-sm-3 col-md-2" id="sellCreditAvailableWrap" style="display:none">
+								<span class="field-label" th:text="#{ui.available}">Available</span>
+								<input type="number" step="any" class="form-control" id="sellCreditAvailable" readonly="readonly" placeholder="0">
 							</div>
 						</div>
 						<div class="form-group text-center checkout-actions">

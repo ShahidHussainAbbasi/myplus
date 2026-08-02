@@ -1,5 +1,7 @@
 # Prescriptions — what it is, how to use it, how it works
 
+**Status:** REFERENCE - user/operator documentation for the prescriptions module, not a plan. Update it when the module behaviour changes.
+
 Audience: pharmacy owners/pharmacists evaluating or operating the module, and developers changing it.
 Status: **live** (slices 41 / 43 / 44, pharmacy review B1–B4). Known gaps are listed in §8.
 

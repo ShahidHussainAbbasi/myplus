@@ -1,5 +1,7 @@
 # MyPlus Commerce SaaS — Build Standards & North Star
 
+**Status:** GOVERNING STANDARD - living. The doc a new session should read FIRST; §3 carries current delivery state. If this contradicts a slice doc, this is what a reader believes, so fix it first.
+
 One place that ties together the standards we build the **3 commerce verticals** by — **Retail/POS, Pharmacy,
 E-commerce** — as a single **multi-tenant SaaS** on a **shared commerce core**. Companion detail docs are linked.
 (Consolidated 2026-06-23 after a regroup.)
@@ -75,6 +77,20 @@ case-insensitive only because the column collation is (`utf8mb4_0900_ai_ci`). Th
 `lower(col) = lower(?)`, is honest and **defeats the index** — a query that looks careful and still scans.
 Choose the collation-dependent form, and record the dependency in the migration that adds the index, so a
 future collation change is understood to change twelve duplicate checks at once.
+
+**D3d. A proxy that discards the downstream error makes every failure behind it undiagnosable — log the
+status and body before rethrowing.** The monolith's `GatewayClient` handled 401 and 403 and let every other
+downstream status propagate to the catch-all `@ExceptionHandler`, which replaced it with a generic
+`"Error Occurred"` 500. The class had **no logger at all**, so the service's real status, message and body
+were recorded nowhere — in any module. _Incident: education 2.1's gate failure took hours and was still never
+root-caused, because the one thing that knew the answer threw it away. Fixed 2026-08-02: `Downstream
+FAILED/UNREACHABLE <method> <url> -> <status>; body=…`, rethrowing unchanged._
+
+**D3e. Every outbound HTTP client needs connect and read timeouts.** `new RestTemplate()` has none, so a
+downstream that accepts a connection and never answers pins the calling thread until the OS gives up — one
+slow service can exhaust the monolith's thread pool and take the whole UI down. The gateway's per-route
+Resilience4j timeouts (§1.5) protect the gateway, **not** the monolith's own calls. _Open at time of writing:
+`GatewayClient` still has no timeouts; raised in `slices/edu-2.1-timetable.md` §6._
 
 **D4. An entity-vs-table diff is a starting point, NEVER evidence of a dead table.** Schema can be load-bearing
 with no `@Table` pointing at it. Confirmed cases: `@JoinTable` collection tables (`roles_privileges`,
@@ -228,7 +244,7 @@ fulfillment.
 
 ## 3. Where we are (status, 2026-08-01)
 
-**In flight:** **B2B/B2C rollout** — Phases 0 + 0.5 ✅ green 2026-08-01 (`feature/b2b-b2c`); plan of record
+**In flight:** **B2B/B2C rollout** — Phases 0, 0.5 and 1 ✅ green (credit limit shipped 2026-08-02, customer + supplier); Phase 2 (B2B pricing) ✅ backend green 2026-08-02; Phase 3 (documents & reports) next (`feature/b2b-b2c`); plan of record
 [`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md). Also open: `feature/education-review` (finding B),
 `feature/pharmacy-review` (step 6), OMS O1 (design awaiting approval).
 

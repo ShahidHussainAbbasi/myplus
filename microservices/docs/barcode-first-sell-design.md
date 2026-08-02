@@ -1,5 +1,7 @@
 # Barcode-first sell UX
 
+**Status:** ✅ DONE - `Product.barcode` (catalog V3) + scoped `/products/lookup`, and the scan box adds a cart line via `scanAddToCart`; stock is re-validated server-side at submit.
+
 Closes POS audit R2/R5 (barcode-scan sell is commented out). Cadence: Document → Design → Implement → Cypress → next.
 
 ## 1. Problem

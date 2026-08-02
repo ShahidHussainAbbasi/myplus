@@ -1,5 +1,7 @@
 # finance — Audit #4: GL posting reliability (transactional outbox + relay) — Design
 
+**Status:** ✅ DONE - transactional outbox + `OutboxRelay` shipped; GL posting no longer depends on a live finance call at write time.
+
 **Branch:** `feature/finance-ledger` · **Slice:** posting reliability · **Audit ref:** `pos-retail-standards-audit.md` §2/#4
 
 ## 0. Problem

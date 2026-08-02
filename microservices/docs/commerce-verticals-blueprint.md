@@ -1,5 +1,7 @@
 # Commerce Verticals Blueprint — Retail/POS · Pharmacy · E-commerce
 
+**Status:** BLUEPRINT - living master reference that drives the slice sequence. Per-row grades are updated as gaps close; the document as a whole is never “complete”.
+
 The industry-standard **activity lifecycle** for each commerce vertical, mapped across **UI/UX → service/API → DB**,
 with each step graded against what exists in the codebase today. This is the master reference that drives the
 slice sequence — we close gaps **step by step** until each vertical is 100% to standard, top to bottom.

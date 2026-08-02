@@ -1,5 +1,7 @@
 # U5 end-to-end trace — register → purchase → sale → receipt, tracking IDs across every table
 
+**Status:** REFERENCE - a point-in-time trace, kept as the record it was. IDs and table shapes are from the run described; re-run it rather than trusting these values after schema work.
+
 Goal: create a **fresh** set of records and follow their IDs through **every** table, so the full
 trade/saga pipeline is verifiable and any silent drop (like the saga sells `getUserSell` bug) is obvious.
 

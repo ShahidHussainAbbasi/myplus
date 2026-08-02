@@ -1,5 +1,7 @@
 # Audit #5 — Idempotency on money operations
 
+**Status:** ✅ DONE - `IdempotencyService` shipped and is used across the money operations.
+
 Companion to `pos-retail-standards-audit.md` (#5). Extends the SF-3 sale-idempotency pattern to the remaining money
 ops so a double-click / retry / network-replay can't double-charge, double-stock, or double-post. Cadence:
 Document → **Design** → Implement → headed Cypress → next.

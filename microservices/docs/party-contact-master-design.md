@@ -1,5 +1,7 @@
 # Party / contact master — design
 
+**Status:** ✅ DONE (P0-P3) - `party-service` (:8096) is live and ALL FIVE module bridges landed: business customer/vendor, education student, welfare donator, pharmacy prescription-patient, marketplace shopper. Contact-360 UI shipped. P2 (finance re-point) deliberately SKIPPED; P4 is separate.
+
 Starts the initiative decided in [[project_party_service_roadmap]]: a shared **party/contact master** owning only the
 common identity of a person/organisation, referenced by every module via a stable `partyId` — the same pattern the
 finance ledger (`partyType`+`partyId`+`partyName`) and Item→Product convergence (one master + id bridge) already use.

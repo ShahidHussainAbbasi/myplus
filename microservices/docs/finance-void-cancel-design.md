@@ -1,5 +1,7 @@
 # Audit #3 — Void / Cancel (first-class, audited, books-safe)
 
+**Status:** ✅ DONE - first-class void/cancel shipped, books-safe and audited.
+
 Companion to `pos-retail-standards-audit.md` (remediation #3). Builds on #1 (purchase return), #2 (shared reversal
 posting), #4 (GL outbox). Cadence: Document → **Design** → Implement → headed Cypress → next.
 

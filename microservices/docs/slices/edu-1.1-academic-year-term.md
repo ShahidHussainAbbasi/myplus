@@ -1,6 +1,6 @@
 # Slice 1.1 — Academic year & term (the Phase 1 keystone)
 
-**Status: IMPLEMENTED — awaiting `mvn` verification + the Cypress gate.**
+**Status: ✅ DONE — `mvn test` + Cypress gate GREEN.** (Programme row 1.1 ✅, "all six green".)
 Programme: `education-complete-programme.md` Phase 1.1. First slice of the academic record.
 
 ---

@@ -1,5 +1,7 @@
 # MyPlus — Multi-Tenant SaaS Architecture (Standard)
 
+**Status:** STANDARD - living, in force across every service. Not a slice and never “done”: it changes only when the org-scoping contract itself changes.
+
 This is the contract **every** microservice follows, because the **myplus monolith (Thymeleaf) is
 the single front-end for all services**. Build domains as **vertical slices**
 (Document → Design → Implement → Test), one domain 100% before the next.

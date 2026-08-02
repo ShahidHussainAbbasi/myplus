@@ -1,4 +1,7 @@
 # maxtheservice — Platform Domain Lifecycles, OMS & SaaS Engineering Standards
+
+**Status:** REFERENCE - the idealised OMS blueprint this platform is measured against. Deliberately NOT a plan: the reconciliation against real code is `oms-b2b-b2c-implementation-plan.md`, and the execution order is `oms-program-plan.md`.
+
 ### Master reference for review & implementation
 
 **Prepared:** 2026-07-31 · **Verified against branch:** `feature/education-review` (the most advanced tree; item→product / stock→inventory convergence complete).

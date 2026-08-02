@@ -74,6 +74,12 @@ public class Sell implements Serializable {
 	@Column(name = "catalog_price", precision = 19, scale = 2)
 	private BigDecimal catalogPrice;
 
+	// B2B-P2 (#10): WHY this line was priced as it was — "Wholesale price −12%", "Contract price".
+	// A SNAPSHOT of the human reason, not the rule id: a rule can be edited or deleted later, and an invoice
+	// must still explain itself years afterwards. NULL = priced at catalog (every legacy row).
+	@Column(name = "price_reason", length = 64)
+	private String priceReason;
+
 	// SF-10: unit COST (COGS) snapshot at sale time — the product's latest purchase rate — so reports can show
 	// true per-line margin = netAmount − costPrice×quantity. Null for legacy sells / never-purchased products.
 	@Column(name = "cost_price", precision = 19, scale = 2)

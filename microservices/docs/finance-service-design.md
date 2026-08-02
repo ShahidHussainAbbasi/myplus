@@ -1,5 +1,7 @@
 # finance-service — Payment Ledger (AR subledger) — Design
 
+**Status:** ✅ DONE - the AR subledger shipped, and the whole roadmap after it did too (AP → statements/aging → GL → outbox → idempotency → audit-service → tax register → period close). This doc describes Phase 1 of that chain.
+
 **Branch:** `feature/finance-ledger` · **Slice:** Receive Payment (Phase 1) · **Roadmap:** AR subledger → AP subledger → General Ledger
 
 ## 1. Why a separate shared service

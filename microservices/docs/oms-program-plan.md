@@ -1,5 +1,7 @@
 # OMS / Platform Program — execution tracker
 
+**Status:** LIVE TRACKER - the status column in each table is the source of truth for OMS/platform work. Update the row as a slice lands, not this line.
+
 Live checklist for implementing [`platform-oms-master-reference.md`](platform-oms-master-reference.md). One slice at a
 time: **Document → Design (Mermaid) → Implement → headed Cypress gate** (you run the gate; your pass closes the slice).
 Branch **`feature/oms`**. Update the status column as slices land.
@@ -23,12 +25,12 @@ Branch **`feature/oms`**. Update the status column as slices land.
 | Track | Scope | Status |
 |---|---|---|
 | **A — Config/Authz rollout** | `common-settings` → catalog/inventory/finance/pharma/marketplace/appointment; finish `@PreAuthorize` tail | ⬜ |
-| **B — B2B commercial** | account hierarchy+roles (party) → contract/tiered pricing + `/price/calculate` (catalog + `commerce-pricing`) → quotes→approval→order → credit limits/terms (finance AR) | 🟡 **foundation landed** — `Customer.customerType` ships in B2B Phase 0 (✅ green 2026-08-01, branch `feature/b2b-b2c`). **B4 credit limits = B2B Phase 1, B1 pricing = B2B Phase 2** — plan of record is [`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md); do NOT build them standalone here or the work is done twice |
+| **B — B2B commercial** | account hierarchy+roles (party) → contract/tiered pricing + `/price/calculate` (catalog + `commerce-pricing`) → quotes→approval→order → credit limits/terms (finance AR) | 🟡 **foundation landed** — `Customer.customerType` ships in B2B Phase 0 (✅ green 2026-08-01, branch `feature/b2b-b2c`). **B4 credit limits = B2B Phase 1** (✅ DONE, green 2026-08-02: `slices/b2b-P1-credit-limit.md`, `credit-limit.cy.js`; rules live in the existing `common-credit` lib, not a new one), **B1 pricing = B2B Phase 2** (✅ DONE, green 2026-08-02: `slices/b2b-P2-pricing.md`; NEW `commerce-pricing` lib + `price_rule` on catalog — verified no existing lib fits) — plan of record is [`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md); do NOT build them standalone here or the work is done twice |
 | **C — Platform** | event broker + **CQRS analytics read-model** → hash-chained audit → metrics/SLOs → object storage → API versioning → shared `config-screen.js` | ⬜ |
 
 ## Housekeeping / prerequisites
 - ⬜ **Verify G1** (expired-FEFO) — `mvn -pl inventory-service -am test -Dtest=ReservationServiceTest` (commit `492601d`, already in history).
-- ⬜ Commit in-progress **education report-cards** work on `feature/education-review` (keeps `feature/oms` clean).
+- ✅ Commit in-progress **education report-cards** work on `feature/education-review` (keeps `feature/oms` clean) — done: 1.5 report cards is commit `67365448`, 1.6 promotion `cd3f35dd`. That branch has since finished all of Phase 1, closed the education review, and shipped Phase 2.1 (timetable) and 2.2 (substitution), both green 2026-08-02; it is now on 2.3 staff attendance &amp; leave.
 
 ## Open decisions (from master §Appendix B — confirm as they arise)
 1. First-cut scope: OMS correctness first (**chosen**) vs a parallel track first.

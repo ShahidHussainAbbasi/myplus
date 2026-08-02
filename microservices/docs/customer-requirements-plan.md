@@ -1,12 +1,13 @@
 # Customer requirements — review, analysis & implementation plan
 
-**Status:** IN DELIVERY — **#3, #8, #13 SHIPPED** in B2B Phase 0 (Cypress-green 2026-08-01); the rest
+**Status:** IN DELIVERY — **#3, #8, #13 SHIPPED** in B2B Phase 0 (Cypress-green 2026-08-01); **#9 SHIPPED** in Phase 1 and
+**#10 SHIPPED** in Phase 2 (both Cypress-green 2026-08-02); the rest
 unchanged. Delivery state per requirement is the **State** column in §3; the plan of record for sequencing
 is `b2b-b2c-rollout-plan.md`.
 **Scope:** 12 requirements (1–13, no 12) for POS / Retail + Pharmacy.
 **Method:** every claim checked against the code and against the OMS docs — not assumed.
 
-> **v2 changes:** *booker = supplier* (no new party type) · credit limit = **warn** · returns get their own
+> **v2 changes:** *booker = supplier* (no new party type) · credit limit = **warn (take confirmation)** · returns get their own
 > series · promo **off by default** · "multi-dimensional" = selectable filters, not pivot tables · and the
 > whole set is now mapped onto [`oms-program-plan.md`](oms-program-plan.md) /
 > [`oms-b2b-b2c-implementation-plan.md`](oms-b2b-b2c-implementation-plan.md).
@@ -61,8 +62,8 @@ You confirmed a booker **is** a supplier. That removes the new-party-type proble
 | 5 | Statement download | 🟡 on-screen only | S | monolith UI | ⬜ Phase 3 |
 | 2 | Batch # on purchase | 🔴 fields commented out | M | **F1 — do first** | ⬜ Phase 3 — **gates #4** |
 | 7 | Stock cap + expiry e-mail | 🟡 alerts exist | M | inventory + notification | ⬜ unscheduled |
-| 9 | Dues limit | 🔴 | M | **= OMS B4** | ⬜ **Phase 1** |
-| 10 | Customer/product discount | 🔴 | M | **= OMS B1** | ⬜ **Phase 2** |
+| 9 | Dues limit | 🔴 | M | **= OMS B4** | ✅ **SHIPPED** Phase 1, green 2026-08-02 (customer + supplier; warn = take confirmation) |
+| 10 | Customer/product discount | 🔴 | M | **= OMS B1** | ✅ **SHIPPED** Phase 2, green 2026-08-02 (contract + tier rules; reason persisted). Mgmt screen outstanding |
 | 11 | Supplier targets & bonuses | 🔴 | M *(was L)* | business-service | ⬜ unscheduled |
 | 6 | Multi-dimension reports | 🟡 one report | M *(was L)* | **= F2** | ⬜ Phase 3 |
 
@@ -130,9 +131,14 @@ already white-label one dashboard.
 
 ## 6. Answers folded in
 
-**#9 credit limit → warn.** Non-blocking by default; the cashier sees *"Ali Traders is Rs 45,000 over
-their Rs 200,000 limit"* and may proceed. Configurable `off | warn | block` so a stricter org can harden
-it. No supervisor-override privilege needed for warn — that only matters if you later choose block.
+**#9 credit limit → warn = TAKE CONFIRMATION.** *(Refined 2026-08-01; the original text read "non-blocking,
+the cashier may proceed", which was too weak.)* The cashier is asked **before anything is written** — *"Ali
+Traders would be Rs 45,000 over their Rs 200,000 limit. Continue?"* — and the sale is recorded only if they
+accept. Cancelling writes nothing and holds no stock. This matches how **#3** is worded (*"Consent when
+profit ≤ 0"*): consent has to be asked while the decision is still reversible, not reported after the money
+has moved. Configurable `off | warn | block`; `block` refuses outright and offers no confirmation. No
+supervisor-override privilege for `warn` — that only matters if you later choose `block`.
+See [`slices/b2b-P1-credit-limit.md`](slices/b2b-P1-credit-limit.md) §2c-bis for the protocol.
 
 **#1 return series → own numbers.** Best practice and what auditors expect:
 
@@ -172,7 +178,7 @@ Merged with the OMS tracker — Track B slices are named so they land as B1/B4, 
 | **3** | **F2** report engine → **#6** | Filterable + exportable; reuses phase 2's writer |
 | **4** | **#7** stock cap + expiry config + **daily digest** e-mail | Independent — pull earlier if urgent |
 | **5** | **OMS B1** → **#10** customer/product pricing & discount rules | Track B proper; your requirement is the acceptance criteria |
-| **6** | **OMS B4** → **#9** credit limit (warn) + terms | Pairs with B1 — both touch order validation |
+| **6** | **OMS B4** → **#9** credit limit (warn = take confirmation) + terms | Pairs with B1 — both touch order validation |
 | **7** | **#11** supplier targets & bonuses | Needs F2 for achievement calculation |
 
 Each phase: design doc (3 Mermaid diagrams per `docs/DESIGN-STANDARD.md`) → implement → `mvn test` → headed

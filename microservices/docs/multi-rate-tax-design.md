@@ -1,5 +1,7 @@
 # Multi-rate tax — tax-code master
 
+**Status:** ✅ DONE - named tax classes shipped (catalog `tax_code` V2 + `Product.taxCodeId` → `ProductRef.taxRate`, so the sell hot path is unchanged), per-rate `/taxBreakdown` + receipt breakdown, and Tax Codes CRUD in Tax Settings.
+
 Closes the **Multi-rate tax** item in `pos-retail-standards-audit.md` §5. Cadence: Document → **Design** → Implement
 (UI→API→DB) → headed Cypress → next. Builds on the completed tax register (Phase A output + Phase B input).
 

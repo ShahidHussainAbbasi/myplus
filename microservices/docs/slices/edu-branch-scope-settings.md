@@ -1,6 +1,6 @@
 # Education — owner-configurable branch scoping (staff, fees, subjects)
 
-**Status:** IMPLEMENTED — awaiting build + Cypress gate (user runs both).
+**Status:** ✅ **DONE.** (Programme Phase 0 lists branch-scope settings as complete; the four `edu.*.branchScoped` keys are live and cited as the proven pattern.)
 
 > **Design corrected during implementation.** The design assumed fee collection needed branch scoping built.
 > It does **not** — `FeeCollectionController.branchVisible` already implements it, reading

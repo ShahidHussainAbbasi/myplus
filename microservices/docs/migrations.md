@@ -1,5 +1,7 @@
 # Manual Migrations Log
 
+**Status:** REFERENCE - append-only log of manual migrations. Superseded as a mechanism by per-service Flyway (every service now owns its schema); kept because these rows already ran in real environments.
+
 `ddl-auto: update` handles additive changes (new columns, new constraints) but will **not** drop or
 alter existing columns/indexes. Those go here — run once per environment (DB: `myplusdb_education`).
 

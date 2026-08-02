@@ -1,5 +1,7 @@
 # Audit #6 — Immutable audit trail (standalone audit-service)
 
+**Status:** ✅ DONE - standalone `audit-service` (:8095) shipped with the append-only trail.
+
 Companion to `pos-retail-standards-audit.md` (#6). Built to microservice standards: a **standalone, plug-and-play
 audit-service** any service can emit to, fed by a **transactional outbox** so capture is atomic and delivery is
 reliable + decoupled. Cadence: Document → **Design** → Implement → headed Cypress → next.

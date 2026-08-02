@@ -1,5 +1,7 @@
 # Store credit (SF-5 Model B)
 
+**Status:** ✅ DONE - SF-5 Model B shipped: `store_credit_txn` ledger + cached `Customer.creditBalance`, `STORE_CREDIT` tender (server-capped), GL liability 2200, business-service V24.
+
 Closes the store-credit item (SF-5 Model B, deferred) + audit R11. Cadence: Document → Design → Implement → Cypress →
 next. Loyalty **points** are explicitly OUT of this slice (a clean follow-up) — this delivers store credit end-to-end.
 

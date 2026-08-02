@@ -1,5 +1,7 @@
 # Period close / lock
 
+**Status:** ✅ DONE - period close/lock shipped (finance V4); `PeriodLockGuard` gates 10 operations and the owner has a Period-Close tab.
+
 Closes the "period close / lock" item from `pos-retail-standards-audit.md` §2/§5 — freeze a date range so posted
 transactions can't be changed or back-dated after the books are closed. Cadence: Document → Design → Implement →
 headed Cypress → next.

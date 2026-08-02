@@ -2,6 +2,7 @@ package com.myplus.commerce.contracts.client;
 
 import com.myplus.commerce.contracts.dto.ProductImportLine;
 import com.myplus.commerce.contracts.dto.ProductImportResult;
+import com.myplus.commerce.contracts.dto.PriceQuote;
 import com.myplus.commerce.contracts.dto.ProductRef;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,6 +22,18 @@ import java.util.List;
  */
 @HttpExchange(accept = "application/json")
 public interface CatalogClient {
+
+    /**
+     * B2B P2 (#10): what THIS buyer pays for THESE lines, resolved against the tenant's contract/tier rules.
+     *
+     * <p>Called ONCE per sale, never per line. Sends ids and quantities only — a caller never sends a price
+     * and is never believed about one; catalog-service computes the answer from its own rules.
+     *
+     * <p>Callers must treat a failure here as "no rules": fall back to the catalog price and let the sale
+     * proceed. A pricing outage must never stop a shop selling.
+     */
+    @PostExchange("/price-rules/quote")
+    PriceQuote quote(@RequestBody PriceQuote request);
 
     /** Resolve a product reference (+ price) by its catalog id — raw ProductRef, tenant-scoped via headers. */
     @GetExchange("/products/{id}/ref")

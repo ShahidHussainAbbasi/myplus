@@ -12,8 +12,9 @@ Surface: 94 Java classes · **19 controllers** · Flyway V1–V7 · **2 unit tes
 
 ## Findings at a glance
 
-**Status as of 2026-07-31** — the audit below is the ORIGINAL text, kept as written. Only this table and the
-backlog at the end are updated as work lands, so the findings stay readable as they were first stated.
+**Status: CLOSED (2026-08-01)** — findings A, B, C and D are fixed and Cypress-green; E is partly done, with
+its remainder tracked below. The audit text is the ORIGINAL, kept as written; only this table and the backlog
+at the end move, so the findings stay readable as they were first stated.
 
 | # | Finding | Severity | Blast radius | Status |
 |---|---|---|---|---|

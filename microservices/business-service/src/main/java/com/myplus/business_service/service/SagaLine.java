@@ -20,5 +20,6 @@ public record SagaLine(
         BigDecimal lineGross,
         BigDecimal catalogPrice,
         String discountType,     // display type of the applied discount ("%" or "Amount"); persisted to Sell.dt
-        BigDecimal costPrice) {  // SF-10: unit COGS snapshot (latest purchase rate) for per-line margin
+        BigDecimal costPrice,    // SF-10: unit COGS snapshot (latest purchase rate) for per-line margin
+        String priceReason) {    // B2B-P2 (#10): why this price applied; null when priced at catalog
 }

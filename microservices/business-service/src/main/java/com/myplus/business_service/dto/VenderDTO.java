@@ -24,6 +24,9 @@ public class VenderDTO implements Serializable {
 	private String companyName;
 	@ValidMobileNumber
 	private String mobile;
+
+	/** B2B P1 (#9, supplier side): most WE are willing to owe this vendor. Blank/null = no limit. */
+	private java.math.BigDecimal creditLimit;
 	private String phone;
 	private String address;
 	@ValidEmail

@@ -42,6 +42,7 @@
     <module>common-credit</module>
     <module>commerce-domain</module>
     <module>commerce-contracts</module>
+    <module>commerce-pricing</module>
     <module>common-notify</module>
     <module>common-captcha</module>
     <module>service-parent</module>

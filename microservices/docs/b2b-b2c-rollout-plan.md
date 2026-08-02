@@ -1,6 +1,6 @@
 # B2B + B2C — what exists today, and how to start both
 
-**Status:** IN DELIVERY — **Phases 0 and 0.5 DONE & Cypress-green (2026-08-01)**; Phase 1 (credit limit) is next.
+**Status:** IN DELIVERY — **Phases 0, 0.5, 1 and 2 DONE & Cypress-green** (0/0.5 on 2026-08-01, 1 and 2 on 2026-08-02); **Phase 2 (B2B pricing) backend DONE & Cypress-green; Phase 3 (documents & reports) is next.**
 Per-phase state is tracked in the Delivery phases section below; the slice doc for each shipped phase is linked there. Analysis sections 1-3b remain as written unless a finding contradicts them.
 **Companion to:** [`oms-b2b-b2c-implementation-plan.md`](oms-b2b-b2c-implementation-plan.md) (gap analysis),
 [`oms-program-plan.md`](oms-program-plan.md) (tracker), [`customer-requirements-plan.md`](customer-requirements-plan.md)
@@ -223,19 +223,22 @@ Slice doc: `slices/b2b-P05-org-type-routing.md` · gate: `cypress/e2e/business/o
 - Fixture `multi.module@myplus.com` seeded into both a commerce org and a school (no live customer runs two
   modules, so the two-org hop had to be seeded)
 
-### Phase 1 — B2B accounts & credit — 🟡 **NEXT** *(= OMS B4, customer req #9)*
+### Phase 1 — B2B accounts & credit — ✅ **DONE, Cypress-green 2026-08-02** *(= OMS B4, customer req #9)*
+Slice doc: `slices/b2b-P1-credit-limit.md` · gate: `cypress/e2e/business/credit-limit.cy.js`
 - Credit limit + payment terms on the customer (party-service owns the account; finance owns the balance)
 - Credit check at order validation → **warn** (configurable `off | warn | block`)
 - Inline on the sell screen, beside the dues block that already exists
 
 *Delivers:* controlled credit selling. Statements and ageing already exist and light up immediately.
 
-### Phase 2 — B2B pricing — ⬜ not started *(= OMS B1, customer req #10)*
+### Phase 2 — B2B pricing — ✅ **backend DONE, Cypress-green 2026-08-02** *(= OMS B1, customer req #10)*
+Outstanding (UI only): the sell screen's live price-reason hint, and the Price Rules management screen.
+Slice doc: `slices/b2b-P2-pricing.md` · gate: `cypress/e2e/business/pricing.cy.js`
 - Price lists: customer-specific and volume tiers, in catalog + a `commerce-pricing` library
 - Resolution order **base → contract → tier → promotion**, cached off the sell hot path
 - Covers customer-wise *and* product-wise discount in one model rather than two
 
-### Phase 3 — Documents & reports — ⬜ not started *(customer reqs #1, #4, #5, #6, #2; + receipt-vs-invoice, moved from Phase 0)*
+### Phase 3 — Documents & reports — 🟡 **NEXT** *(customer reqs #1, #4, #5, #6, #2; + receipt-vs-invoice, moved from Phase 0)*
 - **F1** batch/expiry captured on purchase → **#2**, then **#4** receipt lines
 - Return series `CRN-`/`DBN-` → **#1**
 - Statement/invoice PDF+CSV download → **#5** (`jspdf` already vendored)
@@ -286,7 +289,7 @@ their own *screens* but reuse the same party/pricing/finance capabilities.
 
 | Need | Verdict |
 |---|---|
-| Credit limit (#9) | new lib `commerce-credit-policy` — **check stays local**, no finance call on the sell path |
+| Credit limit (#9) | **existing `common-credit` lib** (not a new one — it already is "shared rules, local data") — **check stays local**, no finance call on the sell path |
 | Pricing/discount (#10) | new lib `commerce-pricing` + tables on catalog — resolved **once per sale** |
 | Reports (#6) | new lib `commerce-reporting` (SPI per service) |
 | Documents (#1/4/5/13) | new lib `commerce-documents` (numbering + render + promo) |

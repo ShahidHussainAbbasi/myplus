@@ -47,6 +47,15 @@ public class CustomerHistoryDTO {
     // dedups to ONE invoice. Without this field the proxy would drop it on deserialize.
     private String idempotencyKey;
 
+    /**
+     * B2B-P1 (#9): the operator has seen the credit-limit warning and chosen to continue.
+     *
+     * <p>This proxy binds a TYPED DTO and re-serialises it, so a field missing here is silently dropped on
+     * the way to business-service — the sale would be answered CONFIRM forever and the confirmation dialog
+     * would loop. Any new field on the business-service CustomerHistoryDTO needs a twin here.
+     */
+    private Boolean creditAcknowledged;
+
     // B1 (pharmacy): the prescription this sale dispenses. Same reason as the key above — the proxy deserializes
     // into this DTO, so a field that is missing here never reaches business-service and the rx guard would refuse
     // every dispense sale.

@@ -554,6 +554,13 @@ public class SellController {
 			// cashier verbatim instead of the generic "unexpected error". No rollback drama, just a clean ERROR.
 			LOGGER.warn("addSell rejected (insufficient stock): {}", stock.getMessage());
 			return new GenericResponse("ERROR", stock.getMessage());
+		} catch (com.myplus.business_service.service.CreditConfirmationRequiredException confirm) {
+			// B2B-P1 (#9): over the credit limit under policy=warn, not yet acknowledged. NOTHING was written
+			// and NO stock was reserved. A distinct CONFIRM status, not ERROR — nothing failed; the operator
+			// simply has not answered yet. The client asks with the shared dialog and re-submits with
+			// creditAcknowledged=true (same idempotencyKey, which is safe because nothing was recorded).
+			LOGGER.info("addSell awaiting credit-limit confirmation: {}", confirm.getMessage());
+			return new GenericResponse("CONFIRM", confirm.getMessage());
 		} catch (com.myplus.common.web.exception.ValidationException clinical) {
 			// B1: a clinical/business rule refused the sale (e.g. prescription-only medicine with no prescription).
 			// Nothing was written — surface the reason verbatim, exactly like the stock rejection above, or the
@@ -683,6 +690,16 @@ public class SellController {
 
 			java.util.List<com.myplus.business_service.service.SagaLine> lines =
 					sagaSellService.buildLines(dto, new java.util.HashMap<>());
+
+			// B2B-P1 (#9): credit-limit guard on the EDIT path too — an edit can raise what a customer owes
+			// just as a new sale can. The invoice's CURRENT unpaid amount is passed so it is not counted
+			// twice: the customer's dueAmount already includes it, so without this, merely REDUCING an
+			// over-limit invoice would look like a fresh breach and demand confirmation to fix a mistake.
+			// CustomerHistory.dueAmount is (paid − grandTotal), negative while owing → negate to get owed.
+			java.math.BigDecimal editingDue = nzbd(ch.getDueAmount()).negate();
+			if (editingDue.signum() < 0) editingDue = java.math.BigDecimal.ZERO;
+			sagaSellService.assertCreditPolicy(dto, lines, editingDue);
+
 			saleWriter.applyInvoice(ch, lines, dto, user, true);
 
 			// GL: reverse the old posting + repost the new (net = the edit's delta) so the books never drift on an
@@ -710,6 +727,13 @@ public class SellController {
 			// Period close: nothing was written before the guard — surface the reason without the generic rollback message.
 			LOGGER.warn("updateSell rejected (period closed): {}", pce.getMessage());
 			return new GenericResponse("FAILED", pce.getMessage());
+		} catch (com.myplus.business_service.service.CreditConfirmationRequiredException confirm) {
+			// B2B-P1 (#9): over the credit limit under policy=warn, not yet acknowledged. NOTHING was written
+			// and NO stock was reserved. A distinct CONFIRM status, not ERROR — nothing failed; the operator
+			// simply has not answered yet. The client asks with the shared dialog and re-submits with
+			// creditAcknowledged=true (same idempotencyKey, which is safe because nothing was recorded).
+			LOGGER.info("addSell awaiting credit-limit confirmation: {}", confirm.getMessage());
+			return new GenericResponse("CONFIRM", confirm.getMessage());
 		} catch (com.myplus.common.web.exception.ValidationException clinical) {
 			// B1: an edit that introduces a prescription-only line is refused on the same rule as a new sale —
 			// updateSell shares buildLines, so the guard applies here too and its reason must survive.

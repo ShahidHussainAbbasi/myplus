@@ -58,11 +58,30 @@ class MarginPolicyTest {
         ReflectionTestUtils.setField(service, "settingsService", settingsService);
     }
 
-    /** qty 1, so netAmount and costPrice read directly as the line's money. */
+    /**
+     * qty 1, so netAmount and costPrice read directly as the line's money.
+     *
+     * <p>Every component is written out and labelled deliberately: this is the ONE place the test builds a
+     * {@link SagaLine}, and widening that record has now broken this call site twice (SF-10 cost, then B2B-P2
+     * priceReason). Naming each slot makes the next widening a one-line, obvious fix rather than a hunt
+     * through a row of anonymous nulls.
+     */
     private static SagaLine line(double net, Double cost) {
-        return new SagaLine(1L, 1f, BigDecimal.valueOf(net), BigDecimal.ZERO,
-                BigDecimal.valueOf(net), BigDecimal.valueOf(net), null, null, null, null, null, null,
-                cost == null ? null : BigDecimal.valueOf(cost));
+        return new SagaLine(
+                1L,                                   // productId
+                1f,                                   // quantity
+                BigDecimal.valueOf(net),              // sellRate
+                BigDecimal.ZERO,                      // discount
+                BigDecimal.valueOf(net),              // totalAmount
+                BigDecimal.valueOf(net),              // netAmount — what the margin guard sums
+                null,                                 // srp
+                null,                                 // taxRate
+                null,                                 // taxAmount
+                null,                                 // lineGross
+                null,                                 // catalogPrice
+                null,                                 // discountType
+                cost == null ? null : BigDecimal.valueOf(cost),   // costPrice — null = uncosted line
+                null);                                // priceReason (B2B-P2) — null = priced at catalog
     }
 
     private void policy(String value) {

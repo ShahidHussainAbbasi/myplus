@@ -80,6 +80,21 @@ public class Customer implements Serializable {
     @Column(name = "party_id")
     private Long partyId;
 
+    /**
+     * B2B P1 (#9): the most this customer may owe. NULL = no limit, which is every customer until an owner
+     * sets one — so the guard is inert by default and nothing changes for an existing shop.
+     */
+    @Column(name = "credit_limit", precision = 19, scale = 2)
+    private BigDecimal creditLimit;
+
+    /**
+     * B2B P1 (#9): net payment terms in days (Net 30/60). NULL = no terms; the invoice due date stays
+     * hand-entered as it is today. Feeds the EXISTING ageing report, whose buckets are only as good as the
+     * due dates behind them.
+     */
+    @Column(name = "payment_terms_days")
+    private Integer paymentTermsDays;
+
     @Column(name = "due_date")
     private LocalDate dueDate;
 	

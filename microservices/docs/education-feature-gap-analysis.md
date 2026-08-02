@@ -1,7 +1,18 @@
 # Education — feature inventory & gap analysis
 
-**Status: REVIEW — no code written.** Produced 2026-07-30 against `education-service` (15 entities, 19
-controllers, Flyway V1–V7) and `educationDashboard.html` (22 screens).
+**Status: SUPERSEDED — kept as the raw inventory it was.** Produced 2026-07-30 against `education-service`
+(15 entities, 19 controllers, Flyway V1–V7) and `educationDashboard.html` (22 screens).
+
+> **⚠️ Do not plan from this document.** The live plan is
+> [`education-complete-programme.md`](education-complete-programme.md), which supersedes it.
+>
+> **Much of what this lists as a gap has since shipped** (Phase 0 + all of Phase 1, 2026-07-30 → 2026-08-01):
+> academic year & term, examinations, marks entry, grading scales, report cards, promotion, and the fee →
+> GL/AR/credit money path. The service is now at **Flyway V16**, not V7, and carries 24 entities, not 15.
+>
+> The inventory below is left **exactly as written** because it is a point-in-time record of what the service
+> looked like before the programme started — which is what makes the programme's decisions readable. Read it
+> as history, not as a backlog.
 
 Scope question this answers: *what is missing before this can run a department of education, not just a school?*
 

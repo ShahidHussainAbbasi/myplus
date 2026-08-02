@@ -200,6 +200,40 @@ public class CatalogController {
         } catch (Exception e) { LOGGER.error("deleteTaxCode proxy error", e); return failure(e); }
     }
 
+    // ── B2B-P2 (#10): contract & tier price rules ────────────────────────────────────────────────────
+
+    /** The tenant's price rules → catalog GET /price-rules (raw JSON array for the Price Rules screen). */
+    @GetMapping("/priceRules")
+    @ResponseBody
+    public String priceRules() {
+        try { return catalog.getString("/price-rules"); }
+        catch (Exception e) { LOGGER.error("priceRules proxy error", e); return "[]"; }
+    }
+
+    /** Create (no id) or update (with id) a price rule → catalog POST/PUT /price-rules. */
+    @PostMapping("/savePriceRule")
+    @ResponseBody
+    public Map<String, Object> savePriceRule(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body.get("id");
+            return (id != null && !id.toString().isBlank())
+                    ? catalog.putJson("/price-rules/" + id.toString().trim(), body)
+                    : catalog.postJson("/price-rules", body);
+        } catch (Exception e) { LOGGER.error("savePriceRule proxy error", e); return failure(e); }
+    }
+
+    /** Delete a price rule → catalog DELETE /price-rules/{id}. */
+    @PostMapping("/deletePriceRule")
+    @ResponseBody
+    public Map<String, Object> deletePriceRule(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body.get("id");
+            if (id == null || id.toString().isBlank()) return Collections.singletonMap("success", false);
+            catalog.delete("/price-rules/" + id.toString().trim());
+            return Collections.singletonMap("success", true);
+        } catch (Exception e) { LOGGER.error("deletePriceRule proxy error", e); return failure(e); }
+    }
+
     /** Deactivate the checked products (the Product screen's Delete button) → catalog PUT /products/{id}/deactivate.
      *  Deactivate (not hard-delete) keeps products referenced by past sales/inventory intact; they drop off the list. */
     @PostMapping("/deactivateProduct")

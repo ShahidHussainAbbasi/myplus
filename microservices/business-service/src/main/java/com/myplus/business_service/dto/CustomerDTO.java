@@ -31,6 +31,12 @@ public class CustomerDTO implements Serializable {
 
 	private CustomerType customerType;
 
+	/** B2B P1 (#9): most this customer may owe. Blank/null = no limit. */
+	private java.math.BigDecimal creditLimit;
+
+	/** B2B P1 (#9): net terms in days (Net 30/60). Blank/null = none; due date stays hand-entered. */
+	private Integer paymentTermsDays;
+
 	// @ValidMobileNumber(message = "Invalid contact number")
 	@SafeText
 	private String contact;

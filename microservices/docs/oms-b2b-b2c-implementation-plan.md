@@ -1,5 +1,10 @@
 # OMS (B2B + B2C) — implementation plan, mapped to the existing maxtheservice build
 
+**Status:** ANALYSIS, PARTLY SUPERSEDED (noted 2026-08-02). Still the right reconciliation of the OMS
+blueprint against this codebase, **except for B4 credit limits, which has since been BUILT differently** —
+see the note on that row below. The plan of record for the B2B rollout is
+[`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md); where the two disagree, that one wins.
+
 **Purpose.** The pasted OMS reference describes an idealised Order Management System as if it were greenfield
 (≈12 new services: `order-`, `pricing-`, `payment-`, `shipment-`, `fulfillment-`, `billing-`, `returns-`,
 `customer-`, `workflow-`, `product-`, `analytics-`…). maxtheservice is **not** greenfield: ~70–75 % of that
@@ -114,7 +119,7 @@ vertical slice + Cypress gate per slice. Decision rule for "new service vs exten
 |---|---|---|
 | B1 contract/tiered pricing | **library + tables on catalog** (stateless resolution; extract to `pricing-service` only if it grows external feeds) | catalog-service + `commerce-pricing` lib |
 | B2 quotes/drafts, B3 approvals | **extend the order owner** (statuses + approval state); approval routing as a small rules component | marketplace/business order + notification |
-| B4 credit limit/terms | **extend party + finance** (limit/terms on account; credit-check calls finance AR) | party-service + finance-service |
+| ~~B4 credit limit/terms~~ **BUILT 2026-08-01, differently** | Rules in the existing **`common-credit`** lib (`CreditLimitPolicy`, pure); limit/terms as columns on business-service `Customer`/`Vender`; the check is **LOCAL — no finance call on the sell path**. `dueAmount` is already maintained locally by `recomputeDue`/`recomputePayable`, so calling finance AR at checkout would add a network hop to the hot path to re-derive a number we already hold. Party/finance ownership remains right for the ACCOUNT HIERARCHY half of B4, which is not built. | `common-credit` + business-service |
 | B4 account hierarchy/roles | **extend party** + auth privileges | party-service |
 | C0 PSP adapter | **library/port + config** (autoconfig adapter) | marketplace + `common-payments` |
 | C1 shipping + C2 fulfilment | **NEW service** — owns data + lifecycle + external carrier integration = a real bounded context | **logistics-service** |

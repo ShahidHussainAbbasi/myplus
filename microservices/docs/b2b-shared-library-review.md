@@ -1,6 +1,9 @@
 # Service review — new shared libraries vs new dependencies
 
-**Status:** ARCHITECTURE REVIEW — for approval before any code.
+**Status:** PARTLY ACTED ON (2026-08-01). Its credit-limit recommendation is **built** — as
+`CreditLimitPolicy` in the **existing `common-credit`** library rather than the new
+`commerce-credit-policy` this proposed (see the resolution note in §Credit limit). The remaining
+recommendations — pricing, party account hierarchy — are still analysis awaiting approval.
 **Context:** **all seven modules are live.** Nothing may break, every default must preserve today's
 behaviour, and every migration runs against populated tables.
 **Companion to:** [`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md).
@@ -52,6 +55,19 @@ everything below.
 ## 2. ⚠️ Naming collision to avoid
 
 `common-credit` is **store credit** — a customer wallet, money *the shop owes the customer*.
+> **Resolution (2026-08-01, while designing Phase 1).** This review proposed minting
+> `commerce-credit-policy`. It should not be minted: **`common-credit` already is that library** — its own
+> header says *"no credit data is shared across services — only the rules … are"*, which is precisely the
+> shape argued for here, and it already carries the `CreditStore` SPI as the reference for keeping tenant data
+> local. Adding a second credit library beside it would split one concept across two modules for no gain, and
+> reuse-first is the standing rule. The limit policy therefore lands in `common-credit` as
+> `CreditLimitPolicy` — pure arithmetic, **no SPI needed**, because the caller already holds the balance and
+> the limit on the row it just loaded.
+>
+> Note the two are different concepts sharing a library, deliberately: `CreditService` = credit the customer
+> **has** (a liability the shop owes), `CreditLimitPolicy` = credit the customer **may take** (a cap on the
+> receivable). Same domain word, same architectural shape, opposite direction of money.
+
 Requirement #9 is a credit **limit** — how much *the customer may owe the shop*.
 
 **Opposite directions, same word.** Folding the limit into `common-credit` would produce a class where
@@ -137,7 +153,7 @@ That is a real bounded context. Everything else above is a library.
 
 | Need | Verdict | Where |
 |---|---|---|
-| Credit limit (#9) | **new library** `commerce-credit-policy` | rules shared, data local — **no finance call at sell time** |
+| Credit limit (#9) | ~~new library `commerce-credit-policy`~~ → **`common-credit` (existing)** | rules shared, data local — **no finance call at sell time**. Resolved 2026-08-01: the library this proposed **already exists**. See the note below. |
 | Pricing / discount (#10) | **new library** `commerce-pricing` + tables on catalog | resolved once per sale |
 | Reports (#6) | **new library** `commerce-reporting` | SPI per service |
 | Documents (#1/4/5/13) | **new library** `commerce-documents` | numbering + render + promo |

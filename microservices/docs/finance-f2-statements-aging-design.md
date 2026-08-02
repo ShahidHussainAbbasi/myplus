@@ -1,6 +1,6 @@
 # finance — Phase F2: Party Statements + Aging — Design
 
-**STATUS: F2 DONE ✅ (headed-Cypress green — `finance-reports.cy.js`: AR+AP aging buckets + statement running balance).** Defaults shipped: buckets 0–30/31–60/61–90/90+, age basis = due date (fallback doc date), statements + aging together. Party-agnostic `AgingCalculator`/`StatementBuilder` (no AR/AP duplication); Flyway V15 (indexes only); Statement buttons + Aging dialogs in the monolith.
+**Status:** F2 DONE ✅ (headed-Cypress green — `finance-reports.cy.js`: AR+AP aging buckets + statement running balance).** Defaults shipped: buckets 0–30/31–60/61–90/90+, age basis = due date (fallback doc date), statements + aging together. Party-agnostic `AgingCalculator`/`StatementBuilder` (no AR/AP duplication); Flyway V15 (indexes only); Statement buttons + Aging dialogs in the monolith.
 
 **Branch:** `feature/finance-ledger` · **Slice:** F2 (statements/aging) · **Roadmap:** AR ✅ → AP ✅ → **F2 ✅** → General Ledger (next)
 **Companions:** `finance-service-design.md` (AR), `finance-ap-vendor-payments-design.md` (AP).

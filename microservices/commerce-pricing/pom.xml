@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>commerce-pricing</artifactId>
+  <name>commerce-pricing</name>
+  <description>Shared contract/tiered pricing RULES: given a tenant's price rules and a basket, resolve one
+    price per line with the reason it applied. Most-specific wins and rules never stack, so an invoice can
+    always be explained. Pure — no repository, no clock, no Spring; the owning service supplies the rules and
+    keeps them in its own tables. Holds NO @Entity.</description>
+
+  <dependencies>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+  </dependencies>
+</project>

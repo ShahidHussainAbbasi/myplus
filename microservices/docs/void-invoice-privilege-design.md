@@ -1,5 +1,7 @@
 # Dedicated `VOID_INVOICE` privilege
 
+**Status:** ✅ DONE - the dedicated `VOID_INVOICE` privilege ships and is enforced at the method layer (see the method-authz rollout and its `method-authz.cy.js` gate).
+
 Closes the `VOID_INVOICE privilege` item in `pos-retail-standards-audit.md` §5. Cadence: Document → **Design** →
 Implement → headed Cypress → next.
 

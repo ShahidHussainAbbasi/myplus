@@ -675,6 +675,7 @@ $(document).ready(function() {
 	};
 
 	$.fn.callAjax = function(method, data) {
+		var dataSent = data;   // captured for the credit-limit re-submit below
 		$.ajax({
 			type : "POST",
 			url : serverContext + method,
@@ -684,6 +685,23 @@ $(document).ready(function() {
 
 			success : function(data) {
 				hideWait();
+				// B2B-P1 (#9): the server is holding this for a credit-limit decision (supplier side, on a
+				// purchase). Nothing written, no stock in — so cancelling is free, and confirming re-submits
+				// the same form data with the acknowledgement appended.
+				if(data.status==="CONFIRM"){
+					uiConfirm({
+						title: t('ui.js.creditLimitTitle'),
+						message: data.message,
+						okText: t('ui.js.continueAnyway'),
+						tone: 'danger'
+					}).then(function (ok) {
+						if (!ok) { return; }
+						// `data` here is a URL-encoded string (populateFormData/$.param), so APPEND — assigning
+						// a property to a string is a silent no-op, the same trap that once dropped productId.
+						$(document).callAjax(method, dataSent + "&creditAcknowledged=true");
+					});
+					return false;
+				}
 				if(data.status==="FOUND"){
 					showFormError(data.message || 'This record already exists.');
 					return false;
@@ -808,6 +826,18 @@ function getSaleIdempotencyKey(){
 	return window.saleIdempotencyKey;
 }
 
+/**
+ * B2B-P1 (#9): re-submit a sale the operator has just confirmed past a credit limit.
+ *
+ * Re-uses the SAME payload and the SAME idempotency key: the CONFIRM path wrote nothing, so there is no
+ * first invoice for this to duplicate — and keeping the key is what still protects against a double-click
+ * on the confirmation dialog itself.
+ */
+function resubmitAcknowledged(method, payload) {
+	payload.creditAcknowledged = true;
+	jsonPost(method, payload);
+}
+
 function jsonPost(method,data) {
 	var r = true;// confirm("Are you sure you want to Sell?");
 	if (r != true)
@@ -824,6 +854,23 @@ function jsonPost(method,data) {
 	      beforeSend : function(){ $('#addSell').prop('disabled', true); },
 	      complete   : function(){ $('#addSell').prop('disabled', false); },
 	      success : function(data) {
+			// B2B-P1 (#9): the server is holding the sale for a credit-limit decision. NOTHING has been
+			// written and NO stock is reserved — so cancelling costs nothing, and confirming re-submits the
+			// SAME payload (same idempotency key, which stays safe precisely because nothing was recorded).
+			// The server, not this page, decides whether a confirmation is needed: our copy of the customer's
+			// balance is as old as the dropdown, and another till may have sold to them since.
+			if (data.status === "CONFIRM") {
+				uiConfirm({
+					title: t('ui.js.creditLimitTitle'),
+					message: data.message,
+					okText: t('ui.js.continueAnyway'),
+					tone: 'danger'
+				}).then(function (ok) {
+					if (!ok) { return; }          // nothing happened, nothing to undo
+					resubmitAcknowledged(method, printData);
+				});
+				return;
+			}
 			if(data.status!="SUCCESS"){
 				showFormError(data.message || 'Sale could not be completed. Please check all fields and try again.');
 				return;   // keep the idempotency key so a retry dedups

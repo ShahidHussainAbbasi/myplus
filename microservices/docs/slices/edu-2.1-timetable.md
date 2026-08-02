@@ -1,6 +1,72 @@
 # Slice 2.1 — Timetable
 
-**Status: DESIGN — awaiting approval. No code written.**
+**Status: ✅ DONE — Cypress gate GREEN on run 2 (2026-08-02), after a clean monolith rebuild.**
+Gate `education/timetable.cy.js` (9 cases, none skipped) + `ClashDetectorTest` (13 pure cases). Flyway **V17**.
+**Open question resolved:** copy-into-a-non-empty-term **refuses outright** (user decision, 2026-08-01).
+
+> ### ⚠️ Run 1's failure was never explained — read this before trusting the green
+>
+> Run 2 passed after `mvn clean package` + a monolith restart. **Neither change made between the runs can
+> account for it:** the `GatewayClient` edit adds logging only (it rethrows unchanged), and the test-3
+> fixture change runs *after* the test that failed.
+>
+> The likeliest explanation is that the monolith was serving a **stale build** — but that is inference, not
+> evidence, and it sits awkwardly with test 1 having passed on the same endpoint in run 1.
+>
+> **So this is a green with an unexplained red behind it.** If it recurs, the logging added in run 1's
+> investigation will name the cause immediately (`Downstream FAILED … -> <status>; body=…`) instead of the
+> generic `"Error Occurred"`. That, not the pass, is the durable outcome of the failure.
+
+### Gate run 1 — 2026-08-02: 1 failed, 1 silently skipped
+
+| # | Case | Result |
+|---|---|---|
+| 1 | lesson saves into a free slot | ✅ passed — insert confirmed in the service log |
+| 2 | same teacher, same slot → REFUSED | 🔴 **FAILED** — got a monolith 500 (`Error Occurred`), not `FAILED` |
+| 3 | same class, same slot → REFUSED | ⚠️ **SKIPPED, and reported green** — see the hollow-green note |
+| 4 | shared room → saved with a warning | ✅ passed — two inserts confirmed |
+| 5–9 | non-teaching period, period-in-use, copy refusal, ADMIN tier, cross-tenant | ✅ passed |
+
+**Evidence gathered (no code changed):**
+
+1. `Error Occurred` is `message.error` (`messages.properties:98`), emitted **only** by the monolith's
+   catch-all `RestResponseEntityExceptionHandler.handleInternal`. So this is a **500 from the monolith**,
+   not a refusal from the service.
+2. **The request never reached education-service.** Test 1's insert is at log line 598 (12:27:15) and test
+   4's at line 834 (12:28:06); between them the service logged *nothing but outbox polling* — zero queries.
+3. **~51 seconds elapsed** between tests 1 and 4 while test 3 skipped instantly, so test 2 spent ~50s before
+   failing. That is a timeout signature, not an immediate rejection.
+4. The gateway is not in this path (`saveTimetableEntry` appears 0× in `api-gateway.log`) — the monolith
+   calls education-service directly via `EducationRestClient`'s `directBaseUrl`.
+
+**ROOT CAUSE OF THE BLINDNESS FOUND (2026-08-02) — two real defects in shared monolith infrastructure,
+`com.web.util.GatewayClient`. Both affect EVERY module's proxy, not just education.**
+
+**1. Every downstream error was discarded.** `GatewayClient.execute` caught exactly two cases — 401
+(refresh-and-retry) and 403 (DEMO_LIMIT) — and let everything else propagate to the monolith's catch-all
+handler, which replaced it with a generic `"Error Occurred"` 500. The class had **no logger at all**, so the
+service's real status, message and body were written nowhere. That is why this failure was a black box: the
+answer was thrown away at the moment it arrived.
+*Fixed:* the class now logs `Downstream FAILED/UNREACHABLE <method> <url> -> <status>; body=…` and rethrows
+unchanged. **Behaviour is identical; only visibility changes.**
+
+**2. The `RestTemplate` has no timeouts** — `new RestTemplate()` with the default factory, so a downstream
+that never answers pins a monolith request thread indefinitely. This is the shape of the ~50 s hang, and it
+is a platform-wide availability risk rather than a timetable bug.
+*NOT fixed here* — adding timeouts changes how every module behaves when a service is slow, which deserves
+its own decision rather than riding along in a timetable slice. Raised in §6.
+
+**Still unknown:** the trigger itself — why a request near-identical to test 1's did not reach the service.
+The logging above is what will name it: re-run the gate and the monolith console will state the downstream
+status and body on the failing call, instead of `"Error Occurred"`.
+
+**⚠️ Hollow green in test 3 — FIXED.** It ran only when the org had two subjects in the *same* class; the
+demo org has one per class (the inserts show subjects 10 and 11 in grades 14 and 15), so it logged
+`SKIPPED-BY-DESIGN` and reported green while proving nothing. The same hollow-green shape flagged on
+`marks.cy.js` (1.3) and guarded against in slice B trap 4.
+*Fixed:* `before()` now **seeds** a second subject in `subjectA`'s class when the org lacks one, and the test
+asserts the fixture exists rather than skipping. Cleanup removes only the subject the spec created. **A spec
+must seed what it needs, never opt out of its own most important assertion.**
 Programme: `education-complete-programme.md` Phase 2.1 — *"Timetable — class × period × subject × teacher ×
 room, with clash detection"*. **The keystone of Phase 2**: 2.2 substitution reads it, and 2.3 staff attendance
 is what makes a substitution necessary.
@@ -245,17 +311,43 @@ sequenceDiagram
 
 ## 4. Implement — checklist
 
-- [ ] `Period` + `TimetableEntry` + `Severity`, Flyway **V17**
-- [ ] two UNIQUE keys (D4) + the two query indexes (standard D3b)
-- [ ] `ClashDetector` — **pure**, takes the candidate + the existing grid + the subject's gradeId
-- [ ] teacher and class clashes REFUSE; room clash, out-of-window period and out-of-hours teacher WARN (D3)
-- [ ] `entry.gradeId` must equal the subject's grade — the check that keeps D2's copy honest
-- [ ] validator refuses clashes even when `term_id` is NULL, where the UNIQUE key cannot (D4)
-- [ ] grid read by class **and** by teacher, each one query
-- [ ] `copyTimetable` term → term
-- [ ] `ADMIN_PRIVILEGE` on every write; reads open
-- [ ] Timetable screen + print + i18n × **6 bundles**; `escHtml`; `.table-scroll`
-- [ ] tests: `ClashDetectorTest` (pure, every rule + both severities) + `cypress/e2e/education/timetable.cy.js`
+- [x] `Period` + `TimetableEntry` + `Severity`, Flyway **V17**
+- [x] two UNIQUE keys (D4) + the two query indexes (standard D3b)
+- [x] `ClashDetector` — **pure**, takes the candidate + the existing grid + a resolved `Context`
+- [x] teacher and class clashes REFUSE; room clash, out-of-window period and out-of-hours teacher WARN (D3)
+- [x] `entry.gradeId` must equal the subject's grade — **strengthened, see the corrections below**
+- [x] validator refuses clashes even when `term_id` is NULL, where the UNIQUE key cannot (D4)
+- [x] grid read by class **and** by teacher, each one query
+- [x] `copyTimetable` term → term, refusing outright into a non-empty term
+- [x] `ADMIN_PRIVILEGE` on every write; reads open
+- [x] Timetable screen + i18n × **6 bundles**, 45 lines each, all 43 new keys verified present in all six
+- [x] `ClashDetectorTest` (13 pure cases) + `cypress/e2e/education/timetable.cy.js` (9 cases)
+- [x] DOM built with `.text()`/jQuery construction, so subject and teacher names cannot inject markup
+- [ ] **`.table-scroll` on the grid — NOT added.** `responsive-tables.js` wraps every table automatically
+      (its line-30 guard prevents double-wrapping), so adding it by hand would be the duplication that
+      guard exists to catch. Verify on a phone during the gate; if the grid overflows, the fix belongs in
+      the shared helper, not here.
+
+### Corrections made during implementation
+
+**`gradeId` is now DERIVED server-side, not merely validated.** The design said the write would check
+`entry.gradeId == subject.grade.id` and refuse a mismatch. The controller goes further: it never reads
+`gradeId` from the request at all, taking it from the resolved subject instead. **A client cannot desync a
+value it does not supply** — the check in `ClashDetector` remains as the second line, and is what
+`ClashDetectorTest` pins for any future caller that does set the field.
+
+**Deleting a period is refused while it holds lessons.** Not in the design. An orphaned entry is worse
+than a blocked delete because it renders on no grid — it is invisible rather than obviously wrong. The
+check spans **every** term plus the term-less bucket, since a period is org-wide and checking only the
+term on screen would miss the rest.
+
+**A non-teaching period refuses lessons outright.** The design said a break is "just a `Period` with no
+entries against it", which describes the intent but not what stops one being created. The save now
+refuses, and the UI omits non-teaching periods from the subject picker.
+
+**`copyTimetable` skips re-validation, deliberately.** The target term is empty (or the copy is refused)
+and the source was itself clash-free, so the copy cannot introduce a clash. Written as one `saveAll`
+batch rather than a validated save per lesson.
 
 ## 5. Test
 
@@ -271,7 +363,7 @@ sequenceDiagram
 | 8 | Period outside the class's `timeFrom`/`timeTo` | saved with a warning |
 | 9 | Teacher assigned outside their `timeIn`/`timeOut` | saved with a warning |
 | 10 | Copy a term's timetable to an empty term | every entry copied, no clashes |
-| 11 | Copy into a term that already has entries | refused, or merged only where free — **decide at implementation and record it** |
+| 11 | Copy into a term that already has entries | **REFUSED outright** — decided 2026-08-01. Merging into whichever slots happen to be free produces a timetable that is half one term's plan and half another's, with nothing on screen saying which row came from where. A refusal the admin clears deliberately is easier to reason about, and this operation writes a whole term in one go |
 | 12 | Teacher view | that teacher's week, one query |
 | 13 | A teacher edits a period or slot | 403 — ADMIN tier |
 | 14 | Another tenant's entry by id | refused |
@@ -282,6 +374,17 @@ Gate: `cypress/e2e/education/timetable.cy.js`.
 Pure unit: `ClashDetectorTest`.
 
 ## 6. Open / deferred
+
+**`GatewayClient` has no HTTP timeouts — platform-wide, raised by this slice's gate failure.**
+`new RestTemplate()` uses the default request factory, so a downstream service that accepts a connection and
+never answers holds a monolith request thread until the OS gives up. One slow service can therefore exhaust
+the monolith's thread pool and take the whole UI down with it, for every module.
+
+The fix is small — a `SimpleClientHttpRequestFactory` (or `HttpComponentsClientHttpRequestFactory`) with
+connect and read timeouts, ideally from `application.properties` so environments can differ. It is
+**deliberately not done here**: it changes how every module behaves when a service is slow, and that is a
+platform decision, not a timetable one. Worth doing next, and it pairs naturally with the gateway's existing
+per-route Resilience4j timeouts (§1.5 of the standards), which today protect the gateway but not the monolith.
 
 **Substitution (2.2)** reads this and is the next slice. Nothing here should be shaped for it beyond keeping
 `staffId` on the entry, which it needs.

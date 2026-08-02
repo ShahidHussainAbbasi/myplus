@@ -1,5 +1,7 @@
 # Sale Flow — Audit, Bugs & Gaps, and Backlog
 
+**Status:** AUDIT + BACKLOG - kept as written. SF-3 (idempotency), SF-5 (store credit) and SF-10 (line cost) have shipped; the remaining SF items are still backlog. Each advances only on explicit confirmation.
+
 **Branch:** `feature/finance-ledger` · **Status of this doc:** Document phase only. **Every item below advances only on explicit confirmation** (Document → Design → Implementation → Testing), initiated by either side. Nothing here is implemented yet unless its row says so.
 
 > Workflow rule (also in memory): no design/implementation/testing starts without confirmation. User runs all builds/restarts/Cypress; Flyway for every schema change; Cypress gate per slice.

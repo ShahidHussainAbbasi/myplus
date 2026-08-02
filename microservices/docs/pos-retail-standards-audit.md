@@ -1,5 +1,7 @@
 # POS / Retail — Standards & Completeness Audit (post-finance)
 
+**Status:** AUDIT (point-in-time, post-finance) - kept as written. Several numbered items (#1-#6, tax register, period close, void, multi-rate tax, store credit, VOID_INVOICE) have since SHIPPED; each has its own design doc carrying the current status.
+
 Purpose: a **current** (after AR/AP/statements/GL) audit of the retail/POS lifecycle end-to-end, so gaps are known
 **now** and fixed once in the **shared core** — not rediscovered when pharmacy / e-commerce / education reuse it.
 Legend: ✅ done · 🟡 partial · ⬜ missing. Companion: `commerce-verticals-blueprint.md`, `sale-flow-audit-and-backlog.md`.

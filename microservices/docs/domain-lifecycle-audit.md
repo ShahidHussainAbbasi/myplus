@@ -1,5 +1,7 @@
 # Domain Activity-Lifecycle Audit — all verticals, all layers
 
+**Status:** AUDIT (point-in-time) - kept as written; grades were evidence-based at the time of the audit. Current delivery state lives in `SAAS-BUILD-STANDARDS.md` §3 and the programme plans.
+
 **Purpose:** for every vertical, walk the domain activity lifecycle (the real business use-cases end to end) across the three layers — **front-end UI/UX → back-end service/API → database** — grade each step against the *current* codebase, flag where it falls short of SaaS / domain / microservice-industry standards, and give special attention to **per-org / admin configurability**. Ends with a phase-wise sequence.
 
 **Method.** Grades are evidence-based (controller/endpoint surface, entities, Flyway, Cypress specs, this session's tenancy/authz/money/config work). Confidence is high for business/education/finance (deeply worked); medium for pharma/marketplace/appointment/welfare/agri (surface-verified). Legend:

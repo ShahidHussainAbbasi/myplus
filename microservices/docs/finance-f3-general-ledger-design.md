@@ -1,5 +1,7 @@
 # finance — Phase F3: General Ledger (double-entry) — Design
 
+**Status:** ✅ DONE - the GL shipped: `Account`/`JournalEntry`/`JournalLine`, `PostingService` with auto-post, trial balance, P&L and balance sheet. Education fees post into it too (edu 0.1/0.2).
+
 **Branch:** `feature/finance-ledger` · **Slice:** F3 (GL) · **Roadmap:** AR ✅ → AP ✅ → F2 statements/aging ✅ → **F3 GL (this)**
 **Companions:** `finance-service-design.md`, `finance-ap-vendor-payments-design.md`, `finance-f2-statements-aging-design.md`.
 

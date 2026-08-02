@@ -57,6 +57,8 @@
 					<option value="GradingDiv" th:text="#{ui.gradingScale}">Grading Scale</option>
 					<option value="ReportCardDiv" th:text="#{ui.reportCards}">Report Cards</option>
 					<option value="PromotionDiv" th:text="#{ui.promotion}">Promotion</option>
+					<option value="TimetableDiv" th:text="#{ui.timetable}">Timetable</option>
+					<option value="SubstitutionDiv" th:text="#{ui.substitution}">Substitution</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
 					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
 					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
@@ -115,6 +117,10 @@
 									<!-- Slice 1.6: the most destructive operation in the product — ADMIN only, and the
 									     server enforces it regardless of what this menu shows. -->
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','PromotionDiv','snavRegister')"><span class="glyphicon glyphicon-circle-arrow-up"></span> <span th:text="#{ui.promotion}">Promotion</span></a></li>
+									<!-- Slice 2.1: everyone reads the timetable; only ADMIN edits it (enforced server-side). -->
+									<li><a onclick="snavGo('registrationType','TimetableDiv','snavRegister')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.timetable}">Timetable</span></a></li>
+									<!-- Slice 2.2: everyone reads today's cover list; only ADMIN assigns it (enforced server-side). -->
+									<li><a onclick="snavGo('registrationType','SubstitutionDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.substitution}">Substitution</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
@@ -2652,6 +2658,160 @@
 						</tr></thead>
 						<tbody></tbody>
 					</table>
+				</div>
+			</div>
+
+			<!-- Slice 2.2 — substitution. The morning screen: who is out, and who covers their lessons.
+			     Read-open (a teacher must see they are covering period 3); every WRITE is ADMIN, enforced
+			     server-side regardless of what renders here. -->
+			<div id="SubstitutionDiv" class="formDiv">
+				<h4 th:text="#{ui.substitution}">Substitution</h4>
+				<p class="text-muted" th:text="#{ui.substitutionHelp}">Mark who is out today, then cover their lessons. A teacher already teaching, absent, or covering elsewhere in the same period is not offered. Lessons with nobody assigned stay visible until they are covered.</p>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="sbDate" th:text="#{ui.date}">Date</label>
+						<input type="date" class="form-control" id="sbDate" onchange="loadSubstitutionDay()">
+					</div>
+					<div class="col-sm-3">
+						<label for="sbTerm" th:text="#{ui.term}">Term</label>
+						<select class="form-control" id="sbTerm" onchange="loadSubstitutionDay()"></select>
+					</div>
+					<div class="col-sm-4" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+						<label for="sbAbsentStaff" th:text="#{ui.markAbsent}">Mark absent</label>
+						<select class="form-control" id="sbAbsentStaff"></select>
+					</div>
+					<div class="col-sm-2" style="padding-top:24px" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+						<button type="button" class="btn btn-warning" onclick="markStaffAbsent()" th:text="#{ui.markAbsent}">Mark absent</button>
+					</div>
+				</div>
+
+				<div id="sbUncovered" class="alert alert-danger" style="display:none"></div>
+				<div id="sbMsg" class="alert" style="display:none"></div>
+
+				<h5 th:text="#{ui.outToday}">Out today</h5>
+				<table id="tableAbsences" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.teacher}">Teacher</th>
+						<th th:text="#{ui.reason}">Reason</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+
+				<h5 style="margin-top:20px" th:text="#{ui.lessonsNeedingCover}">Lessons needing cover</h5>
+				<table id="tableSubstitution" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.period}">Period</th>
+						<th th:text="#{ui.classLabel}">Class</th>
+						<th th:text="#{ui.subject}">Subject</th>
+						<th th:text="#{ui.absentTeacher}">Absent</th>
+						<th th:text="#{ui.cover}">Cover</th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+
+				<button type="button" class="btn btn-default" style="margin-top:10px" onclick="window.print()" th:text="#{ui.print}">Print</button>
+			</div>
+
+			<!-- Slice 2.1 — timetable. Everyone may READ it; the editing controls are ADMIN-gated below and
+			     the server enforces the same tier regardless of what renders here. -->
+			<div id="TimetableDiv" class="formDiv">
+				<h4 th:text="#{ui.timetable}">Timetable</h4>
+				<p class="text-muted" th:text="#{ui.timetableHelp}">Define the school day once as periods, then place a subject and teacher in each slot. A teacher or a class can only be in one place at a time — the system refuses those. A shared room is only a warning.</p>
+
+				<div class="alert alert-info" id="ttNoPeriods" style="display:none">
+					<span th:text="#{ui.noPeriodsYet}">No periods defined yet — set up the school day below before building a timetable.</span>
+				</div>
+
+				<!-- The school day (ADMIN only) -->
+				<div sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+					<h5 th:text="#{ui.schoolDay}">The school day</h5>
+					<div class="row" style="margin-bottom:14px">
+						<div class="col-sm-3">
+							<label for="pdName" th:text="#{ui.periodName}">Period name</label>
+							<input type="text" class="form-control" id="pdName" placeholder="Period 1">
+						</div>
+						<div class="col-sm-2">
+							<label for="pdSeq" th:text="#{ui.order}">Order</label>
+							<input type="number" class="form-control" id="pdSeq" min="0">
+						</div>
+						<div class="col-sm-2">
+							<label for="pdStart" th:text="#{ui.startTime}">Start</label>
+							<input type="time" class="form-control" id="pdStart">
+						</div>
+						<div class="col-sm-2">
+							<label for="pdEnd" th:text="#{ui.endTime}">End</label>
+							<input type="time" class="form-control" id="pdEnd">
+						</div>
+						<div class="col-sm-3" style="padding-top:24px">
+							<label style="font-weight:normal"><input type="checkbox" id="pdTeaching" checked> <span th:text="#{ui.teachingPeriod}">Teaching</span></label>
+							<button type="button" class="btn btn-success" onclick="savePeriod()" th:text="#{ui.addPeriod}">Add Period</button>
+						</div>
+					</div>
+					<table id="tablePeriods" class="table table-bordered table-striped">
+						<thead><tr>
+							<th th:text="#{ui.periodName}">Period name</th>
+							<th th:text="#{ui.order}">Order</th>
+							<th th:text="#{ui.startTime}">Start</th>
+							<th th:text="#{ui.endTime}">End</th>
+							<th th:text="#{ui.teachingPeriod}">Teaching</th>
+							<th></th>
+						</tr></thead>
+						<tbody></tbody>
+					</table>
+				</div>
+
+				<!-- The grid -->
+				<h5 style="margin-top:20px" th:text="#{ui.timetableGrid}">Timetable</h5>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="ttTerm" th:text="#{ui.term}">Term</label>
+						<select class="form-control" id="ttTerm" onchange="loadTimetable()"></select>
+					</div>
+					<div class="col-sm-3">
+						<label for="ttGrade" th:text="#{ui.classLabel}">Class</label>
+						<select class="form-control" id="ttGrade" onchange="loadTimetable()"></select>
+					</div>
+					<div class="col-sm-3">
+						<label for="ttStaffView" th:text="#{ui.teacherView}">Teacher view</label>
+						<select class="form-control" id="ttStaffView" onchange="loadTimetableByTeacher()"></select>
+					</div>
+					<div class="col-sm-3" style="padding-top:24px" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+						<button type="button" class="btn btn-default" onclick="copyTimetable()" th:text="#{ui.copyToTerm}">Copy to term…</button>
+						<button type="button" class="btn btn-default" onclick="window.print()" th:text="#{ui.print}">Print</button>
+					</div>
+				</div>
+
+				<div id="ttMsg" class="alert" style="display:none"></div>
+				<table id="tableTimetable" class="table table-bordered"><thead></thead><tbody></tbody></table>
+
+				<!-- Slot editor (ADMIN only) -->
+				<div sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" id="ttEditor" style="display:none;margin-top:14px">
+					<h5 th:text="#{ui.scheduleLesson}">Schedule a lesson</h5>
+					<div class="row">
+						<div class="col-sm-2">
+							<label for="ttDay" th:text="#{ui.day}">Day</label>
+							<select class="form-control" id="ttDay"></select>
+						</div>
+						<div class="col-sm-2">
+							<label for="ttPeriod" th:text="#{ui.period}">Period</label>
+							<select class="form-control" id="ttPeriod"></select>
+						</div>
+						<div class="col-sm-3">
+							<label for="ttSubject" th:text="#{ui.subject}">Subject</label>
+							<select class="form-control" id="ttSubject"></select>
+						</div>
+						<div class="col-sm-3">
+							<label for="ttStaff" th:text="#{ui.teacher}">Teacher</label>
+							<select class="form-control" id="ttStaff"></select>
+						</div>
+						<div class="col-sm-2">
+							<label for="ttRoom" th:text="#{ui.room}">Room</label>
+							<input type="text" class="form-control" id="ttRoom">
+						</div>
+					</div>
+					<button type="button" class="btn btn-success" style="margin-top:10px" onclick="saveTimetableEntry()" th:text="#{ui.saveLesson}">Save lesson</button>
 				</div>
 			</div>
 

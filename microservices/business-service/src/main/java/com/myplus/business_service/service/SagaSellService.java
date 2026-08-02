@@ -2,11 +2,13 @@ package com.myplus.business_service.service;
 
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.dto.SellDTO;
+import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.client.InventoryClient;
 import com.myplus.commerce.contracts.dto.*;
+import com.myplus.common.credit.CreditLimitPolicy;
 import com.myplus.common.security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -53,6 +55,12 @@ public class SagaSellService {
 
     @org.springframework.beans.factory.annotation.Autowired
     private com.myplus.common.settings.SettingsService settingsService;   // B1: per-org pharmacy rx policy
+
+    // B2B-P1 (#9): the customer's running balance + credit limit. A FIELD, not a constructor argument —
+    // MarginPolicyTest constructs this service with an exact list of nulls, and widening the constructor
+    // would break a passing test for no benefit.
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.myplus.business_service.repository.CustomerRepo customerRepo;
 
     /** Cap a STORE_CREDIT tender to the customer's balance (never trust the client / overdraw). Mutates the tender
      *  amount in the dto so settle uses the real value; returns the amount that will be redeemed (0 if none / no
@@ -104,6 +112,11 @@ public class SagaSellService {
         // this: an invoice-level discount is applied after the lines are entered, so the sale can finish at or
         // below cost without any single line looking wrong.
         assertMarginPolicy(lines, dto);
+
+        // B2B-P1 (#9): the credit-limit guard, also BEFORE any reservation or write. Under `warn` this throws
+        // CreditConfirmationRequiredException so the cashier is asked while the decision is still reversible;
+        // nothing has been written, so cancelling costs nothing and holds no stock.
+        assertCreditPolicy(dto, lines, null);
 
         List<StockReservationLine> reservationLines = new ArrayList<>();
         for (SagaLine l : lines) {
@@ -180,6 +193,9 @@ public class SagaSellService {
      * out-of-stock message on the reserve step.
      */
     /** The margin-policy values; anything else in config resolves to WARN (standard C3 — fail ON). */
+    private static final java.util.Set<String> CREDIT_POLICIES = java.util.Set.of(
+            CreditLimitPolicy.OFF, CreditLimitPolicy.WARN, CreditLimitPolicy.BLOCK);
+
     private static final java.util.Set<String> MARGIN_POLICIES = java.util.Set.of("off", "warn", "block");
 
     /**
@@ -215,12 +231,152 @@ public class SagaSellService {
 
         String msg = "This sale makes no profit (margin " + margin.setScale(2, java.math.RoundingMode.HALF_UP)
                 + " on costed lines).";
+        // B2B-P2 (#10, design 2g.1): if any line was priced by a RULE rather than typed, say so. Otherwise a
+        // shopkeeper reads "no profit" and hunts for a cashier error that does not exist — the price came from
+        // a contract they agreed to, and the fix is the rule, not the till.
+        String ruleReason = firstPriceReason(dto);
+        if (ruleReason != null) {
+            msg = msg + " A price rule applied to this sale (" + ruleReason + ").";
+        }
         if ("block".equals(policy)) {
             throw new com.myplus.common.web.exception.ValidationException(msg
                     + " Selling at or below cost is blocked for this organization.");
         }
         LOG.warn("Zero/negative margin sale allowed by policy=warn: margin={} lines={}", margin, lines.size());
         dto.getWarnings().add(msg);
+    }
+
+    /**
+     * Credit-limit guard (#9) — B2B P1.
+     *
+     * <p>Projects what the customer will owe once this sale is recorded and compares it against their limit.
+     * Runs <b>before any reservation or write</b>, so both outcomes are free: {@code block} refuses having
+     * touched nothing, and {@code warn} asks the cashier while the decision is still reversible. A note after
+     * the money has moved would not be consent — undoing it would mean a void.
+     *
+     * <p>Everything about the arithmetic lives in {@code common-credit}'s {@link CreditLimitPolicy} so the
+     * other verticals that sell on account get the same answer. This method only gathers the numbers.
+     *
+     * <p>Inert unless the customer is (a) identified and (b) given a limit by the owner — which is every
+     * customer until someone sets one, so nothing changes for an existing shop.
+     *
+     * @param editingDue when EDITING, the unpaid amount the edited invoice currently contributes to the
+     *                   customer's balance; null for a new sale. Without it, reducing an over-limit invoice
+     *                   would count that invoice twice and warn on the very act of fixing it.
+     */
+    // public (unlike assertMarginPolicy, which only addSell calls): the EDIT path in SellController must
+    // invoke this too, with the edited invoice's own due, and it lives in a different package.
+    public void assertCreditPolicy(CustomerHistoryDTO dto, List<SagaLine> lines, BigDecimal editingDue) {
+        String policy = settingsService.getChoice("pos.sale.creditLimitPolicy", CREDIT_POLICIES,
+                CreditLimitPolicy.WARN);
+        if (CreditLimitPolicy.OFF.equals(policy)) return;
+
+        Long customerId = (dto.getCustomer() != null) ? dto.getCustomer().getCustomerId() : null;
+        if (customerId == null || customerRepo == null) return;   // walk-in: no account, nothing to cap
+        Customer customer = customerRepo.findById(customerId).orElse(null);
+        if (customer == null || customer.getCreditLimit() == null) return;   // no limit set = no check
+
+        // What this sale leaves unpaid. A STORE_CREDIT tender was already capped to the real balance by
+        // capStoreCreditTender and counts as paid, so redeemed credit correctly REDUCES exposure here.
+        BigDecimal grandTotal = BigDecimal.ZERO;
+        for (SagaLine l : lines) {
+            grandTotal = grandTotal.add(l.netAmount() == null ? BigDecimal.ZERO : l.netAmount());
+        }
+        BigDecimal paid = BigDecimal.ZERO;
+        if (dto.getTenders() != null) {
+            for (com.myplus.business_service.dto.TenderDTO t : dto.getTenders()) {
+                if (t != null && t.getAmount() != null) paid = paid.add(t.getAmount());
+            }
+        }
+        if (paid.signum() == 0 && dto.getPaidAmount() != null) paid = dto.getPaidAmount();   // legacy callers
+        BigDecimal unpaid = grandTotal.subtract(paid);
+
+        CreditLimitPolicy.Verdict verdict = CreditLimitPolicy.evaluate(
+                customer.getDueAmount(), unpaid, editingDue, customer.getCreditLimit());
+        boolean acknowledged = Boolean.TRUE.equals(dto.getCreditAcknowledged());
+
+        switch (CreditLimitPolicy.decide(verdict, policy, acknowledged)) {
+            case PROCEED -> {
+                // Breached but allowed (acknowledged, or policy=off): say so on the receipt message anyway,
+                // so an accepted overage is visible afterwards rather than only in the operator's memory.
+                if (verdict.breached()) dto.getWarnings().add(overLimitMessage(customer, verdict));
+            }
+            case CONFIRM -> throw new CreditConfirmationRequiredException(
+                    overLimitMessage(customer, verdict) + " Continue?");
+            case REFUSE -> throw new com.myplus.common.web.exception.ValidationException(
+                    overLimitMessage(customer, verdict)
+                            + " Selling beyond the credit limit is blocked for this organization.");
+        }
+    }
+
+    private static String overLimitMessage(Customer customer, CreditLimitPolicy.Verdict v) {
+        String name = (customer.getName() == null || customer.getName().isBlank())
+                ? "This customer" : customer.getName();
+        return name + " would be " + v.over().setScale(2, java.math.RoundingMode.HALF_UP)
+                + " over their credit limit of " + v.limit().setScale(2, java.math.RoundingMode.HALF_UP)
+                + " (they would owe " + v.exposure().setScale(2, java.math.RoundingMode.HALF_UP) + ").";
+    }
+
+    /**
+     * B2B-P2 (#10): resolve this basket's contract/tier prices in ONE call to catalog-service.
+     *
+     * <p>Returns an empty map — meaning "price everything at catalog" — for a walk-in with no account and no
+     * tier, and for ANY failure. That fallback is the important part: a pricing outage degrades a sale to
+     * today's behaviour rather than stopping a shop from selling. A shop that cannot take money is a far worse
+     * outcome than a shop that misses a discount on one invoice.
+     */
+    private java.util.Map<Long, com.myplus.commerce.contracts.dto.PriceQuoteLine> quoteBasket(
+            CustomerHistoryDTO dto) {
+        java.util.Map<Long, com.myplus.commerce.contracts.dto.PriceQuoteLine> byProduct = new java.util.HashMap<>();
+        if (dto == null || dto.getSales() == null || dto.getSales().isEmpty()) return byProduct;
+
+        Long customerId = (dto.getCustomer() != null) ? dto.getCustomer().getCustomerId() : null;
+        String customerType = (dto.getCustomer() != null && dto.getCustomer().getCustomerType() != null)
+                ? dto.getCustomer().getCustomerType().name() : null;
+        // Nothing to price against: no account and no tier means no rule can match, so skip the call entirely
+        // rather than pay a round trip to be told "catalog price".
+        if (customerId == null && customerType == null) return byProduct;
+
+        try {
+            com.myplus.commerce.contracts.dto.PriceQuote req = new com.myplus.commerce.contracts.dto.PriceQuote();
+            req.setCustomerId(customerId);
+            req.setCustomerType(customerType);
+            java.util.List<com.myplus.commerce.contracts.dto.PriceQuoteLine> reqLines = new ArrayList<>();
+            for (SellDTO sd : dto.getSales()) {
+                if (sd != null && sd.getProductId() != null) {
+                    reqLines.add(com.myplus.commerce.contracts.dto.PriceQuoteLine.of(
+                            sd.getProductId(),
+                            sd.getQuantity() == null ? BigDecimal.ONE : BigDecimal.valueOf(sd.getQuantity())));
+                }
+            }
+            if (reqLines.isEmpty()) return byProduct;
+            req.setLines(reqLines);
+
+            com.myplus.commerce.contracts.dto.PriceQuote resp = catalogClient.quote(req);
+            if (resp != null && resp.getLines() != null) {
+                for (com.myplus.commerce.contracts.dto.PriceQuoteLine l : resp.getLines()) {
+                    // Only a line that actually matched a RULE is worth carrying — a CATALOG line would just
+                    // restate the price buildLines already has.
+                    if (l != null && l.getProductId() != null && l.getRuleId() != null) {
+                        byProduct.put(l.getProductId(), l);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("Price quote unavailable — pricing this sale at catalog rates ({})", e.toString());
+        }
+        return byProduct;
+    }
+
+    /** The first rule-sourced price reason on the sale, or null when every line was priced at catalog. */
+    private static String firstPriceReason(CustomerHistoryDTO dto) {
+        if (dto == null || dto.getSales() == null) return null;
+        for (SellDTO s : dto.getSales()) {
+            if (s != null && s.getPriceReason() != null && !s.getPriceReason().isBlank()) {
+                return s.getPriceReason();
+            }
+        }
+        return null;
     }
 
     public List<SagaLine> buildLines(CustomerHistoryDTO dto, java.util.Map<Long, String> productNames) {
@@ -231,6 +387,9 @@ public class SagaSellService {
         // B1: read the pharmacy policy ONCE per sale, not per line. Inert for a non-pharmacy tenant — no product
         // of theirs carries the flag, so the check below never fires.
         boolean requireRx = settingsService.getBool("pharmacy.rx.requirePrescription");
+        // B2B-P2 (#10): resolve contract/tier prices for the WHOLE basket in ONE call, before the line loop.
+        // Per-line would double the catalog round trips this method already makes, on every sale.
+        java.util.Map<Long, com.myplus.commerce.contracts.dto.PriceQuoteLine> quoted = quoteBasket(dto);
         List<SagaLine> lines = new ArrayList<>();
         for (SellDTO s : dto.getSales()) {
             // M4e (slice 101): productId-native — every caller (POS + pharmacy) submits productId now.
@@ -249,7 +408,15 @@ public class SagaSellService {
                         + " prescription first.");
             }
             if (productNames != null) productNames.put(productId, pName);
-            BigDecimal catalogPrice = (product != null && product.getSellingPrice() != null)
+            // B2B-P2: a resolved contract/tier price REPLACES the catalog price for this line — it is the
+            // price this customer is entitled to, so discount, tax and the margin/credit guards all work off
+            // it exactly as they work off the catalog price for a walk-in.
+            com.myplus.commerce.contracts.dto.PriceQuoteLine q = quoted.get(productId);
+            if (q != null && q.getUnitPrice() != null) {
+                s.setPriceReason(q.getReason());
+            }
+            BigDecimal catalogPrice = (q != null && q.getUnitPrice() != null) ? q.getUnitPrice()
+                    : (product != null && product.getSellingPrice() != null)
                     ? product.getSellingPrice() : BigDecimal.ZERO;
             // The rate this line SOLD at = the cashier's rate (may override catalog); fall back to catalog. The
             // catalog price is snapshotted separately so reports show BOTH "catalog price" and "sold at".
@@ -280,7 +447,8 @@ public class SagaSellService {
             // netAmount − cost×qty — subtract the cost twice whenever a purchase rate was present.
             lines.add(new SagaLine(productId, s.getQuantity(), soldRate, discount,
                     lineTotal, tax.gross(), s.getSrp(),
-                    tax.rate(), tax.tax(), tax.gross(), catalogPrice, discountType, costPrice));
+                    tax.rate(), tax.tax(), tax.gross(), catalogPrice, discountType, costPrice,
+                    (q != null && q.getRuleId() != null) ? q.getReason() : null));
         }
         return lines;
     }

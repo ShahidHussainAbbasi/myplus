@@ -77,6 +77,12 @@ public class PurchaseDTO implements Serializable {
 	// Audit #5: client-supplied key to dedup a double-submit of this purchase (blank = no dedup).
 	private String idempotencyKey;
 
+	/**
+	 * B2B-P1 (#9): the operator has seen the supplier credit-limit warning and chosen to continue.
+	 * Inbound only, and NOT persisted — it describes this submission, not the bill.
+	 */
+	private Boolean creditAcknowledged;
+
 	private Float purchaseExpense;
 
 	private String purchaseExpenseDesc;

@@ -1,5 +1,7 @@
 # Dev test accounts — the per-module privilege ladder
 
+**Status:** REFERENCE - dev-only seeded accounts. Never true of a production host: `APP_SEED_DEMO` must not be set there, because these passwords are published in this file.
+
 **Dev only.** Seeded by `auth-service` · `SetupDataLoader`. Password locally: `Demo@2025!`.
 
 ## Seeding flags — three, because the risk differs

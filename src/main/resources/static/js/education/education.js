@@ -3474,6 +3474,402 @@ function applyGradingPreset() {
 	});
 }
 
+/* ══ Slice 2.2 — Substitution ═════════════════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-2.2-substitution.md
+ *
+ * The 07:50 screen. One question: who is out, and who covers their lessons?
+ *
+ * The free-teacher list comes from the SERVER already filtered (teaching / absent / covering elsewhere)
+ * and ranked — this file renders it and never re-judges it. Refusals are shown verbatim: the server names
+ * the class a teacher is already committed to, which is the only useful thing to say.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'SubstitutionDiv') loadSubstitutionScreen();
+});
+
+function loadSubstitutionScreen() {
+	// Default to today — this screen is opened on the morning it is used.
+	if (!$('#sbDate').val()) $('#sbDate').val(new Date().toISOString().slice(0, 10));
+
+	$.get(serverContext + 'getAcademicYears', function (res) {
+		var years = (res && res.collection) || [];
+		var $t = $('#sbTerm').empty().append($('<option>').val('').text(t('ui.js.ttNoTerm')));
+		years.forEach(function (y) {
+			(y.terms || []).forEach(function (tm) {
+				$t.append($('<option>').val(tm.id).text(y.name + ' · ' + tm.name));
+			});
+		});
+		if (typeof $t.selectpicker === 'function') { try { $t.selectpicker('refresh'); } catch (e) {} }
+		loadSubstitutionDay();
+	});
+
+	$.get(serverContext + 'getUserStaffs', function (data) {
+		var $s = $('#sbAbsentStaff').empty().append(data);
+		if (typeof $s.selectpicker === 'function') { try { $s.selectpicker('refresh'); } catch (e) {} }
+	});
+}
+
+function sbMessage(msg, cls) {
+	var $m = $('#sbMsg');
+	if (!msg) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(msg).show();
+}
+
+function loadSubstitutionDay() {
+	var params = { date: $('#sbDate').val() };
+	if ($('#sbTerm').val()) params.termId = $('#sbTerm').val();
+
+	$.get(serverContext + 'getSubstitutionDay', params, function (res) {
+		if (!res || res.status !== 'SUCCESS' || !res.object) {
+			sbMessage((res && res.message) || t('ui.js.sbCouldNotLoad'), 'alert-danger');
+			return;
+		}
+		var day = res.object;
+
+		// An unsupervised class is the whole point of this screen — lead with the count (D5).
+		var uncovered = day.uncovered || 0;
+		$('#sbUncovered').toggle(uncovered > 0)
+			.text(t('ui.js.sbUncoveredCount').replace('{n}', uncovered));
+
+		var $abs = $('#tableAbsences tbody').empty();
+		(day.absences || []).forEach(function (a) {
+			var $clear = $('<button type="button" class="btn btn-xs btn-default">')
+				.text(t('ui.js.sbBackIn'))
+				.on('click', function () { clearStaffAbsence(a.id, a.staffName); });
+			$abs.append($('<tr>')
+				.append($('<td>').text(a.staffName || ''))
+				.append($('<td>').text(a.reason || ''))
+				.append($('<td>').append($clear)));
+		});
+		if (!(day.absences || []).length) {
+			$abs.append($('<tr>').append($('<td colspan="3">').addClass('text-muted')
+				.text(t('ui.js.sbNobodyOut'))));
+		}
+
+		var $body = $('#tableSubstitution tbody').empty();
+		(day.lessons || []).forEach(function (l) {
+			var $tr = $('<tr>')
+				.append($('<td>').text(l.periodName || ''))
+				.append($('<td>').text(l.gradeName || ''))
+				.append($('<td>').text(l.subjectName || ''))
+				.append($('<td>').text(l.absentStaffName || ''));
+
+			var $cell = $('<td>');
+			if (l.status === 'ASSIGNED') {
+				$cell.append($('<span>').text(l.coverStaffName || ''));
+				$cell.append(' ');
+				$cell.append($('<button type="button" class="btn btn-xs btn-link">')
+					.text(t('ui.js.sbRemoveCover'))
+					.on('click', function () { clearSubstitute(l.substitutionId); }));
+			} else {
+				// The server already excluded anyone teaching, absent, or covering elsewhere this period.
+				var $sel = $('<select class="form-control input-sm">')
+					.append($('<option>').val('').text(t('ui.js.sbChooseCover')));
+				(l.freeTeachers || []).forEach(function (c) {
+					var label = c.staffName
+						+ (c.teachesThisSubject ? ' · ' + t('ui.js.sbTeachesSubject') : '')
+						+ (c.coversToday ? ' · ' + t('ui.js.sbCoversToday').replace('{n}', c.coversToday) : '');
+					$sel.append($('<option>').val(c.staffId).text(label));
+				});
+				$sel.on('change', function () {
+					if (this.value) assignSubstitute(l.timetableEntryId, this.value);
+				});
+				if (!(l.freeTeachers || []).length) {
+					$sel.empty().append($('<option>').text(t('ui.js.sbNobodyFree')));
+				}
+				$cell.append($sel);
+				$tr.addClass('danger');
+			}
+			$body.append($tr.append($cell));
+		});
+		if (!(day.lessons || []).length) {
+			$body.append($('<tr>').append($('<td colspan="5">').addClass('text-muted')
+				.text(t('ui.js.sbNothingToCover'))));
+		}
+	});
+}
+
+function markStaffAbsent() {
+	var staffId = $('#sbAbsentStaff').val();
+	if (!staffId) { ayNotify(t('ui.js.sbPickTeacher')); return; }
+	var payload = { staffId: staffId, date: $('#sbDate').val() };
+	if ($('#sbTerm').val()) payload.termId = $('#sbTerm').val();
+	$.post(serverContext + 'markStaffAbsent', payload, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			sbMessage(res.message, 'alert-warning');
+			loadSubstitutionDay();
+		} else {
+			sbMessage((res && res.message) || t('ui.js.sbCouldNotMarkAbsent'), 'alert-danger');
+		}
+	});
+}
+
+function clearStaffAbsence(id, name) {
+	uiConfirmOrRun(t('ui.js.sbConfirmBackIn').replace('{name}', name || ''), function () {
+		$.post(serverContext + 'clearStaffAbsence', { id: id }, function (res) {
+			if (res && res.status === 'SUCCESS') {
+				sbMessage(res.message, 'alert-success');
+				loadSubstitutionDay();
+			} else {
+				sbMessage((res && res.message) || t('ui.js.sbCouldNotClear'), 'alert-danger');
+			}
+		});
+	});
+}
+
+function assignSubstitute(timetableEntryId, coverStaffId) {
+	$.post(serverContext + 'assignSubstitute', {
+		timetableEntryId: timetableEntryId,
+		coverStaffId: coverStaffId,
+		date: $('#sbDate').val()
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			sbMessage(res.message, 'alert-success');
+		} else {
+			// The refusal names the class the teacher is already committed to — show it verbatim.
+			sbMessage((res && res.message) || t('ui.js.sbCouldNotAssign'), 'alert-danger');
+		}
+		loadSubstitutionDay();
+	});
+}
+
+function clearSubstitute(id) {
+	$.post(serverContext + 'clearSubstitute', { id: id }, function (res) {
+		if (res && res.status === 'SUCCESS') sbMessage(res.message, 'alert-warning');
+		else sbMessage((res && res.message) || t('ui.js.sbCouldNotClearCover'), 'alert-danger');
+		loadSubstitutionDay();
+	});
+}
+
+/* ══ Slice 2.1 — Timetable ════════════════════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-2.1-timetable.md
+ *
+ * Periods define the school day; the grid places a subject + teacher in each slot. Clash detection is
+ * SERVER-side and comes back in two flavours: a refusal (FAILED, nothing written) or a warning shipped
+ * alongside a SUCCESS. The UI shows both verbatim — it never re-judges what the server decided.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'TimetableDiv') loadTimetableScreen();
+});
+
+var TT_DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
+function loadTimetableScreen() {
+	loadPeriods();
+
+	$.get(serverContext + 'getAcademicYears', function (res) {
+		var years = (res && res.collection) || [];
+		var $t = $('#ttTerm').empty().append($('<option>').val('').text(t('ui.js.ttNoTerm')));
+		years.forEach(function (y) {
+			(y.terms || []).forEach(function (tm) {
+				$t.append($('<option>').val(tm.id).text(y.name + ' · ' + tm.name));
+			});
+		});
+		if (typeof $t.selectpicker === 'function') { try { $t.selectpicker('refresh'); } catch (e) {} }
+		loadTimetable();
+	});
+
+	$.get(serverContext + 'getUserGrades', function (data) {
+		var $g = $('#ttGrade').empty().append(data);
+		if (typeof $g.selectpicker === 'function') { try { $g.selectpicker('refresh'); } catch (e) {} }
+	});
+	$.get(serverContext + 'getUserSubjects', function (data) {
+		var $s = $('#ttSubject').empty().append(data);
+		if (typeof $s.selectpicker === 'function') { try { $s.selectpicker('refresh'); } catch (e) {} }
+	});
+	$.get(serverContext + 'getUserStaffs', function (data) {
+		var $s = $('#ttStaff').empty().append($('<option>').val('').text(t('ui.js.ttNoTeacher'))).append(data);
+		var $v = $('#ttStaffView').empty().append($('<option>').val('').text(t('ui.js.ttWholeClass'))).append(data);
+		[$s, $v].forEach(function ($x) {
+			if (typeof $x.selectpicker === 'function') { try { $x.selectpicker('refresh'); } catch (e) {} }
+		});
+	});
+
+	var $d = $('#ttDay').empty();
+	TT_DAYS.forEach(function (d) { $d.append($('<option>').val(d).text(t('ui.js.ttDay' + d))); });
+	if (typeof $d.selectpicker === 'function') { try { $d.selectpicker('refresh'); } catch (e) {} }
+}
+
+function ttMessage(msg, cls) {
+	var $m = $('#ttMsg');
+	if (!msg) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(msg).show();
+}
+
+function loadPeriods() {
+	$.get(serverContext + 'getPeriods', function (res) {
+		var periods = (res && res.collection) || [];
+		$('#ttNoPeriods').toggle(periods.length === 0);
+
+		var $body = $('#tablePeriods tbody').empty();
+		var $sel = $('#ttPeriod').empty();
+		periods.forEach(function (p) {
+			var $del = $('<button type="button" class="btn btn-xs btn-danger">')
+				.text(t('ui.js.ttDelete'))
+				.on('click', function () { deletePeriod(p.id, p.name); });
+			$body.append($('<tr>')
+				.append($('<td>').text(p.name))
+				.append($('<td>').text(p.sequence == null ? '' : p.sequence))
+				.append($('<td>').text(p.startTime || ''))
+				.append($('<td>').text(p.endTime || ''))
+				.append($('<td>').text(p.teaching ? t('ui.js.ttYes') : t('ui.js.ttNo')))
+				.append($('<td>').append($del)));
+			// Only teaching periods can hold a lesson — the server refuses the rest, so don't offer them.
+			if (p.teaching) $sel.append($('<option>').val(p.id).text(p.name));
+		});
+		if (typeof $sel.selectpicker === 'function') { try { $sel.selectpicker('refresh'); } catch (e) {} }
+	});
+}
+
+function savePeriod() {
+	var name = $.trim($('#pdName').val());
+	if (!name) { ayNotify(t('ui.js.ttPeriodNameRequired')); return; }
+	$.post(serverContext + 'savePeriod', {
+		name: name,
+		sequence: $('#pdSeq').val(),
+		startTime: $('#pdStart').val(),
+		endTime: $('#pdEnd').val(),
+		teaching: $('#pdTeaching').is(':checked') ? 'true' : 'false'
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			$('#pdName, #pdSeq, #pdStart, #pdEnd').val('');
+			$('#pdTeaching').prop('checked', true);
+			loadPeriods();
+			loadTimetable();
+		} else {
+			ttMessage((res && res.message) || t('ui.js.ttCouldNotSavePeriod'), 'alert-danger');
+		}
+	});
+}
+
+function deletePeriod(id, name) {
+	uiConfirmOrRun(t('ui.js.ttConfirmDeletePeriod').replace('{name}', name), function () {
+		$.post(serverContext + 'deletePeriod', { id: id }, function (res) {
+			if (res && res.status === 'SUCCESS') { loadPeriods(); loadTimetable(); }
+			// The server refuses while lessons still use it — show that reason verbatim.
+			else ttMessage((res && res.message) || t('ui.js.ttCouldNotDeletePeriod'), 'alert-warning');
+		});
+	});
+}
+
+function loadTimetable() {
+	var params = {};
+	if ($('#ttTerm').val()) params.termId = $('#ttTerm').val();
+	if ($('#ttGrade').val()) params.gradeId = $('#ttGrade').val();
+	$('#ttStaffView').val('');
+	renderTimetable(params, false);
+}
+
+function loadTimetableByTeacher() {
+	var staffId = $('#ttStaffView').val();
+	if (!staffId) { loadTimetable(); return; }
+	var params = { staffId: staffId };
+	if ($('#ttTerm').val()) params.termId = $('#ttTerm').val();
+	renderTimetable(params, true);
+}
+
+function renderTimetable(params, teacherView) {
+	$.get(serverContext + 'getTimetable', params, function (res) {
+		if (!res || res.status !== 'SUCCESS' || !res.object) {
+			ttMessage((res && res.message) || t('ui.js.ttCouldNotLoad'), 'alert-danger');
+			return;
+		}
+		var data = res.object;
+		var periods = data.periods || [];
+		var entries = data.entries || [];
+		$('#ttNoPeriods').toggle(!data.configured);
+		// The editor is pointless without periods, and without a class to place lessons into.
+		$('#ttEditor').toggle(!!data.configured && !teacherView && !!$('#ttGrade').val());
+		ttMessage('');
+
+		var byCell = {};
+		entries.forEach(function (e) { byCell[e.dayOfWeek + '|' + e.periodId] = e; });
+
+		var $head = $('#tableTimetable thead').empty();
+		var $hr = $('<tr>').append($('<th>').text(t('ui.js.ttPeriodCol')));
+		TT_DAYS.forEach(function (d) { $hr.append($('<th>').text(t('ui.js.ttDay' + d))); });
+		$head.append($hr);
+
+		var $body = $('#tableTimetable tbody').empty();
+		periods.forEach(function (p) {
+			var label = p.name + (p.startTime ? ' (' + p.startTime + '–' + (p.endTime || '') + ')' : '');
+			var $tr = $('<tr>').append($('<td>').text(label));
+			if (!p.teaching) {
+				// A break spans the week as one labelled band rather than six empty cells.
+				$tr.append($('<td colspan="' + TT_DAYS.length + '">').addClass('text-muted').text(p.name));
+				$body.append($tr);
+				return;
+			}
+			TT_DAYS.forEach(function (d) {
+				var e = byCell[d + '|' + p.id];
+				var $td = $('<td>');
+				if (e) {
+					$td.append($('<div>').text(e.subjectName || ''));
+					if (teacherView) $td.append($('<div>').addClass('text-muted').text(e.gradeName || ''));
+					else if (e.staffName) $td.append($('<div>').addClass('text-muted').text(e.staffName));
+					if (e.room) $td.append($('<div>').addClass('text-muted').text(t('ui.js.ttRoom') + ' ' + e.room));
+					if (!teacherView) {
+						$td.append($('<button type="button" class="btn btn-xs btn-link">')
+							.text(t('ui.js.ttRemove'))
+							.on('click', function () { deleteTimetableEntry(e.id); }));
+					}
+				}
+				$tr.append($td);
+			});
+			$body.append($tr);
+		});
+	});
+}
+
+function saveTimetableEntry() {
+	var subjectId = $('#ttSubject').val();
+	var periodId = $('#ttPeriod').val();
+	if (!subjectId || !periodId) { ayNotify(t('ui.js.ttPickSubjectPeriod')); return; }
+	var payload = {
+		dayOfWeek: $('#ttDay').val(),
+		periodId: periodId,
+		subjectId: subjectId,
+		room: $.trim($('#ttRoom').val())
+	};
+	if ($('#ttTerm').val()) payload.termId = $('#ttTerm').val();
+	if ($('#ttStaff').val()) payload.staffId = $('#ttStaff').val();
+
+	$.post(serverContext + 'saveTimetableEntry', payload, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			// SUCCESS may still carry a warning (a shared room, an out-of-hours period) — show it.
+			var warned = (res.message || '').indexOf('—') > -1;
+			ttMessage(res.message, warned ? 'alert-warning' : 'alert-success');
+			loadTimetable();
+		} else {
+			// A refusal names the teacher or class that already holds the slot; show it verbatim.
+			ttMessage((res && res.message) || t('ui.js.ttCouldNotSchedule'), 'alert-danger');
+		}
+	});
+}
+
+function deleteTimetableEntry(id) {
+	uiConfirmOrRun(t('ui.js.ttConfirmRemoveLesson'), function () {
+		$.post(serverContext + 'deleteTimetableEntry', { id: id }, function (res) {
+			if (res && res.status === 'SUCCESS') loadTimetable();
+			else ttMessage((res && res.message) || t('ui.js.ttCouldNotRemove'), 'alert-danger');
+		});
+	});
+}
+
+function copyTimetable() {
+	var fromTermId = $('#ttTerm').val();
+	var target = window.prompt(t('ui.js.ttCopyPrompt'));
+	if (!target) return;
+	$.post(serverContext + 'copyTimetable', { fromTermId: fromTermId, toTermId: target }, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			ttMessage(res.message, 'alert-success');
+		} else {
+			// Refused outright when the target term already has a timetable — the reason is the message.
+			ttMessage((res && res.message) || t('ui.js.ttCouldNotCopy'), 'alert-warning');
+		}
+	});
+}
+
 /* ══ Slice 1.6 — Promotion ════════════════════════════════════════════════════════════════════════
  * Design: microservices/docs/slices/edu-1.6-promotion.md
  *

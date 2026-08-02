@@ -1,5 +1,7 @@
 # Tax-filing register (output/input tax)
 
+**Status:** ✅ DONE - output + input tax register shipped (Phase A output, Phase B input).
+
 Closes the "tax-filing register" gap from `pos-retail-standards-audit.md` §2 (tax completeness). Cadence:
 Document → **Design** → Implement → headed Cypress → next.
 
