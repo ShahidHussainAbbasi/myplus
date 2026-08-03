@@ -179,4 +179,36 @@ class LeaveBalanceCalculatorTest {
         assertEquals(0, LeaveBalanceCalculator.overageFor(10, 0, 1));
         assertEquals(0, LeaveBalanceCalculator.overageFor(null, 99, 99), "an uncapped type is never over");
     }
+
+    @Test
+    @DisplayName("alreadyTaken means days taken BEFORE this request — the contract the caller got wrong")
+    void overage_argument_contract() {
+        // Regression for a real defect (2026-08-03). LeaveController computed `taken` AFTER inserting the
+        // request and passed `taken - days`. daysTaken counts APPROVED only, and with approval required —
+        // the default — the new row is PENDING, so it was never in `taken`; subtracting removed it twice
+        // and the overage came out 0 for every request. D5's whole warning was silently inert.
+        //
+        // The calculator was correct throughout: the bug was the ARGUMENT. This test states the contract
+        // so the next caller cannot read it the other way.
+        int quota = 3, alreadyApproved = 3, requested = 5;
+
+        assertEquals(5, LeaveBalanceCalculator.overageFor(quota, alreadyApproved, requested),
+                "3 approved + 5 requested against a quota of 3 exceeds it by 5");
+
+        // What the buggy call site computed, kept as the counter-example.
+        int whatTheBugPassed = alreadyApproved - requested;   // -2
+        assertEquals(0, LeaveBalanceCalculator.overageFor(quota, whatTheBugPassed, requested),
+                "passing a post-insert figure yields 0 — the symptom that shipped");
+    }
+
+    @Test
+    @DisplayName("a PENDING request does not consume the balance, so it is not in alreadyTaken")
+    void pending_is_not_taken() {
+        // The other half of the same contract: this is WHY the caller must read before it writes.
+        List<LeaveRequest> rs = List.of(
+                req(CASUAL, "2026-03-02", "2026-03-04", LeaveRequestStatus.APPROVED, 3),
+                req(CASUAL, "2026-10-05", "2026-10-09", LeaveRequestStatus.PENDING, 5));
+        assertEquals(3, LeaveBalanceCalculator.daysTaken(rs, CASUAL, YEAR),
+                "the pending request is not yet spent");
+    }
 }

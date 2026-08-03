@@ -128,10 +128,31 @@ describe('B2B P3a — batch & expiry on purchase, and the document title', () =>
       // Everything below is a QUERY (get / its), never cy.wrap: DataTables re-renders on its ajax reload,
       // and wrap() freezes a subject that then detaches from the DOM. That detachment is what failed the
       // previous version of this test, not the alignment itself.
-      cy.get('#tablePurchase tbody tr', { timeout: 10000 }).should('have.length.greaterThan', 0)
-      cy.get('#tablePurchase thead th').its('length').then((headerCount) => {
-        expect(headerCount, 'the grid has columns').to.be.greaterThan(0)
-        cy.get('#tablePurchase tbody tr:first td').should('have.length', headerCount)
+      // Wait for a REAL data row. DataTables renders a single-cell "No data available" placeholder
+      // when empty, and that placeholder IS a <tr> — so a bare row-count check passes against it and
+      // the next assertion compares 14 headers to that 1 placeholder cell. Requiring >1 cell is what
+      // distinguishes a loaded grid from an empty one.
+      cy.get('#tablePurchase tbody tr:first td', { timeout: 15000 })
+        .should('have.length.greaterThan', 1)
+
+      // Report WHICH columns differ, not just the counts. A bare "13 vs 14" sent me chasing stale assets
+      // through three rebuilds; the names say immediately whether a header has no cell, a cell has no
+      // header, or the thead simply has more than one row.
+      cy.get('#tablePurchase thead tr').its('length').then((headerRows) => {
+        cy.get('#tablePurchase thead th').then(($th) => {
+          const headers = [...$th].map((el) => el.getAttribute('data-field') || el.textContent.trim())
+          cy.get('#tablePurchase tbody tr:first td').then(($td) => {
+            const cells = [...$td].map((el) => {
+              const inner = el.querySelector('[id]')
+              if (inner) return inner.id
+              return el.querySelector('input') ? '(checkbox)' : '(none)'
+            })
+            const detail = 'thead rows=' + headerRows
+              + ' | headers(' + headers.length + ')=[' + headers.join(' ') + ']'
+              + ' | cells(' + cells.length + ')=[' + cells.join(' ') + ']'
+            expect(cells.length, detail).to.eq(headers.length)
+          })
+        })
       })
     })
   })

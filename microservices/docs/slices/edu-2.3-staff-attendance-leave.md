@@ -325,6 +325,22 @@ now *links* `leaveId` onto the existing row. Two rows for one day is exactly wha
 must survive the leave being cancelled — otherwise cancelling a request would silently mark someone present
 who genuinely was not.
 
+**The overage was computed AFTER the insert, and was therefore always 0 — caught by the gate, fixed
+2026-08-03.** `saveLeaveRequest` read `daysTaken` after saving and passed `taken - days`. But `daysTaken`
+counts **APPROVED only**, and with `requireApproval` on — the default — the new row is `PENDING` and was
+never in `taken`; subtracting removed it a second time. Result: **`overage` came out 0 for every request in
+the default configuration**, so the warning D5 exists for never fired. The feature would have shipped
+silently inert.
+
+*Fixed* by reading the prior balance **before** the insert (`alreadyTaken`), which is correct whether or not
+approval is required — the old form only worked in the auto-approve case.
+
+**Worth noting how this got through:** `LeaveBalanceCalculator.overageFor` was correct all along and its
+unit test passed. The defect was the **argument at the call site**, which no test of the callee can see.
+`LeaveBalanceCalculatorTest` now states the contract explicitly (`alreadyTaken` = days taken *before* this
+request) and keeps the buggy call as a counter-example, plus a test that a PENDING request is not counted —
+the fact that made the subtraction wrong.
+
 **`requireApproval` fails to REQUIRING approval.** Standard C3 (a safety flag fails ON): if the setting
 cannot be read, granting leave nobody approved is the worse mistake.
 

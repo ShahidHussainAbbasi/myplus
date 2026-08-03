@@ -64,7 +64,9 @@ public final class LeaveBalanceCalculator {
         boolean noTerms = terms == null || terms.isEmpty();
         int days = 0;
         for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
-            if (noTerms || terms.stream().anyMatch(t -> t.contains(d))) days++;
+            // `d` is the loop variable, so it is not effectively final and cannot be captured directly.
+            final LocalDate day = d;
+            if (noTerms || terms.stream().anyMatch(t -> t.contains(day))) days++;
         }
         return days;
     }

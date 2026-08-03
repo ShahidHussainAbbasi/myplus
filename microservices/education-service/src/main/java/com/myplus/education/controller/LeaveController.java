@@ -304,6 +304,15 @@ public class LeaveController {
                         "None of those dates fall inside a term, so no leave would be taken.");
             }
 
+            // Read the prior balance BEFORE inserting. Reading it afterwards and subtracting this
+            // request's days only works when the request was auto-approved: with approval required (the
+            // default) the new row is PENDING, daysTaken counts APPROVED only, so subtracting removed it a
+            // second time and the overage always came out 0 — the warning D5 exists for never fired.
+            int alreadyTaken = LeaveBalanceCalculator.daysTaken(
+                    leaveRequestRepository.findByStaffYearScoped(staffId,
+                            LocalDate.of(from.getYear(), 1, 1), LocalDate.of(from.getYear(), 12, 31), org, uid),
+                    typeId, from.getYear());
+
             LeaveRequest req = LeaveRequest.builder()
                     .staffId(staffId).staffName(staff.getName())
                     .leaveTypeId(typeId).leaveTypeName(type.getName())
@@ -326,11 +335,8 @@ public class LeaveController {
             }
 
             // The overage is NAMED, not hidden — that is the whole point of warning instead of blocking.
-            int taken = LeaveBalanceCalculator.daysTaken(
-                    leaveRequestRepository.findByStaffYearScoped(staffId,
-                            LocalDate.of(from.getYear(), 1, 1), LocalDate.of(from.getYear(), 12, 31), org, uid),
-                    typeId, from.getYear());
-            int overage = LeaveBalanceCalculator.overageFor(type.getAnnualQuota(), taken - days, days);
+            // Uses the PRE-SAVE figure read above, so it is correct whether or not approval is required.
+            int overage = LeaveBalanceCalculator.overageFor(type.getAnnualQuota(), alreadyTaken, days);
 
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("id", req.getId());
