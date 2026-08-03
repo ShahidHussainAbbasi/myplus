@@ -44,6 +44,13 @@ public class SellDTO implements Serializable {
 	 */
 	private String priceReason;
 
+	/**
+	 * B2B-P3b-2 (#4): the batch(es) this line drew from, for the receipt and for traceability.
+	 * Server-populated on the way out; ignored on the way in. Empty for a sale recorded before this shipped,
+	 * and for any tenant whose stock carries no batch numbers — the receipt simply omits the column.
+	 */
+	private java.util.List<SellBatchDTO> batches = new java.util.ArrayList<>();
+
 	private BigDecimal totalAmount = BigDecimal.ZERO;
 
 	private BigDecimal netAmount = BigDecimal.ZERO;

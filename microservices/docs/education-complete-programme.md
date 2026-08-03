@@ -1,16 +1,17 @@
 # Education Management System — complete programme
 
 **Status: IN DELIVERY — Phase 0 and Phase 1 COMPLETE and Cypress-green; the education review is CLOSED.**
-Currently in **Phase 2** (2.1 ✅, 2.2 ✅; **2.3 staff attendance & leave 🔨 implemented, awaiting its gate**). Produced 2026-07-30; last
-updated 2026-08-02. Supersedes `education-feature-gap-analysis.md` (kept as the raw inventory).
+**PHASE 2 IS COMPLETE** (2.1–2.5 all Cypress-green, 2026-08-03). Now in **Phase 3 — parent & student portals**: 3.1 📐 designed, awaiting approval. **3.1 is NOT blocked** — D-4 gates 3.2, and D-2's ordering question was settled by keeping phase order. Produced 2026-07-30; last
+updated 2026-08-03. Supersedes `education-feature-gap-analysis.md` (kept as the raw inventory).
 
 | Shipped so far | |
 |---|---|
 | **Phase 0** | fees → GL, fees → AR, fee credit, branch-scope settings, cryptic-column rename (part), D-3 privilege map |
 | **Phase 1** | 1.1 academic year & term · 1.2 examinations · 1.3 marks entry · 1.4 grading scales · 1.5 report cards · 1.6 promotion — **all six green** |
 | **Review** | findings A (cross-tenant save takeover), B (fee validation), C (privilege gating), D (analytics perf) fixed; E partly |
-| **Phase 2** | 2.1 timetable ✅ green (run 2, after an unexplained run-1 red — see the slice doc) · 2.2 substitution ✅ green |
-| **Now** | Phase 2.3 staff attendance & leave — 🔨 implemented, awaiting `mvn` + the Cypress gate |
+| **Phase 2** | 2.1 timetable ✅ · 2.2 substitution ✅ · 2.3 staff attendance & leave ✅ · 2.4 homework ✅ — all green (**2.4 ships without attachments**: they gate on D-5) |
+| **Phase 2** ✅ | 2.1 timetable · 2.2 substitution · 2.3 staff attendance & leave · 2.4 homework · 2.5 behaviour log — **all five green** |
+| **Now** | Phase 3.1 parent portal — 📐 design, awaiting approval. _(Notification remains the strongest non-phase candidate: 2.2 + 2.4 + 2.5 all want a real send.)_ |
 
 **Goal:** an education management system complete enough for a department of education — every stakeholder,
 every department, on one multi-tenant platform.
@@ -47,26 +48,26 @@ Non-negotiable. Every slice below is measured against these; they are not restat
 ## 1. Who the system serves
 
 A department of education is not one user. Each stakeholder is a first-class surface. _Status column updated
-2026-08-02 — Phase 1 and 2.1 moved three rows._
+2026-08-03 — Phases 1 and 2 between them moved four rows. The two ❌ portal rows are exactly what Phase 3 is._
 
 | Stakeholder | Needs | Today |
 |---|---|---|
 | **School admin / clerk** | enrolment, fees, attendance, records | ✅ served |
-| **Teacher** | timetable, mark entry, attendance, homework, my classes | 🟡 **marks entry + a teacher timetable view** shipped (1.3, 2.1); homework and a teacher home screen still absent |
+| **Teacher** | timetable, mark entry, attendance, homework, my classes | 🟡 **marks, timetable view, homework and the behaviour log** shipped (1.3, 2.1, 2.4, 2.5); a single teacher home screen is still absent |
 | **Head / principal** | school-wide results, staff performance, finance | 🟡 dashboard + report cards + promotion; staff performance still absent |
 | **Parent / guardian** | results, attendance, fee dues, homework, pay online, meet teacher | ❌ no portal at all |
 | **Student** | timetable, results, homework, materials | ❌ no portal at all |
 | **Accountant** | receivables, arrears, expenses, payroll, books | 🟡 **fees now reach the ledger** (AR + GL + aging + statements, Phase 0); expenses and payroll still absent |
 | **Transport in-charge** | routes, stops, who rides which bus | 🟡 vehicle register only |
 | **Librarian / hostel warden / nurse** | domain registers | ❌ |
-| **HR** | staff records, attendance, leave, payroll, certification | 🟡 staff master only |
+| **HR** | staff records, attendance, leave, payroll, certification | 🟡 **staff master + daily register + leave with derived balances** (2.3); payroll and certification still absent |
 | **Department officer** (district/province) | cross-school aggregates, statutory returns, child tracking across schools | ❌ |
 
 ---
 
 ## 2. Current state
 
-**Measured 2026-08-02: 40 entities · 29 controllers · Flyway V1–V19** (V19 = 2.3, awaiting its gate).
+**Measured 2026-08-03: 46 entities · 31 controllers · Flyway V1–V21.**
 _(As first written, 2026-07-30: 15 entities · 19 controllers · 22 screens · Flyway V1–V7 — kept so the
 distance travelled is visible.)_
 
@@ -75,8 +76,8 @@ multi-school branch scoping, owner-configurable policy, org-scoping (hardened in
 **plus the entire academic record shipped since**: academic year & term, examinations, marks entry, grading
 scales, report cards, promotion, and the timetable.
 
-**Absent:** homework, discipline log, admissions, HR/payroll, the
-parent and student portals, and every facility register beyond a vehicle list.
+**Absent:** admissions, HR/payroll, the parent and student portals, and every
+facility register beyond a vehicle list.
 
 ### 2.1 The composition gap — the biggest structural finding
 
@@ -154,7 +155,7 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 > 1.1–1.6 share one term/exam/marks spine. **Design them together, implement as six slices** — designing
 > separately means three migrations over the same tables.
 
-### Phase 2 — Daily teaching operations
+### Phase 2 — Daily teaching operations ✅ COMPLETE (2026-08-03)
 
 > **Phase 2 is the current phase** (Phase 1 complete 2026-08-01, education review closed the same day).
 > 2.1 is the keystone: 2.2 substitution reads the timetable. **CORRECTED 2026-08-02:** this note used to add
@@ -167,15 +168,15 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 |---|---|
 | **2.1** ✅ **DONE** | **Timetable** — class × period × subject × teacher × room, with clash detection — `slices/edu-2.1-timetable.md` |
 | **2.2** ✅ **DONE** | **Substitution** — cover an absent teacher from the timetable — `slices/edu-2.2-substitution.md` |
-| **2.3** 🔨 **implemented** | **Staff attendance & leave** — presence, leave types, balances. **Must WRITE `staff_absence` (2.2), not build a parallel absence concept** — `slices/edu-2.3-staff-attendance-leave.md` |
-| **2.4** | **Homework / assignments** — set, submit, mark (attachments via `document-service`) |
-| **2.5** | **Discipline / behaviour log** |
+| **2.3** ✅ **DONE** | **Staff attendance & leave** — presence, leave types, balances. **Must WRITE `staff_absence` (2.2), not build a parallel absence concept** — `slices/edu-2.3-staff-attendance-leave.md` |
+| **2.4** ✅ **DONE** | **Homework / assignments** — set, submit, mark. **Attachments deferred to D-5**; the lifecycle ships without them — `slices/edu-2.4-homework.md` |
+| **2.5** ✅ **DONE** | **Discipline / behaviour log** — append-only, positive AND concern, no workflow — `slices/edu-2.5-discipline-log.md` |
 
 ### Phase 3 — Parents & students (the missing surfaces)
 
 | Slice | What |
 |---|---|
-| **3.1** | **Parent portal** — results, attendance, dues, homework for *my* children (auth-service user type `GUARDIAN`) |
+| **3.1** 📐 **design** | **Parent portal** — results, attendance, dues, homework for *my* children. **CORRECTED: the `GUARDIAN` user type does NOT exist** — `Membership.role` is free text whose javadoc merely lists it. The real work is a CHILD-scoped access shape, not a new role — `slices/edu-3.1-parent-portal.md` |
 | **3.2** | **Online fee payment** — parent pays; settles the AR from 0.2 |
 | **3.3** | **Student portal** — timetable, results, homework, materials |
 | **3.4** | **Parent–teacher meetings** — booking via `appointment-service` |
@@ -300,10 +301,10 @@ Existing settings already follow this (`edu.staff.branchScoped`, `edu.subject.br
 | # | Decision | Gates |
 |---|---|---|
 | **D-1** | **Jurisdiction** — statutory return format + TC format are country/state specific. **NOT a blocker for 1.4**: grading bands/GPA/pass mark are per-org configurable, which is this row's own answer — the platform never needs to know the board. D-1 shapes only which DEFAULT preset ships and the statutory formats in 5.3. | ~~1.4~~ **5.3 only** |
-| **D-2** | **Customer shape** — single school, group, or government department? Changes whether Phase 5 outranks Phase 2 | phase order |
+| **D-2** | **Customer shape** — single school, group, or government department? ~~Changes whether Phase 5 outranks Phase 2~~ **RE-FRAMED 2026-08-03: Phase 2 is complete, so the live question is whether Phase 5 (department layer) outranks Phase 3 (portals).** A department customer wants cross-school aggregates before parent logins; a single school wants the opposite | **phase order — now live** |
 | ~~**D-3**~~ | ~~Privilege map~~ — **RESOLVED 2026-07-31.** Three tiers: `WRITE_PRIVILEGE` for day-to-day records, `ADMIN_PRIVILEGE` for money/structure/policy, `DELETE_PRIVILEGE` for deletes. Every write endpoint gated; gate `education/privilege-map.cy.js`. **Marks entry lands in the ADMIN tier.** | ~~1.3~~ unblocked |
-| **D-4** | **Online payment provider** | 3.2 |
-| **D-5** | **Document storage backend** — DB blob, filesystem, or S3-compatible | 4.3 |
+| **D-4** | **Online payment provider** | 3.2 — **next phase, so this is now near** |
+| **D-5** | **Document storage backend** — DB blob, filesystem, or S3-compatible. **CORRECTED 2026-08-03: this row said "4.3", but 2.4 homework reaches it FIRST** — homework attachments need the same `document-service`. It is not a hard blocker for 2.4: the homework lifecycle (set → submit → mark) is valuable without file upload, so 2.4 ships attachment-less and adds them when D-5 lands. Recorded so the next reader does not treat 2.4 as blocked, nor forget that attachments are missing. | **2.4** (attachments only) · 4.3 (fully) |
 
 > **D-3 is urgent independently of this programme.** Marks entry without a privilege map means any authenticated
 > user could alter results.
@@ -342,7 +343,10 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | finding D — analytics perf | ✅ done — **the education review is CLOSED** | `slices/edu-D-analytics-perf.md` | `education/dashboard.cy.js` (unchanged) + `analytics-perf.cy.js` |
 | 2.1 timetable | ✅ done | `slices/edu-2.1-timetable.md` | `education/timetable.cy.js` |
 | 2.2 substitution | ✅ done |
-| **2.3 staff attendance & leave** | 🔨 **implemented, awaiting `mvn` + gate** | `slices/edu-2.3-staff-attendance-leave.md` | `education/staff-leave.cy.js` | `slices/edu-2.2-substitution.md` | `education/substitution.cy.js` |
+| 2.3 staff attendance & leave | ✅ done |
+| 2.4 homework | ✅ done |
+| 2.5 discipline log | ✅ done — **Phase 2 complete** |
+| **3.1 parent portal** | 📐 **design, awaiting approval** | `slices/edu-3.1-parent-portal.md` | `education/parent-portal.cy.js` | `slices/edu-2.5-discipline-log.md` | `education/behaviour.cy.js` | `slices/edu-2.4-homework.md` | `education/homework.cy.js` | `slices/edu-2.3-staff-attendance-leave.md` | `education/staff-leave.cy.js` | `slices/edu-2.2-substitution.md` | `education/substitution.cy.js` |
 
 ### Carried requirements (must not be lost between slices)
 
@@ -354,7 +358,13 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 1.2 D4 → **1.5** | a term whose exam weights do not total 100 must be **refused**, not computed | ✅ done in 1.5 (D2) |
 | 1.2 §6 → 1.3 → 1.4 → **1.5** | exam eligibility by attendance % — deferred three times, now explicitly 1.5 | ⚠️ **partly.** 1.5 built the attendance aggregate it was waiting on and established that eligibility can only be a **computed flag, not a gate** (there is no exam-registration step to block). The `edu.exam.minAttendancePercent` setting is **not built** — it needs the first `INT` entry in the shared `common-settings`, which is a scope decision |
 | 1.5 D1 → **1.6** | promotion must read the SNAPSHOT, not re-derive a term's result | ✅ done in 1.6 (D2) |
-| 2.2 → **2.3** | 2.2 owns a minimal `StaffAbsence` (staffId + date + reason). **2.3 must WRITE these rows from its leave/register flow, not create a parallel absence concept** — `StaffAbsence.leaveId` is reserved for the link | ✅ honoured in 2.3's design (D3): register AND leave-approval both write it, and cancellation reuses 2.2's cascade |
+| 2.2 → **2.3** | 2.2 owns a minimal `StaffAbsence`. **2.3 must WRITE these rows, not create a parallel absence concept** | ✅ **done & green.** Both paths write it via the extracted `StaffAbsenceService`; 2.2 was refactored onto the same owner, and `substitution.cy.js` proves its behaviour is unchanged |
+| 2.4 D6 → **D-5 / 4.3** | `HomeworkSubmission.documentRef` is a nullable column **nothing writes**, held for `document-service`. Justified (the alternative is migrating a table with real data) but it is the same shape as the `Student.fee` unreachable-field finding — keep it documented or an audit will read it as a defect | when D-5 lands |
+| 3.1 §6 → **before any real school** | `Guardian.email` is unverified free text, and it becomes a portal login identity. Invitation-only limits it, but a typo invites a stranger to a child's record. **Needs email verification** | open |
+| 3.1 D4 → **behaviour in the portal** | 2.5's notes were written with no expectation a parent would read them; exposing them retroactively changes that contract. Needs a per-note 'shared with parent' decision | own slice |
+| 2.2 + 2.4 + 2.5 → **notification** | THREE shipped/designed slices now want a real send (cover assigned · homework set · parent informed) and the path is still a logging stub. **Strongest candidate for the next non-phase slice** | open |
+| 2.5 D6 → **safeguarding** | confidential disclosures need read-auditing and a narrower access tier — explicitly NOT what `behaviour_note` is for, recorded so no school misuses it | own initiative |
+| 2.4 D4 → **continuous assessment** | homework deliberately does NOT feed the report card: 1.5's aggregate is a published number and adding a source would change its meaning silently. Needs its own weighting slice | own slice |
 | 2.3 §6 → **platform** | student `attendance` has **no UNIQUE key** on (org, student, date) — the same check-then-act race as finding D, still open. Found while designing 2.3 | open |
 | 2.3 D4 → **holiday calendar** | leave-day arithmetic cannot skip weekends/public holidays: the platform has no such concept, and the weekend is not Sat–Sun everywhere this ships | own slice |
 | 2.1 §6 → **platform** | `GatewayClient` has no HTTP connect/read timeouts (standard D3e) — one slow downstream pins a monolith thread. Not education's to fix alone | open |

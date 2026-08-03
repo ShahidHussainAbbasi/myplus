@@ -1,6 +1,7 @@
 # B2B Phase 3 — documents & reports (customer requirements **#2, #4, #1, #5, #6**)
 
-**Status:** 🟡 IN PROGRESS — **3a + 3b-1 implemented, awaiting their headed gate**; 3b-2/3c/3d/3e designed only.
+**Status:** 🟡 IN PROGRESS — **3a + 3b-1 + 3b-2 + 3c DONE & Cypress-green 2026-08-03**; 3d/3e designed only.
+Gates: `purchase-batch-expiry.cy.js` (3a/3b-1) · `receipt-detail.cy.js` (3b-2) · `return-documents.cy.js` (3c) — all green
 Gate: `cypress/e2e/business/purchase-batch-expiry.cy.js`
 Programme: [`b2b-b2c-rollout-plan.md`](../b2b-b2c-rollout-plan.md) · Previous: [`b2b-P2-pricing.md`](b2b-P2-pricing.md)
 Requirements: [`customer-requirements-plan.md`](../customer-requirements-plan.md) #2 · #4 · #1 · #5 · #6
@@ -117,17 +118,94 @@ unbuilt across three phases for no technical reason.
 
 `receipt.js` gains, each shown only when it has a value, so a B2C corner shop's receipt does not grow noise:
 - **line number** — a plain counter; makes a disputed line referable over the phone
-- **batch / expiry** per line — from the sale line's inventory batch (pharmacy needs it; retail ignores it)
-- **previous balance / new balance** — for an account customer, the figures the sell screen already computes
+- **batch / expiry** per line
+- **previous balance / new balance** — for an account customer
 *(the document title moved out to 3b-1 above, since it has no dependency on 3a.)*
 
-### 3c — #1 return documents get their own series
+#### The finding that shapes this: `StockPick` is returned and thrown away
 
-- `InvoiceNumbers` grows `CRN-` (credit note, sale return) and `DBN-` (debit note, purchase return) beside
-  the existing `INV-`. It is already the one place display formatting lives, so no new concept.
-- Allocation reuses the existing per-org MAX+1-in-transaction pattern, guarded by the same unique constraint.
-- The return document **references the invoice it reverses** — a credit note that does not name its invoice
-  is unusable for reconciliation.
+`StockReservationResponse` already carries `List<StockPick>` — `{itemId, batchNo, quantity, expiryDate}` —
+and its own javadoc says it exists *"so the sale (and any pharmacy controlled-substance register) records
+exact batch traceability"*. **Nothing consumes it.** Not `SagaSellService`, not `SagaSaleWriter`, not the
+pharmacy dispense path. Every sale already knows exactly which batches left the shelf, and discards it at the
+end of the method.
+
+So this is not "add batch to the receipt" — it is **stop discarding the traceability the saga already
+produces**. Which also means 3a (batch IN) and this (batch OUT) together close the loop a recall needs.
+
+#### Data model — business-service **V32**
+
+| Table | Why |
+|---|---|
+| `sell_batch` (`id`, `sell_id`, `organization_id`, `product_id`, `batch_no`, `expiry_date`, `quantity`) | A **child table, not columns on `sell`**: FEFO legitimately splits one line across several batches, so a single `sell.batch_no` would be lossy exactly when traceability matters most — a part-shipped line during a recall. |
+| `customer_history.balance_after` | The customer's running balance **at the moment of this sale**. Snapshotted, because `Customer.dueAmount` is *current* — using it to print a two-year-old invoice's balance would show today's figure on yesterday's document. "Previous balance" is then derived: `balance_after − this invoice's unpaid`. One column, not two. |
+
+Additive, nullable, no back-fill: an existing invoice reprints exactly as it does today (no batch rows, no
+balance line).
+
+#### Design notes
+
+- **Pattern:** the picks are a *domain event already emitted* by the reservation; persisting them is an
+  **audit/snapshot** concern, so they are written on the same transaction as the sale rather than fetched
+  from inventory at print time. A receipt must never depend on another service being up.
+- Rendering stays conditional — no batch rows, no batch column; no account customer, no balance lines.
+
+### 3c — #1 return documents get their own series — **DONE, green 2026-08-03**
+
+#### What the survey found (2026-08-03), which is not what the outline assumed
+
+| | Customer side | Supplier side |
+|---|---|---|
+| Record of the return | `SaleReturn` exists (SF-11 "credit-note stub"): qty, reason, refund, who, store | **none at all** — `purchaseReturn` adjusts stock + payable and leaves no document |
+| Its own number | **none.** `sale_return.invoice_no` holds the number of the invoice it REVERSES | n/a |
+| GL reference | `SALE_RETURN` posted with `ref` = the **original invoice number** | `PURCHASE_RETURN` posted with `ref` = the **original bill number** |
+
+So the customer side is half-built and mis-numbered, and the supplier side has no document. A credit note is
+currently indistinguishable from the invoice it cancels — which is the accounting defect #1 names.
+
+#### Standards this sub-slice is built to
+
+| Dimension | What applies |
+|---|---|
+| **Accounting standard** | A return is a **credit note** (customer) or **debit note** (supplier): a distinct document, in its own series, that REFERENCES what it reverses. Reusing the reversed document's number is the defect. |
+| **Business/domain** | Reconciliation. A supplier matching your debit note against their credit note needs a number that is yours and unambiguous. |
+| **SaaS multi-tenancy** | Sequences are per-org (`MAX+1` scoped by `organization_id`), and `UNIQUE(organization_id, seq)` is the concurrency guarantee — identical to `invoice_seq` since slice 22. |
+| **Live-modules rule** | Additive; existing returns keep NULL note numbers and display as today. **No back-fill** — that would fabricate documents never issued. |
+| **Microservice boundaries** | Numbering is pure formatting, so it stays a **Value Object** in `commerce-domain`; allocation stays in the owning service. No new service — this owns no data or lifecycle of its own. |
+| **Design patterns** | **Value Object** (`InvoiceNumbers`) · the document row is an **audit/snapshot** record written on the same transaction as the return. |
+| **SOLID / DRY** | One formatter for every document number in every vertical; `isReturnDocument()` means callers never re-implement prefix matching. |
+| **Testing standard** | Pure-logic `InvoiceNumbersTest` on `mvn test` (asserts sequence 42 yields three DIFFERENT documents) + a headed Cypress gate. |
+
+#### Design
+
+| Piece | Decision |
+|---|---|
+| **Numbering** | `commerce-domain.InvoiceNumbers` gains `creditNote(seq)` -> `CRN-000123` and `debitNote(seq)` -> `DBN-000123`. Same **Value Object**, same width, pure formatting; allocation stays in the service exactly as `INV-` works today. One place renders every document number for every vertical. |
+| **Allocation** | `MAX(seq)+1` per org inside the return's transaction, guarded by `UNIQUE(organization_id, seq)` — the identical pattern `invoiceSeq` has used since slice 22. Not a new mechanism. |
+| **The reference** | `sale_return.invoice_no` KEEPS pointing at the reversed invoice. That is the accounting requirement: a credit note is its own document that **references** what it reverses. The new columns carry the note's own identity. |
+| **Supplier side** | New `purchase_return` table mirroring `sale_return`, because there is nothing to extend. |
+| **GL ref** | `SALE_RETURN` posts with `ref` = the **`CRN-` number**, not the invoice. The ledger line then names the credit note, and the invoice stays reachable via `sale_return.invoice_no`. |
+
+**Live-modules rule:** additive. Existing returns keep NULL note numbers and display exactly as they do
+today; only returns taken after this get a number. **No back-fill** — inventing `CRN-` numbers for historical
+returns would fabricate documents that were never issued.
+
+> ### CORRECTION (2026-08-03) — a GL gap I reported that does NOT exist
+>
+> An earlier revision of this section claimed **"a purchase return posts nothing to the GL"** and flagged it
+> as books-drifting. **That is wrong.** `PurchaseService.purchaseReturn` enqueues a `PURCHASE_RETURN` event
+> (Cr Inventory + Cr input tax, Dr AP + Dr Cash) and records an audit event. I had grepped
+> `PurchaseController.java`, found no `glOutbox` there, and asserted the defect — the posting lives one layer
+> down in the service.
+>
+> The correction matters because the proposed remedy was a **back-fill**, which on a false premise would have
+> posted a SECOND `PURCHASE_RETURN` for every return already in the ledger — duplicating credits to Inventory
+> and debits to AP across every live tenant, including closed periods. Recorded rather than deleted so the
+> "missing postings" theory is not revived.
+>
+> **What is actually wrong is narrower, and is exactly what requirement #1 says:** both returns post to the
+> ledger under the number of the document they REVERSE. 3c changes what each line is *called*, never an
+> amount.
 
 ### 3d — #5 statement / invoice download
 
@@ -251,14 +329,26 @@ sequenceDiagram
 - [x] `PurchaseDTO` — `batchNo`, `bexpDate` now bind
 - [x] Purchase form — Batch # input; expiry `name` fixed
 - [x] Purchase table — Batch column + its cell at position 7
-- [ ] Cypress `purchase-batch-expiry.cy.js` — **to write**
+- [x] Cypress `purchase-batch-expiry.cy.js` — **PASSED headed 2026-08-03**
 
 **3b-1 — receipt vs invoice title (no migration, no dependency)**
 - [x] `receipt.js` — title from `customerType`
 - [x] i18n — 4 keys × six bundles
-- [ ] Covered by the 3a gate (one spec, both changes)
+- [x] Covered by the 3a gate (one spec, both changes) — **green**
 
-**3b-2 — #4 receipt** · **3c — #1 return series** · **3d — #5 download** · **3e — #6 reports**
+**3b-2 — #4 richer receipt** *(DONE, green 2026-08-03)*
+- [x] **Flyway V32** — `sell_batch` child table (+ both indexes) and `customer_history.balance_after`
+- [x] `SellBatch` entity + `SellBatchRepo` (by-invoice read, and a **by-batch recall read**, org-scoped)
+- [x] `SagaSaleWriter` — persists the FEFO picks it had been discarding; **best-effort**, never fails a sale
+- [x] `applyInvoice` 6-arg + a 5-arg overload so the EDIT path is unchanged (an edit re-prices, it does not re-pick)
+- [x] `customer_history.balance_after` snapshotted straight after `recomputeDue`
+- [x] `/getReceipt` — all batches for the invoice in ONE query, grouped in memory; wrapped so traceability can never stop a receipt printing
+- [x] `SellDTO.batches` + `CustomerHistoryDTO.balanceAfter`
+- [x] `receipt.js` — line numbers, batch/expiry sub-line, previous + new balance (each conditional)
+- [x] i18n — 4 keys x six bundles (1,391 aligned)
+- [x] Cypress `receipt-detail.cy.js` — **PASSED headed 2026-08-03**
+
+**3c — #1 return series** · **3d — #5 download** · **3e — #6 reports**
 - [ ] each designed above; each gets its own checklist and gate when it starts
 
 ---
@@ -306,3 +396,82 @@ Recorded here rather than left as a surprise.
 2. `PurchaseDTO.batchNo`/`bexpDate` were commented out, so even a correctly-named field could not bind.
 The entity, the service and the inventory push were all already correct — which is why #2 dropped from an
 "M" estimate to XS once verified rather than trusted.
+
+
+---
+
+## 8. What the 3a gate cost, and the rule it leaves behind (2026-08-03)
+
+The production change was small and never in doubt. **Five red runs came from my diagnosis, not the code**,
+and all five trace to one habit: reading source text instead of the rendered DOM.
+
+1. **Claimed `Stock` was deleted** so the expiry input bound to nothing. Wrong — the *entity* went, `StockDTO`
+   and `PurchaseDTO.stock` stayed, and `finance-reports.cy.js` already proved the nested path works. Reverted.
+2. **Counted 17 headers vs 13 cells** by regex over the template — matching four `<th>`s that are inside an
+   HTML comment. "Fixing" that broke a table which had been correctly aligned. Reverted.
+3. **Chased a stale asset through three rebuilds** on a bare "13 vs 14", having verified nothing about which
+   column was missing.
+4. The real cause: DataTables' empty-table placeholder is **a `<tr>` with one cell**, so `tbody tr` was
+   non-empty while the grid held no data, and the assertion compared 14 headers to 1 placeholder cell.
+
+**Rules worth carrying:**
+- **Never diagnose column alignment from source.** A commented-out `<th>` is not a column. Assert in the
+  browser: `thead th` count vs a row's `td` count.
+- **Wait for a loaded row, not any row** — `tbody tr:first td` with **more than one** cell.
+- **Make an ambiguous assertion self-describing on the FIRST red run**, not the fourth. Printing the two
+  column lists turned four rounds of guessing into one decisive answer.
+
+
+---
+
+## 9. 3b-2 post-mortem: four red runs, two real causes (2026-08-03)
+
+Recorded because both causes are the kind that recur, and because the diagnostic that ended it should have
+been the first move, not the fourth.
+
+**Cause 1 — a real bug: `ch` is a DETACHED entity.** `CustomerHistoryService.saveUpdateCustomerHistory`
+builds it with `ObjectMapperUtils.map`, and `applyInvoice`'s `customerHistoryService.save(ch)` returns a
+managed copy the caller **discards**. So `ch.setBalanceAfter(...)` *after* that save was invisible to JPA and
+stored nothing, silently. Fixed with an explicit re-save; the comment says why so it is not "tidied" away.
+Anything else that sets a field on `ch` late in `applyInvoice` has the same trap.
+
+**Cause 2 — my patch went into the wrong method.** `SellController` has TWO endpoints that build
+`List<SellDTO> sales` from `lines`: `getSellInvoice` and `getReceipt`. A `replace(anchor, ..., 1)` took the
+first match, so the batch query and `setBalanceAfter` landed in `getSellInvoice` while the receipt uses
+`getReceipt`. The log showed sales writing `sell_batch` rows while the receipt never issued a
+`select ... from sell_batch` — which is what finally located it.
+
+**Rules worth carrying:**
+- **A single-replace anchor is unsafe in a controller with duplicated payload assembly.** Verify which method
+  the anchor matched before building.
+- **Best-effort catches need a compensating log, and it must be checked FIRST on a red run.** The catches
+  here are correct for production (traceability must never fail a sale) but they are exactly what made this
+  silent.
+- **When writes look right and reads look wrong, get the SQL.** One log showing the insert happening and the
+  select never happening beat four rounds of inference.
+
+
+---
+
+## 10. 3c as built (2026-08-03)
+
+| | Before | After |
+|---|---|---|
+| Customer return | `SaleReturn` stub stamped with the invoice it reverses | own `CRN-000007`; `invoice_no` kept as the **reference** |
+| Supplier return | **no document at all** | `purchase_return` row with `DBN-000007` |
+| `SALE_RETURN` GL ref | the original invoice number | the **credit note** |
+| `PURCHASE_RETURN` GL ref | the original bill number | the **debit note** (falls back to the bill if the document write fails, so no ledger line is unreferenced) |
+
+- `commerce-domain.InvoiceNumbers` gained `creditNote()`, `debitNote()`, `isReturnDocument()` — still a pure
+  **Value Object**; allocation stayed in the services. `InvoiceNumbersTest` runs on `mvn test`.
+- Both sequences: `MAX+1` per org inside the return's transaction, `UNIQUE(organization_id, seq)` as the
+  concurrency guarantee — the mechanism `invoice_seq` has used since slice 22, not a new one.
+- **No amounts changed anywhere.** Only what each document and ledger line is called.
+- **No returns register screen.** `/getSaleReturns` exists but nothing renders it. A register is a REPORT and
+  belongs to 3e's shared filter/export component; building a bespoke screen here is the duplication 3e exists
+  to prevent. The operator instead gets the number in the response ("Sale returned. Credit note CRN-000007"),
+  which the existing dialog already displays.
+
+**Open, deliberately:** if the debit-note write fails, the GL line falls back to the bill number. Visible in
+the log as `Debit-note write failed`, never silent — but it does mean a rare failure yields a ledger line
+named after the bill rather than the note.

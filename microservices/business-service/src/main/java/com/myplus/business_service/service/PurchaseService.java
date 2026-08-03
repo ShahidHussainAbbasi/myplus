@@ -32,6 +32,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     PurchaseRepo purchaseRepo;
 
+    @Autowired
+    com.myplus.business_service.repository.PurchaseReturnRepo purchaseReturnRepo;   // B2B-P3c (#1): debit notes
+
     private static final java.util.Set<String> CREDIT_POLICIES = java.util.Set.of(
             com.myplus.common.credit.CreditLimitPolicy.OFF,
             com.myplus.common.credit.CreditLimitPolicy.WARN,
@@ -569,9 +572,35 @@ public class PurchaseService implements IPurchaseService{
 		if (p.getVenderId() != null) venderService.recomputePayable(p.getVenderId());
 
 		// 3) GL reversal (best-effort): Cr Inventory(returned net) + Cr TAX(returned input tax), Dr AP + Dr Cash(refund).
+		// B2B-P3c (#1): the DEBIT NOTE -- the supplier side had NO document at all, only a stock and payable
+		// adjustment plus a GL line referencing the bill. A supplier reconciling your return against their
+		// credit note needs a number that is yours. Allocated MAX+1 per org, guarded by
+		// UNIQUE(organization_id, debit_note_seq); purchaseInvoiceNo is kept as the REFERENCE to the bill.
+		String debitNoteNo = null;
+		try {
+			long dbnSeq = purchaseReturnRepo.maxDebitNoteSeqForOrg(user.getOrganizationId()) + 1;
+			debitNoteNo = com.myplus.commerce.domain.InvoiceNumbers.debitNote(dbnSeq);
+			purchaseReturnRepo.save(com.myplus.business_service.entity.PurchaseReturn.builder()
+					.debitNoteSeq(dbnSeq).debitNoteNo(debitNoteNo)
+					.purchaseId(p.getPurchaseId()).purchaseInvoiceNo(p.getPurchaseInvoiceNo())
+					.productId(p.getProductId()).venderId(p.getVenderId())
+					.quantity(java.math.BigDecimal.valueOf(rq)).reason(reason)
+					.amount(returnedGross)
+					.organizationId(user.getOrganizationId()).userId(user.getUserId())
+					.storeId(p.getStoreId()).dated(LocalDateTime.now())
+					.build());
+		} catch (Exception docOnly) {
+			// Best-effort, like the sale-side stub: the return is already applied to stock and the payable, so a
+			// failure to write the document must never fail it. Loud enough to find.
+			LOG.warn("Debit-note write failed for purchase return {} (return applied)", p.getPurchaseInvoiceNo(), docOnly);
+		}
+
 		try {
 			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-					.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(p.getPurchaseInvoiceNo())
+					// The ledger line names the DEBIT NOTE that caused it, not the bill it reverses. Falls back to
+					// the bill number if the document write failed, so a GL line is never left without a reference.
+					.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now())
+					.ref(debitNoteNo != null ? debitNoteNo : p.getPurchaseInvoiceNo())
 					.grandTotal(returnedGross).taxTotal(returnedTax).paidAmount(refund).method("CASH").build());
 		} catch (Exception ex) {
 			LOG.warn("GL enqueue failed for purchase return {} (return applied)", p.getPurchaseInvoiceNo(), ex);
@@ -580,6 +609,7 @@ public class PurchaseService implements IPurchaseService{
 		auditService.record("PURCHASE_RETURN", "BILL", p.getPurchaseInvoiceNo(), returnedGross, "qty=" + rq);   // #6
 
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
+		out.put("debitNoteNo", debitNoteNo);   // B2B-P3c (#1): the document the vendor will reconcile against
 		out.put("success", true);
 		out.put("returnedValue", returnedGross);
 		out.put("refund", refund);

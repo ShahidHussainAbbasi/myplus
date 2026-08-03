@@ -83,7 +83,7 @@ class SagaSellServiceTest {
                 .thenReturn(new ProductRef(50L, "SKU", "Name", "ea", new BigDecimal("10.00"), null));
         when(inventoryClient.reserve(any(StockReservationRequest.class)))
                 .thenReturn(new StockReservationResponse("R1", ReservationStatus.RESERVED, List.of(), null));
-        when(saleWriter.writePending(any(), eq("R1"), anyString(), any(), anyList()))
+        when(saleWriter.writePending(any(), eq("R1"), anyString(), any(), anyList(), anyList()))
                 .thenReturn(invoice(1000L, "INV-000001"));
 
         String invoiceNo = service.addSell(dtoWithOneLine());
@@ -104,7 +104,7 @@ class SagaSellServiceTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Insufficient stock");
 
-        verify(saleWriter, never()).writePending(any(), any(), any(), any(), any());
+        verify(saleWriter, never()).writePending(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -113,7 +113,7 @@ class SagaSellServiceTest {
                 .thenReturn(new ProductRef(50L, "SKU", "Name", "ea", new BigDecimal("10.00"), null));
         when(inventoryClient.reserve(any(StockReservationRequest.class)))
                 .thenReturn(new StockReservationResponse("R1", ReservationStatus.RESERVED, List.of(), null));
-        when(saleWriter.writePending(any(), eq("R1"), anyString(), any(), anyList()))
+        when(saleWriter.writePending(any(), eq("R1"), anyString(), any(), anyList(), anyList()))
                 .thenReturn(invoice(1000L, "INV-000002"));
         when(inventoryClient.confirm("R1")).thenThrow(new RuntimeException("inventory down"));
 

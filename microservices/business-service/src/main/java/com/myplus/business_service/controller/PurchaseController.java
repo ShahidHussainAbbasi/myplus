@@ -271,7 +271,11 @@ public class PurchaseController {
 				return new GenericResponse("FAILED", "Purchase and quantity are required.");
 			java.util.Map<String, Object> result = purchaseService.purchaseReturn(
 					Long.valueOf(pid.trim()), Float.valueOf(qty.trim()), request.getParameter("reason"));
-			return new GenericResponse("SUCCESS", "Purchase returned successfully.", result);
+			// B2B-P3c (#1): name the debit note so the operator can quote it to the supplier.
+			Object dbn = result != null ? result.get("debitNoteNo") : null;
+			return new GenericResponse("SUCCESS",
+					dbn != null ? ("Purchase returned. Debit note " + dbn) : "Purchase returned successfully.",
+					result);
 		} catch (NumberFormatException nfe) {
 			return new GenericResponse("FAILED", "Invalid purchase id or quantity.");
 		} catch (com.myplus.business_service.service.BusinessRuleException | com.myplus.business_service.service.PeriodClosedException rule) {

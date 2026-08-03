@@ -80,7 +80,21 @@ public class GradingService {
             return absentCountsAsZero() ? 0.0 : null;
         }
         if (mark.getMarksObtained() == null) return null;   // not marked yet is not a zero
-        return round(mark.getMarksObtained() * 100.0 / max);
+        return percentOf(mark.getMarksObtained(), max);
+    }
+
+    /**
+     * A score as a percentage of its maximum, under this org's rounding policy.
+     *
+     * <p>Extracted in slice 2.4 so homework grades round exactly as exam marks do. Two rounding rules in one
+     * school would put 74.5% in different bands on the marksheet and the homework sheet, which is the kind
+     * of disagreement nobody can debug from a screenshot.
+     *
+     * @return null when there is no ceiling to be a percentage OF, or nothing was scored
+     */
+    public Double percentOf(Integer obtained, Integer max) {
+        if (obtained == null || max == null || max <= 0) return null;
+        return round(obtained * 100.0 / max);
     }
 
     public boolean absentCountsAsZero() {

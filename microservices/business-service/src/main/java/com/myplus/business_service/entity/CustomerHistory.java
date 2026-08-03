@@ -75,6 +75,17 @@ public class CustomerHistory implements Serializable {
     @Column(name = "due_amount", precision = 19, scale = 2)
     private BigDecimal dueAmount;
 
+	/**
+	 * B2B-P3b-2 (#4): what the customer owed in total immediately AFTER this invoice was recorded.
+	 *
+	 * <p>A SNAPSHOT, because {@code Customer.dueAmount} is the CURRENT balance — printing it on a reprint of
+	 * a two-year-old invoice would show today's figure on yesterday's document. "Previous balance" is derived
+	 * from this (minus the invoice's own unpaid amount) rather than stored separately, so the two can never
+	 * disagree. NULL on every pre-existing invoice, which simply prints without the balance lines.
+	 */
+	@Column(name = "balance_after", precision = 19, scale = 2)
+	private BigDecimal balanceAfter;
+
     @Column(name = "due_date")
     private LocalDate dueDate;
 

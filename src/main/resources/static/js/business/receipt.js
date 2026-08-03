@@ -33,13 +33,31 @@
         var cust = inv.customer || {};
         var dated = inv.dated ? String(inv.dated).replace('T', ' ').substring(0, 16) : '';
 
-        var lines = (inv.sales || []).map(function (s) {
+        // B2B-P3b-2 (#4): a LINE NUMBER, so a disputed line can be referred to over the phone
+        // ("line 3"), and the BATCH/EXPIRY beneath it when the stock carried one. Both render only
+        // when they have a value, so a corner shop's receipt does not grow a column it never uses.
+        var lines = (inv.sales || []).map(function (s, i) {
             var rate = (s.sellRate != null) ? s.sellRate : (s.stock && s.stock.bsellRate != null ? s.stock.bsellRate : '');
             var amt = money((Number(s.totalAmount) || 0) + (Number(s.taxAmount) || 0));
-            return '<tr><td class="rc-name">' + escHtml(s.itemName || '') + '</td>'
+            var row = '<tr><td class="rc-name">' + (i + 1) + '. ' + escHtml(s.itemName || '') + '</td>'
                 + '<td class="rc-r">' + (s.quantity != null ? s.quantity : '') + '</td>'
                 + '<td class="rc-r">' + money(rate) + '</td>'
                 + '<td class="rc-r">' + amt + '</td></tr>';
+            var batches = s.batches || [];
+            if (batches.length) {
+                // One sub-line per batch: FEFO can split a line across batches, and showing only the first
+                // would be wrong in exactly the case this exists for.
+                var text = batches.map(function (b) {
+                    var parts = [];
+                    if (b.batchNo) { parts.push(t('ui.js.batchShort') + ' ' + b.batchNo); }
+                    if (b.expiryDate) { parts.push(t('ui.js.expShort') + ' ' + String(b.expiryDate).substring(0, 10)); }
+                    return parts.join(' / ');
+                }).filter(function (x) { return x; }).join(' | ');
+                if (text) {
+                    row += '<tr><td class="rc-sub" colspan="4">' + escHtml(text) + '</td></tr>';
+                }
+            }
+            return row;
         }).join('');
 
         var grand = inv.grandTotal != null ? inv.grandTotal : inv.subTotal;
@@ -76,6 +94,17 @@
         var owed = (inv.dueAmount != null && Number(inv.dueAmount) < 0) ? (-Number(inv.dueAmount)) : 0;
         if (owed > 0) pay += row2('Due', money(owed));
 
+        // B2B-P3b-2 (#4): the account customer's running balance. balanceAfter is a SNAPSHOT taken at sale
+        // time, so a reprint years later still shows the balance as it stood on THIS document rather than
+        // today's. Previous is derived from it, never stored twice, so the two cannot disagree.
+        if (inv.balanceAfter != null) {
+            var after = Number(inv.balanceAfter) || 0;
+            var before = after - owed;
+            if (before < 0) { before = 0; }
+            pay += row2(t('ui.js.previousBalance'), money(before));
+            pay += row2(t('ui.js.newBalance'), money(after), true);
+        }
+
         var regNo = inv.taxRegNo ? '<div class="rc-c rc-sm">' + escHtml(taxLabel) + ' Reg: ' + escHtml(inv.taxRegNo) + '</div>' : '';
 
         return '<!doctype html><html><head><meta charset="utf-8"><title>Receipt '
@@ -92,6 +121,7 @@
             + 'th.rc-r{text-align:right}td{padding:2px 0;vertical-align:top}.rc-name{width:46%}'
             + '.rc-tot{display:flex;justify-content:space-between;font-size:12px;margin:2px 0}'
             + '.rc-strong{font-weight:700;font-size:14px;border-top:1px solid #000;padding-top:3px;margin-top:3px}'
+            + '.rc-sub{font-size:9px;color:#333;padding-bottom:3px}'
             + '.rc-foot{text-align:center;margin-top:8px;font-size:10px}'
             + '@media print{body{width:auto}}'
             + '</style></head><body>'

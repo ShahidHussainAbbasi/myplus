@@ -90,6 +90,13 @@ public class CustomerHistoryDTO {
     private Boolean showPromo;
 
     /**
+     * B2B-P3b-2 (#4): what the customer owed in total right after this invoice. A SNAPSHOT taken at sale
+     * time — the current balance would put today's figure on a reprint of an old invoice. The receipt derives
+     * "previous balance" from it, so the two can never disagree. Null on pre-existing invoices.
+     */
+    private BigDecimal balanceAfter;
+
+    /**
      * B2B P1 (#9): the operator has SEEN the credit-limit warning and chosen to continue.
      *
      * <p>Inbound only. Under {@code warn} the first submit of an over-limit sale is answered {@code CONFIRM}

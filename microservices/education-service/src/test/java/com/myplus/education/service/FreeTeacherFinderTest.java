@@ -132,11 +132,21 @@ class FreeTeacherFinderTest {
     @Test
     @DisplayName("an UNCOVERED row excludes nobody — it has no cover teacher to be busy")
     void uncovered_row_excludes_nobody() {
+        // KHAN teaches this very slot, so KHAN is excluded by the teaching rule — that is the fixture,
+        // not the thing under test. What IS under test: the UNCOVERED substitution alongside it excludes
+        // nobody, because it has no cover teacher yet.
+        //
+        // Asserted by NAME rather than by a count. The first version of this test asserted `size() == 4`,
+        // forgot its own fixture already made KHAN busy, and failed on a correct implementation — a count
+        // says nothing about WHO was excluded or why.
         List<TimetableEntry> tt = List.of(lesson(7, TUE, PERIOD_3, KHAN, ENGLISH));
         List<Substitution> subs = List.of(cover(7, null, SubstitutionStatus.UNCOVERED));
         List<Candidate> free = FreeTeacherFinder.freeIn(
                 staff(), tt, TUE, PERIOD_3, MATHS, List.of(), subs, index(tt));
-        assertEquals(4, free.size());
+
+        assertFalse(ids(free).contains(KHAN), "KHAN teaches this slot — excluded by the timetable rule");
+        assertTrue(ids(free).containsAll(List.of(ALI, IQBAL, ZARA)),
+                "everyone else stays free: an UNCOVERED row has no cover teacher, so it busies nobody");
     }
 
     @Test

@@ -1,8 +1,13 @@
 # Slice 2.3 — Staff attendance & leave
 
-**Status: IMPLEMENTED — awaiting `mvn` verification + the Cypress gate.**
-Approved 2026-08-02 ("implement it whole"). Flyway **V19** adds three tables, so education-service must be
-repackaged and restarted before the gate.
+**Status: ✅ DONE — `mvn test` + Cypress gate GREEN (2026-08-03).**
+Gate `education/staff-leave.cy.js` (11 cases, none skipped) + `LeaveBalanceCalculatorTest` (16 pure cases).
+Flyway **V19**. Regression green, including `substitution.cy.js` — which is what proves the
+`StaffAbsenceService` extraction left 2.2's behaviour unchanged.
+
+**The gate earned its keep twice on this slice** — see the corrections in §4: it caught a real defect
+(the over-quota warning was inert in the default configuration) that no unit test could have seen, because
+the calculator was correct and the *call site* was wrong.
 Programme: `education-complete-programme.md` Phase 2.3 — *"Staff attendance & leave — presence, leave types,
 balances"*. Depends on **2.2** (substitution), done & green.
 

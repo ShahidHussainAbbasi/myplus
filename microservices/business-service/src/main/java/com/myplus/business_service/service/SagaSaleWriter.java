@@ -6,6 +6,7 @@ import com.myplus.business_service.entity.CustomerHistory;
 import com.myplus.business_service.entity.Sell;
 import com.myplus.common.security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ import java.util.List;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j   // B2B-P3b-2: batch traceability is best-effort, so its failures must be visible in the log
 public class SagaSaleWriter {
 
     private final ICustomerService customerService;
@@ -28,13 +30,15 @@ public class SagaSaleWriter {
     private final ISellService sellService;
     private final PaymentService paymentService;
     private final com.myplus.business_service.repository.CashierShiftRepo cashierShiftRepo;
+    private final com.myplus.business_service.repository.SellBatchRepo sellBatchRepo;   // B2B-P3b-2 (#4)
 
     private static java.math.BigDecimal nz(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
 
     /** Write Customer + invoice (PENDING, carrying the reservation) + Sell lines (productId, catalog rate). */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CustomerHistory writePending(CustomerHistoryDTO dto, String reservationId, String idempotencyKey,
-                                        AuthenticatedUser user, List<SagaLine> lines) {
+                                        AuthenticatedUser user, List<SagaLine> lines,
+                                        java.util.List<com.myplus.commerce.contracts.dto.StockPick> picks) {
         dto.setUserId(user.getUserId());
         Customer customer;
         try {
@@ -54,7 +58,7 @@ public class SagaSaleWriter {
                 user.getOrganizationId(), user.getUserId(), com.myplus.business_service.entity.ShiftStatus.OPEN)
                 .ifPresent(shift -> ch.setShiftId(shift.getId()));
         // SF-1/SF-2: totals + settle + Sell lines + recomputeDue, via the ONE shared path (also used by updateSell).
-        applyInvoice(ch, lines, dto, user, false);
+        applyInvoice(ch, lines, dto, user, false, picks);
         return ch;
     }
 
@@ -66,8 +70,18 @@ public class SagaSaleWriter {
      * (negative while owing) — the server DERIVES due; the client-sent dueAmount is not trusted. For an edit the
      * cashier only adds NEW payment (the prior payment is kept), so it is never double-counted.
      */
+    /**
+     * Overload for callers with no reservation in hand (the edit path). An edit re-prices an existing
+     * invoice; it does not re-pick stock, so there are no new batches to record and the rows written at
+     * sale time stand.
+     */
     public void applyInvoice(CustomerHistory ch, List<SagaLine> lines, CustomerHistoryDTO dto,
                              AuthenticatedUser user, boolean replaceLines) {
+        applyInvoice(ch, lines, dto, user, replaceLines, null);
+    }
+
+    public void applyInvoice(CustomerHistory ch, List<SagaLine> lines, CustomerHistoryDTO dto,
+                             AuthenticatedUser user, boolean replaceLines, java.util.List<com.myplus.commerce.contracts.dto.StockPick> picks) {
         java.math.BigDecimal subTotal = java.math.BigDecimal.ZERO, taxTotal = java.math.BigDecimal.ZERO,
                 grandTotal = java.math.BigDecimal.ZERO;
         for (SagaLine l : lines) {
@@ -139,9 +153,56 @@ public class SagaSaleWriter {
             sell.setCustomerHistory(ch);
             sell.setDated(now);
             sell.setUpdated(now);
-            sellService.save(sell);
+            sell = sellService.save(sell);
+            recordBatches(sell, l, picks, user);
         }
         customerService.recomputeDue(ch.getCustomer());
+        // B2B-P3b-2 (#4): snapshot what the customer owes AFTER this sale. Taken here because recomputeDue
+        // has just run; Customer.dueAmount is the CURRENT balance, so reading it at PRINT time would put
+        // today's figure on a two-year-old reprint.
+        //
+        // The explicit re-save matters: `ch` is built by ObjectMapperUtils.map (a DETACHED instance) and the
+        // save above returns a managed copy the caller ignores. Setting a field on `ch` after that save is
+        // therefore invisible to JPA -- exactly why the first version of this silently stored nothing.
+        if (ch.getCustomer() != null) {
+            ch.setBalanceAfter(ch.getCustomer().getDueAmount());
+            customerHistoryService.save(ch);
+        }
+    }
+
+    /**
+     * Persist WHICH batches this line consumed, from the FEFO picks the reservation already returned.
+     *
+     * <p>Best-effort by design: a missing pick must never fail a recorded sale. The money and the stock
+     * movement are the transaction; the traceability row is a record OF it. Losing a row is bad; losing the
+     * sale is worse.
+     *
+     * <p>Picks are matched on product id, and a line split across several batches yields several rows --
+     * which is the whole reason this is a child table rather than a column.
+     */
+    private void recordBatches(Sell sell, SagaLine line, java.util.List<com.myplus.commerce.contracts.dto.StockPick> picks, AuthenticatedUser user) {
+        if (picks == null || picks.isEmpty() || sell == null || sell.getSellId() == null) return;
+        try {
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            for (com.myplus.commerce.contracts.dto.StockPick p : picks) {
+                if (p == null || p.getItemId() == null || !p.getItemId().equals(line.productId())) continue;
+                if (p.getBatchNo() == null && p.getExpiryDate() == null) continue;   // nothing to trace
+                sellBatchRepo.save(com.myplus.business_service.entity.SellBatch.builder()
+                        .sellId(sell.getSellId())
+                        .organizationId(user.getOrganizationId())
+                        .productId(p.getItemId())
+                        .batchNo(p.getBatchNo())
+                        .expiryDate(p.getExpiryDate())
+                        .quantity(p.getQuantity())
+                        .createdAt(now)
+                        .build());
+            }
+        } catch (Exception e) {
+            // WARN, not ERROR: the sale is safe. Kept loud enough to find, because this catch is exactly
+            // what made a silent failure hard to see during P3b2.
+            log.warn("Could not record batch traceability for sell {} (the sale itself is recorded)",
+                    sell.getSellId(), e);
+        }
     }
 
     /** Flip the invoice's saga status (PENDING → CONFIRMED/FAILED) in its own transaction. */

@@ -1,7 +1,25 @@
 # B2B Phase 2 — contract & tiered pricing (= OMS **B1**, customer requirement **#10**)
 
-**Status:** ✅ **DONE (backend) — Cypress-green 2026-08-02.** Two UI pieces remain, listed in §4.
+**Status:** ✅ **DONE (backend) — Cypress-green 2026-08-02; business-service unit suite green 2026-08-03
+after the fix below.** Two UI pieces remain, listed in §4.
 Gate: `cypress/e2e/business/pricing.cy.js` · unit: `PriceResolverTest` (in `commerce-pricing`)
+
+> ### ⚠️ Follow-up found 2026-08-03 — this slice's green was Cypress-ONLY
+>
+> `SagaSaleWriter.writePending` gained a 6th parameter (`List<StockPick> picks`) in `0e268b8b`, and
+> `SagaSellServiceTest` still stubbed the 5-argument form at three call sites. **business-service's unit
+> suite therefore did not compile from that commit until 2026-08-03** — so it had not run across Phases 0–2.
+> Found when a full reactor build (which compiles tests) was run from the education thread; fixed by adding
+> the sixth matcher. No production code was wrong: the signature was right, the stub was stale.
+>
+> **The rule this breaks is already written down:** *when a slice changes a CONTRACT, add every spec that
+> asserted the old one to that slice's regression list.* A signature change is a contract change. `mvn test`
+> for the owning service belongs in the gate alongside Cypress — Cypress cannot see a test that never
+> compiled.
+>
+> **Still open:** the restored stubs match `any()` picks, so they assert nothing about what actually flows
+> into `writePending`. If P2 intended specific picks, that is an untested path.
+
 Programme: [`b2b-b2c-rollout-plan.md`](../b2b-b2c-rollout-plan.md) · Previous: [`b2b-P1-credit-limit.md`](b2b-P1-credit-limit.md)
 Requirement: [`customer-requirements-plan.md`](../customer-requirements-plan.md) #10 · OMS Track B item **B1**
 

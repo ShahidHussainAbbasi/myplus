@@ -135,7 +135,10 @@ public class SagaSellService {
         // 4: write the PENDING sale (its own committed tx). On failure, release the hold and abort.
         CustomerHistory ch;
         try {
-            ch = saleWriter.writePending(dto, reservationId, idempotencyKey, user, lines);
+            // B2B-P3b-2 (#4): the reservation already told us WHICH batches it took. Hand them to the
+            // writer so the sale records them; they have been returned and discarded on every sale until now.
+            ch = saleWriter.writePending(dto, reservationId, idempotencyKey, user, lines,
+                    reservation.getPicks());
         } catch (org.springframework.dao.DataIntegrityViolationException dup) {
             // SF-3 race: a concurrent retry inserted this invoice first (unique idempotency index). The reservation
             // is idempotent per key (a shared hold owned by the winner) — do NOT release it; just return their invoice.

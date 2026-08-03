@@ -57,10 +57,10 @@ You confirmed a booker **is** a supplier. That removes the new-party-type proble
 | 3 | Consent when profit ≤ 0 | 🟢 **built** | XS (verify + submit-time check) | business-service | ✅ **SHIPPED** B2B P0 — `pos.sale.marginPolicy`, default `warn` |
 | 8 | Previous dues on sale/purchase | 🟢 built on sale | XS (purchase side) | monolith UI | ✅ **SHIPPED** B2B P0 — `data-due` on vendor options |
 | 13 | MaxTheService promo | 🔴 new | XS | receipt/statement renderer | ✅ **SHIPPED** B2B P0 — `pos.receipt.showPromo`, off by default |
-| 1 | Return invoices | 🟡 returns work | S | business-service | ⬜ Phase **3c** (designed) |
-| 4 | Receipt: batch, expiry, prev. bal, line no. | 🟡 | S (after F1) | receipt.js | ⬜ Phase **3b** (designed; needs 3a) |
+| 1 | Return/credit-note series | 🔴 | M | **F2** | ✅ **SHIPPED** Phase 3c, green 2026-08-03. `CRN-` (customer) + `DBN-` (supplier, a document that did not exist); GL lines now name the note, not the document it reverses |
+| 4 | Receipt: line no, batch/expiry, balances | 🔴 | M | **F2** | ✅ **SHIPPED** Phase 3b-2, green 2026-08-03. Real win: `StockReservationResponse.picks` was returned and DISCARDED on every sale — now persisted to `sell_batch`, so a recall is answerable by batch |
 | 5 | Statement download | 🟡 on-screen only | S | monolith UI | ⬜ Phase **3d** (designed; jspdf already vendored) |
-| 2 | Batch # on purchase | 🔴 | **XS** *(was M)* | **F1 — do first** | 🟡 **Phase 3a building** — entity+service already do it; only the DTO binding was missing. **Gates #4** |
+| 2 | Batch # on purchase | 🔴 | **XS** *(was M)* | **F1 — done first** | ✅ **SHIPPED** Phase 3a, green 2026-08-03. Only the form INPUT + column were missing; the nested `stock.*` binding always worked. **Unblocks #4** |
 | 7 | Stock cap + expiry e-mail | 🟡 alerts exist | M | inventory + notification | ⬜ unscheduled |
 | 9 | Dues limit | 🔴 | M | **= OMS B4** | ✅ **SHIPPED** Phase 1, green 2026-08-02 (customer + supplier; warn = take confirmation) |
 | 10 | Customer/product discount | 🔴 | M | **= OMS B1** | ✅ **SHIPPED** Phase 2, green 2026-08-02 (contract + tier rules; reason persisted). Mgmt screen outstanding |

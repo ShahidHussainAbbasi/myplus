@@ -19,4 +19,11 @@ public interface SaleReturnRepo extends JpaRepository<SaleReturn, Long> {
 	@Query("select count(r) from SaleReturn r where r.invoiceNo = :invoiceNo "
 		+ "and (r.organizationId = :orgId or (r.organizationId is null and r.userId = :userId))")
 	long countByInvoiceScoped(@Param("invoiceNo") String invoiceNo, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+	/**
+	 * B2B-P3c (#1): next credit-note sequence for this org. MAX+1 inside the return's transaction, exactly as
+	 * invoice numbers work; UNIQUE(organization_id, credit_note_seq) is what actually prevents a duplicate.
+	 */
+	@Query("select coalesce(max(r.creditNoteSeq), 0) from SaleReturn r where r.organizationId = :orgId")
+	long maxCreditNoteSeqForOrg(@Param("orgId") Long orgId);
 }

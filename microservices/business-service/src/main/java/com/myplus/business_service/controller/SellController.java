@@ -62,6 +62,9 @@ public class SellController {
 
 	@Autowired
 	ISellService sellService;
+
+	@Autowired
+	com.myplus.business_service.repository.SellBatchRepo sellBatchRepo;   // B2B-P3b-2 (#4): receipt traceability
 	
 	@Autowired
 	ICustomerService customerService;
@@ -342,6 +345,27 @@ public class SellController {
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(invProductIds);
 
+			// B2B-P3b-2 (#4): every batch for every line of this invoice in ONE query, then grouped in memory.
+			// A per-line query would put N round trips on a receipt print, which is exactly the pattern the
+			// price quote and the tax lookup were both designed to avoid.
+			java.util.Map<Long, java.util.List<com.myplus.business_service.dto.SellBatchDTO>> batchesBySell =
+					new java.util.HashMap<>();
+			try {
+				java.util.List<Long> sellIds = lines.stream().map(Sell::getSellId)
+						.filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList());
+				if (!sellIds.isEmpty()) {
+					for (com.myplus.business_service.entity.SellBatch b : sellBatchRepo.findBySellIds(sellIds)) {
+						batchesBySell.computeIfAbsent(b.getSellId(), k -> new java.util.ArrayList<>())
+								.add(new com.myplus.business_service.dto.SellBatchDTO(
+										b.getBatchNo(), b.getExpiryDate(), b.getQuantity()));
+					}
+				}
+			} catch (Exception e) {
+				// Traceability is decoration ON a receipt, never a reason to fail printing one.
+				LOGGER.warn("Could not load batch traceability for invoice {}", ch.getInvoiceNo(), e);
+			}
+			out.setBalanceAfter(ch.getBalanceAfter());
+
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
 				modelMapper.addConverter(appUtil.localDateTimeToString);
@@ -349,6 +373,7 @@ public class SellController {
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
 				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); }
+				sd.setBatches(batchesBySell.getOrDefault(s.getSellId(), java.util.List.of()));
 				sales.add(sd);
 			}
 			out.setSales(sales);
@@ -413,6 +438,26 @@ public class SellController {
 					.filter(s -> s.getProductId() != null)
 					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(sagaProductIds);
+			// B2B-P3b-2 (#4): every batch for every line of this invoice in ONE query, then grouped in
+			// memory. A per-line query would put N round trips on a receipt print.
+			java.util.Map<Long, java.util.List<com.myplus.business_service.dto.SellBatchDTO>> batchesBySell =
+					new java.util.HashMap<>();
+			try {
+				java.util.List<Long> sellIds = lines.stream().map(Sell::getSellId)
+						.filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList());
+				if (!sellIds.isEmpty()) {
+					for (com.myplus.business_service.entity.SellBatch b : sellBatchRepo.findBySellIds(sellIds)) {
+						batchesBySell.computeIfAbsent(b.getSellId(), k -> new java.util.ArrayList<>())
+								.add(new com.myplus.business_service.dto.SellBatchDTO(
+										b.getBatchNo(), b.getExpiryDate(), b.getQuantity()));
+					}
+				}
+			} catch (Exception e) {
+				// Traceability is decoration ON a receipt, never a reason to fail printing one.
+				LOGGER.error("Could not load batch traceability for invoice {}", ch.getInvoiceNo(), e);
+			}
+			out.setBalanceAfter(ch.getBalanceAfter());
+
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
 				modelMapper.addConverter(appUtil.localDateTimeToString);
@@ -420,6 +465,7 @@ public class SellController {
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
 				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); }
+				sd.setBatches(batchesBySell.getOrDefault(s.getSellId(), java.util.List.of()));
 				sales.add(sd);
 			}
 			out.setSales(sales);
@@ -848,6 +894,11 @@ public class SellController {
 			java.math.BigDecimal retTax = nzbd(existingSell.getTaxAmount()).multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
 			java.math.BigDecimal retCost = nzbd(existingSell.getCostPrice()).multiply(java.math.BigDecimal.valueOf(retQty)).setScale(2, java.math.RoundingMode.HALF_UP);
 			String retInvoiceNo = ch != null ? ch.getInvoiceNo() : null;
+			// B2B-P3c (#1): allocate the CREDIT NOTE number here, before either use, so the document row and the
+			// GL line carry the SAME number. MAX+1 per org inside this transaction; the ledger line then names
+			// the credit note that caused it, and the invoice stays reachable via sale_return.invoice_no.
+			long creditNoteSeq = saleReturnRepo.maxCreditNoteSeqForOrg(orgId()) + 1;
+			String creditNoteNo = com.myplus.commerce.domain.InvoiceNumbers.creditNote(creditNoteSeq);
 
 			// Adjust the returned line: a full return removes it; a partial return reduces its qty and money
 			// pro-rata so the invoice keeps the portion the customer is keeping.
@@ -914,6 +965,8 @@ public class SellController {
 			// already applied, so a logging hiccup must never fail it.
 			try {
 				com.myplus.business_service.entity.SaleReturn cn = new com.myplus.business_service.entity.SaleReturn();
+				cn.setCreditNoteSeq(creditNoteSeq);
+				cn.setCreditNoteNo(creditNoteNo);
 				cn.setInvoiceNo(ch != null ? ch.getInvoiceNo() : null);
 				cn.setSellId(dto.getSellId());
 				cn.setProductId(existingSell.getProductId());
@@ -934,7 +987,7 @@ public class SellController {
 				java.math.BigDecimal retGross = retSub.add(retTax);
 				if (retGross.signum() > 0) {
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(retInvoiceNo)
+							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(creditNoteNo)
 							.grandTotal(retGross).subTotal(retSub).taxTotal(retTax).cost(retCost).paidAmount(refundedAmount)
 							.method("CASH").storeCredit(storeCreditIssued).build());   // credit-issue portion → Cr 2200 (not Cash)
 				}
@@ -943,7 +996,9 @@ public class SellController {
 			}
 
 			auditService.record("SALE_RETURN", "INVOICE", retInvoiceNo, retSub.add(retTax), "qty=" + retQty);   // #6
-			return new GenericResponse("SUCCESS", "Sale returned successfully.");
+			// B2B-P3c (#1): name the document that was issued. The operator quotes this to the customer, and it
+			// is what the credit note is filed under -- returning only "success" leaves them nothing to cite.
+			return new GenericResponse("SUCCESS", "Sale returned. Credit note " + creditNoteNo, creditNoteNo);
 
 		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
 			LOGGER.warn("saleReturn rejected (period closed): {}", pce.getMessage());

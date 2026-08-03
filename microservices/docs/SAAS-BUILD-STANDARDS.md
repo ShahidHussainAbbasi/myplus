@@ -38,6 +38,11 @@ reinvent.**
 6. **Process cadence (per slice).** **Document → Design (Mermaid UML, `DESIGN-STANDARD.md`) → Implement (UI/UX →
    service/API → DB) → Test (`mvn`, Testcontainers) → headed Cypress GREEN → next.** Mark each step against the
    codebase. **A slice is not done until its headed Cypress passes.** _→ slice-cadence + Cypress-gate._
+   **The `mvn` step is not optional, and `-DskipTests` does not satisfy it.** Cypress cannot see a unit test
+   that never compiled. _Incident 2026-08-03: `SagaSaleWriter.writePending` gained a parameter in B2B Phase 0–2
+   and `SagaSellServiceTest` kept stubbing the old arity, so **business-service's unit suite failed to compile
+   for two whole phases** while those phases were reported green on Cypress alone. Run the owning service's
+   `mvn test` in the gate, not just the spec._
 
 ---
 
@@ -244,7 +249,7 @@ fulfillment.
 
 ## 3. Where we are (status, 2026-08-01)
 
-**In flight:** **B2B/B2C rollout** — Phases 0, 0.5 and 1 ✅ green (credit limit shipped 2026-08-02, customer + supplier); Phase 2 (B2B pricing) ✅ backend green 2026-08-02; Phase 3 (documents & reports) in progress — 3a batch/expiry building (`feature/b2b-b2c`); plan of record
+**In flight:** **B2B/B2C rollout** — Phases 0, 0.5 and 1 ✅ green (credit limit shipped 2026-08-02, customer + supplier); Phase 2 (B2B pricing) ✅ backend green 2026-08-02; Phase 3 (documents & reports) in progress — 3a + 3b-1 + 3b-2 + 3c green 2026-08-03 (batch traceability IN and OUT; returns are now CRN-/DBN- documents) (`feature/b2b-b2c`); plan of record
 [`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md). Also open: `feature/education-review` (finding B),
 `feature/pharmacy-review` (step 6), OMS O1 (design awaiting approval).
 

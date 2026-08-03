@@ -29,6 +29,23 @@ public class SaleReturn implements Serializable {
 	@Column(name = "id")
 	private Long id;
 
+	/**
+	 * B2B-P3c (#1): per-org credit-note sequence. UNIQUE(organization_id, credit_note_seq) is what makes the
+	 * MAX+1 allocation safe under concurrency — the same guarantee invoice_seq has used since slice 22.
+	 */
+	@Column(name = "credit_note_seq")
+	private Long creditNoteSeq;
+
+	/** B2B-P3c (#1): this document's OWN number, e.g. {@code CRN-000007}. Null on returns taken before 3c. */
+	@Column(name = "credit_note_no", length = 32)
+	private String creditNoteNo;
+
+	/**
+	 * The invoice this return REVERSES — a reference, not this document's identity.
+	 *
+	 * <p>Before 3c this was the only number a return had, which made a credit note indistinguishable from the
+	 * invoice it cancelled. It stays, because referencing the reversed document is the accounting rule.
+	 */
 	@Column(name = "invoice_no")
 	private String invoiceNo;
 

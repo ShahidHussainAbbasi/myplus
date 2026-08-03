@@ -3474,6 +3474,330 @@ function applyGradingPreset() {
 	});
 }
 
+/* ══ Slice 2.5 — Behaviour log ════════════════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-2.5-discipline-log.md
+ *
+ * Append-only. There is no edit and no delete — correcting a note posts a NEW one and the original stays,
+ * struck through, linked. That is enforced server-side by those operations not existing; this file simply
+ * has nowhere to call them from.
+ *
+ * Descriptions are user free text about a child, so they are rendered with .text() throughout — never
+ * concatenated into HTML.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'BehaviourDiv') loadBehaviourScreen();
+});
+
+var BN_TYPES = ['POSITIVE', 'CONCERN', 'NEUTRAL'];
+
+function bnMessage(msg, cls) {
+	var $m = $('#bnMsg');
+	if (!msg) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(msg).show();
+}
+
+function loadBehaviourScreen() {
+	if (!$('#bnOccurred').val()) $('#bnOccurred').val(new Date().toISOString().slice(0, 10));
+
+	var $type = $('#bnType').empty();
+	BN_TYPES.forEach(function (x) { $type.append($('<option>').val(x).text(t('ui.js.bn' + x))); });
+	// CONCERN is not the default: the log is for good conduct too, and defaulting to a complaint
+	// quietly turns it into a punishment ledger.
+	$type.val('NEUTRAL');
+	if (typeof $type.selectpicker === 'function') { try { $type.selectpicker('refresh'); } catch (e) {} }
+
+	$.get(serverContext + 'getUserStudent', function (res) {
+		var students = (res && res.collection) || [];
+		var $s = $('#bnStudent').empty().append($('<option>').val('').text(t('ui.js.bnAllStudents')));
+		students.forEach(function (st) {
+			if (!st.enrollNo) return;
+			$s.append($('<option>').val(st.enrollNo).text(st.enrollNo + ' · ' + (st.name || '')));
+		});
+		if (typeof $s.selectpicker === 'function') { try { $s.selectpicker('refresh'); } catch (e) {} }
+		loadBehaviourNotes();
+	});
+
+	$.get(serverContext + 'getUserStaffs', function (data) {
+		// The AUTHOR is chosen, not assumed: an office clerk often types up what a teacher reported,
+		// and attributing that to the session user would name the wrong person (D4).
+		var $a = $('#bnAuthor').empty().append($('<option>').val('').text(t('ui.js.bnNoAuthor'))).append(data);
+		if (typeof $a.selectpicker === 'function') { try { $a.selectpicker('refresh'); } catch (e) {} }
+	});
+}
+
+function loadBehaviourNotes() {
+	var params = {};
+	if ($('#bnStudent').val()) params.enrollNo = $('#bnStudent').val();
+	$.get(serverContext + 'getBehaviourNotes', params, function (res) {
+		if (!res || res.status !== 'SUCCESS' || !res.object) {
+			bnMessage((res && res.message) || t('ui.js.bnCouldNotLoad'), 'alert-danger');
+			return;
+		}
+		var data = res.object;
+		// Counts are over ACTIVE notes only, so a correction is not double-counted.
+		$('#bnSummary').text(t('ui.js.bnSummary')
+			.replace('{concerns}', data.concerns).replace('{positives}', data.positives));
+
+		var $body = $('#tableBehaviour tbody').empty();
+		(data.notes || []).forEach(function (n) {
+			var superseded = n.status === 'SUPERSEDED';
+			var $correct = $('<button type="button" class="btn btn-xs btn-default">')
+				.text(t('ui.js.bnCorrect'))
+				.prop('disabled', superseded)
+				.on('click', function () { supersedeBehaviourNote(n); });
+
+			var $desc = $('<td>').text(n.description || '');
+			if (superseded) $desc.css('text-decoration', 'line-through');
+
+			var $tr = $('<tr>')
+				.append($('<td>').text(n.occurredOn || ''))
+				.append($('<td>').text((n.enrollNo || '') + ' · ' + (n.studentName || '')))
+				.append($('<td>').text(t('ui.js.bn' + (n.type || 'NEUTRAL'))))
+				.append($('<td>').text(n.category || ''))
+				.append($desc)
+				// Shown always: an account is only defensible if it says who reported it.
+				.append($('<td>').text(n.recordedByStaffName || t('ui.js.bnUnattributed')))
+				.append($('<td>').append($correct));
+
+			if (superseded) $tr.addClass('text-muted');
+			else if (n.type === 'CONCERN') $tr.addClass('warning');
+			else if (n.type === 'POSITIVE') $tr.addClass('success');
+			$body.append($tr);
+		});
+		if (!(data.notes || []).length) {
+			$body.append($('<tr>').append($('<td colspan="7">').addClass('text-muted')
+				.text(t('ui.js.bnNone'))));
+		}
+	});
+}
+
+function saveBehaviourNote() {
+	var enrollNo = $('#bnStudent').val();
+	var description = $.trim($('#bnDescription').val());
+	if (!enrollNo) { ayNotify(t('ui.js.bnPickStudent')); return; }
+	if (!description) { ayNotify(t('ui.js.bnDescribe')); return; }
+
+	var payload = {
+		enrollNo: enrollNo,
+		type: $('#bnType').val(),
+		category: $.trim($('#bnCategory').val()),
+		occurredOn: $('#bnOccurred').val(),
+		description: description,
+		action: $.trim($('#bnAction').val()),
+		parentInformed: $('#bnParent').is(':checked') ? 'true' : 'false'
+	};
+	if ($('#bnParent').is(':checked')) payload.parentInformedOn = new Date().toISOString().slice(0, 10);
+	if ($('#bnAuthor').val()) payload.recordedByStaffId = $('#bnAuthor').val();
+
+	$.post(serverContext + 'saveBehaviourNote', payload, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			$('#bnDescription, #bnAction, #bnCategory').val('');
+			$('#bnParent').prop('checked', false);
+			bnMessage(res.message, 'alert-success');
+			loadBehaviourNotes();
+		} else {
+			bnMessage((res && res.message) || t('ui.js.bnCouldNotSave'), 'alert-danger');
+		}
+	});
+}
+
+function supersedeBehaviourNote(note) {
+	// A correction is a NEW note. The prompt is seeded with the current wording so the teacher edits
+	// text rather than retyping it — but the original row is never touched.
+	var corrected = window.prompt(t('ui.js.bnCorrectPrompt'), note.description || '');
+	if (corrected == null) return;
+	if (!$.trim(corrected)) { ayNotify(t('ui.js.bnDescribe')); return; }
+
+	$.post(serverContext + 'supersedeBehaviourNote', {
+		id: note.id, description: $.trim(corrected), type: note.type, occurredOn: note.occurredOn
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			bnMessage(res.message, 'alert-success');
+			loadBehaviourNotes();
+		} else {
+			bnMessage((res && res.message) || t('ui.js.bnCouldNotCorrect'), 'alert-danger');
+		}
+	});
+}
+
+/* ══ Slice 2.4 — Homework ═════════════════════════════════════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-2.4-homework.md
+ *
+ * Set a task, then record what each student did. Rows are created LAZILY server-side (D2), so a blank
+ * state means "nothing recorded yet" — NOT "did not do it". The screen therefore never pre-fills a state,
+ * and clearing one back to blank deletes the row rather than inventing a value.
+ *
+ * The grade shown reuses the school's 1.4 scale, but homework does NOT feed the report card (D4) — the
+ * help text says so, because a teacher grading out of 20 will reasonably assume the opposite.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'HomeworkDiv') loadHomeworkScreen();
+});
+
+var HW_STATES = ['SUBMITTED', 'NOT_DONE', 'MARKED'];
+
+function hwMessage(msg, cls) {
+	var $m = $('#hwMsg');
+	if (!msg) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(msg).show();
+}
+
+function loadHomeworkScreen() {
+	$.get(serverContext + 'getUserSubjects', function (data) {
+		var $s = $('#hwSubject').empty().append($('<option>').val('').text(t('ui.js.hwAllSubjects'))).append(data);
+		if (typeof $s.selectpicker === 'function') { try { $s.selectpicker('refresh'); } catch (e) {} }
+		loadHomework();
+	});
+}
+
+function loadHomework() {
+	var params = {};
+	if ($('#hwSubject').val()) params.subjectId = $('#hwSubject').val();
+	$.get(serverContext + 'getHomework', params, function (res) {
+		var tasks = (res && res.collection) || [];
+		var $body = $('#tableHomework tbody').empty();
+		$('#hwSheet').hide();
+
+		tasks.forEach(function (h) {
+			var $open = $('<button type="button" class="btn btn-xs btn-primary">')
+				.text(t('ui.js.hwMark'))
+				.on('click', function () { openHomeworkSheet(h.id); });
+			var $del = $('<button type="button" class="btn btn-xs btn-danger">')
+				.text(t('ui.js.hwDelete'))
+				.on('click', function () { deleteHomework(h.id, h.title); });
+
+			var $tr = $('<tr>')
+				.append($('<td>').text(h.title || ''))
+				.append($('<td>').text(h.subjectName || ''))
+				// Derived through subject → grade; the task never stores a class.
+				.append($('<td>').text(h.gradeName || ''))
+				.append($('<td>').text(h.dueOn || ''))
+				.append($('<td>').text(h.maxMarks == null ? '—' : h.maxMarks))
+				.append($('<td>').text(h.recorded))
+				.append($('<td>').append($open).append(' ').append($del));
+			if (h.pastDue) $tr.addClass('warning');
+			$body.append($tr);
+		});
+		if (!tasks.length) {
+			$body.append($('<tr>').append($('<td colspan="7">').addClass('text-muted')
+				.text(t('ui.js.hwNone'))));
+		}
+	});
+}
+
+function saveHomework() {
+	var subjectId = $('#hwSubject').val();
+	var title = $.trim($('#hwTitle').val());
+	if (!subjectId) { ayNotify(t('ui.js.hwPickSubject')); return; }
+	if (!title) { ayNotify(t('ui.js.hwTitleRequired')); return; }
+	$.post(serverContext + 'saveHomework', {
+		subjectId: subjectId, title: title,
+		dueOn: $('#hwDue').val(), maxMarks: $('#hwMax').val()
+	}, function (res) {
+		if (res && res.status === 'SUCCESS') {
+			$('#hwTitle, #hwDue, #hwMax').val('');
+			hwMessage(res.message, 'alert-success');
+			loadHomework();
+		} else {
+			hwMessage((res && res.message) || t('ui.js.hwCouldNotSave'), 'alert-danger');
+		}
+	});
+}
+
+function deleteHomework(id, title) {
+	uiConfirmOrRun(t('ui.js.hwConfirmDelete').replace('{title}', title || ''), function () {
+		$.post(serverContext + 'deleteHomework', { id: id }, function (res) {
+			if (res && res.status === 'SUCCESS') { hwMessage(res.message, 'alert-success'); loadHomework(); }
+			// Refused once anything is graded — show that reason verbatim.
+			else hwMessage((res && res.message) || t('ui.js.hwCouldNotDelete'), 'alert-warning');
+		});
+	});
+}
+
+function openHomeworkSheet(homeworkId) {
+	$.get(serverContext + 'getHomeworkSheet', { homeworkId: homeworkId }, function (res) {
+		if (!res || res.status !== 'SUCCESS' || !res.object) {
+			hwMessage((res && res.message) || t('ui.js.hwCouldNotLoadSheet'), 'alert-danger');
+			return;
+		}
+		var sheet = res.object;
+		window.hwCurrentId = sheet.homeworkId;
+		$('#hwSheet').show();
+		$('#hwSheetTitle').text(sheet.title + (sheet.dueOn ? ' · ' + t('ui.js.hwDue') + ' ' + sheet.dueOn : '')
+			+ (sheet.maxMarks == null ? '' : ' · /' + sheet.maxMarks));
+
+		var $body = $('#tableHomeworkSheet tbody').empty();
+		(sheet.rows || []).forEach(function (r) {
+			// Blank FIRST and selected by default when nothing is recorded — the UI must not invent a
+			// state, because "no row" honestly means "nothing known yet" (D3).
+			var $sel = $('<select class="form-control input-sm hwState">')
+				.attr('data-enroll', r.enrollNo)
+				.append($('<option>').val('').text('—'));
+			HW_STATES.forEach(function (s) {
+				$sel.append($('<option>').val(s).text(t('ui.js.hw' + s)));
+			});
+			$sel.val(r.state || '');
+
+			var $on = $('<input type="date" class="form-control input-sm hwOn">')
+				.attr('data-enroll', r.enrollNo).val(r.submittedOn || '');
+			var $marks = $('<input type="number" class="form-control input-sm hwMarks" min="0">')
+				.attr('data-enroll', r.enrollNo).val(r.marksObtained == null ? '' : r.marksObtained);
+			if (sheet.maxMarks != null) $marks.attr('max', sheet.maxMarks);
+			var $fb = $('<input type="text" class="form-control input-sm hwFeedback">')
+				.attr('data-enroll', r.enrollNo).val(r.feedback || '');
+
+			var $tr = $('<tr>')
+				.append($('<td>').text(r.enrollNo))
+				.append($('<td>').text(r.name || ''))
+				.append($('<td>').append($sel))
+				.append($('<td>').append($on).append(r.late
+					? $('<div>').addClass('text-danger').text(t('ui.js.hwLate')) : ''))
+				.append($('<td>').append($marks))
+				.append($('<td>').text(r.grade || (r.percent == null ? '' : r.percent + '%')))
+				.append($('<td>').append($fb));
+			// Past the deadline with nothing recorded: an observation about the calendar, not an accusation.
+			if (r.overdue) $tr.addClass('warning');
+			$body.append($tr);
+		});
+	});
+}
+
+function saveHomeworkSheet() {
+	if (!window.hwCurrentId) { ayNotify(t('ui.js.hwOpenSheetFirst')); return; }
+	var rows = [];
+	$('#tableHomeworkSheet tbody .hwState').each(function () {
+		var en = this.getAttribute('data-enroll');
+		var marks = $('.hwMarks[data-enroll="' + en + '"]').val();
+		rows.push({
+			enrollNo: en,
+			// A blank state is SENT deliberately: it clears any existing row back to "nothing recorded".
+			state: this.value,
+			submittedOn: $('.hwOn[data-enroll="' + en + '"]').val(),
+			marksObtained: marks === '' ? null : Number(marks),
+			feedback: $('.hwFeedback[data-enroll="' + en + '"]').val()
+		});
+	});
+	$.ajax({
+		url: serverContext + 'saveSubmissionBulk',
+		method: 'POST',
+		contentType: 'application/json',
+		data: JSON.stringify({ homeworkId: window.hwCurrentId, rows: rows }),
+		success: function (res) {
+			// PARTIAL is not SUCCESS — per-row problems are named rather than rounded up (1.3 D3).
+			var cls = res && res.status === 'SUCCESS' ? 'alert-success' : 'alert-warning';
+			var msg = (res && res.message) || '';
+			var problems = res && res.object && res.object.problems;
+			if (problems && problems.length) msg += ' — ' + problems.join('; ');
+			hwMessage(msg, cls);
+			openHomeworkSheet(window.hwCurrentId);
+			loadHomework();
+		},
+		error: function (xhr) {
+			hwMessage(t('ui.js.hwCouldNotSaveSheet') + ': ' + (xhr.responseText || xhr.status), 'alert-danger');
+		}
+	});
+}
+
 /* ══ Slice 2.3 — Staff register & Leave ═══════════════════════════════════════════════════════════
  * Design: microservices/docs/slices/edu-2.3-staff-attendance-leave.md
  *

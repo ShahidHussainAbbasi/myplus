@@ -30,7 +30,7 @@ Branch **`feature/oms`**. Update the status column as slices land.
 
 ## Housekeeping / prerequisites
 - ⬜ **Verify G1** (expired-FEFO) — `mvn -pl inventory-service -am test -Dtest=ReservationServiceTest` (commit `492601d`, already in history).
-- ✅ Commit in-progress **education report-cards** work on `feature/education-review` (keeps `feature/oms` clean) — done: 1.5 report cards is commit `67365448`, 1.6 promotion `cd3f35dd`. That branch has since finished all of Phase 1, closed the education review, and shipped Phase 2.1 (timetable) and 2.2 (substitution), both green 2026-08-02; it is now on 2.3 staff attendance &amp; leave.
+- ✅ Commit in-progress **education report-cards** work on `feature/education-review` (keeps `feature/oms` clean) — done: 1.5 report cards is commit `67365448`, 1.6 promotion `cd3f35dd`. That branch has since finished all of Phase 1, closed the education review, and shipped Phase 2.1 (timetable), 2.2 (substitution) and 2.3 (staff attendance &amp; leave), plus 2.4 (homework) and 2.5 (behaviour log) — **Phase 2 is COMPLETE**, all green by 2026-08-03. Next there is Phase 3 (parent/student portals, gated on D-2 and D-4), with a notification slice the strongest candidate first.
 
 ## Open decisions (from master §Appendix B — confirm as they arise)
 1. First-cut scope: OMS correctness first (**chosen**) vs a parallel track first.

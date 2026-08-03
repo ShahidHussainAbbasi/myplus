@@ -61,6 +61,8 @@
 					<option value="SubstitutionDiv" th:text="#{ui.substitution}">Substitution</option>
 					<option value="StaffRegisterDiv" th:text="#{ui.staffRegister}">Staff Register</option>
 					<option value="LeaveDiv" th:text="#{ui.leave}">Leave</option>
+					<option value="HomeworkDiv" th:text="#{ui.homework}">Homework</option>
+					<option value="BehaviourDiv" th:text="#{ui.behaviour}">Behaviour</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
 					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
 					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
@@ -127,6 +129,11 @@
 									     Leave is open because a teacher requests their own. -->
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffRegisterDiv','snavRegister')"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.staffRegister}">Staff Register</span></a></li>
 									<li><a onclick="snavGo('registrationType','LeaveDiv','snavRegister')"><span class="glyphicon glyphicon-plane"></span> <span th:text="#{ui.leave}">Leave</span></a></li>
+									<!-- Slice 2.4: teacher work (WRITE tier), like marks entry — not the ADMIN policy tier. -->
+									<li><a onclick="snavGo('registrationType','HomeworkDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.homework}">Homework</span></a></li>
+									<!-- Slice 2.5: teacher work (WRITE tier). Notes are append-only — there is no edit
+									     or delete anywhere in the stack. -->
+									<li><a onclick="snavGo('registrationType','BehaviourDiv','snavRegister')"><span class="glyphicon glyphicon-flag"></span> <span th:text="#{ui.behaviour}">Behaviour</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
@@ -2664,6 +2671,135 @@
 						</tr></thead>
 						<tbody></tbody>
 					</table>
+				</div>
+			</div>
+
+			<!-- Slice 2.5 — behaviour log. Append-only: a correction writes a NEW note and strikes the
+			     original through (D3). Positive notes are first-class, so this is not a punishment ledger. -->
+			<div id="BehaviourDiv" class="formDiv">
+				<h4 th:text="#{ui.behaviour}">Behaviour</h4>
+				<p class="text-muted" th:text="#{ui.behaviourHelp}">Record what happened — good as well as concerning. A note cannot be edited or deleted once saved: correcting one writes a new note and keeps the original, because the value of the record is that it says what was reported at the time.</p>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="bnStudent" th:text="#{ui.student}">Student</label>
+						<select class="form-control" id="bnStudent" onchange="loadBehaviourNotes()"></select>
+					</div>
+					<div class="col-sm-2">
+						<label for="bnType" th:text="#{ui.noteType}">Type</label>
+						<select class="form-control" id="bnType"></select>
+					</div>
+					<div class="col-sm-2">
+						<label for="bnCategory" th:text="#{ui.category}">Category</label>
+						<input type="text" class="form-control" id="bnCategory" list="bnCategoryList">
+						<datalist id="bnCategoryList">
+							<option value="Punctuality"></option>
+							<option value="Classwork"></option>
+							<option value="Conduct"></option>
+							<option value="Helpfulness"></option>
+							<option value="Uniform"></option>
+						</datalist>
+					</div>
+					<div class="col-sm-2">
+						<label for="bnOccurred" th:text="#{ui.occurredOn}">Date</label>
+						<input type="date" class="form-control" id="bnOccurred">
+					</div>
+					<div class="col-sm-3">
+						<label for="bnAuthor" th:text="#{ui.reportedBy}">Reported by</label>
+						<select class="form-control" id="bnAuthor"></select>
+					</div>
+				</div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-5">
+						<label for="bnDescription" th:text="#{ui.whatHappened}">What happened</label>
+						<input type="text" class="form-control" id="bnDescription">
+					</div>
+					<div class="col-sm-4">
+						<label for="bnAction" th:text="#{ui.actionTaken}">Action taken</label>
+						<input type="text" class="form-control" id="bnAction">
+					</div>
+					<div class="col-sm-3" style="padding-top:24px">
+						<label style="font-weight:normal"><input type="checkbox" id="bnParent"> <span th:text="#{ui.parentInformed}">Parent informed</span></label>
+						<button type="button" class="btn btn-success" onclick="saveBehaviourNote()" th:text="#{ui.recordNote}">Record</button>
+					</div>
+				</div>
+
+				<div id="bnMsg" class="alert" style="display:none"></div>
+				<div id="bnSummary" class="text-muted" style="margin-bottom:10px"></div>
+
+				<table id="tableBehaviour" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.occurredOn}">Date</th>
+						<th th:text="#{ui.student}">Student</th>
+						<th th:text="#{ui.noteType}">Type</th>
+						<th th:text="#{ui.category}">Category</th>
+						<th th:text="#{ui.whatHappened}">What happened</th>
+						<th th:text="#{ui.reportedBy}">Reported by</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+
+			<!-- Slice 2.4 — homework. Set a task, then record what each student did. Submission rows are
+			     created only when there is something to record (D2), so a blank row means "nothing yet",
+			     not "did not do it". Homework deliberately does NOT feed the report card (D4). -->
+			<div id="HomeworkDiv" class="formDiv">
+				<h4 th:text="#{ui.homework}">Homework</h4>
+				<p class="text-muted" th:text="#{ui.homeworkHelp}">Set a task for a subject, then record what each student did. A blank row means nothing has been recorded yet — "not done" is something you mark deliberately. Homework grades use the school's grading scale but do not count towards report cards.</p>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="hwSubject" th:text="#{ui.subject}">Subject</label>
+						<select class="form-control" id="hwSubject" onchange="loadHomework()"></select>
+					</div>
+					<div class="col-sm-3">
+						<label for="hwTitle" th:text="#{ui.title}">Title</label>
+						<input type="text" class="form-control" id="hwTitle" placeholder="Fractions ex. 4">
+					</div>
+					<div class="col-sm-2">
+						<label for="hwDue" th:text="#{ui.dueDate}">Due</label>
+						<input type="date" class="form-control" id="hwDue">
+					</div>
+					<div class="col-sm-2">
+						<label for="hwMax" th:text="#{ui.outOf}">Out of</label>
+						<input type="number" class="form-control" id="hwMax" min="1">
+					</div>
+					<div class="col-sm-2" style="padding-top:24px">
+						<button type="button" class="btn btn-success" onclick="saveHomework()" th:text="#{ui.setHomework}">Set</button>
+					</div>
+				</div>
+
+				<div id="hwMsg" class="alert" style="display:none"></div>
+
+				<table id="tableHomework" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.title}">Title</th>
+						<th th:text="#{ui.subject}">Subject</th>
+						<th th:text="#{ui.classLabel}">Class</th>
+						<th th:text="#{ui.dueDate}">Due</th>
+						<th th:text="#{ui.outOf}">Out of</th>
+						<th th:text="#{ui.recorded}">Recorded</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+
+				<div id="hwSheet" style="display:none;margin-top:20px">
+					<h5 id="hwSheetTitle"></h5>
+					<table id="tableHomeworkSheet" class="table table-bordered table-striped">
+						<thead><tr>
+							<th th:text="#{ui.enrollNo}">Enroll No</th>
+							<th th:text="#{ui.name}">Name</th>
+							<th th:text="#{ui.status}">Status</th>
+							<th th:text="#{ui.submittedOn}">Submitted</th>
+							<th th:text="#{ui.marksObtained}">Marks</th>
+							<th th:text="#{ui.gradeLetter}">Grade</th>
+							<th th:text="#{ui.feedback}">Feedback</th>
+						</tr></thead>
+						<tbody></tbody>
+					</table>
+					<button type="button" class="btn btn-success" onclick="saveHomeworkSheet()" th:text="#{ui.saveSheet}">Save sheet</button>
 				</div>
 			</div>
 
