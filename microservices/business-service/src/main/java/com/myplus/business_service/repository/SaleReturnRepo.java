@@ -26,4 +26,20 @@ public interface SaleReturnRepo extends JpaRepository<SaleReturn, Long> {
 	 */
 	@Query("select coalesce(max(r.creditNoteSeq), 0) from SaleReturn r where r.organizationId = :orgId")
 	long maxCreditNoteSeqForOrg(@Param("orgId") Long orgId);
+
+	/**
+	 * B2B-P3f: the credit notes raised against a set of invoices, for the statement's CREDIT_NOTE lines.
+	 *
+	 * <p>SaleReturn carries no customerId, so the statement joins on the invoice numbers it has ALREADY
+	 * loaded — one batched {@code IN}, never a query per invoice. Callers must skip the call on an empty
+	 * collection.
+	 *
+	 * <p>{@code creditAmount is not null} is the CUTOVER: only returns taken after V34 carry a value, and a
+	 * pre-V34 note's value is unrecoverable. Filtering here rather than in Java keeps the rule in one place
+	 * and stops a valueless row ever reaching a customer-facing document.
+	 */
+	@Query("select r from SaleReturn r where r.invoiceNo in :invoiceNos and r.creditAmount is not null "
+		+ "and (r.organizationId = :orgId or (r.organizationId is null and r.userId = :userId))")
+	List<SaleReturn> findCreditNotesForInvoices(@Param("invoiceNos") java.util.Collection<String> invoiceNos,
+			@Param("orgId") Long orgId, @Param("userId") Long userId);
 }

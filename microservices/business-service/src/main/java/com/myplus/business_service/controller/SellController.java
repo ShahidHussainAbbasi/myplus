@@ -1022,6 +1022,13 @@ public class SellController {
 			// the customer ledger/statement and the invoice totals. The header stores dueAmount = paidAmount − grandTotal
 			// (negative while owing); recomputeDue() sums those headers into Customer.dueAmount.
 			if (ch != null && ch.getCustomer_history_id() != null) {
+				// B2B-P3f: capture the invoice AS ISSUED before this return re-settles it. Once only — a second
+				// return must not overwrite it with an already-netted figure, which would understate the bill on
+				// the statement and double-count the first credit note. Falls back to grandTotal, which IS the
+				// issued value the first time through. (V34 back-fills rows that were never returned.)
+				if (ch.getIssuedTotal() == null)
+					ch.setIssuedTotal(nzbd(ch.getGrandTotal()));
+
 				List<Sell> surviving = sellService.findByInvoiceScoped(ch.getCustomer_history_id(), orgId(), userId());
 				java.math.BigDecimal subTotal = java.math.BigDecimal.ZERO, taxTotal = java.math.BigDecimal.ZERO;
 				for (Sell s : surviving) {
@@ -1074,6 +1081,11 @@ public class SellController {
 				cn.setQuantity(retQty);
 				cn.setReason(request.getParameter("reason"));
 				cn.setRefundAmount(refundedAmount);
+				// B2B-P3f: the credit note's FACE VALUE — the returned goods plus their tax, the same figure the
+				// GL reversal posts below. refundAmount beside it is only the CASH handed back, which is zero on
+				// a credit sale, so it could never be the document's value. This is what puts the note on the
+				// statement; without it the note exists but has nothing to show.
+				cn.setCreditAmount(retSub.add(retTax));
 				cn.setOrganizationId(orgId());
 				cn.setUserId(userId());
 				cn.setStoreId(existingSell.getStoreId());   // the return belongs to the store that made the sale
@@ -1184,6 +1196,13 @@ public class SellController {
 			// AND AR by the discount amount, drifting the books). Capture the posted totals BEFORE zeroing the header.
 			java.math.BigDecimal origSub = nzbd(ch.getSubTotal()), origTax = nzbd(ch.getTaxTotal()),
 					origGrand = nzbd(ch.getGrandTotal());
+			// B2B-P3f: a void zeroes the header, so WITHOUT this the statement would read an issued value of 500
+			// with nothing offsetting it and overstate every voided invoice by its full amount. Captured here,
+			// the statement pairs the bill with a VOID credit line and the pair nets to zero — which is what a
+			// void IS, and a truer trail than an invoice that silently disappears. A void is blocked once any
+			// return exists (above), so this can never fight the return path's capture.
+			if (ch.getIssuedTotal() == null)
+				ch.setIssuedTotal(origGrand);
 			ch.setSubTotal(java.math.BigDecimal.ZERO);
 			ch.setTaxTotal(java.math.BigDecimal.ZERO);
 			ch.setGrandTotal(java.math.BigDecimal.ZERO);

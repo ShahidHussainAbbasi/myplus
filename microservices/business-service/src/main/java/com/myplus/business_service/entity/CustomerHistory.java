@@ -100,6 +100,14 @@ public class CustomerHistory implements Serializable {
     @Column(name = "grand_total", precision = 19, scale = 2)
     private BigDecimal grandTotal;
 
+    // B2B-P3f: the invoice AS ISSUED. grandTotal above is the SETTLED value and keeps moving when a return
+    // re-settles the header -- which is right for dues/aging/GL and wrong for a statement, where an issued
+    // invoice must never change and a credit note explains the difference instead. Captured once, at the
+    // first return (so it works for invoices that already exist and costs a never-returned sale nothing).
+    // ONLY the statement reads this. Null on a legacy row => fall back to grandTotal => renders as today.
+    @Column(name = "issued_total", precision = 19, scale = 2)
+    private BigDecimal issuedTotal;
+
     // G5 (slice 37): payment summary. paymentMode = single method name | SPLIT | null (legacy/unpaid). The per-
     // tender breakdown lives in the Payment table (linked by customer_history_id). dueAmount above settles to grand_total.
     @Column(name = "payment_mode")

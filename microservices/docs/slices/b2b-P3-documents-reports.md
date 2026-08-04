@@ -595,9 +595,23 @@ changing a parameter with existing callers is a deliberate slice, not a drive-by
 
 ---
 
-## 12. Candidate slice 3f — statements omit credit notes, and invoices are retro-edited
+## 12. ~~Candidate~~ slice 3f — ✅ **DONE & green 2026-08-04**
 
-Found during 3d's survey, **not** fixed:
+> **SHIPPED → [`b2b-P3f-credit-notes-on-statements.md`](b2b-P3f-credit-notes-on-statements.md)** — `mvn test`
+> green + gate `statement-credit-notes.cy.js` **6/6**. The design confirmed both findings below and added a
+> **third** the survey missed: the credit note's value was **not persisted** on the AR side (`SaleReturn` had
+> `refundAmount`, which is zero on a credit sale, but no `creditAmount`) — the data to put a note on a
+> statement did not exist. It also found that pre-migration AR history is **unrecoverable** (a full return
+> deletes the `Sell` row) while AP history is fully reconstructable, and that a naive fix would have
+> **overstated every voided invoice** by its full value.
+>
+> Shipped as V34 + an `issued_total` that only the statement reads, so `grandTotal` keeps its meaning and no
+> balance moved on the customer side. **The cutover needs no date and no flag** — a note shows iff it has a
+> stored value, so pre-V34 statements render exactly as before. One number did move, deliberately: the AP bill
+> line went NET→GROSS, because it excluded input tax while the payable it explains includes it (§7 of the
+> slice doc).
+
+Found during 3d's survey, and fixed by the slice above:
 
 - `StatementLine.type` is only `BILL | PAYMENT` — a credit note never appears on a statement.
 - `saleReturn` **rewrites the invoice header in place** (`setSubTotal` / `setTaxTotal` / `setGrandTotal` /

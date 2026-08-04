@@ -452,11 +452,15 @@ addition to this one.
 
 ## 5. Status
 
-🟢 **Screen COMPLETE and Cypress-green 2026-08-04** — 8/8, gate
-`cypress/e2e/business/price-rules-screen.cy.js`. It caught two real defects on the way (§7).
-🟡 **Pricing fix built, gate not yet run** — `contract-price-charged.cy.js` (6 tests).
-Requirement #10 moves from 🟡 *engine only, unusable* to 🟢 *authorable*, and to *charged* once
-the second gate passes.
+🟢 **P2-UI COMPLETE — both gates Cypress-green 2026-08-04.**
+
+| Gate | Result |
+|---|---|
+| `price-rules-screen.cy.js` | 8/8 — the screen. Caught two real defects on the way (§7). |
+| `contract-price-charged.cy.js` | 6/6 — the contract price is the price charged. |
+
+**Requirement #10 is DONE**: 🟡 *engine only, unusable* → 🟢 *authorable AND charged*. The engine
+shipped in P2; P2-UI made it reachable by the owner it was built for, and made it reach the customer.
 
 
 ## 6. The fix (approved 2026-08-04)

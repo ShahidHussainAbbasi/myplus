@@ -552,6 +552,12 @@ public class PurchaseService implements IPurchaseService{
 		java.math.BigDecimal priorPaid = nz(p.getPaidAmount());
 		java.math.BigDecimal refund = priorPaid.subtract(newGross).max(java.math.BigDecimal.ZERO);   // vendor refunds overpayment
 		java.math.BigDecimal newPaid = priorPaid.subtract(refund);
+		// B2B-P3f: capture the bill AS ISSUED (GROSS — goods + input tax) before this return re-settles it.
+		// Once only: a second return must not overwrite it with an already-netted figure. Gross is the basis
+		// both dueAmount and purchase_return.amount use, so the statement's bill and its debit notes net exactly.
+		if (p.getIssuedTotal() == null)
+			p.setIssuedTotal(net.add(tax));
+
 		if (partial) {
 			java.math.BigDecimal keepFrac = java.math.BigDecimal.valueOf(soldQty - rq)
 					.divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP);

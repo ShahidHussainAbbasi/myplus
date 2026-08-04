@@ -23,4 +23,19 @@ public interface PurchaseReturnRepo extends JpaRepository<PurchaseReturn, Long> 
     /** Org-scoped list, newest first — every read here is tenant-scoped. */
     @Query("SELECT r FROM PurchaseReturn r WHERE r.organizationId = :orgId ORDER BY r.id DESC")
     List<PurchaseReturn> findScoped(@Param("orgId") Long orgId);
+
+    /**
+     * B2B-P3f: one vendor's debit notes, for the statement's DEBIT_NOTE lines.
+     *
+     * <p>Unlike the sale side there is no cutover filter: {@code amount} has been persisted since 3c, so
+     * every debit note — including historical ones — has a value and can be shown. This is why V34 back-fills
+     * {@code purchase.issued_total} for AP and cannot for AR.
+     *
+     * <p>Uses the org + user NULL-fallback the statement's other reads use, so a legacy row with no
+     * organizationId stays visible to the user who owns it.
+     */
+    @Query("SELECT r FROM PurchaseReturn r WHERE r.venderId = :venderId "
+         + "AND (r.organizationId = :orgId OR (r.organizationId IS NULL AND r.userId = :userId))")
+    List<PurchaseReturn> findDebitNotesForVender(@Param("venderId") Long venderId,
+            @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

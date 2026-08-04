@@ -63,6 +63,13 @@ public class SaleReturn implements Serializable {
 	@Column(name = "refund_amount", precision = 19, scale = 2)
 	private BigDecimal refundAmount;
 
+	// B2B-P3f: the credit note's FACE VALUE (returned goods + their tax). Distinct from refundAmount, which is
+	// only the CASH handed back and is zero on a credit sale -- so refundAmount could never serve as the
+	// document's value. Null means the return predates V34: its value is unrecoverable (a full return deleted
+	// the sell row), so the statement omits the line rather than inventing a number for a customer document.
+	@Column(name = "credit_amount", precision = 19, scale = 2)
+	private BigDecimal creditAmount;
+
 	@Column(name = "organization_id")
 	private Long organizationId;
 

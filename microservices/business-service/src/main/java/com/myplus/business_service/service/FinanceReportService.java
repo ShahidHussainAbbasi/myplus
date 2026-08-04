@@ -38,6 +38,10 @@ public class FinanceReportService {
     @Autowired private VenderRepo venderRepo;
     @Autowired private RequestUtil requestUtil;
     @Autowired(required = false) private com.myplus.commerce.contracts.client.FinanceClient financeClient;
+    // B2B-P3f: the return documents the statement now shows. required=false mirrors financeClient above so a
+    // slim test context that wires neither still builds a statement — one without note lines, exactly as before.
+    @Autowired(required = false) private com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;
+    @Autowired(required = false) private com.myplus.business_service.repository.PurchaseReturnRepo purchaseReturnRepo;
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
 
@@ -106,12 +110,45 @@ public class FinanceReportService {
         if (c == null || !inTenant(c.getOrganizationId(), c.getUserId(), u))
             throw new RuntimeException("Customer not found: " + customerId);   // anti-IDOR
         List<StatementLine> lines = new ArrayList<>();
+        List<String> invoiceNos = new ArrayList<>();
         for (CustomerHistory ch : customerHistoryRepo.findByCustomerOrdered(customerId)) {
+            // B2B-P3f: the bill is the invoice AS ISSUED, not its settled value — a return no longer rewrites
+            // this line, a credit note explains it below. coalesce: a legacy row with no issuedTotal falls back
+            // to grandTotal and therefore renders exactly as it did before V34.
+            BigDecimal issued = ch.getIssuedTotal() != null ? ch.getIssuedTotal() : nz(ch.getGrandTotal());
             lines.add(new StatementLine(ch.getDated() != null ? ch.getDated().toLocalDate() : null,
-                    ch.getInvoiceNo(), "BILL", nz(ch.getGrandTotal()), null, null));
+                    ch.getInvoiceNo(), "BILL", issued, null, null));
+            if (ch.getInvoiceNo() != null) invoiceNos.add(ch.getInvoiceNo());
+
+            // A VOID zeroed the header, so the issued bill above needs its cancellation or the invoice would be
+            // overstated by its full value. Guarded on > 0 so a pre-V34 void (back-filled to 0) adds no line.
+            if ("VOID".equals(ch.getStatus()) && issued.signum() > 0) {
+                lines.add(new StatementLine(ch.getVoidedAt() != null ? ch.getVoidedAt().toLocalDate() : null,
+                        ch.getInvoiceNo(), "VOID", null, issued, null));
+            }
         }
+        addCreditNoteLines(lines, invoiceNos);
         addPaymentLines(lines, "CUSTOMER", customerId);
         return StatementBuilder.build(lines, BigDecimal.ZERO);
+    }
+
+    /**
+     * B2B-P3f: the customer's credit notes as CREDIT_NOTE credit lines — the document that explains why the
+     * balance fell, which the statement never showed.
+     *
+     * <p>One batched query over the invoices already loaded (SaleReturn has no customerId). Notes taken before
+     * V34 have no stored value and are excluded by the repository: their value is unrecoverable, and a
+     * fabricated figure on a document a customer reconciles against is worse than an absent one. The balance
+     * stays correct either way, because those invoices' bills are back-filled to their already-netted value.
+     */
+    private void addCreditNoteLines(List<StatementLine> lines, List<String> invoiceNos) {
+        if (saleReturnRepo == null || invoiceNos.isEmpty()) return;
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        for (var cn : saleReturnRepo.findCreditNotesForInvoices(invoiceNos, u.getOrganizationId(), u.getUserId())) {
+            lines.add(new StatementLine(cn.getDated() != null ? cn.getDated().toLocalDate() : null,
+                    cn.getCreditNoteNo() != null ? cn.getCreditNoteNo() : cn.getInvoiceNo(),
+                    "CREDIT_NOTE", null, nz(cn.getCreditAmount()), null));
+        }
     }
 
     /** AP statement: the vendor's bills (BILL/debit) + our payments (PAYMENT/credit) with a running balance. */
@@ -123,11 +160,35 @@ public class FinanceReportService {
             throw new RuntimeException("Vendor not found: " + venderId);   // anti-IDOR
         List<StatementLine> lines = new ArrayList<>();
         for (Purchase p : purchaseRepo.findByVenderOrdered(venderId)) {
+            // B2B-P3f: the bill AS ISSUED, GROSS. Note the fallback is totalAmount + taxAmount, not totalAmount
+            // alone as this line read before — the bill you owe a supplier includes its input tax, which is the
+            // basis dueAmount and the debit notes both use. Only orgs that capture purchase tax see a change,
+            // and for them the statement previously disagreed with the payable it was meant to explain.
+            BigDecimal issued = p.getIssuedTotal() != null ? p.getIssuedTotal()
+                    : nz(p.getTotalAmount()).add(nz(p.getTaxAmount()));
             lines.add(new StatementLine(p.getDated() != null ? p.getDated().toLocalDate() : null,
-                    p.getPurchaseInvoiceNo(), "BILL", nz(p.getTotalAmount()), null, null));
+                    p.getPurchaseInvoiceNo(), "BILL", issued, null, null));
         }
+        addDebitNoteLines(lines, venderId);
         addPaymentLines(lines, "VENDOR", venderId);
         return StatementBuilder.build(lines, BigDecimal.ZERO);
+    }
+
+    /**
+     * B2B-P3f: the vendor's debit notes as DEBIT_NOTE credit lines — the supplier side of the same trail.
+     *
+     * <p>No cutover filter, unlike the sale side: {@code PurchaseReturn.amount} has been persisted since 3c,
+     * so history is complete here. Queried by vendor directly (PurchaseReturn carries venderId), so no join
+     * through the bills is needed.
+     */
+    private void addDebitNoteLines(List<StatementLine> lines, Long venderId) {
+        if (purchaseReturnRepo == null) return;
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        for (var dn : purchaseReturnRepo.findDebitNotesForVender(venderId, u.getOrganizationId(), u.getUserId())) {
+            lines.add(new StatementLine(dn.getDated() != null ? dn.getDated().toLocalDate() : null,
+                    dn.getDebitNoteNo() != null ? dn.getDebitNoteNo() : dn.getPurchaseInvoiceNo(),
+                    "DEBIT_NOTE", null, nz(dn.getAmount()), null));
+        }
     }
 
     /** Append the party's ledger payments as PAYMENT (credit) lines — best-effort (a ledger hiccup just omits them). */

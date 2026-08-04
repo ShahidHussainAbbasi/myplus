@@ -1,6 +1,6 @@
 # B2B + B2C — what exists today, and how to start both
 
-**Status:** IN DELIVERY — **Phases 0, 0.5, 1, 2 and 3 DONE & Cypress-green** (0/0.5 2026-08-01 · 1, 2 2026-08-02 · 3 across 2026-08-03/04, all 7 sub-slices gated). **10 of the 12 customer requirements are shipped** (#1,#2,#3,#4,#5,#6,#8,#9,#10,#13). **NEXT: Phase 4 — B2B ordering** (quote → approval → order, customer PO, account hierarchy) — the first genuinely NEW workflow; everything so far extended existing paths. Open items: candidate **3f** (statements omit credit notes; invoices retro-edited) and reqs **#7** (stock cap + expiry digest) and **#11** (supplier targets) in Phase 6.
+**Status:** IN DELIVERY — **Phases 0, 0.5, 1, 2 and 3 DONE & Cypress-green** (0/0.5 2026-08-01 · 1, 2 2026-08-02 · 3 across 2026-08-03/04, all 7 sub-slices gated · **P2-UI 2026-08-04**, which finished #10 end-to-end and fixed a defect that meant contract prices were never actually charged). **10 of the 12 customer requirements are shipped** (#1,#2,#3,#4,#5,#6,#8,#9,#10,#13). **Phase 3 is now COMPLETE including 3f** (credit notes on statements, green 2026-08-04) — **there are no open items left on Phases 0–3.** **NEXT: Phase 4 — B2B ordering** (quote → approval → order, customer PO, account hierarchy) — the first genuinely NEW workflow; everything so far extended existing paths. Remaining unscheduled: reqs **#7** (stock cap + expiry digest) and **#11** (supplier targets) in Phase 6.
 Per-phase state is tracked in the Delivery phases section below; the slice doc for each shipped phase is linked there. Analysis sections 1-3b remain as written unless a finding contradicts them.
 **Companion to:** [`oms-b2b-b2c-implementation-plan.md`](oms-b2b-b2c-implementation-plan.md) (gap analysis),
 [`oms-program-plan.md`](oms-program-plan.md) (tracker), [`customer-requirements-plan.md`](customer-requirements-plan.md)
@@ -231,15 +231,18 @@ Slice doc: `slices/b2b-P1-credit-limit.md` · gate: `cypress/e2e/business/credit
 
 *Delivers:* controlled credit selling. Statements and ageing already exist and light up immediately.
 
-### Phase 2 — B2B pricing — ✅ **backend DONE, Cypress-green 2026-08-02** *(= OMS B1, customer req #10)*
-**Outstanding, and it blocks the customer actually USING #10:** the Price Rules management screen. The engine and a full CRUD API exist, but with no screen an owner cannot author a rule without an API client, so the requirement is not usable end-to-end. Also outstanding: the sell screen's live price-reason hint. **Scheduled as slice P2-UI** — deferring the only way a user reaches a feature violates the finish-one-domain-end-to-end rule, and a note in a doc is not a plan.
+### Phase 2 — B2B pricing — ✅ **DONE end-to-end, Cypress-green** *(backend 2026-08-02 · **P2-UI 2026-08-04**)* *(= OMS B1, customer req #10)*
+**P2-UI closed both outstanding items (2026-08-04, 14 tests green across two gates).** The Price Rules screen (list/create/edit/delete, ordered by the resolver's own precedence and labelling which rule is overridden) means an owner can author a rule without an API client. And what was filed as “the sell screen's live price-reason hint” turned out to be a **defect**: the screen prefilled the rate box from the CATALOG price, and since the submitted rate wins server-side (so a cashier's override beats a rule), a matched contract price was computed, recorded as the line's reason — and never charged. The till now quotes and charges it; server precedence is untouched. See `slices/b2b-P2-pricing.md` §4–§7.
+
+**The lesson that made this slice necessary:** deferring the only way a user reaches a feature violates the finish-one-domain-end-to-end rule, and **a note in a doc is not a plan** — the deferral WAS written down here, but nothing carried it into a numbered slice with a gate, so once Phase 2 went green the work became invisible.
 Slice doc: `slices/b2b-P2-pricing.md` · gate: `cypress/e2e/business/pricing.cy.js`
 - Price lists: customer-specific and volume tiers, in catalog + a `commerce-pricing` library
 - Resolution order **base → contract → tier → promotion**, cached off the sell hot path
 - Covers customer-wise *and* product-wise discount in one model rather than two
 
-### Phase 3 — Documents & reports — ✅ **COMPLETE (all 7 sub-slices Cypress-green, 2026-08-03/04)**
-Slice doc: `slices/b2b-P3-documents-reports.md` (five sub-slices, each separately gated) *(customer reqs #1, #4, #5, #6, #2; + receipt-vs-invoice, moved from Phase 0)*
+### Phase 3 — Documents & reports — ✅ **COMPLETE (all 8 sub-slices Cypress-green, 2026-08-03/04)**
+Slice docs: `slices/b2b-P3-documents-reports.md` + `slices/b2b-P3f-credit-notes-on-statements.md`, each sub-slice separately gated *(customer reqs #1, #4, #5, #6, #2; + receipt-vs-invoice, moved from Phase 0)*
+- **3f** closed the last gap: a return used to rewrite the invoice header, so the statement contradicted the customer's own copy and the credit note appeared nowhere. Balances were right; the document trail was not.
 - **F1** batch/expiry captured on purchase → **#2**, then **#4** receipt lines
 - Return series `CRN-`/`DBN-` → **#1**
 - Statement/invoice PDF+CSV download → **#5** (`jspdf` already vendored)

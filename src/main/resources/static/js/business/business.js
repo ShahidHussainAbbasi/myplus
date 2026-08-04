@@ -2838,6 +2838,25 @@ function addStatementDownload(partyType, partyId){
 	title.parentNode.insertBefore(a, title.nextSibling);
 }
 
+/**
+ * B2B-P3f: statement line types, translated. The column rendered the raw enum ('BILL', 'PAYMENT'), and 3f adds
+ * three more — CREDIT_NOTE, DEBIT_NOTE, VOID — so leaving it raw would put untranslated shouting SQL-ish tokens
+ * on a document customers read. Defined ONCE here beside the only screen that renders a statement; an unknown
+ * type falls through to itself rather than rendering blank, so a future type is visible instead of invisible.
+ * Keys MUST carry the ui.js.* prefix — that is the only prefix LocaleInterceptor ships to the browser.
+ */
+var STATEMENT_TYPE_KEYS = {
+	BILL: 'ui.js.stmtTypeBill',
+	PAYMENT: 'ui.js.stmtTypePayment',
+	CREDIT_NOTE: 'ui.js.stmtTypeCreditNote',
+	DEBIT_NOTE: 'ui.js.stmtTypeDebitNote',
+	VOID: 'ui.js.stmtTypeVoid'
+};
+function statementTypeLabel(type){
+	var key = STATEMENT_TYPE_KEYS[type];
+	return key ? t(key) : (type || '');
+}
+
 function openStatement(partyType, partyId, name){
 	var url = (partyType === 'VENDOR' ? 'vendorStatement?venderId=' : 'customerStatement?customerId=') + encodeURIComponent(partyId);
 	buildFinanceDialog('StatementDialog').style.display = 'flex';
@@ -2851,7 +2870,7 @@ function openStatement(partyType, partyId, name){
 		if (!lines.length) { document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px;color:#777">No documents.</div>'; return; }
 		var h = '<table class="table table-striped" style="width:100%"><thead><tr><th>Date</th><th>Doc #</th><th>Type</th><th class="text-right">Debit</th><th class="text-right">Credit</th><th class="text-right">Balance</th></tr></thead><tbody>';
 		lines.forEach(function(l){
-			h += '<tr><td>'+escHtml(l.date||'')+'</td><td>'+escHtml(l.docNo||'')+'</td><td>'+escHtml(l.type||'')+'</td>'
+			h += '<tr><td>'+escHtml(l.date||'')+'</td><td>'+escHtml(l.docNo||'')+'</td><td>'+escHtml(statementTypeLabel(l.type))+'</td>'
 				+ '<td class="text-right">'+(l.debit!=null?Number(l.debit).toFixed(2):'')+'</td>'
 				+ '<td class="text-right">'+(l.credit!=null?Number(l.credit).toFixed(2):'')+'</td>'
 				+ '<td class="text-right"><b>'+(l.balance!=null?Number(l.balance).toFixed(2):'')+'</b></td></tr>';

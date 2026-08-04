@@ -122,6 +122,13 @@ public class Purchase implements Serializable {
 	@Column(name = "total_amount", precision = 19, scale = 2)
 	private BigDecimal totalAmount;
 
+	// B2B-P3f: the bill AS ISSUED, GROSS (goods + input tax) -- the basis dueAmount settles on, and the basis
+	// purchase_return.amount is recorded in, so the statement's bill and its debit notes net exactly. Captured
+	// once, at the first return; back-filled for history by V34 (reconstructable here, unlike the sale side).
+	// ONLY the vendor statement reads this; totalAmount keeps its current meaning for every other reader.
+	@Column(name = "issued_total", precision = 19, scale = 2)
+	private BigDecimal issuedTotal;
+
 	@Column(name = "net_amount", precision = 19, scale = 2)
 	private BigDecimal netAmount = null;
 
