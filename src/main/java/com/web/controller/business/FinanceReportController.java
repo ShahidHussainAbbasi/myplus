@@ -47,6 +47,43 @@ public class FinanceReportController {
         } catch (Exception e) { LOGGER.error("customerStatement proxy error", e); return Collections.singletonMap("status", "ERROR"); }
     }
 
+    /**
+     * B2B-P3d (#5): stream the customer statement CSV straight through from business-service.
+     *
+     * <p>Proxied as RAW TEXT, not JSON: the browser must receive the file with its Content-Disposition so it
+     * saves rather than renders. Authorisation, tenant scope and the anti-IDOR customer check all stay in
+     * business-service — this route adds no rules of its own, which is exactly why it cannot weaken them.
+     */
+    @RequestMapping(value = "/customerStatement.csv", method = RequestMethod.GET)
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<String> customerStatementCsv(final HttpServletRequest request) {
+        return csv(request.getParameter("customerId"), "/customerStatement.csv", "customerId",
+                "customer-statement");
+    }
+
+    /** B2B-P3d (#5): the vendor statement CSV — same passthrough, same guarantees. */
+    @RequestMapping(value = "/vendorStatement.csv", method = RequestMethod.GET)
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<String> vendorStatementCsv(final HttpServletRequest request) {
+        return csv(request.getParameter("venderId"), "/vendorStatement.csv", "venderId", "vendor-statement");
+    }
+
+    /** Shared passthrough: fetch the CSV text and hand it back as a download. */
+    private org.springframework.http.ResponseEntity<String> csv(String id, String path, String param,
+                                                                String filePrefix) {
+        try {
+            String body = client.getString(path, param + "=" + (id == null ? "" : id));
+            return org.springframework.http.ResponseEntity.ok()
+                    .header("Content-Disposition",
+                            "attachment; filename=\"" + filePrefix + "-" + (id == null ? "" : id) + ".csv\"")
+                    .header("Content-Type", "text/csv; charset=UTF-8")
+                    .body(body);
+        } catch (Exception e) {
+            LOGGER.error(path + " proxy error", e);
+            return org.springframework.http.ResponseEntity.status(502).body("Could not build the statement.");
+        }
+    }
+
     @RequestMapping(value = "/vendorStatement", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> vendorStatement(final HttpServletRequest request) {

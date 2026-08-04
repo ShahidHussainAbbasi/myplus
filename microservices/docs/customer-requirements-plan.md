@@ -59,7 +59,7 @@ You confirmed a booker **is** a supplier. That removes the new-party-type proble
 | 13 | MaxTheService promo | 🔴 new | XS | receipt/statement renderer | ✅ **SHIPPED** B2B P0 — `pos.receipt.showPromo`, off by default |
 | 1 | Return/credit-note series | 🔴 | M | **F2** | ✅ **SHIPPED** Phase 3c, green 2026-08-03. `CRN-` (customer) + `DBN-` (supplier, a document that did not exist); GL lines now name the note, not the document it reverses |
 | 4 | Receipt: line no, batch/expiry, balances | 🔴 | M | **F2** | ✅ **SHIPPED** Phase 3b-2, green 2026-08-03. Real win: `StockReservationResponse.picks` was returned and DISCARDED on every sale — now persisted to `sell_batch`, so a recall is answerable by batch |
-| 5 | Statement download | 🟡 on-screen only | S | monolith UI | ⬜ Phase **3d** (designed; jspdf already vendored) |
+| 5 | Statement of account, downloadable | 🔴 | S *(was M)* | **F2** | ✅ **SHIPPED** Phase 3d, green 2026-08-04. The statement already existed (F2) — the gap was the DOWNLOAD. CSV adapters over the same service methods; `CsvWriter` built for 3e to reuse |
 | 2 | Batch # on purchase | 🔴 | **XS** *(was M)* | **F1 — done first** | ✅ **SHIPPED** Phase 3a, green 2026-08-03. Only the form INPUT + column were missing; the nested `stock.*` binding always worked. **Unblocks #4** |
 | 7 | Stock cap + expiry e-mail | 🟡 alerts exist | M | inventory + notification | ⬜ unscheduled |
 | 9 | Dues limit | 🔴 | M | **= OMS B4** | ✅ **SHIPPED** Phase 1, green 2026-08-02 (customer + supplier; warn = take confirmation) |

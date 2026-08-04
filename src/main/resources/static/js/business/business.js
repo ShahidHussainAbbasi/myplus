@@ -2300,10 +2300,33 @@ function buildFinanceDialog(id){
 	return d;
 }
 
+/**
+ * B2B-P3d (#5): put a Download button in the statement dialog header, beside Close.
+ * A plain link, not an ajax call — the browser handles the Content-Disposition and saves the file.
+ */
+function addStatementDownload(partyType, partyId){
+	var title = document.getElementById('StatementDialogTitle');
+	if (!title || !title.parentNode) return;
+	var old = document.getElementById('StatementDownloadBtn');
+	if (old) old.parentNode.removeChild(old);   // re-opened for another party: never leak the previous link
+	var url = serverContext + (partyType === 'VENDOR'
+		? 'vendorStatement.csv?venderId=' : 'customerStatement.csv?customerId=') + encodeURIComponent(partyId);
+	var a = document.createElement('a');
+	a.id = 'StatementDownloadBtn';
+	a.className = 'btn btn-default btn-sm';
+	a.style.marginRight = '8px';
+	a.setAttribute('href', url);
+	a.textContent = t('ui.js.download');
+	title.parentNode.insertBefore(a, title.nextSibling);
+}
+
 function openStatement(partyType, partyId, name){
 	var url = (partyType === 'VENDOR' ? 'vendorStatement?venderId=' : 'customerStatement?customerId=') + encodeURIComponent(partyId);
 	buildFinanceDialog('StatementDialog').style.display = 'flex';
 	document.getElementById('StatementDialogTitle').textContent = t('ui.js.statement') + (name || ((partyType === 'VENDOR' ? 'Vendor #' : 'Customer #') + partyId));
+	// B2B-P3d (#5): a statement is only useful if the customer can take it away. The CSV comes from the SAME
+	// service method the table below renders, so the file and the screen can never disagree.
+	addStatementDownload(partyType, partyId);
 	document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
 	$.get(serverContext + url, function(resp){
 		var lines = (resp && (resp.collection || resp.data)) || [];

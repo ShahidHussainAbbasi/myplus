@@ -1,7 +1,7 @@
 # B2B Phase 3 — documents & reports (customer requirements **#2, #4, #1, #5, #6**)
 
-**Status:** 🟡 IN PROGRESS — **3a + 3b-1 + 3b-2 + 3c DONE & Cypress-green 2026-08-03**; 3d/3e designed only.
-Gates: `purchase-batch-expiry.cy.js` (3a/3b-1) · `receipt-detail.cy.js` (3b-2) · `return-documents.cy.js` (3c) — all green
+**Status:** 🟡 IN PROGRESS — **3a + 3b-1 + 3b-2 + 3c + 3d DONE & Cypress-green**; **3e** is the last sub-slice (+ candidate **3f**, below).
+Gates: `purchase-batch-expiry.cy.js` (3a/3b-1) · `receipt-detail.cy.js` (3b-2) · `return-documents.cy.js` (3c) · `statement-download.cy.js` (3d) — all green
 Gate: `cypress/e2e/business/purchase-batch-expiry.cy.js`
 Programme: [`b2b-b2c-rollout-plan.md`](../b2b-b2c-rollout-plan.md) · Previous: [`b2b-P2-pricing.md`](b2b-P2-pricing.md)
 Requirements: [`customer-requirements-plan.md`](../customer-requirements-plan.md) #2 · #4 · #1 · #5 · #6
@@ -207,11 +207,53 @@ returns would fabricate documents that were never issued.
 > ledger under the number of the document they REVERSE. 3c changes what each line is *called*, never an
 > amount.
 
-### 3d — #5 statement / invoice download
+### 3d — #5 statement download — **DONE, green 2026-08-04**
 
-- Reuse the vendored `jspdf` already driving `businessInvoicePrint.js`; no new dependency.
-- **CSV as well as PDF**, and CSV first: an accountant wants the rows, not a picture of them.
-- Server builds the data; the client renders. The statement endpoints already exist and are org-scoped.
+#### What the survey found (2026-08-03)
+
+`FinanceReportService.customerStatement` / `vendorStatement` **already exist** (slice F2): documents +
+payments with a running balance via a shared `StatementBuilder`, org-scoped with an anti-IDOR check. So #5 is
+**not** "build a statement" — it is **"let the customer have it"**. The gap is the download.
+
+#### Design — the download
+
+| Piece | Decision |
+|---|---|
+| **Format** | **CSV**. Opens in Excel/Sheets, which is what a customer actually reconciles in, and needs no new dependency. A PDF renderer is a library decision and a separate conversation. |
+| **Where** | `GET /customerStatement.csv?customerId=` and `/vendorStatement.csv?venderId=` beside the existing JSON endpoints — same service, same anti-IDOR check, same org scope. Not a new service: this owns no data. |
+| **Reuse** | A small `CsvWriter` (headers + rows + RFC-4180 quoting) rather than string-joining in the controller — **3e needs exactly this** for every report it exports, so it is written once here as the component 3e inherits. |
+| **Content** | Exactly the lines the JSON statement returns. The download must never disagree with the screen. |
+
+**Live-modules rule:** purely additive — two new read-only endpoints and a button. No schema change, no write
+path touched, no existing response altered.
+
+> ### FINDING — returns do not appear on statements, and invoices are retro-edited. NOT changed here.
+>
+> `StatementLine.type` is only `BILL | PAYMENT`; a credit note never appears. And `saleReturn` **rewrites the
+> invoice header in place** (`setSubTotal` / `setTaxTotal` / `setGrandTotal` / `setPaidAmount`, then saves).
+>
+> So an invoice issued at 500 reads 300 after a return. The running balance is arithmetically right, but the
+> **document trail is not**: the customer's copy says 500, your statement says 300, and no credit note line
+> explains the gap. The accounting rule is that you never retro-edit an issued invoice — you issue a credit
+> note, which 3c has just made a real document.
+>
+> **Why it is not fixed inside 3d:** restating the bill line and adding credit lines changes what every
+> statement SHOWS, and the arithmetic is subtle — the credit note's value (returned goods gross) and the cash
+> refunded differ whenever the invoice was on credit, so a careless version double-counts and misstates
+> balances. That deserves its own design, its own gate, and your decision — not a silent change riding along
+> with a download button. Sized as a candidate slice **3f**.
+
+#### Standards this sub-slice is built to
+
+| Dimension | What applies |
+|---|---|
+| **Business/domain** | A statement of account is the document a customer reconciles against. It is only useful if they can take it away — hence download, in a format they can open. |
+| **SaaS multi-tenancy** | Reuses the existing org scope + anti-IDOR customer/vendor lookup. A CSV route must never become a way to read another tenant's ledger. |
+| **Microservice boundaries** | Stays in `business-service`, which owns the data. `CsvWriter` is a **library-style utility**, not a service — it owns no data, lifecycle or integration. |
+| **Design patterns** | **Builder** (`StatementBuilder`, already there) · the CSV endpoint is an **adapter** over the same service method the JSON endpoint calls, so the two can never diverge. |
+| **SOLID / DRY** | The CSV route calls the SAME `customerStatement(...)`, never a parallel query. `CsvWriter` is written for 3e to inherit rather than being report-specific. |
+| **Live-modules rule** | Additive read-only endpoints; no write path, no schema, no existing response touched. |
+| **Testing standard** | Pure-logic `CsvWriterTest` on `mvn test` (quoting, commas, embedded quotes, nulls) + a headed Cypress gate asserting the download matches the JSON. |
 
 ### 3e — #6 filterable, exportable reports
 
@@ -475,3 +517,41 @@ first match, so the batch query and `setBalanceAfter` landed in `getSellInvoice`
 **Open, deliberately:** if the debit-note write fails, the GL line falls back to the bill number. Visible in
 the log as `Debit-note write failed`, never silent — but it does mean a rare failure yields a ledger line
 named after the bill rather than the note.
+
+
+---
+
+## 11. 3d as built (green 2026-08-04)
+
+- `GET /customerStatement.csv` and `GET /vendorStatement.csv` — **adapters over the same service methods**
+  the JSON endpoints call, so the file a customer reconciles against cannot disagree with the screen. The
+  gate asserts this directly: one CSV row per JSON line, identical closing balance.
+- `CsvWriter` (+ `CsvWriterTest` on `mvn test`) — written generic **for 3e to inherit**, not statement-shaped.
+  Handles RFC-4180 quoting and neutralises **spreadsheet formula injection** (`= + - @`), because this file
+  is handed to customers and must not execute anything when they open it.
+- Download button in the statement dialog; `ui.js.download` across six bundles (1,442 aligned).
+- **No migration**; two read-only endpoints, a proxy passthrough, a button.
+
+**Route naming:** the CSV was first shipped as `/venderStatement.csv` and renamed to `/vendorStatement.csv`
+so it sits beside its JSON sibling `/vendorStatement`. The query parameter stays `venderId`, matching the
+existing endpoint and `VenderDTO`. The wider `vender`/`vendor` inconsistency in this codebase is left alone —
+changing a parameter with existing callers is a deliberate slice, not a drive-by.
+
+---
+
+## 12. Candidate slice 3f — statements omit credit notes, and invoices are retro-edited
+
+Found during 3d's survey, **not** fixed:
+
+- `StatementLine.type` is only `BILL | PAYMENT` — a credit note never appears on a statement.
+- `saleReturn` **rewrites the invoice header in place** (`setSubTotal` / `setTaxTotal` / `setGrandTotal` /
+  `setPaidAmount`, then saves).
+
+So an invoice issued at 500 reads 300 after a return. The running balance is arithmetically right; the
+**document trail is not** — the customer's copy says 500, the statement says 300, and nothing explains the
+gap. The accounting rule is that an issued invoice is never retro-edited; a credit note is issued instead,
+which 3c has now made a real document.
+
+**Why it needs its own slice:** the credit note's value (returned goods gross) and the cash refunded differ
+whenever the invoice was on credit, so a careless restatement double-counts and misstates balances. It
+changes what every statement shows, for every tenant. Design, gate and an explicit decision required.

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,7 +48,44 @@ class SagaSellServiceTest {
     @Mock private SagaSaleWriter saleWriter;
     @Mock private RequestUtil requestUtil;
     @Mock private TaxService taxService;
+    // Constructor deps too: @InjectMocks passes null for any constructor argument with no matching @Mock,
+    // which is why customerHistoryRepo NPE'd. customerHistoryRepo arrived with SF-3 (idempotency dedup) and
+    // purchaseRepo with SF-10 (line cost); neither slice updated this test, and -DskipTests hid both.
+    @Mock private com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
+    @Mock private com.myplus.business_service.repository.PurchaseRepo purchaseRepo;
+    // ── field-injected (@Autowired) dependencies ────────────────────────────────────────────────────
+    // ALL SIX are listed deliberately. SagaSellService mixes constructor injection with @Autowired fields,
+    // and Mockito populates only the constructor — so every field below stays null unless set explicitly in
+    // @BeforeEach. Fixing these one NPE at a time costs a build per dependency; the whole set is wired at
+    // once so adding a seventh fails loudly here rather than three slices later.
+    @Mock private StoreCreditService storeCreditService;
+    @Mock private GlOutboxService glOutboxService;
+    @Mock private AuditService auditService;
+    @Mock private com.myplus.common.settings.SettingsService settingsService;
+    @Mock private com.myplus.business_service.repository.CustomerRepo customerRepo;
+    /**
+     * Added 2026-08-03, MISSING since commit c6d411f9 ("Finance period close") added the guard to addSell.
+     * It went unnoticed because every build ran -DskipTests.
+     *
+     * <p><b>Declaring the @Mock is not enough here.</b> {@code SagaSellService} MIXES constructor injection
+     * (private final + @RequiredArgsConstructor) with @Autowired FIELD injection, and Mockito's @InjectMocks
+     * picks the biggest constructor — once that succeeds it does not also populate fields. So every
+     * @Autowired field (periodLockGuard, glOutboxService, auditService, storeCreditService…) stays null and
+     * no amount of @Mock fixes it. They have to be set explicitly, below.
+     */
+    @Mock private PeriodLockGuard periodLockGuard;
     @InjectMocks private SagaSellService service;
+
+    @BeforeEach
+    void injectFieldWiredDependencies() {
+        // The guard runs first in addSell, so without this every test NPEs before reaching its own subject.
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "periodLockGuard", periodLockGuard);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "storeCreditService", storeCreditService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "glOutboxService", glOutboxService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "auditService", auditService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "settingsService", settingsService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "customerRepo", customerRepo);
+    }
 
     private CustomerHistoryDTO dtoWithOneLine() {
         SellDTO s = new SellDTO();
@@ -67,13 +105,18 @@ class SagaSellServiceTest {
         return ch;
     }
 
+    /**
+     * Shared setup. {@code lenient()} because the closed-period test below rejects BEFORE any of this is
+     * reached — which is the behaviour it exists to prove. Strict stubs would fail it for doing its job.
+     */
     @BeforeEach
     void user() {
-        when(requestUtil.getCurrentUser())
+        org.mockito.Mockito.lenient().when(requestUtil.getCurrentUser())
                 .thenReturn(new AuthenticatedUser(1L, "cashier@test.com", List.of(), 1L));
         // G3: tax disabled in these saga-orchestration tests — no tax applied, lines carry zero tax.
-        when(taxService.settingsFor(anyLong())).thenReturn(TaxSetting.builder().enabled(false).build());
-        when(taxService.taxForLine(any(), any(), any()))
+        org.mockito.Mockito.lenient().when(taxService.settingsFor(anyLong()))
+                .thenReturn(TaxSetting.builder().enabled(false).build());
+        org.mockito.Mockito.lenient().when(taxService.taxForLine(any(), any(), any()))
                 .thenReturn(new TaxResult(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
     }
 
@@ -101,9 +144,28 @@ class SagaSellServiceTest {
                 .thenReturn(new StockReservationResponse(null, ReservationStatus.OUT_OF_STOCK, List.of(), "no stock"));
 
         assertThatThrownBy(() -> service.addSell(dtoWithOneLine()))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Insufficient stock");
+                .isInstanceOf(InsufficientStockException.class)
+                .hasMessageContaining("Not enough sellable stock")
+                .hasMessageContaining("no stock");
 
+        verify(saleWriter, never()).writePending(any(), any(), any(), any(), any(), any());
+    }
+
+    /**
+     * The period-close guard had NO unit test — which is how the missing mock above rotted unnoticed. A
+     * closed period must stop the sale at the door: no reservation taken, nothing written. Rejecting only
+     * AFTER reserving stock would leave a hold against a period the books are shut on.
+     */
+    @Test
+    void a_sale_dated_in_a_CLOSED_period_is_rejected_before_anything_is_reserved() {
+        doThrow(new PeriodClosedException("This period is closed (locked through 2026-07-31)."))
+                .when(periodLockGuard).assertOpen(any(java.time.LocalDate.class));
+
+        assertThatThrownBy(() -> service.addSell(dtoWithOneLine()))
+                .isInstanceOf(PeriodClosedException.class)
+                .hasMessageContaining("closed");
+
+        verify(inventoryClient, never()).reserve(any(StockReservationRequest.class));
         verify(saleWriter, never()).writePending(any(), any(), any(), any(), any(), any());
     }
 

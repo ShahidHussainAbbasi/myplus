@@ -249,7 +249,7 @@ fulfillment.
 
 ## 3. Where we are (status, 2026-08-01)
 
-**In flight:** **B2B/B2C rollout** — Phases 0, 0.5 and 1 ✅ green (credit limit shipped 2026-08-02, customer + supplier); Phase 2 (B2B pricing) ✅ backend green 2026-08-02; Phase 3 (documents & reports) in progress — 3a + 3b-1 + 3b-2 + 3c green 2026-08-03 (batch traceability IN and OUT; returns are now CRN-/DBN- documents) (`feature/b2b-b2c`); plan of record
+**In flight:** **B2B/B2C rollout** — Phases 0, 0.5 and 1 ✅ green (credit limit shipped 2026-08-02, customer + supplier); Phase 2 (B2B pricing) ✅ backend green 2026-08-02; Phase 3 (documents & reports) in progress — 3a + 3b-1 + 3b-2 + 3c + 3d green (batch traceability IN/OUT; returns are CRN-/DBN- documents; statements download as CSV) (`feature/b2b-b2c`); plan of record
 [`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md). Also open: `feature/education-review` (finding B),
 `feature/pharmacy-review` (step 6), OMS O1 (design awaiting approval).
 

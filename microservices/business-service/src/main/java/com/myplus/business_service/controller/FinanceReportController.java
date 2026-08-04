@@ -78,6 +78,63 @@ public class FinanceReportController {
         }
     }
 
+    /**
+     * B2B-P3d (#5): the SAME customer statement, as a downloadable CSV.
+     *
+     * <p>Calls the identical service method the JSON endpoint calls, so the file a customer reconciles
+     * against can never disagree with what the screen shows — the reason this is an adapter over the
+     * existing method rather than a second query. Tenant scope and the anti-IDOR customer check live in
+     * {@code customerStatement(...)} and therefore apply here unchanged: a CSV route must never become a way
+     * to read another tenant's ledger.
+     */
+    @RequestMapping(value = "/customerStatement.csv", method = RequestMethod.GET,
+            produces = "text/csv; charset=UTF-8")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<String> customerStatementCsv(
+            @RequestParam("customerId") Long customerId) {
+        try {
+            return csv(statementCsv(reportService.customerStatement(customerId)),
+                    "customer-statement-" + customerId + ".csv");
+        } catch (Exception e) {
+            LOGGER.error(getClass().getName() + " > customerStatementCsv " + e.getMessage(), e);
+            return org.springframework.http.ResponseEntity.status(400).body("Could not build the statement.");
+        }
+    }
+
+    /** B2B-P3d (#5): the vendor statement as a downloadable CSV — same adapter, same guarantees. */
+    @RequestMapping(value = "/vendorStatement.csv", method = RequestMethod.GET,
+            produces = "text/csv; charset=UTF-8")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<String> vendorStatementCsv(
+            @RequestParam("venderId") Long venderId) {
+        try {
+            return csv(statementCsv(reportService.vendorStatement(venderId)),
+                    "vendor-statement-" + venderId + ".csv");
+        } catch (Exception e) {
+            LOGGER.error(getClass().getName() + " > vendorStatementCsv " + e.getMessage(), e);
+            return org.springframework.http.ResponseEntity.status(400).body("Could not build the statement.");
+        }
+    }
+
+    /** One statement -> CSV text. Column order matches the on-screen statement, deliberately. */
+    private String statementCsv(java.util.List<com.myplus.common.subledger.StatementLine> lines) {
+        java.util.List<java.util.List<?>> rows = new java.util.ArrayList<>();
+        for (com.myplus.common.subledger.StatementLine l : lines) {
+            rows.add(java.util.Arrays.asList(
+                    l.getDate(), l.getDocNo(), l.getType(), l.getDebit(), l.getCredit(), l.getBalance()));
+        }
+        return com.myplus.business_service.util.CsvWriter.write(
+                java.util.Arrays.asList("Date", "Document", "Type", "Debit", "Credit", "Balance"), rows);
+    }
+
+    /** Attachment response — the browser saves the file instead of rendering it. */
+    private org.springframework.http.ResponseEntity<String> csv(String body, String filename) {
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .header("Content-Type", "text/csv; charset=UTF-8")
+                .body(body);
+    }
+
     /** AP statement of account for one vendor (bills + payments, running balance). */
     @RequestMapping(value = "/vendorStatement", method = RequestMethod.GET)
     @ResponseBody
