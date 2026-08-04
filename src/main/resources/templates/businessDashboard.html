@@ -214,6 +214,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<ul class="snav-menu">
 								<li><a onclick="showStores();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.stores}">Stores</span></a></li>
 								<li><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.taxSettings}">Tax Settings</span></a></li>
+								<li><a id="navPriceRules" onclick="showPriceRules();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.priceRules}">Price Rules</span></a></li>
 								<li><a onclick="showBusinessConfig();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
 							</ul>
 						</div>
@@ -386,6 +387,125 @@ tr.row-voided .js-edit-row{display:none !important}
 			<!-- ═══ Team / Users (owner-only) ═══════════════════════════════════════
 			     The company SUPER owner adds ADMIN/USER members (they set their own password via a
 			     reset email) and sees the current team. Server-confined to the owner's org. -->
+			<!-- B2B-P2-UI (#10): Price Rules. The engine and the CRUD API shipped in P2; without this screen an
+			     owner could not author a rule without an API client, so the requirement was not usable.
+			     ROLE_OWNER to match #snavSettings, its only entry point — a wider gate here would just be
+			     unreachable. The catalog API also demands ADMIN_PRIVILEGE, so the server stays the authority.
+			     Layout follows the Tax Codes master on TaxSettingDiv: a table plus an inline editor. -->
+			<div id="PriceRuleDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.priceRules}">Price Rules</h4>
+				<p class="help-block" th:text="#{ui.priceRulesHelp}">
+					One rule wins per line — rules never stack. The most specific live rule applies: a rule for one
+					customer beats a rule for a customer type, and a rule for one product beats a rule for a category.
+				</p>
+				<table class="table table-condensed" id="tablePriceRule" style="width:100%">
+					<thead>
+						<tr>
+							<th style="width:150px" th:text="#{ui.precedence}">Precedence</th>
+							<th th:text="#{ui.appliesTo}">Applies to</th>
+							<th th:text="#{ui.forItem}">For</th>
+							<th class="text-right" th:text="#{ui.priceOrDiscount}">Price / discount</th>
+							<th th:text="#{ui.validity}">Valid</th>
+							<th class="text-right" th:text="#{ui.priority}">Priority</th>
+							<th th:text="#{ui.status}">Status</th>
+							<th style="width:140px"></th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+
+				<hr>
+				<div style="max-width:860px">
+					<h4 style="font-weight:700;color:#1f4e8c" id="prFormTitle" th:text="#{ui.addRule}">Add rule</h4>
+					<form class="form-horizontal" role="form" id="PriceRuleForm" autocomplete="off" onsubmit="return false;">
+						<input type="hidden" id="prId">
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="prScope" th:text="#{ui.appliesTo}">Applies to</label>
+							<div class="col-sm-4">
+								<select class="form-control" id="prScope" onchange="onPriceRuleScope()">
+									<option value="CUSTOMER" th:text="#{ui.oneCustomer}">One customer (contract price)</option>
+									<option value="TYPE" th:text="#{ui.aCustomerType}">A customer type (tier price)</option>
+								</select>
+							</div>
+							<div class="col-sm-5">
+								<select class="form-control" id="prCustomerId"></select>
+								<!-- The FOUR values CustomerType actually has, with the same labels the add-customer
+								     form uses. This list first shipped with a "RETAIL" that no customer can ever be
+								     (a tier rule scoped to it would silently never fire — the exact failure this
+								     screen exists to expose) and with VIP missing, though VIP exists precisely to
+								     grant a better price. -->
+								<select class="form-control" id="prCustomerType" style="display:none">
+									<option value="WALK_IN" th:text="#{ui.custTypeWalkIn}">Walk-in (retail)</option>
+									<option value="RETAILER" th:text="#{ui.custTypeRetailer}">Retailer (trade)</option>
+									<option value="WHOLESALE" th:text="#{ui.custTypeWholesale}">Wholesale (trade)</option>
+									<option value="VIP" th:text="#{ui.custTypeVip}">VIP (retail)</option>
+								</select>
+							</div>
+						</div>
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="prTarget" th:text="#{ui.forItem}">For</label>
+							<div class="col-sm-4">
+								<select class="form-control" id="prTarget" onchange="onPriceRuleTarget()">
+									<option value="PRODUCT" th:text="#{ui.aProduct}">One product</option>
+									<option value="CATEGORY" th:text="#{ui.aCategory}">A whole category</option>
+								</select>
+							</div>
+							<div class="col-sm-5">
+								<select class="form-control" id="prProductId"></select>
+								<select class="form-control" id="prCategoryId" style="display:none"></select>
+							</div>
+						</div>
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="prMode" th:text="#{ui.priceOrDiscount}">Price or discount</label>
+							<div class="col-sm-4">
+								<select class="form-control" id="prMode" onchange="onPriceRuleMode()">
+									<option value="FIXED" th:text="#{ui.fixedPrice}">Fixed price</option>
+									<option value="PERCENT" th:text="#{ui.percentOff}">Percent off catalog</option>
+								</select>
+							</div>
+							<div class="col-sm-5">
+								<input type="number" step="any" min="0" class="form-control" id="prValue" placeholder="0.00" th:placeholder="#{ui.value}">
+								<span class="help-block" id="prValueHint"></span>
+							</div>
+						</div>
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="prStartsOnTemp" th:text="#{ui.validity}">Valid</label>
+							<div class="col-sm-4">
+								<!-- The API takes LocalDate (ISO). The visible box shows dd-MM-yyyy and mirrors the pick
+								     into the hidden ISO field via data-dp-iso — the documented way to feed a date API. -->
+								<input type="text" class="form-control" id="prStartsOnTemp" data-dp="date" data-dp-iso="#prStartsOn" placeholder="From (optional)" th:placeholder="#{ui.fromOptional}">
+								<input type="hidden" id="prStartsOn">
+							</div>
+							<div class="col-sm-4">
+								<input type="text" class="form-control" id="prEndsOnTemp" data-dp="date" data-dp-iso="#prEndsOn" placeholder="To (optional)" th:placeholder="#{ui.toOptional}">
+								<input type="hidden" id="prEndsOn">
+							</div>
+						</div>
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="prPriority" th:text="#{ui.priority}">Priority</label>
+							<div class="col-sm-4">
+								<input type="number" step="1" class="form-control" id="prPriority" value="0">
+							</div>
+							<div class="col-sm-5">
+								<label style="font-weight:normal;padding-top:8px">
+									<input type="checkbox" id="prActive" checked="checked"> <span th:text="#{ui.active}">Active</span>
+								</label>
+								<span class="help-block" th:text="#{ui.priorityHelp}">Breaks ties between two equally specific rules — higher wins.</span>
+							</div>
+						</div>
+						<div class="form-group">
+							<div class="col-sm-9 col-sm-offset-3">
+								<div id="prError" class="text-danger" style="margin-bottom:8px"></div>
+								<button type="button" class="btn btn-success" onclick="savePriceRule()">
+									<span class="glyphicon glyphicon-floppy-disk"></span> <span id="prSaveLabel" th:text="#{ui.addRule}">Add rule</span>
+								</button>
+								<button type="button" class="btn btn-default" onclick="resetPriceRuleForm()" th:text="#{ui.clear}">Clear</button>
+							</div>
+						</div>
+					</form>
+				</div>
+			</div>
+
 			<div id="TeamDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
 				<h3 class="dash-page-title" th:text="#{ui.teamAndUsers}">Team &amp; Users</h3>
 				<div id="teamMsg" class="alert" style="display:none"></div>
@@ -887,6 +1007,15 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4">
 							<input type="text" placeholder="Purchase Invoice #" th:placeholder="#{ui.purchaseInvoice}" class="form-control" id="purchaseInvoiceNo" name="purchaseInvoiceNo"/>
 						</div>
+						<label class="control-label col-sm-2" for="purchaseBatchNo" th:text="#{ui.batchNo}">Batch #</label>
+						<div class="col-sm-4">
+							<!-- B2B-P3a (#2): optional — a pharmacy needs batches, a hardware shop does not.
+							     Feeds inventory's FEFO, which already keys on batch + expiry. Nested "stock.*"
+							     like every sibling field here: StockDTO already carries batchNo, and ModelMapper
+							     flattens it onto Purchase.batchNo — no DTO change needed. -->
+							<input type="text" class="form-control" id="purchaseBatchNo" name="stock.batchNo"
+							       placeholder="Batch / lot number" th:placeholder="#{ui.batchNoPlaceholder}"/>
+						</div>
 					</div>
 					<!-- F1 (AP): Vendor the purchase is billed from + how much was paid now. Blank paid = paid in full (cash); paid < total = on credit -> a vendor payable. Vendor needed only for a credit purchase. -->
 					<div class="form-group">
@@ -895,10 +1024,6 @@ tr.row-voided .js-edit-row{display:none !important}
 							<select class="form-control selectpicker" id="purchaseVenderDD" name="venderId" data-live-search="true" title="Cash purchase (no vendor)" th:title="#{ui.cashPurchaseNoVendor}">
 								<option value="" th:text="#{ui.nothingSelected}">Nothing Selected</option>
 							</select>
-						</div>
-						<label class="control-label col-sm-2" for="purchasePaid" th:text="#{ui.amountPaid}">Amount Paid</label>
-						<div class="col-sm-4">
-							<input type="number" step="any" min="0" class="form-control" id="purchasePaid" name="paidAmount" placeholder="Blank = paid in full (cash)" th:placeholder="#{ui.blankPaidInFullCash}"/>
 						</div>
 					</div>
 						<!-- B2B-P0 (#8): what this vendor is already owed, shown BEFORE the buyer commits to more credit.
@@ -984,17 +1109,13 @@ tr.row-voided .js-edit-row{display:none !important}
 							<input type="text" class="form-control datePicker" id="purchaseExpiry"
 							name="stock.bexpDate" placeholder="Expiry date" th:placeholder="#{ui.expiryDate}"/>
 						</div>
-						<label class="control-label col-sm-2" for="purchaseBatchNo" th:text="#{ui.batchNo}">Batch #</label>
+					</div>
+					<div>
+						<label class="control-label col-sm-2" for="purchasePaid" th:text="#{ui.amountPaid}">Amount Paid</label>
 						<div class="col-sm-4">
-							<!-- B2B-P3a (#2): optional — a pharmacy needs batches, a hardware shop does not.
-							     Feeds inventory's FEFO, which already keys on batch + expiry. Nested "stock.*"
-							     like every sibling field here: StockDTO already carries batchNo, and ModelMapper
-							     flattens it onto Purchase.batchNo — no DTO change needed. -->
-							<input type="text" class="form-control" id="purchaseBatchNo" name="stock.batchNo"
-							       placeholder="Batch / lot number" th:placeholder="#{ui.batchNoPlaceholder}"/>
+							<input type="number" step="any" min="0" class="form-control" id="purchasePaid" name="paidAmount" placeholder="Blank = paid in full (cash)" th:placeholder="#{ui.blankPaidInFullCash}"/>
 						</div>
 					</div>
-
 					<div class="form-group text-center">
 						<button type="button" id="addPurchase" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
@@ -1132,6 +1253,10 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellSellRate"
 								name="stock.bsellRate" placeholder=" Sell Amount " th:placeholder="#{ui.sellAmount}" onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required">
+							<!-- B2B-P2-UI (#10): when a contract or tier rule set this price, say so. A price the
+							     cashier cannot explain to the customer is the problem the pricing rules exist to
+							     avoid, so the reason belongs beside the number, not only on the stored line. -->
+							<span class="help-block" id="sellPriceReason" style="display:none;color:#1f4e8c;font-weight:600"></span>
 						</div>
 						<label class="control-label col-sm-2" for="sellTotalAmount" th:text="#{ui.total}">Total</label>
 						<div class="col-sm-4">
@@ -1941,6 +2066,10 @@ tr.row-voided .js-edit-row{display:none !important}
 					<div class="sr-kpi k-invoices"><div class="k-label" th:text="#{ui.invoices}">Invoices</div><div class="k-value" id="srkInvoices">—</div></div>
 					<div class="sr-kpi k-due"><div class="k-label" th:text="#{ui.outstandingDue2}">Outstanding due</div><div class="k-value" id="srkDue">—</div></div>
 				</div>
+
+				<!-- B2B-P3e-2 (#6): subtotals when a grouping is active. The grouped view is the answer; the
+				     detail table below is the evidence. -->
+				<div id="srGroups" style="display:none;margin-bottom:14px"></div>
 
 				<table id="tableSellReport" class="table table-striped" style="width:100%">
 			        <thead>

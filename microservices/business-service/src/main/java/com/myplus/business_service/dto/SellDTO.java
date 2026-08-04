@@ -52,6 +52,8 @@ public class SellDTO implements Serializable {
 	private Long customerId;
 	private String customerType;   // WALK_IN | RETAIL | WHOLESALE | RETAILER (Phase 0 channel)
 	private String category;       // catalog category name, via ProductRef
+	/** B2B-P3e-2 (#6): DAY | MONTH | CUSTOMER | PRODUCT | CATEGORY | CHANNEL. Absent = ungrouped detail. */
+	private String groupBy;
 
 	/**
 	 * B2B-P3b-2 (#4): the batch(es) this line drew from, for the receipt and for traceability.

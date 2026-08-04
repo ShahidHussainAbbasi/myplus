@@ -27,6 +27,25 @@ var ZERO = 0;
 var HUNDRED = 100;
 var edit = false;
 
+/**
+ * The FOUR values CustomerType actually has, with the labels the add-customer form uses.
+ *
+ * There is no fifth. A "RETAIL" once appeared in this picker and in the shared report filter — a value no
+ * customer can ever hold, so a tier rule scoped to it would have silently never fired, and VIP was missing
+ * although VIP exists precisely to grant a better price. Read the list off the enum, never off another list.
+ */
+var CUSTOMER_TYPE_LABELS = {
+	WALK_IN:   'ui.js.custTypeWalkIn',
+	RETAILER:  'ui.js.custTypeRetailer',
+	WHOLESALE: 'ui.js.custTypeWholesale',
+	VIP:       'ui.js.custTypeVip'
+};
+
+function customerTypeLabel(value){
+	var key = CUSTOMER_TYPE_LABELS[value];
+	return key ? t(key) : String(value || '').replace('_', ' ');
+}
+
 var s2n = function(v){
 	if(isNaN(v))
 		return 0;

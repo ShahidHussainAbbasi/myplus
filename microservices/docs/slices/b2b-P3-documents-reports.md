@@ -1,7 +1,8 @@
 # B2B Phase 3 — documents & reports (customer requirements **#2, #4, #1, #5, #6**)
 
-**Status:** 🟡 IN PROGRESS — **3a + 3b-1 + 3b-2 + 3c + 3d + 3e-1 DONE & Cypress-green**; **3e-2** (group-by) is all that remains, + candidate **3f**.
-Gates: `purchase-batch-expiry.cy.js` (3a/3b-1) · `receipt-detail.cy.js` (3b-2) · `return-documents.cy.js` (3c) · `statement-download.cy.js` (3d) · `report-filters.cy.js` (3e-1) — all green
+**Status:** ✅ **COMPLETE — 3a, 3b-1, 3b-2, 3c, 3d, 3e-1 and 3e-2 all Cypress-green (2026-08-03/04).**
+Requirements #1, #2, #4, #5, #6 shipped. Candidate **3f** remains OPEN (see §12) — it needs your decision.
+Gates: `purchase-batch-expiry.cy.js` (3a/3b-1) · `receipt-detail.cy.js` (3b-2) · `return-documents.cy.js` (3c) · `statement-download.cy.js` (3d) · `report-filters.cy.js` (3e-1) · `report-grouping.cy.js` (3e-2) — **all green**
 Gate: `cypress/e2e/business/purchase-batch-expiry.cy.js`
 Programme: [`b2b-b2c-rollout-plan.md`](../b2b-b2c-rollout-plan.md) · Previous: [`b2b-P2-pricing.md`](b2b-P2-pricing.md)
 Requirements: [`customer-requirements-plan.md`](../customer-requirements-plan.md) #2 · #4 · #1 · #5 · #6
@@ -268,7 +269,7 @@ path touched, no existing response altered.
 | **Live-modules rule** | Additive read-only endpoints; no write path, no schema, no existing response touched. |
 | **Testing standard** | Pure-logic `CsvWriterTest` on `mvn test` (quoting, commas, embedded quotes, nulls) + a headed Cypress gate asserting the download matches the JSON. |
 
-### 3e — #6 filterable, exportable reports — **3e-1 DONE (green 2026-08-04); 3e-2 remaining**
+### 3e — #6 filterable, exportable reports — **DONE (3e-1 + 3e-2 green 2026-08-04)**
 
 #### What the survey found (2026-08-04)
 
@@ -283,7 +284,18 @@ This is bigger than the other sub-slices, so it ships in two gated halves rather
 | | Scope |
 |---|---|
 | **3e-1** | Server-side **filters** (customer, product, category, customer type) on the sale report + **CSV export** through 3d's `CsvWriter` + the shared filter rail component |
-| **3e-2** | **Group-by** (day / month / customer / product / category / user) with subtotals, reusing the same rail |
+| **3e-2** | **Group-by** (day / month / customer / product / category) with subtotals, reusing the same rail |
+
+#### 3e-2 design (2026-08-04)
+
+| Piece | Decision |
+|---|---|
+| **Where it runs** | Server-side, like the filters, and for the same reason: the export must be what the screen shows. A grouped screen with a detail-level export would hand the customer a different document from the one they are looking at. |
+| **One call, two views** | `loadSR` returns detail rows in `collection` **and**, when `groupBy` is set, the aggregated rows in `object`. One query, one round trip — a second endpoint would risk the two views disagreeing after a concurrent sale. |
+| **The grouping** | A pure enum (`SaleReportGrouping`) holding the key extractor and label per dimension. Adding a dimension is one enum constant, not a branch in the controller. |
+| **Money** | Subtotals sum with `BigDecimal`, never double — a report a shop reconciles against must not drift by rounding. |
+| **Export** | Grouped when a grouping is active, detail otherwise: the CSV mirrors the screen exactly. |
+| **Live-modules rule** | `groupBy` absent = today's report. Nothing changes for anyone who does not use it. |
 
 #### The decision that shapes it: filters go SERVER-side
 
@@ -615,4 +627,37 @@ changes what every statement shows, for every tenant. Design, gate and an explic
 **A UX bug the gate caught:** the rail was first mounted inside `loadSR()`, so filters only appeared AFTER
 running a report once — backwards, since filters are set before running. Now mounted on page ready.
 
-**Still open:** **3e-2** (group-by with subtotals, reusing this rail) and candidate **3f**.
+**Still open:** candidate **3f** only.
+
+
+---
+
+## 14. 3e-2 as built (green 2026-08-04) — Phase 3 COMPLETE
+
+- `SaleReportGrouping` — a pure enum carrying each dimension's key extractor, so adding a dimension is one
+  constant rather than a branch in the controller. `SaleReportGroupingTest` runs on `mvn test`.
+- `loadSR` returns detail in `collection` **and** subtotals in `object` from the SAME query — one round
+  trip, and the two views cannot disagree after a concurrent sale.
+- The CSV mirrors the screen: **grouped when grouped**, detail otherwise.
+- Group-by lives in the **shared rail**, so any report that gains grouping inherits the control and the
+  `groupBy` name the backend binds.
+
+**What the gate pins:** a two-line invoice is ONE transaction (the naive version reports 3 sales for a day
+that had 2) · a grouped screen exports a grouped file · an unknown `groupBy` is ungrouped, never a 500 ·
+subtotals sum with `BigDecimal` (`0.10 x 3 = 0.30` exactly, where doubles give `0.30000000000000004`).
+
+**Caught before shipping:** the subtotals table used `t('ui.js.invoices')`, `ui.js.total` etc. Those exist as
+`ui.*` for Thymeleaf, but **only `ui.js.*` reaches the browser** — every header would have rendered as a raw
+key. Five keys added across six bundles.
+
+### Phase 3 scorecard
+
+| Req | Sub-slice | Gate |
+|---|---|---|
+| #2 batch/expiry on purchase | 3a | `purchase-batch-expiry.cy.js` |
+| — invoice vs receipt title | 3b-1 | same |
+| #4 richer receipt + batch traceability OUT | 3b-2 | `receipt-detail.cy.js` |
+| #1 CRN-/DBN- return documents | 3c | `return-documents.cy.js` |
+| #5 statement download | 3d | `statement-download.cy.js` |
+| #6 report filters + export | 3e-1 | `report-filters.cy.js` |
+| #6 report grouping | 3e-2 | `report-grouping.cy.js` |

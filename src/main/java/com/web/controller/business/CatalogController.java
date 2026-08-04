@@ -210,6 +210,30 @@ public class CatalogController {
         catch (Exception e) { LOGGER.error("priceRules proxy error", e); return "[]"; }
     }
 
+    /**
+     * "What does this buyer pay for these lines?" → catalog POST /price-rules/quote.
+     *
+     * <p>B2B-P2-UI: the sell screen needs this because the CASHIER'S submitted rate wins server-side (a
+     * deliberate override must beat a rule), and the screen was pre-filling that rate from the CATALOG price —
+     * so a contract price was resolved, recorded as the line's reason, and then not charged. The till asks
+     * what the buyer pays and puts THAT in the rate box, where the cashier can still override it.
+     *
+     * <p>Open to any authenticated user, matching the catalog endpoint: every till needs it on every sale, it
+     * answers only for the caller's own tenant, and it returns prices the cashier is about to charge anyway.
+     * The client sends ids and quantities only — it never sends a price and is never believed about one.
+     */
+    @PostMapping("/priceQuote")
+    @ResponseBody
+    public Map<String, Object> priceQuote(@RequestBody final Map<String, Object> body) {
+        try { return catalog.postJson("/price-rules/quote", body); }
+        catch (Exception e) {
+            // A pricing outage must never stop a sale: an empty quote means "charge catalog", which is
+            // exactly today's behaviour. Same fallback SagaSellService takes for the same reason.
+            LOGGER.warn("priceQuote proxy error — this sale prices at catalog rates ({})", e.toString());
+            return Collections.singletonMap("lines", Collections.emptyList());
+        }
+    }
+
     /** Create (no id) or update (with id) a price rule → catalog POST/PUT /price-rules. */
     @PostMapping("/savePriceRule")
     @ResponseBody

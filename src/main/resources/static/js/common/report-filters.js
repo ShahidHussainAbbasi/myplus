@@ -9,13 +9,14 @@
  * CONTRACT
  *   mountReportFilters({
  *     container : element or id to render into
- *     dimensions: subset of ['customer','product','category','channel']  (default: all)
+ *     dimensions: subset of ['groupBy','customer','product','category','channel']  (default: the four filters)
  *     onApply   : function(values) — called when the user applies; run your existing load with `values`
  *     exportUrl : function(values) -> string — the CSV href; omit to hide the Export button
  *   })
  *
  * The values object uses the SAME field names the backend binds (customerId, productId, category,
- * customerType), so a caller passes it straight through to its existing POST with no translation layer.
+ * customerType, groupBy), so a caller passes it straight through to its existing POST with no translation
+ * layer.
  */
 (function (global) {
 	'use strict';
@@ -92,6 +93,23 @@
 			return s;
 		}
 
+		// B2B-P3e-2 (#6): group-by lives in the SHARED rail too — every report that gains grouping inherits
+		// the same control and the same value name (groupBy) the backend binds.
+		var groupBy = null;
+		if (dims.indexOf('groupBy') !== -1) {
+			groupBy = select('rfGroupBy', t('ui.js.noGrouping'));
+			[['DAY','ui.js.groupDay'],['MONTH','ui.js.groupMonth'],['CUSTOMER','ui.js.groupCustomer'],
+			 ['PRODUCT','ui.js.groupProduct'],['CATEGORY','ui.js.groupCategory'],['CHANNEL','ui.js.groupChannel']]
+				.forEach(function(pair){
+					var o = document.createElement('option');
+					o.value = pair[0];
+					o.textContent = t(pair[1]);
+					groupBy.appendChild(o);
+				});
+			host.appendChild(field(t('ui.js.groupBy'), groupBy));
+			ids.groupBy = 'rfGroupBy';
+		}
+
 		var customer = add('customer', 'rfCustomer', t('ui.js.allCustomers'));
 		var product  = add('product',  'rfProduct',  t('ui.js.allProducts'));
 		var category = add('category', 'rfCategory', t('ui.js.allCategories'));
@@ -99,11 +117,15 @@
 
 		if (customer) fill(customer, 'getUserCustomer', 'customerId', 'name');
 		if (product)  fill(product,  'getUserProduct',  'id',         'name');
+		// The four values CustomerType actually has — from the ONE list in main.js, never a copy. This filter
+		// shipped with a "RETAIL" that is not one of them (a channel matching no row, ever) and with VIP
+		// missing, so VIP sales could not be filtered at all. The 3e-1 gate counted these options but never
+		// selected one and checked that anything came back, which is how a filter matching nothing went green.
 		if (channel) {
-			['WALK_IN', 'RETAIL', 'WHOLESALE', 'RETAILER'].forEach(function (v) {
+			Object.keys(CUSTOMER_TYPE_LABELS).forEach(function (value) {
 				var o = document.createElement('option');
-				o.value = v;
-				o.textContent = v.replace('_', ' ');
+				o.value = value;
+				o.textContent = customerTypeLabel(value);
 				channel.appendChild(o);
 			});
 		}
@@ -113,7 +135,8 @@
 				customerId  : customer && customer.value ? customer.value : '',
 				productId   : product  && product.value  ? product.value  : '',
 				category    : category && category.value ? category.value : '',
-				customerType: channel  && channel.value  ? channel.value  : ''
+				customerType: channel  && channel.value  ? channel.value  : '',
+				groupBy     : groupBy  && groupBy.value  ? groupBy.value  : ''
 			};
 		}
 
@@ -134,7 +157,7 @@
 			}
 		}
 
-		[customer, product, category, channel].forEach(function (s) {
+		[customer, product, category, channel, groupBy].forEach(function (s) {
 			if (s) s.addEventListener('change', function () {
 				refreshExport();                       // the file must always match what is on screen
 				if (typeof opts.onApply === 'function') opts.onApply(values());

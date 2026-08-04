@@ -63,9 +63,9 @@ You confirmed a booker **is** a supplier. That removes the new-party-type proble
 | 2 | Batch # on purchase | 🔴 | **XS** *(was M)* | **F1 — done first** | ✅ **SHIPPED** Phase 3a, green 2026-08-03. Only the form INPUT + column were missing; the nested `stock.*` binding always worked. **Unblocks #4** |
 | 7 | Stock cap + expiry e-mail | 🟡 alerts exist | M | inventory + notification | ⬜ unscheduled |
 | 9 | Dues limit | 🔴 | M | **= OMS B4** | ✅ **SHIPPED** Phase 1, green 2026-08-02 (customer + supplier; warn = take confirmation) |
-| 10 | Customer/product discount | 🔴 | M | **= OMS B1** | ✅ **SHIPPED** Phase 2, green 2026-08-02 (contract + tier rules; reason persisted). Mgmt screen outstanding |
+| 10 | Customer/product discount | 🔴 | M | **= OMS B1** | 🟢 **COMPLETE** (pending the headed gate) — P2 shipped the engine + CRUD API (green 2026-08-02); **P2-UI** (2026-08-04) adds the Price Rules screen (list/create/edit/delete, precedence + “overridden by”) **and fixes the till**: the sell screen was prefilling `sellRate` from the CATALOG price, and since the submitted rate wins server-side (so a cashier override beats a rule) the contract price was computed, recorded as `priceReason`, and never charged. The screen now quotes on product-pick and re-prices the cart when the customer is chosen, while a typed override still wins. See b2b-P2-pricing.md §4–§6. |
 | 11 | Supplier targets & bonuses | 🔴 | M *(was L)* | business-service | ⬜ unscheduled |
-| 6 | Multi-dimension reports | 🟡 | M | **= F2** | 🟡 **3e-1 SHIPPED** green 2026-08-04 (filters: customer/product/category/channel + CSV export + SHARED filter rail every future report attaches to). **3e-2 group-by remains** |
+| 6 | Multi-dimension reports | 🔴 | M | **= F2** | ✅ **SHIPPED** Phase 3e, green 2026-08-04. Filters (customer/product/category/channel) + group-by (day/month/customer/product/category/channel) with subtotals + CSV export that mirrors the screen, all via a SHARED rail every future report inherits |
 
 **#6 dropped from L to M** on your clarification: *"option to select or add filter to view/export"* is a
 **filterable report with column/dimension selection** — not an interactive pivot engine. That is a

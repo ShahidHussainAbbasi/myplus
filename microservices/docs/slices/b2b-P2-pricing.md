@@ -333,3 +333,204 @@ skipped entirely for a walk-in with no customer id and no type, since no rule co
 
 **Still open:** the sell screen's live "reason" hint and the Price Rules management screen. The backend is
 complete and gated; both are UI-only and are listed above rather than quietly dropped.
+
+
+---
+
+# P2-UI — the Price Rules screen (completes requirement #10)
+
+**Status:** 🟡 IN PROGRESS (started 2026-08-04)
+
+## 1. Why this exists, stated plainly
+
+Phase 2 was gated on the backend and marked green. The rule engine works, the CRUD API exists
+(`ADMIN_PRIVILEGE`, org-scoped) — **but there is no screen, so an owner cannot author a rule without an API
+client.** Requirement #10 was therefore marked SHIPPED while being unusable by the customer it was for.
+
+The deferral WAS written down, in this doc and the rollout plan. That is the lesson: **a note in a doc is not
+a plan.** Nothing carried it into a numbered slice with a gate, so once P2 went green the work became
+invisible. It violates the standing rule to finish one domain end-to-end before starting the next.
+
+**Checked at the same time (2026-08-04):** Phase 1 does NOT have this problem — `creditLimit` and
+`paymentTermsDays` are editable inputs on both the customer and vendor forms. Its outstanding items
+(due-date-from-terms, purchase-screen limit hint) are genuine enhancements, not unreachable features. **P2 is
+the only requirement that shipped without a way to use it.**
+
+## 1b. Standards this slice is built to
+
+| Dimension | What applies |
+|---|---|
+| **Business/domain** | Pricing is the owner's commercial policy — "Ali Traders buys Panadol at 92", "every WHOLESALE customer gets 12% off antibiotics". Authoring it must not require a developer. |
+| **The rule that matters** | **Rules NEVER stack.** Exactly one wins per line. An owner creating a second, overlapping rule must be able to see which one will actually apply, or they will conclude the system is ignoring them. The screen therefore shows precedence, not just a list. |
+| **SaaS multi-tenancy** | The API is already org-scoped and `ADMIN_PRIVILEGE`-gated; the screen adds no rules of its own and therefore cannot weaken them. The monolith proxy passes the caller's identity through, exactly as every other proxied write does. |
+| **Microservice boundaries** | Rules are catalog-service data — the screen talks to the existing endpoints through the monolith proxy. No new service, no new table, no duplicated validation. |
+| **Design patterns** | **Adapter** (monolith proxy over the catalog API) · the precedence display reuses the SAME ordering the resolver applies, rather than re-describing it in JavaScript where it would drift. |
+| **SOLID / DRY** | Validation stays server-side in `commerce-pricing` (percent bounds, dates). The screen surfaces errors rather than re-implementing the rules. |
+| **Live-modules rule** | Purely additive: a new screen and three proxy routes. Existing pricing behaviour is untouched — an org with no rules keeps catalog prices. |
+| **Testing standard** | Cypress gate that closes the loop the backend gate could not: **create a rule in the UI, then sell and assert the sale used it** and the line's `priceReason` names it. |
+
+## 2. Scope
+
+| | |
+|---|---|
+| **Proxy** | ✅ **already complete** — `GET /priceRules`, `POST /savePriceRule` (create AND update), `POST /deletePriceRule`. I first reported these as missing; that came from a truncated grep. **Nothing to build here.** |
+| **Screen** | list · create · edit · delete, on the owner-gated pricing area |
+| **Precedence** | show which rule wins, using the resolver's own order: customer×product > customer×category > tier×product > tier×category > catalog; ties by `priority`, then lowest id |
+| **Also** | the sell-screen price-reason hint — which turned out not to be a hint but a defect fix (§4). **Approved and built 2026-08-04, see §6.** |
+
+**Vocabulary the screen must speak** (from `PriceRule`): scope `CUSTOMER` or `TYPE` · target `PRODUCT` or
+`CATEGORY` · mode `FIXED` (a price) or `PERCENT` (a discount) · optional `startsOn`/`endsOn` · `priority` ·
+`active`.
+
+
+## 3. What was built (2026-08-04)
+
+| Piece | File | Note |
+|---|---|---|
+| Screen | `businessDashboard.html` → `#PriceRuleDiv` | table + inline editor, the same shape as the Tax Codes master on `TaxSettingDiv`. `ROLE_OWNER`, matching `#snavSettings` — its only entry point. |
+| Nav | `#navPriceRules` under Settings | given an id because no existing spec navigates the sidebar; the gate needed a stable hook. |
+| Logic | `business.js` → `showPriceRules` … `deletePriceRule` | ~230 lines. No new endpoint — the P2 proxy was already complete. |
+| i18n | 51 keys × 6 bundles = 306 lines | bundles stay aligned at 1,332 `ui.*` keys each. |
+| Gate | `cypress/e2e/business/price-rules-screen.cy.js` | 8 tests. |
+
+### Decisions worth recording
+
+**Precedence is mirrored, never re-derived.** `renderPriceRules` sorts by specificity DESC, then `priority`
+DESC, then id ASC — read off `PriceResolver.bestRule()`, with a comment in each file pointing at the other.
+Specificity is `CUSTOMER +2, PRODUCT +1`, so the four ranks are customer×product, customer×category,
+tier×product, tier×category. The screen therefore cannot disagree with the till about which rule wins.
+
+**"Overridden by #n" is deliberately narrow.** It is shown only when two LIVE rules share the *exact* same
+buyer and the *exact* same item — the collision that is decidable from the rule list alone. Whether a
+customer×product rule shadows a tier×category one depends on the customer and product on the line, so
+claiming it in a static table would be inventing an answer. An inactive or expired rule is never labelled
+overridden: it is not losing a race, it simply cannot apply.
+
+**Dates.** The API takes `LocalDate`, so the form posts ISO. The visible box stays `dd-MM-yyyy` and mirrors
+into a hidden field via `data-dp-iso` — the documented pattern in `date-picker.js`, not a second calendar.
+
+**A first-paint race, found and fixed before shipping.** The table names a customer by reading the picker it
+was loaded into. Firing the lookups and the rule load in parallel meant the first paint could read an empty
+picker and print `#12` instead of `Ali Traders`, correcting itself only on the next save. `showPriceRules`
+now chains: lookups, *then* render.
+
+## 4. 🔴 Found while building this: contract prices are computed but not charged on the POS path
+
+**This is a defect in P2, not in the screen.** Recording it here because the screen is what surfaced it.
+
+`SagaSellService.buildLines()` line ~426:
+
+```java
+BigDecimal soldRate = (s.getSellRate() != null && s.getSellRate().compareTo(BigDecimal.ZERO) > 0)
+        ? s.getSellRate() : catalogPrice;
+```
+
+The submitted rate wins. And the sell screen always submits one — `business.js:1756` fills `#sellSellRate`
+from the **catalog** selling price the moment a product is picked, and `business.js:184` ships it as
+`line.sellRate`. The barcode path (`business.js:279`) does the same.
+
+So on a real sale through the UI: the basket is quoted, a rule matches, `priceReason` is set on the line —
+and then the customer is charged the catalog price anyway. The receipt can say *"Contract price −12%"* next
+to the undiscounted amount.
+
+**Why the P2 gate went green.** `pricing.cy.js:69` submits `sales: [{ productId, quantity: 1 }]` — with no
+`sellRate`. That is the one path where the fallback branch is taken and the contract price survives. The gate
+proved the *engine*; nothing proved the *screen*, because there was no screen.
+
+**Why I have not fixed it.** The obvious server-side fix — let the rule beat the submitted rate — is wrong:
+the server cannot tell a cashier's deliberate override (850 on a 1000 item) from the browser's prefill, and
+that override is a feature `price-override.cy.js` exists to protect. The correct fix is client-side: the sell
+screen asks for a quote when the customer and line are known and puts the contract price *into* the rate box,
+where the cashier can see it and still override it. The server's precedence then stays exactly as it is.
+
+That needs: a `POST /priceQuote` proxy → catalog `/price-rules/quote`, and a debounced call from the cart so
+it stays off the hot path (the line is added at catalog price immediately; the quote updates the row when it
+arrives).
+
+**It changes what live tenants charge**, which is why it is a separate, confirmed slice and not a quiet
+addition to this one.
+
+## 5. Status
+
+🟢 **Screen COMPLETE and Cypress-green 2026-08-04** — 8/8, gate
+`cypress/e2e/business/price-rules-screen.cy.js`. It caught two real defects on the way (§7).
+🟡 **Pricing fix built, gate not yet run** — `contract-price-charged.cy.js` (6 tests).
+Requirement #10 moves from 🟡 *engine only, unusable* to 🟢 *authorable*, and to *charged* once
+the second gate passes.
+
+
+## 6. The fix (approved 2026-08-04)
+
+### Why the fix is client-side
+
+The tempting fix — let a matched rule beat the submitted rate in `SagaSellService` — is wrong. The server
+receives one number in one field and cannot tell a cashier's deliberate 850-on-a-1000-item from this screen's
+prefill. Making the rule win would silently kill the manual override that `price-override.cy.js` exists to
+protect. **Server precedence is correct and is untouched.** The till asks what the buyer pays and puts *that*
+in the rate box — visible, explicable, and still overridable by the person standing at the counter.
+
+### What changed
+
+| Piece | File | Note |
+|---|---|---|
+| Quote proxy | `CatalogController.priceQuote` → catalog `POST /price-rules/quote` | Adapter, like every other catalog route. Open to any authenticated user, matching the catalog endpoint — every till needs it on every sale, it answers only for the caller's tenant, and it returns prices the cashier is about to charge anyway. On failure it returns an empty quote = "charge catalog" = today's behaviour, the same fallback `SagaSellService` takes. |
+| Quote on pick | `business.js` → `quoteSellFormPrice` | Fires alongside the `productSellable` call already made on pick, so it adds **no round trip to the critical path**. The catalog price is written synchronously first, so the line is usable immediately. |
+| Re-price on customer change | `business.js` → `requoteSellCart` | ONE call for the whole cart, never one per line. Covers "scan first, ask who is buying second" — an ordinary counter habit that otherwise still charged catalog. |
+| Reason on screen | `#sellPriceReason` | A price the cashier cannot explain to the customer is the problem the rules exist to avoid. |
+| Line maths | `business.js` → `sellLineMath` | **Extracted** from `calculateNetSell`, which now calls it. Re-pricing a cart line has to recompute its total, and a second copy of that arithmetic would drift from the form's. Rounding order preserved exactly. |
+| Gate | `cypress/e2e/business/contract-price-charged.cy.js` | 6 tests. |
+
+### The override rule, stated once
+
+`window._sellAutoRate` (form) and `line.autoRate` (cart) record the rate **this code** put there. A re-price
+only ever replaces a rate that still equals its `autoRate`. The moment the cashier types, `autoRate` no longer
+matches — or is `null` for a line added with a typed rate — and nothing will move that price again. This is
+the client-side twin of the server rule it must not contradict.
+
+### Known edge, accepted
+
+The client quotes at pick time; the server re-quotes at submit and records `priceReason` from its own quote.
+If a rule is edited or deleted in between, the customer is charged the price they were quoted at the counter
+while the recorded reason reflects the later state. That is ordinary retail behaviour — the quoted price wins
+— and the alternative (re-pricing at submit, behind the cashier's back) is worse. The margin and credit
+guards all work off the submitted rate, so they stay consistent either way.
+
+### Vocabulary note
+
+`customerType` now rides on the sell customer `<option>` as `data-customer-type`. A TIER rule matches on it
+and the server quotes with **both** id and type; sending only the id would let the till and the rules disagree
+about the price for tier-scoped rules.
+
+
+## 7. The gate caught a real defect: a customer type that does not exist
+
+The first headed run failed five of eight tests on
+`Failed to convert ... to type CustomerType for value [RETAIL]`.
+
+`CustomerType` has exactly **four** values — `WALK_IN`, `RETAILER`, `WHOLESALE`, `VIP`. There is no `RETAIL`.
+The add-customer form had it right all along. Three other places did not:
+
+| Where | Consequence |
+|---|---|
+| the gate's own fixture | the visible failure — a 400 from business-service |
+| **the new `#prCustomerType` picker** | offered `RETAIL`, which no customer can ever be, so a tier rule scoped to it would have **silently never fired** — precisely the failure this screen was built to expose. And it omitted `VIP`, so an owner could not give a VIP a tier price, though VIP exists *specifically* to grant a better price |
+| **`report-filters.js` (pre-existing, 3e-1)** | the shared channel filter offered the same wrong list: a channel matching no row, ever, and no way to filter VIP sales at all |
+
+**Where the bad list came from.** I built the picker by copying the option list out of `report-filters.js`
+instead of reading it off the enum. The bug was already there; copying it is what spread it. **Read a
+constrained list off its source of truth, never off another list that happens to be nearby.**
+
+**Why 3e-1 went green with a broken filter.** `report-grouping.cy.js` asserts the channel select has options
+and counts them. It never selects one and checks that rows come back. A filter that matches nothing satisfies
+every assertion in that test.
+
+**Fixed.** All four values, everywhere, with the labels the add-customer form already uses. The list and its
+label lookup now live **once**, as `CUSTOMER_TYPE_LABELS` / `customerTypeLabel()` in `main.js`, because both a
+module file (`business.js`) and a common one (`report-filters.js`) need it — the DRY rule for shared helpers.
+The Price Rules table now shows "Retailer (trade)" rather than the raw constant. `SaleReportFilterTest`'s
+sample data used `"RETAIL"` too; it is a plain string compare so nothing failed, but it read as though RETAIL
+were real, and is now `"RETAILER"`.
+
+**Still open:** nothing pins these option lists to the enum. The enum's own javadoc anticipates `GOVT`, `NGO`,
+`EXPORT`, and adding one would silently leave both pickers stale. A guard test was offered and not taken this
+round; worth revisiting when a fifth value is actually added.

@@ -182,6 +182,10 @@ $(document).ready(function() {
 			// (and snapshots the catalog price separately). Without this the sold rate was dropped (saga fell back
 			// to the catalog price).
 			obj.sellRate = (obj.stock && obj.stock.bsellRate != null) ? obj.stock.bsellRate : null;
+			// B2B-P2-UI: record whether this rate is one the system set or one the cashier typed. Only a
+			// system-set rate may be re-priced later when the customer is chosen; an override must survive.
+			obj.autoRate = (window._sellAutoRate != null && Number(obj.sellRate) === Number(window._sellAutoRate))
+				? Number(window._sellAutoRate) : null;
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
 			// obj.item = item;
 
@@ -277,11 +281,15 @@ function scanAddToCart(ref){
 		var obj = {
 			productId: pid, itemId: pid, itemName: name,
 			quantity: 1, sellRate: price, description: ref.description || '',
+			// B2B-P2-UI: the scan path prefills the CATALOG price too, so mark it re-priceable and quote.
+			autoRate: Number(price),
 			stock: { itemId: pid, itemName: name, bsellRate: price, bsellDiscount: '', bsellDiscountType: '0' }
 		};
 		data.push(obj);
 		tablesi.row.add([pid, name, 1, price, '', '', "<button id='DII' onclick=UIT(" + pid + ")>Del</button>"]).draw();
 	}
+	// A scanned line must be priced for the buyer exactly like a manually added one.
+	requoteSellCart();
 	// B1 (pharmacy): warn early if this is a prescription-only medicine; the server still refuses it at submit.
 	if (typeof rxNoticeIfNeeded === 'function') rxNoticeIfNeeded(pid, name);
 	calculateChange();   // recompute Change & Due from the live cart total
@@ -559,6 +567,308 @@ function deleteTaxCode(id){
 		$.ajax({ type:'POST', url:serverContext+'deleteTaxCode', contentType:'application/json', dataType:'json', data:JSON.stringify({ id:id }),
 			success:function(){ loadTaxCodesAdmin(); },
 			error:function(){ uiAlert({ title:t('ui.js.deleteFailed'), message:t('ui.js.couldNotDeleteTheTaxCode'), tone:'danger' }); }
+		});
+	});
+}
+
+// ─── B2B-P2-UI (#10): Price Rules (owner) ────────────────────────────────────
+// The rule engine and its CRUD API shipped in Phase 2; this screen is what makes them usable without an
+// API client. Same show/load/inline-editor shape as the tax-code master above.
+//
+// THE ONE THING THIS SCREEN MUST GET RIGHT: rules never stack — exactly one wins per line. An owner who
+// adds a second, overlapping rule and sees no effect will conclude the system is broken. So the table is
+// ordered by the resolver's OWN precedence and says outright which rule is being overridden.
+//
+// The order is mirrored from PriceResolver.bestRule(): specificity DESC, then priority DESC, then id ASC.
+// Mirrored rather than re-invented — if the resolver's order ever changes, this comment is the pointer to
+// the one other place that must change with it.
+
+/** specificity() from commerce-pricing PriceRule: CUSTOMER +2, PRODUCT +1. Higher is more specific. */
+function priceRuleSpecificity(r){
+	return ((r.scope === 'CUSTOMER') ? 2 : 0) + ((r.target === 'PRODUCT') ? 1 : 0);
+}
+
+/** Two rules collide only when they target the SAME buyer and the SAME item. */
+function priceRuleKey(r){
+	var who  = (r.scope === 'CUSTOMER') ? ('C' + r.customerId) : ('T' + (r.customerType || ''));
+	var what = (r.target === 'PRODUCT') ? ('P' + r.productId)  : ('G' + r.categoryId);
+	return who + '|' + what;
+}
+
+/** LIVE / SCHEDULED / EXPIRED / INACTIVE — only a LIVE rule can ever price a line. */
+function priceRuleState(r){
+	if (r.active === false) return 'INACTIVE';
+	var today = new Date(); today.setHours(0,0,0,0);
+	if (r.startsOn && new Date(r.startsOn + 'T00:00:00') > today) return 'SCHEDULED';
+	if (r.endsOn   && new Date(r.endsOn   + 'T00:00:00') < today) return 'EXPIRED';
+	return 'LIVE';
+}
+
+function showPriceRules(){
+	$('.formDiv').hide();
+	$('#PriceRuleDiv').show();
+	resetPriceRuleForm();
+	// The table names a customer by reading the picker it was loaded into, so the pickers must be populated
+	// BEFORE the rules render — otherwise the first paint shows "#12" instead of "Ali Traders" and only
+	// corrects itself on the next save. Load, then render.
+	loadPriceRuleLookups().always(loadPriceRules);
+}
+
+/** Customers, products and categories for the three pickers. Returns a promise of all three. */
+function loadPriceRuleLookups(){
+	function fill($sel, rows, valueKey, labelKey){
+		$sel.empty().append($('<option>').val('').text(t('ui.js.selectOne')));
+		(rows || []).forEach(function(r){
+			if (r[valueKey] == null) return;
+			$sel.append($('<option>').val(r[valueKey]).text(String(r[labelKey] == null ? r[valueKey] : r[labelKey])));
+		});
+	}
+	return $.when(
+		$.get(serverContext + 'getUserCustomer', function(resp){
+			fill($('#prCustomerId'), (resp && resp.collection) || [], 'customerId', 'name');
+		}, 'json'),
+		$.get(serverContext + 'getUserProduct', function(resp){
+			fill($('#prProductId'), (resp && resp.collection) || [], 'id', 'name');
+		}, 'json'),
+		$.get(serverContext + 'getUserCategories', function(resp){
+			fill($('#prCategoryId'), (resp && resp.categories) || [], 'id', 'name');
+		}, 'json')
+	);
+}
+
+function loadPriceRules(){
+	$.get(serverContext + 'priceRules', function(resp){
+		var rules = Array.isArray(resp) ? resp : (typeof resp === 'string' ? (JSON.parse(resp) || []) : []);
+		window._priceRules = rules;                       // cache for editPriceRule
+		renderPriceRules(rules);
+	}, 'json').fail(function(){
+		$('#tablePriceRule tbody').html('<tr><td colspan="8" class="text-danger">'
+			+ escHtml(t('ui.js.couldNotLoadPriceRules')) + '</td></tr>');
+	});
+}
+
+function renderPriceRules(rules){
+	var $tb = $('#tablePriceRule tbody').empty();
+	if (!rules.length){
+		$tb.append('<tr><td colspan="8" class="text-muted">' + escHtml(t('ui.js.noPriceRulesYet')) + '</td></tr>');
+		return;
+	}
+
+	// Resolver order: specificity DESC, priority DESC, id ASC.
+	var sorted = rules.slice().sort(function(a, b){
+		return (priceRuleSpecificity(b) - priceRuleSpecificity(a))
+			|| ((b.priority || 0) - (a.priority || 0))
+			|| ((a.id || 0) - (b.id || 0));
+	});
+
+	// Which rule actually wins each collision. Only LIVE rules compete — an inactive or expired rule is not
+	// "overridden", it simply cannot apply. This flags EXACT collisions only: whether a customer×product rule
+	// shadows a type×category one depends on the customer and product on the line, so it cannot be decided
+	// for the table as a whole without inventing an answer.
+	var winner = {};
+	sorted.forEach(function(r){
+		if (priceRuleState(r) !== 'LIVE') return;
+		var k = priceRuleKey(r);
+		if (winner[k] === undefined) winner[k] = r.id;     // first in resolver order = the one that applies
+	});
+
+	var SPEC_LABEL = {
+		3: t('ui.js.customerProduct'),
+		2: t('ui.js.customerCategory'),
+		1: t('ui.js.typeProduct'),
+		0: t('ui.js.typeCategory')
+	};
+	var STATE_LABEL = {
+		LIVE:      '<span class="label label-success">' + escHtml(t('ui.js.live')) + '</span>',
+		SCHEDULED: '<span class="label label-info">'    + escHtml(t('ui.js.scheduled')) + '</span>',
+		EXPIRED:   '<span class="label label-default">' + escHtml(t('ui.js.expired')) + '</span>',
+		INACTIVE:  '<span class="label label-default">' + escHtml(t('ui.js.inactive')) + '</span>'
+	};
+
+	sorted.forEach(function(r){
+		var spec  = priceRuleSpecificity(r);
+		var state = priceRuleState(r);
+		var who   = (r.scope === 'CUSTOMER')
+			? priceRuleName('#prCustomerId', r.customerId)
+			: customerTypeLabel(r.customerType);
+		var what  = (r.target === 'PRODUCT')
+			? (r.targetName || priceRuleName('#prProductId', r.productId))
+			: (r.targetName || priceRuleName('#prCategoryId', r.categoryId));
+		var price = (r.mode === 'PERCENT')
+			? ('−' + Number(r.value || 0) + '% ' + t('ui.js.offCatalog'))
+			: Number(r.value || 0).toFixed(2);
+		var valid = (r.startsOn || r.endsOn)
+			? (escHtml(r.startsOn || '…') + ' → ' + escHtml(r.endsOn || '…'))
+			: '<span class="text-muted">' + escHtml(t('ui.js.always')) + '</span>';
+
+		var status = STATE_LABEL[state];
+		var beaten = (state === 'LIVE' && winner[priceRuleKey(r)] !== r.id);
+		if (beaten){
+			// The whole point of the screen: say WHY a rule the owner created is doing nothing.
+			status += ' <span class="label label-warning" title="' + escHtml(t('ui.js.overriddenHelp')) + '">'
+				+ escHtml(t('ui.js.overridden')) + ' #' + escHtml(String(winner[priceRuleKey(r)])) + '</span>';
+		}
+
+		$tb.append('<tr data-rule-id="' + escHtml(String(r.id)) + '"' + (beaten ? ' class="warning"' : '') + '>'
+			+ '<td><span class="text-muted">' + (4 - spec) + '.</span> ' + escHtml(SPEC_LABEL[spec] || '') + '</td>'
+			+ '<td>' + escHtml(who) + '</td>'
+			+ '<td>' + escHtml(what) + '</td>'
+			+ '<td class="text-right">' + escHtml(price) + '</td>'
+			+ '<td>' + valid + '</td>'
+			+ '<td class="text-right">' + escHtml(String(r.priority || 0)) + '</td>'
+			+ '<td>' + status + '</td>'
+			+ '<td><button type="button" class="btn btn-xs btn-default" onclick="editPriceRule(' + r.id + ')">'
+			+ escHtml(t('ui.js.edit')) + '</button> '
+			+ '<button type="button" class="btn btn-xs btn-danger" onclick="deletePriceRule(' + r.id + ')">'
+			+ escHtml(t('ui.js.delete')) + '</button></td>'
+			+ '</tr>');
+	});
+}
+
+/** The label already loaded into a picker — avoids a second round-trip just to name an id. */
+function priceRuleName(selector, id){
+	if (id == null) return '';
+	var o = $(selector + ' option[value="' + id + '"]');
+	return o.length ? o.text() : ('#' + id);
+}
+
+function onPriceRuleScope(){
+	var byCustomer = $('#prScope').val() === 'CUSTOMER';
+	$('#prCustomerId').toggle(byCustomer);
+	$('#prCustomerType').toggle(!byCustomer);
+}
+
+function onPriceRuleTarget(){
+	var byProduct = $('#prTarget').val() === 'PRODUCT';
+	$('#prProductId').toggle(byProduct);
+	$('#prCategoryId').toggle(!byProduct);
+}
+
+function onPriceRuleMode(){
+	$('#prValueHint').text($('#prMode').val() === 'PERCENT'
+		? t('ui.js.percentHint')
+		: t('ui.js.fixedHint'));
+}
+
+function resetPriceRuleForm(){
+	$('#prId').val('');
+	$('#prScope').val('CUSTOMER');
+	$('#prCustomerId').val('');
+	$('#prCustomerType').val('RETAILER');
+	$('#prTarget').val('PRODUCT');
+	$('#prProductId').val('');
+	$('#prCategoryId').val('');
+	$('#prMode').val('FIXED');
+	$('#prValue').val('');
+	$('#prStartsOn').val(''); $('#prStartsOnTemp').val('');
+	$('#prEndsOn').val('');   $('#prEndsOnTemp').val('');
+	$('#prPriority').val(0);
+	$('#prActive').prop('checked', true);
+	$('#prError').text('');
+	$('#prSaveLabel').text(t('ui.js.addRule'));
+	$('#prFormTitle').text(t('ui.js.addRule'));
+	onPriceRuleScope(); onPriceRuleTarget(); onPriceRuleMode();
+}
+
+function editPriceRule(id){
+	var r = (window._priceRules || []).filter(function(x){ return x.id === id; })[0];
+	if (!r) return;
+	resetPriceRuleForm();
+	$('#prId').val(r.id);
+	$('#prScope').val(r.scope || 'CUSTOMER');
+	$('#prCustomerId').val(r.customerId != null ? r.customerId : '');
+	$('#prCustomerType').val(r.customerType || 'RETAILER');
+	$('#prTarget').val(r.target || 'PRODUCT');
+	$('#prProductId').val(r.productId != null ? r.productId : '');
+	$('#prCategoryId').val(r.categoryId != null ? r.categoryId : '');
+	$('#prMode').val(r.mode || 'FIXED');
+	$('#prValue').val(r.value != null ? r.value : '');
+	setPriceRuleDate('#prStartsOn', r.startsOn);
+	setPriceRuleDate('#prEndsOn', r.endsOn);
+	$('#prPriority').val(r.priority || 0);
+	$('#prActive').prop('checked', r.active !== false);
+	$('#prSaveLabel').text(t('ui.js.saveRule'));
+	$('#prFormTitle').text(t('ui.js.editRule'));
+	onPriceRuleScope(); onPriceRuleTarget(); onPriceRuleMode();
+	$('#prFormTitle')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/** ISO into the hidden field the API reads, dd-MM-yyyy into the visible box the picker owns. */
+function setPriceRuleDate(hiddenId, iso){
+	$(hiddenId).val(iso || '');
+	var visible = $(hiddenId + 'Temp');
+	if (!iso){ visible.val(''); return; }
+	var p = String(iso).split('-');
+	visible.val(p.length === 3 ? (p[2] + '-' + p[1] + '-' + p[0]) : iso);
+}
+
+function savePriceRule(){
+	var scope  = $('#prScope').val();
+	var target = $('#prTarget').val();
+	var mode   = $('#prMode').val();
+	var value  = $('#prValue').val();
+	$('#prError').text('');
+
+	// Client-side checks are for a fast answer only — commerce-pricing remains the authority and re-checks
+	// everything server-side. Nothing here is a rule this screen owns.
+	if (scope === 'CUSTOMER' && !$('#prCustomerId').val()){ $('#prError').text(t('ui.js.pickACustomer')); return; }
+	if (target === 'PRODUCT'  && !$('#prProductId').val()){ $('#prError').text(t('ui.js.pickAProduct'));  return; }
+	if (target === 'CATEGORY' && !$('#prCategoryId').val()){ $('#prError').text(t('ui.js.pickACategory')); return; }
+	if (value === '' || isNaN(Number(value))){ $('#prError').text(t('ui.js.enterAValue')); return; }
+	if (mode === 'PERCENT' && (Number(value) < 0 || Number(value) > 100)){
+		$('#prError').text(t('ui.js.percentRange')); return;
+	}
+	var from = $('#prStartsOn').val(), to = $('#prEndsOn').val();
+	if (from && to && from > to){ $('#prError').text(t('ui.js.datesBackwards')); return; }
+
+	var body = {
+		scope: scope,
+		customerId:   scope === 'CUSTOMER' ? Number($('#prCustomerId').val()) : null,
+		customerType: scope === 'TYPE'     ? $('#prCustomerType').val()       : null,
+		target: target,
+		productId:  target === 'PRODUCT'  ? Number($('#prProductId').val())  : null,
+		categoryId: target === 'CATEGORY' ? Number($('#prCategoryId').val()) : null,
+		mode: mode,
+		value: Number(value),
+		priority: Number($('#prPriority').val() || 0),
+		active: $('#prActive').is(':checked'),
+		startsOn: from || null,
+		endsOn: to || null
+	};
+	var id = $('#prId').val();
+	if (id) body.id = Number(id);
+
+	$.ajax({
+		type: 'POST', url: serverContext + 'savePriceRule',
+		contentType: 'application/json', dataType: 'json', data: JSON.stringify(body),
+		success: function(resp){
+			if (resp && resp.success === false){
+				$('#prError').text((resp.message) || t('ui.js.couldNotSavePriceRule'));
+				return;
+			}
+			resetPriceRuleForm();
+			loadPriceRules();
+			showSaleSuccess(t('ui.js.priceRuleSaved'));
+		},
+		error: function(){ $('#prError').text(t('ui.js.couldNotSavePriceRule')); }
+	});
+}
+
+function deletePriceRule(id){
+	uiConfirm({
+		title: t('ui.js.deleteThisPriceRule'),
+		message: t('ui.js.deletePriceRuleHelp'),
+		confirmText: t('ui.js.delete'),
+		tone: 'danger'
+	}).then(function(ok){
+		if (!ok) return;
+		$.ajax({
+			type: 'POST', url: serverContext + 'deletePriceRule',
+			contentType: 'application/json', dataType: 'json', data: JSON.stringify({ id: id }),
+			success: function(){ resetPriceRuleForm(); loadPriceRules(); },
+			error: function(){
+				uiAlert({ title: t('ui.js.deleteFailed'), message: t('ui.js.couldNotDeletePriceRule'), tone: 'danger' });
+			}
 		});
 	});
 }
@@ -992,7 +1302,9 @@ function loadSellCustomers() {
 				// B2B-P1 (#9): carry the credit limit alongside the balance the option already carries, so the
 				// screen can show "available" live while typing without a call per keystroke. Only a HINT —
 				// the server re-checks against the current balance, which another till may have moved.
-				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '" data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '">' + escHtml(c.name) + '</option>');
+				// B2B-P2-UI: carry customerType too — a TIER price rule matches on it, and the till must quote
+				// with the same inputs the server does or the two can disagree about the price.
+				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '" data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '" data-customer-type="' + escHtml(c.customerType || '') + '">' + escHtml(c.name) + '</option>');
 			});
 		}
 	}).fail(function() {
@@ -1020,6 +1332,10 @@ function onSellCustomerSelect(sel) {
 		$('#sellStoreCreditWrap').hide(); $('#sellStoreCredit').val('');
 	}
 	refreshAccountDuePreview();
+	// B2B-P2-UI: who is buying decides the price. Re-price anything already in the cart, and the line being
+	// composed on the form, now that there is a buyer to price against.
+	requoteSellCart();
+	quoteSellFormPrice($('#sellItemDD').val());
 }
 
 // SF-5 Model B: fetch the selected customer's store-credit balance; show the "apply credit" field only if they have any.
@@ -1030,6 +1346,123 @@ function loadCustomerCredit(customerId){
 		var bal = (resp && resp.object != null) ? Number(resp.object) : 0;
 		if(bal > 0){ $('#sellCreditAvail').text(bal.toFixed(2)); $('#sellStoreCreditWrap').show(); }
 	}, 'json');
+}
+
+// ─── B2B-P2-UI (#10): charge the price the buyer is actually entitled to ──────
+//
+// THE BUG THIS FIXES. Server-side, the submitted rate WINS over a matched price rule — deliberately, because
+// a cashier's override must beat a rule, and `price-override.cy.js` exists to keep it that way. But this
+// screen has always prefilled the rate box from the CATALOG price the moment a product is picked. So on every
+// real sale the basket was quoted, a contract rule matched, the line's priceReason was set — and the customer
+// was charged catalog anyway. A receipt could read "Contract price −12%" beside an undiscounted amount.
+//
+// P2's gate missed it because it posts {productId, quantity} with NO sellRate — the one path that takes the
+// server's fallback branch. It proved the engine, not the till.
+//
+// THE FIX IS HERE, NOT ON THE SERVER. The server cannot tell a deliberate 850-on-a-1000-item from this
+// screen's prefill; both arrive as a number in the same field. So the till asks what the buyer pays and puts
+// THAT in the box — visible, and still overridable. Server precedence is untouched.
+
+/** The buyer to price against, or null when no rule could match anyway (walk-in / manually typed customer). */
+function sellQuoteContext(){
+	var opt = $('#sellCustomerDD').find(':selected');
+	var customerId = opt.val();
+	if(!customerId) return null;
+	// customerType matters even WITH an id: a tier rule matches on it, and the server quotes with both. Send
+	// the same inputs or the price shown here and the price the rules intend can differ.
+	return { customerId: Number(customerId), customerType: opt.attr('data-customer-type') || null };
+}
+
+/** Ask what this buyer pays. Yields a productId→line map holding ONLY lines a rule actually priced. */
+function quoteSellLines(ctx, lines, cb){
+	if(!ctx || !lines || !lines.length){ cb({}); return; }
+	$.ajax({
+		type:'POST', url:serverContext+'priceQuote', contentType:'application/json', dataType:'json',
+		data: JSON.stringify({ customerId: ctx.customerId, customerType: ctx.customerType, lines: lines }),
+		success: function(resp){
+			var byProduct = {};
+			((resp && resp.lines) || []).forEach(function(l){
+				// A line with no ruleId was priced at catalog — it would only restate what the box already has.
+				if(l && l.productId != null && l.ruleId != null && l.unitPrice != null){
+					byProduct[String(l.productId)] = l;
+				}
+			});
+			cb(byProduct);
+		},
+		// A pricing outage must never stop a sale: fall back to the catalog price already in the box, which
+		// is exactly today's behaviour. Same choice SagaSellService makes server-side.
+		error: function(){ cb({}); }
+	});
+}
+
+/**
+ * Price the line being composed on the form. Runs alongside the productSellable call already made on pick,
+ * so it adds no round trip to the critical path — the catalog price is written synchronously first and the
+ * line is usable immediately; the contract price replaces it when it arrives.
+ */
+function quoteSellFormPrice(productId){
+	$('#sellPriceReason').hide().text('');
+	var ctx = sellQuoteContext();
+	if(!ctx || !productId) return;
+	var qty = $('#sellItems').val()*1>0 ? $('#sellItems').val()*ONE : 1;
+	quoteSellLines(ctx, [{ productId: Number(productId), quantity: qty }], function(byProduct){
+		var q = byProduct[String(productId)];
+		if(!q) return;
+		// Only ever replace a rate THIS code prefilled. If the cashier typed one while the quote was in
+		// flight, theirs stands — that is the override the server is built to honour.
+		if(window._sellAutoRate == null || Number($('#sellSellRate').val()) !== Number(window._sellAutoRate)) return;
+		$('#sellSellRate').val(q.unitPrice);
+		window._sellAutoRate = Number(q.unitPrice);
+		$('#sellPriceReason').text(q.reason || '').show();
+		calculateNetSell();
+	});
+}
+
+/**
+ * Re-price the cart when the customer is chosen AFTER items were added — the other half of the fix. Without
+ * it, "scan first, ask who's buying second" (an ordinary counter habit) still charges catalog.
+ *
+ * ONE call for the whole cart, never one per line.
+ */
+function requoteSellCart(){
+	var ctx = sellQuoteContext();
+	if(!ctx || !data || !data.length) return;
+	var lines = data.map(function(d){ return { productId: Number(d.productId), quantity: Number(d.quantity)||1 }; });
+	quoteSellLines(ctx, lines, function(byProduct){
+		var changed = 0;
+		data.forEach(function(d){
+			var q = byProduct[String(d.productId)];
+			if(!q) return;
+			// Same rule as the form: a rate the cashier set is not ours to move.
+			if(d.autoRate == null || Number(d.sellRate) !== Number(d.autoRate)) return;
+			var disc = (d.stock && d.stock.bsellDiscount) || 0;
+			var dType = (d.stock && d.stock.bsellDiscountType) || '0';
+			var m = sellLineMath(q.unitPrice, d.quantity, (d.stock && d.stock.bpurchaseRate) || 0, disc, dType);
+			d.sellRate = Number(q.unitPrice);
+			d.autoRate = Number(q.unitPrice);
+			if(d.stock) d.stock.bsellRate = Number(q.unitPrice);
+			d.totalAmount = m.total;      // the cart totals read these, so they must move WITH the rate
+			d.netAmount = m.profit;
+			d.priceReason = q.reason || '';
+			changed++;
+		});
+		if(!changed) return;
+		tablesi.rows().every(function(){
+			var row = this.data();
+			var d = data.filter(function(x){ return String(x.productId) === String(row[0]); })[0];
+			if(!d) return;
+			row[3] = d.sellRate;
+			row[5] = sellLineMath(d.sellRate, d.quantity, 0,
+				(d.stock && d.stock.bsellDiscount) || 0, (d.stock && d.stock.bsellDiscountType) || '0').receivable;
+			this.data(row);
+		});
+		tablesi.draw(false);
+		CIT(data);                                    // cart subtotals read data[], so refresh them too
+		if(typeof calculateChange === 'function') calculateChange();
+		if(typeof refreshAccountDuePreview === 'function') refreshAccountDuePreview();
+		// Say it out loud: a cart whose prices changed by themselves is alarming if unexplained.
+		showSaleSuccess(t('ui.js.repricedForCustomer').replace('{0}', String(changed)));
+	});
 }
 
 function onCustomerModeChange(mode) {
@@ -1456,6 +1889,11 @@ function loadStock(label,value){
 		    		$("#sellPurchaseRate").val(data.bpurchaseRate);
 			    	// $("#sellSellRate").val((data.bsellRate!=null && data.bsellRate!=='') ? data.bsellRate : (catalogSellPrice||''))
 					$("#sellSellRate").val((catalogSellPrice!=null && catalogSellPrice!=='') ? catalogSellPrice : (data.bsellRate||''))
+					// B2B-P2-UI: remember what WE put in the box, then ask what this buyer actually pays. The
+					// catalog price stands until the quote answers, so the line is usable immediately and a
+					// pricing outage degrades to today's behaviour rather than blocking the sale.
+					window._sellAutoRate = Number($("#sellSellRate").val());
+					quoteSellFormPrice(value);
 			    	$("#sellDiscount").val(discountValue);
 			    	if($("#sellItems").val()*1<=0){
 			    		$("#sellItems").val(1);
@@ -1643,6 +2081,38 @@ function calculateNetPurchase(){
 	}
 }
 
+/**
+ * The arithmetic of one sale line, in one place.
+ *
+ * Extracted from calculateNetSell so re-pricing a cart line (B2B-P2-UI: the customer is chosen AFTER items
+ * were added, so their contract price arrives late) uses the SAME maths the form does, instead of a second
+ * copy that drifts. Behaviour is unchanged — the rounding order below is the original's, kept exactly:
+ * the gross is fixed to 2dp FIRST and the percentage discount is taken off that string, so a 5% discount on
+ * 99.99 cannot leak 3-4 decimals into the receivable.
+ *
+ * Note `profit` is what the form calls "net amount" — gross − cost − discount. That naming is the form's,
+ * and renaming it here would only hide the mismatch.
+ */
+function sellLineMath(rate, qty, purchaseRate, discountValue, discountTypeValue){
+	var s = rate*ONE, p = purchaseRate*ONE, q = qty*1>0 ? qty*ONE : 1;
+	var total = parseFloat(q * s).toFixed(2);
+	var disc = discountValue*1>0 ? discountValue*ONE : 0;
+	if(discountTypeValue*ONE == 1){
+		disc = parseFloat(total * (disc*1 / 100)).toFixed(2)*ONE;
+	}else{
+		disc = parseFloat(disc).toFixed(2)*ONE;
+	}
+	// Clamp: the discount can never exceed the line total (a >100% or oversized amount would
+	// otherwise produce a negative receivable).
+	if(disc > total*ONE) disc = total*ONE;
+	return {
+		total: total,                                                        // gross, qty x rate
+		discount: disc,
+		profit: parseFloat(total - (p*q) - disc).toFixed(2),                 // the form's "net amount"
+		receivable: parseFloat(total - disc).toFixed(2)                      // what the line adds to the bill
+	};
+}
+
 function calculateNetSell(){
 	var p = $("#sellPurchaseRate").val()*ONE;
 	var s= $("#sellSellRate").val()*ONE;
@@ -1660,28 +2130,16 @@ function calculateNetSell(){
  		showFormError(t('ui.js.quantityExceedsAvailableStockPleaseReduceThe'));
 		return false;
 	}
-	var sellDiscount= $("#sellDiscount").val()*1>0?$("#sellDiscount").val()*ONE:0;
-	sellTotalAmount = parseFloat(qty * s).toFixed(2);
-	if(discountType*ONE == 1){
-		//Discount = List Price × Discount Rate. Round to 2dp so a % of an odd total (e.g. 5% of 99.99)
-		//doesn't leak 3–4 decimals into the receivable/net.
-		sellDiscount = parseFloat(sellTotalAmount * (sellDiscount*1 / 100)).toFixed(2)*ONE;
-	}else{
-		// Amount type: the entered value is the flat discount, used as-is.
-		sellDiscount = parseFloat(sellDiscount).toFixed(2)*ONE;
-	}
-	// Clamp: the discount can never exceed the line total (a >100% or oversized amount would
-	// otherwise produce a negative receivable).
-	if(sellDiscount > sellTotalAmount*ONE) sellDiscount = sellTotalAmount*ONE;
-	var profit = parseFloat(sellTotalAmount- (p*qty) - sellDiscount).toFixed(2);
-	$("#sellNetAmount").val(profit);
-	if(profit<=0)
+	var m = sellLineMath(s, qty, p, $("#sellDiscount").val(), discountType);
+	sellTotalAmount = m.total;
+	$("#sellNetAmount").val(m.profit);
+	if(m.profit<=0)
 		$("#sellNetAmount").addClass("alert-danger");
 	else
 		$("#sellNetAmount").removeClass("alert-danger");
-	
-	$("#sellTotalAmount").val(sellTotalAmount);
-	$("#sellrm").val(parseFloat($("#sellTotalAmount").val()-sellDiscount).toFixed(2));
+
+	$("#sellTotalAmount").val(m.total);
+	$("#sellrm").val(m.receivable);
 }
 
 // function calculateNetSell(){
@@ -1911,10 +2369,38 @@ function renderSRKpis(rows){
  * B2B-P3e-1 (#6): mount the SHARED filter rail on the sale report, once.
  * The export href always carries the current filters, so the file matches the screen.
  */
+/**
+ * B2B-P3e-2 (#6): render the subtotals the server aggregated. Shown ABOVE the detail table, because the
+ * grouped view is the answer and the detail is the evidence. Hidden entirely when nothing is grouped.
+ */
+function renderSRGroups(groups){
+	var host = document.getElementById('srGroups');
+	if (!host) return;
+	if (!groups || !groups.length) { host.style.display = 'none'; host.innerHTML = ''; return; }
+	var h = '<table class="table table-striped" style="width:100%"><thead><tr>'
+		+ '<th>' + escHtml(t('ui.js.groupBy')) + '</th>'
+		+ '<th class="text-right">' + escHtml(t('ui.js.invoices')) + '</th>'
+		+ '<th class="text-right">' + escHtml(t('ui.js.qty2')) + '</th>'
+		+ '<th class="text-right">' + escHtml(t('ui.js.total')) + '</th>'
+		+ '<th class="text-right">' + escHtml(t('ui.js.taxAmount')) + '</th>'
+		+ '<th class="text-right">' + escHtml(t('ui.js.grossSales')) + '</th></tr></thead><tbody>';
+	groups.forEach(function(g){
+		h += '<tr><td>' + escHtml(g.label || '') + '</td>'
+			+ '<td class="text-right">' + (g.invoices != null ? g.invoices : '') + '</td>'
+			+ '<td class="text-right">' + (g.quantity != null ? Number(g.quantity) : '') + '</td>'
+			+ '<td class="text-right">' + (g.total != null ? Number(g.total).toFixed(2) : '') + '</td>'
+			+ '<td class="text-right">' + (g.tax != null ? Number(g.tax).toFixed(2) : '') + '</td>'
+			+ '<td class="text-right"><b>' + (g.gross != null ? Number(g.gross).toFixed(2) : '') + '</b></td></tr>';
+	});
+	host.innerHTML = h + '</tbody></table>';
+	host.style.display = '';
+}
+
 function mountSRFilters(){
 	if (window.srFilters || typeof mountReportFilters !== 'function') return;
 	window.srFilters = mountReportFilters({
 		container : 'srFilterRail',
+		dimensions: ['groupBy','customer','product','category','channel'],
 		onApply   : function(){ loadSR(); },
 		exportUrl : function(v){
 			var q = 'rp=' + encodeURIComponent($('#dateRangeDDSR').val() || '0')
@@ -1923,7 +2409,8 @@ function mountSRFilters(){
 				+ '&customerId=' + encodeURIComponent(v.customerId || '')
 				+ '&productId=' + encodeURIComponent(v.productId || '')
 				+ '&category=' + encodeURIComponent(v.category || '')
-				+ '&customerType=' + encodeURIComponent(v.customerType || '');
+				+ '&customerType=' + encodeURIComponent(v.customerType || '')
+				+ '&groupBy=' + encodeURIComponent(v.groupBy || '');
 			return serverContext + 'saleReport.csv?' + q;
 		}
 	});
@@ -1962,6 +2449,7 @@ function loadSR(){
 			}
 			clearFormError();
 			if (window.srFilters) window.srFilters.categoriesFrom(rows);   // B2B-P3e-1: real categories only
+			renderSRGroups(data.object);   // B2B-P3e-2 (#6): subtotals, from the same response
 			rows.forEach(function(o){
 				var product = escSR((o.itemCode ? o.itemCode + ' — ' : '') + (o.itemName || ''));
 				var dueRaw  = parseFloat(o.dueAmount);

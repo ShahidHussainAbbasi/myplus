@@ -293,7 +293,8 @@ public class SellController {
 					dtos.add(dto);
 				}
 			});
-			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
+			return new GenericResponse("SUCCESS",
+					messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);
 		} catch (Exception e) {
 			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
@@ -552,7 +553,17 @@ public class SellController {
 			List<SellDTO> reportRows = filter.isEmpty() ? dtos
 					: dtos.stream().filter(filter.asPredicate())
 							.collect(java.util.stream.Collectors.toList());
-			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),reportRows);
+
+			// B2B-P3e-2 (#6): when a grouping is asked for, return the subtotals ALONGSIDE the detail from this
+			// same query — one round trip, and the two views cannot disagree because they are the same rows.
+			// Aggregates the FILTERED rows, so narrowing the report narrows its subtotals too.
+			// An unrecognised groupBy simply means ungrouped; a stale bookmark must not fail a report.
+			com.myplus.business_service.dto.SaleReportGrouping grouping =
+					com.myplus.business_service.dto.SaleReportGrouping.from(dto.getGroupBy());
+			GenericResponse ok = new GenericResponse("SUCCESS",
+					messages.getMessage("message.userNotFound", null, request.getLocale()), reportRows);
+			if (grouping != null) ok.setObject(grouping.aggregate(reportRows));
+			return ok;
 		} catch (Exception e) {
 			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
@@ -578,6 +589,32 @@ public class SellController {
 			final HttpServletRequest request) {
 		try {
 			GenericResponse resp = loadSR(dto, request);
+
+			// B2B-P3e-2 (#6): if the screen is grouped, the file is grouped. A grouped screen with a
+			// detail-level export would hand the customer a different document from the one they can see.
+			com.myplus.business_service.dto.SaleReportGrouping grouping =
+					com.myplus.business_service.dto.SaleReportGrouping.from(dto.getGroupBy());
+			if (grouping != null) {
+				java.util.List<java.util.List<?>> grouped = new java.util.ArrayList<>();
+				Object obj = resp != null ? resp.getObject() : null;
+				if (obj instanceof java.util.List) {
+					for (Object o : (java.util.List<?>) obj) {
+						if (!(o instanceof com.myplus.business_service.dto.SaleReportGroup)) continue;
+						com.myplus.business_service.dto.SaleReportGroup g =
+								(com.myplus.business_service.dto.SaleReportGroup) o;
+						grouped.add(java.util.Arrays.asList(g.getLabel(), g.getInvoices(), g.getQuantity(),
+								g.getTotal(), g.getTax(), g.getGross()));
+					}
+				}
+				String groupedCsv = com.myplus.business_service.util.CsvWriter.write(
+						java.util.Arrays.asList(grouping.name(), "Invoices", "Qty", "Total", "Tax", "Gross"),
+						grouped);
+				return org.springframework.http.ResponseEntity.ok()
+						.header("Content-Disposition", "attachment; filename=\"sale-report.csv\"")
+						.header("Content-Type", "text/csv; charset=UTF-8")
+						.body(groupedCsv);
+			}
+
 			java.util.List<java.util.List<?>> rows = new java.util.ArrayList<>();
 			Object coll = resp != null ? resp.getCollection() : null;
 			if (coll instanceof java.util.List) {

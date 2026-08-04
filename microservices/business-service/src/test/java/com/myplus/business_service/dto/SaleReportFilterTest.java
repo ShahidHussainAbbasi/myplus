@@ -34,9 +34,9 @@ class SaleReportFilterTest {
     @DisplayName("filtering by customer keeps only that customer's lines")
     void byCustomer() {
         SaleReportFilter f = SaleReportFilter.builder().customerId(7L).build();
-        assertTrue(f.asPredicate().test(row(7L, 2L, "Drinks", "RETAIL")));
-        assertFalse(f.asPredicate().test(row(8L, 2L, "Drinks", "RETAIL")));
-        assertFalse(f.asPredicate().test(row(null, 2L, "Drinks", "RETAIL")), "a line with no customer is not customer 7");
+        assertTrue(f.asPredicate().test(row(7L, 2L, "Drinks", "RETAILER")));
+        assertFalse(f.asPredicate().test(row(8L, 2L, "Drinks", "RETAILER")));
+        assertFalse(f.asPredicate().test(row(null, 2L, "Drinks", "RETAILER")), "a line with no customer is not customer 7");
     }
 
     @Test
@@ -44,9 +44,9 @@ class SaleReportFilterTest {
     void filtersAreAnded() {
         // "What did customer 7 buy in Drinks" is one question, not two.
         SaleReportFilter f = SaleReportFilter.builder().customerId(7L).category("Drinks").build();
-        assertTrue(f.asPredicate().test(row(7L, 2L, "Drinks", "RETAIL")));
-        assertFalse(f.asPredicate().test(row(7L, 2L, "Snacks", "RETAIL")), "right customer, wrong category");
-        assertFalse(f.asPredicate().test(row(9L, 2L, "Drinks", "RETAIL")), "right category, wrong customer");
+        assertTrue(f.asPredicate().test(row(7L, 2L, "Drinks", "RETAILER")));
+        assertFalse(f.asPredicate().test(row(7L, 2L, "Snacks", "RETAILER")), "right customer, wrong category");
+        assertFalse(f.asPredicate().test(row(9L, 2L, "Drinks", "RETAILER")), "right category, wrong customer");
     }
 
     @Test
@@ -54,7 +54,7 @@ class SaleReportFilterTest {
     void caseInsensitive() {
         // The value arrives from a dropdown or a typed URL; case must not silently empty the report.
         assertTrue(SaleReportFilter.builder().category("drinks").build()
-                .asPredicate().test(row(1L, 2L, "Drinks", "RETAIL")));
+                .asPredicate().test(row(1L, 2L, "Drinks", "RETAILER")));
         assertTrue(SaleReportFilter.builder().customerType("wholesale").build()
                 .asPredicate().test(row(1L, 2L, "Drinks", "WHOLESALE")));
     }
@@ -65,7 +65,7 @@ class SaleReportFilterTest {
         // An untouched dropdown posts "" — that must mean "all", never "match rows whose category is empty".
         SaleReportFilter f = SaleReportFilter.builder().category("").customerType("   ").build();
         assertTrue(f.isEmpty());
-        assertTrue(f.asPredicate().test(row(1L, 2L, "Drinks", "RETAIL")));
+        assertTrue(f.asPredicate().test(row(1L, 2L, "Drinks", "RETAILER")));
     }
 
     @Test
