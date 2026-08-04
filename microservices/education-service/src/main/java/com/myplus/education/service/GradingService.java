@@ -65,7 +65,7 @@ public class GradingService {
      * D3 — the absent policy:
      * <ul>
      *   <li>ON (default): an absence is 0%. A student who sat nothing would otherwise show a flattering
-     *       average over an empty set, and a report card that hides a missed paper misleads the parent
+     *       average over an empty set, and a report card that hides a missed paper misleads the guardian
      *       it is written for.</li>
      *   <li>OFF: null, meaning the paper leaves BOTH sides of the fraction. Returning 0 here would be the
      *       bug the setting exists to prevent.</li>

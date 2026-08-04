@@ -73,7 +73,7 @@ class FormValidatorTest {
     @Test
     void a_percentage_discount_above_100_is_refused() {
         // discountAmount() computes base * 150 / 100 — more than the fee. monthlyDue floors it at 0, so
-        // without this check the parent is billed nothing and nothing reports why.
+        // without this check the guardian is billed nothing and nothing reports why.
         DiscountDTO d = new DiscountDTO();
         d.setDi("%");
         d.setAmount(150);

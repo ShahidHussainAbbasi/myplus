@@ -9,7 +9,7 @@
  *   - correcting writes a NEW note and the original survives, struck through and linked
  *   - POSITIVE notes are first-class, so the log is not a punishment ledger (D2)
  *   - the author (who reported) is distinct from the typist (who saved) and both persist (D4)
- *   - parent-informed is RECORDED and nothing is sent (D5)
+ *   - guardian-informed is RECORDED and nothing is sent (D5)
  *
  * FIXTURES ARE SEEDED, NEVER SKIPPED — three fixture-caused reds in Phase 2 was enough.
  *
@@ -205,19 +205,19 @@ describe('Education — behaviour log (slice 2.5)', () => {
     })
   })
 
-  it('parent-informed is RECORDED, and nothing is sent', () => {
+  it('guardian-informed is RECORDED, and nothing is sent', () => {
     const today = new Date().toISOString().slice(0, 10)
     post('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo, type: 'CONCERN',
-      description: TAG + ' parent contacted', parentInformed: 'true', parentInformedOn: today
-    }).then((r) => ok(r, 'record with parent informed'))
+      description: TAG + ' guardian contacted', guardianInformed: 'true', guardianInformedOn: today
+    }).then((r) => ok(r, 'record with guardian informed'))
 
     notesFor(fx.student.enrollNo).then((r) => {
       const note = (parse(r.body).object.notes || [])
-        .find((n) => n.description === TAG + ' parent contacted')
-      expect(note.parentInformed).to.eq(true)
-      expect(note.parentInformedOn).to.eq(today)
-      // D5 — this slice records WHETHER the parent was told. Sending is blocked on the notification path
+        .find((n) => n.description === TAG + ' guardian contacted')
+      expect(note.guardianInformed).to.eq(true)
+      expect(note.guardianInformedOn).to.eq(today)
+      // D5 — this slice records WHETHER the guardian was told. Sending is blocked on the notification path
       // being real (2.2 and 2.4 want it too); the most sensitive data is the worst place to half-wire it.
     })
   })

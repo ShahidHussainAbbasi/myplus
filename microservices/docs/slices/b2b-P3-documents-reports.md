@@ -1,7 +1,7 @@
 # B2B Phase 3 — documents & reports (customer requirements **#2, #4, #1, #5, #6**)
 
-**Status:** 🟡 IN PROGRESS — **3a + 3b-1 + 3b-2 + 3c + 3d DONE & Cypress-green**; **3e** is the last sub-slice (+ candidate **3f**, below).
-Gates: `purchase-batch-expiry.cy.js` (3a/3b-1) · `receipt-detail.cy.js` (3b-2) · `return-documents.cy.js` (3c) · `statement-download.cy.js` (3d) — all green
+**Status:** 🟡 IN PROGRESS — **3a + 3b-1 + 3b-2 + 3c + 3d + 3e-1 DONE & Cypress-green**; **3e-2** (group-by) is all that remains, + candidate **3f**.
+Gates: `purchase-batch-expiry.cy.js` (3a/3b-1) · `receipt-detail.cy.js` (3b-2) · `return-documents.cy.js` (3c) · `statement-download.cy.js` (3d) · `report-filters.cy.js` (3e-1) — all green
 Gate: `cypress/e2e/business/purchase-batch-expiry.cy.js`
 Programme: [`b2b-b2c-rollout-plan.md`](../b2b-b2c-rollout-plan.md) · Previous: [`b2b-P2-pricing.md`](b2b-P2-pricing.md)
 Requirements: [`customer-requirements-plan.md`](../customer-requirements-plan.md) #2 · #4 · #1 · #5 · #6
@@ -163,6 +163,19 @@ balance line).
 So the customer side is half-built and mis-numbered, and the supplier side has no document. A credit note is
 currently indistinguishable from the invoice it cancels — which is the accounting defect #1 names.
 
+#### 3e-1 progress (2026-08-04)
+
+- [x] `SaleReportFilter` — the **Query Object**; every field optional, empty = today's report unchanged
+- [x] `SaleReportFilterTest` on `mvn test` — empty-matches-all, filters are ANDed, blank != a filter
+- [x] `SellDTO` carries the report dimensions (`customerId`, `customerType`, `category`), populated inside
+      `loadSR`'s existing enrichment loop — no extra queries (`ProductRef` already returns category, the
+      invoice already joins the customer)
+- [x] filter wired into `loadSR` — binds from the SAME posted form (fields live on `SellDTO`)
+- [x] `/saleReport.csv` — **calls `loadSR` itself** rather than repeating the query, so the file cannot
+      disagree with the screen and every filter applies by construction
+- [x] shared `/js/common/report-filters.js` + monolith proxy + 9 i18n keys x 6 bundles (1,486 aligned)
+- [x] Cypress gate green: the CSV contains exactly the filtered rows, and the other customer is ABSENT
+
 #### Standards this sub-slice is built to
 
 | Dimension | What applies |
@@ -255,14 +268,45 @@ path touched, no existing response altered.
 | **Live-modules rule** | Additive read-only endpoints; no write path, no schema, no existing response touched. |
 | **Testing standard** | Pure-logic `CsvWriterTest` on `mvn test` (quoting, commas, embedded quotes, nulls) + a headed Cypress gate asserting the download matches the JSON. |
 
-### 3e — #6 filterable, exportable reports
+### 3e — #6 filterable, exportable reports — **3e-1 DONE (green 2026-08-04); 3e-2 remaining**
 
-Per your clarification, *"multi-dimensional"* means **filter + choose columns/grouping + export**, not a pivot
-engine. So:
-- a shared **filter rail** (date range, customer, vendor, product, category, customer type)
-- a **group-by** selector (day / month / customer / product / category / user)
-- the same **export** used by 3d
-- built as one shared component so every future report inherits it, rather than a bespoke screen per report
+#### What the survey found (2026-08-04)
+
+There is exactly **one** report: sale detail (`loadSR`), and its only filter is the date range — period, or a
+custom start/end. No customer, product, category or channel filter. No grouping. No export. Which is why the
+requirement is marked "🟡 one report".
+
+#### The split — and why
+
+This is bigger than the other sub-slices, so it ships in two gated halves rather than one large drop:
+
+| | Scope |
+|---|---|
+| **3e-1** | Server-side **filters** (customer, product, category, customer type) on the sale report + **CSV export** through 3d's `CsvWriter` + the shared filter rail component |
+| **3e-2** | **Group-by** (day / month / customer / product / category / user) with subtotals, reusing the same rail |
+
+#### The decision that shapes it: filters go SERVER-side
+
+Client-side filtering over the already-loaded rows would be smaller and needs no backend change. It is
+rejected because it breaks the guarantee 3d just established — **the export must be what the screen shows**.
+A client-side filter with a server-side export produces a file that ignores the user's filters; a
+client-side export instead duplicates CSV logic in JavaScript, and then the quoting and formula-injection
+rules of `CsvWriter` exist in two places and drift.
+
+Server-side filters keep one CSV implementation, make the export honour every filter by construction, and do
+not fall over when a tenant asks for a year of sales.
+
+#### Standards this sub-slice is built to
+
+| Dimension | What applies |
+|---|---|
+| **Business/domain** | "Multi-dimension" here means filter + group + export — the questions a shop owner actually asks ("what did this customer buy last quarter"), not a pivot engine. |
+| **SaaS multi-tenancy** | Every filter narrows WITHIN the existing org-scoped query; none of them can widen it. A filter parameter must never become a way to read another tenant's sales. |
+| **Microservice boundaries** | Stays in `business-service`, which owns the data. No new service. |
+| **Design patterns** | **Query Object** — filters travel as one object rather than an ever-growing parameter list · **Adapter** for the CSV route, as in 3d. |
+| **SOLID / DRY** | ONE `CsvWriter` (3d's), ONE filter rail component every future report attaches to. The returns register from 3c lands here rather than as a bespoke screen. |
+| **Live-modules rule** | Every filter is OPTIONAL and absent = today's behaviour, so the existing report is unchanged for anyone who does not use them. |
+| **Testing standard** | Pure-logic filter-predicate tests on `mvn test` + a headed Cypress gate asserting the CSV honours the active filters. |
 
 ### Security (all sub-slices)
 
@@ -555,3 +599,20 @@ which 3c has now made a real document.
 **Why it needs its own slice:** the credit note's value (returned goods gross) and the cash refunded differ
 whenever the invoice was on credit, so a careless restatement double-counts and misstates balances. It
 changes what every statement shows, for every tenant. Design, gate and an explicit decision required.
+
+
+---
+
+## 13. 3e-1 as built (green 2026-08-04)
+
+- `SaleReportFilter` — **Query Object**; every field optional, empty = today's report unchanged.
+- Filters applied in `loadSR`, binding from the same posted form; `/saleReport.csv` **calls `loadSR`**, so
+  the export honours every filter by construction. Empty result = header-only file, not an error.
+- `/js/common/report-filters.js` — the **shared rail** (customer / product / category / channel + Export).
+  Its values use the field names the backend binds, so a future report passes them straight through with no
+  glue. **The 3c returns register attaches here** rather than becoming a bespoke screen.
+
+**A UX bug the gate caught:** the rail was first mounted inside `loadSR()`, so filters only appeared AFTER
+running a report once — backwards, since filters are set before running. Now mounted on page ready.
+
+**Still open:** **3e-2** (group-by with subtotals, reusing this rail) and candidate **3f**.

@@ -50,7 +50,7 @@ public class FeeSetting {
 
     /**
      * Branch-scoping policy for fee collection. Default FALSE = a fee can be viewed/collected from ANY branch
-     * (a parent may pay at any campus). Set TRUE to restrict each branch's staff to their own branch's fees.
+     * (a guardian may pay at any campus). Set TRUE to restrict each branch's staff to their own branch's fees.
      * Attendance is always branch-level (a teacher marks only their own branch) — not configurable here.
      */
     @Builder.Default

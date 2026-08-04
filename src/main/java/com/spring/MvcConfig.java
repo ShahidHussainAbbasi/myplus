@@ -58,6 +58,12 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/registration.html");
         registry.addViewController("/registrationCaptcha.html");
         registry.addViewController("/logout").setViewName("logout");;
+        // Slice 3.1 — the guardian portal is a SEPARATE page, not the education dashboard with staff
+        // sections hidden. Hiding them in CSS would leave them one inspector-click away; a distinct
+        // template renders none of that chrome at all. Its data comes from /portal/* only.
+        // Named for the platform's <audience>Dashboard convention and the GUARDIAN domain entity —
+        // "guardian" is the term used everywhere, code and UI alike.
+        registry.addViewController("/guardianDashboard").setViewName("guardianDashboard");
         registry.addViewController("/homepage.html");
         registry.addViewController("/expiredAccount.html");
         registry.addViewController("/badUser.html");

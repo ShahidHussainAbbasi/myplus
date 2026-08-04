@@ -19,7 +19,7 @@ public interface GuardianPortalAccessRepository extends JpaRepository<GuardianPo
      * Runs on every portal request, which is why (organization_id, email, status) is indexed.
      *
      * NOTE the org predicate has NO userId NULL-fallback, unlike every staff read. That fallback exists so
-     * a staff member sees rows they created before org-scoping landed; a PARENT has no such history, and
+     * a staff member sees rows they created before org-scoping landed; a GUARDIAN has no such history, and
      * widening the predicate here would be widening an external principal's reach. Deliberately strict.
      */
     @Query("select a from GuardianPortalAccess a where a.organizationId = :orgId "

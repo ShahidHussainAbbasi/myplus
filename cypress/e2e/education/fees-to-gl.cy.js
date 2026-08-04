@@ -42,7 +42,7 @@ describe('Education — fee collection posts to the GL', () => {
         enrollNo: enrollNo,
         fee: amount, dueAmount: amount, feePaid: amount, dueBalance: 0,
         receivedIn: receivedIn || 'Cash',
-        payee: 'CyParent', receivedBy: 'CyClerk',
+        payee: 'CyGuardian', receivedBy: 'CyClerk',
       },
     }).then((r) => {
       const body = parse(r.body)

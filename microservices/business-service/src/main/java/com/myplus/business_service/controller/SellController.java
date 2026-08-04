@@ -513,6 +513,7 @@ public class SellController {
 					dtotemp.setItemName(p.getName());
 					dtotemp.setItemCode(p.getSku());
 					dtotemp.setDescription(p.getDescription());
+					dtotemp.setCategory(p.getCategory());   // B2B-P3e-1 (#6): report dimension
 				}
 				// Sale report: flatten the invoice (CustomerHistory) + Customer onto the line so the UI can show
 				// invoice #, who bought, how they paid and what's still owed without a second round-trip.
@@ -526,13 +527,32 @@ public class SellController {
 					if (ch.getCustomer() != null) {
 						dtotemp.setCn(ch.getCustomer().getName());
 						dtotemp.setCc(ch.getCustomer().getContact());
+						// B2B-P3e-1 (#6): report dimensions — who bought, and on which channel.
+						dtotemp.setCustomerId(ch.getCustomer().getCustomerId());
+						dtotemp.setCustomerType(ch.getCustomer().getCustomerType() != null
+								? ch.getCustomer().getCustomerType().name() : null);
 					}
 				}
 				dtotemp.setDated(appUtil.getDateStr(obj.getDated()));
 				dtotemp.setUpdated(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dtotemp);
 			});
-			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
+
+			// B2B-P3e-1 (#6): narrow by customer / product / category / channel. The filter binds from the
+			// SAME posted form (its fields live on SellDTO), and every field is optional — an empty filter
+			// returns exactly what this report returned before, which is what makes it safe for live
+			// tenants. It NARROWS an already org-scoped result and can never widen it.
+			com.myplus.business_service.dto.SaleReportFilter filter =
+					com.myplus.business_service.dto.SaleReportFilter.builder()
+							.customerId(dto.getCustomerId()).productId(dto.getProductId())
+							.category(dto.getCategory()).customerType(dto.getCustomerType())
+							.build();
+			// Filtered into its own variable: `dtos` is captured by the mapping lambda above, so reassigning
+			// it here would make it not effectively final and fail to compile.
+			List<SellDTO> reportRows = filter.isEmpty() ? dtos
+					: dtos.stream().filter(filter.asPredicate())
+							.collect(java.util.stream.Collectors.toList());
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),reportRows);
 		} catch (Exception e) {
 			appUtil.le(this.getClass(),e);
 			return new GenericResponse("ERROR",messages.getMessage("message.userNotFound", null, request.getLocale()),
@@ -540,6 +560,50 @@ public class SellController {
 		}
 	}
 	
+	/**
+	 * B2B-P3e-1 (#6): the sale report as a downloadable CSV.
+	 *
+	 * <p>It calls {@link #loadSR} itself rather than repeating the query — so the file cannot disagree with
+	 * the screen, and every filter the user set applies to the export by construction. This is the same
+	 * guarantee 3d established for statements, and the reason filters are server-side at all: a client-side
+	 * filter would produce a file that quietly ignored them.
+	 *
+	 * <p>An empty result yields a header-only file rather than an error: "no sales matched" is a valid
+	 * answer to a report, not a failure.
+	 */
+	@RequestMapping(value = "/saleReport.csv", method = {RequestMethod.GET, RequestMethod.POST},
+			produces = "text/csv; charset=UTF-8")
+	@ResponseBody
+	public org.springframework.http.ResponseEntity<String> saleReportCsv(final SellDTO dto,
+			final HttpServletRequest request) {
+		try {
+			GenericResponse resp = loadSR(dto, request);
+			java.util.List<java.util.List<?>> rows = new java.util.ArrayList<>();
+			Object coll = resp != null ? resp.getCollection() : null;
+			if (coll instanceof java.util.List) {
+				for (Object o : (java.util.List<?>) coll) {
+					if (!(o instanceof SellDTO)) continue;
+					SellDTO r = (SellDTO) o;
+					rows.add(java.util.Arrays.asList(
+							r.getDated(), r.getInvoiceNo(), r.getCn(), r.getCustomerType(),
+							r.getItemCode(), r.getItemName(), r.getCategory(),
+							r.getQuantity(), r.getSellRate(), r.getTotalAmount(), r.getTaxAmount()));
+				}
+			}
+			String csv = com.myplus.business_service.util.CsvWriter.write(
+					java.util.Arrays.asList("Date", "Invoice", "Customer", "Channel", "SKU", "Item",
+							"Category", "Qty", "Rate", "Total", "Tax"),
+					rows);
+			return org.springframework.http.ResponseEntity.ok()
+					.header("Content-Disposition", "attachment; filename=\"sale-report.csv\"")
+					.header("Content-Type", "text/csv; charset=UTF-8")
+					.body(csv);
+		} catch (Exception e) {
+			appUtil.le(this.getClass(), e);
+			return org.springframework.http.ResponseEntity.status(400).body("Could not build the report.");
+		}
+	}
+
 	@RequestMapping(value = "/getAllSell", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getAllSell(final HttpServletRequest request) {

@@ -97,7 +97,7 @@ public class FeeArrearsService {
      *
      * Uses the shared allocator but NOT the settle path: spending credit moves a liability, it is not a cash
      * receipt, so recording a second Payment here would count the same money as received twice — once when the
-     * parent overpaid, once when the credit was used.
+     * guardian overpaid, once when the credit was used.
      *
      * @return how much credit was actually absorbed by open dues (may be less than offered)
      */
@@ -160,7 +160,7 @@ public class FeeArrearsService {
      * The payment line uses the row's OWN {@code dueAmount − dueBalance}, not its {@code feePaid}. That
      * distinction is not cosmetic: FIFO settlement bumps {@code feePaid} on the OLDER rows a payment cleared, so
      * summing {@code feePaid} would count one payment on the row that took the money AND again on every row it
-     * settled — a statement that understates what a parent owes. Deriving from the row's own charge and remaining
+     * settled — a statement that understates what a guardian owes. Deriving from the row's own charge and remaining
      * balance counts each rupee exactly once, on the row it was actually applied to.
      */
     @Transactional(readOnly = true)

@@ -11,7 +11,7 @@ common-settings"*. Depends on **1.3** (marks entry), done. Feeds 1.5 (report car
 ## 1. Document — what and why
 
 1.3 stores the raw number: *37 out of 50*. It deliberately stopped there. This slice answers the question a
-parent actually asks — **"is that good?"** — and it is the first slice in Phase 1 where the right answer differs
+guardian actually asks — **"is that good?"** — and it is the first slice in Phase 1 where the right answer differs
 per school.
 
 ### On D-1: this is NOT blocked, and the plan already said so
@@ -92,7 +92,7 @@ the owner explicitly chooses; that is the difference between a default and an as
 - excluded — the average reflects only what was attempted
 
 **Default: counts as zero.** A student who sits nothing would otherwise show a flattering average over an empty
-set, and a report card that hides a missed paper misleads the parent it is written for. Schools that run
+set, and a report card that hides a missed paper misleads the guardian it is written for. Schools that run
 supplementary exams will switch it off, which is exactly why it is a setting rather than a hardcoded rule.
 
 Excluded absences must not become `0/50` in the denominator either — when excluded, the paper leaves **both**
@@ -195,12 +195,12 @@ classDiagram
 
 ```mermaid
 sequenceDiagram
-  actor Parent
+  actor Guardian
   participant R as marks read
   participant G as GradingService
   participant S as settings
 
-  Parent->>R: show my child's result
+  Guardian->>R: show my child's result
   R->>G: percentFor(mark, paper)
   alt marked absent
     G->>S: edu.grading.absentCountsAsZero?
@@ -214,10 +214,10 @@ sequenceDiagram
   end
   R->>G: bandFor(percent)
   alt the org defined bands
-    G-->>Parent: 74% · B
+    G-->>Guardian: 74% · B
   else no bands defined
-    G-->>Parent: 74%
-    Note over G,Parent: a school that has not configured<br/>grading still gets its numbers (D2)
+    G-->>Guardian: 74%
+    Note over G,Guardian: a school that has not configured<br/>grading still gets its numbers (D2)
   end
 ```
 

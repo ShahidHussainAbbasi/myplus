@@ -209,7 +209,7 @@ describe('Education — report cards (slice 1.5)', () => {
     post('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((r) => {
       const b = parse(r.body)
       const refused = r.status === 403 || (b && b.status && b.status !== 'SUCCESS')
-      expect(refused, 'issuing a result to a parent requires ADMIN_PRIVILEGE').to.eq(true)
+      expect(refused, 'issuing a result to a guardian requires ADMIN_PRIVILEGE').to.eq(true)
     })
   })
 })

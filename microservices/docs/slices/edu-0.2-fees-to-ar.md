@@ -65,7 +65,7 @@ about a student's fees enters business's database.
 Today a fee payment writes one row and computes `dueBalance = dueAmount − feePaid` in isolation. After this
 slice, `SubledgerService.settle("RECEIPT", "STUDENT", …)` walks the student's open rows oldest-first, reduces
 each in turn, and records the allocation in finance's `Payment`/`PaymentAllocation`. That is what makes a
-statement ("what did this parent pay, against which months?") possible at all.
+statement ("what did this guardian pay, against which months?") possible at all.
 
 ### D4 — RESOLVED: accrual (Option B) — which makes education MATCH POS and Pharma
 
@@ -92,7 +92,7 @@ accounting, different business process.
 **The posting model:**
 ```
 fee charged (monthly due raised):   Dr 1100 AR        Cr 4100 Fee Income     ← new FEE_CHARGE event
-fee collected (parent pays):        Dr Cash/Bank      Cr 1100 AR             ← existing RECEIPT path
+fee collected (guardian pays):        Dr Cash/Bank      Cr 1100 AR             ← existing RECEIPT path
 ```
 
 **Cutover:** `FEE_COLLECTION` from slice 0.1 recognised revenue on collection. Under accrual that would
@@ -151,10 +151,10 @@ rather than silently removed, because the voucher flow depends on the surviving 
 
 | Layer | Answer |
 |---|---|
-| **UI/UX** | arrears screen re-pointed at real aging buckets; a **student statement** (charges, payments, running balance) — the thing parents actually ask for |
+| **UI/UX** | arrears screen re-pointed at real aging buckets; a **student statement** (charges, payments, running balance) — the thing guardians actually ask for |
 | **Service/API** | no new education endpoint for settlement (it rides `addFc`); new read endpoints for statement + aging |
 | **Database** | MySQL, and **no new table** — the dues already exist as fee rows. Stated per §5c |
-| **Patterns** | FIFO allocation via the shared subledger; best-effort ledger record (a finance hiccup must never block a parent's payment); reuses 0.1's outbox for the GL side |
+| **Patterns** | FIFO allocation via the shared subledger; best-effort ledger record (a finance hiccup must never block a guardian's payment); reuses 0.1's outbox for the GL side |
 | **Microservice design** | extract-then-compose; education keeps its own data |
 | **Configurability** | **late fee %** and **grace days** (§5d) — real schools differ. Via common-settings, read on the path that charges them (C1) |
 | **DRY** | the whole justification for D1/D6 |
@@ -231,7 +231,7 @@ classDiagram
   note for SubledgerService "moves to common-subledger<br/>shared with business-service"
 ```
 
-### Sequence — a parent pays, against the oldest dues first
+### Sequence — a guardian pays, against the oldest dues first
 
 ```mermaid
 sequenceDiagram
@@ -326,7 +326,7 @@ Applying "keep common what is common; specialise only where the domain requires 
 | logic | balance, issue, redeem capped at balance, recompute, GL 2200 | — |
 | storage | `CreditStore` SPI | business `store_credit_txn` · education `fee_credit_txn` |
 | cached balance | `CreditBalanceCache` SPI | `Customer.creditBalance` · `Student.creditBalance` |
-| **how it is spent** | — | POS: a `STORE_CREDIT` **tender at checkout** (cashier chooses). Education: **auto-applied to the next charge** (a parent should not have to ask) |
+| **how it is spent** | — | POS: a `STORE_CREDIT` **tender at checkout** (cashier chooses). Education: **auto-applied to the next charge** (a guardian should not have to ask) |
 
 The last row is the genuine domain difference and the only place the behaviour forks. Same SPI pattern as
 `common-settings` and `common-outbox` — shared contract + logic, per-service table.

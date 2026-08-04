@@ -10,7 +10,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Slice 3.1 — the intersection rule that decides whether a parent may see a child.
+ * Slice 3.1 — the intersection rule that decides whether a guardian may see a child.
  *
  * Pure: no Spring, no database, no Docker, so it runs on every {@code mvn test}. This is the
  * highest-consequence check in the programme — getting it wrong means a stranger reads a child's record —

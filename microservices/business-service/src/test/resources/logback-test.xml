@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Test-scope logging only (src/test/resources) — production logging is untouched.
+
+  Some tests drive failure paths on purpose, and the service logs them at WARN with the throwable
+  attached, so a green run printed ~80 lines of stack trace that looked like a build error:
+    - SagaSellServiceTest.confirm_failure_leaves_invoice_pending_for_the_relay stubs the inventory
+      confirm to throw, and SagaSellService logs the full stack before leaving the invoice PENDING.
+    - MarginPolicyTest exercises policy=warn, which logs a line per sub-cost sale.
+  Those tests assert behaviour through Mockito verifies, never through the logs, so muting the
+  logger costs no coverage. Keep it at ERROR: anything worse than the expected WARNs still prints.
+-->
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.myplus.business_service.service.SagaSellService" level="ERROR"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

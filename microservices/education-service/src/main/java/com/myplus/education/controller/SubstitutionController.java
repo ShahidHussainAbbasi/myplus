@@ -379,7 +379,7 @@ public class SubstitutionController {
      */
     private void notifyCoverBestEffort(Staff cover, TimetableEntry entry, LocalDate date) {
         try {
-            // Routed through the same alerts path education already uses for parents; the message is
+            // Routed through the same alerts path education already uses for guardians; the message is
             // intentionally plain because it is read on a phone in a corridor.
             appUtil.li(getClass(), "Substitution: " + cover.getName() + " covers entry "
                     + entry.getId() + " on " + date);

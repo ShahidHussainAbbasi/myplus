@@ -193,7 +193,7 @@ describe('Multi-branch: schools, grants and role×branch visibility', () => {
     })
   })
 
-  // T9h — fee collection is ORG-WIDE by default (feeCollectionBranchScoped=false): a parent may pay at any
+  // T9h — fee collection is ORG-WIDE by default (feeCollectionBranchScoped=false): a guardian may pay at any
   // campus, so a fee for a branch-1 student is visible from any branch. Then flip the org setting ON and
   // confirm it becomes branch-scoped; restore the default afterwards so other tests/reruns are unaffected.
   it('T9h: fee collection is org-wide by default, branch-scoped when the owner enables it', () => {

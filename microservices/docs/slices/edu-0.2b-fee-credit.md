@@ -8,7 +8,7 @@ Follows 0.2a (fees→AR, green). Programme: `education-complete-programme.md` Ph
 ## 1. Document — what and why
 
 0.2a **refuses** an overpayment: *"Payment 5000 exceeds the total owed 1000."* That was an honest placeholder,
-not a good answer. Parents routinely pay a round sum, or a term in advance, and a school should take the money
+not a good answer. Guardians routinely pay a round sum, or a term in advance, and a school should take the money
 and carry it forward.
 
 **Decision (yours): an overpayment issues fee credit, carried to the next charge.**
@@ -58,14 +58,14 @@ Same SPI pattern as `common-settings`, `common-outbox`, `common-subledger`. Regi
 This is the only place the behaviour forks, and it is a real business difference, not an inconsistency:
 
 - **POS** — the cashier chooses to apply it: a `STORE_CREDIT` tender at checkout, server-capped.
-- **Education** — it is applied **automatically to the next charge**. A parent should not have to ask for money
+- **Education** — it is applied **automatically to the next charge**. A guardian should not have to ask for money
   they already paid.
 
 Everything else (ledger, capping, cache, GL account) is identical.
 
 ### D3 — GL treatment mirrors store credit exactly
 
-Fee credit is money held on the parent's behalf — a **liability**, on the same account 2200 POS uses.
+Fee credit is money held on the guardian's behalf — a **liability**, on the same account 2200 POS uses.
 
 ```
 overpayment (owes 1000, pays 5000):
@@ -85,7 +85,7 @@ When a `FEE_CHARGE` is raised and the student holds credit:
 
 1. Raise the receivable (`Dr AR / Cr Fee Income`) — unchanged from 0.2a.
 2. Redeem `min(credit, charge)` and settle that much of the new due immediately.
-3. Whatever remains outstanding is what the parent actually owes.
+3. Whatever remains outstanding is what the guardian actually owes.
 
 Credit is consumed **oldest-charge-first** through the same subledger path, so the FIFO story stays intact.
 
@@ -105,12 +105,12 @@ The clerk sees what was applied and what was carried forward, so the money is ne
 
 | Layer | Answer |
 |---|---|
-| **UI/UX** | the fee screen shows a student's **available credit** before collection, and the response states what was carried forward. Without that the parent has no way to know it exists |
+| **UI/UX** | the fee screen shows a student's **available credit** before collection, and the response states what was carried forward. Without that the guardian has no way to know it exists |
 | **Service/API** | no new endpoint; credit rides `addFc`. One read for the balance |
 | **Database** | MySQL — `fee_credit_txn` is an append-only signed ledger with a cached balance, the same shape that already works for POS. Stated per §5c |
 | **Patterns** | append-only ledger + cached projection; SPI/DIP for the shared rules |
 | **Microservice design** | extract-then-compose; each service keeps its own table |
-| **Configurability** | **`edu.fee.creditOnOverpayment`** (default ON). Off ⇒ 0.2a's refusal. Some schools genuinely will not hold parent money |
+| **Configurability** | **`edu.fee.creditOnOverpayment`** (default ON). Off ⇒ 0.2a's refusal. Some schools genuinely will not hold guardian money |
 | **DRY** | the whole justification for D1 |
 
 ---
@@ -232,5 +232,5 @@ sequenceDiagram
 
 - **Touches POS's live store credit.** The refactor is behaviour-preserving, but `store-credit*.cy.js` is a hard
   gate, exactly as the finance suite was for 0.2a.
-- **Holding parent money is a real liability.** Account 2200 must balance; case 5 is not optional.
-- **Refunding credit** (a parent leaves, wanting it back) is **out of scope** — state it, do not silently imply it.
+- **Holding guardian money is a real liability.** Account 2200 must balance; case 5 is not optional.
+- **Refunding credit** (a guardian leaves, wanting it back) is **out of scope** — state it, do not silently imply it.

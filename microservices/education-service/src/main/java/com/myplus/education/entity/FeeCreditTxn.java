@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Slice 0.2b: one movement in a student's fee-credit ledger — money the school holds on the parent's behalf,
+ * Slice 0.2b: one movement in a student's fee-credit ledger — money the school holds on the guardian's behalf,
  * normally an overpayment carried forward to the next charge.
  *
  * Append-only and SIGNED: positive issues credit, negative redeems it. The balance is the sum of this history, so

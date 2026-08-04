@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
  *   <li>it is an <b>opinion</b>, not a measurement — a mark can be re-marked from the paper, but "was rude
  *       in class" cannot be re-derived from anything; it is one person's account;</li>
  *   <li>it <b>follows a child for years</b> and is read by people who were not there;</li>
- *   <li>it is <b>contested</b> — by the student, the parent, sometimes the school itself.</li>
+ *   <li>it is <b>contested</b> — by the student, the guardian, sometimes the school itself.</li>
  * </ul>
  *
  * <h3>Append-only (D3)</h3>
@@ -90,14 +90,14 @@ public class BehaviourNote {
 
     /**
      * D5 — a RECORDED FACT, not an action this slice performs. The school ticks it once they have spoken
-     * to the parent. Nothing is sent: the notification path is still a stub across 2.2 and 2.4, and the
+     * to the guardian. Nothing is sent: the notification path is still a stub across 2.2 and 2.4, and the
      * most sensitive data in the system is the worst place to bolt on a third half-wired sender.
      */
-    @Column(name = "parent_informed", nullable = false)
-    private boolean parentInformed;
+    @Column(name = "guardian_informed", nullable = false)
+    private boolean guardianInformed;
 
-    @Column(name = "parent_informed_on")
-    private LocalDate parentInformedOn;
+    @Column(name = "guardian_informed_on")
+    private LocalDate guardianInformedOn;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)

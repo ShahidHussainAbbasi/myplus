@@ -160,7 +160,7 @@ public class ReportCardService {
      * later be resolved to a different string.
      *
      * D5 — any existing PUBLISHED card for this student+term becomes SUPERSEDED and the new row takes the
-     * next version. The old row is kept: the card handed to a parent existed, and a school that overwrites
+     * next version. The old row is kept: the card handed to a guardian existed, and a school that overwrites
      * it cannot answer "what did we send you in March?".
      */
     @Transactional

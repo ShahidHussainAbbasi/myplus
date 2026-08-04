@@ -22,6 +22,10 @@ $(document).ready(function() {
         });
     }
 
+    // B2B-P3e-1 (#6): mount the shared filter rail HERE, not inside loadSR — otherwise a user opening the
+    // report sees no filters until they have already run it once, which is backwards.
+    if (typeof mountSRFilters === 'function') mountSRFilters();
+
     // Sale Detail Report table. Columns (0-based): 0 Date, 1 Invoice#, 2 Product, 3 Qty, 4 List price,
     // 5 Unit price, 6 Line total, 7 Tax, 8 Net, 9 Customer, 10 Contact, 11 Payment, 12 Invoice due, 13 Margin (SF-10).
     tableSellReport = $('#tableSellReport').DataTable( {
@@ -1903,7 +1907,30 @@ function renderSRKpis(rows){
 	$('#srKpis').css('display', 'grid');
 }
 
+/**
+ * B2B-P3e-1 (#6): mount the SHARED filter rail on the sale report, once.
+ * The export href always carries the current filters, so the file matches the screen.
+ */
+function mountSRFilters(){
+	if (window.srFilters || typeof mountReportFilters !== 'function') return;
+	window.srFilters = mountReportFilters({
+		container : 'srFilterRail',
+		onApply   : function(){ loadSR(); },
+		exportUrl : function(v){
+			var q = 'rp=' + encodeURIComponent($('#dateRangeDDSR').val() || '0')
+				+ '&sd=' + encodeURIComponent($('#srsd').val() || '')
+				+ '&ed=' + encodeURIComponent($('#sred').val() || '')
+				+ '&customerId=' + encodeURIComponent(v.customerId || '')
+				+ '&productId=' + encodeURIComponent(v.productId || '')
+				+ '&category=' + encodeURIComponent(v.category || '')
+				+ '&customerType=' + encodeURIComponent(v.customerType || '');
+			return serverContext + 'saleReport.csv?' + q;
+		}
+	});
+}
+
 function loadSR(){
+	mountSRFilters();
 	tableSellReport.clear().draw();
 	$('#srKpis').hide();
 	clearFormError();
@@ -1920,7 +1947,9 @@ function loadSR(){
 		type : "POST",
 		url : serverContext + "loadSR",
 		dataType : "json",
-		data : { rp: rp, sd: sd, ed: ed },
+		// B2B-P3e-1 (#6): the rail's values use the SAME names the backend binds, so they pass straight
+		// through. Absent = today's report, unchanged.
+		data : $.extend({ rp: rp, sd: sd, ed: ed }, (window.srFilters ? window.srFilters.values() : {})),
 		success : function(data) {
 			if(data.status!=="SUCCESS"){
 				showFormError((data.status || '') + (data.message ? ': ' + data.message : ''));
@@ -1932,6 +1961,7 @@ function loadSR(){
 				return;
 			}
 			clearFormError();
+			if (window.srFilters) window.srFilters.categoriesFrom(rows);   // B2B-P3e-1: real categories only
 			rows.forEach(function(o){
 				var product = escSR((o.itemCode ? o.itemCode + ' — ' : '') + (o.itemName || ''));
 				var dueRaw  = parseFloat(o.dueAmount);

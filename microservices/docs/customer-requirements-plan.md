@@ -65,7 +65,7 @@ You confirmed a booker **is** a supplier. That removes the new-party-type proble
 | 9 | Dues limit | 🔴 | M | **= OMS B4** | ✅ **SHIPPED** Phase 1, green 2026-08-02 (customer + supplier; warn = take confirmation) |
 | 10 | Customer/product discount | 🔴 | M | **= OMS B1** | ✅ **SHIPPED** Phase 2, green 2026-08-02 (contract + tier rules; reason persisted). Mgmt screen outstanding |
 | 11 | Supplier targets & bonuses | 🔴 | M *(was L)* | business-service | ⬜ unscheduled |
-| 6 | Multi-dimension reports | 🟡 one report | M *(was L)* | **= F2** | ⬜ Phase **3e** (designed) |
+| 6 | Multi-dimension reports | 🟡 | M | **= F2** | 🟡 **3e-1 SHIPPED** green 2026-08-04 (filters: customer/product/category/channel + CSV export + SHARED filter rail every future report attaches to). **3e-2 group-by remains** |
 
 **#6 dropped from L to M** on your clarification: *"option to select or add filter to view/export"* is a
 **filterable report with column/dimension selection** — not an interactive pivot engine. That is a

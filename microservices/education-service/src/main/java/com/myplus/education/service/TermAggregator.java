@@ -97,7 +97,7 @@ public final class TermAggregator {
      * Class positions from term percentages, highest first, <b>ties sharing a rank</b> (D4).
      *
      * <p>Two students on 88% are both 1st and the next is 3rd. Breaking the tie on enrolment number, name
-     * or entry order would invent a distinction the marks do not support — and it is a child's parent who
+     * or entry order would invent a distinction the marks do not support — and it is a child's guardian who
      * reads the result.
      *
      * <p>A student with no term percentage (nothing marked) is <b>unranked</b>, not last: ranking them

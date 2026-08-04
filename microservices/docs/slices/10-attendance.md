@@ -6,7 +6,7 @@ Status: **DONE** ✅. Follows `../ARCHITECTURE-MULTITENANCY.md`. First **operati
 
 **Attendance** records student presence (denormalised enroll/student/grade + time in/out). This is an
 operational/transaction domain, not a registration list. Only the **core** list/delete endpoints are
-ported today; `markAttendance`/`markAttendance2` (bulk marking), `findA`, parent alerts (`sendPA`),
+ported today; `markAttendance`/`markAttendance2` (bulk marking), `findA`, guardian alerts (`sendPA`),
 and `getUserStudentMap` remain **deferred**. Org-scope the reads now so they are correct the moment
 marking is added.
 

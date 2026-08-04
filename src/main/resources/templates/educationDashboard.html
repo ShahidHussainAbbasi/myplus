@@ -63,6 +63,7 @@
 					<option value="LeaveDiv" th:text="#{ui.leave}">Leave</option>
 					<option value="HomeworkDiv" th:text="#{ui.homework}">Homework</option>
 					<option value="BehaviourDiv" th:text="#{ui.behaviour}">Behaviour</option>
+					<option value="PortalAccessDiv" th:text="#{ui.portalAccess}">Guardian Portal Access</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
 					<option value="SubjectDiv" th:text="#{ui.subjects}">Subjects</option>
 					<option value="DiscountDiv" th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</option>
@@ -134,6 +135,9 @@
 									<!-- Slice 2.5: teacher work (WRITE tier). Notes are append-only — there is no edit
 									     or delete anywhere in the stack. -->
 									<li><a onclick="snavGo('registrationType','BehaviourDiv','snavRegister')"><span class="glyphicon glyphicon-flag"></span> <span th:text="#{ui.behaviour}">Behaviour</span></a></li>
+									<!-- Slice 3.1: granting an OUTSIDER sight of a child's record is ADMIN policy,
+									     the same tier as fee settings — never day-to-day teacher work. -->
+									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','PortalAccessDiv','snavRegister')"><span class="glyphicon glyphicon-log-in"></span> <span th:text="#{ui.portalAccess}">Guardian Portal Access</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
@@ -2674,6 +2678,40 @@
 				</div>
 			</div>
 
+			<!-- Slice 3.1 — who may sign in to the guardian portal. The portal itself is a SEPARATE page
+			     (/guardianDashboard); this screen only grants and withdraws access. -->
+			<div id="PortalAccessDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+				<h4 th:text="#{ui.portalAccess}">Guardian Portal Access</h4>
+				<p class="text-muted" th:text="#{ui.portalAccessHelp}">Invite a guardian to sign in and see their own children's results, attendance, fee dues and homework — nothing else, and no other family's. Access uses the email on the guardian record. Withdrawing access takes effect immediately; the record of it is kept.</p>
+
+				<div class="alert alert-warning" id="paDisabled" style="display:none">
+					<span th:text="#{ui.portalDisabledWarning}">The guardian portal is currently switched off in Configuration, so nobody can sign in — invitations will not work until it is turned on.</span>
+				</div>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-5">
+						<label for="paGuardian" th:text="#{ui.guardian}">Guardian</label>
+						<select class="form-control" id="paGuardian"></select>
+					</div>
+					<div class="col-sm-3" style="padding-top:24px">
+						<button type="button" class="btn btn-primary" onclick="invitePortalAccess()" th:text="#{ui.invite}">Invite</button>
+					</div>
+				</div>
+
+				<div id="paMsg" class="alert" style="display:none"></div>
+
+				<table id="tablePortalAccess" class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.guardian}">Guardian</th>
+						<th th:text="#{ui.email}">Email</th>
+						<th th:text="#{ui.children}">Children</th>
+						<th th:text="#{ui.status}">Status</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+
 			<!-- Slice 2.5 — behaviour log. Append-only: a correction writes a NEW note and strikes the
 			     original through (D3). Positive notes are first-class, so this is not a punishment ledger. -->
 			<div id="BehaviourDiv" class="formDiv">
@@ -2719,7 +2757,7 @@
 						<input type="text" class="form-control" id="bnAction">
 					</div>
 					<div class="col-sm-3" style="padding-top:24px">
-						<label style="font-weight:normal"><input type="checkbox" id="bnParent"> <span th:text="#{ui.parentInformed}">Parent informed</span></label>
+						<label style="font-weight:normal"><input type="checkbox" id="bnGuardian"> <span th:text="#{ui.guardianInformed}">Guardian informed</span></label>
 						<button type="button" class="btn btn-success" onclick="saveBehaviourNote()" th:text="#{ui.recordNote}">Record</button>
 					</div>
 				</div>

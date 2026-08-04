@@ -15,7 +15,7 @@ transcript"*. Depends on **1.4** (grading scales), done & green. Feeds **1.6** (
 ## 1. Document — what and why
 
 1.3 records the number. 1.4 turns it into a letter. Neither produces the artefact the school actually hands to
-a parent: **one page, one term, every subject, with a total the school is willing to stand behind.**
+a guardian: **one page, one term, every subject, with a total the school is willing to stand behind.**
 
 This is also the first slice in Phase 1 that produces a document with a **life outside the database**. A fee
 receipt can be reprinted from live data forever, because the amount paid does not change. A report card cannot —
@@ -74,7 +74,7 @@ result should follow the current scale; an issued document should not.
 
 That is right for the exam screen and wrong here. A weighted term total computed from weights summing to 70 is
 not a partial answer — it is a **wrong number that looks like a right one**, and once it is on paper in a
-parent's hand there is no recall.
+guardian's hand there is no recall.
 
 | Action | Weights ≠ 100 |
 |---|---|
@@ -112,7 +112,7 @@ The programme flags this: *"whether rank is shown — many schools forbid publis
 | `edu.reportCard.showRank` | BOOL | **false** | publishing rank is prohibited in several jurisdictions; opt-in is the safe direction |
 | `edu.reportCard.showAttendance` | BOOL | true | near-universal on a real card, and 1.1 made it cheap |
 
-Rank is over the **class**, not the school — a parent comparing their child against a different year group is
+Rank is over the **class**, not the school — a guardian comparing their child against a different year group is
 comparing nothing. **Ties share a rank** (two firsts, then third), because breaking a tie arbitrarily invents a
 distinction the marks do not support.
 
@@ -124,7 +124,7 @@ classmate's mark is corrected is worse than no rank.
 No editing a published card. Correcting one means publishing again, which writes `version = 2` and marks the
 previous row `SUPERSEDED`.
 
-The card handed to a parent **existed**. Overwriting it means the school cannot answer "what did we send you in
+The card handed to a guardian **existed**. Overwriting it means the school cannot answer "what did we send you in
 March?" — the question that gets asked precisely when something has gone wrong. Versioning costs one integer
 and one status; silent overwrite costs the school its own record.
 
@@ -177,7 +177,7 @@ and leaving it N+1 while building a class-wide print on top would be knowingly s
 | In | Out |
 |---|---|
 | `ReportCard` + `ReportCardLine` (V14), org-scoped | PDF generation / `document-service` (D7) |
-| preview (derived) + publish (snapshot) + republish/withdraw | parent-visible portal (3.1) |
+| preview (derived) + publish (snapshot) + republish/withdraw | guardian-visible portal (3.1) |
 | term aggregate with exam weighting (D3) | subject weighting within a term (1.4 §6, out of Phase 1) |
 | class rank, ties shared, opt-in (D4) | promotion decisions (1.6) |
 | cumulative transcript from snapshots (D6) | statutory return / TC formats (D-1, phase 5.3) |
@@ -190,7 +190,7 @@ and leaving it N+1 while building a class-wide print on top would be knowingly s
 | Layer | Answer |
 |---|---|
 | **UI/UX** | one Report Card screen: pick term + class → preview a student or the whole class → Publish. A published card renders from its snapshot with an issued date and version. Print stylesheet hides nav/buttons. Rank column appears only when the setting is on |
-| **Service/API** | `/getReportCardPreview`, `/getReportCard`, `/publishReportCard`, `/withdrawReportCard`, `/getTranscript`. Preview + reads = WRITE tier (teachers prepare cards); **publish/withdraw = `ADMIN_PRIVILEGE`** — issuing a result to a parent is the same class of act as changing what they owe |
+| **Service/API** | `/getReportCardPreview`, `/getReportCard`, `/publishReportCard`, `/withdrawReportCard`, `/getTranscript`. Preview + reads = WRITE tier (teachers prepare cards); **publish/withdraw = `ADMIN_PRIVILEGE`** — issuing a result to a guardian is the same class of act as changing what they owe |
 | **Database** | MySQL, `report_card` + `report_card_line` (V14), indexed `(organization_id, student_enroll_no, term_id)`. UNIQUE on `(organization_id, student_enroll_no, term_id, version)` — the DB, not the code, is what makes "one card per version" true under a double-clicked Publish (1.3 D1's lesson) |
 | **Patterns** | snapshot-on-issue (D1), immutable + versioned (D5), refuse-at-the-boundary (D2), batch-not-per-row (D8), settings for scalar policy (D4) |
 | **Microservice design** | education-local. No new service; audit reuses the existing `audit_outbox` + `EduAuditService` — publishing a result is exactly the kind of contested act 1.3 D5 built that for |
@@ -411,8 +411,8 @@ step to block.** Students do not enrol in papers; a marksheet lists the class. S
 `edu.exam.minAttendancePercent` (INT, default 0 = off). Calling it a "gate" would be describing something the
 domain has nowhere to put.
 
-**Parent-visible publication.** Publishing here means *issued by the school*, not *visible to a parent* — there
-is no parent portal until 3.1. When 3.1 lands, it reads `status = PUBLISHED` and needs no new state.
+**Guardian-visible publication.** Publishing here means *issued by the school*, not *visible to a guardian* — there
+is no guardian portal until 3.1. When 3.1 lands, it reads `status = PUBLISHED` and needs no new state.
 
 ## 7. Risks
 

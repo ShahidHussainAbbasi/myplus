@@ -176,7 +176,7 @@ public class DiscountController {
             }
 
             // Slice B §8: with di = "%", FeeService.discountAmount computes base * amount / 100 — so an
-            // amount above 100 discounts MORE than the fee. monthlyDue() floors that at 0, so the parent is
+            // amount above 100 discounts MORE than the fee. monthlyDue() floors that at 0, so the guardian is
             // simply billed nothing and nothing anywhere reports the discount was nonsense. Refuse it here.
             java.util.List<String> problems = com.myplus.education.service.FormValidator
                     .validateDiscount(dto, obj.getStartDate(), obj.getEndDate());

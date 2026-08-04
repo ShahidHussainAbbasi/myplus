@@ -270,7 +270,7 @@ npx cypress open --e2e        # pick education/branch-scope-settings.cy.js
 ## 6. Fee collection — already done, deliberately not duplicated
 
 Implementation found `FeeCollectionController.branchVisible` already in place, reading
-`FeeSetting.feeCollectionBranchScoped` (default FALSE = org-wide, "a parent may pay at any campus"),
+`FeeSetting.feeCollectionBranchScoped` (default FALSE = org-wide, "a guardian may pay at any campus"),
 derived exactly as this design proposed: `FeeCollection.en` → `Student.enrollNo` → `Student.schoolId`. The
 owner already controls it — checkbox `#fsFeeBranchScoped` on the **Fee Settings** screen.
 

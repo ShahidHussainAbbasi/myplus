@@ -11,7 +11,7 @@ package com.myplus.education.entity;
  *
  * <p><b>There is no SELF_REGISTERED.</b> A school invites a guardian; nobody claims a child by typing an
  * enrolment number. Self-service registration against a child's identifier is an obvious account-takeover
- * path, and the school already knows who the parents are.
+ * path, and the school already knows who the guardians are.
  *
  * <p>{@code REVOKED} is kept rather than deleted: "this person used to have access to this child's record"
  * is exactly what an investigation needs, and the same append-only reasoning as 1.5 D5 / 2.5 D3.

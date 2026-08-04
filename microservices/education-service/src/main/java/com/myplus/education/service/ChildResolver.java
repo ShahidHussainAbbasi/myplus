@@ -18,11 +18,11 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Slice 3.1 — <b>the ONLY source of a parent's authority.</b>
+ * Slice 3.1 — <b>the ONLY source of a guardian's authority.</b>
  *
- * Design: microservices/docs/slices/edu-3.1-parent-portal.md (D1)
+ * Design: microservices/docs/slices/edu-3.1-guardian-portal.md (D1)
  *
- * <p>Every read the parent portal performs passes through here. If a future endpoint takes an enrolment
+ * <p>Every read the guardian portal performs passes through here. If a future endpoint takes an enrolment
  * number and does not call {@link #requireMine}, it is a hole — that is the entire security model of this
  * slice, stated in one class so it can be reviewed in one place.
  *
@@ -35,7 +35,7 @@ import java.util.Set;
  * <h3>Why the intersection is a separate, pure function</h3>
  *
  * {@link #isMine(String, Collection)} takes both sides as arguments so the rule that decides whether a
- * parent may see a child is testable with no Spring, no database and no Docker — the same treatment given
+ * guardian may see a child is testable with no Spring, no database and no Docker — the same treatment given
  * to {@code ClashDetector} (2.1), {@code LeaveBalanceCalculator} (2.3) and {@code HomeworkRules} (2.4),
  * applied to the check with the highest consequence in the programme.
  */
@@ -53,7 +53,7 @@ public class ChildResolver {
      * The signed-in guardian, or null when this caller has no live portal access.
      *
      * <p>Returns null — never throws — for every failure mode (portal disabled, no access row, revoked),
-     * so a caller cannot accidentally distinguish "you are not a parent" from "that school has the portal
+     * so a caller cannot accidentally distinguish "you are not a guardian" from "that school has the portal
      * off". The controller answers all of them identically.
      *
      * <p>A first successful sign-in flips {@code INVITED → ACTIVE}, which is how the school sees that an
@@ -80,7 +80,7 @@ public class ChildResolver {
     /**
      * The children of this guardian, derived now.
      *
-     * <p>One query. A parent with children at two branches of the same group sees both, because the
+     * <p>One query. A guardian with children at two branches of the same group sees both, because the
      * relationship — not the branch grant — is what defines the set.
      */
     @Transactional(readOnly = true)

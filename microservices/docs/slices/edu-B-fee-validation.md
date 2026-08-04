@@ -213,7 +213,7 @@ Pure unit: every rule in `FeeValidatorTest`.
 
 ## 6. Open / deferred
 
-**A fee refund or adjustment operation.** D2 refuses negatives, which makes "we overcharged this parent" have no
+**A fee refund or adjustment operation.** D2 refuses negatives, which makes "we overcharged this guardian" have no
 home beyond fee credit. That is a real gap, but it is a *feature* with its own audit and GL meaning — not
 something to smuggle in as a negative number. Worth its own slice if schools ask for it.
 
@@ -261,7 +261,7 @@ return "%".equals(d.getDi()) ? (int) Math.round((double) base * d.getAmount() / 
 
 A discount above 100% therefore computes a reduction **larger than the fee itself**. `monthlyDue` floors the
 result with `Math.max(…, 0)`, so it never goes negative — which is exactly why this is worth refusing at entry:
-the damage is silent. The parent is billed 0 and nothing anywhere says the discount was nonsense.
+the damage is silent. The guardian is billed 0 and nothing anywhere says the discount was nonsense.
 
 Same rule as the fee form, one difference: a discount is defined **without a fee in context**, so an *amount*
 discount can only be checked for `>= 0`. The `<= fee` comparison belongs where a fee exists — which slice B

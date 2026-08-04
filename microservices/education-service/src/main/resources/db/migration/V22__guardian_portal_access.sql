@@ -1,5 +1,5 @@
--- Slice 3.1 — parent portal access. The FIRST external login this platform grants.
--- Design: microservices/docs/slices/edu-3.1-parent-portal.md
+-- Slice 3.1 — guardian portal access. The FIRST external login this platform grants.
+-- Design: microservices/docs/slices/edu-3.1-guardian-portal.md
 --
 -- ── One table, and note what is NOT in it: the children ────────────────────────────────────────────
 -- "My children" is DERIVED on every request from student.guardian_id (design D1). Storing a child list
@@ -14,7 +14,7 @@
 --
 -- ── Invitation only (D3) ───────────────────────────────────────────────────────────────────────────
 -- There is no SELF_REGISTERED status. Self-service registration against a child's enrolment number is an
--- account-takeover path; the school already knows who the parents are.
+-- account-takeover path; the school already knows who the guardians are.
 --
 -- REVOKED rows are KEPT, never deleted: "this person used to have access to this child's record" is
 -- precisely what an investigation needs (same append-only reasoning as 1.5 D5 and 2.5 D3).

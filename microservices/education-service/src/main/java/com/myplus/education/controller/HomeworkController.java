@@ -32,7 +32,7 @@ import com.myplus.education.util.RequestUtil;
  * Design: microservices/docs/slices/edu-2.4-homework.md
  *
  * <p><b>WRITE tier, not ADMIN.</b> Setting and grading homework is teacher work, exactly as marks entry is
- * (1.3 D6). The ADMIN tier is for policy and money — who exists, what parents owe, who teaches whom.
+ * (1.3 D6). The ADMIN tier is for policy and money — who exists, what guardians owe, who teaches whom.
  *
  * <p><b>Two things this deliberately does NOT do.</b> It does not pre-seed submission rows for a class
  * (D2 — that would assert facts that are not yet true, and silently miss anyone who joins later), and it

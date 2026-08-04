@@ -148,6 +148,37 @@ Two force-multipliers: check `@Column(name=…)` **first** — if the DB columns
 is Java-only with **no migration** (that was true for `FeeCollection`); and scope every sweep per-form or
 per-region, never globally, because short names collide across entities and across HTML forms.
 
+**D9a. If the column name changes, it ships as a NEW migration — never an edit to the applied one.** The
+tempting move on a rename is to fix the `CREATE TABLE` that introduced the column, because the end state
+looks identical on a fresh deploy. It is not identical: Flyway checksums every applied script, so editing
+one makes the service **refuse to start** in every environment that already ran it — which is all of them,
+including production. Add `Vn+1` with `ALTER TABLE … CHANGE COLUMN`; a fresh deploy replays the original
+and then the rename and lands in the same place. `parent_informed` → `guardian_informed` (education V21 →
+**V23**, 2026-08-04) is the worked example: V21 was reverted after a sweep touched it.
+
+Prefer `CHANGE COLUMN` over `RENAME COLUMN` — the latter needs MySQL 8.0, and restating the type keeps the
+new definition readable beside the original.
+
+**D9b. A word-level rename has homonyms, and a blanket replace corrupts them.** Renaming a *concept*
+across a codebase (`parent` → `guardian`) is not the same as renaming a field, because the same string
+carries unrelated senses: `re-parent` (anti-IDOR), `parent exam`, `parent year`, `service-parent` (Maven),
+`categories.parent_id`, DOM `parentNode` / `.parents()` in vendored libraries, and the word
+*parenthetical*. Sweeping globally turns working code into `service-guardian` and silently rewrites
+third-party files.
+
+Protect the homonyms **before** substituting, then restore them:
+
+```python
+for i, phrase in enumerate(PROTECT):  t = t.replace(phrase, f"\x00{i}\x00")
+for a, b in SUBS:                     t = t.replace(a, b)
+for i, phrase in enumerate(PROTECT):  t = t.replace(f"\x00{i}\x00", phrase)
+```
+
+And list the target files explicitly rather than walking the tree, so `node_modules` and vendored
+libraries are never candidates. Renames also reach places D9's seven rows do not: **i18n keys AND their
+values in every bundle** (the key rename is mechanical, the *translation* is not — `hi` and `ar` already
+said guardian, `en`/`fr`/`es`/`ur` needed rewording), and **prose in shipped slice docs**.
+
 **D10. A persisted field that no read returns is invisible — check the READ path, not just the write.** An entity
 column with no matching DTO field is written correctly, compiles cleanly, passes every service test, and then
 fails in the browser as `undefined`/`NaN`. Nothing between the column and the screen complains.
@@ -155,7 +186,7 @@ fails in the browser as `undefined`/`NaN`. Nothing between the column and the sc
 This bit **three times in one programme**, always the same shape: `dueBalance` / `vehicleFee` / `checkNo`
 (collected by the fee form, on the entity, absent from `FeeCollectionDTO` — silently dropped on every save since
 the screen was written), then `Student.creditBalance` (persisted by the credit ledger, never returned, so the UI
-could not show a parent money the school was holding).
+could not show a guardian money the school was holding).
 
 When adding or relying on a field, walk the whole path in both directions:
 
@@ -249,7 +280,7 @@ fulfillment.
 
 ## 3. Where we are (status, 2026-08-01)
 
-**In flight:** **B2B/B2C rollout** — Phases 0, 0.5 and 1 ✅ green (credit limit shipped 2026-08-02, customer + supplier); Phase 2 (B2B pricing) ✅ backend green 2026-08-02; Phase 3 (documents & reports) in progress — 3a + 3b-1 + 3b-2 + 3c + 3d green (batch traceability IN/OUT; returns are CRN-/DBN- documents; statements download as CSV) (`feature/b2b-b2c`); plan of record
+**In flight:** **B2B/B2C rollout** — Phases 0, 0.5 and 1 ✅ green (credit limit shipped 2026-08-02, customer + supplier); Phase 2 (B2B pricing) ✅ backend green 2026-08-02; Phase 3 (documents & reports) — 3a/3b-1/3b-2/3c/3d/3e-1 green; only 3e-2 (group-by) left (traceability IN/OUT; CRN-/DBN- documents; CSV statements; shared report filter rail) (`feature/b2b-b2c`); plan of record
 [`b2b-b2c-rollout-plan.md`](b2b-b2c-rollout-plan.md). Also open: `feature/education-review` (finding B),
 `feature/pharmacy-review` (step 6), OMS O1 (design awaiting approval).
 

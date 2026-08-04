@@ -3,7 +3,7 @@
  *
  * The gap: education had 75 endpoints and 17 gates, 14 of them on deletes. Every create and update was open to
  * ANY authenticated user — including two that move money: `addFc` (records a fee collection) and `addDiscount`
- * (reduces what a parent owes). The privileges already travelled in the JWT; nothing was checking them.
+ * (reduces what a guardian owes). The privileges already travelled in the JWT; nothing was checking them.
  *
  * Three tiers now:
  *   WRITE_PRIVILEGE   day-to-day records — student, guardian, staff, subject, attendance
@@ -62,7 +62,7 @@ describe('Security: education creates/updates are privilege-gated (D-3)', () => 
   // ── the ADMIN tier: money, structure, policy ────────────────────────────────────────────────────
   const adminOnly = [
     ['/addFc', { enrollNo: 'CY-NOPE', dueAmount: 100, feePaid: 100, receivedIn: 'Cash' }, 'addFc — records money received'],
-    ['/addDiscount', { name: 'CY-NOPE', amount: 50, di: '%' }, 'addDiscount — reduces what a parent owes'],
+    ['/addDiscount', { name: 'CY-NOPE', amount: 50, di: '%' }, 'addDiscount — reduces what a guardian owes'],
     ['/saveFeeSetting', { paymentMode: 'MONTHLY', autoRegisterDues: 'false' }, 'saveFeeSetting — fee policy'],
     ['/addSchool', { branchName: 'CY-NOPE' }, 'addSchool — org structure'],
     ['/addGrade', { name: 'CY-NOPE', fee: 1000 }, 'addGrade — class + its fee'],

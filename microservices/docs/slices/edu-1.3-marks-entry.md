@@ -274,9 +274,9 @@ but it remains a **jurisdiction rule** tied to blocking decision **D-1**: which 
 whether shortfall blocks the exam or merely flags it. Recommend 1.4, where grading policy and its
 `common-settings` group are being built anyway — one configuration screen rather than two.
 
-**Re-mark / re-check workflow.** A parent disputes a mark; the paper is re-evaluated; the mark changes. The
+**Re-mark / re-check workflow.** A guardian disputes a mark; the paper is re-evaluated; the mark changes. The
 audit trail (D5) already records it, but a formal request → review → revised-mark flow is a process, not a
-field. Out of Phase 1; revisit with the parent portal (Phase 3), where the request would originate.
+field. Out of Phase 1; revisit with the guardian portal (Phase 3), where the request would originate.
 
 **Marks import from a spreadsheet.** Real schools have them. Deferred until the grid is proven — an importer
 that writes through the same `saveBulk` path is a small addition later, whereas building both at once doubles

@@ -50,7 +50,7 @@ public final class FormValidator {
      * A discount definition. {@code FeeService.discountAmount} reads it as:
      * <pre>"%".equals(di) ? round(base * amount / 100.0) : amount</pre>
      * so an amount above 100 under {@code di = "%"} discounts MORE than the fee. {@code monthlyDue} floors
-     * the result at 0, which is precisely why it must be refused here — the parent is simply billed nothing
+     * the result at 0, which is precisely why it must be refused here — the guardian is simply billed nothing
      * and no screen ever reports that the discount was nonsense.
      *
      * An {@code amount} discount is checked only for {@code >= 0}: a discount is defined with no fee in

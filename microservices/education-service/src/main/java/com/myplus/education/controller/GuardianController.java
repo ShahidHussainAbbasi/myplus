@@ -76,10 +76,10 @@ public class GuardianController {
     }
 
     /**
-     * Guardian branch visibility — OFF by default (org-wide: a parent may have children at several campuses),
+     * Guardian branch visibility — OFF by default (org-wide: a guardian may have children at several campuses),
      * opt-in per org via {@code edu.guardian.branchScoped} on the Configuration screen. When on, a guardian is
      * visible only if a student in the caller's accessible branches references them (derived via
-     * Student.guardianId — no guardian.school_id needed, and a cross-campus parent stays visible from either
+     * Student.guardianId — no guardian.school_id needed, and a cross-campus guardian stays visible from either
      * branch). Owner/super or a caller with no branch grants ⇒ org-wide regardless.
      */
     private List<Guardian> branchVisible(List<Guardian> rows) {

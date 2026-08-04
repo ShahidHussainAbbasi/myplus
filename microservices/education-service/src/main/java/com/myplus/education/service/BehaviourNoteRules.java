@@ -62,14 +62,14 @@ public final class BehaviourNoteRules {
     }
 
     /**
-     * Whether the parent-informed flag is coherent.
+     * Whether the guardian-informed flag is coherent.
      *
      * <p>A date without the flag is a contradiction the screen should not be able to produce, and it is the
      * kind of inconsistency that undermines the record's credibility when it is read back.
      */
-    public static String validateParentInformed(boolean informed, LocalDate informedOn) {
+    public static String validateGuardianInformed(boolean informed, LocalDate informedOn) {
         if (!informed && informedOn != null) {
-            return "A date is recorded for informing the parent, but the box is not ticked";
+            return "A date is recorded for informing the guardian, but the box is not ticked";
         }
         return null;
     }

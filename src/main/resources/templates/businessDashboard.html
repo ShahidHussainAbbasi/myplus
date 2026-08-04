@@ -1927,6 +1927,9 @@ tr.row-voided .js-edit-row{display:none !important}
 							<span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.viewReport}">View report</span>
 						</button>
 					</div>
+					<!-- B2B-P3e-1 (#6): the SHARED filter rail mounts here (customer/product/category/channel +
+					     Export CSV). Every future report attaches the same component instead of growing its own. -->
+					<span id="srFilterRail" style="display:contents"></span>
 				</form>
 
 				<!-- KPI summary — filled by renderSRKpis() after a successful load -->
@@ -2015,6 +2018,7 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/common/team.js}"></script>
     <script th:src="@{/js/common/org-switcher.js}"></script>
     <script th:src="@{/js/business/module-theme.js}"></script>
+    <script th:src="@{/js/common/report-filters.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <script th:src="@{/js/business/businessInvoicePrint.js}"></script>
     <script th:src="@{/js/business/receipt.js}"></script>

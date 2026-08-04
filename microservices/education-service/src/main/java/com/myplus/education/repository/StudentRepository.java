@@ -61,15 +61,15 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     List<Student> findScopedBySchools(@Param("orgId") Long orgId, @Param("schoolIds") java.util.Collection<Long> schoolIds);
 
     /**
-     * Slice 3.1 — the children of one guardian. <b>This query IS a parent's entire authority.</b>
+     * Slice 3.1 — the children of one guardian. <b>This query IS a guardian's entire authority.</b>
      *
-     * <p>Everything the parent portal returns is filtered to what this produces, derived fresh on every
+     * <p>Everything the guardian portal returns is filtered to what this produces, derived fresh on every
      * request (design D1). Nothing is cached in a token or a column: a child transferring out, or a
      * guardian link being corrected, must take effect on the next request rather than at next login,
      * because a stale ACCESS list means a stranger reading a child's record.
      *
      * <p><b>No {@code userId} NULL-fallback</b>, unlike every staff read on this repository. That fallback
-     * lets a staff member see rows they created before org-scoping landed; a parent has no such history,
+     * lets a staff member see rows they created before org-scoping landed; a guardian has no such history,
      * and widening the predicate would widen an external principal's reach. Strict on purpose.
      */
     @Query("select s from Student s where s.organizationId = :orgId and s.guardianId = :guardianId "

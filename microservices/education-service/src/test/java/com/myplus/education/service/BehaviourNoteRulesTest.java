@@ -109,15 +109,15 @@ class BehaviourNoteRulesTest {
         assertTrue(BehaviourNoteRules.activeOnly(Arrays.asList((BehaviourNote) null)).isEmpty());
     }
 
-    // ── parent-informed coherence ───────────────────────────────────────────────────────────────
+    // ── guardian-informed coherence ───────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("a date without the tick is refused as incoherent")
-    void parent_informed_coherence() {
-        assertNotNull(BehaviourNoteRules.validateParentInformed(false, TODAY));
-        assertNull(BehaviourNoteRules.validateParentInformed(true, TODAY));
-        assertNull(BehaviourNoteRules.validateParentInformed(false, null));
-        assertNull(BehaviourNoteRules.validateParentInformed(true, null),
+    void guardian_informed_coherence() {
+        assertNotNull(BehaviourNoteRules.validateGuardianInformed(false, TODAY));
+        assertNull(BehaviourNoteRules.validateGuardianInformed(true, TODAY));
+        assertNull(BehaviourNoteRules.validateGuardianInformed(false, null));
+        assertNull(BehaviourNoteRules.validateGuardianInformed(true, null),
                 "ticked without a date is allowed — the school may not remember exactly when");
     }
 }

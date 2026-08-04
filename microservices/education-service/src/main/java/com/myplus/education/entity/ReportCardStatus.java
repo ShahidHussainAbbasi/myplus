@@ -16,7 +16,7 @@ package com.myplus.education.entity;
  * moment a teacher fixes a typo; preview is a QUERY, not a record.
  *
  * A published card is never edited. Correcting one publishes version + 1 and marks the previous row
- * SUPERSEDED, because the card handed to a parent EXISTED — a school that overwrites it cannot answer
+ * SUPERSEDED, because the card handed to a guardian EXISTED — a school that overwrites it cannot answer
  * "what did we send you in March?", which is the question asked precisely when something has gone wrong.
  *
  * Persisted with {@code @Enumerated(STRING)} against a MySQL enum column: adding a value later needs an

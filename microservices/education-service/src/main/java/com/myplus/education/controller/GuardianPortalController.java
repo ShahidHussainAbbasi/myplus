@@ -1,6 +1,5 @@
 package com.myplus.education.controller;
 
-import java.time.LocalDate;
 import java.util.*;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,13 +22,13 @@ import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
 
 /**
- * Slice 3.1 — the parent portal. <b>The first surface an outsider can reach.</b>
- * Design: microservices/docs/slices/edu-3.1-parent-portal.md
+ * Slice 3.1 — the guardian portal. <b>The first surface an outsider can reach.</b>
+ * Design: microservices/docs/slices/edu-3.1-guardian-portal.md
  *
  * <h3>Why this is a separate controller and not a privilege on the existing ones (D2)</h3>
  *
  * The cheap option was to add a {@code GUARDIAN} role and {@code @PreAuthorize} the existing endpoints.
- * That makes every one of ~31 education controllers a place a parent might reach, and relies on each of
+ * That makes every one of ~31 education controllers a place a guardian might reach, and relies on each of
  * them remembering to narrow an org-scoped query to two children.
  *
  * <b>The education review's finding A already proved that bet loses:</b> a scoping rule that had to be
@@ -37,7 +36,7 @@ import com.myplus.education.util.RequestUtil;
  * materially worse.
  *
  * <p>So this is an <b>allowlist</b>: the portal's attack surface is exactly what is written below, and a
- * new staff endpoint is not automatically a parent endpoint. A parent hitting a staff URL is refused
+ * new staff endpoint is not automatically a guardian endpoint. A guardian hitting a staff URL is refused
  * because it is not part of this surface — not because a role string happened not to match.
  *
  * <h3>Every read passes through {@link ChildResolver}</h3>
@@ -51,7 +50,7 @@ import com.myplus.education.util.RequestUtil;
  * Every mapping is GET. There is no write endpoint on the portal surface at all (D4).
  */
 @Controller
-public class ParentPortalController {
+public class GuardianPortalController {
 
     @Autowired private ChildResolver childResolver;
     @Autowired private ReportCardRepository reportCardRepository;
@@ -147,7 +146,7 @@ public class ParentPortalController {
      * Results: <b>PUBLISHED report cards only</b>.
      *
      * <p>1.5 made an issued card a snapshot precisely so it could be shown outside the school. A DRAFT or
-     * SUPERSEDED card must never appear here — a parent seeing a mark that later changes is exactly the
+     * SUPERSEDED card must never appear here — a guardian seeing a mark that later changes is exactly the
      * harm snapshotting prevents.
      */
     @RequestMapping(value = "/portal/results", method = RequestMethod.GET)
@@ -239,7 +238,7 @@ public class ParentPortalController {
      * Fee dues, read-only.
      *
      * <p>D5 — the arithmetic is finance's (0.2a); the portal shows it. There is no Pay button: that is 3.2
-     * and gated on D-4. Showing a balance a parent cannot yet pay is still an improvement on today, where
+     * and gated on D-4. Showing a balance a guardian cannot yet pay is still an improvement on today, where
      * they cannot see it at all.
      */
     @RequestMapping(value = "/portal/dues", method = RequestMethod.GET)
@@ -337,8 +336,8 @@ public class ParentPortalController {
     }
 
     // NOTE: there is deliberately NO behaviour-notes endpoint (D4). 2.5's log was written by staff with no
-    // expectation that a parent would read it the next day; exposing it retroactively would change the
-    // contract its authors wrote under. It needs a per-note "shared with parent" decision — a feature,
+    // expectation that a guardian would read it the next day; exposing it retroactively would change the
+    // contract its authors wrote under. It needs a per-note "shared with guardian" decision — a feature,
     // not a filter — and that is tracked in the programme's carried requirements.
 
     // ── helpers ─────────────────────────────────────────────────────────────────────────────────
@@ -360,7 +359,7 @@ public class ParentPortalController {
     /**
      * An external party reading a child's record is worth a permanent trail.
      *
-     * <p>Best-effort: a failed audit must not deny a parent their own child's results, and the outbox
+     * <p>Best-effort: a failed audit must not deny a guardian their own child's results, and the outbox
      * retries. The read has already been authorised by this point.
      */
     private void audit(String action, String enrollNo) {

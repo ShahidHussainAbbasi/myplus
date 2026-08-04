@@ -1,8 +1,10 @@
 # Slice 2.5 — Discipline / behaviour log
 
 **Status: ✅ DONE — `mvn test` + Cypress gate GREEN (2026-08-03).**
+**⚠️ AMENDED 2026-08-04 — `parentInformed` renamed to `guardianInformed` (Flyway **V23**). Needs a
+re-run of `behaviour.cy.js` and `mvn test` before this reads green again; see §4a.**
 Gate `education/behaviour.cy.js` (11 cases, none skipped) + `BehaviourNoteRulesTest` (12 pure cases).
-Flyway **V21**. **This completes PHASE 2.**
+Flyway **V21** + **V23**. **This completes PHASE 2.**
 
 > **One gate-run correction, and it was the test's model of the platform.** The XSS case asserted a
 > description is *stored verbatim and escaped at render*. Wrong: `com.security.XssSanitizingFilter` wraps
@@ -30,7 +32,7 @@ everything shipped so far:
 |---|---|
 | It is an **opinion**, not a measurement | a mark can be re-marked from the paper; "was rude in class" cannot be re-derived from anything. It is one person's account |
 | It **follows a child for years** and is read by people who were not there | so it must carry *who said it and when*, always, and never lose that to an edit |
-| It is **contested** — by the student, the parent, sometimes the school | so an edit history is not a nice-to-have; it is the point |
+| It is **contested** — by the student, the guardian, sometimes the school | so an edit history is not a nice-to-have; it is the point |
 | It is **not only negative** | a log that records only misconduct becomes a punishment ledger nobody trusts. Recognising good conduct is the same shape and costs one enum value |
 
 ### What this deliberately is NOT
@@ -51,7 +53,7 @@ child's record, and it is the single feature most likely to be wrong in a way no
 
 ```
 BehaviourNote  studentEnrollNo · type · category · occurredOn · description
-               recordedByStaffId · action · parentInformed · status
+               recordedByStaffId · action · guardianInformed · status
 ```
 
 Deliberately one table. An `IncidentType` entity was considered and rejected: unlike leave types (2.3 D2) or
@@ -91,13 +93,13 @@ silently attribute an account to the wrong person.
 The **session user is recorded separately** as `userId` (who typed it). Both matter, and conflating them
 loses the distinction exactly when it is being disputed.
 
-### D5 — Parent contact is a RECORDED FACT, not an action this slice performs
+### D5 — Guardian contact is a RECORDED FACT, not an action this slice performs
 
-`parentInformed` (boolean) + `parentInformedOn`. The school ticks it when they have spoken to the parent.
+`guardianInformed` (boolean) + `guardianInformedOn`. The school ticks it when they have spoken to the guardian.
 
 **This slice does not send anything.** Notification is still a logging stub across 2.2 and 2.4, and bolting
 a third half-wired sender onto the most sensitive data in the system would be the worst place to do it.
-Recording *whether* the parent was told is the part a school actually needs for its own protection; sending
+Recording *whether* the guardian was told is the part a school actually needs for its own protection; sending
 is §6, once the notification path is real.
 
 ### D6 — Visibility follows the existing student scope, and there is no new tier
@@ -117,8 +119,8 @@ half-built confidentiality feature that a school might trust with something it s
 | `BehaviourNote` (V21), org-scoped | detention/suspension workflow, escalation chains |
 | positive · concern · neutral (D2) | automatic rules ("3 lates = detention") |
 | immutable notes + supersede (D3) | safeguarding / confidential records (D6, §6) |
-| explicit author vs typist (D4) | sending anything to a parent (D5, §6) |
-| `parentInformed` as a recorded fact | behaviour analytics / trend reporting (§6) |
+| explicit author vs typist (D4) | sending anything to a guardian (D5, §6) |
+| `guardianInformed` as a recorded fact | behaviour analytics / trend reporting (§6) |
 | per-student history + a school-wide recent view | student-visible notes (Phase 3 portal) |
 | every write audited via `EduAuditService` | |
 
@@ -151,7 +153,7 @@ flowchart LR
   C -->|who may I see?| V
   C -->|"INSERT only — never UPDATE a description"| DB
   C --> AUD
-  C -.->|"NOT reached: parent contact is RECORDED,<br/>not sent (D5)"| N
+  C -.->|"NOT reached: guardian contact is RECORDED,<br/>not sent (D5)"| N
 
   classDef notused stroke-dasharray: 4 4
   class N notused
@@ -170,8 +172,8 @@ classDiagram
     +Long recordedByStaffId
     +String recordedByStaffName
     +String action
-    +boolean parentInformed
-    +LocalDate parentInformedOn
+    +boolean guardianInformed
+    +LocalDate guardianInformedOn
     +NoteStatus status
     +Long supersededByNoteId
     +Long userId
@@ -223,7 +225,7 @@ sequenceDiagram
 - [x] `POSITIVE` / `CONCERN` / `NEUTRAL` (D2) — and the UI defaults to `NEUTRAL`, not `CONCERN`
 - [x] **no update-description path and no delete endpoint**; supersede writes a new row and links it (D3)
 - [x] author (`recordedByStaffId`) distinct from typist (`userId`), both stored and both returned (D4)
-- [x] `parentInformed` recorded; **nothing is sent** (D5)
+- [x] `guardianInformed` recorded; **nothing is sent** (D5)
 - [x] scope via `StudentVisibilityService`; no per-note confidentiality (D6)
 - [x] `WRITE_PRIVILEGE`; both writes audited via `EduAuditService`
 - [x] screen + i18n × **6 bundles**, 60 lines each, all 24 new keys verified in all six
@@ -262,6 +264,41 @@ quietly strip the provenance D4 exists to protect.
 tenant, both author fields are left null rather than falling back to the session user. A wrong name on a
 contested record is worse than no name.
 
+## 4a. Amendment — `parentInformed` → `guardianInformed` (2026-08-04)
+
+This slice shipped green with a field called `parentInformed`. Renamed as part of the platform-wide
+parent→guardian sweep that landed with 3.1's guardian portal, because the domain calls this person a
+**guardian** everywhere else — `Guardian`, `GuardianController`, `guardian_portal_access`,
+`guardianDashboard.html`. "Parent" was the only holdout, and it is also **wrong more often than it is
+right**: the adult a school informs about a behaviour note is frequently a grandparent, an older sibling,
+a foster carer or a local authority. The column recorded a fact about the *guardian of record*.
+
+| Touchpoint | Change |
+|---|---|
+| Schema | **new `V23__behaviour_note_guardian_informed.sql`** — `CHANGE COLUMN parent_informed → guardian_informed`, `parent_informed_on → guardian_informed_on` |
+| `BehaviourNote` | fields + `@Column(name=…)` |
+| `BehaviourNoteRules` | `validateParentInformed` → `validateGuardianInformed` |
+| `BehaviourController` | request parameters, builder call, DTO keys |
+| `BehaviourNoteRulesTest` | `guardian_informed_coherence` |
+| `educationDashboard.html` | `#bnParent` → `#bnGuardian` |
+| `education.js` | payload keys |
+| `behaviour.cy.js` | payload + assertions |
+| `messages*.properties` × 6 | `ui.parentInformed` → `ui.guardianInformed`; en/fr/es/ur values reworded, hi/ar already said *guardian* (अभिभावक / ولي الأمر) |
+
+**V21 was NOT edited.** It is already applied in every environment that ran 2.5; changing an applied
+script changes its checksum and Flyway refuses to start — correctly. A fresh deploy replays V21 (creating
+`parent_informed`) then V23 (renaming it) and lands on the same schema as an upgraded one. This is the
+Flyway standard doing exactly the job it exists for.
+
+**Derived queries were checked first (D9 step).** No repository method name and no JPQL referenced the old
+column, so the rename is confined to the list above. Had one existed, Spring Data would have failed at
+context startup, not at the call site.
+
+**Not renamed, and deliberately:** `re-parent` (anti-IDOR comments in `AcademicYearController` /
+`ExamController`), `parent exam` (`ExamPaper`), `service-parent` (the Maven pom), `categories.parent_id`,
+and DOM `parentNode` / `.parents()` in vendored libraries. Those are the *containment* sense of the word,
+not the person, and renaming them would be a different and wrong change.
+
 ## 5. Test
 
 | # | Case | Expected |
@@ -274,7 +311,7 @@ contested record is worse than no name.
 | 6 | Per-student history | ordered, includes superseded rows marked as such |
 | 7 | School-wide recent view | most recent first, across students in scope |
 | 8 | A student outside the caller's branch | not visible, and recording against them is refused |
-| 9 | `parentInformed` ticked | recorded with its date; **no notification is sent** |
+| 9 | `guardianInformed` ticked | recorded with its date; **no notification is sent** |
 | 10 | Every write | an audit event is enqueued |
 | 11 | Another tenant's note by id | refused |
 | 12 | Description with HTML | rendered escaped, not executed |
@@ -289,7 +326,7 @@ Pure unit: `BehaviourNoteRulesTest` — supersede transitions and the author/typ
 a narrower access tier, and probably separation from ordinary discipline data. Recording that here as an
 explicit non-goal so no school is invited to misuse this table for it.
 
-**Telling the parent.** D5 records *whether*; sending is blocked on the notification path being real —
+**Telling the guardian.** D5 records *whether*; sending is blocked on the notification path being real —
 which 2.2 and 2.4 both also want. **Three slices now need it; it is the strongest candidate for the next
 non-phase slice.**
 

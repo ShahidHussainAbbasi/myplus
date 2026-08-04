@@ -96,7 +96,7 @@ public class FeeCollectionController {
 
     /**
      * Fee-collection visibility. By org policy (FeeSetting.feeCollectionBranchScoped, default FALSE) a fee can
-     * be viewed/collected from ANY branch — a parent may pay at any campus — so the default is org-wide. Only
+     * be viewed/collected from ANY branch — a guardian may pay at any campus — so the default is org-wide. Only
      * when the owner opts INTO branch scoping does a fee become visible solely to the student's branch (a fee
      * is for a student, resolved by enrollNo). Owner/super always see org-wide.
      */
@@ -187,7 +187,7 @@ public class FeeCollectionController {
 
     /**
      * Slice 0.2a: one student's statement of account — charges, payments and a running balance, built by the
-     * SHARED StatementBuilder. This is the document a parent actually asks for.
+     * SHARED StatementBuilder. This is the document a guardian actually asks for.
      */
     @RequestMapping(value = "/getFeeStatement", method = RequestMethod.GET)
     @ResponseBody
@@ -222,14 +222,14 @@ public class FeeCollectionController {
     /** Owner policy: carry an overpayment forward as fee credit (default ON). Off ⇒ the 0.2a refusal. */
     private boolean creditEnabled() {
         try { return settingsService.getBool("edu.fee.creditOnOverpayment"); }
-        catch (Exception e) { return true; }   // fail SAFE for the parent: keep their money rather than reject it
+        catch (Exception e) { return true; }   // fail SAFE for the guardian: keep their money rather than reject it
     }
 
     /**
      * Slice 0.2b: apply any credit the student holds to what is still owed, then carry an unallocated surplus
      * forward as new credit.
      *
-     * Order matters. Credit is spent FIRST — a parent should never be asked for money the school is already
+     * Order matters. Credit is spent FIRST — a guardian should never be asked for money the school is already
      * holding for them — and only what remains unmatched becomes new credit.
      *
      * @return a human summary of what happened, or null when credit played no part
@@ -249,7 +249,7 @@ public class FeeCollectionController {
             note.append("Carried ").append(surplus).append(" forward as fee credit. ");
         }
 
-        // 2. Spend existing credit on anything STILL outstanding. Credit is spent before the parent is asked for
+        // 2. Spend existing credit on anything STILL outstanding. Credit is spent before the guardian is asked for
         //    more — never ask for money the school is already holding for them.
         //    GL: Dr 2200 = Cr AR — the liability shrinks and the receivable clears. NO cash leg: this is not a
         //    receipt, and posting it as one would count the same money as received twice.
@@ -269,7 +269,7 @@ public class FeeCollectionController {
     /**
      * Slice 0.2a: refuse an overpayment BEFORE the row is saved, so a refusal never leaves money half-applied.
      *
-     * A parent may pay at most what is owed: the dues already outstanding PLUS the charge this row raises. Paying
+     * A guardian may pay at most what is owed: the dues already outstanding PLUS the charge this row raises. Paying
      * more is refused rather than silently driving a balance negative — fee credit (carrying the surplus to next
      * month) is slice 0.2b, and until it exists an honest error beats a wrong number.
      *
@@ -279,7 +279,7 @@ public class FeeCollectionController {
         if (paid <= 0) return null;
         // Slice 0.2b: with fee credit enabled (the default) a surplus is CARRIED FORWARD rather than refused, so
         // there is nothing to reject here. The refusal path below survives for schools that switch the policy
-        // off — some genuinely will not hold parent money.
+        // off — some genuinely will not hold guardian money.
         if (creditEnabled() && creditService != null) return null;
         int charge = fc.getDueAmount() == null ? 0 : fc.getDueAmount();
         // totalOutstanding excludes this row — it is not persisted yet on a create.
@@ -296,7 +296,7 @@ public class FeeCollectionController {
      * subledger — the identical path a POS customer receipt takes, so finance sees one kind of receipt.
      *
      * Best-effort: the collection is already recorded, so a ledger hiccup is reconciled later rather than failing
-     * a payment the parent has made.
+     * a payment the guardian has made.
      */
     private String settleFeePayment(Long orgId, FeeCollection fc, int tendered) {
         java.math.BigDecimal paid = java.math.BigDecimal.valueOf(tendered);
@@ -317,7 +317,7 @@ public class FeeCollectionController {
             return null;
         } catch (Exception e) {
             // Best-effort ONLY for a downstream ledger hiccup — the local allocation has already been applied and
-            // the collection is recorded, so this reconciles later rather than failing a parent's payment.
+            // the collection is recorded, so this reconciles later rather than failing a guardian's payment.
             appUtil.le(getClass(), e);
             return null;
         }
@@ -391,7 +391,7 @@ public class FeeCollectionController {
             // and these two are what make a row an open receivable.
             //
             // ONLY on create. A new row opens at its FULL charge with nothing paid; the tendered amount is then
-            // handed to the subledger, which decides WHICH rows it settles — a parent paying this month may owe
+            // handed to the subledger, which decides WHICH rows it settles — a guardian paying this month may owe
             // older months, and FIFO must reach the oldest first. Applying the tender here as well would count the
             // same payment twice.
             //
@@ -449,7 +449,7 @@ public class FeeCollectionController {
                 creditNote = applyCredit(orgId, saved, st, tendered, owedBeforeTender);
             }
 
-            // Tell the clerk what happened to the money. Silently absorbing an overpayment is how a parent ends
+            // Tell the clerk what happened to the money. Silently absorbing an overpayment is how a guardian ends
             // up unable to account for what they paid.
             return new GenericResponse("SUCCESS", creditNote == null ? "" : creditNote);
         } catch (Exception e) {

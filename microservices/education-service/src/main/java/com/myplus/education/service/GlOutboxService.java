@@ -72,7 +72,7 @@ public class GlOutboxService {
 
     /**
      * Queue a GL posting event in the caller's transaction. Never throws — a GL problem must not fail the fee
-     * collection a parent just made; the outbox is what makes that safe, because an undelivered row is retried
+     * collection a guardian just made; the outbox is what makes that safe, because an undelivered row is retried
      * rather than dropped.
      */
     public void enqueue(PostingEventRequest req) {

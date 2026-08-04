@@ -23,7 +23,7 @@ Programme: `education-complete-programme.md` Phase 2.4 — *"Homework / assignme
 
 Phase 2 so far is about staff: where they teach (2.1), who covers them (2.2), whether they were in (2.3).
 2.4 is the first slice in this phase that reaches the **student** — and the first thing in the whole system
-a parent will look at more than once a term.
+a guardian will look at more than once a term.
 
 ### The plan says "attachments via document-service". That gates on D-5, and this slice does not wait
 
@@ -49,7 +49,7 @@ pointing only at 4.3.
 | Existing | Consequence |
 |---|---|
 | `Subject` → `@ManyToOne Grade` (1.2 D2) | homework is set for a *subject*, which already implies the class. No `gradeId` needed — and unlike 2.1 D2, nothing here needs a UNIQUE key on it, so the derive-don't-store rule holds |
-| `Mark` (1.3) — per student × paper, `absent` distinct from zero | the precedent for per-student rows against a shared parent, including the not-marked-yet distinction |
+| `Mark` (1.3) — per student × paper, `absent` distinct from zero | the precedent for per-student rows against a shared guardian, including the not-marked-yet distinction |
 | `Term` (1.1), nullable | homework belongs to a term for reporting, and a school without terms keeps working |
 | `StudentVisibilityService` (1.5) | who a teacher may set homework for is already answered |
 | `EduAuditService` | a changed grade is contested data, exactly as marks are |
@@ -126,9 +126,9 @@ that will already hold real data, and it is recorded in §6 so it cannot be forg
 |---|---|
 | `Homework` + `HomeworkSubmission` (V20), org-scoped | file upload / `document-service` (D6, gated on D-5) |
 | set · list by class/subject · edit · delete-when-unmarked | homework counting toward report cards (D4, §6) |
-| student submit + teacher `NOT_DONE` (D3) | parent/student portal — this is the teacher's view (Phase 3) |
+| student submit + teacher `NOT_DONE` (D3) | guardian/student portal — this is the teacher's view (Phase 3) |
 | grading with 1.4's scale + feedback (D4) | plagiarism, peer review, group assignments |
-| derived late (D5), derived class-completion count | notifications to parents (§6 — 2.2's hook is still a stub) |
+| derived late (D5), derived class-completion count | notifications to guardians (§6 — 2.2's hook is still a stub) |
 
 ### Layer answers (§5b)
 
@@ -137,7 +137,7 @@ that will already hold real data, and it is recorded in §6 so it cannot be forg
 | **UI/UX** | one screen, two modes. *Set*: subject, title, due date, optional marks. *Mark*: the class roster with each student's state, a marks box and feedback — the marks-grid shape teachers already know from 1.3. Overdue-and-unrecorded is visually distinct without being an accusation |
 | **Service/API** | `/getHomework`, `/saveHomework`, `/deleteHomework`, `/getHomeworkSheet`, `/saveSubmissionBulk`. Setting and grading are **`WRITE_PRIVILEGE`** — this is teacher work, exactly as marks entry is (1.3 D6), not the ADMIN policy tier |
 | **Database** | `homework`, `homework_submission` (V20). **UNIQUE `(organization_id, homework_id, student_enroll_no)`** — one row per child per task, enforced by the DB (1.3 D1). Indexes `(org, subject_id, due_on)` and `(org, homework_id)` per D3b |
-| **Patterns** | parent/child lifecycle split (1.2 D1); lazy row creation (D2); derived-not-stored for late and grade (1.4 D4); per-row partial success on bulk save (1.3 D3); DB-enforced idempotency; forward-compatible opaque reference (D6) |
+| **Patterns** | guardian/child lifecycle split (1.2 D1); lazy row creation (D2); derived-not-stored for late and grade (1.4 D4); per-row partial success on bulk save (1.3 D3); DB-enforced idempotency; forward-compatible opaque reference (D6) |
 | **Microservice design** | education-local. `document-service` is the one future edge, kept to a single nullable column so composing it later is additive |
 | **Configurability** | none. "Is 23:59 late?" is arithmetic, not policy. A late-penalty rule would be policy — and it is §6, not a toggle bolted on |
 | **DRY** | `GradingService` (1.4) for percent/band; `StudentVisibilityService` (1.5) for the roster; `EduAuditService` for grade changes; the bulk-save shape follows `saveMarksBulk` |
@@ -254,7 +254,7 @@ sequenceDiagram
 
 | Pattern | Where | Why this one |
 |---|---|---|
-| **Parent/child lifecycle split** | `Homework` + `HomeworkSubmission` | 1.2/1.3's Exam/Mark shape: a flat row-per-student copies the due date onto every row, where copies drift |
+| **Guardian/child lifecycle split** | `Homework` + `HomeworkSubmission` | 1.2/1.3's Exam/Mark shape: a flat row-per-student copies the due date onto every row, where copies drift |
 | **Lazy row creation** | no rows on set (D2) | pre-seeding asserts facts that are not yet true and silently misses later joiners |
 | **Derived, not stored** | lateness (D5), percentage, band | extending a deadline must un-late everyone who beat the new date — a stored flag cannot |
 | **Pure function core** | `HomeworkRules` | the judgements test with no Spring, DB or Docker |
@@ -317,10 +317,10 @@ it quietly here would change what a report card means without anyone deciding to
 **Late penalties.** "10% off per day late" is policy, so it belongs in `common-settings` — but only once
 someone asks, and it interacts with continuous assessment above.
 
-**Parent visibility.** Homework is one of the two things a parent will check daily. That is Phase 3.1's
+**Guardian visibility.** Homework is one of the two things a guardian will check daily. That is Phase 3.1's
 portal reading this data; nothing here should be shaped for it beyond keeping the state honest.
 
-**Notifying students/parents when homework is set.** Wants the notification path — which 2.2 left as a
+**Notifying students/guardians when homework is set.** Wants the notification path — which 2.2 left as a
 logging stub. Worth doing once, properly, for both.
 
 ## 7. Risks

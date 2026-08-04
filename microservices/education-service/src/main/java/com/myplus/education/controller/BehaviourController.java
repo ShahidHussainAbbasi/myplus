@@ -151,9 +151,9 @@ public class BehaviourController {
             String problem = BehaviourNoteRules.validate(description, occurredOn, LocalDate.now());
             if (problem != null) return new GenericResponse("FAILED", problem);
 
-            boolean parentInformed = "true".equalsIgnoreCase(request.getParameter("parentInformed"));
-            LocalDate parentInformedOn = parseDate(request.getParameter("parentInformedOn"));
-            String coherence = BehaviourNoteRules.validateParentInformed(parentInformed, parentInformedOn);
+            boolean guardianInformed = "true".equalsIgnoreCase(request.getParameter("guardianInformed"));
+            LocalDate guardianInformedOn = parseDate(request.getParameter("guardianInformedOn"));
+            String coherence = BehaviourNoteRules.validateGuardianInformed(guardianInformed, guardianInformedOn);
             if (coherence != null) return new GenericResponse("FAILED", coherence);
 
             BehaviourType type;
@@ -167,7 +167,7 @@ public class BehaviourController {
             }
 
             BehaviourNote note = build(org, uid, student, type, request, occurredOn,
-                    description, parentInformed, parentInformedOn);
+                    description, guardianInformed, guardianInformedOn);
             note = behaviourNoteRepository.save(note);
 
             auditService.record("BEHAVIOUR_NOTE_ADDED", "BehaviourNote", String.valueOf(note.getId()),
@@ -226,7 +226,7 @@ public class BehaviourController {
             }
 
             BehaviourNote replacement = build(org, uid, student, type, request, occurredOn, description,
-                    original.isParentInformed(), original.getParentInformedOn());
+                    original.isGuardianInformed(), original.getGuardianInformedOn());
             // Carry the original author forward unless a new one is supplied: the correction is usually
             // typed by someone else, but it is still THAT teacher's account being restated.
             if (replacement.getRecordedByStaffId() == null) {
@@ -258,7 +258,7 @@ public class BehaviourController {
     /** Shared construction so a note and its correction cannot drift apart in shape. */
     private BehaviourNote build(Long org, Long uid, Student student, BehaviourType type,
                                 HttpServletRequest request, LocalDate occurredOn, String description,
-                                boolean parentInformed, LocalDate parentInformedOn) {
+                                boolean guardianInformed, LocalDate guardianInformedOn) {
         Long authorId = parseLong(request.getParameter("recordedByStaffId"));
         String authorName = null;
         if (authorId != null) {
@@ -279,8 +279,8 @@ public class BehaviourController {
                         ? request.getParameter("action").trim() : null)
                 .recordedByStaffId(authorId)
                 .recordedByStaffName(authorName)
-                .parentInformed(parentInformed)
-                .parentInformedOn(parentInformedOn)
+                .guardianInformed(guardianInformed)
+                .guardianInformedOn(guardianInformedOn)
                 .status(NoteStatus.ACTIVE)
                 .userId(uid).organizationId(org)
                 .dated(LocalDateTime.now()).updated(LocalDateTime.now())
@@ -308,9 +308,9 @@ public class BehaviourController {
         // Both, always: the account is only defensible if it says who reported it AND who typed it (D4).
         m.put("recordedByStaffId", n.getRecordedByStaffId());
         m.put("recordedByStaffName", n.getRecordedByStaffName());
-        m.put("parentInformed", n.isParentInformed());
-        m.put("parentInformedOn", n.getParentInformedOn() == null ? null
-                : n.getParentInformedOn().toString());
+        m.put("guardianInformed", n.isGuardianInformed());
+        m.put("guardianInformedOn", n.getGuardianInformedOn() == null ? null
+                : n.getGuardianInformedOn().toString());
         m.put("status", n.getStatus() == null ? null : n.getStatus().name());
         m.put("supersededByNoteId", n.getSupersededByNoteId());
         m.put("dated", n.getDated() == null ? null : n.getDated().toString());

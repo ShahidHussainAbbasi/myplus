@@ -150,7 +150,7 @@ describe('Education — fee collection validation (finding B)', () => {
   it('a normal collection is unaffected — the guard must not break the happy path', () => {
     const en = 'FVOK' + Date.now()
     seedStudent(en)
-    addFc({ enrollNo: en, fee: 2000, dueAmount: 2000, feePaid: 2000, receivedIn: 'Cash', payee: 'CyParent' })
+    addFc({ enrollNo: en, fee: 2000, dueAmount: 2000, feePaid: 2000, receivedIn: 'Cash', payee: 'CyGuardian' })
       .then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
   })
 
@@ -221,7 +221,7 @@ describe('Education — fee collection validation (finding B)', () => {
 
   it('a PERCENTAGE discount above 100% is refused', () => {
     // discountAmount() computes base * amount / 100, and monthlyDue floors the result at 0 — so without
-    // this the parent is silently billed nothing.
+    // this the guardian is silently billed nothing.
     cy.request({ method: 'POST', url: '/addDiscount', form: true, failOnStatusCode: false,
       body: { name: 'FVD150' + Date.now(), di: '%', amount: 150, status: 'Active' } })
       .then((r) => {

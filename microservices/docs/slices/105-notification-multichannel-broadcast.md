@@ -117,7 +117,7 @@ administrator"* rather than silently dropping Drivers and Public from every send
 ### D6 — Existing scheduled alerts must NOT fire on deploy
 
 The dangerous edge. `Alerts` rows already carry `sd` dates, many in the past, that have never been acted on
-because no scheduler existed. Switching one on would blast a school's entire parent list the moment the service
+because no scheduler existed. Switching one on would blast a school's entire guardian list the moment the service
 starts.
 
 **Only broadcasts created through the new API are ever dispatched.** Pre-existing `Alerts` rows are untouched and
@@ -138,7 +138,7 @@ Per the standing configurability lens, these go in the common-settings catalog r
 | `notif.channel.emailEnabled` | true | — |
 | `notif.channel.smsEnabled` | false | off until a provider is configured |
 | `notif.sender.displayName` | org name | schools want to appear as the school |
-| `notif.quietHours.start` / `.end` | unset | do not text parents at 03:00 |
+| `notif.quietHours.start` / `.end` | unset | do not text guardians at 03:00 |
 | `notif.rateCap.perHour` | 500 | protects the SMTP reputation of a shared sender |
 
 ### D9 — Scope
@@ -157,7 +157,7 @@ Per the standing configurability lens, these go in the common-settings catalog r
 | Layer | Answer |
 |---|---|
 | **UI/UX** | education's alert screen gains a delivery result (sent / failed / not-configured per channel). No new screen this slice. |
-| **Service/API** | `POST /broadcast` → 202 + id; `GET /broadcasts/{id}` → per-recipient status. `ADMIN_PRIVILEGE` — broadcasting to every parent is the money/policy tier, per D-3. |
+| **Service/API** | `POST /broadcast` → 202 + id; `GET /broadcasts/{id}` → per-recipient status. `ADMIN_PRIVILEGE` — broadcasting to every guardian is the money/policy tier, per D-3. |
 | **Database** | MySQL, `myplusdb_notification`. Relational and small; delivery rows are queried by broadcast and by status. Indexed `(status, scheduled_at)` for the dispatcher and `(org_id)` per DB standard D3. |
 | **Patterns** | Ports & adapters (`ChannelSender`), SPI (`AudienceResolver`), transactional outbox (capture), scheduled worker (dispatch), idempotency key. |
 | **Microservice design** | Delivery is genuinely cross-cutting → stays a standalone service with its own DB and contract. Domain knowledge stays in each module (DIP: modules depend on the contract, notification-service depends on nobody). |

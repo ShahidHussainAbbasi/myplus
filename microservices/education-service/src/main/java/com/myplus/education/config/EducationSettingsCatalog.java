@@ -13,7 +13,7 @@ import java.util.List;
  *
  * Branch-policy toggles default OFF = org-wide (a single-branch school never needs them; a group can opt in).
  * When ON, visibility is DERIVED from students (guardian via Student.guardianId, discount via Student.discountId),
- * so a cross-campus parent stays visible from either branch — see GuardianController / DiscountController.
+ * so a cross-campus guardian stays visible from either branch — see GuardianController / DiscountController.
  */
 @Component
 public class EducationSettingsCatalog implements SettingsCatalogProvider {
@@ -23,7 +23,7 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
         return List.of(
                 SettingEntry.bool("edu.guardian.branchScoped",
                         "Restrict guardians to their branch",
-                        "Off (default): guardians are visible org-wide (a parent may have children at more than one "
+                        "Off (default): guardians are visible org-wide (a guardian may have children at more than one "
                                 + "campus). On: a branch's staff see only guardians who have a student at that branch.",
                         false, "Branch policy"),
                 SettingEntry.bool("edu.discount.branchScoped",
@@ -45,10 +45,10 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                         false, "Branch policy"),
                 SettingEntry.bool("edu.fee.creditOnOverpayment",
                         "Carry an overpayment forward as fee credit",
-                        "On (default): if a parent pays more than is owed, the surplus is held as fee credit and "
+                        "On (default): if a guardian pays more than is owed, the surplus is held as fee credit and "
                                 + "applied automatically to the next charge. Off: the payment is refused and only "
                                 + "the outstanding amount may be collected — for schools that do not hold "
-                                + "parent money.",
+                                + "guardian money.",
                         true, "Fees")
                 // NOTE: fee-collection branch scoping is deliberately NOT here. It already exists as
                 // FeeSetting.feeCollectionBranchScoped on the Fee Settings screen (see FeeCollectionController
@@ -123,7 +123,19 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                                 + "recorded as approved immediately — for small schools where the person "
                                 + "entering it is the person deciding. Either way the approved days become "
                                 + "absences, so the substitution screen knows which lessons need cover.",
-                        true, "Staff attendance")
+                        true, "Staff attendance"),
+                // ── Slice 3.1: the guardian portal. OFF by default and fails CLOSED — this is the first
+                // surface an outsider can reach, and a portal that goes live the moment code deploys is
+                // not a decision anyone made. Standard C3 inverted: the SAFE state is off, so that is
+                // both the default and the fallback when the setting cannot be read.
+                SettingEntry.bool("edu.portal.enabled",
+                        "Guardian portal is open",
+                        "Off (default): guardians cannot sign in at all, even ones who have been invited. "
+                                + "On: an invited guardian can see results, attendance, fee dues and "
+                                + "homework for THEIR OWN children only — never another family's, and "
+                                + "never anything staff-facing. Turn this off to close the portal "
+                                + "immediately for everyone without withdrawing individual invitations.",
+                        false, "Guardian portal")
         );
     }
 }

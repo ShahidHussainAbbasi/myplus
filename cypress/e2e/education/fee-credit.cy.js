@@ -26,7 +26,7 @@ describe('Education — fee credit (overpayment carried forward)', () => {
       method: 'POST', url: '/addFc', form: true, failOnStatusCode: false,
       body: {
         enrollNo, fee: charge, dueAmount: charge, feePaid: paid,
-        receivedIn: 'Cash', payee: 'CyParent', receivedBy: 'CyClerk',
+        receivedIn: 'Cash', payee: 'CyGuardian', receivedBy: 'CyClerk',
       },
     }).then((r) => parse(r.body))
 
@@ -53,7 +53,7 @@ describe('Education — fee credit (overpayment carried forward)', () => {
     })
   })
 
-  it('the next charge is paid from credit before the parent is asked for anything', () => {
+  it('the next charge is paid from credit before the guardian is asked for anything', () => {
     const en = 'CRN' + Date.now()
     seedStudent(en)
     fee(en, 1000, 5000)                    // owes 1000, pays 5000 → 4000 credit
@@ -92,8 +92,8 @@ describe('Education — fee credit (overpayment carried forward)', () => {
     studentByEnroll(b).then((s) => expect(Number(s.creditBalance || 0)).to.eq(0))
   })
 
-  it('held parent money appears as a LIABILITY on 2200, and the GL stays balanced', () => {
-    // The point of the credit GL legs: money the school is holding is not income and not the parent's debt —
+  it('held guardian money appears as a LIABILITY on 2200, and the GL stays balanced', () => {
+    // The point of the credit GL legs: money the school is holding is not income and not the guardian's debt —
     // it is a liability, on the same account POS uses for store credit.
     const tb = () => cy.request('/gl/trialBalance').then((r) => parse(r.body))
     const net = (t, code) => {
@@ -135,7 +135,7 @@ describe('Education — fee credit (overpayment carried forward)', () => {
     cy.request('/getConfig').then((r) => {
       const entry = rows(r.body).find((e) => e.key === 'edu.fee.creditOnOverpayment')
       expect(entry, 'edu.fee.creditOnOverpayment is offered to the owner').to.exist
-      expect(String(entry.value), 'defaults ON — the school keeps the parent money').to.eq('true')
+      expect(String(entry.value), 'defaults ON — the school keeps the guardian money').to.eq('true')
     })
   })
 })

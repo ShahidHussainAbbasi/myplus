@@ -86,7 +86,7 @@ One `eventKey` UUID per enqueue. `finance-service` already dedups on `(organizat
 
 ### D6 — Best-effort: a GL failure must never fail the fee collection
 
-Wrapped like business's: the parent's payment is recorded regardless. The outbox is what makes "best-effort"
+Wrapped like business's: the guardian's payment is recorded regardless. The outbox is what makes "best-effort"
 safe — a failed delivery is retried, not lost.
 
 ### D7 — Payment method: **CORRECTED — it already exists**

@@ -38,7 +38,7 @@ describe('Education — fee dues as receivables (AR)', () => {
       body: {
         enrollNo,
         fee: charge, dueAmount: charge, feePaid: paid, dueBalance: Math.max(charge - paid, 0),
-        receivedIn: receivedIn || 'Cash', payee: 'CyParent', receivedBy: 'CyClerk',
+        receivedIn: receivedIn || 'Cash', payee: 'CyGuardian', receivedBy: 'CyClerk',
       },
     }).then((r) => parse(r.body))
 
@@ -67,7 +67,7 @@ describe('Education — fee dues as receivables (AR)', () => {
     seedStudent(en)
     fee(en, 3000, 0)                       // March charge, unpaid
     fee(en, 3000, 0)                       // April charge, unpaid
-    fee(en, 0, 4000)                       // parent pays 4000 → clears March, 1000 off April
+    fee(en, 0, 4000)                       // guardian pays 4000 → clears March, 1000 off April
 
     cy.request('/getFeeStatement?enrollNo=' + en).then((r) => {
       const lines = rows(r.body)

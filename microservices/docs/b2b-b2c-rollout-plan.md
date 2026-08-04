@@ -1,6 +1,6 @@
 # B2B + B2C — what exists today, and how to start both
 
-**Status:** IN DELIVERY — **Phases 0, 0.5, 1 and 2 DONE & Cypress-green** (0/0.5 on 2026-08-01, 1 and 2 on 2026-08-02); **Phase 2 (B2B pricing) backend DONE & Cypress-green; Phase 3 IN PROGRESS — 3a (batch/expiry) + 3b-1 (INVOICE vs RECEIPT) + 3b-2 (batch traceability) + 3c (CRN-/DBN- return documents) + 3d (statement CSV download) green; **3e** (filterable reports) is the last sub-slice, plus candidate **3f** (statements omit credit notes; invoices are retro-edited).**
+**Status:** IN DELIVERY — **Phases 0, 0.5, 1 and 2 DONE & Cypress-green** (0/0.5 on 2026-08-01, 1 and 2 on 2026-08-02); **Phase 2 (B2B pricing) backend DONE & Cypress-green; Phase 3 IN PROGRESS — 3a (batch/expiry) + 3b-1 (INVOICE vs RECEIPT) + 3b-2 (batch traceability) + 3c (CRN-/DBN- return documents) + 3d (statement CSV) + 3e-1 (report filters + export + shared filter rail) green; only **3e-2** (group-by) remains, plus candidate **3f** (statements omit credit notes; invoices are retro-edited).**
 Per-phase state is tracked in the Delivery phases section below; the slice doc for each shipped phase is linked there. Analysis sections 1-3b remain as written unless a finding contradicts them.
 **Companion to:** [`oms-b2b-b2c-implementation-plan.md`](oms-b2b-b2c-implementation-plan.md) (gap analysis),
 [`oms-program-plan.md`](oms-program-plan.md) (tracker), [`customer-requirements-plan.md`](customer-requirements-plan.md)
@@ -238,7 +238,7 @@ Slice doc: `slices/b2b-P2-pricing.md` · gate: `cypress/e2e/business/pricing.cy.
 - Resolution order **base → contract → tier → promotion**, cached off the sell hot path
 - Covers customer-wise *and* product-wise discount in one model rather than two
 
-### Phase 3 — Documents & reports — 🟡 **IN PROGRESS — 3a + 3b-1 + 3b-2 + 3c + 3d green; 3e last**
+### Phase 3 — Documents & reports — 🟡 **IN PROGRESS — 3a/3b-1/3b-2/3c/3d/3e-1 green; only 3e-2 left**
 Slice doc: `slices/b2b-P3-documents-reports.md` (five sub-slices, each separately gated) *(customer reqs #1, #4, #5, #6, #2; + receipt-vs-invoice, moved from Phase 0)*
 - **F1** batch/expiry captured on purchase → **#2**, then **#4** receipt lines
 - Return series `CRN-`/`DBN-` → **#1**

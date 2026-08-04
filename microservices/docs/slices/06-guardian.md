@@ -4,7 +4,7 @@ Status: **DONE** ✅. Follows `../ARCHITECTURE-MULTITENANCY.md`; mirrors prior s
 
 ## Document — what & why
 
-A **Guardian** is a student's parent/guardian (contact, CNIC, relation). Feeds the student form and
+A **Guardian** is the adult responsible for a student (contact, CNIC, relation). Feeds the student form and
 fee/alert flows. Org-scope it like the previous slices. (CSV import endpoints stay deferred.)
 
 ## Design

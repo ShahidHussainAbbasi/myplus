@@ -54,6 +54,26 @@ public class SellController {
         }
     }
 
+    /**
+     * B2B-P3e-1 (#6): the sale report as CSV. Raw passthrough so the browser saves the file; every filter
+     * rides along in the query string, and business-service applies them to the SAME method the screen uses.
+     */
+    @RequestMapping(value = "/saleReport.csv", method = {RequestMethod.GET, RequestMethod.POST})
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<String> saleReportCsv(final HttpServletRequest request) {
+        try {
+            String qs = request.getQueryString();
+            String body = client.getString("/saleReport.csv", qs == null ? "" : qs);
+            return org.springframework.http.ResponseEntity.ok()
+                    .header("Content-Disposition", "attachment; filename=\"sale-report.csv\"")
+                    .header("Content-Type", "text/csv; charset=UTF-8")
+                    .body(body);
+        } catch (Exception e) {
+            LOGGER.error("saleReport.csv proxy error", e);
+            return org.springframework.http.ResponseEntity.status(502).body("Could not build the report.");
+        }
+    }
+
     @RequestMapping(value = "/loadSR", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> loadSR(final SellDTO dto, final HttpServletRequest request) {

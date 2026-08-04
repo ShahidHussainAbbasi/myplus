@@ -1289,7 +1289,7 @@ function PFV_3Colum(o,logo_url,X,Y,W,H,dataUrl,insts){
 		/*T = T+4;//78
 		doc.text("1. For RE-ISSUANCE of Fee Voucher, Rs. 50/- will be charged", L, T);
 		T = T+3;//78
-		doc.text("2. Parents must retain their copy of the PAID fee voucher in safe custody", L, T);
+		doc.text("2. Guardians must retain their copy of the PAID fee voucher in safe custody", L, T);
 		T = T+3;//78
 		doc.text("  for future reference", L, T);
 		T = T+3;//78
@@ -2440,7 +2440,7 @@ function PFV_3ColumBy3_backup(collection,logo_url,X,Y,W,H,dataUrl,insts){
 function getLLInst(){
 	var inst = [];
 	inst.push("1. For RE-ISSUANCE of Fee Voucher, Rs. 50/- will be charged");
-	inst.push("2. Parents must retain their copy of the PAID fee voucher in safe");
+	inst.push("2. Guardians must retain their copy of the PAID fee voucher in safe");
 	inst.push("   custody for future reference");
 	inst.push("3. Fee once paid is not transferable and Non-Refundable");
 	inst.push("4. At the expiry of the validity of voucher Rs.1000 will be charged");
@@ -2450,7 +2450,7 @@ function getLLInst(){
 function getIqraInst(){
 	var inst = [];
 	inst.push("1. For RE-ISSUANCE of Fee Voucher, Rs. 50/- will be charged");
-	inst.push("2. Parents must retain their copy of the PAID fee voucher in safe custody for future reference");
+	inst.push("2. Guardians must retain their copy of the PAID fee voucher in safe custody for future reference");
 	inst.push("3. Fee once paid is not transferable and Non-Refundable");
 	return inst;
 }
@@ -2460,10 +2460,10 @@ function getASLInst(){
 	inst.push("NOTE: PLEASE IMMEDIATELY NOTIFY THE SCHOOL OF ANY CHANGES IN");
 	inst.push("   GIVEN CELL NO. FOR USE OF EMERGENCY / SMS ALERTS AND ETC.");
 	inst.push("1. Fee is payable in advance EVERY MONTH and only cash payment will be accepted.");
-	inst.push("2. Ensuring the timely receipt of fee voucher is the responsibility of parents AND");
+	inst.push("2. Ensuring the timely receipt of fee voucher is the responsibility of guardians AND");
 	inst.push("   shall NOT be considered AS an excuse.");
 	inst.push("3. For RE-ISSUANCE of Fee Voucher, Rs. 20/- will be charged.");
-	inst.push("4. Parents must retain their copy of the PAID fee voucher in safe custody for future");
+	inst.push("4. Guardians must retain their copy of the PAID fee voucher in safe custody for future");
 	inst.push("   reference.");
 	inst.push("5. Summer vacation fee to be paid in advance as follows;");
 	inst.push("   FOR June together WITH January December / January Fee.");
@@ -3474,6 +3474,93 @@ function applyGradingPreset() {
 	});
 }
 
+/* ══ Slice 3.1 — Guardian portal ACCESS (the school side) ═══════════════════════════════════════════
+ * Design: microservices/docs/slices/edu-3.1-guardian-portal.md
+ *
+ * This screen only GRANTS and WITHDRAWS access. The portal itself is a separate page (/guardianDashboard) with
+ * its own script — a guardian's session never loads this file, and this file never calls a portal read.
+ *
+ * The child count is shown at the point of decision, because "you are about to give this address sight of
+ * 2 children's records" is the fact that makes the click meaningful.
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'PortalAccessDiv') loadPortalAccessScreen();
+});
+
+function paMessage(msg, cls) {
+	var $m = $('#paMsg');
+	if (!msg) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(msg).show();
+}
+
+function loadPortalAccessScreen() {
+	$.get(serverContext + 'getUserGuardians', function (data) {
+		var $g = $('#paGuardian').empty().append(data);
+		if (typeof $g.selectpicker === 'function') { try { $g.selectpicker('refresh'); } catch (e) {} }
+	});
+	// A live warning, because inviting people to a portal that is switched off looks like a broken invite.
+	$.get(serverContext + 'getConfig', function (res) {
+		var items = (res && res.collection) || [];
+		var portal = items.find(function (i) { return i.key === 'edu.portal.enabled'; });
+		$('#paDisabled').toggle(!!portal && String(portal.value) !== 'true');
+	});
+	loadPortalAccess();
+}
+
+function loadPortalAccess() {
+	$.get(serverContext + 'getPortalAccess', function (res) {
+		var list = (res && res.collection) || [];
+		var $body = $('#tablePortalAccess tbody').empty();
+		list.forEach(function (a) {
+			var revoked = a.status === 'REVOKED';
+			var $btn = $('<button type="button" class="btn btn-xs btn-danger">')
+				.text(t('ui.js.paRevoke'))
+				.prop('disabled', revoked)
+				.on('click', function () { revokePortalAccess(a.id, a.guardianName); });
+
+			var $tr = $('<tr>')
+				.append($('<td>').text(a.guardianName || ''))
+				.append($('<td>').text(a.email || ''))
+				// The number of children this access actually reaches — otherwise it is a name and an
+				// email in a list, and the consequence of the grant is invisible.
+				.append($('<td>').text(a.childCount))
+				.append($('<td>').text(t('ui.js.pa' + (a.status || 'INVITED'))))
+				.append($('<td>').append($btn));
+			if (revoked) $tr.addClass('text-muted');
+			$body.append($tr);
+		});
+		if (!list.length) {
+			$body.append($('<tr>').append($('<td colspan="5">').addClass('text-muted')
+				.text(t('ui.js.paNone'))));
+		}
+	});
+}
+
+function invitePortalAccess() {
+	var guardianId = $('#paGuardian').val();
+	if (!guardianId) { ayNotify(t('ui.js.paPickGuardian')); return; }
+	uiConfirmOrRun(t('ui.js.paConfirmInvite'), function () {
+		$.post(serverContext + 'invitePortalAccess', { guardianId: guardianId }, function (res) {
+			if (res && res.status === 'SUCCESS') {
+				// The message names how many children the grant covers — show it verbatim.
+				paMessage(res.message, 'alert-success');
+				loadPortalAccess();
+			} else {
+				paMessage((res && res.message) || t('ui.js.paCouldNotInvite'), 'alert-danger');
+			}
+		});
+	});
+}
+
+function revokePortalAccess(id, name) {
+	uiConfirmOrRun(t('ui.js.paConfirmRevoke').replace('{name}', name || ''), function () {
+		$.post(serverContext + 'revokePortalAccess', { id: id }, function (res) {
+			if (res && res.status === 'SUCCESS') { paMessage(res.message, 'alert-warning'); loadPortalAccess(); }
+			else paMessage((res && res.message) || t('ui.js.paCouldNotRevoke'), 'alert-danger');
+		});
+	});
+}
+
 /* ══ Slice 2.5 — Behaviour log ════════════════════════════════════════════════════════════════════
  * Design: microservices/docs/slices/edu-2.5-discipline-log.md
  *
@@ -3584,15 +3671,15 @@ function saveBehaviourNote() {
 		occurredOn: $('#bnOccurred').val(),
 		description: description,
 		action: $.trim($('#bnAction').val()),
-		parentInformed: $('#bnParent').is(':checked') ? 'true' : 'false'
+		guardianInformed: $('#bnGuardian').is(':checked') ? 'true' : 'false'
 	};
-	if ($('#bnParent').is(':checked')) payload.parentInformedOn = new Date().toISOString().slice(0, 10);
+	if ($('#bnGuardian').is(':checked')) payload.guardianInformedOn = new Date().toISOString().slice(0, 10);
 	if ($('#bnAuthor').val()) payload.recordedByStaffId = $('#bnAuthor').val();
 
 	$.post(serverContext + 'saveBehaviourNote', payload, function (res) {
 		if (res && res.status === 'SUCCESS') {
 			$('#bnDescription, #bnAction, #bnCategory').val('');
-			$('#bnParent').prop('checked', false);
+			$('#bnGuardian').prop('checked', false);
 			bnMessage(res.message, 'alert-success');
 			loadBehaviourNotes();
 		} else {
@@ -4784,7 +4871,7 @@ function publishReportCard() {
 			if (res && res.status === 'SUCCESS') {
 				rcMessage(res.message, 'alert-success');
 				// Re-read from the SNAPSHOT rather than keeping the preview on screen: what was stored
-				// is what the parent gets, and showing anything else here would hide a mismatch.
+				// is what the guardian gets, and showing anything else here would hide a mismatch.
 				$.get(serverContext + 'getReportCard', { enrollNo: enrollNo, termId: termId }, function (r2) {
 					if (r2 && r2.status === 'SUCCESS' && r2.object) renderReportCard(r2.object);
 				});

@@ -35,7 +35,7 @@ import com.myplus.education.util.RequestUtil;
  *
  * <p><b>Preview is a query; publishing is an act.</b> Preview recomputes from live marks and stores
  * nothing. Publishing writes a snapshot that is never recomputed (D1) — so publishing is
- * {@code ADMIN_PRIVILEGE}, the same tier as fee settings, because issuing a result to a parent is the
+ * {@code ADMIN_PRIVILEGE}, the same tier as fee settings, because issuing a result to a guardian is the
  * same class of act as changing what they owe.
  *
  * <p><b>Weights must total 100 to publish (D2).</b> 1.2 chose to warn, which is right on the exam screen
@@ -215,7 +215,7 @@ public class ReportCardController {
         }
     }
 
-    // ── publishing (ADMIN tier — issuing a result to a parent) ──────────────────────────────────
+    // ── publishing (ADMIN tier — issuing a result to a guardian) ──────────────────────────────────
 
     /**
      * Issue one card. Refuses when the term's exam weights do not total 100 (D2).

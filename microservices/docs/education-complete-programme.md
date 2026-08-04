@@ -1,17 +1,16 @@
 # Education Management System — complete programme
 
 **Status: IN DELIVERY — Phase 0 and Phase 1 COMPLETE and Cypress-green; the education review is CLOSED.**
-**PHASE 2 IS COMPLETE** (2.1–2.5 all Cypress-green, 2026-08-03). Now in **Phase 3 — parent & student portals**: 3.1 📐 designed, awaiting approval. **3.1 is NOT blocked** — D-4 gates 3.2, and D-2's ordering question was settled by keeping phase order. Produced 2026-07-30; last
-updated 2026-08-03. Supersedes `education-feature-gap-analysis.md` (kept as the raw inventory).
+**PHASE 2 IS COMPLETE** (2.1–2.5 all Cypress-green, 2026-08-03). Now in **Phase 3 — guardian & student portals**: **3.1 is implemented and awaiting its build + Cypress gate.** **3.1 is NOT blocked** — D-4 gates 3.2, and D-2's ordering question was settled by keeping phase order. Produced 2026-07-30; last
+updated 2026-08-04. Supersedes `education-feature-gap-analysis.md` (kept as the raw inventory).
 
 | Shipped so far | |
 |---|---|
 | **Phase 0** | fees → GL, fees → AR, fee credit, branch-scope settings, cryptic-column rename (part), D-3 privilege map |
 | **Phase 1** | 1.1 academic year & term · 1.2 examinations · 1.3 marks entry · 1.4 grading scales · 1.5 report cards · 1.6 promotion — **all six green** |
 | **Review** | findings A (cross-tenant save takeover), B (fee validation), C (privilege gating), D (analytics perf) fixed; E partly |
-| **Phase 2** | 2.1 timetable ✅ · 2.2 substitution ✅ · 2.3 staff attendance & leave ✅ · 2.4 homework ✅ — all green (**2.4 ships without attachments**: they gate on D-5) |
 | **Phase 2** ✅ | 2.1 timetable · 2.2 substitution · 2.3 staff attendance & leave · 2.4 homework · 2.5 behaviour log — **all five green** |
-| **Now** | Phase 3.1 parent portal — 📐 design, awaiting approval. _(Notification remains the strongest non-phase candidate: 2.2 + 2.4 + 2.5 all want a real send.)_ |
+| **Now** | Phase 3.1 guardian portal — 🔨 implemented (V22), awaiting build + gate. **Naming settled with it: the domain word is GUARDIAN, never "parent"** — see §0a. 2.5 was amended to match (V23) and needs a gate re-run. _(Notification remains the strongest non-phase candidate: 2.2 + 2.4 + 2.5 all want a real send.)_ |
 
 **Goal:** an education management system complete enough for a department of education — every stakeholder,
 every department, on one multi-tenant platform.
@@ -43,19 +42,45 @@ Non-negotiable. Every slice below is measured against these; they are not restat
 | Modernise the UI of any area you touch — don't just wire a proxy | improve-ui-with-the-move |
 | Owner-configurable policy uses the **common-settings** catalog + `org_setting` override pattern | tenant-config-store |
 
+### 0a. Ubiquitous language — the domain word is GUARDIAN (settled 2026-08-04)
+
+A domain model is only as good as its vocabulary, and this one had two words for one person. Settled
+platform-wide with 3.1:
+
+| Use | Never use |
+|---|---|
+| `Guardian`, `guardianId`, `guardian_informed`, `guardianDashboard.html`, `guardian.js`, `ui.guardian*` | `Parent`, `parentId`, `parent_informed`, `parentPortal.html`, `ui.parent*` |
+
+**Why guardian and not parent.** It is not a synonym choice, it is a correctness one. The adult a school
+deals with is frequently *not* a parent — a grandparent, an older sibling, a foster carer, a local
+authority. Naming the field `parent` asserts a family relationship the school has not verified and often
+knows to be false, and it reads badly to exactly the families most likely to notice. `Guardian` is also
+what the existing entity has always been called, so this removes a synonym rather than introducing one.
+
+**Where "parent" legitimately survives, and must not be swept.** The *containment* sense is a different
+word that happens to be spelled the same: `re-parent` (anti-IDOR comments), `parent exam`
+(`ExamPaper`→`Exam`), `parent year` (term→year), `service-parent` (the Maven pom), `categories.parent_id`,
+and DOM `parentNode` / `.parents()` in vendored libraries. A blanket find-and-replace across the repo
+would corrupt all of these — the 2026-08-04 sweep protected them explicitly.
+
+**Applies to new slices.** 3.2–3.5 and anything touching families use *guardian* in entity names, column
+names, DTO keys, element ids, i18n keys and prose. In `hi` and `ar` the bundles were already correct
+(अभिभावक / ولي الأمر); `en`, `fr`, `es` and `ur` were reworded.
+
 ---
 
 ## 1. Who the system serves
 
 A department of education is not one user. Each stakeholder is a first-class surface. _Status column updated
-2026-08-03 — Phases 1 and 2 between them moved four rows. The two ❌ portal rows are exactly what Phase 3 is._
+2026-08-04 — Phases 1 and 2 between them moved four rows; 3.1 moved the guardian row. The remaining ❌ portal
+row (student) is 3.3._
 
 | Stakeholder | Needs | Today |
 |---|---|---|
 | **School admin / clerk** | enrolment, fees, attendance, records | ✅ served |
 | **Teacher** | timetable, mark entry, attendance, homework, my classes | 🟡 **marks, timetable view, homework and the behaviour log** shipped (1.3, 2.1, 2.4, 2.5); a single teacher home screen is still absent |
 | **Head / principal** | school-wide results, staff performance, finance | 🟡 dashboard + report cards + promotion; staff performance still absent |
-| **Parent / guardian** | results, attendance, fee dues, homework, pay online, meet teacher | ❌ no portal at all |
+| **Guardian** | results, attendance, fee dues, homework, pay online, meet teacher | 🔨 **3.1 portal implemented** (results, attendance, dues, homework — own children only); paying online is 3.2, meeting a teacher is 3.4 |
 | **Student** | timetable, results, homework, materials | ❌ no portal at all |
 | **Accountant** | receivables, arrears, expenses, payroll, books | 🟡 **fees now reach the ledger** (AR + GL + aging + statements, Phase 0); expenses and payroll still absent |
 | **Transport in-charge** | routes, stops, who rides which bus | 🟡 vehicle register only |
@@ -67,7 +92,7 @@ A department of education is not one user. Each stakeholder is a first-class sur
 
 ## 2. Current state
 
-**Measured 2026-08-03: 46 entities · 31 controllers · Flyway V1–V21.**
+**Measured 2026-08-04: 47 entities · 33 controllers · Flyway V1–V23.**
 _(As first written, 2026-07-30: 15 entities · 19 controllers · 22 screens · Flyway V1–V7 — kept so the
 distance travelled is visible.)_
 
@@ -76,8 +101,7 @@ multi-school branch scoping, owner-configurable policy, org-scoping (hardened in
 **plus the entire academic record shipped since**: academic year & term, examinations, marks entry, grading
 scales, report cards, promotion, and the timetable.
 
-**Absent:** admissions, HR/payroll, the parent and student portals, and every
-facility register beyond a vehicle list.
+**Absent:** admissions, HR/payroll, the student portal, and every facility register beyond a vehicle list.
 
 ### 2.1 The composition gap — the biggest structural finding
 
@@ -89,10 +113,10 @@ education-service composes → Audit, Finance, Notification, Party              
 **✅ LARGELY CLOSED (Phase 0, 2026-07-30/31).** As first written this read *"education composes 1"*, and the
 concrete symptom was that **fee collection never reached the general ledger**. That is fixed: education now
 enqueues to its own `gl_outbox` → `finance-service` (0.1 fees→GL, 0.2a fees→AR, 0.2b fee credit), audits
-marks and report-card publication through `audit-service`, and reaches parents via `notification-service`.
+marks and report-card publication through `audit-service`, and reaches guardians via `notification-service`.
 
 Still uncomposed and still correct to reuse rather than build: `catalog` + the sell saga (books/uniforms),
-`inventory` (library stock), `appointment` (parent–teacher meetings), `campaign`, `analytics`.
+`inventory` (library stock), `appointment` (guardian–teacher meetings), `campaign`, `analytics`.
 
 ---
 
@@ -106,15 +130,15 @@ Per §1.2/§1.3, each need is first checked against an existing service.
 | Fee revenue → books (journal, P&L, period close) | **REUSE** | `finance-service` GL via `GlOutbox` | copy the business pattern exactly |
 | School expenses / vendor bills | **REUSE** | `finance-service` AP | |
 | Student · guardian · staff identity | **REUSE** | `party-service` | already bridged (P3a) — extend to staff/guardian |
-| Email / SMS to parents | **REUSE** | `notification-service` | |
+| Email / SMS to guardians | **REUSE** | `notification-service` | |
 | Bulk fee reminders, campaigns | **REUSE** | `campaign-service` | |
 | Cross-school analytics | **REUSE** | `analytics-service` | |
 | **Marks-change audit trail** | **REUSE** | `audit-service` | immutable log — a marks edit MUST be auditable |
-| Parent–teacher meeting booking | **REUSE** | `appointment-service` | a genuine fit; no new scheduler |
-| Books / uniforms sold to parents | **REUSE** | `catalog` + business sell saga | it is a retail sale |
+| Guardian–teacher meeting booking | **REUSE** | `appointment-service` | a genuine fit; no new scheduler |
+| Books / uniforms sold to guardians | **REUSE** | `catalog` + business sell saga | it is a retail sale |
 | Library stock, school assets | **REUSE** | `inventory-service` | issue/return needs a thin education layer |
 | Owner-configurable policy | **REUSE** | `common-settings` | |
-| Parent / student login | **REUSE** | `auth-service` | new user types + roles, not a new identity system |
+| Guardian / student login | **REUSE** | `auth-service` | new user types + roles, not a new identity system |
 | **Documents** (certificates, photos, homework attachments) | **NEW** | `document-service` | genuinely cross-cutting — pharmacy needs Rx scans, business needs receipt images. Per microservice-standards this earns its own service |
 | **Payroll** (salary, deductions, payslips) | **NEW** | `payroll-service` | distinct bounded context; posts to `finance-service` GL. Needed by education AND business staff |
 | Exams · marks · grading · report cards · timetable · homework | **BUILD IN** `education-service` | — | education's core domain, not cross-cutting. Stays put |
@@ -172,15 +196,15 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 | **2.4** ✅ **DONE** | **Homework / assignments** — set, submit, mark. **Attachments deferred to D-5**; the lifecycle ships without them — `slices/edu-2.4-homework.md` |
 | **2.5** ✅ **DONE** | **Discipline / behaviour log** — append-only, positive AND concern, no workflow — `slices/edu-2.5-discipline-log.md` |
 
-### Phase 3 — Parents & students (the missing surfaces)
+### Phase 3 — Guardians & students (the missing surfaces)
 
 | Slice | What |
 |---|---|
-| **3.1** 📐 **design** | **Parent portal** — results, attendance, dues, homework for *my* children. **CORRECTED: the `GUARDIAN` user type does NOT exist** — `Membership.role` is free text whose javadoc merely lists it. The real work is a CHILD-scoped access shape, not a new role — `slices/edu-3.1-parent-portal.md` |
-| **3.2** | **Online fee payment** — parent pays; settles the AR from 0.2 |
+| **3.1** 🔨 **implemented** | **Guardian portal** — results, attendance, dues, homework for *my* children. **CORRECTED: the `GUARDIAN` user type does NOT exist** — `Membership.role` is free text whose javadoc merely lists it. The real work is a CHILD-scoped access shape, not a new role — `slices/edu-3.1-guardian-portal.md` |
+| **3.2** | **Online fee payment** — guardian pays; settles the AR from 0.2 |
 | **3.3** | **Student portal** — timetable, results, homework, materials |
-| **3.4** | **Parent–teacher meetings** — booking via `appointment-service` |
-| **3.5** | **Notices / circulars** — school→parent broadcast via `campaign-service` |
+| **3.4** | **Guardian–teacher meetings** — booking via `appointment-service` |
+| **3.5** | **Notices / circulars** — school→guardian broadcast via `campaign-service` |
 
 ### Phase 4 — Admissions, HR & finance depth
 
@@ -231,7 +255,7 @@ A slice is not "an API plus a screen". For each use case, all seven layers get a
 
 | Layer | Question | Standing gap to watch |
 |---|---|---|
-| **UI/UX** | what does *that role* actually need — teacher, parent, accountant — not a generic admin CRUD form? | today every screen is staff-facing; Phase 3 exists because of this |
+| **UI/UX** | what does *that role* actually need — teacher, guardian, accountant — not a generic admin CRUD form? | today every screen is staff-facing; Phase 3 exists because of this |
 | **Service / API** | contract, envelope, validation, error relay to the user | proxy layers that collapse a real reason into `{success:false}` |
 | **Database** | what is the access pattern, and is MySQL right for it? | see §5c — **currently unexamined** |
 | **Patterns / principles** | SOLID, DIP (contract + client), saga + outbox for cross-service atomicity, DTOs at the boundary | |
@@ -273,7 +297,7 @@ Anything below is a policy a real school will want to differ on. Each goes in th
 | Fee — late fee %, grace days, whether partial payment is allowed | 0.2 | |
 | Fee heads — tuition/transport/lab/exam composition | 0.2 | |
 | Marks — who may edit after publish, and for how long | 1.3 | ties to **D-3** |
-| Parent portal — what parents may see (results before publish? other children?) | 3.1 | |
+| Guardian portal — what guardians may see (results before publish? other children?) | 3.1 | |
 | Transport fee derivation — flat vs distance/stop-based | 6 | |
 | Staff leave — types and annual balances | 2.3 | |
 | Branch scoping — staff, subject, guardian, discount | ✅ done | already on this pattern |
@@ -289,7 +313,7 @@ Existing settings already follow this (`edu.staff.branchScoped`, `edu.subject.br
 
 - **Phase 0 before everything.** It is small, fixes a standards violation, and every later phase reports on data
   that Phase 0 makes correct. Building Phase 1 first means re-doing its finance and performance work.
-- **Phase 1 before 2 and 3.** Portals and timetables are surfaces onto academic data; without marks, a parent
+- **Phase 1 before 2 and 3.** Portals and timetables are surfaces onto academic data; without marks, a guardian
   portal shows attendance and dues only.
 - **Phase 5 last of the functional phases.** Departmental reporting aggregates academic data that must exist first.
 - **Phase 6 on demand.** Speculative facility modules are how products bloat.
@@ -301,7 +325,7 @@ Existing settings already follow this (`edu.staff.branchScoped`, `edu.subject.br
 | # | Decision | Gates |
 |---|---|---|
 | **D-1** | **Jurisdiction** — statutory return format + TC format are country/state specific. **NOT a blocker for 1.4**: grading bands/GPA/pass mark are per-org configurable, which is this row's own answer — the platform never needs to know the board. D-1 shapes only which DEFAULT preset ships and the statutory formats in 5.3. | ~~1.4~~ **5.3 only** |
-| **D-2** | **Customer shape** — single school, group, or government department? ~~Changes whether Phase 5 outranks Phase 2~~ **RE-FRAMED 2026-08-03: Phase 2 is complete, so the live question is whether Phase 5 (department layer) outranks Phase 3 (portals).** A department customer wants cross-school aggregates before parent logins; a single school wants the opposite | **phase order — now live** |
+| **D-2** | **Customer shape** — single school, group, or government department? ~~Changes whether Phase 5 outranks Phase 2~~ **RE-FRAMED 2026-08-03: Phase 2 is complete, so the live question is whether Phase 5 (department layer) outranks Phase 3 (portals).** A department customer wants cross-school aggregates before guardian logins; a single school wants the opposite | **phase order — now live** |
 | ~~**D-3**~~ | ~~Privilege map~~ — **RESOLVED 2026-07-31.** Three tiers: `WRITE_PRIVILEGE` for day-to-day records, `ADMIN_PRIVILEGE` for money/structure/policy, `DELETE_PRIVILEGE` for deletes. Every write endpoint gated; gate `education/privilege-map.cy.js`. **Marks entry lands in the ADMIN tier.** | ~~1.3~~ unblocked |
 | **D-4** | **Online payment provider** | 3.2 — **next phase, so this is now near** |
 | **D-5** | **Document storage backend** — DB blob, filesystem, or S3-compatible. **CORRECTED 2026-08-03: this row said "4.3", but 2.4 homework reaches it FIRST** — homework attachments need the same `document-service`. It is not a hard blocker for 2.4: the homework lifecycle (set → submit → mark) is valuable without file upload, so 2.4 ships attachment-less and adds them when D-5 lands. Recorded so the next reader does not treat 2.4 as blocked, nor forget that attachments are missing. | **2.4** (attachments only) · 4.3 (fully) |
@@ -342,11 +366,11 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 1.6 promotion | ✅ done — **Phase 1 complete** | `slices/edu-1.6-promotion.md` | `education/promotion.cy.js` |
 | finding D — analytics perf | ✅ done — **the education review is CLOSED** | `slices/edu-D-analytics-perf.md` | `education/dashboard.cy.js` (unchanged) + `analytics-perf.cy.js` |
 | 2.1 timetable | ✅ done | `slices/edu-2.1-timetable.md` | `education/timetable.cy.js` |
-| 2.2 substitution | ✅ done |
-| 2.3 staff attendance & leave | ✅ done |
-| 2.4 homework | ✅ done |
-| 2.5 discipline log | ✅ done — **Phase 2 complete** |
-| **3.1 parent portal** | 📐 **design, awaiting approval** | `slices/edu-3.1-parent-portal.md` | `education/parent-portal.cy.js` | `slices/edu-2.5-discipline-log.md` | `education/behaviour.cy.js` | `slices/edu-2.4-homework.md` | `education/homework.cy.js` | `slices/edu-2.3-staff-attendance-leave.md` | `education/staff-leave.cy.js` | `slices/edu-2.2-substitution.md` | `education/substitution.cy.js` |
+| 2.2 substitution | ✅ done | `slices/edu-2.2-substitution.md` | `education/substitution.cy.js` |
+| 2.3 staff attendance & leave | ✅ done | `slices/edu-2.3-staff-attendance-leave.md` | `education/staff-leave.cy.js` |
+| 2.4 homework | ✅ done | `slices/edu-2.4-homework.md` | `education/homework.cy.js` |
+| 2.5 discipline log | ✅ done — **Phase 2 complete**; **amended 2026-08-04** (`guardianInformed`, V23) → **needs a gate re-run** | `slices/edu-2.5-discipline-log.md` | `education/behaviour.cy.js` |
+| **3.1 guardian portal** | 🔨 **implemented — awaiting build + gate** | `slices/edu-3.1-guardian-portal.md` | `education/guardian-portal.cy.js` |
 
 ### Carried requirements (must not be lost between slices)
 
@@ -361,8 +385,8 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 2.2 → **2.3** | 2.2 owns a minimal `StaffAbsence`. **2.3 must WRITE these rows, not create a parallel absence concept** | ✅ **done & green.** Both paths write it via the extracted `StaffAbsenceService`; 2.2 was refactored onto the same owner, and `substitution.cy.js` proves its behaviour is unchanged |
 | 2.4 D6 → **D-5 / 4.3** | `HomeworkSubmission.documentRef` is a nullable column **nothing writes**, held for `document-service`. Justified (the alternative is migrating a table with real data) but it is the same shape as the `Student.fee` unreachable-field finding — keep it documented or an audit will read it as a defect | when D-5 lands |
 | 3.1 §6 → **before any real school** | `Guardian.email` is unverified free text, and it becomes a portal login identity. Invitation-only limits it, but a typo invites a stranger to a child's record. **Needs email verification** | open |
-| 3.1 D4 → **behaviour in the portal** | 2.5's notes were written with no expectation a parent would read them; exposing them retroactively changes that contract. Needs a per-note 'shared with parent' decision | own slice |
-| 2.2 + 2.4 + 2.5 → **notification** | THREE shipped/designed slices now want a real send (cover assigned · homework set · parent informed) and the path is still a logging stub. **Strongest candidate for the next non-phase slice** | open |
+| 3.1 D4 → **behaviour in the portal** | 2.5's notes were written with no expectation a guardian would read them; exposing them retroactively changes that contract. Needs a per-note 'shared with guardian' decision | own slice |
+| 2.2 + 2.4 + 2.5 → **notification** | THREE shipped/designed slices now want a real send (cover assigned · homework set · guardian informed) and the path is still a logging stub. **Strongest candidate for the next non-phase slice** | open |
 | 2.5 D6 → **safeguarding** | confidential disclosures need read-auditing and a narrower access tier — explicitly NOT what `behaviour_note` is for, recorded so no school misuses it | own initiative |
 | 2.4 D4 → **continuous assessment** | homework deliberately does NOT feed the report card: 1.5's aggregate is a published number and adding a source would change its meaning silently. Needs its own weighting slice | own slice |
 | 2.3 §6 → **platform** | student `attendance` has **no UNIQUE key** on (org, student, date) — the same check-then-act race as finding D, still open. Found while designing 2.3 | open |

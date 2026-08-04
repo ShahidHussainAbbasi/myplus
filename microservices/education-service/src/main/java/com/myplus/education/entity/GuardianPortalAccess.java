@@ -7,9 +7,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * A guardian's permission to sign in to the parent portal.
+ * A guardian's permission to sign in to the guardian portal.
  *
- * Slice 3.1 (docs/slices/edu-3.1-parent-portal.md). <b>The first record that lets someone OUTSIDE the
+ * Slice 3.1 (docs/slices/edu-3.1-guardian-portal.md). <b>The first record that lets someone OUTSIDE the
  * school authenticate</b>, which is what makes this the most security-sensitive table in the schema.
  *
  * <h3>What this row does NOT contain: the children</h3>

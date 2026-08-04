@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * One student's issued result for one term — the artefact a school hands to a parent.
+ * One student's issued result for one term — the artefact a school hands to a guardian.
  *
  * Slice 1.5 (docs/slices/edu-1.5-report-cards.md). This is the first record on the platform whose whole
  * purpose is to STOP tracking live data.

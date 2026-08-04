@@ -45,6 +45,15 @@ public class SellDTO implements Serializable {
 	private String priceReason;
 
 	/**
+	 * B2B-P3e-1 (#6): report dimensions. Flattened onto the line by the sale report so it can be filtered
+	 * and grouped by who bought, what channel they are, and what category sold — without a second
+	 * round-trip per row. Null outside the report; nothing else populates or reads them.
+	 */
+	private Long customerId;
+	private String customerType;   // WALK_IN | RETAIL | WHOLESALE | RETAILER (Phase 0 channel)
+	private String category;       // catalog category name, via ProductRef
+
+	/**
 	 * B2B-P3b-2 (#4): the batch(es) this line drew from, for the receipt and for traceability.
 	 * Server-populated on the way out; ignored on the way in. Empty for a sale recorded before this shipped,
 	 * and for any tenant whose stock carries no batch numbers — the receipt simply omits the column.
