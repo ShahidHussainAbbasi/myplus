@@ -20,11 +20,9 @@ describe('E-commerce — order cancel returns stock', () => {
   beforeEach(() => cy.loginAsMarketplace())
 
   const stockLevel = () => cy.request('/productStock?productId=' + productId).then((r) => parseFloat(r.body.stock))
-  const place = (qty, name) => cy.request({
-    method: 'POST', url: '/storefront/checkout',
-    body: { organizationId: orgId, customerName: name, customerContact: '0300CAN', shippingAddress: '7 Cancel St', total: 30 * qty, paymentMode: 'COD', items: [{ productId, quantity: qty, price: 30 }] },
-    headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-  })
+  // Slice 106: checkout takes a SERVER cart (slice 68), not inline items — see cy.storefrontOrder.
+  const place = (qty, name) => cy.storefrontOrder(orgId, { productId, quantity: qty },
+    { customerName: name, customerContact: '0300CAN', shippingAddress: '7 Cancel St', paymentMode: 'COD' })
   const cancel = (id) => cy.request({ method: 'POST', url: '/updateOrderStatus', body: { id, status: 'CANCELLED' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
   it('cancelling a storefront order restores its stock and marks it CANCELLED', () => {
@@ -53,7 +51,9 @@ describe('E-commerce — order cancel returns stock', () => {
   })
 
   it('the back-office Cancel button cancels and returns stock (UI)', () => {
-    cy.on('window:confirm', () => true)
+    // Slice 106: cancelOrder() uses the SHARED uiConfirm dialog, not window.confirm — so the old
+    // cy.on('window:confirm') handler was a no-op: the dialog opened, nothing answered it, and
+    // /updateOrderStatus never fired. The suite's established pattern is to click the dialog's OK.
     cy.intercept('POST', '/updateOrderStatus').as('cancel')
     const buyer = 'UICancel_' + Date.now()
     let before
@@ -63,6 +63,7 @@ describe('E-commerce — order cancel returns stock', () => {
     cy.window().should('have.property', 'showOrders')
     cy.window().then((w) => w.showOrders())
     cy.contains('#ordersBody tr', buyer, { timeout: 10000 }).find('button.btn-danger').click()
+    cy.get('[data-ui-confirm="ok"]').should('be.visible').click()   // shared confirm dialog
     cy.wait('@cancel').its('response.body.success').should('eq', true)
     cy.then(() => stockLevel().then((s) => expect(s, 'UI cancel restored stock').to.eq(before)))
   })

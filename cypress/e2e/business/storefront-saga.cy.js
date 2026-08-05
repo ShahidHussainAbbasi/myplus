@@ -27,11 +27,9 @@ describe('E-commerce — storefront order decrements inventory via the saga', ()
   beforeEach(() => cy.loginAsMarketplace())
 
   const stockLevel = () => cy.request('/productStock?productId=' + productId).then((r) => parseFloat(r.body.stock))
-  const checkout = (qty, name) => cy.request({
-    method: 'POST', url: '/storefront/checkout',
-    body: { organizationId: orgId, customerName: name, customerContact: '0300SAGA', shippingAddress: '9 Saga St', total: 20 * qty, paymentMode: 'COD', items: [{ productId, quantity: qty, price: 20 }] },
-    headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-  })
+  // Slice 106: checkout takes a SERVER cart (slice 68), not inline items — see cy.storefrontOrder.
+  const checkout = (qty, name) => cy.storefrontOrder(orgId, { productId, quantity: qty },
+    { customerName: name, customerContact: '0300SAGA', shippingAddress: '9 Saga St', paymentMode: 'COD' })
 
   it('the product starts with the opening stock of 10', () => {
     expect(productId, 'product created').to.exist

@@ -39,6 +39,15 @@ public class SellDTO implements Serializable {
 	private Float quantity=1F;
 
 	/**
+	 * B2B-P3g: free goods issued with this line ("Bon." on a trade invoice) — 20 billed, 2 free.
+	 *
+	 * <p>Needed here for exactly the reason {@code sellRate} below documents: this DTO is the relay's shape,
+	 * and a field missing from it is dropped between the browser and business-service without any error.
+	 * A quantity, so it follows {@code quantity}'s {@code Float}.
+	 */
+	private Float bonusQuantity;
+
+	/**
 	 * The rate this line actually SOLD at — the cashier's price, which may override the catalog price.
 	 * <p>This field was missing, and the omission was silent: the browser sent it, this DTO dropped it on the
 	 * relay, and business-service then fell back to the catalog price. A line sold at 850 off a 1000 catalog

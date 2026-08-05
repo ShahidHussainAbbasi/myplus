@@ -96,4 +96,5 @@ public class StockController {
 		}
 		return dto;
 	}
+
 }

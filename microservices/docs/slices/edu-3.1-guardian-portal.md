@@ -1,6 +1,6 @@
 # Slice 3.1 — Guardian portal
 
-**Status: IMPLEMENTED — awaiting `mvn` verification + the Cypress gate.**
+**Status: DONE & Cypress-GREEN — 11/11, 2026-08-04.** Gate-run findings in §8.
 Approved 2026-08-04. Flyway **V22** adds one table, so education-service must be repackaged and restarted
 before the gate.
 Programme: `education-complete-programme.md` Phase 3.1 — *"Guardian portal — results, attendance, dues,
@@ -366,3 +366,39 @@ stranger. **Worth an email-verification step before this goes to a real school.*
 - **One guardian, many children, many schools.** A guardian with children at two branches of the same group
   should see both; the derived set handles that naturally, but it must be tested with a real two-child
   fixture rather than assumed.
+
+---
+
+## 8. Gate run — what it cost, and what it proved
+
+**Green on run 2: 11/11.** Run 1 died in the `before` hook. The failure was the FIXTURE, and the product
+was correct in refusing:
+
+```
+invite the guardian: {"status":"FAILED","message":"This guardian has no email address on record.
+                      Add one before inviting them."}
+```
+
+**The refusal is the design working.** D3 takes the address from the guardian RECORD and never from the
+request, precisely so staff cannot point a child's portal at an arbitrary address with nothing in the record
+showing it. A guardian with no email therefore *cannot* be invited — correctly. Verified before touching
+anything that the capture path is complete end to end: `Guardian.email` on the entity, on `GuardianDTO`,
+persisted by `GuardianService`, and an input on the staff form (`educationDashboard.html:869`,
+`id="guardianEmail" name="email"`). Nothing was missing; the demo org simply holds guardians created without
+one.
+
+**The spec picked `students[0]` with any `guardianId` and never checked that guardian could be invited** —
+it asserted its precondition instead of seeding it. `before()` now finds a student whose guardian HAS an
+email, and seeds a `CY_GP_*` guardian + linked child when the org has none.
+
+**This is the FIFTH fixture-caused red in a row** (2.1 test 3 skipped silently · 2.3 asserted a size that
+contradicted its own fixture · 2.4 assumed a populated class · 2.5 assumed the wrong input-handling model ·
+3.1 assumed an invitable guardian). Every one was mine, none was the product.
+**The refinement this run adds: it is not enough for a fixture to exist — it must satisfy the precondition
+the ENDPOINT enforces, which means reading the endpoint's refusals before choosing the fixture.**
+Existence is not eligibility.
+
+**Also removed: `fx.theirs`** — computed, never used. The "another family's child, by enrolment number" case
+it was for cannot run until a guardian can actually sign in, which this slice deliberately does not build
+(§6). Left in place it read as coverage that does not exist; replaced with a comment naming the gap. The
+nearest reachable case — a staff session with no access row — is tests 3 and 4, and they pass.

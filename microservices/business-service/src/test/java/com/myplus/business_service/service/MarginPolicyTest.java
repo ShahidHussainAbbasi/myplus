@@ -81,7 +81,8 @@ class MarginPolicyTest {
                 null,                                 // catalogPrice
                 null,                                 // discountType
                 cost == null ? null : BigDecimal.valueOf(cost),   // costPrice — null = uncosted line
-                null);                                // priceReason (B2B-P2) — null = priced at catalog
+                null,                                 // priceReason (B2B-P2) — null = priced at catalog
+                null);                                // bonusQuantity (B2B-P3g) — null = no free goods
     }
 
     private void policy(String value) {

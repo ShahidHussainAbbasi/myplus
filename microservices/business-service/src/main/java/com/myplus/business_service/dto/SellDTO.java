@@ -62,6 +62,27 @@ public class SellDTO implements Serializable {
 	 */
 	private java.util.List<SellBatchDTO> batches = new java.util.ArrayList<>();
 
+	/**
+	 * B2B-P3g: the pack description printed in a trade invoice's "Packing" column ("500ML", "1000 ml").
+	 *
+	 * <p>This is the catalog product's existing {@code unit} — NOT a new field anywhere. {@code getReceipt}
+	 * already loads the {@link com.myplus.commerce.contracts.dto.ProductRef} for the line name, so carrying
+	 * the pack costs one setter and no extra query. Server-populated on the way out; ignored on the way in.
+	 */
+	private String packing;
+
+	/**
+	 * B2B-P3g: free goods issued with this line ("Bon." on a distribution invoice) — 20 units billed, 2 free.
+	 *
+	 * <p>A quantity, so it follows {@code quantity}'s {@code Float} rather than the money types.
+	 *
+	 * <p><b>Presentation only in this slice.</b> Bonus stock does NOT yet decrement inventory: doing so has to
+	 * run through the sell↔stock saga and post to the GL at zero revenue, which is decision D-2 in the slice
+	 * doc and materially more than a column. Until that is settled, a shop issuing bonus goods must record
+	 * them as a normal line if it needs stock to move.
+	 */
+	private Float bonusQuantity;
+
 	private BigDecimal totalAmount = BigDecimal.ZERO;
 
 	private BigDecimal netAmount = BigDecimal.ZERO;

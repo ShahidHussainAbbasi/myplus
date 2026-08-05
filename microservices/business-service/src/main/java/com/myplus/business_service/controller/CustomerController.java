@@ -34,6 +34,25 @@ import com.myplus.business_service.util.RequestUtil;
 @Controller
 public class CustomerController {
 
+	/**
+	 * B2B-P3g: bind an EMPTY date field to null instead of failing conversion.
+	 *
+	 * <p>The customer form now carries an optional {@code licenseExpiry}. A form always posts every input it
+	 * owns, so an owner who leaves it blank submits {@code licenseExpiry=} — and the default String→LocalDate
+	 * parse of an empty value is a binding error, which would have rejected EVERY customer save for every
+	 * tenant, whether or not they use licences. Made explicit here rather than trusted to framework
+	 * defaults, because the failure mode is a total outage of a core screen and the cause would read as
+	 * "customer save is broken" with nothing pointing at a field nobody filled in.
+	 */
+	@org.springframework.web.bind.annotation.InitBinder
+	public void initBinder(org.springframework.web.bind.WebDataBinder binder) {
+		binder.registerCustomEditor(java.time.LocalDate.class, new java.beans.PropertyEditorSupport() {
+			@Override public void setAsText(String text) {
+				setValue((text == null || text.isBlank()) ? null : java.time.LocalDate.parse(text.trim()));
+			}
+		});
+	}
+
 	private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 	@Autowired
 	private MessageSource messages;

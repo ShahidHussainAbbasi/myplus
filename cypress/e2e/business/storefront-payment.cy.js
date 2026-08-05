@@ -21,11 +21,9 @@ describe('E-commerce — storefront online payment', () => {
       })
   })
 
-  const checkout = (body) => cy.request({
-    method: 'POST', url: '/storefront/checkout',
-    body: Object.assign({ organizationId: orgId, customerContact: '0300PAY', shippingAddress: '5 Pay St', total: 20, items: [{ productId, quantity: 1, price: 20 }] }, body),
-    headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-  })
+  // Slice 106: checkout takes a SERVER cart (slice 68), not inline items — see cy.storefrontOrder.
+  const checkout = (body) => cy.storefrontOrder(orgId, { productId, quantity: 1 },
+    Object.assign({ customerContact: '0300PAY', shippingAddress: '5 Pay St' }, body))
 
   it('a card payment confirms the order as PAID with a charge ref', () => {
     const buyer = 'CardBuyer_' + Date.now()

@@ -88,6 +88,17 @@ public class Sell implements Serializable {
 	@Column(precision = 19, scale = 2)
 	private BigDecimal discount;
 
+	/**
+	 * B2B-P3g (V35): free goods issued with this line — the "Bon." column on a distribution invoice, where
+	 * 20 units are billed and 2 given free. A quantity, so it follows {@link #quantity}'s {@code Float}.
+	 *
+	 * <p><b>Presentation only (decision D-2, open).</b> Bonus stock does NOT decrement inventory: making it
+	 * do so has to run through the sell↔stock saga and post to the GL at zero revenue, which is materially
+	 * more than a column and is not smuggled in behind one.
+	 */
+	@Column(name = "bonus_quantity")
+	private Float bonusQuantity;
+
 	@Column(name = "total_amount", precision = 19, scale = 2)
 	private BigDecimal totalAmount;
 

@@ -354,13 +354,11 @@ public class PurchaseService implements IPurchaseService{
 		pushPurchaseToInventory(saved, dto, user);        // dual-write stock-in to inventory (authoritative)
 
 		// Option B — re-price on receive: the purchase's sell rate updates the catalog Product's selling price
-		// (the master POS/pharmacy/e-commerce all sell at). GUARD: only a positive rate re-prices; a blank/0 leaves
-		// the master price untouched. Best-effort — a catalog hiccup never fails the purchase (stock is already in).
-		if (snap != null && snap.getBsellRate() != null
-				&& snap.getBsellRate().compareTo(java.math.BigDecimal.ZERO) > 0 && saved.getProductId() != null) {
-			try { catalogClient.updatePrice(saved.getProductId(), snap.getBsellRate()); }
-			catch (Exception ex) { LOG.warn("Option B: re-price on receive failed for product {} (purchase recorded)", saved.getProductId(), ex); }
-		}
+		// (the master POS/pharmacy/e-commerce all sell at), and BOTH of the purchase's rates are stamped onto the
+		// product as its last bought-at/sold-at — so the Product screen reads them off the product row and never
+		// derives them from purchase history. GUARD: only a positive rate is applied; a blank/0 leaves that field
+		// untouched. Best-effort — a catalog hiccup never fails the purchase (stock is already in).
+		stampRatesOnProduct(saved, "receive");
 
 		// F3b: auto-post the purchase to the GL (Dr Inventory + Dr TAX(input), Cr Cash(paid)/AP(rest)). Best-effort.
 		try {
@@ -377,6 +375,34 @@ public class PurchaseService implements IPurchaseService{
 		// Audit #6: append-only trail.
 		auditService.record("PURCHASE", "BILL", saved.getPurchaseInvoiceNo(), saved.getTotalAmount(), null);
 		return saved;
+	}
+
+	/**
+	 * Option B (extended) — push this purchase's rates onto the catalog Product master: the sell rate becomes the
+	 * selling price AND the product's last sale rate; the purchase rate becomes its last purchase rate. Called
+	 * identically from addPurchase and updatePurchase, so a correction re-stamps exactly as the original did.
+	 *
+	 * <p>Writing at purchase time is the whole point: the Product screen then reads both rates off the product row
+	 * it already loads, instead of deriving them from purchase history on every open.
+	 *
+	 * <p>Skipped entirely when neither rate is positive — a purchase that carries no rates must never wipe the
+	 * master. Best-effort by design: the stock is already in and the bill already recorded, so a catalog outage
+	 * degrades the Product screen's rate columns, never the purchase itself.
+	 */
+	private void stampRatesOnProduct(Purchase saved, String phase) {
+		if (saved == null || saved.getProductId() == null) return;
+		// Read the SAVED BILL, not the incoming DTO: these are the very fields tablePurchase renders, so the
+		// product can never show a rate that disagrees with the invoice it came from.
+		java.math.BigDecimal sell = saved.getBsellRate();
+		java.math.BigDecimal cost = saved.getBpurchaseRate();
+		boolean hasSell = sell != null && sell.compareTo(java.math.BigDecimal.ZERO) > 0;
+		boolean hasCost = cost != null && cost.compareTo(java.math.BigDecimal.ZERO) > 0;
+		if (!hasSell && !hasCost) return;
+		try {
+			catalogClient.updatePrice(saved.getProductId(), hasSell ? sell : null, hasCost ? cost : null);
+		} catch (Exception ex) {
+			LOG.warn("Option B: rate stamp on {} failed for product {} (purchase recorded)", phase, saved.getProductId(), ex);
+		}
 	}
 
 	@Override
@@ -467,12 +493,9 @@ public class PurchaseService implements IPurchaseService{
 					.build());
 		}
 
-		// Option B — an edited sell rate re-prices the catalog master too (guarded, best-effort).
-		if (snap != null && snap.getBsellRate() != null
-				&& snap.getBsellRate().compareTo(java.math.BigDecimal.ZERO) > 0 && saved.getProductId() != null) {
-			try { catalogClient.updatePrice(saved.getProductId(), snap.getBsellRate()); }
-			catch (Exception ex) { LOG.warn("Option B: re-price on edit failed for product {} (purchase updated)", saved.getProductId(), ex); }
-		}
+		// Option B — an edited purchase re-prices the catalog master and re-stamps both last rates, exactly as a new
+		// purchase does: correcting a mistyped rate on the bill must correct what the Product screen shows.
+		stampRatesOnProduct(saved, "edit");
 
 		// GL edit adjustment: reverse the OLD bill + repost the NEW (net = the edit's delta) so the books never
 		// drift on a purchase edit. Best-effort — never fail the edit.

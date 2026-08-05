@@ -44,11 +44,11 @@ describe('E-commerce — public storefront', () => {
     cy.request({ method: 'POST', url: '/addProduct', body: { name: dry, sku: 'DRY' + Date.now(), sellingPrice: 5, taxRate: 0, unit: 'pcs' }, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
       .then((r) => {
         const dryId = r.body.data.id
-        cy.request({
-          method: 'POST', url: '/storefront/checkout',
-          body: { organizationId: orgId, customerName: 'NoStock', customerContact: '0300DRY', shippingAddress: 'x', total: 5, items: [{ productId: dryId, quantity: 1, price: 5 }] },
-          headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-        }).then((res) => {
+        // Slice 106: checkout reads a SERVER cart (slice 68), so the line goes in the cart first. Adding to a
+        // cart does not reserve, so the out-of-stock rejection still happens at checkout — where it belongs.
+        cy.storefrontOrder(orgId, { productId: dryId, quantity: 1 },
+          { customerName: 'NoStock', customerContact: '0300DRY', shippingAddress: 'x' },
+        ).then((res) => {
           expect(res.status).to.eq(200)
           expect(res.body.success, JSON.stringify(res.body)).to.eq(false)
           expect(String(res.body.message).toLowerCase(), 'message names the stock problem').to.contain('stock')
@@ -58,11 +58,9 @@ describe('E-commerce — public storefront', () => {
 
   it('a guest checkout places an order that appears in the back-office', () => {
     const buyer = 'Guest_' + Date.now()
-    cy.request({
-      method: 'POST', url: '/storefront/checkout',
-      body: { organizationId: orgId, customerName: buyer, customerContact: '0300SHOP', shippingAddress: '12 Test St', total: 25, items: [{ productId, quantity: 2, price: 12.5 }] },
-      headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-    }).then((r) => {
+    cy.storefrontOrder(orgId, { productId, quantity: 2 },
+      { customerName: buyer, customerContact: '0300SHOP', shippingAddress: '12 Test St' },
+    ).then((r) => {
       expect(r.status).to.eq(200)
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.source).to.eq('STOREFRONT')

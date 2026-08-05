@@ -82,7 +82,11 @@ describe('Team & Users: location chip picker', () => {
   it('a member created with chips selected gets those store grants', () => {
     openTeam()
     const email = `cy.picker.${uniq()}@myplus.com`
-    cy.get('.locpick__chip').first().click().should('have.attr', 'aria-pressed', 'true')
+    // Slice 106: break the chain. Clicking a chip re-renders the picker, so the element the chain is holding
+    // detaches and cy.should() cannot requery it. Alias, click, then re-query — Cypress's own prescribed fix.
+    cy.get('.locpick__chip').first().as('firstChip')
+    cy.get('@firstChip').click()
+    cy.get('.locpick__chip').first().should('have.attr', 'aria-pressed', 'true')
     cy.get('.locpick__chip').first().invoke('text').then((chipLabel) => {
       cy.get('#teamFirstName').clear().type('CY')
       cy.get('#teamLastName').clear().type('Picker')

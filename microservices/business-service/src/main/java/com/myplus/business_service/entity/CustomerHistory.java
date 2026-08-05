@@ -86,6 +86,25 @@ public class CustomerHistory implements Serializable {
 	@Column(name = "balance_after", precision = 19, scale = 2)
 	private BigDecimal balanceAfter;
 
+	/**
+	 * B2B-P3g (V35): an invoice-level trade discount, distinct from the per-line discounts on
+	 * {@code Sell.discount}. A distribution invoice settles a whole-order concession at the foot of the
+	 * document; before this there was no discount column on the invoice header at all.
+	 */
+	@Column(name = "trade_discount", precision = 19, scale = 2)
+	private BigDecimal tradeDiscount;
+
+	/**
+	 * B2B-P3g (V35): the salesperson who booked the order, STAMPED here at write time.
+	 *
+	 * <p>Deliberately a name and not a join on {@code userId}: resolving it at print time would put an
+	 * auth-service round trip on the print path — another service being down would stop a shop printing a
+	 * receipt — and would print a person's CURRENT name on a document issued years ago. An issued document
+	 * must not change after the fact. Follows the same rule as {@code balanceAfter} above.
+	 */
+	@Column(name = "booked_by_name", length = 120)
+	private String bookedByName;
+
     @Column(name = "due_date")
     private LocalDate dueDate;
 

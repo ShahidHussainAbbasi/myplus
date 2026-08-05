@@ -451,7 +451,11 @@ public class SagaSellService {
             lines.add(new SagaLine(productId, s.getQuantity(), soldRate, discount,
                     lineTotal, tax.gross(), s.getSrp(),
                     tax.rate(), tax.tax(), tax.gross(), catalogPrice, discountType, costPrice,
-                    (q != null && q.getRuleId() != null) ? q.getReason() : null));
+                    (q != null && q.getRuleId() != null) ? q.getReason() : null,
+                    // B2B-P3g: free goods ride through untouched — they are printed, not priced. Bonus takes
+                    // no part in lineTotal, tax or margin, which is exactly why it can be carried safely
+                    // before decision D-2 settles whether it should also move stock.
+                    s.getBonusQuantity()));
         }
         return lines;
     }

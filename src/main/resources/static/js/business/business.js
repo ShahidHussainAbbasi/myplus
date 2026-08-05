@@ -186,6 +186,12 @@ $(document).ready(function() {
 			// system-set rate may be re-priced later when the customer is chosen; an override must survive.
 			obj.autoRate = (window._sellAutoRate != null && Number(obj.sellRate) === Number(window._sellAutoRate))
 				? Number(window._sellAutoRate) : null;
+			// B2B-P3g: free goods on this line ("Bon." on a trade invoice) — 20 billed, 2 free. Blank/zero
+			// sends nothing, so a shop that never gives bonus stock is unaffected. Carried through to
+			// Sell.bonus_quantity and PRINTED; it takes no part in the line total, tax or margin, which is
+			// why it can ship before decision D-2 settles whether bonus should also move inventory.
+			var bonusIn = $("#sellBonus").val();
+			obj.bonusQuantity = (bonusIn != null && bonusIn !== '' && Number(bonusIn) > 0) ? Number(bonusIn) : null;
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
 			// obj.item = item;
 
@@ -971,6 +977,17 @@ function resetCart(){
 	exitSellEditMode();   // a save (incl. updateSell) ends the edit: clear flag/banner, restore button
 	updateReadOnly(false);
 }
+// Product screen: build one "last rate" cell — the money to 2dp with the stamping date as the tooltip, or "—"
+// when this product has never been purchased (nothing stamped yet; a blank would read as a zero rate). Shared by
+// the last-purchase and last-sale columns so the two never drift apart in formatting or in what "no data" means.
+function lastRateCell(rate, stampedAt, label){
+	if (rate == null || rate === '' || isNaN(Number(rate))) return "<div class=prod-lastrate>—</div>";
+	var day = stampedAt ? String(stampedAt).substring(0, 10) : '';   // ISO LocalDateTime → yyyy-MM-dd
+	// Numbers only + an escaped label → XSS-safe.
+	return "<div class=prod-lastrate title='" + escHtml(label + (day ? ' ' + day : '')) + "'>"
+		+ Number(rate).toFixed(2) + "</div>";
+}
+
 function loadDataTable(){
 	tableSellReport.clear().draw();
 	edit = false;
@@ -1217,13 +1234,20 @@ function loadDataTable(){
 					});
 				} else if (getAll === "Product") {
 					// Product master row, rendered through the shared DataTable (same path as Customer). Columns:
-					// [id(hidden), checkbox, name, sku, unit, price, tax%, category, on-hand(lazy), add-stock control].
+					// [id(hidden), checkbox, name, sku, unit, price, last-purchase-rate, last-sale-rate,
+					//  tax%, category, on-hand(lazy), add-stock control, status].
+					// This array MUST stay exactly as long as the #tableProduct header — a missing cell shifts every
+					// later column and DataTables throws "Requested unknown parameter".
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=productId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
 							"<div id=name>"+escHtml(obj.name || '')+"</div>","<div id=sku>"+escHtml(obj.sku || '')+"</div>",
 							"<div id=unit>"+escHtml(obj.unit || '')+"</div>",
 							"<div id=sellingPrice>"+(obj.sellingPrice != null ? Number(obj.sellingPrice).toFixed(2) : '')+"</div>",
+							// Last rates come stamped on the product itself (written by the purchase flow), so they
+							// render straight from this row — no lazy fill, no extra request.
+							lastRateCell(obj.lastPurchaseRate, obj.lastRateAt, t('ui.js.lastPurchased')),
+							lastRateCell(obj.lastSaleRate,     obj.lastRateAt, t('ui.js.lastSold')),
 							"<div id=taxRate>"+(obj.taxRate != null ? Number(obj.taxRate).toFixed(2) : '')+"</div>",
 							"<div id=categoryName>"+escHtml(obj.categoryName || '')+"</div>",
 							"<div id=stk_"+obj.id+" class=prod-onhand>…</div>",

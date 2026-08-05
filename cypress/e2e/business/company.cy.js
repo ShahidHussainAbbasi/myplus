@@ -13,6 +13,16 @@ const COMPANY = {
   address: '12 Test Street, Lahore',
 }
 
+/**
+ * Slice 106: the monolith's GenericResponse has NO `data` field — lists land in `collection`.
+ * Every lookup below read `res.body.data?.find(...)`, and because optional chaining turns
+ * `undefined?.find()` into `undefined` instead of throwing, all four sites silently found nothing:
+ * the cleanup never deleted anything and the update/delete tests skipped their own subject.
+ * A vacuous pass is worse than a failure, so this is the one place the shape is decoded.
+ */
+const findByName = (body, name) =>
+  (body.collection || body.data || []).find((c) => c.name === name)
+
 describe('Company CRUD', () => {
   before(() => {
     cy.loginAsBusiness()
@@ -62,7 +72,7 @@ describe('Company CRUD', () => {
     // Delete any existing test company first via API to avoid duplicate issues
     cy.request('/getUserCompany').then((res) => {
       if (res.body.status === 'SUCCESS') {
-        const existing = res.body.data?.find(c => c.name === COMPANY.name)
+        const existing = findByName(res.body, COMPANY.name)
         if (existing) {
           cy.request({
             method: 'POST',
@@ -102,7 +112,7 @@ describe('Company CRUD', () => {
       expect(res.status).to.eq(200)
       // Clean up
       cy.request('/getUserCompany').then((listRes) => {
-        const created = listRes.body.data?.find(c => c.name === uniqueName)
+        const created = findByName(listRes.body, uniqueName)
         if (created) {
           cy.request({ method: 'POST', url: '/deleteCompany', form: true, body: { checked: created.id } })
         }
@@ -146,7 +156,7 @@ describe('Company CRUD', () => {
     cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name, email: `upd${Date.now()}@test.com` } })
 
     cy.request('/getUserCompany').then((res) => {
-      const company = res.body.data?.find(c => c.name === name)
+      const company = findByName(res.body, name)
       if (!company) return cy.log('Company not found for update — skipping')
       cy.request({
         method: 'POST',
@@ -167,7 +177,7 @@ describe('Company CRUD', () => {
     cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name, email: `del${Date.now()}@test.com` } })
 
     cy.request('/getUserCompany').then((res) => {
-      const company = res.body.data?.find(c => c.name === name)
+      const company = findByName(res.body, name)
       if (company) {
         cy.request({
           method: 'POST',

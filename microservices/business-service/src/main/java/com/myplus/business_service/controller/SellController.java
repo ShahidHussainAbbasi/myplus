@@ -146,6 +146,51 @@ public class SellController {
 	@Autowired
 	com.myplus.common.settings.SettingsService settingsService;   // common-settings: per-org receipt/sale policy toggles
 
+	@Autowired
+	com.myplus.business_service.repository.StoreRepository storeRepository;   // B2B-P3g: document letterhead fallback
+
+	@Autowired
+	com.myplus.business_service.service.DocumentTemplateService documentTemplateService;   // B2B-P3g: owner layouts
+
+	/**
+	 * B2B-P3g — who ISSUED this document, for the top of a printed invoice.
+	 *
+	 * <p>Owner settings win; the store the invoice was raised at fills the gaps. The ORGANISATION's name is
+	 * deliberately not consulted: it lives in auth-service, and putting a cross-service call on the print
+	 * path would mean another service being down stops a shop printing a receipt. When neither source has a
+	 * name the client falls back to the vertical brand, which is exactly today's behaviour.
+	 *
+	 * <p>Best-effort throughout: a letterhead is decoration ON a document and must never be the reason one
+	 * fails to print — the same rule batch traceability follows below.
+	 */
+	private com.myplus.business_service.dto.LetterheadDTO letterheadFor(CustomerHistory ch) {
+		com.myplus.business_service.dto.LetterheadDTO lh = new com.myplus.business_service.dto.LetterheadDTO();
+		try {
+			lh.setBusinessName(settingsService.getText("pos.document.businessName"));
+			lh.setAddressLine1(settingsService.getText("pos.document.addressLine1"));
+			lh.setAddressLine2(settingsService.getText("pos.document.addressLine2"));
+			lh.setPhone(settingsService.getText("pos.document.phone"));
+			lh.setLogoUrl(settingsService.getText("pos.document.logoUrl"));
+			lh.setLicenseNo(settingsService.getText("pos.document.licenseNo"));
+			lh.setLicenseExpiry(settingsService.getText("pos.document.licenseExpiry"));
+
+			if (ch.getStoreId() != null) {
+				storeRepository.findById(ch.getStoreId())
+					// Anti-IDOR: an invoice carries a store id, but we still only read a store of OUR tenant.
+					.filter(s -> inMyTenant(s.getOrganizationId(), s.getUserId()))
+					.ifPresent(s -> {
+						lh.setStoreName(s.getName());
+						if (lh.getBusinessName() == null) lh.setBusinessName(s.getName());
+						if (lh.getAddressLine1() == null) lh.setAddressLine1(s.getAddress());
+						if (lh.getPhone() == null) lh.setPhone(s.getPhone());
+					});
+			}
+		} catch (Exception e) {
+			LOGGER.error("Could not resolve the document letterhead for invoice {}", ch.getInvoiceNo(), e);
+		}
+		return lh;
+	}
+
 	ModelMapper modelMapper = new ModelMapper();
 	{
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -434,6 +479,36 @@ public class SellController {
 			// a paying customer must never find it on their invoices without having chosen it.
 			out.setShowPromo(settingsService.getBool("pos.receipt.showPromo"));
 
+			// B2B-P3g: the document's identity and format. The layout itself is chosen client-side from the
+			// buyer's channel (a trade account books an invoice, a walk-in gets a till slip); this only
+			// carries the org's OVERRIDE of that rule, plus the letterhead and the printed wording.
+			out.setTradeDiscount(ch.getTradeDiscount());     // B2B-P3g (V35): invoice-level concession
+			out.setBookedByName(ch.getBookedByName());       // stamped at write, never resolved at print
+			out.setLetterhead(letterheadFor(ch));
+			out.setLayoutMode(settingsService.getChoice("pos.document.layoutMode",
+					java.util.Set.of("auto", "thermal", "a4"), "auto"));
+			out.setCurrencySymbol(settingsService.getText("pos.document.currencySymbol"));
+			out.setCurrencyWord(settingsService.getText("pos.document.currencyWord"));
+			out.setCurrencyFraction(settingsService.getText("pos.document.currencyFraction"));
+			out.setFooterText(settingsService.getText("pos.document.footerText"));
+			out.setShowAmountInWords(settingsService.getBool("pos.document.amountInWords"));
+
+			// 3g-3: the org's own layout for this buyer's channel, if they have designed one. Null means the
+			// browser uses a built-in preset — which is what every tenant gets until they open the designer,
+			// and is byte-for-byte today's receipt. Sent as the parsed profile rather than a JSON string so
+			// the renderer consumes one shape whether the layout came from here or from a preset.
+			try {
+				String channel = (ch.getCustomer() != null && ch.getCustomer().getCustomerType() != null
+						&& ch.getCustomer().getCustomerType().isB2B()) ? "B2B" : "B2C";
+				String profileJson = documentTemplateService.resolveProfileJson(orgId(), userId(), channel);
+				if (profileJson != null) {
+					out.setDocumentProfile(new com.fasterxml.jackson.databind.ObjectMapper().readTree(profileJson));
+				}
+			} catch (Exception e) {
+				// A layout is a preference, never a reason a shop cannot print. Same rule as the letterhead.
+				LOGGER.error("Could not attach a document layout to invoice {}", ch.getInvoiceNo(), e);
+			}
+
 			// M4d (slice 94): line names from catalog ProductRef (a printed receipt needs no itemId) — no Item load.
 			java.util.List<Long> sagaProductIds = lines.stream()
 					.filter(s -> s.getProductId() != null)
@@ -465,7 +540,9 @@ public class SellController {
 				modelMapper.addConverter(appUtil.localDateToString);
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
-				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); }
+				// B2B-P3g: `packing` is the catalog product's existing unit — the ProductRef is already loaded
+				// here for the line name, so the trade invoice's Packing column costs no extra query.
+				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); sd.setPacking(p.getUnit()); }
 				sd.setBatches(batchesBySell.getOrDefault(s.getSellId(), java.util.List.of()));
 				sales.add(sd);
 			}

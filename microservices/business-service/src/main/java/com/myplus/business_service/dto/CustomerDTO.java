@@ -48,6 +48,25 @@ public class CustomerDTO implements Serializable {
 	@SafeText
 	private String address;
 
+	/**
+	 * B2B-P3g: trade-buyer identity printed on an invoice. {@code address} is one free-text line and cannot
+	 * be split reliably after the fact, so {@code city} is captured separately rather than parsed out of it.
+	 *
+	 * <p>{@code licenseNo}/{@code licenseExpiry} are the BUYER's licence — a pharmaceutical distributor may
+	 * only supply a licensed reseller, and the licence is printed on the invoice as evidence of that. The
+	 * seller's own licence is a setting, not a column (see {@link LetterheadDTO}).
+	 */
+	@SafeText
+	private String city;
+
+	@SafeText
+	private String cnic;
+
+	@SafeText
+	private String licenseNo;
+
+	private LocalDate licenseExpiry;
+
 	// @ValidateEmpty(message = "Paid amount is required")
 	private BigDecimal paidAmount;
 

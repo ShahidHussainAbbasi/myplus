@@ -52,10 +52,14 @@ public interface CatalogClient {
     @PostExchange("/products/import")
     List<ProductImportResult> importProducts(@RequestBody List<ProductImportLine> items);
 
-    /** Re-price on receive (Option B): set a product's selling price from the purchase/goods-in flow. Tenant-scoped
-     *  via headers; guarded server-side (a null/≤0 price never wipes the master). */
+    /** Re-price on receive (Option B): set a product's selling price from the purchase/goods-in flow AND stamp the
+     *  rates that purchase carried onto the master — what it was bought at and what it is to be sold at — so the
+     *  Product screen reads them off the product row instead of deriving them from purchase history.
+     *  Tenant-scoped via headers; guarded server-side (a null/≤0 rate never wipes the master). Either rate may be
+     *  null to leave that field unchanged. */
     @PutExchange("/products/{id}/price")
-    void updatePrice(@PathVariable Long id, @RequestParam("price") BigDecimal price);
+    void updatePrice(@PathVariable Long id, @RequestParam("price") BigDecimal price,
+                     @RequestParam("purchaseRate") BigDecimal purchaseRate);
 
     /** B1: set a product's pharmacy clinical flags. Catalog is the single writer for these — the pharmacy
      *  Clinical &amp; Safety screen goes through here. Either flag may be null to leave it unchanged. */

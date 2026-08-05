@@ -408,6 +408,15 @@ $(document).ready(function() {
 					// SF-5 Model B: redeeming store credit needs an identified (existing) customer — send the selected id.
 					if (isSelectMode && $("#sellCustomerDD").val()) customer.customerId = Number($("#sellCustomerDD").val());
 					var customerHistory = {"customer":customer, "sales":data};
+					// B2B-P3g: the invoice-level TRADE DISCOUNT, distinct from the per-line discounts already
+					// carried on each cart line. A distribution invoice settles a whole-order concession at the
+					// foot of the document. Sent only when actually entered, so a B2C sale is unchanged.
+					// NOTE: the monolith proxy binds a TYPED CustomerHistoryDTO and re-serialises it, so this
+					// also needs its twin field there or it is silently dropped on the way to business-service.
+					var tradeDisc = $("#sellTradeDiscount").val();
+					if (tradeDisc != null && tradeDisc !== '' && Number(tradeDisc) > 0) {
+						customerHistory.tradeDiscount = Number(tradeDisc);
+					}
 					// B1 (pharmacy): declare the prescription this sale dispenses. Its presence is what lets a
 					// prescription-only medicine through the server-side sell guard; the post-sale dispense call
 					// then reconciles what was actually sold against what was prescribed.

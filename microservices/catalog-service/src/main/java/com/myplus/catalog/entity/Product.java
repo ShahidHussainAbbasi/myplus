@@ -50,6 +50,29 @@ public class Product {
     @Column(name = "tax_code_id")
     private Long taxCodeId;
 
+    /**
+     * Last rates STAMPED BY THE PURCHASE FLOW (Option B, extended): whenever a purchase of this product is
+     * recorded or edited, business-service writes what it was bought at and what it is to be sold at, together
+     * with when. The Product screen then reads them straight off the product row — the rates are never derived
+     * from the purchase/sell history at read time.
+     *
+     * <p>{@code lastSaleRate} is a RECORD of what the last purchase set the price to; {@code sellingPrice} above
+     * is the LIVE master price. They start equal on every purchase and diverge only when someone edits the price
+     * directly on the Product form — which is precisely the difference worth seeing on the list.
+     *
+     * <p>Null until this product's first purchase (nothing has been stamped yet) — the screen shows a dash rather
+     * than a misleading zero.
+     */
+    @Column(name = "last_purchase_rate", precision = 19, scale = 2)
+    private BigDecimal lastPurchaseRate;
+
+    @Column(name = "last_sale_rate", precision = 19, scale = 2)
+    private BigDecimal lastSaleRate;
+
+    /** When the two rates above were last stamped — i.e. the date of the purchase that set them. */
+    @Column(name = "last_rate_at")
+    private LocalDateTime lastRateAt;
+
     @Builder.Default
     private Boolean isActive = true;
 

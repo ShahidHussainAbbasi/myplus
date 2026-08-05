@@ -1,6 +1,23 @@
 # B2B + B2C — what exists today, and how to start both
 
-**Status:** IN DELIVERY — **Phases 0, 0.5, 1, 2 and 3 DONE & Cypress-green** (0/0.5 2026-08-01 · 1, 2 2026-08-02 · 3 across 2026-08-03/04, all 7 sub-slices gated · **P2-UI 2026-08-04**, which finished #10 end-to-end and fixed a defect that meant contract prices were never actually charged). **10 of the 12 customer requirements are shipped** (#1,#2,#3,#4,#5,#6,#8,#9,#10,#13). **Phase 3 is now COMPLETE including 3f** (credit notes on statements, green 2026-08-04) — **there are no open items left on Phases 0–3.** **NEXT: Phase 4 — B2B ordering** (quote → approval → order, customer PO, account hierarchy) — the first genuinely NEW workflow; everything so far extended existing paths. Remaining unscheduled: reqs **#7** (stock cap + expiry digest) and **#11** (supplier targets) in Phase 6.
+**Status:** IN DELIVERY — **Phases 0, 0.5, 1, 2 and 3 DONE & Cypress-green** (0/0.5 2026-08-01 · 1, 2 2026-08-02 · 3 across 2026-08-03/04, all 7 sub-slices gated · **P2-UI 2026-08-04**, which finished #10 end-to-end and fixed a defect that meant contract prices were never actually charged). **10 of the 12 customer requirements are shipped** (#1,#2,#3,#4,#5,#6,#8,#9,#10,#13). **Phase 3 (3a–3f) is COMPLETE and gated** (3f, credit notes on statements, green 2026-08-04).
+
+> **✅ Phase 3g CLOSED 2026-08-05 — Phase 3 is done and Phase 4 is now the active phase.** 3g was opened off a
+> real customer invoice showing that a trade sale still printed an 80mm till slip with the word INVOICE on it.
+> All five sub-slices shipped, `V35` applied, and **`receipt-trade-invoice.cy.js` + `document-designer.cy.js`
+> are green** — the renderer and the designer are both proven end-to-end. Decisions D-1/D-2/D-3/D-5 are settled
+> by what shipped; **D-4 (trade-discount GL treatment) is carried into Phase 4** as the one open question.
+>
+> Scope note: this plan tracks **phases**, not the test suite. Per-sub-slice gate coverage lives in the slice
+> docs. Two items parked there rather than here: the three 3g specs that were never written (of which
+> **`document-template-crud` matters — it is the only one covering a tenancy boundary**), and
+> **[slice 106](slices/106-cypress-suite-health.md)**, the full-suite health pass.
+
+**ACTIVE: Phase 4 — B2B ordering** (quote → approval → order, customer PO, account hierarchy) — the first
+genuinely NEW workflow; everything so far extended existing paths. **Start with the account hierarchy**
+(company → branch → contact): it is a Phase 4 deliverable *and* a prerequisite for the portal-vs-counter
+question, so it is built first regardless of how that is answered (§6). Remaining unscheduled: reqs **#7**
+(stock cap + expiry digest) and **#11** (supplier targets) in Phase 6.
 Per-phase state is tracked in the Delivery phases section below; the slice doc for each shipped phase is linked there. Analysis sections 1-3b remain as written unless a finding contradicts them.
 **Companion to:** [`oms-b2b-b2c-implementation-plan.md`](oms-b2b-b2c-implementation-plan.md) (gap analysis),
 [`oms-program-plan.md`](oms-program-plan.md) (tracker), [`customer-requirements-plan.md`](customer-requirements-plan.md)
@@ -29,16 +46,25 @@ is greenfield") is wrong, and acting on it would mean rebuilding things that alr
 | **Ageing reports** | – | ✅ | `/customerAging`, `/vendorAging` |
 | Payments, allocation, receipts, GL | ✅ | ✅ | finance-service `/payments`, `/journal`, `/pnl` |
 | Multi-location stock, FEFO batches | ✅ | ✅ | inventory-service |
-| **Contract / tiered price lists** | – | ❌ **0** | no `PriceList`/`ContractPrice`/`TieredPrice` class exists |
-| **Credit limit** (a cap, not just a balance) | – | ❌ **0** | `Customer` has `dueAmount` but no limit |
-| **Payment terms** (Net 30/60) | – | ❌ ~0 | free-text `paymentTerms` on inventory `Supplier` only — not on customers, not enforced |
-| **Quote → approval → order** | – | ❌ **0** | no `SalesQuote`, no approval state |
-| **Customer PO number** | – | ❌ **0** | absent |
-| **Account hierarchy** (company → branch → contact) | – | ❌ **0** | absent |
+| **Contract / tiered price lists** | – | ✅ **DELIVERED** *(was ❌ 0)* | Phase 2 + P2-UI — `commerce-pricing` lib, `price_rule` (catalog V7), authored + charged |
+| **Credit limit** (a cap, not just a balance) | – | ✅ **DELIVERED** *(was ❌ 0)* | Phase 1 — `Customer.creditLimit` + `Vender.creditLimit` (V30), warn = take confirmation |
+| **Payment terms** (Net 30/60) | – | 🟡 **CAPTURED, not yet enforced** *(was ❌ ~0)* | Phase 1 — `Customer.paymentTermsDays` (V30). **Due-date-derivation is still deferred** (needs `SagaSaleWriter`, which owns dueDate) |
+| **Quote → approval → order** | – | ❌ **0** | no `SalesQuote`, no approval state — **Phase 4** |
+| **Customer PO number** | – | ❌ **0** | absent — **Phase 4** |
+| **Account hierarchy** (company → branch → contact) | – | ❌ **0** | absent — **Phase 4** |
+| **Return documents** (credit/debit note) | ✅ | ✅ | Phase 3c — `CRN-`/`DBN-` series; 3f put them on the statement |
+| **Statements that reconcile** | – | ✅ | Phase 3d/3f — CSV download; issued value + credit notes, no retro-edit |
+| **Filterable, exportable reports** | ✅ | ✅ | Phase 3e — `SaleReportFilter` + shared filter rail + CSV |
 
-**So:** B2B *transacting* works today — you can sell on account, track dues, issue statements and age
-receivables. What's missing is the B2B **commercial layer**: agreed prices, credit control, and an
-approval-bearing order.
+**So (as originally written):** B2B *transacting* works today — you can sell on account, track dues, issue
+statements and age receivables. What's missing is the B2B **commercial layer**: agreed prices, credit
+control, and an approval-bearing order.
+
+> **Scorecard refreshed 2026-08-04 after Phases 0–3.** Of the three gaps named above, **two are now closed** —
+> agreed prices (Phase 2 + P2-UI) and credit control (Phase 1). **The approval-bearing order is the one that
+> remains**, and it is exactly Phase 4. The rest of §1–§3b is left as originally written because the
+> *analysis* still holds; only this table is restated, since a scorecard that still reads ❌ against shipped,
+> gated work would misdirect the next planning decision.
 
 ### Two things worth correcting before they mislead
 
@@ -49,6 +75,10 @@ approval-bearing order.
    // private CustomerType customerType;
    ```
    Someone started this and backed it out. That is exactly where the B2B/B2C flag belongs — see §3.
+   **✅ Resolved in Phase 0** (V29): the field is live, the channel is *derived* via `CustomerType.channel()`
+   and never stored twice, and `orDefault` at save stops an edit silently demoting a trade account to
+   walk-in. Four values only — `WALK_IN`, `RETAILER`, `WHOLESALE`, `VIP`; **there is no `RETAIL`**, a fiction
+   that cost the P2-UI gate a red run.
 
 ---
 
@@ -240,7 +270,7 @@ Slice doc: `slices/b2b-P2-pricing.md` · gate: `cypress/e2e/business/pricing.cy.
 - Resolution order **base → contract → tier → promotion**, cached off the sell hot path
 - Covers customer-wise *and* product-wise discount in one model rather than two
 
-### Phase 3 — Documents & reports — ✅ **COMPLETE (all 8 sub-slices Cypress-green, 2026-08-03/04)**
+### Phase 3 — Documents & reports — ✅ **3a–3f COMPLETE (8 sub-slices Cypress-green, 2026-08-03/04)** · ⚠️ **re-opened as 3g below**
 Slice docs: `slices/b2b-P3-documents-reports.md` + `slices/b2b-P3f-credit-notes-on-statements.md`, each sub-slice separately gated *(customer reqs #1, #4, #5, #6, #2; + receipt-vs-invoice, moved from Phase 0)*
 - **3f** closed the last gap: a return used to rewrite the invoice header, so the statement contradicted the customer's own copy and the credit note appeared nowhere. Balances were right; the document trail was not.
 - **F1** batch/expiry captured on purchase → **#2**, then **#4** receipt lines
@@ -250,9 +280,42 @@ Slice docs: `slices/b2b-P3-documents-reports.md` + `slices/b2b-P3f-credit-notes-
 
 *Serves both channels* — a B2C shop wants the same reports.
 
-### Phase 4 — B2B ordering
-- `SalesQuote` → approval → order · customer PO number · account hierarchy (company → branch → contact)
+### Phase 3g — printable trade invoice + owner-designable documents — 🔨 **IN DELIVERY**
+
+Doc: [`slices/b2b-P3g-trade-invoice-designer.md`](slices/b2b-P3g-trade-invoice-designer.md). Opened
+2026-08-05 off a real pharma-distribution invoice supplied by the customer.
+
+Phase 3b-1 made a trade sale print the *word* INVOICE; everything else stayed a 4-column 80mm till slip.
+3g makes the layout **data** (a declarative Document Profile), so one renderer serves the thermal receipt,
+the A4 trade invoice and any layout an owner designs. **Channel picks the layout, vertical picks the words.**
+
+**All five sub-slices CODE COMPLETE and built** — 3g-1 renderer, 3g-2 `V35` + capture, 3g-3 `document_template`
++ validator + resolver, 3g-4 designer screen with live preview, 3g-5 the hardcoded per-client
+`businessInvoicePrint.js` deleted. **`receipt-trade-invoice.cy.js` and `document-designer.cy.js` GREEN
+(2026-08-05) → 3g-1 and 3g-4 gated.** Ships `V35`. Found and fixed a live defect:
+the receipt computed line amounts as `totalAmount + taxAmount` and ignored `Sell.discount`, so a discounted
+line printed more than the customer was charged and the lines did not sum to the printed total.
+
+Decisions **D-1, D-2, D-3, D-5 are settled by what shipped** (both sides provisioned · bonus presentation-only ·
+English-only amount-in-words · designer owner-only). **D-4 alone is open** — does `TRADE DISCOUNT` post as a
+discount account or reduce revenue? It touches `common-subledger`, not just the print.
+
+**Test-suite scope:** this plan tracks **phases**, not specs. Per-sub-slice gate coverage — including the three
+3g specs that were never written (`invoice-trade-fields`, `document-template-crud`, `invoice-legacy-retire`) —
+is recorded in [`slices/b2b-P3g-trade-invoice-designer.md`](slices/b2b-P3g-trade-invoice-designer.md) and does
+not gate phase progression here. **`document-template-crud` is the one worth returning to**: it is the only
+missing spec covering a tenancy boundary.
+
+### Phase 4 — B2B ordering — 🔨 **ACTIVE**
+- **4a — account hierarchy** (company → branch → contact) — 📝 **DESIGN written 2026-08-05**, awaiting the
+  credit-semantics decision then implementation. Doc:
+  [`slices/b2b-P4a-account-hierarchy.md`](slices/b2b-P4a-account-hierarchy.md). Built first because §6 makes it
+  a prerequisite for the portal question either way. Proposal: hierarchy on `Party` (reusable by Education
+  sponsors / Welfare corporate donors), credit roll-up target **stamped** onto `Customer` so the sell path keeps
+  a single local read.
+- 4b/4c — `SalesQuote` → approval → order · customer PO number
 - The first genuinely new *workflow*; everything before it extends existing paths
+- **Carried in from 3g: D-4** (trade-discount GL treatment) must be answered before 4b posts order-level discounts
 
 ### Phase 5 — B2C completion
 - Real PSP adapter (sandbox today) · promotions/bundles · BOPIS / ship-from-store on multi-location stock
@@ -291,18 +354,49 @@ their own *screens* but reuse the same party/pricing/finance capabilities.
 **Shared libraries, not new dependencies** — full analysis in
 [`b2b-shared-library-review.md`](b2b-shared-library-review.md). Summary:
 
-| Need | Verdict |
-|---|---|
-| Credit limit (#9) | **existing `common-credit` lib** (not a new one — it already is "shared rules, local data") — **check stays local**, no finance call on the sell path |
-| Pricing/discount (#10) | new lib `commerce-pricing` + tables on catalog — resolved **once per sale** |
-| Reports (#6) | new lib `commerce-reporting` (SPI per service) |
-| Documents (#1/4/5/13) | new lib `commerce-documents` (numbering + render + promo) |
-| Alerts (#7) | **reuse** `common-notify` — scheduler lives in inventory-service |
-| Config (all) | **reuse** `common-settings` |
-| Shipping | the one justified new **service** — `logistics-service` |
+| Need | Planned verdict | **Delivered (2026-08-04)** |
+|---|---|---|
+| Credit limit (#9) | **existing `common-credit` lib** — check stays local, no finance call on the sell path | ✅ **as planned** — `CreditLimitPolicy`, pure, no SPI. The shared-library review's proposed *new* `commerce-credit-policy` was **not** minted: `common-credit` already was that library |
+| Pricing/discount (#10) | new lib `commerce-pricing` + tables on catalog — resolved **once per sale** | ✅ **as planned** — `PriceResolver` (pure) + `price_rule` on catalog V7; **one quote per sale, never per line** (2 queries total) |
+| Reports (#6) | new lib `commerce-reporting` (SPI per service) | ⚠️ **NOT built — see §5c** |
+| Documents (#1/4/5/13) | new lib `commerce-documents` (numbering + render + promo) | ⚠️ **NOT built as a new lib — see §5c** |
+| Alerts (#7) | **reuse** `common-notify` | ⬜ unscheduled (Phase 6) |
+| Config (all) | **reuse** `common-settings` | ✅ **as planned** — every toggle this programme added |
+| Shipping | the one justified new **service** — `logistics-service` | ⬜ deferred, correctly (see §6 Q3) |
 
-**Four libraries, one service, zero new hot-path dependencies.** The sell path keeps exactly the four
-calls it makes today.
+**Planned: four libraries, one service. Delivered: one new library, three reuses, no new service** — and the
+sell path still makes exactly the four calls it made before, which was the binding constraint.
+
+## 5c. Where the architecture deviated from plan, and why
+
+Recording this because a plan that quietly diverges from the code stops being a plan. Both deviations were
+**decided at the slice**, not drifted into — but neither was written back here until now.
+
+**`commerce-documents` was not created.** The document work split by concern instead:
+
+| Piece | Landed in | Why there |
+|---|---|---|
+| `CRN-`/`DBN-` numbering, `isReturnDocument()` | **`commerce-domain`** (existing shared lib) | Numbering is a domain rule every vertical shares. Reuse-before-create: `commerce-domain` already held `InvoiceNumbers`, so a new library would have split one concept across two artifacts |
+| `CsvWriter` (+ formula-injection neutralising) | `business-service/util` | **Single consumer today.** Library-by-default does not mean library-on-speculation |
+
+**`commerce-reporting` (SPI per service) was not created.** Phase 3e shipped `SaleReportFilter` (Query Object)
+plus the shared browser rail `/js/common/report-filters.js`. The *client* abstraction is shared — every future
+report attaches to that rail — while the server side stayed local to its one consumer. An SPI with a single
+implementor is indirection without a second implementation to justify it.
+
+**The extraction trigger, so this is a decision and not an omission.** Extract `commerce-documents` /
+`commerce-reporting` the moment a **second** module needs them — the first likely candidate is education fee
+receipts and statements, which already share `common-subledger`. Two consumers is the bar; until then, moving
+them earns nothing and costs a module boundary. Concretely: **the next vertical that needs a CSV export must
+move `CsvWriter` into a shared library rather than copy it** — copying is how [[feedback_no_duplicate_functions_dry]]
+gets violated at the library scale.
+
+**Patterns actually applied** (each named, per standing guidance): Query Object (`SaleReportFilter`) ·
+Adapter (`/customerStatement.csv` and `/saleReport.csv` over the *same* service method, so export and screen
+cannot disagree) · Policy/Strategy via `common-settings` (margin, credit, receipt toggles) · Transactional
+Outbox (`GlOutboxService`) · Saga (stock reserve/confirm/return) · Anti-corruption layer (`commerce-contracts`
+shared on both sides so shapes cannot drift) · Specification-style precedence (`PriceResolver.bestRule`,
+mirrored in the UI with a comment in each file pointing at the other).
 
 **Patterns applied (named, per standing guidance):** DIP / Ports-&-Adapters for every library (the
 `common-credit` `CreditStore` shape) · transactional outbox for cross-service atomicity · saga for stock ·
@@ -320,30 +414,56 @@ strategy/policy object via `common-settings` · anti-corruption layer via `comme
 | **C2** | Gate-test **both** halves: the key is in the catalog with the right default **and** the behaviour changes |
 | **C3** | Safety flags default ON and fail ON |
 
+**Two gate rules this programme added the hard way** (both now belong in `SAAS-BUILD-STANDARDS.md §1.6`):
+
+| | |
+|---|---|
+| **G1 — `mvn test` is half the gate.** | Cypress cannot see a test that never *compiled*. `SagaSellServiceTest` stubbed a 5-arg `writePending` after it grew a 6th param, so business-service's unit suite did not compile from `0e268b8b` until 2026-08-03 — across Phases 0–2, all of which were "green". `-DskipTests` does not satisfy this. |
+| **G2 — a single-spec gate cannot see the suite.** | Every slice this month passed as `--spec <one file>`. A full-suite run on 2026-08-04 surfaced ~22 failures from **four** kinds of accumulated rot (a changed contract, deleted features, drifted assertions, shared state) — none caused by the slice being verified, none visible to any per-slice gate. **Run the owning module's whole suite before calling a phase done.** Tracked as [slice 106](slices/106-cypress-suite-health.md). |
+
+**Also proven by C2's own logic:** a filter test that counts options but never *selects* one and checks rows
+come back will pass against a filter matching nothing — how the 3e-1 channel filter shipped offering a
+`RETAIL` customer type that does not exist. **Assert the effect, not the affordance.**
+
 ---
 
-## 6. What I need before starting
+## 6. What I need before starting — **all four resolved by delivery**
 
-**Q1 — Confirm Phase 0 scope.** `CustomerType` + the three quick wins. Small and reversible; it is the
-foundation the rest keys off.
+**Q1 — Confirm Phase 0 scope.** ✅ **Answered and shipped.** `CustomerType` + the three quick wins landed as
+Phase 0 (V29, green 2026-08-01) and everything since keys off it, as predicted.
 
-**Q2 — Which vertical drives Phase 1?** Retail/POS is the natural reference. If a real customer is waiting
-on pharmacy institutional supply, that changes the acceptance criteria (not the design).
+**Q2 — Which vertical drives Phase 1?** ✅ **Retail/POS**, as proposed. Confirmed 2026-08-01 that **no live
+customer runs two modules**, so the reference implementation had no competing acceptance criteria. Phase 1
+(credit limit) is the one a real customer actually asked for.
 
-**Q3 — Is `logistics-service` in scope at all?** It is the one genuinely new service in the programme.
-If B2B here means "invoice and deliver yourself", we can defer it indefinitely.
+**Q3 — Is `logistics-service` in scope at all?** ✅ **Deferred, and the deferral held.** Phases 0–3 shipped
+without it — B2B here means "invoice and deliver yourself". Still the only genuinely new *service* in the
+programme; revisit only if fulfilment enters scope (Phase 6).
 
-**Q4 — B2B on the storefront (Phase 2) — portal or POS-entered?** Does a trade buyer log into the
-storefront and self-serve, or does your customer's staff enter B2B orders at the counter? Different UI,
-same backend.
+**Q4 — B2B on the storefront — portal or POS-entered?** ✅ **POS-entered, de facto.** Everything through
+Phase 3 is counter-operated; contract pricing reaches the till, not a trade portal. **This question returns
+for Phase 4**: a quote → approval → order workflow is where a trade buyer would plausibly self-serve, and it
+is the first phase whose *UI shape* depends on the answer rather than just its surface.
+
+### The open question Phase 4 must answer first
+
+**Does the trade buyer log in, or does your staff enter their order?** Same backend either way — but a
+self-serve portal needs an authenticated B2B identity (which storefront accounts already provide, slice 61)
+plus an approval chain tied to the **account hierarchy**, whereas counter-entered orders need neither. The
+account hierarchy (company → branch → contact) is a Phase 4 deliverable *and* a prerequisite for the portal
+reading, so **it should be built first regardless** — the answer changes only what sits on top of it.
 
 ---
 
 ## 7. Risks
 
-- **Do not build credit limit or price lists inside business-service.** They belong to party/finance and
-  catalog respectively, or education/welfare/appointments will each grow their own and the platform
-  fragments. This is the single biggest architectural risk in the programme.
+- ✅ **HELD — Do not build credit limit or price lists inside business-service.** Credit rules live in
+  `common-credit`, price rules in `commerce-pricing` + catalog. Neither leaked into business-service. This was
+  called the single biggest architectural risk in the programme and it did not materialise.
+- ⚠️ **NEW RISK, from delivery — reporting and document helpers ARE currently business-service-local**
+  (`CsvWriter`, `SaleReportFilter`). Defensible at one consumer (§5c), but this is precisely the shape the
+  risk above warns about, one level down. **The trigger is written into §5c: the second consumer moves it to a
+  library, it does not get copied.**
 - **Two `quote` concepts** — cart-totals (built) vs sales quote (Phase 4). Name the new one `SalesQuote`
   from the start.
 - **Price resolution is on the sell hot path.** Contract pricing must be cached and resolved off the

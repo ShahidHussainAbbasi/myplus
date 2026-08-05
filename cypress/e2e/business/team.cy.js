@@ -21,11 +21,19 @@ describe('Owner form gated to ROLE_OWNER — demo cannot manage team', () => {
     })
   })
 
-  it('a DEMO account does not see the Team section', () => {
+  // Slice 106: this asserted #snavTeam was NOT rendered for a demo account. The gate has since been widened
+  // on purpose — `sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"` — so that admins/managers
+  // can manage users in their own stores. DEMO_ROLE is seeded from superSet, and super ⊇ admin, so a demo
+  // account DOES carry ADMIN_PRIVILEGE and legitimately sees the section now.
+  //
+  // ⚠️ MISMATCH WORTH A DECISION (flagged, deliberately not resolved here): the NAV opened to
+  // ADMIN_PRIVILEGE but the API did not — the test above proves /team/users still refuses anyone without
+  // ROLE_OWNER. So an admin can open "Manage Users" and be refused on submit. Either the endpoint should
+  // accept admins (matching the template's stated intent) or the nav should re-narrow to ROLE_OWNER.
+  // This test pins the CURRENT behaviour of both halves so the mismatch cannot drift further unnoticed.
+  it('an ADMIN-privileged account sees the Team section, but the API still refuses it', () => {
     cy.visit('/businessDashboard')
-    // sec:authorize="hasAuthority('ROLE_OWNER')" -> not rendered for a demo (DEMO_ROLE) user.
-    cy.get('#snavTeam').should('not.exist')
-    cy.get('#TeamDiv').should('not.exist')
+    cy.get('#snavTeam', { timeout: 10000 }).should('exist')   // widened gate: admins see it
   })
 
   it('SUPER still sees org sells (role-aware scoping: no regression)', () => {

@@ -270,7 +270,10 @@ describe('Purchase Table — Row Click', () => {
       const real = $opts.toArray().find((o) => o.value && o.value !== '')
       if (!real) return cy.log('No items in this org — P/U price validation test skipped')
 
-      cy.get('#purchaseItemDD').invoke('val', real.value).trigger('change')
+      // Slice 106: #purchaseItemDD is a .selectpicker, so bootstrap-select keeps the native <select>
+      // display:none permanently — .trigger() runs the same actionability check .click() does. The three
+      // lines below already force for this reason; this one was simply missed.
+      cy.get('#purchaseItemDD').invoke('val', real.value).trigger('change', { force: true })
       cy.get('#purchaseQuantity').clear({ force: true }).type('2', { force: true })
       cy.get('#purchasePurchaseRate').clear({ force: true }).type('0', { force: true })
       cy.get('#addPurchase').click({ force: true })

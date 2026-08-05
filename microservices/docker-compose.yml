@@ -317,6 +317,31 @@ services:
       config-server:
         condition: service_healthy
 
+  # Shared contact/CRM master (partyId bridge). Part of the POS subset: business-service best-effort
+  # links each customer/vendor to a shared party on write, and it backs the owner Contact-360 view.
+  # Selling works without it (the record just saves with a null party_id and re-links on the next
+  # write) — but DEPLOY-POS-RETAIL.md §3.3/§4.6 name it in the bring-up, so it must exist here.
+  party-service:
+    build: ./party-service
+    container_name: myplus-party
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 768m
+    expose:
+      - "8096"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      <<: *db-env
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
   education-service:
     build: ./education-service
     container_name: myplus-education

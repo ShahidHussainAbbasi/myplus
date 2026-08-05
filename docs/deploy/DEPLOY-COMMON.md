@@ -291,21 +291,23 @@ docker compose up -d --force-recreate <service>
 
 ---
 
-## 9. Known gap — `party-service` is not in `docker-compose.yml`
+## 9. ~~Known gap~~ — `party-service` is now in `docker-compose.yml` ✅ **RESOLVED 2026-08-04**
 
 `party-service` (8096, `myplusdb_party`) is the shared contact/CRM master. Five modules bridge to it
-(business, education, welfare, pharmacy, marketplace) and the owner **Contact 360** view reads it — but it
-has **no entry in `microservices/docker-compose.yml`**, so `docker compose up` never starts it.
+(business, education, welfare, pharmacy, marketplace) and the owner **Contact 360** view reads it.
 
-**Impact is contained by design:** every bridge is best-effort, off the domain transaction, with a short
-timeout and a circuit breaker. Records save with `party_id = NULL` and re-link on the next write. So
-nothing breaks — but Contact 360 stays empty and party ids never populate.
+It previously had **no entry in `microservices/docker-compose.yml`**, so `docker compose up` never started
+it and the workaround was to run the jar by hand. **The compose block now exists** (builds from
+`./party-service`, `expose: 8096`, same `db-env`/Eureka/Config wiring as `audit-service`), so it comes up
+with everything else and the manual `java -jar` step is no longer needed.
 
-**Until it is added**, either accept that (fine for a single-module pilot) or run it outside compose:
+**Why this mattered more than it looked:** `DEPLOY-POS-RETAIL.md` §3.3/§4.6 already named `party-service` in
+its `docker compose up` command, so the POS bring-up failed outright with *"no such service"* — while this
+document described the omission as harmless. **Two runbooks disagreed, and the one people follow to deploy
+was the broken one.** The POS runbook now opens §3.3 with a `docker compose config --services` pre-flight so
+a name in a runbook that is missing from compose is caught in seconds rather than mid-deploy.
 
-```bash
-java -jar microservices/party-service/target/party-service-*.jar --server.port=8096
-```
-
-Adding it to the compose file is a small change and worth doing before any deployment that sells
-Contact 360.
+**The bridge remains best-effort by design** — off the domain transaction, short timeout, circuit breaker.
+If party-service is down, records still save with `party_id = NULL` and re-link on the next write; only
+Contact 360 stays empty. That property is unchanged and is what makes the service safe to drop on a
+RAM-constrained host (`docker compose up` without it in the list).

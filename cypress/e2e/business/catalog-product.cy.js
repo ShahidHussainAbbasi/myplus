@@ -21,11 +21,15 @@ describe('Catalog Product master (M1)', () => {
       productId = r.body.data.id
     })
 
-    cy.request('/catalogProducts?size=500').then((r) => {
+    // Slice 106: was `?size=500`, which assumed the whole catalog fitted in one page. On a dev DB that has
+    // accumulated thousands of products from months of runs, the row just created has the HIGHEST id and
+    // therefore lands on the LAST page — so the assertion failed while creation was working perfectly.
+    // Sorting newest-first makes this independent of how big the catalog has grown.
+    cy.request('/catalogProducts?size=50&sort=id,desc').then((r) => {
       expect(r.body.success).to.eq(true)
       const content = (r.body.data && r.body.data.content) ? r.body.data.content : []
       const mine = content.find((p) => p.id === productId)
-      expect(mine, 'product appears in the catalog list').to.exist
+      expect(mine, 'product appears in the catalog list (newest page)').to.exist
       expect(mine.name).to.eq(name)
     })
   })

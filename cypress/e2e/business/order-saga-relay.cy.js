@@ -23,11 +23,10 @@ describe('E-commerce — order reservation is confirmed (saga relay tracking)', 
   it('a placed storefront order reports its reservation CONFIRMED', () => {
     const buyer = 'RelayBuyer_' + Date.now()
     let orderId
-    cy.request({
-      method: 'POST', url: '/storefront/checkout',
-      body: { organizationId: orgId, customerName: buyer, customerContact: '0300RLY', shippingAddress: '3 Relay St', total: 25, paymentMode: 'COD', items: [{ productId, quantity: 1, price: 25 }] },
-      headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-    }).then((r) => {
+    // Slice 106: server cart (slice 68) — see cy.storefrontOrder.
+    cy.storefrontOrder(orgId, { productId, quantity: 1 },
+      { customerName: buyer, customerContact: '0300RLY', shippingAddress: '3 Relay St', paymentMode: 'COD' },
+    ).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.reservationStatus, 'confirmed inline at placement').to.eq('CONFIRMED')
       orderId = r.body.data.id

@@ -54,8 +54,12 @@ describe('Sidebar: the selected nav item stays visible', () => {
   it('picking a different item moves the selection (it is not sticky forever)', () => {
     pickCustomer()
 
-    cy.get('#snavRegister .snav-menu a').contains('Vender').click({ force: true })
-    cy.get('#snavRegister .snav-menu a.active').should('contain', 'Vender')
+    // Slice 106: was 'Vender'. The nav label comes from the bundle (`ui.venderSupplier2=Vendor / Supplier`),
+    // NOT from the template's inline text — Thymeleaf's inline copy is only a design-time placeholder. The
+    // i18n pass corrected the spelling to "Vendor"; the misspelling survives only in the ENTITY name
+    // (`Vender`), which is why this reads wrong but is right.
+    cy.get('#snavRegister .snav-menu a').contains('Vendor').click({ force: true })
+    cy.get('#snavRegister .snav-menu a.active').should('contain', 'Vendor')
     cy.get('#snavRegister .snav-menu a.active').should('have.length', 1)   // exactly one, not two
   })
 })

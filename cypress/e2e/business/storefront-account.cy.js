@@ -35,11 +35,10 @@ describe('E-commerce — storefront customer accounts', () => {
 
     let orderId
     cy.then(() => {
-      cy.request({
-        method: 'POST', url: '/storefront/checkout',
-        body: { organizationId: orgId, customerName: 'Shopper', customerContact: email, shippingAddress: '1 Acct St', total: 15, paymentMode: 'COD', items: [{ productId, quantity: 1, price: 15 }], customerToken: token },
-        headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-      }).then((r) => { expect(r.body.success, JSON.stringify(r.body)).to.eq(true); orderId = r.body.data.id })
+      // Slice 106: server cart (slice 68) — customerToken rides on the cart too, so the order links to the account.
+      cy.storefrontOrder(orgId, { productId, quantity: 1 },
+        { customerName: 'Shopper', customerContact: email, shippingAddress: '1 Acct St', paymentMode: 'COD', customerToken: token },
+      ).then((r) => { expect(r.body.success, JSON.stringify(r.body)).to.eq(true); orderId = r.body.data.id })
     })
 
     cy.then(() => {

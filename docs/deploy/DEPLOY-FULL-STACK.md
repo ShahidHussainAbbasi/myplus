@@ -57,7 +57,8 @@ cd microservices
 docker compose up -d --build          # omitting the service list = every service in the file
 ```
 
-`party-service` is not in the compose file — see COMMON §9 to run it alongside.
+`party-service` **is now in the compose file** (added 2026-08-04) and starts with everything else — the
+manual `java -jar` workaround is gone. See COMMON §9.
 
 ### Verify
 

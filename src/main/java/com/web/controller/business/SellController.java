@@ -112,6 +112,74 @@ public class SellController {
         }
     }
 
+    /*
+     * B2B-P3g — owner-designed document layouts (business-service owns the data).
+     *
+     * All five relay UNTYPED (Map / raw JSON String), deliberately. A typed DTO here would be a second
+     * definition of the Document Profile shape that has to be kept in step with the validator and the
+     * renderer, and the trap this codebase has already been bitten by is the opposite of harmless: a typed
+     * proxy silently DROPS any field it does not declare. A layout is opaque to the monolith — it neither
+     * reads it nor validates it — so passing it through untouched is both simpler and safer.
+     */
+    @RequestMapping(value = "/documentTemplates", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> documentTemplates() {
+        try {
+            return client.get("/documentTemplates", "");
+        } catch (Exception e) {
+            LOGGER.error("documentTemplates proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    @RequestMapping(value = "/documentTemplate", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> documentTemplate(final HttpServletRequest request) {
+        try {
+            String id = request.getParameter("id");
+            return client.get("/documentTemplate", "id=" + java.net.URLEncoder.encode(
+                    id == null ? "" : id, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            LOGGER.error("documentTemplate proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    @RequestMapping(value = "/documentFields", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> documentFields() {
+        try {
+            return client.get("/documentFields", "");
+        } catch (Exception e) {
+            LOGGER.error("documentFields proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    @RequestMapping(value = "/saveDocumentTemplate", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> saveDocumentTemplate(@RequestBody final Object body) {
+        try {
+            return client.postJson("/saveDocumentTemplate", body);
+        } catch (Exception e) {
+            LOGGER.error("saveDocumentTemplate proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    @RequestMapping(value = "/deleteDocumentTemplate", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> deleteDocumentTemplate(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/deleteDocumentTemplate", params);
+        } catch (Exception e) {
+            LOGGER.error("deleteDocumentTemplate proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     // SF-11: the sale-return / credit-note audit log (proxy to business-service).
     @RequestMapping(value = "/getSaleReturns", method = RequestMethod.GET)
     @ResponseBody

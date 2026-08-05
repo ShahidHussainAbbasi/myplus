@@ -215,6 +215,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li><a onclick="showStores();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.stores}">Stores</span></a></li>
 								<li><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.taxSettings}">Tax Settings</span></a></li>
 								<li><a id="navPriceRules" onclick="showPriceRules();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.priceRules}">Price Rules</span></a></li>
+								<li><a id="navDocumentDesigner" onclick="showDocumentDesigner();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.documentDesigner}">Document Designer</span></a></li>
 								<li><a onclick="showBusinessConfig();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
 							</ul>
 						</div>
@@ -392,6 +393,134 @@ tr.row-voided .js-edit-row{display:none !important}
 			     ROLE_OWNER to match #snavSettings, its only entry point — a wider gate here would just be
 			     unreachable. The catalog API also demands ADMIN_PRIVILEGE, so the server stays the authority.
 			     Layout follows the Tax Codes master on TaxSettingDiv: a table plus an inline editor. -->
+			<!-- B2B-P3g (3g-4) — Document Designer.
+			     Owner-gated for the same reason the Finance screens are (decision D-5): this decides what
+			     appears on EVERY invoice the business issues — its name, its licence number, which figures a
+			     customer sees. The server gates the write endpoints independently; this only hides the door.
+
+			     Columns are reordered with Up/Down buttons rather than HTML5 drag-and-drop. Deliberate: drag
+			     is unusable on touch without a library, unreachable by keyboard, and effectively untestable
+			     from Cypress — and every one of those costs more than the polish is worth on a screen an
+			     owner visits twice a year. -->
+			<div id="DocumentDesignerDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.documentDesigner}">Document Designer</h4>
+				<p class="help-block" th:text="#{ui.documentDesignerHelp}">
+					Design the invoices and receipts you hand to customers. Trade customers (Retailer/Wholesale)
+					print the layout marked default for Trade; walk-in customers print the Retail one. Change
+					nothing and your documents keep printing exactly as they do today.
+				</p>
+				<table class="table table-condensed" id="tableDocumentTemplate" style="width:100%">
+					<thead>
+						<tr>
+							<th th:text="#{ui.name2}">Name</th>
+							<th th:text="#{ui.channel}">Channel</th>
+							<th th:text="#{ui.docPaper}">Paper</th>
+							<th th:text="#{ui.docColumns}">Columns</th>
+							<th th:text="#{ui.status}">Status</th>
+							<th style="width:140px"></th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+
+				<hr>
+				<div class="row">
+					<div class="col-md-7">
+						<h4 style="font-weight:700;color:#1f4e8c" id="dtFormTitle" th:text="#{ui.docNewLayout}">New layout</h4>
+						<form class="form-horizontal" role="form" id="DocumentTemplateForm" autocomplete="off" onsubmit="return false;">
+							<input type="hidden" id="dtId">
+							<div class="form-group">
+								<label class="control-label col-sm-4" for="dtName" th:text="#{ui.name2}">Name</label>
+								<div class="col-sm-8">
+									<input type="text" class="form-control" id="dtName" maxlength="120">
+								</div>
+							</div>
+							<div class="form-group">
+								<label class="control-label col-sm-4" for="dtChannel" th:text="#{ui.channel}">Channel</label>
+								<div class="col-sm-8">
+									<select class="form-control" id="dtChannel" onchange="renderDocumentPreview()">
+										<option value="B2B" th:text="#{ui.docChannelTrade}">Trade (Retailer / Wholesale)</option>
+										<option value="B2C" th:text="#{ui.docChannelRetail}">Retail (Walk-in / VIP)</option>
+										<option value="" th:text="#{ui.docChannelBoth}">Both</option>
+									</select>
+								</div>
+							</div>
+							<div class="form-group">
+								<label class="control-label col-sm-4" for="dtPaper" th:text="#{ui.docPaper}">Paper</label>
+								<div class="col-sm-8">
+									<select class="form-control" id="dtPaper" onchange="renderDocumentPreview()">
+										<option value="A4">A4</option>
+										<option value="A5">A5</option>
+										<option value="80mm">80mm</option>
+										<option value="58mm">58mm</option>
+									</select>
+								</div>
+							</div>
+							<div class="form-group">
+								<label class="control-label col-sm-4" for="dtTitleStyle" th:text="#{ui.docTitleStyle}">Title style</label>
+								<div class="col-sm-8">
+									<select class="form-control" id="dtTitleStyle" onchange="renderDocumentPreview()">
+										<option value="boxed" th:text="#{ui.docTitleBoxed}">Boxed</option>
+										<option value="plain" th:text="#{ui.docTitlePlain}">Plain</option>
+									</select>
+								</div>
+							</div>
+							<div class="form-group">
+								<div class="col-sm-8 col-sm-offset-4">
+									<label><input type="checkbox" id="dtShowLogo" onchange="renderDocumentPreview()"> <span th:text="#{ui.docShowLogo}">Print the logo</span></label><br>
+									<label><input type="checkbox" id="dtShowDrCr" onchange="renderDocumentPreview()"> <span th:text="#{ui.docShowDrCr}">Mark balances DR / CR</span></label><br>
+									<label><input type="checkbox" id="dtShowSignature" onchange="renderDocumentPreview()"> <span th:text="#{ui.docShowSignature}">Signature lines at the foot</span></label><br>
+									<label><input type="checkbox" id="dtIsDefault"> <span th:text="#{ui.docIsDefault}">Use this layout for this channel</span></label>
+								</div>
+							</div>
+							<div class="form-group">
+								<label class="control-label col-sm-4" for="dtFooterText" th:text="#{ui.docFooterText}">Footer line</label>
+								<div class="col-sm-8">
+									<input type="text" class="form-control" id="dtFooterText" maxlength="240">
+								</div>
+							</div>
+
+							<h5 style="font-weight:700" th:text="#{ui.docColumns}">Columns</h5>
+							<p class="help-block" th:text="#{ui.docColumnsHelp}">Tick a column to print it. Rename it if your trade uses a different word.</p>
+							<table class="table table-condensed" id="tableDocColumns" style="width:100%">
+								<thead>
+									<tr>
+										<th style="width:40px"></th>
+										<th th:text="#{ui.docField}">Field</th>
+										<th th:text="#{ui.docLabel}">Printed label</th>
+										<th style="width:80px" th:text="#{ui.docWidth}">Width %</th>
+										<th style="width:90px"></th>
+									</tr>
+								</thead>
+								<tbody></tbody>
+							</table>
+
+							<h5 style="font-weight:700" th:text="#{ui.docHeaderFields}">Header fields</h5>
+							<p class="help-block" th:text="#{ui.docHeaderFieldsHelp}">Printed above the table, in up to three columns. A field with no value prints nothing.</p>
+							<div id="docHeaderFields" class="row"></div>
+
+							<h5 style="font-weight:700" th:text="#{ui.docSummaryRows}">Summary rows</h5>
+							<p class="help-block" th:text="#{ui.docSummaryRowsHelp}">Printed under the table. A row with no value is skipped.</p>
+							<div id="docTotalRows" class="row"></div>
+
+							<div class="form-group text-center" style="margin-top:14px">
+								<button type="button" class="btn btn-success" onclick="saveDocumentTemplate()">
+									<span class="glyphicon glyphicon-floppy-disk"></span> <span th:text="#{ui.save}">Save</span>
+								</button>
+								<button type="button" class="btn btn-default" onclick="resetDocumentTemplateForm()">
+									<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
+								</button>
+							</div>
+						</form>
+					</div>
+					<div class="col-md-5">
+						<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.docPreview}">Live preview</h4>
+						<p class="help-block" th:text="#{ui.docPreviewHelp}">Sample data, drawn by the same code that prints the real document.</p>
+						<iframe id="docPreviewFrame" style="width:100%;height:620px;border:1px solid #d5dce6;background:#fff"></iframe>
+					</div>
+				</div>
+			</div>
+
 			<div id="PriceRuleDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
 				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.priceRules}">Price Rules</h4>
 				<p class="help-block" th:text="#{ui.priceRulesHelp}">
@@ -881,6 +1010,37 @@ tr.row-voided .js-edit-row{display:none !important}
 							<div style="color:#7a889c;font-size:12px;margin-top:3px" th:text="#{ui.paymentTermsHelp}">Net days. Fills in the invoice due date; blank keeps it manual.</div>
 						</div>
 					</div>
+					<!-- B2B-P3g (V35): trade-buyer identity, printed on the A4 invoice. All four are optional and
+					     blank prints nothing, so a corner shop's customer record is unchanged. City is its own
+					     field because `address` is one free-text line that cannot be parsed back into parts
+					     afterwards. The licence is the BUYER's — a distributor may only supply a licensed
+					     reseller and the invoice carries it as evidence. (The SELLER's own licence is the
+					     pos.document.licenseNo setting: one per business, not one per customer.) -->
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="customerCity" th:text="#{ui.docCity}">City</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="customerCity" name="city"
+							       placeholder="City" th:placeholder="#{ui.docCity}">
+						</div>
+						<label class="control-label col-sm-2" for="customerCnic" th:text="#{ui.docCnic}">CNIC No</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="customerCnic" name="cnic"
+							       placeholder="National ID" th:placeholder="#{ui.cnicPlaceholder}">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="customerLicenseNo" th:text="#{ui.docLicenseNo}">License No</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="customerLicenseNo" name="licenseNo"
+							       placeholder="Drug / trade licence" th:placeholder="#{ui.licenseNoPlaceholder}">
+							<div style="color:#7a889c;font-size:12px;margin-top:3px" th:text="#{ui.licenseHelp}">Only for trade accounts you must supply against a licence.</div>
+						</div>
+						<label class="control-label col-sm-2" for="customerLicenseExpiry" th:text="#{ui.docLicenseExpiry}">License Expiry</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control datePicker" id="customerLicenseExpiry" name="licenseExpiry"
+							       placeholder="yyyy-mm-dd" autocomplete="off">
+						</div>
+					</div>
 					<div class="form-group text-center">
 						<button type="button" id="addCustomer" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
@@ -1233,6 +1393,17 @@ tr.row-voided .js-edit-row{display:none !important}
 							<input type="text" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="sellItems" name="quantity"
 							 onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required"/>
 						</div>
+						<!-- B2B-P3g: free goods on this line ("Bon." on a trade invoice) — 20 billed, 2 free.
+						     Optional; blank means no bonus and the column prints nothing. Deliberately NOT
+						     wired into calculateNetSell: bonus stock is given away, so it must not move the
+						     line total, the tax or the margin. It is also PRESENTATION ONLY for now — it does
+						     not decrement inventory (decision D-2) — so a shop that needs the stock to move
+						     should record the free units as a normal line instead. -->
+						<label class="control-label col-sm-2" for="sellBonus" th:text="#{ui.docBonus}">Bonus</label>
+						<div class="col-sm-2">
+							<input type="number" step="any" min="0" class="form-control" id="sellBonus"
+							       placeholder="0" th:title="#{ui.bonusHelp}"/>
+						</div>
 						<label class="control-label col-sm-2" for="sellStock" th:text="#{ui.stock}">Stock</label>
 						<div class="col-sm-2">
 							<input type="text" class="form-control" id="sellStock" name="stock.stock" readonly="readonly"/>
@@ -1444,6 +1615,14 @@ tr.row-voided .js-edit-row{display:none !important}
 								<span class="field-label" th:text="#{ui.change}">Change</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellCh" name="sellCh" readonly="readonly" placeholder="Change" th:placeholder="#{ui.change}">
 							</div>
+							<!-- B2B-P3g: the invoice-level TRADE DISCOUNT — a whole-order concession settled at the
+							     foot of a distribution invoice, distinct from the per-line discounts on each cart
+							     line. Optional; blank sends nothing and a B2C sale is completely unchanged. -->
+							<div class="col-xs-12 col-sm-3 col-md-2">
+								<span class="field-label" th:text="#{ui.docTradeDiscount}">Trade Discount</span>
+								<input type="number" step="any" min="0" class="form-control" id="sellTradeDiscount"
+								       placeholder="0" th:title="#{ui.tradeDiscountHelp}">
+							</div>
 							<div class="col-xs-12 col-sm-3 col-md-2">
 								<span class="field-label" th:text="#{ui.dueThisSale}">Due (this sale)</span>
 								<input type="number" step="any" class="form-control" id="sellDueThis" readonly="readonly" placeholder="0" title="Amount still owed on this sale" th:title="#{ui.amountStillOwedOnThisSale}">
@@ -1640,6 +1819,11 @@ tr.row-voided .js-edit-row{display:none !important}
 								<th data-field="sku"><span th:text="#{ui.sku}">SKU</span></th>
 								<th data-field="unit" th:text="#{ui.unit}">Unit</th>
 								<th data-field="sellingPrice" th:text="#{ui.price}">Price</th>
+								<!-- Stamped onto the product by the purchase flow (add/edit a purchase), so both render
+								     straight from the product row. Last sale rate is what the last purchase SET the price
+								     to; the Price column is the live master price — they diverge on a direct price edit. -->
+								<th data-field="lastPurchaseRate" th:text="#{ui.lastPurchaseRate}">Last purchase rate</th>
+								<th data-field="lastSaleRate" th:text="#{ui.lastSaleRate}">Last sale rate</th>
 								<th data-field="taxRate" th:text="#{ui.tax}">Tax %</th>
 								<th data-field="categoryName" th:text="#{ui.category}">Category</th>
 								<th data-field="onHand" th:text="#{ui.onHand}">On hand</th>
@@ -2149,8 +2333,15 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/module-theme.js}"></script>
     <script th:src="@{/js/common/report-filters.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
-    <script th:src="@{/js/business/businessInvoicePrint.js}"></script>
+    <!-- B2B-P3g-5: businessInvoicePrint.js removed. It was a 148-line jsPDF A4 printer gated on
+         `if (userId*ONE != 37) return false;` with one shop's name, address and phone hardcoded into it, and
+         it loaded on EVERY business dashboard while doing nothing for anyone else. It was also evidence of
+         real demand — a customer wanted an A4 invoice badly enough that one got hardcoded for them. That
+         need is now served for every tenant by the Document Designer. No caller existed. -->
     <script th:src="@{/js/business/receipt.js}"></script>
+    <!-- 3g-4: must load AFTER receipt.js — the designer's live preview calls window.DocumentRenderer, the
+         same renderer the printer uses, and reads its field whitelist for the default column labels. -->
+    <script th:src="@{/js/business/document-designer.js}"></script>
     <script th:src="@{/js/business/till.js}"></script>
     <script th:src="@{/js/business/park.js}"></script>
     <script th:src="@{/js/business/catalog-products.js}"></script>

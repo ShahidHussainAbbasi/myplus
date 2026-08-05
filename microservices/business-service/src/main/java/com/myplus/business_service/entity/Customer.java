@@ -64,6 +64,29 @@ public class Customer implements Serializable {
 
 	private String address;
 
+	/**
+	 * B2B-P3g (V35): trade-buyer identity printed on an invoice.
+	 *
+	 * <p>{@code city} is captured rather than parsed out of {@link #address}, which is one free-text line
+	 * with no reliable way to recover a city from it afterwards.
+	 *
+	 * <p>{@code licenseNo}/{@code licenseExpiry} are the BUYER's licence: a pharmaceutical distributor may
+	 * only supply a licensed reseller, and the invoice prints it as evidence. The SELLER's own licence is a
+	 * per-org setting ({@code pos.document.licenseNo}), because a business has one licence, not one per
+	 * customer.
+	 */
+	@Column(name = "city", length = 80)
+	private String city;
+
+	@Column(name = "cnic", length = 20)
+	private String cnic;
+
+	@Column(name = "license_no", length = 60)
+	private String licenseNo;
+
+	@Column(name = "license_expiry")
+	private LocalDate licenseExpiry;
+
 	// @Column(name = "paid_amount")
 	// private Float paidAmount;
 

@@ -1,7 +1,7 @@
 # Education Management System — complete programme
 
 **Status: IN DELIVERY — Phase 0 and Phase 1 COMPLETE and Cypress-green; the education review is CLOSED.**
-**PHASE 2 IS COMPLETE** (2.1–2.5 all Cypress-green, 2026-08-03). Now in **Phase 3 — guardian & student portals**: **3.1 is implemented and awaiting its build + Cypress gate.** **3.1 is NOT blocked** — D-4 gates 3.2, and D-2's ordering question was settled by keeping phase order. Produced 2026-07-30; last
+**PHASE 2 IS COMPLETE** (2.1–2.5 all Cypress-green, 2026-08-03). Now in **Phase 3 — guardian & student portals**: **3.1 is DONE & Cypress-green (11/11, 2026-08-04)**, and 2.5's V23 rename re-run is green with it. **3.2 is BLOCKED on D-4 (payment provider) — a user decision; 3.3 and 3.5 are unblocked.** Produced 2026-07-30; last
 updated 2026-08-04. Supersedes `education-feature-gap-analysis.md` (kept as the raw inventory).
 
 | Shipped so far | |
@@ -10,7 +10,7 @@ updated 2026-08-04. Supersedes `education-feature-gap-analysis.md` (kept as the 
 | **Phase 1** | 1.1 academic year & term · 1.2 examinations · 1.3 marks entry · 1.4 grading scales · 1.5 report cards · 1.6 promotion — **all six green** |
 | **Review** | findings A (cross-tenant save takeover), B (fee validation), C (privilege gating), D (analytics perf) fixed; E partly |
 | **Phase 2** ✅ | 2.1 timetable · 2.2 substitution · 2.3 staff attendance & leave · 2.4 homework · 2.5 behaviour log — **all five green** |
-| **Now** | Phase 3.1 guardian portal — 🔨 implemented (V22), awaiting build + gate. **Naming settled with it: the domain word is GUARDIAN, never "parent"** — see §0a. 2.5 was amended to match (V23) and needs a gate re-run. _(Notification remains the strongest non-phase candidate: 2.2 + 2.4 + 2.5 all want a real send.)_ |
+| **Now** | Phase 3.1 guardian portal — ✅ **DONE & green 11/11 (2026-08-04)**, V22 applied. **Naming settled with it: the domain word is GUARDIAN, never "parent"** — see §0a. 2.5 was amended to match (V23) and its re-run is green. **Next: 3.3 or 3.5 — 3.2 waits on D-4.** _(Notification remains the strongest non-phase candidate: 2.2 + 2.4 + 2.5 all want a real send.)_ |
 
 **Goal:** an education management system complete enough for a department of education — every stakeholder,
 every department, on one multi-tenant platform.
@@ -80,7 +80,7 @@ row (student) is 3.3._
 | **School admin / clerk** | enrolment, fees, attendance, records | ✅ served |
 | **Teacher** | timetable, mark entry, attendance, homework, my classes | 🟡 **marks, timetable view, homework and the behaviour log** shipped (1.3, 2.1, 2.4, 2.5); a single teacher home screen is still absent |
 | **Head / principal** | school-wide results, staff performance, finance | 🟡 dashboard + report cards + promotion; staff performance still absent |
-| **Guardian** | results, attendance, fee dues, homework, pay online, meet teacher | 🔨 **3.1 portal implemented** (results, attendance, dues, homework — own children only); paying online is 3.2, meeting a teacher is 3.4 |
+| **Guardian** | results, attendance, fee dues, homework, pay online, meet teacher | ✅ **3.1 portal DONE & green** (results, attendance, dues, homework — own children only); paying online is 3.2, meeting a teacher is 3.4. **No guardian can sign in yet** — the auth-service account is deliberately not built (3.1 §6) |
 | **Student** | timetable, results, homework, materials | ❌ no portal at all |
 | **Accountant** | receivables, arrears, expenses, payroll, books | 🟡 **fees now reach the ledger** (AR + GL + aging + statements, Phase 0); expenses and payroll still absent |
 | **Transport in-charge** | routes, stops, who rides which bus | 🟡 vehicle register only |
@@ -92,9 +92,17 @@ row (student) is 3.3._
 
 ## 2. Current state
 
-**Measured 2026-08-04: 47 entities · 33 controllers · Flyway V1–V23.**
+**Measured 2026-08-04, and the metric CORRECTED (see below): 35 domain entities · 33 controllers ·
+39 services · 38 repositories · Flyway V1–V23.**
 _(As first written, 2026-07-30: 15 entities · 19 controllers · 22 screens · Flyway V1–V7 — kept so the
 distance travelled is visible.)_
+
+> **The "entity" count was wrong every time it was written, and it feeds a live architectural trigger.**
+> `entity/` holds **49 files**: 38 carry `@Entity`, and **11 are enums** (`ExamStatus`, `PortalStatus`,
+> `SubmissionState`, …) that a file count silently counts as entities. Of the 38, three are
+> **infrastructure, not domain** — `GlOutbox`, `AuditOutbox`, `OrgSetting` — so the domain figure is **35**.
+> The previously-recorded "47" would have tripped §3's ~40 split trigger; **35 does not.** Definition
+> pinned in §3 so the next reader measures the same thing.
 
 **Strong:** enrolment, guardians, staff master, student attendance, fee collection, discounts, alerts,
 multi-school branch scoping, owner-configurable policy, org-scoping (hardened in the education review) —
@@ -143,9 +151,19 @@ Per §1.2/§1.3, each need is first checked against an existing service.
 | **Payroll** (salary, deductions, payslips) | **NEW** | `payroll-service` | distinct bounded context; posts to `finance-service` GL. Needed by education AND business staff |
 | Exams · marks · grading · report cards · timetable · homework | **BUILD IN** `education-service` | — | education's core domain, not cross-cutting. Stays put |
 
-> **Split trigger:** if `education-service` passes ~40 entities, split `education-academic-service`
-> (exams/marks/timetable/LMS) from `education-core` (people/admin/fees). Not before — a premature split buys
-> distributed-transaction problems for no gain.
+> **Split trigger:** if `education-service` passes ~40 **domain** entities, split
+> `education-academic-service` (exams/marks/timetable/LMS) from `education-core` (people/admin/fees). Not
+> before — a premature split buys distributed-transaction problems for no gain.
+>
+> **Metric pinned 2026-08-04 (it was being measured wrongly).** A *domain entity* = a file in `entity/`
+> carrying `@Entity`, **excluding enums** (11 of them live there) and **excluding infrastructure tables**
+> (`GlOutbox`, `AuditOutbox`, `OrgSetting` — outbox and settings plumbing are not the domain getting large).
+> Command: `grep -l "^@Entity" entity/*.java | wc -l`, then subtract the three infra rows.
+>
+> **Standing at 35 / ~40 — approaching, not crossed.** Phase 3's remaining slices add roughly 3–5
+> (payment record, student portal access, notice), which puts the trigger in reach **during Phase 4**, not
+> now. **Do not split on the raw file count** — it reads 49 and would fire a split ~14 entities early, for
+> which the price is a distributed transaction across the marks/fees boundary that today is one commit.
 
 ---
 
@@ -159,7 +177,7 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 |---|---|---|
 | **0.1** ✅ **DONE** | **Fee collection → GL** via `GlOutbox` + `PostingEventRequest`, mirroring `SellController` | school revenue enters the books; unlocks P&L, trial balance, period close for education with no new UI |
 | **0.2** ✅ **DONE** (0.2a AR + 0.2b fee credit) | **Fee dues → `finance-service` AR** — a student's outstanding fee becomes a receivable with aging | replaces the bespoke arrears screen with the platform's statements/aging |
-| **0.3** ⬜ OPEN | **Performance remediation** — education review finding D: `AnalyticsController` loads 5 whole tables + 24 loops per render; 17 dup-checks use `findScoped().stream().anyMatch()` | performance-priority; do before adding academic tables that make it worse |
+| **0.3** ✅ **DONE** (2026-08-01) | **Performance remediation** — education review finding D: `AnalyticsController` loaded 5 whole tables + 24 loops per render; 12 (not 17) dup-checks used `findScoped().stream().anyMatch()`. Shipped as SQL aggregates + indexed `EXISTS` with **V16**, gate `analytics-perf.cy.js` — `slices/edu-D-analytics-perf.md`. _(This row read "⬜ OPEN" until 2026-08-04 while the progress log recorded the same work as done and the review as CLOSED. Corrected — **one table said open, another said closed, and a plan that contradicts itself is worse than one that is merely out of date.**)_ | performance-priority; done before the academic tables made it worse |
 | **0.4** 🟨 PARTLY — `FeeCollection` DONE; `Attendance`/`Student` still cryptic | **Column-name remediation** — `Attendance` (`en`,`sn`,`grid`,`gn`,`dt`) and `FeeCollection` (`d`,`dd`,`da`,`f`,`fp`,`pd`,`od`,`odd`,`p`,`rb`,`ri`,`cn`,`vf`,`db`) renamed behind Flyway | every academic report will read these; fix before building on them |
 
 ### Phase 1 — The academic record (the core capability gap)
@@ -200,7 +218,7 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 
 | Slice | What |
 |---|---|
-| **3.1** 🔨 **implemented** | **Guardian portal** — results, attendance, dues, homework for *my* children. **CORRECTED: the `GUARDIAN` user type does NOT exist** — `Membership.role` is free text whose javadoc merely lists it. The real work is a CHILD-scoped access shape, not a new role — `slices/edu-3.1-guardian-portal.md` |
+| **3.1** ✅ **DONE & green** | **Guardian portal** — results, attendance, dues, homework for *my* children. **CORRECTED: the `GUARDIAN` user type does NOT exist** — `Membership.role` is free text whose javadoc merely lists it. The real work is a CHILD-scoped access shape, not a new role — `slices/edu-3.1-guardian-portal.md` |
 | **3.2** | **Online fee payment** — guardian pays; settles the AR from 0.2 |
 | **3.3** | **Student portal** — timetable, results, homework, materials |
 | **3.4** | **Guardian–teacher meetings** — booking via `appointment-service` |
@@ -345,6 +363,55 @@ Existing settings already follow this (`edu.staff.branchScoped`, `edu.subject.br
 
 ---
 
+## 9. Standards conformance review — 2026-08-04
+
+Measured against §0's rules, at the Phase-3 boundary. **Evidence, not assertion** — every row below was
+verified against the code on the date shown, because the previous review round recorded an entity count that
+was wrong and an 0.3 status that contradicted the progress log two tables away.
+
+| Standard | Verdict | Evidence / gap |
+|---|---|---|
+| **Multi-tenancy** — org scoping, stamped writes, anti-IDOR | ✅ **strong** | finding A fixed 9 repos + 7 saves; `save-takeover-idor.cy.js` is a standing gate. The hardest case yet — a guardian, i.e. an *external* principal — went through one class (`ChildResolver`) rather than 31 controllers |
+| **Compose, don't duplicate** (§1.2) | ✅ **largely closed** | 1 → **4** composed services (Audit, Finance, Notification, Party). Fees reach the GL, AR, aging and statements. Still uncomposed *and correct to be*: catalog/sell saga, inventory, appointment, campaign, analytics |
+| **Reuse-first** (§1.3) | ✅ **exemplary** | **five libraries extracted rather than copied**: `common-outbox`, `common-subledger`, `common-credit`, plus `StudentVisibilityService` and `StaffAbsenceService` inside the service. Each was extracted at the second caller, not speculatively |
+| **Money `BigDecimal(19,2)`** | ⚠️ **deliberate deviation** | education fees are `Integer` — **user-confirmed, not a defect**. Recorded so an audit does not "fix" it |
+| **DTOs at the boundary** | ❌ **open violation** | `FeeCollectionController.getUserFc` returns raw `FeeCollection` entities (verified 2026-08-04, line 119). Known since 0.4 and still unfixed; it is why a field rename changed the JSON contract |
+| **Saga + outbox for cross-service atomicity** | ✅ | `gl_outbox` + `audit_outbox` over the shared `OutboxRelay`. `@EnableScheduling` was missing and is fixed — without it the retry relay never ran |
+| **DB standards D1–D8** | 🟡 | Flyway owns the schema V1–V23. **Gap: student `attendance` has no UNIQUE key** on (org, student, date) and upserts via `findFirstBy…` — a live check-then-act race. 2.3 shipped its equivalent key from day one; the older table never got one |
+| **Config standards C1–C4** | ⚠️ **one violation** | `edu.exam.minAttendancePercent` is registered and readable but **no screen consumes it** — C1 says a flag must be read on the path it governs. A setting nothing reads is decorative. Either wire it or drop it |
+| **Cadence + Cypress gate** | ✅ | 20 slices, each Document→Design→Implement→Test→green. **35 education Cypress specs** |
+| **Tests on build** | 🟡 **19 unit test classes** (from 2) | pure-Mockito, no Docker, run on every `mvn test`. **Finding E's last gap stands: no empty-tenant Testcontainers test** — V16 moved `sum()` into SQL, which returns NULL where Java returned 0, and the demo org always has data |
+| **Performance** | ✅ then 🟡 | finding D replaced 5 whole-table loads + 24 loops with SQL aggregates + 15 indexes (V16), and 1.5's N+1 (3 queries *per mark*) was batched. **Residual: the 12 dup-checks are cheap but still racy** |
+| **Cross-cutting → own service** | 🟡 | `document-service` and `payroll-service` are still unbuilt and correctly identified. `HomeworkSubmission.documentRef` is a nullable column nothing writes, held for D-5 |
+| **Ubiquitous language** | ✅ **settled** | GUARDIAN, never "parent" (§0a) — with the containment-sense homonyms explicitly protected |
+| **Owner-configurable via common-settings** | 🟡 | proven pattern, widely used. **Known inconsistency unresolved:** fee-collection branch scoping still lives on `FeeSetting.feeCollectionBranchScoped`, its own screen — two config surfaces for one class of policy (§5d) |
+
+### The three findings this review adds
+
+1. **The split trigger was being measured with the wrong number** (§2/§3). 47/49 counted enums and outbox
+   plumbing as domain entities; the real figure is **35 of ~40**. Acting on the raw count would have split
+   the service ~14 entities early and bought a distributed transaction across the marks/fees boundary.
+2. **The plan contradicted itself about 0.3** for three days — "⬜ OPEN" in the Phase 0 table, "done, review
+   CLOSED" in the progress log. Both were written by the same process that claims the progress log is the
+   source of truth. **A plan that disagrees with itself is worse than one that is merely stale**, because a
+   reader cannot tell which half to trust.
+3. **"Notification is a stub" was imprecise and made the gap look bigger than it is.** Education composes
+   `notification-service` and sends alert email through it today. What is missing is that 2.2/2.4/2.5's
+   three hooks log instead of calling the client that already exists — hours of work, not a slice.
+
+### Recommended order from here
+
+| # | Work | Why now |
+|---|---|---|
+| 1 | **Notification** — but **NOT the "hours of wiring" this row first claimed.** Only 2.2's hook is a genuine wiring gap; 2.4 has no hook at all and 2.5 must not send (see the carried requirement). And an already-written design, **`slices/105-notification-multichannel-broadcast.md`**, records that `notification-service` **has no database**: delivery is synchronous on the request thread, unrecorded, and never retried (its G3). Wiring 2.2 straight to `EmailService.send()` would add a fourth synchronous un-retried send on a write path — knowingly building on the defect 105 exists to fix | **decision needed: slice 105 first, or an education-side notify outbox, or defer** |
+| 2 | **3.3 student portal** | reuses 3.1's `ChildResolver` shape while it is fresh; 3.2 is blocked on D-4 anyway |
+| 3 | **3.5 notices/circulars** | composes `campaign-service` — closes another §1.2 row |
+| 4 | **Dup-check audit → UNIQUE constraints** + student `attendance` UNIQUE key | two live check-then-act races, both known, both deferred on D5 grounds that an audit would settle |
+| — | **3.2 online payment** | **BLOCKED — D-4 is yours to decide** |
+| — | **Guardian sign-in** (auth-service `Membership role=GUARDIAN` + portal claim) | 3.1's surface has no users until this exists. Must precede 3.2, or a payment path opens onto an account nobody can reach |
+
+---
+
 ## Progress log
 
 Kept current as slices land — this table, not memory or a chat message, is the source of truth for "what next".
@@ -369,8 +436,9 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 2.2 substitution | ✅ done | `slices/edu-2.2-substitution.md` | `education/substitution.cy.js` |
 | 2.3 staff attendance & leave | ✅ done | `slices/edu-2.3-staff-attendance-leave.md` | `education/staff-leave.cy.js` |
 | 2.4 homework | ✅ done | `slices/edu-2.4-homework.md` | `education/homework.cy.js` |
-| 2.5 discipline log | ✅ done — **Phase 2 complete**; **amended 2026-08-04** (`guardianInformed`, V23) → **needs a gate re-run** | `slices/edu-2.5-discipline-log.md` | `education/behaviour.cy.js` |
-| **3.1 guardian portal** | 🔨 **implemented — awaiting build + gate** | `slices/edu-3.1-guardian-portal.md` | `education/guardian-portal.cy.js` |
+| 2.5 discipline log | ✅ done — **Phase 2 complete**; amended 2026-08-04 (`guardianInformed`, V23) and **the re-run is GREEN** | `slices/edu-2.5-discipline-log.md` | `education/behaviour.cy.js` |
+| **3.1 guardian portal** | ✅ **DONE & Cypress-green 11/11 (2026-08-04)** | `slices/edu-3.1-guardian-portal.md` | `education/guardian-portal.cy.js` |
+| **N1 notification outbox** (non-phase) | 📐 **DESIGN — awaiting approval**, no code written. Scope corrected to **2.2 only**: 2.4 has no hook and 2.5 must not send | `slices/edu-N1-notification-outbox.md` | `education/notification-outbox.cy.js` (planned) |
 
 ### Carried requirements (must not be lost between slices)
 
@@ -386,7 +454,7 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 2.4 D6 → **D-5 / 4.3** | `HomeworkSubmission.documentRef` is a nullable column **nothing writes**, held for `document-service`. Justified (the alternative is migrating a table with real data) but it is the same shape as the `Student.fee` unreachable-field finding — keep it documented or an audit will read it as a defect | when D-5 lands |
 | 3.1 §6 → **before any real school** | `Guardian.email` is unverified free text, and it becomes a portal login identity. Invitation-only limits it, but a typo invites a stranger to a child's record. **Needs email verification** | open |
 | 3.1 D4 → **behaviour in the portal** | 2.5's notes were written with no expectation a guardian would read them; exposing them retroactively changes that contract. Needs a per-note 'shared with guardian' decision | own slice |
-| 2.2 + 2.4 + 2.5 → **notification** | THREE shipped/designed slices now want a real send (cover assigned · homework set · guardian informed) and the path is still a logging stub. **Strongest candidate for the next non-phase slice** | open |
+| 2.2 → **notification** | **CORRECTED 2026-08-04 — this row used to say "2.2 + 2.4 + 2.5 all want a real send". Only 2.2 does.** Verified against the code and the slice docs: <br>• **2.2 cover assigned — YES.** `SubstitutionController.notifyCoverBestEffort` calls `appUtil.li(...)`, not the client. A genuine wiring gap. <br>• **2.4 homework set — there is NO hook.** `HomeworkController` contains no notify call of any kind; 2.4 §6 lists guardian notification as *deferred scope*. It is a **new feature with class-sized fan-out**, not a wiring fix. <br>• **2.5 guardian informed — NOT A SEND, and wiring it would be a defect.** 2.5 §98 defines `guardianInformed` as *"the school ticks it when they have spoken to the guardian"* — a record that a human conversation already happened. D5 says the slice deliberately does not reach notification-service. Emailing on that tick would send a second, machine-written message about a conversation that already took place. <br>**PRECISION: education DOES compose `notification-service`** — `AlertController` → `EmailService` → `NotificationClient` → `lb://notification-service` works today. | open — see slice 105 |
 | 2.5 D6 → **safeguarding** | confidential disclosures need read-auditing and a narrower access tier — explicitly NOT what `behaviour_note` is for, recorded so no school misuses it | own initiative |
 | 2.4 D4 → **continuous assessment** | homework deliberately does NOT feed the report card: 1.5's aggregate is a published number and adding a source would change its meaning silently. Needs its own weighting slice | own slice |
 | 2.3 §6 → **platform** | student `attendance` has **no UNIQUE key** on (org, student, date) — the same check-then-act race as finding D, still open. Found while designing 2.3 | open |
@@ -397,5 +465,14 @@ Kept current as slices land — this table, not memory or a chat message, is the
 ### Open findings (outside the slice sequence)
 
 - `Student.fee` and `Student.vf` are persisted columns with **no DTO field** — money unreachable through the API.
-- 0.3 performance remediation (finding D) — still open, and the academic tables now make it more urgent.
+- ~~0.3 performance remediation (finding D)~~ — **DONE 2026-08-01 (V16).** This bullet contradicted the
+  progress log for three days; corrected 2026-08-04.
 - 0.4 remainder — `Attendance` (`en`/`sn`/`grid`/`gn`) and `Student` (`vf`/`nd`/`di`/`mn`/`wa`/`pob`/`ys`/`ye`).
+- **The dup-check race is still open and is finding D's real fix.** V16 made the 12 check-then-act
+  duplicate scans *cheap*, not *correct*: two concurrent saves still both pass because there is no UNIQUE
+  constraint behind them. `findDuplicate*Scoped()` shipped so the data can be audited first (D5 — a tenant
+  already holding duplicates would fail the migration and break the deploy). **Auditing then constraining is
+  a slice nobody has scheduled.**
+- **Finding E (test depth) remains "partly".** 2 → 12+ unit test classes, but there is still **no
+  empty-tenant Testcontainers test**: V16 moved `sum()` into SQL, which returns NULL where the replaced Java
+  returned 0, and the demo org always has data so Cypress cannot reach that path.

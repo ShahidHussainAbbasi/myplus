@@ -98,6 +98,25 @@ public class SagaSaleWriter {
         // active store differs (re-homing a sale to another store would silently move the money between them).
         if (!replaceLines && ch.getStoreId() == null) ch.setStoreId(user.getActiveLocationId());
 
+        // B2B-P3g: the invoice-level trade discount, as submitted. Distinct from the per-line discounts
+        // above — a distribution invoice settles a whole-order concession at the foot of the document.
+        if (dto.getTradeDiscount() != null) ch.setTradeDiscount(dto.getTradeDiscount());
+
+        // B2B-P3g: STAMP who booked the order, on a new invoice only. Stamped rather than joined on userId at
+        // print time for two reasons: a print must not depend on auth-service being up, and an issued
+        // document must not start showing a person's new name after they are renamed. Same rule as the
+        // balanceAfter snapshot below. An edit deliberately keeps the ORIGINAL booker — the person who took
+        // the order is a fact about the order, not about who last touched the row.
+        //
+        // The stamped value is the operator's EMAIL, because that is the only identity the gateway puts on
+        // AuthenticatedUser — there is no display name in the token. That is honest rather than ideal: a
+        // person's name would have to come from auth-service, which is precisely the print-path dependency
+        // this stamp exists to avoid. If a proper display name is wanted on the document, the right fix is
+        // to add it to the JWT claims so it arrives with the request, not to look it up while printing.
+        if (!replaceLines && ch.getBookedByName() == null && user.getEmail() != null) {
+            ch.setBookedByName(user.getEmail());
+        }
+
         // Settle: an edit KEEPS the invoice's prior payment and ADDS any new tender; a new sale starts at 0.
         java.math.BigDecimal existingPaid = replaceLines ? nz(ch.getPaidAmount()) : java.math.BigDecimal.ZERO;
         boolean hasTenders = dto.getTenders() != null && !dto.getTenders().isEmpty();
@@ -144,6 +163,8 @@ public class SagaSaleWriter {
                                                      // so the invoice still explains itself if the rule changes
             sell.setCostPrice(l.costPrice());        // SF-10: unit COGS snapshot → per-line margin in the report
             sell.setDiscount(l.discount());
+            sell.setBonusQuantity(l.bonusQuantity()); // B2B-P3g: free goods on this line ("Bon." on a trade
+                                                      // invoice). Printed, not priced — see decision D-2.
             sell.setDt(l.discountType());            // persist the discount type ("%" / "Amount") for the sell history table
             sell.setTotalAmount(l.totalAmount());
             sell.setNetAmount(l.netAmount());

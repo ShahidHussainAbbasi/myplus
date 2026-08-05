@@ -83,6 +83,22 @@ Browser ──▶ :8080 monolith (UI) ──▶ :8765 gateway ──▶ auth / c
   (the Dockerfiles are runtime-only and copy a pre-built `target/*.jar`, so you build the jars with Maven first)
 - **Git**
 
+> ### ⚠️ Deploy from a branch that compiles
+>
+> The Dockerfiles copy a **pre-built jar**. If Maven fails, Docker will happily build an image around a
+> **stale** jar and the container starts on last week's code — with no error anywhere to tell you.
+>
+> **`master` currently carries a Dependabot bump to Spring Boot 4.1.0 that does NOT compile.** The
+> deployable line is **Spring Boot 3.5.0**. Check before you build:
+>
+> ```bash
+> git rev-parse --abbrev-ref HEAD
+> grep -m1 -A2 "spring-boot-starter-parent" microservices/pom.xml   # expect 3.5.0
+> ```
+>
+> And treat a non-zero `mvn` exit as a hard stop — never proceed to `docker compose build` after a failed
+> build. §3.4 verifies the Flyway version at runtime as the backstop for exactly this mistake.
+
 ---
 
 ## 3. Part 1 — Run locally
@@ -152,8 +168,21 @@ mvn -q -DskipTests clean package
 
 ### 3.3 Bring up the POS subset
 
+**Pre-flight — check every service you are about to name actually exists in compose.** This costs two
+seconds and catches the one failure mode that stops the whole bring-up dead:
+
 ```bash
 cd microservices
+docker compose config --services | sort        # must list all 13 names used below
+```
+
+> **Fixed 2026-08-04:** `party-service` was named in this command and in §4.6 but had **no block in
+> `docker-compose.yml`**, so `docker compose up` failed with *"no such service: party-service"* — on both
+> the local test and the VPS. The block now exists (image builds from `./party-service`, port 8096, DB
+> `myplusdb_party`). The pre-flight above is here so a future service added to the runbook but not to
+> compose is caught before you are half-way through a deploy.
+
+```bash
 docker compose up -d --build \
   mysql redis eureka-server config-server api-gateway \
   auth-service notification-service catalog-service inventory-service business-service finance-service audit-service party-service monolith
@@ -172,7 +201,21 @@ docker compose ps                       # all should be "running"/"healthy"
 docker compose logs -f monolith         # watch the UI come up (Ctrl-C to stop tailing)
 ```
 
-- Eureka dashboard: <http://localhost:8761> — should list AUTH, NOTIFICATION, CATALOG, INVENTORY, BUSINESS, FINANCE, GATEWAY
+- Eureka dashboard: <http://localhost:8761> — should list AUTH, NOTIFICATION, CATALOG, INVENTORY, BUSINESS, FINANCE, AUDIT, PARTY, GATEWAY
+
+**Confirm the schema migrated.** Every service owns its schema via Flyway and applies it at startup, so a
+failed migration is the difference between "container up" and "app actually works". Check the newest
+migration landed rather than assuming:
+
+```bash
+docker compose logs business-service | grep -i "migrat\|flyway" | tail -5
+# expect a line reporting the schema is now at version 34 (V34 = statement document trail, 3f)
+docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
+  "SELECT MAX(version) FROM myplusdb.flyway_schema_history WHERE success=1;"   # -> 34
+```
+
+If it reports a lower version, the jar is stale — rebuild it (§3.2) before going further. A container that
+starts on an old jar is the single most common way a deploy "succeeds" while behaving like last week's build.
 - Gateway health: <http://localhost:8765/actuator/health> → `{"status":"UP"}`
 - **POS app: <http://localhost:8080>** — log in with your seeded/demo retail account
 - **Signup test:** register a new user → check the inbox for the verification e-mail → click the link

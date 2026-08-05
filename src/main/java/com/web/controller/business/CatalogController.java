@@ -120,6 +120,11 @@ public class CatalogController {
                     row.put("sku", p.get("sku"));
                     row.put("unit", p.get("unit"));
                     row.put("sellingPrice", p.get("sellingPrice"));
+                    // Last rates stamped by the purchase flow (Option B) — the Product list's "last bought / last
+                    // sold at" columns come straight off this row, with no second call.
+                    row.put("lastPurchaseRate", p.get("lastPurchaseRate"));
+                    row.put("lastSaleRate", p.get("lastSaleRate"));
+                    row.put("lastRateAt", p.get("lastRateAt"));
                     row.put("taxRate", p.get("taxRate"));
                     row.put("categoryName", p.get("categoryName"));
                     row.put("manufacturer", p.get("manufacturer"));

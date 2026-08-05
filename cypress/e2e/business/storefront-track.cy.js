@@ -18,11 +18,10 @@ describe('E-commerce — public order tracking', () => {
   })
 
   it('a placed order can be tracked by ref + contact, but not with a wrong contact', () => {
-    cy.request({
-      method: 'POST', url: '/storefront/checkout',
-      body: { organizationId: orgId, customerName: 'Tracker_' + Date.now(), customerContact: contact, shippingAddress: '1 Track St', total: 12, paymentMode: 'COD', items: [{ productId, quantity: 1, price: 12 }] },
-      headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-    }).then((r) => {
+    // Slice 106: server cart (slice 68) — see cy.storefrontOrder.
+    cy.storefrontOrder(orgId, { productId, quantity: 1 },
+      { customerName: 'Tracker_' + Date.now(), customerContact: contact, shippingAddress: '1 Track St', paymentMode: 'COD' },
+    ).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       ref = r.body.data.id
       expect(ref, 'order reference returned').to.exist

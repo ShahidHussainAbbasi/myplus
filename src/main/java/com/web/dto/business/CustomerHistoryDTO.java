@@ -60,4 +60,11 @@ public class CustomerHistoryDTO {
     // into this DTO, so a field that is missing here never reaches business-service and the rx guard would refuse
     // every dispense sale.
     private Long prescriptionId;
+
+    /**
+     * B2B-P3g: the invoice-level trade discount entered at checkout. Same reason as every field above — the
+     * proxy binds this typed DTO and re-serialises it, so without a twin here the figure would be entered on
+     * the sell screen, silently dropped in the monolith, and print as blank on the invoice.
+     */
+    private java.math.BigDecimal tradeDiscount;
 }

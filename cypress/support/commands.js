@@ -271,3 +271,61 @@ Cypress.Commands.add('asOtherTenant', (fn, email = 'demo.education@myplus.com') 
     return fn({ Authorization: `Bearer ${token}` })
   })
 })
+
+/**
+ * Slice 106 (workstream A) — place a storefront order through the CURRENT checkout contract.
+ *
+ * WHY THIS EXISTS: slice 68 (`e2b18f16`, "persistent server-side cart") moved checkout from *items in the
+ * request body* to *a server-side cart addressed by a cartToken*. `CheckoutService.place()` now reads
+ * `activeCart(org, req.getCartToken())` and rejects an empty one, so seven specs that still POSTed
+ * `items: [...]` inline all failed with "Your cart is empty" — their real assertions never ran.
+ *
+ * It lives HERE, once, because all seven need the identical two-step; a copy per spec is exactly how they
+ * drifted apart the first time.
+ *
+ * Fails loudly at every step (house rule): a helper that quietly yielded undefined would turn 14 honest
+ * failures into 14 vacuous passes, which is strictly worse than the red we started with.
+ *
+ * @param items  one line or an array of { productId, quantity } — added to the cart in order
+ * @param order  the rest of the checkout body (customerName, customerContact, shippingAddress,
+ *               paymentMode, cardToken, ...) merged over { organizationId, cartToken }
+ * @returns the raw /storefront/checkout response, so each spec keeps its own assertions unchanged
+ */
+Cypress.Commands.add('storefrontOrder', (orgId, items, order = {}) => {
+  const lines = Array.isArray(items) ? items : [items]
+  expect(lines.length, 'storefrontOrder needs at least one line').to.be.greaterThan(0)
+
+  // 1) Build the server cart. The first add has no token — the server mints one and every later add reuses it.
+  let cartToken = null
+  cy.wrap(null).then(() => {
+    const addLine = (i) => {
+      if (i >= lines.length) return
+      // A signed-in shopper's cart must bind to their account, so customerToken (when the caller passes one
+      // for checkout) has to travel on the ADD too — otherwise the order never links to the account and
+      // /storefront/myorders cannot see it.
+      const body = Object.assign({ organizationId: orgId, cartToken }, lines[i])
+      if (order && order.customerToken) body.customerToken = order.customerToken
+      return cy.request({
+        method: 'POST', url: '/storefront/cart/add', body,
+        headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+      }).then((r) => {
+        expect(r.body, `cart/add returned no body: ${JSON.stringify(r.body)}`).to.exist
+        expect(r.body.success, `cart/add failed: ${JSON.stringify(r.body)}`).to.eq(true)
+        expect(r.body.data, `cart/add returned no data: ${JSON.stringify(r.body)}`).to.exist
+        cartToken = r.body.data.cartToken
+        expect(cartToken, `cart/add minted no cartToken: ${JSON.stringify(r.body)}`).to.be.a('string')
+        return addLine(i + 1)
+      })
+    }
+    return addLine(0)
+  })
+
+  // 2) Check out against that cart. failOnStatusCode stays off: several specs assert a REJECTED checkout
+  //    (no stock, wrong contact), and those are 200-with-success:false, not transport errors.
+  return cy.wrap(null).then(() =>
+    cy.request({
+      method: 'POST', url: '/storefront/checkout',
+      body: Object.assign({ organizationId: orgId, cartToken }, order),
+      headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+    }))
+})

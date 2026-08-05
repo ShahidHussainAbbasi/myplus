@@ -57,4 +57,21 @@ public record SettingEntry(String key, String label, String help, SettingType ty
     public static SettingEntry intOf(String key, String label, String help, int def, String group) {
         return new SettingEntry(key, label, help, SettingType.INT, Integer.toString(def), group);
     }
+
+    /**
+     * A free-text policy — a name, an address line, a printed label.
+     *
+     * <p>Added for B2B Phase 3g, where the document letterhead (business name, address, licence, currency
+     * wording) is owner-supplied text rather than a toggle. {@link SettingType#TEXT} was already in this
+     * enum and {@code settings-form.js} already renders it as a text input; only this factory and {@link
+     * SettingsService#getText(String)} were missing, so a TEXT setting could be declared but not
+     * conveniently created or read — the same gap {@code intOf} closed for INT.
+     *
+     * <p>Deliberately an extension of this port rather than a second mechanism: a separate store for
+     * "document text" would be a duplicate implementation of the per-tenant override that already exists.
+     * Note the storage column is {@code VARCHAR(500)} — this is for short labels, never a document body.
+     */
+    public static SettingEntry text(String key, String label, String help, String def, String group) {
+        return new SettingEntry(key, label, help, SettingType.TEXT, def == null ? "" : def, group);
+    }
 }

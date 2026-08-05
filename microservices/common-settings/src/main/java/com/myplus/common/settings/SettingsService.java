@@ -75,6 +75,19 @@ public class SettingsService {
         return (allowed != null && allowed.contains(norm)) ? norm : fallback;
     }
 
+    /**
+     * A TEXT setting's effective value, or {@code null} when it is unknown, unset or blank.
+     *
+     * <p>Blank collapses to null on purpose: these back optional printed fields (a licence number, a second
+     * address line), and the caller's question is always "is there a value to print?". Returning {@code ""}
+     * would make every call site write the same emptiness check, and one of them would eventually forget and
+     * print an empty label with a colon after it.
+     */
+    public String getText(String key) {
+        String v = effective(key);
+        return (v == null || v.isBlank()) ? null : v.trim();
+    }
+
     /** Effective raw value for the caller's org (override else catalog default; null if key unknown). */
     public String effective(String key) {
         Long org = CurrentUser.organizationId();
@@ -102,6 +115,16 @@ public class SettingsService {
             m.put("group", e.group());
             m.put("value", overrides.getOrDefault(e.key(), e.defaultValue()));
             m.put("isDefault", !overrides.containsKey(e.key()));
+            // The catalog IS the source of truth for what an owner may set, so the screen must receive the
+            // choices — settings-form.js renders `(it.options || [])`, and without this every SELECT
+            // rendered as an EMPTY dropdown: the policy existed, defaulted correctly and was enforced, but
+            // could not be changed anywhere except the API. Emitted for all types (empty for non-SELECT),
+            // because a client deciding by type is a second place for the contract to drift.
+            m.put("options", e.options());
+            // The declared default, distinct from `value` (the effective one). Without it a caller cannot
+            // tell "warn because that is the default" from "warn because someone set it", and any test of
+            // the default has to depend on no other actor having changed it.
+            m.put("defaultValue", e.defaultValue());
             out.add(m);
         }
         return out;

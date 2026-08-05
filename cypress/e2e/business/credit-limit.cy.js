@@ -86,16 +86,23 @@ describe('B2B P1 — credit limit & payment terms (#9)', () => {
 
   // ── the settings ─────────────────────────────────────────────────────────────
 
-  it('both policies are offered, defaulting to warn', () => {
-    configEntry('pos.sale.creditLimitPolicy').then((e) => {
-      expect(e, 'sale policy offered').to.exist
-      expect(e.type).to.eq('SELECT')
-      expect(String(e.value), 'defaults to warn').to.eq('warn')
-    })
-    configEntry('pos.purchase.creditLimitPolicy').then((e) => {
-      expect(e, 'purchase policy offered').to.exist
-      expect(String(e.value), 'defaults to warn').to.eq('warn')
-    })
+  // Slice 106: this asserted the CURRENT value was 'warn' — a claim about org-wide mutable state that any
+  // other spec invalidates by changing the policy (it read 'off' in a full-suite run). SettingEntry declares
+  // its own `defaultValue`, which is the thing this test actually means and is immune to what anyone set.
+  // The current value is still checked, but only for being a LEGAL policy — that catches a corrupt setting
+  // without depending on spec ordering.
+  it('both policies are offered, declaring warn as the default', () => {
+    const POLICIES = ['off', 'warn', 'block']
+    const assertPolicyEntry = (e, which) => {
+      expect(e, `${which} policy offered`).to.exist
+      expect(e.type, `${which} policy is a SELECT`).to.eq('SELECT')
+      expect(String(e.defaultValue), `${which} policy defaults to warn`).to.eq('warn')
+      expect((e.options || []).map((o) => String(o.value)), `${which} policy offers all three`)
+        .to.include.members(POLICIES)
+      expect(POLICIES, `${which} policy's current value is a legal policy`).to.include(String(e.value))
+    }
+    configEntry('pos.sale.creditLimitPolicy').then((e) => assertPolicyEntry(e, 'sale'))
+    configEntry('pos.purchase.creditLimitPolicy').then((e) => assertPolicyEntry(e, 'purchase'))
   })
 
   // ── the regression guard: no limit = nothing changes ─────────────────────────

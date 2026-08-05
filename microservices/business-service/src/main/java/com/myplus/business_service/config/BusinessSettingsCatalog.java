@@ -101,7 +101,80 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "Off (default): nothing is added to your documents. On: a small footer line naming "
                                 + "MaxTheService is printed on receipts, invoices and statements. Off by default so "
                                 + "no paying customer is surprised to find it on their own invoices.",
-                        false, "Receipts")
+                        false, "Receipts"),
+
+                // ---------------------------------------------------------------- B2B Phase 3g: documents
+                //
+                // The LETTERHEAD. Before 3g the document header printed our own brand ("MyPlus Pharmacy") on
+                // every tenant's invoices. These fill it in; each falls back to the store the invoice was
+                // raised at, so an owner who sets nothing still stops printing our name on their paperwork.
+                SettingEntry.text("pos.document.businessName",
+                        "Business name printed on documents",
+                        "The name at the top of your invoices and receipts. Leave blank to use the store's name.",
+                        "", "Documents"),
+                SettingEntry.text("pos.document.addressLine1",
+                        "Address line 1",
+                        "Printed under the business name. Leave blank to use the store's address.",
+                        "", "Documents"),
+                SettingEntry.text("pos.document.addressLine2",
+                        "Address line 2",
+                        "An optional second address line — area, city, postcode.",
+                        "", "Documents"),
+                SettingEntry.text("pos.document.phone",
+                        "Phone printed on documents",
+                        "Printed beside the address. Leave blank to use the store's phone number.",
+                        "", "Documents"),
+                SettingEntry.text("pos.document.logoUrl",
+                        "Logo image URL",
+                        "An optional logo printed above the business name. Leave blank for no logo.",
+                        "", "Documents"),
+                // The SELLER's licence. A setting, not a column: a business has one licence, not one per
+                // invoice. The BUYER's licence is a field on the customer record.
+                SettingEntry.text("pos.document.licenseNo",
+                        "Your licence number",
+                        "Your trade or drug licence, printed in the invoice header. Pharmacies and "
+                                + "distributors are usually required to show it. Leave blank to omit.",
+                        "", "Documents"),
+                SettingEntry.text("pos.document.licenseExpiry",
+                        "Your licence expiry",
+                        "Printed beside the licence number. Leave blank to omit.",
+                        "", "Documents"),
+                // LAYOUT. Default 'auto' is the rule the rest of B2B/B2C already follows: the BUYER decides.
+                // A trade account books an invoice; a walk-in gets a till slip. 'thermal'/'a4' are for a shop
+                // that wants one format for everything.
+                SettingEntry.select("pos.document.layoutMode",
+                        "Document format",
+                        "Automatic (default): trade customers (Retailer/Wholesale) get a full A4 invoice and "
+                                + "walk-in customers get an 80mm till receipt. Thermal: always print the 80mm "
+                                + "receipt. A4: always print the full-page invoice.",
+                        "auto", "Documents",
+                        List.of(new SettingEntry.Option("auto", "Automatic (default) — the customer type decides"),
+                                new SettingEntry.Option("thermal", "Always 80mm thermal receipt"),
+                                new SettingEntry.Option("a4", "Always A4 invoice"))),
+                SettingEntry.text("pos.document.currencySymbol",
+                        "Currency symbol on documents",
+                        "Printed before the grand total, e.g. \"Rs.\" or \"$\".",
+                        "Rs.", "Documents"),
+                SettingEntry.text("pos.document.currencyWord",
+                        "Currency name in words",
+                        "Used by the amount-in-words line, e.g. \"Rupees\" or \"Dollars\".",
+                        "Rupees", "Documents"),
+                SettingEntry.text("pos.document.currencyFraction",
+                        "Fractional currency name",
+                        "The sub-unit used in words, e.g. \"Paisa\" or \"Cents\".",
+                        "Paisa", "Documents"),
+                // Currently English-only by design — see D-3 in the slice doc. An amount in words is a
+                // legally meaningful figure, so an unverified translation is worse than printing digits.
+                SettingEntry.bool("pos.document.amountInWords",
+                        "Print the total in words",
+                        "On (default): the invoice total is also written in words, which many trade buyers "
+                                + "require. Currently produced in English only; other languages print the "
+                                + "figure alone rather than an unverified translation.",
+                        true, "Documents"),
+                SettingEntry.text("pos.document.footerText",
+                        "Footer line on documents",
+                        "Replaces the default \"Thank you for your business\". Leave blank for the default.",
+                        "", "Documents")
         );
         // NOTE: an earlier "pos.sale.negativeStockAllowed" toggle was removed deliberately. Most "Insufficient
         // stock" cases are expired/held batches excluded from sellable (fix the data — add a fresh batch / correct

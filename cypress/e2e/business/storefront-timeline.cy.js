@@ -20,11 +20,10 @@ describe('E-commerce — order status timeline', () => {
   beforeEach(() => cy.loginAsMarketplace())
 
   it('placing then advancing an order builds the tracking timeline', () => {
-    cy.request({
-      method: 'POST', url: '/storefront/checkout',
-      body: { organizationId: orgId, customerName: 'TLBuyer_' + Date.now(), customerContact: contact, shippingAddress: '2 TL St', total: 9, paymentMode: 'COD', items: [{ productId, quantity: 1, price: 9 }] },
-      headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-    }).then((r) => { expect(r.body.success, JSON.stringify(r.body)).to.eq(true); ref = r.body.data.id })
+    // Slice 106: server cart (slice 68) — see cy.storefrontOrder.
+    cy.storefrontOrder(orgId, { productId, quantity: 1 },
+      { customerName: 'TLBuyer_' + Date.now(), customerContact: contact, shippingAddress: '2 TL St', paymentMode: 'COD' },
+    ).then((r) => { expect(r.body.success, JSON.stringify(r.body)).to.eq(true); ref = r.body.data.id })
 
     // wrap in cy.then so `ref` is read at execution time (it's set inside the checkout .then above)
     cy.then(() => {

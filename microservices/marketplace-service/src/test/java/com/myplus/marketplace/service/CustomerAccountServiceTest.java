@@ -27,6 +27,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 class CustomerAccountServiceTest {
 
     @Mock private StorefrontCustomerRepository repo;
+    @Mock private PartyBridgeService partyBridgeService;
     @InjectMocks private CustomerAccountService service;
 
     @Test
@@ -41,6 +42,7 @@ class CustomerAccountServiceTest {
         org.mockito.Mockito.verify(repo).save(cap.capture());
         assertThat(cap.getValue().getPasswordHash()).isNotEqualTo("secret123");            // hashed, not plaintext
         assertThat(new BCryptPasswordEncoder().matches("secret123", cap.getValue().getPasswordHash())).isTrue();
+        org.mockito.Mockito.verify(partyBridgeService).bridgeStorefrontCustomer(cap.getValue());   // P3: linked to the party master
     }
 
     @Test

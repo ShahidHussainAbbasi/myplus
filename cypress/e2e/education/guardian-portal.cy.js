@@ -51,14 +51,42 @@ describe('Education — guardian portal (slice 3.1)', () => {
     cy.loginAsEduOwner()
     setConfig('edu.portal.enabled', 'true')
 
-    // Two guardians, each with a child, so "another family's child" is a REAL case and not a hypothetical.
-    cy.request('/getUserStudent').then((r) => {
-      const students = rows(r.body).filter((s) => s.enrollNo && s.guardianId)
-      expect(students.length,
-        'the demo org has students linked to guardians — seed one if this fails').to.be.greaterThan(0)
-      fx.mine = students[0]
-      // A child belonging to a DIFFERENT guardian; that is the one that must be refused.
-      fx.theirs = students.find((s) => s.guardianId !== fx.mine.guardianId)
+    // THE FIXTURE IS SEEDED, NEVER ASSUMED. `invitePortalAccess` takes the address from the guardian
+    // RECORD and never from the request, so the fixture guardian must HAVE an email. The demo org's
+    // guardians do not, which is what made the first gate run die in this hook.
+    //
+    // NOT COVERED HERE, deliberately: "another family's child, requested by enrolment number". It needs
+    // a guardian to be signed in, and 3.1 does not build the auth-service guardian account (see the
+    // slice doc §6). The nearest reachable case is a staff session with no access row — tests 3 and 4.
+    cy.request('/getUserGuardian').then((gr) => {
+      const emailed = rows(gr.body).filter((g) => g.email && g.email.trim())
+      cy.request('/getUserStudent').then((sr) => {
+        const usable = rows(sr.body)
+          .filter((s) => s.enrollNo && s.guardianId)
+          .find((s) => emailed.some((g) => g.id === s.guardianId))
+        if (usable) {
+          fx.mine = usable
+          return
+        }
+        // Seed a guardian WITH an email, plus a child linked to it. `addStudent` falls back to the
+        // caller's active branch for schoolId, so an owner session needs no branch lookup.
+        const tag = `CY_GP_${Date.now()}`
+        post('/addGuardian', {
+          name: tag, email: `${tag}@example.test`.toLowerCase(),
+          cnic: `CN${Date.now()}`, status: 'ACTIVE',
+        }).then((r) => ok(r, 'seed a guardian with an email'))
+
+        cy.request('/getUserGuardian').then((g2) => {
+          const g = rows(g2.body).find((x) => x.name === tag)
+          expect(g, 'the seeded guardian exists').to.exist
+          const enrollNo = `EN${Date.now()}`
+          post('/addStudent', {
+            name: `${tag}_S`, enrollNo, status: 'ACTIVE', guardianId: g.id,
+          }).then((r) => ok(r, 'seed a child for that guardian'))
+          fx.mine = { enrollNo, guardianId: g.id }
+          fx.seeded = true
+        })
+      })
     })
     cy.then(() => {
       post('/invitePortalAccess', { guardianId: fx.mine.guardianId })

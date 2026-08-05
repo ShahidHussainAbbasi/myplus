@@ -288,9 +288,12 @@ describe('Sell Section — Sale Detail Report', () => {
   })
 
   it('has the full industry-standard column set', () => {
+    // Slice 106: 13 → 14. The added column is Margin (per-line profit, from the Sale Detail Report rebuild) —
+    // identified against the template before touching the number, and asserted by name below, because a count
+    // edited to agree with reality without checking WHAT changed tests nothing at all.
     const cols = ['Date', 'Invoice', 'Product', 'Qty', 'List', 'Unit',
-                  'Line total', 'Tax', 'Net', 'Customer', 'Contact', 'Payment', 'due']
-    cy.get('#tableSellReport thead th').should('have.length', 13)
+                  'Line total', 'Tax', 'Net', 'Customer', 'Contact', 'Payment', 'due', 'Margin']
+    cy.get('#tableSellReport thead th').should('have.length', 14)
     cols.forEach((c) => cy.get('#tableSellReport thead').contains(c, { matchCase: false }))
   })
 

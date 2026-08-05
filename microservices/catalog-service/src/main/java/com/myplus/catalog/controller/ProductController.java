@@ -8,6 +8,7 @@ import com.myplus.commerce.contracts.dto.ProductImportLine;
 import com.myplus.commerce.contracts.dto.ProductImportResult;
 import com.myplus.catalog.service.ProductImportService;
 import com.myplus.catalog.service.ProductService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -30,8 +31,10 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(PageResponse.of(productService.getAll(pageable), p -> p)));
     }
 
+    // Slice 106: @Valid enforces ProductDTO's constraints. Without it the annotations are inert decoration —
+    // the DTO carried none and this carried no @Valid, so a nameless product saved happily.
     @PostMapping
-    public ResponseEntity<ApiResponse<ProductDTO>> create(@RequestBody ProductDTO dto) {
+    public ResponseEntity<ApiResponse<ProductDTO>> create(@Valid @RequestBody ProductDTO dto) {
         return ResponseEntity.ok(ApiResponse.success(productService.create(dto), "Created"));
     }
 
@@ -114,10 +117,14 @@ public class ProductController {
                 PageResponse.of(productService.search(q, category, minPrice, maxPrice, pageable), p -> p)));
     }
 
-    /** Re-price on receive (Option B): update just the selling price — called by the purchase/goods-in flow. */
+    /** Re-price on receive (Option B): the purchase/goods-in flow sets the selling price and stamps the rates this
+     *  purchase carried (sold-at and bought-at) onto the master. {@code purchaseRate} is optional so pre-existing
+     *  callers that only re-price keep working unchanged. */
     @PutMapping("/{id}/price")
-    public ResponseEntity<ApiResponse<ProductDTO>> updatePrice(@PathVariable Long id, @RequestParam BigDecimal price) {
-        return ResponseEntity.ok(ApiResponse.success(productService.updatePrice(id, price), "Price updated"));
+    public ResponseEntity<ApiResponse<ProductDTO>> updatePrice(@PathVariable Long id,
+                                                               @RequestParam(required = false) BigDecimal price,
+                                                               @RequestParam(required = false) BigDecimal purchaseRate) {
+        return ResponseEntity.ok(ApiResponse.success(productService.updatePrice(id, price, purchaseRate), "Price updated"));
     }
 
     @PutMapping("/{id}/activate")

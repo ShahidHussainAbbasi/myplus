@@ -119,17 +119,36 @@ public class ProductService {
         return toDto(productRepository.save(p));
     }
 
-    /** Re-price on receive (Option B): the purchase/goods-in flow updates the selling price. GUARD — only a
-     *  positive price re-prices; a null/≤0 leaves the master price untouched (never wipes it). Scoped (anti-IDOR). */
+    /** Re-price on receive (Option B): the purchase/goods-in flow updates the selling price, and stamps BOTH rates
+     *  the purchase carried onto the master so the Product list never has to derive them from history.
+     *
+     *  <p>GUARD — each rate is applied only when positive; a null/≤0 leaves that field untouched (never wipes it),
+     *  and a purchase carrying neither rate changes nothing at all. {@code sellingPrice} still moves only with the
+     *  sell rate: a purchase-cost-only update must not silently re-price what the shop charges.
+     *
+     *  <p>{@code lastRateAt} is stamped whenever either rate lands, so the screen can say WHEN it was last bought.
+     *  Scoped via getEntity (anti-IDOR). */
     @Transactional
-    public ProductDTO updatePrice(Long id, BigDecimal price) {
+    public ProductDTO updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate) {
         Product p = getEntity(id);
-        if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
-            p.setSellingPrice(price);
+        boolean touched = false;
+        if (isPositive(price)) {
+            p.setSellingPrice(price);     // the LIVE master price
+            p.setLastSaleRate(price);     // …and the record of what this purchase set it to
+            touched = true;
+        }
+        if (isPositive(purchaseRate)) {
+            p.setLastPurchaseRate(purchaseRate);
+            touched = true;
+        }
+        if (touched) {
+            p.setLastRateAt(java.time.LocalDateTime.now());
             p = productRepository.save(p);
         }
         return toDto(p);
     }
+
+    private static boolean isPositive(BigDecimal v) { return v != null && v.compareTo(BigDecimal.ZERO) > 0; }
 
     /** Scoped lookup — anti-IDOR. */
     public Product getEntity(Long id) {
@@ -209,6 +228,9 @@ public class ProductService {
                 .taxRate(p.getTaxRate())
                 .taxCodeId(p.getTaxCodeId())
                 .isActive(p.getIsActive())
+                .lastPurchaseRate(p.getLastPurchaseRate())
+                .lastSaleRate(p.getLastSaleRate())
+                .lastRateAt(p.getLastRateAt())
                 .rxRequired(Boolean.TRUE.equals(p.getRxRequired()))
                 .controlledSubstance(Boolean.TRUE.equals(p.getControlledSubstance()))
                 .imageUrl(p.getImageUrl())

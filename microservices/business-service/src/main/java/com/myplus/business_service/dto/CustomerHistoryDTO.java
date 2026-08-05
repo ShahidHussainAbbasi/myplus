@@ -106,6 +106,50 @@ public class CustomerHistoryDTO {
      */
     private Boolean creditAcknowledged;
 
+    // ---------------------------------------------------------------- B2B Phase 3g: document rendering
+    //
+    // Everything below is OUTBOUND decoration for the printable document. It is deliberately part of the
+    // SAME payload rather than a second endpoint: a document is one thing, and fetching its layout
+    // separately from its contents invites the two to disagree about which invoice is being printed.
+    // Every field is null-safe — absent means the renderer falls back to today's behaviour.
+
+    /** Who ISSUED this document (settings → Store). Replaces printing our own brand on a tenant's invoice. */
+    private LetterheadDTO letterhead;
+
+    /**
+     * {@code pos.document.layoutMode} — {@code auto} (the buyer's channel decides), {@code thermal} or
+     * {@code a4}. The per-org override for a shop that wants one format for everything.
+     */
+    private String layoutMode;
+
+    /** The org's stored Document Profile for this channel (3g-3). Null ⇒ the renderer uses a built-in preset. */
+    private Object documentProfile;
+
+    private String currencySymbol;
+
+    private String currencyWord;
+
+    private String currencyFraction;
+
+    private String footerText;
+
+    private Boolean showAmountInWords;
+
+    /**
+     * B2B-P3g: an invoice-level trade discount, as distinct from the per-line discounts already carried on
+     * {@code Sell.discount}. A distribution invoice settles a whole-order concession here, and before 3g
+     * there was no column for it anywhere in the schema.
+     */
+    private BigDecimal tradeDiscount;
+
+    /**
+     * The salesperson who booked the order, STAMPED on the invoice at write time rather than resolved from
+     * {@code userId} at print time. Resolving it would put an auth-service round trip on the print path, and
+     * would also print today's name for a person who has since been renamed — an issued document must not
+     * change after the fact.
+     */
+    private String bookedByName;
+
     /**
      * Things the cashier must be TOLD about a sale that still went through — currently the zero/negative
      * margin warning (#3). Server-populated on the way out; ignored on the way in.

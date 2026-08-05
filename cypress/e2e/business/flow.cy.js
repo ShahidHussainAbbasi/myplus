@@ -29,7 +29,7 @@ describe('E2E Flow — Registration Chain', () => {
 
     // 2. Fetch companyId
     cy.request('/getUserCompany').then((res) => {
-      const co = (res.body.data || []).find(c => c.name === `FlowCo_${ts}`)
+      const co = (res.body.collection || res.body.data || []).find(c => c.name === `FlowCo_${ts}`)
       if (co) companyId = co.id
     })
   })
@@ -40,7 +40,7 @@ describe('E2E Flow — Registration Chain', () => {
 
   it('created company appears in getUserCompany list', () => {
     cy.request('/getUserCompany').then((res) => {
-      const co = (res.body.data || []).find(c => c.name === `FlowCo_${ts}`)
+      const co = (res.body.collection || res.body.data || []).find(c => c.name === `FlowCo_${ts}`)
       // Company may not be saved if the duplicate-check bug (empty Example) blocked it
       if (co) {
         companyId = co.id
@@ -69,7 +69,7 @@ describe('E2E Flow — Registration Chain', () => {
     })
 
     cy.request('/getUserVender').then((res) => {
-      const v = (res.body.data || []).find(x => x.name === name)
+      const v = (res.body.collection || res.body.data || []).find(x => x.name === name)
       if (v) venderId = v.id
       expect(v, `Vender ${name} should exist`).to.not.be.undefined
     })
@@ -93,7 +93,9 @@ describe('E2E Flow — Registration Chain', () => {
   })
 
   it('created product appears in catalog product list', () => {
-    cy.request('/catalogProducts?size=1000').then((res) => {
+    // Slice 106: was `?size=1000` — see catalog-product.cy.js. A newly created product has the highest id,
+    // so on a long-lived dev DB it falls beyond the first page and the list "loses" it. Sort newest-first.
+    cy.request('/catalogProducts?size=50&sort=id,desc').then((res) => {
       // catalog ApiResponse: { success, data: { content: [...] } } — assert the new product is present.
       const content = (res.body && res.body.data && res.body.data.content) || []
       const found = content.some((p) => p.name === `FlowItem_${ts}` || p.sku === `FI-${ts}`)
@@ -279,7 +281,7 @@ describe('E2E Flow — Dashboard Stats Integrity', () => {
 
       // clean up
       cy.request('/getUserCompany').then((listRes) => {
-        const co = (listRes.body.data || []).find(c => c.name === name)
+        const co = (listRes.body.collection || listRes.body.data || []).find(c => c.name === name)
         if (co) cy.request({ method: 'POST', url: '/deleteCompany', form: true, body: { checked: co.id }, failOnStatusCode: false })
       })
     })
@@ -313,7 +315,7 @@ describe('E2E Flow — Cross-Entity Consistency', () => {
 
       // clean up
       cy.request('/getUserCompany').then((listRes) => {
-        const co = (listRes.body.data || []).find(c => c.name === name)
+        const co = (listRes.body.collection || listRes.body.data || []).find(c => c.name === name)
         if (co) cy.request({ method: 'POST', url: '/deleteCompany', form: true, body: { checked: co.id }, failOnStatusCode: false })
       })
     })
@@ -351,13 +353,13 @@ describe('E2E Flow — Cross-Entity Consistency', () => {
     cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name, email: `dlfc${Date.now()}@t.com` } })
 
     cy.request('/getUserCompany').then((res) => {
-      const co = (res.body.data || []).find(c => c.name === name)
+      const co = (res.body.collection || res.body.data || []).find(c => c.name === name)
       if (!co) return cy.log('Company not created — skipping delete-flow test')
 
       cy.request({ method: 'POST', url: '/deleteCompany', form: true, body: { checked: co.id } })
 
       cy.request('/getUserCompany').then((afterRes) => {
-        const stillExists = (afterRes.body.data || []).some(c => c.name === name)
+        const stillExists = (afterRes.body.collection || afterRes.body.data || []).some(c => c.name === name)
         expect(stillExists, `${name} should be gone after delete`).to.be.false
       })
     })
