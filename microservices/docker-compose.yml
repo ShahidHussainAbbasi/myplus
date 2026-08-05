@@ -491,8 +491,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      api-gateway:
-        condition: service_healthy
+      # api-gateway:
+      #   condition: service_healthy
 
   agriculture-service:
     build: ./agriculture-service
@@ -523,8 +523,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      api-gateway:
-        condition: service_healthy
+      # api-gateway:
+      #   condition: service_healthy
 
   pharma-service:
     build: ./pharma-service
@@ -555,8 +555,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      api-gateway:
-        condition: service_healthy
+      # api-gateway:
+      #   condition: service_healthy
 
   marketplace-service:
     build: ./marketplace-service
@@ -587,8 +587,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      api-gateway:
-        condition: service_healthy
+      # api-gateway:
+      #   condition: service_healthy
 
   campaign-service:
     build: ./campaign-service
@@ -621,8 +621,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      api-gateway:
-        condition: service_healthy
+      # api-gateway:
+      #   condition: service_healthy
 
   analytics-service:
     build: ./analytics-service
@@ -653,8 +653,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      api-gateway:
-        condition: service_healthy
+      # api-gateway:
+      #   condition: service_healthy
 
   appointment-service:
     build: ./appointment-service
@@ -685,8 +685,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      api-gateway:
-        condition: service_healthy
+      # api-gateway:
+      #   condition: service_healthy
 
   # The monolith (Thymeleaf UI). Built from the repo root; serves on 8080. Talks to the gateway
   # in-network and to MySQL `myplusdb`. (Build the jar first: from repo root `mvn -DskipTests package`.)
@@ -717,8 +717,8 @@ services:
       # service_healthy, not service_started: the monolith proxies every screen through the gateway, so
       # starting before it is ready gives the first requests a connection error. That is exactly the
       # cold-start window that made the first Cypress test of a run fail on 2026-08-05.
-      api-gateway:
-        condition: service_healthy
+      # api-gateway:
+      #   condition: service_healthy
 
 networks:
   myplus-net:
