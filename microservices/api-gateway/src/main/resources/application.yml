@@ -11,320 +11,327 @@ spring:
       timeout: 2000ms
   cloud:
     gateway:
-      httpclient:
-        connect-timeout: 5000        # ms — fail fast if a service won't accept the connection
-        response-timeout: 20s        # downstream must respond within 20s, else fail (no thread hang)
-      discovery:
-        locator:
-          # F1: OFF — the locator auto-creates catch-all /{service-id}/** routes that bypass the
-          # per-route JwtAuthenticationFilter. Only the explicit, JWT-filtered routes below exist.
-          enabled: false
-          lower-case-service-id: true
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            # F4: explicit allow-list (comma-separated env), never "*" with allowCredentials.
-            allowedOriginPatterns: "${CORS_ALLOWED_ORIGINS:http://localhost:8080}"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - PATCH
-              - OPTIONS
-            allowedHeaders: "*"
-            allowCredentials: true
-            maxAge: 3600
-      # Each route carries its OWN CircuitBreaker (per-service name) so one failing service can't trip
-      # the others; all share fallbackUri /fallback. (slice 27 / tech-debt #14)
-      routes:
-        - id: auth-service
-          uri: lb://auth-service
-          predicates:
-            - Path=/api/auth/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: auth-service
-                fallbackUri: forward:/fallback
-        # ---- Shared demo purge (common-service) for the FULL-PATH services --------------------------------
-        # Every service-parent child exposes the purge at /demo/purge, but these services map their own
-        # controllers at the full /api/<module>/... path and therefore have no StripPrefix. Without a stripped
-        # route of their own, /api/<module>/demo/purge would arrive as-is and 404 — the same reason
-        # `appointment-demo` exists below. Each of these MUST precede its general route to win the match.
-        - id: inventory-demo
-          uri: lb://inventory-service
-          predicates:
-            - Path=/api/inventory/demo/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: inventory-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: finance-demo
-          uri: lb://finance-service
-          predicates:
-            - Path=/api/finance/demo/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: finance-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: party-demo
-          uri: lb://party-service
-          predicates:
-            - Path=/api/party/demo/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: party-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: catalog-demo
-          uri: lb://catalog-service
-          predicates:
-            - Path=/api/catalog/demo/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: catalog-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: campaign-demo
-          uri: lb://campaign-service
-          predicates:
-            - Path=/api/campaign/demo/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: campaign-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: analytics-demo
-          uri: lb://analytics-service
-          predicates:
-            - Path=/api/analytics/demo/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: analytics-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        # audit-service IS purged on demo reset (owner's call): a demo tenant restarting from zero shouldn't keep
-        # an audit trail of records that no longer exist. The append-only guarantee still holds for real tenants —
-        # the purge is gated to DEMO_PRIVILEGE / DEMO_RESET_PRIVILEGE, which no paying customer's user carries.
-        - id: audit-demo
-          uri: lb://audit-service
-          predicates:
-            - Path=/api/audit/demo/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: audit-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: notification-demo
-          uri: lb://notification-service
-          predicates:
-            - Path=/api/notifications/demo/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: notification-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        # ----------------------------------------------------------------------------------------------------
-        - id: inventory-service
-          uri: lb://inventory-service
-          predicates:
-            - Path=/api/inventory/**
-          # No StripPrefix: inventory-service controllers are mapped at the full /api/inventory/... path.
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: inventory-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-        - id: finance-service
-          uri: lb://finance-service
-          predicates:
-            - Path=/api/finance/**
-          # No StripPrefix: finance-service controllers are mapped at the full /api/finance/... path.
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: finance-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-        - id: audit-service
-          uri: lb://audit-service
-          predicates:
-            - Path=/api/audit/**
-          # No StripPrefix: audit-service controllers are mapped at the full /api/audit/... path.
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: audit-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-        - id: party-service
-          uri: lb://party-service
-          predicates:
-            - Path=/api/party/**
-          # No StripPrefix: party-service controllers are mapped at the full /api/party/... path.
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: party-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-        - id: catalog-service
-          uri: lb://catalog-service
-          predicates:
-            - Path=/api/catalog/**
-          # No StripPrefix: catalog-service controllers are mapped at the full /api/catalog/... path.
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: catalog-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-        - id: business-service
-          uri: lb://business-service
-          predicates:
-            - Path=/api/business/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: business-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: education-service
-          uri: lb://education-service
-          predicates:
-            - Path=/api/education/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: education-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: welfare-service
-          uri: lb://welfare-service
-          predicates:
-            - Path=/api/welfare/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: welfare-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: agriculture-service
-          uri: lb://agriculture-service
-          predicates:
-            - Path=/api/agriculture/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: agriculture-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: pharma-service
-          uri: lb://pharma-service
-          predicates:
-            - Path=/api/pharma/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: pharma-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: marketplace-service
-          uri: lb://marketplace-service
-          predicates:
-            - Path=/api/marketplace/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: marketplace-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: notification-service
-          uri: lb://notification-service
-          predicates:
-            - Path=/api/notifications/**
-          # No StripPrefix: notification-service controllers are mapped at the full /api/notifications/... path.
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: notification-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-        - id: campaign-service
-          uri: lb://campaign-service
-          predicates:
-            - Path=/api/campaign/**
-          # No StripPrefix: campaign-service controllers are mapped at the full /api/campaign/... path.
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: campaign-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-        - id: analytics-service
-          uri: lb://analytics-service
-          predicates:
-            - Path=/api/analytics/**
-          # No StripPrefix: analytics-service controllers are mapped at the full /api/analytics/... path
-          # (Dashboard/Report/Sales/Financial all @RequestMapping("/api/analytics/...")). StripPrefix=2 here
-          # stripped the prefix and every request 500'd with "No static resource ..." — the service was
-          # simply unreachable through the gateway. Matches the campaign/business/catalog convention.
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: analytics-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-        # Shared demo purge (common-service) is mapped at /demo/** — strip for appointment so it matches.
-        # Must precede the general appointment route below.
-        - id: appointment-demo
-          uri: lb://appointment-service
-          predicates:
-            - Path=/api/appointment/demo/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: appointment-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
-            - StripPrefix=2
-        - id: appointment-service
-          uri: lb://appointment-service
-          predicates:
-            - Path=/api/appointment/**
-          # No StripPrefix: appointment-service controllers use the full /api/appointment/... path.
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: appointment-service
-                fallbackUri: forward:/fallback
-            - name: JwtAuthenticationFilter
+      # Spring Cloud Gateway 4.3 (Spring Cloud 2025.0.x) moved every gateway property under
+      # `server.webflux`. The old `spring.cloud.gateway.*` prefix still worked via Spring Boot's
+      # PropertiesMigrationListener, which remapped each key at startup and logged a rename warning for
+      # every one — noise on each boot, and it stops working at the next major. Migrated 2026-08-05.
+      # Nothing below changed except its nesting.
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: 5000        # ms — fail fast if a service won't accept the connection
+            response-timeout: 20s        # downstream must respond within 20s, else fail (no thread hang)
+          discovery:
+            locator:
+              # F1: OFF — the locator auto-creates catch-all /{service-id}/** routes that bypass the
+              # per-route JwtAuthenticationFilter. Only the explicit, JWT-filtered routes below exist.
+              enabled: false
+              lower-case-service-id: true
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                # F4: explicit allow-list (comma-separated env), never "*" with allowCredentials.
+                allowedOriginPatterns: "${CORS_ALLOWED_ORIGINS:http://localhost:8080}"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - DELETE
+                  - PATCH
+                  - OPTIONS
+                allowedHeaders: "*"
+                allowCredentials: true
+                maxAge: 3600
+          # Each route carries its OWN CircuitBreaker (per-service name) so one failing service can't trip
+          # the others; all share fallbackUri /fallback. (slice 27 / tech-debt #14)
+          routes:
+            - id: auth-service
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: auth-service
+                    fallbackUri: forward:/fallback
+            # ---- Shared demo purge (common-service) for the FULL-PATH services --------------------------------
+            # Every service-parent child exposes the purge at /demo/purge, but these services map their own
+            # controllers at the full /api/<module>/... path and therefore have no StripPrefix. Without a stripped
+            # route of their own, /api/<module>/demo/purge would arrive as-is and 404 — the same reason
+            # `appointment-demo` exists below. Each of these MUST precede its general route to win the match.
+            - id: inventory-demo
+              uri: lb://inventory-service
+              predicates:
+                - Path=/api/inventory/demo/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: inventory-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: finance-demo
+              uri: lb://finance-service
+              predicates:
+                - Path=/api/finance/demo/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: finance-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: party-demo
+              uri: lb://party-service
+              predicates:
+                - Path=/api/party/demo/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: party-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: catalog-demo
+              uri: lb://catalog-service
+              predicates:
+                - Path=/api/catalog/demo/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: catalog-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: campaign-demo
+              uri: lb://campaign-service
+              predicates:
+                - Path=/api/campaign/demo/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: campaign-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: analytics-demo
+              uri: lb://analytics-service
+              predicates:
+                - Path=/api/analytics/demo/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: analytics-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            # audit-service IS purged on demo reset (owner's call): a demo tenant restarting from zero shouldn't keep
+            # an audit trail of records that no longer exist. The append-only guarantee still holds for real tenants —
+            # the purge is gated to DEMO_PRIVILEGE / DEMO_RESET_PRIVILEGE, which no paying customer's user carries.
+            - id: audit-demo
+              uri: lb://audit-service
+              predicates:
+                - Path=/api/audit/demo/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: audit-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: notification-demo
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/notifications/demo/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: notification-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            # ----------------------------------------------------------------------------------------------------
+            - id: inventory-service
+              uri: lb://inventory-service
+              predicates:
+                - Path=/api/inventory/**
+              # No StripPrefix: inventory-service controllers are mapped at the full /api/inventory/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: inventory-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+            - id: finance-service
+              uri: lb://finance-service
+              predicates:
+                - Path=/api/finance/**
+              # No StripPrefix: finance-service controllers are mapped at the full /api/finance/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: finance-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+            - id: audit-service
+              uri: lb://audit-service
+              predicates:
+                - Path=/api/audit/**
+              # No StripPrefix: audit-service controllers are mapped at the full /api/audit/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: audit-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+            - id: party-service
+              uri: lb://party-service
+              predicates:
+                - Path=/api/party/**
+              # No StripPrefix: party-service controllers are mapped at the full /api/party/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: party-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+            - id: catalog-service
+              uri: lb://catalog-service
+              predicates:
+                - Path=/api/catalog/**
+              # No StripPrefix: catalog-service controllers are mapped at the full /api/catalog/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: catalog-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+            - id: business-service
+              uri: lb://business-service
+              predicates:
+                - Path=/api/business/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: business-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: education-service
+              uri: lb://education-service
+              predicates:
+                - Path=/api/education/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: education-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: welfare-service
+              uri: lb://welfare-service
+              predicates:
+                - Path=/api/welfare/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: welfare-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: agriculture-service
+              uri: lb://agriculture-service
+              predicates:
+                - Path=/api/agriculture/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: agriculture-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: pharma-service
+              uri: lb://pharma-service
+              predicates:
+                - Path=/api/pharma/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: pharma-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: marketplace-service
+              uri: lb://marketplace-service
+              predicates:
+                - Path=/api/marketplace/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: marketplace-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/notifications/**
+              # No StripPrefix: notification-service controllers are mapped at the full /api/notifications/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: notification-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+            - id: campaign-service
+              uri: lb://campaign-service
+              predicates:
+                - Path=/api/campaign/**
+              # No StripPrefix: campaign-service controllers are mapped at the full /api/campaign/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: campaign-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+            - id: analytics-service
+              uri: lb://analytics-service
+              predicates:
+                - Path=/api/analytics/**
+              # No StripPrefix: analytics-service controllers are mapped at the full /api/analytics/... path
+              # (Dashboard/Report/Sales/Financial all @RequestMapping("/api/analytics/...")). StripPrefix=2 here
+              # stripped the prefix and every request 500'd with "No static resource ..." — the service was
+              # simply unreachable through the gateway. Matches the campaign/business/catalog convention.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: analytics-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+            # Shared demo purge (common-service) is mapped at /demo/** — strip for appointment so it matches.
+            # Must precede the general appointment route below.
+            - id: appointment-demo
+              uri: lb://appointment-service
+              predicates:
+                - Path=/api/appointment/demo/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: appointment-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: appointment-service
+              uri: lb://appointment-service
+              predicates:
+                - Path=/api/appointment/**
+              # No StripPrefix: appointment-service controllers use the full /api/appointment/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: appointment-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
 
 # Resilience4j backing the per-route CircuitBreaker filters. The `default` config auto-applies to every
 # named breaker (auth-service, business-service, …). NOTE the timelimiter default is 1s — raised to 20s

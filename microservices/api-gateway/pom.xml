@@ -9,9 +9,20 @@
   <artifactId>api-gateway</artifactId>
 
   <dependencies>
+    <!-- The WebFlux (reactive) gateway server. `spring-cloud-starter-gateway` was renamed in Spring Cloud
+         2025.0.x when the gateway split into WebFlux/WebMVC/proxy-exchange flavours; the old artifact still
+         resolves but logs a deprecation warning on every boot and goes away at the next major. Paired with
+         the `spring.cloud.gateway.server.webflux.*` property prefix in application.yml — swap both or
+         neither.
+
+         This starter also pulls `spring-boot-properties-migrator` (compile scope, not optional). That is
+         the bean that printed the rename warnings. KEEP IT: with the prefix migrated it has nothing to
+         report and stays silent, but if anyone reintroduces an old `spring.cloud.gateway.*` key it will
+         remap it and say so. Excluding it would make that mistake silent — the key would simply be
+         ignored and the setting would not apply. A quiet warning is worth more than a quiet failure. -->
     <dependency>
       <groupId>org.springframework.cloud</groupId>
-      <artifactId>spring-cloud-starter-gateway</artifactId>
+      <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
     </dependency>
     <!-- Resilience4j circuit breaker for per-route gateway resilience (slice 27 / tech-debt #14). -->
     <dependency>
