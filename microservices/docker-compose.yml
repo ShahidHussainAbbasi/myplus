@@ -22,12 +22,14 @@
 # The eight vertical services (education, welfare, agriculture, pharma, marketplace, campaign,
 # analytics, appointment) carry `profiles: ["full"]`, so a bare `up` starts the POS subset:
 # mysql, redis, eureka, config, gateway, auth, notification, catalog, inventory, business, finance,
-# audit, party, monolith. ~9.5 GB at runtime vs ~16 GB for the full stack.
+# audit, party, monolith. MEASURED 2026-08-05: 10.75 GB of mem_limit vs 16.75 GB for the full stack.
+# Those are CEILINGS. Measured idle RSS is far lower — the whole 21-container full stack sat at 7.5 GB —
+# but ceilings are what the OOM killer works against once anything is under load.
 #
 # pharma-service additionally carries `pharmacy`, because a pharmacy deployment is exactly the POS
 # subset plus that one service (dispensing IS a POS sale; the clinical layer sits beside it). Its three
 # collaborators — catalog, inventory, party — are already in the default subset, so `--profile pharmacy`
-# needs nothing else. ~10.3 GB. A service starts when ANY of its profiles is active, so pharma-service
+# needs nothing else. 11.5 GB of mem_limit. A service starts when ANY of its profiles is active, so pharma
 # still comes up under `full` too.
 #
 # This REPLACES the hand-typed service list the runbook used to carry. That list drifted — party-service
@@ -71,6 +73,16 @@ x-logging: &default-logging
 # start_period do NOT count toward `retries`, so this only delays the first verdict, it never hides a
 # genuinely dead container.
 #
+# RAISED 90s -> 240s on 2026-08-05 for the `full` profile. 90s was calibrated on the 14-service POS
+# subset. Starting 21 JVMs at once is a thundering herd — they contend for CPU, and on a 12-core box the
+# gateway took ~193s to answer its first probe. The old window (90s start_period + 5 x 15s retries) gave
+# up first, so compose aborted with "dependency failed to start: container myplus-gateway is unhealthy"
+# and never started the monolith — while every service was in fact coming up fine and reported healthy
+# minutes later. The failure mode is a LIE: nothing was wrong, the deadline was just too short.
+#
+# Since start_period failures are free, the only cost of 240s is a later verdict on a container that is
+# genuinely dead. That is the right trade for a 22-service stack.
+#
 # The probe is /actuator/health/READINESS, not /actuator/health — see the note in config-server's
 # application.yml. The full endpoint includes `db`, which flaps DOWN under load and would take healthy
 # containers with it.
@@ -78,7 +90,7 @@ x-healthcheck: &app-healthcheck
   interval: 15s
   timeout: 5s
   retries: 5
-  start_period: 90s
+  start_period: 240s
 
 services:
   mysql:
@@ -442,6 +454,13 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
+      # Startup tier 3. Without this every vertical launched the moment config-server went healthy,
+      # so 18 JVMs JIT-compiled at once and starved each other of CPU — that is why api-gateway took
+      # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
+      # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
+      # gateway anyway, so a vertical that starts before it is up serves no one.
+      api-gateway:
+        condition: service_healthy
 
   welfare-service:
     build: ./welfare-service
@@ -466,6 +485,13 @@ services:
       mysql:
         condition: service_healthy
       config-server:
+        condition: service_healthy
+      # Startup tier 3. Without this every vertical launched the moment config-server went healthy,
+      # so 18 JVMs JIT-compiled at once and starved each other of CPU — that is why api-gateway took
+      # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
+      # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
+      # gateway anyway, so a vertical that starts before it is up serves no one.
+      api-gateway:
         condition: service_healthy
 
   agriculture-service:
@@ -492,6 +518,13 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
+      # Startup tier 3. Without this every vertical launched the moment config-server went healthy,
+      # so 18 JVMs JIT-compiled at once and starved each other of CPU — that is why api-gateway took
+      # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
+      # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
+      # gateway anyway, so a vertical that starts before it is up serves no one.
+      api-gateway:
+        condition: service_healthy
 
   pharma-service:
     build: ./pharma-service
@@ -517,6 +550,13 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
+      # Startup tier 3. Without this every vertical launched the moment config-server went healthy,
+      # so 18 JVMs JIT-compiled at once and starved each other of CPU — that is why api-gateway took
+      # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
+      # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
+      # gateway anyway, so a vertical that starts before it is up serves no one.
+      api-gateway:
+        condition: service_healthy
 
   marketplace-service:
     build: ./marketplace-service
@@ -541,6 +581,13 @@ services:
       mysql:
         condition: service_healthy
       config-server:
+        condition: service_healthy
+      # Startup tier 3. Without this every vertical launched the moment config-server went healthy,
+      # so 18 JVMs JIT-compiled at once and starved each other of CPU — that is why api-gateway took
+      # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
+      # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
+      # gateway anyway, so a vertical that starts before it is up serves no one.
+      api-gateway:
         condition: service_healthy
 
   campaign-service:
@@ -569,6 +616,13 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
+      # Startup tier 3. Without this every vertical launched the moment config-server went healthy,
+      # so 18 JVMs JIT-compiled at once and starved each other of CPU — that is why api-gateway took
+      # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
+      # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
+      # gateway anyway, so a vertical that starts before it is up serves no one.
+      api-gateway:
+        condition: service_healthy
 
   analytics-service:
     build: ./analytics-service
@@ -594,6 +648,13 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
+      # Startup tier 3. Without this every vertical launched the moment config-server went healthy,
+      # so 18 JVMs JIT-compiled at once and starved each other of CPU — that is why api-gateway took
+      # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
+      # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
+      # gateway anyway, so a vertical that starts before it is up serves no one.
+      api-gateway:
+        condition: service_healthy
 
   appointment-service:
     build: ./appointment-service
@@ -618,6 +679,13 @@ services:
       mysql:
         condition: service_healthy
       config-server:
+        condition: service_healthy
+      # Startup tier 3. Without this every vertical launched the moment config-server went healthy,
+      # so 18 JVMs JIT-compiled at once and starved each other of CPU — that is why api-gateway took
+      # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
+      # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
+      # gateway anyway, so a vertical that starts before it is up serves no one.
+      api-gateway:
         condition: service_healthy
 
   # The monolith (Thymeleaf UI). Built from the repo root; serves on 8080. Talks to the gateway

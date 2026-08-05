@@ -10,7 +10,7 @@ Docker-packaged, though, so you can bring up the **entire platform** with a sing
 --profile full up -d --build` — see §9 *Deploy the full stack*.
 
 > **Running a pharmacy?** A pharmacy is this POS stack plus one service. Use `docker compose --profile
-> pharmacy up -d --build` (~10.3 GB) — **not** `--profile full`, which adds seven unrelated verticals and
+> pharmacy up -d --build` (11.5 GB ceiling) — **not** `--profile full`, which adds seven unrelated verticals and
 > ~16 GB. Everything in this runbook applies unchanged; the clinical layer is in
 > [`docs/deploy/DEPLOY-PHARMACY.md`](docs/deploy/DEPLOY-PHARMACY.md), including the mandatory
 > clinical-flag backfill (§9 here).
@@ -545,7 +545,7 @@ Logging is kept deliberately **lightweight** — no aggregation stack, near-zero
 
 ```bash
 # View logs (rotation-capped)
-docker compose logs -f business-service
+docker compose logs -f business-service,docker compose logs -f myplus-gateway
 docker compose logs --tail=200 monolith
 
 # Confirm the cap is applied to a container
@@ -583,7 +583,7 @@ systemctl restart docker
 | Verification link opens but **doesn't verify / 404** | `APP_BASE_URL` still at the localhost default (link is dead off-box), or nginx has no `location /api/` block (§4.8) routing to the gateway. |
 | New account can't log in — "Account not verified" | Expected until the e-mailed link is clicked. Fix e-mail delivery (rows above); the account is enabled only after verification. |
 | Identity-header errors between services | `JWT_SECRET` must be identical for auth-service and gateway; if `INTERNAL_SECRET` is set, all services must share the same value. |
-| Out-of-memory / build killed on VPS | Add swap (§4.1) or build with the registry approach (§4.9); the POS subset needs ~9.5 GB at runtime, the full stack ~16 GB. |
+| Out-of-memory / build killed on VPS | Add swap (§4.1) or build with the registry approach (§4.9); the POS subset ceiling is 10.75 GB, pharmacy 11.5 GB, the full stack 16.75 GB (measured 2026-08-05). On 8 GB only the POS subset fits, with swap. |
 | VPS slowly fills disk / gets unresponsive over days; MySQL write errors | Unrotated container logs. Fixed by the `x-logging` rotation anchor (§6.1) — if a container shows no `max-size` in `docker inspect`, you're on an old compose: `git pull` + `docker compose up -d` to recreate (also clears the accumulated log files). |
 
 ---
@@ -660,5 +660,5 @@ Notes:
   `docker compose up -d --build education-service` (Compose starts its deps as needed). Naming a
   profiled service explicitly activates its profile, so this works without `--profile`.
 - **Pharmacy:** prefer the dedicated profile — `docker compose --profile pharmacy up -d --build` brings up
-  the POS subset **and** pharma-service in one command (~10.3 GB), instead of the full stack's ~16 GB.
+  the POS subset **and** pharma-service in one command (11.5 GB ceiling), instead of the full stack's 16.75 GB.
   Then run the clinical-flag backfill above. See `docs/deploy/DEPLOY-PHARMACY.md`.

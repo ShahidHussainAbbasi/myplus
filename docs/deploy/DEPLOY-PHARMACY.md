@@ -28,7 +28,9 @@ Platform (COMMON §1) + the POS trade stack + pharma:
 Every one of these is in `docker-compose.yml` and in the default (POS) profile — except `pharma-service`,
 which the `pharmacy` profile adds. Nothing here needs a hand-typed service list.
 
-**RAM:** the POS subset is ~9.5 GB; `pharma-service` adds 0.75 GB → **~10.3 GB**. Size ≥ 12 GB.
+**RAM (measured 2026-08-05):** the POS subset is **10.75 GB** of `mem_limit`; `pharma-service` adds 0.75
+→ **11.5 GB**. Size **≥ 12 GB**. Those are ceilings; idle RSS is roughly half, but the ceiling is what
+matters once the box is under load. **8 GB is not enough** — see FULL-STACK §9.
 
 **Not droppable:** `catalog-service`, `inventory-service`, `business-service` — without them you cannot
 dispense, because dispensing *is* a sale.
