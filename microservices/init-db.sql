@@ -15,9 +15,9 @@ CREATE DATABASE IF NOT EXISTS myplusdb;              -- monolith + business-serv
 CREATE DATABASE IF NOT EXISTS myplusdb_auth;         -- auth-service
 CREATE DATABASE IF NOT EXISTS myplusdb_catalog;      -- catalog-service
 CREATE DATABASE IF NOT EXISTS myplusdb_inventory;    -- inventory-service
-CREATE DATABASE IF NOT EXISTS myplusdb_finance;
+CREATE DATABASE IF NOT EXISTS myplusdb_finance;      -- finance-service (8094)
 CREATE DATABASE IF NOT EXISTS myplusdb_audit;        -- audit-service (8095)
-CREATE DATABASE IF NOT EXISTS myplusdb_party;        -- party-service (8096)      -- finance-service
+CREATE DATABASE IF NOT EXISTS myplusdb_party;        -- party-service (8096)
 
 -- Other domain services (only used when the full stack is up)
 CREATE DATABASE IF NOT EXISTS myplusdb_education;

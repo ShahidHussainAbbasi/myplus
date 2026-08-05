@@ -12,7 +12,7 @@ Platform setup, secrets, VPS build-out, TLS, firewall, ops and troubleshooting a
 | Component | Compose service | Port | DB | Role |
 |---|---|---|---|---|
 | Welfare service | `welfare-service` | 8085 | `myplusdb_welfare` | Donators, donations, receipts |
-| Party service | `party-service` | 8096 | `myplusdb_party` | Shared contact master — a donor may also be a customer elsewhere. **Not in compose** (COMMON §9) |
+| Party service | `party-service` | 8096 | `myplusdb_party` | Shared contact master — a donor may also be a customer elsewhere |
 
 **RAM:** platform ~7 GB + 0.75 ≈ **~7.8 GB**. This is the lightest module — an 8 GB VPS is fine.
 

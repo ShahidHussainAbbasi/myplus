@@ -268,8 +268,14 @@ surfaced as an upsell modal (`js/demo.js`). Reads-via-POST (`/get,/load,/list,/s
 /export`) and non-demo users bypass; **fail-open** on Redis errors.
 
 > **Infra dependency:** the gateway now needs **Redis** (`spring.data.redis`, `REDIS_HOST`/`REDIS_PORT`).
-> Dev: `docker run -d --name myplus-redis -p 6379:6379 redis:7-alpine`. Compose: `redis` service added,
-> gateway `depends_on` it. If Redis is down the cap fails open (creates allowed) — not a hard outage.
+> Dev: `docker run -d --name myplus-dev-redis -p 6379:6379 redis:7-alpine`. Compose: `redis` service
+> added, gateway `depends_on` it. If Redis is down the cap fails open (creates allowed) — not a hard outage.
+>
+> ⚠️ **Do not name a hand-started Redis `myplus-redis`** — that is the `container_name` compose pins, and a
+> plain `docker run` container carries no compose labels, so Compose will not adopt it. The next
+> `docker compose up` then dies with *"the container name /myplus-redis is already in use"* even though the
+> old one is exited. Hence `myplus-dev-redis` above. Recovery: `docker rm -f myplus-redis` (it is a cache,
+> no volume, nothing to lose).
 
 **"Reset demo"** (banner button / `POST /demo/reset`): clears the demo user's gateway counters
 (gateway `POST /demo/reset`, Bearer → `DEL demo:{userId}:*`) **and** purges their module data. The purge is

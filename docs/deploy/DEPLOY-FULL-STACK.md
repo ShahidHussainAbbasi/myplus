@@ -21,7 +21,14 @@ audit-service
 appointment-service · marketplace-service
 
 **Cross-cutting (3)** — campaign-service (8089, `myplusdb_campaign`) · analytics-service (8090,
-`myplusdb_analytics`) · party-service (8096, `myplusdb_party` — **not in compose**, COMMON §9)
+`myplusdb_analytics`) · party-service (8096, `myplusdb_party`)
+
+That is **22 compose services**. Confirm it before you build, not after:
+
+```powershell
+cd microservices
+docker compose --profile full config --services | Measure-Object -Line    # -> 22
+```
 
 | Port | Service | | Port | Service |
 |---|---|---|---|---|
@@ -36,41 +43,75 @@ appointment-service · marketplace-service
 | 8761 | eureka-server | | 8096 | party-service |
 | 8765 | api-gateway | | 8888 | config-server |
 
-**RAM:** mysql 1.5 + monolith 1 + ~19 JVMs × 0.75 ≈ **~16.5 GB**. Size **≥ 16 GB**, 24 GB comfortable.
-Below 16 GB the JVMs will thrash and services drop out of Eureka intermittently — which looks like a
-networking fault and is not.
+**RAM:** the sum of every `mem_limit` in the `full` profile is **16.75 GB** (mysql 1.5 + monolith 1 +
+redis 0.25 + notification 0.5 + 18 JVMs × 0.75). Size **≥ 16 GB**, 24 GB comfortable.
+
+Those are ceilings, not reservations — with `MaxRAMPercentage=60` real steady-state RSS is nearer 11 GB.
+But headroom is the point: below 16 GB the JVMs thrash and services drop out of Eureka intermittently,
+which looks like a networking fault and is not. **On an 8 GB host the full stack will not run** — see §9.
 
 ---
 
 ## 2. Build everything
 
+Every Dockerfile is runtime-only (`COPY target/*.jar app.jar`, `eclipse-temurin:21-jre-alpine`), so
+**`docker compose build` does not compile anything**. The jars must exist first, or a container starts
+happily on a stale one and nothing anywhere reports an error.
+
 ```powershell
-# from repo root — one reactor, slow the first time
-mvn -q -DskipTests clean package -f microservices/pom.xml
-mvn -q -DskipTests clean package        # monolith UI → target/myplus.jar
+cd microservices
+mvn -q -DskipTests clean install        # one reactor, all 22 modules — slow the first time
+cd .. ; mvn -q -DskipTests clean package        # monolith UI → target/myplus.jar
 ```
+
+Build only from a branch that compiles. `master` currently carries a Dependabot bump to Spring Boot
+4.1.0 that **does not compile**; 3.5.0 is the deployable line.
 
 ## 3. Run everything
 
 ```powershell
 cd microservices
-docker compose up -d --build          # omitting the service list = every service in the file
+docker compose --profile full up -d --build
 ```
 
-`party-service` **is now in the compose file** (added 2026-08-04) and starts with everything else — the
-manual `java -jar` workaround is gone. See COMMON §9.
+> ### ⚠️ `--profile full` is required — a bare `up` gives you POS only
+>
+> This changed when the service list moved into profiles. `docker compose up -d --build` with no profile
+> now starts the **14-service POS subset**, not everything: the eight verticals (education, welfare,
+> agriculture, pharma, marketplace, campaign, analytics, appointment) carry `profiles: ["full"]` and stay
+> down. Nothing errors — you simply get a stack that is missing every vertical, and the first symptom is a
+> 500 from a dashboard whose service was never started.
+>
+> Also: **never pair a bare `up` with `--remove-orphans` on this host.** Containers belonging to a
+> disabled profile are left running by a plain `up`, but `--remove-orphans` deletes them — that is a
+> one-command way to tear down all eight verticals by accident.
 
 ### Verify
 
 ```powershell
-docker compose ps                                  # every service healthy
+docker compose ps                                  # 22 services, all healthy
 curl http://localhost:8761                         # Eureka — count the registrations
 curl http://localhost:8765/actuator/health
 curl -I http://localhost:8080/login
 ```
 
 Eureka is the real check here: with this many services, one silently failing to register is the common
-failure, and it presents later as a confusing 500 from whichever module needed it.
+failure, and it presents later as a confusing 500 from whichever module needed it. Expect **19** app
+registrations (everything except mysql, redis and config-server).
+
+**Confirm the schemas migrated.** Each service owns its schema via Flyway and applies it at startup, so a
+failed migration is the difference between "container up" and "app actually works":
+
+```bash
+for db in myplusdb:36 myplusdb_catalog:8 myplusdb_pharma:6 myplusdb_inventory:5 \
+          myplusdb_auth:5 myplusdb_finance:4 myplusdb_party:3; do
+  docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
+    "SELECT '${db%%:*}', MAX(version) FROM ${db%%:*}.flyway_schema_history WHERE success=1;"
+done
+```
+
+Expected: business `36` · catalog `8` · pharma `6` · inventory `5` · auth `5` · finance `4` · party `3`.
+A lower number means that service is running a stale jar — rebuild (§2) before going further.
 
 ---
 
@@ -84,7 +125,17 @@ Run each module's §"Smoke test" section — they are independent and can be don
 [POS/Retail](../../DEPLOY-POS-RETAIL.md)
 
 A user's `userType` decides which dashboard they land on, so you need one account per vertical to test
-them all. With `APP_SEED_DEMO=true` **locally**, the seeded ladder gives you those accounts.
+them all. With `APP_SEED_DEMO=true` **locally**, the seeded ladder gives you those accounts. Compose
+defaults the seed flags to **false**, so a deploy seeds nothing unless you opt in — keep it that way in
+production.
+
+> #### ⚠️ Pharmacy: run the clinical-flag backfill once, right after first start
+>
+> `rxRequired` / `controlledSubstance` moved from pharma-service onto the **catalog product**, and the two
+> live in different databases, so no Flyway script can copy them across. **Until the backfill runs, a
+> prescription-only medicine sells like any other product.** It is part of the deploy, not a follow-up —
+> full procedure and how to read the result in
+> [`../../DEPLOY-POS-RETAIL.md`](../../DEPLOY-POS-RETAIL.md) §9.
 
 ---
 
@@ -117,8 +168,9 @@ page. Needs notification-service for the e-mail.
 **no** `org_id` at all, so any authenticated user could reach any tenant's data). If you restore an old
 backup of either, confirm the `org_id` migration ran.
 
-**party-service** (8096) — shared contact/CRM master behind Contact 360. All five module bridges are
-best-effort, so nothing breaks without it. **Not in compose** — COMMON §9.
+**party-service** (8096) — shared contact/CRM master behind Contact 360. In compose since 2026-08-04 (the
+old `java -jar` workaround is gone — COMMON §9). All five module bridges are best-effort, so nothing
+breaks without it: records save with `party_id = NULL` and re-link on the next write.
 
 ---
 
@@ -148,3 +200,34 @@ docker compose exec mysql sh -c \
 With this many interlinked databases, back them up **together**. A per-database backup taken at different
 moments restores into a state that never existed — an order referencing a catalog product that the
 catalog dump predates.
+
+---
+
+## 9. When the host is smaller than the stack
+
+The full stack wants ≥ 16 GB. Below that, **choose a smaller profile rather than squeezing this one** —
+an under-provisioned full stack does not fail cleanly, it degrades into intermittent Eureka dropouts and
+timeouts that read like network faults and cost hours to diagnose.
+
+| Host RAM | Run | Command |
+|---|---|---|
+| ≥ 16 GB | Everything (22) | `docker compose --profile full up -d --build` |
+| 12–16 GB | POS + one vertical | bare `up`, then name the vertical: `docker compose up -d --build education-service` |
+| ~10 GB | POS + pharmacy (15) | `docker compose --profile pharmacy up -d --build` |
+| 8 GB | POS subset (14), ~9.5 GB | `docker compose up -d --build` + 4 GB swap (COMMON) |
+| < 8 GB | Nothing here fits | Upgrade, or move MySQL to a managed DB to free ~1.5 GB |
+
+Naming a profiled service explicitly activates its profile, so the 12–16 GB row needs no `--profile`.
+
+**Two things to do on any host under 16 GB:**
+
+1. **Add 4 GB swap** — it does not buy you RAM, but it stops the OOM killer turning a slow start into a
+   dead container.
+2. **Do not build on the box.** The Maven reactor wants 2 GB+ on its own. Build locally or in CI, push
+   images to a registry, and have the VPS pull them. On a small host this is the difference between a
+   deploy that works and one that OOMs halfway through `docker compose build`.
+
+**Disk, not just RAM:** 22 images at ~200 MB plus layers is ~15 GB before any data. Container logs are
+capped at 3 × 10 MB each by the `x-logging` anchor (~0.7 GB total) — if `docker inspect` shows no
+`max-size` on a container, you are on an old compose file and logs will fill the disk, which presents as
+MySQL write errors and JVM failures rather than as a disk problem.

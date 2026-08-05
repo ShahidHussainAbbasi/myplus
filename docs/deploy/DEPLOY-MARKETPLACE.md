@@ -20,7 +20,7 @@ Platform setup, secrets, VPS build-out, TLS, firewall, ops and troubleshooting a
 | Business service | `business-service` | 8083 | `myplusdb` | The order *is* a sale — invoice, tax, tenders, ledger |
 | Marketplace service | `marketplace-service` | 8088 | `myplusdb_marketplace` | Storefront, cart, guest orders, fulfilment lifecycle, coupons, refunds |
 | Finance service | `finance-service` | 8094 | `myplusdb_finance` | Payments, receipts, ledger |
-| Party service | `party-service` | 8096 | `myplusdb_party` | Shopper identity (anonymous → `runAs`). **Not in compose** (COMMON §9) |
+| Party service | `party-service` | 8096 | `myplusdb_party` | Shopper identity (anonymous → `runAs`) |
 
 **RAM:** platform ~7 GB + 5 services × 0.75 ≈ **~10.7 GB**. Size ≥ 12 GB.
 

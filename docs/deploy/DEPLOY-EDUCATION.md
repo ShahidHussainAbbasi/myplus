@@ -15,7 +15,7 @@ On top of the eight platform components in COMMON §1:
 |---|---|---|---|---|
 | Education service | `education-service` | 8084 | `myplusdb_education` | Students, guardians, staff, classes, subjects, vehicles, attendance, fees, discounts, alerts |
 | Finance service | `finance-service` | 8094 | `myplusdb_finance` | Fee revenue → GL. **Best-effort**: a fee still saves if finance is down (transactional outbox retries) |
-| Party service | `party-service` | 8096 | `myplusdb_party` | Shared contact master — links a student to the same person elsewhere. **Not in compose** (COMMON §9) |
+| Party service | `party-service` | 8096 | `myplusdb_party` | Shared contact master — links a student to the same person elsewhere |
 
 **RAM:** platform ~7 GB + education 0.75 + finance 0.75 ≈ **~8.5 GB**. An 8 GB VPS is tight but workable;
 12 GB comfortable.

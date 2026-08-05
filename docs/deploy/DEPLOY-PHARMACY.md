@@ -23,40 +23,66 @@ Platform (COMMON §1) + the POS trade stack + pharma:
 | Pharma service | `pharma-service` | 8087 | `myplusdb_pharma` | Prescriptions, dispensing records, clinical flags, drug interactions, controlled register |
 | Finance service | `finance-service` | 8094 | `myplusdb_finance` | Payments, receipts, ledger |
 | Audit service | `audit-service` | 8095 | `myplusdb_audit` | Append-only money/stock trail (outbox-delivered) |
-| Party service | `party-service` | 8096 | `myplusdb_party` | Patient ↔ customer identity. **Not in compose** (COMMON §9) |
+| Party service | `party-service` | 8096 | `myplusdb_party` | Patient ↔ customer identity |
 
-**RAM:** platform ~7 GB + 6 services × 0.75 ≈ **~11.5 GB**. Size ≥ 12 GB.
+Every one of these is in `docker-compose.yml` and in the default (POS) profile — except `pharma-service`,
+which the `pharmacy` profile adds. Nothing here needs a hand-typed service list.
+
+**RAM:** the POS subset is ~9.5 GB; `pharma-service` adds 0.75 GB → **~10.3 GB**. Size ≥ 12 GB.
 
 **Not droppable:** `catalog-service`, `inventory-service`, `business-service` — without them you cannot
 dispense, because dispensing *is* a sale.
-**Droppable:** `party-service` (Contact 360 empty), `audit-service` (events queue and deliver later).
+**Droppable:** `party-service` (Contact 360 empty, patient↔customer stays `NULL` and re-links on the next
+write), `audit-service` (events queue and deliver later). Both are in the default profile, so dropping one
+means stopping it deliberately — not omitting it from a list.
 
 ---
 
 ## 2. Build
 
-```powershell
-mvn -q -pl microservices/pharma-service,microservices/business-service,microservices/catalog-service,microservices/inventory-service,microservices/finance-service,microservices/audit-service `
-    -am -DskipTests clean package -f microservices/pom.xml
+Every Dockerfile is runtime-only (`COPY target/*.jar`), so **the jars must exist before `docker compose
+build`** — a container will otherwise start happily on last week's jar (see §3 pre-flight).
 
-mvn -q -DskipTests clean package        # monolith UI
+```powershell
+cd microservices
+mvn -q -DskipTests -pl pharma-service,business-service,catalog-service,inventory-service,finance-service,audit-service,party-service,auth-service,notification-service,api-gateway,config-server,eureka-server -am install
+
+cd .. ; mvn -q -DskipTests clean package        # monolith UI
 ```
 
 ## 3. Run
 
 ```powershell
 cd microservices
-docker compose up -d --build `
-  mysql redis eureka-server config-server api-gateway auth-service notification-service `
-  catalog-service inventory-service business-service pharma-service finance-service audit-service monolith
+docker compose config --services                     # PRE-FLIGHT: 14 names, all resolvable
+docker compose --profile pharmacy config --services  # the same 14 + pharma-service
+docker compose --profile pharmacy up -d --build
 ```
+
+The `pharmacy` profile **is** the POS subset plus `pharma-service` — catalog, inventory, business, finance,
+audit and party are already in the default profile, so there is nothing extra to name. Run the pre-flight
+first: a service named in a runbook but missing from `docker-compose.yml` fails in 2 seconds there instead
+of mid-deploy (that is exactly how the 2026-08-04 `party-service` outage happened).
+
+> Do **not** use `--profile full` for a pharmacy — it adds seven unrelated verticals and takes the stack
+> from ~10.3 GB to ~16 GB.
 
 ---
 
 ## 4. Schema
 
-Flyway **V1–V4** on `myplusdb_pharma` (baseline · tenant scope · productId rebase · clinical flags).
-Catalog is at **V5** (`sku` nullable). Confirm both migrate on first start.
+Flyway **V1–V6** on `myplusdb_pharma` (baseline · tenant scope · productId rebase · clinical flags ·
+party bridge · scoped indexes · drop dead medicine schema). Catalog is at **V8**, business-service at
+**V36**. Confirm they migrate on first start — a container starts fine on a stale jar and reports nothing:
+
+```bash
+docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
+  "SELECT MAX(version) FROM myplusdb_pharma.flyway_schema_history WHERE success=1;"   # -> 6
+docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
+  "SELECT MAX(version) FROM myplusdb_catalog.flyway_schema_history WHERE success=1;"  # -> 8
+```
+
+A lower number means the jar predates the migration — rebuild (§2) before going further.
 
 > **Clinical-flag backfill.** `rxRequired` / `controlledSubstance` were moved from pharma-service onto the
 > catalog product so the sell path reads them off the `ProductRef` it already fetches — no extra call at
@@ -103,8 +129,9 @@ because it is a clinical/legal rule, not a permission.
 **A medicine is a catalog Product.** There is no medicine table. Deploy catalog-service or you have no
 medicines.
 
-**SKU is optional** (catalog V5). Blank is stored as `NULL`, never `''` — `''` collides with every other
-uncoded product. If an upgrade shows *"Product SKU already exists: "* with an empty value, V5 has not run.
+**SKU is optional** (catalog V5, still in force at V8). Blank is stored as `NULL`, never `''` — `''` collides
+with every other uncoded product. If an upgrade shows *"Product SKU already exists: "* with an empty value,
+V5 has not run.
 
 **The controlled register is thin.** It records date, medicine, quantity, patient, invoice — but **not**
 the prescriber, prescription id, or batch. Real controlled-drug regulations usually want all three. Do not

@@ -13,6 +13,32 @@
 # NOTE: this stack assumes the monolith runs with auth.mode=server (calls flow
 # through the gateway). Legacy direct calls would be rejected once enforced.
 # =============================================================================
+# PROFILES — which services come up
+#
+#   docker compose up -d --build                     # POS/retail subset (the VPS deployment)
+#   docker compose --profile pharmacy up -d --build  # POS + pharma-service (a pharmacy IS POS + clinical)
+#   docker compose --profile full up -d --build      # every module
+#
+# The eight vertical services (education, welfare, agriculture, pharma, marketplace, campaign,
+# analytics, appointment) carry `profiles: ["full"]`, so a bare `up` starts the POS subset:
+# mysql, redis, eureka, config, gateway, auth, notification, catalog, inventory, business, finance,
+# audit, party, monolith. ~9.5 GB at runtime vs ~16 GB for the full stack.
+#
+# pharma-service additionally carries `pharmacy`, because a pharmacy deployment is exactly the POS
+# subset plus that one service (dispensing IS a POS sale; the clinical layer sits beside it). Its three
+# collaborators — catalog, inventory, party — are already in the default subset, so `--profile pharmacy`
+# needs nothing else. ~10.3 GB. A service starts when ANY of its profiles is active, so pharma-service
+# still comes up under `full` too.
+#
+# This REPLACES the hand-typed service list the runbook used to carry. That list drifted — party-service
+# was named in the runbook but missing from this file, and `up` died with "no such service" mid-deploy.
+# A profile cannot drift from the service definitions because it IS one.
+#
+# CHANGED BEHAVIOUR: a bare `docker compose up -d` no longer starts the vertical services. If a host is
+# meant to run everything, it must now pass `--profile full`. Existing containers of disabled profiles
+# are left running, not stopped — but `--remove-orphans` WOULD remove them, so do not pair it with a
+# bare `up` on a full-stack host.
+# =============================================================================
 # Shared DB connection env for every DB-backed service. config-server serves
 # spring.datasource.* built from these ${DB_HOST}/${DB_USER}/${DB_PASSWORD}
 # placeholders, and Spring Cloud Config OVERRIDES container env by default — so
@@ -37,13 +63,34 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
+# Shared healthcheck timing for the Spring Boot app services. Each service supplies its own `test`
+# (the port differs); everything else is identical, so it lives here.
+#
+# start_period is generous on purpose: a service waits on config-server + Eureka before it finishes
+# booting, and locally these take 21-31s on a warm machine — a cold VPS is slower. Failures during
+# start_period do NOT count toward `retries`, so this only delays the first verdict, it never hides a
+# genuinely dead container.
+#
+# The probe is /actuator/health/READINESS, not /actuator/health — see the note in config-server's
+# application.yml. The full endpoint includes `db`, which flaps DOWN under load and would take healthy
+# containers with it.
+x-healthcheck: &app-healthcheck
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 90s
+
 services:
   mysql:
     image: mysql:8.0
     container_name: myplus-mysql
     restart: unless-stopped
     logging: *default-logging
-    # Headroom above the combined service pools (11 services × 8 = 88) so admin/replication/spikes fit.
+    # Headroom above the combined service pools so admin/replication/spikes fit.
+    # 15 DB-backed services (auth, inventory, catalog, business, finance, audit, party, education, welfare,
+    # agriculture, pharma, marketplace, campaign, analytics, appointment) × DB_POOL_MAX 8 = 120 at full
+    # saturation, leaving ~80 spare. Was written for 11 services; recount when adding a DB-backed service,
+    # and raise this (or lower DB_POOL_MAX) before the total approaches 200.
     command: ["--max-connections=200"]
     mem_limit: 1536m
     environment:
@@ -133,6 +180,9 @@ services:
       INTERNAL_SECRET: ${INTERNAL_SECRET}
       REDIS_HOST: redis           # spring.data.redis.host — demo-quota counter (slice 19)
     networks: [myplus-net]
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8765/actuator/health/readiness"]
     depends_on:
       config-server:
         condition: service_healthy
@@ -147,6 +197,9 @@ services:
     mem_limit: 768m
     expose:
       - "8081"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -195,6 +248,9 @@ services:
     mem_limit: 512m
     expose:
       - "8093"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8093/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       EUREKA_URI: http://eureka-server:8761/eureka
@@ -216,6 +272,9 @@ services:
     mem_limit: 768m
     expose:
       - "8082"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -237,6 +296,9 @@ services:
     mem_limit: 768m
     expose:
       - "8092"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8092/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -258,6 +320,9 @@ services:
     mem_limit: 768m
     expose:
       - "8083"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -281,6 +346,9 @@ services:
     mem_limit: 768m
     expose:
       - "8094"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8094/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -304,6 +372,9 @@ services:
     mem_limit: 768m
     expose:
       - "8095"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8095/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -329,6 +400,9 @@ services:
     mem_limit: 768m
     expose:
       - "8096"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8096/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -348,8 +422,12 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
+    profiles: ["full"]
     expose:
       - "8084"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -371,8 +449,12 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
+    profiles: ["full"]
     expose:
       - "8085"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8085/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -392,8 +474,12 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
+    profiles: ["full"]
     expose:
       - "8086"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8086/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -413,8 +499,12 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
+    profiles: ["full", "pharmacy"]
     expose:
       - "8087"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8087/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -434,8 +524,12 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
+    profiles: ["full"]
     expose:
       - "8088"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8088/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -455,8 +549,12 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
+    profiles: ["full"]
     expose:
       - "8089"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8089/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -478,8 +576,12 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
+    profiles: ["full"]
     expose:
       - "8090"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8090/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -499,8 +601,12 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
+    profiles: ["full"]
     expose:
       - "8091"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8091/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
       <<: *db-env
@@ -536,9 +642,15 @@ services:
       GATEWAY_URL: http://api-gateway:8765        # gateway.url
       EUREKA_URI: http://eureka-server:8761/eureka   # else it defaults to localhost:8761 (unreachable in-container)
     networks: [myplus-net]
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health/readiness"]
     depends_on:
+      # service_healthy, not service_started: the monolith proxies every screen through the gateway, so
+      # starting before it is ready gives the first requests a connection error. That is exactly the
+      # cold-start window that made the first Cypress test of a run fail on 2026-08-05.
       api-gateway:
-        condition: service_started
+        condition: service_healthy
 
 networks:
   myplus-net:

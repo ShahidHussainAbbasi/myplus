@@ -7,7 +7,13 @@ POS/Retail does **not** need every microservice. This runbook's **primary path r
 subset** the retail POS depends on; the other domain services (education, welfare, agriculture,
 pharma, marketplace, analytics, appointment) are left out of the `up` command. Every module is
 Docker-packaged, though, so you can bring up the **entire platform** with a single `docker compose
-up -d --build` (no service list) — see §9 *Deploy the full stack*.
+--profile full up -d --build` — see §9 *Deploy the full stack*.
+
+> **Running a pharmacy?** A pharmacy is this POS stack plus one service. Use `docker compose --profile
+> pharmacy up -d --build` (~10.3 GB) — **not** `--profile full`, which adds seven unrelated verticals and
+> ~16 GB. Everything in this runbook applies unchanged; the clinical layer is in
+> [`docs/deploy/DEPLOY-PHARMACY.md`](docs/deploy/DEPLOY-PHARMACY.md), including the mandatory
+> clinical-flag backfill (§9 here).
 
 > **Signup e-mail:** account verification and password-reset e-mails are sent by
 > **notification-service**. It is included in the POS subset below — without it, new users never
@@ -168,31 +174,31 @@ mvn -q -DskipTests clean package
 
 ### 3.3 Bring up the POS subset
 
-**Pre-flight — check every service you are about to name actually exists in compose.** This costs two
-seconds and catches the one failure mode that stops the whole bring-up dead:
+The POS subset is now a **compose profile**, not a service list you type out:
 
 ```bash
 cd microservices
-docker compose config --services | sort        # must list all 13 names used below
+docker compose up -d --build
 ```
 
-> **Fixed 2026-08-04:** `party-service` was named in this command and in §4.6 but had **no block in
-> `docker-compose.yml`**, so `docker compose up` failed with *"no such service: party-service"* — on both
-> the local test and the VPS. The block now exists (image builds from `./party-service`, port 8096, DB
-> `myplusdb_party`). The pre-flight above is here so a future service added to the runbook but not to
-> compose is caught before you are half-way through a deploy.
+That starts exactly 14 services — mysql, redis, eureka-server, config-server, api-gateway, auth-service,
+notification-service, catalog-service, inventory-service, business-service, finance-service, audit-service,
+party-service, monolith. Compose orders them by dependency (mysql/redis → config/eureka → gateway →
+services → monolith). First boot creates the databases automatically (`createDatabaseIfNotExist=true`).
+
+Confirm the set before a deploy if you want to be sure:
 
 ```bash
-docker compose up -d --build \
-  mysql redis eureka-server config-server api-gateway \
-  auth-service notification-service catalog-service inventory-service business-service finance-service audit-service party-service monolith
+docker compose config --services | sort        # the 14 above
 ```
 
-Compose starts these in dependency order (mysql/redis → config/eureka → gateway → services →
-monolith). First boot creates the databases automatically (`createDatabaseIfNotExist=true`).
+> **Why a profile (2026-08-05).** This step used to be a hand-typed list of 13 service names, and it
+> drifted: on 2026-08-04 `party-service` was named here and in §4.6 but had **no block in
+> `docker-compose.yml`**, so `docker compose up` died with *"no such service: party-service"* — on both the
+> local test and the VPS, half-way through a deploy. The eight vertical services now carry
+> `profiles: ["full"]` instead, so the subset IS the compose file and cannot disagree with it.
 
-> To run **every** module instead of the POS subset, drop the service list: `docker compose up -d
-> --build` (see §9).
+> To run **every** module instead: `docker compose --profile full up -d --build` (see §9).
 
 ### 3.4 Verify
 
@@ -209,9 +215,9 @@ migration landed rather than assuming:
 
 ```bash
 docker compose logs business-service | grep -i "migrat\|flyway" | tail -5
-# expect a line reporting the schema is now at version 34 (V34 = statement document trail, 3f)
+# expect a line reporting the schema is now at version 36 (V36 = customer credit account)
 docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
-  "SELECT MAX(version) FROM myplusdb.flyway_schema_history WHERE success=1;"   # -> 34
+  "SELECT MAX(version) FROM myplusdb.flyway_schema_history WHERE success=1;"   # -> 36
 ```
 
 If it reports a lower version, the jar is stale — rebuild it (§3.2) before going further. A container that
@@ -345,14 +351,15 @@ mvn -q -DskipTests -pl eureka-server,config-server,api-gateway,auth-service,noti
 cd /opt/myplus && mvn -q -DskipTests clean package        # monolith jar
 cd /opt/myplus/microservices
 
-docker compose up -d --build \
-  mysql redis eureka-server config-server api-gateway \
-  auth-service notification-service catalog-service inventory-service business-service finance-service audit-service party-service monolith
+docker compose up -d --build        # the POS subset — see the profile note in §3.3
 
 docker compose ps
 ```
 
-> Or run **all modules**: `docker compose up -d --build` with no service list (§9).
+> Or run **all modules**: `docker compose --profile full up -d --build` (§9).
+
+> **Do not add `--remove-orphans` to a bare `up` on a host that runs the full stack** — the vertical
+> services are behind the `full` profile, so compose treats them as orphans and removes them.
 
 First open **http://187.127.125.91:8080** (open port 8080 temporarily — see firewall below) to
 confirm it runs, then put it behind nginx + TLS (§4.8).
@@ -586,9 +593,7 @@ systemctl restart docker
 After secrets are set and jars are built:
 
 ```bash
-cd microservices && docker compose up -d --build \
-  mysql redis eureka-server config-server api-gateway \
-  auth-service notification-service catalog-service inventory-service business-service finance-service audit-service party-service monolith
+cd microservices && docker compose up -d --build      # POS subset (14 services, via the default profile)
 # open http://localhost:8080  (local)  /  https://<your-domain>  (VPS)
 ```
 
@@ -598,7 +603,7 @@ cd microservices && docker compose up -d --build \
 
 Every module ships a Dockerfile (Java 21 runtime) and is wired into `microservices/docker-compose.yml`,
 so the whole platform — POS **plus** education, welfare, agriculture, pharma, marketplace, campaign,
-analytics, appointment — comes up with no service list:
+analytics, appointment — comes up with the `full` profile:
 
 ```bash
 cd microservices
@@ -607,8 +612,9 @@ mvn -q -DskipTests install
 cd .. && mvn -q -DskipTests clean package        # monolith jar
 cd microservices
 
-# 2. Bring up EVERYTHING (omit the service list = all services in the compose file)
-docker compose up -d --build
+# 2. Bring up EVERYTHING. The `full` profile adds the eight vertical services on top of the
+#    POS subset that a bare `up` starts. Omitting it is now the SUBSET, not everything.
+docker compose --profile full up -d --build
 docker compose ps
 ```
 
@@ -651,4 +657,8 @@ Notes:
 - **Secrets:** same `.env`. Domain services that send mail (education, campaign) reuse
   `MAIL_USERNAME`/`MAIL_PASSWORD`; notification-service uses `MAIL_USER`/`MAIL_PASSWORD`.
 - **Selective add-ons:** to add just one domain to a running POS stack, name it — e.g.
-  `docker compose up -d --build education-service` (Compose starts its deps as needed).
+  `docker compose up -d --build education-service` (Compose starts its deps as needed). Naming a
+  profiled service explicitly activates its profile, so this works without `--profile`.
+- **Pharmacy:** prefer the dedicated profile — `docker compose --profile pharmacy up -d --build` brings up
+  the POS subset **and** pharma-service in one command (~10.3 GB), instead of the full stack's ~16 GB.
+  Then run the clinical-flag backfill above. See `docs/deploy/DEPLOY-PHARMACY.md`.

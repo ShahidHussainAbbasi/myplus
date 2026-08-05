@@ -11,8 +11,10 @@ spring:
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:changeme}
     hikari:
-      # 11 DB-backed services share one MySQL. Keep each pool small so the total stays well under
-      # MySQL max_connections (default 151; docker sets 200): 11 × 8 = 88. Env-overridable for prod.
+      # 15 DB-backed services share one MySQL. Keep each pool small so the total stays well under
+      # MySQL max_connections (default 151; docker sets 200): 15 × 8 = 120. Env-overridable for prod.
+      # NOTE the default-151 case: 15 × 8 = 120 leaves only 31 spare, so a non-docker MySQL that has
+      # not been raised to 200 is already close to the limit — check before adding another service.
       maximum-pool-size: ${DB_POOL_MAX:8}
       minimum-idle: ${DB_POOL_MIN:2}
       connection-timeout: 20000          # fail fast (20s) when the pool is exhausted instead of hanging
@@ -58,6 +60,16 @@ management:
   endpoint:
     health:
       show-details: always
+      # Liveness/readiness groups, used by the compose healthchecks.
+      #
+      # Container healthchecks deliberately probe /actuator/health/READINESS, not /actuator/health.
+      # The full endpoint aggregates the `db` indicator, and a DB blip under load makes it report DOWN
+      # (observed 2026-08-05: services that had served traffic reported db DOWN for a spell, with a 20s
+      # Hikari connection-timeout stall, while untouched services stayed UP). Wiring that to Docker would
+      # mark healthy containers unhealthy and — with depends_on: service_healthy — stall the whole stack
+      # on a transient. Readiness answers the question compose actually asks: "can this accept traffic?"
+      probes:
+        enabled: true
 
 # OpenTelemetry (opentelemetry-spring-boot-starter). Exports traces + logs over OTLP to the
 # self-hosted collector on myplus-net. Service name defaults to spring.application.name. Metrics
