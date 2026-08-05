@@ -307,8 +307,8 @@ not gate phase progression here. **`document-template-crud` is the one worth ret
 missing spec covering a tenancy boundary.
 
 ### Phase 4 — B2B ordering — 🔨 **ACTIVE**
-- **4a — account hierarchy** (company → branch → contact) — 📝 **DESIGN written 2026-08-05**, awaiting the
-  credit-semantics decision then implementation. Doc:
+- **4a — account hierarchy** (company → branch → contact) — ✅ **COMPLETE & GATED 2026-08-05, 8/8 green.**
+  Credit semantics decided: **shared pool** (one company limit, branches draw on it). Doc:
   [`slices/b2b-P4a-account-hierarchy.md`](slices/b2b-P4a-account-hierarchy.md). Built first because §6 makes it
   a prerequisite for the portal question either way. Proposal: hierarchy on `Party` (reusable by Education
   sponsors / Welfare corporate donors), credit roll-up target **stamped** onto `Customer` so the sell path keeps

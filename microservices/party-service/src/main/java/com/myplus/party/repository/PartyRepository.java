@@ -26,6 +26,16 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
     @Query("SELECT p FROM Party p WHERE p.id IN :ids AND " + SCOPE)
     List<Party> findAllByIdScoped(@Param("ids") List<Long> ids, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /** Phase 4a: a party's direct children (branches of a company, contacts of a branch). Tenant-scoped. */
+    @Query("SELECT p FROM Party p WHERE p.parentPartyId = :parentId AND " + SCOPE + " ORDER BY p.name ASC")
+    List<Party> findChildrenScoped(@Param("parentId") Long parentId,
+                                   @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Phase 4a: every root of a hierarchy in this tenant — the top level of the account tree screen. */
+    @Query("SELECT p FROM Party p WHERE p.parentPartyId IS NULL AND p.accountLevel <> 'INDIVIDUAL' AND " + SCOPE
+         + " ORDER BY p.name ASC")
+    List<Party> findAccountRootsScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT p FROM Party p WHERE p.organizationId = :orgId AND p.contact = :contact")
     Optional<Party> findByOrgAndContact(@Param("orgId") Long orgId, @Param("contact") String contact);
 

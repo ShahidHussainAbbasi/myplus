@@ -111,6 +111,23 @@ public class Customer implements Serializable {
     private BigDecimal creditLimit;
 
     /**
+     * B2B Phase 4a — the customer row whose limit and pooled balance govern this account's credit.
+     *
+     * <p><b>Self</b> for a standalone customer or a company head; the <b>company's</b> customer id for a branch.
+     * Under the shared-pool rule a company sets ONE limit and its branches all draw on it, so exposure is
+     * Σ(dueAmount) across everyone pointing here, measured against the limit on the row pointed to.
+     *
+     * <p>STAMPED when the hierarchy is edited, never resolved per sale. The credit check runs on the sell path,
+     * and the hierarchy lives in party-service — deriving it at sale time would put a cross-service hop on the
+     * hottest path in the POS. Same rule as the product last-rates: write it when the source changes.
+     *
+     * <p>Never null after V36 (which backfills {@code id → id}), so a standalone customer's group is exactly
+     * itself and the arithmetic is unchanged for every customer that predates the hierarchy.
+     */
+    @Column(name = "credit_account_customer_id")
+    private Long creditAccountCustomerId;
+
+    /**
      * B2B P1 (#9): net payment terms in days (Net 30/60). NULL = no terms; the invoice due date stays
      * hand-entered as it is today. Feeds the EXISTING ageing report, whose buckets are only as good as the
      * due dates behind them.

@@ -3223,3 +3223,104 @@ function saveBusinessConfigToggle(el){
 	});
 }
 function openPeriodClose(){ showFinance('periodClose'); }
+
+/* ══ B2B Phase 4a — account groups (company → branch → contact) ════════════════════════════════════
+ * Design: microservices/docs/slices/b2b-P4a-account-hierarchy.md
+ *
+ * SHARED POOL: a company sets one credit limit and its branches all draw on it. The hierarchy itself
+ * lives in party-service; business-service stamps which customer row's limit governs each account, so
+ * the sell path never crosses a service boundary to answer "whose limit applies?".
+ *
+ * Loading hooks #registrationType change rather than the sidebar link, because snavGo() sets that
+ * select and fires change — one hook covers both navigation paths (same reason as education.js).
+ */
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'CustomerDiv') loadAccountGroups();
+});
+
+function loadAccountGroups() {
+	if (!$('#AccountGroupCard').length) return;   // not owner/admin — the panel isn't rendered
+	// Both selects list the same customers; the parent select also offers "no parent" (detach).
+	$.get(serverContext + 'getUserCustomers', function (optionsHtml) {
+		var html = String(optionsHtml || '');
+		$('#agChild').html(html);
+		$('#agParent').html("<option value=''>" + escHtml(t('ui.js.agNoParent')) + "</option>" + html);
+		refreshAccountGroup();
+	});
+	loadUnbridgedCustomers();
+}
+
+/** Show the group the selected customer draws on: members, their dues, and the pooled exposure. */
+function refreshAccountGroup() {
+	var id = $('#agChild').val();
+	if (!id) { $('#agGroupSummary').hide(); return; }
+	// GenericResponse has NO `data` field: a Map payload lands in `object`, a Collection in `collection`
+	// (the constructor overload decides). Reading `data` here silently yielded undefined.
+	$.get(serverContext + 'customerAccountGroup?customerId=' + encodeURIComponent(id), function (resp) {
+		var g = (resp && resp.object) ? resp.object : null;
+		if (!g) { $('#agGroupSummary').hide(); return; }
+
+		var rows = '';
+		(g.members || []).forEach(function (m) {
+			// The head carries the limit the whole group is measured against — worth marking.
+			rows += '<tr><td>' + escHtml(m.name)
+			      + (m.isHead ? " <span class='label label-primary'>" + escHtml(t('ui.js.agAccountHead')) + '</span>' : '')
+			      + '</td><td>' + Number(m.dueAmount || 0).toFixed(2) + '</td></tr>';
+		});
+		$('#agMembers').html(rows);
+		$('#agPooled').text(Number(g.pooledDue || 0).toFixed(2));
+
+		// A group with no limit is not "limit 0" — it is unlimited, and saying so prevents a costly misread.
+		if (g.creditLimit == null) {
+			$('#agLimitNote').text(t('ui.js.agNoLimit'));
+		} else {
+			var headroom = Number(g.creditLimit) - Number(g.pooledDue || 0);
+			$('#agLimitNote').text(t('ui.js.agLimit') + ' ' + Number(g.creditLimit).toFixed(2)
+				+ ' · ' + t('ui.js.agHeadroom') + ' ' + headroom.toFixed(2));
+		}
+		$('#agGroupSummary').show();
+	});
+}
+$(document).on('change', '#agChild', refreshAccountGroup);
+
+/** Attach the selected customer to a parent (or detach it when no parent is chosen). */
+function saveAccountParent() {
+	var id = $('#agChild').val();
+	if (!id) { showFormError(t('ui.js.agPickAccount')); return; }
+	var parent = $('#agParent').val();
+	if (parent && parent === id) { showFormError(t('ui.js.agSelfParent')); return; }
+
+	$.ajax({
+		type: 'POST', url: serverContext + 'setCustomerAccountParent', dataType: 'json',
+		data: { customerId: id, parentCustomerId: parent || '', accountLevel: $('#agLevel').val() },
+		success: function (resp) {
+			// A guard rejection (cycle, cross-tenant parent, unbridged customer) comes back as FAILED with the
+			// server's own wording — show it verbatim rather than a generic failure, because the reason is the
+			// whole value of the message.
+			if (resp && resp.status === 'SUCCESS') {
+				showSaleSuccess(t('ui.js.agSaved'));
+				refreshAccountGroup();
+				loadUnbridgedCustomers();
+			} else {
+				showFormError((resp && resp.message) || t('ui.js.agCouldNotSave'));
+			}
+		},
+		error: function () { showFormError(t('ui.js.agCouldNotSave')); }
+	});
+}
+
+/**
+ * Customers with no party link. They cannot join a group, and the programme plan flags best-effort
+ * party bridging as the risk that would otherwise make a group's exposure quietly incomplete — so they
+ * are shown rather than omitted.
+ */
+function loadUnbridgedCustomers() {
+	// A List payload matches GenericResponse's Collection overload, so it arrives in `collection` — NOT in
+	// `object` like the account-group Map above. Same response class, two different fields by payload type.
+	$.get(serverContext + 'unbridgedCustomers', function (resp) {
+		var list = (resp && resp.collection) ? resp.collection : [];
+		if (!list.length) { $('#agUnbridgedWrap').hide(); return; }
+		$('#agUnbridged').text(list.map(function (c) { return c.name; }).join(', '));
+		$('#agUnbridgedWrap').show();
+	});
+}

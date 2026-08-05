@@ -98,6 +98,48 @@ public class CustomerController {
         }
     }
 
+    // ── B2B Phase 4a — account hierarchy ────────────────────────────────────────────────────────────────────
+
+    /** Put a customer under a parent account (or detach it) → business-service, which also re-stamps the credit
+     *  account across the affected subtree. Guard rejections come back as FAILED + the operator-facing reason. */
+    @RequestMapping(value = "/setCustomerAccountParent", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> setCustomerAccountParent(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/setCustomerAccountParent", params);
+        } catch (Exception e) {
+            LOGGER.error("setCustomerAccountParent proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    /** The credit group a customer draws on: head, members, limit and pooled due. */
+    @RequestMapping(value = "/customerAccountGroup", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> customerAccountGroup(final HttpServletRequest request) {
+        try {
+            String id = request.getParameter("customerId");
+            return client.get("/customerAccountGroup", "customerId=" + (id == null ? "" : id));
+        } catch (Exception e) {
+            LOGGER.error("customerAccountGroup proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    /** Trade customers with no party link — they cannot join a group and must be visible, not silently omitted. */
+    @RequestMapping(value = "/unbridgedCustomers", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> unbridgedCustomers() {
+        try {
+            return client.get("/unbridgedCustomers");
+        } catch (Exception e) {
+            LOGGER.error("unbridgedCustomers proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/deleteCustomer", method = RequestMethod.POST)
     @ResponseBody
     public Boolean deleteCustomer(HttpServletRequest req, HttpServletResponse resp) {

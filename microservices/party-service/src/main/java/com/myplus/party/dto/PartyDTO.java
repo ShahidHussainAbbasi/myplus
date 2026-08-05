@@ -14,6 +14,10 @@ public class PartyDTO {
     private String notes;
     private Boolean active;
 
+    /** Phase 4a account hierarchy. {@code accountLevel}: COMPANY | BRANCH | CONTACT | INDIVIDUAL (default). */
+    private Long parentPartyId;
+    private String accountLevel;
+
     /**
      * OPTIONAL on an upsert REQUEST (P4): record the caller's role link in the same transaction, so a module bridges
      * identity and role in one call. Null = identity-only upsert (original behaviour). Not populated on responses.

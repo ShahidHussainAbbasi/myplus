@@ -16,6 +16,11 @@ public class PartyRef {
     private String email;
     private String address;
 
+    /** Phase 4a account hierarchy — read-only for consumers; written only via {@code PartyClient.setAccountParent}.
+     *  {@code accountLevel}: COMPANY | BRANCH | CONTACT | INDIVIDUAL (default). Null parent = a root. */
+    private Long parentPartyId;
+    private String accountLevel;
+
     /**
      * OPTIONAL role link recorded alongside the identity (P4 contact view). When set, the upsert also records
      * "this party is {@code role} in {@code module} with id {@code localId}" in the same transaction — so a module

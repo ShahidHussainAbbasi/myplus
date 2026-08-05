@@ -67,6 +67,9 @@ public class CustomerController {
 	com.myplus.business_service.service.PartyBridgeService partyBridgeService;   // P1: shared party master bridge
 
 	@Autowired
+	com.myplus.business_service.service.CustomerAccountService customerAccountService;   // P4a: account hierarchy
+
+	@Autowired
 	AppUtil appUtil;
 	
 	@Autowired
@@ -201,6 +204,18 @@ public class CustomerController {
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED", "Failed to save customer. Please try again.");
 			}else {
+				// B2B-P4a: a new customer is its OWN credit account until an owner groups it. The stamp owns a
+				// transaction in the service (it is a @Modifying update) rather than running inline here.
+				//
+				// Contained deliberately: registering a customer is a core POS operation that predates B2B
+				// grouping and must keep working whatever state this feature is in — an unapplied migration or an
+				// unwired party-service must not stop a shop adding a customer. An unstamped row falls back to its
+				// own limit in the credit check (never to "no limit") and is re-stamped on the next group edit.
+				try {
+					customerAccountService.stampSelfAsCreditAccount(obj);
+				} catch (Exception stampFailed) {
+					LOGGER.warn("Customer {} saved but its credit account could not be stamped", obj.getCustomerId(), stampFailed);
+				}
 				partyBridgeService.bridgeCustomer(obj);   // P1: link to the shared party master (best-effort)
 				return new GenericResponse("SUCCESS", "Customer saved successfully.");
 			}
@@ -210,6 +225,59 @@ public class CustomerController {
 		}
 	}
 	
+	// ── B2B Phase 4a — account hierarchy ────────────────────────────────────────────────────────────────────────
+
+	/**
+	 * Put a customer under a parent account, or detach it (omit {@code parentCustomerId}). Sets the parent in
+	 * party-service and re-stamps the credit account across every affected row in ONE operator action.
+	 *
+	 * <p>Owner/admin-gated: restructuring accounts decides whose credit limit governs whose purchases — a
+	 * commercial decision, not a counter operation. A guard rejection returns its reason verbatim so the operator
+	 * sees why ("that would make the account a descendant of itself"), not a generic failure.
+	 */
+	@PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+	@RequestMapping(value = "/setCustomerAccountParent", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse setCustomerAccountParent(@RequestParam Long customerId,
+	                                                @RequestParam(required = false) Long parentCustomerId,
+	                                                @RequestParam(required = false) String accountLevel) {
+		try {
+			int n = customerAccountService.setAccountParent(customerId, parentCustomerId, accountLevel);
+			return new GenericResponse("SUCCESS", "Account updated (" + n + " row(s) re-stamped).", n);
+		} catch (IllegalArgumentException e) {
+			return new GenericResponse("FAILED", e.getMessage());   // the operator's answer, not a server fault
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > setCustomerAccountParent " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not update the account hierarchy.");
+		}
+	}
+
+	/** The credit group a customer belongs to: the head, everyone drawing on it, the limit and the pooled due. */
+	@RequestMapping(value = "/customerAccountGroup", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse customerAccountGroup(@RequestParam Long customerId) {
+		try {
+			return new GenericResponse("SUCCESS", "Account group", customerAccountService.accountGroup(customerId));
+		} catch (IllegalArgumentException e) {
+			return new GenericResponse("FAILED", e.getMessage());
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > customerAccountGroup " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load the account group.");
+		}
+	}
+
+	/** Trade customers with no party link — they cannot join a group, and must be visible rather than omitted. */
+	@RequestMapping(value = "/unbridgedCustomers", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse unbridgedCustomers() {
+		try {
+			return new GenericResponse("SUCCESS", "Unbridged customers", customerAccountService.unbridged());
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > unbridgedCustomers " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load unbridged customers.");
+		}
+	}
+
 	/** SF-5 Model B: the customer's redeemable store-credit balance (for the checkout "apply store credit" UI). */
 	@RequestMapping(value = "/customerCredit", method = RequestMethod.GET)
 	@ResponseBody

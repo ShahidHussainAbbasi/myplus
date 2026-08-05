@@ -59,4 +59,35 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
    @Query("select count(c) from Customer c where c.partyId is not null and c.customerId > :afterId "
         + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
    long countBridgedAfter(@Param("afterId") Long afterId, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   // ── B2B Phase 4a — shared-pool credit ──────────────────────────────────────────────────────────────────────
+   // Σ(due) across every customer drawing on one credit account. This is the SHARED POOL: a company's branches
+   // all point at the company's row, so the group's exposure is one indexed SUM rather than a per-branch read.
+   // A standalone customer is a single-member group, so this returns exactly its own due — unchanged behaviour.
+   // Runs on the sell path; backed by idx_customer_org_credit_account (V36).
+   @Query("select coalesce(sum(c.dueAmount), 0) from Customer c where c.creditAccountCustomerId = :accountId "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
+   java.math.BigDecimal sumDueByCreditAccount(@Param("accountId") Long accountId,
+                                              @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   // The customers bridged to a set of parties — how a hierarchy edit in party-service maps back to rows to
+   // re-stamp. ONE query for the whole subtree instead of a lookup per party.
+   @Query("select c from Customer c where c.partyId in :partyIds "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
+   List<Customer> findByPartyIdsScoped(@Param("partyIds") java.util.Collection<Long> partyIds,
+                                       @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   // Targeted stamp — never a full-entity save, matching updatePartyId/updateCreditBalance above (a partial
+   // entity save has already clobbered other columns to null on the vendor side once).
+   @org.springframework.data.jpa.repository.Modifying
+   @Query(value = "update customer set credit_account_customer_id = :accountId where customer_id = :id",
+          nativeQuery = true)
+   void updateCreditAccount(@Param("id") Long id, @Param("accountId") Long accountId);
+
+   // Trade customers that never bridged to a party — they cannot join a hierarchy, and the §7 risk says the
+   // feature must SHOW them rather than silently omit them.
+   @Query("select c from Customer c where c.partyId is null "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId)) "
+        + "order by c.name asc")
+   List<Customer> findUnbridgedScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 }

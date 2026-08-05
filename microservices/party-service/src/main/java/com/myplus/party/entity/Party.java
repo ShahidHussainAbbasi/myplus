@@ -46,6 +46,26 @@ public class Party {
     @Column(name = "notes", length = 500)
     private String notes;
 
+    /**
+     * B2B account hierarchy (Phase 4a) — company → branch → contact. Identity STRUCTURE, which is exactly what
+     * this service owns; the credit and AR that hang off it stay in the module that owns them.
+     *
+     * <p>Null = a root (a company, or a plain individual). Guarded on write in {@code PartyService}: the parent
+     * must be in the SAME organization (a foreign parent would be a tenancy hole), the graph must stay acyclic,
+     * and depth is capped at COMPANY → BRANCH → CONTACT.
+     */
+    @Column(name = "parent_party_id")
+    private Long parentPartyId;
+
+    /**
+     * Where this party sits in that hierarchy: {@code COMPANY | BRANCH | CONTACT | INDIVIDUAL}.
+     * {@code INDIVIDUAL} is the default and describes every party that existed before Phase 4a — a walk-in or a
+     * one-site trade customer that is not part of any group. An INDIVIDUAL may neither have nor be a parent.
+     */
+    @Builder.Default
+    @Column(name = "account_level", length = 12)
+    private String accountLevel = "INDIVIDUAL";
+
     @Builder.Default
     @Column(name = "active")
     private Boolean active = true;

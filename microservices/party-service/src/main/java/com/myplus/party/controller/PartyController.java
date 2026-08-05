@@ -81,4 +81,47 @@ public class PartyController {
     public int linkBulk(@RequestBody List<PartyRoleDTO> links) {
         return service.linkBulk(links);
     }
+
+    // ---- Phase 4a account hierarchy ---------------------------------------------------------------------------------
+
+    /**
+     * Place a party in the account hierarchy (company → branch → contact), or detach it with a null parent.
+     * The ONLY write path for {@code parentPartyId}/{@code accountLevel} — the generic update deliberately ignores
+     * both, so every cross-row invariant (same tenant, no cycles, depth cap) is enforced in one place.
+     *
+     * <p>Owner/admin-gated: restructuring accounts changes whose credit limit governs whose purchases, which is a
+     * commercial decision, not a counter operation.
+     *
+     * <p>A guard rejection is the operator's answer (400 with the reason), not a server fault — a foreign parent
+     * returns the same "not found" as a missing one, so it cannot probe another tenant.
+     */
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    @PutMapping("/{id}/account-parent")
+    public ResponseEntity<?> setAccountParent(@PathVariable Long id,
+                                              @RequestParam(required = false) Long parentId,
+                                              @RequestParam(required = false) String accountLevel) {
+        try {
+            return ResponseEntity.ok(service.setAccountParent(id, parentId, accountLevel));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
+
+    /** Direct children of a party — the account tree reads one level at a time. */
+    @GetMapping("/{id}/children")
+    public List<PartyDTO> children(@PathVariable Long id) {
+        return service.children(id);
+    }
+
+    /** The subtree under a party, including it — what business-service re-stamps after a hierarchy edit. */
+    @GetMapping("/{id}/subtree")
+    public List<PartyDTO> subtree(@PathVariable Long id) {
+        return service.subtree(id);
+    }
+
+    /** Every company that heads a hierarchy in this tenant (plain individuals excluded). */
+    @GetMapping("/account-roots")
+    public List<PartyDTO> accountRoots() {
+        return service.accountRoots();
+    }
 }

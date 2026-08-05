@@ -1,6 +1,13 @@
 # Phase 4a — B2B account hierarchy (company → branch → contact)
 
-**Status:** 📝 DESIGN — not implemented, not gated. Opened 2026-08-05 as the first Phase 4 slice.
+**Status:** ✅ **COMPLETE & GATED — `b2b-account-hierarchy.cy.js` 8/8 green (2026-08-05).** First Phase 4 slice.
+Credit semantics confirmed by the owner as **shared pool** (§4). `SharedPoolCreditTest` 8/8 on `mvn test`;
+business-service schema **36**, party-service schema **3**.
+
+> **Build note that cost a day.** `commerce-contracts` had never been `install`ed to the local repo, so any
+> build of business-service without `-am` compiled against a stale contract and FAILED — leaving the previous
+> jar in place and the running service serving old code. Several rounds of "fixes" were tested against a build
+> that did not contain them. Always `install` the libraries, not just `package` the service.
 
 Phase 4 is quote → approval → order. The programme plan (§6) says the account hierarchy is **both** a Phase 4
 deliverable **and** a prerequisite for the still-open portal question, so it is built first regardless of how
@@ -73,8 +80,29 @@ flowchart TB
 ```
 
 **`Customer.creditAccountCustomerId`** — the row whose limit and balance govern this account. Self for a
-standalone customer or a company; the company's row for a branch. Stamped when the hierarchy changes, so the
-credit check stays a single local read.
+standalone customer or a company; the company's row for a branch **and for a contact under that branch**.
+Stamped when the hierarchy changes, so the credit check stays a single local read.
+
+### The re-stamp rule
+
+On a hierarchy edit, **only the moved subtree changes account**: the customer and its descendants are stamped
+onto the *parent's own account head*, and the group it left is not touched (its remaining members already point
+at the right head).
+
+Three bugs found in review, all silent, all now covered by the gate:
+
+- `PartyClient.setAccountParent` declared `@RequestParam` without `required = false`. A Spring HTTP interface
+  treats those as REQUIRED and throws `"Missing request parameter value 'parentId'"` **client-side, before
+  sending** — so the detach path (null parent) could never reach party-service. Both controllers already
+  declared their side optional; only the client contract did not.
+
+- Re-stamping the group the customer **left** looked symmetrical but was wrong for the common case. A standalone
+  customer's "previous account" is *itself*, so its first attach walked its own childless subtree, found itself
+  as the head, and stamped the attach straight back out. The row count still came back non-zero, so it read as
+  success.
+- Deriving the account from the **root of the moved subtree** is right for a detach and wrong for an attach: a
+  contact moved under a branch became the branch's own dependant, splitting one credit pool in two at depth 3.
+  The account is now passed in explicitly.
 
 ### Why not skip Party and do A
 
@@ -94,7 +122,10 @@ Invariants, enforced server-side:
 - A party's parent must be in the **same organization** (anti-IDOR; a foreign parent is a tenancy hole).
 - **No cycles** — walking parents must terminate. Reject on write; do not rely on read-time defence.
 - Depth is capped at 3 (`COMPANY → BRANCH → CONTACT`). Deeper is a modelling error, not a feature.
-- `INDIVIDUAL` may not have a parent and may not be a parent.
+- `INDIVIDUAL` may not have a parent — asking for that level *with* a parent is contradictory and is rejected.
+- An `INDIVIDUAL` **parent is auto-promoted to `COMPANY`** on its first child. Attaching a child IS the act of
+  making a row a group head; refusing forced a hidden two-step (promote the parent, then attach) that the UI
+  gives no way to perform, since its level dropdown sets the CHILD's level. Caught by the gate.
 
 **business-service**
 | Field | Notes |
@@ -110,8 +141,13 @@ Roll-up needs a rule, and the two options are materially different:
 - **Per-branch sub-limits** — the company caps the total *and* each branch has its own ceiling. More faithful to
   large accounts, materially more work (a second limit field, two checks, two warning messages).
 
-**Recommendation: shared pool now.** It is the common case, and sub-limits can be added later as an extra
-ceiling without changing the roll-up. Confirm before implementing — it changes `common-credit`'s check.
+**DECIDED: shared pool** (owner, 2026-08-05). Sub-limits can be added later as an extra ceiling without changing
+the roll-up.
+
+**`common-credit` needed no change.** `CreditLimitPolicy.evaluate(balance, unpaid, editingDue, limit)` is pure
+arithmetic and was already correct; shared pool only changes what the CALLER feeds it — the credit account's
+limit instead of the billed row's, and the pooled Σ(due) instead of one row's. The shared library staying
+untouched is the evidence it was factored right.
 
 ## 5. What this slice does NOT do
 
@@ -135,12 +171,29 @@ ceiling without changing the roll-up. Confirm before implementing — it changes
 
 ## 8. Checklist
 
-- [ ] Confirm §4 credit semantics (shared pool vs sub-limits)
-- [ ] `Party.parentPartyId` + `accountLevel` + Flyway; same-org / cycle / depth / INDIVIDUAL guards
-- [ ] `Customer.creditAccountCustomerId` + Flyway **incl. `id → id` backfill**
-- [ ] Re-stamp on hierarchy edit (the write path, both create and re-parent)
-- [ ] `common-credit` check reads the credit account row, not the buying row
-- [ ] Account-hierarchy UI: assign a parent, show the tree, list unbridged customers
-- [ ] i18n × 6 locales
-- [ ] Gate: `b2b-account-hierarchy.cy.js` — roll-up blocks at the group limit; **cross-tenant parent refused**;
-      cycle refused; a standalone customer is unaffected
+- [x] Confirm §4 credit semantics — **shared pool**
+- [x] `Party.parentPartyId` + `accountLevel` + Flyway `V3`; same-org / cycle / depth / INDIVIDUAL guards in
+      `PartyService.setAccountParent` — the single write path (the generic update deliberately ignores both
+      fields, so no edit can route around the guards)
+- [x] `Customer.creditAccountCustomerId` + Flyway `V36` **incl. the `id → id` backfill**, plus a self-stamp on
+      customer creation (a new row with a null account would make the pooled SUM match nothing)
+- [x] Re-stamp on hierarchy edit — `CustomerAccountService.setAccountParent` re-stamps **both** subtrees, so a
+      branch moved between companies fixes the account it LEFT as well as the one it joined
+- [x] Shared-pool check — `SagaSellService.assertCreditPolicy` reads the credit account's limit and the pooled
+      Σ(due); `common-credit` unchanged (see §4)
+- [x] Account-groups panel on the Customer screen (owner/admin-gated), + the unbridged-customer list
+- [x] i18n × 6 locales
+- [x] `SharedPoolCreditTest` — pure logic, runs on `mvn test`
+- [x] **Compile + `mvn test`** (party-service, business-service, commerce-contracts, monolith)
+- [x] **Gate: `b2b-account-hierarchy.cy.js` — 8/8 GREEN 2026-08-05** — pooling under one limit; detach; self-parent, cycle and
+      cross-tenant parent all refused; a standalone customer unaffected; the panel renders.
+      Runs as `owner.pharma@myplus.com` (ROLE_OWNER, uncapped — the spec seeds ~12 customers, past the demo
+      accounts' 50-write cap). The anti-IDOR case uses a REAL row in `owner.business`'s org rather than an
+      invented id, so a broken scope check cannot pass it by rejecting an unknown id.
+
+## 9. Not done in this slice
+
+- **Group statement.** A head office still gets one statement per row. Natural follow-on, own gate.
+- **Sub-limits per branch.** Deferred by the §4 decision; layers on as an extra ceiling.
+- **Hierarchy for the other verticals.** The structure is on `Party`, so Education sponsors and Welfare
+  corporate donors can reuse it — but neither is wired up here.

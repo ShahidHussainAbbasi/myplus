@@ -277,7 +277,13 @@ public class SagaSellService {
         Long customerId = (dto.getCustomer() != null) ? dto.getCustomer().getCustomerId() : null;
         if (customerId == null || customerRepo == null) return;   // walk-in: no account, nothing to cap
         Customer customer = customerRepo.findById(customerId).orElse(null);
-        if (customer == null || customer.getCreditLimit() == null) return;   // no limit set = no check
+        if (customer == null) return;
+
+        // B2B-P4a SHARED POOL: the limit belongs to the CREDIT ACCOUNT, not to the row being billed. For a branch
+        // of a trade group that is the company's row; for everyone else it is the customer itself, so this is
+        // arithmetically identical to the pre-4a behaviour for every standalone customer.
+        Customer creditAccount = creditAccountOf(customer);
+        if (creditAccount.getCreditLimit() == null) return;   // no limit set = no check
 
         // What this sale leaves unpaid. A STORE_CREDIT tender was already capped to the real balance by
         // capStoreCreditTender and counts as paid, so redeemed credit correctly REDUCES exposure here.
@@ -294,28 +300,65 @@ public class SagaSellService {
         if (paid.signum() == 0 && dto.getPaidAmount() != null) paid = dto.getPaidAmount();   // legacy callers
         BigDecimal unpaid = grandTotal.subtract(paid);
 
+        // The balance is the POOL: every customer drawing on this credit account, summed. For a standalone
+        // customer that is a single-member group returning its own due — unchanged. For a trade group it is what
+        // makes the limit meaningful: three branches of one company can no longer each spend the company's limit.
+        BigDecimal pooledDue = groupExposure(creditAccount, customer);
+
         CreditLimitPolicy.Verdict verdict = CreditLimitPolicy.evaluate(
-                customer.getDueAmount(), unpaid, editingDue, customer.getCreditLimit());
+                pooledDue, unpaid, editingDue, creditAccount.getCreditLimit());
         boolean acknowledged = Boolean.TRUE.equals(dto.getCreditAcknowledged());
 
         switch (CreditLimitPolicy.decide(verdict, policy, acknowledged)) {
             case PROCEED -> {
                 // Breached but allowed (acknowledged, or policy=off): say so on the receipt message anyway,
                 // so an accepted overage is visible afterwards rather than only in the operator's memory.
-                if (verdict.breached()) dto.getWarnings().add(overLimitMessage(customer, verdict));
+                if (verdict.breached()) dto.getWarnings().add(overLimitMessage(customer, creditAccount, verdict));
             }
             case CONFIRM -> throw new CreditConfirmationRequiredException(
-                    overLimitMessage(customer, verdict) + " Continue?");
+                    overLimitMessage(customer, creditAccount, verdict) + " Continue?");
             case REFUSE -> throw new com.myplus.common.web.exception.ValidationException(
-                    overLimitMessage(customer, verdict)
+                    overLimitMessage(customer, creditAccount, verdict)
                             + " Selling beyond the credit limit is blocked for this organization.");
         }
     }
 
-    private static String overLimitMessage(Customer customer, CreditLimitPolicy.Verdict v) {
-        String name = (customer.getName() == null || customer.getName().isBlank())
-                ? "This customer" : customer.getName();
-        return name + " would be " + v.over().setScale(2, java.math.RoundingMode.HALF_UP)
+    /**
+     * The customer row whose limit governs this sale — the stamped credit account, or the customer itself.
+     *
+     * <p>Falls back to the customer when the stamp is missing or unreadable rather than skipping the check: a
+     * null credit account must degrade to "cap this customer by their own limit", never to "no limit at all".
+     */
+    private Customer creditAccountOf(Customer customer) {
+        Long accountId = customer.getCreditAccountCustomerId();
+        if (accountId == null || accountId.equals(customer.getCustomerId())) return customer;
+        return customerRepo.findById(accountId).orElse(customer);
+    }
+
+    /**
+     * Σ(due) across the credit account's group. Falls back to the buying customer's own due if the sum comes back
+     * null — the same fail-toward-checking rule as {@link #creditAccountOf}.
+     */
+    private BigDecimal groupExposure(Customer creditAccount, Customer customer) {
+        AuthenticatedUser user = requestUtil.getCurrentUser();
+        BigDecimal pooled = customerRepo.sumDueByCreditAccount(
+                creditAccount.getCustomerId(),
+                user == null ? null : user.getOrganizationId(),
+                user == null ? null : user.getUserId());
+        return pooled != null ? pooled : customer.getDueAmount();
+    }
+
+    /**
+     * Names the GROUP when the sale is on a branch of one, so the cashier is told whose limit is actually being
+     * hit — "Al-Karam Distributors (group) would be 12,000 over…" rather than naming the branch, whose own limit
+     * may well be blank and whose own balance is not what breached.
+     */
+    private static String overLimitMessage(Customer customer, Customer creditAccount, CreditLimitPolicy.Verdict v) {
+        boolean grouped = !creditAccount.getCustomerId().equals(customer.getCustomerId());
+        String name = grouped ? creditAccount.getName() : customer.getName();
+        if (name == null || name.isBlank()) name = grouped ? "This account group" : "This customer";
+        return name + (grouped ? " (group)" : "") + " would be "
+                + v.over().setScale(2, java.math.RoundingMode.HALF_UP)
                 + " over their credit limit of " + v.limit().setScale(2, java.math.RoundingMode.HALF_UP)
                 + " (they would owe " + v.exposure().setScale(2, java.math.RoundingMode.HALF_UP) + ").";
     }

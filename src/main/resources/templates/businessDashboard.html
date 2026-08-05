@@ -1130,9 +1130,66 @@ tr.row-voided .js-edit-row{display:none !important}
 							</tr>
 						</thead>
 					</table>
+
+					<!-- B2B Phase 4a — account groups (company → branch → contact).
+					     Owner/admin-gated to match the server: restructuring accounts decides whose credit limit
+					     governs whose purchases, which is a commercial decision, not a counter operation. -->
+					<div id="AccountGroupCard" class="panel panel-default" style="margin-top:18px"
+					     sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
+						<div class="panel-heading">
+							<strong th:text="#{ui.accountGroups}">Account groups</strong>
+							<span class="text-muted" style="margin-left:8px" th:text="#{ui.accountGroupsHint}">
+								Branches of one company share a single credit limit.</span>
+						</div>
+						<div class="panel-body">
+							<div class="form-inline" style="margin-bottom:12px">
+								<label for="agChild" th:text="#{ui.account}">Account</label>
+								<select id="agChild" class="form-control" style="margin:0 8px"></select>
+								<label for="agParent" th:text="#{ui.belongsTo}">belongs to</label>
+								<select id="agParent" class="form-control" style="margin:0 8px"></select>
+								<label for="agLevel" th:text="#{ui.asLevel}">as</label>
+								<select id="agLevel" class="form-control" style="margin:0 8px">
+									<option value="BRANCH" th:text="#{ui.levelBranch}">Branch</option>
+									<option value="CONTACT" th:text="#{ui.levelContact}">Contact</option>
+									<option value="COMPANY" th:text="#{ui.levelCompany}">Company (top level)</option>
+								</select>
+								<button type="button" id="agSave" class="btn btn-primary" onclick="saveAccountParent()"
+								        th:text="#{ui.save}">Save</button>
+							</div>
+
+							<div id="agGroupSummary" style="display:none">
+								<table class="table table-bordered table-condensed" style="margin-bottom:6px">
+									<thead>
+										<tr>
+											<th th:text="#{ui.member}">Member</th>
+											<th th:text="#{ui.due}">Due</th>
+										</tr>
+									</thead>
+									<tbody id="agMembers"></tbody>
+									<tfoot>
+										<tr>
+											<th id="agPooledLabel" th:text="#{ui.pooledExposure}">Pooled exposure</th>
+											<th id="agPooled"></th>
+										</tr>
+									</tfoot>
+								</table>
+								<div id="agLimitNote" class="text-muted"></div>
+							</div>
+
+							<!-- The §7 risk made visible: party bridging is best-effort, and an unbridged customer
+							     cannot join a group. Showing them beats silently leaving them out of a group's
+							     exposure. -->
+							<div id="agUnbridgedWrap" style="display:none; margin-top:12px">
+								<strong th:text="#{ui.notLinkedYet}">Not linked to the contact master yet</strong>
+								<span class="text-muted" th:text="#{ui.notLinkedYetHint}">
+									— these cannot join a group until they are linked (save the customer again).</span>
+								<div id="agUnbridged" class="text-muted" style="margin-top:4px"></div>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
-	
+
 			<div id="purchaseDiv" class="formDiv">
 				<h3 class="dash-page-title" th:text="#{label.purchase.form.heading}">Purchase Form</h3>
 				<!-- Toolbar: create-via-modal + contextual bulk-action bar (same pattern as Company/Product) -->
