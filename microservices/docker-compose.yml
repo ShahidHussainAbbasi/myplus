@@ -713,7 +713,7 @@ services:
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health/readiness"]
-    depends_on:
+    # depends_on:
       # service_healthy, not service_started: the monolith proxies every screen through the gateway, so
       # starting before it is ready gives the first requests a connection error. That is exactly the
       # cold-start window that made the first Cypress test of a run fail on 2026-08-05.
