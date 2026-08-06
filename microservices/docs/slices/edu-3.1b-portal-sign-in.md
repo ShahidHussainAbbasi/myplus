@@ -1,7 +1,9 @@
 # Slice 3.1b — Portal sign-in (and the deny rule that must ship with it)
 
-**Status: IMPLEMENTED — gate 7 of 9 (2026-08-06). NOT DONE.** The security property IS proven (case 3), but
-one case is unexplained and one design decision is open — §9 and §10. Implementation findings, including two
+**Status: IMPLEMENTED — awaiting a re-run of the updated 11-case gate (2026-08-06).** The security property
+is PROVEN (the staff-read refusal). **D-6 settled: invitation-only — §11.** Two items remain: a write case
+whose refusal returns the wrong status (§9) and the local provisioning gap (§10, now tracked as security
+findings **F18 → F2**, outside this slice). Implementation findings, including two
 integration defects, in §8. **Changes `common-security`, so it must be `mvn install`ed before dependants are
 packaged, and the monolith must be rebuilt too.**
 Non-phase-numbered but **blocking**: it completes 3.1, and **3.2 and 3.3 both depend on it**.
@@ -301,18 +303,25 @@ staff principal + staff path → allowed · portal principal + `/portal/x` → a
 `/getUserStudent` → **denied** · portal principal + **empty allowlist** → denied · path-traversal
 (`/portal/../getUserStudent`) → denied after normalisation · unauthenticated → untouched.
 
-**Cypress gate — `portal-sign-in.cy.js`:**
+**Cypress gate — `portal-sign-in.cy.js` (11 cases, updated 2026-08-06 for decision D-6):**
 
 | # | Case | Asserts |
 |---|---|---|
-| 1 | invite creates an account that **cannot yet sign in** | D5 — the token, not the invite, enables it |
-| 2 | a guardian who sets their password **can** sign in | the happy path |
-| 3 | **a signed-in guardian calling `/getUserStudent` gets 404** | **THE case. Without D2 this returns the whole school** |
-| 4 | the same session reads `/portal/children` fine | the deny rule did not break the portal |
-| 5 | a signed-in guardian sees **only their own** children | 3.1's rule still holds with a real session |
-| 6 | staff endpoints still work for staff | the inverse regression — the filter must not narrow staff |
-| 7 | revoke ⇒ the account can no longer sign in | withdrawal is immediate |
-| 8 | `edu.portal.enabled=false` ⇒ portal closed even for a valid account | 3.1's kill switch still wins |
+| 1 | inviting **reports** the account outcome (OK\|FAILED) | §8 — the school is never left assuming a guardian can log in. `FAILED` is expected locally until F18/F2 and is logged, because the slice's requirement is that it is **surfaced** |
+| 2 | **a guardian with NO email cannot be invited** | **the BOUNDARY of D-6**, and the trigger for option C. The address comes from the RECORD (3.1 D3), so a record without one cannot be invited at all |
+| 3 | **re-inviting is a RESEND, not an error**, and creates no second access row | invitation-only makes "resend" the school's normal recovery, so it must be idempotent |
+| 4 | a signed-in guardian reads their own children | the portal works with a REAL session |
+| 5 | **the same session gets 404 from staff reads** — each probed as STAFF first | **THE case. Without D2 this returns the whole school**, and the staff probe stops a renamed route faking a pass |
+| 6 | the refusal is 404, never 403 | D4 — a prober cannot map the surface by refusal type |
+| 7 | path traversal does not walk past the allowlist | asserts the **property** (no student data), not a status |
+| 8 | a guardian cannot write, and **the row is never created** | verified by re-reading the roster as staff |
+| 9 | staff completely unaffected | the inverse regression — a shared filter that over-matched would lock out every module |
+| 10 | `edu.portal.enabled=false` closes it for a valid account | 3.1's kill switch still wins over a working login |
+| 11 | revoking stops the portal reads | withdrawal takes effect on the next request |
+
+**Not assertable by Cypress:** that a guardian *sets their password from the emailed token*, because the test
+cannot read email — which is precisely why D5 makes the token the only way in. The seeded dev-only account
+(`guardian.education@myplus.com`) stands in for the resulting session; see §8.
 
 **Regression list:** `guardian-portal.cy.js` (its "no access row" cases now run against a real login),
 `privilege-map.cy.js`, `method-authz.cy.js`, and a staff smoke spec per module (the filter is shared).
@@ -452,6 +461,17 @@ between two known-good inserts*, not over path strings. Do not repeat the shortc
 **Blocked on one artifact:** `RestResponseEntityExceptionHandler` logs `500 Status Code` with the stack
 trace, and the monolith has **no file appender** — the trace exists only in its console.
 
+**RESOLVED APPROACH (2026-08-06): stop reasoning, measure.** Three theories died in a row because each was
+argued rather than observed — the same mistake case 5 punished. The test now (a) **logs the status AND the
+body**, which names the producing handler (`"Error Occurred"/InternalError` = the monolith catch-all won;
+`{"success":false,…}` = education's refusal relayed), and (b) asserts the **security property** — the write
+did not happen, verified by re-reading the roster as staff and confirming the student was never created.
+
+**This reframes the case correctly.** A guardian POST is *already refused*; only the status code is wrong.
+The genuinely serious outcome — a refusal that nevertheless wrote the row — was **never asserted at all**
+by the original status check, and now is. **A status code was standing in for a fact, and the fact is what
+matters.**
+
 ## 10. OPEN — a design decision that needs the user
 
 **Portal provisioning cannot work in the default local setup, and that is a consequence of D-then-§8's
@@ -476,3 +496,56 @@ it means the provisioning path is untestable, and untestable paths ship broken. 
 
 > **New standard candidate (§1c):** *a fail-closed control must ship with a working local configuration, or
 > the feature it guards is untestable and will ship broken.* This slice is the evidence.
+
+---
+
+## 11. D8 — Guardian accounts are INVITATION-ONLY (settled 2026-08-06, user decision)
+
+The question raised: *should a guardian sign up at maxtheservice.com like other users, choosing the school
+they belong to?* Checked against the code rather than by analogy, and the answer is that **the analogy does
+not hold**.
+
+### Public signup creates a TENANT, not a membership
+
+`RegisterRequest` carries **`organizationName`** — a new organisation's name, not an `organizationId` — and
+`register()` assigns **`ROLE_OWNER`**. Signup means *"start a new company and become its owner."*
+
+A guardian using it would become the owner of a **brand-new empty organization**, not a member of their
+child's school. Every guardian would spawn a junk tenant.
+
+**And no user type on this platform self-registers into an existing organization.** Teachers and admins are
+created by an owner through `POST /api/auth/org/users`, which sends a set-password email — **the same
+pattern this slice applies to guardians**. The invitation flow is not an exception made for guardians; it is
+the platform's only way of joining an existing org, applied to the population with the most sensitive data.
+
+### The account is easy; the RELATIONSHIP is the access grant
+
+What actually opens a child's record is `Student.guardianId`, which the school already maintains.
+
+| | The link |
+|---|---|
+| **Invitation** | already exists, correct **by construction** — the school clicks a button on a record it keeps anyway |
+| **Self-signup** | the guardian must **assert** a relationship the system then has to verify — and that verification is the entire problem |
+
+This is why 3.1 rejected self-registration and why that stands: claiming a child by typing an enrolment
+number is an account-takeover path, and enrolment numbers are known to classmates, printed on slips and
+guessable.
+
+### Options considered
+
+| | Verdict |
+|---|---|
+| **A. Invitation** *(chosen — already built)* | Simplest and safest. No new UI, no new states; the address is verified because the set-password token is the only way in (D5) |
+| **B. Self-signup + staff approval queue** | **Rejected.** Still needs staff action per guardian — the same cost as A — **plus** a new queue, new states and a claim to verify. More work, more risk, no saving |
+| **C. Self-signup with a school-issued join code** | **Deferred, with a trigger** — see below |
+
+### The one condition that would reopen this
+
+**A's real weakness is that it requires an email on the guardian record** — `invitePortalAccess` refuses
+without one, which is exactly what the gate's first run hit. If target schools do **not** hold guardian
+email addresses at scale (600 guardians, 200 addresses), invitations do not scale and **option C becomes
+worth building**: a `guardian_join_code` table (code · guardianId · expiry · usedOn), a bulk generate-codes
+action per class, and a public claim page that exchanges a valid code for a portal account.
+
+**C would reuse 3.1b's provisioning and deny rule unchanged**, so none of the security work is redone. It is
+recorded as a *trigger*, not a plan: build it when the email gap is shown to be real, not before.

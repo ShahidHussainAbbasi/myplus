@@ -23,17 +23,19 @@ describe('E-commerce — public order tracking', () => {
       { customerName: 'Tracker_' + Date.now(), customerContact: contact, shippingAddress: '1 Track St', paymentMode: 'COD' },
     ).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
-      ref = r.body.data.id
-      expect(ref, 'order reference returned').to.exist
+      // OMS O2 (OMS-8): the tracking reference is the order NUMBER, not the primary key. A raw auto-increment
+      // id was guessable — the id space could be walked across tenants — and meaningless to quote on the phone.
+      ref = r.body.data.orderNo
+      expect(ref, 'order reference returned').to.match(/^SO-/)
     })
 
     cy.then(() => {
-      cy.request('/storefront/track?ref=' + ref + '&contact=' + encodeURIComponent(contact)).then((r) => {
+      cy.request('/storefront/track?ref=' + encodeURIComponent(ref) + '&contact=' + encodeURIComponent(contact)).then((r) => {
         expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
-        expect(r.body.data.ref).to.eq(ref)
+        expect(r.body.data.ref, 'the reference echoed back is the SO- number').to.eq(ref)
         expect(r.body.data.status).to.eq('NEW')
       })
-      cy.request('/storefront/track?ref=' + ref + '&contact=wrongcontact').then((r) => {
+      cy.request('/storefront/track?ref=' + encodeURIComponent(ref) + '&contact=wrongcontact').then((r) => {
         expect(r.body.success, 'wrong contact reveals nothing').to.eq(false)
       })
     })
@@ -44,6 +46,7 @@ describe('E-commerce — public order tracking', () => {
     cy.get('#trkRef', { timeout: 10000 }).clear().type(String(ref))
     cy.get('#trkContact').clear().type(contact)
     cy.contains('button', 'Check status').click()
-    cy.get('#trkStatus', { timeout: 10000 }).should('contain', 'NEW').and('contain', '#' + ref)
+    // The number carries its own SO- prefix, so the panel no longer prints a redundant "#".
+    cy.get('#trkStatus', { timeout: 10000 }).should('contain', 'NEW').and('contain', ref)
   })
 })

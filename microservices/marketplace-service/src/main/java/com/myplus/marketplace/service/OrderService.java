@@ -99,6 +99,17 @@ public class OrderService {
         String idempotencyKey = (dto.getCartToken() != null && !dto.getCartToken().isBlank())
                 ? "SF-" + dto.getCartToken() : UUID.randomUUID().toString();
 
+        // OMS-3: return the EXISTING order for a repeated checkout. O1 already made the sale idempotent on this
+        // same key, so without this a double-submit replayed one invoice but inserted a second order — picked
+        // and shipped twice. Checked first for the common case; UNIQUE(org, key) is what actually makes it
+        // race-safe when two submits arrive together (see the catch below).
+        Order existing = repo.findByOrgAndIdempotencyKey(org, idempotencyKey).orElse(null);
+        if (existing != null) {
+            LOG.info("Storefront checkout replayed for key {} — returning existing order {}",
+                    idempotencyKey, existing.getOrderNo());
+            return toDTO(existing);
+        }
+
         SaleRecordResult sale;
         try {
             sale = asStore(org, () -> tradeClient.recordSale(toSaleRequest(dto, org, idempotencyKey)));
@@ -106,8 +117,12 @@ public class OrderService {
             // Out of stock (or any refusal) → nothing reserved, nothing invoiced and, critically, NOTHING
             // CHARGED: the card is only charged after the sale exists. This ordering is why an unavailable item
             // can never leave a shopper out of pocket.
+            //
+            // RELAY the real reason. O1 replaced the old "out of stock: <why>" with a generic sentence, which
+            // lost the one thing the shopper needs — a "no longer available" that never says what or why reads
+            // as a glitch, and support cannot act on it either. The pre-O1 behaviour was better and is restored.
             LOG.warn("Storefront order for org {} could not be recorded as a sale", org, saleFailure);
-            throw new ValidationException("Sorry, an item in your cart is no longer available.");
+            throw new ValidationException(checkoutFailureMessage(saleFailure));
         }
         if (sale == null || sale.getInvoiceNo() == null)
             throw new ValidationException("The order could not be completed. Please try again.");
@@ -128,8 +143,15 @@ public class OrderService {
             payRef = ch.chargeId();
         }
 
+        // OMS-8: the merchant-facing number, allocated MAX+1 per org inside this transaction and guarded by
+        // UNIQUE(organization_id, order_seq) — the allocation invoice_seq/credit_note_seq/quote_seq all use.
+        long orderSeq = repo.maxOrderSeqForOrg(org) + 1;
+
         Order o = Order.builder()
                 .organizationId(org)
+                .orderSeq(orderSeq)
+                .orderNo(com.myplus.commerce.domain.InvoiceNumbers.order(orderSeq))
+                .idempotencyKey(idempotencyKey)      // OMS-3: same key the sale deduplicates on
                 .invoiceNo(sale.getInvoiceNo())      // O1: the trade sale this order IS
                 .booksStatus("POSTED")               // O1: it reached the books
                 .customerName(dto.getCustomerName())
@@ -147,7 +169,20 @@ public class OrderService {
                 .build();
         Order saved;
         try {
-            saved = repo.save(o);
+            saved = repo.saveAndFlush(o);   // flush now so a duplicate-key race surfaces HERE, not at commit
+        } catch (org.springframework.dao.DataIntegrityViolationException duplicate) {
+            // OMS-3, the race the pre-check cannot cover: two submits arrived together, both missed the read,
+            // and UNIQUE(organization_id, idempotency_key) let exactly one through. The loser returns the
+            // WINNER's order rather than failing the shopper — and must NOT reverse the sale, because that sale
+            // belongs to the order that won.
+            Order winner = repo.findByOrgAndIdempotencyKey(org, idempotencyKey).orElse(null);
+            if (winner != null) {
+                LOG.info("Concurrent checkout for key {} — returning the order that won ({})",
+                        idempotencyKey, winner.getOrderNo());
+                return toDTO(winner);
+            }
+            reverseQuietly(org, sale.getInvoiceNo(), "Order could not be recorded");
+            throw duplicate;
         } catch (RuntimeException writeFailure) {
             // The sale is already in the books; if we cannot record our own order row, reverse it rather than
             // leave an invoice with no order behind it.
@@ -158,6 +193,32 @@ public class OrderService {
         notificationService.notify(saved, "NEW", "Order placed");   // slice 57: start the timeline
         cartService.markConverted(org, dto.getCartToken());          // slice 68: empty the persistent cart
         return toDTO(saved);
+    }
+
+    /**
+     * Turn a failed {@code recordSale} into something a shopper can act on.
+     *
+     * <p>business-service refuses with a specific reason (most often insufficient stock, naming the product).
+     * That reason travels in the 4xx body, so it is extracted and relayed rather than flattened — the same rule
+     * the storefront already applies to a declined payment. Only when nothing readable comes back do we fall
+     * back to generic wording, and even that names STOCK, because it is overwhelmingly the cause and "no longer
+     * available" alone tells the shopper nothing.
+     */
+    private String checkoutFailureMessage(RuntimeException failure) {
+        if (failure instanceof org.springframework.web.client.RestClientResponseException http) {
+            try {
+                String body = http.getResponseBodyAsString();
+                if (body != null && !body.isBlank()) {
+                    com.fasterxml.jackson.databind.JsonNode node =
+                            new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+                    String msg = node.path("message").asText(null);
+                    if (msg != null && !msg.isBlank()) return "Sorry — " + msg;
+                }
+            } catch (Exception ignored) {
+                // A non-JSON body is not worth failing over; fall through to the generic wording.
+            }
+        }
+        return "Sorry, an item in your cart is out of stock or unavailable.";
     }
 
     /** Build the sale request. Deliberately carries NO total — the server prices it (OMS-5). */
@@ -244,8 +305,32 @@ public class OrderService {
 
     /** Public order tracking (slice 56): a guest looks up their order by id + contact. Returns only on a contact
      *  match (case-insensitive, non-blank) so order existence isn't revealed; minimal projection. */
-    public com.myplus.marketplace.dto.OrderTrackDTO trackPublic(Long ref, String contact) {
-        Order o = (ref == null) ? null : repo.findById(ref).orElse(null);
+    /**
+     * Public order tracking (OMS-8).
+     *
+     * <p>Resolves by the MERCHANT-FACING number ({@code SO-000123}) plus the contact on the order. The old form
+     * took the raw auto-increment primary key and called an UNSCOPED {@code findById}: sequential, so the id
+     * space could be walked, and meaningless to a customer on the phone.
+     *
+     * <p>Still deliberately not org-scoped — a guest has no tenant identity — but the pairing of a per-org
+     * number with a contact check is what makes it safe, where a global id was not.
+     *
+     * <p><b>Legacy numeric ref accepted for one release.</b> Links already emailed to customers carry
+     * {@code ?ref=123}. Dropping them the day this ships would break every one of those; they are logged at WARN
+     * so the tail is visible before the fallback is removed.
+     */
+    public com.myplus.marketplace.dto.OrderTrackDTO trackPublic(String ref, String contact) {
+        Order o = null;
+        String r = ref == null ? "" : ref.trim();
+        if (!r.isEmpty()) {
+            if (r.regionMatches(true, 0, com.myplus.commerce.domain.InvoiceNumbers.ORDER_PREFIX, 0,
+                                com.myplus.commerce.domain.InvoiceNumbers.ORDER_PREFIX.length())) {
+                o = repo.findByOrderNo(r.toUpperCase()).orElse(null);
+            } else if (r.chars().allMatch(Character::isDigit)) {
+                LOG.warn("Legacy numeric tracking ref '{}' used — this fallback is removed after one release", r);
+                try { o = repo.findById(Long.valueOf(r)).orElse(null); } catch (NumberFormatException ignored) { }
+            }
+        }
         String c = contact == null ? "" : contact.trim();
         if (o == null || c.isEmpty() || o.getCustomerContact() == null
                 || !o.getCustomerContact().trim().equalsIgnoreCase(c)) {
@@ -256,7 +341,9 @@ public class OrderService {
             timeline.add(new com.myplus.marketplace.dto.OrderTrackDTO.Event(e.getStatus(), e.getCreatedAt()));
         }
         return new com.myplus.marketplace.dto.OrderTrackDTO(
-                o.getId(), o.getCustomerName(),
+                // The NUMBER, not the id. Pre-O2 rows are backfilled by V11, so the fallback is belt-and-braces.
+                o.getOrderNo() != null ? o.getOrderNo() : String.valueOf(o.getId()),
+                o.getCustomerName(),
                 o.getFulfilmentStatus() != null ? o.getFulfilmentStatus().name() : null,
                 o.getCreatedAt(), o.getTotal(), timeline);
     }
@@ -266,6 +353,17 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found")));
     }
 
+    /**
+     * Move an order's fulfilment status — the ONE guarded write path (OMS-2).
+     *
+     * <p>Before O2 this accepted ANY transition: an order could go CANCELLED → SHIPPED, i.e. goods dispatched
+     * against an order whose money and stock had already been reversed. The move is now checked against
+     * {@link FulfilmentStatus#canMoveTo} — a whitelist, because the failure mode of a missed illegal transition
+     * is shipping something that was cancelled.
+     *
+     * <p>WHO may make the move is the controller's business ({@code @PreAuthorize}); WHICH moves exist is this
+     * method's. Keeping them apart means a second entry point cannot accidentally get different rules.
+     */
     @Transactional
     public OrderDTO updateStatus(Long id, String status, Long orgId, Long userId) {
         Order o = repo.findByIdScoped(id, orgId, userId)
@@ -273,6 +371,13 @@ public class OrderService {
         FulfilmentStatus s;
         try { s = FulfilmentStatus.valueOf(status == null ? "" : status.trim().toUpperCase()); }
         catch (Exception e) { throw new ValidationException("Invalid status: " + status); }
+
+        FulfilmentStatus current = o.getFulfilmentStatus();
+        // Asking for the state it is already in is a no-op, not an error: a double-click on "Ship" must not fail.
+        if (current != s) {
+            if (current != null && !current.canMoveTo(s))
+                throw new ValidationException("A " + current + " order cannot become " + s + ".");
+        }
 
         // E7 cancel (slice 51): transitioning INTO CANCELLED reverses the order. Idempotent — only on the FIRST
         // transition, so re-cancelling never reverses twice.
@@ -348,7 +453,8 @@ public class OrderService {
         o.setReturnReason(reason);
         Order saved = repo.save(o);
         notificationService.notify(saved, "RETURN_REQUESTED", "Return requested");
-        return trackPublic(saved.getId(), c);
+        // Track by the order's OWN number now that one exists (falls back to the id for pre-O2 rows).
+        return trackPublic(saved.getOrderNo() != null ? saved.getOrderNo() : String.valueOf(saved.getId()), c);
     }
 
     /** Back-office processes a return (E10, slice 71): return stock to inventory (G2 inverse saga) + refund a card
@@ -440,6 +546,7 @@ public class OrderService {
         d.setId(o.getId());
         d.setOrganizationId(o.getOrganizationId());
         d.setInvoiceNo(o.getInvoiceNo());
+        d.setOrderNo(o.getOrderNo());           // O2: SO-000123
         d.setBooksStatus(o.getBooksStatus());   // O1: POSTED | LEGACY_UNPOSTED | REVERSED
         d.setCustomerName(o.getCustomerName());
         d.setCustomerContact(o.getCustomerContact());

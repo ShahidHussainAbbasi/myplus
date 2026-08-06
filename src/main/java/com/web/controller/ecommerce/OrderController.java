@@ -50,6 +50,12 @@ public class OrderController {
         try {
             Object id = body.get("id");
             return client.putJson("/orders/" + id + "/status", Collections.singletonMap("status", body.get("status")));
+        } catch (HttpStatusCodeException e) {
+            // OMS O2: a refused transition ("a CANCELLED order cannot become SHIPPED") or a denied reversal
+            // ("that needs an admin") is a business answer, not a server fault — relay the marketplace's own
+            // wording, exactly as refundOrder below already does. Swallowing it left the operator with a silent
+            // failure and no idea what to do differently.
+            return relayError(e, "Could not update the order status.");
         } catch (Exception e) {
             LOGGER.error("updateOrderStatus proxy error", e);
             return Collections.singletonMap("success", false);

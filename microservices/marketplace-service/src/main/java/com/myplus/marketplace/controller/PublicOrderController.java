@@ -29,9 +29,15 @@ public class PublicOrderController {
         return ApiResponse.success(orderService.placePublic(dto), "Order placed");
     }
 
-    /** Public order tracking (slice 56) — look up an order's status by ref + contact (no account). */
+    /**
+     * Public order tracking (slice 56; OMS-8) — an order's status by ref + contact, no account needed.
+     *
+     * <p>{@code ref} is now the order NUMBER ({@code SO-000123}), not the primary key. It is a String rather
+     * than a Long precisely so the old numeric form still binds: links already emailed to customers carry
+     * {@code ?ref=123}, and the service honours those for one release (logged at WARN) before the fallback goes.
+     */
     @GetMapping("/order/track")
-    public ApiResponse<OrderTrackDTO> track(@RequestParam Long ref, @RequestParam String contact) {
+    public ApiResponse<OrderTrackDTO> track(@RequestParam String ref, @RequestParam String contact) {
         return ApiResponse.success(orderService.trackPublic(ref, contact));
     }
 

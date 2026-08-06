@@ -26,6 +26,38 @@ public class Order {
     @Column(name = "user_id")
     private Long userId;
 
+    /**
+     * OMS O2: the merchant-facing order reference, e.g. {@code SO-000123}. Per-org series, allocated MAX+1
+     * inside the creating transaction and made safe by UNIQUE(organization_id, order_seq) — the same allocation
+     * invoice_seq, credit_note_seq and quote_seq use.
+     *
+     * <p>Public tracking resolves by THIS, not by the primary key: an auto-increment id is guessable, so the old
+     * {@code ?ref=123} let anyone walk the id space, and it was useless to quote to a customer on the phone.
+     */
+    @Column(name = "order_seq")
+    private Long orderSeq;
+
+    @Column(name = "order_no", length = 32)
+    private String orderNo;
+
+    /**
+     * OMS O2: same-key-same-order. O1 made the SALE idempotent on the cart token; without this the ORDER row was
+     * not, so a double-submit replayed one invoice but inserted TWO orders — picked and shipped twice. The
+     * UNIQUE(organization_id, idempotency_key) index is what makes it race-safe: a read-then-write check loses
+     * to a concurrent submit.
+     */
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
+
+    /**
+     * OMS O2: optimistic lock. Several people touch one order through a working day — a packer and someone
+     * cancelling can collide, and last-write-wins silently discarded one of them. {@code SalesQuote} got this in
+     * 4b for the same reason; orders have the higher exposure.
+     */
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     @Column(name = "invoice_no")
     private String invoiceNo;          // the trade sale this order is
 

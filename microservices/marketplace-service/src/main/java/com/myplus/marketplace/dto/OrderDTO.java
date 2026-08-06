@@ -12,6 +12,8 @@ public class OrderDTO {
     private Long id;
     private Long organizationId;        // input for a public (guest) order — no JWT identity
     private String invoiceNo;
+    /** OMS O2: the merchant-facing order number, e.g. SO-000123 — what public tracking resolves. */
+    private String orderNo;
     /** OMS O1: POSTED (produced an invoice) | LEGACY_UNPOSTED (pre-O1, never booked) | REVERSED (voided). */
     private String booksStatus;
     private String customerName;

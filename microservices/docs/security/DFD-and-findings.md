@@ -129,6 +129,7 @@ Remediation designed in [`docs/prod-hardening.md`](../../../docs/prod-hardening.
 | **F15** | **Med** | auth `SetupDataLoader`, monolith `SetupDataLoader` | Seeded default admin (`admin@myplus.com / Admin@2025!`) + seeded users with trivial passwords (`super/super`, phone numbers). | Seed-flag off in prod; admin pw via env (P3); rotate. |
 | **F16** | **Low** | `microservices/logs/*.log` tracked in git | Runtime logs versioned (noise, possible data leak). | gitignore + untrack (P1). |
 | **F17** | **Med** | dependencies (Dependabot: 232 alerts) | Known-CVE transitive deps. | CI dependency-scan gate + upgrades. |
+| **F18** | **High** | monolith `GatewayClient` (found 2026-08-06, slice `edu-3.1b`) | **The monolith is absent from the DFD above, and it is the reason F2 cannot be closed.** In legacy mode it calls services **directly**, bypassing the gateway, and stamps `X-User-Id`/`X-User-Roles` **without `X-Internal-Secret`** — the string does not appear in the class at all. So the monolith performs exactly the header-forgery shape F2 describes, as a trusted component. Consequence: enabling `INTERNAL_SECRET` today would make all 13 services ignore the monolith's identity headers and treat every proxied request as anonymous, which is **why the secret is still empty and F2 still open**. | F2 cannot be done alone. Either (a) monolith always calls through the gateway (server mode), or (b) `GatewayClient.buildHeaders` stamps `service.internal-secret` like `GatewayIdentityForwarding` already does for service-to-service calls. Then set the secret per F2. **Add the monolith to the DFD** — a trust boundary that omits a component cannot be reasoned about. |
 
 **Good (no action):** no SQL injection (JPA parameter binding throughout), BCrypt password hashing,
 `open-in-view: false`, gateway correctly strips `X-Internal-Secret`/`X-Org-Id` (F3 extends this to all
@@ -137,3 +138,13 @@ identity headers).
 ### Updated pre-AWS priority
 Auth-bypass first — **F5, F1, F2, F3** (gateway/identity) and **F8** (rotate all leaked secrets) — then
 **F9, F10, F11, F12** hardening, then **F4, F13, F15, F17**.
+
+**Amended 2026-08-06: F18 is a PREREQUISITE of F2**, so it moves into the first group. F2's fix as written
+("set a strong internal-secret on gateway + all services") cannot be applied while the monolith calls
+services directly without stamping it — doing so would break every proxied request rather than secure it.
+Sequence: **F18 → F2**.
+
+_Discovered by slice `edu-3.1b` (guardian portal sign-in), whose `PortalAccountController` is the first
+component on the platform to **enforce** the internal secret rather than skip it when unset. Enforcing
+revealed that nothing was setting it — the control is correct and functional in prod (where
+`application-prod.yml` makes `INTERNAL_SECRET` mandatory) and inert locally._

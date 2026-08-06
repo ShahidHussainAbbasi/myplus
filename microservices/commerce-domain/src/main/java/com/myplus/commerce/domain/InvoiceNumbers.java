@@ -35,6 +35,14 @@ public final class InvoiceNumbers {
      */
     public static final String QUOTE_PREFIX = "QTE-";
 
+    /**
+     * OMS O2: prefix for a SALES ORDER — the merchant-facing reference for a storefront order.
+     *
+     * <p>Public tracking used the raw auto-increment id, which is guessable (so the id space could be probed
+     * across tenants) and useless to quote on the phone. Its own per-org series fixes both.
+     */
+    public static final String ORDER_PREFIX = "SO-";
+
     /** Format a per-org running sequence as a display invoice number, e.g. {@code 123 -> "INV-000123"}. */
     public static String format(long seq) {
         return pad(PREFIX, seq);
@@ -53,6 +61,11 @@ public final class InvoiceNumbers {
     /** Format a per-org quote sequence, e.g. {@code 42 -> "QTE-000042"} (B2B-P4b). */
     public static String quote(long seq) {
         return pad(QUOTE_PREFIX, seq);
+    }
+
+    /** Format a per-org order sequence, e.g. {@code 123 -> "SO-000123"} (OMS O2). */
+    public static String order(long seq) {
+        return pad(ORDER_PREFIX, seq);
     }
 
     /**

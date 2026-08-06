@@ -15,7 +15,11 @@ import java.util.List;
  */
 @Data @NoArgsConstructor @AllArgsConstructor
 public class OrderTrackDTO {
-    private Long ref;
+    /**
+     * OMS-8: the order's own number ({@code SO-000123}) — what the shopper quotes back and what tracking now
+     * resolves. Was the raw primary key, which was both guessable and meaningless to a customer.
+     */
+    private String ref;
     private String customerName;
     private String status;        // current fulfilment status (NEW/PACKED/SHIPPED/DELIVERED/CANCELLED)
     private LocalDateTime placedAt;

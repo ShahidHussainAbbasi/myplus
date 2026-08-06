@@ -307,8 +307,11 @@
                 var msg = payMode==='CARD'
                     ? '✓ Payment received — order confirmed! We\'ll ship it shortly.'
                     : '✓ Order placed! We\'ll contact you to confirm delivery. (Cash on Delivery)';
-                var ref = (resp.data && resp.data.id) ? resp.data.id : null;
-                var refLine = ref ? ('<div style="margin-top:6px">Your order reference: <b>#'+esc(String(ref))+'</b> — keep it to track your order.</div>') : '';
+                // OMS O2: hand the shopper the ORDER NUMBER (SO-000123), because that is what tracking now
+                // resolves. Giving them the raw id — as this did — would print a reference that no longer
+                // works. Falls back to the id only for a pre-O2 order with no number.
+                var ref = (resp.data && (resp.data.orderNo || resp.data.id)) ? (resp.data.orderNo || resp.data.id) : null;
+                var refLine = ref ? ('<div style="margin-top:6px">Your order reference: <b>'+esc(String(ref))+'</b> — keep it to track your order.</div>') : '';
                 document.getElementById('done').innerHTML = '<div class="ok" id="orderDone">'+msg+refLine+'</div>';
                 if(ref){ document.getElementById('trkRef').value = ref; document.getElementById('trkContact').value = document.getElementById('cContact').value; }
             } else { alert((resp && resp.message) || 'Could not place the order.'); }
@@ -377,7 +380,9 @@
                     // slice 71: a delivered order can be returned.
                     var returnBtn = (d.status === 'DELIVERED')
                         ? '<button class="pay" id="returnBtn" style="margin-top:8px" onclick="requestReturn()">↩ Request a return</button>' : '';
-                    out.innerHTML = '<div class="ok" id="trkStatus">Order #'+esc(String(d.ref))+' — status: <b>'+esc(d.status||'')+'</b><br>'
+                    // OMS O2: d.ref is now the order NUMBER (SO-000123), which carries its own prefix — so the
+                    // literal "#" that made sense for a bare id would read "Order #SO-000123".
+                    out.innerHTML = '<div class="ok" id="trkStatus">Order '+esc(String(d.ref))+' — status: <b>'+esc(d.status||'')+'</b><br>'
                         + esc(d.customerName||'') + ' • Total '+money(d.total)+ timeline + returnBtn +'</div>';
                 } else {
                     out.innerHTML = '<div class="empty" id="trkNone">'+esc((resp&&resp.message)||'Order not found.')+'</div>';

@@ -42,4 +42,24 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.booksStatus = :booksStatus AND " + SCOPE + " ORDER BY o.createdAt DESC")
     List<Order> findByBooksStatusScoped(@Param("booksStatus") String booksStatus,
                                         @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    // ── OMS O2 — identity, idempotency ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Next per-org order number. MAX+1 inside the creating transaction, made safe by
+     * UNIQUE(organization_id, order_seq). COALESCE so the first order in a new org starts at 1.
+     */
+    @Query("SELECT COALESCE(MAX(o.orderSeq), 0) FROM Order o WHERE o.organizationId = :orgId")
+    long maxOrderSeqForOrg(@Param("orgId") Long orgId);
+
+    /**
+     * Public tracking (OMS-8): resolve by the MERCHANT-FACING number, not the primary key. Deliberately not
+     * org-scoped — a guest tracking an order has no tenant identity — but the number is per-org and paired with
+     * a contact check, so it is not enumerable the way a global auto-increment id was.
+     */
+    Optional<Order> findByOrderNo(String orderNo);
+
+    /** OMS-3: has this checkout already produced an order? Same key the SALE deduplicates on. */
+    @Query("SELECT o FROM Order o WHERE o.organizationId = :orgId AND o.idempotencyKey = :key")
+    Optional<Order> findByOrgAndIdempotencyKey(@Param("orgId") Long orgId, @Param("key") String key);
 }
