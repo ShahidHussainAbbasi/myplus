@@ -487,6 +487,9 @@ public class SellController {
 			// carries the org's OVERRIDE of that rule, plus the letterhead and the printed wording.
 			out.setTradeDiscount(ch.getTradeDiscount());     // B2B-P3g (V35): invoice-level concession
 			out.setBookedByName(ch.getBookedByName());       // stamped at write, never resolved at print
+			// B2B-P4b: the buyer's PO, carried from the quote. It must reach the PRINTED invoice — that is the
+			// number their accounts-payable clerk matches against their own purchase order.
+			out.setCustomerPoNumber(ch.getCustomerPoNumber());
 			out.setLetterhead(letterheadFor(ch));
 			out.setLayoutMode(settingsService.getChoice("pos.document.layoutMode",
 					java.util.Set.of("auto", "thermal", "a4"), "auto"));

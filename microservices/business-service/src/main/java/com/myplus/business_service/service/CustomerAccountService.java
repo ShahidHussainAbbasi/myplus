@@ -105,10 +105,21 @@ public class CustomerAccountService {
      * need no touching. The new account is the parent's OWN account head — not the parent itself — so attaching
      * a contact under a branch puts it on the COMPANY's limit rather than splitting the pool at the branch.
      *
+     * <p><b>Deliberately NOT {@code @Transactional}.</b> This method makes two party-service HTTP calls, and
+     * wrapping it would hold a pooled DB connection open across both — the exact anti-pattern
+     * {@code PartyBridgeService} documents avoiding ("a slow/down party-service can't hold a DB connection").
+     * With 15 services sharing one MySQL and 8 connections each, a slow party-service would drain the pool.
+     * The transactional unit is the re-stamp itself ({@link #restampSubtree}), which runs after the network work
+     * and is where atomicity actually matters.
+     *
+     * <p>The cost of that choice: if the re-stamp fails after party-service accepted the move, the hierarchy is
+     * updated but the credit account is not. That degrades to the pre-4a behaviour (each customer on its own
+     * limit) rather than to a wrong limit, is logged, and is corrected by re-running the move — which is a far
+     * better failure than exhausting the connection pool for every other tenant.
+     *
      * @return how many customer rows were re-stamped
      * @throws IllegalArgumentException with party-service's own message when a guard rejects the move
      */
-    @Transactional
     public int setAccountParent(Long customerId, Long parentCustomerId, String accountLevel) {
         if (partyClient == null)
             throw new IllegalArgumentException(

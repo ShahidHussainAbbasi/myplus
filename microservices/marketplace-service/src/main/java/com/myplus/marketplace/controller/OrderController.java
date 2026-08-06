@@ -32,6 +32,24 @@ public class OrderController {
         return ApiResponse.success(orderService.list(CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
+    /**
+     * OMS O1 reconciliation — orders that never reached the books.
+     *
+     * <p>{@code GET /orders/reconciliation} lists the {@code LEGACY_UNPOSTED} backlog: storefront orders placed
+     * before O1, which moved stock and possibly charged a card but produced no invoice, so they are missing from
+     * the P&amp;L, tax register and AR. They are not back-posted (that would write into closed periods), so this
+     * is how an operator finds them. Pass {@code ?booksStatus=POSTED} to audit the other side.
+     *
+     * <p>Owner/admin-gated: it is a financial-integrity view, not a shop-floor one.
+     */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')")
+    @GetMapping("/reconciliation")
+    public ApiResponse<List<OrderDTO>> reconciliation(
+            @RequestParam(required = false) String booksStatus) {
+        return ApiResponse.success(orderService.listByBooksStatus(
+                booksStatus, CurrentUser.organizationId(), CurrentUser.userId()));
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<OrderDTO> get(@PathVariable Long id) {
         return ApiResponse.success(orderService.get(id, CurrentUser.organizationId(), CurrentUser.userId()));

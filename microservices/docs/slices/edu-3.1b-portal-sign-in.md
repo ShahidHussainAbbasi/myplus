@@ -1,8 +1,9 @@
 # Slice 3.1b — Portal sign-in (and the deny rule that must ship with it)
 
-**Status: IMPLEMENTED 2026-08-06 — awaiting `mvn` verification + the Cypress gate.** Implementation
-findings, including two integration defects, in §8. **Changes `common-security`, so it must be
-`mvn install`ed before dependants are packaged, and the monolith must be rebuilt too.**
+**Status: IMPLEMENTED — gate 7 of 9 (2026-08-06). NOT DONE.** The security property IS proven (case 3), but
+one case is unexplained and one design decision is open — §9 and §10. Implementation findings, including two
+integration defects, in §8. **Changes `common-security`, so it must be `mvn install`ed before dependants are
+packaged, and the monolith must be rebuilt too.**
 Non-phase-numbered but **blocking**: it completes 3.1, and **3.2 and 3.3 both depend on it**.
 Programme: `education-complete-programme.md` Phase 3 — pays 3.1 §6's carried requirement
 *"STILL MISSING: the auth-service user account"*.
@@ -403,3 +404,75 @@ a real guardian session getting 404 from `/getUserStudent` — would have gone u
 **Test 3 probes each URL as STAFF first.** A 404 only proves the filter if the route exists; without that
 control, renaming an endpoint would turn the slice's most important assertion into a green that proves
 nothing — the same shape as 2.1's skipped clash test and 2.4's empty class.
+
+---
+
+## 9. Gate run — 7 of 9 green, and what the two reds are
+
+**Not green. Do not record this slice as done.**
+
+| # | Case | Result |
+|---|---|---|
+| 1 | invite provisions the account and says so | ✅ |
+| 2 | a signed-in guardian reads their own children | ✅ |
+| 3 | **THE CASE — the same session gets 404 from a staff read** | ✅ **the deny rule works** |
+| 4 | the refusal is 404, never 403 | ✅ |
+| 5 | path traversal does not walk past the allowlist | ✅ *(after the test was fixed — see below)* |
+| 6 | a guardian cannot write | ❌ **500, expected 404 — unexplained** |
+| 7 | staff completely unaffected | ✅ |
+| 8 | portal OFF closes it for a valid account | ✅ |
+| 9 | revoking stops the reads | ✅ |
+
+**The security property is proven.** Case 3 is the one this slice exists for, and it passes: a real signed-in
+guardian gets 404 from `/getUserStudent`, `/getUserGuardian`, `/getMarksSheet` and `/getUserFc`, each probed
+as staff first so a 404 cannot be a missing route.
+
+### Case 5 was a TEST defect, and the fix generalises
+
+It asserted a bare status and got `200`. A status alone **cannot distinguish a followed redirect from a
+guardian reading the roster** — two findings that could not be further apart. Rewritten to assert the
+security property (`followRedirect:false`, no `enrollNo`, no roster collection, not 200) and to log the real
+status. It passed immediately, confirming the 200 had been a followed redirect all along.
+
+**Standard worth keeping: assert the PROPERTY, not the status code, whenever a status can be produced by
+more than one mechanism.**
+
+### Case 6 is genuinely unexplained — three theories dead
+
+1. ~~Stale monolith~~ — the jar is newer than the source and contains the new classes.
+2. ~~Advice ordering~~ — `@Order(HIGHEST_PRECEDENCE)` was added and **verified present in the running jar's
+   constant pool**. Still 500.
+3. ~~A monolith-side `@PreAuthorize`~~ — there are **none** on the education proxy controllers.
+
+**A wrong inference of mine is recorded here deliberately:** I argued "`addStudent` appears 0 times in the
+education log, so the request never arrived". `getUserStudent` is also 0 — **education-service does not log
+request paths at all**, so absence proves nothing. The 2.1 diagnosis worked because it reasoned over *SQL
+between two known-good inserts*, not over path strings. Do not repeat the shortcut.
+
+**Blocked on one artifact:** `RestResponseEntityExceptionHandler` logs `500 Status Code` with the stack
+trace, and the monolith has **no file appender** — the trace exists only in its console.
+
+## 10. OPEN — a design decision that needs the user
+
+**Portal provisioning cannot work in the default local setup, and that is a consequence of D-then-§8's
+fail-closed choice.**
+
+```yaml
+internal-secret: ${INTERNAL_SECRET:}     # application.yml — defaults to EMPTY
+```
+
+With it unset, education's interceptor omits the header and `PortalAccountController.trusted()` refuses →
+the education log shows education→auth returning this slice's own `refuse()` body. `invitePortalAccess`
+creates the access row but never the account.
+
+Failing closed is right for production. **Shipping a control that cannot be switched on locally is not** —
+it means the provisioning path is untestable, and untestable paths ship broken. Options:
+
+| | Option | Trade-off |
+|---|---|---|
+| **1** | A dedicated `myplus.portal.provisioning-secret` | enabling it cannot change platform-wide auth behaviour — **preferred** |
+| 2 | Set `INTERNAL_SECRET` globally | correct long-term, but it also switches ON secret ENFORCEMENT in `HeaderAuthFilter` for every service, which currently skips the check *because* the value is empty |
+| 3 | Allow when no secret is configured | rejected — account creation open by default |
+
+> **New standard candidate (§1c):** *a fail-closed control must ship with a working local configuration, or
+> the feature it guards is untestable and will ship broken.* This slice is the evidence.

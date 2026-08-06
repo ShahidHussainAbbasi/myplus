@@ -191,6 +191,22 @@ untouched is the evidence it was factored right.
       accounts' 50-write cap). The anti-IDOR case uses a REAL row in `owner.business`'s org rather than an
       invented id, so a broken scope check cannot pass it by rejecting an unknown id.
 
+## 8a. Follow-up applied 2026-08-06 — transaction boundary
+
+`setAccountParent` was `@Transactional` while making TWO party-service HTTP calls, so it held a pooled DB
+connection across the network — the exact anti-pattern `PartyBridgeService` documents avoiding ("a slow/down
+party-service can't hold a DB connection"). With 15 services sharing one MySQL at 8 connections each, a slow
+party-service would have drained the pool for every tenant.
+
+Fixed by removing the boundary from the method and putting it on `CustomerRepo.updateCreditAccount` instead
+(`@Modifying` + `@Transactional`), which is the narrowest place that still works. Note the trap avoided:
+annotating the private `restampSubtree` would have done NOTHING — self-invocation bypasses the proxy, the same
+way it did on `stampSelfAsCreditAccount`.
+
+Accepted cost, documented on the method: if the re-stamp fails after party-service accepted the move, the
+hierarchy updates but the credit account does not — degrading to the pre-4a behaviour (each customer on its own
+limit) rather than to a WRONG limit, and corrected by re-running the move. Gate re-run **8/8 green**.
+
 ## 9. Not done in this slice
 
 - **Group statement.** A head office still gets one statement per row. Natural follow-on, own gate.

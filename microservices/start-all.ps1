@@ -143,10 +143,12 @@ if (-not (Test-Path $LOGS)) { New-Item -ItemType Directory -Path $LOGS | Out-Nul
 # 2026-08-06 and is easy to misdiagnose as a service crash or missing demo data, because what you see is
 # a proxy 500 or a /login?error=true much later.
 #
-# Each service is therefore launched via its own hidden powershell.exe, which performs the redirection
-# itself. The key detail: Start-Process is called WITHOUT -RedirectStandard* here, so it uses
-# ShellExecute - and -WindowStyle Hidden is only honoured when it does. Passing redirect parameters
-# forces UseShellExecute=false, at which point WindowStyle is ignored and you get 19 visible windows.
+# Each service is therefore launched via its own hidden cmd.exe, which performs the redirection itself.
+# The key detail: Start-Process is called WITHOUT -RedirectStandard* here, so it uses ShellExecute - and
+# -WindowStyle Hidden is only honoured when it does. Passing redirect parameters forces
+# UseShellExecute=false, at which point WindowStyle is ignored and you get 19 visible windows.
+#
+# cmd.exe rather than powershell.exe for the wrapper: see the encoding note in the body.
 #
 # Log paths and names are unchanged: logs\<service>.log and logs\<service>.log.err.
 # stop-all.ps1 finds services by listening port and jar name, so it is unaffected by this.
@@ -161,14 +163,21 @@ function Start-Svc {
     $errFile = "$logFile.err"
     Write-Host "  Starting $name ..." -ForegroundColor Cyan
 
-    # Single-quoted inside the command string so spaces in the path (C:\Users\...) survive; any literal
-    # quote in a path is doubled, which is how PowerShell escapes one inside a single-quoted string.
-    $q = { param($p) "'" + ($p -replace "'", "''") + "'" }
-    $cmd = "& $(& $q $JAVA) -jar $(& $q $jarPath) 1> $(& $q $logFile) 2> $(& $q $errFile)"
+    # cmd.exe does the redirection, NOT PowerShell.
+    #
+    # This was powershell.exe with `1> ... 2> ...` for about an hour on 2026-08-06, and it wrote every log
+    # as UTF-16LE: in Windows PowerShell 5.1 the `>` operator defaults to Unicode, so each file began with a
+    # FF FE BOM and grep/tail reported "Binary file matches". Service logs are the first thing anyone reads
+    # when a gate goes red, and that change quietly made all thirteen of them unreadable to the usual tools
+    # — it cost time during the very next diagnosis. cmd's `>` writes the JVM's bytes through unchanged.
+    #
+    # `/s /c "<whole command>"` is the documented form that makes cmd strip exactly the outer quotes and
+    # take the rest literally, which is what keeps a spaced path like C:\Program Files\Java\... intact.
+    $whole = '"{0}" -jar "{1}" > "{2}" 2> "{3}"' -f $JAVA, $jarPath, $logFile, $errFile
 
     $procArgs = @{
-        FilePath         = 'powershell.exe'
-        ArgumentList     = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', $cmd)
+        FilePath         = 'cmd.exe'
+        ArgumentList     = '/s /c "' + $whole + '"'
         WorkingDirectory = (Join-Path $ROOT $name)
         WindowStyle      = 'Hidden'
         PassThru         = $true

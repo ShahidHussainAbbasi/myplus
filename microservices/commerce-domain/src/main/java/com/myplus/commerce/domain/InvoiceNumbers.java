@@ -25,6 +25,16 @@ public final class InvoiceNumbers {
     /** Prefix for a SUPPLIER return document — a debit note. */
     public static final String DEBIT_NOTE_PREFIX = "DBN-";
 
+    /**
+     * B2B-P4b: prefix for a SALES QUOTE — an offer, not a sale.
+     *
+     * <p>Its own series for the same reason credit notes got one: a quote is a distinct document with a
+     * different meaning and lifecycle, and sharing the invoice series would make an offer indistinguishable
+     * from money owed. The quote number stays with the invoice it converts into, so the trail runs
+     * {@code QTE-000042 → INV-000123}.
+     */
+    public static final String QUOTE_PREFIX = "QTE-";
+
     /** Format a per-org running sequence as a display invoice number, e.g. {@code 123 -> "INV-000123"}. */
     public static String format(long seq) {
         return pad(PREFIX, seq);
@@ -38,6 +48,11 @@ public final class InvoiceNumbers {
     /** Format a per-org debit-note sequence, e.g. {@code 7 -> "DBN-000007"} (supplier return). */
     public static String debitNote(long seq) {
         return pad(DEBIT_NOTE_PREFIX, seq);
+    }
+
+    /** Format a per-org quote sequence, e.g. {@code 42 -> "QTE-000042"} (B2B-P4b). */
+    public static String quote(long seq) {
+        return pad(QUOTE_PREFIX, seq);
     }
 
     /**

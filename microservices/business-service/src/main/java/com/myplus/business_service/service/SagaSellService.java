@@ -177,8 +177,12 @@ public class SagaSellService {
                     .eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
                     .grandTotal(ch.getGrandTotal()).subTotal(ch.getSubTotal()).taxTotal(ch.getTaxTotal())
                     .cost(cost).paidAmount(ch.getPaidAmount()).method(ch.getPaymentMode())
-                    .storeCredit(scRedeem).build())    // store-credit portion → Dr 2200 (not Cash)
-                    ;
+                    .storeCredit(scRedeem)             // store-credit portion → Dr 2200 (not Cash)
+                    // D-4: the whole-document trade discount posts as CONTRA-REVENUE (Dr 4200), so Sales stays
+                    // at the invoice's face value. Captured on the invoice since 3g but never posted until now,
+                    // which meant a discount printed on the document and appeared nowhere in the books.
+                    .discountTotal(ch.getTradeDiscount())
+                    .build());
         } catch (Exception ex) {
             LOG.warn("GL enqueue failed for sale {} (sale recorded)", ch.getInvoiceNo(), ex);
         }

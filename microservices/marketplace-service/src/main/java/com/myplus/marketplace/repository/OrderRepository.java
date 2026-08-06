@@ -24,9 +24,22 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     /** A storefront shopper's own orders, newest first (slice 61, My Orders). */
     List<Order> findByCustomerAccountIdOrderByCreatedAtDesc(Long customerAccountId);
 
-    /** Recovery relay (slice 52): storefront orders whose reservation was reserved but not confirmed (placement
-     *  crashed/timed out between reserve and confirm). Cross-tenant; the relay impersonates each order's org. */
-    @Query("SELECT o FROM Order o WHERE o.reservationStatus = 'PENDING' AND o.reservationId IS NOT NULL "
-            + "AND o.fulfilmentStatus <> com.myplus.marketplace.entity.FulfilmentStatus.CANCELLED")
-    List<Order> findPendingReservations();
+    // OMS O1: `findPendingReservations` is DELETED with OrderSagaRecoveryRelay. Marketplace no longer holds
+    // reservations — business-service's sale path reserves, confirms and re-drives its own recovery, so there is
+    // no half-finished marketplace saga left to sweep up.
+
+    /**
+     * OMS O1 reconciliation: orders that never reached the books.
+     *
+     * <p>Every storefront order placed BEFORE O1 produced stock movement and possibly a card charge, but no
+     * invoice — so it contributed nothing to the P&amp;L, tax register or AR. Those rows are stamped
+     * {@code LEGACY_UNPOSTED} and are deliberately NOT back-posted: writing revenue at their original dates
+     * would post into closed accounting periods. This read is how an operator finds them and decides what to do
+     * (raise a manual invoice, or accept and annotate).
+     *
+     * <p>Scoped like every other read — one tenant's backlog is not another's business.
+     */
+    @Query("SELECT o FROM Order o WHERE o.booksStatus = :booksStatus AND " + SCOPE + " ORDER BY o.createdAt DESC")
+    List<Order> findByBooksStatusScoped(@Param("booksStatus") String booksStatus,
+                                        @Param("orgId") Long orgId, @Param("userId") Long userId);
 }

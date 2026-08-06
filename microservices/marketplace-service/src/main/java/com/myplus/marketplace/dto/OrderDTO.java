@@ -12,6 +12,8 @@ public class OrderDTO {
     private Long id;
     private Long organizationId;        // input for a public (guest) order — no JWT identity
     private String invoiceNo;
+    /** OMS O1: POSTED (produced an invoice) | LEGACY_UNPOSTED (pre-O1, never booked) | REVERSED (voided). */
+    private String booksStatus;
     private String customerName;
     private String customerContact;
     private BigDecimal total;

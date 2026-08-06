@@ -313,10 +313,13 @@ missing spec covering a tenancy boundary.
   a prerequisite for the portal question either way. Proposal: hierarchy on `Party` (reusable by Education
   sponsors / Welfare corporate donors), credit roll-up target **stamped** onto `Customer` so the sell path keeps
   a single local read.
-- **4b — `SalesQuote` → approval → order · customer PO number** — 📝 **DESIGN written 2026-08-06, awaiting
-  review.** Doc: [`slices/b2b-P4b-sales-quote-to-order.md`](slices/b2b-P4b-sales-quote-to-order.md). Converts
-  through the SAME single revenue path (`SagaSellService.addSell`), so quotes inherit idempotency, FEFO, tax,
-  COGS, period lock and the GL outbox. Credit checked against 4a's shared pool at conversion.
+- **4b — `SalesQuote` → approval → order · customer PO number** — ✅ **COMPLETE & GATED 2026-08-06, 6/6 green**
+  (+ 15/15 unit, 27/27 regression). Doc:
+  [`slices/b2b-P4b-sales-quote-to-order.md`](slices/b2b-P4b-sales-quote-to-order.md). Own `QTE-` series;
+  internal approval gate separated from customer acceptance; expiry DERIVED (no job); converts through the SAME
+  single revenue path (`SagaSellService.addSell`), so quotes inherit idempotency, FEFO, tax, COGS, period lock
+  and the GL outbox; credit checked against 4a's shared pool at conversion. **D-4 implemented**: trade discount
+  posts to **4200 Sales Discount** (contra-revenue) — it had been captured since 3g but never posted at all.
 - The first genuinely new *workflow*; everything before it extends existing paths
 - ✅ **D-4 SETTLED 2026-08-06 — trade discount posts to a CONTRA-REVENUE discount account**, not netted off
   revenue: gross revenue keeps matching the invoice face value and "discount given" becomes one account balance.

@@ -219,6 +219,19 @@ public class OrderService {
         return out.get();
     }
 
+    /**
+     * OMS O1 reconciliation: the orders that never produced an invoice.
+     *
+     * <p>Defaults to {@code LEGACY_UNPOSTED} — the pre-O1 backlog, which is the question anyone actually asks.
+     * Any other {@code booksStatus} ({@code POSTED}, {@code REVERSED}) is accepted so the same read serves an
+     * audit of what DID reach the books.
+     */
+    public List<OrderDTO> listByBooksStatus(String booksStatus, Long orgId, Long userId) {
+        String status = (booksStatus == null || booksStatus.isBlank())
+                ? "LEGACY_UNPOSTED" : booksStatus.trim().toUpperCase();
+        return repo.findByBooksStatusScoped(status, orgId, userId).stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
     public List<OrderDTO> list(Long orgId, Long userId) {
         return repo.findScoped(orgId, userId).stream().map(this::toDTO).collect(Collectors.toList());
     }
@@ -427,6 +440,7 @@ public class OrderService {
         d.setId(o.getId());
         d.setOrganizationId(o.getOrganizationId());
         d.setInvoiceNo(o.getInvoiceNo());
+        d.setBooksStatus(o.getBooksStatus());   // O1: POSTED | LEGACY_UNPOSTED | REVERSED
         d.setCustomerName(o.getCustomerName());
         d.setCustomerContact(o.getCustomerContact());
         d.setTotal(o.getTotal());

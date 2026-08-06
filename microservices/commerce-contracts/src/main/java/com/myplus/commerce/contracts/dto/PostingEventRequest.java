@@ -26,6 +26,19 @@ public class PostingEventRequest {
     private BigDecimal cost;        // COGS (SALE) — Σ(line cost × qty)
     private BigDecimal paidAmount;  // tendered at sale / paid at purchase
     private String method;          // CASH | CARD | BANK | CHEQUE (→ cash vs bank account)
+    /**
+     * B2B-P4b / D-4: the whole-document TRADE DISCOUNT given on this sale.
+     *
+     * <p>Posts to a CONTRA-REVENUE account (Dr Sales Discount), NOT netted off revenue. Revenue is credited at
+     * the invoice's FACE VALUE, so gross sales reconcile to the documents issued and "discount given" is one
+     * account balance rather than an invisible reduction. Netting it into revenue destroys the number — you can
+     * no longer tell a shop that discounted heavily from one that simply sold less.
+     *
+     * <p>Null/zero on every sale that gave no document-level concession, which is the vast majority, so the
+     * journal is unchanged for them.
+     */
+    private BigDecimal discountTotal;
+
     private BigDecimal storeCredit; // store credit portion: on SALE = redeemed (Dr 2200 not Cash); on SALE_RETURN =
                                     // issued (Cr 2200 not Cash). Null/0 = the classic cash posting (no regression).
 }

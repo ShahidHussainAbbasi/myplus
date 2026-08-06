@@ -27,7 +27,7 @@
 | `marketplace`: rewire `placePublic`; cancel → reverse; drop the duplicate saga + `OrderSagaRecoveryRelay` | ✅ |
 | `order-to-ledger.cy.js` + baseline re-run | ✅ 10/10 |
 | `OrderServiceTest` rewritten to the new contract | ⚠️ compiles, SKIPPED (no Docker) |
-| Reconciliation read (`booksStatus=LEGACY_UNPOSTED`) | ⬜ **not built — see below** |
+| Reconciliation read — `GET /orders/reconciliation` | ✅ owner/admin-gated, defaults to `LEGACY_UNPOSTED` |
 
 ### The bug the gate caught
 
@@ -48,10 +48,6 @@ Two deviations from §2.2, both deliberate:
 
 ### Still open
 
-- **Reconciliation read** (`GET /orders?booksStatus=LEGACY_UNPOSTED`) is NOT built. `books_status` is written
-  (`POSTED` on new orders, `LEGACY_UNPOSTED` default, `REVERSED` after a void) and indexed, so the data is
-  there — but there is no endpoint or screen listing the pre-O1 backlog yet. Small, and worth doing before
-  anyone needs to find those orders.
 - **A CARD tender is not passed into the sale.** COD is correct today (no tender → a receivable, like an unpaid
   counter sale), but a paid card order records the charge on the ORDER and not as a `payment` row against the
   invoice, so it shows as unpaid AR. §2.2 wanted the tender passed through; it needs the charge to happen before

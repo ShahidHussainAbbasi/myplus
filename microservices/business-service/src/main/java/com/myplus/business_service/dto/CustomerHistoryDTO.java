@@ -151,6 +151,15 @@ public class CustomerHistoryDTO {
     private String bookedByName;
 
     /**
+     * B2B-P4b: the BUYER's own purchase-order reference, carried from the quote onto the invoice.
+     *
+     * <p>Their accounts-payable clerk matches our invoice to their PO by this number, so it has to survive
+     * quote → sale → printed document. Capturing it only on the quote would make it useless to the one person
+     * who asked for it.
+     */
+    private String customerPoNumber;
+
+    /**
      * Things the cashier must be TOLD about a sale that still went through — currently the zero/negative
      * margin warning (#3). Server-populated on the way out; ignored on the way in.
      *

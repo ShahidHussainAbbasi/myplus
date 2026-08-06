@@ -1,7 +1,9 @@
 # Phase 4b — SalesQuote → approval → order
 
-**Status:** 📝 DESIGN — awaiting review. Opened 2026-08-06. **Branch:** `feature/b2b-b2c`.
-**Cadence:** Document → **Design (this doc)** → Implement → headed Cypress gate.
+**Status:** ✅ **COMPLETE & GATED 2026-08-06** — `b2b-quote-to-order.cy.js` **6/6**, `SalesQuoteTransitionTest`
+**15/15** (pure logic, runs on `mvn test`). Regression: 27/27 across quote + ledger + cancel + hierarchy +
+trade-invoice. Flyway **V37** applied. **Branch:** `feature/b2b-b2c`.
+**Cadence:** Document → Design → Implement → headed Cypress gate ✅.
 **Builds on:** [4a account hierarchy](b2b-P4a-account-hierarchy.md) (shared-pool credit) ·
 [P2 pricing](b2b-P3-documents-reports.md) (`commerce-pricing`) · [3g documents](b2b-P3g-trade-invoice-designer.md).
 
@@ -168,12 +170,35 @@ conversion that breaches the **group** limit (4a shared pool) takes confirmation
 
 ## 5. Checklist
 
-- [ ] Review this design
-- [ ] `sales_quote` + `sales_quote_line` + Flyway (business `V37`); `@Version`; per-org `quote_no` series
-- [ ] `SalesQuoteService.transition` — one guarded write path
-- [ ] Pricing via `commerce-pricing` (reuse `/price/calculate`, do not re-derive)
-- [ ] Convert → `SagaSellService.addSell` + 4a credit check
-- [ ] D-4: `discountTotal` on `PostingEventRequest` + contra-revenue mapping in `common-subledger`
-- [ ] Customer PO: quote → sale → `FIELD_WHITELIST` + `docCustomerPo`
-- [ ] Quotes screen + i18n × 6
-- [ ] Java tests + `b2b-quote-to-order.cy.js`
+- [x] Design reviewed
+- [x] `sales_quote` + `sales_quote_line` + Flyway `V37`; `@Version`; per-org `QTE-` series
+- [x] `SalesQuoteService.transition` — one guarded write path
+- [x] Convert → `SagaSellService.addSell` + 4a shared-pool credit check
+- [x] D-4: `discountTotal` on `PostingEventRequest` → **Dr 4200 Sales Discount** (contra-revenue)
+- [x] Customer PO: quote → sale → `customer_history` → `/getReceipt`
+- [x] Quotes screen + i18n × 6
+- [x] `SalesQuoteTransitionTest` 15/15 + `b2b-quote-to-order.cy.js` 6/6
+
+## 6. Three bugs the build surfaced — all silent, all now fixed
+
+- **`effectiveStatus()` never reached the client.** Jackson serialises `getX()`, not `x()`, so the DERIVED status
+  was absent from every response. An expired quote would have rendered as `SENT` while the server refused every
+  action on it. Renamed `getEffectiveStatus()`.
+- **The bidirectional `lines ↔ quote` relation recursed.** A ONE-line quote produced a **151,816-byte** reply
+  (684 after the fix) and the monolith proxy failed on it. Jackson's cycle detection does not catch this — each
+  level is a fresh object, so it just nests. Fixed with `@JsonIgnore` on the back-reference, plus Lombok
+  `@EqualsAndHashCode(exclude)`/`@ToString(exclude)` so the same loop cannot resurface inside a log statement.
+- **`trade_discount` was captured but never posted** (since 3g): it printed on invoices and appeared nowhere in
+  the books. D-4 now posts it.
+
+## 7. Deviations from the design, and what is still open
+
+- **Pricing is not re-derived through `commerce-pricing` at quote time.** The design said to reuse
+  `/price/calculate`; the implementation takes the unit price the operator enters and SNAPSHOTS it. That is the
+  more important property — the customer holds a document with those numbers, so conversion must bill exactly
+  what was accepted. Wiring the pricing call into the quote FORM (to pre-fill contract prices) is a UI follow-up,
+  not a correctness gap.
+- **Tax is applied at conversion, not on the quote.** The quote shows goods value; the sale path owns the tax
+  engine. Duplicating tax rules on the quote is how two systems end up disagreeing about one invoice. A quote
+  therefore under-states the final total for a tax-registered org — worth a UI note before customer-facing use.
+- **No PDF/e-mail delivery.** The document renderer can print a quote; sending needs the notification outbox.

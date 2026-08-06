@@ -48,6 +48,10 @@ public class GlService {
             // school's P&L should read "Fee Income". ensureDefaults() backfills this for orgs whose chart was
             // seeded earlier (same path 2200 Store Credit took).
             {"4100", "Fee Income", AccountType.INCOME, NormalSide.CREDIT},
+            // B2B-P4b / D-4: contra-revenue. INCOME by type so it sits with Sales in the P&L, but its normal
+            // side is DEBIT — a discount REDUCES income while keeping gross Sales at the invoices' face value.
+            // ensureDefaults() backfills it into charts seeded earlier, the same way 2200 Store Credit arrived.
+            {"4200", "Sales Discount", AccountType.INCOME, NormalSide.DEBIT},
             {"5000", "Cost of Goods Sold", AccountType.EXPENSE, NormalSide.DEBIT},
             {"5100", "Purchases / Expenses", AccountType.EXPENSE, NormalSide.DEBIT},
     };

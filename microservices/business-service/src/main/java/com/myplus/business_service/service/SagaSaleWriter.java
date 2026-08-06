@@ -102,6 +102,11 @@ public class SagaSaleWriter {
         // above — a distribution invoice settles a whole-order concession at the foot of the document.
         if (dto.getTradeDiscount() != null) ch.setTradeDiscount(dto.getTradeDiscount());
 
+        // B2B-P4b: the buyer's PO reference, carried from the quote. Only set when supplied, so a till sale
+        // (which has no PO) is unaffected and an edit that omits it cannot blank an issued invoice's reference.
+        if (dto.getCustomerPoNumber() != null && !dto.getCustomerPoNumber().isBlank())
+            ch.setCustomerPoNumber(dto.getCustomerPoNumber().trim());
+
         // B2B-P3g: STAMP who booked the order, on a new invoice only. Stamped rather than joined on userId at
         // print time for two reasons: a print must not depend on auth-service being up, and an issued
         // document must not start showing a person's new name after they are renamed. Same rule as the

@@ -105,6 +105,14 @@ public class CustomerHistory implements Serializable {
 	@Column(name = "booked_by_name", length = 120)
 	private String bookedByName;
 
+	/**
+	 * B2B-P4b: the buyer's own PO reference, carried from the quote. Stored on the invoice (not looked up
+	 * through the quote) so the document is self-contained — a printed invoice must not depend on the quote row
+	 * still existing, and it must keep showing the reference it was issued with.
+	 */
+	@Column(name = "customer_po_number", length = 64)
+	private String customerPoNumber;
+
     @Column(name = "due_date")
     private LocalDate dueDate;
 

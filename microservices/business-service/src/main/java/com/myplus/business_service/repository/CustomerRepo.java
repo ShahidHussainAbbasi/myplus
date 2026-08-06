@@ -79,7 +79,13 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
 
    // Targeted stamp — never a full-entity save, matching updatePartyId/updateCreditBalance above (a partial
    // entity save has already clobbered other columns to null on the vendor side once).
+   //
+   // @Transactional HERE, unlike its two neighbours, because this one is called from a NON-transactional caller:
+   // CustomerAccountService.setAccountParent makes party-service HTTP calls and must not hold a pooled DB
+   // connection across them. A @Modifying query with no active transaction throws TransactionRequiredException,
+   // so the boundary has to live somewhere — on the repo method is the narrowest place that works.
    @org.springframework.data.jpa.repository.Modifying
+   @org.springframework.transaction.annotation.Transactional
    @Query(value = "update customer set credit_account_customer_id = :accountId where customer_id = :id",
           nativeQuery = true)
    void updateCreditAccount(@Param("id") Long id, @Param("accountId") Long accountId);

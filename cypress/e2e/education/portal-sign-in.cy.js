@@ -159,9 +159,19 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
 
   it('path traversal does not walk past the allowlist', () => {
     cy.loginAsPortalGuardian()
-    probe('/portal/../getUserStudent').then((r) => {
-      expect(r.status, 'a staff read wearing a portal prefix is still refused').to.be.oneOf([404, 400])
-    })
+    // followRedirect:false ON PURPOSE. Run 1 asserted a bare status and got 200, which a plain status
+    // check cannot distinguish between "a redirect was followed to some HTML page" and "a guardian just
+    // read the roster" — two findings that could not be further apart. Assert the SECURITY property
+    // instead, and log the real status so the next run explains the mechanism rather than restating it.
+    cy.request({ url: '/portal/../getUserStudent', failOnStatusCode: false, followRedirect: false })
+      .then((r) => {
+        cy.log(`traversal → ${r.status} ${String((r.headers && r.headers.location) || '')}`)
+        const body = JSON.stringify(r.body || '')
+        expect(body, 'NO student data reaches a portal session, whatever the status')
+          .to.not.match(/enrollNo/)
+        expect(body, 'and no roster collection either').to.not.match(/"collection"\s*:\s*\[\s*\{/)
+        expect(r.status, 'a staff read wearing a portal prefix is not a successful read').to.not.eq(200)
+      })
   })
 
   it('a guardian cannot write, either', () => {

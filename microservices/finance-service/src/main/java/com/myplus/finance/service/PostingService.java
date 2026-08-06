@@ -34,7 +34,16 @@ public class PostingService {
     // Default chart-of-accounts codes (see GlService.DEFAULT_COA).
     private static final String CASH = "1000", BANK = "1010", AR = "1100", INVENTORY = "1200",
             AP = "2000", TAX = "2100", STORE_CREDIT = "2200", SALES = "4000", COGS = "5000",
-            FEE_INCOME = "4100";   // slice 0.1: education fee revenue, kept off 4000 Sales
+            FEE_INCOME = "4100",   // slice 0.1: education fee revenue, kept off 4000 Sales
+            /**
+             * B2B-P4b / D-4: CONTRA-REVENUE — trade discount given on an invoice.
+             *
+             * <p>A debit account that sits against Sales. Revenue is credited at the invoice's FACE VALUE and the
+             * concession is debited here, so gross sales reconcile to the documents issued and "discount given"
+             * is a single account balance. Netting the discount off revenue instead would destroy that number —
+             * a shop that discounted heavily would look identical to one that simply sold less.
+             */
+            SALES_DISCOUNT = "4200";
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
 
@@ -184,16 +193,24 @@ public class PostingService {
         BigDecimal sc = nz(r.getStoreCredit()).max(BigDecimal.ZERO).min(paid);     // store-credit redeemed (⊆ paid)
         BigDecimal cash = paid.subtract(sc);                                       // the rest of the tender is cash/card
         BigDecimal ar = grand.subtract(paid);
+        // D-4: a whole-document trade discount is CONTRA-REVENUE, not a reduction of revenue. The customer owes
+        // the discounted figure (that is `grand`), so the debit side is unchanged; instead Sales is grossed UP by
+        // the discount and the concession debited to 4200. The journal still balances:
+        //     Dr Cash/AR grand + Dr Discount d  =  Cr Sales (sub + d) + Cr Tax tax
+        // Zero/absent discount leaves the journal byte-for-byte what it was, which is every till sale.
+        BigDecimal discount = nz(r.getDiscountTotal()).max(BigDecimal.ZERO);
+
         List<JournalLineDTO> lines = new ArrayList<>();
         if (sc.signum() > 0)   lines.add(dr(STORE_CREDIT, sc));   // reduce the liability we owed the customer
         if (cash.signum() > 0) lines.add(dr(cashAccount(r.getMethod()), cash));
         if (ar.signum() > 0)   lines.add(dr(AR, ar));
+        if (discount.signum() > 0) lines.add(dr(SALES_DISCOUNT, discount));
         // Cr side = sub + tax = grand. If the caller didn't split sub/tax, credit the whole to Sales so it balances.
         if (sub.signum() > 0 || tax.signum() > 0) {
-            if (sub.signum() > 0) lines.add(cr(SALES, sub));
+            if (sub.signum() > 0 || discount.signum() > 0) lines.add(cr(SALES, sub.add(discount)));
             if (tax.signum() > 0) lines.add(cr(TAX, tax));
         } else {
-            lines.add(cr(SALES, grand));
+            lines.add(cr(SALES, grand.add(discount)));
         }
         post("SALE", r.getDate(), r.getRef(), lines);
 

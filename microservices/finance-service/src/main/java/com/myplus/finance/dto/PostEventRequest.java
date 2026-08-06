@@ -25,4 +25,6 @@ public class PostEventRequest {
     private BigDecimal paidAmount;
     private String method;
     private BigDecimal storeCredit;   // SALE = redeemed (Dr 2200); SALE_RETURN = issued (Cr 2200); null/0 = cash posting
+    /** B2B-P4b / D-4: whole-document trade discount → Dr 4200 Sales Discount (contra-revenue), Sales stays gross. */
+    private BigDecimal discountTotal;
 }

@@ -496,6 +496,54 @@ its setting was wired to its consumer in the same slice that introduced it, and 
 directions. **Either wire the eligibility flag onto the marksheet and report card, or delete it** — the
 decision is small, and leaving it is the one thing the standards explicitly call worse than not having it.
 
+### 9c. Addendum — re-review 2026-08-06 (post-3.1b, mid-slice)
+
+**Surface: 35 domain entities · Flyway V1–V24 · 21 unit test classes · 37 education Cypress specs.** N1 and
+3.1b between them added **zero** domain entities — the split trigger has not moved since 3.1 (§9b).
+
+**The programme's most valuable finding to date came from checking a precondition, not from building.**
+3.3 was next by the plan. Verifying its precondition surfaced that **education's ~74 read endpoints carry no
+`@PreAuthorize`** — correct while every authenticated user is staff, and a data breach the moment a guardian
+can sign in. Had 3.3 been built as scheduled, it would have been a second unreachable portal on top of an
+unguarded read surface. **The plan was right about the destination and wrong about the order**, and only a
+precondition check could have shown that.
+
+#### Standards position of the two newest slices
+
+| | N1 | 3.1b |
+|---|---|---|
+| Reuse-first | 3rd use of `OutboxRelay` — no new pattern | reused `createOrgUser`'s shape, the existing reset-token flow, and `GatewayIdentityForwarding` |
+| Named pattern | transactional outbox | policy enforcement point + allowlist |
+| Fail direction | fails **ON** (a missing notice is worse than a duplicate) | fails **CLOSED** (an unguarded read is worse than an unreachable portal) |
+| C1/C2 | flag read on the path it governs, both directions gated | allowlist is the control; **see the new §1c candidate below** |
+| Tests on build | `CoverNoticeBuilderTest`, 9 pure | `PortalScopeFilterTest`, 12 pure |
+| Status | ✅ **green** | 🔨 **7/9 — not done** |
+
+#### New standard candidate for `SAAS-BUILD-STANDARDS.md` §1c
+
+> **A fail-closed control must ship with a working LOCAL configuration, or the feature it guards is
+> untestable — and untestable paths ship broken.**
+
+3.1b is the evidence: `PortalAccountController` correctly refuses when no internal secret is configured, and
+because `INTERNAL_SECRET` defaults to empty, **portal account provisioning cannot succeed in the default
+local setup at all**. The control is right; shipping it without a local switch is not. Related, and equally
+generalisable, from the same gate:
+
+> **Assert the PROPERTY, not the status code, whenever a status can be produced by more than one mechanism.**
+
+Case 5 asserted a bare status, got `200`, and a status alone cannot distinguish *a followed redirect* from
+*a guardian reading the roster*. Rewritten to assert "no student data comes back, whatever the status", it
+passed at once and identified the mechanism.
+
+#### Debt this slice pays and creates
+
+- **Pays:** 3.1 §6's carried requirement — `Guardian.email` is now verified, because the set-password token
+  is the only way in and a typo'd address simply never becomes an account.
+- **Creates:** `GatewayClient` now relays downstream 404s as 404 (was a generic 500) — a **monolith-wide**
+  behaviour change requiring a broad staff smoke. And it exposed that the catch-all
+  `@ExceptionHandler(Exception.class)` **outranks any unordered advice**, so other typed exceptions may be
+  silently becoming 500s platform-wide. Unexamined.
+
 ### Recommended order from here
 
 | # | Work | Why now |
@@ -535,7 +583,7 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 2.4 homework | ✅ done | `slices/edu-2.4-homework.md` | `education/homework.cy.js` |
 | 2.5 discipline log | ✅ done — **Phase 2 complete**; amended 2026-08-04 (`guardianInformed`, V23) and **the re-run is GREEN** | `slices/edu-2.5-discipline-log.md` | `education/behaviour.cy.js` |
 | **3.1 guardian portal** | ✅ **DONE & Cypress-green 11/11 (2026-08-04)** — but **has no users until 3.1b** | `slices/edu-3.1-guardian-portal.md` | `education/guardian-portal.cy.js` |
-| **3.1b portal sign-in** | 🔨 **IMPLEMENTED 2026-08-06, awaiting build + gate.** Carries the ungated-reads finding; adds `PortalScopeFilter` (deny-by-default) to **`common-security`**, so every service is affected | `slices/edu-3.1b-portal-sign-in.md` | `education/portal-sign-in.cy.js` |
+| **3.1b portal sign-in** | 🔨 **gate 7/9 — NOT done (2026-08-06).** ✅ **The deny rule is PROVEN**: a real guardian session gets 404 from staff reads. ❌ one write case returns 500 not 404, unexplained. ⚠️ **OPEN DECISION**: provisioning cannot work locally because `INTERNAL_SECRET` defaults empty and the control fails closed (§10) | `slices/edu-3.1b-portal-sign-in.md` | `education/portal-sign-in.cy.js` |
 | **N1 notification outbox** (non-phase) | ✅ **DONE & Cypress-green 11/11 (V24, 2026-08-06)** + `substitution.cy.js` green as the 2.2 regression. Scope was corrected to **2.2 only**: 2.4 has no hook and 2.5 must not send | `slices/edu-N1-notification-outbox.md` | `education/notification-outbox.cy.js` |
 
 ### Carried requirements (must not be lost between slices)
