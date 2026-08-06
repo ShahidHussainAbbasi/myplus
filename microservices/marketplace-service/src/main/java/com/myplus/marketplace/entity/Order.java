@@ -29,6 +29,16 @@ public class Order {
     @Column(name = "invoice_no")
     private String invoiceNo;          // the trade sale this order is
 
+    /**
+     * OMS O1 — did this order reach the books? {@code POSTED} once business-service returned an invoice;
+     * {@code LEGACY_UNPOSTED} for orders placed before O1, which produced no sale and are not back-posted
+     * (that would write revenue into closed periods). Makes the pre-O1 backlog findable instead of
+     * indistinguishable from a fresh order.
+     */
+    @Builder.Default
+    @Column(name = "books_status", nullable = false, length = 20)
+    private String booksStatus = "LEGACY_UNPOSTED";
+
     @Column(name = "customer_name")
     private String customerName;
 

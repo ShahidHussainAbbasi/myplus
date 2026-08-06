@@ -69,6 +69,11 @@ public class SecurityConfig {
                                 "/api/auth/verify-email",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
+                                // Slice 3.1b — portal account provisioning. Exempt from the JWT chain
+                                // because the caller is a SERVICE, not a user; PortalAccountController
+                                // enforces X-Internal-Secret itself and FAILS CLOSED when none is
+                                // configured, so this is not an unauthenticated surface.
+                                "/api/auth/portal/**",
                                 "/actuator/**"
                         ).permitAll()
                         .anyRequest().authenticated()

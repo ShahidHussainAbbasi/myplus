@@ -135,7 +135,21 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                                 + "homework for THEIR OWN children only — never another family's, and "
                                 + "never anything staff-facing. Turn this off to close the portal "
                                 + "immediately for everyone without withdrawing individual invitations.",
-                        false, "Guardian portal")
+                        false, "Guardian portal"),
+                // ── Slice N1: the cover-assigned notice. Default ON and, per standard C3, it also FAILS
+                // ON — if the setting cannot be read the notice is still queued. The failure mode of an
+                // extra email is noise; the failure mode of a missing one is a teacher not knowing they
+                // are covering a class. Deliberately the opposite of edu.portal.enabled above, where the
+                // unsafe direction is disclosure and the safe state is therefore off.
+                SettingEntry.bool("edu.notify.coverAssigned",
+                        "Email a teacher when they are assigned cover",
+                        "On (default): when a teacher is assigned to cover an absent colleague's lesson, "
+                                + "they are emailed the class, period, subject and date. Off: cover is "
+                                + "still recorded and still shows on the substitution screen, but nothing "
+                                + "is sent — for schools that assign cover verbally at the morning "
+                                + "briefing. A teacher with no email address on record is never emailed "
+                                + "either way, and the screen says so when that happens.",
+                        true, "Staff attendance")
         );
     }
 }

@@ -1,0 +1,166 @@
+package com.myplus.business_service.service;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.myplus.business_service.entity.Customer;
+import com.myplus.business_service.entity.CustomerHistory;
+import com.myplus.business_service.entity.PaymentMethod;
+import com.myplus.business_service.entity.Sell;
+import com.myplus.business_service.repository.SaleReturnRepo;
+import com.myplus.commerce.contracts.dto.PostingEventRequest;
+import com.myplus.commerce.contracts.dto.StockImportLine;
+import com.myplus.commerce.contracts.dto.StockReturnLine;
+import com.myplus.commerce.contracts.dto.StockReturnRequest;
+
+/**
+ * Voiding an invoice — the books-safe reversal, extracted from {@code SellController.voidSell} so it has exactly
+ * ONE implementation.
+ *
+ * <h3>Why it moved (OMS O1)</h3>
+ * A storefront cancellation must reverse the sale it created, and after O1 there IS one. The reversal a
+ * cancellation needs is precisely this: restore inventory, refund what was paid, zero the header, stamp VOID,
+ * recompute the customer's due, and post the aggregate GL reversal. Copying that into the internal endpoint
+ * would have produced a second reversal path — the exact defect O1 exists to delete — so the body moved here and
+ * both callers use it.
+ *
+ * <h3>What stayed with the callers</h3>
+ * Resolution and access control: finding the invoice, {@code inMyTenant}, {@code myStore}, and the
+ * {@code VOID_INVOICE} privilege on the human-facing endpoint. Each caller knows its own trust rules; the
+ * internal endpoint's rule is different (internal-secret + org match), and folding them together here would mean
+ * one of them was wrong.
+ *
+ * <h3>What is intrinsic to voiding and therefore lives HERE</h3>
+ * Already-void, a return already recorded, and the period lock. Those are properties of the operation, not of
+ * who is asking, so every caller must get them.
+ *
+ * <p>A void is deliberately NOT a delete: the header survives, stamped VOID and read-only, and a
+ * {@code SALE_RETURN} GL event nets Sales + AR back to zero. Hard-deleting a sale was retired precisely because
+ * it bypassed all of this and silently drifted the books.
+ */
+@Service
+public class SaleVoidService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SaleVoidService.class);
+
+    @Autowired private ISellService sellService;
+    @Autowired private ICustomerHistoryService customerHistoryService;
+    @Autowired private ICustomerService customerService;
+    @Autowired private PaymentService paymentService;
+    @Autowired private StoreCreditService storeCreditService;
+    @Autowired private GlOutboxService glOutboxService;
+    @Autowired private AuditService auditService;
+    @Autowired private PeriodLockGuard periodLockGuard;
+    @Autowired private SaleReturnRepo saleReturnRepo;
+    @Autowired private com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
+
+    /** Why a void was refused. The caller turns this into its own wire shape (GenericResponse / HTTP status). */
+    public static class VoidRefused extends RuntimeException {
+        public VoidRefused(String message) { super(message); }
+    }
+
+    /**
+     * Reverse an invoice in place.
+     *
+     * @param ch          the invoice, ALREADY resolved and access-checked by the caller
+     * @param reason      free text recorded on the header and in the audit trail
+     * @param quarantine  P11: pharmacy no-restock — returned stock goes to quarantine instead of sellable
+     * @return the invoice's original grand total (what was reversed)
+     * @throws VoidRefused when the invoice is already void or a return was already recorded against it
+     */
+    @Transactional
+    public BigDecimal voidInvoice(CustomerHistory ch, String reason, boolean quarantine, Long orgId, Long userId) {
+        if (ch == null) throw new VoidRefused("Invoice not found.");
+        if ("VOID".equals(ch.getStatus()))
+            throw new VoidRefused("This invoice is already voided.");
+        if (saleReturnRepo.countByInvoiceScoped(ch.getInvoiceNo(), orgId, userId) > 0)
+            throw new VoidRefused("A return was already recorded on this invoice; void is not allowed. Reconcile manually.");
+        // Period close: a void zeroes the ORIGINAL invoice in place, so its period must still be open.
+        periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : LocalDate.now());
+
+        Long chId = ch.getCustomer_history_id();
+        List<Sell> lines = sellService.findByInvoiceScoped(chId, orgId, userId);
+        String reservationId = ch.getReservationId();
+
+        // Reverse every line: restore inventory + accumulate COGS. The Sales/Tax/AR reversal uses the header's
+        // POSTED totals (captured below), NOT per-line totalAmount (pre-discount) — see the GL enqueue note.
+        BigDecimal retCost = BigDecimal.ZERO;
+        for (Sell s : lines) {
+            float qty = s.getQuantity() != null ? s.getQuantity() : 0f;
+            if (s.getProductId() != null && reservationId != null) {
+                StockReturnRequest rr = new StockReturnRequest(List.of(new StockReturnLine(s.getProductId(), qty)));
+                rr.setQuarantine(quarantine);
+                inventoryClient.returnStock(reservationId, rr);
+            } else if (s.getProductId() != null) {
+                inventoryClient.importStock(List.of(
+                        StockImportLine.builder().productId(s.getProductId()).quantity(qty).build()));
+            }
+            retCost = retCost.add(nzbd(s.getCostPrice()).multiply(BigDecimal.valueOf(qty)));
+            sellService.deleteById(s.getSellId());
+        }
+
+        // Header: return whatever was paid, zero the totals, stamp VOID. SF-5 Model B: the portion paid WITH store
+        // credit is returned AS store credit (re-issued, not cash) so we don't hand out cash the sale never took;
+        // the rest is a cash REFUND.
+        BigDecimal refund = nzbd(ch.getPaidAmount());
+        BigDecimal scPaid = paymentService.forInvoice(chId).stream()
+                .filter(p -> p.getMethod() == PaymentMethod.STORE_CREDIT)
+                .map(p -> nzbd(p.getAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal creditReissue = refund.min(scPaid);                 // credit portion → back as credit
+        BigDecimal cashRefund = refund.subtract(creditReissue).max(BigDecimal.ZERO);
+        if (cashRefund.signum() > 0)
+            paymentService.refund(chId, cashRefund, orgId, userId);
+        if (creditReissue.signum() > 0 && ch.getCustomer() != null && ch.getCustomer().getCustomerId() != null)
+            storeCreditService.issue(ch.getCustomer().getCustomerId(), creditReissue, "RETURN", ch.getInvoiceNo());
+
+        // GL reversal MUST mirror exactly what the SALE posted — the header totals (post-discount). Do NOT rebuild
+        // from Sell.totalAmount (that is the PRE-discount qty×rate, so a discounted invoice would over-reverse Sales
+        // AND AR by the discount amount, drifting the books). Capture the posted totals BEFORE zeroing the header.
+        BigDecimal origSub = nzbd(ch.getSubTotal()), origTax = nzbd(ch.getTaxTotal()),
+                origGrand = nzbd(ch.getGrandTotal());
+        // B2B-P3f: a void zeroes the header, so WITHOUT this the statement would read an issued value of 500
+        // with nothing offsetting it and overstate every voided invoice by its full amount.
+        if (ch.getIssuedTotal() == null)
+            ch.setIssuedTotal(origGrand);
+        ch.setSubTotal(BigDecimal.ZERO);
+        ch.setTaxTotal(BigDecimal.ZERO);
+        ch.setGrandTotal(BigDecimal.ZERO);
+        ch.setPaidAmount(BigDecimal.ZERO);
+        ch.setDueAmount(BigDecimal.ZERO);
+        ch.setStatus("VOID");
+        ch.setVoidedBy(userId);
+        ch.setVoidedAt(LocalDateTime.now());
+        ch.setVoidReason(reason);
+        ch.setUpdated(LocalDateTime.now());
+        customerHistoryService.save(ch);
+
+        Customer customer = ch.getCustomer();
+        if (customer != null)
+            customerService.recomputeDue(customer);
+
+        // GL: one aggregate SALE_RETURN reversing the whole invoice with the SAME (post-discount) totals the sale
+        // posted, so Sales + AR net back to zero exactly. COGS is per-line (cost is never discounted). Best-effort.
+        try {
+            if (origGrand.signum() > 0)
+                glOutboxService.enqueue(PostingEventRequest.builder()
+                        .eventType("SALE_RETURN").date(LocalDate.now()).ref(ch.getInvoiceNo())
+                        .grandTotal(origGrand).subTotal(origSub).taxTotal(origTax).cost(retCost).paidAmount(refund)
+                        .method("CASH").storeCredit(creditReissue).build());   // re-issued credit portion → Cr 2200
+        } catch (Exception glEx) {
+            LOG.warn("voidInvoice GL reversal enqueue failed (void applied)", glEx);
+        }
+
+        auditService.record("VOID_SALE", "INVOICE", ch.getInvoiceNo(), origGrand, reason);   // #6
+        return origGrand;
+    }
+
+    private static BigDecimal nzbd(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
+}

@@ -79,10 +79,15 @@ party bridge · scoped indexes · drop dead medicine schema). Catalog is at **V8
 
 ```bash
 docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
-  "SELECT MAX(version) FROM myplusdb_pharma.flyway_schema_history WHERE success=1;"   # -> 6
+  "SELECT version FROM myplusdb_pharma.flyway_schema_history
+    WHERE success=1 ORDER BY installed_rank DESC LIMIT 1;"    # -> 6
 docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
-  "SELECT MAX(version) FROM myplusdb_catalog.flyway_schema_history WHERE success=1;"  # -> 8
+  "SELECT version FROM myplusdb_catalog.flyway_schema_history
+    WHERE success=1 ORDER BY installed_rank DESC LIMIT 1;"    # -> 8
 ```
+
+> **Not `MAX(version)`** — that column is a VARCHAR, so `MAX()` sorts lexically and a schema at V36 reports
+> `9`. Order by `installed_rank`.
 
 A lower number means the jar predates the migration — rebuild (§2) before going further.
 

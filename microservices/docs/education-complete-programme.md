@@ -10,6 +10,7 @@ updated 2026-08-04. Supersedes `education-feature-gap-analysis.md` (kept as the 
 | **Phase 1** | 1.1 academic year & term · 1.2 examinations · 1.3 marks entry · 1.4 grading scales · 1.5 report cards · 1.6 promotion — **all six green** |
 | **Review** | findings A (cross-tenant save takeover), B (fee validation), C (privilege gating), D (analytics perf) fixed; E partly |
 | **Phase 2** ✅ | 2.1 timetable · 2.2 substitution · 2.3 staff attendance & leave · 2.4 homework · 2.5 behaviour log — **all five green** |
+| **Now 2026-08-06** | **N1 notification outbox ✅ DONE & green (V24)** — the third use of the shared `OutboxRelay`; 2.2's cover notice is a real send at last. **Next: 3.3 student portal or 3.5 notices** — 3.2 still waits on D-4, and **guardian sign-in must land before 3.2**. Two platform changes this plan now accounts for: see **§9a**. |
 | **Now** | Phase 3.1 guardian portal — ✅ **DONE & green 11/11 (2026-08-04)**, V22 applied. **Naming settled with it: the domain word is GUARDIAN, never "parent"** — see §0a. 2.5 was amended to match (V23) and its re-run is green. **Next: 3.3 or 3.5 — 3.2 waits on D-4.** _(Notification remains the strongest non-phase candidate: 2.2 + 2.4 + 2.5 all want a real send.)_ |
 
 **Goal:** an education management system complete enough for a department of education — every stakeholder,
@@ -92,8 +93,9 @@ row (student) is 3.3._
 
 ## 2. Current state
 
-**Measured 2026-08-04, and the metric CORRECTED (see below): 35 domain entities · 33 controllers ·
-39 services · 38 repositories · Flyway V1–V23.**
+**Measured 2026-08-06 (post-N1): 35 domain entities · 33 controllers · Flyway V1–V24 · 20 unit test
+classes · 36 Cypress specs.** _(The metric itself was corrected on 2026-08-04 — see the box below. N1 added
+a table but **zero** domain entities, so this count is unchanged since 3.1; §9b.)_
 _(As first written, 2026-07-30: 15 entities · 19 controllers · 22 screens · Flyway V1–V7 — kept so the
 distance travelled is visible.)_
 
@@ -147,7 +149,8 @@ Per §1.2/§1.3, each need is first checked against an existing service.
 | Library stock, school assets | **REUSE** | `inventory-service` | issue/return needs a thin education layer |
 | Owner-configurable policy | **REUSE** | `common-settings` | |
 | Guardian / student login | **REUSE** | `auth-service` | new user types + roles, not a new identity system |
-| **Documents** (certificates, photos, homework attachments) | **NEW** | `document-service` | genuinely cross-cutting — pharmacy needs Rx scans, business needs receipt images. Per microservice-standards this earns its own service |
+| **Documents** (certificates, photos, homework attachments) — *storage of binaries* | **NEW** | `document-service` | genuinely cross-cutting — pharmacy needs Rx scans, business needs receipt images. Per microservice-standards this earns its own service. **Gated on D-5** |
+| **Document layout & printing** — *rendering, not storage* | **REUSE** (added 2026-08-06) | `DocumentRenderer` + document designer | Built for B2B invoices: server-validated field whitelist, owner-editable profile, **one render function for preview and print**. Education's report card, fee receipt and transfer certificate are candidates. **Currently module-scoped in `js/business/` — promote to common before the second consumer, not after.** Shape assessment needed: the whitelist is invoice-shaped (header/line/totals). See §9a |
 | **Payroll** (salary, deductions, payslips) | **NEW** | `payroll-service` | distinct bounded context; posts to `finance-service` GL. Needed by education AND business staff |
 | Exams · marks · grading · report cards · timetable · homework | **BUILD IN** `education-service` | — | education's core domain, not cross-cutting. Stays put |
 
@@ -219,8 +222,9 @@ Six phases. Each numbered item is one **slice** = Document → Design → Implem
 | Slice | What |
 |---|---|
 | **3.1** ✅ **DONE & green** | **Guardian portal** — results, attendance, dues, homework for *my* children. **CORRECTED: the `GUARDIAN` user type does NOT exist** — `Membership.role` is free text whose javadoc merely lists it. The real work is a CHILD-scoped access shape, not a new role — `slices/edu-3.1-guardian-portal.md` |
-| **3.2** | **Online fee payment** — guardian pays; settles the AR from 0.2 |
-| **3.3** | **Student portal** — timetable, results, homework, materials |
+| **3.1b** 📐 **DESIGN — BLOCKING** | **Portal sign-in** — the account 3.1 deliberately did not build, **plus the deny rule that must ship with it.** ⚠️ **Education's READ endpoints are ungated** (`getUserStudent`, `getUserGuardian`, `getMarksSheet`, `getUserFc` — verified 2026-08-06, zero `@PreAuthorize`). That is safe only while every authenticated user is staff; **the day a guardian can sign in, it is a data breach**. Answer = a deny-by-default `PortalScopeFilter` in `common-security`, not 74 annotations — `slices/edu-3.1b-portal-sign-in.md`. **3.2 and 3.3 both depend on this** |
+| **3.2** | **Online fee payment** — guardian pays; settles the AR from 0.2. **Needs 3.1b** (you cannot pay if you cannot sign in) |
+| **3.3** | **Student portal** — timetable, results, homework. **Needs 3.1b** — building it first would be a SECOND portal nobody can log into. _(materials await D-5)_ |
 | **3.4** | **Guardian–teacher meetings** — booking via `appointment-service` |
 | **3.5** | **Notices / circulars** — school→guardian broadcast via `campaign-service` |
 
@@ -399,11 +403,104 @@ was wrong and an 0.3 status that contradicted the progress log two tables away.
    `notification-service` and sends alert email through it today. What is missing is that 2.2/2.4/2.5's
    three hooks log instead of calling the client that already exists — hours of work, not a slice.
 
+### 9a. Addendum — re-review 2026-08-06 (education did not move; the platform did)
+
+**No education code changed between 2026-08-04 and 2026-08-06.** Verified: no education commits, Flyway
+still ends at V23, no `notify_outbox`. **The programme is blocked on one thing — N1's design is awaiting
+approval**, and nothing else in Phase 3 is startable ahead of it without abandoning the cadence.
+
+Two changes landed in *other* modules that this plan must now account for, both found by re-reading the
+diff rather than by assuming education is self-contained:
+
+**1. `party-service` V3 added an account hierarchy — and its own migration header names education.**
+
+> *"The hierarchy lives HERE, not in business-service, because it is identity STRUCTURE — the same shape
+> **Education corporate sponsors** and Welfare corporate donors already need."*
+
+`party` gained `parent_party_id` + `account_level`, with `account_level` defaulting to `INDIVIDUAL` and every
+`ADD` guarded on `information_schema`.
+
+- **Impact on education today: none, and that is verified, not assumed.** Education's bridge
+  (`PartyBridgeService`, `Student.partyId`) reads identity, not structure, and every existing party is
+  correctly described as `INDIVIDUAL`.
+- **Impact on the plan: a capability education will want now exists and must not be rebuilt.** A corporate
+  sponsor paying fees for a group of students is company→branch→contact — the exact shape just built. When
+  that requirement appears, it composes `party-service`; it does not become an education table.
+
+**2. A document-profile renderer + owner designer was built for B2B invoices — and education has at least
+three printable documents that will otherwise each grow their own print code.**
+
+`DocumentRenderer` (`js/business/receipt.js`) is a data-driven engine: a server-validated field whitelist
+(`/documentFields`), an owner-editable profile, presets, and **one render function used by both the preview
+and the printer** — its own comment notes that a preview drawn by a second implementation eventually lies
+about what comes out of the printer.
+
+| Education document | Today | Bearing |
+|---|---|---|
+| Report card (1.5) | `print.css`, D7 — deliberately not `document-service` | the closest structural match: rows + an aggregate, like lines + totals |
+| Fee receipt / voucher (0.2) | bespoke | a receipt is what the engine was built for |
+| Transfer certificate (4.2) | not built | **check reuse BEFORE building it** — this is §1.3 in its literal form |
+
+- **Honest caveat:** the whitelist is **invoice-shaped** (`header` / `line` / `totals`) and the presets are
+  trade documents. A report card is subject rows plus a term aggregate — structurally similar, not identical.
+  This is a **reuse candidate needing a shape assessment**, not a drop-in.
+- **It also sits in the wrong place for reuse.** `js/business/` is module scope; the DRY standard puts shared
+  code in a common module. Reusing it means **promoting `DocumentRenderer` out of `business/` first** — and
+  that is much cheaper now, with one consumer, than after education writes the second copy.
+- **It does not replace `document-service` (D-5).** That is *storage of binaries*; this is *layout and
+  rendering*. Two different halves — worth stating so the D-5 decision is not thought to be resolved.
+
+### 9b. Addendum — re-review 2026-08-06 (post-N1)
+
+**Measured, not restated: 35 domain entities · 33 controllers · Flyway V1–V24 · 20 unit test classes ·
+36 education Cypress specs.**
+
+**The headline is that the domain did not grow.** `entity/` is now **50 files** — 39 `@Entity`, 11 enums —
+but **four** of those are infrastructure (`GlOutbox`, `AuditOutbox`, `OrgSetting`, and now `NotifyOutbox`),
+so by the metric §3 pins the domain count is **still 35**, exactly where 3.1 left it.
+
+> **This is the metric earning its keep, one slice after it was defined.** A raw file count would now read
+> **50 against a ~40 threshold** and demand an immediate service split. The truth is that N1 added a *table*
+> and **zero domain entities** — outbox plumbing is not the domain getting large. Had the earlier, wrong
+> count survived, the next reader would have split `education-academic-service` off on the strength of a
+> notification queue.
+
+#### N1 against the standards
+
+| Standard | N1 |
+|---|---|
+| **Reuse-first (§1.3)** | ✅ third use of `OutboxRelay`; **no new pattern and no new state machine** |
+| **Cross-service atomicity** | ✅ transactional outbox — the notice commits with the decision |
+| **Performance** | ✅ HTTP moved **off** the write path; 3 point lookups instead of a 4-table helper |
+| **Config C1/C2** | ✅ `edu.notify.coverAssigned` is **read inside `queue()`**, the path it governs, and the gate asserts catalog *and* both consumer directions |
+| **DB D3** | ✅ `idx_notify_outbox_org` + the relay's `(status, id)` queue index |
+| **DRY** | ✅ `send()` delegates to the new `sendTo()` — one sender, one retry loop |
+| **Tests on build** | ✅ `CoverNoticeBuilderTest`, 9 pure cases, no Docker |
+
+**N1 introduced no new violations.**
+
+#### The standing violations, re-checked (not assumed)
+
+| Gap | Status |
+|---|---|
+| `getUserFc` returns raw `FeeCollection` entities | ❌ **unchanged** — verified at line 119 |
+| `edu.exam.minAttendancePercent` registered, **zero consumers** | ❌ **unchanged — and now carried across FOUR slices** (1.5 → 1.6 → 3.1 → N1) |
+| Student `attendance` has no UNIQUE key | ❌ unchanged |
+| 12 dup-checks cheap but still racy | ❌ unchanged |
+| No empty-tenant Testcontainers test | ❌ unchanged |
+
+**`edu.exam.minAttendancePercent` should now be escalated or dropped.** It is a live **C1 violation** — a
+flag nothing reads — sitting in the catalog of a shipped product, and it has survived four consecutive
+slices by being someone else's problem each time. N1 just demonstrated the cost of the opposite discipline:
+its setting was wired to its consumer in the same slice that introduced it, and the gate proves both
+directions. **Either wire the eligibility flag onto the marksheet and report card, or delete it** — the
+decision is small, and leaving it is the one thing the standards explicitly call worse than not having it.
+
 ### Recommended order from here
 
 | # | Work | Why now |
 |---|---|---|
-| 1 | **Notification** — but **NOT the "hours of wiring" this row first claimed.** Only 2.2's hook is a genuine wiring gap; 2.4 has no hook at all and 2.5 must not send (see the carried requirement). And an already-written design, **`slices/105-notification-multichannel-broadcast.md`**, records that `notification-service` **has no database**: delivery is synchronous on the request thread, unrecorded, and never retried (its G3). Wiring 2.2 straight to `EmailService.send()` would add a fourth synchronous un-retried send on a write path — knowingly building on the defect 105 exists to fix | **decision needed: slice 105 first, or an education-side notify outbox, or defer** |
+| ~~1~~ ✅ **DONE (N1, 2026-08-06)** | **Notification** — and **NOT the "hours of wiring" this row first claimed.** Only 2.2's hook is a genuine wiring gap; 2.4 has no hook at all and 2.5 must not send (see the carried requirement). And an already-written design, **`slices/105-notification-multichannel-broadcast.md`**, records that `notification-service` **has no database**: delivery is synchronous on the request thread, unrecorded, and never retried (its G3). Wiring 2.2 straight to `EmailService.send()` would add a fourth synchronous un-retried send on a write path — knowingly building on the defect 105 exists to fix | **decision needed: slice 105 first, or an education-side notify outbox, or defer** |
 | 2 | **3.3 student portal** | reuses 3.1's `ChildResolver` shape while it is fresh; 3.2 is blocked on D-4 anyway |
 | 3 | **3.5 notices/circulars** | composes `campaign-service` — closes another §1.2 row |
 | 4 | **Dup-check audit → UNIQUE constraints** + student `attendance` UNIQUE key | two live check-then-act races, both known, both deferred on D5 grounds that an audit would settle |
@@ -437,8 +534,9 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 2.3 staff attendance & leave | ✅ done | `slices/edu-2.3-staff-attendance-leave.md` | `education/staff-leave.cy.js` |
 | 2.4 homework | ✅ done | `slices/edu-2.4-homework.md` | `education/homework.cy.js` |
 | 2.5 discipline log | ✅ done — **Phase 2 complete**; amended 2026-08-04 (`guardianInformed`, V23) and **the re-run is GREEN** | `slices/edu-2.5-discipline-log.md` | `education/behaviour.cy.js` |
-| **3.1 guardian portal** | ✅ **DONE & Cypress-green 11/11 (2026-08-04)** | `slices/edu-3.1-guardian-portal.md` | `education/guardian-portal.cy.js` |
-| **N1 notification outbox** (non-phase) | 📐 **DESIGN — awaiting approval**, no code written. Scope corrected to **2.2 only**: 2.4 has no hook and 2.5 must not send | `slices/edu-N1-notification-outbox.md` | `education/notification-outbox.cy.js` (planned) |
+| **3.1 guardian portal** | ✅ **DONE & Cypress-green 11/11 (2026-08-04)** — but **has no users until 3.1b** | `slices/edu-3.1-guardian-portal.md` | `education/guardian-portal.cy.js` |
+| **3.1b portal sign-in** | 🔨 **IMPLEMENTED 2026-08-06, awaiting build + gate.** Carries the ungated-reads finding; adds `PortalScopeFilter` (deny-by-default) to **`common-security`**, so every service is affected | `slices/edu-3.1b-portal-sign-in.md` | `education/portal-sign-in.cy.js` |
+| **N1 notification outbox** (non-phase) | ✅ **DONE & Cypress-green 11/11 (V24, 2026-08-06)** + `substitution.cy.js` green as the 2.2 regression. Scope was corrected to **2.2 only**: 2.4 has no hook and 2.5 must not send | `slices/edu-N1-notification-outbox.md` | `education/notification-outbox.cy.js` |
 
 ### Carried requirements (must not be lost between slices)
 
@@ -454,8 +552,10 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | 2.4 D6 → **D-5 / 4.3** | `HomeworkSubmission.documentRef` is a nullable column **nothing writes**, held for `document-service`. Justified (the alternative is migrating a table with real data) but it is the same shape as the `Student.fee` unreachable-field finding — keep it documented or an audit will read it as a defect | when D-5 lands |
 | 3.1 §6 → **before any real school** | `Guardian.email` is unverified free text, and it becomes a portal login identity. Invitation-only limits it, but a typo invites a stranger to a child's record. **Needs email verification** | open |
 | 3.1 D4 → **behaviour in the portal** | 2.5's notes were written with no expectation a guardian would read them; exposing them retroactively changes that contract. Needs a per-note 'shared with guardian' decision | own slice |
-| 2.2 → **notification** | **CORRECTED 2026-08-04 — this row used to say "2.2 + 2.4 + 2.5 all want a real send". Only 2.2 does.** Verified against the code and the slice docs: <br>• **2.2 cover assigned — YES.** `SubstitutionController.notifyCoverBestEffort` calls `appUtil.li(...)`, not the client. A genuine wiring gap. <br>• **2.4 homework set — there is NO hook.** `HomeworkController` contains no notify call of any kind; 2.4 §6 lists guardian notification as *deferred scope*. It is a **new feature with class-sized fan-out**, not a wiring fix. <br>• **2.5 guardian informed — NOT A SEND, and wiring it would be a defect.** 2.5 §98 defines `guardianInformed` as *"the school ticks it when they have spoken to the guardian"* — a record that a human conversation already happened. D5 says the slice deliberately does not reach notification-service. Emailing on that tick would send a second, machine-written message about a conversation that already took place. <br>**PRECISION: education DOES compose `notification-service`** — `AlertController` → `EmailService` → `NotificationClient` → `lb://notification-service` works today. | open — see slice 105 |
+| 2.2 → **notification** | **CORRECTED 2026-08-04 — this row used to say "2.2 + 2.4 + 2.5 all want a real send". Only 2.2 does.** Verified against the code and the slice docs: <br>• **2.2 cover assigned — YES.** `SubstitutionController.notifyCoverBestEffort` calls `appUtil.li(...)`, not the client. A genuine wiring gap. <br>• **2.4 homework set — there is NO hook.** `HomeworkController` contains no notify call of any kind; 2.4 §6 lists guardian notification as *deferred scope*. It is a **new feature with class-sized fan-out**, not a wiring fix. <br>• **2.5 guardian informed — NOT A SEND, and wiring it would be a defect.** 2.5 §98 defines `guardianInformed` as *"the school ticks it when they have spoken to the guardian"* — a record that a human conversation already happened. D5 says the slice deliberately does not reach notification-service. Emailing on that tick would send a second, machine-written message about a conversation that already took place. <br>**PRECISION: education DOES compose `notification-service`** — `AlertController` → `EmailService` → `NotificationClient` → `lb://notification-service` works today. | ✅ **DONE & green (N1, 2026-08-06)** — 2.2 now queues through `notify_outbox`. **2.4 and 2.5 remain deliberately unwired**, for the reasons above |
 | 2.5 D6 → **safeguarding** | confidential disclosures need read-auditing and a narrower access tier — explicitly NOT what `behaviour_note` is for, recorded so no school misuses it | own initiative |
+| platform → **4.2 / 4.3 / 1.5 reprint** | **`DocumentRenderer` exists (2026-08-06) and education must check it before building any new printable document.** Report card, fee receipt, transfer certificate. Needs promoting out of `js/business/` to common scope first — cheapest with one consumer. Does NOT resolve D-5, which is binary *storage* | §9a |
+| platform → **corporate fee sponsors** | `party-service` V3 (2026-08-06) added company→branch→contact, and its own header names education corporate sponsors as a target shape. When sponsored fees are requested, **compose party-service — do not add an education table** | when requested |
 | 2.4 D4 → **continuous assessment** | homework deliberately does NOT feed the report card: 1.5's aggregate is a published number and adding a source would change its meaning silently. Needs its own weighting slice | own slice |
 | 2.3 §6 → **platform** | student `attendance` has **no UNIQUE key** on (org, student, date) — the same check-then-act race as finding D, still open. Found while designing 2.3 | open |
 | 2.3 D4 → **holiday calendar** | leave-day arithmetic cannot skip weekends/public holidays: the platform has no such concept, and the weekend is not Sat–Sun everywhere this ships | own slice |

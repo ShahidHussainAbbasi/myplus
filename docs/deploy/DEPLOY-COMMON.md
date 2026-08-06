@@ -118,9 +118,66 @@ curl -I http://localhost:8080/login                 # monolith 200
 ### Stop / clean
 
 ```powershell
-docker compose down            # keep data
-docker compose down -v         # ALSO drop the MySQL volume (destroys all data)
+docker compose stop            # ← use this. Stops containers, changes nothing else
+docker compose up -d           # ← and this to bring them back
 ```
+
+> ### ⛔ Never run `down` on a production host
+>
+> ```powershell
+> docker compose down          # removes containers + networks. Named volumes SURVIVE.
+> docker compose down -v       # ALSO DELETES THE MySQL VOLUME. No prompt. No undo.
+> ```
+>
+> There is no reason to `down` a running production stack. `up -d` already replaces whatever changed,
+> in place — that is what a redeploy is. `down` only adds the chance of typing `-v` after it.
+>
+> **`down -v` is not the only way to lose the data.** A plain `down` run from the **wrong directory** is
+> just as bad and much easier to do: Compose derives the project name from the directory, so
+> `~/myplus/microservices` and `~/myplus` are two different projects. Starting up from the wrong one
+> creates a **brand-new empty volume**, the app comes up with no data, and the real volume is still
+> sitting there untouched — looking exactly like data loss when nothing was deleted at all.
+>
+> **On the VPS, always deploy with the prod override**, which makes the volume `external` so Docker
+> refuses to delete it even if `-v` is passed:
+>
+> ```bash
+> docker volume create myplus-mysql-data          # once, ever
+> docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full up -d
+> ```
+>
+> See `microservices/docker-compose.prod.yml` for the one-time migration of an existing volume.
+
+### "I ran `down` and my data is gone" — check before you despair
+
+Most of the time it is not gone. Work through this in order:
+
+```bash
+# 1. Which volumes exist? The data is in whichever one is ~hundreds of MB, not KB.
+docker volume ls | grep -i mysql
+docker system df -v | grep -i mysql
+
+# 2. Look inside a candidate without mounting it into MySQL.
+#    A live database shows ibdata1, mysql/, and a directory per myplusdb*.
+docker run --rm -v <volume-name>:/v alpine sh -c 'ls -la /v | head -30'
+
+# 3. If the right volume exists but the stack made a new empty one, you are in the
+#    wrong-project-name case. Confirm:
+docker compose ls -a          # shows every project name Compose knows about
+```
+
+If step 2 shows your `myplusdb*` directories, **the data is intact** — the stack is just pointed at a
+different volume. Recover by starting the stack from the correct directory, or by copying the good
+volume into the one the stack now uses:
+
+```bash
+docker compose stop mysql
+docker run --rm -v <good-volume>:/from -v <volume-in-use>:/to alpine sh -c 'cd /from && cp -a . /to'
+docker compose up -d mysql
+```
+
+If the volume is genuinely gone, only a backup recovers it — which is why `backup-db.sh` below is not
+optional.
 
 > **The stale-jar trap.** `docker compose up --build` copies `target/*.jar`. Running `mvn compile`
 > refreshes `target/classes` but **not** the jar — so the container runs old code while the source looks
@@ -255,10 +312,33 @@ mvn -q -DskipTests clean package -f pom.xml
 mvn -q -DskipTests clean package -f ../pom.xml       # monolith
 docker compose up -d --build
 
-# Backup / restore
-docker compose exec mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases' > backup-$(date +%F).sql
-docker compose exec -T mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' < backup-2026-01-01.sql
+# Backup / restore  -  use the script, not a hand-typed dump
+./backup-db.sh                                       # all 16 DBs, one consistent point in time
+zcat backups/myplus-2026-08-06-0230.sql.gz | \
+  docker compose exec -T -e "MYSQL_PWD=$DB_PASSWORD" mysql mysql -uroot     # restore
 ```
+
+### Backups — schedule this on day one
+
+`microservices/backup-db.sh` dumps every database in **one** `--single-transaction` snapshot, gzips it,
+verifies the archive is valid *and* contains the `myplusdb` schema, then rotates old files. It refuses
+to write a 0-byte file that looks like a backup.
+
+```bash
+chmod +x backup-db.sh
+crontab -e
+30 2 * * * cd /root/myplus/microservices && ./backup-db.sh >> /var/log/myplus-backup.log 2>&1
+```
+
+Three rules that make the difference between a backup and the *idea* of a backup:
+
+1. **All databases in one dump.** They are interlinked — a sale in `myplusdb` references a product in
+   `myplusdb_catalog` and a payment in `myplusdb_finance`. Per-database dumps taken minutes apart
+   restore into a state that never existed.
+2. **Copy them off the box.** A dump on the same disk as the database does not survive the failure it
+   exists to protect against. `rsync -az ./backups/ user@elsewhere:/srv/myplus-backups/`
+3. **Rehearse a restore.** A backup you have never restored is a hope. Do it once on a scratch host, and
+   note how long it takes — that number is your actual recovery time.
 
 ### Log rotation (protects VPS disk)
 

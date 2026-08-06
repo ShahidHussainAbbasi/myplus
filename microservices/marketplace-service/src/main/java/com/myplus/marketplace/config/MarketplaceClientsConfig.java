@@ -46,6 +46,29 @@ public class MarketplaceClientsConfig {
                 .createClient(InventoryClient.class);
     }
 
+    /**
+     * OMS O1 — the seam that puts a storefront order into the books. business-service is the sole author of
+     * trade sales, so marketplace hands over what was bought and paid and lets the existing sale path invoice
+     * it. Same load-balanced, identity-forwarding, internal-secret-stamped recipe as the others.
+     *
+     * <p><b>No short timeout here, unlike {@link #partyClient}.</b> The party bridge is best-effort — a slow
+     * party-service should fail fast and re-link later. This call is NOT best-effort: it is the only thing that
+     * creates the invoice, and giving up early would leave stock reserved and the shopper charged with no sale
+     * in the books. It must be allowed to finish.
+     */
+    @Bean
+    public com.myplus.commerce.contracts.client.TradeClient tradeClient(@LoadBalanced RestClient.Builder builder) {
+        RestClient restClient = builder.clone()
+                .baseUrl("http://business-service")
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .requestInterceptor(internalSecretInterceptor())
+                .build();
+        return HttpServiceProxyFactory
+                .builderFor(RestClientAdapter.create(restClient))
+                .build()
+                .createClient(com.myplus.commerce.contracts.client.TradeClient.class);
+    }
+
     /** Catalog lookup for authoritative cart line pricing (slice 68) — same load-balanced, identity-forwarding,
      *  internal-secret-stamped recipe as {@link #inventoryClient}. */
     @Bean

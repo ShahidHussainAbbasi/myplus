@@ -228,6 +228,97 @@ public class AuthService {
         return r;
     }
 
+    // ── Slice 3.1b: portal accounts (guardians, later students) ───────────────────────────────────
+
+    /**
+     * Create — or LINK — the sign-in account behind a portal invitation.
+     *
+     * <p>Deliberately separate from {@link #createOrgUser}: a portal user is not a team member. They get
+     * {@code ROLE_PORTAL} (LOGIN + CHANGE_PASSWORD only), <b>no location grants</b> (a guardian belongs to no
+     * branch — their reach is defined by which children are theirs, resolved per request), and a membership
+     * role naming what they are ({@code GUARDIAN}, later {@code STUDENT}).
+     *
+     * <p><b>Create or link, never fail.</b> One adult can be a guardian at two schools on this platform, and
+     * they are one person with one login. An existing email therefore gains a membership in this
+     * organisation rather than being refused as a duplicate — which is also why this cannot reuse
+     * {@code createOrgUser}, whose {@code existsByEmail} check throws.
+     *
+     * <p><b>They cannot sign in yet, and that is the point (design D5).</b> The password is a throwaway
+     * random value nobody knows — not even the school — so the ONLY way in is the emailed set-password
+     * token. That makes the invitation double as address verification: a typo'd address never becomes a
+     * working account, it simply never gets used. This pays 3.1 §6's carried requirement that
+     * {@code Guardian.email} is unverified free text.
+     *
+     * <p>Returns the userId so the caller can record which account its invitation created.
+     */
+    @Transactional
+    public Map<String, Object> createOrLinkPortalUser(String email, Long orgId, String membershipRole) {
+        if (email == null || email.isBlank()) throw new ValidationException("Email is required");
+        if (orgId == null) throw new ValidationException("Organization is required");
+        String addr = email.trim();
+        String memberRole = (membershipRole == null || membershipRole.isBlank())
+                ? "GUARDIAN" : membershipRole.trim().toUpperCase();
+
+        Role portalRole = roleRepository.findByName("ROLE_PORTAL")
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: ROLE_PORTAL"));
+
+        User user = userRepository.findByEmail(addr).orElse(null);
+        boolean created = false;
+        if (user == null) {
+            String username = addr.split("@")[0] + "_" + System.currentTimeMillis() % 10000;
+            if (userRepository.existsByUsername(username)) {
+                username = username + "_" + UUID.randomUUID().toString().substring(0, 4);
+            }
+            user = userRepository.save(User.builder()
+                    .username(username)
+                    .email(addr)
+                    // Throwaway: the set-password email is the only way in. See the javadoc above.
+                    .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .userType("EDUCATION")
+                    .enabled(true)
+                    .accountNonLocked(true)
+                    .twoFactorEnabled(false)
+                    .roles(new HashSet<>(java.util.Collections.singletonList(portalRole)))
+                    .build());
+            created = true;
+        } else {
+            // An existing account gains the portal role; it never LOSES the roles it already had, because
+            // the same person may legitimately be staff at one school and a guardian at another.
+            user.getRoles().add(portalRole);
+            user.setEnabled(true);
+            userRepository.save(user);
+        }
+
+        organizationService.addMember(user.getId(), orgId, memberRole);   // idempotent
+        sendPasswordResetEmail(user.getEmail());                          // set-password = verification
+
+        Map<String, Object> r = new HashMap<>();
+        r.put("userId", user.getId());
+        r.put("email", user.getEmail());
+        r.put("created", created);
+        return r;
+    }
+
+    /**
+     * Withdraw a portal sign-in (revoke).
+     *
+     * <p>Disables the account so the credential stops working immediately. The {@code user} row and the
+     * membership are KEPT — "who used to be able to read this child's record" is exactly what an
+     * investigation needs, and it is the same rule 3.1 applied to {@code GuardianPortalAccess} (REVOKED,
+     * never deleted) and 1.5/1.6 applied to superseded cards and reversed promotions.
+     *
+     * <p>Silently succeeds when there is no such account: revoke must be safe to call for a guardian who
+     * was invited before accounts existed, or whose invitation was never taken up.
+     */
+    @Transactional
+    public void disablePortalUser(String email) {
+        if (email == null || email.isBlank()) return;
+        userRepository.findByEmail(email.trim()).ifPresent(u -> {
+            u.setEnabled(false);
+            userRepository.save(u);
+        });
+    }
+
     // ── Multi-location store grants (Pattern A) ───────────────────────────────────────────────────
 
     /**

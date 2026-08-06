@@ -177,6 +177,15 @@ Cypress.Commands.add('loginAsTeacherB', (email = 'teacher.b@myplus.com', passwor
   cy.loginAs(email, password, '/getDashboardData')
 })
 
+// Slice 3.1b — a PORTAL guardian (ROLE_PORTAL, seeded dev-only in the education owner's org).
+// Validates against a PORTAL path on purpose: a guardian cannot reach /getDashboardData like the logins
+// above — PortalScopeFilter refuses it — so validating there would fail every session for the right reason
+// at the wrong moment. /portal/me answers 200 whether or not an access row exists yet, which is what
+// session validation needs.
+Cypress.Commands.add('loginAsPortalGuardian', (email = 'guardian.education@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/portal/me')
+})
+
 // Show a registration section on a dashboard (business by default). Both dashboards use the
 // same off-screen #registrationType <select>, so one command serves the whole app.
 Cypress.Commands.add('openSection', (sectionValue, dashboard = '/businessDashboard') => {

@@ -172,6 +172,21 @@ public class SetupDataLoader {
         // Finer per-user roles are assigned later by the owner via the upcoming user-management form.
         createOrUpdateRole("ROLE_OWNER", superSet);
         createOrUpdateRole("ROLE_APPOINTMENT_USER", user);
+        // ---- Slice 3.1b: PORTAL. The smallest privilege set on the platform, and deliberately so. ----
+        // A guardian signing in is the first principal from OUTSIDE the organisation. They get exactly two
+        // privileges: LOGIN (without it neither the monolith's `.anyRequest().hasAuthority("LOGIN_PRIVILEGE")`
+        // nor the services would serve them anything AT ALL — including their own portal) and
+        // CHANGE_PASSWORD (their account, their password).
+        //
+        // NOT granted: READ_PRIVILEGE, WRITE_PRIVILEGE, or any GET_*/ADD_* right.
+        //
+        // ⚠ READ THIS BEFORE ADDING A PRIVILEGE HERE. Holding LOGIN_PRIVILEGE is NOT authority to read
+        // staff data. Education's ~74 READ endpoints carry no @PreAuthorize at all — they were left open
+        // because every authenticated education user used to be staff. What keeps a guardian out of them is
+        // PortalScopeFilter (common-security), not this privilege set. Widening this set does not open those
+        // reads, and narrowing it does not close them; the filter is the control. See
+        // microservices/docs/slices/edu-3.1b-portal-sign-in.md (D2/D3).
+        createOrUpdateRole("ROLE_PORTAL", pick(p, "LOGIN_PRIVILEGE", "CHANGE_PASSWORD_PRIVILEGE"));
         // Demo accounts get full module privileges (so the privilege-gated dashboards work) plus
         // DEMO_PRIVILEGE, which the UI uses to show the demo banner. The 50/module write cap is the
         // only real limit (enforced at the gateway), not the privilege set.
@@ -333,6 +348,39 @@ public class SetupDataLoader {
             }
             log.info("Multi-branch education fixture ensured in org {}: owner.education@, teacher.a@, teacher.b@",
                     eduOrg.getId());
+
+            // Slice 3.1b — a PORTAL fixture: one guardian login in the same education org.
+            //
+            // Seeded rather than created through the invitation flow because that flow deliberately sets a
+            // throwaway password and emails a set-password token (design D5) — which is exactly right for a
+            // real guardian and impossible for a test to complete, since Cypress cannot read email. Without
+            // a known-password portal account the deny rule could only ever be unit-tested, and the case
+            // that matters most — a REAL guardian session getting 404 from /getUserStudent — would go
+            // unproven end to end.
+            //
+            // The account is otherwise identical to a live one: ROLE_PORTAL (LOGIN + CHANGE_PASSWORD only)
+            // and a GUARDIAN membership. The education-side Guardian record with the matching email is
+            // created by the spec, because guardians live in education-service.
+            //
+            // Dev-only, alongside the demo.*/owner.* fixtures above and under the same seed flag.
+            Role portalRole = roleRepository.findByName("ROLE_PORTAL")
+                    .orElseThrow(() -> new IllegalStateException("ROLE_PORTAL not seeded"));
+            String guardianEmail = "guardian.education@myplus.com";
+            User g = userRepository.findByEmail(guardianEmail)
+                    .orElseGet(() -> User.builder().username("guardian_education").email(guardianEmail).build());
+            g.setPassword(passwordEncoder.encode(demoPw));
+            g.setFirstName("Portal");
+            g.setLastName("Guardian");
+            g.setEnabled(true);
+            g.setAccountNonLocked(true);
+            g.setFailedLoginAttempts(0);
+            g.setLockTime(null);
+            g.setUserType("EDUCATION");
+            g.setDemo(false);
+            g.setRoles(new HashSet<>(Collections.singletonList(portalRole)));
+            g = userRepository.save(g);
+            organizationService.addMember(g.getId(), eduOrg.getId(), "GUARDIAN");   // idempotent
+            log.info("Portal fixture ensured in org {}: {} (ROLE_PORTAL)", eduOrg.getId(), guardianEmail);
 
             // B2B P0.5 — the MULTI-MODULE fixture: ONE login that belongs to a commerce org AND a school.
             //

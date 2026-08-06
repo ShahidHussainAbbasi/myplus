@@ -1,7 +1,9 @@
 # Slice N1 — notification delivery outbox (2.2 cover-assigned)
 
-**Status: DESIGN — awaiting approval. No code written.**
-Non-phase slice, sequenced after 3.1. Flyway **V24** (`notify_outbox`).
+**Status: DONE & Cypress-GREEN — 11/11, plus `substitution.cy.js` green as the 2.2 regression (2026-08-06).**
+Findings from implementation in §8; the three infrastructure-lost runs and their root cause in §9.
+Flyway **V24**.
+Non-phase slice, sequenced after 3.1.
 Programme: `education-complete-programme.md` — carried requirement *"2.2 → notification"*.
 Related: `105-notification-multichannel-broadcast.md` (the platform-side slice; **this one does not
 supersede it** — see §2 D1).
@@ -352,3 +354,84 @@ a teacher with an email is sendable · the body names class, period, date and ro
   still pass, because the gate asserts *queued*, not *delivered*.
 - **An outbox row holds a rendered message body.** It is operational text (class, period, date) and no marks
   or behaviour data — worth keeping that way, since outbox rows outlive the event.
+
+---
+
+## 8. Implementation notes — what the code found that the design did not
+
+**1. `EmailService.send()` was refactored, not copied.** `send()` now merges the admin recipients and
+delegates to the new `sendTo()`; the per-recipient loop, the `@` check and the counting exist once.
+`AlertController` is untouched, which is the point — the broadcast contract it depends on is unchanged.
+
+**2. The channel throws on a failed send, deliberately.** `OutboxDelivery.send()` must throw for the relay
+to retry. `EmailService` reports failures as a count rather than an exception, so the channel inspects
+`failed` and throws. Swallowing it would leave the row `SENT` with nothing delivered — the exact silent-loss
+this slice exists to remove, and 0.2a's lesson about a best-effort catch hiding a real failure.
+
+**3. Three point lookups, not `lookups()`.** The controller already had a `lookups()` helper that loads
+subjects, grades, staff and periods in full. Reusing it here would load four whole tables on every
+assignment to render three names. `findByIdScoped` ×3 instead (standing performance rule).
+
+**4. The i18n went client-side, and that changed the design's checklist item.** The design said "i18n keys
+for the three outcomes". Education's service messages are English strings throughout — `GenericResponse`
+carries no locale — so localising the server sentence would have invented a pattern the service does not
+have. Instead the response carries the **machine code** (`notified`), `education.js` maps it to one of three
+new `ui.js.sbCover*` keys, and all six bundles were updated. **`NO_EMAIL` renders as `alert-warning`, not
+`alert-success`** — the cover was assigned, but nobody was told, and that is not a success.
+
+**5. No monolith change was needed.** The proxy relays the raw body (`educationClient.post(...)` returns
+`ResponseEntity<String>`), so `object.notified` survives to the browser unaltered. Verified rather than
+assumed.
+
+### Gate-spec bugs caught before the run, by verifying instead of assuming
+
+Slice 3.1's lesson — *existence is not eligibility; read the endpoint before choosing the fixture* — was
+applied to this spec while writing it, and it caught three defects that would each have cost a cycle:
+
+| # | Assumed | Actual |
+|---|---|---|
+| 1 | `/getTimetable` returns the grid | it returns `object.entries`, **not** a `collection` — and with no `termId` the query is `(:termId is null and t.termId is null)`, so it returns only null-term rows. Now reads by `gradeId`, exactly as 2.2's green spec does |
+| 2 | `saveBehaviourNote` takes `studentEnrollNo` | it takes **`enrollNo`**, and validates `occurredOn` |
+| 3 | the note type param is `noteType` | it is **`type`** — `noteType` would have been ignored and silently defaulted to `NEUTRAL`, so the test would have passed while asserting against a note it did not create |
+
+Number 3 is the interesting one: it would have produced a **green that proved nothing**, the same shape as
+2.1's skipped test-3 and 2.4's empty class.
+
+---
+
+## 9. Gate run — three runs lost to one infrastructure bug, and what it taught
+
+**Green on the fourth attempt: 11/11, with `substitution.cy.js` green alongside it.** No assertion in this
+spec had ever executed before that. **Not one of the three failures was in the slice or the spec**, and no
+slice code was changed in response to any of them.
+
+| Run | Symptom | Actual cause |
+|---|---|---|
+| 1 | `expected 500 to equal 200` in the session hook | education-service down; `/getDashboardData` is a **proxy**, so the monolith answered 500 |
+| 2 | `the org has a subject attached to a class` | **the same outage.** `/getUserSubject` returned an error body, `rows()` turned it into `[]`, and the fixture blamed the DATA |
+| 3 | `/login?error=true` | the same outage, one layer earlier — auth-service was down too, so the login POST itself was rejected |
+
+### The root cause: `start-all.ps1` used `Start-Process -NoNewWindow`
+
+Every `java.exe` was attached to the **same console** as the launching PowerShell. Console applications
+sharing a console all receive `CTRL_CLOSE_EVENT` / `CTRL_C_EVENT` when it goes away, so closing the terminal
+tab, pressing Ctrl+C, or simply letting the launching shell exit **killed all 19 services at once**.
+
+**The diagnostic signature is worth memorising: nineteen healthy JVMs stopping simultaneously, with no stack
+trace in any log — the logs just stop mid-line.** A crash leaves a trace. A dependency failure kills
+services in a staggered order. Only a console teardown does that. The monolith survived every time because
+it is launched separately, which is exactly what made the failure look like an education problem.
+
+**Fixed** by launching each service through its own hidden `powershell.exe` that does its own redirection.
+The non-obvious part: `Start-Process` must be called **without** `-RedirectStandard*` for `-WindowStyle
+Hidden` to be honoured, because redirection forces `UseShellExecute=false` and `WindowStyle` is then
+silently ignored — the naive fix yields 19 visible windows.
+
+### Two lessons that outlive this slice
+
+1. **Diagnose the fleet before the code.** Port listeners and log mtimes, first, every time. Run 2 in
+   particular read as a data problem and would have sent anyone editing fixtures for an hour.
+2. **`rows()` converts an outage into an empty list, and that is why run 2 lied.** The helper returns `[]`
+   for any response without an array, so "service down" and "no rows" are indistinguishable to every spec in
+   the suite. Making it throw on a non-collection response would turn this whole class of failure into one
+   honest message. **Follow-up, not done here** — it touches `cypress/support` and every spec.

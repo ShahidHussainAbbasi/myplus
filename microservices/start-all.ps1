@@ -132,6 +132,24 @@ try {
 if (-not (Test-Path $LOGS)) { New-Item -ItemType Directory -Path $LOGS | Out-Null }
 
 # Helper: start a service JAR in background (jar name derived from service name)
+#
+# DETACHED ON PURPOSE - do not "simplify" this back to -NoNewWindow.
+#
+# This used to be `Start-Process $JAVA -NoNewWindow -RedirectStandardOutput ...`, which attaches every
+# java.exe to the SAME console as the PowerShell that ran this script. Console applications sharing a
+# console all receive CTRL_CLOSE_EVENT / CTRL_C_EVENT when it goes away, so closing the terminal tab,
+# pressing Ctrl+C, or simply letting the launching shell exit killed all 19 services AT ONCE - silently,
+# with no stack trace, the logs just stopping mid-line. That cost three consecutive Cypress runs on
+# 2026-08-06 and is easy to misdiagnose as a service crash or missing demo data, because what you see is
+# a proxy 500 or a /login?error=true much later.
+#
+# Each service is therefore launched via its own hidden powershell.exe, which performs the redirection
+# itself. The key detail: Start-Process is called WITHOUT -RedirectStandard* here, so it uses
+# ShellExecute - and -WindowStyle Hidden is only honoured when it does. Passing redirect parameters
+# forces UseShellExecute=false, at which point WindowStyle is ignored and you get 19 visible windows.
+#
+# Log paths and names are unchanged: logs\<service>.log and logs\<service>.log.err.
+# stop-all.ps1 finds services by listening port and jar name, so it is unaffected by this.
 function Start-Svc {
     param([string]$name)
     $jarPath = Join-Path $ROOT "$name\target\$name-1.0.0-SNAPSHOT.jar"
@@ -140,15 +158,20 @@ function Start-Svc {
         return $null
     }
     $logFile = Join-Path $LOGS "$name.log"
+    $errFile = "$logFile.err"
     Write-Host "  Starting $name ..." -ForegroundColor Cyan
+
+    # Single-quoted inside the command string so spaces in the path (C:\Users\...) survive; any literal
+    # quote in a path is doubled, which is how PowerShell escapes one inside a single-quoted string.
+    $q = { param($p) "'" + ($p -replace "'", "''") + "'" }
+    $cmd = "& $(& $q $JAVA) -jar $(& $q $jarPath) 1> $(& $q $logFile) 2> $(& $q $errFile)"
+
     $procArgs = @{
-        FilePath               = $JAVA
-        ArgumentList           = @("-jar", $jarPath)
-        WorkingDirectory       = (Join-Path $ROOT $name)
-        RedirectStandardOutput = $logFile
-        RedirectStandardError  = "$logFile.err"
-        NoNewWindow            = $true
-        PassThru               = $true
+        FilePath         = 'powershell.exe'
+        ArgumentList     = @('-NoProfile', '-WindowStyle', 'Hidden', '-Command', $cmd)
+        WorkingDirectory = (Join-Path $ROOT $name)
+        WindowStyle      = 'Hidden'
+        PassThru         = $true
     }
     return (Start-Process @procArgs)
 }

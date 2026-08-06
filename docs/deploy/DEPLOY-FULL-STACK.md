@@ -128,9 +128,15 @@ failed migration is the difference between "container up" and "app actually work
 for db in myplusdb:36 myplusdb_catalog:8 myplusdb_pharma:6 myplusdb_inventory:5 \
           myplusdb_auth:5 myplusdb_finance:4 myplusdb_party:3; do
   docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
-    "SELECT '${db%%:*}', MAX(version) FROM ${db%%:*}.flyway_schema_history WHERE success=1;"
+    "SELECT '${db%%:*}', version FROM ${db%%:*}.flyway_schema_history
+      WHERE success=1 ORDER BY installed_rank DESC LIMIT 1;"
 done
 ```
+
+> **Do not use `MAX(version)` here.** `flyway_schema_history.version` is a **VARCHAR**, so `MAX()` compares
+> it lexically: a database sitting at V36 reports **`9`**, because the string `'9'` sorts above `'36'`. That
+> makes a fully-migrated schema look years out of date and sends you rebuilding jars that were fine.
+> Order by `installed_rank` (an integer, and the true apply order) instead.
 
 Expected: business `36` · catalog `8` · pharma `6` · inventory `5` · auth `5` · finance `4` · party `3`.
 A lower number means that service is running a stale jar — rebuild (§2) before going further.

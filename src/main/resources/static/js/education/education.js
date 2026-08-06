@@ -4297,7 +4297,15 @@ function assignSubstitute(timetableEntryId, coverStaffId) {
 		date: $('#sbDate').val()
 	}, function (res) {
 		if (res && res.status === 'SUCCESS') {
-			sbMessage(res.message, 'alert-success');
+			// Slice N1 — render from the machine code, not the server's English sentence, so the outcome
+			// is localised like everything else on this screen. NO_EMAIL is deliberately a WARNING: the
+			// cover was assigned but nobody has been told, and the person who just clicked is the only
+			// one in a position to go and say so.
+			var notified = (res.object && res.object.notified) || 'QUEUED';
+			var key = notified === 'NO_EMAIL' ? 'ui.js.sbCoverNoEmail'
+				: notified === 'DISABLED' ? 'ui.js.sbCoverNotifyOff'
+				: 'ui.js.sbCoverEmailed';
+			sbMessage(t(key), notified === 'NO_EMAIL' ? 'alert-warning' : 'alert-success');
 		} else {
 			// The refusal names the class the teacher is already committed to — show it verbatim.
 			sbMessage((res && res.message) || t('ui.js.sbCouldNotAssign'), 'alert-danger');

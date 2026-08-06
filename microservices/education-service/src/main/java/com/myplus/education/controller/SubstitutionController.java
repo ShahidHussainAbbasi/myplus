@@ -20,6 +20,8 @@ import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.education.entity.*;
 import com.myplus.education.repository.*;
 import com.myplus.education.service.ClashDetector;
+import com.myplus.education.service.CoverNoticeBuilder;
+import com.myplus.education.service.EduNotifyService;
 import com.myplus.education.service.FreeTeacherFinder;
 import com.myplus.education.service.FreeTeacherFinder.Candidate;
 import com.myplus.education.service.StaffAbsenceService;
@@ -44,6 +46,11 @@ public class SubstitutionController {
     @Autowired private StaffAbsenceRepository staffAbsenceRepository;
     @Autowired private SubstitutionRepository substitutionRepository;
     @Autowired private TimetableEntryRepository timetableEntryRepository;
+    /** Slice N1 — the event type and the setting that governs it, named where the decision is made. */
+    static final String COVER_ASSIGNED = "COVER_ASSIGNED";
+    static final String NOTIFY_COVER_SETTING = "edu.notify.coverAssigned";
+
+    @Autowired private EduNotifyService notifyService;
     @Autowired private PeriodRepository periodRepository;
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private GradeRepository gradeRepository;
@@ -318,11 +325,14 @@ public class SubstitutionController {
             sub.setUpdated(LocalDateTime.now());
             substitutionRepository.save(sub);
 
-            // D6: notifying the cover teacher is best-effort and happens after the decision is safe.
-            // A failed message must never lose the assignment — the school still happened.
-            notifyCoverBestEffort(cover, entry, date);
+            // D6 + N1: the notice is queued in THIS transaction, so it exists if and only if the
+            // assignment does, and is delivered after commit with a retry behind it. A failed message
+            // still never loses the assignment — but it is no longer silently lost either.
+            EduNotifyService.Outcome notified = notifyCover(cover, entry, date, org, uid);
 
-            return new GenericResponse("SUCCESS", cover.getName() + " will cover this lesson");
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("notified", notified.name());
+            return new GenericResponse("SUCCESS", coverMessage(cover, notified), out);
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
@@ -371,21 +381,58 @@ public class SubstitutionController {
     }
 
     /**
-     * Best-effort notification (D6). Swallows failure ON PURPOSE and logs it — the substitution is already
-     * committed and must not be lost because a message could not be sent.
+     * Queue the cover notice (2.2 D6, built for real in slice N1).
      *
-     * <p>Deliberately narrow: it catches only the send, never wraps the decision. Slice 0.2a's lesson —
-     * a broad best-effort catch once hid a real settlement failure.
+     * <p>Until N1 this method <b>logged</b> — the teacher was never told. It now enqueues to
+     * {@code notify_outbox} inside the caller's transaction, so the notice exists if and only if the
+     * assignment does, and delivery happens after commit with a scheduled retry behind it.
+     *
+     * <p>Still never throws: 2.2 D6 is binding — a failed message must not lose the assignment, because
+     * the school still happened. The difference is that the outcome is now RETURNED and shown to the
+     * user, instead of a log line nobody reads.
+     *
+     * <p>Three point lookups rather than {@link #lookups}, which loads four whole tables — this runs on
+     * every assignment and only ever needs three names (standing performance rule).
      */
-    private void notifyCoverBestEffort(Staff cover, TimetableEntry entry, LocalDate date) {
+    private EduNotifyService.Outcome notifyCover(Staff cover, TimetableEntry entry, LocalDate date,
+                                                 Long org, Long uid) {
         try {
-            // Routed through the same alerts path education already uses for guardians; the message is
-            // intentionally plain because it is read on a phone in a corridor.
-            appUtil.li(getClass(), "Substitution: " + cover.getName() + " covers entry "
-                    + entry.getId() + " on " + date);
+            String className = entry.getGradeId() == null ? null
+                    : gradeRepository.findByIdScoped(entry.getGradeId(), org, uid)
+                            .map(this::gradeLabel).orElse(null);
+            String subjectName = entry.getSubjectId() == null ? null
+                    : subjectRepository.findByIdScoped(entry.getSubjectId(), org, uid)
+                            .map(Subject::getName).orElse(null);
+            String periodName = entry.getPeriodId() == null ? null
+                    : periodRepository.findByIdScoped(entry.getPeriodId(), org, uid)
+                            .map(Period::getName).orElse(null);
+
+            return notifyService.queue(COVER_ASSIGNED, NOTIFY_COVER_SETTING,
+                    CoverNoticeBuilder.build(cover.getName(), cover.getEmail(), className,
+                            subjectName, periodName, date, entry.getRoom()));
         } catch (Exception e) {
+            // Narrow on purpose: it wraps only the notice, never the decision above it. Slice 0.2a's
+            // lesson — a broad best-effort catch once hid a real settlement failure.
             appUtil.le(getClass(), e);
+            return EduNotifyService.Outcome.NO_EMAIL;
         }
+    }
+
+    /**
+     * The sentence the user sees. It names what did NOT happen (design D4).
+     *
+     * <p>"Assigned" alone implies the teacher has been told. When there is no address on record, or the
+     * school has notices switched off, nobody has been told — and the person who just clicked is the only
+     * one in a position to go and say so.
+     */
+    private String coverMessage(Staff cover, EduNotifyService.Outcome notified) {
+        String base = cover.getName() + " will cover this lesson";
+        return switch (notified) {
+            case QUEUED   -> base + " — they have been emailed.";
+            case NO_EMAIL -> base + ", but they have NO email address on record, so nobody has been "
+                    + "notified. Please tell them directly.";
+            case DISABLED -> base + ". Cover emails are switched off for this school, so nothing was sent.";
+        };
     }
 
     private record Lookups(Map<Long, String> subjectNames, Map<Long, String> gradeNames,

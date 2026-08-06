@@ -125,6 +125,19 @@ public class GatewayClient {
             }
             log.warn("Downstream FORBIDDEN {} {} -> 403; body={}", method, url, abbreviate(respBody));
             throw e;
+        } catch (HttpClientErrorException.NotFound e) {
+            // Slice 3.1b. A downstream 404 is an ANSWER, not a failure, and it must reach the browser as
+            // one. Previously it fell through to the catch-all handler and became a generic 500
+            // "Error Occurred" — the same defect slice 2.1 found for other statuses (standard D3d), still
+            // present for this one.
+            //
+            // It matters here specifically: PortalScopeFilter refuses a portal principal with 404, so
+            // without this a guardian probing a staff endpoint got a 500. That still protected the data —
+            // education-service had already refused — but a 500 says "something broke", which is both
+            // untrue and more informative to a prober than the deliberate silence 404 was chosen for.
+            log.warn("Downstream NOT FOUND {} {} -> 404; body={}", method, url,
+                    abbreviate(e.getResponseBodyAsString()));
+            throw new com.web.error.DownstreamNotFoundException(e.getResponseBodyAsString());
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
             // Every other 4xx/5xx. Previously invisible: it propagated to the monolith's catch-all
             // handler, which replaced it with a generic "Error Occurred" 500 — so the service's own

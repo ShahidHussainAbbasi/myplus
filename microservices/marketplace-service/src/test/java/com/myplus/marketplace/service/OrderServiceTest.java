@@ -63,20 +63,19 @@ class OrderServiceTest {
     @Autowired private OrderService service;
     @Autowired private OrderRepository repo;
     @Autowired private OrderEventRepository orderEventRepository;   // timeline (slice 57)
-    @Autowired private OrderSagaRecoveryRelay relay;        // recovery relay (slice 52)
-    @MockitoBean private InventoryClient inventoryClient;   // reuse the inventory saga; mocked here (slice 49)
+    @MockitoBean private InventoryClient inventoryClient;   // only the legacy (pre-O1) cancel path uses this now
+    /** OMS O1: the storefront no longer reserves stock itself — it records a SALE, and business-service reserves,
+     *  invoices and confirms inside that one call. So the seam under test is TradeClient, not InventoryClient. */
+    @MockitoBean private com.myplus.commerce.contracts.client.TradeClient tradeClient;
 
     @BeforeEach
     void clean() {
         orderEventRepository.deleteAll();
         repo.deleteAll();
-        // Default: stock is available — reserve succeeds, confirm/release are no-ops.
-        when(inventoryClient.reserve(any(StockReservationRequest.class)))
-                .thenReturn(new StockReservationResponse("resv-1", ReservationStatus.RESERVED, List.of(), null));
-        when(inventoryClient.confirm(anyString()))
-                .thenReturn(new StockReservationResponse("resv-1", ReservationStatus.CONFIRMED, List.of(), null));
-        when(inventoryClient.release(anyString()))
-                .thenReturn(new StockReservationResponse("resv-1", ReservationStatus.RELEASED, List.of(), null));
+        // Default: the sale records fine and comes back with the SERVER's invoice number and total.
+        when(tradeClient.recordSale(any(com.myplus.commerce.contracts.dto.SaleRecordRequest.class)))
+                .thenReturn(com.myplus.commerce.contracts.dto.SaleRecordResult.builder()
+                        .invoiceNo("INV-SF-1").grandTotal(new BigDecimal("20.00")).status("RECORDED").build());
     }
 
     private OrderDTO.Line line(Long productId, int qty) {
@@ -105,86 +104,97 @@ class OrderServiceTest {
     }
 
     @Test
-    void public_card_payment_succeeds_and_marks_the_order_paid() {
+    void public_card_payment_records_a_SALE_and_marks_the_order_paid() {
         OrderDTO o = service.placePublic(storefront("Card Buyer", "CARD", "ok"));
         assertThat(o.getSource()).isEqualTo("STOREFRONT");
         assertThat(o.getPaymentMode()).isEqualTo("CARD");
         assertThat(o.getPaymentStatus()).isEqualTo("PAID");
         assertThat(o.getPaymentRef()).startsWith("ch_sandbox_");
-        assertThat(o.getReservationId()).isEqualTo("resv-1");   // stock reserved
-        verify(inventoryClient, times(1)).reserve(any());
-        verify(inventoryClient, times(1)).confirm("resv-1");    // and confirmed (decremented)
+        // O1: the order now carries the trade sale it produced, and is marked as having reached the books.
+        assertThat(o.getInvoiceNo()).isEqualTo("INV-SF-1");
+        assertThat(repo.findById(o.getId()).orElseThrow().getBooksStatus()).isEqualTo("POSTED");
+        verify(tradeClient, times(1)).recordSale(any());
+        // Marketplace no longer runs its own reservation saga — business-service reserves inside the sale.
+        verify(inventoryClient, never()).reserve(any());
     }
 
     @Test
-    void public_card_decline_releases_the_hold_and_blocks_the_order() {
+    void public_card_decline_VOIDS_the_sale_and_blocks_the_order() {
         org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
                 () -> service.placePublic(storefront("Declined", "CARD", "fail")));
         assertThat(repo.findScoped(ORG, USER)).isEmpty();   // no order created
-        verify(inventoryClient, times(1)).release("resv-1");  // compensating release ran
-        verify(inventoryClient, never()).confirm(anyString());
+        // The sale is recorded BEFORE the charge (so the server's total is charged), therefore a decline must
+        // reverse it — otherwise the books would carry revenue for an order the shopper never paid for.
+        verify(tradeClient, times(1)).reverseSale(eq("INV-SF-1"), anyString());
     }
 
     @Test
-    void public_cod_order_is_pending_and_reserves_stock() {
+    void public_cod_order_is_pending_and_still_reaches_the_books() {
         OrderDTO o = service.placePublic(storefront("COD Buyer", "COD", null));
         assertThat(o.getPaymentMode()).isEqualTo("COD");
         assertThat(o.getPaymentStatus()).isEqualTo("PENDING");
-        assertThat(o.getReservationStatus()).isEqualTo("CONFIRMED");   // inline confirm succeeded
-        verify(inventoryClient, times(1)).reserve(any());
-        verify(inventoryClient, times(1)).confirm("resv-1");
+        // Unpaid does NOT mean unbooked: a COD order is a receivable, exactly like an unpaid counter sale.
+        assertThat(o.getInvoiceNo()).isEqualTo("INV-SF-1");
+        verify(tradeClient, times(1)).recordSale(any());
     }
 
     @Test
-    void relay_reconfirms_a_pending_reservation() {
-        Order pending = repo.save(Order.builder()
-                .organizationId(ORG).source("STOREFRONT")
-                .reservationId("r-pending").reservationStatus("PENDING")
-                .fulfilmentStatus(FulfilmentStatus.NEW).build());
-
-        relay.reconfirmPending();
-
-        verify(inventoryClient, times(1)).confirm("r-pending");
-        assertThat(repo.findById(pending.getId()).orElseThrow().getReservationStatus()).isEqualTo("CONFIRMED");
-    }
-
-    @Test
-    void relay_ignores_already_confirmed_orders() {
-        repo.save(Order.builder()
-                .organizationId(ORG).source("STOREFRONT")
-                .reservationId("r-done").reservationStatus("CONFIRMED")
-                .fulfilmentStatus(FulfilmentStatus.NEW).build());
-
-        relay.reconfirmPending();
-
-        verify(inventoryClient, never()).confirm("r-done");
+    void the_sale_request_carries_no_client_total() {
+        // OMS-5: the client's total must not be trusted. It is not merely ignored — the contract has no field
+        // for it, and the order stores the SERVER's figure returned by the sale.
+        OrderDTO d = storefront("Total Liar", "CARD", "ok");
+        d.setTotal(new BigDecimal("0.01"));           // a shopper claiming the order costs one paisa
+        OrderDTO o = service.placePublic(d);
+        assertThat(o.getTotal()).isEqualByComparingTo("20.00");   // the server's total, not the client's
     }
 
     @Test
     void out_of_stock_blocks_the_order_and_never_charges() {
-        when(inventoryClient.reserve(any(StockReservationRequest.class)))
-                .thenReturn(new StockReservationResponse(null, ReservationStatus.OUT_OF_STOCK, List.of(), "no stock"));
+        // The sale refuses (business-service could not reserve), so nothing is invoiced AND nothing is charged —
+        // the charge only happens after a sale exists.
+        when(tradeClient.recordSale(any(com.myplus.commerce.contracts.dto.SaleRecordRequest.class)))
+                .thenThrow(new RuntimeException("OUT_OF_STOCK"));
         org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
                 () -> service.placePublic(storefront("NoStock", "CARD", "ok")));
-        assertThat(repo.findScoped(ORG, USER)).isEmpty();     // no order
-        verify(inventoryClient, never()).confirm(anyString()); // never decremented
-        verify(inventoryClient, never()).release(anyString()); // nothing was held to release
+        assertThat(repo.findScoped(ORG, USER)).isEmpty();          // no order
+        verify(tradeClient, never()).reverseSale(anyString(), anyString());   // nothing to reverse
     }
 
     @Test
-    void cancelling_a_storefront_order_returns_its_stock() {
+    void cancelling_a_storefront_order_VOIDS_its_invoice() {
         OrderDTO o = service.placePublic(storefront("Cancel Me", "COD", null));
         OrderDTO cancelled = service.updateStatus(o.getId(), "CANCELLED", ORG, USER);
         assertThat(cancelled.getFulfilmentStatus()).isEqualTo("CANCELLED");
-        verify(inventoryClient, times(1)).returnStock(eq("resv-1"), any(StockReturnRequest.class));
+        // O1: returning stock alone would leave the revenue booked. The void restores stock AND reverses the
+        // books in one operation, so P&L and the tax register stay right.
+        verify(tradeClient, times(1)).reverseSale(eq("INV-SF-1"), anyString());
+        verify(inventoryClient, never()).returnStock(anyString(), any(StockReturnRequest.class));
     }
 
     @Test
-    void re_cancelling_does_not_return_stock_twice() {
+    void re_cancelling_does_not_reverse_twice() {
         OrderDTO o = service.placePublic(storefront("Twice", "COD", null));
         service.updateStatus(o.getId(), "CANCELLED", ORG, USER);
         service.updateStatus(o.getId(), "CANCELLED", ORG, USER);   // idempotent — already cancelled
-        verify(inventoryClient, times(1)).returnStock(eq("resv-1"), any(StockReturnRequest.class));
+        verify(tradeClient, times(1)).reverseSale(eq("INV-SF-1"), anyString());
+    }
+
+    @Test
+    void cancelling_a_legacy_order_with_no_invoice_still_returns_stock() {
+        // Pre-O1 orders (books_status=LEGACY_UNPOSTED) have no sale to reverse, so inventory is the only thing
+        // to put back. They must keep working — they are real orders in a live shop.
+        Order legacy = repo.save(Order.builder()
+                .organizationId(ORG).source("STOREFRONT")
+                .reservationId("resv-legacy").booksStatus("LEGACY_UNPOSTED")
+                .fulfilmentStatus(FulfilmentStatus.NEW)
+                .items(List.of(com.myplus.marketplace.entity.OrderItem.builder()
+                        .productId(100L).quantity(1).build()))
+                .build());
+
+        service.updateStatus(legacy.getId(), "CANCELLED", ORG, USER);
+
+        verify(inventoryClient, times(1)).returnStock(eq("resv-legacy"), any(StockReturnRequest.class));
+        verify(tradeClient, never()).reverseSale(anyString(), anyString());
     }
 
     @Test

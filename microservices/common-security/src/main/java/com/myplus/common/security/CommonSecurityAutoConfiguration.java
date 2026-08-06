@@ -49,6 +49,22 @@ public class CommonSecurityAutoConfiguration {
     }
 
     /**
+     * Slice 3.1b — denies portal principals every path this service has not explicitly allowlisted.
+     *
+     * <p>Auto-registered for EVERY servlet service, and <b>fails closed</b>: with no
+     * {@code myplus.portal.allowlist} configured, a portal session reaches nothing here. That is the
+     * property which makes portal sign-in safe to add without auditing all thirteen services — a service
+     * that has never heard of the portal denies it by doing nothing.
+     *
+     * <p>Education sets {@code myplus.portal.allowlist=/portal/**}.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public PortalScopeFilter portalScopeFilter(@Value("${myplus.portal.allowlist:}") String allowlist) {
+        return new PortalScopeFilter(PortalScopeFilter.parseAllowlist(allowlist));
+    }
+
+    /**
      * Server-side XSS input sanitization (defense-in-depth). Auto-registered for every servlet
      * service on the classpath; a service may override by defining its own bean.
      */

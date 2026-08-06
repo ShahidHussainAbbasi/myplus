@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.myplus.commerce.contracts.client.AuthAccountClient;
 import com.myplus.common.security.AuthenticatedUser;
 import com.myplus.education.entity.*;
 import com.myplus.education.repository.*;
@@ -36,6 +37,13 @@ import com.myplus.education.util.RequestUtil;
  */
 @Controller
 public class PortalAccessController {
+
+    /**
+     * Slice 3.1b. Optional so education-service still starts in a deployment where auth-service is not
+     * wired — inviting then reports that the sign-in could not be created, rather than the whole service
+     * failing to come up over a feature most of its screens do not use.
+     */
+    @Autowired(required = false) private AuthAccountClient authAccountClient;
 
     @Autowired private GuardianPortalAccessRepository portalAccessRepository;
     @Autowired private GuardianRepository guardianRepository;
@@ -138,16 +146,34 @@ public class PortalAccessController {
             portalAccessRepository.save(access);
 
             int children = studentRepository.findByGuardianScoped(guardianId, org).size();
+
+            // Slice 3.1b — the invitation now creates the SIGN-IN ACCOUNT, not just the access row.
+            // auth-service sends the set-password email, and that email is what verifies the address:
+            // until the token is used nobody can sign in, so a typo'd address simply never becomes an
+            // account (3.1 §6's carried requirement). Failure is surfaced, NOT swallowed: an access row
+            // whose account was never created is a guardian who will never be able to log in, and the
+            // school must find that out now rather than when the family calls.
+            String accountProblem = provisionAccount(access.getEmail(), org);
+
             auditService.record("PORTAL_ACCESS_INVITED", "Guardian", String.valueOf(guardianId),
-                    "email=" + access.getEmail() + " children=" + children);
+                    "email=" + access.getEmail() + " children=" + children
+                            + (accountProblem == null ? " account=ok" : " account=FAILED"));
 
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("id", access.getId());
             out.put("childCount", children);
+            out.put("account", accountProblem == null ? "OK" : "FAILED");
             // The count is surfaced because "you have just given this address sight of 2 children's
             // records" is the fact the person clicking needs, and it is invisible otherwise.
-            return new GenericResponse("SUCCESS",
-                    guardian.getName() + " invited — this grants sight of " + children + " child(ren)", out);
+            String msg = guardian.getName() + " invited — this grants sight of " + children + " child(ren)";
+            if (accountProblem != null) {
+                // The access row stands, so a retry is just "invite again" — but the school is told plainly
+                // that no sign-in exists yet, rather than being left to assume the guardian can log in.
+                return new GenericResponse("PARTIAL", msg
+                        + ". The sign-in could NOT be created, so they cannot log in yet — try inviting "
+                        + "again. (" + accountProblem + ")", out);
+            }
+            return new GenericResponse("SUCCESS", msg + ", and a set-password email has been sent", out);
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
@@ -181,13 +207,71 @@ public class PortalAccessController {
             access.setUpdated(LocalDateTime.now());
             portalAccessRepository.save(access);
 
+            // Slice 3.1b — withdraw the SIGN-IN too, not just the access row. Leaving the account enabled
+            // would let a revoked guardian keep logging in: 3.1's ChildResolver would refuse them every
+            // read, so they would see nothing — but "can still authenticate" is not what a school means by
+            // revoked, and it is the wrong thing to have to explain afterwards.
+            // Best-effort ON PURPOSE, and the opposite choice to invite: the access row is ALREADY revoked
+            // by the time this runs, so the guardian can read nothing regardless. Failing the whole
+            // operation because auth-service was slow would leave the school unable to revoke at all.
+            String accountProblem = withdrawAccount(access.getEmail());
+
             auditService.record("PORTAL_ACCESS_REVOKED", "Guardian",
-                    String.valueOf(access.getGuardianId()), "email=" + access.getEmail());
+                    String.valueOf(access.getGuardianId()), "email=" + access.getEmail()
+                            + (accountProblem == null ? " signIn=disabled" : " signIn=STILL_ENABLED"));
             // Takes effect on the guardian's NEXT request: nothing about their access is cached (D1).
+            if (accountProblem != null) {
+                return new GenericResponse("SUCCESS", "Portal access revoked — they can no longer see "
+                        + "anything. Their sign-in could not be disabled just now and will be retried; "
+                        + "it grants no access on its own.");
+            }
             return new GenericResponse("SUCCESS", "Portal access revoked");
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
+        }
+    }
+
+    // ── Slice 3.1b: the sign-in account behind the access row ─────────────────────────────────────
+
+    /**
+     * Create or link the guardian's login. Returns null on success, else a short reason.
+     *
+     * <p>Returns a reason rather than throwing so the caller can report a PARTIAL outcome: the access row
+     * is already committed, and the school needs to know the difference between "invited" and "invited but
+     * they cannot actually log in yet".
+     *
+     * <p>Not queued through the outbox: the school is standing at the screen, and an invitation that will
+     * be created in thirty seconds is indistinguishable to them from one that failed. The set-password
+     * EMAIL is auth-service's to send and retry.
+     */
+    private String provisionAccount(String email, Long orgId) {
+        if (authAccountClient == null) return "account service unavailable";
+        try {
+            Map<String, Object> req = new LinkedHashMap<>();
+            req.put("email", email);
+            req.put("organizationId", orgId);
+            req.put("role", "GUARDIAN");
+            authAccountClient.createOrLink(req);
+            return null;
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            String m = e.getMessage();
+            return (m == null || m.length() > 120) ? "account service error" : m;
+        }
+    }
+
+    /** Disable the guardian's login. Returns null on success, else a short reason. Best-effort — see caller. */
+    private String withdrawAccount(String email) {
+        if (authAccountClient == null) return "account service unavailable";
+        try {
+            Map<String, Object> req = new LinkedHashMap<>();
+            req.put("email", email);
+            authAccountClient.disable(req);
+            return null;
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return "account service error";
         }
     }
 }

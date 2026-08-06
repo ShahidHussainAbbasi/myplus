@@ -1,0 +1,47 @@
+# =============================================================================
+# PRODUCTION OVERRIDE - makes the database volume impossible to delete by accident.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full up -d
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# In the base compose file `mysql-data` is an ordinary named volume. Docker will happily delete an
+# ordinary volume when asked - `docker compose down -v` does exactly that, and there is no confirmation
+# prompt and no undo. One mistyped flag on a production host destroys every tenant's data.
+#
+# Declaring the volume `external: true` changes that at the engine level: Docker treats the volume as
+# owned by someone else and REFUSES to remove it. `down -v` skips it and says so. The volume outlives
+# the stack, which is the correct relationship - the containers are disposable, the data is not.
+#
+# ONE-TIME SETUP on the host (the volume must exist before the stack starts):
+#
+#   docker volume create myplus-mysql-data
+#
+# MIGRATING an existing stack without losing data - copy the old volume into the new one first:
+#
+#   docker compose stop mysql
+#   docker volume create myplus-mysql-data
+#   docker run --rm -v microservices_mysql-data:/from -v myplus-mysql-data:/to alpine \
+#     sh -c 'cd /from && cp -a . /to'
+#   docker run --rm -v myplus-mysql-data:/v alpine sh -c 'ls /v | head'   # verify: ibdata1, myplusdb, ...
+#
+# Only then bring the stack up with this override. Keep the old volume until you have confirmed the app
+# works and a backup has been taken - it costs nothing to leave it there.
+#
+# This does NOT replace backups. An external volume protects against `down -v`; it does not protect
+# against a failed disk, a bad migration, or `docker volume rm` typed deliberately. See backup-db.sh.
+# =============================================================================
+services:
+  mysql:
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    # Never publish the database port on a public host. The services reach it over the private compose
+    # network; nothing outside the host has any business connecting. The base file publishes 3306 for
+    # local convenience, which on a VPS is an open door.
+    ports: !reset []
+
+volumes:
+  mysql-data:
+    external: true
+    name: myplus-mysql-data

@@ -217,7 +217,10 @@ migration landed rather than assuming:
 docker compose logs business-service | grep -i "migrat\|flyway" | tail -5
 # expect a line reporting the schema is now at version 36 (V36 = customer credit account)
 docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
-  "SELECT MAX(version) FROM myplusdb.flyway_schema_history WHERE success=1;"   # -> 36
+  "SELECT version FROM myplusdb.flyway_schema_history
+    WHERE success=1 ORDER BY installed_rank DESC LIMIT 1;"   # -> 36
+# NOT MAX(version): that column is a VARCHAR, so MAX() compares lexically and a schema
+# at V36 reports '9' ('9' > '36' as strings) — a fully-migrated DB looks stale.
 ```
 
 If it reports a lower version, the jar is stale — rebuild it (§3.2) before going further. A container that

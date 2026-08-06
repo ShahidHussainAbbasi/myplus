@@ -25,3 +25,18 @@ education:
   alerts:
     admin-recipients: ${ALERT_ADMIN_RECIPIENTS:uncer_sh@yahoo.com,email2uncer@gmail.com}
     from: ${ALERT_FROM:maxtheservice@gmail.com}
+
+# ── Slice 3.1b: the ONLY paths a portal principal (a signed-in guardian) may reach here ──────────────
+# Enforced by PortalScopeFilter (common-security), which DENIES everything else with a 404.
+#
+# This single line is what stops a guardian's session reading the whole school. Education's ~74 read
+# endpoints carry no @PreAuthorize — they were left open because every authenticated education user used
+# to be staff, which stopped being true the moment portal sign-in shipped. Removing or widening this
+# entry re-opens them; there is no second control behind it.
+#
+# The filter fails CLOSED: with this property absent, guardians reach NOTHING here (the portal 404s),
+# which is the correct direction to fail but presents as "the portal is broken". Do not delete it to
+# "fix" that — the fix is to set it correctly.
+myplus:
+  portal:
+    allowlist: /portal/**

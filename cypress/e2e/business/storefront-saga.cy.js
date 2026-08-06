@@ -41,7 +41,11 @@ describe('E-commerce — storefront order decrements inventory via the saga', ()
       expect(r.status).to.eq(200)
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.source).to.eq('STOREFRONT')
-      expect(r.body.data.reservationId, 'order carries the inventory hold').to.be.a('string')
+      // OMS O1: the order no longer carries a reservationId. Marketplace stopped running its own reserve/confirm
+      // saga — it records a SALE, and business-service reserves, invoices and confirms inside that one call. So
+      // the thing the order carries now is the INVOICE, which is the point of O1: before it, a storefront order
+      // decremented stock and produced no invoice at all, leaving the P&L, tax register and AR wrong.
+      expect(r.body.data.invoiceNo, 'order carries the trade sale it produced').to.be.a('string')
     })
     // confirm is inline (no relay), so on-hand should be 8 — poll briefly to be safe.
     const poll = (tries) => stockLevel().then((s) => {

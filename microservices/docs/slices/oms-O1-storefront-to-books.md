@@ -1,7 +1,93 @@
 # Slice O1 — Storefront revenue reaches the books
 
 **Phase:** P1 Correctness (OMS) · **Branch:** `feature/oms` · **Fixes:** OMS-1 (+ OMS-5 client-total).
-**Cadence:** Document → **Design (this doc — awaiting approval)** → Implement → headed Cypress gate.
+**Cadence:** Document → Design → Implement → **Gate GREEN 2026-08-06 (10/10)**.
+
+> **✅ COMPLETE.** `order-to-ledger.cy.js` 4/4 · `order-cancel.cy.js` 3/3 · `storefront-saga.cy.js` 3/3 — the
+> latter two were baselined green BEFORE the change and re-run green after, so this is verified as no-regression
+> rather than assumed.
+>
+> ⚠️ `OrderServiceTest` (17 tests) is **Testcontainers-gated and SKIPPED** on this machine — no Docker. It was
+> rewritten to the new contract and compiles, but it has not actually run. The Cypress gate is the only executed
+> evidence.
+
+> **Built on `feature/b2b-b2c`, not `feature/oms`.** Every dependency O1 needs (SF-1/SF-2 `applyInvoice`, the
+> idempotency index, GL outbox, period lock, tax) landed on `feature/b2b-b2c`. Splitting branches now would mean
+> merging them back before the gate could run. Say the word if you want the branch honoured instead.
+
+**Progress 2026-08-06 — the seam exists and is additive; nothing existing is rewired yet.**
+
+| Step | State |
+|---|---|
+| `commerce-contracts`: `TradeClient` + `SaleRecordRequest`/`SaleRecordResult` | ✅ built, installed |
+| `business-service`: `POST /internal/sales` → `SagaSellService.addSell` | ✅ built, compiles |
+| `marketplace-service`: `TradeClient` bean | ✅ built |
+| Flyway `V10` + `Order.booksStatus` (+ invoice_no / books_status indexes) | ✅ built |
+| Extract `/voidSell` body → `SaleVoidService`; add `POST /internal/sales/reverse` | ✅ |
+| `marketplace`: rewire `placePublic`; cancel → reverse; drop the duplicate saga + `OrderSagaRecoveryRelay` | ✅ |
+| `order-to-ledger.cy.js` + baseline re-run | ✅ 10/10 |
+| `OrderServiceTest` rewritten to the new contract | ⚠️ compiles, SKIPPED (no Docker) |
+| Reconciliation read (`booksStatus=LEGACY_UNPOSTED`) | ⬜ **not built — see below** |
+
+### The bug the gate caught
+
+The rewire alone was not enough, and the baseline is what exposed it. `updateStatus` and `processReturn` both
+gated their reversal on `o.getReservationId() != null` — correct before O1, when a marketplace-held reservation
+was the only thing a cancel could undo. After the rewire the storefront holds no reservation, so that guard
+**silently skipped every new order**: stock stayed decremented AND the revenue stayed booked. Both now ask the
+real question — *is there anything to reverse?* — which is an invoice (post-O1) or a reservation (pre-O1 rows,
+which still exist in live data).
+
+Two deviations from §2.2, both deliberate:
+
+- **The sale is recorded BEFORE the card is charged**, not after an authorization. `PaymentGateway` exposes
+  `charge`/`refund`, not authorize/void, and the design defers real PSP work — so rather than invent a PSP API,
+  the order is invoiced first and charged at the **server's** total. Out-of-stock therefore charges nothing at
+  all, which is a stronger property than auth-then-void.
+- **A decline voids the sale** (the compensating path), so a failed payment cannot leave revenue booked.
+
+### Still open
+
+- **Reconciliation read** (`GET /orders?booksStatus=LEGACY_UNPOSTED`) is NOT built. `books_status` is written
+  (`POSTED` on new orders, `LEGACY_UNPOSTED` default, `REVERSED` after a void) and indexed, so the data is
+  there — but there is no endpoint or screen listing the pre-O1 backlog yet. Small, and worth doing before
+  anyone needs to find those orders.
+- **A CARD tender is not passed into the sale.** COD is correct today (no tender → a receivable, like an unpaid
+  counter sale), but a paid card order records the charge on the ORDER and not as a `payment` row against the
+  invoice, so it shows as unpaid AR. §2.2 wanted the tender passed through; it needs the charge to happen before
+  the sale, which contradicts the ordering above. Resolve with the PSP slice (auth → record → capture).
+
+### ⚠️ Cancellation — a hole O1 opens, and how it closes
+
+Today cancelling a storefront order returns stock and that is *complete*, because no invoice ever existed. After
+O1 there IS one, so `updateOrderStatus → CANCELLED` would return the stock and **leave the revenue booked** —
+P&L and the tax register overstated. That is the same class of defect O1 exists to fix, pointing the other way.
+O1 must not ship without closing it.
+
+**A pre-fulfilment cancellation is a VOID, not a credit note.** A credit note is for goods that were delivered
+and came back; a storefront cancel happens at `NEW`, before anything shipped. business-service's existing
+`/voidSell` already does the whole job — restores inventory, recomputes the customer due, posts the GL reversal
+through the #4 outbox, refunds what was paid, soft-stamps `VOID` (record survives, read-only), refuses if a
+return was already recorded, **and resolves by `invoiceNo`**, which is exactly what marketplace will hold.
+
+So: no new reversal logic, and marketplace stops poking inventory directly on cancel — `returnStockQuietly`
+disappears rather than being patched around the now-null `reservationId`.
+
+**One refactor is required, and it is the standards-correct one.** `/voidSell` is a ~100-line *controller*
+method gated by `@PreAuthorize("hasAuthority('VOID_INVOICE')")`, which the anonymous storefront actor does not
+carry. Extract its body to a `SaleVoidService`, then call it from BOTH the existing controller (keeping its
+privilege gate for humans) and a new internal `POST /internal/sales/reverse` (internal-secret + org-checked,
+like `/internal/sales`). Copying the body instead would create the second reversal path this slice exists to
+remove.
+
+### Two design points worth recording from the build:
+
+- **The request carries no total.** `SaleRecordRequest` has no `total`/`subTotal`/`taxTotal` field at all. OMS-5
+  was "the client's total is trusted"; the fix is to make that figure unrepresentable on the wire rather than to
+  validate it. The channel states what was bought; the server decides what it costs.
+- **`/internal/sales` re-checks the tenant.** The org in the body must equal the AUTHENTICATED org, so an
+  in-network caller cannot book revenue into someone else's books. The identity arrives via marketplace's
+  existing `runAs(STOREFRONT_USER, org)`, so no new auth path was invented.
 **Parent:** [`platform-oms-master-reference.md`](../platform-oms-master-reference.md) §3.4 · [`order-management-design.md`](../order-management-design.md) §2.4/§3.3 (reused, not redrawn).
 
 ---

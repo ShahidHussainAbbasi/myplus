@@ -30,17 +30,37 @@ public class EmailService {
         this.notificationClient = notificationClient;
     }
 
-    /** Returns {sent, failed, recipients, errors}. */
+    /**
+     * Broadcast send — the named recipients <b>plus</b> the configured admin recipients.
+     *
+     * <p>Unchanged behaviour, used by the alerts screen: when a school emails 300 guardians, the office
+     * wants a copy of what went out.
+     *
+     * <p>Returns {sent, failed, recipients, errors}.
+     */
     public Map<String, Object> send(String subject, String body, Collection<String> recipients) {
+        Set<String> to = new LinkedHashSet<>();
+        if (recipients != null) to.addAll(recipients);
+        if (adminRecipientsCsv != null) to.addAll(List.of(adminRecipientsCsv.split(",")));
+        return sendTo(subject, body, to);
+    }
+
+    /**
+     * Targeted send — <b>exactly</b> the named recipients, with no admin CC (slice N1, design D2).
+     *
+     * <p>The admin copy is right for a broadcast and wrong for a one-person operational message: CCing the
+     * office on every cover assignment in the school is how people learn to filter the sender.
+     *
+     * <p>This is the single sender — {@link #send} delegates here — so there is one retry-and-count loop and
+     * one place where an unusable address is skipped.
+     *
+     * <p>Returns {sent, failed, recipients, errors}.
+     */
+    public Map<String, Object> sendTo(String subject, String body, Collection<String> recipients) {
         Set<String> to = new LinkedHashSet<>();
         if (recipients != null) {
             for (String r : recipients) {
                 if (r != null && r.contains("@")) to.add(r.trim());
-            }
-        }
-        if (adminRecipientsCsv != null) {
-            for (String a : adminRecipientsCsv.split(",")) {
-                if (a != null && a.contains("@")) to.add(a.trim());
             }
         }
 
