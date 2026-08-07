@@ -312,6 +312,30 @@ public class AttendanceController {
                 .body(new GenericResponse("FORBIDDEN", "Access denied"));
     }
 
+    /**
+     * The register was marked twice at once (V28's {@code uk_attendance_student_day}).
+     *
+     * <p>Marking is a read-then-write — find today's row, else insert — so two teachers marking the same
+     * class simultaneously both read "no row" and both insert. The constraint is what makes one of them
+     * lose; this handler is what tells them something true instead of a SQL error.
+     *
+     * <p><b>Handled HERE, not inside the loop, and that is deliberate.</b> A constraint violation leaves
+     * the Hibernate session unusable, so a catch inside the transaction could neither continue the batch
+     * nor report cleanly — the lesson SCHED-1 B2 paid for twice. By the time this runs the transaction has
+     * already rolled back, which preserves the batch's documented all-or-nothing behaviour: nothing is
+     * half-marked, and re-marking is safe because the other teacher's row is now simply found and updated.
+     *
+     * <p>More specific than {@link #handleUncaught}, so it wins.
+     */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    @ResponseBody
+    public GenericResponse handleDuplicateRegister(org.springframework.dao.DataIntegrityViolationException e) {
+        appUtil.le(getClass(), e);
+        return new GenericResponse("FAILED",
+                "This register was being marked by someone else at the same time, so nothing was saved. "
+                        + "Open it again and re-mark — their entries will be there.");
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseBody
     public GenericResponse handleUncaught(Exception e) {

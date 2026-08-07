@@ -2538,6 +2538,10 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/quarantine.js}"></script>
     <script th:src="@{/js/business/pharma.js}"></script>
     <script th:src="@{/js/business/ecommerce.js}"></script>
+<!-- Slice 108b: one consistent, searchable dropdown across every dashboard. Education had a blanket
+     initialiser inline in its own template; every other module had none, so business had 48 selects
+     and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->
+<script th:src="@{/js/common/searchable-selects.js}"></script>
     <script>
     /* â”€â”€ Subnav custom dropdown bridge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function snavToggle(e, id) {

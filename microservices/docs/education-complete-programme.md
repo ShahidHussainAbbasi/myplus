@@ -496,8 +496,8 @@ so by the metric §3 pins the domain count is **still 35**, exactly where 3.1 le
 | Gap | Status |
 |---|---|
 | `getUserFc` returns raw `FeeCollection` entities | ❌ **unchanged** — verified at line 119 |
-| `edu.exam.minAttendancePercent` registered, **zero consumers** | ❌ **unchanged — and now carried across FOUR slices** (1.5 → 1.6 → 3.1 → N1) |
-| Student `attendance` has no UNIQUE key | ❌ unchanged |
+| `edu.exam.minAttendancePercent` registered, **zero consumers** | ✅ **CLOSED 2026-08-07 — WIRED onto the marksheet.** Read in `getMarksSheet` over the EXAM'S TERM window, using 1.5's `summariseByStudent` aggregate (one query, not per student). A FLAG, never a block. **No attendance recorded is NOT 0%** — unknown is not zero, and flagging a child for a register the school never marked would blame them for the school's gap. Gate `exam-eligibility.cy.js` 5/5, asserting BOTH C2 halves |
+| Student `attendance` has no UNIQUE key | ✅ **CLOSED 2026-08-07 — V28 `uk_attendance_student_day (organization_id, enroll_no, att_date)`.** D5-audited first (20 rows, 2 orgs, zero duplicates), which is exactly why it could ship when finding D's twelve siblings could not. Gate: 2 cases proving the constraint did NOT break ordinary re-marking |
 | 12 dup-checks cheap but still racy | ❌ unchanged |
 | No empty-tenant Testcontainers test | ❌ unchanged |
 
@@ -616,6 +616,42 @@ double-booking cannot provide booking, whatever it is called.*
 **Fixing it belongs with the appointment vertical**, alongside the D-9 option B remodel if that is ever
 chosen: a unique key on `(organization_id, doctor_id, date_time)`, real `LocalDateTime` typing, and the
 audit-first discipline standard D5 requires for a table that already holds data.
+
+### 9e. Two standing violations CLOSED (2026-08-07)
+
+Both had been carried for months, and each closed for a reason the other did not have.
+
+**1. `edu.exam.minAttendancePercent` — WIRED, not dropped.** It had been registered since 1.6 and read by
+nothing across five slices (1.5 → 1.6 → 3.1 → N1 → 3.5), a live standard-C1 violation in a shipped catalog.
+It was wired rather than deleted because **its own catalog text already named its consumer** — *"flagged as
+ineligible on the marksheet and the report card"* — and 1.5 had already built the attendance aggregate it
+was waiting for. Nothing was missing but the wire.
+
+Three judgement calls are now pinned by `exam-eligibility.cy.js` rather than left to a reader:
+
+| | |
+|---|---|
+| the window is the **exam's TERM** | a rule about "this term's attendance" measured over the whole year would flag a student for absences before the term began |
+| **no attendance recorded is NOT 0%** | it is *unknown*. Flagging a child because the register was never marked blames them for the school's gap |
+| still a **FLAG, never a block** | students are not registered for papers individually, so there is nothing to refuse (1.5's finding, unchanged) |
+
+**2. Student `attendance` UNIQUE key — V28, `(organization_id, enroll_no, att_date)`.** The last open
+check-then-act race from finding D and slice 2.3 §6.
+
+> **The proposed key was "studentId + timestamp", and it would have enforced NOTHING.** There is no
+> `student_id` column — a student is `enroll_no` — and `dated_time` is a RECORD timestamp set on every
+> write, so two marks for the same student on the same day would carry different timestamps and both be
+> allowed. The day the attendance is *for* is `att_date`, which the entity's own comment already named as
+> the upsert key. **A unique key over a value that varies per write is decoration.**
+
+**It could ship when finding D's twelve siblings could not, purely because it was audited first** (D5): 20
+rows, 2 orgs, zero duplicate tuples, zero NULLs. Those twelve were deferred *because* a tenant holding
+duplicates would break the deploy and nobody had checked — checking is the whole difference.
+
+**What the gate can and cannot prove, stated in the spec itself:** Cypress issues requests sequentially, so
+it cannot fire the race (SCHED-1 needed ten parallel curls for that). What it proves is what actually needed
+proving — **the constraint did not break ordinary re-marking**, because a key that stops teachers correcting
+a register would be a worse defect than the race it closes.
 
 ### Recommended order from here
 

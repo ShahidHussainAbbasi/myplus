@@ -28,7 +28,17 @@
 		if (dash) {
 			// .formDiv is display:none by default; make the analytics the landing view (like
 			// business.js does for its dashboard) so charts get real canvas dimensions to draw into.
-			dash.style.display = 'block';
+			//
+			// ...but ONLY if the user has not already navigated somewhere else. This callback runs on
+			// DOM-ready, which on a slow load can land AFTER the page is painted and clickable. Setting
+			// display unconditionally then stomped whatever section the user had just opened, and the
+			// navigation vanished with no error and nothing to retry — the user simply clicked again.
+			// Checking for an already-visible panel makes the landing view a DEFAULT rather than an
+			// override, which is what it was always meant to be.
+			var alreadyOpen = Array.prototype.some.call(
+				document.querySelectorAll('.formDiv'),
+				function (el) { return el.offsetParent !== null; });
+			if (!alreadyOpen) dash.style.display = 'block';
 			loadAnalytics();
 		}
 	});

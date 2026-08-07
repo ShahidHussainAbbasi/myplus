@@ -29,10 +29,13 @@ import com.myplus.education.entity.GradeBand;
 import com.myplus.education.entity.Mark;
 import com.myplus.education.entity.Student;
 import com.myplus.education.entity.Subject;
+import com.myplus.education.entity.Term;
+import com.myplus.education.repository.AttendanceRepository;
 import com.myplus.education.repository.ExamPaperRepository;
 import com.myplus.education.repository.ExamRepository;
 import com.myplus.education.repository.MarkRepository;
 import com.myplus.education.repository.SubjectRepository;
+import com.myplus.education.repository.TermRepository;
 import com.myplus.education.service.EduAuditService;
 import com.myplus.education.service.GradingService;
 import com.myplus.education.service.MarksValidator;
@@ -58,6 +61,10 @@ public class MarkController {
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private EduAuditService auditService;
     @Autowired private GradingService gradingService;   // slice 1.4 — derived percentage + band
+    /** Exam eligibility (edu.exam.minAttendancePercent): 1.5's aggregate, reused not re-implemented. */
+    @Autowired private AttendanceRepository attendanceRepository;
+    @Autowired private TermRepository termRepository;
+    @Autowired private com.myplus.common.settings.SettingsService settingsService;
     @Autowired private StudentVisibilityService studentVisibilityService;
     @Autowired private RequestUtil requestUtil;
     @Autowired private AppUtil appUtil;
@@ -131,6 +138,47 @@ public class MarkController {
             // Slice 1.4: the grading scale, read ONCE per request rather than per student.
             List<GradeBand> scale = gradingService.scale(org, uid);
 
+            // Resolved BEFORE the roster loop: the eligibility window below needs the exam's term.
+            Exam exam = examRepository.findByIdScoped(paper.getExamId(), org, uid).orElse(null);
+
+            // ── Exam eligibility by attendance (edu.exam.minAttendancePercent) ──────────────────────
+            //
+            // Registered in 1.6 and consumed by NOTHING until now — a flag nobody reads, carried across
+            // five slices (1.5 → 1.6 → 3.1 → N1 → 3.5) as somebody else's problem. Standard C1 says a
+            // setting must be read on the path it governs, and its own catalog text names that path:
+            // "flagged as ineligible on the marksheet and the report card".
+            //
+            // A FLAG, never a block. Students are not registered for papers individually, so there is
+            // nothing for the system to refuse — 1.5 established that and it has not changed. The school
+            // acts on it; the sheet only says who is below the line.
+            //
+            // 0 disables it, which is the default and stays the default: a school that has not set a
+            // policy must not suddenly see its students marked ineligible.
+            int minAttendance = settingsService.getInt("edu.exam.minAttendancePercent", 0);
+            Map<String, Double> attendancePct = Map.of();
+            if (minAttendance > 0) {
+                // The exam's TERM is the window — an eligibility rule about "this term's attendance" that
+                // measured the whole year would flag a student for absences before the term began.
+                Term term = exam == null || exam.getTermId() == null ? null
+                        : termRepository.findByIdScoped(exam.getTermId(), org, uid).orElse(null);
+                if (term != null && term.getStartDate() != null && term.getEndDate() != null) {
+                    // ONE aggregate query for the whole roster — 1.5's summariseByStudent, reused rather
+                    // than re-implemented. Attendance is the biggest table in the service (~400k rows a
+                    // year), so a per-student query here would be finding D all over again.
+                    attendancePct = new LinkedHashMap<>();
+                    for (Object[] row : attendanceRepository.summariseByStudent(
+                            term.getStartDate(), term.getEndDate(), org, uid)) {
+                        String en = (String) row[0];
+                        long present = ((Number) row[1]).longValue();
+                        long total = ((Number) row[2]).longValue();
+                        // No attendance recorded is NOT 0% — it is unknown, and flagging a student
+                        // ineligible because the register was never marked would blame them for the
+                        // school's gap. Such students are simply absent from this map and unflagged.
+                        if (total > 0) attendancePct.put(en, (present * 100.0) / total);
+                    }
+                }
+            }
+
             List<Map<String, Object>> rows = new ArrayList<>();
             for (Student s : visibleStudents()) {
                 if (appUtil.isEmptyOrNull(s.getEnrollNo())) continue;
@@ -149,10 +197,17 @@ public class MarkController {
                 r.put("percent", pct);
                 GradeBand band = gradingService.bandFor(scale, pct);
                 r.put("grade", band == null ? null : band.getName());
+                // Eligibility: present only when the school has set a policy AND the register has
+                // something to measure. Absent means "not assessed", never "eligible" — the sheet must
+                // not imply a judgement the data cannot support.
+                Double att = attendancePct.get(s.getEnrollNo());
+                if (minAttendance > 0 && att != null) {
+                    r.put("attendancePercent", Math.round(att * 10.0) / 10.0);
+                    r.put("attendanceEligible", att >= minAttendance);
+                }
                 rows.add(r);
             }
 
-            Exam exam = examRepository.findByIdScoped(paper.getExamId(), org, uid).orElse(null);
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("examPaperId", paper.getId());
             out.put("maxMarks", paper.getMaxMarks());
@@ -161,6 +216,8 @@ public class MarkController {
             out.put("gradeName", subject == null || subject.getGrade() == null ? null : subject.getGrade().getName());
             out.put("examName", exam == null ? null : exam.getName());
             out.put("examStatus", exam == null || exam.getStatus() == null ? null : exam.getStatus().name());
+            // 0 = the check is off, which the screen needs in order to hide the column entirely.
+            out.put("minAttendancePercent", minAttendance);
             out.put("rows", rows);
             return new GenericResponse("SUCCESS", "", out);
         } catch (Exception e) {

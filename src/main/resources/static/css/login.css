@@ -173,6 +173,13 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg)}
 .btn-signin:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(13,59,140,.55)}
 .btn-signin:active{transform:translateY(0);box-shadow:0 4px 12px rgba(13,59,140,.3)}
 
+/* Anchor variant — logout.html reuses this as a LINK to /login rather than a form submit.
+   An <a> is inline, so the width:100%/height:50px above are ignored and the label lands top-left with
+   the default link underline and colour. These two rules make the anchor render identically to the
+   button; without them the logout page shows a full-width gradient bar with the text jammed in a corner. */
+a.btn-signin{display:flex;align-items:center;justify-content:center;text-decoration:none}
+a.btn-signin:hover,a.btn-signin:focus{color:#fff;text-decoration:none}
+
 /* Divider */
 .divider{display:flex;align-items:center;gap:12px;margin:22px 0}
 .divider-line{flex:1;height:1px;background:var(--border)}

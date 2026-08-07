@@ -198,7 +198,19 @@ if ($squatters.Count -eq 0) {
     # `{{range .Mounts}}` carries no double quotes, so PowerShell has nothing to strip (see above).
     foreach ($s in $squatters) {
         $mounts = @(& docker inspect $s --format '{{range .Mounts}}{{.Type}}={{.Name}};{{end}}') -join ''
-        $named = @($mounts -split ';' | Where-Object { $_ -match '^volume=(.+)$' } | ForEach-Object { $Matches[1] })
+        $vols = @($mounts -split ';' | Where-Object { $_ -match '^volume=(.+)$' } | ForEach-Object { $Matches[1] })
+
+        # An ANONYMOUS volume is a 64-char hex id Docker invents when an image declares VOLUME and the
+        # caller named nothing - `redis:7-alpine` declares VOLUME /data, so every `docker run redis` gets
+        # one. Nobody chose it, nothing else references it, and it dies with the container it was made
+        # for. Treating those as "data at risk" made this guard refuse to clean up the exact container it
+        # exists to clean up. Only a volume somebody NAMED (mysql-data, myplus-mysql-data) is evidence of
+        # deliberate state.
+        $named = @($vols | Where-Object { $_ -notmatch '^[0-9a-f]{64}$' })
+        $anon  = @($vols | Where-Object { $_ -match  '^[0-9a-f]{64}$' })
+        if ($anon.Count -gt 0) {
+            Info "$s has $($anon.Count) anonymous volume(s) - image-declared scratch space, not deliberate state"
+        }
 
         if ($named.Count -gt 0) {
             # Named volume = somebody's data. Never destroy that to reclaim a name.
@@ -210,7 +222,11 @@ Container '$s' is not compose-managed AND owns named volume(s): $($named -join '
         }
 
         Warn "reclaiming '$s' - not compose-managed, no named volumes (nothing to lose)"
-        & docker rm -f $s 2>$null | Out-Null
+        # -v removes the container's ANONYMOUS volumes with it. Without this they accumulate: every
+        # `docker run redis` that is later removed leaves an orphaned 64-hex volume behind forever.
+        # Named volumes are unaffected by -v on `docker rm` - and this branch has already proven there
+        # are none.
+        & docker rm -f -v $s 2>$null | Out-Null
         if ($LASTEXITCODE -ne 0) { Die "could not remove '$s'; remove it by hand: docker rm -f $s" }
         Ok "removed '$s' - compose will create its own on the compose network"
     }

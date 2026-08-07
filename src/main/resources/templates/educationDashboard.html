@@ -2385,7 +2385,7 @@
 			     runs. There is deliberately no "how many terms" setting — creating a term IS the
 			     configuration (design D2). "Current" is derived from today's date; the pin is the
 			     explicit override for a school holding a term open to finish entering marks (D3). -->
-			<div id="AcademicYearDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+			<div id="AcademicYearDiv" class="formDiv" data-self-load="true" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.academicYear}">Academic Year</h4>
 				<p class="text-muted" th:text="#{ui.academicYearHelp}">Define the years and terms this school runs. Exams, marks and report cards are all recorded against a term.</p>
 
@@ -2456,7 +2456,7 @@
 			     N, on a date). The class is NOT stored on a paper — a Subject already knows its Grade,
 			     so the datesheet filter derives it (design D2). Once marks exist the exam LOCKS: the
 			     fields that would restate results grey out, while rescheduling stays open (D5). -->
-			<div id="ExamDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+			<div id="ExamDiv" class="formDiv" data-self-load="true" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.examinations}">Examinations</h4>
 				<p class="text-muted" th:text="#{ui.examHelp}">Define an exam for a term, then add one paper per subject. Marks are entered against these papers.</p>
 
@@ -2542,7 +2542,7 @@
 			     (design D6) — the service enforces WRITE_PRIVILEGE + branch scope.
 			     Absent is a checkbox, not a zero (D2): they are different facts, and conflating them
 			     corrupts every average 1.4 computes. Valid rows save even when others fail (D3). -->
-			<div id="MarksDiv" class="formDiv">
+			<div id="MarksDiv" class="formDiv" data-self-load="true">
 				<h4 th:text="#{ui.marksEntry}">Marks Entry</h4>
 				<p class="text-muted" th:text="#{ui.marksHelp}">Choose an exam and paper, then enter marks for the class. Tick Absent for a student who did not sit the paper — that is not the same as zero.</p>
 
@@ -2582,7 +2582,7 @@
 			     scalar POLICIES (absence-counts-as-zero, rounding) live in Configuration with the other
 			     per-org settings, so there is one place for toggles and one for the table.
 			     Nothing is seeded: the preset is offered, never assumed (D2). -->
-			<div id="GradingDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+			<div id="GradingDiv" class="formDiv" data-self-load="true" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.gradingScale}">Grading Scale</h4>
 				<p class="text-muted" th:text="#{ui.gradingHelp}">Define the bands this school grades by. Ranges include both ends and must cover 0–100% with no gaps or overlaps. Pass/fail comes from each exam paper's pass marks, not from here.</p>
 
@@ -2627,7 +2627,7 @@
 
 			<!-- Slice 1.5 — report cards. Preview is derived; Publish snapshots (design D1), so the printed
 			     card never changes when the grading scale is re-banded later. -->
-			<div id="ReportCardDiv" class="formDiv">
+			<div id="ReportCardDiv" class="formDiv" data-self-load="true">
 				<h4 th:text="#{ui.reportCards}">Report Cards</h4>
 				<p class="text-muted" th:text="#{ui.reportCardHelp}">Preview a card from live marks, then publish it. A published card is a permanent record: correcting one issues a new version and keeps the old one.</p>
 
@@ -2684,7 +2684,7 @@
 
 			<!-- Slice 3.1 — who may sign in to the guardian portal. The portal itself is a SEPARATE page
 			     (/guardianDashboard); this screen only grants and withdraws access. -->
-			<div id="PortalAccessDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+			<div id="PortalAccessDiv" class="formDiv" data-self-load="true" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.portalAccess}">Guardian Portal Access</h4>
 				<p class="text-muted" th:text="#{ui.portalAccessHelp}">Invite a guardian to sign in and see their own children's results, attendance, fee dues and homework — nothing else, and no other family's. Access uses the email on the guardian record. Withdrawing access takes effect immediately; the record of it is kept.</p>
 
@@ -2718,7 +2718,7 @@
 
 			<!-- Slice 2.5 — behaviour log. Append-only: a correction writes a NEW note and strikes the
 			     original through (D3). Positive notes are first-class, so this is not a punishment ledger. -->
-			<div id="MeetingsDiv" class="formDiv">
+			<div id="MeetingsDiv" class="formDiv" data-self-load="true">
 				<h4 th:text="#{ui.meetings}">Parents' evenings</h4>
 				<p class="text-muted" th:text="#{ui.meetingsHelp}">Create an evening, publish each teacher's slots, then open it for booking. Families book their own slot from the guardian portal — one slot per family per teacher, and the system refuses a slot that is already taken. Closing an evening stops new bookings; it does not cancel the ones already made.</p>
 
@@ -2738,8 +2738,8 @@
 				</div>
 				<div class="row" style="margin-bottom:14px">
 					<div class="col-sm-12">
-						<button type="button" class="btn btn-primary" onclick="saveMeetingEvent()" th:text="#{label.form.save}">Save</button>
-						<button type="button" class="btn btn-link" onclick="clearMeetingForm()" th:text="#{label.form.clear}">Clear</button>
+						<button type="button" class="btn btn-primary" onclick="saveMeetingEvent()" th:text="#{ui.save}">Save</button>
+						<button type="button" class="btn btn-link" onclick="clearMeetingForm()" th:text="#{ui.clear}">Clear</button>
 					</div>
 				</div>
 
@@ -2797,7 +2797,7 @@
 				</div>
 			</div>
 
-			<div id="NoticesDiv" class="formDiv">
+			<div id="NoticesDiv" class="formDiv" data-self-load="true">
 				<h4 th:text="#{ui.notices}">Notices</h4>
 				<p class="text-muted" th:text="#{ui.noticesHelp}">Write a notice, check how many families it reaches, then publish it. Publishing makes it visible in the guardian and student portals immediately and queues an email to everyone it reaches who has an address on record. A published notice cannot be edited — publish a new one instead.</p>
 
@@ -2838,7 +2838,7 @@
 						<div id="ntReach" class="alert alert-info" style="padding:8px 12px;margin-bottom:10px"></div>
 						<button type="button" class="btn btn-default" onclick="saveNotice()" th:text="#{ui.saveDraft}">Save draft</button>
 						<button type="button" class="btn btn-primary" onclick="publishNotice()" th:text="#{ui.publish}">Publish</button>
-						<button type="button" class="btn btn-link" onclick="clearNoticeForm()" th:text="#{label.form.clear}">Clear</button>
+						<button type="button" class="btn btn-link" onclick="clearNoticeForm()" th:text="#{ui.clear}">Clear</button>
 					</div>
 				</div>
 
@@ -2858,7 +2858,7 @@
 				</div>
 			</div>
 
-			<div id="BehaviourDiv" class="formDiv">
+			<div id="BehaviourDiv" class="formDiv" data-self-load="true">
 				<h4 th:text="#{ui.behaviour}">Behaviour</h4>
 				<p class="text-muted" th:text="#{ui.behaviourHelp}">Record what happened — good as well as concerning. A note cannot be edited or deleted once saved: correcting one writes a new note and keeps the original, because the value of the record is that it says what was reported at the time.</p>
 
@@ -2926,7 +2926,7 @@
 			<!-- Slice 2.4 — homework. Set a task, then record what each student did. Submission rows are
 			     created only when there is something to record (D2), so a blank row means "nothing yet",
 			     not "did not do it". Homework deliberately does NOT feed the report card (D4). -->
-			<div id="HomeworkDiv" class="formDiv">
+			<div id="HomeworkDiv" class="formDiv" data-self-load="true">
 				<h4 th:text="#{ui.homework}">Homework</h4>
 				<p class="text-muted" th:text="#{ui.homeworkHelp}">Set a task for a subject, then record what each student did. A blank row means nothing has been recorded yet — "not done" is something you mark deliberately. Homework grades use the school's grading scale but do not count towards report cards.</p>
 
@@ -2987,7 +2987,7 @@
 
 			<!-- Slice 2.3 — the staff register. Marking ABSENT or LEAVE writes 2.2's StaffAbsence, so the
 			     lessons appear on the substitution screen immediately; correcting to PRESENT clears it. -->
-			<div id="StaffRegisterDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+			<div id="StaffRegisterDiv" class="formDiv" data-self-load="true" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.staffRegister}">Staff Register</h4>
 				<p class="text-muted" th:text="#{ui.staffRegisterHelp}">Mark who was in today. Anyone marked absent or on leave appears on the Substitution screen with their lessons needing cover. Lateness is worked out from each person's contracted start time plus the grace period in Configuration.</p>
 
@@ -3017,7 +3017,7 @@
 
 			<!-- Slice 2.3 — leave. Requesting is open (a teacher asks for their own); deciding is ADMIN,
 			     because an approval writes absences that pull other teachers into cover. -->
-			<div id="LeaveDiv" class="formDiv">
+			<div id="LeaveDiv" class="formDiv" data-self-load="true">
 				<h4 th:text="#{ui.leave}">Leave</h4>
 				<p class="text-muted" th:text="#{ui.leaveHelp}">Request time off and track balances. A balance is worked out from approved requests — it is never stored, so it cannot drift. A request over the balance is still recorded; the overage is shown to whoever approves it.</p>
 
@@ -3104,7 +3104,7 @@
 			<!-- Slice 2.2 — substitution. The morning screen: who is out, and who covers their lessons.
 			     Read-open (a teacher must see they are covering period 3); every WRITE is ADMIN, enforced
 			     server-side regardless of what renders here. -->
-			<div id="SubstitutionDiv" class="formDiv">
+			<div id="SubstitutionDiv" class="formDiv" data-self-load="true">
 				<h4 th:text="#{ui.substitution}">Substitution</h4>
 				<p class="text-muted" th:text="#{ui.substitutionHelp}">Mark who is out today, then cover their lessons. A teacher already teaching, absent, or covering elsewhere in the same period is not offered. Lessons with nobody assigned stay visible until they are covered.</p>
 
@@ -3156,7 +3156,7 @@
 
 			<!-- Slice 2.1 — timetable. Everyone may READ it; the editing controls are ADMIN-gated below and
 			     the server enforces the same tier regardless of what renders here. -->
-			<div id="TimetableDiv" class="formDiv">
+			<div id="TimetableDiv" class="formDiv" data-self-load="true">
 				<h4 th:text="#{ui.timetable}">Timetable</h4>
 				<p class="text-muted" th:text="#{ui.timetableHelp}">Define the school day once as periods, then place a subject and teacher in each slot. A teacher or a class can only be in one place at a time — the system refuses those. A shared room is only a warning.</p>
 
@@ -3257,7 +3257,7 @@
 
 			<!-- Slice 1.6 — promotion. Plan first, apply second (design D1/D7): this rewrites the class of
 			     every child in a roster, so nothing here runs without a reviewed plan on screen. -->
-			<div id="PromotionDiv" class="formDiv" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+			<div id="PromotionDiv" class="formDiv" data-self-load="true" sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.promotion}">Promotion</h4>
 				<p class="text-muted" th:text="#{ui.promotionHelp}">Move a class forward at year end. Choose the class students are leaving and the class they are joining, review the proposal for each student, then apply. Leave the target class empty for the final class — those students graduate.</p>
 
@@ -3346,6 +3346,10 @@ var serverContext = [[@{/}]];
 	<script th:src="@{/js/business/sidebar.js}"></script>
 	<!-- Shared CRUD modal layer (openModal/closeModal/newEntity/bulk-select) — same as businessDashboard. -->
 	<script th:src="@{/js/business/crud-modal.js}"></script>
+<!-- Slice 108b: one consistent, searchable dropdown across every dashboard. Education had a blanket
+     initialiser inline in its own template; every other module had none, so business had 48 selects
+     and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->
+<script th:src="@{/js/common/searchable-selects.js}"></script>
 	<script type="text/javascript">
 		// Subnav button-dropdown behaviour — same pattern as businessDashboard for a consistent look.
 		function snavToggle(e, id) {
@@ -3366,42 +3370,10 @@ var serverContext = [[@{/}]];
 		// selection, so clicking into the form no longer collapses the nav item you are working under.
 	</script>
 
-	<!-- ═══ Unified dropdown theme/UX ═══════════════════════════════════════════
-	     Make EVERY education form dropdown one consistent, searchable bootstrap-select.
-	     Skips only the off-screen nav selects (registrationType/feeType/… driven by main.js).
-	     Several AJAX populate helpers in education.js append <option>s without calling
-	     selectpicker('refresh') (e.g. getUserOwners/getUserSchools), so a single ajaxComplete
-	     refresh keeps every populated dropdown (schoolOwnerDD, vehicleSchoolDD, …) in sync. -->
-	<script type="text/javascript">
-		jQuery(function ($) {
-			var SKIP = { registrationType:1, feeType:1, reportType:1, attendanceType:1, communicationType:1 };
-			$('select').each(function () {
-				if (SKIP[this.id] || $(this).hasClass('panel-heading')) return;
-				var $s = $(this);
-				// Tear down any prior bootstrap-select so the unified options below apply cleanly.
-				// ONLY if one was actually initialised: calling destroy() on a plain <select> makes the
-				// plugin bridge construct an instance and immediately destroy it, which removes the
-				// generated wrapper *together with the original <select>*. That silently deleted every
-				// education dropdown from the DOM on page load (the try/catch hid it).
-				if ($s.data('selectpicker')) {
-					try { $s.selectpicker('destroy'); } catch (e) {}
-				}
-				$s.addClass('selectpicker')
-				  .attr('data-live-search', 'true')   // searchable
-				  .attr('data-size', '8')
-				  .attr('data-style', 'btn-default');
-				if (this.multiple) {
-					$s.attr('data-actions-box', 'true')
-					  .attr('data-selected-text-format', 'count > 2');
-				}
-				if (!$s.attr('title')) $s.attr('title', 'Select…');
-			});
-			$('.selectpicker').selectpicker();
-			// AJAX-populated dropdowns refresh after their options load (handles every getUser* helper).
-			$(document).ajaxComplete(function () {
-				try { $('.selectpicker').selectpicker('refresh'); } catch (e) {}
-			});
-		});
-	</script>
+	<!-- ═══ Unified dropdown theme/UX ═══
+     The blanket bootstrap-select initialiser that lived here now lives in
+     /js/common/searchable-selects.js and is included with the other scripts below, so every
+     module dashboard gets the same searchable dropdowns instead of education alone. Keeping a
+     copy here as well would double-initialise every select on this page. -->
 </body>
 </html>

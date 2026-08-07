@@ -620,7 +620,20 @@ $(document).ready(function() {
 	    // sticky header and put the cursor in its first field, instead of leaving them to hunt and scroll.
 	    if (typeof revealSection === 'function') revealSection($shown[0]);
 	    var tab = ($(this).val()).replace("Div","");
-	  	if(tab){
+	  	// Convention over configuration: a registration screen is <Name>Div + #table<Name> fed by
+	  	// GET /getUser<Name>, so this one handler serves them all. Nine legacy registers (Owner, School,
+	  	// Grade, Staff, Guardian, Student, Subject, Vehicle, Discount) still depend on exactly this.
+	  	//
+	  	// The education Phase 1/2 screens are a different SHAPE — a year with nested terms, a marks roster
+	  	// keyed by exam+paper, a timetable grid — so each ships its own loader and correctly has no
+	  	// /getUser<Name> endpoint. Running the generic loader for them fired a request at an endpoint that
+	  	// has never existed: 15 screens, a guaranteed 404 each. Until slice 107 that 404 was routed into a
+	  	// redirect to /login, which is why it presented as "clicking Academic Year logs me out".
+	  	//
+	  	// Screens opt OUT declaratively, on the div itself (data-self-load="true"), so a new screen states
+	  	// its own contract where it is defined. A registry in this file would be one more distant list to
+	  	// forget — which is exactly how the convention silently became an assumption.
+	  	if(tab && !$shown.data('selfLoad')){
 			$switchInputs(capitalize(tab));
 			// Activated data table
 			loadDataTable();

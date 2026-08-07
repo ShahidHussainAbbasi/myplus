@@ -1,39 +1,94 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-  <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}">
-  <link rel="stylesheet" type="text/css" th:href="@{/css/main.css}" />
-  <script src="@{/js/jquery-3.3.1.js}"></script>
-  <script src="@{/bootstrap/js/bootstrap.min.js}"></script>
+<!--
+  Logout confirmation.
 
-<!--   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-  <link rel="stylesheet" type="text/css" href="./resources/main.css" />
-  	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
- -->	
- <title th:text="#{label.app.title}">Title</title>
+  Rebuilt onto the current auth design system (2026-08-07). The previous version was pre-redesign and
+  carried several real faults, not just dated styling:
+
+    * <script src="@{/js/jquery-3.3.1.js}"> — a LITERAL src, not th:src, so Thymeleaf never expanded it
+      and the browser requested a path called "@{/js/jquery-3.3.1.js}". Both script tags 404'd on every
+      view. They are simply gone: this page needs no JavaScript beyond the shared language switcher.
+    * No lang/dir attributes, so Arabic and Urdu rendered left-to-right — the RTL work did not reach here.
+    * A hardcoded "Maximum your services" brand string, untranslatable in a product shipping six languages.
+    * A dead commented-out block of CDN <link>s pointing at bootstrapcdn/googleapis, left from before the
+      assets were vendored locally.
+    * Bootstrap 3 navbar-inverse markup that no longer matches any other page in the app.
+
+  It reuses login.css deliberately: signing out is the same journey as signing in, and a user who lands
+  here should recognise where they are. Reusing the stylesheet also means the next brand change reaches
+  this page for free, which is exactly why the old copy drifted so far.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en" th:lang="${htmlLang}" th:dir="${htmlDir}">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="#{label.app.title}">MyPlus</title>
+    <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <!-- Script webfont for languages Inter does not cover (Arabic, Urdu, Devanagari). -->
+    <link th:if="${langWebfont}" rel="stylesheet"
+          th:href="'https://fonts.googleapis.com/css2?family=' + ${langWebfont} + '&display=swap'"/>
+    <link rel="stylesheet" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" th:href="@{/css/login.css}"/>
+    <link rel="stylesheet" th:href="@{/css/lang-switcher.css}"/>
+    <link th:if="${isRtl}" rel="stylesheet" th:href="@{/css/rtl.css}"/>
 </head>
 <body>
-	<div id="container">
-		<nav th:fragment="header" class="navbar-inverse">
-		  <div class="container-fluid">
-		    <div class="navbar-header active">
-		      <a class="navbar-brand" href="#">Maximum your services</a>
-		    </div>
-		    <ul class="nav navbar-nav">
-		    </ul>
-		    <ul class="nav navbar-nav navbar-right">
-		      	<li><a class="glyphicon glyphicon-log-in" th:href="@{/login}" th:text="#{label.form.login}">Login</a></li>
-	        	<li><a class="glyphicon glyphicon-user" th:href="@{/registration.html}" th:text="#{label.form.siguUp}">Sign Up</a></li>
-		    </ul>
-		  </div>
-		</nav>
-        <h1 id="error" class="alert alert-danger" th:if="${session[SPRING_SECURITY_LAST_EXCEPTION]}" th:text="#{message.logoutError}">error</h1>
-                
-        <h1 id="success" class="alert alert-info" th:if="${param.logSucc}" th:text="#{message.logoutSucc}"> success</h1>
-        <br/><br/>
-	    <div id="content">
-	    </div>
-	    <th:block th:replace="~{footer :: footer}"/>
+<div class="login-wrap">
+
+    <!-- Left brand panel — same as the sign-in page, so signing out does not feel like leaving the product. -->
+    <div class="login-left">
+        <div class="brand-area">
+            <a class="brand-logo" th:href="@{/}">
+                <div class="brand-logo-icon">
+                    <img th:src="@{/favicon.png}" alt="MyPlus"/>
+                </div>
+                <span class="brand-name">MyPlus</span>
+            </a>
+            <div class="brand-tagline">One platform.<br/><span>Every business</span> need.</div>
+            <p class="brand-desc">
+                Manage inventory, customers, sales, accounting, education
+                and welfare — all from a single powerful dashboard.
+            </p>
+        </div>
     </div>
+
+    <div class="login-right">
+        <div class="login-card">
+
+            <!-- Sign-out failed. Kept ABOVE the success case: an error must never be scrolled past. -->
+            <div th:if="${session[SPRING_SECURITY_LAST_EXCEPTION]}" class="msg-bar error">
+                <span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;
+                <span th:text="#{message.logoutError}">Could not sign you out.</span>
+            </div>
+
+            <div th:if="${param.logSucc}" class="msg-bar info">
+                <span class="glyphicon glyphicon-ok-sign"></span>&nbsp;
+                <span th:text="#{message.logoutSucc}">You have been signed out.</span>
+            </div>
+
+            <div class="card-header">
+                <h2 th:text="#{message.logoutSucc}">You have been signed out</h2>
+                <p th:text="#{label.pages.logout}">Thanks for using MyPlus.</p>
+            </div>
+
+            <div class="locale-row">
+                <span th:text="#{label.language} + ':'">Language:</span>
+                <th:block th:replace="~{fragments/lang-switcher :: lang-switcher}"></th:block>
+            </div>
+
+            <!-- The two things anyone wants from this page. Sign in first: it is why most people are here.
+                 btn-signin / register-link are login.css's OWN classes — checked against the stylesheet
+                 rather than guessed, after btn-login and login-foot turned out not to exist. -->
+            <a class="btn-signin" th:href="@{/login}" th:text="#{label.form.login}">Login</a>
+
+            <a class="register-link" th:href="@{/registration.html}"
+               th:text="#{label.form.siguUp}">Sign Up</a>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/common/lang-switcher.js}"></script>
 </body>
 </html>
