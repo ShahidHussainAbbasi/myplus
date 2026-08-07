@@ -36,7 +36,37 @@ class CheckoutServiceTest {
     @Mock private CartService cartService;
     @Mock private OrderService orderService;
     @Mock private CouponService couponService;
+    /**
+     * OMS O3: delivery pricing moved out of the {@code ShippingOption} enum into a per-org policy, so checkout
+     * now collaborates with it. Stubbed to the pre-O3 defaults below, which keeps every existing expectation in
+     * this class meaningful — they were written against those exact literals.
+     */
+    @Mock private ShippingPolicy shippingPolicy;
+    /**
+     * OMS O5c. Left unstubbed on purpose: {@code splitFor} then returns null, which is "nothing is short", so
+     * every expectation in this class keeps its original meaning. Backorder behaviour is pinned separately in
+     * {@code BackorderSplitTest} and the Cypress gate.
+     */
+    @Mock private BackorderPolicy backorderPolicy;
     @InjectMocks private CheckoutService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void defaultShippingRates() {
+        // Stubbed for ORG specifically: checkout must tell the policy WHICH store it is pricing. A shopper is
+        // anonymous, so a policy that resolved the tenant from the security context would price every public
+        // order at the platform default — these stubs would simply never match.
+        org.mockito.Mockito.lenient()
+                .when(shippingPolicy.feeFor(org.mockito.ArgumentMatchers.any(),
+                                            org.mockito.ArgumentMatchers.any(),
+                                            eq(ORG)))
+                .thenAnswer(inv -> {
+                    ShippingOption o = inv.getArgument(0);
+                    if (o == null || o == ShippingOption.PICKUP) return java.math.BigDecimal.ZERO;
+                    return o == ShippingOption.EXPRESS ? new java.math.BigDecimal("15.00")
+                                                       : new java.math.BigDecimal("5.00");
+                });
+        org.mockito.Mockito.lenient().when(shippingPolicy.codEnabled(eq(ORG))).thenReturn(true);
+    }
 
     private CartItem item(Long id, String price, String rate, int qty) {
         return CartItem.builder().productId(id).productName("P" + id)
@@ -112,6 +142,29 @@ class CheckoutServiceTest {
         assertThat(q.getDiscount()).isEqualByComparingTo("0.00");
         assertThat(q.getCouponMessage()).isEqualTo("This coupon has expired");
         assertThat(q.getTotal()).isEqualByComparingTo("30.00");      // unchanged
+    }
+
+    @Test
+    void quote_tells_the_storefront_whether_cash_on_delivery_is_accepted() {
+        when(cartService.activeCart(ORG, "t")).thenReturn(Optional.of(sampleCart()));
+        when(couponService.validateAndCompute(eq(ORG), any(), any())).thenReturn(noCoupon());
+        when(shippingPolicy.codEnabled(ORG)).thenReturn(false);
+
+        // Without this on the quote the storefront would keep showing COD — the PRE-SELECTED tab — at a
+        // card-only store, and the shopper would only be refused after filling the whole checkout form.
+        assertThat(service.quote(ORG, "t", "STANDARD", null).isCodEnabled()).isFalse();
+    }
+
+    @Test
+    void place_refuses_cash_on_delivery_at_a_store_that_does_not_accept_it() {
+        when(cartService.activeCart(ORG, "t")).thenReturn(Optional.of(sampleCart()));
+        when(shippingPolicy.codEnabled(ORG)).thenReturn(false);
+
+        // Enforced server-side: hiding the tab stops nobody who posts at the endpoint directly.
+        assertThatThrownBy(() -> service.place(req("PICKUP", null, "Buyer")))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("cash on delivery");
+        org.mockito.Mockito.verify(orderService, org.mockito.Mockito.never()).placePublic(any());
     }
 
     @Test

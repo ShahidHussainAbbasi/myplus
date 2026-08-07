@@ -25,8 +25,12 @@ Cypress.Commands.overwrite('request', (originalFn, ...args) => {
 
 // Generic session-based login. Module helpers below just supply credentials + a
 // validate endpoint, so there is one login implementation for the whole suite.
-Cypress.Commands.add('loginAs', (email, password, validatePath) => {
-  cy.session([email, password, validatePath], () => {
+// `cacheKeyExtra` (optional) joins the session key so a caller can invalidate cached sessions when the
+// SERVER-SIDE identity behind those credentials changes — a role rename, a reseed. Without it, cy.session
+// happily replays a token minted under the old identity and the spec tests a principal that no longer
+// exists. See loginAsPortalGuardian for the case that cost six gate runs.
+Cypress.Commands.add('loginAs', (email, password, validatePath, cacheKeyExtra) => {
+  cy.session([email, password, validatePath, cacheKeyExtra || ''], () => {
     cy.visit('/login')
     cy.get('input[name="username"]').type(email)
     cy.get('input[name="password"]').type(password)
@@ -34,6 +38,21 @@ Cypress.Commands.add('loginAs', (email, password, validatePath) => {
     cy.get('#loginSubmit').click()
     cy.url().should('not.include', '/login')
   }, {
+    // The monolith runs `maximumSessions(1)` (SecSecurityConfig ~line 135). cy.session's cache is
+    // per-SPEC-FILE by default, so every spec re-logs-in as the same account — and the concurrent-session
+    // control then leaves one of the two sessions dead. The victim does not fail cleanly: authenticated
+    // requests come back as a 302 to /login, or with the literal body "This session has been expired…",
+    // which blows up any test that JSON.parses the response. That is what broke dashboard.cy.js (302 where
+    // 200 was expected) and exams.cy.js / fees-to-gl.cy.js (JSON.parse on "This sessi…").
+    //
+    // cacheAcrossSpecs keeps ONE server session per account for the whole run, so the second login never
+    // happens. It fixes the symptom at its source rather than teaching each spec to tolerate a dead session.
+    // (Per-user, so specs using different accounts are unaffected — the cap is per principal.)
+    //
+    // NOTE: this makes the suite tolerate the cap; it does NOT make the cap correct. maximumSessions(1)
+    // also means a real user cannot be signed in on two devices — see the session-cap decision recorded
+    // with slice 106.
+    cacheAcrossSpecs: true,
     validate: () => {
       // Re-login if the session was invalidated (e.g. after a server restart).
       // followRedirect:false ensures an expired session returns 302 (not the 200 login page).
@@ -183,7 +202,16 @@ Cypress.Commands.add('loginAsTeacherB', (email = 'teacher.b@myplus.com', passwor
 // at the wrong moment. /portal/me answers 200 whether or not an access row exists yet, which is what
 // session validation needs.
 Cypress.Commands.add('loginAsPortalGuardian', (email = 'guardian.education@myplus.com', password = DEMO_PW) => {
-  cy.loginAs(email, password, '/portal/me')
+  // ⚠ The 4th key element is CACHE-BUSTING and is load-bearing — do not remove it.
+  //
+  // cy.session caches by key. The guardian's authority travels in the JWT minted AT LOGIN, so a session
+  // cached before the seeded role changed keeps replaying a token with the OLD role. Validation still
+  // passes (below), because the portal resolves a guardian by EMAIL, not by role — so the portal reads
+  // work while the deny rule silently does nothing. That is what made the 3.1b gate fail identically
+  // across six rebuilds: the server was fine, the CLIENT was replaying a stale principal.
+  //
+  // Bumping the expected role here invalidates every cached session, forcing a fresh token.
+  cy.loginAs(email, password, '/portal/me', 'ROLE_GUARDIAN')
 })
 
 // Show a registration section on a dashboard (business by default). Both dashboards use the
@@ -337,4 +365,15 @@ Cypress.Commands.add('storefrontOrder', (orgId, items, order = {}) => {
       body: Object.assign({ organizationId: orgId, cartToken }, order),
       headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
     }))
+})
+
+// Slice 3.3 — the STUDENT portal fixture, seeded dev-only in auth-service alongside the guardian one.
+// Same reason it exists: D5 makes the emailed set-password token the only real way in, and Cypress cannot
+// read email, so without a known-password account the deny rule could only ever be unit-tested.
+Cypress.Commands.add('loginAsPortalStudent', (email = 'student.education@myplus.com', password = DEMO_PW) => {
+  // The 4th key element is CACHE-BUSTING and load-bearing — see loginAsPortalGuardian for the six gate
+  // runs that paid for it. Authority is minted in the JWT AT LOGIN, so a session cached before the seeded
+  // role changed keeps replaying the old one; validation alone cannot detect that, because /portal/my/me
+  // resolves by EMAIL while the deny rule keys on the ROLE.
+  cy.loginAs(email, password, '/portal/my/me', 'ROLE_STUDENT')
 })

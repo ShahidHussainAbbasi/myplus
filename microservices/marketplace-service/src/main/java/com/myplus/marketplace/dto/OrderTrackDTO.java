@@ -26,10 +26,31 @@ public class OrderTrackDTO {
     private BigDecimal total;
     private List<Event> events;   // status timeline (slice 57)
 
+    /**
+     * OMS O5b — the parcels this order went out in.
+     *
+     * <p>Without these a customer who received half an order sees only the word {@code PARTIALLY_SHIPPED},
+     * which reads like a fault rather than "the rest is on its way". Carrier and tracking number are the two
+     * things they can actually act on.
+     *
+     * <p>Deliberately narrower than the back-office view: no internal note, no line ids, no user id.
+     */
+    private List<Parcel> parcels;
+
     /** One step in the fulfilment timeline. */
     @Data @NoArgsConstructor @AllArgsConstructor
     public static class Event {
         private String status;
         private LocalDateTime at;
+    }
+
+    /** One dispatch, as the shopper sees it. */
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class Parcel {
+        private String ref;              // SHP-000045
+        private String carrier;
+        private String trackingNumber;
+        private LocalDateTime shippedAt;
+        private Integer itemCount;       // how many units travelled in this parcel
     }
 }

@@ -77,6 +77,32 @@ public class GuardianPortalController {
                 requestUtil.getCurrentUser().getId());
     }
 
+    /** Slice 3.5 — school notices addressed to guardians or to everyone. Takes no child parameter. */
+    @RequestMapping(value = "/portal/notices", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<String> notices() {
+        return educationClient.get("/portal/notices", requestUtil.getCurrentUser().getId());
+    }
+
+    /** Slice edu-3.4 — what is open to book. Takes no child parameter: a meeting is the guardian's. */
+    @RequestMapping(value = "/portal/meetings", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<String> meetings() {
+        return educationClient.get("/portal/meetings", requestUtil.getCurrentUser().getId());
+    }
+
+    /**
+     * Slice edu-3.4 — book a slot. THE FIRST WRITE proxied to the portal surface.
+     *
+     * <p>Only {@code slotId} travels: the guardian is resolved from the session in education-service and is
+     * never taken from the request, so this proxy cannot be used to book on another family's behalf.
+     */
+    @RequestMapping(value = "/portal/meetings/book", method = RequestMethod.POST)
+    @ResponseBody
+    public ResponseEntity<String> bookMeeting(HttpServletRequest request) {
+        return educationClient.post("/portal/meetings/book", request, requestUtil.getCurrentUser().getId());
+    }
+
     @RequestMapping(value = "/portal/homework", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<String> homework(HttpServletRequest request) {

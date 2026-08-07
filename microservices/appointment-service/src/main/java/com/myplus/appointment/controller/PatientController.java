@@ -26,6 +26,6 @@ public class PatientController {
     @PostMapping
     public ApiResponse<PatientDTO> create(@Valid @RequestBody PatientDTO dto,
                                           @AuthenticationPrincipal AuthenticatedUser user) {
-        return ApiResponse.success(service.create(dto, user.getOrganizationId()), "Patient saved");
+        return ApiResponse.success(service.create(dto, user.getOrganizationId()), "Attendee saved");
     }
 }

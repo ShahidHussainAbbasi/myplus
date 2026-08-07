@@ -414,6 +414,26 @@ public class CatalogController {
         }
     }
 
+    /**
+     * OMS O5a — release this tenant's expired stock holds now.
+     *
+     * <p>An unconfirmed hold subtracts from sellable stock, so a sale that reserved and then failed to confirm
+     * or compensate leaves stock that is physically present and cannot be sold. A scheduled sweep returns it
+     * within minutes; this is the "I have just fixed the outage, give me my stock back now" button.
+     *
+     * <p>Owner/admin — the {@code @PreAuthorize} on inventory-service is the real gate.
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/sweepStockHolds")
+    @ResponseBody
+    public Map<String, Object> sweepStockHolds() {
+        try {
+            return inventory.postJson("/reservations/sweep", Collections.emptyMap());
+        } catch (Exception e) {
+            LOGGER.error("sweepStockHolds proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
     @GetMapping("/productStock")
     @ResponseBody
     public Map<String, Object> productStock(final HttpServletRequest request) {

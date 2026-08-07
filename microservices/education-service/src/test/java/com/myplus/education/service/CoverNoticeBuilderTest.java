@@ -23,23 +23,23 @@ class CoverNoticeBuilderTest {
     @Test
     @DisplayName("a null or blank address is not sendable — the common case, a staff record with no email")
     void blank_is_not_sendable() {
-        assertFalse(CoverNoticeBuilder.sendable(null));
-        assertFalse(CoverNoticeBuilder.sendable(""));
-        assertFalse(CoverNoticeBuilder.sendable("   "));
+        assertFalse(NotifyMessage.sendable(null));
+        assertFalse(NotifyMessage.sendable(""));
+        assertFalse(NotifyMessage.sendable("   "));
     }
 
     @Test
     @DisplayName("an address with no @ is not sendable — EmailService would silently skip it, so it must "
             + "be reported as NO_EMAIL now rather than queued, retried and dead-lettered")
     void junk_without_at_is_not_sendable() {
-        assertFalse(CoverNoticeBuilder.sendable("not-an-address"));
-        assertFalse(CoverNoticeBuilder.sendable("07700 900123"));
+        assertFalse(NotifyMessage.sendable("not-an-address"));
+        assertFalse(NotifyMessage.sendable("07700 900123"));
     }
 
     @Test
     @DisplayName("a real address is sendable")
     void real_address_is_sendable() {
-        assertTrue(CoverNoticeBuilder.sendable("teacher@school.test"));
+        assertTrue(NotifyMessage.sendable("teacher@school.test"));
     }
 
     // ── the message itself ──────────────────────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ class CoverNoticeBuilderTest {
     @Test
     @DisplayName("the body names class, subject, period and date — the four facts needed to walk to the room")
     void body_names_the_lesson() {
-        CoverNoticeBuilder.Notice n = CoverNoticeBuilder.build(
+        NotifyMessage n = CoverNoticeBuilder.build(
                 "A Khan", "khan@school.test", "Class 5 B", "Mathematics", "Period 3", DAY, "R12");
 
         assertTrue(n.body().contains("Class 5 B"), n.body());
@@ -61,7 +61,7 @@ class CoverNoticeBuilderTest {
     @Test
     @DisplayName("the subject line carries the class and date, because that is all a phone preview shows")
     void subject_is_scannable() {
-        CoverNoticeBuilder.Notice n = CoverNoticeBuilder.build(
+        NotifyMessage n = CoverNoticeBuilder.build(
                 "A Khan", "khan@school.test", "Class 5 B", "Mathematics", "Period 3", DAY, null);
 
         assertTrue(n.subject().contains("Class 5 B"), n.subject());
@@ -72,7 +72,7 @@ class CoverNoticeBuilderTest {
     @DisplayName("a missing room omits the whole line — 2.1 D3: Grade.room is a bare Long with no room "
             + "master, so it is frequently absent and must never print as 'null'")
     void missing_room_omits_the_line() {
-        CoverNoticeBuilder.Notice n = CoverNoticeBuilder.build(
+        NotifyMessage n = CoverNoticeBuilder.build(
                 "A Khan", "khan@school.test", "Class 5 B", "Mathematics", "Period 3", DAY, null);
 
         assertFalse(n.body().contains("Room"), n.body());
@@ -82,7 +82,7 @@ class CoverNoticeBuilderTest {
     @Test
     @DisplayName("a blank room is treated as absent, not printed as an empty label")
     void blank_room_omits_the_line() {
-        CoverNoticeBuilder.Notice n = CoverNoticeBuilder.build(
+        NotifyMessage n = CoverNoticeBuilder.build(
                 "A Khan", "khan@school.test", "Class 5 B", "Mathematics", "Period 3", DAY, "  ");
         assertFalse(n.body().contains("Room"), n.body());
     }
@@ -91,7 +91,7 @@ class CoverNoticeBuilderTest {
     @DisplayName("a school still setting up its timetable can assign cover: every field but the date may "
             + "be missing, and nothing renders as 'null'")
     void half_configured_school_still_gets_a_usable_notice() {
-        CoverNoticeBuilder.Notice n = CoverNoticeBuilder.build(
+        NotifyMessage n = CoverNoticeBuilder.build(
                 null, "khan@school.test", null, null, null, DAY, null);
 
         assertFalse(n.body().contains("null"), n.body());
@@ -103,7 +103,7 @@ class CoverNoticeBuilderTest {
     @Test
     @DisplayName("the address is carried through to the notice unchanged — it is what the outbox stores")
     void notice_carries_the_recipient() {
-        CoverNoticeBuilder.Notice n = CoverNoticeBuilder.build(
+        NotifyMessage n = CoverNoticeBuilder.build(
                 "A Khan", "khan@school.test", "Class 5 B", "Mathematics", "Period 3", DAY, "R12");
         assertEquals("khan@school.test", n.recipientEmail());
     }
@@ -111,7 +111,7 @@ class CoverNoticeBuilderTest {
     @Test
     @DisplayName("no marks and no behaviour data leak into the body — outbox rows outlive the event")
     void body_is_operational_only() {
-        CoverNoticeBuilder.Notice n = CoverNoticeBuilder.build(
+        NotifyMessage n = CoverNoticeBuilder.build(
                 "A Khan", "khan@school.test", "Class 5 B", "Mathematics", "Period 3", DAY, "R12");
         String b = n.body().toLowerCase();
         assertFalse(b.contains("mark"), b);

@@ -2,6 +2,7 @@ package com.myplus.education.repository;
 
 import com.myplus.education.entity.GuardianPortalAccess;
 import com.myplus.education.entity.PortalStatus;
+import com.myplus.education.entity.PortalSubjectType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -38,6 +39,32 @@ public interface GuardianPortalAccessRepository extends JpaRepository<GuardianPo
             + "and a.guardianId = :guardianId")
     Optional<GuardianPortalAccess> findByGuardianScoped(@Param("guardianId") Long guardianId,
                                                         @Param("orgId") Long orgId);
+
+    /**
+     * Slice 3.3 — the same authentication lookup, narrowed to ONE audience.
+     *
+     * <p>Separate from {@link #findLiveByEmail} rather than replacing it, because the subject type must be
+     * part of the question. D6 refuses to provision a student on an address that already belongs to a
+     * guardian, so in a correct database one email has one live row — but a lookup that would return the
+     * WRONG audience's row if that rule were ever bypassed is a lookup that turns a provisioning bug into
+     * a data-disclosure bug. Asking for the type costs nothing and cannot be got wrong later.
+     *
+     * <p>Same deliberate strictness as its sibling: no {@code userId} NULL-fallback for an external
+     * principal.
+     */
+    @Query("select a from GuardianPortalAccess a where a.organizationId = :orgId "
+            + "and a.email = :email and a.subjectType = :subjectType and a.status <> :excluded")
+    Optional<GuardianPortalAccess> findLiveByEmailAndType(@Param("email") String email,
+                                                          @Param("subjectType") PortalSubjectType subjectType,
+                                                          @Param("excluded") PortalStatus excluded,
+                                                          @Param("orgId") Long orgId);
+
+    /** Is this subject already invited? Prevents a duplicate before the UNIQUE key has to. */
+    @Query("select a from GuardianPortalAccess a where a.organizationId = :orgId "
+            + "and a.subjectType = :subjectType and a.subjectId = :subjectId")
+    Optional<GuardianPortalAccess> findBySubjectScoped(@Param("subjectType") PortalSubjectType subjectType,
+                                                       @Param("subjectId") Long subjectId,
+                                                       @Param("orgId") Long orgId);
 
     /** Anti-IDOR: resolve ONE access row by a client-supplied id within the caller's tenant. */
     @Query("select a from GuardianPortalAccess a where a.id = :id and (a.organizationId = :orgId "

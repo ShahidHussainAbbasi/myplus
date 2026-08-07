@@ -4,9 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "doctor")
+@Table(name = "provider")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class Doctor {
+public class Provider {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -16,7 +16,7 @@ public class Doctor {
     private Long organizationId;
 
     @Column(nullable = false)
-    private Long hospitalId;
+    private Long venueId;
 
     @Column(nullable = false)
     private String name;

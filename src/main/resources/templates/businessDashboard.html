@@ -162,6 +162,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							</button>
 							<ul class="snav-menu">
 								<li><a onclick="showOrders();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.orders}">Orders</span></a></li>
+									<!-- OMS O3: per-org delivery fees / free-delivery threshold / cash-on-delivery. -->
+									<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showOrderConfig();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.orderSettings}">Order settings</span></a></li>
 							</ul>
 						</div>
 						<!-- Pharmacy (slice 41) â€” clinical screens, shown ONLY for PHARMA users (vertical-profile feature). -->
@@ -1847,11 +1849,54 @@ tr.row-voided .js-edit-row{display:none !important}
 			<div id="OrdersDiv" class="formDiv" style="display:none">
 				<!-- <h4>Orders</h4> -->
 				<p class="text-muted" th:text="#{ui.anOrderIsASaleReused}">An order is a sale (reused trade saga) plus a fulfilment lifecycle. New sales by a Store user are recorded here automatically.</p>
+				<!-- OMS O4 filter bar. Every control maps to a SERVER parameter: the list is filtered in the query,
+				     never in the browser, so paging and filtering always agree about what the result set is. -->
+				<div class="form-inline" style="margin-bottom:10px" id="ordersFilters">
+					<input type="text" class="form-control" id="ordFilterQ" style="width:220px" th:placeholder="#{ui.searchOrderInvoiceBuyer}" placeholder="Order #, invoice, buyer, phone">
+					<select class="form-control" id="ordFilterStatus">
+						<option value="" th:text="#{ui.allStatuses}">All statuses</option>
+						<option value="NEW">NEW</option><option value="PACKED">PACKED</option><option value="SHIPPED">SHIPPED</option>
+						<option value="DELIVERED">DELIVERED</option><option value="RETURN_REQUESTED">RETURN_REQUESTED</option>
+						<option value="RETURNED">RETURNED</option><option value="CANCELLED">CANCELLED</option>
+					</select>
+					<select class="form-control" id="ordFilterPayment">
+						<option value="" th:text="#{ui.allPayments}">All payments</option>
+						<option value="PENDING">PENDING</option><option value="PAID">PAID</option><option value="FAILED">FAILED</option>
+					</select>
+					<select class="form-control" id="ordFilterSource">
+						<option value="" th:text="#{ui.allChannels}">All channels</option>
+						<option value="STOREFRONT">STOREFRONT</option><option value="POS">POS</option>
+					</select>
+					<input type="text" class="form-control" id="ordFilterFrom" data-dp="date" style="width:120px" th:placeholder="#{ui.from}" placeholder="From">
+					<input type="text" class="form-control" id="ordFilterTo" data-dp="date" style="width:120px" th:placeholder="#{ui.to}" placeholder="To">
+					<button class="btn btn-primary" id="ordSearchBtn" onclick="applyOrderFilters()" th:text="#{ui.search}">Search</button>
+					<button class="btn btn-default" onclick="clearOrderFilters()" th:text="#{ui.clear}">Clear</button>
+					<button class="btn btn-default" id="ordExportBtn" onclick="exportOrdersCsv()" th:text="#{ui.exportCsv}">Export CSV</button>
+				</div>
+
 				<table id="tableOrders" class="table table-bordered table-striped">
-					<thead><tr><th th:text="#{ui.invoice}">Invoice</th><th th:text="#{ui.buyer}">Buyer</th><th th:text="#{ui.total}">Total</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.created}">Created</th><th th:text="#{ui.action}">Action</th></tr></thead>
+					<thead><tr><th th:text="#{ui.order}">Order</th><th th:text="#{ui.invoice}">Invoice</th><th th:text="#{ui.buyer}">Buyer</th><th th:text="#{ui.total}">Total</th><th th:text="#{ui.payment}">Payment</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.created}">Created</th><th th:text="#{ui.action}">Action</th></tr></thead>
 					<tbody id="ordersBody"></tbody>
 				</table>
 				<div id="ordersEmpty" class="text-muted" style="display:none" th:text="#{ui.noOrdersYet}">No orders yet.</div>
+
+				<!-- Server-paginated: the count and the pager both come from PageResponse, so they cannot disagree
+				     with what was actually fetched. -->
+				<div id="ordersPager" style="display:none;margin-top:10px">
+					<button class="btn btn-default btn-sm" id="ordPrev" onclick="ordersPage(-1)" th:text="#{ui.previous}">Previous</button>
+					<span id="ordersCount" class="text-muted" style="margin:0 10px"></span>
+					<button class="btn btn-default btn-sm" id="ordNext" onclick="ordersPage(1)" th:text="#{ui.next}">Next</button>
+				</div>
+
+				<!-- Order detail (OMS O4): lines, money, payment and the order_events timeline - which has been
+				     written on every status change since slice 46 and was visible only to the SHOPPER until now. -->
+				<div id="orderDetail" style="display:none;margin-top:18px;border-top:2px solid #e6eaf0;padding-top:14px">
+					<div style="display:flex;justify-content:space-between;align-items:center">
+						<h4 id="orderDetailTitle" style="margin:0"></h4>
+						<button class="btn btn-default btn-sm" onclick="closeOrderDetail()" th:text="#{ui.close}">Close</button>
+					</div>
+					<div id="orderDetailBody"></div>
+				</div>
 			</div>
 
 			<!-- M1 (slice 42): catalog Product master registration â€” the single product master all verticals share. -->
@@ -2165,7 +2210,17 @@ tr.row-voided .js-edit-row{display:none !important}
 				<div id="businessConfigBody" th:text="#{ui.loading2}">Loadingâ€¦</div>
 			</div>
 
-			<div id="TaxSettingDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+			<!-- OMS O3 — Order settings. Self-renders from the MARKETPLACE catalog (/getOrderConfig), so a new
+				     order policy is a catalog entry in marketplace-service and nothing changes here. Separate from
+				     ConfigDiv above because each service owns its own settings; this screen edits marketplace's. -->
+				<div id="OrderConfigDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+					<h4 style="margin-bottom:4px" th:text="#{ui.orderSettings}">Order settings</h4>
+					<p style="color:#7a889c;margin-bottom:16px" th:text="#{ui.deliveryChargesAndCheckout}">Delivery charges, free-delivery threshold and payment options for your store. Changes apply to the next checkout.</p>
+					<div id="orderConfigMsg" class="alert" style="display:none"></div>
+					<div id="orderConfigBody" th:text="#{ui.loading2}">Loading…</div>
+				</div>
+
+				<div id="TaxSettingDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
 				<!-- <h4>Tax Settings</h4> -->
 				<form class="form-horizontal" role="form" id="TaxSetting" autocomplete="off" onsubmit="return false;">
 					<div class="form-group">
@@ -2438,6 +2493,10 @@ tr.row-voided .js-edit-row{display:none !important}
     <script sec:authorize="hasAuthority('VOID_INVOICE')" th:inline="none">window.canVoidInvoice = true;</script>
     <!-- Contact-360 (party contact view) is sensitive (cross-module roles) â†’ owner/admin only; the server enforces too. -->
     <script sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')" th:inline="none">window.canViewContact360 = true;</script>
+    <!-- OMS O4: cancelling, returning and refunding an order reverse money and stock, and marketplace-service
+         gates all three on ADMIN_PRIVILEGE. This flag only decides whether the BUTTON is drawn — drawing it for
+         a packer would be offering a 403. The server remains the control. -->
+    <script sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')" th:inline="none">window.canReverseOrder = true;</script>
 
     <!-- Register-screen modal + bulk-select styling now lives in the shared /css/crud-modal.css
          (loaded via fragments/header :: header-css) so every dashboard shares one responsive treatment. -->

@@ -123,7 +123,7 @@ function loadDataTable(){
 	                console.log(textStatus);
 	                console.log('errorThrown:');
 	                console.log(errorThrown);
-				 	window.location.href = serverContext + "login?message=" + errorThrown;
+				 	handleAjaxFailure(jqXHR, errorThrown, "loadDataTable");   // was: unconditional redirect to /login
 	            }
 		}
 	});
@@ -193,7 +193,9 @@ function loadConfig(){
 
 function saveConfigToggle(el){
 	var key = el.getAttribute('data-key');
-	var value = el.checked ? 'true' : 'false';
+	// By TYPE — a non-checkbox has no .checked, so the old unconditional read saved "false" for every
+	// SELECT/INT/TEXT/MONEY entry in the catalog.
+	var value = (el.type === 'checkbox') ? (el.checked ? 'true' : 'false') : el.value;
 	$.post(serverContext + 'saveAgricultureConfig', { key: key, value: value }, function(res){
 		var ok = res && (res.status === 'SUCCESS');
 		$('#agriConfigMsg').removeClass('alert-success alert-danger')

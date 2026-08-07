@@ -34,6 +34,7 @@ import com.myplus.education.repository.AlertsRepository;
 import com.myplus.education.repository.GuardianRepository;
 import com.myplus.education.repository.StaffRepository;
 import com.myplus.education.repository.StudentRepository;
+import com.myplus.education.service.EduNotifyService;
 import com.myplus.education.service.EmailService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
@@ -52,7 +53,13 @@ public class AlertController {
     @Autowired private StudentRepository studentRepository;
     @Autowired private GuardianRepository guardianRepository;
     @Autowired private StaffRepository staffRepository;
+    /**
+     * Still injected for {@code sendPA} (public/contact alerts), which is a different audience and is not
+     * part of slice 3.5's migration. {@code sendAlerts} now goes through {@link EduNotifyService}.
+     */
     @Autowired private EmailService emailService;
+    /** Slice 3.5 — the durable send path (N1's outbox), shared with cover notices and notices. */
+    @Autowired private EduNotifyService notifyService;
     @Autowired private RequestUtil requestUtil;
     @Autowired private ScopedDeleter scopedDeleter;   // anti-IDOR bulk delete
     @Autowired private AppUtil appUtil;
@@ -147,15 +154,33 @@ public class AlertController {
             String consumers = joinMulti(request, "c");
             String body = (message == null ? "" : message) + (appUtil.isEmptyOrNull(signature) ? "" : "\n\n" + signature);
             Set<String> recipients = consumerEmails(org, uid, consumers);
-            Map<String, Object> result = emailService.send(heading, body, recipients);
+
+            // Slice 3.5 (finding A) — QUEUED, not sent on the request thread.
+            //
+            // This called emailService.send(...) directly, synchronously, against a notification-service
+            // that has no database (slice 105 G3, re-verified 2026-08-07). For a school with 300 guardians
+            // that held the HTTP request open for 300 SMTP hops, retried nothing, and stamped "Sent" from a
+            // call that only reported how many addresses were ATTEMPTED. N1 fixed exactly this shape for
+            // cover notices and never reached here.
+            //
+            // One outbox row per recipient, so a single bad address fails alone and is retried alone.
+            int queued = notifyService.queueAll("ALERT", heading, body, recipients);
 
             Long id = parseLong(request.getParameter("id"));
             if (id != null) {
-                // Scoped: marking someone else's alert "Sent" would rewrite another tenant's record.
+                // Scoped: marking someone else's alert "Queued" would rewrite another tenant's record.
                 alertsRepository.findByIdScoped(id, orgId(), userId())
-                        .ifPresent(a -> { a.setSt("Sent"); alertsRepository.save(a); });
+                        // "Sent" would now be a lie told one step earlier: the relay, not this request,
+                        // decides what is sent. The status says what actually happened here.
+                        .ifPresent(a -> { a.setSt("Queued"); alertsRepository.save(a); });
             }
-            return new GenericResponse("SUCCESS", "Sent to " + result.get("sent") + ", failed " + result.get("failed"), result);
+            Map<String, Object> result = new java.util.LinkedHashMap<>();
+            result.put("queued", queued);
+            result.put("recipients", recipients.size());
+            // The message changed with the behaviour, deliberately. Reporting "Sent to 40" for work that
+            // has been handed to a relay is the same defect in a new place.
+            return new GenericResponse("SUCCESS",
+                    "Queued for " + queued + " of " + recipients.size() + " recipient(s)", result);
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());

@@ -29,7 +29,7 @@ public class DoctorController {
     @PostMapping
     public ApiResponse<DoctorDTO> create(@Valid @RequestBody DoctorDTO dto,
                                          @AuthenticationPrincipal AuthenticatedUser user) {
-        return ApiResponse.success(service.create(dto, user.getOrganizationId()), "Doctor saved");
+        return ApiResponse.success(service.create(dto, user.getOrganizationId()), "Provider saved");
     }
 
     @GetMapping("/{id}")
@@ -41,6 +41,6 @@ public class DoctorController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser user) {
         service.delete(id, user.getOrganizationId());
-        return ApiResponse.success(null, "Doctor deleted");
+        return ApiResponse.success(null, "Provider deleted");
     }
 }

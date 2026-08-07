@@ -259,8 +259,22 @@ public class AuthService {
         String memberRole = (membershipRole == null || membershipRole.isBlank())
                 ? "GUARDIAN" : membershipRole.trim().toUpperCase();
 
-        Role portalRole = roleRepository.findByName("ROLE_PORTAL")
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found: ROLE_PORTAL"));
+        // Slice 3.3 — the security role follows the MEMBERSHIP role, so a student gets ROLE_STUDENT and a
+        // guardian ROLE_GUARDIAN. Both are listed in education's `myplus.portal.confined-roles`, so both are
+        // confined to /portal/**.
+        //
+        // ⚠ ALLOWLISTED, not derived by string concatenation. "ROLE_" + memberRole would happily mint
+        // ROLE_TEACHER, or ROLE_ANYTHING, from a caller-supplied value — and an unrecognised role is not in
+        // confined-roles, which means UNCONFINED. That is the fail-OPEN direction, so an unknown value must
+        // be refused here rather than resolved into a role nobody confines.
+        String roleName = switch (memberRole) {
+            case "GUARDIAN" -> "ROLE_GUARDIAN";
+            case "STUDENT"  -> "ROLE_STUDENT";
+            default -> throw new ValidationException(
+                    "Unsupported portal role: " + memberRole + " (expected GUARDIAN or STUDENT)");
+        };
+        Role portalRole = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
 
         User user = userRepository.findByEmail(addr).orElse(null);
         boolean created = false;

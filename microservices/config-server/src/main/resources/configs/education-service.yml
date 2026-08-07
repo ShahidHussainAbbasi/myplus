@@ -40,3 +40,13 @@ education:
 myplus:
   portal:
     allowlist: /portal/**
+    # WHICH roles are confined to that allowlist. Roles name WHO someone is (ROLE_GUARDIAN, ROLE_STUDENT,
+    # like every other role here); this names which of them are restricted to a portal surface - identity
+    # and policy stay separate. An empty value confines nobody, which is why the other twelve services need
+    # no entry at all.
+    #
+    # ⚠ LOAD-BEARING. This line is the ONLY thing standing between a portal session and education's ~74
+    # ungated staff reads. ROLE_STUDENT was added by slice 3.3 in the same change that seeded the role -
+    # a role without its entry here is a login that reads the whole school. 3.1b D3 stated this cost
+    # ("a new external audience is NOT confined automatically"); 3.3 is the first time it was paid.
+    confined-roles: ROLE_GUARDIAN,ROLE_STUDENT

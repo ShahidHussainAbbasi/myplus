@@ -1,12 +1,26 @@
 # Slice 3.1b — Portal sign-in (and the deny rule that must ship with it)
 
-**Status: IMPLEMENTED — awaiting a re-run of the updated 11-case gate (2026-08-06).** The security property
-is PROVEN (the staff-read refusal). **D-6 settled: invitation-only — §11.** Two items remain: a write case
-whose refusal returns the wrong status (§9) and the local provisioning gap (§10, now tracked as security
-findings **F18 → F2**, outside this slice). Implementation findings, including two
-integration defects, in §8. **Changes `common-security`, so it must be `mvn install`ed before dependants are
-packaged, and the monolith must be rebuilt too.**
-Non-phase-numbered but **blocking**: it completes 3.1, and **3.2 and 3.3 both depend on it**.
+**Status: ✅ DONE & Cypress-GREEN — 13/13, twice consecutively (2026-08-06).** Regression green too:
+`guardian-portal` 11/11, `privilege-map` 11/11, `security/method-authz` 11/11, `pharmacy/method-authz` 5/5,
+`party` 7/7, business smoke 27/27 — **85 cases**, which the shared-library change required. See **§15**.
+
+**Getting there took four runs, and the gate found TWO REAL DEFECTS in the deny rule (§14).**
+**(1) It failed OPEN**: `X-User-Roles` had two parsers and this filter's copy did not strip the brackets the
+gateway stamps, so a signed-in guardian read the entire student roster in gateway mode while the control
+passed in legacy mode. **(2) Once that was fixed, the refusal came back 403, not 404** — `sendError()` runs a
+container ERROR dispatch that re-enters the security chain unauthenticated, which is the one status D4
+forbids. Both fixed: a shared `AuthorityHeader` parser, and the response committed directly. **18 pure cases**,
+three of which pin the **captured** wire format and two the refusal contract.
+
+⚠️ **Run 1's "the security property is PROVEN" claim, still recorded in §9, was true only of the path that
+run happened to exercise.** Read §14 before trusting any statement written before it.
+
+**D-6 settled: invitation-only — §11.** One item remains and it is **outside this slice**: portal
+provisioning cannot complete locally because `service.internal-secret` is unset and auth-service fails
+closed (§10, security findings **F18 → F2**). §9's "write returns 500 not 404" is **explained** by §14.
+Implementation findings, including two integration defects, in §8.
+**Changes `common-security`, so it must be `mvn install`ed before dependants are packaged.**
+Non-phase-numbered but **blocking**: it completes 3.1, and **3.2 and 3.3 both depend on it — now unblocked.**
 Programme: `education-complete-programme.md` Phase 3 — pays 3.1 §6's carried requirement
 *"STILL MISSING: the auth-service user account"*.
 
@@ -114,8 +128,19 @@ A portal user needs `LOGIN_PRIVILEGE`, because both the monolith
 (`.anyRequest().hasAuthority("LOGIN_PRIVILEGE")`) and the services require it to serve anything at all —
 including `/portal/**`. Withholding it locks the guardian out of their own portal.
 
-So the portal marker is a **role** (`ROLE_PORTAL`, alongside `GUARDIAN`), and the filter is what converts
-"may log in" into "may log in **and reach only the portal**".
+So the marker is a **role** — **`ROLE_GUARDIAN`** (renamed from `ROLE_PORTAL`, 2026-08-06) — and the filter
+is what converts "may log in" into "may log in **and reach only the portal**".
+
+**Why the role names WHO, not WHAT-IS-RESTRICTED.** Every role on this platform names a person
+(`ROLE_EDUCATION_USER`, `ROLE_OWNER`, `ROLE_MARKETPLACE_BUYER`); `ROLE_PORTAL` would have been the only
+capability-marker, and it gave a guardian two names for one fact. **Which roles are confined is
+CONFIGURATION** — `myplus.portal.confined-roles`, sitting next to the allowlist — so identity and policy
+stay separate and 3.3 adds `ROLE_STUDENT` without touching the filter.
+
+**The cost, stated so it is not forgotten:** a new external audience is no longer confined automatically.
+Whoever adds one must add its role to `confined-roles`. That is a "remember it" rule — the exact failure
+mode finding A proved this codebase has — mitigated only by the two properties being adjacent and by 3.3's
+checklist.
 
 **State this plainly because it is the part most easily got wrong: holding `LOGIN_PRIVILEGE` is not
 authority to read staff data. The filter is the only thing that makes that true.** Any future change that
@@ -155,7 +180,7 @@ same "unreachable surface" mistake this slice exists to correct.
 | In | Out |
 |---|---|
 | `User` + `Membership(role=GUARDIAN)` created by `invitePortalAccess` | self-registration (D1) |
-| `ROLE_PORTAL` marker travelling in the JWT | SSO / social login |
+| `ROLE_GUARDIAN` travelling in the JWT + `confined-roles` config | SSO / social login |
 | **`PortalScopeFilter` in `common-security`, deny-by-default** | gating the 74 reads individually (D2, rejected) |
 | set-password token = address verification (D5) | changing how staff authenticate, at all |
 | revoke → the account can no longer sign in | student accounts (3.3, D6) |
@@ -287,7 +312,9 @@ sequenceDiagram
 
 - [ ] `common-security`: `PortalScopeFilter` + `PortalScopeProperties` (`myplus.portal.allowlist`),
       registered before the authorization filter. **Empty allowlist ⇒ deny.**
-- [ ] auth-service: `ROLE_PORTAL` + `GUARDIAN` seeded; `LOGIN_PRIVILEGE` granted, no staff privileges.
+- [ ] auth-service: `ROLE_GUARDIAN` seeded (LOGIN + CHANGE_PASSWORD only, no staff privileges);
+      `Membership.role = GUARDIAN`.
+- [ ] education-service: `myplus.portal.confined-roles=ROLE_GUARDIAN` beside the allowlist.
 - [ ] auth-service: endpoints to create a portal user, issue a set-password token, and disable an account.
 - [ ] `AuthAccountClient` contract + client (DIP), consumed by education-service.
 - [ ] education-service: `invitePortalAccess` creates/links the account; `revokePortalAccess` disables it.
@@ -303,21 +330,24 @@ staff principal + staff path → allowed · portal principal + `/portal/x` → a
 `/getUserStudent` → **denied** · portal principal + **empty allowlist** → denied · path-traversal
 (`/portal/../getUserStudent`) → denied after normalisation · unauthenticated → untouched.
 
-**Cypress gate — `portal-sign-in.cy.js` (11 cases, updated 2026-08-06 for decision D-6):**
+**Cypress gate — `portal-sign-in.cy.js` (13 cases; D-6 cases added 2026-08-06, spec review the same day
+added #4 and #10 and made the fixture deterministic — §13):**
 
 | # | Case | Asserts |
 |---|---|---|
 | 1 | inviting **reports** the account outcome (OK\|FAILED) | §8 — the school is never left assuming a guardian can log in. `FAILED` is expected locally until F18/F2 and is logged, because the slice's requirement is that it is **surfaced** |
 | 2 | **a guardian with NO email cannot be invited** | **the BOUNDARY of D-6**, and the trigger for option C. The address comes from the RECORD (3.1 D3), so a record without one cannot be invited at all |
-| 3 | **re-inviting is a RESEND, not an error**, and creates no second access row | invitation-only makes "resend" the school's normal recovery, so it must be idempotent |
-| 4 | a signed-in guardian reads their own children | the portal works with a REAL session |
-| 5 | **the same session gets 404 from staff reads** — each probed as STAFF first | **THE case. Without D2 this returns the whole school**, and the staff probe stops a renamed route faking a pass |
-| 6 | the refusal is 404, never 403 | D4 — a prober cannot map the surface by refusal type |
-| 7 | path traversal does not walk past the allowlist | asserts the **property** (no student data), not a status |
-| 8 | a guardian cannot write, and **the row is never created** | verified by re-reading the roster as staff |
-| 9 | staff completely unaffected | the inverse regression — a shared filter that over-matched would lock out every module |
-| 10 | `edu.portal.enabled=false` closes it for a valid account | 3.1's kill switch still wins over a working login |
-| 11 | revoking stops the portal reads | withdrawal takes effect on the next request |
+| 3 | **re-inviting is a RESEND, not an error**, and creates no second access row | invitation-only makes "resend" the school's normal recovery, so it must be idempotent. Asserts the **response object**, not the status: the "already has access" early return is *also* SUCCESS and re-sends nothing |
+| 4 | **the guardian session is CONFINED** — the precondition every case below depends on | §12. A 200 here means a stale cached principal, not a broken filter, and the message says so. Added after that mistake cost six runs |
+| 5 | a signed-in guardian reads their own children | the portal works with a REAL session |
+| 6 | **the same session gets 404 from staff reads** — each probed as STAFF first | **THE case. Without D2 this returns the whole school**, and the staff probe stops a renamed route faking a pass |
+| 7 | the refusal is 404, never 403 | D4 — a prober cannot map the surface by refusal type |
+| 8 | path traversal does not walk past the allowlist | asserts the **property** (no student data), not a status |
+| 9 | a guardian cannot write, and **the row is never created** | verified by re-reading the roster as staff |
+| 10 | **a real session cannot reach another guardian's child** | the filter is *not* the only control. 3.1 proved child-scoping with a session that had no portal role because none existed; this proves it with the principal that ships. Past `/portal/**` the sole control is `ChildResolver` |
+| 11 | staff completely unaffected | the inverse regression — a shared filter that over-matched would lock out every module |
+| 12 | `edu.portal.enabled=false` closes it for a valid account | 3.1's kill switch still wins over a working login |
+| 13 | revoking stops the portal reads | withdrawal takes effect on the next request |
 
 **Not assertable by Cypress:** that a guardian *sets their password from the emailed token*, because the test
 cannot read email — which is precisely why D5 makes the token the only way in. The seeded dev-only account
@@ -405,7 +435,7 @@ never leaves it. That needs `common-security` on the monolith's classpath, which
 
 **Cypress cannot read email, and D5 makes the emailed token the only way in.** So a real guardian session —
 the thing tests 2 through 8 are *about* — was untestable as designed. Resolved by seeding
-`guardian.education@myplus.com` with `ROLE_PORTAL` and a GUARDIAN membership, dev-only, alongside the
+`guardian.education@myplus.com` with `ROLE_GUARDIAN` and a GUARDIAN membership, dev-only, alongside the
 existing `demo.*`/`owner.*` fixtures. The account is otherwise identical to a live one; only the password is
 known. Without it the deny rule could only ever have been unit-tested, and **the case that matters most —
 a real guardian session getting 404 from `/getUserStudent` — would have gone unproven end to end.**
@@ -416,9 +446,14 @@ nothing — the same shape as 2.1's skipped clash test and 2.4's empty class.
 
 ---
 
-## 9. Gate run — 7 of 9 green, and what the two reds are
+## 9. Gate run 1 — 7 of 9 green, and what the two reds were
 
 **Not green. Do not record this slice as done.**
+
+> **Read the numbers below as RUN 1's, against the 9-case spec that existed then.** The spec is now 13
+> cases (§5) and the numbering has moved: run 1's "case 3" is now #6, its "case 5" is now #8, its "case 6"
+> is now #9. Kept unrenumbered on purpose — rewriting a recorded run to match a later spec is how a
+> history stops being evidence.
 
 | # | Case | Result |
 |---|---|---|
@@ -549,3 +584,240 @@ action per class, and a public claim page that exchanges a valid code for a port
 
 **C would reuse 3.1b's provisioning and deny rule unchanged**, so none of the security work is redone. It is
 recorded as a *trigger*, not a plan: build it when the email gap is shown to be real, not before.
+
+---
+
+## 12. ROOT CAUSE of the repeated gate failures — it was the SPEC, not the server
+
+**Six consecutive runs failed identically, and every diagnosis I offered was wrong.** The filter was
+correct, deployed, registered and executing the whole time. Verified at the end, in order:
+
+| Check | Result |
+|---|---|
+| `PortalScopeFilter.class` inside the bundled `common-security` jar | ✅ present |
+| `CommonSecurityAutoConfiguration` in the `.imports` file | ✅ registered |
+| The filter appearing in live stack traces | ✅ **executing on every request** |
+| 12 pure unit tests over the allowlist logic | ✅ green throughout |
+
+### What actually happened
+
+**`cy.session` cached the guardian's login, and the guardian's authority lives in the JWT minted AT LOGIN.**
+The session was cached before the seeded role changed, so every run replayed a token carrying the old role.
+
+It survived because the two halves of the portal key on *different things*:
+
+- **`/portal/**` resolves a guardian by EMAIL** (3.1 D1) → portal reads worked → the session looked healthy
+- **The deny rule keys on the ROLE** → the filter saw a role not in `confined-roles` → staff reads passed
+
+And `cy.session`'s `validate` only checked that `/portal/me` returned 200 — which an email-resolved stale
+session passes. **The fixture validated the half that could not detect the problem.**
+
+Rebuilding never helped because **the stale principal lived in the CLIENT**, not the server.
+
+### The fixes
+
+1. **`loginAs` takes a `cacheKeyExtra`**; `loginAsPortalGuardian` passes the expected role. Changing the
+   seeded role now invalidates every cached session automatically.
+2. **A new FIRST test asserts the session is confined**, with a failure message naming the real cause. If
+   the precondition breaks again, the gate says so instead of implicating the filter.
+
+### The standard this earns
+
+> **When a fixture's authority is minted at login and cached, the cache key must include everything that
+> determines that authority.** Otherwise the suite silently tests a principal that no longer exists.
+
+And, more sharply — this is the third form of the same lesson in this programme (2.1's skipped test, 2.4's
+empty class, now this):
+
+> **A test must verify the principal it is testing WITH, not only the behaviour it is testing FOR.**
+
+### One residual design note, separate from the above
+
+`PortalScopeFilter` reads `X-User-Roles` directly rather than the authenticated principal. In gateway mode
+the gateway stamps that header from the JWT, so this is correct. **But `GatewayClient` in legacy/direct
+mode sends only a Bearer token and no `X-User-Roles`** — so a service reached directly, bypassing the
+gateway, would leave the filter blind and failing OPEN. Not the cause here, and not yet fixed. It is the
+same monolith gap already recorded as security finding **F18**, and it should be closed with F18 → F2.
+
+---
+
+## 13. Spec review — 2026-08-06, before the re-run
+
+The gate was reviewed against the code it exercises rather than re-run as written. Four defects, all in the
+spec, none in the product. **Three of them would have produced a RED that named the wrong culprit** — the
+same failure mode §12 spent six runs on, so they are recorded rather than quietly fixed.
+
+| # | Defect | Why it mattered |
+|---|---|---|
+| 1 | **The fixture was not deterministic across runs.** `ChildResolver` flips the access row INVITED → ACTIVE on the guardian's first portal read (line 72), and `invitePortalAccess` **early-returns on ACTIVE** with `"already has portal access"` and **no `object`**. A run that aborted after case 5 therefore left state in which case 1 reads `fx.inviteAccount === undefined` and fails — **as though the invite contract were broken**, when the contract was never exercised | fixed by **revoking first** in `before`, so the invite takes the full path every run. Safe because the invite that follows re-enables the sign-in (`createOrLinkPortalUser` sets `enabled=true` on the link branch), leaving the account exactly as found |
+| 2 | **The resend case could not detect a no-op.** It asserted `status ∈ {SUCCESS, PARTIAL}` — but the ACTIVE early return is *also* `SUCCESS` and re-sends nothing. A genuinely broken resend would have passed | now asserts the response **object**, which only the full path builds. This is case 5's own lesson (assert the property, not the status) applied to a **green** instead of a red — a status that more than one mechanism can produce is not evidence, whichever colour it comes back |
+| 3 | **A seeded fixture no case used.** `fx.otherChild` — "somebody else's child, the one a guardian must never reach" — was resolved in `before` and then **never asserted against**. The comment described a control the gate did not test | the fixture is now **seeded** (not found-if-present) and **case 10** uses it. It closes a real gap: past `/portal/**` the filter is done and `ChildResolver` is the only control, and no case in this spec had ever exercised it **with the principal that ships** |
+| 4 | Junk accumulation + an `after`-hook `TypeError` masking `before`-hook failures | the email-less guardian is now a stable reused row, and `after` guards on `fx.guardian` rather than `fx.access` |
+
+> **The standard this earns, and it is a sharper form of §12's:** *a fixture whose state the SPEC ITSELF
+> mutates must be reset by the spec, not assumed.* Case 5 reading the portal is what makes the access row
+> ACTIVE — the gate changed the precondition of its own first case, and only an aborted run made that
+> visible.
+
+---
+
+## 14. Gate run 2 — 9 of 13, and it found a REAL FAIL-OPEN IN THE DENY RULE
+
+**2026-08-06. Four reds, and this time they were the product.** Cases 4, 6, 7 and 8 failed: a signed-in
+guardian session called `/getUserStudent` and got **`200` with the complete student roster** — names,
+enrolment numbers, emails, mobile numbers, guardian ids. **The exact breach this slice exists to prevent,
+happening through the slice's own control.**
+
+### Root cause: `X-User-Roles` has two parsers, and they disagree
+
+The gateway builds the header straight from the JWT claim:
+
+```java
+Object rolesObj = claims.get("roles");     // a java.util.List
+String roles = rolesObj.toString();        // "[ROLE_GUARDIAN]"   ← BRACKETS
+.header("X-User-Roles", roles)
+```
+
+| Reader | Parsing | Result |
+|---|---|---|
+| `HeaderAuthFilter.parseAuthorities` | `replaceAll("[\\[\\]\"]", "")` then split | ✅ always correct — it has stripped brackets since it was written |
+| `PortalScopeFilter.isConfined` (3.1b) | `split(",")`, no strip | ❌ compares `"[ROLE_GUARDIAN]"` to `"ROLE_GUARDIAN"`, never matches, **waves the session through** |
+
+**Measured, not inferred** — a live login against auth-service returned
+`{"roles":["ROLE_GUARDIAN"],"privileges":["CHANGE_PASSWORD_PRIVILEGE","LOGIN_PRIVILEGE"],…}`, and
+`JwtAuthenticationFilter` stamps that list with `toString()`. The auth DB was checked first and was correct
+(user 156 holds `ROLE_GUARDIAN`, membership `GUARDIAN`, org 52), which is what ruled out the stale-principal
+explanation from §12 before any code was touched.
+
+### Why it was invisible
+
+1. **Twelve pure unit tests were green the whole time.** Every one fed the clean, unbracketed format *the
+   design assumed*. **The test data was fiction, so the tests could only ever confirm the design.**
+2. **It failed open in one path and worked in the other.** The monolith's legacy direct mode stamps the bare
+   comma-separated form from `auth.getAuthorities()`, which matched. `serverMode` is
+   `tokenStore.hasAccessToken()`, so which format arrives depends on runtime state — the reason run 1 could
+   record the staff-read case as **green** while run 2 records it as a full disclosure.
+3. **The portal itself kept working**, because `/portal/**` resolves a guardian by EMAIL. Same signature as
+   §12: the healthy-looking half is the half that cannot detect the fault.
+
+### The fix
+
+**One parser, owned in one place.** New `AuthorityHeader.tokens(String)` in `common-security`; both
+`HeaderAuthFilter` and `PortalScopeFilter` call it, and neither splits the string itself. It accepts the
+bracketed, bare and quoted forms — all three reach services in production. Three regression tests pin the
+**captured** wire format as literals (16 pure cases now, all green).
+
+> **The standard this earns — and it outranks everything else in this document:**
+>
+> **A wire format gets exactly ONE parser.** Two readers of one header is two chances to disagree, and the
+> one that disagrees in the deny direction fails open in silence.
+>
+> And its companion, which is why the unit tests were useless here:
+>
+> **Feed a security test the format you CAPTURED, not the format you designed.** A parser test written from
+> the spec tests the spec.
+
+### It also explains §9's "genuinely unexplained" case 6
+
+The write that returned **500 instead of 404**: with the filter failing open, the POST reached the
+controller and was refused by **method-level authorisation** (D-3's `WRITE_PRIVILEGE` gate — the guardian
+holds only `LOGIN` and `CHANGE_PASSWORD`), and an `AccessDeniedException` relays as 500, not 404. The three
+dead theories were all about the *filter*, and the filter was never in the path. **Defence in depth is why
+no student was created** — recorded because it is also the reason the defect stayed hidden: the second
+control masked the first one's absence.
+
+*(Honest limit: this explains run 2's evidence and is consistent with run 1's write red, but run 1's staff
+reads returned 404 on the same run, which needs the mode to have differed mid-run. Not fully reconstructible
+— stated as the leading explanation, not a proven one.)*
+
+### Run 3 — 10 of 13. The fail-open is CLOSED; a SECOND defect it was hiding is now visible
+
+With the parser fixed, the filter confines correctly — proven by direct measurement against
+education-service, which removes the monolith and the gateway from the picture entirely:
+
+| Request | Status |
+|---|---|
+| `X-User-Roles: [ROLE_GUARDIAN]` → `/getUserStudent` | **refused** |
+| `X-User-Roles: ROLE_GUARDIAN` (bare form) → `/getUserStudent` | **refused** |
+| `X-User-Roles: [ROLE_EDUCATION_USER]`, same privileges → `/getUserStudent` | **200** ← the control: the route answers, so the refusal is the filter |
+| `[ROLE_GUARDIAN]` → `/portal/me` | **200** ← the portal still works |
+
+**But the refusal was 403, not 404 — the one status D4 exists to forbid.** `response.sendError(404)` asks
+the container to run its **ERROR dispatch**, which re-enters the filter chain for `/error`. This filter
+short-circuits *before* the security chain, so that dispatch carries **no authentication**, education's
+`.anyRequest().authenticated()` refuses it, and the caller receives **403** — which tells a prober the
+endpoint is real and merely forbidden, exactly what the 404 was chosen to avoid.
+
+**Fixed** by committing the response directly — `setStatus(404)` + `setContentLength(0)` + `flushBuffer()`
+— so no error dispatch happens at all. **18 pure cases now**, including two that pin the contract no earlier
+test asserted: *a refusal is a 404 with an empty body, and the request never reaches the chain.*
+
+> **Worth stating plainly: this defect was INVISIBLE while the filter failed open.** A control that never
+> fires cannot have a wrong refusal status. Fixing the first defect is what surfaced the second — and the
+> gate found both only because case 7 asserts `not 403` explicitly rather than trusting `!= 200`.
+
+### What passed, and why it matters
+
+**Case 10 — "a real session cannot reach another guardian's child" — PASSED while the deny rule was
+open.** `ChildResolver` refused it on its own. That is the independence claim of §D2 demonstrated under the
+worst possible conditions, and it is the case added by the spec review one turn earlier. **Had it not been
+added, run 2 would have shown four reds with no evidence that anything still stood between a guardian and
+another family's record.**
+
+---
+
+## 15. Gate run 4 — GREEN, and what the regression list caught
+
+**13/13, run twice consecutively.** Verified before trusting it: source → `.m2` → jar → process timestamps
+in ascending order, so the fleet was demonstrably running the fix, and a direct probe of education-service
+(monolith and gateway removed from the path) returned **404 for `[ROLE_GUARDIAN]`, 200 for `/portal/me`,
+200 for a non-confined role on the same URL** — the refusal is the filter, not a broken route.
+
+### The regression list was not a formality — it found a red that had been there since 3.1b landed
+
+`guardian-portal.cy.js` (slice 3.1's own gate) failed in its `before` hook:
+
+```
+expected 'PARTIAL' to equal 'SUCCESS'
+"… invited — this grants sight of 1 child(ren). The sign-in could NOT be created …"
+```
+
+**This slice changed a contract and 3.1's spec still asserted the old one.** `invitePortalAccess` used to
+return `SUCCESS`; since 3.1b it also provisions the sign-in and **surfaces** a provisioning failure as
+`PARTIAL` (§8.5). Locally that always fails — `service.internal-secret` is unset and auth-service's
+`PortalAccountController` fails closed with a 404 (F18/F2, §10). So **3.1 has been red since 3.1b was
+implemented, and nobody ran it.** The regression list named this spec; naming it is not running it.
+
+Fixed by accepting `PARTIAL` **at that one call site only**, with the reason written next to it, so a
+`PARTIAL` anywhere else in that spec still fails loudly.
+
+### And a latent hole the same contract change had opened
+
+`guardian-portal.cy.js`'s ADMIN-tier case asserted a teacher's invite was refused with:
+
+```js
+const refused = r.status === 403 || b.status !== 'SUCCESS'
+```
+
+Sound while `SUCCESS` was the only successful value. **From the moment 3.1b introduced `PARTIAL` as a second
+successful outcome, a teacher who was wrongly ALLOWED to invite would have returned `PARTIAL` and passed
+this test** — the ADMIN gate could have been removed with no gate turning red. Now checks against both
+successful values.
+
+> **The standard, third form in this document:** *when a slice adds a new SUCCESS value, every assertion
+> that tested for success by excluding the old one is now wrong.* Not "may need review" — wrong, silently,
+> in the permissive direction.
+
+### Two transient reds, recorded rather than swept
+
+Both cleared on an immediate re-run **with no change in between**, so neither is explained:
+
+1. A run one minute after the education-service restart died in a `before` hook with 0 passing — most
+   likely the instance still registering with Eureka, but that is inference.
+2. A `guardian-portal` run got the monolith's **"Session Timed Out"** page from `/saveConfig` mid-spec, and
+   the after-hook landed on `/login`. The next run was clean. **A monolith session dying inside a 12-second
+   spec is not explained by inactivity**, and it is worth its own look before it is blamed on a test.
+
+Recorded per this programme's own rule (2.1 run 2): *a green with an unexplained red behind it is not a
+clean green.* The slice is called done on the deny rule, which is measured and reproducible; these two are
+logged as environment findings, not as passes.

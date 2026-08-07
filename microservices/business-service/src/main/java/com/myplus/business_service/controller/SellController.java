@@ -893,7 +893,21 @@ public class SellController {
 						new com.myplus.commerce.contracts.dto.StockReservationRequest(java.util.UUID.randomUUID().toString(), takeLines));
 				if (resp == null || resp.getStatus() != com.myplus.commerce.contracts.dto.ReservationStatus.RESERVED)
 					return new GenericResponse("ERROR", "Not enough stock to apply this change.");
-				inventoryClient.confirm(resp.getReservationId());
+				// OMS O5a: compensate a failed confirm. This used to be a bare confirm() - if it threw, the hold was
+				// stranded with nothing even attempting to free it, and because availability is
+				// (quantity - reservedQuantity) that stock became permanently unsellable. O5a's sweeper catches this
+				// ~30 minutes later; a safety net is not a reason to drop things.
+			try {
+					inventoryClient.confirm(resp.getReservationId());
+				} catch (RuntimeException confirmFailed) {
+					try {
+						inventoryClient.release(resp.getReservationId());
+					} catch (RuntimeException releaseFailed) {
+						LOGGER.warn("Sale edit: confirm AND compensating release both failed for reservation {}; "
+								+ "the expiry sweeper will return the stock", resp.getReservationId(), releaseFailed);
+					}
+					throw confirmFailed;
+				}
 			}
 			if (!returnLines.isEmpty()) inventoryClient.importStock(returnLines);
 

@@ -15,7 +15,12 @@ describe('Slice-18 — appointment dashboard UI', () => {
 
   it('registers a hospital + doctor via the cards and renders the appointments table', () => {
     cy.visit('/appointmentDashboard')
-    cy.get('#nav-subheader').should('be.visible')
+    // SELECTOR REPAIRED 2026-08-07 (slice SCHED-1). The assertion's INTENT is unchanged — "the dashboard
+    // chrome rendered" — but the element that represents it was renamed by the UI redesign
+    // (cb4d6abb, 2026-07-09): appointmentDashboard.html now carries <nav id="app-sidebar">, and
+    // #nav-subheader survives only in businessDashboard.html. This spec was last touched 2026-06-12, so
+    // it has been RED since July and nobody ran it. Found while using it as SCHED-1's baseline.
+    cy.get('#app-sidebar').should('be.visible')
     cy.get('#AppointmentsDiv').should('be.visible')
 
     // ── Register hospital ───────────────────────────────────────────────

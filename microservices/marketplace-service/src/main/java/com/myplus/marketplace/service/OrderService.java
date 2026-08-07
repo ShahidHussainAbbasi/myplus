@@ -52,6 +52,9 @@ public class OrderService {
     private final com.myplus.marketplace.repository.OrderEventRepository orderEventRepository;
     private final com.myplus.marketplace.repository.StorefrontCustomerRepository customerRepo;
     private final CartService cartService;   // slice 68: close the persistent cart on successful checkout
+    private final ShipmentService shipmentService;   // O5b: the parcels an order has gone out in
+    /** O5c — one resolver shared with the quote, so what the shopper is told matches what is invoiced. */
+    private final BackorderPolicy backorderPolicy;
 
     @Transactional
     public OrderDTO record(OrderDTO dto, Long orgId, Long userId) {
@@ -110,9 +113,42 @@ public class OrderService {
             return toDTO(existing);
         }
 
-        SaleRecordResult sale;
+        // OMS O5c — decide what can be filled BEFORE asking for the sale.
+        //
+        // The alternative was teaching the sale path to accept a PARTIAL reservation, which would have meant
+        // editing SagaSellService — the single revenue path. Splitting here instead means the sale we request
+        // is fully satisfiable, so `reserve` succeeds by its existing all-or-nothing rule and that code is not
+        // touched. The read is advisory: if stock is taken between it and the sale, the reserve still refuses
+        // and the shopper gets today's out-of-stock message, which is the safe direction.
+        BackorderSplit.Result split = splitForBackorder(dto, org);
+        if (split != null) {
+            applyFillNow(dto, split);
+            // Promise a date at the moment the shortfall is accepted. Set only when something is actually owed:
+            // an order filled in full has nothing to promise, and stamping one anyway would make every order
+            // ageable and the "late" view meaningless.
+            dto.setPromisedDate(backorderPolicy.promisedDate(org));
+        }
+
+        // O5c — a TOTAL shortfall has nothing to invoice.
+        //
+        // You invoice what you DELIVER. When none of the order can be filled today, no goods move and no sale
+        // exists yet, so raising one would recognise revenue and tax for something that has not happened. The
+        // order is created with no invoice and booksStatus BACKORDER_PENDING, and is invoiced when it ships.
+        //
+        // This deliberately recreates the SHAPE O1 removed (an order with no invoice) — but not the defect.
+        // O1's orders had already taken stock and charged a card while producing no books; this one has taken
+        // neither, and booksStatus is exactly the field O1 added so an unbooked order stays findable instead of
+        // silently missing from the ledger.
+        boolean nothingToInvoice = split != null && split.totalFillNow() == 0;
+        if (nothingToInvoice && !backorderPolicy.acceptFullShortfall(org)) {
+            // The shop has chosen to accept only orders it can PARTLY fill.
+            throw new ValidationException("Sorry, that item is out of stock at the moment.");
+        }
+
+        SaleRecordResult sale = null;
         try {
-            sale = asStore(org, () -> tradeClient.recordSale(toSaleRequest(dto, org, idempotencyKey)));
+            if (!nothingToInvoice)
+                sale = asStore(org, () -> tradeClient.recordSale(toSaleRequest(dto, org, idempotencyKey)));
         } catch (RuntimeException saleFailure) {
             // Out of stock (or any refusal) → nothing reserved, nothing invoiced and, critically, NOTHING
             // CHARGED: the card is only charged after the sale exists. This ordering is why an unavailable item
@@ -124,13 +160,15 @@ public class OrderService {
             LOG.warn("Storefront order for org {} could not be recorded as a sale", org, saleFailure);
             throw new ValidationException(checkoutFailureMessage(saleFailure));
         }
-        if (sale == null || sale.getInvoiceNo() == null)
+        if (!nothingToInvoice && (sale == null || sale.getInvoiceNo() == null))
             throw new ValidationException("The order could not be completed. Please try again.");
 
         // Charge the SERVER's total, never the client's (OMS-5). dto.getTotal() is display-only from here on.
         String payStatus = "PENDING", payRef = null;
-        BigDecimal charged = sale.getGrandTotal() != null ? sale.getGrandTotal() : dto.getTotal();
-        if (card) {
+        BigDecimal charged = sale != null && sale.getGrandTotal() != null ? sale.getGrandTotal() : dto.getTotal();
+        // O5c: nothing invoiced means nothing to charge YET. Taking a card payment for goods that have not been
+        // sold would be money held against no invoice — the shopper is charged when the order is dispatched.
+        if (card && !nothingToInvoice) {
             PaymentGateway.Charge ch = paymentGateway.charge(dto.getCardToken(), charged);
             if (!ch.success()) {
                 // The sale exists, so a decline must REVERSE it — a void restores stock, refunds nothing (nothing
@@ -152,8 +190,12 @@ public class OrderService {
                 .orderSeq(orderSeq)
                 .orderNo(com.myplus.commerce.domain.InvoiceNumbers.order(orderSeq))
                 .idempotencyKey(idempotencyKey)      // OMS-3: same key the sale deduplicates on
-                .invoiceNo(sale.getInvoiceNo())      // O1: the trade sale this order IS
-                .booksStatus("POSTED")               // O1: it reached the books
+                .invoiceNo(sale != null ? sale.getInvoiceNo() : null)   // O1: the trade sale this order IS
+                // O5c: BACKORDER_PENDING is a THIRD books state, distinct from LEGACY_UNPOSTED. Both mean "no
+                // invoice", but this one is correct and expected — nothing has been delivered — whereas
+                // LEGACY_UNPOSTED marks a pre-O1 order that took stock and money without ever reaching the
+                // books. Collapsing them would bury a real backlog inside a normal one.
+                .booksStatus(sale != null ? "POSTED" : "BACKORDER_PENDING")
                 .customerName(dto.getCustomerName())
                 .customerContact(dto.getCustomerContact())
                 .total(charged)                      // the server's figure, not the client's
@@ -161,6 +203,7 @@ public class OrderService {
                 .shippingFee(dto.getShippingFee()).shippingMethod(dto.getShippingMethod())
                 .couponCode(dto.getCouponCode()).discountAmount(dto.getDiscountAmount())
                 .shippingAddress(dto.getShippingAddress())
+                .promisedDate(dto.getPromisedDate())            // O5c: set only when something is owed
                 .source("STOREFRONT").paymentMode(card ? "CARD" : "COD")
                 .paymentStatus(payStatus).paymentRef(payRef)
                 .customerAccountId(customerAccountId)
@@ -219,6 +262,55 @@ public class OrderService {
             }
         }
         return "Sorry, an item in your cart is out of stock or unavailable.";
+    }
+
+    // ── OMS O5c — backorders ──────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * What can be filled now, or {@code null} when backorders are off for this shop (then nothing changes and an
+     * unfillable checkout is refused exactly as before).
+     *
+     * <p>Also returns {@code null} when there is no shortfall, so the overwhelmingly common case adds one
+     * inventory read and no behaviour at all.
+     *
+     * <p>Fails OPEN: if the availability read fails, the order proceeds unsplit and the reserve decides. A shop
+     * must not stop taking orders because a stock query timed out.
+     */
+    private BackorderSplit.Result splitForBackorder(OrderDTO dto, Long org) {
+        if (dto.getItems() == null || dto.getItems().isEmpty()) return null;
+        java.util.Map<Long, Integer> requested = new java.util.LinkedHashMap<>();
+        for (OrderDTO.Line l : dto.getItems()) {
+            if (l.getProductId() == null || l.getQuantity() == null || l.getQuantity() <= 0) continue;
+            requested.merge(l.getProductId(), l.getQuantity(), Integer::sum);
+        }
+        // Delegated so the QUOTE and this agree: a quote promising everything and a checkout backordering half
+        // is the same defect as O5b's header disagreeing with its parcels.
+        return backorderPolicy.splitFor(org, requested);
+    }
+
+    /** Reduce the DTO's line quantities to what will be INVOICED, remembering the shortfall for the order rows. */
+    private void applyFillNow(OrderDTO dto, BackorderSplit.Result split) {
+        java.util.Map<Long, Integer> fill = new java.util.HashMap<>();
+        java.util.Map<Long, Integer> owed = new java.util.HashMap<>();
+        for (BackorderSplit.LineSplit s : split.lines()) {
+            fill.merge(s.productId(), s.fillNow(), Integer::sum);
+            owed.merge(s.productId(), s.backordered(), Integer::sum);
+        }
+        for (OrderDTO.Line l : dto.getItems()) {
+            if (l.getProductId() == null) continue;
+            Integer canFill = fill.get(l.getProductId());
+            Integer shortfall = owed.get(l.getProductId());
+            if (canFill == null) continue;
+            // Consume across duplicate lines for one product, mirroring how the split allocated them.
+            int take = Math.min(l.getQuantity() == null ? 0 : l.getQuantity(), canFill);
+            fill.put(l.getProductId(), canFill - take);
+            l.setQuantityBackordered(shortfall == null ? 0 : shortfall);
+            owed.put(l.getProductId(), 0);
+            l.setQuantity(take);
+        }
+        // Lines that can be filled ENTIRELY not-at-all still belong on the order — they are what is owed. They
+        // carry quantity 0, so toSaleRequest skips them and nothing is invoiced for them.
+        LOG.info("Backorder: invoicing {} unit(s) now, {} owed", split.totalFillNow(), split.totalBackordered());
     }
 
     /** Build the sale request. Deliberately carries NO total — the server prices it (OMS-5). */
@@ -297,6 +389,38 @@ public class OrderService {
         return repo.findScoped(orgId, userId).stream().map(this::toDTO).collect(Collectors.toList());
     }
 
+    /**
+     * OMS O4 — the back-office list: scoped, filtered, PAGED (fixes OMS-7).
+     *
+     * <p>Replaces {@link #list} for the Orders screen. That method loaded every order the tenant had ever taken
+     * in order to show the newest 25; this one asks the database for 25.
+     *
+     * <p>Deliberately returns the summary projection — {@code toDTO} does not touch {@code items}, so a page
+     * costs one query plus the count with no N+1 across lines. The detail view is where lines and the timeline
+     * are loaded, for one order at a time.
+     */
+    @Transactional(readOnly = true)
+    public com.myplus.common.web.PageResponse<OrderDTO> page(
+            com.myplus.marketplace.dto.OrderQuery q, Long orgId, Long userId) {
+        FulfilmentStatus status = null;
+        if (q.getStatus() != null) {
+            try {
+                status = FulfilmentStatus.valueOf(q.getStatus());
+            } catch (IllegalArgumentException unknown) {
+                // An unknown status filters to NOTHING rather than being ignored. Silently dropping it would
+                // answer a different question than the one asked — the operator would see every order and
+                // believe they were looking at a filtered set.
+                return new com.myplus.common.web.PageResponse<>(List.of(), q.getPage(), q.getSize(), 0, 0, true);
+            }
+        }
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(q.getPage(), q.getSize());
+        return com.myplus.common.web.PageResponse.of(
+                repo.findPage(orgId, userId, status, q.getPaymentStatus(), q.getSource(),
+                        q.getFrom(), q.getTo(), q.likePattern(), pageable),
+                this::toDTO);
+    }
+
     /** A storefront shopper's own orders (slice 61, My Orders). */
     public List<OrderDTO> listForCustomer(Long customerAccountId) {
         return repo.findByCustomerAccountIdOrderByCreatedAtDesc(customerAccountId)
@@ -325,7 +449,17 @@ public class OrderService {
         if (!r.isEmpty()) {
             if (r.regionMatches(true, 0, com.myplus.commerce.domain.InvoiceNumbers.ORDER_PREFIX, 0,
                                 com.myplus.commerce.domain.InvoiceNumbers.ORDER_PREFIX.length())) {
-                o = repo.findByOrderNo(r.toUpperCase()).orElse(null);
+                // Per-org numbering means SO-000001 exists in every tenant. The contact was always the security
+                // check; it is now also what picks the right one, which keeps this working without giving an
+                // anonymous guest a tenant identity they do not have.
+                String want = contact == null ? "" : contact.trim();
+                for (Order candidate : repo.findAllByOrderNo(r.toUpperCase())) {
+                    if (candidate.getCustomerContact() != null
+                            && candidate.getCustomerContact().trim().equalsIgnoreCase(want)) {
+                        o = candidate;
+                        break;
+                    }
+                }
             } else if (r.chars().allMatch(Character::isDigit)) {
                 LOG.warn("Legacy numeric tracking ref '{}' used — this fallback is removed after one release", r);
                 try { o = repo.findById(Long.valueOf(r)).orElse(null); } catch (NumberFormatException ignored) { }
@@ -340,17 +474,74 @@ public class OrderService {
         for (com.myplus.marketplace.entity.OrderEvent e : orderEventRepository.findByOrderIdOrderByCreatedAtAsc(o.getId())) {
             timeline.add(new com.myplus.marketplace.dto.OrderTrackDTO.Event(e.getStatus(), e.getCreatedAt()));
         }
+        // OMS O5b: the parcels, so a half-delivered order can say what is on its way and under what tracking
+        // number rather than just reading PARTIALLY_SHIPPED at the customer.
+        java.util.List<com.myplus.marketplace.dto.OrderTrackDTO.Parcel> parcels = new ArrayList<>();
+        for (com.myplus.marketplace.dto.ShipmentDTO s : shipmentService.forOrder(o.getId())) {
+            int units = 0;
+            if (s.getLines() != null)
+                for (com.myplus.marketplace.dto.ShipmentDTO.Line l : s.getLines())
+                    units += l.getQuantity() == null ? 0 : l.getQuantity();
+            parcels.add(new com.myplus.marketplace.dto.OrderTrackDTO.Parcel(
+                    s.getShipmentNo(), s.getCarrier(), s.getTrackingNumber(), s.getShippedAt(), units));
+        }
+
         return new com.myplus.marketplace.dto.OrderTrackDTO(
                 // The NUMBER, not the id. Pre-O2 rows are backfilled by V11, so the fallback is belt-and-braces.
                 o.getOrderNo() != null ? o.getOrderNo() : String.valueOf(o.getId()),
                 o.getCustomerName(),
                 o.getFulfilmentStatus() != null ? o.getFulfilmentStatus().name() : null,
-                o.getCreatedAt(), o.getTotal(), timeline);
+                o.getCreatedAt(), o.getTotal(), timeline, parcels);
     }
 
+    /**
+     * One order, in full (OMS O4).
+     *
+     * <p>The summary {@link #toDTO} plus the three things the back office could not previously see: the lines
+     * (what was actually sold), the {@code order_events} timeline (written on every status change since slice 46
+     * and shown only to the SHOPPER until now — the merchant saw less about their own order than the customer
+     * did), and the transitions this order may legally make.
+     *
+     * <p>Scoped by {@code findByIdScoped}, so another tenant's order is indistinguishable from a missing one.
+     */
+    @Transactional(readOnly = true)
     public OrderDTO get(Long id, Long orgId, Long userId) {
-        return toDTO(repo.findByIdScoped(id, orgId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found")));
+        Order o = repo.findByIdScoped(id, orgId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        OrderDTO d = toDTO(o);
+
+        List<OrderDTO.Line> lines = new ArrayList<>();
+        for (OrderItem it : o.getItems()) {
+            OrderDTO.Line l = new OrderDTO.Line();
+            l.setId(it.getId());                     // O5b: shipping is requested per LINE
+            l.setProductId(it.getProductId());
+            l.setProductName(it.getProductName());   // null for pre-V14 rows; the UI falls back to the id
+            l.setQuantity(it.getQuantity());
+            l.setQuantityShipped(it.getQuantityShipped() == null ? 0 : it.getQuantityShipped());
+            l.setQuantityBackordered(it.getQuantityBackordered() == null ? 0 : it.getQuantityBackordered());
+            l.setPrice(it.getPrice());
+            lines.add(l);
+        }
+        d.setItems(lines);
+
+        List<OrderDTO.Event> timeline = new ArrayList<>();
+        for (com.myplus.marketplace.entity.OrderEvent e : orderEventRepository.findByOrderIdOrderByCreatedAtAsc(id))
+            timeline.add(new OrderDTO.Event(e.getStatus(), e.getNote(), e.getCreatedAt()));
+        d.setTimeline(timeline);
+
+        // OMS O5b — the parcels. Names are filled in from the lines already loaded above rather than re-read,
+        // so opening an order costs no extra query per shipment line.
+        java.util.Map<Long, String> nameByLine = new java.util.HashMap<>();
+        for (OrderDTO.Line l : lines) nameByLine.put(l.getId(), l.getProductName());
+        List<com.myplus.marketplace.dto.ShipmentDTO> shipments = shipmentService.forOrder(id);
+        for (com.myplus.marketplace.dto.ShipmentDTO s : shipments) {
+            if (s.getLines() == null) continue;
+            for (com.myplus.marketplace.dto.ShipmentDTO.Line sl : s.getLines())
+                sl.setProductName(nameByLine.get(sl.getOrderItemId()));
+        }
+        d.setShipments(shipments);
+
+        return d;
     }
 
     /**
@@ -371,6 +562,18 @@ public class OrderService {
         FulfilmentStatus s;
         try { s = FulfilmentStatus.valueOf(status == null ? "" : status.trim().toUpperCase()); }
         catch (Exception e) { throw new ValidationException("Invalid status: " + status); }
+
+        // OMS O5b: SHIPPED and PARTIALLY_SHIPPED are DERIVED from what actually went out. Setting them here
+        // would let the header claim a dispatch no parcel accounts for — the disagreement the projection exists
+        // to make impossible.
+        //
+        // Checked BEFORE the whitelist, deliberately. Behind it, the generic "A NEW order cannot become SHIPPED"
+        // fired first and the caller was told the move was out of sequence rather than that it is not a move at
+        // all — technically a refusal, but pointing at the wrong fix.
+        if (s.isDerived())
+            throw new ValidationException("An order becomes " + s + " by recording a shipment, not by being "
+                    + "marked. Use Ship (POST /orders/{id}/shipments) so the parcel, carrier and tracking are "
+                    + "recorded with it.");
 
         FulfilmentStatus current = o.getFulfilmentStatus();
         // Asking for the state it is already in is a no-op, not an error: a double-click on "Ship" must not fail.
@@ -536,10 +739,21 @@ public class OrderService {
         for (OrderDTO.Line l : lines) {
             if (l.getProductId() == null) continue;
             items.add(OrderItem.builder()
-                    .productId(l.getProductId()).quantity(l.getQuantity()).price(l.getPrice()).build());
+                    .productId(l.getProductId())
+                    // O4: snapshot the name the caller already holds. The storefront cart carries it and the
+                    // checkout used to discard it, which is why order detail could only say "Product 42".
+                    .productName(l.getProductName())
+                    // O5c: the line records what was ORDERED. On the way in `quantity` is only what is being
+                    // INVOICED now, so the ordered figure is invoiced + owed. Storing the invoiced number as the
+                    // ordered one would lose the shortfall, and the order would read complete while still owing.
+                    .quantity(nzInt(l.getQuantity()) + nzInt(l.getQuantityBackordered()))
+                    .quantityBackordered(nzInt(l.getQuantityBackordered()))
+                    .price(l.getPrice()).build());
         }
         return items;
     }
+
+    private static int nzInt(Integer v) { return v == null ? 0 : v; }
 
     private OrderDTO toDTO(Order o) {
         OrderDTO d = new OrderDTO();
@@ -569,6 +783,29 @@ public class OrderService {
         d.setShippingAddress(o.getShippingAddress());
         d.setReturnReason(o.getReturnReason());
         d.setCreatedAt(o.getCreatedAt());
+
+        // O5c: promised date + lateness. Derived on read — a stored "late" flag is wrong the moment the clock
+        // moves past it, and would need a job to keep true.
+        d.setPromisedDate(o.getPromisedDate());
+        FulfilmentStatus fs = o.getFulfilmentStatus();
+        boolean complete = fs == FulfilmentStatus.DELIVERED || fs == FulfilmentStatus.CANCELLED
+                || fs == FulfilmentStatus.RETURNED || fs == FulfilmentStatus.SHIPPED;
+        d.setLate(o.getPromisedDate() != null && !complete
+                && o.getPromisedDate().isBefore(java.time.LocalDate.now()));
+
+        // OMS O4: the server says what may happen next, so the browser stops keeping its own (drifted) copy.
+        // On the LIST too, not just the detail — the list draws action buttons, and that is exactly where the
+        // phantom Cancel on a SHIPPED order was being rendered.
+        d.setAllowedTransitions(o.getFulfilmentStatus() == null
+                ? List.of() : o.getFulfilmentStatus().allowedTransitionNames());
+
+        // What is still refundable. Derived here because the refund dialog defaults to it and OrderService.refund
+        // rejects an over-refund — two derivations of one number is how a UI offers an amount the server refuses.
+        java.math.BigDecimal total = o.getTotal() == null ? java.math.BigDecimal.ZERO : o.getTotal();
+        java.math.BigDecimal refunded = o.getRefundedAmount() == null ? java.math.BigDecimal.ZERO : o.getRefundedAmount();
+        java.math.BigDecimal refundable = total.subtract(refunded);
+        d.setRefundableAmount(refundable.signum() < 0 ? java.math.BigDecimal.ZERO : refundable);
+
         return d;
     }
 }

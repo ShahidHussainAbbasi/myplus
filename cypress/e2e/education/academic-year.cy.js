@@ -90,9 +90,26 @@ describe('Education — academic year & term (slice 1.1)', () => {
         })
 
         post('/pinCurrentTerm', { id: a.id, pinned: 'false' })
+
+        // This used to assert getCurrentTerm() === 'Past B' — "the most recently ENDED term". That
+        // assumed the two terms created above were the ONLY terms in the tenant. They are not:
+        // getCurrentTerm is TENANT-WIDE and this tenant carries years of accumulated test data,
+        // including terms running 01-08-2026 → 31-10-2026. The D3 rule ranks "contains today" ABOVE
+        // "most recently ended", so the moment that window opened (01-08-2026) the rule began
+        // correctly returning one of those instead — the assertion broke on the CALENDAR, not on a
+        // code change. A test that only passes before a hard-coded date is worse than no test.
+        //
+        // The fallback branch is already covered where the term list IS controlled:
+        // TermServiceTest#between_terms_falls_back_to_the_most_recently_ended (runs on `mvn test`).
+        // So assert only what this test owns: the pin was released, and the formerly-pinned term is
+        // no longer being forced as current.
+        findYear(name).then((y4) => {
+          expect(y4.terms.filter((t) => t.pinnedCurrent).map((t) => t.name),
+            'unpinning cleared the pin on this year').to.deep.eq([])
+        })
         cy.request('/getCurrentTerm').then((r) => {
           const cur = parse(r.body).object
-          expect(cur && cur.name, 'unpinned → falls back to the most recently ENDED term').to.eq('Past B')
+          expect(cur && cur.name, 'the unpinned term is no longer forced as current').to.not.eq('Past A')
         })
       })
     })

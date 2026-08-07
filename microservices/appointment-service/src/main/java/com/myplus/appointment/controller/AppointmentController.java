@@ -28,7 +28,7 @@ public class AppointmentController {
     @PostMapping
     public ApiResponse<AppointmentDTO> create(@Valid @RequestBody AppointmentDTO dto,
                                               @AuthenticationPrincipal AuthenticatedUser user) {
-        return ApiResponse.success(service.create(dto, user.getOrganizationId()), "Appointment saved");
+        return ApiResponse.success(service.create(dto, user.getOrganizationId()), "Booking saved");
     }
 
     @GetMapping("/{id}")
@@ -39,6 +39,6 @@ public class AppointmentController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser user) {
         service.delete(id, user.getOrganizationId());
-        return ApiResponse.success(null, "Appointment deleted");
+        return ApiResponse.success(null, "Booking deleted");
     }
 }

@@ -43,6 +43,16 @@ public class Reservation {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    /**
+     * OMS O5a — when this hold lapses if nobody confirms or releases it (V6).
+     *
+     * <p>{@code null} means no deadline: either the tenant switched expiry off
+     * ({@code inventory.reservation.holdMinutes = 0}), or the row predates V6. Neither is swept automatically —
+     * a migration must not release months of historical holds as a side effect of deploying.
+     */
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
     @PrePersist
     void prePersist() { this.createdAt = LocalDateTime.now(); this.updatedAt = LocalDateTime.now(); }
     @PreUpdate

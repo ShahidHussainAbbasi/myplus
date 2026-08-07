@@ -136,6 +136,36 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                                 + "never anything staff-facing. Turn this off to close the portal "
                                 + "immediately for everyone without withdrawing individual invitations.",
                         false, "Guardian portal"),
+                // ── Slice 3.3: the STUDENT portal, a SECOND switch and deliberately not a widening of the
+                // one above. A school running the guardian portal has not thereby decided that children
+                // should log in — that is a different decision about a different audience, most obviously
+                // in a primary school. Off by default and fails CLOSED, for 3.1's reason exactly.
+                //
+                // It is SUBORDINATE, not parallel: StudentResolver checks edu.portal.enabled FIRST, so
+                // closing the portal closes it for everyone and this flag cannot resurrect it. The gate
+                // asserts both directions and both halves (standard C2).
+                SettingEntry.bool("edu.portal.students.enabled",
+                        "Student portal is open",
+                        "Off (default): students cannot sign in, even ones who have been invited. "
+                                + "On: an invited student sees their OWN timetable, results, homework and "
+                                + "attendance — and never fee dues or behaviour notes, which stay between "
+                                + "the school and the guardian. Requires the guardian portal switch above "
+                                + "to be on as well; turning that off closes both.",
+                        false, "Guardian portal"),
+                // ── Slice 3.5: notice DELIVERY. Default ON and FAILS ON (standard C3), like N1's cover
+                // notice and unlike edu.portal.enabled — a missed closure notice is worse than a duplicate
+                // one, whereas for the portal the unsafe direction is disclosure.
+                //
+                // ⚠ It governs the SEND, not the RECORD. With this off, publishing still works and both
+                // portals still show the notice; only the emails stop. That distinction is the whole of
+                // finding C (the record is the deliverable), and the gate asserts both halves.
+                SettingEntry.bool("edu.notify.notices",
+                        "Email families when a notice is published",
+                        "On (default): publishing a notice also emails every guardian or student it "
+                                + "reaches who has an address on record. Off: the notice is still "
+                                + "published and still visible in the guardian and student portals — only "
+                                + "the emails are not sent.",
+                        true, "Notices"),
                 // ── Slice N1: the cover-assigned notice. Default ON and, per standard C3, it also FAILS
                 // ON — if the setting cannot be read the notice is still queued. The failure mode of an
                 // extra email is noise; the failure mode of a missing one is a teacher not knowing they

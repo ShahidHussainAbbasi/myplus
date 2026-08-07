@@ -4,9 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "patient")
+@Table(name = "attendee")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class Patient {
+public class Attendee {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

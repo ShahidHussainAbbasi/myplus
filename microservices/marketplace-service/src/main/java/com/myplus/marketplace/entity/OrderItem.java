@@ -20,7 +20,39 @@ public class OrderItem {
     @Column(name = "product_id")
     private Long productId;
 
+    /**
+     * OMS O4 — what this line was SOLD AS, snapshotted at write (V14).
+     *
+     * <p>Not a read-through to the catalog: renaming or deleting a product must not change what an already
+     * invoiced order says it sold, and opening the back office must not depend on catalog-service being up.
+     * Null for rows written before V14 — the UI shows the product id rather than inventing a current name.
+     */
+    @Column(name = "product_name")
+    private String productName;
+
     private Integer quantity;
+
+    /**
+     * OMS O5b — how much of this line has physically gone out (0..quantity).
+     *
+     * <p>The single source of truth for fulfilment: the header status is DERIVED from these, so a partly shipped
+     * order cannot disagree with its own lines. Backfilled by V15 to {@code quantity} for orders already past
+     * dispatch, because a return reverses what SHIPPED and reversing 0 would silently return nothing to stock.
+     */
+    @Builder.Default
+    @Column(name = "quantity_shipped", nullable = false)
+    private Integer quantityShipped = 0;
+
+    /**
+     * OMS O5c — accepted but not yet invoiced, because it could not be filled when the order was placed.
+     *
+     * <p>Invariant: {@code quantity = invoiced + quantityBackordered}, and {@code quantityShipped ≤ invoiced}.
+     * These units exist only on the order — inventory is told nothing about them, so stock never goes negative
+     * and no phantom reservation is created.
+     */
+    @Builder.Default
+    @Column(name = "quantity_backordered", nullable = false)
+    private Integer quantityBackordered = 0;
 
     @Column(precision = 19, scale = 2)
     private BigDecimal price;

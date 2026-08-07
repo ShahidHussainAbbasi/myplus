@@ -17,6 +17,8 @@ import com.myplus.education.entity.*;
 import com.myplus.education.repository.*;
 import com.myplus.education.service.ChildResolver;
 import com.myplus.education.service.EduAuditService;
+import com.myplus.education.service.MeetingService;
+import com.myplus.education.service.PortalReadService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
@@ -53,13 +55,14 @@ import com.myplus.education.util.RequestUtil;
 public class GuardianPortalController {
 
     @Autowired private ChildResolver childResolver;
-    @Autowired private ReportCardRepository reportCardRepository;
-    @Autowired private ReportCardLineRepository reportCardLineRepository;
-    @Autowired private AttendanceRepository attendanceRepository;
-    @Autowired private FeeCollectionRepository feeCollectionRepository;
-    @Autowired private HomeworkRepository homeworkRepository;
-    @Autowired private HomeworkSubmissionRepository submissionRepository;
-    @Autowired private SubjectRepository subjectRepository;
+    /**
+     * Slice 3.3 — the reads moved DOWN here so the student portal shares them rather than copying them
+     * (3.3 finding B). This controller kept the only thing that is actually guardian-specific: deciding
+     * WHICH child the caller may see. The renderer never makes that decision.
+     */
+    @Autowired private PortalReadService portalReadService;
+    /** Slice edu-3.4 — meetings, delivered on the shared scheduling core (SCHED-1). */
+    @Autowired private MeetingService meetingService;
     @Autowired private GradeRepository gradeRepository;
     @Autowired private EduAuditService auditService;
     @Autowired private RequestUtil requestUtil;
@@ -156,39 +159,7 @@ public class GuardianPortalController {
         try {
             String enrollNo = mineOrNull(request);
             if (enrollNo == null) return notYours();
-
-            List<ReportCard> cards = new ArrayList<>();
-            for (ReportCard c : reportCardRepository.findByStudentScoped(enrollNo, orgId(), null)) {
-                if (c.getStatus() == ReportCardStatus.PUBLISHED) cards.add(c);
-            }
-            List<Long> ids = new ArrayList<>();
-            for (ReportCard c : cards) ids.add(c.getId());
-            Map<Long, List<ReportCardLine>> linesByCard = new HashMap<>();
-            if (!ids.isEmpty()) {
-                for (ReportCardLine l : reportCardLineRepository.findByCardIds(ids)) {
-                    linesByCard.computeIfAbsent(l.getReportCardId(), k -> new ArrayList<>()).add(l);
-                }
-            }
-
-            List<Map<String, Object>> out = new ArrayList<>();
-            for (ReportCard c : cards) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("termName", c.getTermName());
-                m.put("termPercent", c.getTermPercent());
-                m.put("termGradeName", c.getTermGradeName());
-                m.put("issuedOn", c.getIssuedOn() == null ? null : c.getIssuedOn().toString());
-                List<Map<String, Object>> rows = new ArrayList<>();
-                for (ReportCardLine l : linesByCard.getOrDefault(c.getId(), List.of())) {
-                    Map<String, Object> r = new LinkedHashMap<>();
-                    r.put("subjectName", l.getSubjectName());
-                    r.put("marksObtained", l.getMarksObtained());
-                    r.put("maxMarks", l.getMaxMarks());
-                    r.put("grade", l.getGradeName());
-                    rows.add(r);
-                }
-                m.put("rows", rows);
-                out.add(m);
-            }
+            List<Map<String, Object>> out = portalReadService.results(orgId(), enrollNo);
             audit("PORTAL_READ_RESULTS", enrollNo);
             return new GenericResponse("SUCCESS", "", out);
         } catch (Exception e) {
@@ -205,27 +176,7 @@ public class GuardianPortalController {
         try {
             String enrollNo = mineOrNull(request);
             if (enrollNo == null) return notYours();
-
-            int present = 0, total = 0;
-            List<Map<String, Object>> recent = new ArrayList<>();
-            for (Attendance a : attendanceRepository.findScoped(orgId(), null)) {
-                if (!enrollNo.equals(a.getEn())) continue;
-                total++;
-                boolean isPresent = a.getStatus() != null
-                        && (a.getStatus().equalsIgnoreCase("present") || a.getStatus().equalsIgnoreCase("p"));
-                if (isPresent) present++;
-                if (recent.size() < 30) {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("date", a.getAttDate() == null ? null : a.getAttDate().toString());
-                    m.put("status", a.getStatus());
-                    recent.add(m);
-                }
-            }
-            Map<String, Object> out = new LinkedHashMap<>();
-            out.put("present", present);
-            out.put("total", total);
-            out.put("rate", total > 0 ? Math.round((present * 1000.0 / total)) / 10.0 : 0);
-            out.put("recent", recent);
+            Map<String, Object> out = portalReadService.attendance(orgId(), enrollNo);
             audit("PORTAL_READ_ATTENDANCE", enrollNo);
             return new GenericResponse("SUCCESS", "", out);
         } catch (Exception e) {
@@ -248,25 +199,7 @@ public class GuardianPortalController {
         try {
             String enrollNo = mineOrNull(request);
             if (enrollNo == null) return notYours();
-
-            long outstanding = 0, paid = 0;
-            List<Map<String, Object>> rows = new ArrayList<>();
-            for (FeeCollection f : feeCollectionRepository.findScoped(orgId(), null)) {
-                if (!enrollNo.equals(f.getEnrollNo())) continue;
-                outstanding += f.getDueBalance() == null ? 0 : f.getDueBalance();
-                paid += f.getFeePaid() == null ? 0 : f.getFeePaid();
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("paymentDate", f.getPaymentDate() == null ? null : f.getPaymentDate().toString());
-                m.put("fee", f.getFee());
-                m.put("feePaid", f.getFeePaid());
-                m.put("dueBalance", f.getDueBalance());
-                rows.add(m);
-            }
-            Map<String, Object> out = new LinkedHashMap<>();
-            out.put("outstanding", outstanding);
-            out.put("paid", paid);
-            out.put("rows", rows);
-            // No "payable" flag and no payment link: 3.2 owns that, and it is gated on D-4.
+            Map<String, Object> out = portalReadService.dues(orgId(), enrollNo);
             audit("PORTAL_READ_DUES", enrollNo);
             return new GenericResponse("SUCCESS", "", out);
         } catch (Exception e) {
@@ -284,6 +217,7 @@ public class GuardianPortalController {
             String enrollNo = mineOrNull(request);
             if (enrollNo == null) return notYours();
 
+            // The child ENTITY, not just the number: homework is set per class, so the read needs gradeId.
             Student child = null;
             GuardianPortalAccess g = guardian();
             for (Student s : childResolver.myChildren(orgId(), g.getGuardianId())) {
@@ -291,48 +225,142 @@ public class GuardianPortalController {
             }
             if (child == null) return notYours();
 
-            // The child's class → its subjects → their homework, in one pass each.
-            List<Long> subjectIds = new ArrayList<>();
-            Map<Long, String> subjectNames = new HashMap<>();
-            for (Subject s : subjectRepository.findScoped(orgId(), null)) {
-                Long gradeId = s.getGrade() == null ? null : s.getGrade().getId();
-                if (child.getGradeId() != null && child.getGradeId().equals(gradeId)) {
-                    subjectIds.add(s.getId());
-                    subjectNames.put(s.getId(), s.getName());
-                }
-            }
-            List<Homework> tasks = subjectIds.isEmpty() ? List.of()
-                    : homeworkRepository.findBySubjectsScoped(subjectIds, orgId(), null);
-
-            Map<Long, HomeworkSubmission> mine = new HashMap<>();
-            if (!tasks.isEmpty()) {
-                List<Long> taskIds = new ArrayList<>();
-                for (Homework h : tasks) taskIds.add(h.getId());
-                for (HomeworkSubmission s : submissionRepository
-                        .findByHomeworkIdsScoped(taskIds, orgId(), null)) {
-                    if (enrollNo.equals(s.getStudentEnrollNo())) mine.put(s.getHomeworkId(), s);
-                }
-            }
-
-            List<Map<String, Object>> out = new ArrayList<>();
-            for (Homework h : tasks) {
-                HomeworkSubmission s = mine.get(h.getId());
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("title", h.getTitle());
-                m.put("subjectName", subjectNames.get(h.getSubjectId()));
-                m.put("dueOn", h.getDueOn() == null ? null : h.getDueOn().toString());
-                m.put("maxMarks", h.getMaxMarks());
-                m.put("state", s == null ? null : s.getState().name());
-                m.put("marksObtained", s == null ? null : s.getMarksObtained());
-                m.put("feedback", s == null ? null : s.getFeedback());
-                out.add(m);
-            }
+            List<Map<String, Object>> out = portalReadService.homework(orgId(), child);
             audit("PORTAL_READ_HOMEWORK", enrollNo);
             return new GenericResponse("SUCCESS", "", out);
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
         }
+    }
+
+    /**
+     * Slice 3.5 — school notices addressed to guardians or to everyone.
+     *
+     * <p>The class used for a ONE_CLASS notice is taken from the guardian's children: a guardian with a
+     * child in Class 5 sees Class 5's notices. With several children in different classes the FIRST match
+     * wins per notice, which is why {@code reaches} is asked once per child rather than once per guardian —
+     * a parent of two must not miss one child's class notice because the other child is in a different
+     * class.
+     */
+    @RequestMapping(value = "/portal/notices", method = RequestMethod.GET)
+    @ResponseBody
+    @Transactional
+    public GenericResponse notices() {
+        try {
+            GuardianPortalAccess g = guardian();
+            if (g == null) return notYours();
+
+            // One call per distinct class the guardian has a child in, merged. Small by construction —
+            // a guardian has a handful of children, not a roster.
+            Set<Long> grades = new LinkedHashSet<>();
+            for (Student s : childResolver.myChildren(orgId(), g.getGuardianId())) {
+                grades.add(s.getGradeId());
+            }
+            if (grades.isEmpty()) grades.add(null);   // a guardian with no enrolled child still sees general notices
+
+            List<Map<String, Object>> out = new ArrayList<>();
+            Set<String> seen = new LinkedHashSet<>();
+            for (Long gradeId : grades) {
+                for (Map<String, Object> n : portalReadService.notices(orgId(),
+                        PortalSubjectType.GUARDIAN, gradeId)) {
+                    // De-duplicated across children: a whole-school notice must appear once, not once per
+                    // child. Keyed on title+date because the portal map deliberately carries no id.
+                    String key = n.get("publishedOn") + "|" + n.get("title");
+                    if (seen.add(key)) out.add(n);
+                }
+            }
+            return new GenericResponse("SUCCESS", "", out);
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return new GenericResponse("ERROR", e.getMessage());
+        }
+    }
+
+    // ── Slice edu-3.4: meetings. THE FIRST WRITES ON THE PORTAL SURFACE ─────────────────────────────
+    //
+    // 3.1 D4 said "every mapping is GET", and that rule was load-bearing: a read-only surface cannot be
+    // tricked into changing anything. These two endpoints are a deliberate, narrow exception, stated here
+    // rather than slipped in.
+    //
+    // What keeps them safe is that they write EXACTLY ONE thing — a booking against a published slot — and
+    // that both are scoped by the same authority as every read on this controller:
+    //   · the evening must be OPEN and in the caller's org  (MeetingService)
+    //   · the slot must belong to that evening               (the core, by ref + org)
+    //   · the booking is made for THIS guardian              (guardian(), never a request parameter)
+    //
+    // A guardian cannot book for another family, because the attendee is taken from the resolved session
+    // and never from the request. That is the same rule 3.1 D3 applied to the invitation email, and it is
+    // why there is no `guardianId` parameter anywhere below.
+
+    /** What is open to book, with each teacher's name and how many places are left. */
+    @RequestMapping(value = "/portal/meetings", method = RequestMethod.GET)
+    @ResponseBody
+    @Transactional
+    public GenericResponse meetings() {
+        try {
+            GuardianPortalAccess g = guardian();
+            if (g == null) return notYours();
+
+            MeetingEvent event = meetingService.openEvent(orgId());
+            if (event == null) {
+                // No open evening is a normal state, not an error — a school runs one or two a year.
+                return new GenericResponse("SUCCESS", "", List.of());
+            }
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("eventId", event.getId());
+            out.put("title", event.getTitle());
+            out.put("eventDate", event.getEventDate() == null ? null : event.getEventDate().toString());
+            out.put("notes", event.getNotes());
+            out.put("slots", meetingService.slotsFor(event, orgId()));
+            return new GenericResponse("SUCCESS", "", out);
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return new GenericResponse("ERROR", e.getMessage());
+        }
+    }
+
+    /**
+     * Book a slot. The attendee is THIS guardian — there is no parameter for it, by design.
+     *
+     * <p>Idempotent through the core: a double-clicked Book returns the booking they already hold rather
+     * than an error, because they asked for a booking and have one.
+     */
+    @RequestMapping(value = "/portal/meetings/book", method = RequestMethod.POST)
+    @ResponseBody
+    // NOT @Transactional — same reason as MeetingController.publishMeetingSlots: this calls the
+    // scheduling core over HTTP and writes nothing here. ChildResolver.resolveGuardian manages its own
+    // transaction for the INVITED->ACTIVE flip, which is the only local write on this path.
+    public GenericResponse bookMeeting(final HttpServletRequest request) {
+        try {
+            GuardianPortalAccess g = guardian();
+            if (g == null) return notYours();
+
+            Long slotId = parseLongOrNull(request.getParameter("slotId"));
+            if (slotId == null) return new GenericResponse("ERROR", "A slot is required");
+
+            MeetingEvent event = meetingService.openEvent(orgId());
+            if (event == null) return new GenericResponse("FAILED", "There is no evening open for booking.");
+
+            // guardianId comes from the RESOLVED SESSION, never the request — see the block comment above.
+            Map<String, Object> res = meetingService.book(event, slotId, g.getGuardianId());
+            auditService.record("PORTAL_MEETING_BOOKED", "MeetingEvent", String.valueOf(event.getId()),
+                    "slotId=" + slotId + " guardianId=" + g.getGuardianId());
+            return new GenericResponse("SUCCESS", "Booked", res);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            // A closed evening, a taken slot, or the core being unreachable — all answers a family can act
+            // on, rather than a 500. Logged too: a friendly refusal must not cost the diagnosis.
+            appUtil.le(getClass(), e);
+            return new GenericResponse("FAILED", e.getMessage());
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return new GenericResponse("ERROR", e.getMessage());
+        }
+    }
+
+    private static Long parseLongOrNull(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return Long.valueOf(s.trim()); } catch (NumberFormatException e) { return null; }
     }
 
     // NOTE: there is deliberately NO behaviour-notes endpoint (D4). 2.5's log was written by staff with no

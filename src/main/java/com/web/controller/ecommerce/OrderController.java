@@ -30,11 +30,86 @@ public class OrderController {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * The orders list (OMS O4) — now paginated and filtered.
+     *
+     * <p>Returns {@code data} as a {@code PageResponse}: {@code {content, pageNo, pageSize, totalElements,
+     * totalPages, last}}. It used to be a bare array of every order the tenant had ever taken (OMS-7).
+     *
+     * <p>The filter parameters are relayed verbatim rather than parsed here. This proxy has no business deciding
+     * what a valid status or page size is — {@code OrderQuery} clamps them server-side, and duplicating those
+     * rules in the monolith would create exactly the second source of truth O4 exists to remove.
+     */
     @RequestMapping(value = "/getOrders", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> getOrders(final HttpServletRequest request) {
-        try { return client.get("/orders"); }
-        catch (Exception e) { LOGGER.error("getOrders proxy error", e); return Collections.singletonMap("success", false); }
+        try {
+            return client.get("/orders" + relayQuery(request,
+                    "page", "size", "status", "paymentStatus", "source", "from", "to", "q"));
+        } catch (Exception e) {
+            LOGGER.error("getOrders proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /**
+     * One order in full (OMS O4) — lines, money, payment and the {@code order_events} timeline.
+     *
+     * <p>The detail endpoint existed in marketplace-service from slice 46 and had no monolith proxy, so the back
+     * office could never open an order: it showed six columns and nothing else, while the SHOPPER's tracking
+     * page could already see the timeline.
+     */
+    @RequestMapping(value = "/getOrder", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getOrder(final HttpServletRequest request) {
+        try {
+            String id = request.getParameter("id");
+            return client.get("/orders/" + java.net.URLEncoder.encode(
+                    id == null ? "" : id, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (HttpStatusCodeException e) {
+            // A scoped miss is a 404 "Order not found" — another tenant's order is indistinguishable from a
+            // missing one, and that wording is the marketplace's to give.
+            return relayError(e, "Could not load the order.");
+        } catch (Exception e) {
+            LOGGER.error("getOrder proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /**
+     * OMS O5b — dispatch part or all of an order.
+     *
+     * <p>Replaces "Mark SHIPPED": the order becomes SHIPPED (or PARTIALLY_SHIPPED) because a parcel was
+     * recorded, not because someone typed a status. The body carries the per-line quantities plus carrier and
+     * tracking number.
+     */
+    @RequestMapping(value = "/shipOrder", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> shipOrder(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body.get("id");
+            Map<String, Object> payload = new HashMap<>(body);
+            payload.remove("id");
+            return client.postJson("/orders/" + id + "/shipments", payload);
+        } catch (HttpStatusCodeException e) {
+            // "Cannot ship 6 of Widget — only 5 still to go" is the merchant's answer, not a server fault.
+            return relayError(e, "Could not record the shipment.");
+        } catch (Exception e) {
+            LOGGER.error("shipOrder proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /** Rebuild the named request parameters as an encoded query string; empty when none were supplied. */
+    private static String relayQuery(HttpServletRequest request, String... names) {
+        StringBuilder qs = new StringBuilder();
+        for (String n : names) {
+            String v = request.getParameter(n);
+            if (v == null || v.isBlank()) continue;
+            qs.append(qs.length() == 0 ? '?' : '&').append(n).append('=')
+              .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8));
+        }
+        return qs.toString();
     }
 
     @RequestMapping(value = "/recordOrder", method = RequestMethod.POST)

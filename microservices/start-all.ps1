@@ -143,12 +143,10 @@ if (-not (Test-Path $LOGS)) { New-Item -ItemType Directory -Path $LOGS | Out-Nul
 # 2026-08-06 and is easy to misdiagnose as a service crash or missing demo data, because what you see is
 # a proxy 500 or a /login?error=true much later.
 #
-# Each service is therefore launched via its own hidden cmd.exe, which performs the redirection itself.
-# The key detail: Start-Process is called WITHOUT -RedirectStandard* here, so it uses ShellExecute - and
-# -WindowStyle Hidden is only honoured when it does. Passing redirect parameters forces
-# UseShellExecute=false, at which point WindowStyle is ignored and you get 19 visible windows.
-#
-# cmd.exe rather than powershell.exe for the wrapper: see the encoding note in the body.
+# Each service is therefore launched via its own hidden powershell.exe, which performs the redirection
+# itself. The key detail: Start-Process is called WITHOUT -RedirectStandard* here, so it uses
+# ShellExecute - and -WindowStyle Hidden is only honoured when it does. Passing redirect parameters
+# forces UseShellExecute=false, at which point WindowStyle is ignored and you get 19 visible windows.
 #
 # Log paths and names are unchanged: logs\<service>.log and logs\<service>.log.err.
 # stop-all.ps1 finds services by listening port and jar name, so it is unaffected by this.

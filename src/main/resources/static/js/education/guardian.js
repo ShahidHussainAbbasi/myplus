@@ -25,7 +25,7 @@
 	}
 
 	function show(id) {
-		['ppResults', 'ppAttendance', 'ppDues', 'ppHomework'].forEach(function (p) {
+		['ppResults', 'ppNotices', 'ppMeetings', 'ppAttendance', 'ppDues', 'ppHomework'].forEach(function (p) {
 			$('#' + p).toggle(p === id);
 		});
 	}
@@ -86,11 +86,104 @@
 	}
 
 	function loadTab(tab) {
+		// Notices FIRST, and deliberately above the `current` guard: a notice is addressed to the guardian
+		// or to the whole school, not to a child (3.5 D2). A guardian whose children are not yet placed —
+		// or whose child list is still loading — must still see that the school is closed tomorrow.
+		if (tab === 'notices') return loadNotices();
+		// Meetings, like notices, are addressed to the GUARDIAN rather than to a child, so this sits
+		// above the `current` guard too — a family with no child selected can still book.
+		if (tab === 'meetings') return loadMeetings();
 		if (!current) return;
 		if (tab === 'results') return loadResults();
 		if (tab === 'attendance') return loadAttendance();
 		if (tab === 'dues') return loadDues();
 		if (tab === 'homework') return loadHomework();
+	}
+
+	// ── school notices (slice 3.5) — NOT per-child ──────────────────────────────────────────────
+
+	function loadNotices() {
+		var $p = $('#ppNotices').empty();
+		// No enrollNo: this read takes no child, and the server would ignore one if it were sent.
+		get('portal/notices').done(function (res) {
+			var rows = (res && res.collection) || [];
+			if (!rows.length) {
+				$p.append($('<div>').addClass('pp-card').append(emptyLine(t('ui.js.ppNoNotices'))));
+				return;
+			}
+			rows.forEach(function (n) {
+				// Server-ordered (pinned, then newest) and server-deduplicated across children. The client
+				// re-sorting would be a second copy of a rule the server owns.
+				var $card = $('<div>').addClass('pp-card');
+				var $h = $('<h5>').text(esc(n.title));
+				if (n.pinned) { $h.prepend($('<span>').addClass('pp-muted').text('📌 ')); }
+				$card.append($h);
+				$card.append($('<div>').addClass('pp-muted').text(esc(n.publishedOn)));
+				// .text(), not .html(): a notice body is staff-authored free text sent to every family.
+				$card.append($('<div>').css('white-space', 'pre-wrap').text(esc(n.body)));
+				$p.append($card);
+			});
+		});
+	}
+
+	// ── meetings (slice edu-3.4) — the ONLY write on this surface ────────────────────────────────
+
+	function loadMeetings() {
+		var $p = $('#ppMeetings').empty();
+		get('portal/meetings').done(function (res) {
+			var ev = res && res.object;
+			if (!ev || !ev.eventId) {
+				// No open evening is normal — a school runs one or two a year.
+				$p.append($('<div>').addClass('pp-card').append(emptyLine(t('ui.js.ppNoMeetings'))));
+				return;
+			}
+			var $head = $('<div>').addClass('pp-card');
+			$head.append($('<h5>').text(esc(ev.title)));
+			if (ev.eventDate) { $head.append($('<div>').addClass('pp-muted').text(esc(ev.eventDate))); }
+			if (ev.notes) { $head.append($('<div>').css('white-space','pre-wrap').text(esc(ev.notes))); }
+			$p.append($head);
+
+			var slots = ev.slots || [];
+			if (!slots.length) {
+				$p.append($('<div>').addClass('pp-card').append(emptyLine(t('ui.js.ppNoSlots'))));
+				return;
+			}
+			var $card = $('<div>').addClass('pp-card');
+			slots.forEach(function (s) {
+				var free = Number(s.available) > 0;
+				var $row = $('<div>').addClass('pp-row');
+				$row.append($('<span>').text(esc(s.teacherName) + ' · ' + esc(timeOf(s.startsAt))));
+				if (free) {
+					// One button per slot, disabled the moment it is clicked: the server is idempotent per
+					// (slot, guardian) so a double-click cannot double-book, but there is no reason to send
+					// the second request at all.
+					$row.append($('<button type="button" class="pp-tab">')
+						.text(t('ui.js.ppBook'))
+						.on('click', function () {
+							var $b = $(this).prop('disabled', true);
+							$.post(serverContext + 'portal/meetings/book', { slotId: s.slotId })
+								.done(function (r) {
+									// FAILED carries a reason a family can act on (slot taken, evening
+									// closed) — shown rather than swallowed.
+									if (!r || r.status !== 'SUCCESS') { uiAlert((r && r.message) || ''); }
+									loadMeetings();
+								})
+								.fail(function () { $b.prop('disabled', false); });
+						}));
+				} else {
+					$row.append($('<span>').addClass('pp-muted').text(t('ui.js.ppTaken')));
+				}
+				$card.append($row);
+			});
+			$p.append($card);
+		});
+	}
+
+	/** "2026-12-01T18:00" -> "18:00". The date is on the heading; each row only needs its time. */
+	function timeOf(iso) {
+		if (!iso) { return ''; }
+		var i = String(iso).indexOf('T');
+		return i < 0 ? iso : String(iso).substring(i + 1, i + 6);
 	}
 
 	// ── the four reads ──────────────────────────────────────────────────────────────────────────

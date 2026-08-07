@@ -1,0 +1,98 @@
+package com.myplus.marketplace.dto;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import lombok.Getter;
+import lombok.ToString;
+
+/**
+ * OMS O4 — the back-office list filter, normalised once.
+ *
+ * <h3>Why this is a type and not five controller parameters</h3>
+ * Every rule that keeps the list read safe lives here, so there is exactly one place they can be got wrong and
+ * one place to test them ({@code OrderQueryTest}). A second entry point — an export, a future
+ * {@code order-service} controller — gets the same clamping for free rather than re-deriving it.
+ *
+ * <h3>The size cap is the point</h3>
+ * OMS-7 was an unbounded read: {@code findScoped} returned every order for the org. Pagination alone does not
+ * fix that if the client chooses the page size, because {@code ?size=100000} is the unbounded read again with
+ * extra steps. {@link #MAX_SIZE} is enforced here, server-side, and there is no way to ask for more.
+ *
+ * <h3>Blank is absent, not empty</h3>
+ * A blank filter is dropped rather than matched. {@code status=""} must mean "no status filter"; matching it
+ * literally would return nothing and look like an empty shop.
+ */
+@Getter
+@ToString
+public final class OrderQuery {
+
+    /** Hard ceiling on rows per page. A cap the caller can raise is not a cap. */
+    public static final int MAX_SIZE = 100;
+    public static final int DEFAULT_SIZE = 25;
+
+    private final int page;
+    private final int size;
+    private final String status;          // fulfilment status, exact
+    private final String paymentStatus;   // PENDING | PAID | FAILED, exact
+    private final String source;          // POS | STOREFRONT, exact
+    private final LocalDateTime from;     // inclusive, start of day
+    private final LocalDateTime to;       // inclusive, END of day — see below
+    private final String q;               // free text over orderNo / invoiceNo / customerName / customerContact
+
+    private OrderQuery(int page, int size, String status, String paymentStatus, String source,
+                       LocalDateTime from, LocalDateTime to, String q) {
+        this.page = page;
+        this.size = size;
+        this.status = status;
+        this.paymentStatus = paymentStatus;
+        this.source = source;
+        this.from = from;
+        this.to = to;
+        this.q = q;
+    }
+
+    /**
+     * Build from raw request parameters, clamping everything.
+     *
+     * @param to the LAST DAY to include. Widened to 23:59:59.999999 of that day, because {@code created_at} is a
+     *           timestamp: comparing it against midnight would silently exclude everything that happened on the
+     *           final day of the range, and "1st to 31st" returning nothing from the 31st is the kind of wrong
+     *           answer an operator trusts.
+     */
+    public static OrderQuery of(Integer page, Integer size, String status, String paymentStatus, String source,
+                                LocalDate from, LocalDate to, String q) {
+        int p = (page == null || page < 0) ? 0 : page;                    // a negative page is page one, not an error
+        int s = (size == null || size < 1) ? DEFAULT_SIZE : Math.min(size, MAX_SIZE);
+        return new OrderQuery(p, s,
+                upper(status), upper(paymentStatus), upper(source),
+                from == null ? null : from.atStartOfDay(),
+                to == null ? null : to.atTime(java.time.LocalTime.MAX),
+                trimToNull(q));
+    }
+
+    /** Everything, at the default page size — the plain "open the Orders screen" case. */
+    public static OrderQuery firstPage() {
+        return of(0, DEFAULT_SIZE, null, null, null, null, null, null);
+    }
+
+    public boolean hasText() {
+        return q != null;
+    }
+
+    /** The text filter as a SQL LIKE pattern, lower-cased; {@code null} when no text was supplied. */
+    public String likePattern() {
+        return q == null ? null : "%" + q.toLowerCase(java.util.Locale.ROOT) + "%";
+    }
+
+    private static String upper(String v) {
+        String t = trimToNull(v);
+        return t == null ? null : t.toUpperCase(java.util.Locale.ROOT);
+    }
+
+    private static String trimToNull(String v) {
+        if (v == null) return null;
+        String t = v.trim();
+        return t.isEmpty() ? null : t;
+    }
+}

@@ -17,7 +17,12 @@ import java.util.List;
 public record SettingEntry(String key, String label, String help, SettingType type,
                            String defaultValue, String group, List<Option> options) {
 
-    public enum SettingType { BOOL, INT, TEXT, SELECT }
+    /**
+     * MONEY is distinct from INT because minor units matter: a delivery fee of 5.50 is not expressible as a
+     * whole number, and rendering it with INT's spinner would silently forbid the decimal. Read with
+     * {@code SettingsService.getDecimal}; rendered by settings-form.js as a decimal-capable number input.
+     */
+    public enum SettingType { BOOL, INT, TEXT, SELECT, MONEY }
 
     /**
      * One choice in a SELECT setting.
@@ -73,5 +78,16 @@ public record SettingEntry(String key, String label, String help, SettingType ty
      */
     public static SettingEntry text(String key, String label, String help, String def, String group) {
         return new SettingEntry(key, label, help, SettingType.TEXT, def == null ? "" : def, group);
+    }
+
+    /**
+     * A money / decimal setting — a delivery fee, a free-shipping threshold, a discount percentage.
+     *
+     * <p>Rendered as {@link SettingType#MONEY} so the Configuration screen can offer a decimal input rather
+     * than the whole-number field {@code INT} implies; read back with {@code settingsService.getDecimal}.
+     * Introduced with OMS O3 once a second consumer needed it (see that method's note).
+     */
+    public static SettingEntry money(String key, String label, String help, String def, String group) {
+        return new SettingEntry(key, label, help, SettingType.MONEY, def == null ? "0" : def, group);
     }
 }

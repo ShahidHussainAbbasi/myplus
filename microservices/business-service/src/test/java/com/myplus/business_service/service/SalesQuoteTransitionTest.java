@@ -4,12 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -18,7 +14,6 @@ import java.util.Optional;
 
 import com.myplus.business_service.entity.QuoteStatus;
 import com.myplus.business_service.entity.SalesQuote;
-import com.myplus.business_service.entity.SalesQuoteLine;
 import com.myplus.business_service.repository.SalesQuoteRepo;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.common.security.AuthenticatedUser;
@@ -67,7 +62,9 @@ class SalesQuoteTransitionTest {
         lenient().when(requestUtil.getCurrentUser()).thenReturn(user);
 
         // Default: no approval threshold configured â€” the common case, and the documented "unset means off".
-        lenient().when(settingsService.getText(SalesQuoteService.SETTING_DISCOUNT_THRESHOLD)).thenReturn(null);
+        // getDecimal, not getText: the service reads the shared decimal port, which does the parse itself.
+        lenient().when(settingsService.getDecimal(SalesQuoteService.SETTING_DISCOUNT_THRESHOLD, null))
+                .thenReturn(null);
         lenient().when(settingsService.getInt(eq(SalesQuoteService.SETTING_VALIDITY_DAYS),
                 org.mockito.ArgumentMatchers.anyInt())).thenAnswer(inv -> inv.getArgument(1));
         lenient().when(quoteRepo.save(any(SalesQuote.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -189,7 +186,8 @@ class SalesQuoteTransitionTest {
     @Test
     @DisplayName("a discount OVER the threshold blocks sending until it is approved")
     void overThresholdBlocksSend() {
-        when(settingsService.getText(SalesQuoteService.SETTING_DISCOUNT_THRESHOLD)).thenReturn("10");
+        when(settingsService.getDecimal(SalesQuoteService.SETTING_DISCOUNT_THRESHOLD, null))
+                .thenReturn(new BigDecimal("10"));
         SalesQuote q = quote(QuoteStatus.DRAFT);
         q.setSubTotal(new BigDecimal("850.00"));      // gross 1000, discount 150 = 15% > 10%
         q.setTradeDiscount(new BigDecimal("150.00"));
@@ -202,7 +200,8 @@ class SalesQuoteTransitionTest {
     @Test
     @DisplayName("a discount UNDER the threshold sends without an approval step")
     void underThresholdSendsFreely() {
-        when(settingsService.getText(SalesQuoteService.SETTING_DISCOUNT_THRESHOLD)).thenReturn("10");
+        when(settingsService.getDecimal(SalesQuoteService.SETTING_DISCOUNT_THRESHOLD, null))
+                .thenReturn(new BigDecimal("10"));
         SalesQuote q = quote(QuoteStatus.DRAFT);
         q.setSubTotal(new BigDecimal("950.00"));      // gross 1000, discount 50 = 5% < 10%
         q.setTradeDiscount(new BigDecimal("50.00"));
@@ -221,14 +220,18 @@ class SalesQuoteTransitionTest {
     }
 
     @Test
-    @DisplayName("a malformed threshold is treated as no gate, never as a block")
+    @DisplayName("an unreadable threshold is treated as no gate, never as a block")
     void malformedThresholdDoesNotBlockSelling() {
-        when(settingsService.getText(SalesQuoteService.SETTING_DISCOUNT_THRESHOLD)).thenReturn("ten percent");
+        // The PARSE moved into SettingsService.getDecimal, which swallows NumberFormatException and returns
+        // the fallback — so "ten percent" never reaches this service, a null threshold does. What is still
+        // worth asserting HERE is the consequence: whatever made the value unreadable, a settings typo must
+        // not stop a shop quoting. The parse itself is covered by SettingsServiceDecimalTest in
+        // common-settings, which is where that behaviour now lives.
+        when(settingsService.getDecimal(SalesQuoteService.SETTING_DISCOUNT_THRESHOLD, null)).thenReturn(null);
         SalesQuote q = quote(QuoteStatus.DRAFT);
         q.setSubTotal(new BigDecimal("500.00"));
         q.setTradeDiscount(new BigDecimal("500.00"));
 
-        // A settings typo must not stop a shop quoting.
         assertThat(service.transition(11L, QuoteStatus.SENT, null).getStatus()).isEqualTo(QuoteStatus.SENT);
     }
 

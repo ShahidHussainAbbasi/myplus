@@ -114,12 +114,18 @@ $(document).ready(function() {
 		        
 				resetGlobalError();
 				
-                if(textStatus==="parsererror"){
-                	window.location.href = serverContext + "login?message=" + errorThrown;
-		        }
-		        else if(data.responseJSON.error.indexOf("InternalError") > -1){
-		            window.location.href = serverContext + "login?message=" + data.responseJSON.message;
-		        }
+                // Same defect the other modules carried: ANY failure logged the user out. Routed through
+                // the shared helper, which redirects only on a genuine session loss. The old second branch
+                // also dereferenced data.responseJSON.error blindly — a 404/500 whose body is Spring's HTML
+                // error page has no responseJSON at all, so the handler ITSELF threw and the real fault
+                // never surfaced.
+                var wBody = data ? data.responseJSON : null;
+                if (textStatus === "parsererror"
+                        || (wBody && typeof wBody.error === "string" && wBody.error.indexOf("InternalError") > -1)) {
+                    handleAjaxFailure(data, (wBody && wBody.message) || errorThrown, "welfare form");
+                    return;
+                }
+                if (!wBody || typeof wBody.message !== "string") { handleAjaxFailure(data, errorThrown, "welfare form"); return; }
 
 				var errors = $.parseJSON(data.responseJSON.message);
 	         	$.each( errors, function( index,item ){
@@ -205,7 +211,7 @@ function loadDataTable(){
 	                console.log(textStatus);
 	                console.log('errorThrown:');
 	                console.log(errorThrown);
-				 	window.location.href = serverContext + "login?message=" + errorThrown;
+				 	handleAjaxFailure(jqXHR, errorThrown, "loadDataTable");   // was: unconditional redirect
 	            }
 		}
 	});
@@ -247,7 +253,9 @@ function loadConfig(){
 
 function saveConfigToggle(el){
 	var key = el.getAttribute('data-key');
-	var value = el.checked ? 'true' : 'false';
+	// By TYPE — a non-checkbox has no .checked, so the old unconditional read saved "false" for every
+	// SELECT/INT/TEXT/MONEY entry in the catalog.
+	var value = (el.type === 'checkbox') ? (el.checked ? 'true' : 'false') : el.value;
 	$.post(serverContext + 'saveWelfareConfig', { key: key, value: value }, function(res){
 		var ok = res && (res.status === 'SUCCESS');
 		$('#welfareConfigMsg').removeClass('alert-success alert-danger')

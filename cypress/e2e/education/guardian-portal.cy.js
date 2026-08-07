@@ -89,8 +89,20 @@ describe('Education — guardian portal (slice 3.1)', () => {
       })
     })
     cy.then(() => {
-      post('/invitePortalAccess', { guardianId: fx.mine.guardianId })
-        .then((r) => ok(r, 'invite the guardian'))
+      // PARTIAL is accepted HERE and nowhere else in this spec, and the reason is a real contract change:
+      // slice 3.1b made `invitePortalAccess` also create the auth-service sign-in, and it SURFACES a failure
+      // to create it as PARTIAL rather than swallowing it (3.1b §8.5 — a school must not be left assuming a
+      // guardian can log in). Locally that call always fails, because `service.internal-secret` is unset and
+      // auth-service's PortalAccountController fails closed — the documented F18/F2 gap.
+      //
+      // This spec is about 3.1's ACCESS GRANT, not 3.1b's account, and the grant succeeds either way; the
+      // access row is asserted immediately below. Narrowed to this one call so a PARTIAL anywhere else in
+      // this spec still fails loudly.
+      post('/invitePortalAccess', { guardianId: fx.mine.guardianId }).then((r) => {
+        const b = parse(r.body)
+        expect(b.status, `invite the guardian: ${JSON.stringify(b).slice(0, 300)}`)
+          .to.be.oneOf(['SUCCESS', 'PARTIAL'])
+      })
     })
     cy.request('/getPortalAccess').then((r) => {
       fx.access = rows(r.body).find((a) => a.guardianId === fx.mine.guardianId)
@@ -124,7 +136,13 @@ describe('Education — guardian portal (slice 3.1)', () => {
     cy.loginAsTeacherA()
     post('/invitePortalAccess', { guardianId: fx.mine.guardianId }).then((r) => {
       const b = parse(r.body)
-      const refused = r.status === 403 || (b && b.status && b.status !== 'SUCCESS')
+      // PARTIAL had to be added here, and it is a FIX, not bookkeeping: this read "status !== 'SUCCESS'",
+      // which was a sound refusal check while SUCCESS was the only successful value. Slice 3.1b introduced
+      // PARTIAL as a SUCCESSFUL outcome (the grant worked, the sign-in did not) — so from that moment a
+      // teacher who was wrongly ALLOWED to invite would have returned PARTIAL locally and passed this test.
+      // The ADMIN gate would have been removable without any gate turning red.
+      const succeeded = b && ['SUCCESS', 'PARTIAL'].includes(b.status)
+      const refused = r.status === 403 || !succeeded
       expect(refused, 'granting an outsider sight of a child record is ADMIN policy').to.eq(true)
     })
   })

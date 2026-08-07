@@ -9,7 +9,7 @@
  * Renders from the service's settings catalog (SettingEntry): the screen has no
  * knowledge of individual settings, so adding one is a server-side change only.
  *
- * Supported types: BOOL (checkbox), SELECT (dropdown), INT / TEXT (input).
+ * Supported types: BOOL (checkbox), SELECT (dropdown), INT / TEXT (input), MONEY (decimal input).
  * ========================================================================== */
 (function (global) {
 	'use strict';
@@ -39,6 +39,14 @@
 
 		if (it.type === 'INT') {
 			return '<input type="number" class="form-control" value="' + esc(it.value) + '"' + common + '/>';
+		}
+
+		// MONEY: a number input that ACCEPTS DECIMALS. Without step="any" the browser rejects 5.50 against the
+		// default step of 1 — and an unknown type would fall through to the checkbox below, silently turning a
+		// delivery fee into a tick box.
+		if (it.type === 'MONEY') {
+			return '<input type="number" step="any" min="0" class="form-control" value="'
+				+ esc(it.value) + '"' + common + '/>';
 		}
 
 		if (it.type === 'TEXT') {

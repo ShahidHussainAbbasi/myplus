@@ -76,6 +76,21 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
             + "order by s.name")
     List<Student> findByGuardianScoped(@Param("guardianId") Long guardianId, @Param("orgId") Long orgId);
 
+    /**
+     * Slice 3.3 — resolve ONE student by id, within a tenant. <b>This query IS a student's entire authority.</b>
+     *
+     * <p>Scoped rather than a bare {@code findById} because an access row is not proof the student is still
+     * in this tenant — and an unscoped by-id read behind an external principal is precisely the anti-IDOR
+     * failure the education review's finding A catalogued in nine repositories.
+     *
+     * <p><b>No {@code userId} NULL-fallback and no userId PARAMETER</b>, unlike the staff by-id reads. That
+     * fallback exists so a staff member still sees rows they created before org-scoping landed; an external
+     * principal has no such history, so the parameter would only ever be an opportunity to widen their
+     * reach. Its absence from the signature is the point — it cannot be passed by mistake.
+     */
+    @Query("select s from Student s where s.id = :id and s.organizationId = :orgId")
+    java.util.Optional<Student> findByIdForPortal(@Param("id") Long id, @Param("orgId") Long orgId);
+
     // ── Finding D: dashboard aggregates ─────────────────────────────────────────────────────────
     // Counted in the database instead of loading every student to call .size() and .stream().filter().
 

@@ -161,13 +161,15 @@ public class StockService {
             m.put("onHand", sl.getCurrentStock() == null ? 0f : sl.getCurrentStock());
             m.put("sellable", 0f);
             m.put("expired", 0f);
+            m.put("held", 0f);          // OMS O5a
             out.put(sl.getProductId(), m);
         }
-        // Overlay the batch-derived sellable/expired split.
+        // Overlay the batch-derived sellable/expired/held split.
         for (Object[] row : stockEntryRepository.sellableExpiredByScope(orgId, userId, today)) {
             Long pid = (Long) row[0];
             float sellable = row[1] == null ? 0f : ((Number) row[1]).floatValue();
             float expired = row[2] == null ? 0f : ((Number) row[2]).floatValue();
+            float held = row[3] == null ? 0f : ((Number) row[3]).floatValue();
             java.util.Map<String, Float> m = out.computeIfAbsent(pid, k -> {
                 java.util.Map<String, Float> mm = new java.util.HashMap<>();
                 mm.put("onHand", 0f);
@@ -175,6 +177,9 @@ public class StockService {
             });
             m.put("sellable", Math.max(0f, sellable));
             m.put("expired", Math.max(0f, expired));
+            // OMS O5a: what a checkout in flight is holding. Sellable was ALREADY net of this, so without the
+            // number published there was no way to explain why sellable < on-hand with nothing expired.
+            m.put("held", Math.max(0f, held));
         }
         return out;
     }
@@ -190,10 +195,12 @@ public class StockService {
                 .map(sl -> sl.getCurrentStock() == null ? 0f : sl.getCurrentStock()).orElse(0f));
         m.put("sellable", 0f);
         m.put("expired", 0f);
+        m.put("held", 0f);              // OMS O5a — see getLevelDetail
         for (Object[] row : stockEntryRepository.sellableExpiredByScope(orgId, userId, today)) {
             if (!productId.equals(row[0])) continue;
             m.put("sellable", Math.max(0f, row[1] == null ? 0f : ((Number) row[1]).floatValue()));
             m.put("expired", Math.max(0f, row[2] == null ? 0f : ((Number) row[2]).floatValue()));
+            m.put("held", Math.max(0f, row[3] == null ? 0f : ((Number) row[3]).floatValue()));
             break;
         }
         return m;

@@ -27,7 +27,7 @@ public class HospitalController {
     @PostMapping
     public ApiResponse<HospitalDTO> create(@Valid @RequestBody HospitalDTO dto,
                                            @AuthenticationPrincipal AuthenticatedUser user) {
-        return ApiResponse.success(service.create(dto, user.getOrganizationId()), "Hospital saved");
+        return ApiResponse.success(service.create(dto, user.getOrganizationId()), "Venue saved");
     }
 
     @GetMapping("/{id}")
@@ -39,6 +39,6 @@ public class HospitalController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser user) {
         service.delete(id, user.getOrganizationId());
-        return ApiResponse.success(null, "Hospital deleted");
+        return ApiResponse.success(null, "Venue deleted");
     }
 }

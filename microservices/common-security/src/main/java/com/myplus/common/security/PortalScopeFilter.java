@@ -61,15 +61,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 public class PortalScopeFilter extends OncePerRequestFilter {
 
-    /** The role that marks a session as portal-scoped. Granted alongside LOGIN_PRIVILEGE, never instead. */
-    public static final String PORTAL_ROLE = "ROLE_PORTAL";
-
     private static final AntPathMatcher MATCHER = new AntPathMatcher();
 
     private final List<String> allowlist;
+    private final List<String> confinedRoles;
 
-    public PortalScopeFilter(List<String> allowlist) {
+    public PortalScopeFilter(List<String> allowlist, List<String> confinedRoles) {
         this.allowlist = allowlist == null ? Collections.emptyList() : List.copyOf(allowlist);
+        this.confinedRoles = confinedRoles == null ? Collections.emptyList() : List.copyOf(confinedRoles);
     }
 
     /** Parses the comma-separated {@code myplus.portal.allowlist} property. Blank ⇒ deny everything. */
@@ -87,25 +86,56 @@ public class PortalScopeFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (isPortalPrincipal(request.getHeader("X-User-Roles")) && !isAllowed(pathOf(request))) {
+        if (isConfined(request.getHeader("X-User-Roles"), confinedRoles) && !isAllowed(pathOf(request))) {
             // 404, and deliberately no body: a portal caller learns nothing about what else exists here.
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            //
+            // setStatus + flushBuffer, NOT sendError — and the difference is the whole of D4.
+            // sendError() asks the container to run its ERROR dispatch, which re-enters the filter chain
+            // for /error. This filter short-circuits BEFORE the security chain, so that dispatch carries no
+            // authentication, Spring Security refuses it, and the caller receives **403** — precisely the
+            // status D4 exists to avoid, because it confirms the endpoint is real and merely forbidden.
+            // Measured on 2026-08-06: with sendError, a confined session got 403 while a staff session got
+            // 200 on the same URL. Committing the response ourselves keeps the refusal indistinguishable
+            // from a route that does not exist.
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.setContentLength(0);
+            response.flushBuffer();
             return;
         }
         filterChain.doFilter(request, response);
     }
 
     /**
-     * PURE. Is this roles header a portal session?
+     * PURE. Does this roles header carry a CONFINED role?
+     *
+     * <p>The confined set is CONFIGURATION, not a hard-coded marker — currently {@code ROLE_GUARDIAN},
+     * and 3.3 adds {@code ROLE_STUDENT}. Roles name <b>who someone is</b>, matching every other role on
+     * this platform ({@code ROLE_EDUCATION_USER}, {@code ROLE_OWNER}, …); this property names <b>which of
+     * them are restricted to a portal surface</b>. Identity and policy stay separate.
+     *
+     * <p><b>The cost of that choice, stated so it is not forgotten:</b> a new external audience is NOT
+     * confined automatically — whoever adds one must add its role here. That is a "remember it" rule, the
+     * failure mode finding A proved this codebase has. It is mitigated by keeping this property next to
+     * {@code myplus.portal.allowlist} so both halves of the policy are read together, and by 3.3's design
+     * doc carrying it as a checklist item. An empty set confines nobody, which is the correct default for
+     * the twelve services that have no portal at all.
      *
      * <p>Exact, case-sensitive token match after splitting — deliberately not {@code contains()}, which
-     * would also match a hypothetical {@code ROLE_PORTAL_ADMIN} and hand a staff role the portal's
-     * restrictions (or, read the other way, let a near-miss name escape them).
+     * would also match a near-miss like {@code ROLE_GUARDIAN_ADMIN}.
+     *
+     * <p><b>Parsing is delegated to {@link AuthorityHeader}, and that is a FIX, not a tidy-up.</b> This
+     * method used to do its own {@code split(",")}, which is wrong for the value the gateway actually
+     * stamps: it renders the JWT claim with {@code List.toString()}, so the header reads
+     * {@code [ROLE_GUARDIAN]}. Comparing that against {@code ROLE_GUARDIAN} never matched, and this filter
+     * — the ONLY control standing between a portal session and ~74 ungated staff reads — <b>failed open</b>
+     * whenever the call arrived through the gateway. It worked in the monolith's legacy direct mode, which
+     * stamps the bare form, so the control was live in one path and absent in the other. See
+     * {@link AuthorityHeader} for the rule this earned.
      */
-    public static boolean isPortalPrincipal(String rolesHeader) {
-        if (!StringUtils.hasText(rolesHeader)) return false;
-        for (String r : rolesHeader.split(",")) {
-            if (PORTAL_ROLE.equals(r.trim())) return true;
+    public static boolean isConfined(String rolesHeader, List<String> confinedRoles) {
+        if (!StringUtils.hasText(rolesHeader) || confinedRoles == null || confinedRoles.isEmpty()) return false;
+        for (String r : AuthorityHeader.tokens(rolesHeader)) {
+            if (confinedRoles.contains(r)) return true;
         }
         return false;
     }

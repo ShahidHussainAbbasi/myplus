@@ -70,6 +70,21 @@ spring:
                     fallbackUri: forward:/fallback
                 - name: JwtAuthenticationFilter
                 - StripPrefix=2
+            # OMS O5a: the SHARED common-settings controller is mapped at /settings, like the shared demo purge
+            # above and for the same reason — it lives in a library and cannot know any one service's prefix.
+            # inventory-service has no StripPrefix, so /api/inventory/settings would arrive unchanged and miss
+            # the mapping. Any FULL-PATH service that later adopts common-settings needs a route like this one.
+            - id: inventory-settings
+              uri: lb://inventory-service
+              predicates:
+                - Path=/api/inventory/settings/**,/api/inventory/settings
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: inventory-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
             - id: finance-demo
               uri: lb://finance-service
               predicates:

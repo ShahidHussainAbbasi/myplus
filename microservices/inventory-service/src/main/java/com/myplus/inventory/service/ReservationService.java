@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +34,8 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final StockEntryRepository stockEntryRepository;
     private final StockLevelRepository stockLevelRepository;
+    /** OMS O5a — how long this tenant's holds live. */
+    private final ReservationPolicy reservationPolicy;
 
     private static float nz(Float f) { return f == null ? 0f : f; }
     private static final float EPS = 0.0001f;
@@ -73,6 +76,11 @@ public class ReservationService {
                 .idempotencyKey(req.getIdempotencyKey())
                 .status(ReservationStatus.RESERVED)
                 .organizationId(orgId).userId(userId)
+                // OMS O5a: a hold is a promise with a deadline. Without one, a reserve whose confirm or
+                // compensating release never lands holds this stock FOREVER — availability is computed as
+                // (quantity - reservedQuantity), so the stock stays counted in on-hand and is permanently
+                // unsellable. Null when the tenant has switched expiry off.
+                .expiresAt(reservationPolicy.expiryFor(orgId, LocalDateTime.now()))
                 .picks(new ArrayList<>())
                 .build();
 
@@ -100,9 +108,21 @@ public class ReservationService {
     public StockReservationResponse confirm(String reservationId, Long orgId, Long userId) {
         Reservation resv = load(reservationId, orgId, userId);
         if (resv.getStatus() == ReservationStatus.CONFIRMED) return toResponse(resv); // idempotent
+        // OMS O5a: EXPIRED gets its own message. "Cannot confirm reservation in state EXPIRED" tells a cashier
+        // nothing they can act on; this says what happened and what to do. The other states keep the generic
+        // wording because they are programming errors, not situations a user can be in.
+        if (resv.getStatus() == ReservationStatus.EXPIRED) {
+            throw new ValidationException(
+                    "That stock hold expired before the sale completed and the stock was returned to inventory. "
+                            + "Please try the sale again.");
+        }
         if (resv.getStatus() != ReservationStatus.RESERVED) {
             throw new ValidationException("Cannot confirm reservation in state " + resv.getStatus());
         }
+        // Deliberately NOT checking expiresAt here. A hold past its deadline but not yet swept still physically
+        // holds its stock, so nobody else can have taken it and confirming is safe. Refusing would fail sales
+        // for no reason in the window between expiry and the next sweep. Only once the sweeper has actually
+        // returned the stock (status EXPIRED, above) must confirm fail.
         for (ReservationPick p : resv.getPicks()) {
             stockEntryRepository.findById(p.getStockEntryId()).ifPresent(e -> {
                 e.setQuantity(nz(e.getQuantity()) - p.getQuantity());

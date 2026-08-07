@@ -98,6 +98,14 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
      */
     protected String determineTargetUrl(final Authentication authentication) {
         if (authentication.getPrincipal() instanceof User) {
+            // Slice 3.3 — a PORTAL session is routed by its role, and that check comes first because the
+            // role is the more specific fact. A guardian and a student are both EDUCATION users, so module
+            // routing alone lands them on the staff dashboard: a page assembled entirely from reads the
+            // deny rule then answers with 404. Non-portal sessions get null here and fall straight through.
+            String portal = com.web.util.ModuleRouter.portalDashboardFor(authentication.getAuthorities());
+            if (portal != null) {
+                return portal;
+            }
             return com.web.util.ModuleRouter.dashboardFor((User) authentication.getPrincipal());
         } else {
             throw new IllegalStateException();

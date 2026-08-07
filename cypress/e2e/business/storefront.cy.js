@@ -68,8 +68,10 @@ describe('E-commerce — public storefront', () => {
     })
 
     cy.loginAsMarketplace()
-    cy.request('/getOrders').then((r) => {
-      const mine = (r.body.data || []).find((o) => o.customerName === buyer)
+    // OMS O4: /getOrders is paginated ({data:{content,…}}) and filterable. Searching by buyer makes this an
+    // exact assertion instead of "scan the newest 25 and hope the order is still in there".
+    cy.request('/getOrders?q=' + encodeURIComponent(buyer)).then((r) => {
+      const mine = ((r.body.data && r.body.data.content) || []).find((o) => o.customerName === buyer)
       expect(mine, 'guest order in the back-office').to.exist
       expect(mine.source).to.eq('STOREFRONT')
     })

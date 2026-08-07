@@ -18,7 +18,11 @@
         .add:disabled{background:#c3c9d2;cursor:not-allowed}
         .stock{font-size:11px;font-weight:600;margin:2px 0 8px;padding:2px 6px;border-radius:6px;display:inline-block}
         .stock.out{background:#fdecea;color:#c0392b} .stock.low{background:#fff4e0;color:#b9770e}
-        .cart{width:320px;background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:16px;position:sticky;top:18px}
+        /* The sticky panel must bound its own height: account + lines + checkout + card form + tracking is
+           taller than a laptop viewport, and without a bound the pay controls sit BELOW the fold with no way
+           to reach them — the page cannot scroll a stuck element into view. Scroll inside the panel instead. */
+        .cart{width:320px;background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:16px;position:sticky;top:18px;max-height:calc(100vh - 36px);overflow-y:auto}
+        @media (max-width:767px){ .wrap{flex-direction:column} .cart{width:100%;position:static;max-height:none;overflow:visible} }
         .cart h3{margin:0 0 10px} .line{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin:6px 0;gap:6px}
         .cl-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .cl-ctrl{display:flex;align-items:center;gap:6px}
@@ -74,9 +78,12 @@
             <input id="cName" placeholder="Your name *">
             <input id="cContact" placeholder="Phone / email">
             <input id="cAddress" placeholder="Delivery address">
+            <!-- OMS O3: no fee in the label. Delivery fees are per-store settings now, so a literal here would
+                 contradict what the server actually charges the moment an owner changes one. The Shipping line
+                 in the totals below is the server's own figure and updates as the method changes. -->
             <select id="cShip" onchange="refreshQuote()">
-                <option value="STANDARD">Standard delivery (+5.00)</option>
-                <option value="EXPRESS">Express delivery (+15.00)</option>
+                <option value="STANDARD">Standard delivery</option>
+                <option value="EXPRESS">Express delivery</option>
                 <option value="PICKUP">Store pickup (free)</option>
             </select>
             <!-- slice 72: promo code -->
@@ -93,6 +100,8 @@
                 <div class="line"><span>Shipping</span><span id="qShip">0.00</span></div>
                 <div class="total"><span>Total</span><span id="qTotal">0.00</span></div>
             </div>
+            <!-- OMS O5c: what will have to wait, and when it is promised. Hidden unless the server says so. -->
+            <div id="backorderNotice" style="display:none;background:#fff4e0;border:1px solid #b9770e;color:#7a5200;padding:8px;border-radius:8px;margin:8px 0;font-size:12px"></div>
             <div class="pay-tabs">
                 <div class="pay-tab active" id="tabCod" onclick="setPay('COD')">💵 Cash on Delivery</div>
                 <div class="pay-tab" id="tabCard" onclick="setPay('CARD')">💳 Pay by Card</div>
@@ -265,8 +274,35 @@
                 if(code && q.couponMessage){ msg.textContent = q.couponMessage; msg.style.color = '#c0392b'; }
                 else if(disc > 0){ msg.textContent = 'Coupon "' + esc(q.couponCode) + '" applied.'; msg.style.color = '#1e7e34'; }
                 else { msg.textContent = ''; }
+                applyPaymentPolicy(q);
+                applyBackorderNotice(q);
             }
         }).catch(function(){});
+    }
+
+    // OMS O3: the store decides whether it accepts cash. The quote carries the policy because a shopper is
+    // anonymous and cannot read the settings API. Offering a payment method the server will refuse is worse
+    // than not offering it — the shopper fills the whole form and is rejected at the last click. The server
+    // still enforces it: this only stops us ADVERTISING what the store does not accept.
+    // OMS O5c: say so BEFORE the shopper commits. A backorder accepted silently is discovered when half the
+    // order arrives, and that is a complaint rather than a sale. The server decides what is short; this only
+    // renders it.
+    function applyBackorderNotice(q){
+        var box = document.getElementById('backorderNotice');
+        if(!q.hasBackorder){ box.style.display='none'; box.innerHTML=''; return; }
+        var short = (q.items||[]).filter(function(l){ return Number(l.backorderedQuantity) > 0; });
+        var names = short.map(function(l){ return esc(l.name) + ' ×' + l.backorderedQuantity; }).join(', ');
+        box.innerHTML = '<b>Some items are not in stock yet.</b><br>' + names
+            + (q.promisedDate ? '<br>We expect to send these by <b>' + esc(q.promisedDate) + '</b>.' : '')
+            + '<br>Everything else is dispatched now, and you are only charged for what we send.';
+        box.style.display = 'block';
+    }
+
+    function applyPaymentPolicy(q){
+        var codOk = (q.codEnabled !== false);
+        var tab = document.getElementById('tabCod');
+        tab.style.display = codOk ? '' : 'none';
+        if(!codOk && payMode === 'COD'){ setPay('CARD'); }   // COD is the default tab — move off it
     }
 
     var payMode = 'COD';

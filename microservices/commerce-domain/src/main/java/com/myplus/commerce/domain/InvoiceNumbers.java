@@ -43,6 +43,21 @@ public final class InvoiceNumbers {
      */
     public static final String ORDER_PREFIX = "SO-";
 
+    /**
+     * OMS O5b: prefix for a SHIPMENT — one parcel that physically left, not the order it belongs to.
+     *
+     * <p>Its own series because an order can ship in parts: {@code SO-000123} may produce {@code SHP-000045} and
+     * {@code SHP-000046}, and the customer needs to name the parcel they are asking about. Reusing the order
+     * number would make two dispatches indistinguishable — the same reason credit notes stopped reusing the
+     * invoice series.
+     */
+    public static final String SHIPMENT_PREFIX = "SHP-";
+
+    /** Format a per-org shipment sequence, e.g. {@code 45 -> "SHP-000045"} (OMS O5b). */
+    public static String shipment(long seq) {
+        return pad(SHIPMENT_PREFIX, seq);
+    }
+
     /** Format a per-org running sequence as a display invoice number, e.g. {@code 123 -> "INV-000123"}. */
     public static String format(long seq) {
         return pad(PREFIX, seq);

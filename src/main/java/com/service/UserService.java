@@ -29,8 +29,12 @@ public class UserService implements IUserService {
     }
 
     /**
-     * Counts principals rather than sessions: {@code maximumSessions(1)} in SecSecurityConfig means
-     * one session per user anyway, and "users online" is the figure being reported.
+     * Counts principals rather than sessions — and since the session cap was lifted this is no longer a
+     * distinction without a difference. It USED to read "maximumSessions(1) means one session per user
+     * anyway"; that premise is now false. SecSecurityConfig allows unlimited concurrent sessions (a till,
+     * a back-office PC and a phone are one user, not three), so counting SESSIONS would inflate the
+     * "users online" badge by however many devices each person happens to have open. Principals is the
+     * figure being reported, and now it is the only one that is correct.
      *
      * {@code getAllSessions(u, false)} excludes sessions already marked expired by concurrency control;
      * sessions destroyed by logout or timeout are pruned from the registry by the

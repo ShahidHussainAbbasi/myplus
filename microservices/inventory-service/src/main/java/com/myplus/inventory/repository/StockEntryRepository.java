@@ -73,10 +73,16 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     // non-quarantined batches (exactly what the FEFO allocator can hold), and EXPIRED = physical qty locked in
     // already-expired batches (present on the shelf but unsellable). Same NULL-fallback SCOPE as getAllLevels.
     // Returns [productId, sellable, expired] rows.
+    // OMS O5a adds HELD as a third measure. Sellable was already net of reservedQuantity, so a stock hold
+    // silently made `sellable` smaller with nothing anywhere to explain it: a shopkeeper saw "on-hand 16,
+    // sellable 6", no expired batches, and had nowhere to look. Publishing the number that accounts for the
+    // difference is the operator-facing half of the OMS-6 fix.
+    // Returns [productId, sellable, expired, held] rows.
     @Query("SELECT se.productId, "
             + "SUM(CASE WHEN (se.expiryDate IS NULL OR se.expiryDate >= :today) AND (se.restockable IS NULL OR se.restockable = true) "
             + "         THEN (se.quantity - COALESCE(se.reservedQuantity, 0)) ELSE 0 END), "
-            + "SUM(CASE WHEN se.expiryDate IS NOT NULL AND se.expiryDate < :today THEN se.quantity ELSE 0 END) "
+            + "SUM(CASE WHEN se.expiryDate IS NOT NULL AND se.expiryDate < :today THEN se.quantity ELSE 0 END), "
+            + "SUM(COALESCE(se.reservedQuantity, 0)) "
             + "FROM StockEntry se WHERE " + SCOPE + " GROUP BY se.productId")
     List<Object[]> sellableExpiredByScope(@Param("orgId") Long orgId, @Param("userId") Long userId,
                                           @Param("today") LocalDate today);

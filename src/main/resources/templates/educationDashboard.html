@@ -62,6 +62,8 @@
 					<option value="StaffRegisterDiv" th:text="#{ui.staffRegister}">Staff Register</option>
 					<option value="LeaveDiv" th:text="#{ui.leave}">Leave</option>
 					<option value="HomeworkDiv" th:text="#{ui.homework}">Homework</option>
+					<option value="MeetingsDiv" th:text="#{ui.meetings}">Parents' evenings</option>
+					<option value="NoticesDiv" th:text="#{ui.notices}">Notices</option>
 					<option value="BehaviourDiv" th:text="#{ui.behaviour}">Behaviour</option>
 					<option value="PortalAccessDiv" th:text="#{ui.portalAccess}">Guardian Portal Access</option>
 					<option value="StaffDiv" th:text="#{ui.employee}">Employee</option>
@@ -134,6 +136,8 @@
 									<li><a onclick="snavGo('registrationType','HomeworkDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.homework}">Homework</span></a></li>
 									<!-- Slice 2.5: teacher work (WRITE tier). Notes are append-only — there is no edit
 									     or delete anywhere in the stack. -->
+									<li><a onclick="snavGo('registrationType','MeetingsDiv','snavRegister')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.meetings}">Parents' evenings</span></a></li>
+									<li><a onclick="snavGo('registrationType','NoticesDiv','snavRegister')"><span class="glyphicon glyphicon-bullhorn"></span> <span th:text="#{ui.notices}">Notices</span></a></li>
 									<li><a onclick="snavGo('registrationType','BehaviourDiv','snavRegister')"><span class="glyphicon glyphicon-flag"></span> <span th:text="#{ui.behaviour}">Behaviour</span></a></li>
 									<!-- Slice 3.1: granting an OUTSIDER sight of a child's record is ADMIN policy,
 									     the same tier as fee settings — never day-to-day teacher work. -->
@@ -2714,6 +2718,146 @@
 
 			<!-- Slice 2.5 — behaviour log. Append-only: a correction writes a NEW note and strikes the
 			     original through (D3). Positive notes are first-class, so this is not a punishment ledger. -->
+			<div id="MeetingsDiv" class="formDiv">
+				<h4 th:text="#{ui.meetings}">Parents' evenings</h4>
+				<p class="text-muted" th:text="#{ui.meetingsHelp}">Create an evening, publish each teacher's slots, then open it for booking. Families book their own slot from the guardian portal — one slot per family per teacher, and the system refuses a slot that is already taken. Closing an evening stops new bookings; it does not cancel the ones already made.</p>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-4">
+						<label for="meTitle" th:text="#{ui.title}">Title</label>
+						<input type="text" class="form-control" id="meTitle">
+					</div>
+					<div class="col-sm-3">
+						<label for="meDate" th:text="#{ui.date}">Date</label>
+						<input type="text" class="form-control datepicker" id="meDate">
+					</div>
+					<div class="col-sm-5">
+						<label for="meNotes" th:text="#{ui.notes}">Notes for families</label>
+						<input type="text" class="form-control" id="meNotes">
+					</div>
+				</div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-12">
+						<button type="button" class="btn btn-primary" onclick="saveMeetingEvent()" th:text="#{label.form.save}">Save</button>
+						<button type="button" class="btn btn-link" onclick="clearMeetingForm()" th:text="#{label.form.clear}">Clear</button>
+					</div>
+				</div>
+
+				<div class="table-scroll" style="margin-bottom:18px">
+					<table class="table table-striped" id="tableMeetingEvents">
+						<thead>
+							<tr>
+								<th th:text="#{ui.title}">Title</th>
+								<th th:text="#{ui.date}">Date</th>
+								<th th:text="#{ui.status}">Status</th>
+								<th></th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+
+				<!-- Publishing a teacher's slots. Re-running is safe: the scheduling core refuses a duplicate
+				     slot, so extending an evening adds only the new part. -->
+				<h5 th:text="#{ui.publishSlots}">Publish a teacher's slots</h5>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-3">
+						<label for="meStaff" th:text="#{ui.teacher}">Teacher</label>
+						<select class="form-control" id="meStaff"></select>
+					</div>
+					<div class="col-sm-3">
+						<label for="meFrom" th:text="#{ui.from}">From</label>
+						<input type="text" class="form-control" id="meFrom" placeholder="2026-10-01T18:00:00">
+					</div>
+					<div class="col-sm-3">
+						<label for="meTo" th:text="#{ui.to}">To</label>
+						<input type="text" class="form-control" id="meTo" placeholder="2026-10-01T19:00:00">
+					</div>
+					<div class="col-sm-2">
+						<label for="meMinutes" th:text="#{ui.slotMinutes}">Minutes</label>
+						<input type="number" class="form-control" id="meMinutes" value="10" min="1">
+					</div>
+					<div class="col-sm-1" style="padding-top:24px">
+						<button type="button" class="btn btn-default" onclick="publishMeetingSlots()" th:text="#{ui.publish}">Publish</button>
+					</div>
+				</div>
+				<div id="meMsg" class="alert alert-info" style="display:none"></div>
+
+				<div class="table-scroll">
+					<table class="table table-striped" id="tableMeetingSlots">
+						<thead>
+							<tr>
+								<th th:text="#{ui.teacher}">Teacher</th>
+								<th th:text="#{ui.time}">Time</th>
+								<th th:text="#{ui.available}">Available</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+			</div>
+
+			<div id="NoticesDiv" class="formDiv">
+				<h4 th:text="#{ui.notices}">Notices</h4>
+				<p class="text-muted" th:text="#{ui.noticesHelp}">Write a notice, check how many families it reaches, then publish it. Publishing makes it visible in the guardian and student portals immediately and queues an email to everyone it reaches who has an address on record. A published notice cannot be edited — publish a new one instead.</p>
+
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-5">
+						<label for="ntTitle" th:text="#{ui.title}">Title</label>
+						<input type="text" class="form-control" id="ntTitle">
+					</div>
+					<div class="col-sm-3">
+						<label for="ntAudience" th:text="#{ui.audience}">Audience</label>
+						<select class="form-control" id="ntAudience" onchange="noticeAudienceChanged()">
+							<option value="WHOLE_SCHOOL" th:text="#{ui.audienceWholeSchool}">Whole school</option>
+							<option value="GUARDIANS" th:text="#{ui.audienceGuardians}">Guardians only</option>
+							<option value="STUDENTS" th:text="#{ui.audienceStudents}">Students only</option>
+							<option value="ONE_CLASS" th:text="#{ui.audienceOneClass}">One class</option>
+						</select>
+					</div>
+					<div class="col-sm-2" id="ntGradeWrap" style="display:none">
+						<label for="ntGrade" th:text="#{ui.class}">Class</label>
+						<select class="form-control" id="ntGrade" onchange="refreshNoticeReach()"></select>
+					</div>
+					<div class="col-sm-2">
+						<label for="ntPinned" th:text="#{ui.pinnedUntil}">Pin until</label>
+						<input type="text" class="form-control datepicker" id="ntPinned">
+					</div>
+				</div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-12">
+						<label for="ntBody" th:text="#{ui.message}">Message</label>
+						<textarea class="form-control" id="ntBody" rows="4"></textarea>
+					</div>
+				</div>
+				<div class="row" style="margin-bottom:14px">
+					<div class="col-sm-12">
+						<!-- The consequence of the act, stated BEFORE the act. Same reasoning as 3.1's
+						     child count on the portal invite: "you are about to tell 412 families
+						     something" is the fact the person clicking needs and cannot otherwise see. -->
+						<div id="ntReach" class="alert alert-info" style="padding:8px 12px;margin-bottom:10px"></div>
+						<button type="button" class="btn btn-default" onclick="saveNotice()" th:text="#{ui.saveDraft}">Save draft</button>
+						<button type="button" class="btn btn-primary" onclick="publishNotice()" th:text="#{ui.publish}">Publish</button>
+						<button type="button" class="btn btn-link" onclick="clearNoticeForm()" th:text="#{label.form.clear}">Clear</button>
+					</div>
+				</div>
+
+				<div class="table-scroll">
+					<table class="table table-striped" id="tableNotices">
+						<thead>
+							<tr>
+								<th th:text="#{ui.title}">Title</th>
+								<th th:text="#{ui.audience}">Audience</th>
+								<th th:text="#{ui.status}">Status</th>
+								<th th:text="#{ui.publishedOn}">Published</th>
+								<th></th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+			</div>
+
 			<div id="BehaviourDiv" class="formDiv">
 				<h4 th:text="#{ui.behaviour}">Behaviour</h4>
 				<p class="text-muted" th:text="#{ui.behaviourHelp}">Record what happened — good as well as concerning. A note cannot be edited or deleted once saved: correcting one writes a new note and keeps the original, because the value of the record is that it says what was reported at the time.</p>

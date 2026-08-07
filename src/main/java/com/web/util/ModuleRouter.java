@@ -1,7 +1,10 @@
 package com.web.util;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+
+import org.springframework.security.core.GrantedAuthority;
 
 import com.persistence.model.User;
 
@@ -61,7 +64,42 @@ public final class ModuleRouter {
             "AGRICULTURE", "/agricultureDashboard",
             "APPOINTMENT", "/appointmentDashboard");
 
+    /**
+     * Slice 3.3 — the PORTAL audiences, routed by ROLE and not by module.
+     *
+     * <p><b>Why this map has to exist.</b> Everything above keys on the user's module, and a guardian and a
+     * student are both {@code EDUCATION} — so without this they land on {@code /educationDashboard}, the
+     * staff shell, whose every read {@code PortalScopeFilter} then answers with 404. They would arrive at a
+     * page built entirely from data they are not allowed to have. <b>This was already true of 3.1's
+     * guardian, and is fixed here rather than left for a second audience to hit.</b>
+     *
+     * <p>Checked BEFORE the module map, because the portal role is the more specific fact: it says which
+     * SURFACE this person gets, while the module only says which product they belong to.
+     */
+    private static final Map<String, String> PORTAL_DASHBOARD_BY_ROLE = Map.of(
+            "ROLE_GUARDIAN", "/guardianDashboard",
+            "ROLE_STUDENT",  "/studentDashboard");
+
     private ModuleRouter() {
+    }
+
+    /**
+     * The portal dashboard for a session carrying a portal role, or {@code null} for everyone else.
+     *
+     * <p>Null — not {@link #LANDING} — so a caller can tell "this is not a portal session" from "this is a
+     * portal session with nowhere to go", and fall through to the normal module routing.
+     */
+    public static String portalDashboardFor(final Collection<? extends GrantedAuthority> authorities) {
+        if (authorities == null) {
+            return null;
+        }
+        for (GrantedAuthority a : authorities) {
+            String dashboard = a == null ? null : PORTAL_DASHBOARD_BY_ROLE.get(a.getAuthority());
+            if (dashboard != null) {
+                return dashboard;
+            }
+        }
+        return null;
     }
 
     /**

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:with="isRtl=${#locale.language == 'ar' or #locale.language == 'ur'}"
+      th:lang="${#locale.language}" th:dir="${isRtl} ? 'rtl' : 'ltr'">
+<head>
+<meta charset="UTF-8"/>
+<!-- Mobile-first for a stronger reason than the guardian portal: for many students the phone is the ONLY
+     device, and the most common visit is ten seconds long — "what have I got next?" -->
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title th:text="#{ui.studentPortal}">Student Portal</title>
+<th:block th:replace="~{fragments/header :: header-css}"></th:block>
+<style>
+/* Slice 3.3 — a SEPARATE page, for the same reason 3.1's is: not the staff dashboard with sections
+   hidden. Hiding staff chrome in CSS leaves it one inspector-click away; not rendering it is the point.
+
+   It REUSES the guardian portal's .pp-* visual language deliberately — same platform, same shell, one
+   thing learned once — while differing in exactly the two places the audience differs:
+     · NO child picker. A student has one record, so a picker would be a control with one option.
+     · TIMETABLE FIRST, and open on today. The guardian's first question is "how is my child doing";
+       the student's is "where am I going next". */
+body{background:#f4f6fb;margin:0}
+.pp-wrap{max-width:760px;margin:0 auto;padding:16px 14px 48px}
+.pp-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.pp-title{margin:0;font-size:20px;font-weight:800;color:#0D2353}
+.pp-sub{font-size:13px;color:#64748b;margin-top:2px}
+.pp-card{background:#fff;border:1px solid #e8edf5;border-radius:12px;padding:14px 16px;margin-bottom:12px;
+         box-shadow:0 1px 3px rgba(13,35,83,.05)}
+.pp-card h5{margin:0 0 10px;font-size:14px;font-weight:700;color:#0D2353;text-transform:uppercase;
+            letter-spacing:.04em}
+.pp-row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #f1f5f9;
+        font-size:14px}
+.pp-row:last-child{border-bottom:0}
+.pp-muted{color:#64748b}
+.pp-big{font-size:26px;font-weight:800;color:#0D2353}
+.pp-empty{color:#64748b;font-size:13.5px;padding:6px 0}
+.pp-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;-webkit-overflow-scrolling:touch}
+.pp-tab{border:0;background:#e8edf5;border-radius:8px;padding:8px 14px;font-size:13.5px;font-weight:600;
+        color:#334155;cursor:pointer;white-space:nowrap}
+.pp-tab.on{background:#0D2353;color:#fff}
+/* Today's row is called out rather than merely sorted first: the whole week is on screen, and the
+   ten-second visit needs its answer without reading. */
+.pp-today{background:#eff6ff;border-left:3px solid #1565C0}
+.pp-day{margin:0 0 6px;font-size:12.5px;font-weight:700;color:#64748b;text-transform:uppercase;
+        letter-spacing:.05em}
+@media (max-width:480px){ .pp-wrap{padding:12px 10px 40px} .pp-title{font-size:18px} }
+</style>
+</head>
+<body>
+<div class="pp-wrap">
+  <div class="pp-head">
+    <div>
+      <h1 class="pp-title" th:text="#{ui.studentPortal}">Student Portal</h1>
+      <div class="pp-sub" id="spWho"></div>
+    </div>
+    <a th:href="@{/logout}" class="pp-tab" th:text="#{label.pages.logout}">Logout</a>
+  </div>
+
+  <!-- Every failure mode — portal off, students off, no access, revoked — renders identically. A student
+       must not be able to tell "you have no access" from "this school does not run the student portal". -->
+  <div id="spNoAccess" class="pp-card" style="display:none">
+    <div class="pp-empty" th:text="#{ui.portalNoAccess}">This portal is not available for your account. Please contact the school.</div>
+  </div>
+
+  <div id="spMain" style="display:none">
+    <!-- No child picker here, and that absence is the design (D2): a student's set has one member. -->
+    <div class="pp-tabs">
+      <button type="button" class="pp-tab on" data-tab="timetable" th:text="#{ui.timetable}">Timetable</button>
+      <button type="button" class="pp-tab" data-tab="notices" th:text="#{ui.notices}">Notices</button>
+      <button type="button" class="pp-tab" data-tab="results" th:text="#{ui.results}">Results</button>
+      <button type="button" class="pp-tab" data-tab="homework" th:text="#{ui.homework}">Homework</button>
+      <button type="button" class="pp-tab" data-tab="attendance" th:text="#{ui.attendance}">Attendance</button>
+    </div>
+    <!-- There is no Fees tab, and there will not be one: a family's financial position is the guardian's
+         business (D4). The omission is asserted by the gate so a later addition has to be deliberate. -->
+
+    <div id="spTimetable" class="pp-panel"></div>
+    <div id="spNotices" class="pp-panel" style="display:none"></div>
+    <div id="spResults" class="pp-panel" style="display:none"></div>
+    <div id="spHomework" class="pp-panel" style="display:none"></div>
+    <div id="spAttendance" class="pp-panel" style="display:none"></div>
+  </div>
+</div>
+
+<script th:inline="javascript">var serverContext = [[@{/}]];</script>
+<th:block th:replace="~{fragments/header :: header-js}"></th:block>
+<script th:src="@{/js/common/dom-safe.js}"></script>
+<script th:src="@{/js/education/student-portal.js}"></script>
+</body>
+</html>

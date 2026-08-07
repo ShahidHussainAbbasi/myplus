@@ -6,9 +6,9 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "appointment")
+@Table(name = "venue")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class Appointment {
+public class Venue {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,18 +18,15 @@ public class Appointment {
     private Long organizationId;
 
     @Column(nullable = false)
-    private Long hospitalId;
-    private Long doctorId;
-    private Long patientId;
+    private String name;
+    private String email;
+    private String phone;
+    private String logoUrl;
 
-    private String appointmentType;
-    private String fee;
-    private String dateTime;
-    private String date;
-
-    private Integer patientsToVisit;
-    private Integer patientsAppointed;
-    private Integer patientsVisited;
+    // Flat location (geo lookups are static client-side lists — Decision G).
+    private String country;
+    private String state;
+    private String city;
 
     private LocalDateTime createdAt;
 

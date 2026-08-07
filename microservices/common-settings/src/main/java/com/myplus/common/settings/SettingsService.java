@@ -55,6 +55,28 @@ public class SettingsService {
     }
 
     /**
+     * Effective DECIMAL for the caller's org (override else catalog default) — money and rates.
+     *
+     * <p>Same fail-soft contract as {@link #getInt}: an unparseable override returns {@code fallback} rather
+     * than throwing, because these are read on live paths (a delivery fee at checkout, a discount threshold on
+     * a quote) and a settings typo must not take down the operation that reads it.
+     *
+     * <p>Exists because {@code INT} loses minor units and money is the common case. Added when the SECOND
+     * consumer appeared: B2B-P4b was parsing {@code new BigDecimal(getText(...))} locally, and OMS O3 needed the
+     * same for shipping fees — so the parse moved here instead of being copied, per §5c of the programme plan.
+     * 4b was switched onto this in the same change.
+     */
+    public java.math.BigDecimal getDecimal(String key, java.math.BigDecimal fallback) {
+        String v = effective(key);
+        if (v == null || v.isBlank()) return fallback;
+        try {
+            return new java.math.BigDecimal(v.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    /**
      * Effective value of a SELECT setting, lower-cased and validated against a known set.
      *
      * <p>Returns {@code fallback} when the key is unknown, unset, or holds a value outside {@code allowed}.
@@ -90,13 +112,56 @@ public class SettingsService {
 
     /** Effective raw value for the caller's org (override else catalog default; null if key unknown). */
     public String effective(String key) {
-        Long org = CurrentUser.organizationId();
+        return effectiveFor(CurrentUser.organizationId(), key);
+    }
+
+    /**
+     * Effective raw value for an EXPLICITLY NAMED org.
+     *
+     * <p>Exists because not every reader of a tenant policy is an authenticated member of that tenant. The
+     * public storefront is the case that forced it: a shopper has no JWT, so {@link CurrentUser#organizationId()}
+     * is null on the whole checkout path, and every {@code effective(key)} there silently resolved to the
+     * CATALOG DEFAULT — a shop's configured delivery fee would have applied to staff-placed orders and to
+     * nobody else. Anywhere the org is known from the request itself (a store id in the URL, an
+     * {@code organizationId} in the body) must pass it in rather than hope one is in the security context.
+     *
+     * <p>This is a read of tenant CONFIGURATION, not of tenant data — it grants no access to another org's
+     * rows, so it is not an IDOR route. Callers still scope their own data reads normally.
+     */
+    public String effectiveFor(Long org, String key) {
         if (org != null) {
             String v = store.find(org, key).orElse(null);
             if (v != null) return v;
         }
         SettingEntry e = catalog.get(key);
         return e == null ? null : e.defaultValue();
+    }
+
+    /** {@link #getBool(String)} for an explicitly named org — see {@link #effectiveFor(Long, String)}. */
+    public boolean getBoolFor(Long org, String key) {
+        return "true".equalsIgnoreCase(effectiveFor(org, key));
+    }
+
+    /** {@link #getInt(String, int)} for an explicitly named org — see {@link #effectiveFor(Long, String)}. */
+    public int getIntFor(Long org, String key, int fallback) {
+        String v = effectiveFor(org, key);
+        if (v == null || v.isBlank()) return fallback;
+        try {
+            return Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    /** {@link #getDecimal(String, java.math.BigDecimal)} for an explicitly named org — same fail-soft contract. */
+    public java.math.BigDecimal getDecimalFor(Long org, String key, java.math.BigDecimal fallback) {
+        String v = effectiveFor(org, key);
+        if (v == null || v.isBlank()) return fallback;
+        try {
+            return new java.math.BigDecimal(v.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     /** The whole catalog with each entry's effective value + whether it is an org override — feeds the UI. */

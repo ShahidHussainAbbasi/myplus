@@ -62,6 +62,15 @@ public class Order {
     private String invoiceNo;          // the trade sale this order is
 
     /**
+     * OMS O5c — when the merchant expects to complete a BACKORDERED order (V16).
+     *
+     * <p>Null for everything filled in full: promising a date for an order that shipped immediately would make
+     * every historical order ageable and the "late" view worthless.
+     */
+    @Column(name = "promised_date")
+    private java.time.LocalDate promisedDate;
+
+    /**
      * OMS O1 — did this order reach the books? {@code POSTED} once business-service returned an invoice;
      * {@code LEGACY_UNPOSTED} for orders placed before O1, which produced no sale and are not back-posted
      * (that would write revenue into closed periods). Makes the pre-O1 backlog findable instead of

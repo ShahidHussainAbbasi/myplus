@@ -33,7 +33,12 @@ import java.time.LocalDateTime;
         // One access row per guardian per tenant. The constraint is what makes that true under a
         // double-clicked invite (1.3 D1's lesson).
         @UniqueConstraint(name = "uk_portal_access_guardian",
-                columnNames = { "organization_id", "guardian_id" })
+                columnNames = { "organization_id", "guardian_id" }),
+        // Slice 3.3 — the same rule stated for ANY subject. Student rows leave guardian_id NULL, so the
+        // key above no longer covers them; this one does. The TABLE is still called
+        // guardian_portal_access because renaming a live table is what D5 forbids — see V25's header.
+        @UniqueConstraint(name = "uk_portal_access_subject",
+                columnNames = { "organization_id", "subject_type", "subject_id" })
 })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class GuardianPortalAccess {
@@ -43,7 +48,30 @@ public class GuardianPortalAccess {
     @Column(name = "guardian_portal_access_id", unique = true, nullable = false)
     private Long id;
 
-    @Column(name = "guardian_id", nullable = false)
+    /**
+     * Slice 3.3 — WHO this access is about: a guardian, or a student in their own right.
+     *
+     * <p>Defaults to {@code GUARDIAN} so every row written before 3.3, and any caller that has not been
+     * taught about students, keeps meaning exactly what it did.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subject_type", nullable = false, length = 32)
+    @Builder.Default
+    private PortalSubjectType subjectType = PortalSubjectType.GUARDIAN;
+
+    /** The {@code Guardian.id} or {@code Student.id}, per {@link #subjectType}. Backfilled in V25. */
+    @Column(name = "subject_id")
+    private Long subjectId;
+
+    /**
+     * The guardian this access is about — {@code null} for a STUDENT row.
+     *
+     * <p>NULLABLE since V25, and deliberately not reused to hold a student id: guardian 5 and student 5 in
+     * one org would then collide in {@code uk_portal_access_guardian}, giving two unrelated people one
+     * unique key. Kept as the read path for 3.1's code until a later slice retires it in favour of
+     * {@link #subjectId} (V25 drops nothing — standard D5).
+     */
+    @Column(name = "guardian_id")
     private Long guardianId;
 
     /**

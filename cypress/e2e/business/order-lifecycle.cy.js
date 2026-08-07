@@ -46,6 +46,23 @@ describe('OMS O2 — order lifecycle, authority and safety', () => {
     body: { id, status },
   })
 
+  /**
+   * OMS O5b: an order reaches SHIPPED by RECORDING A PARCEL, not by being marked — the status is derived from
+   * line quantities. `setStatus(id, 'SHIPPED')` is now refused on purpose, so anything that needs a shipped
+   * order ships everything outstanding through the real dispatch path.
+   */
+  const shipAll = (id) => cy.request('/getOrder?id=' + id).then((r) => {
+    const lines = (r.body.data.items || [])
+      .map((l) => ({ orderItemId: l.id, quantity: (l.quantity || 0) - (l.quantityShipped || 0) }))
+      .filter((l) => l.quantity > 0)
+    expect(lines.length, 'something must be outstanding to ship').to.be.greaterThan(0)
+    return cy.request({
+      method: 'POST', url: '/shipOrder', failOnStatusCode: false,
+      headers: { 'Content-Type': 'application/json' },
+      body: { id, lines, carrier: 'TestVan' },
+    })
+  })
+
   // ── OMS-8: identity ───────────────────────────────────────────────────────────────────────────────
 
   it('an order gets a merchant-facing SO- number, and tracking resolves by it', () => {
@@ -112,8 +129,10 @@ describe('OMS O2 — order lifecycle, authority and safety', () => {
     }))
 
     // And only ONE order row exists for this buyer.
-    cy.then(() => cy.request('/getOrders').then((r) => {
-      const mine = (r.body.data || []).filter((o) => o.customerName === buyer)
+    // OMS O4: paginated + filterable. Filtering by the buyer is what makes "exactly one" exact — an unfiltered
+    // page could hold one of two duplicates and still look correct.
+    cy.then(() => cy.request('/getOrders?q=' + encodeURIComponent(buyer)).then((r) => {
+      const mine = ((r.body.data && r.body.data.content) || []).filter((o) => o.customerName === buyer)
       expect(mine.length, 'exactly one order for one checkout').to.eq(1)
     }))
   })
@@ -124,7 +143,8 @@ describe('OMS O2 — order lifecycle, authority and safety', () => {
     place(1, 'FlowBuyer_' + uniq()).then((r) => {
       const id = r.body.data.id
       setStatus(id, 'PACKED').then((s) => expect(s.body.success, JSON.stringify(s.body)).to.eq(true))
-      setStatus(id, 'SHIPPED').then((s) => expect(s.body.success, JSON.stringify(s.body)).to.eq(true))
+      // O5b: dispatching the goods is what makes it SHIPPED.
+      shipAll(id).then((s) => expect(s.body.success, JSON.stringify(s.body)).to.eq(true))
       setStatus(id, 'DELIVERED').then((s) => expect(s.body.success, JSON.stringify(s.body)).to.eq(true))
     })
   })
@@ -143,13 +163,15 @@ describe('OMS O2 — order lifecycle, authority and safety', () => {
       const id = r.body.data.id
       setStatus(id, 'CANCELLED').then((s) => expect(s.body.success, JSON.stringify(s.body)).to.eq(true))
 
-      setStatus(id, 'SHIPPED').then((s) => {
-        expect(s.body.success, `CANCELLED -> SHIPPED must be refused: ${JSON.stringify(s.body)}`).to.not.eq(true)
+      // O5b: the same defect, at the endpoint that can now actually cause it — dispatching goods against an
+      // order whose money and stock have already been reversed.
+      shipAll(id).then((s) => {
+        expect(s.body.success, `CANCELLED -> shipping must be refused: ${JSON.stringify(s.body)}`).to.not.eq(true)
       })
 
       // And the refusal left the order alone — a rejected transition must not half-apply.
-      cy.request('/getOrders').then((list) => {
-        const o = (list.body.data || []).find((x) => x.id === id)
+      cy.request('/getOrders').then((list) => {   // OMS O4: paginated — the order is the newest, so page 1
+        const o = ((list.body.data && list.body.data.content) || []).find((x) => x.id === id)
         expect(o.fulfilmentStatus, 'still cancelled').to.eq('CANCELLED')
       })
     })
@@ -159,7 +181,7 @@ describe('OMS O2 — order lifecycle, authority and safety', () => {
     place(1, 'ShippedCancel_' + uniq()).then((r) => {
       const id = r.body.data.id
       setStatus(id, 'PACKED')
-      setStatus(id, 'SHIPPED').then((s) => expect(s.body.success, JSON.stringify(s.body)).to.eq(true))
+      shipAll(id).then((s) => expect(s.body.success, JSON.stringify(s.body)).to.eq(true))
 
       setStatus(id, 'CANCELLED').then((s) => {
         // Cancelling would return stock that has not physically come back, inflating on-hand.

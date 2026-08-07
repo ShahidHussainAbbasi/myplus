@@ -35,8 +35,8 @@ describe('E-commerce — order cancel returns stock', () => {
     stockLevel().then((s) => expect(s, 'decremented by the order').to.eq(before - 3))
     cy.then(() => cancel(orderId).then((r) => expect(r.body.success, JSON.stringify(r.body)).to.eq(true)))
     stockLevel().then((s) => expect(s, 'restored by the cancel').to.eq(before))
-    cy.request('/getOrders').then((r) => {
-      const o = (r.body.data || []).find((x) => x.id === orderId)
+    cy.request('/getOrders').then((r) => {   // OMS O4: paginated — the order is the newest, so page 1
+      const o = ((r.body.data && r.body.data.content) || []).find((x) => x.id === orderId)
       expect(o.fulfilmentStatus).to.eq('CANCELLED')
     })
   })

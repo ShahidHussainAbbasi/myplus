@@ -129,19 +129,35 @@ public class SecSecurityConfig {
                 .authenticationDetailsSource(authenticationDetailsSource)
                 .permitAll()
             )
+            // Session policy — the "banks and Google" model: a user may be signed in on as many devices as
+            // they like, and security comes from VISIBILITY over those sessions, not from a hard cap.
+            //
+            // WAS: maximumSessions(1) + sessionFixation.none(). Two problems, both real:
+            //
+            //  1. A cap of 1 is wrong for this product. The same account legitimately runs on a till, a
+            //     back-office PC and a phone. Worse, whichever way the cap resolves is a bad outcome: refuse
+            //     the new login and a crashed browser LOCKS THE USER OUT of their own account until the old
+            //     session times out; expire the old one and they are silently kicked off mid-work. And it
+            //     buys little security — an attacker holding valid credentials simply logs in and boots the
+            //     real user off. Visibility + revoke is the control that actually helps.
+            //
+            //  2. sessionFixation.none() DISABLED session-fixation protection: the session id was not
+            //     rotated on login, so an id planted in a victim's browser before they authenticate stays
+            //     valid afterwards. Restored to changeSessionId (the Spring default).
+            //
+            // maximumSessions(-1) = UNLIMITED, but keep the .maximumSessions(...).sessionRegistry(...) pair:
+            // that is what installs RegisterSessionAuthenticationStrategy, and therefore what keeps the
+            // registry populated. Dropping the block entirely would silently empty the SessionRegistry and
+            // take the "users online" badge (and any future active-sessions screen) with it.
             .sessionManagement(session -> session
                 .invalidSessionUrl("/invalidSession.html")
-                .sessionFixation(fixation -> fixation.none())
-                .maximumSessions(1)
+                .sessionFixation(fixation -> fixation.changeSessionId())
+                .maximumSessions(-1)
                 .sessionRegistry(sessionRegistry())
             )
-            // .sessionManagement(session -> session
-            //     .invalidSessionUrl("/invalidSession.html")
-            //     .maximumSessions(1)
-            //     .sessionRegistry(sessionRegistry())
-            //     .and()
-            //     .sessionFixation(fixation -> fixation.none())
-            // )
+            // (A commented-out duplicate of the OLD single-session block lived here. Deleted rather than
+            //  left in place: it now contradicts the live policy above, and a reader finding two session
+            //  blocks — one capped, one not — has no way to tell which is intended.)
             .logout(logout -> logout
                 // Revoke the JWT at the auth-service before the session is torn down (server mode).
                 .addLogoutHandler(revokeTokenLogoutHandler)

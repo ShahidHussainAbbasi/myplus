@@ -75,6 +75,58 @@ function showFormError(msg) {
     }
 }
 
+/**
+ * The single place a failed AJAX call is turned into user-visible behaviour.
+ *
+ * WHY THIS EXISTS: fourteen call sites across six module files each did
+ *
+ *     error: function (jqXHR, textStatus, errorThrown) {
+ *         window.location.href = serverContext + "login?message=" + errorThrown;
+ *     }
+ *
+ * — i.e. ANY failure logged the user out. A 404 on one widget, a 500 from one report, a dropped
+ * connection: all of them threw the operator back to the login page with their unsaved work gone, and
+ * left them believing their session had expired when it was perfectly valid.
+ *
+ * It also actively HID the real fault. Clicking Academic Year fires a phantom `/getUserAcademicYear`
+ * (main.js's generic section handler assumes every screen follows the getUser<Name> convention; the
+ * education Phase 1/2 screens have their own loaders and no such endpoint). That 404 is harmless in
+ * itself — but routed through the old handler it presented as "clicking Academic Year logs me out",
+ * which reads as an auth bug and sends you looking in entirely the wrong place.
+ *
+ * THE RULE: only a genuine loss of session sends the user to /login. Everything else is an error to
+ * show, not a reason to end their session.
+ *
+ * @param jqXHR        the jQuery XHR
+ * @param errorThrown  jQuery's errorThrown
+ * @param what         optional short label for the failing operation, so the message names it
+ */
+function handleAjaxFailure(jqXHR, errorThrown, what) {
+    var status = jqXHR ? jqXHR.status : 0;
+    var body = (jqXHR && typeof jqXHR.responseText === 'string') ? jqXHR.responseText : '';
+
+    // Session genuinely gone, in the three shapes this app produces:
+    //  401                                  — unauthenticated
+    //  the login PAGE itself                — Spring redirected 302 -> /login and jQuery followed it
+    //  "This session has been expired…"     — ConcurrentSessionFilter (plain text, not JSON)
+    // A 403 is deliberately NOT here: that is "logged in but not allowed", and bouncing a user to the
+    // login screen for a privilege they lack is both wrong and confusing — they log back in and hit it again.
+    var sessionLost = status === 401
+        || /name="username"|id="loginSubmit"/.test(body)
+        || /This session has been expired/i.test(body);
+
+    if (sessionLost) {
+        window.location.href = serverContext + "login?message=" + (errorThrown || "");
+        return;
+    }
+
+    if (typeof console !== 'undefined' && console.error) {
+        console.error('AJAX failure' + (what ? ' [' + what + ']' : ''), status, errorThrown, body.slice(0, 300));
+    }
+    showFormError((what ? what + ': ' : '') + (errorThrown || 'Request failed')
+        + (status ? ' (' + status + ')' : ''));
+}
+
 // Fixed, dismissable error toast — always visible, stacks above the CRUD modal overlay (z-index 1050).
 function showErrorToast(msg) {
     var el = document.getElementById('formErrorToast');
@@ -764,12 +816,18 @@ $(document).ready(function() {
 				// and fall back to reporting the HTTP status, which is always available.
 				var body = data ? data.responseJSON : null;
 
+				// A parsererror is USUALLY the login page arriving where JSON was expected — but a 500
+				// serving Spring's HTML error page fails to parse too, and that is not a logout. Let the
+				// shared helper inspect the body and decide; it still redirects on a real session loss.
 				if (textStatus === "parsererror") {
-					window.location.href = serverContext + "login?message=" + errorThrown;
+					handleAjaxFailure(data, errorThrown, "form submit");
 					return;
 				}
+				// An "InternalError" is a SERVER FAULT (500) — the one thing that is definitely NOT the
+				// user's session being gone. Redirecting here meant every backend exception presented as
+				// "you have been logged out", which is both wrong and the reason such faults went unreported.
 				if (body && typeof body.error === "string" && body.error.indexOf("InternalError") > -1) {
-					window.location.href = serverContext + "login?message=" + (body.message || "");
+					handleAjaxFailure(data, body.message || errorThrown, "server error");
 					return;   // was missing — the handler used to redirect and then keep parsing
 				}
 
@@ -935,7 +993,7 @@ function jsonPost(method,data) {
 			showFormError('Network error. Please check your connection and try again.');
 		}, error: function(data, textStatus, errorThrown) {
 			resetGlobalError();
-        	window.location.href = serverContext + "login?message=" + errorThrown;			
+        	handleAjaxFailure(data, errorThrown, "jsonPost");   // was: unconditional redirect to /login
        	}
 	}).fail(function(data) {
 			showFormError('Request failed. Please recheck inputs or contact the system administrator.');

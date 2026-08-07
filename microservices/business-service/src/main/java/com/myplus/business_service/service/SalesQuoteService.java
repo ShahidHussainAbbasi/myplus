@@ -331,14 +331,10 @@ public class SalesQuoteService {
     /** Null = no internal gate, which is the default: unset means a shop that does not want approvals. */
     private BigDecimal discountThreshold() {
         if (settingsService == null) return null;
-        String v = settingsService.getText(SETTING_DISCOUNT_THRESHOLD);   // blank collapses to null for us
-        if (v == null) return null;
-        try {
-            return new BigDecimal(v);
-        } catch (NumberFormatException malformed) {
-            LOG.warn("P4b: {} is not a number ('{}') â€” treating as no approval gate", SETTING_DISCOUNT_THRESHOLD, v);
-            return null;
-        }
+        // The shared reader, not a local parse. This method WAS the local parse — OMS O3 needed the same for
+        // shipping fees, and a second copy of "read a decimal setting" is what §5c says to move into the
+        // library rather than duplicate. Same fail-soft rule: a malformed value returns the fallback.
+        return settingsService.getDecimal(SETTING_DISCOUNT_THRESHOLD, null);
     }
 
     void recomputeTotals(SalesQuote q) {

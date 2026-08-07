@@ -3,23 +3,30 @@ package com.myplus.marketplace.service;
 import java.math.BigDecimal;
 
 /**
- * Server-priced shipping methods (slice 69, E5). Fees are decided server-side so the client can't set them. Boundary:
- * per-store carrier configuration, rates by weight/zone, and tracking are E9 — this is a fixed-fee starter set.
+ * Server-priced shipping methods (slice 69, E5). Fees are decided server-side so the client can't set them.
+ *
+ * <h3>OMS O3 — the fee moved out of here</h3>
+ * This enum used to carry literal fees ({@code STANDARD 5.00}, {@code EXPRESS 15.00}), which meant every store
+ * on a multi-tenant platform charged the same delivery and a shop that delivers free had no way to say so.
+ * What a method COSTS is per-tenant policy and now lives in {@link ShippingPolicy}, read from
+ * {@code order.shipping.*}.
+ *
+ * <p>What stays is what is structurally true of the method regardless of tenant: collection needs no delivery
+ * address. That is not configuration — it is what the word means.
+ *
+ * <p>Boundary unchanged: carrier configuration, rates by weight/zone and tracking are O5.
  */
 public enum ShippingOption {
-    PICKUP(new BigDecimal("0.00"), false),     // collect in store — no delivery address required
-    STANDARD(new BigDecimal("5.00"), true),
-    EXPRESS(new BigDecimal("15.00"), true);
+    PICKUP(false),     // collect in store — no delivery address required
+    STANDARD(true),
+    EXPRESS(true);
 
-    private final BigDecimal fee;
     private final boolean requiresAddress;
 
-    ShippingOption(BigDecimal fee, boolean requiresAddress) {
-        this.fee = fee;
+    ShippingOption(boolean requiresAddress) {
         this.requiresAddress = requiresAddress;
     }
 
-    public BigDecimal fee() { return fee; }
     public boolean requiresAddress() { return requiresAddress; }
 
     /** Parse a client-supplied method name; null/blank/unknown defaults to STANDARD. */

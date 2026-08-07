@@ -3,6 +3,7 @@ package com.myplus.marketplace.controller;
 import com.myplus.common.security.CurrentUser;
 import com.myplus.common.web.ApiResponse;
 import com.myplus.marketplace.dto.OrderDTO;
+import com.myplus.marketplace.dto.OrderQuery;
 import com.myplus.marketplace.entity.FulfilmentStatus;
 import com.myplus.marketplace.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -22,15 +23,41 @@ import java.util.Map;
 public class OrderController {
 
     private final OrderService orderService;
+    /** OMS O5b — recording a dispatch, which is what moves an order into a shipped state. */
+    private final com.myplus.marketplace.service.ShipmentService shipmentService;
 
     @PostMapping
     public ApiResponse<OrderDTO> record(@RequestBody OrderDTO dto) {
         return ApiResponse.success(orderService.record(dto, CurrentUser.organizationId(), CurrentUser.userId()), "Order recorded");
     }
 
+    /**
+     * The back-office list — paginated and filtered (OMS O4, fixes OMS-7).
+     *
+     * <p>This used to be {@code orderService.list(...)}: every order the tenant had ever taken, unpaginated and
+     * unfiltered, mapped to DTOs and shipped to a browser that rendered all of them. A merchant with 20 000
+     * orders paid for 20 000 rows to look at the newest 25.
+     *
+     * <p>All parameters are optional, so an unqualified {@code GET /orders} still works — it returns the first
+     * page instead of everything. {@code size} is clamped in {@link OrderQuery} (max {@value
+     * com.myplus.marketplace.dto.OrderQuery#MAX_SIZE}); a client cannot ask for the unbounded read back.
+     */
     @GetMapping
-    public ApiResponse<List<OrderDTO>> list() {
-        return ApiResponse.success(orderService.list(CurrentUser.organizationId(), CurrentUser.userId()));
+    public ApiResponse<com.myplus.common.web.PageResponse<OrderDTO>> list(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String paymentStatus,
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            java.time.LocalDate from,
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            java.time.LocalDate to,
+            @RequestParam(required = false) String q) {
+        OrderQuery query = OrderQuery.of(page, size, status, paymentStatus, source, from, to, q);
+        return ApiResponse.success(orderService.page(query, CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
     /**
@@ -108,6 +135,24 @@ public class OrderController {
         if (a != null && !a.toString().isBlank()) amount = new java.math.BigDecimal(a.toString());
         return ApiResponse.success(
                 orderService.refund(id, amount, CurrentUser.organizationId(), CurrentUser.userId()), "Refund issued");
+    }
+
+    /**
+     * OMS O5b — dispatch part or all of an order.
+     *
+     * <p>This is how an order becomes SHIPPED. {@code PUT /{id}/status} refuses the derived states, because a
+     * header that can be set independently of its parcels is a header that can lie about them.
+     *
+     * <p>Shop-floor work, so it carries no admin gate — the same reasoning as PACKED in
+     * {@link #updateStatus}: requiring an admin to dispatch a box would put the gate where the risk is not.
+     */
+    @PostMapping("/{id}/shipments")
+    public ApiResponse<com.myplus.marketplace.dto.ShipmentDTO> ship(
+            @PathVariable Long id,
+            @RequestBody com.myplus.marketplace.dto.ShipmentDTO.Request body) {
+        return ApiResponse.success(
+                shipmentService.ship(id, body, CurrentUser.organizationId(), CurrentUser.userId()),
+                "Shipment recorded");
     }
 
     /** Back-office process a return (E10, slice 71) — stock back (G2) + refund (card) → RETURNED. */

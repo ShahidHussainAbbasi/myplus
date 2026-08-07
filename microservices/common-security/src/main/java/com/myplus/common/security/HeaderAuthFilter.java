@@ -12,7 +12,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -108,8 +107,9 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
         if (header == null || header.isBlank()) {
             return List.of();
         }
-        return Arrays.stream(header.replaceAll("[\\[\\]\"]", "").split(","))
-                .map(String::trim).filter(s -> !s.isEmpty())
+        // Delegated to AuthorityHeader so this format has exactly ONE parser. It used to live here, and
+        // PortalScopeFilter's second, subtly different copy is what let a portal session read staff data.
+        return AuthorityHeader.tokens(header).stream()
                 .map(SimpleGrantedAuthority::new).collect(Collectors.toList());
     }
 }

@@ -24,7 +24,11 @@ class FulfilmentStatusTest {
     @DisplayName("the normal fulfilment path is legal end to end")
     void forwardPathIsLegal() {
         assertThat(FulfilmentStatus.NEW.canMoveTo(FulfilmentStatus.PACKED)).isTrue();
-        assertThat(FulfilmentStatus.PACKED.canMoveTo(FulfilmentStatus.SHIPPED)).isTrue();
+        // OMS O5b: PACKED -> SHIPPED is no longer a MANUAL move. An order becomes SHIPPED by recording a
+        // parcel, so the status is derived from what actually went out rather than typed by a packer — see
+        // FulfilmentProjectionTest. Asserting it here would be asserting that the header can claim a dispatch
+        // no shipment accounts for.
+        assertThat(FulfilmentStatus.PACKED.canMoveTo(FulfilmentStatus.SHIPPED)).isFalse();
         assertThat(FulfilmentStatus.SHIPPED.canMoveTo(FulfilmentStatus.DELIVERED)).isTrue();
         assertThat(FulfilmentStatus.DELIVERED.canMoveTo(FulfilmentStatus.RETURN_REQUESTED)).isTrue();
         assertThat(FulfilmentStatus.RETURN_REQUESTED.canMoveTo(FulfilmentStatus.RETURNED)).isTrue();

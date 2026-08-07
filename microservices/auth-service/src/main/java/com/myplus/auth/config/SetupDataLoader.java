@@ -186,7 +186,15 @@ public class SetupDataLoader {
         // PortalScopeFilter (common-security), not this privilege set. Widening this set does not open those
         // reads, and narrowing it does not close them; the filter is the control. See
         // microservices/docs/slices/edu-3.1b-portal-sign-in.md (D2/D3).
-        createOrUpdateRole("ROLE_PORTAL", pick(p, "LOGIN_PRIVILEGE", "CHANGE_PASSWORD_PRIVILEGE"));
+        createOrUpdateRole("ROLE_GUARDIAN", pick(p, "LOGIN_PRIVILEGE", "CHANGE_PASSWORD_PRIVILEGE"));
+        // Slice 3.3 — the SECOND external audience, and identical in privileges for identical reasons.
+        //
+        // ⚠ A ROLE IS NOT A CONFINEMENT. Seeding this grants a student a login and nothing else; what keeps
+        // them out of the staff read surface is `myplus.portal.confined-roles` listing ROLE_STUDENT beside
+        // ROLE_GUARDIAN in education-service.yml. That is 3.1b D3's stated cost — a new audience is not
+        // confined automatically — and it is why the two changes ship together. If you add a role here and
+        // not there, the holder reads the whole school.
+        createOrUpdateRole("ROLE_STUDENT", pick(p, "LOGIN_PRIVILEGE", "CHANGE_PASSWORD_PRIVILEGE"));
         // Demo accounts get full module privileges (so the privilege-gated dashboards work) plus
         // DEMO_PRIVILEGE, which the UI uses to show the demo banner. The 50/module write cap is the
         // only real limit (enforced at the gateway), not the privilege set.
@@ -363,8 +371,8 @@ public class SetupDataLoader {
             // created by the spec, because guardians live in education-service.
             //
             // Dev-only, alongside the demo.*/owner.* fixtures above and under the same seed flag.
-            Role portalRole = roleRepository.findByName("ROLE_PORTAL")
-                    .orElseThrow(() -> new IllegalStateException("ROLE_PORTAL not seeded"));
+            Role portalRole = roleRepository.findByName("ROLE_GUARDIAN")
+                    .orElseThrow(() -> new IllegalStateException("ROLE_GUARDIAN not seeded"));
             String guardianEmail = "guardian.education@myplus.com";
             User g = userRepository.findByEmail(guardianEmail)
                     .orElseGet(() -> User.builder().username("guardian_education").email(guardianEmail).build());
@@ -380,7 +388,34 @@ public class SetupDataLoader {
             g.setRoles(new HashSet<>(Collections.singletonList(portalRole)));
             g = userRepository.save(g);
             organizationService.addMember(g.getId(), eduOrg.getId(), "GUARDIAN");   // idempotent
-            log.info("Portal fixture ensured in org {}: {} (ROLE_PORTAL)", eduOrg.getId(), guardianEmail);
+            log.info("Portal fixture ensured in org {}: {} (ROLE_GUARDIAN)", eduOrg.getId(), guardianEmail);
+
+            // Slice 3.3 — the STUDENT portal fixture, for exactly the reason the guardian one exists: the
+            // only real way in is the emailed set-password token (3.1b D5), and Cypress cannot read email.
+            // Without a known-password student account, "a student session reaches its own record and
+            // nothing else" could only ever be unit-tested — and 3.1b proved that unit tests over this
+            // filter can be green while it is wide open.
+            //
+            // The education-side Student record carrying this address is seeded by the spec, because
+            // students live in education-service.
+            Role studentRole = roleRepository.findByName("ROLE_STUDENT")
+                    .orElseThrow(() -> new IllegalStateException("ROLE_STUDENT not seeded"));
+            String studentEmail = "student.education@myplus.com";
+            User st = userRepository.findByEmail(studentEmail)
+                    .orElseGet(() -> User.builder().username("student_education").email(studentEmail).build());
+            st.setPassword(passwordEncoder.encode(demoPw));
+            st.setFirstName("Portal");
+            st.setLastName("Student");
+            st.setEnabled(true);
+            st.setAccountNonLocked(true);
+            st.setFailedLoginAttempts(0);
+            st.setLockTime(null);
+            st.setUserType("EDUCATION");
+            st.setDemo(false);
+            st.setRoles(new HashSet<>(Collections.singletonList(studentRole)));
+            st = userRepository.save(st);
+            organizationService.addMember(st.getId(), eduOrg.getId(), "STUDENT");   // idempotent
+            log.info("Portal fixture ensured in org {}: {} (ROLE_STUDENT)", eduOrg.getId(), studentEmail);
 
             // B2B P0.5 — the MULTI-MODULE fixture: ONE login that belongs to a commerce org AND a school.
             //

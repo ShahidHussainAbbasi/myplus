@@ -31,6 +31,22 @@ public interface GuardianRepository extends JpaRepository<Guardian, Long> {
             + "or (g.organizationId is null and g.userId = :userId))")
     Optional<Guardian> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /**
+     * Slice 3.3 D6 — does this address already belong to a GUARDIAN in this tenant?
+     *
+     * <p>Asked before a student is provisioned, and it prevents the worst silent failure in the slice:
+     * {@code auth-service} keys a User by email and deliberately LINKS an existing address rather than
+     * refusing (one adult may be a guardian at two schools), so a student record carrying their guardian's
+     * address would resolve to the GUARDIAN'S login. auth-service cannot tell one person with two roles
+     * from two different people — only education, holding both records, can.
+     *
+     * <p>Returns the first match: a tenant may legitimately hold two guardian rows with one family address,
+     * and for this question any one of them is a refusal. Case-insensitivity comes from the column
+     * collation (standard D3c).
+     */
+    @Query("select g from Guardian g where g.organizationId = :orgId and g.email = :email order by g.id")
+    List<Guardian> findAllByEmailScoped(@Param("email") String email, @Param("orgId") Long orgId);
+
     // ── Finding D: the duplicate check as an indexed EXISTS, not a full-table load ───────────────
     // Composite name + CNIC: two guardians may share a name, so the identity document is what makes
     // it a duplicate. The old Java check required BOTH to be non-null and equal, which this reproduces

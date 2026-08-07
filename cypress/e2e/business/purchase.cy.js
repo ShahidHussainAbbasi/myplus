@@ -207,12 +207,14 @@ describe('Purchase Validation — Form Guards', () => {
   it('item selected, quantity = 0 — POST is NOT fired', () => {
     let posted = false
     cy.intercept('POST', '/addPurchase', (req) => { posted = true; req.continue() })
-    cy.intercept('GET', '/getStock*').as('getStock')        // item-select pre-fill (bumps qty→1 when <=0)
+    // The item-select pre-fill calls /productStock (productId-native since slice 98); /getStock was retired
+    // with the legacy local-Stock proxies in slice 105, so waiting on it hung until the 5s timeout.
+    cy.intercept('GET', '/productStock*').as('prefill')      // bumps qty→1 when <=0
     cy.get('#purchaseItemDD option').then(($opts) => {
       const real = $opts.filter((i, el) => el.value !== '')
       if (real.length === 0) return cy.log('No items in DB — qty=0 test skipped')
       cy.get('#purchaseItemDD').select(Cypress.$(real[0]).val(), { force: true })
-      cy.wait('@getStock')                                  // let the async pre-fill settle BEFORE we set qty=0
+      cy.wait('@prefill')                                   // let the async pre-fill settle BEFORE we set qty=0
       cy.get('#purchaseQuantity').clear().type('0')         // now 0 is the final value the guard sees
       cy.get('#addPurchase').click()
       cy.wait(800)

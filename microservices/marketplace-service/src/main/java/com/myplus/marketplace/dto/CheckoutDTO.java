@@ -28,11 +28,32 @@ public class CheckoutDTO {
         private String couponCode;          // applied code, or null
         private String couponMessage;       // why a supplied code was not applied (null when fine)
         private boolean addressRequired;
+
+        /**
+         * OMS O5c — will part of this order have to wait?
+         *
+         * <p>Carried on the QUOTE because the shopper has to know BEFORE they commit. Accepting a backorder
+         * silently is how a shop earns a complaint: the customer believes everything is coming and finds out
+         * only when half of it arrives. Null/false when everything can be filled today, which is the ordinary
+         * case and changes nothing.
+         */
+        private boolean hasBackorder;
+        /** When the outstanding part is promised. Null unless {@link #hasBackorder}. */
+        private java.time.LocalDate promisedDate;
+        /**
+         * OMS O3 — does this store accept cash on delivery? Carried on the QUOTE because the storefront is
+         * anonymous and has no other way to learn the store's policy: without it the shopper is offered COD
+         * (the pre-selected tab) at a card-only store and is refused only after filling the whole form.
+         * The server still enforces the same rule at place() — this field makes the UI honest, not safe.
+         */
+        private boolean codEnabled;
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor @Builder
     public static class Line {
         private Long productId;
+        /** OMS O5c — how many of THIS line will have to wait. 0 when it can be filled today. */
+        private Integer backorderedQuantity;
         private String name;
         private BigDecimal unitPrice;
         private Integer quantity;

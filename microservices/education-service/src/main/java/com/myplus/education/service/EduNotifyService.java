@@ -98,9 +98,9 @@ public class EduNotifyService {
      * <p>The enabled flag is read HERE, on the path it governs (standard C1) — not at the screen, where a
      * direct API call would bypass it.
      */
-    public Outcome queue(String eventType, String enabledSettingKey, CoverNoticeBuilder.Notice notice) {
+    public Outcome queue(String eventType, String enabledSettingKey, NotifyMessage notice) {
         if (!enabled(enabledSettingKey)) return Outcome.DISABLED;
-        if (notice == null || !CoverNoticeBuilder.sendable(notice.recipientEmail())) return Outcome.NO_EMAIL;
+        if (notice == null || !NotifyMessage.sendable(notice.recipientEmail())) return Outcome.NO_EMAIL;
 
         NotifyOutbox o = new NotifyOutbox();
         o.setEventType(eventType);
@@ -119,6 +119,53 @@ public class EduNotifyService {
 
         events.publishEvent(new NotifyEnqueued(id));
         return Outcome.QUEUED;
+    }
+
+    /**
+     * Slice 3.5 — queue the SAME text to many recipients. Returns how many rows were enqueued.
+     *
+     * <p><b>One outbox row per recipient, deliberately.</b> The alternative — one row carrying a recipient
+     * list — makes a single bad address fail the whole broadcast on retry, and gives the school no way to
+     * see which family was not reached. Per-recipient rows mean a failure is isolated, retried on its own,
+     * and visible.
+     *
+     * <p>Addresses that cannot be sent to are skipped rather than failing the publish: they are the norm in
+     * this domain (D-7 records that students largely have none), and <b>the notice is readable in the portal
+     * regardless</b> — which is the whole of finding C. The count returned is therefore "queued", never
+     * "sent", and callers must say so.
+     *
+     * <p>The enabled flag is read once here rather than per recipient: it governs the broadcast, not the
+     * address.
+     */
+    public int queueAll(String eventType, String enabledSettingKey, String subject, String body,
+                        java.util.Collection<String> recipients) {
+        if (enabledSettingKey != null && !enabled(enabledSettingKey)) return 0;
+        if (recipients == null || recipients.isEmpty()) return 0;
+        int queued = 0;
+        for (String email : recipients) {
+            // The gate is applied once, above — passing null here skips the per-recipient re-read of a
+            // setting that governs the broadcast, not the address.
+            if (queue(eventType, null, new NotifyMessage(email, subject, body)) == Outcome.QUEUED) {
+                queued++;
+            }
+        }
+        return queued;
+    }
+
+    /**
+     * Ungated broadcast — for a caller that has <b>no feature switch of its own</b>.
+     *
+     * <p>Exists for slice 3.5's migration of {@code sendAlerts}. That screen has never had an on/off
+     * setting, and giving it one while moving it onto the outbox would change the MECHANISM and the POLICY
+     * in a single commit — which is how a migration gets blamed for a behaviour nobody asked for. It also
+     * must not borrow {@code edu.notify.notices}: turning notices off would then silently stop alerts, two
+     * unrelated features sharing one switch.
+     *
+     * <p>If schools later want an alerts switch, it is a registered setting and a one-line change here.
+     */
+    public int queueAll(String eventType, String subject, String body,
+                        java.util.Collection<String> recipients) {
+        return queueAll(eventType, null, subject, body, recipients);
     }
 
     /**

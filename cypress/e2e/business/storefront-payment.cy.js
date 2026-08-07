@@ -42,8 +42,10 @@ describe('E-commerce — storefront online payment', () => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(false)
     })
     cy.loginAsMarketplace()
-    cy.request('/getOrders').then((r) => {
-      const mine = (r.body.data || []).find((o) => o.customerName === buyer)
+    // OMS O4: paginated + filterable. Filtering by the buyer is what makes "must not exist" mean it, rather
+    // than meaning "was not among the newest 25".
+    cy.request('/getOrders?q=' + encodeURIComponent(buyer)).then((r) => {
+      const mine = ((r.body.data && r.body.data.content) || []).find((o) => o.customerName === buyer)
       expect(mine, 'declined order must not exist').to.not.exist
     })
   })
@@ -62,6 +64,9 @@ describe('E-commerce — storefront online payment', () => {
     cy.contains('.card', pname).find('.add').click()
     cy.get('#checkout').should('be.visible')
     cy.get('#cName').type('UICard_' + Date.now())
+    // The default method is STANDARD — a DELIVERY, which the server rightly refuses without an address
+    // (CheckoutServiceTest.place_requires_an_address_for_delivery). A real shopper types one; so do we.
+    cy.get('#cAddress').type('12 Test Street, Lahore')
     cy.get('#tabCard').click()
     cy.get('#cardForm').should('be.visible')
     cy.get('#payBtn').should('contain', 'Pay now').click()

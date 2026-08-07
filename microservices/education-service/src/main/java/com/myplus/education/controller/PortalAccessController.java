@@ -79,6 +79,10 @@ public class PortalAccessController {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", a.getId());
                 m.put("guardianId", a.getGuardianId());
+                // 3.3 — WHO this row is about. The screen needs it to keep the two tabs apart, and a
+                // caller that ignores it still behaves as before, because every pre-3.3 row is a GUARDIAN.
+                m.put("subjectType", a.getSubjectType() == null ? null : a.getSubjectType().name());
+                m.put("subjectId", a.getSubjectId());
                 m.put("guardianName", a.getGuardianName());
                 m.put("email", a.getEmail());
                 m.put("status", a.getStatus() == null ? null : a.getStatus().name());
@@ -86,8 +90,9 @@ public class PortalAccessController {
                 m.put("activatedOn", a.getActivatedOn() == null ? null : a.getActivatedOn().toString());
                 // How many children this access would actually reach — the number that makes the
                 // consequence of granting it legible, rather than a name and an email in a list.
-                m.put("childCount", studentRepository
-                        .findByGuardianScoped(a.getGuardianId(), org).size());
+                // A student's access reaches exactly one record — their own — so there is nothing to count.
+                m.put("childCount", a.getSubjectType() == PortalSubjectType.STUDENT ? 1
+                        : studentRepository.findByGuardianScoped(a.getGuardianId(), org).size());
                 out.add(m);
             }
             return new GenericResponse("SUCCESS", "", out);
@@ -114,6 +119,15 @@ public class PortalAccessController {
     public GenericResponse invitePortalAccess(final HttpServletRequest request) {
         try {
             Long org = orgId(), uid = userId();
+
+            // Slice 3.3 — the same endpoint now grants access to a STUDENT as well. Absent or unrecognised
+            // means GUARDIAN, so every existing caller (the 3.1 screen, 3.1's gate, the guardian tab) keeps
+            // its exact behaviour without being touched.
+            String subject = request.getParameter("subjectType");
+            if (PortalSubjectType.STUDENT.name().equalsIgnoreCase(subject == null ? null : subject.trim())) {
+                return inviteStudent(request, org, uid);
+            }
+
             Long guardianId = parseLong(request.getParameter("guardianId"));
             if (guardianId == null) return new GenericResponse("ERROR", "Guardian is required");
 
@@ -129,6 +143,9 @@ public class PortalAccessController {
             if (access == null) {
                 access = GuardianPortalAccess.builder()
                         .guardianId(guardianId)
+                        // 3.3 — stamped on the way in, so the generalised unique key covers new rows too.
+                        // V25 backfilled the old ones; between them every row has a subject.
+                        .subjectType(PortalSubjectType.GUARDIAN).subjectId(guardianId)
                         .userId(uid).organizationId(org).dated(LocalDateTime.now())
                         .build();
             } else if (access.getStatus() == PortalStatus.ACTIVE) {
@@ -216,8 +233,13 @@ public class PortalAccessController {
             // operation because auth-service was slow would leave the school unable to revoke at all.
             String accountProblem = withdrawAccount(access.getEmail());
 
-            auditService.record("PORTAL_ACCESS_REVOKED", "Guardian",
-                    String.valueOf(access.getGuardianId()), "email=" + access.getEmail()
+            // 3.3 — the trail must name the right KIND of person. This read "Guardian" +
+            // getGuardianId(), which for a student row is a null id under the wrong entity name — an audit
+            // entry that cannot be traced back to anyone, which is worse than none.
+            String subjectName = access.getSubjectType() == PortalSubjectType.STUDENT ? "Student" : "Guardian";
+            Long subjectRef = access.getSubjectId() != null ? access.getSubjectId() : access.getGuardianId();
+            auditService.record("PORTAL_ACCESS_REVOKED", subjectName,
+                    String.valueOf(subjectRef), "email=" + access.getEmail()
                             + (accountProblem == null ? " signIn=disabled" : " signIn=STILL_ENABLED"));
             // Takes effect on the guardian's NEXT request: nothing about their access is cached (D1).
             if (accountProblem != null) {
@@ -230,6 +252,83 @@ public class PortalAccessController {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
         }
+    }
+
+    /**
+     * Slice 3.3 — invite a STUDENT. Same flow, same table, same deny rule; two extra refusals.
+     *
+     * <p>Kept as its own method rather than threaded through the guardian path with conditionals: the two
+     * differ in which record supplies the address and in what makes an invitation impossible, and a shared
+     * body with four branches is how one audience's rule silently starts applying to the other.
+     */
+    private GenericResponse inviteStudent(HttpServletRequest request, Long org, Long uid) {
+        Long studentId = parseLong(request.getParameter("studentId"));
+        if (studentId == null) return new GenericResponse("ERROR", "Student is required");
+
+        Student student = studentRepository.findByIdForPortal(studentId, org).orElse(null);
+        if (student == null) return new GenericResponse("NOT_FOUND", "Student not found");
+
+        // D5 — the address comes from the STUDENT RECORD, never the request. Accepting one here would let a
+        // staff member point a child's portal at any address they liked, with nothing in the record to show
+        // they had done so. Same rule, same reason, as 3.1 D3 for guardians.
+        String email = student.getEmail() == null ? "" : student.getEmail().trim();
+        if (!StringUtils.hasText(email)) {
+            // The BOUNDARY of D-7, surfaced rather than worked around. If a school hits this at scale, that
+            // is the trigger for school-issued join codes (D-6 option C) — it is not a bug to route around.
+            return new GenericResponse("FAILED",
+                    "This student has no email address on record. Add one before inviting them.");
+        }
+
+        // D6 — THE SEVERE CASE, and it is silent without this check. auth-service keys a User by email and
+        // createOrLinkPortalUser deliberately LINKS an existing address rather than refusing, because one
+        // adult may be a guardian at two schools. That is right for one person with two roles and wrong for
+        // two different people: a student record carrying their guardian's address would resolve to the
+        // GUARDIAN'S LOGIN, handing a child their guardian's session. auth-service cannot tell the
+        // difference — only education, holding both records, can. So the check lives here.
+        List<Guardian> sharers = guardianRepository.findAllByEmailScoped(email, org);
+        if (!sharers.isEmpty()) {
+            Guardian sharing = sharers.get(0);
+            return new GenericResponse("FAILED",
+                    "That address (" + email + ") already belongs to guardian " + sharing.getName()
+                            + ". A student needs their own address — sharing one would sign the student "
+                            + "in as the guardian.");
+        }
+
+        GuardianPortalAccess access = portalAccessRepository
+                .findBySubjectScoped(PortalSubjectType.STUDENT, studentId, org).orElse(null);
+        if (access == null) {
+            // guardianId is left NULL on purpose — see the entity javadoc and V25's header.
+            access = GuardianPortalAccess.builder()
+                    .subjectType(PortalSubjectType.STUDENT).subjectId(studentId)
+                    .userId(uid).organizationId(org).dated(LocalDateTime.now())
+                    .build();
+        } else if (access.getStatus() == PortalStatus.ACTIVE) {
+            return new GenericResponse("SUCCESS", student.getName() + " already has portal access");
+        }
+        access.setEmail(email);
+        access.setGuardianName(student.getName());   // the display name of the SUBJECT — see V25's header
+        access.setStatus(PortalStatus.INVITED);
+        access.setInvitedOn(LocalDate.now());
+        access.setRevokedOn(null);
+        access.setUpdated(LocalDateTime.now());
+        portalAccessRepository.save(access);
+
+        String accountProblem = provisionAccount(email, org, "STUDENT");
+
+        auditService.record("PORTAL_ACCESS_INVITED", "Student", String.valueOf(studentId),
+                "email=" + email + (accountProblem == null ? " account=ok" : " account=FAILED"));
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("id", access.getId());
+        out.put("childCount", 1);            // a student's set has exactly one member, by definition (D2)
+        out.put("account", accountProblem == null ? "OK" : "FAILED");
+        String msg = student.getName() + " invited — they will see their own record only";
+        if (accountProblem != null) {
+            return new GenericResponse("PARTIAL", msg
+                    + ". The sign-in could NOT be created, so they cannot log in yet — try inviting "
+                    + "again. (" + accountProblem + ")", out);
+        }
+        return new GenericResponse("SUCCESS", msg + ", and a set-password email has been sent", out);
     }
 
     // ── Slice 3.1b: the sign-in account behind the access row ─────────────────────────────────────
@@ -246,12 +345,24 @@ public class PortalAccessController {
      * EMAIL is auth-service's to send and retry.
      */
     private String provisionAccount(String email, Long orgId) {
+        return provisionAccount(email, orgId, "GUARDIAN");
+    }
+
+    /**
+     * Slice 3.3 — the same call for either audience; only the membership role differs.
+     *
+     * <p>{@code role} decides which auth-service role and membership the account gets, and therefore which
+     * confined role travels in the JWT. Getting it wrong does not open the staff surface — an unrecognised
+     * role is not in {@code confined-roles}, so it would be UNCONFINED. That is the fail-open direction,
+     * which is why the value is a constant at each call site and never taken from the request.
+     */
+    private String provisionAccount(String email, Long orgId, String role) {
         if (authAccountClient == null) return "account service unavailable";
         try {
             Map<String, Object> req = new LinkedHashMap<>();
             req.put("email", email);
             req.put("organizationId", orgId);
-            req.put("role", "GUARDIAN");
+            req.put("role", role);
             authAccountClient.createOrLink(req);
             return null;
         } catch (Exception e) {

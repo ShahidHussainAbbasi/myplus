@@ -18,18 +18,14 @@ public final class CoverNoticeBuilder {
 
     private CoverNoticeBuilder() { }
 
-    /** A ready-to-queue notice: the resolved address plus the rendered text. */
-    public record Notice(String recipientEmail, String subject, String body) { }
+    // The Notice record and sendable() MOVED to NotifyMessage in slice 3.5 (finding D): N1's shared
+    // queue() was typed to a record owned by 2.2's substitution feature, so the shared mechanism was
+    // reachable only by callers willing to name a cover notice. 3.5 was the second caller.
 
-    /**
-     * Can this address be sent to at all?
-     *
-     * <p>Blank and null are the common case — a staff record entered without an email. The {@code @} check
-     * mirrors {@code EmailService}, which silently skips anything without one; without the same check here a
-     * junk value would be queued, retried and dead-lettered instead of being reported at once as NO_EMAIL.
-     */
+    /** @deprecated moved to {@link NotifyMessage#sendable(String)} — kept so 2.2's callers still compile. */
+    @Deprecated
     public static boolean sendable(String email) {
-        return email != null && !email.isBlank() && email.contains("@");
+        return NotifyMessage.sendable(email);
     }
 
     /**
@@ -40,7 +36,7 @@ public final class CoverNoticeBuilder {
      * "null", and the room clause disappears entirely when there is no room — 2.1 D3 records that
      * {@code Grade.room} is a bare Long with no room master behind it, so it is frequently absent.
      */
-    public static Notice build(String teacherName, String email, String className,
+    public static NotifyMessage build(String teacherName, String email, String className,
                                String subjectName, String periodName, LocalDate date, String room) {
         String subject = "Cover assigned" + (className == null || className.isBlank() ? "" : " — " + className)
                 + (date == null ? "" : " on " + date);
@@ -55,6 +51,6 @@ public final class CoverNoticeBuilder {
         if (room != null && !room.isBlank())                 b.append("Room:    ").append(room).append('\n');
         b.append("\nPlease speak to the office if you cannot take this lesson.");
 
-        return new Notice(email, subject, b.toString());
+        return new NotifyMessage(email, subject, b.toString());
     }
 }

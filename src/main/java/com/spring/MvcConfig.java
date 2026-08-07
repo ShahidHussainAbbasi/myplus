@@ -64,6 +64,10 @@ public class MvcConfig implements WebMvcConfigurer {
         // Named for the platform's <audience>Dashboard convention and the GUARDIAN domain entity —
         // "guardian" is the term used everywhere, code and UI alike.
         registry.addViewController("/guardianDashboard").setViewName("guardianDashboard");
+        // Slice 3.3 — the student portal, on the same terms and for the same reason: a separate template
+        // that renders no staff chrome at all, rather than the education dashboard with sections hidden.
+        // Its data comes from /portal/my/* only.
+        registry.addViewController("/studentDashboard").setViewName("studentDashboard");
         registry.addViewController("/homepage.html");
         registry.addViewController("/expiredAccount.html");
         registry.addViewController("/badUser.html");

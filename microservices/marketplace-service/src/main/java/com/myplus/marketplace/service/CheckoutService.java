@@ -30,6 +30,8 @@ public class CheckoutService {
     private final CartService cartService;
     private final OrderService orderService;
     private final CouponService couponService;
+    private final ShippingPolicy shippingPolicy;   // O3: per-org delivery fees + the COD policy
+    private final BackorderPolicy backorderPolicy; // O5c: what will have to wait, shown before the shopper commits
 
     /** Live totals for the current cart + chosen shipping method + optional coupon — no order is placed. */
     @Transactional(readOnly = true)
@@ -37,9 +39,11 @@ public class CheckoutService {
         if (org == null) throw new ValidationException("Store (organizationId) is required");
         ShippingOption option = ShippingOption.from(shippingMethod);
         Cart cart = cartService.activeCart(org, cartToken).orElse(null);
-        Totals t = totals(cart, option);
+        Totals t = totals(cart, option, org);
         CouponService.CouponResult cr = couponService.validateAndCompute(org, couponCode, t.subtotal);
-        return assemble(t, option, cr);
+        CheckoutDTO.Quote q = assemble(t, option, cr, org);
+        applyBackorderWarning(q, cart, org);   // O5c: tell the shopper BEFORE they commit
+        return q;
     }
 
     /** Place the order from the server cart. Validates cart + address, applies a coupon, then delegates to the saga. */
@@ -53,7 +57,13 @@ public class CheckoutService {
         if (option.requiresAddress() && isBlank(req.getShippingAddress()))
             throw new ValidationException("A delivery address is required for " + option.name() + " shipping");
 
-        Totals t = totals(cart, option);
+        // OMS O3: the SERVER enforces the COD policy. The storefront also hides the option, but a hidden radio
+        // button is not a control — anything posting to this endpoint would otherwise place a COD order at a
+        // store that does not accept cash.
+        if ("COD".equalsIgnoreCase(req.getPaymentMode()) && !shippingPolicy.codEnabled(req.getOrganizationId()))
+            throw new ValidationException("This store does not accept cash on delivery. Please pay by card.");
+
+        Totals t = totals(cart, option, req.getOrganizationId());
         CouponService.CouponResult cr = couponService.validateAndCompute(req.getOrganizationId(), req.getCouponCode(), t.subtotal);
         BigDecimal discount = cr.discount();
         BigDecimal total = t.subtotal.subtract(discount).add(t.taxTotal).add(t.shippingFee);
@@ -82,11 +92,39 @@ public class CheckoutService {
         return placed;
     }
 
+    /**
+     * OMS O5c — mark on the quote what will have to wait.
+     *
+     * <p>Uses the SAME {@link BackorderPolicy} the checkout does, so the shopper cannot be shown one thing and
+     * charged another. Silent on failure: a warning that cannot be computed must not block a quote, and the
+     * checkout re-runs the split authoritatively anyway.
+     */
+    private void applyBackorderWarning(CheckoutDTO.Quote q, Cart cart, Long org) {
+        if (q == null || cart == null || cart.getItems().isEmpty()) return;
+
+        java.util.Map<Long, Integer> requested = new java.util.LinkedHashMap<>();
+        for (CartItem it : cart.getItems()) {
+            if (it.getProductId() == null || it.getQuantity() == null || it.getQuantity() <= 0) continue;
+            requested.merge(it.getProductId(), it.getQuantity(), Integer::sum);
+        }
+        BackorderSplit.Result split = backorderPolicy.splitFor(org, requested);
+        if (split == null) return;                     // off, unreadable, or nothing short — say nothing
+
+        java.util.Map<Long, Integer> owed = new java.util.HashMap<>();
+        for (BackorderSplit.LineSplit l : split.lines()) owed.merge(l.productId(), l.backordered(), Integer::sum);
+        if (q.getItems() != null)
+            for (CheckoutDTO.Line l : q.getItems())
+                l.setBackorderedQuantity(owed.getOrDefault(l.getProductId(), 0));
+
+        q.setHasBackorder(true);
+        q.setPromisedDate(backorderPolicy.promisedDate(org));
+    }
+
     // --- internals ---------------------------------------------------------------------------------------------
 
     private record Totals(List<CheckoutDTO.Line> lines, BigDecimal subtotal, BigDecimal taxTotal, BigDecimal shippingFee) {}
 
-    private Totals totals(Cart cart, ShippingOption option) {
+    private Totals totals(Cart cart, ShippingOption option, Long org) {
         List<CheckoutDTO.Line> lines = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal taxTotal = BigDecimal.ZERO;
@@ -104,10 +142,15 @@ public class CheckoutService {
                         .unitPrice(unit).quantity(qty).lineTotal(net).lineTax(lineTax).build());
             }
         }
-        return new Totals(lines, subtotal, taxTotal, option.fee().setScale(SCALE, RoundingMode.HALF_UP));
+        // OMS O3: the fee is resolved PER ORG, and the free-delivery threshold is measured against the goods
+        // subtotal — so it must be computed here, after the lines are summed, not read off the enum. Both
+        // quote() and place() reach this one method, which is what keeps a shown price and a charged price
+        // identical.
+        BigDecimal fee = shippingPolicy.feeFor(option, subtotal, org).setScale(SCALE, RoundingMode.HALF_UP);
+        return new Totals(lines, subtotal, taxTotal, fee);
     }
 
-    private CheckoutDTO.Quote assemble(Totals t, ShippingOption option, CouponService.CouponResult cr) {
+    private CheckoutDTO.Quote assemble(Totals t, ShippingOption option, CouponService.CouponResult cr, Long org) {
         BigDecimal discount = cr.discount();
         BigDecimal total = t.subtotal.subtract(discount).add(t.taxTotal).add(t.shippingFee);
         return CheckoutDTO.Quote.builder()
@@ -115,6 +158,7 @@ public class CheckoutService {
                 .taxTotal(t.taxTotal).shippingFee(t.shippingFee).total(total)
                 .shippingMethod(option.name()).couponCode(cr.code()).couponMessage(cr.message())
                 .addressRequired(option.requiresAddress())
+                .codEnabled(shippingPolicy.codEnabled(org))   // O3: so the storefront offers only what is accepted
                 .build();
     }
 
@@ -123,6 +167,10 @@ public class CheckoutService {
         for (CartItem it : cart.getItems()) {
             OrderDTO.Line l = new OrderDTO.Line();
             l.setProductId(it.getProductId());
+            // OMS O4: the cart already knows what it is selling. Dropping the name here is why order detail
+            // could only ever say "Product 42" — and why it could not be recovered later without asking the
+            // catalog what the product is called TODAY, which is not what the order sold.
+            l.setProductName(it.getProductName());
             l.setQuantity(it.getQuantity());
             l.setPrice(nz(it.getUnitPrice()));
             lines.add(l);

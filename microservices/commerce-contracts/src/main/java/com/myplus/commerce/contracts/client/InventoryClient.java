@@ -60,6 +60,19 @@ public interface InventoryClient {
     @GetExchange("/stock/levels")
     java.util.Map<Long, Float> getStockLevels();
 
+    /**
+     * OMS O5c — per-product {@code {onHand, sellable, expired, held}} for the whole tenant, in one call.
+     *
+     * <p>{@link #getStockLevels()} returns ON-HAND, which overstates what can actually be sold: it includes
+     * expired batches and stock held by a checkout in flight. A backorder split has to be measured against
+     * SELLABLE, or the shop would promise goods it cannot pick.
+     *
+     * <p>Advisory only. {@link #reserve} remains authoritative — if stock is taken between this read and the
+     * sale, the reserve still refuses, which is the safe direction.
+     */
+    @GetExchange("/stock/levels/detail")
+    java.util.Map<Long, java.util.Map<String, Float>> getStockLevelDetail();
+
     /** FEFO batches (batch/expiry + sellable qty) a sale/dispense would draw from next (slice 54, P10). */
     @GetExchange("/stock/batches/{productId}")
     List<StockBatch> getBatches(@PathVariable Long productId);

@@ -24,6 +24,6 @@ public class PublicBookingController {
 
     @PostMapping("/appointment-request")
     public ApiResponse<AppointmentDTO> book(@Valid @RequestBody BookingRequest request) {
-        return ApiResponse.success(appointmentService.bookPublic(request), "Appointment requested");
+        return ApiResponse.success(appointmentService.bookPublic(request), "Booking requested");
     }
 }

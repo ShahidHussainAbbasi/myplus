@@ -60,8 +60,11 @@ public class CommonSecurityAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    public PortalScopeFilter portalScopeFilter(@Value("${myplus.portal.allowlist:}") String allowlist) {
-        return new PortalScopeFilter(PortalScopeFilter.parseAllowlist(allowlist));
+    public PortalScopeFilter portalScopeFilter(
+            @Value("${myplus.portal.allowlist:}") String allowlist,
+            @Value("${myplus.portal.confined-roles:}") String confinedRoles) {
+        return new PortalScopeFilter(PortalScopeFilter.parseAllowlist(allowlist),
+                PortalScopeFilter.parseAllowlist(confinedRoles));
     }
 
     /**

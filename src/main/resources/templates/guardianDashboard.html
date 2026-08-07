@@ -65,12 +65,20 @@ body{background:#f4f6fb;margin:0}
 
     <div class="pp-tabs">
       <button type="button" class="pp-tab on" data-tab="results" th:text="#{ui.results}">Results</button>
+      <button type="button" class="pp-tab" data-tab="notices" th:text="#{ui.notices}">Notices</button>
+      <button type="button" class="pp-tab" data-tab="meetings" th:text="#{ui.meetings}">Meetings</button>
       <button type="button" class="pp-tab" data-tab="attendance" th:text="#{ui.attendance}">Attendance</button>
       <button type="button" class="pp-tab" data-tab="dues" th:text="#{ui.fees}">Fees</button>
       <button type="button" class="pp-tab" data-tab="homework" th:text="#{ui.homework}">Homework</button>
     </div>
 
     <div id="ppResults" class="pp-panel"></div>
+    <!-- Slice 3.5 — notices are NOT per-child: they are addressed to the guardian or the whole school,
+         so this panel sits outside the child picker's effect entirely. -->
+    <div id="ppNotices" class="pp-panel" style="display:none"></div>
+    <!-- Slice edu-3.4 — the only place on the portal a guardian WRITES anything. Like notices, it is not
+         per-child: a meeting is between the school and the guardian. -->
+    <div id="ppMeetings" class="pp-panel" style="display:none"></div>
     <div id="ppAttendance" class="pp-panel" style="display:none"></div>
     <div id="ppDues" class="pp-panel" style="display:none"></div>
     <div id="ppHomework" class="pp-panel" style="display:none"></div>

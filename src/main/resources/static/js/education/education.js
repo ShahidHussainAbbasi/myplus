@@ -457,7 +457,7 @@ function loadDataTable(){
 	                console.log(textStatus);
 	                console.log("errorThrown:");
 	                console.log(errorThrown);
-				 	window.location.href = serverContext + "login?message=" + errorThrown;
+				 	handleAjaxFailure(jqXHR, errorThrown, "loadDataTable");   // was: unconditional redirect to /login
 	            }
 		}
 	});
@@ -775,7 +775,7 @@ function findBy(method,data){
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();
-        	window.location.href = serverContext + "login?message=" + errorThrown;
+        	handleAjaxFailure(data, errorThrown, "findBy");   // was: unconditional redirect to /login
         }
 	});
 }
@@ -928,7 +928,7 @@ function loadFR(){
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();
-        	window.location.href = serverContext + "login?message=" + errorThrown;
+        	handleAjaxFailure(data, errorThrown, "loadFR");   // was: unconditional redirect to /login
         }
 	});
 }
@@ -1051,7 +1051,7 @@ function loadFL(){
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();
-        	window.location.href = serverContext + "login?message=" + errorThrown;
+        	handleAjaxFailure(data, errorThrown, "loadFL");   // was: unconditional redirect to /login
         }
 	});
 }
@@ -1177,7 +1177,7 @@ function loadFV(){
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();
-        	window.location.href = serverContext + "login?message=" + errorThrown;
+        	handleAjaxFailure(data, errorThrown, "loadFV");   // was: unconditional redirect to /login
         }
 	});
 }
@@ -2860,7 +2860,9 @@ function loadConfig(){
 
 function saveConfigToggle(el){
 	var key = el.getAttribute('data-key');
-	var value = el.checked ? 'true' : 'false';
+	// By TYPE — a non-checkbox has no .checked, so the old unconditional read saved "false" for every
+	// SELECT/INT/TEXT/MONEY entry in the catalog.
+	var value = (el.type === 'checkbox') ? (el.checked ? 'true' : 'false') : el.value;
 	$.post(serverContext + 'saveConfig', { key: key, value: value }, function(res){
 		var ok = res && (res.status === 'SUCCESS');
 		$('#configMsg').removeClass('alert-success alert-danger')
@@ -4917,6 +4919,260 @@ function loadTranscript() {
 				.append($('<td>').text(c.termGradeName || ''))
 				.append($('<td>').text(c.issuedOn || ''))
 				.append($('<td>').text('v' + c.version).append(' ').append($open)));
+		});
+	});
+}
+
+/* ==========================================================================
+ * Slice 3.5 — school notices & circulars.
+ * Design: microservices/docs/slices/edu-3.5-notices.md
+ *
+ * The screen's one non-obvious job: state the REACH before the act. Publishing addresses every family a
+ * school has, and "you are about to tell 412 families something" is a fact the person clicking cannot
+ * otherwise see — the same reasoning as 3.1's child count on the portal invite.
+ * ========================================================================== */
+
+var editingNoticeId = null;
+
+// Same idiom every education section uses: the screen loads its own data when it is shown, so nothing
+// is fetched for a section nobody opened.
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'NoticesDiv') loadNoticeScreen();
+});
+
+function loadNoticeScreen() {
+	// getUserGrades is the SHARED class-dropdown helper (line ~635) — targetId form, because #ntGrade is
+	// named for what it is rather than by the <table>GradeDD convention. Not a second copy of it.
+	getUserGrades('notice', 'ntGrade');
+	clearNoticeForm();
+	loadNotices();
+}
+
+function noticeAudienceChanged() {
+	var one = $('#ntAudience').val() === 'ONE_CLASS';
+	$('#ntGradeWrap').toggle(one);
+	refreshNoticeReach();
+}
+
+/** Ask the SERVER how many addresses this audience resolves to. Never computed in the browser: the
+ *  audience rule lives in NoticeAudienceResolver, and a second copy here would drift from it. */
+function refreshNoticeReach() {
+	var audience = $('#ntAudience').val();
+	var gradeId = audience === 'ONE_CLASS' ? ($('#ntGrade').val() || '') : '';
+	if (audience === 'ONE_CLASS' && !gradeId) {
+		$('#ntReach').text(t('ui.js.ntChooseClass'));
+		return;
+	}
+	$.get(serverContext + 'getNoticeReach', { audience: audience, gradeId: gradeId })
+		.done(function (res) {
+			var n = (res && res.object && res.object.recipients) || 0;
+			// Says ADDRESSES, not families: everyone the audience reaches sees it in the portal whether
+			// or not the school holds an email for them. Reporting one number as the other would
+			// understate the reach of a published notice.
+			$('#ntReach').text(t('ui.js.ntReach').replace('{n}', n));
+		});
+}
+
+function clearNoticeForm() {
+	editingNoticeId = null;
+	$('#ntTitle').val('');
+	$('#ntBody').val('');
+	$('#ntPinned').val('');
+	$('#ntAudience').val('WHOLE_SCHOOL');
+	noticeAudienceChanged();
+}
+
+function saveNotice() {
+	var data = {
+		id: editingNoticeId || '',
+		title: $('#ntTitle').val(),
+		body: $('#ntBody').val(),
+		audience: $('#ntAudience').val(),
+		gradeId: $('#ntAudience').val() === 'ONE_CLASS' ? ($('#ntGrade').val() || '') : '',
+		pinnedUntilStr: $('#ntPinned').val()
+	};
+	$.post(serverContext + 'saveNotice', data).done(function (res) {
+		if (!res || res.status !== 'SUCCESS') { uiAlert((res && res.message) || 'Could not save'); return; }
+		clearNoticeForm();
+		loadNotices();
+	});
+}
+
+function publishNotice() {
+	// Confirmed, because it is irreversible in the way that matters: the families have been told, and a
+	// published notice cannot be edited afterwards (only superseded by a new one).
+	uiConfirm(t('ui.js.ntConfirmPublish'), function () {
+		var go = function (id) {
+			$.post(serverContext + 'publishNotice', { id: id }).done(function (res) {
+				uiAlert((res && res.message) || '');
+				clearNoticeForm();
+				loadNotices();
+			});
+		};
+		if (editingNoticeId) { go(editingNoticeId); return; }
+		// An unsaved notice is saved first, so Publish always means the same thing whether or not the
+		// user happened to click Save first.
+		$.post(serverContext + 'saveNotice', {
+			title: $('#ntTitle').val(), body: $('#ntBody').val(),
+			audience: $('#ntAudience').val(),
+			gradeId: $('#ntAudience').val() === 'ONE_CLASS' ? ($('#ntGrade').val() || '') : '',
+			pinnedUntilStr: $('#ntPinned').val()
+		}).done(function (res) {
+			if (!res || res.status !== 'SUCCESS') { uiAlert((res && res.message) || 'Could not save'); return; }
+			go(res.object.id);
+		});
+	});
+}
+
+function loadNotices() {
+	$.get(serverContext + 'getNotices').done(function (res) {
+		var rows = (res && res.collection) || [];
+		var $b = $('#tableNotices tbody').empty();
+		rows.forEach(function (n) {
+			var $tr = $('<tr>');
+			$tr.append($('<td>').text(n.title == null ? '' : n.title));
+			$tr.append($('<td>').text(n.audience == null ? '' : n.audience.replace('_', ' ').toLowerCase()));
+			$tr.append($('<td>').text(n.status == null ? '' : n.status.toLowerCase()));
+			$tr.append($('<td>').text(n.publishedOn == null ? '' : n.publishedOn));
+			var $act = $('<td>');
+			if (n.status === 'DRAFT') {
+				$act.append($('<button type="button" class="btn btn-xs btn-default">')
+					.text(t('label.form.edit')).on('click', function () { editNotice(n); }));
+			}
+			$act.append($('<button type="button" class="btn btn-xs btn-link">')
+				.text(t('label.form.delete')).on('click', function () { deleteNotice(n.id); }));
+			$tr.append($act);
+			$b.append($tr);
+		});
+	});
+}
+
+function editNotice(n) {
+	// Only drafts reach here — the list renders no Edit button for a published notice, and the server
+	// refuses one anyway. Both, because a UI filter is not an authorisation (2.2's lesson).
+	editingNoticeId = n.id;
+	$('#ntTitle').val(n.title);
+	$('#ntBody').val(n.body);
+	$('#ntAudience').val(n.audience);
+	$('#ntPinned').val(n.pinnedUntil || '');
+	noticeAudienceChanged();
+	if (n.gradeId) { $('#ntGrade').val(n.gradeId); }
+}
+
+function deleteNotice(id) {
+	uiConfirm(t('ui.js.ntConfirmDelete'), function () {
+		$.post(serverContext + 'deleteNotice', { id: id }).done(function () { loadNotices(); });
+	});
+}
+
+/* ══ Slice edu-3.4 — Parents' evenings (on the shared scheduling core, SCHED-1) ═══════════════════
+ * Design: microservices/docs/slices/edu-3.4-guardian-teacher-meetings.md
+ *
+ * The slots do not live in education: they are in the scheduling core, reached by education-service.
+ * This screen therefore never computes a time grid — it asks for one. A second copy of the slot
+ * arithmetic in the browser would drift from the server that owns it (the OMS lesson, again).
+ */
+var currentMeetingEventId = null;
+
+$(document).on('change', '#registrationType', function () {
+	if (this.value === 'MeetingsDiv') loadMeetingScreen();
+});
+
+function loadMeetingScreen() {
+	getUserStaffs('me');            // shared helper — fills #meStaffDD-style dropdowns
+	loadMeetingEvents();
+}
+
+function meetingMsg(text, cls) {
+	var $m = $('#meMsg');
+	if (!text) { $m.hide().empty(); return; }
+	$m.attr('class', 'alert ' + (cls || 'alert-info')).text(text).show();
+}
+
+function clearMeetingForm() {
+	currentMeetingEventId = null;
+	$('#meTitle').val(''); $('#meDate').val(''); $('#meNotes').val('');
+	$('#tableMeetingSlots tbody').empty();
+	meetingMsg('');
+}
+
+function saveMeetingEvent() {
+	$.post(serverContext + 'saveMeetingEvent', {
+		id: currentMeetingEventId || '',
+		title: $('#meTitle').val(),
+		eventDateStr: $('#meDate').val(),
+		notes: $('#meNotes').val()
+	}).done(function (res) {
+		if (!res || res.status !== 'SUCCESS') { meetingMsg((res && res.message) || 'Could not save', 'alert-danger'); return; }
+		currentMeetingEventId = res.object.id;
+		meetingMsg(t('ui.js.meSaved'), 'alert-success');
+		loadMeetingEvents();
+	});
+}
+
+function loadMeetingEvents() {
+	$.get(serverContext + 'getMeetingEvents').done(function (res) {
+		var rows = (res && res.collection) || [];
+		var $b = $('#tableMeetingEvents tbody').empty();
+		rows.forEach(function (e) {
+			var $tr = $('<tr>');
+			$tr.append($('<td>').text(e.title == null ? '' : e.title));
+			$tr.append($('<td>').text(e.eventDate == null ? '' : e.eventDate));
+			$tr.append($('<td>').text(e.status == null ? '' : e.status.toLowerCase()));
+			var $act = $('<td>');
+			$act.append($('<button type="button" class="btn btn-xs btn-default">')
+				.text(t('ui.js.meSlots')).on('click', function () { selectMeetingEvent(e); }));
+			// Closing stops NEW bookings; it does not cancel existing ones. The label says "close
+			// booking", not "cancel", because those are different acts and only one is reversible.
+			$act.append($('<button type="button" class="btn btn-xs btn-link">')
+				.text(e.status === 'OPEN' ? t('ui.js.meClose') : t('ui.js.meOpen'))
+				.on('click', function () { toggleMeetingEvent(e); }));
+			$tr.append($act);
+			$b.append($tr);
+		});
+	});
+}
+
+function selectMeetingEvent(e) {
+	currentMeetingEventId = e.id;
+	$('#meTitle').val(e.title);
+	$('#meDate').val(e.eventDate || '');
+	$('#meNotes').val(e.notes || '');
+	loadMeetingSlots();
+}
+
+function toggleMeetingEvent(e) {
+	var next = e.status === 'OPEN' ? 'CLOSED' : 'OPEN';
+	$.post(serverContext + 'setMeetingEventStatus', { id: e.id, status: next })
+		.done(function (res) { meetingMsg((res && res.message) || '', 'alert-info'); loadMeetingEvents(); });
+}
+
+function publishMeetingSlots() {
+	if (!currentMeetingEventId) { meetingMsg(t('ui.js.mePickEvening'), 'alert-warning'); return; }
+	$.post(serverContext + 'publishMeetingSlots', {
+		eventId: currentMeetingEventId,
+		staffId: $('#meStaff').val(),
+		from: $('#meFrom').val(),
+		to: $('#meTo').val(),
+		minutes: $('#meMinutes').val()
+	}).done(function (res) {
+		// PARTIAL/FAILED carry a message the school can act on (a bad window, the core unreachable).
+		meetingMsg((res && res.message) || '', res && res.status === 'SUCCESS' ? 'alert-success' : 'alert-warning');
+		loadMeetingSlots();
+	});
+}
+
+function loadMeetingSlots() {
+	if (!currentMeetingEventId) return;
+	$.get(serverContext + 'getMeetingSlots', { eventId: currentMeetingEventId }).done(function (res) {
+		var rows = (res && res.collection) || [];
+		var $b = $('#tableMeetingSlots tbody').empty();
+		rows.forEach(function (s) {
+			var $tr = $('<tr>');
+			$tr.append($('<td>').text(s.teacherName == null ? '' : s.teacherName));
+			$tr.append($('<td>').text((s.startsAt || '') + ' – ' + (s.endsAt || '')));
+			$tr.append($('<td>').text(s.available == null ? '' : s.available));
+			$b.append($tr);
 		});
 	});
 }

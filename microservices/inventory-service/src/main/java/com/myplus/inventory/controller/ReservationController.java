@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 public class ReservationController {
 
     private final ReservationService reservationService;
+    /** OMS O5a — the expiry sweep, exposed manually as well as on a schedule. */
+    private final com.myplus.inventory.service.ExpiredReservationSweeper sweeper;
 
     @PostMapping
     public StockReservationResponse reserve(@RequestBody StockReservationRequest request) {
@@ -41,5 +43,26 @@ public class ReservationController {
     public StockReturnResponse returnStock(@PathVariable String reservationId, @RequestBody StockReturnRequest request) {
         return reservationService.returnPicks(reservationId, request.getLines(), request.isQuarantine(),
                 CurrentUser.organizationId(), CurrentUser.userId());
+    }
+
+    /**
+     * OMS O5a — free this tenant's expired stock holds now, instead of waiting for the next scheduled pass.
+     *
+     * <p>Exists for three reasons: an operator who has just fixed an outage wants their stock back immediately
+     * rather than in five minutes; it makes the sweeper's behaviour observable instead of something that only
+     * ever happens in a log; and the Cypress gate cannot wait on a scheduler.
+     *
+     * <p>Owner/admin — it moves stock back into sellable, which is the same class of action as a stock
+     * adjustment. Scoped to the caller's own organisation: a leak in one tenant is not another's to clean up.
+     */
+    @org.springframework.security.access.prepost.PreAuthorize(
+            "hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')")
+    @PostMapping("/sweep")
+    public com.myplus.common.web.ApiResponse<java.util.Map<String, Object>> sweep() {
+        int freed = sweeper.sweepForOrg(java.time.LocalDateTime.now(),
+                CurrentUser.organizationId(), CurrentUser.userId());
+        return com.myplus.common.web.ApiResponse.success(
+                java.util.Map.of("released", freed),
+                freed == 0 ? "No expired stock holds to release." : ("Released " + freed + " expired stock hold(s)."));
     }
 }

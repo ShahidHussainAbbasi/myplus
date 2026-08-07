@@ -18,6 +18,9 @@
          than each service inventing its own. -->
     <dependency><groupId>com.myplus</groupId><artifactId>commerce-domain</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <dependency><groupId>com.myplus</groupId><artifactId>common-security</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
+    <!-- OMS O3: per-org order/checkout policy (delivery fees, free-over threshold, COD). marketplace's FIRST
+         settings consumer — before this every store on the platform shared one hardcoded fee table. -->
+    <dependency><groupId>com.myplus</groupId><artifactId>common-settings</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId></dependency>

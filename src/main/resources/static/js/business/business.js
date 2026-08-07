@@ -1294,7 +1294,7 @@ function loadDataTable(){
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
 				console.log(jqXHR, textStatus, errorThrown);
-				window.location.href = serverContext + "login?message=" + errorThrown;
+				handleAjaxFailure(jqXHR, errorThrown, "loadDataTable");   // was: unconditional redirect to /login
 			}
 		}
 	});
@@ -2508,7 +2508,7 @@ function loadSR(){
 		},
 		 error: function(data, textStatus, errorThrown) {
 			resetForm();
-        	window.location.href = serverContext + "login?message=" + errorThrown;
+        	handleAjaxFailure(data, errorThrown, "loadSR");   // was: unconditional redirect to /login
         }
 	});
 }
@@ -3209,13 +3209,15 @@ function loadBusinessConfig(){
 
 function saveBusinessConfigToggle(el){
 	var key = el.getAttribute('data-key');
-	var value = el.checked ? 'true' : 'false';
+	// Read the control BY TYPE. This used to be `el.checked ? 'true':'false'` unconditionally, which saved
+	// "false" for every SELECT/INT/TEXT/MONEY entry in the catalog — a non-checkbox has no .checked.
+	var value = (el.type === 'checkbox') ? (el.checked ? 'true' : 'false') : el.value;
 	$.post(serverContext + 'saveBusinessConfig', { key: key, value: value }, function(res){
 		var ok = res && res.success;
 		$('#businessConfigMsg').removeClass('alert-success alert-danger')
 			.addClass(ok ? 'alert-success' : 'alert-danger')
 			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
-		if(!ok){ el.checked = !el.checked; }   // revert the toggle if the save failed
+		if(!ok){ if(el.type === 'checkbox'){ el.checked = !el.checked; } }   // revert the toggle if the save failed
 		// Apply behaviour-affecting flags immediately (no reload).
 		else if(key === 'pos.barcode.enabled'){ window.posBarcodeEnabled = (value === 'true'); applyPosBarcodeVisibility(); }
 		else if(key === 'pos.receipt.autoPrint'){ window.posAutoPrintReceipt = (value === 'true'); }
@@ -3225,6 +3227,41 @@ function saveBusinessConfigToggle(el){
 		$('#businessConfigMsg').removeClass('alert-success').addClass('alert-danger').text('Save failed').show();
 	});
 }
+/* ===== OMS O3 — Order settings (marketplace-service catalog) ==============================================
+ * Design: microservices/docs/slices/oms-O3-order-config.md
+ *
+ * Delivery fees, the free-delivery threshold and cash-on-delivery used to be literals shared by EVERY store
+ * on the platform. They are now per-org settings owned by marketplace-service; this screen is the same
+ * self-renderer the Business Configuration screen uses, pointed at /getOrderConfig instead. Adding an order
+ * policy is a catalog entry in MarketplaceSettingsCatalog — nothing here changes.
+ * ======================================================================================================= */
+function showOrderConfig(){
+	$('.formDiv').hide();
+	$('#OrderConfigDiv').show();
+	$('#orderConfigMsg').hide();
+	loadOrderConfig();
+}
+
+function loadOrderConfig(){
+	renderSettingsForm({
+		container:  '#orderConfigBody',
+		loadUrl:    'getOrderConfig',
+		onChangeFn: 'saveOrderConfigField',
+		fieldPrefix:'ocfg'
+	});
+}
+
+function saveOrderConfigField(el){
+	// The shared saver reads the control by type, so a MONEY fee saves "250.00" and the COD tick saves "false".
+	saveSettingsField(el, 'saveOrderConfig', function(ok, res){
+		$('#orderConfigMsg').removeClass('alert-success alert-danger')
+			.addClass(ok ? 'alert-success' : 'alert-danger')
+			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
+		// A rejected value must not stay on screen pretending to be in force — re-read the effective values.
+		if(!ok){ loadOrderConfig(); }
+	});
+}
+
 function openPeriodClose(){ showFinance('periodClose'); }
 
 /* â•â• B2B Phase 4b â€” sales quotes (quote â†’ approval â†’ order) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

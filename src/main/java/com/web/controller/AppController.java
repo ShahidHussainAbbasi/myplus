@@ -30,6 +30,16 @@ public class AppController {
     @GetMapping("/dashboard")
     public String dashboard() {
         try {
+            // Slice 3.3 — portal role first, exactly as the post-login handler does. Both paths must agree:
+            // this class and that handler having their own copy of the routing rule is the drift P0.5
+            // extracted ModuleRouter to end, and a portal session sent to the staff shell here would land
+            // on a page whose every read the deny rule answers with 404.
+            org.springframework.security.core.Authentication auth =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            String portal = ModuleRouter.portalDashboardFor(auth == null ? null : auth.getAuthorities());
+            if (portal != null) {
+                return "redirect:" + portal;
+            }
             return "redirect:" + ModuleRouter.dashboardFor(requestUtil.getCurrentUser());
         } catch (Exception e) {
             return "redirect:" + ModuleRouter.LANDING;

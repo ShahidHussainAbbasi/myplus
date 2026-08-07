@@ -63,8 +63,10 @@ describe('E-commerce — storefront order decrements inventory via the saga', ()
     // on-hand unchanged (still 8); and the blocked order is not in the back-office.
     stockLevel().then((s) => expect(s, 'no decrement on a rejected order').to.eq(8))
     cy.loginAsMarketplace()
-    cy.request('/getOrders').then((r) => {
-      const mine = (r.body.data || []).find((o) => o.customerName === buyer)
+    // OMS O4: paginated + filterable. Filtering by the buyer is what makes "must not exist" mean it, rather
+    // than meaning "was not among the newest 25".
+    cy.request('/getOrders?q=' + encodeURIComponent(buyer)).then((r) => {
+      const mine = ((r.body.data && r.body.data.content) || []).find((o) => o.customerName === buyer)
       expect(mine, 'rejected order must not exist').to.not.exist
     })
   })
