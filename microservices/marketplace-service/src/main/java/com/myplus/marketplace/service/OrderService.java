@@ -93,10 +93,19 @@ public class OrderService {
                 .invoiceNo(dto.getInvoiceNo())
                 .idempotencyKey(key)
                 .customerName(dto.getCustomerName())
+                // OMS O5e step 3: this is now the total the SALE posted to the ledger. The monolith reads the
+                // invoice back from business-service (`/getReceipt`) and sends its `grandTotal`, so the browser's
+                // cart arithmetic — gap B — is out of the path. marketplace cannot verify that from here; under
+                // §2.5's option C the orchestrator is what guarantees it, which is the trade that option names.
                 .total(dto.getTotal())
                 // Lines are what make cancel/return able to restore stock at all — the guard is
-                // `!items.isEmpty()`. Empty until step 3 sends them, which is why OMS-5 is not closed yet.
+                // `!items.isEmpty()`. Step 3 supplies them from the invoice's persisted rows, which is what
+                // finally closes OMS-5: a POS order can now be cancelled with its goods put back.
                 .items(toItems(dto.getItems()))
+                // O1's books marker. An order that names an invoice IS in the books — leaving it null made the
+                // one order source that definitely has revenue behind it the only one that would not say so, and
+                // made the `REVERSED` stamp a cancel writes a transition out of nothing.
+                .booksStatus(hasText(dto.getInvoiceNo()) ? "POSTED" : null)
                 .shippingAddress(dto.getShippingAddress())
                 .source("POS").paymentMode(dto.getPaymentMode() != null ? dto.getPaymentMode() : "POS")
                 .fulfilmentStatus(FulfilmentStatus.NEW)
@@ -481,9 +490,11 @@ public class OrderService {
         return repo.findByBooksStatusScoped(status, orgId, userId).stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    public List<OrderDTO> list(Long orgId, Long userId) {
-        return repo.findScoped(orgId, userId).stream().map(this::toDTO).collect(Collectors.toList());
-    }
+    // `list(orgId, userId)` — the unbounded read OMS-7 named — was DELETED 2026-08-10. O4 replaced it with
+    // page() below and left it public with zero callers, which is worse than it sounds: the next person who
+    // needs "all orders for this org" finds a public method that does exactly the wrong thing, uncapped, and
+    // reintroduces the defect without writing a line of new SQL. `findScoped` stays on the repository — it is
+    // the NULL-fallback scope every other query composes, and the unit tests assert emptiness through it.
 
     /**
      * OMS O4 — the back-office list: scoped, filtered, PAGED (fixes OMS-7).

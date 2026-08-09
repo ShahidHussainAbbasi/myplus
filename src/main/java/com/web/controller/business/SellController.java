@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.web.dto.business.CustomerHistoryDTO;
 import com.web.dto.business.SellDTO;
 import com.web.util.BusinessRestClient;
+import com.web.util.PosOrderRecorder;
 
 @RestController
 public class SellController {
@@ -28,6 +29,10 @@ public class SellController {
 
     @Autowired
     private BusinessRestClient client;
+
+    /** OMS O5e step 3 — turns a completed Store-vertical sale into its order (see {@link PosOrderRecorder}). */
+    @Autowired
+    private PosOrderRecorder posOrderRecorder;
 
     @RequestMapping(value = "/getUserSell", method = RequestMethod.GET)
     @ResponseBody
@@ -223,11 +228,22 @@ public class SellController {
         }
     }
 
+    /**
+     * OMS O5e step 3 — a Store-vertical sale creates its order here, server-side, instead of the browser
+     * posting {@code /recordOrder} after the fact.
+     *
+     * <p>The proxy itself is unchanged. What is added is the orchestration §2.5 chose (option C): the sale is
+     * written first and returned unchanged, and only then does {@link PosOrderRecorder} turn it into an order.
+     * That ordering is the point — the order is derived from a sale that already exists, so closing the tab or
+     * losing the network can no longer lose it, and a failure to record it cannot fail the sale.
+     */
     @RequestMapping(value = "/addSell", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {
         try {
-            return client.postJson("/addSell", dto);
+            Map<String, Object> response = client.postJson("/addSell", dto);
+            posOrderRecorder.afterSale(response);   // best-effort, gated to the Store vertical, never throws
+            return response;
         } catch (Exception e) {
             LOGGER.error("addSell proxy error", e);
             return Collections.singletonMap("status", "ERROR");

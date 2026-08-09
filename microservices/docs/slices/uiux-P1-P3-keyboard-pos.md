@@ -717,6 +717,20 @@ and their tiles would have added stock to the cart in complete silence.
 Feedback now goes to the panel's own `#quickPickMsg` — which had been added to the markup and never
 wired. It is also cleared on each re-render, so a stale "×3" from the previous sale cannot linger.
 
+## 9h. ✅ ALL GREEN — user-confirmed 2026-08-10
+
+| Gate | Cases | Status |
+|------|-------|--------|
+| `pos-keyboard.cy.js` (P1) | 18 | ✅ |
+| `pos-shortcuts.cy.js` (P2) | 20 | ✅ |
+| `pos-quickpick.cy.js` (P3) | 15 | ✅ |
+| `pos-settings-access.cy.js` (D-6) | 5 | ✅ |
+
+**58 cases**, roughly half of them asserting the **OFF** default — which is what protects every
+existing tenant, since all ~35 settings ship reproducing today's screen.
+
+P1–P3 and the owner/admin configuration access are complete. Staged; awaiting the user's commit.
+
 ## 10. Open questions
 
 1. **Key choices** — F2/F3/F4/F8/F9 as above, or match a till your customers already use?

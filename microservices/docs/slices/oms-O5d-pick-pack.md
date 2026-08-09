@@ -125,11 +125,34 @@ switch off a correctness guard.
 **`PACK_AUTO_CONFIRM`'s behaviour** (still an inert toggle — it needs the workbench that would trigger it),
 `PackVerificationTest`, `order-pickpack.cy.js`.
 
-⚠️ **`order.pack.autoConfirm` is currently a DEAD TOGGLE.** It appears on the settings screen and does nothing.
-That is the exact failure O3 shipped with, so it must either be wired in the next session or removed from the
-catalog until the workbench exists. Do not leave it visible and inert.
+### 2.4c BOTH packing settings WITHDRAWN 2026-08-10 — they were shipped ahead of the UI that gives them meaning
 
-**Next session starts here:** §5 checklist, from the pick-list read.
+The half-shipped state above was worse than §2.4b recorded, and the settings have been pulled from the catalog
+until the workbench lands. Verified at both ends before acting:
+
+| | |
+|---|---|
+| `order.pack.autoConfirm` | Read **nowhere in `main/`** — a grep for the constant returns the declaration and nothing else. Inert, exactly as `pharmacy.interaction.blockSevere` was (**C1**). |
+| `order.pack.scanRequired` | **Worse than inert — a trap.** It *is* enforced, correctly, in `ShipmentService` (the only writer). But the only UI that dispatches, `ecommerce.js` `submitShipment`, posts `{orderItemId, quantity}` and **never `verified`** — so switching it on refuses **every** dispatch, with a message telling the packer to scan into a workbench that does not exist. |
+
+**What changed:** both entries removed from `MarketplaceSettingsCatalog.entries()`; the `scanRequired` refusal
+and its two helpers removed from `ShipmentService`, along with the now-unread `SettingsService` injection.
+
+**Why the enforcement went too, rather than lying dormant behind a withdrawn key:** a tenant who had already
+switched `scanRequired` on would otherwise stay bricked with **no screen left to switch it off from**.
+Withdrawing the entry hides the control; it does not clear the stored override.
+
+**What deliberately STAYS:** `V17 shipment_line.verified` (applied, and honest — pre-workbench parcels *were*
+typed), `ShipmentLine.verified`, `ShipmentDTO.LineRequest.verified`, and the per-line recording of the flag.
+Those are what the workbench writes into. The two constants and `PACK_GROUP` stay too, so the slice that
+restores the settings puts them back under the same keys and the same heading.
+
+⚠️ **This is the third occurrence of the same pattern in this programme** — O3 shipped a setting nothing read,
+O4 shipped endpoints nothing could reach, and O5d shipped a policy no UI could satisfy. The common cause is
+landing the server half of a slice on its own. **A capability is not shippable until something can exercise it.**
+
+**Next session starts here:** §5 checklist, from the pick-list read. Restoring the two settings is part of that
+work, not a separate task.
 
 ### 2.5 Not in O5d
 

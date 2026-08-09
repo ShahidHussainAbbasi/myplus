@@ -41,8 +41,8 @@ public class ShipmentService {
     private final OrderRepository orderRepository;
     private final ShipmentRepository shipmentRepository;
     private final NotificationService notificationService;
-    /** O5d — the per-org packing policy (scan required?). */
-    private final com.myplus.common.settings.SettingsService settingsService;
+    // No SettingsService: its only reader was O5d's withdrawn scanRequired guard. The workbench slice
+    // re-injects it rather than leaving an unread dependency here advertising a policy nothing applies.
 
     /**
      * Dispatch a parcel.
@@ -58,14 +58,17 @@ public class ShipmentService {
         if (current == FulfilmentStatus.CANCELLED || current == FulfilmentStatus.RETURNED)
             throw new ValidationException("A " + current + " order cannot be shipped.");
 
-        // OMS O5d: a shop that requires scanning must not be able to dispatch a hand-typed parcel — otherwise
-        // the setting is decoration. Enforced HERE, in the only writer, so the workbench cannot be bypassed by
-        // posting to the endpoint directly (the same reasoning as O3's server-side COD refusal).
-        if (scanRequired(orgId) && hasUnverifiedLine(req)) {
-            throw new ValidationException("This shop requires items to be scanned when packing. "
-                    + "Scan each item into the parcel, or turn off \"Require items to be scanned\" in "
-                    + "Order settings.");
-        }
+        // OMS O5d's scanRequired refusal used to sit here, and it was WITHDRAWN 2026-08-10 along with the two
+        // packing settings — see MarketplaceSettingsCatalog.entries()'s note.
+        //
+        // The guard itself was right (enforce in the only writer, so the endpoint cannot be bypassed — O3's
+        // reasoning). What was wrong is that it had nothing to enforce AGAINST: the only UI that dispatches,
+        // `submitShipment`, posts {orderItemId, quantity} and never `verified`, so switching the setting on
+        // refused EVERY dispatch and told the packer to scan into a workbench that was never built.
+        //
+        // Removed rather than left dormant behind a withdrawn key, because a tenant who had already switched it
+        // on would otherwise stay bricked with no screen left to switch it off from. It returns with the
+        // workbench, which is the only thing that can satisfy it.
 
         Map<Long, Integer> requested = normalise(req);
         if (requested.isEmpty())
@@ -173,27 +176,6 @@ public class ShipmentService {
     static int outstanding(OrderItem item) {
         int invoiced = nz(item.getQuantity()) - nz(item.getQuantityBackordered());
         return Math.max(0, invoiced - nz(item.getQuantityShipped()));
-    }
-
-    /** Does this shop insist a packer scans, rather than types? Fails OPEN — a settings hiccup must not stop
-     *  a shop dispatching, which would be a worse outage than an unverified parcel. */
-    private boolean scanRequired(Long orgId) {
-        try {
-            return settingsService != null && settingsService.getBoolFor(
-                    orgId, com.myplus.marketplace.config.MarketplaceSettingsCatalog.PACK_SCAN_REQUIRED);
-        } catch (RuntimeException e) {
-            return false;
-        }
-    }
-
-    /** Any line carrying a real quantity that was NOT scanned. */
-    private static boolean hasUnverifiedLine(ShipmentDTO.Request req) {
-        if (req == null || req.getLines() == null) return false;
-        for (ShipmentDTO.LineRequest l : req.getLines()) {
-            if (l == null || l.getQuantity() == null || l.getQuantity() <= 0) continue;
-            if (!Boolean.TRUE.equals(l.getVerified())) return true;
-        }
-        return false;
     }
 
     /** Drop nulls, non-positives and duplicates (summing them), so the guards below see one clean number a line. */

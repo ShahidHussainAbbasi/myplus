@@ -159,12 +159,50 @@ The one-way service dependency O1 established stays intact; no new client, no ne
 | **The client-computed total to replace** | `ecommerce.js:524-532` sums `global.data` (the cart) in the browser. Gap **B**. Use the sale response / `dto` lines instead. |
 | **Lines are already in hand** | `addSell` receives `CustomerHistoryDTO dto` — the same object carrying the sale's lines. No extra call is needed to get them. |
 
-**Still to confirm before writing the edit** (the two things that stopped this session):
-1. **How to determine the MARKETPLACE vertical server-side.** The browser uses `window.MODULE`; the monolith
-   equivalent is likely the active org type (`ModuleRouter` / the JWT's `activeOrgType`) — confirm which, do not
-   guess. Getting this wrong either records orders for every trade sale or for none.
-2. **The authoritative total.** Prefer the value business-service returns over anything recomputed. Check what
-   `postJson("/addSell", …)` actually returns alongside `object` before choosing.
+### Both open items — RESOLVED 2026-08-10, against the code
+
+**1. The MARKETPLACE vertical, server-side → `ModuleRouter.moduleOf(user)`.**
+
+Traced end to end: `window.MODULE` ← `businessDashboard.html:2526` ← the `module` model attribute ←
+`CommerceDashboardController.resolveModule()`, which reads **`user.getUserType()` only** (constrained to
+{BUSINESS, PHARMA, MARKETPLACE}, defaulting BUSINESS). `ModuleRouter.moduleOf` prefers **`activeOrgType`** and
+falls back to `userType`.
+
+They agree for every single-module user and disagree for a multi-org one. **`ModuleRouter` is the right one**:
+it names the tenant the invoice was actually written into, which is the tenant the order must be created in,
+and it is the platform's single documented rule (the class exists precisely because that mapping had already
+been written twice and drifted). `CommerceDashboardController` reading `userType` alone is a **latent
+inconsistency of its own** — a user who switches into their store gets POS wording on the dashboard — but it is
+a separate defect and is *not* fixed here.
+
+Widening the gate cannot double-record: step 1's idempotency makes the browser's still-live post a no-op.
+`activeOrgType` is populated at login (`AuthServerAuthenticationProvider:95`) and re-stamped on org switch
+(`OrganizationController:85`), so it is genuinely available. Fixture check: `demo.marketplace@myplus.com` is
+seeded `userType=MARKETPLACE`, so the gate resolves to MARKETPLACE under **either** rule — the Cypress gate
+cannot tell the two apart, which is why this had to be settled by reading rather than by testing.
+
+**2. The authoritative total → NOT in `addSell`'s response. Read the invoice back via `/getReceipt`.**
+
+`SellController.addSell` (business-service) returns `new GenericResponse("SUCCESS", msg, invoiceNo)` — `object`
+is the **invoice number and nothing else**. No total, no lines. §2.5's line *"the sale's lines and authoritative
+total are already in `addSell`'s response"* was **wrong**, and that is what made this item worth confirming.
+
+So step 3 reads the invoice back: `GET /getReceipt?invoiceNo=…` returns the persisted `CustomerHistoryDTO` —
+`grandTotal` (the figure the sale posted to the ledger) plus `sales[]` with `productId`, `quantity`, `sellRate`
+and `itemName`. It is already proxied by the monolith, org/store/role-scoped from the caller's own token, and
+it closes gap **B** and gap **A** from **one** source: what was written, not what was asked for.
+
+Rejected alternatives: recomputing the total in the monolith from `dto` (that is the client's arithmetic moved
+one hop, and it cannot see tax or discount — SF-12 is the standing proof that cart arithmetic can be wrong in
+ways the books are not); and widening `addSell`'s response (its `object` is consumed as the invoice number by
+`main.js`, `printReceipt` and `dispensePrescription`, so changing it is a breaking change for three callers to
+save one read).
+
+**The cost, stated:** a Store sale now makes two extra hops (`/getReceipt`, then `/orders`) before the cashier
+sees the sale complete. Store-vertical only; every other vertical is byte-for-byte unchanged. Kept synchronous
+because the gate must be able to assert the order exists the moment the sale returns; moving it to an
+`@Async` hand-off is the obvious follow-up if the latency is felt, and does **not** change the crash exposure
+option C already accepted.
 
 ## 3. Not in O5e
 
@@ -212,11 +250,48 @@ green; no regression.
       is step 3. Taking it now would change the browser contract mid-flight, which is what §2.3 exists to stop.
       ⚠️ **No gate case asserts the `SO-` number yet** — the step 2 block in `pos-order-parity.cy.js` is still
       `describe.skip`. Un-skip and assert it with step 3.
-- [ ] **START HERE →** step 3: business-service records the order after a Store-vertical sale, sending the
-      sale's lines and its authoritative total. **This is what actually closes OMS-5** — until the lines arrive,
-      cancel/return still cannot restore stock (`!items.isEmpty()`).
-- [ ] `record()` takes lines + server total; allocates `orderSeq`/`orderNo`
-- [ ] business-service calls it after a Store-vertical sale
-- [ ] Remove the browser's `recordOrder()` call — only after the above are green
-- [ ] `PosOrderRecordTest`
-- [ ] `pos-order-parity.cy.js` + regression
+- [x] step 3 — **BUILT 2026-08-10, awaiting deploy + gate.** Both §2.5 open items resolved against the code
+      first (see *Both open items — RESOLVED* above); the second one found the design's own claim about
+      `addSell`'s response to be false, which is why the shape below differs from what §2.5 sketched.
+      - `PosOrderRecorder` (`src/main/java/com/web/util/PosOrderRecorder.java`) — **new**. Gate
+        (`ModuleRouter.moduleOf == MARKETPLACE`), authoritative read (`/getReceipt`), mapping, and the
+        best-effort POST to `/orders`. Every path ends in a WARN, never a throw: the money is already written.
+        The mapping is pure and static, so `PosOrderRecordTest` pins it with no Spring.
+      - `SellController.addSell` (monolith) — one line: `posOrderRecorder.afterSale(response)` after the proxy
+        returns. The proxy itself is unchanged.
+      - `OrderService.record()` — now stamps `booksStatus = POSTED` when the order names an invoice. It was
+        left null, which made the one order source that definitely *has* revenue behind it the only one that
+        would not say so, and made the `REVERSED` stamp a cancel writes a transition out of nothing. (Null
+        never matched the `LEGACY_UNPOSTED` reconciliation read, so no backlog was polluted — but the field
+        was simply silent where it should have spoken.)
+      - **Known limitation, logged at WARN:** `Sell.quantity` is a `Float` (1.5 kg is a real POS sale) and
+        `OrderItem.quantity` is an `Integer`, so a fractional line is rounded — and a cancel would then restore
+        the rounded quantity. Widening the order line is a marketplace schema change, outside O5e.
+- [x] `record()` takes lines + server total; allocates `orderSeq`/`orderNo`
+- [x] the monolith calls it after a Store-vertical sale (option C — *not* business-service; see §2.5)
+- [x] step 4 — **browser writer REMOVED 2026-08-10**, immediately after the step 3 gate went green, which is
+      the order §2.3 mandates. `global.recordOrder` deleted from `ecommerce.js`; the call site deleted from
+      `main.js`'s post-sale hook. Both replaced by a comment naming the three gaps that lived in that one
+      function, so it cannot be reintroduced as a convenience.
+      **The migration window is now closed — there is exactly ONE writer.** Step 1's idempotency stays load-
+      bearing regardless: it is what makes a retried or replayed sale converge on one order.
+      **KEPT on purpose:** the monolith's `/recordOrder` proxy (`OrderController:132`). It is no longer called
+      by any browser code, but it is the route `pos-order-parity.cy.js` step 1 and `ecommerce-orders.cy.js` use
+      to exercise `record()` directly. Deleting it would delete the idempotency gate with it.
+      **Minor UI loss, accepted:** the "Order <invoice> created" toast is gone — the browser no longer knows an
+      order was created, which is the entire point. The "Sale recorded — Invoice …" toast is unaffected.
+      Leaves `ui.js.order2` orphaned in all six `messages*.properties`; left in place rather than deleted from
+      six aligned files for one unused key.
+- [x] `PosOrderRecordTest` — `src/test/java/com/web/util/PosOrderRecordTest.java`, pure logic, runs on
+      `mvn test`. Pins the server total (incl. that it is NOT the sum of the lines — tax lives on the header),
+      the lines, the sold rate vs the catalog price, dropped product-less lines, and that a FAILED / ERROR /
+      CONFIRM envelope yields no order.
+- [x] `pos-order-parity.cy.js` + regression — **GREEN 2026-08-10.** Steps 2+3 un-skipped: 6 cases including
+      *cancelling a POS order restores stock*, which was impossible before this slice and is the case that
+      proves OMS-5 closed.
+      ⚠️ **Re-run after step 4** — the browser writer was removed *after* this run, so the green above was
+      recorded with both writers live. The specs drive `/addSell` by `cy.request` and never invoked the browser
+      hook, so nothing is expected to move; run `pos-order-parity` + `sell` + `ecommerce-orders` once more to
+      confirm the single-writer path, since "expected not to move" is not the same as observed.
+
+**OMS-5 is CLOSED.** All eight original OMS defects are now closed.

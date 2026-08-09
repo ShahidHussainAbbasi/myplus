@@ -34,15 +34,43 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
     /** OMS O5c — accept an order when NOTHING is available, not just when part is? */
     public static final String BACKORDER_FULL_SHORTFALL = "order.backorder.acceptFullShortfall";
 
+    // ── OMS O5d — packing. WITHDRAWN from entries() 2026-08-10; see the note above entries(). ──────────────
     /** OMS O5d — must a packer SCAN what goes in the box, or may they type it? */
     public static final String PACK_SCAN_REQUIRED = "order.pack.scanRequired";
     /** OMS O5d — once everything outstanding is packed, dispatch automatically or wait for a human? */
     public static final String PACK_AUTO_CONFIRM = "order.pack.autoConfirm";
 
     private static final String GROUP = "Online orders";
-    /** Its own section: packing is a different job, done by a different person, from taking an order. */
+    /**
+     * Its own section: packing is a different job, done by a different person, from taking an order.
+     * Unreferenced while the two packing settings are withdrawn — kept, like the constants above, so the
+     * workbench slice restores the group under the same heading rather than inventing a second one.
+     */
+    @SuppressWarnings("unused")
     private static final String PACK_GROUP = "Packing & dispatch";
 
+    /**
+     * <h3>Why the two O5d packing settings are NOT here (withdrawn 2026-08-10)</h3>
+     *
+     * O5d shipped its backend half and none of its packer-facing half, and both settings were left rendering on
+     * the owner's screen. That breaks <b>C1</b> — <i>a toggle that changes nothing is worse than no toggle</i> —
+     * in the two distinct ways C1 exists to catch:
+     *
+     * <ul>
+     *   <li>{@code order.pack.autoConfirm} is read <b>nowhere in main/</b>. Inert, exactly as
+     *       {@code pharmacy.interaction.blockSevere} was.</li>
+     *   <li>{@code order.pack.scanRequired} is worse than inert — it is a <b>trap</b>. It IS enforced (in
+     *       {@code ShipmentService}, the only writer), but the only UI that dispatches, {@code submitShipment},
+     *       posts {@code {orderItemId, quantity}} and never {@code verified}. So switching it on refuses
+     *       <b>every</b> dispatch, telling the packer to scan into a workbench that was never built.</li>
+     * </ul>
+     *
+     * Withdrawing beats fixing the wording: an owner cannot be offered a choice the product cannot honour. They
+     * come back — with their enforcement, their gate cases and their help text — in the slice that builds the
+     * workbench, which is the only thing that makes either of them mean anything. The constants, the
+     * {@code verified} column (V17) and {@code ShipmentLine.verified} all stay: the column is applied and
+     * honest (pre-workbench parcels WERE typed), and it is what the workbench will record into.
+     */
     @Override
     public List<SettingEntry> entries() {
         return List.of(
@@ -86,26 +114,6 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
                         "Promise backordered items within (days)",
                         "How far ahead to promise the outstanding part of a backordered order. Shown to the "
                                 + "shopper at checkout and used to flag late orders in the back office.",
-                        DEFAULT_PROMISE_DAYS, GROUP),
-
-                // ── OMS O5d — packing ────────────────────────────────────────────────────────────────────
-                // Both default OFF, and both for the same reason: the shop that has no scanner, or wants a
-                // human to look in the box before it leaves, must keep working exactly as it does today.
-                // A packing workflow that assumes equipment not every merchant owns is a workflow they cannot
-                // use at all.
-                SettingEntry.bool(PACK_SCAN_REQUIRED,
-                        "Require items to be scanned when packing",
-                        "Off (default): a packer may type the quantities, as now. On: each item must be "
-                                + "scanned into the parcel, so packing the wrong product is caught at the shelf "
-                                + "rather than by the customer. Lines entered by hand are always recorded as "
-                                + "unverified either way.",
-                        false, PACK_GROUP),
-                SettingEntry.bool(PACK_AUTO_CONFIRM,
-                        "Dispatch automatically once everything is packed",
-                        "Off (default): the packer confirms the parcel, adds the carrier and tracking number, "
-                                + "and then it is dispatched. On: the shipment is recorded as soon as the last "
-                                + "outstanding item is packed — faster for a high-volume shop, but nobody gets "
-                                + "a final look before it goes.",
-                        false, PACK_GROUP));
+                        DEFAULT_PROMISE_DAYS, GROUP));
     }
 }

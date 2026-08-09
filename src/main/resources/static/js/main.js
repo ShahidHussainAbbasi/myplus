@@ -1009,10 +1009,11 @@ function jsonPost(method,data) {
 				if (method === 'addSell' && window.dispensingPrescriptionId && typeof dispensePrescription === 'function') {
 					dispensePrescription(data.object);
 				}
-				// E1 (slice 46): a Store (MARKETPLACE) sale becomes an order with a fulfilment lifecycle.
-				if (method === 'addSell' && (window.MODULE || '').toUpperCase() === 'MARKETPLACE' && typeof recordOrder === 'function') {
-					recordOrder(data.object);
-				}
+				// E1 (slice 46) used to post /recordOrder from here, so a Store sale became an order only if the
+				// browser was still around to say so — close the tab or lose the network and the sale survived
+				// while its order silently did not. OMS O5e step 3 moved that server-side: SellController.addSell
+				// creates the order from the invoice it just wrote (PosOrderRecorder), so there is nothing to do
+				// here. Removed last, per §2.3 — until the server-side path was gated green, both writers ran.
 			}
 /*
 		    	var mylink = document.getElementById("MyLink");

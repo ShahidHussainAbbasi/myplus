@@ -517,17 +517,17 @@
         URL.revokeObjectURL(url);
     }
 
-    // ── POS hook ────────────────────────────────────────────────────────────────────────────────────────────
-
-    // Called by main.js after a successful addSell when the user is a Store (ECOMMERCE) vertical: the sale
-    // becomes an order with fulfilment status NEW.
-    global.recordOrder = function (invoiceNo) {
-        var total = 0;
-        (global.data || []).forEach(function (d) { total += Number(d.totalAmount) || 0; });
-        $.ajax({
-            type: 'POST', url: serverContext + 'recordOrder', contentType: 'application/json', dataType: 'json',
-            data: JSON.stringify({ invoiceNo: invoiceNo, customerName: $('#sellCN').val(), total: total }),
-            success: function (resp) { if (resp && resp.success) showSaleSuccess(t('ui.js.order2') + invoiceNo + ' created.'); }
-        });
-    };
+    // ── POS hook — REMOVED by OMS O5e step 3 (closes OMS-5) ─────────────────────────────────────────────────
+    //
+    // `recordOrder(invoiceNo)` used to live here: main.js called it after a successful addSell, and it posted
+    // {invoiceNo, customerName, total} where `total` was this file's own sum of `global.data` — the cart, in the
+    // browser. Three defects in one function:
+    //
+    //   * the total was CLIENT-COMPUTED (gap B), the very thing O1 removed from the storefront;
+    //   * it sent no line items (gap A), so the order failed cancel/return's `!items.isEmpty()` guard and a POS
+    //     order could never restore stock;
+    //   * it ran AFTER the sale, from the browser (gap E) — close the tab and the sale survived without it.
+    //
+    // The order is now created by `SellController.addSell` → `PosOrderRecorder`, from the invoice
+    // business-service actually wrote. The browser reports neither the sale nor the order.
 })(window);
