@@ -162,7 +162,51 @@ dispatch; late orders are visible; the whole thing is off by default and behavio
 - [x] `BackorderPolicy` shared by the quote and the checkout, so the shopper cannot be told one thing and
       charged another
 
-## 10. Gate status after the no-invoice decision — 4 of 6
+## 12. GATE GREEN — 10/10 (2026-08-09)
+
+Supersedes §10. All ten cases pass: backorders off behaves exactly as before; the shopper is warned before
+committing; only the fillable part is invoiced and stock never goes negative; a backordered order stays
+cancellable; owed units cannot be dispatched; the backlog view works and readiness flips on restock with no job;
+the late filter is honest; and `acceptFullShortfall=off` refuses a total shortfall while still accepting a
+partial one. Marketplace unit suite: **121 run, 0 failures**.
+
+### The storefront refused orders the API accepted — in THREE places
+
+Each was written long before backorders existed and was individually correct then. Together they made the
+feature unreachable, and every one of them lives in the browser where no unit test could see it:
+
+| | |
+|---|---|
+| **Disabled Add button** | `out` ⇒ `<button disabled>Out of stock</button>`. |
+| **"Out of stock" label** | told the shopper the opposite of the truth for a shop that takes backorders. |
+| **`addToCart`'s soft stock cap** | `inCart >= available` ⇒ with `available = 0` and an empty cart, `0 >= 0` alerted and returned, so the item never reached the cart even once the button was clickable. |
+
+**The lesson for O5d and beyond: adding a capability means re-examining the existing REFUSALS, not just adding
+a path.** A feature can be complete server-side and still be unreachable, and only an end-to-end gate finds it.
+This is the third time in the programme (O4's refund/return endpoints, O4's order-detail endpoint, now this).
+
+### Also fixed here
+
+**The header lied at placement.** O5b made fulfilment status DERIVED from line quantities, but `placePublic`
+still hardcoded `NEW`, so a backordered order claimed it was ready to pack. The projection now runs at
+placement, which is where it always belonged.
+
+## 11. The sweeper §3.3 asked for is NOT needed
+
+§3.3 assumed a scheduled sweeper by analogy with O5a's. **The analogy does not hold.** O5a needed a job because
+it had to *mutate*: a stranded hold kept stock unsellable until something released it. Here nothing needs
+mutating — *"can this backorder be filled now?"* is entirely derived from stock that already exists, so a query
+answers it exactly, while a stored `ready` flag would start going stale the moment stock moved and would then
+need a job of its own to stay true.
+
+So O5c ships `GET /orders/backorders[?ready=true]` — a read — instead of a sweeper. Same reasoning as `late`
+being derived rather than stored. It deliberately does not allocate: taking goods for an old order ahead of a
+customer at the till is a merchant's decision, and O5b's Ship action carries it out.
+
+**Checklist correction:** ~~`BackorderSweeper`~~ → `backordersOutstanding` read + `/getBackorders` proxy. Aging
+shipped as the `late` filter on the O4 list plus a Promised column, both derived.
+
+## 10. Gate status after the no-invoice decision — 4 of 6 (superseded, see §12)
 
 **Settled and green:** backorders off behaves exactly as before; the shopper is warned before committing; a
 backordered order stays cancellable; owed units cannot be dispatched. The §9 decision was implemented as

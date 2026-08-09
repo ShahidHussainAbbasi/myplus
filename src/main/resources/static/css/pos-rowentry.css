@@ -1,0 +1,262 @@
+/* ==========================================================================
+ * pos-rowentry.css — the POS line-entry ROW (design P1, step 1: layout only).
+ *
+ * WHAT THIS IS
+ * The sell screen composes ONE cart line across 13 stacked controls and ~600px
+ * of screen, five of which are readonly display fields that still take a Tab
+ * (readonly is not disabled). This stylesheet re-flows those SAME controls into
+ * a single horizontal strip: the four fields a cashier actually types, two
+ * read-only badges, and the Add/Cancel buttons — all on one row, above the cart.
+ *
+ * THE ONE RULE THAT MAKES IT SAFE
+ * Nothing here changes the markup's CONTENT. Every id stays in the DOM, in
+ * exactly one copy, in its original position. This is a pure re-flow, so
+ * formToJSON("Sell"), #addInviceItem, calculateNetSell() and loadStock() keep
+ * reading and writing the same ids with no modification whatsoever. A second
+ * copy of #sellItems living in an alternate layout would be a duplicate id and
+ * a silently wrong invoice — hence "re-flow", never "rebuild".
+ *
+ * EVERYTHING IS SCOPED TO .pos-rowentry
+ * The class is put on #sellDiv by loadPosFeatureFlags() only when the org has
+ * turned pos.keyboard.enabled ON. With the flag off, not one declaration in
+ * this file matches anything, and the screen is byte-identical to today. That
+ * is the whole safety story: to revert, remove the class.
+ *
+ * WHY display:contents
+ * The controls are spread across sibling Bootstrap-3 .form-group blocks, each
+ * holding <label> + <div class="col-sm-*"> pairs. Making the wrappers
+ * display:contents promotes labels and field-columns to direct children of one
+ * flex container WITHOUT moving a single node in the DOM. The alternative —
+ * physically regrouping the markup — is the rebuild this file exists to avoid.
+ *
+ * FIELD ORDER IS THE DOM ORDER, DELIBERATELY
+ * The strip reads:  Item · Qty · Stock · Expiry · Price · Total · Disc
+ * Stock/Expiry land next to Qty rather than at the end because that is where
+ * the DOM already puts them, and no CSS reordering is needed. It also happens
+ * to be the better arrangement: on-hand sits beside the quantity being typed,
+ * which is exactly when a cashier needs to see it.
+ *
+ * PHONES KEEP THE STACKED FORM
+ * Below 992px every rule here is switched off. A seven-column strip on a phone
+ * is unusable, and 991 is the existing breakpoint in responsive.css.
+ * ========================================================================== */
+
+/* ── Per-tenant field visibility (NOT scoped to .pos-rowentry) ─────────────
+ * One POS is sold to a corner shop, a wholesale distributor and a pharmacy, so
+ * which fields belong on a sale is the tenant's answer. Controls that can be
+ * switched off carry `data-pos-field="<name>"` in the template — on BOTH the
+ * label and its column, so hiding one never leaves an orphaned caption — and
+ * applyPosFieldVisibility() adds this class to the ones the org turned off.
+ *
+ * Why a class and not jQuery .hide()/.toggle(): those write an INLINE display,
+ * and an inline display:block beats the .pos-more rule further down, which
+ * would drag fields back onto the compact row. Config decides IF a field
+ * exists; the row layout decides WHERE. Neither writes inline styles the other
+ * then has to fight.
+ *
+ * !important because it must also beat .pos-rowentry's `display:contents` on
+ * the wrappers — "the shop switched this off" outranks any layout rule.
+ *
+ * The control itself is NEVER removed or disabled: see the FormData note below.
+ */
+.pos-hidden{ display:none !important; }
+
+/* ── The strip ─────────────────────────────────────────────────────────────
+ * One flex row. `align-items:flex-end` keeps the inputs on a common baseline
+ * even though their labels differ in length and some wrap to two lines.
+ */
+.pos-rowentry #Sell{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  gap:10px 12px;
+  padding:12px 14px;
+  background:#f7f9fc;
+  border:1px solid #e6eaf0;
+  border-radius:10px;
+}
+
+/* Promote labels + field columns out of their .form-group / .col-* wrappers so
+ * they become items of the flex row above. The bare `> div` covers the unnamed
+ * wrapper that nests the Description label+field inside the Item group. */
+.pos-rowentry #Sell .form-group,
+.pos-rowentry #Sell .form-group > div:not([class]){
+  display:contents;
+}
+
+/* Field columns: Bootstrap floats them at fixed percentage widths. Neither
+ * applies in a flex row — clear both and let each field state its own width. */
+.pos-rowentry #Sell [class*="col-sm-"],
+.pos-rowentry #Sell [class*="col-xs-"],
+.pos-rowentry #Sell [class*="col-md-"]{
+  float:none;
+  width:auto;
+  padding:0;
+  flex:0 0 auto;
+  min-width:0;                    /* a flex item's default min-width:auto would
+                                     refuse to shrink and force a page scroll */
+}
+
+/* Labels sit ABOVE their field as a small caption. `display:block` + order is
+ * not needed: label and field are already adjacent in the DOM, so wrapping the
+ * pair is achieved by giving the label a full-width break before its field. */
+.pos-rowentry #Sell .control-label{
+  float:none;
+  width:auto;
+  padding:0 0 3px;
+  text-align:left;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:#7a889c;
+  align-self:flex-end;
+  line-height:1.2;
+}
+/* The label and the field that follows it must ride together when the row
+ * wraps. Flex has no "keep these two adjacent" primitive, so each label is
+ * pulled flush against its field and the gap is applied on the label's left. */
+.pos-rowentry #Sell .control-label{ margin-right:-8px; margin-left:4px; }
+.pos-rowentry #Sell .control-label:first-child{ margin-left:0; }
+
+/* ── Field widths ──────────────────────────────────────────────────────────
+ * Explicit rather than proportional: a POS row is read by position, and columns
+ * that resize as values are typed make it unreadable. Item is the only elastic
+ * one because product names vary wildly in length.
+ */
+.pos-rowentry #Sell .form-control{
+  height:36px;
+  padding:6px 9px;
+  font-size:13px;
+}
+.pos-rowentry #sellItemDD,
+.pos-rowentry #Sell .bootstrap-select{ width:100% !important; }
+.pos-rowentry #Sell .bootstrap-select > .btn{ height:36px; padding:7px 9px; font-size:13px; }
+
+/* The Item column carries the picker and is the one that absorbs spare width. */
+.pos-rowentry #Sell .control-label + .col-sm-4:first-of-type{ flex:1 1 210px; }
+
+.pos-rowentry #sellItems{ width:72px; }
+.pos-rowentry #sellSellRate{ width:98px; }
+.pos-rowentry #sellDiscount{ width:84px; }
+.pos-rowentry #sellStock,
+.pos-rowentry #bexpDate,
+.pos-rowentry #sellTotalAmount{ width:96px; }
+
+/* ── Read-only values become badges, not inputs ────────────────────────────
+ * This is the part that removes the dead tab stops STRUCTURALLY. They are still
+ * <input readonly> elements — still written by calculateNetSell() and
+ * loadStock() exactly as before — but they no longer look or behave like
+ * something you can type into. (Taking them OUT of the tab order is a
+ * tabindex attribute, which belongs to the behaviour step, not this file.)
+ */
+.pos-rowentry #sellStock,
+.pos-rowentry #bexpDate,
+.pos-rowentry #sellTotalAmount{
+  border:1px solid #e6eaf0;
+  background:#eef3fb;
+  color:#22303f;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  box-shadow:none;
+  cursor:default;
+}
+
+/* ── Fields that move off the row ──────────────────────────────────────────
+ * Description, Bonus, discount TYPE and Receiveable are rarely touched during a
+ * sale and cost a tab stop each. They are hidden from the strip, NOT removed:
+ * every one is still in the DOM and still written to, so the submitted payload
+ * is unchanged. They are marked with .pos-more in the template so this file can
+ * address the whole label+column pair without a :has() selector.
+ *
+ * (Step 2 gives .pos-more a "More ▾" popover. Until then these are simply off
+ * the row — which is already the correct behaviour for a scan-driven till.)
+ *
+ * ⚠ WHY display:none IS SAFE HERE, AND WHAT WOULD NOT BE
+ * formToJSON("Sell") builds the payload from `new FormData(form)`. FormData
+ * omits DISABLED controls but includes ones hidden with display:none — so every
+ * value below is still submitted, byte for byte, exactly as when the field was
+ * visible:
+ *     #sellItemDesc        name="description"              → in FormData
+ *     #sellDiscountTypeDD  name="stock.bsellDiscountType"  → in FormData
+ *     #sellBonus           no name — read by $("#sellBonus").val()  → unaffected
+ *     #sellrm              no name — written by calculateNetSell()  → unaffected
+ * Verified too: none of the four carries `required`, so hiding them cannot make
+ * validateForm()'s form.checkValidity() fail on a control the user cannot see.
+ *
+ * So do NOT "tidy" this by adding `disabled`, by removing the elements, or by
+ * moving them outside <form id="Sell">. Any of those silently drops a field
+ * from the invoice. Hidden-but-present is the whole trick.
+ */
+.pos-rowentry #Sell .pos-more{ display:none; }
+
+/* The FEFO batch/expiry notices and the scan box are full-width: they are
+ * messages about the row, not columns within it. */
+.pos-rowentry #Sell .pos-fullrow{
+  flex:1 0 100%;
+  display:block;
+  width:100%;
+}
+
+/* ── Action buttons, at the end of the row ─────────────────────────────────
+ * "Add to Cart" and "Cancel" ride on the same row as the fields, so committing
+ * a line never means travelling to a different part of the screen.
+ */
+.pos-rowentry #Sell .form-group.text-center{ display:contents; }
+.pos-rowentry #addInviceItem,
+.pos-rowentry #resetInviceItem{
+  height:36px;
+  padding:7px 14px;
+  font-size:12px;
+  font-weight:700;
+  white-space:nowrap;
+  margin-left:2px;
+}
+.pos-rowentry #addInviceItem{ margin-left:auto; }   /* push the pair to the end */
+
+/* The contract-price explanation sits under the price field and must not widen
+ * the column or push the row taller when it appears. */
+.pos-rowentry #sellPriceReason{
+  display:block;
+  font-size:10px;
+  line-height:1.25;
+  margin:2px 0 0;
+  max-width:160px;
+}
+
+/* ── Phones and small tablets: revert to the stacked form ──────────────────
+ * Everything above is undone. A strip needs horizontal room the device does not
+ * have, and the existing stacked layout is already responsive.
+ */
+@media (max-width:991px){
+  .pos-rowentry #Sell{
+    display:block;
+    padding:0;
+    background:none;
+    border:0;
+    border-radius:0;
+  }
+  .pos-rowentry #Sell .form-group,
+  .pos-rowentry #Sell .form-group > div:not([class]),
+  .pos-rowentry #Sell .form-group.text-center{ display:block; }
+  .pos-rowentry #Sell .pos-more{ display:block; }
+  .pos-rowentry #Sell .control-label{
+    margin-left:0;
+    margin-right:0;
+    font-size:inherit;
+    letter-spacing:normal;
+    text-transform:none;
+    color:inherit;
+    padding-top:7px;
+  }
+  .pos-rowentry #Sell [class*="col-sm-"],
+  .pos-rowentry #Sell [class*="col-xs-"],
+  .pos-rowentry #Sell [class*="col-md-"]{ width:100%; }
+  .pos-rowentry #sellItems,
+  .pos-rowentry #sellSellRate,
+  .pos-rowentry #sellDiscount,
+  .pos-rowentry #sellStock,
+  .pos-rowentry #bexpDate,
+  .pos-rowentry #sellTotalAmount{ width:100%; }
+  .pos-rowentry #addInviceItem{ margin-left:2px; }
+}

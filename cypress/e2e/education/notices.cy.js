@@ -118,6 +118,12 @@ describe('Education — notices & circulars (slice 3.5)', () => {
         const b = ok(p, 'publish')
         expect(b.object).to.have.property('queued')
         expect(b.object).to.have.property('recipients')
+        // ASSERT THE COUNT, not just the key. Checking only that `queued` EXISTS is satisfied by zero —
+        // and on 2026-08-09 slice 105's gate proved it had been zero all along: queueAll() applied the
+        // switch and then delegated per recipient with a NULL key, which enabled() read as "off". This
+        // notice reached nobody while every assertion here passed.
+        expect(b.object.queued, 'the notice actually queued somebody').to.be.greaterThan(0)
+        expect(b.object.queued, 'and queued every resolved recipient').to.eq(b.object.recipients)
         // The WORD matters: the relay sends, this request queues. Reporting "sent" here would be the
         // same defect this slice fixes one layer up in sendAlerts (finding A).
         expect(b.message, 'the message says queued, not sent').to.match(/queued/i)
@@ -228,6 +234,9 @@ describe('Education — notices & circulars (slice 3.5)', () => {
       const id = ok(r, 'save').object.id
       post('/publishNotice', { id }).then((p) => {
         const b = ok(p, 'publish with delivery off')
+        // Only meaningful because the ON case above now proves a non-zero count. Before that, this
+        // "switch off => 0" case passed against a system that queued 0 unconditionally — a control
+        // asserting the value it would have had anyway proves nothing.
         expect(b.object.queued, 'nothing was queued for delivery').to.eq(0)
       })
     })
@@ -275,6 +284,9 @@ describe('Education — notices & circulars (slice 3.5)', () => {
       const b = ok(r, 'send an alert')
       expect(b.message, 'the alert screen now reports queued').to.match(/queued/i)
       expect(b.object, 'and returns the counts').to.have.property('queued')
+      // "Queued for 0 of 40 recipient(s)" matches /queued/i and has the property. It is also a broadcast
+      // that told nobody anything, which is exactly what this smoke was supposed to catch.
+      expect(b.object.queued, 'the alert reached a real audience').to.be.greaterThan(0)
     })
   })
 })

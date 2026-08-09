@@ -76,7 +76,14 @@ public class EduNotifyService {
             public void send(NotifyOutbox e) {
                 // sendTo, NOT send: the admin-recipients CC belongs to broadcast alerts. Copying the office
                 // on every cover assignment in the school is how people learn to filter the sender.
-                var result = emailService.sendTo(e.getSubject(), e.getBody(), List.of(e.getRecipientEmail()));
+                // Slice 105 — the tenant and the flow name come from the OUTBOX ROW, not from the security
+                // context: this runs on the relay's scheduler thread, where there is no current user. Using
+                // CurrentUser here would record a tenant-less delivery that the (tenant-scoped) read
+                // endpoints can never return — invisible loss dressed up as a successful send.
+                var result = emailService.sendTo(e.getSubject(), e.getBody(),
+                        List.of(e.getRecipientEmail()),
+                        "EDU-" + (e.getEventType() == null ? "NOTIFY" : e.getEventType()),
+                        e.getOrganizationId());
                 Object failed = result.get("failed");
                 if (failed instanceof Number n && n.intValue() > 0) {
                     // Throw so the relay retries — a swallowed failure here is the exact defect this
@@ -176,6 +183,14 @@ public class EduNotifyService {
      * {@code edu.portal.enabled}, which fails CLOSED because there the unsafe direction is disclosure.
      */
     private boolean enabled(String key) {
+        // A NULL key means the caller has no feature switch at all — not that it is switched off.
+        //
+        // Without this line the ungated overload was dead: getBool(null) resolves an unknown key to null,
+        // "true".equalsIgnoreCase(null) is false, and nothing throws — so the deliberate fail-ON catch
+        // below never fired either. Every recipient came back DISABLED and `sendAlerts` queued NOTHING
+        // from slice 3.5 until 2026-08-09, while answering SUCCESS with "Queued for 0 of 40 recipient(s)".
+        // Zero reads as an empty audience, which is why it survived two gates and a regression list.
+        if (key == null) return true;
         try {
             return settingsService.getBool(key);
         } catch (Exception e) {

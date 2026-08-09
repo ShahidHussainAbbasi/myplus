@@ -40,10 +40,22 @@ const setConfig = (key, value) =>
 const probe = (url) => cy.request({ url, failOnStatusCode: false })
 
 const TAG = 'CyME' + Date.now()
-// A window far enough out that it cannot collide with another run's slots on the same teacher —
-// uk_slot_provider_time is per (org, provider, startsAt), so a shared date would report
-// "alreadyExisted" and make the idempotency case prove nothing.
-const DAY = `2027-0${(Date.now() % 9) + 1}-15`
+// A window UNIQUE PER RUN. Slots are keyed by uk_slot_provider_time (org, provider, startsAt), so two
+// runs that compute the same start time collide and the publish returns `created: 0` — which reads as
+// "publishing is broken" when it actually means "these slots already exist".
+//
+// The first version derived the date as `2027-0${(Date.now() % 9) + 1}-15`. That is only NINE distinct
+// months, so a second run in the same bucket collided and this spec failed with `expected 0 to equal 6`.
+// The comment claimed it avoided collisions; it did not.
+//
+// Varying the TIME instead gives ~1,300 distinct windows, and the hour is what the unique key actually
+// keys on. A fixed far-future date keeps it clear of any real school data.
+const RUN = Date.now()
+const HH = String(RUN % 22).padStart(2, '0')          // 00-21, so +1 hour never crosses midnight
+const MM = String(Math.floor(RUN / 1000) % 60).padStart(2, '0')
+const DAY = '2027-03-15'
+const FROM = `${DAY}T${HH}:${MM}:00`
+const TO = `${DAY}T${String(Number(HH) + 1).padStart(2, '0')}:${MM}:00`
 const fx = {}
 
 describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', () => {
@@ -79,7 +91,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     cy.loginAsEduOwner()
     post('/publishMeetingSlots', {
       eventId: fx.eventId, staffId: fx.staffId,
-      from: `${DAY}T18:00:00`, to: `${DAY}T19:00:00`, minutes: 10,
+      from: FROM, to: TO, minutes: 10,
     }).then((r) => {
       const b = ok(r, 'publish slots')
       expect(b.object.created, 'an hour in ten-minute slots is six').to.eq(6)
@@ -98,7 +110,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     cy.loginAsEduOwner()
     post('/publishMeetingSlots', {
       eventId: fx.eventId, staffId: fx.staffId,
-      from: `${DAY}T18:00:00`, to: `${DAY}T19:00:00`, minutes: 10,
+      from: FROM, to: TO, minutes: 10,
     }).then((r) => {
       const b = ok(r, 're-publish')
       expect(b.object.created, 'nothing new is created').to.eq(0)
@@ -195,7 +207,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     cy.loginAsTeacherA()
     post('/publishMeetingSlots', {
       eventId: fx.eventId, staffId: fx.staffId,
-      from: `${DAY}T20:00:00`, to: `${DAY}T21:00:00`, minutes: 10,
+      from: FROM, to: TO, minutes: 10,
     }).then((r) => {
       const b = parse(r.body)
       const refused = r.status === 403 || !(b && ['SUCCESS', 'PARTIAL'].includes(b.status))

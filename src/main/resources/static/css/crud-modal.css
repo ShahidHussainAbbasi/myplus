@@ -43,6 +43,59 @@
 
 .crud-bulkbar .btn{ margin-left:4px; }
 
+/* ── "Already registered" panel ─────────────────────────────────────────────────────────────────
+ * A compact, scrollable list of the records that already exist, shown INSIDE the form. The screen's
+ * own table is always behind this overlay (it is fixed and full-viewport), so without this the
+ * operator enters a new record with no sight of what is already there and duplicates it.
+ * Generic .crud-existing* names: the Product form uses it first, any CRUD form can adopt it.
+ */
+.crud-existing{
+  border:1px solid #e6eaf0; border-radius:8px;
+  background:#f7f9fc;
+  padding:10px 12px; margin-bottom:16px;
+}
+.crud-existing-head{
+  display:flex; align-items:baseline; gap:8px;
+  font-weight:600; font-size:13px; color:#0D3B8C;
+  margin-bottom:6px;
+}
+.crud-existing-head .text-muted{ font-weight:normal; font-size:12px; }
+.crud-existing-list{
+  max-height:170px; overflow-y:auto;      /* the panel scrolls, the form never gets pushed off-screen */
+  -webkit-overflow-scrolling:touch;
+}
+.crud-existing-row{
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding:5px 6px; border-radius:5px; font-size:13px;
+  border-bottom:1px solid #edf1f6;
+}
+.crud-existing-row:last-child{ border-bottom:0; }
+.crud-existing-row:hover{ background:#eef3fb; }
+.crud-existing-row .ce-name{ font-weight:600; color:#22303f; }
+.crud-existing-row .ce-tag,
+.crud-existing-row .ce-cat,
+.crud-existing-row .ce-badge{
+  font-size:11px; padding:1px 6px; border-radius:10px;
+  background:#e4e9f2; color:#4a5a6e;
+}
+.crud-existing-row .ce-price{ margin-left:auto; color:#22303f; font-variant-numeric:tabular-nums; }
+.crud-existing-row.is-inactive .ce-name{ color:#8a94a3; text-decoration:line-through; }
+/* The namesake the server-side check reported — the warning points at a row, not just at the field. */
+.crud-existing-row.is-flagged{ background:#fff3cd; box-shadow:inset 3px 0 0 #e0a800; }
+.crud-existing-row .ce-edit{
+  border:0; background:none; padding:0 2px;
+  color:#1565C0; font-size:12px; text-decoration:underline; cursor:pointer;
+}
+.crud-existing-row .ce-edit:hover{ color:#0D3B8C; }
+.crud-existing-msg{ font-size:12px; margin-top:6px; }
+
+@media (max-width:767px){
+  /* The form is the task; on a phone give the panel less of the sheet. */
+  .crud-existing-list{ max-height:120px; }
+  .crud-existing-row .ce-price{ margin-left:0; }
+  .crud-existing-row .ce-edit{ min-height:0; }   /* not a 44px tap target — it must not dwarf the row */
+}
+
 /* Phone: modal becomes a full-height sheet that scrolls internally, so the action
  * buttons at the bottom are always reachable regardless of form height.
  *

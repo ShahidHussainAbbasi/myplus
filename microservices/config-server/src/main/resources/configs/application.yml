@@ -111,9 +111,17 @@ jwt:
 # Internal trust secret (Phase 4). The gateway stamps X-Internal-Secret on every authenticated
 # request; each service's HeaderAuthFilter trusts the X-User-* identity headers ONLY when it
 # matches. Empty default = NOT enforced, so adding this config breaks nothing on its own; set the
-# INTERNAL_SECRET env (same value on the gateway and every service) to turn enforcement on. Only
-# enable it once the monolith is on auth.mode=server, otherwise its legacy direct-to-service calls
-# (which carry no secret) will be rejected.
+# INTERNAL_SECRET env (same value on the gateway, every service AND the monolith) turns enforcement on.
+#
+# The warning that used to sit here — "only enable once the monolith is on auth.mode=server, otherwise its
+# legacy direct-to-service calls (which carry no secret) will be rejected" — was RIGHT, and it described
+# security finding F18 before F18 was raised. It is now RESOLVED: `GatewayClient.buildHeaders` stamps
+# X-Internal-Secret on direct calls too (2026-08-09), so the chain is complete in both modes —
+# gateway, monolith, service-to-service and background runAs.
+#
+# What enabling it does: HeaderAuthFilter stops trusting identity headers that do not carry the secret,
+# and auth-service's PortalAccountController can finally provision portal sign-ins instead of failing
+# closed. Empty (the default) keeps the legacy "trust any header" behaviour.
 gateway:
   internal-secret: ${INTERNAL_SECRET:}
 service:

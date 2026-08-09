@@ -53,6 +53,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                     OR LOWER(o.invoiceNo)       LIKE :like
                     OR LOWER(o.customerName)    LIKE :like
                     OR LOWER(o.customerContact) LIKE :like)
+               AND (:today IS NULL
+                    OR (o.promisedDate IS NOT NULL AND o.promisedDate < :today
+                        AND o.fulfilmentStatus NOT IN (
+                            com.myplus.marketplace.entity.FulfilmentStatus.SHIPPED,
+                            com.myplus.marketplace.entity.FulfilmentStatus.DELIVERED,
+                            com.myplus.marketplace.entity.FulfilmentStatus.CANCELLED,
+                            com.myplus.marketplace.entity.FulfilmentStatus.RETURNED)))
              ORDER BY o.createdAt DESC
             """)
     org.springframework.data.domain.Page<Order> findPage(
@@ -64,6 +71,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("from") java.time.LocalDateTime from,
             @Param("to") java.time.LocalDateTime to,
             @Param("like") String like,
+            /** OMS O5c — non-null narrows to LATE orders (promised before this date and not complete). */
+            @Param("today") java.time.LocalDate today,
             org.springframework.data.domain.Pageable pageable);
 
     @Query("SELECT o FROM Order o WHERE o.id = :id AND " + SCOPE)
@@ -114,6 +123,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      * to check anyway.
      */
     java.util.List<Order> findAllByOrderNo(String orderNo);
+
+    /**
+     * OMS O5c — orders that are still owed something.
+     *
+     * <p>Live states only: a CANCELLED or RETURNED order may still carry backordered lines historically, and
+     * listing them as outstanding would have an operator chasing goods nobody is waiting for.
+     */
+    @Query("SELECT DISTINCT o FROM Order o JOIN o.items i WHERE i.quantityBackordered > 0 AND " + SCOPE
+            + " AND o.fulfilmentStatus NOT IN ("
+            + "   com.myplus.marketplace.entity.FulfilmentStatus.CANCELLED,"
+            + "   com.myplus.marketplace.entity.FulfilmentStatus.RETURNED) "
+            + " ORDER BY o.promisedDate ASC, o.createdAt ASC")
+    java.util.List<Order> findOutstandingBackorders(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /** OMS-3: has this checkout already produced an order? Same key the SALE deduplicates on. */
     @Query("SELECT o FROM Order o WHERE o.organizationId = :orgId AND o.idempotencyKey = :key")

@@ -23,6 +23,10 @@
         <link rel="stylesheet" th:href="@{/main.css}"/>
         <link rel="stylesheet" th:href="@{/css/theme.css}"/>
         <link rel="stylesheet" th:href="@{/css/crud-modal.css}"/>
+        <!-- POS line-entry row (design P1). Every rule is scoped to .pos-rowentry, which
+             loadPosFeatureFlags() puts on #sellDiv only when pos.keyboard.enabled is ON —
+             so with the flag off this file matches nothing and the sell screen is unchanged. -->
+        <link rel="stylesheet" th:href="@{/css/pos-rowentry.css}"/>
         <link rel="stylesheet" th:href="@{/css/team-picker.css}"/>
         <link rel="stylesheet" th:href="@{/css/jquery.timepicker.min.css}"/>
         <!-- The app's own date/datetime calendar (see /js/common/date-picker.js) — no third-party picker. -->

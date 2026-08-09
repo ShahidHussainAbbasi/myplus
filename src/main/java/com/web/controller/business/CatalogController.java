@@ -118,6 +118,9 @@ public class CatalogController {
                     row.put("id", p.get("id"));
                     row.put("name", p.get("name"));
                     row.put("sku", p.get("sku"));
+                    // Carried so the form's "already registered" panel can match a scanned/typed barcode too —
+                    // without it that panel would silently never match on barcode and read as "no duplicate".
+                    row.put("barcode", p.get("barcode"));
                     row.put("unit", p.get("unit"));
                     row.put("sellingPrice", p.get("sellingPrice"));
                     // Last rates stamped by the purchase flow (Option B) — the Product list's "last bought / last
@@ -168,6 +171,46 @@ public class CatalogController {
                     + java.net.URLEncoder.encode(code.trim(), java.nio.charset.StandardCharsets.UTF_8));
         } catch (Exception e) {
             return "{}";   // not found is normal on a mis-scan — no error log
+        }
+    }
+
+    /**
+     * Server-side duplicate-NAME check for the Product form, fired when the Name field loses focus →
+     * catalog {@code /products/name-check}. Flattened to {@code {success, exists, id, name, sku, active}} so the
+     * form reads one shape (same reshaping habit as {@code /getUserProduct}).
+     *
+     * <p>A failed downstream call returns {@code success:false} WITHOUT {@code exists}, deliberately: reporting
+     * {@code exists:false} when nothing was actually checked would tell the user the name is free on the
+     * strength of a call that never happened.
+     */
+    @GetMapping("/productNameCheck")
+    @ResponseBody
+    public Map<String, Object> productNameCheck(final HttpServletRequest request) {
+        String name = request.getParameter("name");
+        if (name == null || name.isBlank()) return Map.of("success", true, "exists", false);
+        try {
+            StringBuilder qs = new StringBuilder("name=").append(
+                    java.net.URLEncoder.encode(name.trim(), java.nio.charset.StandardCharsets.UTF_8));
+            String excludeId = request.getParameter("excludeId");
+            if (excludeId != null && !excludeId.isBlank()) {
+                qs.append("&excludeId=").append(
+                        java.net.URLEncoder.encode(excludeId.trim(), java.nio.charset.StandardCharsets.UTF_8));
+            }
+            Map<String, Object> resp = catalog.get("/products/name-check", qs.toString());
+            Map<String, Object> out = new java.util.HashMap<>();
+            out.put("success", true);
+            out.put("exists", false);
+            if (resp != null && resp.get("data") instanceof Map<?, ?> d) {
+                out.put("exists", Boolean.TRUE.equals(d.get("exists")));
+                out.put("id", d.get("id"));
+                out.put("name", d.get("name"));
+                out.put("sku", d.get("sku"));
+                out.put("active", d.get("active"));
+            }
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("productNameCheck proxy error", e);
+            return Collections.singletonMap("success", false);
         }
     }
 

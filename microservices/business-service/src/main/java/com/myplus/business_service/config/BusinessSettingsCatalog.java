@@ -27,6 +27,131 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "On (default): the sell screen shows a scan box and the product form a Barcode field. "
                                 + "Off: both are hidden for shops that don't use barcodes.",
                         true, "Point of Sale"),
+                // ─── Sale entry ────────────────────────────────────────────────────────────────
+                // The sell screen serves a corner shop, a wholesale distributor and a pharmacy from
+                // ONE form, so which fields belong on it is a per-tenant answer, not ours. Every
+                // toggle below defaults to TODAY'S behaviour: a tenant that changes nothing sees the
+                // screen unchanged. Hiding a field never drops it from the invoice — the control stays
+                // in the DOM and keeps submitting (see pos-rowentry.css for why that matters).
+                SettingEntry.bool("pos.keyboard.enabled",
+                        "Compact one-row sale entry",
+                        "Off (default): the sale form stays as it is today, one field per line. "
+                                + "On: item, quantity, price and discount sit on a single row above the "
+                                + "cart, so a line is entered without scrolling a tall form. Phones and "
+                                + "small tablets keep the stacked layout either way.",
+                        false, "Sale entry"),
+                // UI/UX P2. Fails CLOSED for the same reason as pos.keyboard.enabled: a config-read
+                // hiccup must never arm function keys on a till nobody has trained for them, nor make
+                // a '*' in a barcode suddenly mean "multiply".
+                SettingEntry.bool("pos.keyboard.shortcuts.enabled",
+                        "Keyboard shortcuts and quantity scanning",
+                        "Off (default): no shortcut keys, and a scanned code is taken literally. "
+                                + "On: F2 completes the sale, F3 parks it, F4 opens parked sales, "
+                                + "F8 tenders the exact amount and F9 clears the cart (each also on "
+                                + "Alt+S/P/R/E/C) — and scanning \"12*code\" adds twelve at once.",
+                        false, "Sale entry"),
+                SettingEntry.bool("pos.entry.showDescription",
+                        "Show the item Description field",
+                        "On (default). Turn off if your product names already say enough — it is one "
+                                + "less field to pass through on every line.",
+                        true, "Sale entry"),
+                SettingEntry.bool("pos.entry.showBonus",
+                        "Show the Bonus (free goods) field",
+                        "On (default). Wholesale and distribution use it for \"20 billed, 2 free\"; a "
+                                + "retail till almost never does.",
+                        true, "Sale entry"),
+                SettingEntry.bool("pos.entry.showStock",
+                        "Show on-hand stock on the sale line",
+                        "On (default): the cashier sees what is in stock as they pick an item. Turn off "
+                                + "for a counter where stock levels should not be visible to staff.",
+                        true, "Sale entry"),
+                SettingEntry.bool("pos.entry.showExpiry",
+                        "Show the batch expiry date",
+                        "On (default). Essential for pharmacy and food; noise for hardware or apparel.",
+                        true, "Sale entry"),
+                SettingEntry.bool("pos.entry.priceEditable",
+                        "Let the cashier change the selling price",
+                        "On (default): the price is pre-filled but can be typed over — normal for "
+                                + "wholesale, where every deal is negotiated. Off: the catalog price is "
+                                + "fixed at the till, which is what most retail chains want.",
+                        true, "Sale entry"),
+                SettingEntry.bool("pos.entry.lineDiscountEnabled",
+                        "Allow a discount on each line",
+                        "On (default). Off: no per-line discount at all — use the invoice-level trade "
+                                + "discount instead, or fixed prices only.",
+                        true, "Sale entry"),
+                SettingEntry.bool("pos.entry.showDiscountType",
+                        "Let the cashier choose amount vs percent for a line discount",
+                        "On (default). Off: the line discount is always taken as a fixed amount, which "
+                                + "removes a dropdown from every line.",
+                        true, "Sale entry"),
+                SettingEntry.bool("pos.entry.showReceivable",
+                        "Show the per-line Receiveable total",
+                        "On (default). The cart below already totals the sale, so shops that find it "
+                                + "redundant can turn it off.",
+                        true, "Sale entry"),
+                SettingEntry.intOf("pos.entry.defaultQty",
+                        "Default quantity on a new line",
+                        "1 (default) suits a retail counter. A wholesaler selling by the carton may "
+                                + "prefer a larger starting quantity.",
+                        1, "Sale entry"),
+
+                // ─── Customer & credit ─────────────────────────────────────────────────────────
+                // Default TRUE because that is what the till does TODAY — main.js's sale handler refuses
+                // to submit without a customer ("Customer is mandatory regardless of payment mode").
+                // Turning it OFF is the new capability: a retail counter can ring up an anonymous cash
+                // sale without typing a name for every customer, which is the single biggest queue cost
+                // at a shop that does not run accounts.
+                SettingEntry.bool("pos.customer.required",
+                        "Require a customer on every sale",
+                        "On (default): a sale cannot be completed without choosing or naming a customer "
+                                + "— right for wholesale, where every invoice belongs to an account. Off: "
+                                + "a walk-in cash sale can be rung up without one, and is recorded against "
+                                + "a walk-in name.",
+                        true, "Customer & credit"),
+                SettingEntry.text("pos.customer.walkInName",
+                        "Name to use for a walk-in sale",
+                        "Used only when a customer is not required and the cashier leaves it blank. "
+                                + "Appears on the invoice, so the sale is still attributable.",
+                        "Walk-in Customer", "Customer & credit"),
+                SettingEntry.bool("pos.customer.showBalance",
+                        "Show the customer's previous balance and credit limit",
+                        "On (default): previous balance, new total due and remaining credit appear once "
+                                + "a customer is chosen. Off: hide them at a busy retail till.",
+                        true, "Customer & credit"),
+                SettingEntry.select("pos.customer.defaultMode",
+                        "How the cashier picks a customer by default",
+                        "Choose from existing customers (default), or type a name and mobile straight "
+                                + "onto the sale. The cashier can still switch on any sale.",
+                        "select", "Customer & credit",
+                        java.util.List.of(
+                                new SettingEntry.Option("select", "Choose an existing customer"),
+                                new SettingEntry.Option("manual", "Type the name each time"))),
+
+                // ─── Payment ───────────────────────────────────────────────────────────────────
+                SettingEntry.select("pos.tender.default",
+                        "Payment method selected by default",
+                        "Cash (default) suits a retail counter. A distributor invoicing on account will "
+                                + "want Credit, so the common case needs no change.",
+                        "CASH", "Payment",
+                        java.util.List.of(
+                                new SettingEntry.Option("CASH", "Cash"),
+                                new SettingEntry.Option("CARD", "Card"),
+                                new SettingEntry.Option("CREDIT", "Credit (on account)"),
+                                new SettingEntry.Option("WALLET", "Wallet"),
+                                new SettingEntry.Option("BANK_TRANSFER", "Bank transfer"))),
+                SettingEntry.bool("pos.invoice.tradeDiscountEnabled",
+                        "Allow an invoice-level trade discount",
+                        "On (default): a whole-order concession can be entered at the foot of the sale, "
+                                + "separate from per-line discounts. Off: hide it.",
+                        true, "Payment"),
+
+                // ─── Workflow ──────────────────────────────────────────────────────────────────
+                SettingEntry.bool("pos.park.enabled",
+                        "Allow parking a sale to serve the next customer",
+                        "On (default): a held sale can be set aside and resumed, so a customer who is "
+                                + "still deciding does not hold up the queue.",
+                        true, "Workflow"),
                 SettingEntry.bool("pos.receipt.autoPrint",
                         "Auto-print receipt after a sale",
                         "On (default): the receipt opens to print automatically when a sale is completed. "

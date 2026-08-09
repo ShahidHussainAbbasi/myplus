@@ -4,36 +4,175 @@
  * loadDataTable() DataTable path (same as Customer): sort/search/paging/export, a hidden id + checkbox column,
  * row-click edit, and a Delete that DEACTIVATES (products referenced by sales/inventory stay intact, just drop
  * off the list). Per-row Add-stock (addstkbtn_<id>) is preserved. Proxies: /getUserProduct (list, {collection}),
- * /addProduct, /updateProduct, /deactivateProduct, /addProductStock, /productStock, /getCatalogProduct.
+ * /addProduct, /updateProduct, /deactivateProduct, /addProductStock, /productStock, /getCatalogProduct,
+ * /productNameCheck.
+ *
+ * The form also shows what is ALREADY REGISTERED while a new product is being entered — the list has always
+ * been on the screen (#tableProduct) but the form opens in a fixed full-viewport overlay that covers it. The
+ * panel narrows as Name / SKU / Barcode are typed and offers "edit this one" on each row, and leaving the Name
+ * field asks the server whether that name is already taken ANYWHERE IN THE ORG, not just among this user's own
+ * products (see CatalogController.productNameCheck → catalog /products/name-check).
  */
 (function (global) {
     'use strict';
 
     // Numeric coercion uses the shared s2n() from main.js (was a duplicate local s2n()).
 
-    // ── Client-side SKU uniqueness ──────────────────────────────────────────────
-    // catalog-service enforces a unique SKU per org (a duplicate → 409 "Product SKU already exists").
-    // Mirror that on the client so the user gets instant feedback while typing / before submit, instead of a
-    // round-trip. Index maps a normalised (trim + lower-case) SKU → the owning product id (as a string), built
-    // from getUserProduct incl. inactive products (a deactivated product still owns its SKU downstream).
-    var skuIndex = {};
+    // ── The registered-product index (one fetch, two consumers) ─────────────────
+    // /getUserProduct?includeInactive=true returns this tenant's whole catalogue. It was ALREADY fetched every
+    // time the screen or the form opened, with everything except sku→id thrown away — so the "already
+    // registered" panel costs no extra round-trip, it just stops discarding the rows. Inactive products are
+    // included deliberately: a deactivated product still owns its SKU downstream, and a namesake the operator
+    // cannot see on the list is precisely the one they are about to register a second time.
+    var productIndex = [];      // rows as returned by /getUserProduct
+    var indexState = 'empty';   // 'empty' | 'loaded' | 'failed' — see below
+    var skuIndex = {};          // normalised sku → owning product id (as a string)
+
+    // Cap on rows painted into the panel. A tenant may hold hundreds of products; painting all of them on
+    // every keystroke is the one way a type-ahead becomes slower than the round-trip it replaced.
+    var EXISTING_MAX_ROWS = 40;
+
     function normSku(s) { return (s == null ? '' : String(s)).trim().toLowerCase(); }
-    function refreshSkuIndex() {
+
+    /**
+     * (Re)load the index and repaint the panel. On failure the state is 'failed', NOT an empty list: an empty
+     * list renders as "nothing is registered yet", which is the opposite of the truth and exactly the
+     * reassurance the operator must not be given. The old refreshSkuIndex() had the same hole silently — a
+     * failed GET left skuIndex empty and every duplicate SKU then passed the client check.
+     */
+    function refreshProductIndex() {
         $.get(serverContext + 'getUserProduct?includeInactive=true', function (resp) {
+            productIndex = (resp && resp.collection) ? resp.collection : [];
+            indexState = 'loaded';
             skuIndex = {};
-            var list = (resp && resp.collection) ? resp.collection : [];
-            list.forEach(function (p) {
+            productIndex.forEach(function (p) {
                 var k = normSku(p.sku);
                 if (k) skuIndex[k] = String(p.id);
             });
+            renderExisting();
+        }, 'json').fail(function () {
+            productIndex = [];
+            indexState = 'failed';
+            skuIndex = {};
+            renderExisting();
         });
     }
+
     // Returns true when `sku` is a non-empty duplicate of a DIFFERENT product than the one being edited.
     function isDuplicateSku(sku, currentId) {
         var k = normSku(sku);
         if (!k) return false;                       // SKU is optional — blank never blocks on the client
         var owner = skuIndex[k];
         return owner != null && owner !== String(currentId || '');
+    }
+
+    // ── "Already registered" panel ──────────────────────────────────────────────
+    // The registered products, listed inside the form itself. The list has always existed (#tableProduct) but
+    // the form opens in a fixed full-viewport .crud-overlay, so it sat behind the scrim exactly while the
+    // operator needed it. Typing in Name / SKU / Barcode narrows the panel, which makes it a type-ahead over
+    // what already exists rather than a static dump.
+
+    /** The form's identity generation. Bumped whenever the form is reset or re-loaded, so an in-flight
+     *  name-check response can tell that it now belongs to a different product and drop itself. */
+    var formEpoch = 0;
+
+    /** Id of the namesake the server-side check reported, or null. Survives repaints — see applyFlag(). */
+    var flaggedId = null;
+
+    function existingTerms() {
+        return [$('#prodName').val(), $('#prodSku').val(), $('#prodBarcode').val()]
+            .map(function (v) { return (v == null ? '' : String(v)).trim().toLowerCase(); })
+            .filter(function (v) { return v.length > 0; });
+    }
+
+    /** Rows worth showing: everything when nothing is typed, else anything matching ANY term. The product
+     *  being edited is never offered against itself. */
+    function existingMatches() {
+        var terms = existingTerms();
+        var editingId = String($('#productId').val() || '');
+        return productIndex.filter(function (p) {
+            if (editingId && String(p.id) === editingId) return false;
+            if (!terms.length) return true;
+            var hay = [p.name, p.sku, p.barcode, p.manufacturer]
+                .map(function (v) { return v == null ? '' : String(v); }).join(' ').toLowerCase();
+            return terms.some(function (term) { return hay.indexOf(term) >= 0; });
+        });
+    }
+
+    function existingRowHtml(p) {
+        var inactive = p.isActive === false;
+        var price = (p.sellingPrice == null || p.sellingPrice === '')
+            ? '' : (typeof srMoney === 'function' ? srMoney(p.sellingPrice) : String(p.sellingPrice));
+        return '<div class="crud-existing-row' + (inactive ? ' is-inactive' : '') + '" data-id="' + escHtml(String(p.id)) + '">'
+            + '<span class="ce-name">' + escHtml(p.name || '') + '</span>'
+            + (p.sku ? '<span class="ce-tag">' + escHtml(p.sku) + '</span>' : '')
+            + (p.categoryName ? '<span class="ce-cat">' + escHtml(p.categoryName) + '</span>' : '')
+            + (price ? '<span class="ce-price">' + escHtml(price) + '</span>' : '')
+            + (inactive ? '<span class="ce-badge">' + escHtml(t('ui.js.inactive')) + '</span>' : '')
+            + '<button type="button" class="ce-edit js-edit-existing">' + escHtml(t('ui.js.editThisOne')) + '</button>'
+            + '</div>';
+    }
+
+    function renderExisting() {
+        var $list = $('#prodExistingList'), $msg = $('#prodExistingMsg'), $count = $('#prodExistingCount');
+        if (!$list.length) return;                       // panel not on this page
+
+        if (indexState === 'failed') {
+            $list.empty();
+            $count.text('');
+            $msg.text(t('ui.js.couldNotLoadTheRegisteredProducts')).removeClass('text-muted').addClass('text-danger').show();
+            return;
+        }
+        // Not fetched yet (the form is painted before the response lands). Say NOTHING — an empty list here
+        // would read as "nothing is registered", which is the same false all-clear the failure branch avoids.
+        if (indexState !== 'loaded') {
+            $list.empty();
+            $count.text('');
+            $msg.hide();
+            return;
+        }
+        $msg.removeClass('text-danger').addClass('text-muted');
+
+        var matches = existingMatches();
+        $count.text(t('ui.js.nRegistered', productIndex.length));
+
+        if (!productIndex.length) {
+            $list.empty();
+            $msg.text(t('ui.js.noProductsRegisteredYet')).show();
+            return;
+        }
+        if (!matches.length) {
+            $list.empty();
+            $msg.text(t('ui.js.noRegisteredProductMatches')).show();
+            return;
+        }
+
+        var shown = matches.slice(0, EXISTING_MAX_ROWS);
+        $list.html(shown.map(existingRowHtml).join(''));
+        applyFlag();                                     // repaint dropped the highlight — put it back
+        if (matches.length > shown.length) {
+            $msg.text(t('ui.js.showingFirstNKeepTyping', shown.length, matches.length)).show();
+        } else {
+            $msg.hide();
+        }
+    }
+
+    /**
+     * Highlight the namesake the server reported, so the warning points AT a row instead of describing one.
+     * The id is REMEMBERED, not just painted: typing in SKU or Barcode repaints the list, and a highlight that
+     * vanished there would leave the Name field flagged with nothing to point at.
+     */
+    function markExistingRow(id) {
+        flaggedId = (id == null) ? null : String(id);
+        applyFlag();
+    }
+
+    /** Paint the remembered flag onto the current rows. Called by markExistingRow and after every repaint. */
+    function applyFlag() {
+        var $rows = $('#prodExistingList .crud-existing-row').removeClass('is-flagged');
+        if (flaggedId == null) return;
+        var $row = $rows.filter('[data-id="' + flaggedId + '"]').addClass('is-flagged');
+        if ($row.length && $row[0].scrollIntoView) $row[0].scrollIntoView({ block: 'nearest' });
     }
 
     global.showProducts = function () {
@@ -44,7 +183,7 @@
         // Render #tableProduct through the shared DataTable path (like #tableCustomer).
         tableV = 'Product'; getAll = 'Product'; buttonV = 'Product'; deleteV = 'Product';
         loadDataTable();
-        refreshSkuIndex();   // keep the client-side duplicate-SKU check current for this screen
+        refreshProductIndex();   // keeps the duplicate-SKU check and the "already registered" panel current
         // Per-row "Edit" button is injected by the global DataTables drawCallback (main.js) — no per-table wiring.
 
         // Row interactions (mirror the generic modal screens):
@@ -67,8 +206,8 @@
     global.newProduct = function () {
         resetProductForm();
         loadCategories();
-        loadTaxCodes('');    // multi-rate tax: fresh dropdown (defaults to "Custom rate…")
-        refreshSkuIndex();   // refresh the known SKUs each time the form opens
+        loadTaxCodes('');        // multi-rate tax: fresh dropdown (defaults to "Custom rate…")
+        refreshProductIndex();   // re-read the catalogue each time the form opens, then paint the panel
         $('#ProductModalTitle').text('New Product');
         openModal('ProductModal');
     };
@@ -80,6 +219,10 @@
         $('#prodCategory').val('');
         $('#prodCategoryNew').val('');
         $('#prodSku').removeClass('alert-danger');
+        $('#prodName').removeClass('alert-danger');
+        formEpoch++;             // any name-check still in flight now belongs to a form that no longer exists
+        markExistingRow(null);
+        renderExisting();        // cleared fields → the panel goes back to showing everything
         if (typeof clearFormError === 'function') clearFormError();
     }
     global.resetProductForm = resetProductForm;
@@ -185,11 +328,16 @@
         $('#prodTax').toggle(!$('#prodTaxCode').val());
     };
 
-    // Load a product into the form for editing (row-click).
+    // Load a product into the form for editing — from a table row, or from "edit this one" on the
+    // already-registered panel (which is how a would-be duplicate gets corrected instead of created).
     function editProduct(id) {
         $.get(serverContext + 'getCatalogProduct?id=' + id, function (resp) {
             var p = (resp && resp.data) ? resp.data : null;
             if (!p) { showFormError(t('ui.js.couldNotLoadTheProduct')); return; }
+            // Coming from the panel the form may still carry the abandoned entry's duplicate flags. They belong
+            // to a name/SKU that is about to be overwritten, so clear them before the new values land.
+            $('#prodName, #prodSku').removeClass('alert-danger');
+            markExistingRow(null);
             $('#productId').val(p.id);
             $('#prodName').val(p.name || '');
             $('#prodSku').val(p.sku || '');
@@ -203,7 +351,8 @@
             $('#prodManufacturer').val(p.manufacturer || '');
             $('#prodDesc').val(p.description || '');
             $('#ProductModalTitle').text('Edit Product');
-            refreshSkuIndex();      // refresh known SKUs so the duplicate check excludes only THIS product
+            formEpoch++;               // this is a different product now — drop any in-flight name check
+            refreshProductIndex();     // refresh the index so the checks + panel exclude only THIS product
             openModal('ProductModal');
             updateReadOnly(true);   // make the key fields readonly when editing
 
@@ -312,5 +461,53 @@
             }
         });
         $(document).on('input', '#prodSku', function () { $(this).removeClass('alert-danger'); });
+
+        // Typing in any of the three identifying fields narrows the panel.
+        $(document).on('input', '#prodName, #prodSku, #prodBarcode', function () { renderExisting(); });
+
+        // ── Server-side duplicate-NAME check, on focus-out of Name ──────────────
+        // Server-side and not just a scan of the loaded index, because the index is a snapshot taken when the
+        // form opened: a colleague in the same org registering the product a minute ago is invisible to it and
+        // visible to this. It ADVISES — a duplicate name is legal (same product, different pack or maker), so
+        // the save is not blocked; only a duplicate SKU is refused, by the service.
+        $(document).on('blur', '#prodName', function () {
+            var $f = $(this);
+            var typed = ($f.val() == null ? '' : String($f.val())).trim();
+            $f.removeClass('alert-danger');
+            markExistingRow(null);
+            if (!typed) return;
+
+            var id = $('#productId').val();
+            var epoch = formEpoch;   // whose answer this is
+            var url = serverContext + 'productNameCheck?name=' + encodeURIComponent(typed)
+                + (id ? '&excludeId=' + encodeURIComponent(id) : '');
+
+            $.get(url, function (resp) {
+                // Drop a stale answer: the form has since been reset, or loaded with a different product, or
+                // the operator has already retyped the name. Flagging a field against a name it no longer
+                // holds is worse than not checking at all.
+                if (epoch !== formEpoch) return;
+                if (($('#prodName').val() || '').trim() !== typed) return;
+                if (!resp || !resp.success || !resp.exists) return;
+
+                $('#prodName').addClass('alert-danger');
+                showFormError(t('ui.js.productNameAlreadyRegistered', resp.name || typed));
+                markExistingRow(resp.id);
+            }, 'json');
+        });
+        $(document).on('input', '#prodName', function () { $(this).removeClass('alert-danger'); });
+
+        // "Edit this one" on a panel row → load that product into the form instead of registering a twin.
+        // mousedown fires before the Name field's blur; suppressing it keeps focus put so the click is not
+        // racing a name-check that is about to flag the very row being clicked.
+        $(document).on('mousedown', '.js-edit-existing', function (e) { e.preventDefault(); });
+        $(document).on('click', '.js-edit-existing', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var id = $(this).closest('.crud-existing-row').data('id');
+            if (!id) return;
+            if (typeof clearFormError === 'function') clearFormError();
+            editProduct(id);
+        });
     });
 })(window);

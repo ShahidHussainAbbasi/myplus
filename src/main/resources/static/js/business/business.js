@@ -253,15 +253,70 @@ function UIT(id){
 // A wedge scanner types the code + Enter into #sellScan. We look the product up (barcode or sku), then append a
 // cart line at the catalog price (qty 1), or increment the qty if it's already in the cart. The server still
 // validates stock at addSell (FEFO reserve), so a scan of an out-of-stock item is rejected at submit.
+/**
+ * Split a scan-box entry into {qty, code}, supporting the POS quantity-multiplier idiom `12*ABC123`.
+ *
+ * Selling twelve of something used to mean twelve scans, or abandoning the scan box for the full form —
+ * the single biggest cost with people waiting. A count, a star, then the code (or scan) does it once.
+ *
+ * PURE FUNCTION, no DOM: it is the piece with the interesting edge cases, so it is exported for the gate
+ * to exercise directly rather than only through the UI.
+ *
+ * Refuses rather than guesses. A quantity that is zero, negative, fractional or not a number is a
+ * MISTAKE, and the honest response is to say so — silently falling back to 1 would put a line the
+ * cashier did not intend on a real invoice.
+ *
+ * @returns {{qty:number, code:string}} on success, or {error:'...'} describing what was wrong.
+ */
+function parseScanEntry(raw){
+	var s = (raw == null ? '' : String(raw)).trim();
+	if(!s) return { error: 'empty' };
+
+	var star = s.indexOf('*');
+	if(star < 0) return { qty: 1, code: s };            // no multiplier => today's behaviour, exactly
+
+	var qtyPart = s.substring(0, star).trim();
+	var code    = s.substring(star + 1).trim();
+
+	if(!qtyPart) return { error: 'noQty' };             // "*ABC" — a star with nothing in front
+	if(!code)    return { error: 'noCode' };            // "12*"  — a count with nothing to count
+	// Digits only: parseInt('12abc') would happily return 12 and sell twelve of the wrong thing.
+	if(!/^\d+$/.test(qtyPart)) return { error: 'badQty', qtyText: qtyPart };
+
+	var qty = parseInt(qtyPart, 10);
+	if(!(qty > 0)) return { error: 'badQty', qtyText: qtyPart };
+	return { qty: qty, code: code };
+}
+window.parseScanEntry = parseScanEntry;
+
 function sellScanAdd(){
 	var $in = $('#sellScan');
-	var code = ($in.val() || '').trim();
-	if(!code) return;
+	var raw = ($in.val() || '').trim();
+	if(!raw) return;
+
+	// The multiplier is part of P2 (pos.keyboard.shortcuts.enabled). With it off, a '*' is just another
+	// character in the code — which is what a shop that has never used the idiom expects.
+	var qty = 1, code = raw;
+	if(window.posShortcutsEnabled === true){
+		var parsed = parseScanEntry(raw);
+		if(parsed.error){
+			// Keep what they typed in the box: the fix is usually one character, and clearing it would
+			// make them re-scan.
+			if(parsed.error === 'badQty')      sellScanMsg(t('ui.js.scanQtyNotANumber', parsed.qtyText), true);
+			else if(parsed.error === 'noQty')  sellScanMsg(t('ui.js.scanQtyMissing'), true);
+			else if(parsed.error === 'noCode') sellScanMsg(t('ui.js.scanCodeMissing'), true);
+			$in.focus();
+			return;
+		}
+		qty = parsed.qty;
+		code = parsed.code;
+	}
+
 	$in.val('');
 	$.get(serverContext + 'lookupProduct', { code: code }, function(resp){
 		var ref = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : null) : resp;
 		if(!ref || ref.id == null){ sellScanMsg('No product for "' + code + '"', true); $in.focus(); return; }
-		scanAddToCart(ref);
+		scanAddToCart(ref, qty);
 		sellScanMsg('Added ' + (ref.name || ref.sku || ('#' + ref.id)) + ' Ã—' + cartQty(ref.id), false);
 		$in.focus();
 	}, 'json').fail(function(){ sellScanMsg('Lookup failed (is catalog-service up?).', true); $in.focus(); });
@@ -269,30 +324,55 @@ function sellScanAdd(){
 function sellScanMsg(msg, err){ $('#sellScanMsg').text(msg).css('color', err ? '#c0392b' : '#0f6e56'); }
 function cartQty(pid){ var d = data.find(function(x){ return String(x.productId) === String(pid); }); return d ? d.quantity : 1; }
 
-function scanAddToCart(ref){
+/** @param qty units to add (default 1). The `12*CODE` multiplier passes it; every other caller omits it. */
+function scanAddToCart(ref, qty){
 	var pid = ref.id;
 	var price = (ref.sellingPrice != null) ? Number(ref.sellingPrice) : 0;
 	var name = ref.name || ref.sku || ('#' + pid);
+	// Guard the default HERE as well as in the parser: this is also called from the pharmacy dispense
+	// path and any future caller, and a missing argument must never become NaN on an invoice line.
+	var n = (Number(qty) > 0) ? Math.floor(Number(qty)) : 1;
 	var idx = data.findIndex(function(d){ return String(d.productId) === String(pid); });
+
+	// BUGFIX (found while building P2's exact-cash key): the scan path used to push '' into the cart
+	// grid's TOTAL column and never set line.totalAmount. #sellTotal is that column's footer sum, so a
+	// scanned-only cart totalled ZERO — and calculateChange() derives Change and "Due (this sale)"
+	// from #sellTotal, so a cashier scanning items with no customer selected saw Due 0.00 on a sale
+	// that was owed. requoteSellCart() fills the column in, but ONLY once a customer is chosen
+	// (sellQuoteContext returns null otherwise), which is why the gap survived: the B2B path masked it.
+	// The line's money is computed with the SAME sellLineMath() the manual add and the re-quote use, so
+	// the three can never drift.
+	var lineMath = function(units){ return sellLineMath(price, units, 0, 0, '0'); };
+
 	if(idx >= 0){
-		// Already scanned â†’ bump qty on the existing line (cart + grid).
-		data[idx].quantity = (Number(data[idx].quantity) || 0) + 1;
+		// Already scanned â†’ bump qty on the existing line (cart + grid), and move its money with it.
+		data[idx].quantity = (Number(data[idx].quantity) || 0) + n;
+		var mUp = lineMath(data[idx].quantity);
+		data[idx].totalAmount = mUp.total;
+		data[idx].netAmount = mUp.profit;
 		tablesi.rows().every(function(){
 			var row = this.data();
-			if(String(row[0]) === String(pid)){ row[2] = data[idx].quantity; this.data(row); }
+			if(String(row[0]) === String(pid)){
+				row[2] = data[idx].quantity;
+				row[5] = mUp.receivable;     // the footer sums THIS column â€” a blank here reads as zero
+				this.data(row);
+			}
 		});
 		tablesi.draw(false);
 	} else {
 		// New line â€” mirror the shape a manual "Add to Cart" pushes (data[] is submitted as `sales`).
+		var m = lineMath(n);
 		var obj = {
 			productId: pid, itemId: pid, itemName: name,
-			quantity: 1, sellRate: price, description: ref.description || '',
+			quantity: n, sellRate: price, description: ref.description || '',
+			totalAmount: m.total, netAmount: m.profit,
 			// B2B-P2-UI: the scan path prefills the CATALOG price too, so mark it re-priceable and quote.
 			autoRate: Number(price),
 			stock: { itemId: pid, itemName: name, bsellRate: price, bsellDiscount: '', bsellDiscountType: '0' }
 		};
 		data.push(obj);
-		tablesi.row.add([pid, name, 1, price, '', '', "<button id='DII' onclick=UIT(" + pid + ")>Del</button>"]).draw();
+		tablesi.row.add([pid, name, n, price, '', m.receivable,
+			"<button id='DII' onclick=UIT(" + pid + ")>Del</button>"]).draw();
 	}
 	// A scanned line must be priced for the buyer exactly like a manually added one.
 	requoteSellCart();
@@ -1923,7 +2003,9 @@ function loadStock(label,value){
 					quoteSellFormPrice(value);
 			    	$("#sellDiscount").val(discountValue);
 			    	if($("#sellItems").val()*1<=0){
-			    		$("#sellItems").val(1);
+			    		// Per-tenant starting quantity: 1 at a retail counter, a carton size for a
+			    		// wholesaler. Absent/invalid config falls back to 1 (posSettingInt guards it).
+			    		$("#sellItems").val(window.posDefaultQty || 1);
 			    	}
 			    	$("#sellItemDesc").val(data.idesc);
 			    	renderSellBatches(data.batches);   // P10: show the FEFO batch/expiry being dispensed
@@ -3172,17 +3254,154 @@ function loadPosFeatureFlags(){
 		// absent key â†’ default ON (the feature ships enabled)
 		window.posBarcodeEnabled = ('pos.barcode.enabled' in byKey) ? byKey['pos.barcode.enabled'] : true;
 		window.posAutoPrintReceipt = ('pos.receipt.autoPrint' in byKey) ? byKey['pos.receipt.autoPrint'] : true;
+		// UI/UX P1 — the line-entry ROW. Fails CLOSED, unlike the two flags above: an absent key or a
+		// failed config read leaves the sell screen exactly as it is today. Re-laying-out a till that
+		// someone is mid-sale on, because a settings call hiccuped, is not a recoverable surprise.
+		window.posKeyboardEnabled = byKey['pos.keyboard.enabled'] === true;
+		// P2 (shortcut keys + the 12*CODE scan multiplier). Fails CLOSED for the same reason: never arm
+		// function keys, or change what a '*' in a scanned code means, because a settings call hiccuped.
+		window.posShortcutsEnabled = byKey['pos.keyboard.shortcuts.enabled'] === true;
+		// Per-tenant sale-screen composition. One POS serves a corner shop, a wholesale distributor
+		// and a pharmacy, so WHICH fields belong on the sale is the tenant's answer, not ours. Every
+		// one of these fails OPEN (absent key => shown): the default is today's full screen, and a
+		// config hiccup must never make a field the shop relies on silently disappear mid-sale.
+		window.posFields = {
+			description:  byKey['pos.entry.showDescription']       !== false,
+			bonus:        byKey['pos.entry.showBonus']             !== false,
+			stock:        byKey['pos.entry.showStock']             !== false,
+			expiry:       byKey['pos.entry.showExpiry']            !== false,
+			lineDiscount: byKey['pos.entry.lineDiscountEnabled']   !== false,
+			discountType: byKey['pos.entry.showDiscountType']      !== false,
+			receivable:   byKey['pos.entry.showReceivable']        !== false,
+			tradeDiscount:byKey['pos.invoice.tradeDiscountEnabled']!== false,
+			customerBalance: byKey['pos.customer.showBalance']     !== false,
+			park:         byKey['pos.park.enabled']                !== false
+		};
+		window.posPriceEditable   = byKey['pos.entry.priceEditable'] !== false;
+		// Fails OPEN (absent => required), because required IS today's behaviour — an unreadable
+		// config must not quietly stop a wholesaler's invoices from naming their account.
+		window.posCustomerRequired = byKey['pos.customer.required'] !== false;
+		window.posWalkInName = posSettingText(res, 'pos.customer.walkInName', 'Walk-in Customer');
+		window.posDefaultQty      = posSettingInt(res, 'pos.entry.defaultQty', 1);
+		window.posDefaultTender   = posSettingText(res, 'pos.tender.default', 'CASH');
+		window.posDefaultCustomerMode = posSettingText(res, 'pos.customer.defaultMode', 'select');
 		// Pharmacy: must a SEVERE drug interaction be acknowledged before dispensing? Fail-open like the others
 		// means fail-SAFE here â€” absent key / config hiccup â‡’ the acknowledgement is still required.
 		window.pharmaBlockSevere = ('pharmacy.interaction.blockSevere' in byKey) ? byKey['pharmacy.interaction.blockSevere'] : true;
 		applyPosBarcodeVisibility();
-	}, 'json').fail(function(){ window.posBarcodeEnabled = true; window.posAutoPrintReceipt = true; window.pharmaBlockSevere = true; applyPosBarcodeVisibility(); });
+		applyPosRowEntry();
+		applyPosFieldVisibility();
+		if (typeof applyPosKeyboard === 'function') applyPosKeyboard();
+	}, 'json').fail(function(){
+		window.posBarcodeEnabled = true; window.posAutoPrintReceipt = true; window.pharmaBlockSevere = true;
+		window.posKeyboardEnabled = false;      // fail CLOSED — see above
+		window.posShortcutsEnabled = false;     // fail CLOSED
+		window.posFields = {};                  // {} => every field shown (the !== false defaults)
+		window.posPriceEditable = true;
+		window.posCustomerRequired = true;      // fail OPEN — required is today's behaviour
+		window.posWalkInName = 'Walk-in Customer';
+		window.posDefaultQty = 1;
+		window.posDefaultTender = 'CASH';
+		window.posDefaultCustomerMode = 'select';
+		applyPosBarcodeVisibility();
+		applyPosRowEntry();
+		applyPosFieldVisibility();
+		if (typeof applyPosKeyboard === 'function') applyPosKeyboard();
+	});
+}
+
+/** A non-BOOL setting's raw value from the catalog response, or `dflt` when absent/unreadable. */
+function posSettingRaw(res, key){
+	var items = (res && res.data) || [];
+	for (var i = 0; i < items.length; i++) {
+		if (items[i] && items[i].key === key) return items[i].value;
+	}
+	return null;
+}
+function posSettingInt(res, key, dflt){
+	var v = parseInt(posSettingRaw(res, key), 10);
+	// A zero or negative default quantity would put an unsellable line on every sale, so an
+	// out-of-range configured value falls back rather than being honoured.
+	return (isNaN(v) || v < 1) ? dflt : v;
+}
+function posSettingText(res, key, dflt){
+	var v = posSettingRaw(res, key);
+	return (v == null || String(v) === '') ? dflt : String(v);
 }
 function applyPosBarcodeVisibility(){
 	var on = window.posBarcodeEnabled !== false;
 	$('#sellScanRow').toggle(on);          // sell screen scan box
 	$('#prodBarcodeLabel').toggle(on);     // product form Barcode label
 	$('#prodBarcodeWrap').toggle(on);      // product form Barcode input
+}
+
+/**
+ * UI/UX P1 — switch the sell form between today's stacked layout and the one-row line entry.
+ *
+ * This is the WHOLE mechanism: one class on one element. Everything else lives in
+ * /css/pos-rowentry.css, every rule of which is scoped to `.pos-rowentry`, so with the flag off not
+ * one declaration matches and the screen is byte-identical to today.
+ *
+ * Nothing here touches the form's CONTENT. No input is added, removed, renamed or reordered — the
+ * row is a CSS re-flow of the very same controls, so formToJSON("Sell"), #addInviceItem,
+ * calculateNetSell() and loadStock() keep reading and writing exactly the ids they always have.
+ */
+function applyPosRowEntry(){
+	$('#sellDiv').toggleClass('pos-rowentry', window.posKeyboardEnabled === true);
+}
+
+/**
+ * Compose the sale screen for THIS business — the same POS serves a corner shop, a wholesale
+ * distributor and a pharmacy, and they do not want the same fields.
+ *
+ * Every optional control carries `data-pos-field="<name>"` in the template (the label and its column
+ * both, so a hidden field leaves no orphaned caption). This walks those hooks and hides the ones the
+ * tenant turned off.
+ *
+ * ⚠ HIDDEN IS NOT REMOVED, AND NEVER `disabled`.
+ * formToJSON("Sell") builds the payload from `new FormData(form)`, which omits DISABLED controls but
+ * INCLUDES ones hidden with display:none. So a hidden field still submits its value exactly as
+ * before — `description` and `stock.bsellDiscountType` in particular are read straight out of
+ * FormData. Disabling them instead would silently drop columns from the invoice. Anything that must
+ * genuinely not apply (a line discount that is switched off) is CLEARED as well as hidden, so the
+ * screen and the submitted document agree.
+ */
+function applyPosFieldVisibility(){
+	var f = window.posFields || {};
+	// A CLASS, not .toggle(). jQuery's .toggle(true) → .show() sets an INLINE display:block whenever
+	// the element is hidden by a stylesheet — which would beat pos-rowentry.css's `.pos-more{display:none}`
+	// and drag fields back onto the compact row the moment settings were applied. The two mechanisms are
+	// orthogonal (config decides IF a field exists, the row layout decides WHERE), so neither may write
+	// inline styles the other has to fight.
+	$('#sellDiv [data-pos-field]').each(function(){
+		var name = $(this).attr('data-pos-field');
+		$(this).toggleClass('pos-hidden', f[name] === false);   // absent => shown (fail open)
+	});
+
+	// A switched-off line discount must not keep applying a value the cashier can no longer see.
+	if (f.lineDiscount === false) { $('#sellDiscount').val(''); }
+	if (f.discountType === false) {
+		// No chooser => discounts are a fixed AMOUNT ("0"), not a stray percent from an earlier sale.
+		$('#sellDiscountTypeDD').val('0');
+		if ($('#sellDiscountTypeDD').data('selectpicker')) $('#sellDiscountTypeDD').selectpicker('refresh');
+	}
+	if (f.tradeDiscount === false) { $('#sellTradeDiscount').val(''); }
+	if (f.bonus === false) { $('#sellBonus').val(''); }
+
+	// Price: readonly, not disabled — a disabled input is dropped from FormData, which would strip
+	// the rate off every line. Readonly still submits and still takes a programmatic .val().
+	$('#sellSellRate').prop('readonly', window.posPriceEditable === false);
+
+	// Defaults the tenant chose for a fresh sale.
+	if (window.posDefaultTender && $('#sellPayMethod').length && !$('#sellPayMethod').data('posDefaulted')) {
+		$('#sellPayMethod').val(window.posDefaultTender).data('posDefaulted', true);
+		if ($('#sellPayMethod').data('selectpicker')) $('#sellPayMethod').selectpicker('refresh');
+		if (typeof onSellPayMethodChange === 'function') onSellPayMethodChange();
+	}
+	if (window.posDefaultCustomerMode === 'manual' && typeof onCustomerModeChange === 'function'
+		&& !window.editingInvoice) {
+		onCustomerModeChange('manual');
+	}
 }
 
 // ===== Owner Configuration (generic per-tenant settings, shared common-settings backend) =====

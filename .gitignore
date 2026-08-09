@@ -42,6 +42,14 @@ cypress/downloads/
 .env.local
 *.env
 *.env.local
+# ...and any BACKUP of one. A timestamped copy (.env.bak-081158, .env.save, .env.orig) carries the
+# same DB_PASSWORD / JWT_SECRET / INTERNAL_SECRET as the original but matched none of the patterns
+# above, so `git add -A` staged it. Caught before it was committed; these keep it that way.
+.env.bak*
+.env.*.bak
+*.env.bak*
+.env.save
+.env.orig
 !.env.example
 
 # Service runtime logs (not versioned)

@@ -76,10 +76,28 @@ public class StorefrontController {
                     }
                 }
             }
+            // OMS O5c: tell the shopfront whether this store takes backorders, so an out-of-stock product can
+            // still be offered ("order now, ships later") instead of having Add disabled. Without it the API
+            // would accept a backorder the storefront never let anyone place.
+            resp.put("backorderAllowed", storeAcceptsBackorders(org));
             return resp;
         } catch (Exception e) {
             LOGGER.error("storefront products proxy error", e);
             return Map.of("success", false, "message", "Could not load products.");
+        }
+    }
+
+    /** Best-effort: on any error the store behaves as it did before O5c (out of stock ⇒ not buyable). */
+    @SuppressWarnings("unchecked")
+    private boolean storeAcceptsBackorders(Long org) {
+        try {
+            Map<String, Object> resp = restTemplate.getForObject(
+                    gatewayUrl + "/api/marketplace/public/checkout/policy?organizationId=" + org, Map.class);
+            Object data = (resp == null) ? null : resp.get("data");
+            return data instanceof Map<?, ?> m && Boolean.TRUE.equals(((Map<String, Object>) m).get("backorderAllowed"));
+        } catch (Exception e) {
+            LOGGER.debug("store policy unavailable for org {} — treating backorders as off", org, e);
+            return false;
         }
     }
 

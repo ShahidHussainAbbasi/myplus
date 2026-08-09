@@ -41,4 +41,15 @@ public class ShipmentLine {
 
     @Column(nullable = false)
     private Integer quantity;
+
+    /**
+     * OMS O5d — was this line SCANNED into the parcel, or typed?
+     *
+     * <p>False for anything entered by hand, including every line written before O5d. That is the honest
+     * default: claiming verification that never happened would make the flag worthless exactly when someone
+     * needs it — after a customer reports the wrong goods arrived.
+     */
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean verified = false;
 }

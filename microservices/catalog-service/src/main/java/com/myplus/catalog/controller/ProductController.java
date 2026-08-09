@@ -3,6 +3,7 @@ package com.myplus.catalog.controller;
 import com.myplus.common.web.ApiResponse;
 import com.myplus.common.web.PageResponse;
 import com.myplus.common.security.CurrentUser;
+import com.myplus.catalog.dto.NameCheckDTO;
 import com.myplus.catalog.dto.ProductDTO;
 import com.myplus.commerce.contracts.dto.ProductImportLine;
 import com.myplus.commerce.contracts.dto.ProductImportResult;
@@ -92,6 +93,19 @@ public class ProductController {
     @GetMapping("/count")
     public long count() {
         return productService.count();
+    }
+
+    /**
+     * "Is this name already registered?" — the product form asks on focus-out of the Name field.
+     * GET /products/name-check?name=X&excludeId=12. Advisory: it reports the namesake so the operator can edit
+     * it instead of creating a twin; creating a duplicate name is still allowed (only a duplicate SKU is refused).
+     * A literal path, so it never collides with GET /products/{id}.
+     */
+    @GetMapping("/name-check")
+    public ResponseEntity<ApiResponse<NameCheckDTO>> nameCheck(
+            @RequestParam String name,
+            @RequestParam(required = false) Long excludeId) {
+        return ResponseEntity.ok(ApiResponse.success(productService.checkName(name, excludeId)));
     }
 
     @PutMapping("/{id}")

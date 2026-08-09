@@ -193,7 +193,12 @@ describe('Security: a tenant cannot take over another tenant\'s record by saving
       cy.loginAsEduOwner()
       findBy('/getUserFc', (x) => x.enrollNo === victimEnroll).then((row) => {
         expect(row, 'fee record still belongs to tenant A').to.not.be.null
-        expect(Number(row.f), 'the fee amount was not rewritten').to.eq(5000)
+        // `fee`, not `f` (fixed 2026-08-09). Slice 0.4 renamed FeeCollection's cryptic Java fields, and
+        // because `getUserFc` returns the RAW ENTITY the JSON contract moved with them — the standing
+        // DTO-boundary violation the programme has carried since 0.4, biting exactly as predicted.
+        // `Number(undefined)` is NaN, so this read as "the fee was rewritten" when nothing of the sort
+        // had happened: the takeover WAS refused (asserted above) and only the verification was blind.
+        expect(Number(row.fee), 'the fee amount was not rewritten').to.eq(5000)
       })
     })
   })

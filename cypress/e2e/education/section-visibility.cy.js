@@ -65,6 +65,21 @@ ACCOUNTS.forEach(([email, cmd]) => {
       // snavGo() sets #registrationType and fires change. If the option were missing or the value did not
       // match, .val() would silently no-op and the previous section would stay on screen.
       cy.visit('/educationDashboard')
+
+      // WAIT FOR THE PAGE TO BE INTERACTIVE BEFORE CALLING snavGo (fixed 2026-08-09).
+      //
+      // This was failing, and the product was fine. `cy.get(...).select()` RETRIES until the element is
+      // ready, so every other case here waits implicitly. `cy.window().then(w => w.snavGo(...))` does not
+      // — it fires the instant the document exists, which can be BEFORE main.js's `$(function(){...})`
+      // has bound the `.dropdown` change handler. snavGo then sets the value against no listener and is a
+      // silent no-op, leaving the previous section on screen. Measured: identical calls pass once the page
+      // has settled.
+      //
+      // Asserting a section is already showing is the readiness signal — it can only be true after the
+      // dashboard's own JS has run.
+      cy.get('#registrationType').should('exist')
+      cy.get('.formDiv:visible').should('have.length', 1)
+
       cy.window().then((w) => w.snavGo('registrationType', 'StudentDiv', 'snavRegister'))
       cy.get('#StudentDiv').should('be.visible')
     })

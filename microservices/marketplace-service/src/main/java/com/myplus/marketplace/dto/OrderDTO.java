@@ -72,6 +72,14 @@ public class OrderDTO {
     private Boolean late;
 
     /**
+     * OMS O5c — is there now enough stock to fill what this order is still owed?
+     *
+     * <p>Derived on read for the same reason {@link #late} is: a stored "ready" flag starts going stale the
+     * instant stock moves, and would need a job to keep true. Only populated by the outstanding-backorders read.
+     */
+    private Boolean readyToFulfil;
+
+    /**
      * OMS O4 — how much of this order can still be refunded ({@code total - refundedAmount}, floored at zero).
      *
      * <p>Computed server-side because the refund dialog defaults to it, and a browser that derived it would be

@@ -44,6 +44,25 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.sku = :sku AND " + SCOPE)
     Optional<Product> findBySkuScoped(@Param("sku") String sku, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /**
+     * Duplicate-NAME guard for the product form (case-insensitive). SKU is optional, so the duplicate that
+     * actually happens — same name, no code — was caught by nothing; this is what the form's focus-out check asks.
+     *
+     * <p>The match is ORG-WIDE, not per-user: {@link #SCOPE}'s leading clause is {@code organizationId = :orgId},
+     * so a product any colleague in the tenant registered is found. That is the point of the check — the operator
+     * about to create a twin is usually NOT the one who created the original. The trailing
+     * {@code organizationId IS NULL AND userId = :userId} leg is only the pre-migration fallback shared by every
+     * scoped read here; a legacy row with no org stamped is still visible only to the user who created it, so a
+     * namesake among those is not reported. (Same limit as findScoped/existsBySkuScoped — not new to this query.)
+     *
+     * <p>Deactivated namesakes are returned too (registering a second "Panadol 500mg" because the first was
+     * deactivated is exactly the case worth naming), but an ACTIVE match sorts first so the "edit this one
+     * instead" link lands on the live product. A NULL isActive counts as active, as the rest of the stack reads it.
+     */
+    @Query("SELECT p FROM Product p WHERE LOWER(TRIM(p.name)) = LOWER(:name) AND " + SCOPE
+         + " ORDER BY CASE WHEN p.isActive = false THEN 1 ELSE 0 END, p.id ASC")
+    List<Product> findByNameScoped(@Param("name") String name, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     /** Barcode-first sell: exact scan lookup by barcode OR sku, active only, tenant-scoped. Barcode match preferred
      *  (ordered first) — returned as a list so an ambiguous code (one product's barcode == another's sku) can't throw. */
     @Query("SELECT p FROM Product p WHERE (p.barcode = :code OR p.sku = :code) AND p.isActive = true AND " + SCOPE

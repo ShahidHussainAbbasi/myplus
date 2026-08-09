@@ -129,6 +129,9 @@
 <script th:inline="javascript">
     var STORE_ORG = new URLSearchParams(location.search).get('org') || [[${storeOrg} ?: 1]];
     var products = [];
+    // OMS O5c: does this shop take orders it cannot fill today? Set from the products read; drives both the
+    // "Order now" button and whether addToCart's stock cap applies at all.
+    var storeBackorderAllowed = false;
     // slice 68: the cart is server-owned. We keep only an opaque token in localStorage and mirror the server's view.
     var cartState = { items:[], subtotal:0, count:0 };
 
@@ -154,11 +157,19 @@
                     var known = (p.available !== null && p.available !== undefined);
                     var out = known && Number(p.available) <= 0;
                     var low = known && Number(p.available) > 0 && Number(p.available) <= 5;
-                    var badge = out ? '<div class="stock out">Out of stock</div>'
-                              : (low ? '<div class="stock low">Only '+Number(p.available)+' left</div>' : '');
-                    var btn = out
+                    // OMS O5c: a shop that accepts backorders still SELLS an out-of-stock item — it just ships
+                    // later. Leaving Add disabled here made the feature unreachable: the API would take the
+                    // order, the shopfront would not offer it.
+                    var canBackorder = (resp.backorderAllowed === true);
+                    storeBackorderAllowed = canBackorder;   // O5c: addToCart's stock cap must know too
+                    var badge = out
+                        ? (canBackorder ? '<div class="stock low">Available to order</div>'
+                                        : '<div class="stock out">Out of stock</div>')
+                        : (low ? '<div class="stock low">Only '+Number(p.available)+' left</div>' : '');
+                    var btn = (out && !canBackorder)
                         ? '<button class="add" disabled>Out of stock</button>'
-                        : '<button class="add" onclick="addToCart('+p.id+')">Add to cart</button>';
+                        : '<button class="add" onclick="addToCart('+p.id+')">'
+                          + (out ? 'Order now' : 'Add to cart') + '</button>';
                     return '<div class="card"><div class="name">'+esc(p.name)+'</div>'
                         + '<div class="muted">'+esc(p.description||'')+'</div>'
                         + '<div class="price">'+money(p.sellingPrice)+'</div>'
@@ -213,7 +224,11 @@
     function addToCart(id){
         var p = products.find(function(x){ return x.id===id; });
         // Soft client-side stock cap (server reservation is the hard gate at checkout).
-        if(p){
+        //
+        // OMS O5c: skipped entirely when the shop accepts backorders — ordering MORE than is in stock is the
+        // whole point there, and this cap silently blocked it. It was the second place the storefront refused
+        // an order the API would have taken: the disabled Add button was the first.
+        if(p && !storeBackorderAllowed){
             var known = (p.available !== null && p.available !== undefined);
             var inCart = currentQty(id);
             if(known && inCart >= Number(p.available)){ alert('Only '+Number(p.available)+' of "'+p.name+'" in stock.'); return; }

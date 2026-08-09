@@ -41,6 +41,8 @@ public class ShipmentService {
     private final OrderRepository orderRepository;
     private final ShipmentRepository shipmentRepository;
     private final NotificationService notificationService;
+    /** O5d — the per-org packing policy (scan required?). */
+    private final com.myplus.common.settings.SettingsService settingsService;
 
     /**
      * Dispatch a parcel.
@@ -56,11 +58,26 @@ public class ShipmentService {
         if (current == FulfilmentStatus.CANCELLED || current == FulfilmentStatus.RETURNED)
             throw new ValidationException("A " + current + " order cannot be shipped.");
 
+        // OMS O5d: a shop that requires scanning must not be able to dispatch a hand-typed parcel — otherwise
+        // the setting is decoration. Enforced HERE, in the only writer, so the workbench cannot be bypassed by
+        // posting to the endpoint directly (the same reasoning as O3's server-side COD refusal).
+        if (scanRequired(orgId) && hasUnverifiedLine(req)) {
+            throw new ValidationException("This shop requires items to be scanned when packing. "
+                    + "Scan each item into the parcel, or turn off \"Require items to be scanned\" in "
+                    + "Order settings.");
+        }
+
         Map<Long, Integer> requested = normalise(req);
         if (requested.isEmpty())
             // An empty parcel would advance nothing and record nothing, but would still consume a SHP- number
             // and appear on the customer's tracking page as though something had been sent.
             throw new ValidationException("Nothing to ship — enter a quantity for at least one line.");
+
+        java.util.Map<Long, Boolean> verifiedByLine = new java.util.HashMap<>();
+        if (req.getLines() != null)
+            for (ShipmentDTO.LineRequest l : req.getLines())
+                if (l != null && l.getOrderItemId() != null)
+                    verifiedByLine.merge(l.getOrderItemId(), Boolean.TRUE.equals(l.getVerified()), (a, b) -> a && b);
 
         Map<Long, OrderItem> byId = new LinkedHashMap<>();
         for (OrderItem it : order.getItems()) byId.put(it.getId(), it);
@@ -96,7 +113,11 @@ public class ShipmentService {
             OrderItem item = byId.get(e.getKey());
             item.setQuantityShipped(nz(item.getQuantityShipped()) + e.getValue());
             shipment.addLine(ShipmentLine.builder()
-                    .orderItemId(item.getId()).quantity(e.getValue()).build());
+                    .orderItemId(item.getId()).quantity(e.getValue())
+                    // O5d: record HOW it was entered, so "was this parcel actually checked?" is answerable
+                    // later — which is the question that gets asked after a customer reports wrong goods.
+                    .verified(verifiedByLine.getOrDefault(item.getId(), Boolean.FALSE))
+                    .build());
         }
 
         Shipment saved = shipmentRepository.save(shipment);
@@ -152,6 +173,27 @@ public class ShipmentService {
     static int outstanding(OrderItem item) {
         int invoiced = nz(item.getQuantity()) - nz(item.getQuantityBackordered());
         return Math.max(0, invoiced - nz(item.getQuantityShipped()));
+    }
+
+    /** Does this shop insist a packer scans, rather than types? Fails OPEN — a settings hiccup must not stop
+     *  a shop dispatching, which would be a worse outage than an unverified parcel. */
+    private boolean scanRequired(Long orgId) {
+        try {
+            return settingsService != null && settingsService.getBoolFor(
+                    orgId, com.myplus.marketplace.config.MarketplaceSettingsCatalog.PACK_SCAN_REQUIRED);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** Any line carrying a real quantity that was NOT scanned. */
+    private static boolean hasUnverifiedLine(ShipmentDTO.Request req) {
+        if (req == null || req.getLines() == null) return false;
+        for (ShipmentDTO.LineRequest l : req.getLines()) {
+            if (l == null || l.getQuantity() == null || l.getQuantity() <= 0) continue;
+            if (!Boolean.TRUE.equals(l.getVerified())) return true;
+        }
+        return false;
     }
 
     /** Drop nulls, non-positives and duplicates (summing them), so the guards below see one clean number a line. */

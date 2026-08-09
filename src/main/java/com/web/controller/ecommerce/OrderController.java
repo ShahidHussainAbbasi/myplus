@@ -45,7 +45,7 @@ public class OrderController {
     public Map<String, Object> getOrders(final HttpServletRequest request) {
         try {
             return client.get("/orders" + relayQuery(request,
-                    "page", "size", "status", "paymentStatus", "source", "from", "to", "q"));
+                    "page", "size", "status", "paymentStatus", "source", "from", "to", "q", "late"));
         } catch (Exception e) {
             LOGGER.error("getOrders proxy error", e);
             return Collections.singletonMap("success", false);
@@ -96,6 +96,23 @@ public class OrderController {
             return relayError(e, "Could not record the shipment.");
         } catch (Exception e) {
             LOGGER.error("shipOrder proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /**
+     * OMS O5c — what the shop still owes, and what it can now fill ({@code ?ready=true}).
+     *
+     * <p>A read, not a job: "can this be filled now?" is derived from stock that already exists, so a stored
+     * flag would only go stale.
+     */
+    @RequestMapping(value = "/getBackorders", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getBackorders(final HttpServletRequest request) {
+        try {
+            return client.get("/orders/backorders" + relayQuery(request, "ready"));
+        } catch (Exception e) {
+            LOGGER.error("getBackorders proxy error", e);
             return Collections.singletonMap("success", false);
         }
     }

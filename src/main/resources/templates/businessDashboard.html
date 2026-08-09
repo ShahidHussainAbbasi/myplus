@@ -1489,7 +1489,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 					<!-- Barcode-first sell: scan a product's barcode/SKU (a wedge scanner types the code + Enter) â†’ the
 					     matching product is auto-added to the cart at its list price. Server validates stock at submit. -->
-					<div class="form-group" id="sellScanRow">
+					<div class="form-group pos-fullrow" id="sellScanRow">
 						<label class="control-label col-sm-2" for="sellScan"><span class="glyphicon glyphicon-barcode"></span> <span th:text="#{ui.scan}">Scan</span></label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellScan" placeholder="Scan or type barcode / SKU, then Enter" th:placeholder="#{ui.scanOrTypeBarcodeSkuThen}" autocomplete="off"
@@ -1504,9 +1504,12 @@ tr.row-voided .js-edit-row{display:none !important}
 								class="form-control onChangeSelect selectpicker" id="sellItemDD" name="itemId" data-live-search="true">
 							</select>
 						</div>
+						<!-- pos-more: off the line-entry ROW when pos.keyboard.enabled is on (design P1).
+						     Still in the DOM and still written by loadStock() — only its position changes,
+						     and only under .pos-rowentry. Inert otherwise. -->
 						<div>
-							<label class="control-label col-sm-2" for="sellItemDesc" th:text="#{ui.description}">Description</label> 
-							<div class="col-sm-4">
+							<label class="control-label col-sm-2 pos-more" data-pos-field="description" for="sellItemDesc" th:text="#{ui.description}">Description</label>
+							<div class="col-sm-4 pos-more" data-pos-field="description">
 								<input type="text" placeholder="Item detail" th:placeholder="#{ui.itemDetail}" class="form-control" id="sellItemDesc" name="description" readonly="readonly"/>
 							</div>
 						</div>
@@ -1530,21 +1533,21 @@ tr.row-voided .js-edit-row{display:none !important}
 						     line total, the tax or the margin. It is also PRESENTATION ONLY for now â€” it does
 						     not decrement inventory (decision D-2) â€” so a shop that needs the stock to move
 						     should record the free units as a normal line instead. -->
-						<label class="control-label col-sm-2" for="sellBonus" th:text="#{ui.docBonus}">Bonus</label>
-						<div class="col-sm-2">
+						<label class="control-label col-sm-2 pos-more" data-pos-field="bonus" for="sellBonus" th:text="#{ui.docBonus}">Bonus</label>
+						<div class="col-sm-2 pos-more" data-pos-field="bonus">
 							<input type="number" step="any" min="0" class="form-control" id="sellBonus"
 							       placeholder="0" th:title="#{ui.bonusHelp}"/>
 						</div>
-						<label class="control-label col-sm-2" for="sellStock" th:text="#{ui.stock}">Stock</label>
-						<div class="col-sm-2">
+						<label class="control-label col-sm-2" data-pos-field="stock" for="sellStock" th:text="#{ui.stock}">Stock</label>
+						<div class="col-sm-2" data-pos-field="stock">
 							<input type="text" class="form-control" id="sellStock" name="stock.stock" readonly="readonly"/>
 						</div>
-						<div class="col-sm-2">
+						<div class="col-sm-2" data-pos-field="expiry">
 							<input type="text" class="form-control" id="bexpDate" name="bexpDate" readonly="readonly"/>
 						</div>
 					</div>
 					<!-- P10 (slice 54): the FEFO batch/expiry the next sale/dispense draws from (populated by loadStock). -->
-					<div class="form-group">
+					<div class="form-group pos-fullrow">
 						<div class="col-sm-offset-2 col-sm-10">
 							<div id="sellSellableInfo" class="alert alert-warning" style="display:none;padding:6px 10px;margin:0 0 6px 0"></div>
 							<div id="sellBatchInfo" class="alert alert-info" style="display:none;padding:6px 10px;margin:0"></div>
@@ -1566,19 +1569,19 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" for="sellDiscount" id="sdt" th:text="#{ui.discount}">Discount</label>
-						<div class="col-sm-2">
+						<label class="control-label col-sm-2" data-pos-field="lineDiscount" for="sellDiscount" id="sdt" th:text="#{ui.discount}">Discount</label>
+						<div class="col-sm-2" data-pos-field="lineDiscount">
 							<input type="text" class="form-control" id="sellDiscount"
 								name="stock.bsellDiscount" placeholder=" Discount 0.0" th:placeholder="#{ui.discount00}" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
 						</div>
-						<div class="col-sm-2">
+						<div class="col-sm-2 pos-more" data-pos-field="discountType">
 							<select id="sellDiscountTypeDD" name="stock.bsellDiscountType" class="selectpicker" onchange="calculateNetSell()">
 								<option class="dropdown-item" selected="selected" value="0" th:text="#{ui.amount3}">amount</option>
 								<option class="dropdown-item" value="1" th:text="#{ui.percent}">Percent %</option>
 							</select>
-						</div>					
-	 					<label class="control-label col-sm-2" for="sellrm" th:text="#{ui.receiveable}">Receiveable</label>
-	 					<div class="col-sm-4">
+						</div>
+	 					<label class="control-label col-sm-2 pos-more" data-pos-field="receivable" for="sellrm" th:text="#{ui.receiveable}">Receiveable</label>
+	 					<div class="col-sm-4 pos-more" data-pos-field="receivable">
 							<input type="text" class="form-control" id="sellrm" readonly="readonly"/>
 						</div>
 					</div>
@@ -1749,7 +1752,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<!-- B2B-P3g: the invoice-level TRADE DISCOUNT â€” a whole-order concession settled at the
 							     foot of a distribution invoice, distinct from the per-line discounts on each cart
 							     line. Optional; blank sends nothing and a B2C sale is completely unchanged. -->
-							<div class="col-xs-12 col-sm-3 col-md-2">
+							<div class="col-xs-12 col-sm-3 col-md-2" data-pos-field="tradeDiscount">
 								<span class="field-label" th:text="#{ui.docTradeDiscount}">Trade Discount</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellTradeDiscount"
 								       placeholder="0" th:title="#{ui.tradeDiscountHelp}">
@@ -1770,7 +1773,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 						<!-- Account balance row â€” shown only for an existing selected customer (new sale) -->
-						<div class="form-group" id="sellAccountRow" style="display:none; padding-bottom: 20px;">
+						<div class="form-group" id="sellAccountRow" data-pos-field="customerBalance" style="display:none; padding-bottom: 20px;">
 							<div class="col-xs-6 col-sm-3 col-md-2 col-sm-offset-3 col-md-offset-2">
 								<span class="field-label" th:text="#{ui.previousBalance}">Previous balance</span>
 								<input type="number" step="any" class="form-control" id="sellPrevDue" readonly="readonly"
@@ -1797,7 +1800,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<button type="button" id="addSell" class="btn btn-success btn-lg">
 								<span class="glyphicon glyphicon-ok-circle"></span> <span th:text="#{ui.completeSale}">Complete Sale</span>
 							</button>
-							<button type="button" id="parkSaleBtn" class="btn btn-info" onclick="parkCurrentSale()">
+							<button type="button" id="parkSaleBtn" data-pos-field="park" class="btn btn-info" onclick="parkCurrentSale()">
 								<span class="glyphicon glyphicon-pause"></span> <span th:text="#{ui.park}">Park</span>
 							</button>
 							<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart()">
@@ -1869,13 +1872,14 @@ tr.row-voided .js-edit-row{display:none !important}
 					</select>
 					<input type="text" class="form-control" id="ordFilterFrom" data-dp="date" style="width:120px" th:placeholder="#{ui.from}" placeholder="From">
 					<input type="text" class="form-control" id="ordFilterTo" data-dp="date" style="width:120px" th:placeholder="#{ui.to}" placeholder="To">
-					<button class="btn btn-primary" id="ordSearchBtn" onclick="applyOrderFilters()" th:text="#{ui.search}">Search</button>
+					<label style="margin:0 8px;font-weight:normal"><input type="checkbox" id="ordFilterLate" onchange="applyOrderFilters()"> <span th:text="#{ui.lateOnly}">Late only</span></label>
+						<button class="btn btn-primary" id="ordSearchBtn" onclick="applyOrderFilters()" th:text="#{ui.search}">Search</button>
 					<button class="btn btn-default" onclick="clearOrderFilters()" th:text="#{ui.clear}">Clear</button>
 					<button class="btn btn-default" id="ordExportBtn" onclick="exportOrdersCsv()" th:text="#{ui.exportCsv}">Export CSV</button>
 				</div>
 
 				<table id="tableOrders" class="table table-bordered table-striped">
-					<thead><tr><th th:text="#{ui.order}">Order</th><th th:text="#{ui.invoice}">Invoice</th><th th:text="#{ui.buyer}">Buyer</th><th th:text="#{ui.total}">Total</th><th th:text="#{ui.payment}">Payment</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.created}">Created</th><th th:text="#{ui.action}">Action</th></tr></thead>
+					<thead><tr><th th:text="#{ui.order}">Order</th><th th:text="#{ui.invoice}">Invoice</th><th th:text="#{ui.buyer}">Buyer</th><th th:text="#{ui.total}">Total</th><th th:text="#{ui.payment}">Payment</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.promised}">Promised</th><th th:text="#{ui.created}">Created</th><th th:text="#{ui.action}">Action</th></tr></thead>
 					<tbody id="ordersBody"></tbody>
 				</table>
 				<div id="ordersEmpty" class="text-muted" style="display:none" th:text="#{ui.noOrdersYet}">No orders yet.</div>
@@ -1924,6 +1928,18 @@ tr.row-voided .js-edit-row{display:none !important}
 						<button type="button" class="crud-x" onclick="resetProductForm();closeModal('ProductModal')">&times;</button>
 					</div>
 					<div class="crud-body">
+				<!-- What is already registered, shown WHILE a new product is entered. #tableProduct below carries
+				     the same list, but this form opens in a fixed full-viewport overlay that covers it. Typing in
+				     Name / SKU / Barcode narrows this panel; each row offers "edit this one" so a near-miss is
+				     corrected rather than duplicated. Populated by catalog-products.js (renderExisting). -->
+				<div id="prodExistingWrap" class="crud-existing">
+					<div class="crud-existing-head">
+						<span th:text="#{ui.alreadyRegistered}">Already registered</span>
+						<span id="prodExistingCount" class="text-muted"></span>
+					</div>
+					<div id="prodExistingList" class="crud-existing-list"></div>
+					<div id="prodExistingMsg" class="text-muted crud-existing-msg" style="display:none"></div>
+				</div>
 				<form class="form-horizontal" role="form" id="Product" autocomplete="off" onsubmit="return false;">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-6">
@@ -2532,6 +2548,9 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/document-designer.js}"></script>
     <script th:src="@{/js/business/till.js}"></script>
     <script th:src="@{/js/business/park.js}"></script>
+    <!-- Keyboard contract for the sale screen (design P1). Inert unless the org turned on
+         pos.keyboard.enabled; the flag is re-read on every keystroke, not cached at bind time. -->
+    <script th:src="@{/js/business/pos-keyboard.js}"></script>
     <script th:src="@{/js/business/catalog-products.js}"></script>
     <script th:src="@{/js/business/crud-modal.js}"></script>
     <script th:src="@{/js/business/sidebar.js}"></script>

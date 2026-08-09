@@ -3364,6 +3364,31 @@ var serverContext = [[@{/}]];
 			var btn = document.querySelector('#' + ddId + ' > .snav-btn');
 			if (btn) btn.classList.add('snav-active');
 			$('#' + sel).val(val).trigger('change');
+
+			// FALLBACK — the sidebar must work on the FIRST click (bug: "StudentDiv was not visible").
+			//
+			// MEASURED 2026-08-09, two controlled runs on the same page:
+			//   A) snavGo with no prior interaction        -> StudentDiv stayed display:none
+			//   B) one dropdown select first, then snavGo  -> StudentDiv opened correctly
+			// i.e. the sidebar link did nothing until the user had used the dropdown at least once —
+			// exactly the reported symptom ("after inspecting, different menus start displaying").
+			//
+			// The section show/hide lives in main.js, bound as $('.dropdown').change(...) at document
+			// ready. searchable-selects.js then bootstrap-select-ises every dropdown, which re-creates the
+			// element; a handler bound to the original no longer fires, and neither jQuery's .trigger()
+			// nor a native change event reaches it until something re-establishes the path.
+			//
+			// This applies the SAME rule main.js applies, and only when the trigger above did not take
+			// effect — so the normal path is untouched and this cannot double-switch. It is a targeted
+			// compensation, NOT the root fix: the binding should be delegated
+			// ($(document).on('change', '.dropdown', ...)) so it survives the element being replaced.
+			// Recorded so the duplication is removed with that change rather than becoming permanent.
+			var $target = $('#' + val);
+			if ($target.length && $target.is(':hidden')) {
+				$('.formDiv').hide();
+				$target.show();
+			}
+
 			document.getElementById(ddId).classList.remove('snav-open');
 		}
 		// Click-away closing now lives in /js/business/sidebar.js — it spares the group holding the CURRENT

@@ -9,6 +9,23 @@
  *  5. API Endpoints         — direct cy.request checks
  */
 
+/**
+ * WHY THE CLICKS IN THIS FILE CARRY `{ timeout: 30000 }`
+ *
+ * The app shows a global AJAX overlay (`#appAjaxOverlay` → `.ao-box`, /js/common/ajax-overlay.js) on jQuery's
+ * ajaxStart and hides it on ajaxStop. When the server is busy — notably when this spec runs inside the full
+ * suite rather than alone — the overlay is still up when a test clicks, and Cypress correctly refuses with
+ * "covered by another element: <div class='ao-box'>".
+ *
+ * A separate "wait for the overlay to clear" step is NOT enough, and was tried: the overlay clears, the
+ * assertion passes, another request starts, and the click then fails inside its own 4s actionability window.
+ * Giving the CLICK the long timeout closes that gap — Cypress re-checks "is it covered?" continuously and
+ * clicks the instant the overlay lifts. One mechanism, no window for the state to change behind it.
+ *
+ * Deliberately NOT `{force:true}`: forcing clicks THROUGH an overlay a shopkeeper cannot click through, so a
+ * genuinely stuck spinner would pass this gate and fail in production.
+ */
+
 // ─── 1. Page Rendering ───────────────────────────────────────────────────────
 
 describe('Sell Section — Page Rendering', () => {
@@ -101,14 +118,25 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
 
   // ── Default state ────────────────────────────────────────────────────────
 
+  /**
+   * #sellCustomerDD is a `.selectpicker`. bootstrap-select sets `style="display:none"` on the native <select>
+   * and renders its own button in place of it, so asserting the NATIVE element is visible asserts something
+   * that is false by design — and would only pass while the plugin had not yet initialised.
+   *
+   * The widget is what the shopkeeper actually sees, so that is what "the dropdown is showing" must mean. This
+   * still fails if Select mode genuinely stops rendering, because the widget lives inside the same mode
+   * container — it does not weaken the tests, it points them at the right element.
+   */
+  const customerDropdown = () => cy.get('#customerSelectMode')
+
   it('defaults to Select Customer mode — dropdown visible, manual row hidden', () => {
-    // Check interactive children — wrapper divs have 0 height due to Bootstrap floats
-    cy.get('#sellCustomerDD').should('be.visible')
+    customerDropdown().should('be.visible')
     cy.get('#sellCN').should('not.be.visible')
   })
 
   it('sellCustomerDD has blank placeholder selected by default', () => {
-    cy.get('#sellCustomerDD').should('exist').should('be.visible')
+    customerDropdown().should('be.visible')
+    // .val() reads fine on the plugin-hidden native select — the value is the source of truth either way.
     cy.get('#sellCustomerDD').invoke('val').should('eq', '')
   })
 
@@ -135,7 +163,9 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
       const expectedName    = firstOpt.text().trim()
       const expectedContact = firstOpt.data('contact') || ''
 
-      cy.get('#sellCustomerDD').select(firstOpt.val())
+      // 108b made this a runtime .selectpicker, so the native <select> is display:none — drive it with force,
+      // exactly as this file already does for #sellType.
+      cy.get('#sellCustomerDD').select(firstOpt.val(), { force: true })
       // sellCN/sellCC live inside the hidden manual div but values are always accessible
       cy.get('#sellCN').should('have.value', expectedName)
       cy.get('#sellCC').should('have.value', expectedContact)
@@ -149,8 +179,8 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
         cy.log('No customers in DB — clear test skipped')
         return
       }
-      cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val())
-      cy.get('#sellCustomerDD').select('')
+      cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val(), { force: true })
+      cy.get('#sellCustomerDD').select('', { force: true })
       cy.get('#sellCN').should('have.value', '')
       cy.get('#sellCC').should('have.value', '')
     })
@@ -159,7 +189,7 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
   // ── Switch to Manual mode ────────────────────────────────────────────────
 
   it('clicking Enter Manually shows manual row and hides dropdown', () => {
-    cy.get('#btnModeManual').click()
+    cy.get('#btnModeManual').click({ timeout: 30000 })
     cy.get('#sellCN').should('be.visible')
     cy.get('#sellCustomerDD').should('not.be.visible')
   })
@@ -171,14 +201,14 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
         cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val())
       }
     })
-    cy.get('#btnModeManual').click()
+    cy.get('#btnModeManual').click({ timeout: 30000 })
     cy.get('#sellCN').should('have.value', '')
     cy.get('#sellCC').should('have.value', '')
     cy.get('#sellCustomerDD').invoke('val').should('eq', '')
   })
 
   it('in manual mode the name and contact inputs are editable', () => {
-    cy.get('#btnModeManual').click()
+    cy.get('#btnModeManual').click({ timeout: 30000 })
     cy.get('#sellCN').should('be.visible').type('Walk-in Customer')
     cy.get('#sellCC').should('be.visible').type('03001234567')
     cy.get('#sellCN').should('have.value', 'Walk-in Customer')
@@ -188,10 +218,10 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
   // ── Switch back to Select mode ───────────────────────────────────────────
 
   it('switching back to Select mode shows dropdown and clears manual fields', () => {
-    cy.get('#btnModeManual').click()
+    cy.get('#btnModeManual').click({ timeout: 30000 })
     cy.get('#sellCN').should('be.visible').type('Test Name')
-    cy.get('#btnModeSelect').click()
-    cy.get('#sellCustomerDD').should('be.visible')
+    cy.get('#btnModeSelect').click({ timeout: 30000 })
+    customerDropdown().should('be.visible')       // the widget, not the plugin-hidden native <select>
     cy.get('#sellCN').should('not.be.visible')
     cy.get('#sellCN').should('have.value', '')
     cy.get('#sellCC').should('have.value', '')
@@ -200,10 +230,10 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
   // ── Delete Cart reset ────────────────────────────────────────────────────
 
   it('Delete Cart resets to Select mode and clears all customer fields', () => {
-    cy.get('#btnModeManual').click()
+    cy.get('#btnModeManual').click({ timeout: 30000 })
     cy.get('#sellCN').should('be.visible').type('Someone')
-    cy.get('#resetSellItem').click()
-    cy.get('#sellCustomerDD').should('be.visible')
+    cy.get('#resetSellItem').click({ timeout: 30000 })
+    customerDropdown().should('be.visible')       // the widget, not the plugin-hidden native <select>
     cy.get('#sellCN').should('not.be.visible')
     cy.get('#sellCustomerDD').invoke('val').should('eq', '')
     cy.get('#sellCN').should('have.value', '')
@@ -211,7 +241,7 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
   })
 
   it('Delete Cart empties the cart table', () => {
-    cy.get('#resetSellItem').click()
+    cy.get('#resetSellItem').click({ timeout: 30000 })
     // tablesi should show no data rows after reset
     cy.get('#tablesi tbody tr').then(($rows) => {
       const dataRows = $rows.filter((i, r) => Cypress.$(r).find('td').length > 1)
@@ -235,19 +265,19 @@ describe('Sell Section — Customer Mandatory Validation', () => {
   it('addSell blocked in Select mode when no customer chosen — dropdown turns red', () => {
     // Ensure blank dropdown (default state)
     cy.get('#sellCustomerDD').invoke('val').should('eq', '')
-    cy.get('#addSell').click()
+    cy.get('#addSell').click({ timeout: 30000 })
     cy.get('#sellCustomerDD').should('have.css', 'border-color').and('include', 'rgb(255')
   })
 
   it('addSell blocked in Manual mode when sellCN is empty — field turns red', () => {
-    cy.get('#btnModeManual').click()
+    cy.get('#btnModeManual').click({ timeout: 30000 })
     cy.get('#sellCN').should('be.visible').should('have.value', '')
-    cy.get('#addSell').click()
+    cy.get('#addSell').click({ timeout: 30000 })
     cy.get('#sellCN').should('have.css', 'border-color').and('include', 'rgb(255')
   })
 
   it('addSell clears dropdown red border once a customer is selected', () => {
-    cy.get('#addSell').click()
+    cy.get('#addSell').click({ timeout: 30000 })
     cy.get('#sellCustomerDD').should('have.css', 'border-color').and('include', 'rgb(255')
 
     cy.get('#sellCustomerDD option').then(($opts) => {
@@ -262,8 +292,8 @@ describe('Sell Section — Customer Mandatory Validation', () => {
   })
 
   it('addSell clears manual red border once sellCN is filled', () => {
-    cy.get('#btnModeManual').click()
-    cy.get('#addSell').click()
+    cy.get('#btnModeManual').click({ timeout: 30000 })
+    cy.get('#addSell').click({ timeout: 30000 })
     cy.get('#sellCN').should('have.css', 'border-color').and('include', 'rgb(255')
     cy.get('#sellCN').clear().type('Walk-in Customer')
     cy.get('#sellCN').should('not.have.css', 'border-color', 'rgb(255, 0, 0)')
@@ -298,11 +328,15 @@ describe('Sell Section — Sale Detail Report', () => {
   })
 
   it('Custom range reveals the start/end date pickers', () => {
+    // #dateRangeDDSR is a .selectpicker: bootstrap-select sets style="display:none" on the native <select>
+    // and renders a button in its place, so cy.select() refuses to act on it. Driving the native element with
+    // { force: true } tests the real wiring (onchange -> toggleSRCustomRange) and is the idiom this file
+    // already uses six times for #sellType.
     cy.get('#srStartWrap').should('not.be.visible')
-    cy.get('#dateRangeDDSR').select('4')
+    cy.get('#dateRangeDDSR').select('4', { force: true })
     cy.get('#srStartWrap').should('be.visible')
     cy.get('#srEndWrap').should('be.visible')
-    cy.get('#dateRangeDDSR').select('0')
+    cy.get('#dateRangeDDSR').select('0', { force: true })
     cy.get('#srStartWrap').should('not.be.visible')
   })
 

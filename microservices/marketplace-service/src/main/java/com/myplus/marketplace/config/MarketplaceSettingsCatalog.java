@@ -34,7 +34,14 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
     /** OMS O5c — accept an order when NOTHING is available, not just when part is? */
     public static final String BACKORDER_FULL_SHORTFALL = "order.backorder.acceptFullShortfall";
 
+    /** OMS O5d — must a packer SCAN what goes in the box, or may they type it? */
+    public static final String PACK_SCAN_REQUIRED = "order.pack.scanRequired";
+    /** OMS O5d — once everything outstanding is packed, dispatch automatically or wait for a human? */
+    public static final String PACK_AUTO_CONFIRM = "order.pack.autoConfirm";
+
     private static final String GROUP = "Online orders";
+    /** Its own section: packing is a different job, done by a different person, from taking an order. */
+    private static final String PACK_GROUP = "Packing & dispatch";
 
     @Override
     public List<SettingEntry> entries() {
@@ -79,6 +86,26 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
                         "Promise backordered items within (days)",
                         "How far ahead to promise the outstanding part of a backordered order. Shown to the "
                                 + "shopper at checkout and used to flag late orders in the back office.",
-                        DEFAULT_PROMISE_DAYS, GROUP));
+                        DEFAULT_PROMISE_DAYS, GROUP),
+
+                // ── OMS O5d — packing ────────────────────────────────────────────────────────────────────
+                // Both default OFF, and both for the same reason: the shop that has no scanner, or wants a
+                // human to look in the box before it leaves, must keep working exactly as it does today.
+                // A packing workflow that assumes equipment not every merchant owns is a workflow they cannot
+                // use at all.
+                SettingEntry.bool(PACK_SCAN_REQUIRED,
+                        "Require items to be scanned when packing",
+                        "Off (default): a packer may type the quantities, as now. On: each item must be "
+                                + "scanned into the parcel, so packing the wrong product is caught at the shelf "
+                                + "rather than by the customer. Lines entered by hand are always recorded as "
+                                + "unverified either way.",
+                        false, PACK_GROUP),
+                SettingEntry.bool(PACK_AUTO_CONFIRM,
+                        "Dispatch automatically once everything is packed",
+                        "Off (default): the packer confirms the parcel, adds the carrier and tracking number, "
+                                + "and then it is dispatched. On: the shipment is recorded as soon as the last "
+                                + "outstanding item is packed — faster for a high-volume shop, but nobody gets "
+                                + "a final look before it goes.",
+                        false, PACK_GROUP));
     }
 }

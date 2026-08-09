@@ -51,6 +51,16 @@ public class GatewayClient {
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
             new com.fasterxml.jackson.databind.ObjectMapper();
 
+    /**
+     * The internal trust secret (security finding F18). Same property the services read
+     * ({@code service.internal-secret}), so ONE environment variable configures the whole platform rather
+     * than the monolith needing a second one that could drift out of step.
+     *
+     * <p>Empty by default, which is the current state and changes nothing.
+     */
+    @Value("${service.internal-secret:}")
+    private String internalSecret;
+
     @Value("${gateway.url:http://localhost:8765}")
     private String gatewayUrl;
 
@@ -235,6 +245,29 @@ public class GatewayClient {
                 headers.set("X-User-Roles", auth.getAuthorities().stream()
                         .map(a -> a.getAuthority())
                         .collect(java.util.stream.Collectors.joining(",")));
+            }
+            // ── SECURITY FINDING F18 (fixed 2026-08-09) ──────────────────────────────────────────
+            //
+            // The monolith calls services DIRECTLY, bypassing the gateway, and never stamped this — which
+            // is why `service.internal-secret` cannot be switched on platform-wide today:
+            //
+            //   HeaderAuthFilter: secret configured AND header does not match
+            //                     -> identity headers are IGNORED and the request proceeds unauthenticated
+            //
+            // So the moment anyone set INTERNAL_SECRET, every screen the monolith proxies would lose its
+            // user and its org — the whole education, welfare and agriculture UI — while looking like an
+            // authorisation problem rather than a missing header.
+            //
+            // It also blocks slice 3.1b's portal provisioning outright: auth-service's
+            // PortalAccountController FAILS CLOSED on an unset secret, so `invitePortalAccess` writes the
+            // access row and never creates the sign-in. A feature the programme records as done does not
+            // actually work locally, and this header is the reason.
+            //
+            // **No behaviour change while the secret is empty** (the default): nothing is stamped, exactly
+            // as before. Setting it is what turns enforcement on — and that is now safe to do, which it
+            // was not before this line existed. Sequenced F18 -> F2, as the security review required.
+            if (internalSecret != null && !internalSecret.isEmpty()) {
+                headers.set("X-Internal-Secret", internalSecret);
             }
         }
         return headers;

@@ -39,9 +39,11 @@ public final class OrderQuery {
     private final LocalDateTime from;     // inclusive, start of day
     private final LocalDateTime to;       // inclusive, END of day — see below
     private final String q;               // free text over orderNo / invoiceNo / customerName / customerContact
+    /** OMS O5c — only orders promised before today and not yet complete. */
+    private final boolean lateOnly;
 
     private OrderQuery(int page, int size, String status, String paymentStatus, String source,
-                       LocalDateTime from, LocalDateTime to, String q) {
+                       LocalDateTime from, LocalDateTime to, String q, boolean lateOnly) {
         this.page = page;
         this.size = size;
         this.status = status;
@@ -50,6 +52,7 @@ public final class OrderQuery {
         this.from = from;
         this.to = to;
         this.q = q;
+        this.lateOnly = lateOnly;
     }
 
     /**
@@ -61,19 +64,25 @@ public final class OrderQuery {
      *           answer an operator trusts.
      */
     public static OrderQuery of(Integer page, Integer size, String status, String paymentStatus, String source,
-                                LocalDate from, LocalDate to, String q) {
+                                LocalDate from, LocalDate to, String q, boolean lateOnly) {
         int p = (page == null || page < 0) ? 0 : page;                    // a negative page is page one, not an error
         int s = (size == null || size < 1) ? DEFAULT_SIZE : Math.min(size, MAX_SIZE);
         return new OrderQuery(p, s,
                 upper(status), upper(paymentStatus), upper(source),
                 from == null ? null : from.atStartOfDay(),
                 to == null ? null : to.atTime(java.time.LocalTime.MAX),
-                trimToNull(q));
+                trimToNull(q), lateOnly);
+    }
+
+    /** Without the late filter — every caller that predates OMS O5c, and the plain unfiltered list. */
+    public static OrderQuery of(Integer page, Integer size, String status, String paymentStatus, String source,
+                                LocalDate from, LocalDate to, String q) {
+        return of(page, size, status, paymentStatus, source, from, to, q, false);
     }
 
     /** Everything, at the default page size — the plain "open the Orders screen" case. */
     public static OrderQuery firstPage() {
-        return of(0, DEFAULT_SIZE, null, null, null, null, null, null);
+        return of(0, DEFAULT_SIZE, null, null, null, null, null, null, false);
     }
 
     public boolean hasText() {

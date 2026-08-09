@@ -41,5 +41,7 @@ public class ShipmentDTO {
     public static class LineRequest {
         private Long orderItemId;
         private Integer quantity;
+        /** OMS O5d — set by the pack workbench when the quantity came from scans rather than typing. */
+        private Boolean verified;
     }
 }

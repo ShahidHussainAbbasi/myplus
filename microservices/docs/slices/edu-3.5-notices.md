@@ -418,6 +418,48 @@ statements, and the corrected V26 re-ran clean.
 > contract, which only a real schema sees. **This is precisely what the programme's carried "no empty-tenant
 > Testcontainers test" gap (finding E) is for**, and it has now cost a restart.
 
+### ⚠️ POST-SHIP DEFECT — found 2026-08-09 by slice 105's gate, FIXED
+
+**Neither notices nor alerts queued anything from the day this slice shipped until 2026-08-09.** Only cover
+notices (N1) ever worked.
+
+`EduNotifyService.enabled(key)` treated a **null** setting key as "switched off" instead of "no switch":
+
+```java
+if (!enabled(enabledSettingKey)) return Outcome.DISABLED;   // enabled(null) -> getBool(null)
+                                                            // -> unknown key -> null
+                                                            // -> "true".equalsIgnoreCase(null) -> FALSE
+```
+
+Nothing threw, so the deliberate fail-**ON** `catch { return true; }` never fired. And `queueAll` applies the
+switch **once at the top** and then delegates per recipient with a null key — by design, to avoid re-reading
+a setting per address — so this hit the **gated** notices path exactly as hard as the ungated alerts path.
+`queue(COVER_ASSIGNED, NOTIFY_COVER_SETTING, …)` passes a real key directly and was unaffected, which is why
+N1's gate stayed green throughout.
+
+**Fix:** `if (key == null) return true;` — one line, restoring the intent this document already stated.
+
+#### Why three gates and a six-spec regression list all missed it
+
+Every assertion checked the **shape**, never the **count**:
+
+| Where | Asserted | Satisfied by zero? |
+|---|---|---|
+| `notices.cy.js` publish | `b.object` *has property* `queued`; message matches `/queued/i` | **yes** |
+| `notices.cy.js` alerts smoke | same two | **yes** |
+| `notices.cy.js` switch-OFF | `queued === 0` | **yes — and it "passed" for the wrong reason**: a control asserting the value the system produced unconditionally proves nothing |
+| 105's first draft | `queued` present, message says "queued" | **yes** |
+
+`"Queued for 0 of 40 recipient(s)"` with `status: SUCCESS` reads like an empty audience, not a broken
+feature. **The lesson: assert the number, not the key.** A count assertion of `> 0` in any one of those four
+places would have caught this on the day it shipped.
+
+Now covered by `EduNotifyServiceTest` (8 always-run cases; **5 of them fail if the fix is reverted** —
+verified, not assumed) plus count assertions added to `notices.cy.js` and
+`education/notification-delivery.cy.js`.
+
+---
+
 ### 3. Alerts got an ungated overload, not the notices switch
 
 Migrating `sendAlerts` onto the outbox could have reused `edu.notify.notices`. It must not: turning notices

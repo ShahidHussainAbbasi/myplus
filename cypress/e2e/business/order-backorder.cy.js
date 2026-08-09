@@ -50,6 +50,7 @@ describe('OMS O5c — an order can be accepted when stock is short', () => {
   after(() => {
     cy.loginAsMarketplaceOwner()
     setCfg('order.backorder.allowed', 'false')
+    setCfg('order.backorder.acceptFullShortfall', 'true')
   })
 
   const stock = () => cy.request('/productStock?productId=' + productId).then((r) => Number(r.body.stock))
@@ -147,6 +148,71 @@ describe('OMS O5c — an order can be accepted when stock is short', () => {
         expect(s.body.success, 'shipping owed units would send goods the shop has not billed for').to.eq(false)
       })
     })
+  })
+
+  it('the back office can see what is still owed, and what can now be filled', () => {
+    setCfg('order.backorder.allowed', 'true')
+    cy.request('/getBackorders').then((r) => {
+      expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
+      const owed = r.body.data || []
+      expect(owed, 'the orders placed above are outstanding').to.not.be.empty
+      owed.forEach((o) => {
+        expect(o).to.have.property('readyToFulfil')
+        // Every one of these still owes something; a cancelled order must not appear.
+        expect(o.fulfilmentStatus).to.not.eq('CANCELLED')
+      })
+    })
+    // Nothing has been restocked, so nothing is ready — this is a READ, not a job, so it reflects stock now.
+    cy.request('/getBackorders?ready=true').then((r) => {
+      expect(r.body.success).to.eq(true)
+      expect(r.body.data || [], 'no stock has arrived yet').to.be.empty
+    })
+  })
+
+  it('restocking makes an outstanding backorder show as ready — no job, just stock', () => {
+    setCfg('order.backorder.allowed', 'true')
+    cy.request({
+      method: 'POST', url: '/addProductStock', failOnStatusCode: false,
+      headers: { 'Content-Type': 'application/json' }, body: { productId, quantity: 50 },
+    }).then((r) => expect(r.body.success, JSON.stringify(r.body)).to.eq(true))
+
+    // Readiness is DERIVED from stock that exists, so it flips the moment goods arrive. A stored "ready" flag
+    // would have needed a sweeper to keep true — which is why O5c has neither.
+    cy.request('/getBackorders?ready=true').then((r) => {
+      expect(r.body.data || [], 'stock arrived, so the backlog is fillable').to.not.be.empty
+      expect(r.body.data[0].readyToFulfil).to.eq(true)
+    })
+  })
+
+  it('a backordered order is flagged late once its promised date passes', () => {
+    // promiseDays is floored at 1, so nothing seeded here is late yet — assert the filter EXISTS and excludes
+    // the not-yet-due, which is the half that can be proven without waiting a day.
+    cy.request('/getOrders?late=true').then((r) => {
+      expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
+      expect(r.body.data).to.have.property('content')
+      ;(r.body.data.content || []).forEach((o) => {
+        expect(o.late, 'anything returned by the late filter must actually be late').to.eq(true)
+      })
+    })
+    cy.request('/getOrders?q=' + encodeURIComponent('BackBuyer_' + run)).then((r) => {
+      const o = (r.body.data.content || [])[0]
+      expect(o.promisedDate, 'a backordered order carries a promise').to.be.a('string')
+      expect(o.late, 'promised in the future, so not late').to.eq(false)
+    })
+  })
+
+  it('with acceptFullShortfall OFF, a TOTAL shortfall is refused but a partial one is not', () => {
+    setCfg('order.backorder.allowed', 'true')
+    setCfg('order.backorder.acceptFullShortfall', 'false')
+    // Stock was restocked to 50 above, so ask for far more than that: partly fillable, must be ACCEPTED.
+    order('PartialOK_' + run, 60).then((r) => {
+      expect(r.body.success, `a partial shortfall stays acceptable: ${JSON.stringify(r.body)}`).to.eq(true)
+    })
+    // Now nothing is left, so the next order is a TOTAL shortfall and must be refused.
+    order('FullNo_' + run, 5).then((r) => {
+      expect(r.body.success, 'a total shortfall is refused when the shop only accepts partial ones').to.eq(false)
+    })
+    setCfg('order.backorder.acceptFullShortfall', 'true')
   })
 
   it('the storefront shows the warning on the page', () => {

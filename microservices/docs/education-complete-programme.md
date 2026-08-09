@@ -16,7 +16,10 @@ Supersedes `education-feature-gap-analysis.md` (kept as the raw inventory).
 | **Review** | findings A (cross-tenant save takeover), B (fee validation), C (privilege gating), D (analytics perf) fixed; E partly |
 | **Phase 2** ✅ | 2.1 timetable · 2.2 substitution · 2.3 staff attendance & leave · 2.4 homework · 2.5 behaviour log — **all five green** |
 | **Phase 3 so far** | **3.1 guardian portal ✅ green 11/11 (2026-08-04)**, V22 applied. **Naming settled with it: the domain word is GUARDIAN, never "parent"** — §0a; 2.5 was amended to match (V23) and its re-run is green. **N1 notification outbox ✅ green (V24, 2026-08-06)** — third use of the shared `OutboxRelay`; 2.2's cover notice is a real send at last. Two platform changes this plan now accounts for: **§9a**. |
-| **Now 2026-08-07** | **3.5 notices ✅ DONE & GREEN 10/10 + 53 regression.** Phase 3 is now **3.1 ✅ · 3.1b ✅ · 3.3 ✅ · 3.5 ✅** — only **3.2 (blocked on D-4)** and **3.4 (meetings)** remain. Shipped under **D-8 option C**: education owns notices, `campaign-service` stays for real campaigns. It also **finished N1's job** — `sendAlerts` had still been sending synchronously against a database-less `notification-service`. **Its gate found a HOLLOW GREEN in 3.3**: the student fixture had no class, so 3.3's "reads their own week" case had passed against an EMPTY timetable (§12). **NEXT: slice 105** — notification-service's missing datastore is now the binding constraint. |
+| **Now 2026-08-09 (latest)** | 🔴 **105's gate found a live defect in 3.5: notices AND alerts had queued NOTHING since 3.5 shipped.** `enabled(null)` read "this caller has no feature switch" as "switched off" — `getBool(null)` resolves an unknown key to null, `"true".equalsIgnoreCase(null)` is false, and **nothing throws**, so the deliberate fail-ON catch never fired. `queueAll` gates once then delegates per recipient with a null key, so the **gated notices path broke exactly as hard as the ungated alerts path**; only cover notices (a direct `queue()` with a real key) ever worked. **Fixed in one line.** Three gates and a six-spec regression list missed it because every assertion checked the SHAPE (`has property 'queued'`, message matches `/queued/i`) — all satisfied by zero — and the one case asserting a NUMBER asserted `queued === 0`, passing for the wrong reason. **Lesson: assert the number, not the key.** Now covered by `EduNotifyServiceTest` (8 cases, **5 fail if the fix is reverted — verified**) + count assertions added to `notices.cy.js` and 105's gate. education **218/218**. |
+| _2026-08-09 (later)_ | **Slice 105 Part A BUILT — G3 is CLOSED.** `notification-service` finally has a datastore (`myplusdb_notification`, Flyway `V1`): per-recipient delivery rows, bounded retry, idempotency on `dedupe_key`, tenant-scoped reads, and a monolith proxy so the record actually answers someone. **27 always-run unit tests green; education 210/210.** Attribution was added to the EXISTING `/email` path as optional parameters rather than the designed new `/broadcast` endpoint — so all 13 `NotificationClient` consumers benefit without any of them moving (rationale in the slice doc). **G1/G2/G4 remain open as Part B.** Two defects caught during the build, both silent in production: the dispatcher would have re-recorded on every retry (queue never drains), and the relay would have written **tenant-less rows nobody could read** — it sends on a scheduler thread where `CurrentUser` is null. **NEXT: run the headed gate `education/notification-delivery.cy.js`.** |
+| _2026-08-09_ | **D-10 DONE — `service.internal-secret` is ENFORCED.** Forged identity headers get nothing; **`invitePortalAccess` now creates a real sign-in** (`account:"OK"`, verified in `myplusdb_auth`), closing **3.1b §10** after a whole programme of PARTIAL. F18's monolith half fixed first, which is what made enabling it safe. **Suite health reviewed and repaired — §11**: 8 failures, one a real product bug (the sidebar was dead until the dropdown had been used once), the rest spec drift and a silently-failing test helper. ⚠️ The "39/39 green" recorded on 08-07 was **unfounded** — a piped exit code. **NEXT: slice 105.** |
+| _2026-08-07_ | **3.5 notices ✅ DONE & GREEN 10/10 + 53 regression.** Phase 3 is now **3.1 ✅ · 3.1b ✅ · 3.3 ✅ · 3.5 ✅** — only **3.2 (blocked on D-4)** and **3.4 (meetings)** remain. Shipped under **D-8 option C**: education owns notices, `campaign-service` stays for real campaigns. It also **finished N1's job** — `sendAlerts` had still been sending synchronously against a database-less `notification-service`. **Its gate found a HOLLOW GREEN in 3.3**: the student fixture had no class, so 3.3's "reads their own week" case had passed against an EMPTY timetable (§12). **NEXT: slice 105** — notification-service's missing datastore is now the binding constraint. |
 | _3.3, same day_ | **✅ DONE & GREEN 13/13 on the FIRST run** + 82 regression cases. It went green first time because 3.1b's mechanism generalised as designed — confining a second external audience took **one config line**. Its precondition check again paid: **`ModuleRouter` was routing BOTH portal audiences to the staff shell, and a guardian had been landing there since 3.1** (slice §12). **NEXT: 3.5 notices, or 3.4 meetings — 3.2 still waits on D-4.** |
 | _2026-08-06_ | **3.1b portal sign-in ✅ DONE & GREEN 13/13** (twice consecutively) **+ 85 regression cases green**, which a shared-library change required. **The gate found TWO real defects in the deny rule:** ① it **failed OPEN** (two parsers for `X-User-Roles`; the gateway sends the bracketed `List.toString()` form) — a guardian read the whole roster; ② with that fixed the refusal came back **403 not 404**, because `sendError()` runs an ERROR dispatch that re-enters the security chain unauthenticated — the one status D4 forbids. **The second was invisible while the first existed: a control that never fires cannot have a wrong refusal status.** The regression list also caught that **3.1's own gate had been RED since 3.1b landed** — this slice changed invite's contract to `PARTIAL` and 3.1's spec still asserted `SUCCESS`. **NEXT: 3.3 (designed) is now unblocked.** |
 | _run 2 detail_ | **9/13, and the four reds were the PRODUCT.** A signed-in guardian read the **entire student roster**: `X-User-Roles` had two parsers and the deny rule's copy did not strip the brackets the gateway actually stamps, so **it failed open in gateway mode while passing in legacy mode** — which is why run 1 recorded the same case as green. Fixed with one shared parser + regression tests on the **captured** format; **awaiting rebuild + re-run** (slice §14). **It is the gate on the rest of the phase: 3.2 and 3.3 both need a login that exists.** |
@@ -359,6 +362,8 @@ Existing settings already follow this (`edu.staff.branchScoped`, `edu.subject.br
 | ~~**D-3**~~ | ~~Privilege map~~ — **RESOLVED 2026-07-31.** Three tiers: `WRITE_PRIVILEGE` for day-to-day records, `ADMIN_PRIVILEGE` for money/structure/policy, `DELETE_PRIVILEGE` for deletes. Every write endpoint gated; gate `education/privilege-map.cy.js`. **Marks entry lands in the ADMIN tier.** | ~~1.3~~ unblocked |
 | ~~**D-6**~~ | ~~**How guardians get a login**~~ — **RESOLVED 2026-08-06 (user decision): INVITATION ONLY.** Self-signup was considered and does not fit: public `/register` takes `organizationName` (a NEW org) and grants `ROLE_OWNER`, so a guardian using it would own a **junk empty tenant**, not join their child's school. **No user type on this platform self-registers into an existing org** — teachers and admins are created by an owner through the same set-password-email pattern. And the access grant is the RELATIONSHIP (`Student.guardianId`), which invitation makes correct by construction while self-signup would force the system to verify a claim. **Fallback with a trigger:** if schools turn out not to hold guardian emails at scale, add school-issued **join codes** (`slices/edu-3.1b-portal-sign-in.md` §11 option C), reusing 3.1b's provisioning and deny rule unchanged. | ~~3.1b~~ settled |
 | **D-4** | **Online payment provider** | 3.2 — **next phase, so this is now near** |
+| **D-10** 🆕 | **Turn ON `service.internal-secret` platform-wide?** F18's monolith half is FIXED (2026-08-09): `GatewayClient` now stamps `X-Internal-Secret` in direct mode, so the chain is finally complete — gateway ✅, monolith ✅, service-to-service ✅, background `runAs` ✅. **Setting the value is now safe and was not before.** Until it IS set, `PortalAccountController` fails closed and **3.1b's portal provisioning cannot create a sign-in** — a shipped feature that does not work. Setting it also switches `HeaderAuthFilter` from "trust any identity header" to "trust only headers carrying the secret", which is the correct production posture and the whole point of the control. **Recommended: set it in `.env.local` and in deployment** | **the last thing between 3.1b and working.** Needs a deliberate go: it changes auth behaviour in all 13 services at once |
+| **D-11** 🆕 | **Split `education-service` at 40 domain entities, as §3 says?** Measured 2026-08-09: **37 of ~40**, and Phase 4.1 (admissions) crosses it on its first slice. **Recommended: do NOT split on the count.** The trigger was a proxy for "hard to reason about", and the evidence does not support that — 36 controllers over 37 entities is a flat surface, and Phase 3 shipped five slices with no cross-slice collision a split would have prevented. **Re-measure what the trigger stands for** (build time, deploy coupling, how often two slices touch one file) before acting on a row count | **before 4.1 is designed, not during it** |
 | **D-9** 🆕 | **Should meetings compose `appointment-service`, as this plan says?** The design says no, on evidence: it is a **clinic** (`hospitalId` NOT NULL, `Doctor.speciality/fee`, `patientsToVisit/Appointed/Visited`), so reuse means a school's data carrying **guardians as `Patient`s** forever — and **it cannot prevent double-booking at any layer**, which is the one thing a parents' evening is entirely about. Options: **A** education owns slots+bookings *(designed — every ingredient already exists)*; **B** generalise appointment-service into a real scheduler (`Doctor→Provider`, `Patient→Attendee`, `Hospital→Venue`, add a slot model and the missing unique keys) — correct long-term and it would fix §9d, **but it is a rename-and-remodel of a shipped vertical with live data**, its own slice; **C** map school→Hospital — **rejected**. **Recommended: A now, B as a recorded trigger** | **3.4 — designed under A**; say so before implementation if you want B |
 | ~~**D-8**~~ ✅ **RESOLVED 2026-08-07 (user decision: option C)** | **Should notices compose `campaign-service`, as this plan says?** The design says no, on evidence: `campaign-service` is a marketing engine whose member model has **`unsubscribedAt`**, and **a guardian cannot unsubscribe from a safety notice** — honouring the flag silently drops a family from mandatory messages, ignoring it makes the field a lie in a shared service. Expressing "Class 5 guardians" there also means exporting the roster into `AudienceMember` rows that go stale on the next transfer — the stale-access-list failure 3.1 D1 refused. Options: **A** education owns notices *(designed)*; **B** notices as campaigns *(the plan as written)*; **C** A now, and compose `campaign-service` later for **real campaigns** — admissions drives, fee-reminder runs. **Recommended: C** — the two are different capabilities, and C keeps the §1.2 campaign row open for the work it actually fits | **3.5 — designed under A/C**; say so before implementation if you want B, since the unsubscribe question is then a safeguarding decision, not a technical one |
 | **D-7** 🟡 **shipped under A; B remains a trigger** | **How a student without an email address gets a login.** Invitation needs an address, and **primary-school students largely have none** — the cohort 3.3 serves is the one least likely to hold one. Re-using the guardian's address is not a workaround but a **collision**: `auth-service` keys users by email, so the student would resolve to the guardian's login. Options: **A** invitation only, refuse without an address *(assumed — serves secondary/college now, primary not at all, and the refusal makes that visible)*; **B** school-issued **join codes** (D-6's recorded option C, reached a slice early); C guardian-created student logins — **rejected**, it *is* the collision. **Recommended: A now, B when a primary school is a real customer** — B reuses 3.3 unchanged, so deferring it costs nothing | **3.3 — designed to proceed under A**; say so before implementation if B is wanted in the same slice |
@@ -655,12 +660,25 @@ a register would be a worse defect than the race it closes.
 
 ### Recommended order from here
 
+_Rewritten 2026-08-09. The previous table had drifted into two rows numbered 4, an out-of-order 3, and five
+rows for work already shipped — the exact self-contradiction §9 finding 2 recorded as "worse than merely
+stale", reappearing in the same document that named it. **Completed work now lives in the progress log
+only.**_
+
 | # | Work | Why now |
 |---|---|---|
+| **1** | **F18 — make portal provisioning work locally** | ⚠️ **A SHIPPED FEATURE IS BROKEN.** `service.internal-secret` defaults to empty, so `PortalAccountController` fails closed and `invitePortalAccess` always returns PARTIAL: the access row is written and **the sign-in is never created**. 3.1b is "done" with its own §10 open. Small, and it is the last thing between 3.1b and genuinely working. **3.1b §10 recorded a preferred option and never got a decision — see D-10** |
+| ~~2~~ ✅ **PART A DONE (2026-08-09)** | **Slice 105 — give `notification-service` a datastore** (`slices/105-notification-multichannel-broadcast.md`) | Re-verified 2026-08-09: still **no entity package, no migrations, no datasource**. Its G3 is what forced N1's and 3.5's outboxes; **G2** is why `Alerts.sd/ed` scheduling has never fired; **G4** is why inventory computes expiry alerts nobody is told about. ⚠️ Touches a service all 13 modules share — its own slice, its own gate, its own regression breadth |
+| **3** | **Dup-check audit → UNIQUE constraints** (the twelve finding-D siblings) | The attendance key (V28) proved the method: **audit first, then constrain.** Those twelve were deferred *because* a tenant holding duplicates breaks the deploy and nobody had checked. Checking is cheap and it is the whole difference |
+| **4** | **`getUserFc` returns raw entities** | A standing DTO-boundary violation since 0.4, and the reason a field rename once changed the JSON contract |
+| — | **3.2 online payment** | **BLOCKED — D-4 is yours to decide.** The only Phase 3 slice not shipped |
+| — | **Phase 4 onward** (admissions, TC/alumni, documents, payroll, expenses, certification) | Not started. See §10 for what "100%" actually costs |
+
+---|---|---|
 | ~~1~~ ✅ **DONE (N1, 2026-08-06)** | **Notification** — and **NOT the "hours of wiring" this row first claimed.** Only 2.2's hook is a genuine wiring gap; 2.4 has no hook at all and 2.5 must not send (see the carried requirement). And an already-written design, **`slices/105-notification-multichannel-broadcast.md`**, records that `notification-service` **has no database**: delivery is synchronous on the request thread, unrecorded, and never retried (its G3). Wiring 2.2 straight to `EmailService.send()` would add a fourth synchronous un-retried send on a write path — knowingly building on the defect 105 exists to fix | **decision needed: slice 105 first, or an education-side notify outbox, or defer** |
 | ~~2~~ ✅ **DONE (3.1b, 2026-08-06)** | **Portal sign-in** — 13/13 + 85 regression cases. This was the "guardian sign-in" row that used to sit at the bottom of this table | 3.1's surface now has users, and **3.2 and 3.3 are unblocked** |
 | ~~3b~~ ✅ **DONE (3.5, 2026-08-07)** | **3.5 notices/circulars** — 10/10 + 53 regression. Shipped under **D-8 option C**. Also **finished a job the programme started**: `sendAlerts` was still sending synchronously against a database-less `notification-service` — now on N1's outbox, and it reports *queued*, never *sent* |
-| **4** ⬅ **NEXT** | **Slice 105 — give `notification-service` a datastore** (`slices/105-notification-multichannel-broadcast.md`) | Now the binding constraint on education, and it is **already designed**. Its G3 (delivery unrecorded, never retried) is what forced N1's and 3.5's outbox; its **G2** is why `Alerts`' `sd`/`ed` scheduling has never fired; its G4 is why **inventory computes expiry alerts nobody is ever told about**. Education's `notify_outbox` hands delivery tracking over when it lands. ⚠️ Touches a service all 13 modules share — its own slice, its own gate |
+| ~~4~~ ✅ **PART A DONE (2026-08-09)** — G3 closed; **G2 (scheduled alerts) and G4 (the other 12 modules) remain Part B** | **Slice 105 — give `notification-service` a datastore** (`slices/105-notification-multichannel-broadcast.md`) | Now the binding constraint on education, and it is **already designed**. Its G3 (delivery unrecorded, never retried) is what forced N1's and 3.5's outbox; its **G2** is why `Alerts`' `sd`/`ed` scheduling has never fired; its G4 is why **inventory computes expiry alerts nobody is ever told about**. Education's `notify_outbox` hands delivery tracking over when it lands. ⚠️ Touches a service all 13 modules share — its own slice, its own gate |
 | ~~3~~ ✅ **DONE (3.3, 2026-08-07)** | **3.3 student portal** — `slices/edu-3.3-student-portal.md`. Inherits sign-in, the deny rule and address verification unchanged: **it adds `ROLE_STUDENT` to `confined-roles` and a resolver, not a mechanism** — which is 3.1b D6's claim, now tested by a second audience. Two design consequences worth reading before it is built: the portal reads are **extracted** from `GuardianPortalController`, not copied (the first regression against this codebase's "extract at the second caller" record would otherwise land here), and **fee dues + behaviour notes are deliberately withheld** from a student session |
 | 4 | **3.5 notices/circulars** | composes `campaign-service` — closes another §1.2 row |
 | 5 | **Dup-check audit → UNIQUE constraints** + student `attendance` UNIQUE key | two live check-then-act races, both known, both deferred on D5 grounds that an audit would settle |
@@ -668,6 +686,132 @@ a register would be a worse defect than the race it closes.
 | — | **F18 → F2** (monolith never stamps `X-Internal-Secret`; `GatewayClient` has no `X-User-Roles` in direct mode) | **not education's to fix, but it is what keeps portal provisioning from working locally** and what leaves the filter blind to a service reached off-gateway. Sequence F18 first |
 
 ---
+
+
+---
+
+## 10. Status analysis — 2026-08-09 (measured, not asserted)
+
+**Surface: 37 domain entities · 36 controllers · Flyway V1–V28 · 22 unit test classes · 43 education Cypress
+specs.** Method per §3: files carrying `@Entity` (41), minus the four infrastructure tables
+(`GlOutbox`, `AuditOutbox`, `OrgSetting`, `NotifyOutbox`). Enums are excluded by the `@Entity` filter itself.
+
+### ⚠️ THE SPLIT TRIGGER IS NOW THREE ENTITIES AWAY, AND PHASE 4 CROSSES IT
+
+| | |
+|---|---|
+| 2026-08-04 (post-3.1) | 35 |
+| 2026-08-06 (post-N1) | 35 — N1 added a *table*, not a domain entity |
+| **2026-08-09 (post-Phase 3)** | **37** — `Notice` (3.5) and `MeetingEvent` (3.4) |
+| §3's trigger | **~40** |
+
+**Phase 4.1 alone (admissions: enquiry · application · test result · offer) is three to four entities.** So
+the very next phase crosses the line the plan set, and it does so on its first slice.
+
+> **This needs deciding BEFORE 4.1 is designed, not during it.** §3's trigger says split
+> `education-academic-service` (exams/marks/timetable/LMS) from `education-core` (people/admin/fees) — and
+> it also warns that a premature split "buys distributed-transaction problems for no gain". The marks↔fees
+> boundary is one commit today.
+>
+> **My reading: do NOT split at 40 mechanically.** The trigger was set as a proxy for "this service is
+> getting hard to reason about", and the evidence does not support that yet: 36 controllers over 37
+> entities is a flat, well-scoped surface, and Phase 3 added five slices without a single cross-slice
+> regression that a split would have prevented. **Re-measure the thing the trigger stands for** — build
+> time, test time, deploy coupling, how often two slices collide in one file — rather than counting rows.
+> Recorded as **D-11**.
+
+### Programme position
+
+| Phase | State |
+|---|---|
+| 0 | ✅ complete except 0.4's remainder (`Attendance`/`Student` cryptic columns) |
+| 1 | ✅ complete (1.1–1.6) |
+| 2 | ✅ complete (2.1–2.5) |
+| **3** | ✅ **3.1 · 3.1b · 3.3 · 3.4 · 3.5 all green.** ⛔ **3.2 alone remains — blocked on D-4** |
+| 4–6 | ⬜ not started |
+| non-phase | ✅ N1 · SCHED-1 (B1–B3) · V28 attendance key · exam-eligibility wire |
+
+**"100% end to end" is not reachable in one pass, and it is worth saying so plainly.** Phases 4–6 are
+roughly eighteen slices — admissions, TC/alumni, documents (gated on D-5), payroll (a new service),
+expenses, certification, then the whole department layer. At this programme's demonstrated cadence
+(one slice per working session, gate-green before the next) that is months, not a session.
+
+**What IS reachable, and what §Recommended order now sequences:** close the defects that make *shipped*
+features not work — F18 first, because a feature the plan records as done does not actually provision an
+account.
+
+### Standards position — what this programme still owes
+
+| Standard | State |
+|---|---|
+| Multi-tenancy | ✅ strong; anti-IDOR held through three external audiences (guardian, student, and a portal WRITE) |
+| Compose don't duplicate | ✅ **improved again**: 3.4 composes the scheduling core rather than building meeting tables — 1 → 5 composed services |
+| Reuse-first | ✅ `PortalReadService`, `NotifyMessage`, `SchedulingClient` all extracted at the second caller, never speculatively |
+| DTOs at the boundary | ❌ **`getUserFc` still returns raw entities** — open since 0.4 |
+| Config C1/C2 | ✅ **the last violation closed** (`edu.exam.minAttendancePercent`, §9e) |
+| DB D1–D8 | 🟡 attendance key done (V28); **twelve finding-D dup-checks still unaudited** |
+| Tests on build | 🟡 22 classes, all pure. **Still no empty-tenant Testcontainers test** — and SCHED-1 showed why it matters: an entity↔DDL mismatch only a real schema can catch cost a restart |
+| Cross-cutting → own service | 🟡 `document-service` and `payroll-service` still correctly unbuilt; **`notification-service` now HAS its datastore** (105 Part A, 2026-08-09) — delivery is recorded, retried and readable; scheduled sends (G2) and the other 12 modules' adoption (G4) are Part B |
+
+
+
+---
+
+## 11. Suite health review — 2026-08-09
+
+**RESOLVED — the suite is VERIFIED GREEN: 42 specs, 340 passing, 0 failing, `CYPRESS_EXIT=0`** (read from
+Cypress's own exit code, not a pipeline's).
+
+It had not been green for some time. The run that started this surfaced 8 failures; every one was diagnosed
+and fixed. This section exists because the *reasons* matter more than the count:
+only one was a product defect, and the rest were the suite quietly rotting against a moving codebase.
+
+### ⚠️ First, a correction: the "39/39 green" recorded on 2026-08-07 was unfounded
+
+That run's command ended `| tail -60`, so the exit code read was **tail's**, not Cypress's. `cypress run`
+exits with the failure count — but only if you read ITS code. **A gate's exit status must never be piped
+through anything.** Write to a file, then parse.
+
+### What the 8 failures actually were
+
+| Spec | Root cause | Class |
+|---|---|---|
+| `organization` | org DTO gained `type` (B2B/B2C: `ModuleRouter` routes on the ACTIVE ORG's type). Field correct, assertion stale | **spec drift** |
+| `section-load` ×3 | Intercepted ANY `getUser`-prefixed URL, but `getUserGrades` fires at page load and `getUserSubjects` on exam/marks — **reference-data loaders**, not the `getUser<SectionName>` phantom slice 108 targets | **spec too broad** |
+| `save-takeover-idor` | Read `row.f`; slice 0.4 renamed the field and **`getUserFc` returns the RAW ENTITY**, so the JSON contract moved with it. `Number(undefined)` = NaN read as "the fee was rewritten" when the takeover had in fact been REFUSED | **the DTO-boundary debt biting** |
+| `section-visibility` ×2 | **REAL PRODUCT BUG** — see below | **product** |
+| `registration-flow` ×6, `student-import` | `clearDemoCaps` targeted container `myplus-redis`; the running one is **`myplus-redius`**. Failed silently every run, demo write-caps never cleared, account hit its 50/day cap → `DEMO_LIMIT` 403s | **test infrastructure** |
+| `meetings` ×4 | Spec's own date gave only NINE distinct values, so re-runs collided on `uk_slot_provider_time` and publish returned `created: 0` | **spec not re-runnable** |
+
+### The product bug: the sidebar was dead until the dropdown had been used once
+
+Measured, twice, on the same page:
+
+| | result |
+|---|---|
+| `snavGo` with no prior interaction | section stayed `display:none` |
+| one dropdown select first, then `snavGo` | section opened |
+
+Exactly the reported symptom — *"StudentDiv was not visible; after inspecting, different menus start
+displaying."* The section show/hide is bound in `main.js` as `$('.dropdown').change(...)` at document ready;
+`searchable-selects.js` then bootstrap-select-ises every dropdown, **re-creating the element**, so a handler
+bound to the original stops firing.
+
+`snavGo` now applies the same rule when the trigger did not take effect. **This is a compensation, not the
+root fix** — that is delegating the binding (`$(document).on('change', '.dropdown', …)`) so it survives the
+element being replaced. Deliberately deferred: `main.js` drives every module's dashboard, so changing how
+all of them switch sections is its own slice with its own regression run.
+
+### The finding worth generalising
+
+**`clearDemoCaps` is the one to remember.** A one-character container-name typo made a test helper fail
+silently on every run; the consequence surfaced hours later, in a different spec, as 403s that looked like
+an authorisation defect. It now resolves the container dynamically and **warns loudly** when it cannot.
+
+> **A test helper that quietly does nothing is worse than one that fails.** The suite keeps running and the
+> reason for the eventual failure is invisible — which is precisely how a whole afternoon gets spent
+> debugging the wrong layer.
+
 
 ## Progress log
 
@@ -697,6 +841,8 @@ Kept current as slices land — this table, not memory or a chat message, is the
 | **3.1 guardian portal** | ✅ **DONE & Cypress-green 11/11 (2026-08-04)** — but **has no users until 3.1b** | `slices/edu-3.1-guardian-portal.md` | `education/guardian-portal.cy.js` |
 | **3.1b portal sign-in** | ✅ **DONE & Cypress-GREEN 13/13 (2026-08-06, twice consecutively) + 85 regression cases.** The gate found **two real defects**: the deny rule **failed open in gateway mode** (`X-User-Roles` had two parsers; this one did not strip the brackets `List.toString()` adds, so a guardian read the **whole student roster**), and once fixed the refusal came back **403 not 404** (`sendError()` → ERROR dispatch → unauthenticated re-entry). Both fixed — one shared `AuthorityHeader` parser, response committed directly — **18 pure cases** (slice §14/§15). ⚠️ Run 1's "PROVEN" was true only of the legacy path it happened to exercise. ✅ **D-6 settled — invitation-only**; the gate pins its boundary (no email ⇒ no invite) and its resend behaviour. ✅ `ROLE_PORTAL` → **`ROLE_GUARDIAN`**, and `confined-roles` is now configuration (3.3 adds `ROLE_STUDENT` without touching the filter). ✅ **Spec reviewed and corrected before the re-run** — 4 defects, all in the test, 3 of which would have reported a red against the wrong culprit (slice §13); 2 cases added (13 total). ⚠️ Local provisioning gap moved OUT of this slice → security **F18 → F2** | `slices/edu-3.1b-portal-sign-in.md` | `education/portal-sign-in.cy.js` |
 | **3.3 student portal** | ✅ **DONE & Cypress-GREEN 13/13 on the FIRST run (2026-08-07)** + 82 regression cases + 200 education unit tests. Shipped under **D-7 option A** (invitation only). **It went green first time because the mechanism was already proven: confining a brand-new external audience took ONE config line, and 3.1b's `confined_set_is_extensible` test was already asserting it.** Four implementation corrections (§12), one of them a real finding: **`ModuleRouter` was sending BOTH portal audiences to the staff shell — a guardian has been landing there since 3.1** — fixed for both. `guardian_portal_access` generalised in place (V25); **no new domain entity, so the split trigger has not moved** | `slices/edu-3.3-student-portal.md` | `education/student-portal.cy.js` |
+| **F18 / D-10 internal-secret** (non-phase) | ✅ **DONE 2026-08-09.** `GatewayClient` stamps `X-Internal-Secret` on DIRECT calls, completing the chain (gateway · monolith · service-to-service · `runAs`) — which is what made enabling the value SAFE. Enabled: forged identity headers now get nothing, and **portal provisioning creates a real sign-in**, closing 3.1b §10 | — | `portal-sign-in` + `privilege-map` under enforcement |
+| **Suite health repair** (non-phase) | ✅ **DONE 2026-08-09 — §11.** 8 failures: 1 product bug (sidebar dead until the dropdown had been used), 5 spec-drift, 2 test-infrastructure (`clearDemoCaps` targeted a mistyped container and failed silently). ⚠️ Also corrected the unfounded "39/39 green" of 08-07 | §11 | the whole 42-spec suite |
 | **N1 notification outbox** (non-phase) | ✅ **DONE & Cypress-green 11/11 (V24, 2026-08-06)** + `substitution.cy.js` green as the 2.2 regression. Scope was corrected to **2.2 only**: 2.4 has no hook and 2.5 must not send | `slices/edu-N1-notification-outbox.md` | `education/notification-outbox.cy.js` |
 
 ### Carried requirements (must not be lost between slices)

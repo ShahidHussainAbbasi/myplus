@@ -55,8 +55,10 @@ public class OrderController {
             @RequestParam(required = false)
             @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
             java.time.LocalDate to,
-            @RequestParam(required = false) String q) {
-        OrderQuery query = OrderQuery.of(page, size, status, paymentStatus, source, from, to, q);
+            @RequestParam(required = false) String q,
+            /** OMS O5c — only orders promised before today and not yet complete. */
+            @RequestParam(required = false, defaultValue = "false") boolean late) {
+        OrderQuery query = OrderQuery.of(page, size, status, paymentStatus, source, from, to, q, late);
         return ApiResponse.success(orderService.page(query, CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
@@ -76,6 +78,19 @@ public class OrderController {
             @RequestParam(required = false) String booksStatus) {
         return ApiResponse.success(orderService.listByBooksStatus(
                 booksStatus, CurrentUser.organizationId(), CurrentUser.userId()));
+    }
+
+    /**
+     * OMS O5c — what this shop still owes, and what it can now fill.
+     *
+     * <p>{@code ?ready=true} narrows to orders whose outstanding lines have stock again. Not a sweeper and not
+     * an allocator: it shows the merchant the choice, and O5b's Ship action carries it out.
+     */
+    @GetMapping("/backorders")
+    public ApiResponse<List<OrderDTO>> backorders(
+            @RequestParam(required = false, defaultValue = "false") boolean ready) {
+        return ApiResponse.success(orderService.backordersOutstanding(
+                CurrentUser.organizationId(), CurrentUser.userId(), ready));
     }
 
     @GetMapping("/{id}")

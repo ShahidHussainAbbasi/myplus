@@ -38,6 +38,23 @@ A green single-spec gate cannot see any of these. That is the gap this slice clo
 | **C** | **Assertions drifted behind the UI.** A `.selectpicker` hides its native `<select>`, so `.trigger()` needs `force` — which the same spec already uses nine times. The Sale Detail Report gained a column. A chip picker re-renders, detaching the subject mid-chain. | `purchase:273`, `sell:293` (13 vs **14** columns), `team-picker:85` | app is **ahead** of the specs — `sell.cy.js` finds *more* columns than it expects |
 | **D** | **Shared state bleeds between specs.** An org setting read `off` where the spec wanted the `warn` default; a DEMO session saw the owner-only Team section. | `credit-limit:93`, `team:27`, likely `commerce-gaps` + `multi-location` | `pos.sale.creditLimitPolicy` is org-scoped and mutable by any spec |
 | **E** | **A fail-open location guard.** Not a test bug — a design question (see §2e). | `multi-location` T6b | `LocationScope.java:55-60` |
+| **F** | **A shared UI behaviour was added globally and no spec was updated.** Slice **108b** (`searchable-selects.js`) converts every `<select>` to a bootstrap-select at RUNTIME — the template still declares them plain — so the native element becomes `display:none` and every `should('be.visible')` / unforced `.select()` against it fails. Its own comment names the field it changed: *"sellCustomerDD, the customer list, was a plain scrolling select."* | `sell` (9 tests) | `searchable-selects.js`; Cypress reported `<select#sellCustomerDD.form-control.selectpicker … style="display:none">` while `businessDashboard.html:1685` declares no `.selectpicker` |
+| **G** | **The global AJAX overlay races clicks.** `#appAjaxOverlay` (`ajax-overlay.js`) shows a full-page `.ao-box` on `ajaxStart` and hides on `ajaxStop`. When the server is slow it is still up when a test clicks, and Cypress correctly refuses. **Machine-speed dependent, so it hides and reappears** — the same suite gave 5 failures headless and 9 headed on one day, 0 on another. | `sell` (5 tests) | *"covered by another element: `<div class="ao-box">`"* |
+
+### Fixing F and G (2026-08-09)
+
+* **F** — assert the CONTAINER the template owns (`#customerSelectMode`), not the plugin-hidden `<select>`; use
+  `{force:true}` on `.select()` against the native element, the idiom this file already used six times for
+  `#sellType`. Asserting the container is also the better test: these cases are about the MODE TOGGLE.
+* **G** — a file-scope `waitForAppReady()` that waits for **`.ao-box` to be not visible**, i.e. the exact
+  element Cypress names as the blocker. An earlier attempt waited on `#appAjaxOverlay` not having class `show`
+  and still failed: *waiting on a different element than the one that blocks leaves a gap*.
+  Deliberately **not** `{force:true}` — forcing would click through an overlay a shopkeeper cannot click
+  through, so a genuinely stuck spinner would pass the gate and fail in production.
+
+**The transferable lesson:** a global UI change (108b) and a global UX affordance (the overlay) each broke specs
+in a module neither slice touched. **When a change is cross-cutting by design, its regression set is the whole
+suite, not the module it was written for.**
 
 ### What is NOT wrong
 

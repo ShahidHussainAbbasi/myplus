@@ -413,20 +413,41 @@ $(document).ready(function() {
 	    		document.getElementById("sellRec").style.borderColor = "";
 				var error = false;
 
-				// Customer is mandatory regardless of payment mode
+				// Whether a customer must be named is now the TENANT's policy (pos.customer.required,
+				// default ON = the long-standing behaviour). A wholesaler invoices accounts and wants it
+				// enforced; a retail counter ringing up cash does not, and typing a name per customer is
+				// the single biggest queue cost at a shop that runs no accounts.
+				//
+				// CREDIT is the exception that is not configurable: money owed has to be owed BY someone.
+				// A tenant who switches the requirement off still cannot sell on account anonymously.
 				var isSelectMode = $('#btnModeSelect').hasClass('active');
-				if (isSelectMode) {
-					if (!$("#sellCustomerDD").val()) {
-						document.getElementById("sellCustomerDD").style.setProperty('border-color', 'red', 'important');
-						return;
+				var payMethod = $("#sellPayMethod").val();
+				var owesBalance = ($("#sellCh").val()*ONE < 0) || payMethod === 'CREDIT';
+				var customerRequired = (window.posCustomerRequired !== false) || owesBalance;
+				if (customerRequired) {
+					if (isSelectMode) {
+						if (!$("#sellCustomerDD").val()) {
+							document.getElementById("sellCustomerDD").style.setProperty('border-color', 'red', 'important');
+							showFormError(owesBalance && window.posCustomerRequired === false
+								? 'A sale on credit must name the customer who owes it.'
+								: 'Please choose a customer.');
+							return;
+						}
+						document.getElementById("sellCustomerDD").style.removeProperty('border-color');
+					} else {
+						if ($("#sellCN").val().trim() == "") {
+							document.getElementById("sellCN").style.setProperty('border-color', 'red', 'important');
+							showFormError(owesBalance && window.posCustomerRequired === false
+								? 'A sale on credit must name the customer who owes it.'
+								: 'Please enter the customer name.');
+							return;
+						}
+						document.getElementById("sellCN").style.removeProperty('border-color');
 					}
-					document.getElementById("sellCustomerDD").style.removeProperty('border-color');
-				} else {
-					if ($("#sellCN").val().trim() == "") {
-						document.getElementById("sellCN").style.setProperty('border-color', 'red', 'important');
-						return;
-					}
-					document.getElementById("sellCN").style.removeProperty('border-color');
+				} else if (!isSelectMode && $("#sellCN").val().trim() === "") {
+					// Anonymous walk-in: stamp the configured name so the invoice still has a payee.
+					// An invoice with a blank customer is not "faster", it is unattributable.
+					$("#sellCN").val(window.posWalkInName || 'Walk-in Customer');
 				}
 
 				// Proceed when the cart has items AND (payment received OR still owing OR we're editing an existing

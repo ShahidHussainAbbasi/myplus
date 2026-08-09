@@ -1,8 +1,31 @@
 # Slice 105 — notification-service: multi-channel broadcast
 
-**Status: DESIGN — awaiting approval. No code written.**
+**Status: PART A BUILT (2026-08-09) — G3 CLOSED. Awaiting the headed Cypress gate.**
 Standing rule: [[feedback_microservice_standards]] — notification-service is the delivery path for every service.
 Sequenced AFTER the education suite fix and slice `edu-1.1`.
+
+### What shipped, and what did NOT
+
+This slice was designed as one piece. It shipped as **Part A — the datastore and the delivery record**, which
+is what every other gap was waiting on. The rest is listed as Part B below, unbuilt and honestly marked.
+
+| | Gap | State |
+|---|---|---|
+| **G3** | delivery synchronous, unrecorded, never retried | ✅ **CLOSED** — `myplusdb_notification`, per-recipient rows, bounded retry, idempotency, org-scoped reads |
+| **G1** | email is the only channel | ⬜ Part B — `Channel` enum ships with `SMS` **defined and not implemented**, per D4. Still no provider (§6) |
+| **G2** | scheduled alerts never fire | ⬜ Part B — needs `scheduled_at` on the broadcast + the D6 deploy guard |
+| **G4** | one module of thirteen can notify | ⬜ Part B — but the cost dropped: any service can now record and retry by passing three optional parameters |
+
+**Deviation from the design, deliberate.** D1/D2 called for a new `POST /broadcast` endpoint plus an
+`AudienceResolver` SPI, with education's `consumerEmails` moved behind it. Part A instead recorded on the
+**existing `/email` path**, with `source`, `orgId` and `dedupeKey` added as *optional* parameters.
+
+Why: a new endpoint would have required all thirteen `NotificationClient` consumers to move in one commit to
+get any benefit, and moving education's audience resolution is an independent change with its own blast
+radius. The optional-parameter form closes G3 for **every existing caller** — auth verification, password
+reset, campaign leads, all of education — while none of them had to change, and each can adopt attribution
+when its own slice comes round. Expand now, contract later. The `/broadcast` endpoint and the SPI remain the
+right shape for Part B, where audience resolution genuinely is the problem being solved.
 
 ---
 
@@ -284,21 +307,60 @@ sequenceDiagram
 
 ## 4. Implement — checklist
 
-- [ ] `common-notify`: `AudienceResolver` SPI, `Recipient`, `BroadcastRequest`/`BroadcastAck`, `Channel` enum;
-      extend `NotificationClient` with `broadcast(...)` (additive — `sendEmail` untouched)
-- [ ] notification-service: datasource + Flyway `V1` (`notification_broadcast`, `notification_delivery`,
-      indexes on `(status, scheduled_at)` and `(org_id)`)
-- [ ] `BroadcastService.accept()` — dedupe on `dedupe_key`, persist PENDING, return 202
-- [ ] `ChannelSender` port + `EmailChannelSender` (wraps today's `JavaMailSender`, no behaviour change) +
-      `SmsChannelSender` returning `NOT_CONFIGURED`
-- [ ] `Dispatcher` — `@Scheduled`, honours `scheduled_at`, bounded retry, records `last_error`
-- [ ] `GET /broadcasts/{id}` — per-recipient status, org-scoped + anti-IDOR by-id read
-- [ ] education: `GuardianAudienceResolver` replacing the private `consumerEmails`; `sendAlerts` enqueues via
-      `common-outbox` instead of sending inline
+**Part A — built 2026-08-09**
+
+- [x] notification-service: datasource (`myplusdb_notification`) + Flyway `V1` — `notification_broadcast`,
+      `notification_delivery`, `uk_broadcast_dedupe`, `idx_delivery_pending`, `idx_delivery_recipient`
+- [x] `Channel` (EMAIL, SMS-defined-not-implemented) + `DeliveryStatus` (PENDING/SENT/FAILED) + both entities
+      and repositories
+- [x] `DeliveryRecorder` — dedupe on `dedupe_key`, one row per recipient, **best-effort throughout**: if the
+      record cannot be written the send still happens (a closure notice arriving beats its audit row)
+- [x] `DeliveryDispatcher` — `@Scheduled`, bounded retry (`notify.dispatch.max-attempts`, default 5), records
+      `last_error`, moves to FAILED when exhausted so a row never sits PENDING forever
+- [x] `NotificationService.deliver()` split out — the raw send, **no recording**, so the retry path cannot
+      re-record (see the defects note below)
+- [x] `GET /deliveries?recipient=` and `GET /broadcasts/{id}` — tenant-scoped in the QUERY, anti-IDOR by-id
+- [x] read endpoints made `authenticated()` **above** the service's `permitAll` rule for `/api/notifications/**`
+- [x] `NotificationClient.sendEmail(request, source, orgId, dedupeKey)` — additive; the one-arg form untouched
+- [x] education: `EmailService` attributes every send; the **relay passes the tenant from the outbox row**
+- [x] monolith: `/getNotificationDeliveries`, `/getNotificationBroadcast` proxies — without these the read
+      endpoints would answer nobody
+- [x] `@EnableScheduling` on the application class (without it the relay silently never runs)
+- [x] 27 always-run unit tests (21 notification-service + 6 education `EmailServiceTest`)
+- [x] **Demo reset now actually purges this service** — no new code. `DemoPurgeController` (in
+      `common-service`, inherited by every service through `service-parent`) is
+      `@ConditionalOnBean(EntityManagerFactory)`, so it was dormant here while the service had no JPA.
+      Adding the datastore activated it, and both new entities carry `organizationId`, so they are scoped
+      and cleared like every other module's. Worth stating because the opposite was the live risk: the
+      monolith's `DemoResetController` has always called `/api/notifications/demo/purge` and the gateway has
+      always routed it, against an endpoint that did not exist. That was harmless only while there was
+      nothing to purge — this slice is exactly what would have made it start leaking demo data.
+
+**Part B — NOT built**
+
+- [ ] `common-notify`: `AudienceResolver` SPI, `Recipient`, `BroadcastRequest`/`BroadcastAck`
+- [ ] `POST /broadcast` returning 202 + id
+- [ ] `ChannelSender` port + `SmsChannelSender` returning `NOT_CONFIGURED` (needs §6 first)
+- [ ] `scheduled_at` + the D6 deploy guard — **G2 stays open**
+- [ ] education: `GuardianAudienceResolver` replacing the private `consumerEmails`
 - [ ] the five `notif.*` settings in the common-settings catalog (D8)
-- [ ] `ADMIN_PRIVILEGE` on broadcast endpoints (D-3 tier)
+- [ ] `ADMIN_PRIVILEGE` on the broadcast endpoint (D-3 tier) — N/A until that endpoint exists
 - [ ] i18n keys × 6 bundles for the delivery-result UI
-- [ ] register on Eureka / config-server / gateway route
+- [ ] inventory / the other eleven modules adopting attribution (G4)
+
+### Two defects caught during the build, both silent in production
+
+1. **The dispatcher would have made the queue undrainable.** It first called `sendEmail`, which now records —
+   so every retry pass would have written a *new* broadcast and a fresh batch of PENDING rows, creating more
+   work than it completed. Fixed by splitting the non-recording `deliver()`. No test would have failed; the
+   table would just have grown forever.
+2. **The relay would have recorded tenant-less rows.** It sends on a **scheduler thread**, where
+   `CurrentUser.organizationId()` is null. Because the read endpoints are tenant-scoped, every relayed
+   delivery would have been written and then been unreadable — invisible loss that looks exactly like a
+   successful send. The tenant now comes from the outbox row that the request thread stamped.
+
+Both are the same shape as the lessons already recorded on this programme: a capability added to one path
+changes the meaning of another path that calls it, and *context does not survive a thread hop*.
 
 ## 5. Test
 
@@ -315,9 +377,30 @@ sequenceDiagram
 | 9 | notification-service down when education sends | `Alerts` row still committed; relay delivers on recovery |
 | 10 | Existing `sendEmail` callers (auth verification, password reset, campaign lead) | unchanged — regression |
 
-Gate: `cypress/e2e/platform/notification-broadcast.cy.js`
-**Regression:** `education/alerts.cy.js`, plus auth signup/reset (they share `NotificationClient`).
-Unit: dedupe, retry-bound and the D6 guard are pure logic → always-run tests, per the tests-on-build standard.
+**Part A gate (written, not yet run headed): `cypress/e2e/education/notification-delivery.cy.js`** — 7 cases.
+Cases 4, 5, 6 and 8 above belong to Part B and are NOT covered; case 9 is covered by education's existing
+outbox spec rather than here.
+
+| # | Part A case | Why it needs an end-to-end gate |
+|---|---|---|
+| 1 | an alert leaves a per-recipient row | the slice's whole purpose; crosses two services and a relay thread |
+| 2 | the row is attributed to the tenant | **the relay has no security context** — a unit test cannot see this |
+| 3 | a failure records *why* | the honest-failure rule (D4's shape), unreachable without a real SMTP outcome |
+| 4 | re-sending the identical alert does not double it | the dedupe key across a real UNIQUE constraint |
+| 5 | a genuinely different message IS recorded | the dangerous inverse — a key that swallowed new notices |
+| 6 | another tenant reads none of it | anti-IDOR, across two real logins |
+| 7 | alerts behave exactly as before | recording was ADDED; nothing narrowed |
+
+**Regression:** `education/alerts.cy.js`, `education/notification-outbox.cy.js`, plus auth signup/reset
+(they share `NotificationClient`).
+Unit (always-run, 27): idempotency, per-recipient fan-out, the attempt cap, "already SENT is never
+downgraded", a bad row not stopping the batch, an unreadable queue not cancelling the `@Scheduled` pass,
+distinct dedupe keys per recipient. The D6 guard is Part B and untested because unbuilt.
+
+**Status note, deliberate:** `SENT` means the mail server ACCEPTED the message — not that it reached an
+inbox. Bounce and spam handling need provider webhooks, which this slice does not build. The gate therefore
+asserts a row exists with a known outcome and never that mail arrived; asserting `SENT` would tie the gate to
+a live SMTP server, which is the flakiness this slice exists to remove.
 
 ## 6. Open decision — SMS provider
 

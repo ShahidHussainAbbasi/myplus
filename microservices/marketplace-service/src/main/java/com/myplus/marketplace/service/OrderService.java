@@ -58,16 +58,61 @@ public class OrderService {
 
     @Transactional
     public OrderDTO record(OrderDTO dto, Long orgId, Long userId) {
+        // OMS O5e step 1 (OMS-5) — ONE INVOICE IS ONE ORDER.
+        //
+        // Shipped first and alone, deliberately: it is safe by itself (a repeat post becomes a no-op) and it is
+        // what makes the rest of O5e safe. During the migration BOTH the browser and business-service will
+        // record the order; without this key that is two writers and two orders for one sale — the defect O2's
+        // OMS-3 work removed from the storefront, reappearing on the POS path.
+        //
+        // invoiceNo is the natural key: it is already unique per org and already identifies the sale.
+        String key = dto.getInvoiceNo();
+        if (key != null && !key.isBlank()) {
+            Order existing = repo.findByOrgAndIdempotencyKey(orgId, key).orElse(null);
+            if (existing != null) {
+                LOG.info("POS order for invoice {} replayed — returning existing order {}", key, existing.getId());
+                return toDTO(existing);
+            }
+        }
+
+        // OMS O5e step 2 — a POS order becomes a first-class order.
+        //
+        // Both additions are ADDITIVE and backward-compatible: the browser still posts
+        // {invoiceNo, customerName, total} and keeps working. `items` is used when the caller supplies it,
+        // which business-service will in step 3; until then a POS order simply has none, exactly as before.
+        //
+        // The SO- number is allocated unconditionally, because there is no reason a POS order should be the one
+        // kind of order a merchant cannot quote or track. Same MAX+1 allocation placePublic uses, made race-safe
+        // by UNIQUE(organization_id, order_seq).
+        long orderSeq = repo.maxOrderSeqForOrg(orgId) + 1;
+
         Order o = Order.builder()
                 .organizationId(orgId).userId(userId)
+                .orderSeq(orderSeq)
+                .orderNo(com.myplus.commerce.domain.InvoiceNumbers.order(orderSeq))
                 .invoiceNo(dto.getInvoiceNo())
+                .idempotencyKey(key)
                 .customerName(dto.getCustomerName())
                 .total(dto.getTotal())
+                // Lines are what make cancel/return able to restore stock at all — the guard is
+                // `!items.isEmpty()`. Empty until step 3 sends them, which is why OMS-5 is not closed yet.
+                .items(toItems(dto.getItems()))
                 .shippingAddress(dto.getShippingAddress())
                 .source("POS").paymentMode(dto.getPaymentMode() != null ? dto.getPaymentMode() : "POS")
                 .fulfilmentStatus(FulfilmentStatus.NEW)
                 .build();
-        Order saved = repo.save(o);
+        Order saved;
+        try {
+            // Flush now so a concurrent double-post surfaces HERE as a duplicate key rather than at commit.
+            // UNIQUE(organization_id, idempotency_key) is what actually makes this race-safe — the read above
+            // only handles the common sequential replay.
+            saved = repo.saveAndFlush(o);
+        } catch (org.springframework.dao.DataIntegrityViolationException duplicate) {
+            Order winner = (key == null) ? null : repo.findByOrgAndIdempotencyKey(orgId, key).orElse(null);
+            if (winner == null) throw duplicate;   // a different constraint — do not swallow it
+            LOG.info("POS order for invoice {} lost the insert race — returning order {}", key, winner.getId());
+            return toDTO(winner);
+        }
         notificationService.notify(saved, "NEW", "Order received");   // slice 57: start the timeline
         return toDTO(saved);
     }
@@ -208,8 +253,12 @@ public class OrderService {
                 .paymentStatus(payStatus).paymentRef(payRef)
                 .customerAccountId(customerAccountId)
                 .items(toItems(dto.getItems()))
+                // O5c: NEW is only right when the order can be filled. With a shortfall it is BACKORDERED from
+                // the moment it is accepted — the status is DERIVED from the line quantities (O5b), and
+                // hardcoding NEW here made a backordered order claim it was ready to pack.
                 .fulfilmentStatus(FulfilmentStatus.NEW)
                 .build();
+        ShipmentService.applyProjection(o);
         Order saved;
         try {
             saved = repo.saveAndFlush(o);   // flush now so a duplicate-key race surfaces HERE, not at commit
@@ -262,6 +311,53 @@ public class OrderService {
             }
         }
         return "Sorry, an item in your cart is out of stock or unavailable.";
+    }
+
+    /**
+     * OMS O5c — backorders that can now be filled, and those still waiting.
+     *
+     * <h3>Why this is a READ and not a sweeper</h3>
+     * §3.3 of the design assumed a scheduled sweeper, by analogy with O5a's. That analogy does not hold. O5a
+     * needed a job because it had to <b>mutate</b> — stranded holds had to be released or the stock stayed
+     * unsellable forever. Here nothing needs mutating: "can this backorder be filled now?" is entirely derived
+     * from stock that already exists, so a query answers it exactly and a stored "ready" flag would only start
+     * going stale the moment stock moved. Same reasoning as {@code late} being derived rather than stored.
+     *
+     * <p>It deliberately does not allocate. Taking goods for an old order ahead of a customer standing at the
+     * till is a merchant's decision; this shows them the choice and O5b's Ship action carries it out.
+     */
+    @Transactional(readOnly = true)
+    public List<OrderDTO> backordersOutstanding(Long orgId, Long userId, boolean readyOnly) {
+        List<Order> outstanding = repo.findOutstandingBackorders(orgId, userId);
+        if (outstanding.isEmpty()) return List.of();
+
+        java.util.Map<Long, Float> sellable = new java.util.HashMap<>();
+        try {
+            java.util.Map<Long, java.util.Map<String, Float>> detail =
+                    asStore(orgId, () -> backorderPolicy.readSellableAsStore(orgId));
+            if (detail != null)
+                detail.forEach((pid, m) -> sellable.put(pid, m == null ? 0f : m.getOrDefault("sellable", 0f)));
+        } catch (RuntimeException readFailed) {
+            // Show the backlog without the readiness flag rather than an error page: knowing WHAT is owed is
+            // useful even when we cannot say what has arrived.
+            LOG.warn("Backorder readiness unknown for org {} — listing without it", orgId, readFailed);
+        }
+
+        List<OrderDTO> out = new ArrayList<>();
+        for (Order o : outstanding) {
+            boolean ready = false;
+            for (OrderItem it : o.getItems()) {
+                int owed = it.getQuantityBackordered() == null ? 0 : it.getQuantityBackordered();
+                if (owed <= 0) continue;
+                Float have = sellable.get(it.getProductId());
+                if (have != null && have >= owed) { ready = true; break; }
+            }
+            if (readyOnly && !ready) continue;
+            OrderDTO d = toDTO(o);
+            d.setReadyToFulfil(ready);
+            out.add(d);
+        }
+        return out;
     }
 
     // ── OMS O5c — backorders ──────────────────────────────────────────────────────────────────────────────
@@ -417,7 +513,11 @@ public class OrderService {
                 org.springframework.data.domain.PageRequest.of(q.getPage(), q.getSize());
         return com.myplus.common.web.PageResponse.of(
                 repo.findPage(orgId, userId, status, q.getPaymentStatus(), q.getSource(),
-                        q.getFrom(), q.getTo(), q.likePattern(), pageable),
+                        q.getFrom(), q.getTo(), q.likePattern(),
+                        // O5c: "today" doubles as the late-filter switch — null means no filter, which keeps
+                        // one query serving every combination rather than a second near-identical one.
+                        q.isLateOnly() ? java.time.LocalDate.now() : null,
+                        pageable),
                 this::toDTO);
     }
 

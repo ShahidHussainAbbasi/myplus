@@ -74,6 +74,7 @@
         // takes ISO. Convert here rather than loosening the server's parser.
         var from = toIso($('#ordFilterFrom').val()); if (from) { p.from = from; }
         var to = toIso($('#ordFilterTo').val()); if (to) { p.to = to; }
+        if ($('#ordFilterLate').is(':checked')) { p.late = true; }   // O5c: promised before today, not complete
         return p;
     }
 
@@ -134,6 +135,15 @@
         tr.append($('<td>').text(money(o.total)));
         tr.append($('<td>').text((o.paymentMode || '') + (o.paymentStatus ? ' / ' + o.paymentStatus : '')));
         tr.append($('<td>').text(o.fulfilmentStatus || ''));
+        // O5c: promised date + aging. `late` is derived server-side on every read, so it cannot drift the way a
+        // stored flag would once the clock passes the promise.
+        var promised = $('<td>').text(o.promisedDate || '');
+        if (o.late === true) {
+            promised.css({ color: '#c0392b', fontWeight: '600' })
+                    .attr('title', t('ui.js.pastPromisedDate') || 'Past its promised date');
+            tr.css('background', '#fdecea');
+        }
+        tr.append(promised);
         tr.append($('<td>').text(when(o.createdAt)));
         tr.append($('<td>').html(actionsFor(o)));
         return tr;

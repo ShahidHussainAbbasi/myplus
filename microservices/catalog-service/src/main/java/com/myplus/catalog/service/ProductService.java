@@ -1,5 +1,6 @@
 package com.myplus.catalog.service;
 
+import com.myplus.catalog.dto.NameCheckDTO;
 import com.myplus.catalog.dto.ProductDTO;
 import com.myplus.catalog.entity.Category;
 import com.myplus.catalog.entity.Product;
@@ -80,6 +81,26 @@ public class ProductService {
         p.setUserId(userId);
         if (p.getCreatedBy() == null) p.setCreatedBy(userId);
         return toDto(productRepository.save(p));
+    }
+
+    /**
+     * Server-side duplicate-NAME check for the product form (fired on focus-out of the Name field).
+     *
+     * <p>Reports, never rejects — see {@link com.myplus.catalog.dto.NameCheckDTO}. {@code excludeId} is the
+     * product being edited, so re-saving a product does not flag it against itself. Read-only and scoped, so a
+     * caller can only ever be told about a namesake in their own tenant.
+     */
+    @Transactional(readOnly = true)
+    public NameCheckDTO checkName(String name, Long excludeId) {
+        String n = normalize(name);
+        if (n == null) return NameCheckDTO.none();
+        return productRepository.findByNameScoped(n.toLowerCase(), CurrentUser.organizationId(), CurrentUser.userId())
+                .stream()
+                .filter(p -> excludeId == null || !excludeId.equals(p.getId()))
+                .findFirst()
+                .map(p -> new NameCheckDTO(true, p.getId(), p.getName(), p.getSku(),
+                        !Boolean.FALSE.equals(p.getIsActive())))
+                .orElseGet(NameCheckDTO::none);
     }
 
     @Transactional

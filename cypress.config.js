@@ -56,19 +56,41 @@ module.exports = defineConfig({
         // — it does NOT purge any module data (unlike the monolith's /demo/reset). Fail-open: if Redis
         // isn't reachable (e.g. CI without the container) just no-op so the run still proceeds.
         clearDemoCaps() {
+          // RESOLVE THE CONTAINER, never hard-code its name (fixed 2026-08-09).
+          //
+          // This targeted `myplus-redis`. The running container is `myplus-redius` — a typo in whatever
+          // created it — so every call threw, the catch below swallowed it, and the demo caps were NEVER
+          // cleared. Silently. The consequence surfaced hours later and nowhere near the cause: the demo
+          // account exhausted its 50-writes/day cap and registration-flow, student-import and one
+          // save-takeover case started returning DEMO_LIMIT 403s that looked like authorisation bugs.
+          let container = null
+          try {
+            container = execSync('docker ps --filter "name=red" --format "{{.Names}}"', { encoding: 'utf8' })
+              .split(/\r?\n/).map((n) => n.trim()).filter(Boolean)[0] || null
+          } catch (e) {
+            container = null
+          }
+          if (!container) {
+            // LOUD, not silent. A helper that quietly does nothing is worse than one that fails: the
+            // suite keeps running and the reason for the eventual 403s is invisible.
+            console.warn('[clearDemoCaps] no Redis container found — demo write-caps NOT cleared. '
+              + 'Expect DEMO_LIMIT 403s once the seeded demo account passes 50 creates/day.')
+            return null
+          }
           try {
             // NB: double-quote the glob — single quotes are passed literally by Windows cmd.exe
             // (Node spawns execSync via cmd), so 'demo:*' would match nothing and never clear.
             const keys = execSync(
-              'docker exec myplus-redis redis-cli --scan --pattern "demo:*"',
+              `docker exec ${container} redis-cli --scan --pattern "demo:*"`,
               { encoding: 'utf8' }
-            ).split('\n').map(k => k.trim()).filter(Boolean)
+            ).split(/\r?\n/).map((k) => k.trim()).filter(Boolean)
             if (keys.length) {
-              execSync(`docker exec myplus-redis redis-cli DEL ${keys.join(' ')}`, { stdio: 'ignore' })
+              execSync(`docker exec ${container} redis-cli DEL ${keys.join(' ')}`, { stdio: 'ignore' })
             }
             return keys.length
           } catch (e) {
-            return null // Redis/docker unavailable — don't fail the run
+            console.warn(`[clearDemoCaps] Redis reachable as "${container}" but clearing failed: ${e.message}`)
+            return null
           }
         },
       })

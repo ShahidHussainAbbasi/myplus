@@ -26,6 +26,32 @@ const SELF_LOADING = [
   ['HomeworkDiv',     'getUserHomework'],
 ]
 
+
+/**
+ * Reference-data dropdown loaders that legitimately share the `getUser` prefix.
+ *
+ * ── WHY THIS LIST EXISTS (added 2026-08-09) ──────────────────────────────────────────────────────
+ * These three cases asserted that ANY getUser-prefixed URL had NEVER been called, and were therefore failing on every
+ * run: `getUserGrades` fires at PAGE LOAD (education.js line ~23 primes the attendance roster's class
+ * dropdown) and `getUserSubjects` fires when an exam/marks screen fills its subject picker. Neither is a
+ * phantom — they are reference data a screen genuinely needs.
+ *
+ * The phantom this slice exists to catch is `getUser<SectionName>` — getUserAcademicYear, getUserExam,
+ * getUserMarks — produced by the generic convention firing for a screen that has no such endpoint.
+ *
+ * The original comment argued for catching ANY getUser* so that "a differently-wrong URL" could not slip
+ * through, and that concern is right. It is preserved: anything NOT on this allowlist still fails, so a
+ * newly-invented wrong URL is caught exactly as intended. Only the known-good loaders are excused, and
+ * they are named here rather than the assertion being loosened to nothing.
+ */
+const REFERENCE_LOADERS = ['getUserGrades', 'getUserSubjects', 'getUserStaffs', 'getUserStudents',
+  'getUserOwners', 'getUserSchools', 'getUserGuardians', 'getUserVehicles', 'getUserDiscounts']
+
+/** Every intercepted getUser* call that is NOT a known reference loader — i.e. a real phantom. */
+const phantomsOnly = (calls) =>
+  (calls || []).map((c) => c.request.url)
+    .filter((u) => !REFERENCE_LOADERS.some((ref) => u.includes(ref)))
+
 describe('Education — sections load without a phantom getUser call (slice 108)', () => {
   beforeEach(() => { cy.loginAsEduOwner() })
 
@@ -42,8 +68,11 @@ describe('Education — sections load without a phantom getUser call (slice 108)
     cy.wait('@own').its('response.statusCode').should('eq', 200)
     cy.get('#AcademicYearDiv').should('be.visible')
 
-    // ...and the phantom must never have been sent. cy.get on an alias with no calls yields null.
-    cy.get('@phantom.all').should('have.length', 0)
+    // ...and no PHANTOM must have been sent. Reference-data loaders are excused by name; anything else
+    // still fails, so a differently-wrong URL is caught exactly as the slice intended.
+    cy.get('@phantom.all').then((calls) => {
+      expect(phantomsOnly(calls), 'phantom getUser<Section> calls').to.deep.eq([])
+    })
   })
 
   it('the reported screens — Exam and Marks — behave the same way', () => {
@@ -55,7 +84,9 @@ describe('Education — sections load without a phantom getUser call (slice 108)
     cy.get('#registrationType').select('MarksDiv', { force: true })
     cy.get('#MarksDiv').should('be.visible')
 
-    cy.get('@phantom.all').should('have.length', 0)
+    cy.get('@phantom.all').then((calls) => {
+      expect(phantomsOnly(calls), 'phantom getUser<Section> calls').to.deep.eq([])
+    })
   })
 
   it('every self-loading section opens without a getUser call', () => {
@@ -65,7 +96,9 @@ describe('Education — sections load without a phantom getUser call (slice 108)
       cy.get('#registrationType').select(div, { force: true })
       cy.get('#' + div).should('be.visible')
     })
-    cy.get('@phantom.all').should('have.length', 0)
+    cy.get('@phantom.all').then((calls) => {
+      expect(phantomsOnly(calls), 'phantom getUser<Section> calls').to.deep.eq([])
+    })
   })
 
   /**

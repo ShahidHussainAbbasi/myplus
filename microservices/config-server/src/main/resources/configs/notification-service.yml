@@ -2,6 +2,12 @@ server:
   port: 8093
 
 spring:
+  # Slice 105 — this service had NO datastore until 2026-08-09: no entity, no repository, no Flyway. That
+  # is gap G3, and it is why education built its own notify_outbox rather than trust a send it could not
+  # verify. MySQL rather than Redis (decided with the user): a delivery record is EVIDENCE — durable,
+  # queryable by recipient, retained, potentially audited — not ephemeral queue state.
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/myplusdb_notification?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B05:00&forceConnectionTimeZoneToSession=true
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:465}
