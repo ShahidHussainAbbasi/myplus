@@ -44,6 +44,8 @@ class EduNotifyServiceTest {
     @Mock private NotifyOutboxRepository repo;
     @Mock private ApplicationEventPublisher events;
     @Mock private com.myplus.common.outbox.OutboxRelay relay;
+    /** Required: it is a constructor dependency now, and the D3 case below asserts it is NOT called. */
+    @Mock private NotifyDeliveryRunner deliveryRunner;
     @Mock private SettingsService settingsService;
     @InjectMocks private EduNotifyService service;
 
@@ -95,6 +97,29 @@ class EduNotifyServiceTest {
         assertThat(row.getValue().getEventType()).isEqualTo("ALERT");
         assertThat(row.getValue().getRecipientEmail()).isEqualTo("a@x.com");
         assertThat(row.getValue().getStatus()).isEqualTo("PENDING");
+    }
+
+    // ── D3: nothing sends on the request thread ─────────────────────────────────────────────────────
+
+    @Test
+    void queueing_does_NOT_deliver_on_the_calling_thread() {
+        // D3, and case 7 of 3.5's own test plan: "publishing queues and does NOT block".
+        //
+        // The hook was an AFTER_COMMIT listener running inline in the caller's commit, so a publish did one
+        // SMTP round-trip PER RECIPIENT before the response was written — measured at 24 sequential
+        // attempts, ~42s, against the gateway's 20s limit. `queue()` must only publish the EVENT; the
+        // delivery happens on the async executor, and nothing here may touch the relay.
+        repoAssignsIds();
+
+        service.queueAll("ALERT", "S", "B", List.of("a@x.com", "b@x.com"));
+
+        // Assert against the DELIVERY RUNNER, not the relay: delivery moved behind it when the transaction
+        // was split off the async listener, so verifying the relay alone would now pass no matter what.
+        verify(deliveryRunner, never()).deliver(any(), any());
+        verify(relay, never()).deliver(any(), any());
+        // The event is what hands delivery off. One per recipient — the fan-out lives in the outbox rows,
+        // not in a single event carrying a list, so one bad address fails alone.
+        verify(events, times(2)).publishEvent(any(EduNotifyService.NotifyEnqueued.class));
     }
 
     // ── the gated path still gates (3.5 must not regress the other way) ─────────────────────────────

@@ -10,9 +10,9 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -58,6 +58,8 @@ public class EduNotifyService {
     private final ApplicationEventPublisher events;
     private final OutboxRelay relay;
     private final SettingsService settingsService;
+    /** Owns the REQUIRES_NEW transaction for an async delivery — see its javadoc for why it is separate. */
+    private final NotifyDeliveryRunner deliveryRunner;
 
     /** Null when the mail path is unwired in this deployment — the relay then keeps rows PENDING. */
     @Autowired(required = false)
@@ -198,11 +200,31 @@ public class EduNotifyService {
         }
     }
 
-    /** Deliver right after the enqueuing transaction commits; runs inline if there was no transaction. */
+    /**
+     * Deliver just after the enqueuing transaction commits — <b>on a delivery thread, never the caller's</b>.
+     *
+     * <p>{@code @Async} is what makes D3 ("nothing sends on the request thread") actually true. Without it
+     * this listener ran inside the caller's commit, so publishing a notice did one SMTP round-trip per
+     * recipient before the response was written: measured at 24 sequential attempts, ~42s, against the
+     * gateway's 20s limit — the caller got InternalError for a notice that had been queued perfectly well.
+     * See {@link com.myplus.education.config.NotifyAsyncConfig} for the full account and the pool's shape.
+     *
+     * <p>The publish therefore returns as soon as the row is committed, which is exactly what "QUEUED, not
+     * sent" was always supposed to mean. Delivery outcome is not lost by going async: {@code OutboxRelay}
+     * records attempts and {@code lastError} on the row, slice 105 records it per recipient at the far end,
+     * and {@link #flushPending()} re-drives anything still PENDING.
+     *
+     * <p><b>This thread has no security context</b> — which is why the delivery path takes the tenant from
+     * the outbox row rather than {@code CurrentUser} (see the channel's {@code send}). That was already true
+     * of the scheduled relay; async delivery makes it true of this path too.
+     */
+    @Async("notifyExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onEnqueued(NotifyEnqueued e) {
-        relay.deliver(channel, e.id());
+        // The transaction lives on NotifyDeliveryRunner, NOT here. Both @Async and @Transactional on this
+        // one method would leave it to advisor ordering whether the transaction is begun on the CALLER's
+        // thread and then used from another — see NotifyDeliveryRunner's javadoc.
+        deliveryRunner.deliver(channel, e.id());
     }
 
     /** Retry relay — re-drives undelivered notices (notification-service down, a timeout, a restart). */

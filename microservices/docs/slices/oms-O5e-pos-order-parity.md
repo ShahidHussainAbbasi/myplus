@@ -150,6 +150,22 @@ The one-way service dependency O1 established stays intact; no new client, no ne
 
 **Watch for:** the monolith already proxies `/recordOrder`; do not add a second path to marketplace. Reuse it.
 
+### Injection point — VERIFIED 2026-08-09, so the next session need not re-derive it
+
+| | |
+|---|---|
+| **Where** | `SellController.addSell` — `src/main/java/com/web/controller/business/SellController.java:195-204`. It is a thin proxy: `return client.postJson("/addSell", dto);` at **line 199**. The order-record call goes after that returns successfully. |
+| **What the browser does today** | `main.js:1013` → `if (method === 'addSell' && (window.MODULE||'').toUpperCase() === 'MARKETPLACE' && typeof recordOrder === 'function') recordOrder(data.object);` — so **`data.object` is the invoice number**, and the vertical gate is `MODULE === 'MARKETPLACE'`. |
+| **The client-computed total to replace** | `ecommerce.js:524-532` sums `global.data` (the cart) in the browser. Gap **B**. Use the sale response / `dto` lines instead. |
+| **Lines are already in hand** | `addSell` receives `CustomerHistoryDTO dto` — the same object carrying the sale's lines. No extra call is needed to get them. |
+
+**Still to confirm before writing the edit** (the two things that stopped this session):
+1. **How to determine the MARKETPLACE vertical server-side.** The browser uses `window.MODULE`; the monolith
+   equivalent is likely the active org type (`ModuleRouter` / the JWT's `activeOrgType`) — confirm which, do not
+   guess. Getting this wrong either records orders for every trade sale or for none.
+2. **The authoritative total.** Prefer the value business-service returns over anything recomputed. Check what
+   `postJson("/addSell", …)` actually returns alongside `object` before choosing.
+
 ## 3. Not in O5e
 
 Changing what a POS sale *is* (it stays an instant invoice — sales orders with advance/layaway are **O7**). No

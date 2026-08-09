@@ -50,6 +50,24 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                                 + "F8 tenders the exact amount and F9 clears the cart (each also on "
                                 + "Alt+S/P/R/E/C) — and scanning \"12*code\" adds twelve at once.",
                         false, "Sale entry"),
+                // UI/UX P3. Fails CLOSED like its siblings: a config hiccup must not put an unexpected
+                // grid of products above the cart on a live till.
+                SettingEntry.bool("pos.quickpick.enabled",
+                        "Quick-pick tiles for your best sellers",
+                        "Off (default). On: your best-selling products appear as tiles above the cart "
+                                + "and can be added with Alt+1 to Alt+9 — for goods with no barcode, "
+                                + "like loose produce, bakery items or services.",
+                        false, "Sale entry"),
+                SettingEntry.intOf("pos.quickpick.count",
+                        "How many quick-pick tiles to show",
+                        "9 by default, which is what Alt+1 to Alt+9 can reach. More tiles are still "
+                                + "clickable but have no shortcut key.",
+                        9, "Sale entry"),
+                SettingEntry.intOf("pos.quickpick.days",
+                        "Days of sales history the tiles are based on",
+                        "30 by default. A shorter window follows what is selling right now; a longer "
+                                + "one is steadier across a slow week.",
+                        30, "Sale entry"),
                 SettingEntry.bool("pos.entry.showDescription",
                         "Show the item Description field",
                         "On (default). Turn off if your product names already say enough — it is one "

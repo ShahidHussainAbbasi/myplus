@@ -41,6 +41,10 @@ public class SellService implements ISellService {
 	@Autowired
 	RequestUtil requestUtil;
 
+	/** UI/UX P3: names + prices for the quick-pick tiles, resolved in ONE batched call (see topProducts). */
+	@Autowired
+	private com.myplus.commerce.contracts.client.CatalogClient catalogClient;
+
 	@Autowired
 	private AppUtil appUtil;
 
@@ -197,6 +201,69 @@ public class SellService implements ISellService {
 	@Override
 	public List<Sell> findOwnScopedByStores(Long orgId, Long userId, java.util.Collection<Long> storeIds) {
 		return sellRepo.findOwnScopedByStores(orgId, userId, storeIds);
+	}
+
+	/**
+	 * UI/UX P3 — the shop's best sellers by units, for the POS quick-pick tiles.
+	 *
+	 * <p>Names and prices come from ONE batched catalog call ({@code getProducts(ids)}), never a lookup
+	 * per tile: this runs when the sale screen opens, and a per-row round trip on that path is exactly
+	 * the cost the tiles exist to remove.
+	 *
+	 * <p>A catalog hiccup degrades to an EMPTY grid rather than an error. The tiles are an accelerator;
+	 * every product remains reachable through the normal picker, so a shop must never be unable to sell
+	 * because a convenience could not be drawn.
+	 */
+	@Override
+	public java.util.List<java.util.Map<String, Object>> topProducts(int days, int limit) {
+		int d = (days > 0) ? days : 30;
+		int n = (limit > 0) ? Math.min(limit, 24) : 9;   // a grid nobody can scan at a glance is not a shortcut
+		LocalDateTime since = LocalDateTime.now().minusDays(d);
+		Long orgId = com.myplus.common.security.CurrentUser.organizationId();
+		Long userId = com.myplus.common.security.CurrentUser.userId();
+		java.util.Set<Long> stores = requestUtil.accessibleStoreIds();
+
+		// JPQL `IN` cannot take an empty collection, so the no-grants case uses the org-wide query —
+		// which is also the correct behaviour for a single-store tenant.
+		List<Object[]> rows = (stores == null || stores.isEmpty())
+			? sellRepo.topProductsScoped(since, orgId, userId, org.springframework.data.domain.PageRequest.of(0, n))
+			: sellRepo.topProductsByStores(since, orgId, stores, org.springframework.data.domain.PageRequest.of(0, n));
+
+		java.util.List<Long> ids = new ArrayList<>();
+		java.util.Map<Long, Double> unitsById = new java.util.LinkedHashMap<>();
+		for (Object[] r : rows) {
+			if (r == null || r[0] == null) continue;
+			Long pid = ((Number) r[0]).longValue();
+			ids.add(pid);
+			unitsById.put(pid, r[1] == null ? 0d : ((Number) r[1]).doubleValue());
+		}
+		if (ids.isEmpty()) return java.util.Collections.emptyList();
+
+		java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> byId;
+		try {
+			byId = catalogClient.getProducts(ids).stream()
+				.collect(java.util.stream.Collectors.toMap(
+					com.myplus.commerce.contracts.dto.ProductRef::getId, p -> p, (a, b) -> a));
+		} catch (Exception e) {
+			return java.util.Collections.emptyList();
+		}
+
+		java.util.List<java.util.Map<String, Object>> out = new ArrayList<>();
+		for (Long pid : ids) {
+			com.myplus.commerce.contracts.dto.ProductRef p = byId.get(pid);
+			// A product deleted or deactivated since it was last sold must not appear as a tile that
+			// cannot be rung up. Dropping it keeps the grid honest; the order of the rest is unchanged.
+			if (p == null) continue;
+			java.util.Map<String, Object> tile = new java.util.LinkedHashMap<>();
+			tile.put("productId", pid);
+			tile.put("name", p.getName());
+			tile.put("sku", p.getSku());
+			tile.put("unit", p.getUnit());
+			tile.put("sellingPrice", p.getSellingPrice());
+			tile.put("units", unitsById.get(pid));
+			out.add(tile);
+		}
+		return out;
 	}
 
 	public List<Sell> findSellByStartDate(LocalDateTime sd, Long orgId, Long userId) {

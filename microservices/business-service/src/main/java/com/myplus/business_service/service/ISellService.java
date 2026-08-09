@@ -32,4 +32,15 @@ public interface ISellService extends org.springframework.data.jpa.repository.Jp
 
 	List<Sell> findSellByEndDate(LocalDateTime ed, Long orgId, Long userId);
 
+	/**
+	 * UI/UX P3 — this SHOP's best-selling products by units over the last {@code days}, highest first.
+	 * Feeds the POS quick-pick tiles, so goods with no barcode (produce, bakery, services) can be rung
+	 * up in one keystroke instead of through the full item form.
+	 *
+	 * <p>Org-scoped and store-aware, NOT per-user: a shared till must show every cashier the same tiles.
+	 *
+	 * @return productId -> units sold, ordered by units descending, at most {@code limit} entries
+	 */
+	java.util.List<java.util.Map<String, Object>> topProducts(int days, int limit);
+
 }

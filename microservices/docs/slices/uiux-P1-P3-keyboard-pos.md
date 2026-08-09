@@ -594,6 +594,129 @@ so the three cannot drift. Both branches (new line, and bumping an existing one)
    Deliberately **not** `{force:true}`: forcing types through a spinner a real cashier cannot, so a
    genuinely stuck overlay would pass the gate.
 
+### Second run — 19/20, and the last one was a format assumption
+
+`#sellDueThis` was `'0.00'` where the spec expected `'0'`. **F8 itself was correct** — the preceding
+`#sellRec === '100.00'` assertion passed, which also proves the SF-12 fix: the cart total read 100
+with no customer selected, exactly the case that used to read zero.
+
+The two settlement fields are formatted differently by `calculateChange`, on purpose:
+
+| Field | Written as | Why |
+|-------|-----------|-----|
+| `#sellCh` | `val(change)` → `"0"` | raw number — submitted as `customer.dueAmount`, must stay numeric |
+| `#sellDueThis` | `val(dueThis.toFixed(2))` → `"0.00"` | display only |
+
+Assuming two adjacent money fields agree is what failed the run. Spec corrected to match the source.
+
+## 9e. As-built — P3 (quick-pick tiles)
+
+Built, **not yet gated**: `SellRepo.topProductsScoped` / `topProductsByStores`,
+`SellService.topProducts`, `GET /topProducts` + monolith proxy, the tile grid + `Alt+1..9` in
+`pos-keyboard.js`, `qp-*` styles, 3 settings, 2 i18n keys × 6 bundles, and
+`cypress/e2e/business/pos-quickpick.cy.js` (15 cases).
+
+### D-19 — the tiles are ORG-scoped, and that needed a new query
+
+`SellRepository.topSellingItems` — the one the dashboard uses — groups by **`userId`**. Reusing it
+would have been the obvious shortcut and would have been wrong: a shared counter would show each
+cashier a **different** grid, and a newly hired one an **empty** grid on their first shift. What
+belongs on a till is what the *shop* sells.
+
+`Sell` already carries `organizationId` and `storeId`, but every query in `SellRepository` is
+per-user; the org-scoped queries live in the *other* repository, `SellRepo`. The new queries went
+there, following its existing NULL-fallback and store-grant patterns, so the tiles are org-scoped and
+**store-aware** — a branch that sells different lines gets its own tiles.
+
+> Noted, not changed: the **dashboard's** top-5 products is also per-user. That may be deliberate
+> ("my performance"), so it is left alone — but if it was meant to be per-shop it is wrong today.
+
+### Other decisions
+
+- **Units, not revenue.** The tiles save keystrokes on what is rung most *often*; ranking by money
+  would put a single expensive sale ahead of the item scanned fifty times a day.
+- **One batched catalog call** (`getProducts(ids)`) for names and prices — never one per tile. This
+  runs as the sale screen opens, which is exactly the path P3 exists to make cheaper.
+- **A tile is a scan without the barcode**: it calls the same `scanAddToCart`, so pricing, the
+  pharmacy Rx warning, cart totals and the SF-12 fix all apply identically.
+- **Empty or failed ⇒ the panel is hidden**, never an empty box. A shop with no history has no best
+  sellers, and every product stays reachable through the normal picker — an accelerator must never
+  become a gate.
+- A product deleted or deactivated since it last sold is **dropped** from the grid rather than shown
+  as a tile that cannot be rung up.
+- `limit` is clamped server-side (≤24); `days`/`limit` come from settings, the tenant from the token.
+
+### D-20 — a bug caught while wiring the keys
+
+Alt+1..9 was first placed behind the **P2 shortcuts** flag, but quick pick is its **own** setting. A
+shop enabling quick pick alone would have seen tiles advertising `Alt+1` badges that did nothing.
+The handler now applies the screen guards once and checks each feature's flag per branch.
+
+### First P3 run — 12/15, all three the spec's fault
+
+**A one-shot keypress raced an async render (2 failures).** `cy.wait('@tiles')` resolves when the
+*response* is sent; jQuery's success callback — which fills `quickPick[]` — runs after. `pressKey`
+fires **once**, so a key sent too early is simply lost, and the retrying `.should()` that follows
+re-checks a cart that will never change. **The retry was on the wrong side of the action.**
+
+Fixed by waiting for a rendered `.qp-tile` before every press. That is a sound synchronisation
+because `renderQuickPick` assigns `quickPick = list` *before* writing the DOM, so a visible tile
+proves the array is populated.
+
+Two further tests — *"an Alt+digit with no tile is ignored"* and *"tiles are ignored while a modal is
+open"* — passed the first run but were **vacuous**: with no tile rendered they would have passed
+whatever the code did. Both now assert a tile exists first, so "ignored" means something.
+
+**The end-to-end ranking test typed into a hidden field.** The sale screen opens in *Select Customer*
+mode, so `#sellCN` sits in a `display:none` block. Switched modes rather than `{force:true}` —
+forcing would have proven a sale can be rung in a state no cashier can reach. The same test also
+queried the ranking without waiting for the sale to be written; it now waits on the `addSell`
+response, which the original comment claimed but did not do.
+
+This is the same class of error as P2's `.then()`-doesn't-retry bug. **Rule for this suite: a one-shot
+action must be preceded by a retrying assertion that the precondition holds — never followed by one.**
+
+## 9f. As-built — D-6 (Configuration reachable by owner AND admin)
+
+The original ask was *"add P1/P2/P3 in setup/configuration available for org owner/admin users"*. The
+settings landed in the catalog first; this closes the access half.
+
+**The screen was the narrower of the two all along.** `SettingsController` has always permitted
+`ROLE_OWNER or ADMIN_PRIVILEGE` to write an override, while `#ConfigDiv` and the whole Settings menu
+were gated `ROLE_OWNER`. An admin could therefore change these settings **by API** and not see them
+in the UI. Widening the screen grants nothing the server was refusing.
+
+### Per-item gating, not a wholesale widening
+
+Opening the whole `#snavSettings` menu to admins would also have handed over **Stores, Tax Settings,
+Price Rules and the Document Designer** — none of which were asked for. So the menu opens for
+owner-or-admin and each entry carries its own gate:
+
+| Entry | Owner | Admin |
+|-------|-------|-------|
+| Stores · Tax Settings · Price Rules · Document Designer | ✅ | ❌ (unchanged) |
+| **Configuration** | ✅ | ✅ **(new)** |
+
+Gate: `cypress/e2e/business/pos-settings-access.cy.js` — 5 cases. Each role asserts both what it CAN
+and what it CANNOT see, so a change to the seeded roles fails loudly instead of passing vacuously.
+Fixtures: `demo.business` holds `DEMO_ROLE` (= superSet + demo privileges, so ADMIN_PRIVILEGE but not
+ROLE_OWNER); `owner.business` holds ROLE_OWNER.
+
+> ⚠ **Still true and still the user's call:** an admin now sees *every* setting on that screen,
+> including the pharmacy safety toggles (`pharmacy.rx.requirePrescription`,
+> `pharmacy.interaction.blockSevere`). If those should stay owner-only, the catalog needs a
+> per-entry minimum role — a change to `SettingEntry` and the renderer, not to this gating.
+
+## 9g. Review finding — quick-pick feedback was invisible to its own audience
+
+`addQuickPick` reported through `sellScanMsg()`, which writes to `#sellScanMsg` — a child of
+`#sellScanRow`, hidden whenever `pos.barcode.enabled` is off. **Quick pick exists for shops with
+nothing to scan**, so those are precisely the tenants most likely to have turned the scan box off,
+and their tiles would have added stock to the cart in complete silence.
+
+Feedback now goes to the panel's own `#quickPickMsg` — which had been added to the markup and never
+wired. It is also cleared on each re-render, so a stale "×3" from the previous sale cannot linger.
+
 ## 10. Open questions
 
 1. **Key choices** — F2/F3/F4/F8/F9 as above, or match a till your customers already use?

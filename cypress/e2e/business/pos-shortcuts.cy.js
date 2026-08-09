@@ -205,8 +205,14 @@ describe('P2 — ON', () => {
 
         pressKey('F8')
         cy.get('#sellRec').should('have.value', '100.00')
+        // The two settlement fields are formatted DIFFERENTLY by calculateChange, on purpose:
+        //   #sellCh      <- val(change)              a raw number, so "0" — it is submitted as
+        //                                           customer.dueAmount and must stay numeric
+        //   #sellDueThis <- val(dueThis.toFixed(2))  a display string, so "0.00"
+        // Asserting both in the same format is what failed the first run. Read the source, don't
+        // assume two adjacent money fields agree.
         cy.get('#sellCh').should('have.value', '0')
-        cy.get('#sellDueThis').should('have.value', '0')
+        cy.get('#sellDueThis').should('have.value', '0.00')
       })
   })
 

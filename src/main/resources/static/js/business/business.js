@@ -3261,6 +3261,10 @@ function loadPosFeatureFlags(){
 		// P2 (shortcut keys + the 12*CODE scan multiplier). Fails CLOSED for the same reason: never arm
 		// function keys, or change what a '*' in a scanned code means, because a settings call hiccuped.
 		window.posShortcutsEnabled = byKey['pos.keyboard.shortcuts.enabled'] === true;
+		// P3 (quick-pick tiles). Fails CLOSED — never put an unexpected grid above the cart on a live till.
+		window.posQuickPickEnabled = byKey['pos.quickpick.enabled'] === true;
+		window.posQuickPickCount = posSettingInt(res, 'pos.quickpick.count', 9);
+		window.posQuickPickDays = posSettingInt(res, 'pos.quickpick.days', 30);
 		// Per-tenant sale-screen composition. One POS serves a corner shop, a wholesale distributor
 		// and a pharmacy, so WHICH fields belong on the sale is the tenant's answer, not ours. Every
 		// one of these fails OPEN (absent key => shown): the default is today's full screen, and a
@@ -3292,10 +3296,14 @@ function loadPosFeatureFlags(){
 		applyPosRowEntry();
 		applyPosFieldVisibility();
 		if (typeof applyPosKeyboard === 'function') applyPosKeyboard();
+		if (typeof renderQuickPick === 'function') renderQuickPick();
 	}, 'json').fail(function(){
 		window.posBarcodeEnabled = true; window.posAutoPrintReceipt = true; window.pharmaBlockSevere = true;
 		window.posKeyboardEnabled = false;      // fail CLOSED — see above
 		window.posShortcutsEnabled = false;     // fail CLOSED
+		window.posQuickPickEnabled = false;     // fail CLOSED
+		window.posQuickPickCount = 9;
+		window.posQuickPickDays = 30;
 		window.posFields = {};                  // {} => every field shown (the !== false defaults)
 		window.posPriceEditable = true;
 		window.posCustomerRequired = true;      // fail OPEN — required is today's behaviour
@@ -3307,6 +3315,7 @@ function loadPosFeatureFlags(){
 		applyPosRowEntry();
 		applyPosFieldVisibility();
 		if (typeof applyPosKeyboard === 'function') applyPosKeyboard();
+		if (typeof renderQuickPick === 'function') renderQuickPick();
 	});
 }
 

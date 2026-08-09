@@ -53,6 +53,38 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
          + "and (s.organizationId = :orgId or s.organizationId is null) order by s.sellId desc")
     List<Sell> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /**
+     * UI/UX P3 — quick-pick tiles: this SHOP's best sellers by units over a recent window.
+     *
+     * <p>Row = [productId, sum(quantity)], highest first. Sums {@code quantity}, not revenue: the tiles
+     * exist to save keystrokes on the items rung most OFTEN, which is a count of units, not of money.
+     * A single expensive sale would otherwise push a rarely-touched product onto the grid.
+     *
+     * <p><b>Scoped by ORG, deliberately not by user.</b> {@code SellRepository.topSellingItems} — the one
+     * the dashboard uses — groups by {@code userId}, which is right for "my performance" and wrong for a
+     * till: a shared counter would show each cashier a different grid, and a newly hired one an empty
+     * grid on their first shift. What belongs on a till is what the SHOP sells.
+     *
+     * <p>Store-aware on the same terms as {@link #findScopedByStores}: a caller with store grants sees
+     * their stores plus legacy store-NULL rows, so a branch that sells different lines gets its own
+     * tiles. Pass a null/empty {@code storeIds} to span the whole org — handled by the caller, since JPQL
+     * {@code IN} cannot take an empty collection.
+     */
+    @Query("select s.productId, sum(s.quantity) from Sell s "
+         + "where s.productId is not null and s.dated >= :since "
+         + "and (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+         + "group by s.productId order by sum(s.quantity) desc")
+    List<Object[]> topProductsScoped(@Param("since") LocalDateTime since,
+                                     @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
+
+    /** Store-aware variant of {@link #topProductsScoped}, for a caller who holds store grants. */
+    @Query("select s.productId, sum(s.quantity) from Sell s "
+         + "where s.productId is not null and s.dated >= :since "
+         + "and s.organizationId = :orgId and (s.storeId in :storeIds or s.storeId is null) "
+         + "group by s.productId order by sum(s.quantity) desc")
+    List<Object[]> topProductsByStores(@Param("since") LocalDateTime since, @Param("orgId") Long orgId,
+                                       @Param("storeIds") java.util.Collection<Long> storeIds, Pageable pageable);
+
     // Multi-rate tax: output taxable + tax grouped by rate over [from,to], tenant-scoped. Only tax-bearing lines
     // (taxRate set) — legacy pre-tax sells are excluded. Voided lines are deleted + returns reduce the amounts in
     // place, so this reflects the net current taxable per rate. Row = [rate, sum(totalAmount), sum(taxAmount)].

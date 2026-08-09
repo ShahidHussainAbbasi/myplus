@@ -249,6 +249,76 @@
 
     global.posExactCash = exactCash;   // exported for the gate + any future toolbar button
 
+    /* ══ P3 — quick-pick tiles ══════════════════════════════════════════════════════════════════
+     * The shop's best sellers, above the cart, one keystroke each. Goods with no barcode (loose
+     * produce, bakery, services) otherwise fall back to the full item form on every single sale.
+     */
+
+    /** Tiles currently drawn, in grid order. Index 0 is Alt+1. */
+    var quickPick = [];
+
+    function quickPickEnabled() { return global.posQuickPickEnabled === true; }
+
+    /** Add a tile's product to the cart — the SAME path a scan takes, so pricing, the pharmacy Rx
+     *  warning and the cart totals all behave identically. A tile is a scan without the barcode. */
+    function addQuickPick(i) {
+        var t = quickPick[i];
+        if (!t) return;
+        if (typeof global.scanAddToCart !== 'function') return;
+        global.scanAddToCart({
+            id: t.productId, name: t.name, sku: t.sku,
+            unit: t.unit, sellingPrice: t.sellingPrice
+        }, 1);
+        // Feedback goes in the QUICK-PICK panel, not through sellScanMsg(). That writes to
+        // #sellScanMsg, which lives inside #sellScanRow — hidden whenever pos.barcode.enabled is off.
+        // Quick pick exists FOR shops with nothing to scan, so those are precisely the tenants most
+        // likely to have switched the scan box off, and their tiles would have added stock silently.
+        var qty = (typeof global.cartQty === 'function') ? global.cartQty(t.productId) : 1;
+        $('#quickPickMsg').text((t.name || '') + ' ×' + qty).show();
+    }
+    global.posAddQuickPick = addQuickPick;
+
+    /**
+     * Fetch and draw the tiles. Called when the sale screen opens.
+     *
+     * An empty or failed result hides the panel entirely rather than showing an empty box: a shop
+     * with no sales history yet has no best sellers, and a blank grid claiming to be one is worse
+     * than no grid. Every product stays reachable through the picker either way.
+     */
+    function renderQuickPick() {
+        var $wrap = $('#quickPickWrap');
+        if (!$wrap.length) return;
+        if (!quickPickEnabled()) { quickPick = []; $wrap.hide(); return; }
+
+        var n = Number(global.posQuickPickCount) > 0 ? Number(global.posQuickPickCount) : 9;
+        var days = Number(global.posQuickPickDays) > 0 ? Number(global.posQuickPickDays) : 30;
+
+        $.get(serverContext + 'topProducts', { days: days, limit: n }, function (resp) {
+            // GenericResponse carries lists in `collection` — never `data`.
+            var list = (resp && resp.collection) ? resp.collection : [];
+            quickPick = list;
+            $('#quickPickMsg').hide().text('');   // a stale "×3" from the previous sale is a lie
+            if (!list.length) { $wrap.hide(); return; }
+
+            var html = list.map(function (t, i) {
+                var price = (t.sellingPrice == null) ? ''
+                    : (typeof srMoney === 'function' ? srMoney(t.sellingPrice) : String(t.sellingPrice));
+                // escHtml on every product-supplied value — these are user data (XSS-safe rendering rule).
+                return '<button type="button" class="qp-tile" data-qp="' + i + '">'
+                    + (i < 9 ? '<span class="qp-key">Alt+' + (i + 1) + '</span>' : '')
+                    + '<span class="qp-name">' + escHtml(t.name || ('#' + t.productId)) + '</span>'
+                    + (price ? '<span class="qp-price">' + escHtml(price) + '</span>' : '')
+                    + '</button>';
+            }).join('');
+            $('#quickPickGrid').html(html);
+            $wrap.show();
+        }, 'json').fail(function () {
+            quickPick = [];
+            $wrap.hide();          // an accelerator that cannot load simply is not there
+        });
+    }
+    global.renderQuickPick = renderQuickPick;
+
     /**
      * key -> action. F-keys are what till operators expect; the Alt aliases cover kiosks and browsers
      * that swallow function keys (and Linux desktops that bind F-keys to the window manager).
@@ -304,12 +374,31 @@
         // Bound to the document, not the form: F8 must work while the cashier is anywhere on the sale
         // screen, including in the cart or the customer picker. The guards are what keep that safe.
         $(document).on('keydown', function (e) {
-            if (!shortcuts() || !onSellScreen() || blocked()) return;
+            // The screen guards apply to BOTH features; the feature flags are then checked per branch.
+            // P2 (action keys) and P3 (quick pick) are separate settings, so a shop that turns on quick
+            // pick alone must still get Alt+1..9 — otherwise the tiles would show "Alt+1" badges that
+            // do nothing, which is worse than showing no badge at all.
+            if (!onSellScreen() || blocked()) return;
+            if (!shortcuts() && !quickPickEnabled()) return;
 
             var fn = null;
             if (e.altKey && !e.ctrlKey && !e.metaKey && e.key) {
+                // P3: Alt+1..9 rings up a quick-pick tile. Digits and the P2 letter aliases cannot
+                // collide, so the order of these two branches is a readability choice, not a rule.
+                if (/^[1-9]$/.test(e.key)) {
+                    if (!quickPickEnabled()) return;
+                    var idx = Number(e.key) - 1;
+                    if (idx < quickPick.length) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        addQuickPick(idx);
+                    }
+                    return;   // Alt+digit belongs to quick pick, filled or not
+                }
+                if (!shortcuts()) return;
                 fn = ALT_ACTIONS[String(e.key).toLowerCase()] || null;
             } else if (!e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                if (!shortcuts()) return;
                 fn = ACTIONS[e.key] || null;
             }
             if (!fn || !actionAllowed(fn)) return;
@@ -319,6 +408,13 @@
             e.preventDefault();
             e.stopPropagation();
             fn();
+        });
+
+        // Tiles are clickable as well as keyable — a touch till has no Alt key.
+        $(document).on('click', '.qp-tile', function (e) {
+            e.preventDefault();
+            if (!quickPickEnabled() || blocked()) return;
+            addQuickPick(Number($(this).attr('data-qp')));
         });
 
         // ── Enter on the bootstrap-select BUTTON ────────────────────────────────

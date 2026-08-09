@@ -284,6 +284,35 @@ public class SellController {
 
 //     return dto;
 // }	
+	/**
+	 * UI/UX P3 — the shop's best-selling products, for the POS quick-pick tiles.
+	 *
+	 * <p>Goods with no barcode (produce, bakery, services) fall back to the slow item form on every sale;
+	 * the tiles give them scan-path speed. Org-scoped and store-aware in the service, so a shared till
+	 * shows every cashier the same grid.
+	 *
+	 * <p>A read of the caller's own sales history — no extra privilege needed beyond reaching this
+	 * service, and nothing here can be widened by a crafted parameter: {@code days} and {@code limit}
+	 * are clamped, and the tenant comes from the token, never the request.
+	 */
+	@RequestMapping(value = "/topProducts", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse topProducts(@RequestParam(required = false) Integer days,
+	                                   @RequestParam(required = false) Integer limit) {
+		try {
+			// (status, collection) — GenericResponse carries lists in `collection`, never `data`, so the
+			// client reads resp.collection. Getting the argument order backwards is a compile error here,
+			// which is the only reason it isn't a silent shape change.
+			return new GenericResponse("SUCCESS", sellService.topProducts(
+					days == null ? 30 : days, limit == null ? 9 : limit));
+		} catch (Exception e) {
+			LOGGER.error("topProducts failed", e);
+			// The tiles are an accelerator, never a gate: an empty grid still leaves every product
+			// reachable through the normal picker.
+			return new GenericResponse("SUCCESS", java.util.Collections.<Object>emptyList());
+		}
+	}
+
 	@RequestMapping(value = "/getUserSell", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserSell(@RequestParam(required=false) Integer page,

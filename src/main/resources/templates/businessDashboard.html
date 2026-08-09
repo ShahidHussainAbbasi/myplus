@@ -209,19 +209,26 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li><a onclick="showFinance('auditLog')"><span class="glyphicon glyphicon-eye-open"></span> <span th:text="#{ui.auditLog}">Audit Log</span></a></li>
 							</ul>
 						</div>
-						<!-- Settings â€” org-level config; owner only. -->
-						<div class="snav-dd" id="snavSettings" sec:authorize="hasAuthority('ROLE_OWNER')">
+						<!-- Settings — the MENU opens for an owner or an admin, but each entry carries its own
+						     gate. An admin sees Configuration alone; Stores, Tax, Price Rules and the Document
+						     Designer stay owner-only exactly as before.
+						     Why per-item rather than widening the whole menu: the POS behaviour toggles were
+						     asked to be reachable by "owner/admin", and the shared SettingsController ALREADY
+						     permits ROLE_OWNER *or* ADMIN_PRIVILEGE to write them — so an admin could change
+						     these settings by API while the screen pretended they could not. This closes that
+						     mismatch without handing over four unrelated owner screens. -->
+						<div class="snav-dd" id="snavSettings" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
 							<button class="snav-btn" onclick="snavToggle(event,'snavSettings')">
 								<span class="glyphicon glyphicon-cog"></span>
 								<span th:text="#{ui.settings}">Settings</span>
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
-								<li><a onclick="showStores();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.stores}">Stores</span></a></li>
-								<li><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.taxSettings}">Tax Settings</span></a></li>
-								<li><a id="navPriceRules" onclick="showPriceRules();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.priceRules}">Price Rules</span></a></li>
-								<li><a id="navDocumentDesigner" onclick="showDocumentDesigner();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.documentDesigner}">Document Designer</span></a></li>
-								<li><a onclick="showBusinessConfig();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
+								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showStores();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.stores}">Stores</span></a></li>
+								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.taxSettings}">Tax Settings</span></a></li>
+								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a id="navPriceRules" onclick="showPriceRules();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.priceRules}">Price Rules</span></a></li>
+								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a id="navDocumentDesigner" onclick="showDocumentDesigner();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.documentDesigner}">Document Designer</span></a></li>
+								<li><a id="navConfiguration" onclick="showBusinessConfig();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
 							</ul>
 						</div>
 						<!-- Team management â€” the owner AND admins/managers (an admin may create USERs in their own
@@ -1633,6 +1640,17 @@ tr.row-voided .js-edit-row{display:none !important}
 	 -->					
 					</div>
 				</form>
+				<!-- UI/UX P3 — quick-pick tiles: the shop's best sellers, one keystroke each (Alt+1..9).
+				     For goods with no barcode (loose produce, bakery, services) this is the only route to
+				     scan-path speed. Hidden unless pos.quickpick.enabled; filled by renderQuickPick(). -->
+				<div id="quickPickWrap" class="qp-wrap" style="display:none">
+					<div class="qp-head">
+						<span th:text="#{ui.quickPick}">Quick pick</span>
+						<span class="qp-hint" th:text="#{ui.quickPickHint}">Your best sellers — Alt+1 to Alt+9</span>
+					</div>
+					<div id="quickPickGrid" class="qp-grid"></div>
+					<div id="quickPickMsg" class="qp-msg" style="display:none"></div>
+				</div>
 				<div id="iDiv" class="text-center" style="margin-top:12px;">
 					<div class="cart-panel">
 						<div class="cart-panel__head">
@@ -2219,7 +2237,10 @@ tr.row-voided .js-edit-row{display:none !important}
 
 			<!-- Owner Configuration â€” self-renders from the business-service common-settings catalog (/getBusinessConfig).
 			     Each policy is one catalog entry in the service; a toggle saves immediately (/saveBusinessConfig). -->
-			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
+			<!-- Owner OR admin: matches the shared SettingsController, which already permits
+			     ROLE_OWNER or ADMIN_PRIVILEGE to write an override. The screen was the narrower of the
+			     two, so an admin could change these by API but not see them. -->
+			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
 				<h4 style="margin-bottom:4px" th:text="#{ui.configuration}">Configuration</h4>
 				<p style="color:#7a889c;margin-bottom:16px" th:text="#{ui.turnFeaturesOnOrOffFor}">Turn features on or off for your organization. Changes apply immediately.</p>
 				<div id="businessConfigMsg" class="alert" style="display:none"></div>

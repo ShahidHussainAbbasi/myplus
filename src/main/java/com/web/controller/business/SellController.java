@@ -41,6 +41,37 @@ public class SellController {
         }
     }
 
+    /**
+     * UI/UX P3 — the shop's best sellers, for the POS quick-pick tiles → business-service
+     * {@code /topProducts}. Tenant + store scoping happen there, from the token; nothing here widens it.
+     *
+     * <p>A failure returns an EMPTY list under a SUCCESS status rather than an error: the tiles are a
+     * shortcut, and every product stays reachable through the normal picker, so a shop must never be
+     * blocked from selling because a convenience could not be drawn.
+     */
+    @RequestMapping(value = "/topProducts", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> topProducts(final HttpServletRequest request) {
+        try {
+            StringBuilder qs = new StringBuilder();
+            String days = request.getParameter("days");
+            String limit = request.getParameter("limit");
+            if (days != null && !days.isBlank()) qs.append("days=").append(enc(days));
+            if (limit != null && !limit.isBlank()) {
+                if (qs.length() > 0) qs.append('&');
+                qs.append("limit=").append(enc(limit));
+            }
+            return client.get("/topProducts", qs.toString());
+        } catch (Exception e) {
+            LOGGER.error("topProducts proxy error", e);
+            return Map.of("status", "SUCCESS", "collection", java.util.Collections.emptyList());
+        }
+    }
+
+    private static String enc(String s) {
+        return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     // Load a full sale (invoice) for editing — proxies to business-service getSellInvoice.
     @RequestMapping(value = "/getSellInvoice", method = RequestMethod.GET)
     @ResponseBody
