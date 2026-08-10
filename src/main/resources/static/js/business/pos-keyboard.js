@@ -35,7 +35,39 @@
 
     /* The commit chain, in the order a cashier fills it. Ids only — the DOM is
      * the single source of truth for whether each one currently applies. */
-    var CHAIN = ['sellItemDD', 'sellItems', 'sellSellRate', 'sellDiscount'];
+    var CHAIN = ['sellItemDD', 'sellItems', 'sellSellRate', 'sellDiscountTypeDD', 'sellDiscount'];
+
+    /** Every dropdown the chain walks. These are bootstrap-select widgets, so they need the
+     *  selection hook below rather than a keystroke handler — see D-23 in the P5 design. */
+    var PICKERS = ['sellItemDD', 'sellDiscountTypeDD', 'sellCustomerDD', 'sellPayMethod'];
+
+    /**
+     * A sale has TWO phases, and until now only the first had a keyboard.
+     *
+     *   LINES     scan box / item → qty → price → discount → commit  (repeat)
+     *   CHECKOUT  who is buying → how they pay → how much → complete
+     *
+     * The checkout controls live OUTSIDE <form id="Sell"> — they are assembled separately by main.js —
+     * so the line chain could never reach them. A cashier could ring every line without touching the
+     * mouse and then had to reach for it to name the customer, which is the point in the sale where a
+     * queue actually forms.
+     *
+     * Order follows the money: who, then method, then what they hand over. Every entry is filtered by
+     * usable(), so the ones that are conditional — store credit only when the customer has any,
+     * insurance only for pharmacy, due date only when the sale leaves a balance, trade discount only
+     * when the tenant enables it — appear in the walk exactly when they are on screen, and never
+     * otherwise. Same rule as the line chain: configuration drives the keyboard for free.
+     */
+    var CHECKOUT = [
+        'sellCustomerDD',      // select mode
+        'sellCN', 'sellCC',    // manual mode (hidden in select mode, and vice versa)
+        'sellPayMethod',
+        'sellTradeDiscount',
+        'sellStoreCredit',
+        'sellInsured',
+        'sellRec',
+        'dueDateTemp'          // only visible when this sale leaves a balance
+    ];
 
     /** Read-only fields that display a computed value. They are still submitted and still written to
      *  (see pos-rowentry.css on FormData) — they simply must not cost a Tab, because a cashier can
@@ -76,48 +108,103 @@
         var $f = $('#' + id);
         if (!$f.length) return false;
         if ($f.prop('disabled') || $f.prop('readonly')) return false;
+
+        // A bootstrap-select HIDES the original <select> and renders a button in its place, so asking
+        // the <select> whether it is :visible always answers NO — and every picker in the chain was
+        // silently skipped. sellDiscountTypeDD could never be reached at all.
+        //
+        // Judge a managed select by the WRAPPER the plugin actually shows. The wrapper still sits
+        // inside .pos-hidden / .pos-more when the tenant or the layout hides the field, so the
+        // configuration rules keep working exactly as before.
+        var $wrap = $f.next('.bootstrap-select');
+        if ($wrap.length) return $wrap.is(':visible');
+
         // :visible is false for anything inside a display:none ancestor, which covers both
         // .pos-hidden (tenant turned it off) and .pos-more (off the compact row).
         return $f.is(':visible');
-    }
-
-    /** Fields the forward pass never stops on, because leaving them blank is a normal sale. Reachable
-     *  by Tab or Shift+Enter when the cashier actually wants one — but making everybody press Enter
-     *  past a discount they are not giving is the exact overhead this feature exists to remove. */
-    var OPTIONAL = { sellDiscount: true };
-
-    /**
-     * A field is "satisfied" when it already holds a value the cashier was never going to change, so
-     * stopping there would cost a keystroke and teach them to hammer Enter.
-     *
-     * ONLY THE PRICE. An earlier version also counted Qty — a bug: `loadStock()` pre-fills Qty with
-     * `pos.entry.defaultQty` (1 by default) the moment an item is picked, so Qty was ALWAYS
-     * "satisfied" and the chain skipped straight past it. The cashier could never type a quantity
-     * with Enter, and landed in the optional discount instead. A DEFAULT is not a decision; a price
-     * the catalog supplied is.
-     */
-    function satisfied(id) {
-        return id === 'sellSellRate' && Number($('#' + id).val()) > 0;
     }
 
     /**
      * The next field Enter should land on, or null to commit the line.
      * `from` is the id Enter was pressed in; `dir` is +1 forward, -1 for Shift+Enter.
      *
-     * Backwards NEVER commits and never skips satisfied fields — going back is a deliberate act to
-     * change something, so it must stop on fields the forward pass flew over.
+     * LINEAR: Item → Qty → Price → Discount → commit. Enter stops on every field the tenant has left
+     * usable, in both directions.
+     *
+     * An earlier version skipped a price the catalog had already filled in, on the theory that a
+     * pre-filled value is an answer. That is true at a retail counter and WRONG wherever the rate is
+     * negotiated per line — which is most trade and wholesale selling, and the case this chain exists
+     * to serve. A price the system proposed is a suggestion, not a decision, and the cashier must pass
+     * through it to accept or change it. Discount likewise: it now gets a stop rather than being flown
+     * past, so a per-line concession never requires reaching for the mouse.
+     *
+     * The cost is two extra keystrokes on a line that takes both defaults. That is the right trade:
+     * a skipped field the operator needed is a correction after the fact; an extra Enter is not.
+     *
+     * Fields the TENANT switched off, made read-only, or that the row layout hides are still skipped —
+     * see usable(). That is not an optimisation, it is the only correct behaviour: a <select> or input
+     * that is not there cannot take focus.
      */
-    function nextField(from, dir) {
-        var i = CHAIN.indexOf(from);
-        if (i < 0) return null;
-        for (var j = i + dir; j >= 0 && j < CHAIN.length; j += dir) {
-            var id = CHAIN[j];
-            if (!usable(id)) continue;
-            if (dir > 0 && (satisfied(id) || OPTIONAL[id])) continue;
-            return id;
+    /**
+     * SKIP-AHEAD: an EMPTY field means "this stage does not apply to this sale", so Enter jumps to the
+     * next stage instead of the next field.
+     *
+     *   empty Item      -> the customer      (nothing more to add)
+     *   empty Customer  -> Amount received   (a walk-in: method and terms are moot)
+     *   chosen Customer -> Payment method    (an account sale: how they pay is a real decision)
+     *
+     * Reached from the picker handlers on the SECOND Enter — the first opens the menu, and an open
+     * menu over an empty field is the signal that the cashier has nothing to choose here.
+     *
+     * @returns an id to focus, false when already handled, or null for normal handling
+     */
+    function skipAhead(from) {
+        if (from === 'sellItemDD' && !$('#sellItemDD').val()) {
+            goToCheckout();
+            return false;
         }
-        return (dir > 0) ? null : from;   // forward past the end = commit; back past the start = stay
+        if (from === 'sellCustomerDD') {
+            return $('#sellCustomerDD').val() ? 'sellPayMethod' : 'sellRec';
+        }
+        return null;
     }
+
+    function nextField(from, dir) {
+        return walk(CHAIN, from, dir);
+    }
+
+    /** Shared walk for both chains: the next USABLE id in `list`, or null past the forward end. */
+    function walk(list, from, dir) {
+        var i = list.indexOf(from);
+        if (i < 0) return null;
+        for (var j = i + dir; j >= 0 && j < list.length; j += dir) {
+            if (!usable(list[j])) continue;
+            return list[j];
+        }
+        return (dir > 0) ? null : from;   // forward past the end = act; back past the start = stay
+    }
+
+    /** True when the cursor is somewhere in the checkout block rather than the line form. */
+    function inCheckout(id) { return CHECKOUT.indexOf(id) >= 0; }
+
+    /**
+     * Leave line entry and go to the checkout — the keyboard bridge that did not exist.
+     *
+     * Refuses on an empty cart: "go to payment" with nothing to pay for would strand the cashier in a
+     * block of fields that cannot complete anything, and the honest response is to leave them where the
+     * items are typed.
+     */
+    function goToCheckout() {
+        if (!global.data || global.data.length === 0) { focusEntryPoint(); return false; }
+        for (var i = 0; i < CHECKOUT.length; i++) {
+            if (usable(CHECKOUT[i])) { focusField(CHECKOUT[i]); return true; }
+        }
+        // Nothing in the checkout is reachable (every field hidden by configuration) — the sale is
+        // already answerable, so go straight to completing it rather than nowhere.
+        completeSale();
+        return true;
+    }
+    global.posGoToCheckout = goToCheckout;
 
     /** Focus a field. bootstrap-select hides the real <select> behind a button, so focusing the
      *  select itself would silently do nothing — reuse focus-flow's rule rather than restating it. */
@@ -181,6 +268,9 @@
     /** Called by loadPosFeatureFlags after the flags land, and whenever the sell screen is shown. */
     global.applyPosKeyboard = function () {
         if (enabled()) { markDeadStops(); } else { clearDeadStops(); }
+        // The flow is only true when the feature is on — showing it otherwise would promise a keyboard
+        // that does nothing.
+        $('#sellKbdHint').toggle(enabled());
     };
 
     /* ══ P2 — action keys ═══════════════════════════════════════════════════════════════════════
@@ -346,6 +436,20 @@
         // ── Enter / Shift+Enter / Esc inside the line form ──────────────────────
         // Delegated from document so it survives the form being reset, re-rendered, or reloaded for
         // an edit — none of which re-run this file.
+        // ── Enter on an EMPTY scan box = "no more items, take my money" ─────────
+        // The scan box owns its own Enter for a non-empty code (inline onkeydown -> sellScanAdd, which
+        // returns early on blank). An empty Enter there was a dead keystroke — and it is exactly the
+        // gesture a cashier already makes: they are returned to this box after every line, so "nothing
+        // left to add" is the most natural thing to express here. No new key to learn.
+        $(document).on('keydown', '#sellScan', function (e) {
+            if (!enabled() || !onSellScreen() || blocked()) return;
+            if (e.key !== 'Enter') return;
+            if (String($(this).val() || '').trim() !== '') return;   // a real scan — leave it to sellScanAdd
+            e.preventDefault();
+            e.stopPropagation();
+            goToCheckout();
+        });
+
         $(document).on('keydown', '#Sell input, #Sell select', function (e) {
             if (!enabled() || !onSellScreen() || blocked()) return;
 
@@ -410,6 +514,90 @@
             fn();
         });
 
+        // ── The CHECKOUT chain ──────────────────────────────────────────────────
+        // Bound separately from the line chain because these controls are not inside <form id="Sell">.
+        $(document).on('keydown',
+            '#customerSelectMode input, #customerSelectMode select, #customerManualMode input, '
+          + '#sellPayMethod, #sellRec, #sellTradeDiscount, #sellStoreCredit, #sellInsured, #dueDateTemp',
+        function (e) {
+            if (!enabled() || !onSellScreen() || blocked()) return;
+            if (e.key === 'Escape') {
+                // Back to the items — the cashier remembered something. The cart is untouched.
+                e.preventDefault();
+                focusEntryPoint();
+                return;
+            }
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            var target = walk(CHECKOUT, this.id, e.shiftKey ? -1 : 1);
+            // Past the last checkout field = complete the sale. Same handler as the button and F2, so
+            // the credit-limit checks, the due-date rule and the idempotency key all still apply —
+            // this only decides WHEN it is called.
+            if (target === null) { completeSale(); return; }
+            focusField(target);
+        });
+
+        // Enter on the bootstrap-select button for the CUSTOMER picker (same reason as the item picker:
+        // the plugin hides the real <select>, so a keystroke never reaches it).
+        $(document).on('keydown', '.bootstrap-select > button', function (e) {
+            if (!enabled() || !onSellScreen() || blocked()) return;
+            if (e.key !== 'Enter') return;
+            var $sel = $(this).closest('.bootstrap-select').prev('select');
+            var id = $sel.attr('id');
+            if (id !== 'sellCustomerDD' && id !== 'sellPayMethod') return;
+            // DOUBLE-ENTER, done without a timer.
+            //
+            // The 1st Enter on a picker button opens its menu (a <button data-toggle="dropdown"> is
+            // activated by Enter — that is what forced the double press in the first place). If the
+            // menu is now OPEN and the field still holds NO value, this is the 2nd Enter on an
+            // unanswered field: the cashier is saying "nothing here", so skip ahead.
+            //
+            // Using the menu's open state rather than a timing window means there is no guess about
+            // how fast two presses count as one gesture, AND the open menu is visible feedback that
+            // the first press registered — which a timer can never give.
+            var $bs = $(this).closest('.bootstrap-select');
+            if ($bs.hasClass('open')) {
+                if ($sel.val()) return;              // a value is highlighted/chosen — the picker owns this Enter
+                e.preventDefault();
+                $bs.removeClass('open');             // close it; the answer is "skip"
+                var jumped = skipAhead($sel.attr('id'));
+                if (jumped === false) return;        // handled (moved to checkout)
+                if (jumped) { focusField(jumped); return; }
+            }
+            e.preventDefault();
+            var target = walk(CHECKOUT, id, e.shiftKey ? -1 : 1);
+            if (target === null) { completeSale(); return; }
+            focusField(target);
+        });
+
+        // ── D-23: advance when a dropdown's value is SELECTED, not when Enter is pressed ────
+        //
+        // Every picker here is a bootstrap-select: a <button data-toggle="dropdown">. Enter on a focused
+        // button ACTIVATES it, so the first Enter opens the menu and only a second could advance — the
+        // "double Enter" the operator was forced into. Hooking selection removes that entirely, and it
+        // is input-agnostic: choosing with the mouse or a touch screen advances exactly the same way,
+        // which no keystroke patch can achieve.
+        //
+        // GUARD: this event also fires when JS sets a value (loadStock, loadCategories,
+        // loadManufacturers all call .val() + selectpicker('refresh')). Only a USER selection may move
+        // the cursor — otherwise loading a product would fling focus across the form. bootstrap-select
+        // passes clickedIndex for a real interaction and omits it for a programmatic change.
+        $(document).on('changed.bs.select', PICKERS.map(function (id) { return '#' + id; }).join(','),
+        function (e, clickedIndex) {
+            if (!enabled() || !onSellScreen() || blocked()) return;
+            if (clickedIndex === undefined || clickedIndex === null) return;   // programmatic — ignore
+            var id = this.id;
+            var list = (CHAIN.indexOf(id) >= 0) ? CHAIN : CHECKOUT;
+            var target = walk(list, id, 1);
+            if (target === null) {
+                if (list === CHAIN) { commitLine(); } else { completeSale(); }
+                return;
+            }
+            focusField(target);
+        });
+
         // Tiles are clickable as well as keyable — a touch till has no Alt key.
         $(document).on('click', '.qp-tile', function (e) {
             e.preventDefault();
@@ -426,7 +614,25 @@
             if (e.key !== 'Enter') return;
             var $sel = $(this).closest('.bootstrap-select').prev('select');
             if ($sel.attr('id') !== 'sellItemDD') return;
-            if ($(this).closest('.bootstrap-select').hasClass('open')) return;   // picker's own Enter
+            // DOUBLE-ENTER, done without a timer.
+            //
+            // The 1st Enter on a picker button opens its menu (a <button data-toggle="dropdown"> is
+            // activated by Enter — that is what forced the double press in the first place). If the
+            // menu is now OPEN and the field still holds NO value, this is the 2nd Enter on an
+            // unanswered field: the cashier is saying "nothing here", so skip ahead.
+            //
+            // Using the menu's open state rather than a timing window means there is no guess about
+            // how fast two presses count as one gesture, AND the open menu is visible feedback that
+            // the first press registered — which a timer can never give.
+            var $bs = $(this).closest('.bootstrap-select');
+            if ($bs.hasClass('open')) {
+                if ($sel.val()) return;              // a value is highlighted/chosen — the picker owns this Enter
+                e.preventDefault();
+                $bs.removeClass('open');             // close it; the answer is "skip"
+                var jumped = skipAhead($sel.attr('id'));
+                if (jumped === false) return;        // handled (moved to checkout)
+                if (jumped) { focusField(jumped); return; }
+            }
             e.preventDefault();
             var target = nextField('sellItemDD', e.shiftKey ? -1 : 1);
             if (target === null) { commitLine(); return; }

@@ -145,39 +145,59 @@ describe('POS keyboard entry — ON', () => {
     })
   })
 
-  it('the optional discount is skipped going forward — Enter on Qty commits', () => {
-    cy.seedProduct({ name: 'KbdOpt_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
+  /**
+   * THE CHAIN IS LINEAR: Item → Qty → Price → Discount → commit.
+   *
+   * Enter stops on the price EVEN WHEN the catalog pre-filled it. An earlier version skipped a
+   * pre-filled price on the theory that it was already answered — true at a retail counter, wrong
+   * wherever the rate is negotiated per line, which is most trade selling. The price the system
+   * proposes is a suggestion; the cashier passes through it to accept or change it.
+   */
+  it('Enter on Qty goes to Price even though the catalog pre-filled it', () => {
+    cy.seedProduct({ name: 'KbdRate_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
-      // Price is pre-filled (satisfied) and Disc is optional, so both are skipped and the line commits.
+      cy.get('#sellSellRate').should('not.have.value', '')     // the catalog filled it
       cy.get('#sellItems').clear().type('4{enter}')
-      cy.window().its('data').should('have.length', 1)
-      cy.focused().should('not.have.id', 'sellDiscount')
+      cy.focused().should('have.id', 'sellSellRate')
+      cy.window().its('data').should('have.length', 0)          // nothing committed yet
     })
   })
 
-  it('Enter walks Qty → Price when the price still needs typing', () => {
+  it('Enter on Price goes to Discount', () => {
+    cy.seedProduct({ name: 'KbdDisc_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
+      openSell(true)
+      pickItem(productId)
+      cy.get('#sellItems').clear().type('2')
+      cy.get('#sellSellRate').clear().type('30{enter}')
+      cy.focused().should('have.id', 'sellDiscount')
+      cy.window().its('data').should('have.length', 0)
+    })
+  })
+
+  it('Enter on Discount — the last field — commits the line, carrying the typed rate', () => {
+    cy.seedProduct({ name: 'KbdEnd_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
+      openSell(true)
+      pickItem(productId)
+      cy.get('#sellItems').clear().type('2')
+      cy.get('#sellSellRate').clear().type('30')                // override the catalog price
+      cy.get('#sellDiscount').clear().type('{enter}')
+      cy.window().its('data').should('have.length', 1)
+      cy.window().its('data.0.quantity').should('eq', '2')
+      cy.window().its('data').then((d) => {
+        // The whole point of stopping at Price: the cashier's rate is what reaches the cart.
+        expect(Number(d[0].sellRate), 'the typed rate, not the catalog price').to.eq(30)
+      })
+    })
+  })
+
+  it('Enter walks Qty → Price when the price is blank too', () => {
     cy.seedProduct({ name: 'KbdChain_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
-      // Clear the catalog's pre-filled price so the chain has a reason to stop there. A price that IS
-      // pre-filled is skipped by design — asserted in the next test.
       cy.get('#sellSellRate').clear()
       cy.get('#sellItems').clear().type('2{enter}')
       cy.focused().should('have.id', 'sellSellRate')
-    })
-  })
-
-  it('a price already supplied by the catalog is skipped — Enter on Qty commits the line', () => {
-    cy.seedProduct({ name: 'KbdSkip_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
-      openSell(true)
-      pickItem(productId)
-      cy.get('#sellItems').clear().type('2{enter}')
-      // Price was already satisfied, so Enter committed instead of stopping there.
-      cy.window().its('data').should('have.length', 1)
-      cy.window().its('data').then((d) => {
-        expect(Number(d[0].quantity), 'the typed quantity reached the cart').to.eq(2)
-      })
     })
   })
 
@@ -185,7 +205,10 @@ describe('POS keyboard entry — ON', () => {
     cy.seedProduct({ name: 'KbdFocus_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
+      // Walk the WHOLE chain: Qty -> Price -> Discount -> commit. Enter on Qty no longer commits.
       cy.get('#sellItems').clear().type('2{enter}')
+      cy.get('#sellSellRate').type('{enter}')
+      cy.get('#sellDiscount').type('{enter}')
       cy.window().its('data').should('have.length', 1)
       cy.focused().should('have.id', 'sellScan')
     })
@@ -195,7 +218,7 @@ describe('POS keyboard entry — ON', () => {
     cy.seedProduct({ name: 'KbdBack_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
-      // Backwards never skips a satisfied field, so this lands on Qty even though it holds a value.
+      // Backwards is the same linear walk in reverse, so Price lands on Qty.
       cy.get('#sellSellRate').focus().type('{shift}{enter}')
       cy.focused().should('have.id', 'sellItems')
     })
@@ -205,8 +228,10 @@ describe('POS keyboard entry — ON', () => {
     cy.seedProduct({ name: 'KbdEsc_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
-      // Commit one line so there is a cart to protect.
+      // Commit one line so there is a cart to protect — the full chain, since Qty no longer commits.
       cy.get('#sellItems').clear().type('1{enter}')
+      cy.get('#sellSellRate').type('{enter}')
+      cy.get('#sellDiscount').type('{enter}')
       cy.window().its('data').should('have.length', 1)
 
       // Start a second line, then abandon it.

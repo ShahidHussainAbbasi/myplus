@@ -61,6 +61,39 @@
  */
 .pos-hidden{ display:none !important; }
 
+/* ── Keyboard flow hint ────────────────────────────────────────────────────
+ * One quiet line stating the whole path: item → line → payment → done. Shown
+ * only while the keyboard feature is on. Deliberately understated — it is a
+ * reference for the first week, not a banner to read on every sale.
+ */
+.sell-kbdhint{ margin-top:6px; }
+.sell-kbdhint > div{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px;
+  padding:9px 14px; border:1px dashed #d3dceb; border-radius:9px;
+  background:#f7f9fc; font-size:11.5px; color:#5a6677;
+}
+.sell-kbdhint .kh-step{ display:inline-flex; align-items:center; gap:5px; }
+.sell-kbdhint .kh-step b{ color:#22303f; font-weight:700; }
+.sell-kbdhint .kh-arrow{ color:#95a2b5; }
+.sell-kbdhint .kh-esc{ margin-left:auto; display:inline-flex; align-items:center; gap:5px; color:#7a889c; }
+.sell-kbdhint kbd{
+  font-family:ui-monospace,Consolas,monospace; font-size:10.5px; font-weight:700;
+  color:#0D3B8C; background:#fff; border:1px solid #c3cddd; border-bottom-width:2px;
+  border-radius:4px; padding:1px 6px; line-height:1.4;
+}
+/* A phone has no keyboard flow to speak of — the hint is desktop-till guidance. */
+@media (max-width:991px){ .sell-kbdhint{ display:none !important; } }
+
+/* Where the cursor IS matters more than usual when the whole sale is driven by Enter: the operator
+   is not looking at the mouse to know where they are. A ring on the focused control, everywhere on
+   this screen, so the next keystroke is never a guess. */
+#sellDiv input:focus, #sellDiv select:focus,
+#sellDiv .bootstrap-select.open > .btn, #sellDiv .bootstrap-select > .btn:focus{
+  border-color:#1565C0 !important;
+  box-shadow:0 0 0 3px rgba(21,101,192,.15) !important;
+  outline:none;
+}
+
 /* ── Quick-pick tiles (P3) ─────────────────────────────────────────────────
  * The shop's best sellers, above the cart, one keystroke each. NOT scoped to
  * .pos-rowentry: quick pick is its own setting and works with either layout.

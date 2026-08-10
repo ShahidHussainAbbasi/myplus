@@ -53,6 +53,28 @@ var s2n = function(v){
 		return v*ONE;
 }
 
+/**
+ * A focused <input type="number"> changes its VALUE when the wheel is scrolled over it.
+ *
+ * That is browser default behaviour and a well-known hazard in any billing UI: a cashier tabs into
+ * Amount Received or a purchase rate, scrolls the page to see the rest of the invoice, and the figure
+ * silently changes underneath them. Nothing warns, nothing validates — the sale simply posts a number
+ * nobody typed. On a POS that is money, and it is invisible until the books disagree.
+ *
+ * BLUR rather than preventDefault: this listener is passive (preventDefault would be ignored, and a
+ * non-passive wheel handler penalises scrolling on every page). Dropping focus stops the value change
+ * AND lets the page scroll normally, which is what the operator actually wanted.
+ *
+ * Keyboard ↑/↓ is deliberately left alone — that is a deliberate act on a field you are looking at.
+ *
+ * Registered once, for every number input in the app: sell, purchase, fees, donations. A guard that
+ * only covered the sell screen would leave the same bug on every other money form.
+ */
+document.addEventListener('wheel', function (e) {
+    var el = document.activeElement;
+    if (el && el.type === 'number' && el === e.target) { el.blur(); }
+}, { passive: true });
+
 function resetGlobalError(){
     $(".alert").html("").hide();
     $(".error-list").html("");
@@ -423,23 +445,26 @@ $(document).ready(function() {
 				var isSelectMode = $('#btnModeSelect').hasClass('active');
 				var payMethod = $("#sellPayMethod").val();
 				var owesBalance = ($("#sellCh").val()*ONE < 0) || payMethod === 'CREDIT';
-				var customerRequired = (window.posCustomerRequired !== false) || owesBalance;
+				// D-24 (2026-08-10): the customer is required ONLY when the sale leaves a balance.
+				// A fully-paid sale — cash, card, exact — completes with nobody named, which is what a
+				// walk-in counter needs and what the mobile/due-date changes already assumed.
+				//
+				// The balance case is NOT configurable and never will be: a receivable against nobody
+				// cannot be chased, aged or collected. Every other field made optional here is an
+				// inconvenience when missing; this one makes the money unrecoverable.
+				var customerRequired = owesBalance;
 				if (customerRequired) {
 					if (isSelectMode) {
 						if (!$("#sellCustomerDD").val()) {
 							document.getElementById("sellCustomerDD").style.setProperty('border-color', 'red', 'important');
-							showFormError(owesBalance && window.posCustomerRequired === false
-								? 'A sale on credit must name the customer who owes it.'
-								: 'Please choose a customer.');
+							showFormError('This sale leaves a balance — choose the customer who owes it.');
 							return;
 						}
 						document.getElementById("sellCustomerDD").style.removeProperty('border-color');
 					} else {
 						if ($("#sellCN").val().trim() == "") {
 							document.getElementById("sellCN").style.setProperty('border-color', 'red', 'important');
-							showFormError(owesBalance && window.posCustomerRequired === false
-								? 'A sale on credit must name the customer who owes it.'
-								: 'Please enter the customer name.');
+							showFormError('This sale leaves a balance — name the customer who owes it.');
 							return;
 						}
 						document.getElementById("sellCN").style.removeProperty('border-color');
@@ -471,11 +496,11 @@ $(document).ready(function() {
 
 					// A sale that leaves a balance (Credit, or a partial payment) needs a due date so the
 					// receivable can be followed up — the field is required, not optional, whenever there's a due.
-					if ($("#sellCh").val()*ONE < 0 && !$('#dueDate').val()) {
-						document.getElementById("dueDateTemp").style.setProperty('border-color', 'red', 'important');
-						showFormError('Please set a due date for the outstanding amount.');
-						return;
-					}
+					// if ($("#sellCh").val()*ONE < 0 && !$('#dueDate').val()) {
+					// 	document.getElementById("dueDateTemp").style.setProperty('border-color', 'red', 'important');
+					// 	showFormError('Please set a due date for the outstanding amount.');
+					// 	return;
+					// }
 
 					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
 					// SF-5 Model B: redeeming store credit needs an identified (existing) customer — send the selected id.

@@ -809,7 +809,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
-					enctype="utf8" id="Company" autocomplete="off">
+					onsubmit="return false" id="Company" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-6">
 							<input type="number" class="form-control" id="companyId" name="id" readonly="readonly"/>
@@ -896,7 +896,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
-					enctype="utf8" id="Vender" autocomplete="off">
+					onsubmit="return false" id="Vender" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-6">
 							<input type="number" class="form-control" id="venderId" name="id" readonly="readonly"/>
@@ -1065,7 +1065,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 					<div class="crud-body">
 				<form action="/" method="POST" class="form-horizontal" role="form"
-					enctype="utf8" id="Customer" autocomplete="off">
+					onsubmit="return false" id="Customer" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-6">
 							<input type="number" class="form-control" id="customerId" name="customerId" readonly="readonly"/> 
@@ -1330,7 +1330,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					<div class="crud-body">
 				<!-- <form class="form-horizontal" role="form"> -->
 				<form action="/" method="POST" class="form-horizontal" role="form"
-					enctype="utf8" id="Purchase" autocomplete="off">
+					onsubmit="return false" id="Purchase" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-12">
 							<input type="number" class="form-control" id="purchaseId" name="purchaseId" readonly="readonly"/> 
@@ -1523,8 +1523,16 @@ tr.row-voided .js-edit-row{display:none !important}
 			<a id="MyLink"  style="display:none"></a>
 			<input id="Button1" type="button" value="Click Me" onclick="OpenWord()" style="display: none;"/>
 				<!-- <h4 th:text="#{label.sell.form.heading}">Sell Form</h4> -->
-				<form action="/" method="POST" class="form-horizontal" role="form"
-					enctype="utf8" id="Sell" autocomplete="off">
+				<!-- NOT a submitting form. The sale is assembled by formToJSON("Sell") + main.js and POSTed as
+				     JSON to /addSell; this element is a field container, and it holds a part-rung sale.
+				       • onsubmit="return false" — the safety used to rest on there being no submit button,
+				         which is a guarantee one careless edit removes. With action="/" a stray submit
+				         POSTed the whole page and DISCARDED the cart. Now it cannot, whatever is added.
+				       • enctype removed — "utf8" was never a legal value (only urlencoded / multipart /
+				         text-plain exist), so it was ignored and merely advertised an intent that was untrue.
+				     Enter is separately preventDefault()-ed in pos-keyboard.js; this is the backstop. -->
+				<form action="/" method="POST" onsubmit="return false" class="form-horizontal" role="form"
+					id="Sell" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-12">
 							<input type="number" class="form-control" id="sellId" name="id" readonly="readonly"/>
@@ -1567,7 +1575,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="sellItems" th:text="#{ui.qty2}">QTY</label>
 						<div class="col-sm-4">
-							<input type="text" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="sellItems" name="quantity"
+							<input type="text" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="sellItems" name="quantity" inputmode="decimal"
 							 onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required"/>
 						</div>
 						<!-- B2B-P3g: free goods on this line ("Bon." on a trade invoice) — 20 billed, 2 free.
@@ -1599,7 +1607,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="sellSellRate" th:text="#{ui.sUPrice}">S/U Price</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="sellSellRate"
+							<input type="text" class="form-control" id="sellSellRate" inputmode="decimal"
 								name="stock.bsellRate" placeholder=" Sell Amount " th:placeholder="#{ui.sellAmount}" onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required">
 							<!-- B2B-P2-UI (#10): when a contract or tier rule set this price, say so. A price the
 							     cashier cannot explain to the customer is the problem the pricing rules exist to
@@ -1612,17 +1620,17 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" data-pos-field="lineDiscount" for="sellDiscount" id="sdt" th:text="#{ui.discount}">Discount</label>
-						<div class="col-sm-2" data-pos-field="lineDiscount">
-							<input type="text" class="form-control" id="sellDiscount"
-								name="stock.bsellDiscount" placeholder=" Discount 0.0" th:placeholder="#{ui.discount00}" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
-						</div>
-						<div class="col-sm-2 pos-more" data-pos-field="discountType">
+						<div class="col-sm-2" data-pos-field="discountType">
 							<select id="sellDiscountTypeDD" name="stock.bsellDiscountType" class="selectpicker" onchange="calculateNetSell()">
 								<option class="dropdown-item" selected="selected" value="0" th:text="#{ui.amount3}">amount</option>
 								<option class="dropdown-item" value="1" th:text="#{ui.percent}">Percent %</option>
 							</select>
+						</div>						<label class="control-label col-sm-2" data-pos-field="lineDiscount" for="sellDiscount" id="sdt" th:text="#{ui.discount}">Discount</label>
+						<div class="col-sm-2" data-pos-field="lineDiscount">
+							<input type="text" class="form-control" id="sellDiscount" inputmode="decimal"
+								name="stock.bsellDiscount" placeholder=" Discount 0.0" th:placeholder="#{ui.discount00}" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
 						</div>
+
 	 					<label class="control-label col-sm-2 pos-more" data-pos-field="receivable" for="sellrm" th:text="#{ui.receiveable}">Receiveable</label>
 	 					<div class="col-sm-4 pos-more" data-pos-field="receivable">
 							<input type="text" class="form-control" id="sellrm" readonly="readonly"/>
@@ -1775,7 +1783,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							     Pharmacy-only — a POS/retail or e-commerce sale has no insurer, so the field is
 							     noise on those verticals (and an empty box invites the question "should I fill
 							     this in?"). module-theme.js hides it for everything but PHARMA. -->
-							<div class="col-xs-12 col-sm-3 col-md-2" data-vertical-only="PHARMA">
+							<div class="col-xs-12 col-sm-3 col-md-2" data-vertical-only="PHARMA" style="display:none">
 								<span class="field-label" th:text="#{ui.insuranceCovered}">Insurance covered</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellInsured"
 									name="sellInsured" placeholder="0.00" onkeyup="calculateChange()">
@@ -1818,7 +1826,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<!-- Due Date is shown & required ONLY when the sale leaves a balance (Due this sale > 0);
 							     hidden entirely otherwise — a fully-paid sale has nothing to follow up. -->
 							<div class="col-xs-12 col-sm-3 col-md-2" id="sellDueDateWrap" style="display:none">
-								<span class="field-label" id="sellDueDateLabel" th:text="#{ui.dueDate2}">Due Date *</span>
+								<span class="field-label" id="sellDueDateLabel" th:text="#{ui.dueDate2}">Due Date </span>
 								<!-- data-dp joins the shared calendar without a magic class; data-dp-iso mirrors the pick
 								     into the hidden #dueDate as yyyy-MM-dd, which is what the app actually reads. -->
 								<input type="text" id="dueDateTemp" name="dueDateTemp" class="form-control"
@@ -1848,6 +1856,21 @@ tr.row-voided .js-edit-row{display:none !important}
 							<div class="col-xs-6 col-sm-3 col-md-2" id="sellCreditAvailableWrap" style="display:none">
 								<span class="field-label" th:text="#{ui.available}">Available</span>
 								<input type="number" step="any" class="form-control" id="sellCreditAvailable" readonly="readonly" placeholder="0">
+							</div>
+						</div>
+						<!-- The keyboard flow, stated on screen. A shortcut nobody is told about is folklore:
+						     it gets used by whoever was standing there when it was demoed and by nobody
+						     hired afterwards. Shown only when the feature is on (pos-keyboard.js). -->
+						<div class="form-group sell-kbdhint" id="sellKbdHint" style="display:none">
+							<div class="col-sm-12">
+								<span class="kh-step"><b th:text="#{ui.khScan}">Scan / pick item</b></span>
+								<span class="kh-arrow">→</span>
+								<span class="kh-step"><kbd>Enter</kbd> <span th:text="#{ui.khThroughLine}">qty, rate, discount</span></span>
+								<span class="kh-arrow">→</span>
+								<span class="kh-step"><kbd>Enter</kbd> <span th:text="#{ui.khEmptyScan}">on the empty scan box = payment</span></span>
+								<span class="kh-arrow">→</span>
+								<span class="kh-step"><kbd>Enter</kbd> <span th:text="#{ui.khComplete}">through payment completes the sale</span></span>
+								<span class="kh-esc"><kbd>Esc</kbd> <span th:text="#{ui.khBack}">back to items</span></span>
 							</div>
 						</div>
 						<div class="form-group text-center checkout-actions">
@@ -2676,7 +2699,15 @@ tr.row-voided .js-edit-row{display:none !important}
         document.getElementById(ddId).classList.remove('snav-open');
         // Barcode-first: land the cursor in the scan box when opening a New Sale (wedge scanner ready) — unless the
         // owner disabled barcode scanning (pos.barcode.enabled=false hides the scan box).
-        if (val === 'sellDiv' && window.posBarcodeEnabled !== false) setTimeout(function(){ var s = document.getElementById('sellScan'); if (s) s.focus(); }, 150);
+        // Where the cursor lands on New Sale. posFocusEntryPoint() is the SAME helper the chain uses
+        // after every committed line, so the start of a sale and the start of each line agree — and it
+        // handles the bootstrap-select case, which a raw .focus() on a hidden <select> cannot.
+        // With the keyboard flow on it lands on the ITEM picker; otherwise the scan box, as before.
+        if (val === 'sellDiv') setTimeout(function(){
+            if (typeof posFocusEntryPoint === 'function') { posFocusEntryPoint(); return; }
+            var s = document.getElementById('sellScan');
+            if (s && window.posBarcodeEnabled !== false) s.focus();
+        }, 150);
         // Sync the Amount Received visibility to the current payment method (a prior Credit sale may have hidden it).
         if (val === 'sellDiv' && typeof onSellPayMethodChange === 'function') onSellPayMethodChange();
     }

@@ -292,7 +292,13 @@ window.parseScanEntry = parseScanEntry;
 function sellScanAdd(){
 	var $in = $('#sellScan');
 	var raw = ($in.val() || '').trim();
-	if(!raw) return;
+	if(!raw){
+		// Enter on an EMPTY scan box = "nothing more to add" -> go to the customer/checkout.
+		// It lives here, not in a delegated handler: the input's inline onkeydown calls
+		// event.stopPropagation() on every Enter, so document-level handlers never see it.
+		if (typeof posGoToCheckout === 'function') posGoToCheckout();
+		return;
+	}
 
 	// The multiplier is part of P2 (pos.keyboard.shortcuts.enabled). With it off, a '*' is just another
 	// character in the code — which is what a shop that has never used the idiom expects.
@@ -3266,6 +3272,9 @@ function loadPosFeatureFlags(){
 		// costs familiarity, never function. Re-laying-out a till mid-sale because a settings call
 		// hiccuped is the surprise worth avoiding, whichever way the default points.
 		window.posKeyboardEnabled = byKey['pos.keyboard.enabled'] === true;
+		// The compact ROW is a SEPARATE setting from the keyboard flow. pos-keyboard.js addresses
+		// fields by id, so Enter walks the sale on the stacked layout too. Fails closed.
+		window.posRowLayoutEnabled = byKey['pos.entry.compactRow'] === true;
 		// P2 (shortcut keys + the 12*CODE scan multiplier). Fails CLOSED for the same reason: never arm
 		// function keys, or change what a '*' in a scanned code means, because a settings call hiccuped.
 		window.posShortcutsEnabled = byKey['pos.keyboard.shortcuts.enabled'] === true;
@@ -3364,7 +3373,7 @@ function applyPosBarcodeVisibility(){
  * calculateNetSell() and loadStock() keep reading and writing exactly the ids they always have.
  */
 function applyPosRowEntry(){
-	$('#sellDiv').toggleClass('pos-rowentry', window.posKeyboardEnabled === true);
+	$('#sellDiv').toggleClass('pos-rowentry', window.posRowLayoutEnabled === true);
 }
 
 /**
