@@ -58,6 +58,60 @@
 	}
 
 	/**
+	 * Client-side filter over the rendered rows. Hides whole groups that end up empty, so the screen
+	 * never shows a card heading with nothing under it, and reports the count so "3 of 41" is visible
+	 * rather than the user wondering whether the list is short or filtered.
+	 */
+	function wireSearch($box, prefix, total) {
+		var $input = $box.find('#' + prefix + '_search');
+		if (!$input.length) return;              // short list — no toolbar was rendered
+		var $count = $box.find('#' + prefix + '_count');
+		var $empty = $box.find('.cfg-empty');
+
+		function apply() {
+			var q = String($input.val() || '').trim().toLowerCase();
+			var shown = 0;
+			$box.find('.cfg-group').each(function () {
+				var $g = $(this), gShown = 0;
+				$g.find('.cfg-row').each(function () {
+					var hit = !q || (this.getAttribute('data-search') || '').indexOf(q) >= 0;
+					this.style.display = hit ? '' : 'none';
+					if (hit) { gShown++; shown++; }
+				});
+				$g.toggle(gShown > 0);
+			});
+			$count.text(q ? t('ui.js.nOfMSettings', shown, total) : t('ui.js.nSettings', total));
+			$empty.toggle(shown === 0);
+		}
+
+		$input.on('input', apply);
+		apply();
+	}
+
+	/**
+	 * Confirm a save ON THE ROW that changed.
+	 *
+	 * A single banner at the top of the screen was adequate for six settings and is not for forty: the
+	 * user toggles something near the bottom and the only confirmation renders off-screen, so the change
+	 * looks like it did nothing. Callers keep their banner if they want it; this adds the local signal.
+	 *
+	 * @param el the control that changed (the same element passed to the onChange handler)
+	 * @param ok whether the save succeeded
+	 */
+	global.markSettingSaved = function (el, ok) {
+		if (!el || !el.id) return;
+		var $pill = $('#' + el.id + '_saved');
+		if (!$pill.length) return;
+		$pill.text(ok ? t('ui.js.saved') : t('ui.js.saveFailed'))
+			.toggleClass('is-err', !ok)
+			.addClass('is-on');
+		clearTimeout($pill.data('t'));
+		// Long enough to notice, short enough not to accumulate a column of stale pills while an owner
+		// works down the list.
+		$pill.data('t', setTimeout(function () { $pill.removeClass('is-on'); }, 2400));
+	};
+
+	/**
 	 * @param opts.container   selector of the div to render into (e.g. '#businessConfigBody')
 	 * @param opts.loadUrl     GET endpoint returning {data:[SettingEntry+value]}
 	 * @param opts.onChangeFn  NAME of the global save handler, called with the changed element
@@ -81,21 +135,49 @@
 			var groups = {};
 			items.forEach(function (it) { (groups[it.group] = groups[it.group] || []).push(it); });
 
+			// A SETTINGS LIST, not a form. The old markup was one Bootstrap form-group per policy, which
+			// reads fine at six settings and badly at forty: nothing separated one policy from the next,
+			// and the help text sat under the CONTROL rather than under the label it explains.
+			// Now: a card per group, a row per policy, label + explanation left, control right.
 			var html = '';
 			Object.keys(groups).forEach(function (g) {
-				html += '<h4 style="margin-top:18px">' + esc(g) + '</h4>';
-				groups[g].forEach(function (it) {
-					html += '<div class="form-group" style="margin-bottom:12px">'
-						+ '<label class="control-label col-sm-5" for="' + esc(fieldId(opts.fieldPrefix, it.key)) + '">'
-						+ esc(it.label) + '</label>'
-						+ '<div class="col-sm-7">'
-						+ controlFor(it, opts.fieldPrefix, opts.onChangeFn)
-						+ '<div style="color:#7a889c;font-size:12px;margin-top:3px">' + esc(it.help || '') + '</div>'
-						+ '</div></div>';
+				var rows = groups[g];
+				html += '<section class="cfg-group">'
+					+ '<header class="cfg-group__head"><h4>' + esc(g) + '</h4>'
+					+ '<span class="cfg-group__n">' + rows.length + '</span></header>'
+					+ '<div class="cfg-rows">';
+				rows.forEach(function (it) {
+					var id = fieldId(opts.fieldPrefix, it.key);
+					// data-search carries everything worth matching, lower-cased once here so filtering is a
+					// substring test rather than work repeated on every keystroke. The KEY is included: an
+					// owner reading a support note looks up "pos.keyboard.shortcuts", not a prose label.
+					var hay = ((it.label || '') + ' ' + (it.help || '') + ' ' + (it.key || '')).toLowerCase();
+					html += '<div class="cfg-row" data-search="' + esc(hay) + '">'
+						+ '<div class="cfg-row__text">'
+						+ '<label class="cfg-row__label" for="' + esc(id) + '">' + esc(it.label) + '</label>'
+						+ '<span class="cfg-row__help">' + esc(it.help || '') + '</span>'
+						+ '</div>'
+						+ '<div class="cfg-row__control">' + controlFor(it, opts.fieldPrefix, opts.onChangeFn) + '</div>'
+						+ '<span class="cfg-row__saved" id="' + esc(id) + '_saved"></span>'
+						+ '</div>';
 				});
+				html += '</div></section>';
 			});
 
-			$box.html('<div class="form-horizontal">' + html + '</div>');
+			// Search only once the list is long enough to need it. Business Configuration has ~40 policies
+			// and is unusable without a way in; Order settings has 7, and education/welfare/agriculture
+			// fewer still — there a search box is a control that costs attention and saves none.
+			var SEARCH_FROM = 12;
+			var toolbar = items.length < SEARCH_FROM ? '' : ('<div class="cfg-toolbar">'
+				+ '<div class="cfg-search"><span class="glyphicon glyphicon-search"></span>'
+				+ '<input type="text" id="' + esc(opts.fieldPrefix) + '_search" autocomplete="off"'
+				+ ' placeholder="' + esc(t('ui.js.searchSettings')) + '"></div>'
+				+ '<span class="cfg-count" id="' + esc(opts.fieldPrefix) + '_count"></span>'
+				+ '</div>');
+
+			$box.html(toolbar + html + '<div class="cfg-empty" style="display:none">'
+				+ esc(t('ui.js.noSettingsMatch')) + '</div>');
+			wireSearch($box, opts.fieldPrefix, items.length);
 		}, 'json').fail(function () {
 			$box.html('<p style="color:#c0392b">' + esc(t('ui.js.couldNotLoadConfiguration')) + '</p>');
 		});

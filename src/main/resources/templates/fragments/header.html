@@ -27,6 +27,9 @@
              loadPosFeatureFlags() puts on #sellDiv only when pos.keyboard.enabled is ON —
              so with the flag off this file matches nothing and the sell screen is unchanged. -->
         <link rel="stylesheet" th:href="@{/css/pos-rowentry.css}"/>
+        <!-- Configuration screen (all four dashboards) + the Document Designer. Both are scoped:
+             .cfg-* and #DocumentDesignerDiv. -->
+        <link rel="stylesheet" th:href="@{/css/settings-form.css}"/>
         <link rel="stylesheet" th:href="@{/css/team-picker.css}"/>
         <link rel="stylesheet" th:href="@{/css/jquery.timepicker.min.css}"/>
         <!-- The app's own date/datetime calendar (see /js/common/date-picker.js) — no third-party picker. -->

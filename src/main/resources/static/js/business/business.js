@@ -3257,9 +3257,14 @@ function loadPosFeatureFlags(){
 		// absent key â†’ default ON (the feature ships enabled)
 		window.posBarcodeEnabled = ('pos.barcode.enabled' in byKey) ? byKey['pos.barcode.enabled'] : true;
 		window.posAutoPrintReceipt = ('pos.receipt.autoPrint' in byKey) ? byKey['pos.receipt.autoPrint'] : true;
-		// UI/UX P1 — the line-entry ROW. Fails CLOSED, unlike the two flags above: an absent key or a
-		// failed config read leaves the sell screen exactly as it is today. Re-laying-out a till that
-		// someone is mid-sale on, because a settings call hiccuped, is not a recoverable surprise.
+		// UI/UX P1 — the line-entry ROW. The CATALOG default is now ON, so the normal response carries
+		// "true" and the compact row is what a tenant gets without configuring anything.
+		//
+		// This read still fails CLOSED — an absent key or a failed config call yields the OLD stacked
+		// layout, not the new one. That is deliberate and remains the safe direction: the tall form is
+		// the layout every operator already knows and every screen size handles, so degrading to it
+		// costs familiarity, never function. Re-laying-out a till mid-sale because a settings call
+		// hiccuped is the surprise worth avoiding, whichever way the default points.
 		window.posKeyboardEnabled = byKey['pos.keyboard.enabled'] === true;
 		// P2 (shortcut keys + the 12*CODE scan multiplier). Fails CLOSED for the same reason: never arm
 		// function keys, or change what a '*' in a scanned code means, because a settings call hiccuped.
@@ -3404,15 +3409,27 @@ function applyPosFieldVisibility(){
 	// the rate off every line. Readonly still submits and still takes a programmatic .val().
 	$('#sellSellRate').prop('readonly', window.posPriceEditable === false);
 
-	// Defaults the tenant chose for a fresh sale.
+	// ── Defaults the tenant chose for a FRESH sale ────────────────────────────────────────────────
+	// Guarded on "no sale in progress". These reset controls the cashier may have set deliberately —
+	// and onCustomerModeChange() clears the customer field as it switches — so applying them while a
+	// cart is part-rung would undo their work. This function now also runs when a setting is saved
+	// (see saveBusinessConfigToggle), so that moment is real, not theoretical.
+	var saleInProgress = (typeof data !== 'undefined' && data && data.length > 0) || window.editingInvoice;
+	if (saleInProgress) return;
+
+	// The one-shot latch stops a routine flag refresh from stomping a tender the cashier just picked.
+	// An explicit config change CLEARS it (saveBusinessConfigToggle) so a newly chosen default lands
+	// without a reload — the latch is about not fighting the operator, not about ignoring the owner.
 	if (window.posDefaultTender && $('#sellPayMethod').length && !$('#sellPayMethod').data('posDefaulted')) {
 		$('#sellPayMethod').val(window.posDefaultTender).data('posDefaulted', true);
 		if ($('#sellPayMethod').data('selectpicker')) $('#sellPayMethod').selectpicker('refresh');
 		if (typeof onSellPayMethodChange === 'function') onSellPayMethodChange();
 	}
-	if (window.posDefaultCustomerMode === 'manual' && typeof onCustomerModeChange === 'function'
-		&& !window.editingInvoice) {
-		onCustomerModeChange('manual');
+	// Apply WHICHEVER mode is configured, not only 'manual'. The earlier version could switch a till
+	// into manual entry but never switch it back, so changing the setting to 'select' looked broken.
+	if (typeof onCustomerModeChange === 'function') {
+		var mode = (window.posDefaultCustomerMode === 'manual') ? 'manual' : 'select';
+		onCustomerModeChange(mode);
 	}
 }
 
@@ -3445,16 +3462,36 @@ function saveBusinessConfigToggle(el){
 	var value = (el.type === 'checkbox') ? (el.checked ? 'true' : 'false') : el.value;
 	$.post(serverContext + 'saveBusinessConfig', { key: key, value: value }, function(res){
 		var ok = res && res.success;
+		// Confirm ON THE ROW as well as in the banner: with ~40 policies the top-of-page banner renders
+		// off-screen for anything below the fold, so a successful save looked like nothing happened.
+		if (typeof markSettingSaved === 'function') markSettingSaved(el, ok);
 		$('#businessConfigMsg').removeClass('alert-success alert-danger')
 			.addClass(ok ? 'alert-success' : 'alert-danger')
 			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
 		if(!ok){ if(el.type === 'checkbox'){ el.checked = !el.checked; } }   // revert the toggle if the save failed
-		// Apply behaviour-affecting flags immediately (no reload).
-		else if(key === 'pos.barcode.enabled'){ window.posBarcodeEnabled = (value === 'true'); applyPosBarcodeVisibility(); }
-		else if(key === 'pos.receipt.autoPrint'){ window.posAutoPrintReceipt = (value === 'true'); }
-		else if(key === 'pharmacy.interaction.blockSevere'){ window.pharmaBlockSevere = (value === 'true'); }
+		else {
+			// Re-read the WHOLE catalog and re-apply, instead of naming each key here.
+			//
+			// This used to be an `else if` chain that knew exactly three keys (pos.barcode.enabled,
+			// pos.receipt.autoPrint, pharmacy.interaction.blockSevere). Every setting added since — the
+			// ~35 sale-screen ones, and pos.keyboard.shortcuts.enabled in particular — saved to the server
+			// correctly and then did NOTHING until the page was reloaded, because window.pos* is only
+			// populated by loadPosFeatureFlags() at load. The screen said "Saved." and the till did not
+			// change, which is the worst kind of wrong: believable.
+			//
+			// A hand-maintained list of keys is a list someone forgets to join. Re-reading costs one GET
+			// on a config screen — never a hot path — and cannot fall out of step with the catalog.
+			//
+			// Clear the tender latch first: it exists so a routine refresh does not overwrite a tender the
+			// cashier chose, but an owner who has just changed the DEFAULT is entitled to see it applied.
+			$('#sellPayMethod').removeData('posDefaulted');
+			if (typeof loadPosFeatureFlags === 'function') loadPosFeatureFlags();
+		}
 	}).fail(function(){
-		el.checked = !el.checked;
+		if (typeof markSettingSaved === 'function') markSettingSaved(el, false);
+		// Same type guard as the success path: `.checked` is meaningless on a SELECT/INT/TEXT/MONEY
+		// control, and flipping it there does not restore the value the user actually changed.
+		if(el.type === 'checkbox'){ el.checked = !el.checked; }
 		$('#businessConfigMsg').removeClass('alert-success').addClass('alert-danger').text('Save failed').show();
 	});
 }
@@ -3485,6 +3522,8 @@ function loadOrderConfig(){
 function saveOrderConfigField(el){
 	// The shared saver reads the control by type, so a MONEY fee saves "250.00" and the COD tick saves "false".
 	saveSettingsField(el, 'saveOrderConfig', function(ok, res){
+		// Confirm on the row, same as Business Configuration — the banner is at the top of the screen.
+		if (typeof markSettingSaved === 'function') markSettingSaved(el, ok);
 		$('#orderConfigMsg').removeClass('alert-success alert-danger')
 			.addClass(ok ? 'alert-success' : 'alert-danger')
 			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();

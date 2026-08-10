@@ -29,6 +29,10 @@ function openSell(opts) {
   cy.window().then((w) => {
     w.posQuickPickEnabled = o.quickPick === true
     w.posShortcutsEnabled = o.shortcuts === true
+    // Pinned explicitly, not inherited. pos.keyboard.enabled ships ON now, and a test that silently
+    // adopts whatever the catalog default happens to be reports on a configuration nobody chose —
+    // and changes meaning the next time that default moves.
+    w.posKeyboardEnabled = o.keyboard === true
     w.posQuickPickCount = o.count || 9
     w.posQuickPickDays = o.days || 30
     w.renderQuickPick()

@@ -421,24 +421,35 @@ tr.row-voided .js-edit-row{display:none !important}
 					print the layout marked default for Trade; walk-in customers print the Retail one. Change
 					nothing and your documents keep printing exactly as they do today.
 				</p>
-				<table class="table table-condensed" id="tableDocumentTemplate" style="width:100%">
-					<thead>
-						<tr>
-							<th th:text="#{ui.name2}">Name</th>
-							<th th:text="#{ui.channel}">Channel</th>
-							<th th:text="#{ui.docPaper}">Paper</th>
-							<th th:text="#{ui.docColumns}">Columns</th>
-							<th th:text="#{ui.status}">Status</th>
-							<th style="width:140px"></th>
-						</tr>
-					</thead>
-					<tbody></tbody>
-				</table>
+				<div class="dd-card">
+					<div class="dd-card__head">
+						<h4 th:text="#{ui.docSavedLayouts}">Saved layouts</h4>
+						<span class="dd-hint" th:text="#{ui.docSavedLayoutsHint}">One layout per channel is marked default</span>
+					</div>
+					<div class="dd-card__body">
+						<table class="table table-condensed" id="tableDocumentTemplate" style="width:100%">
+							<thead>
+								<tr>
+									<th th:text="#{ui.name2}">Name</th>
+									<th th:text="#{ui.channel}">Channel</th>
+									<th th:text="#{ui.docPaper}">Paper</th>
+									<th th:text="#{ui.docColumns}">Columns</th>
+									<th th:text="#{ui.status}">Status</th>
+									<th style="width:140px"></th>
+								</tr>
+							</thead>
+							<tbody></tbody>
+						</table>
+					</div>
+				</div>
 
-				<hr>
 				<div class="row">
 					<div class="col-md-7">
-						<h4 style="font-weight:700;color:#1f4e8c" id="dtFormTitle" th:text="#{ui.docNewLayout}">New layout</h4>
+					  <div class="dd-card">
+						<div class="dd-card__head">
+							<h4 id="dtFormTitle" th:text="#{ui.docNewLayout}">New layout</h4>
+						</div>
+						<div class="dd-card__body">
 						<form class="form-horizontal" role="form" id="DocumentTemplateForm" autocomplete="off" onsubmit="return false;">
 							<input type="hidden" id="dtId">
 							<div class="form-group">
@@ -479,10 +490,14 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 							<div class="form-group">
 								<div class="col-sm-8 col-sm-offset-4">
-									<label><input type="checkbox" id="dtShowLogo" onchange="renderDocumentPreview()"> <span th:text="#{ui.docShowLogo}">Print the logo</span></label><br>
-									<label><input type="checkbox" id="dtShowDrCr" onchange="renderDocumentPreview()"> <span th:text="#{ui.docShowDrCr}">Mark balances DR / CR</span></label><br>
-									<label><input type="checkbox" id="dtShowSignature" onchange="renderDocumentPreview()"> <span th:text="#{ui.docShowSignature}">Signature lines at the foot</span></label><br>
-									<label><input type="checkbox" id="dtIsDefault"> <span th:text="#{ui.docIsDefault}">Use this layout for this channel</span></label>
+									<!-- A checklist, not four stray checkboxes on <br> tags — .dd-opts spaces them
+									     and makes the whole label a click target. -->
+									<div class="dd-opts">
+										<label><input type="checkbox" id="dtShowLogo" onchange="renderDocumentPreview()"> <span th:text="#{ui.docShowLogo}">Print the logo</span></label>
+										<label><input type="checkbox" id="dtShowDrCr" onchange="renderDocumentPreview()"> <span th:text="#{ui.docShowDrCr}">Mark balances DR / CR</span></label>
+										<label><input type="checkbox" id="dtShowSignature" onchange="renderDocumentPreview()"> <span th:text="#{ui.docShowSignature}">Signature lines at the foot</span></label>
+										<label><input type="checkbox" id="dtIsDefault"> <span th:text="#{ui.docIsDefault}">Use this layout for this channel</span></label>
+									</div>
 								</div>
 							</div>
 							<div class="form-group">
@@ -492,7 +507,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								</div>
 							</div>
 
-							<h5 style="font-weight:700" th:text="#{ui.docColumns}">Columns</h5>
+							<div class="dd-section">
+							<h5 th:text="#{ui.docColumns}">Columns</h5>
 							<p class="help-block" th:text="#{ui.docColumnsHelp}">Tick a column to print it. Rename it if your trade uses a different word.</p>
 							<table class="table table-condensed" id="tableDocColumns" style="width:100%">
 								<thead>
@@ -507,28 +523,48 @@ tr.row-voided .js-edit-row{display:none !important}
 								<tbody></tbody>
 							</table>
 
-							<h5 style="font-weight:700" th:text="#{ui.docHeaderFields}">Header fields</h5>
+							</div>
+
+							<div class="dd-section">
+							<h5 th:text="#{ui.docHeaderFields}">Header fields</h5>
 							<p class="help-block" th:text="#{ui.docHeaderFieldsHelp}">Printed above the table, in up to three columns. A field with no value prints nothing.</p>
 							<div id="docHeaderFields" class="row"></div>
+							</div>
 
-							<h5 style="font-weight:700" th:text="#{ui.docSummaryRows}">Summary rows</h5>
+							<div class="dd-section">
+							<h5 th:text="#{ui.docSummaryRows}">Summary rows</h5>
 							<p class="help-block" th:text="#{ui.docSummaryRowsHelp}">Printed under the table. A row with no value is skipped.</p>
 							<div id="docTotalRows" class="row"></div>
-
-							<div class="form-group text-center" style="margin-top:14px">
-								<button type="button" class="btn btn-success" onclick="saveDocumentTemplate()">
-									<span class="glyphicon glyphicon-floppy-disk"></span> <span th:text="#{ui.save}">Save</span>
-								</button>
-								<button type="button" class="btn btn-default" onclick="resetDocumentTemplateForm()">
-									<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
-								</button>
 							</div>
 						</form>
+						</div>
+						<!-- Sticky so Save stays reachable from anywhere in a form this long, instead of
+						     forcing a scroll to the bottom after every edit. -->
+						<div class="dd-actions">
+							<button type="button" class="btn btn-default" onclick="resetDocumentTemplateForm()">
+								<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
+							</button>
+							<button type="button" class="btn btn-success" onclick="saveDocumentTemplate()">
+								<span class="glyphicon glyphicon-floppy-disk"></span> <span th:text="#{ui.save}">Save</span>
+							</button>
+						</div>
+					  </div>
 					</div>
 					<div class="col-md-5">
-						<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.docPreview}">Live preview</h4>
-						<p class="help-block" th:text="#{ui.docPreviewHelp}">Sample data, drawn by the same code that prints the real document.</p>
-						<iframe id="docPreviewFrame" style="width:100%;height:620px;border:1px solid #d5dce6;background:#fff"></iframe>
+					  <!-- STICKY (>=992px). This was the screen's real flaw: the preview scrolled away exactly
+					       when you edited the columns and header fields — the settings whose effect you most
+					       need to watch. -->
+					  <div class="dd-preview">
+						<div class="dd-card">
+							<div class="dd-card__head">
+								<h4 th:text="#{ui.docPreview}">Live preview</h4>
+								<span class="dd-hint" th:text="#{ui.docPreviewHelp}">Sample data, drawn by the same code that prints the real document.</span>
+							</div>
+							<div class="dd-card__body">
+								<iframe id="docPreviewFrame" title="Document preview"></iframe>
+							</div>
+						</div>
+					  </div>
 					</div>
 				</div>
 			</div>
@@ -2278,8 +2314,10 @@ tr.row-voided .js-edit-row{display:none !important}
 			     ROLE_OWNER or ADMIN_PRIVILEGE to write an override. The screen was the narrower of the
 			     two, so an admin could change these by API but not see them. -->
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
-				<h4 style="margin-bottom:4px" th:text="#{ui.configuration}">Configuration</h4>
-				<p style="color:#7a889c;margin-bottom:16px" th:text="#{ui.turnFeaturesOnOrOffFor}">Turn features on or off for your organization. Changes apply immediately.</p>
+				<div class="cfg-page-head">
+					<h4 th:text="#{ui.configuration}">Configuration</h4>
+					<p th:text="#{ui.turnFeaturesOnOrOffFor}">Turn features on or off for your organization. Changes apply immediately.</p>
+				</div>
 				<div id="businessConfigMsg" class="alert" style="display:none"></div>
 				<div id="businessConfigBody" th:text="#{ui.loading2}">Loading…</div>
 			</div>
@@ -2288,8 +2326,10 @@ tr.row-voided .js-edit-row{display:none !important}
 				     order policy is a catalog entry in marketplace-service and nothing changes here. Separate from
 				     ConfigDiv above because each service owns its own settings; this screen edits marketplace's. -->
 				<div id="OrderConfigDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
-					<h4 style="margin-bottom:4px" th:text="#{ui.orderSettings}">Order settings</h4>
-					<p style="color:#7a889c;margin-bottom:16px" th:text="#{ui.deliveryChargesAndCheckout}">Delivery charges, free-delivery threshold and payment options for your store. Changes apply to the next checkout.</p>
+					<div class="cfg-page-head">
+						<h4 th:text="#{ui.orderSettings}">Order settings</h4>
+						<p th:text="#{ui.deliveryChargesAndCheckout}">Delivery charges, free-delivery threshold and payment options for your store. Changes apply to the next checkout.</p>
+					</div>
 					<div id="orderConfigMsg" class="alert" style="display:none"></div>
 					<div id="orderConfigBody" th:text="#{ui.loading2}">Loading…</div>
 				</div>

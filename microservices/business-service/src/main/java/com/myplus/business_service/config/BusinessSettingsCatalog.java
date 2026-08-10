@@ -33,13 +33,17 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                 // toggle below defaults to TODAY'S behaviour: a tenant that changes nothing sees the
                 // screen unchanged. Hiding a field never drops it from the invoice — the control stays
                 // in the DOM and keeps submitting (see pos-rowentry.css for why that matters).
+                // Default ON (changed from off): the compact row is now the standard sale screen, not an
+                // opt-in. A tenant who prefers the tall one-field-per-line form switches it off here.
+                // NOTE this is the effective default for anyone with NO stored override — so it changes the
+                // sale screen for every existing tenant that never touched the setting.
                 SettingEntry.bool("pos.keyboard.enabled",
                         "Compact one-row sale entry",
-                        "Off (default): the sale form stays as it is today, one field per line. "
-                                + "On: item, quantity, price and discount sit on a single row above the "
-                                + "cart, so a line is entered without scrolling a tall form. Phones and "
-                                + "small tablets keep the stacked layout either way.",
-                        false, "Sale entry"),
+                        "On (default): item, quantity, price and discount sit on a single row above the "
+                                + "cart, so a line is entered without scrolling a tall form, and Enter moves "
+                                + "between the fields. Off: the older layout with one field per line. "
+                                + "Phones and small tablets keep the stacked layout either way.",
+                        true, "Sale entry"),
                 // UI/UX P2. Fails CLOSED for the same reason as pos.keyboard.enabled: a config-read
                 // hiccup must never arm function keys on a till nobody has trained for them, nor make
                 // a '*' in a barcode suddenly mean "multiply".

@@ -111,3 +111,60 @@ describe('Configuration screen access — admin (not owner)', () => {
     })
   })
 })
+
+/**
+ * Saving a setting must CHANGE THE LIVE PAGE, not just the database.
+ *
+ * saveBusinessConfigToggle used to apply exactly three keys by name (pos.barcode.enabled,
+ * pos.receipt.autoPrint, pharmacy.interaction.blockSevere). Every setting added since — all ~35
+ * sale-screen ones, pos.keyboard.shortcuts.enabled among them — saved correctly and then did nothing
+ * until the page was reloaded, because window.pos* is only populated at load. The screen said
+ * "Saved." and the till behaved as before: a failure that looks exactly like success.
+ *
+ * These assert the FLAG ON THE LIVE PAGE, never the response body — the response was always fine.
+ */
+describe('Configuration — a saved setting takes effect without a reload', () => {
+  beforeEach(() => { cy.loginAsOwner() })
+
+  // Leave the tenant as we found it. These restore each key to its CATALOG DEFAULT, which is not the
+  // same for both: pos.keyboard.enabled now ships ON (the compact row is the standard sale screen),
+  // while the shortcut keys still ship OFF. Writing 'false' to both would have left the row layout
+  // switched off for the tenant — a test tidying up by changing the product's behaviour.
+  afterEach(() => {
+    const defaults = { 'pos.keyboard.enabled': 'true', 'pos.keyboard.shortcuts.enabled': 'false' }
+    Object.keys(defaults).forEach((k) => {
+      cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true,
+                   body: { key: k, value: defaults[k] }, failOnStatusCode: false })
+    })
+  })
+
+  it('toggling shortcuts ON sets the live flag, and OFF clears it', () => {
+    cy.visit('/businessDashboard')
+    openConfiguration()
+    cy.get('#businessConfigBody', { timeout: 30000 }).should('contain', 'Sale entry')
+
+    // The checkbox the renderer generated for this key — ids are the key with dots replaced.
+    const box = '#bcfg_pos_keyboard_shortcuts_enabled'
+    cy.get(box).should('exist').check()
+    cy.get('#businessConfigMsg', { timeout: 20000 }).should('contain', 'Saved')
+    // The point: no reload happened, and the flag the F-keys read is now true.
+    cy.window({ timeout: 20000 }).its('posShortcutsEnabled').should('eq', true)
+
+    cy.get(box).uncheck()
+    cy.get('#businessConfigMsg', { timeout: 20000 }).should('contain', 'Saved')
+    cy.window({ timeout: 20000 }).its('posShortcutsEnabled').should('eq', false)
+  })
+
+  it('a non-checkbox setting also re-applies (the chain never covered these at all)', () => {
+    cy.visit('/businessDashboard')
+    openConfiguration()
+    cy.get('#businessConfigBody', { timeout: 30000 }).should('contain', 'Sale entry')
+
+    cy.get('#bcfg_pos_entry_defaultQty').should('exist').clear().type('4').trigger('change')
+    cy.get('#businessConfigMsg', { timeout: 20000 }).should('contain', 'Saved')
+    cy.window({ timeout: 20000 }).its('posDefaultQty').should('eq', 4)
+
+    cy.get('#bcfg_pos_entry_defaultQty').clear().type('1').trigger('change')
+    cy.get('#businessConfigMsg', { timeout: 20000 }).should('contain', 'Saved')
+  })
+})

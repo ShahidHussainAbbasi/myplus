@@ -1,0 +1,207 @@
+/* ==========================================================================
+ * settings-form.css — the Configuration screen, for every dashboard.
+ *
+ * Pairs with /js/common/settings-form.js. It was a bare Bootstrap form-horizontal:
+ * an <h4> per group and a label/control row per setting. That reads fine at six
+ * settings and badly at forty — which is what the POS catalog now has — because
+ * nothing separates one policy from the next and the help text competes with the
+ * label for the same line.
+ *
+ * The shape here is a SETTINGS LIST, not a form: one card per group, one row per
+ * policy, the label and its explanation on the left, the control on the right.
+ * That is the pattern an operator already knows from every phone settings screen,
+ * so it needs no learning.
+ *
+ * Scoped to .cfg-* so it cannot reach any other screen.
+ * ========================================================================== */
+
+/* ── Page heading ──────────────────────────────────────────────────────────
+ * Shared by Configuration and Order settings so the two screens read as one
+ * family. Replaces the inline styles each carried, which had already drifted.
+ */
+.cfg-page-head{ margin-bottom:16px; }
+.cfg-page-head h4{
+  margin:0 0 4px; font-size:18px; font-weight:700; color:#0D3B8C; letter-spacing:-.01em;
+}
+.cfg-page-head p{ margin:0; font-size:13px; color:#7a889c; max-width:80ch; }
+
+/* ── Toolbar: search + count ───────────────────────────────────────────────
+ * A forty-item list needs a way in. Filtering is client-side over data-search,
+ * so it costs nothing and works while offline.
+ */
+.cfg-toolbar{
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px;
+  margin-bottom:16px;
+}
+.cfg-search{
+  flex:1 1 260px; max-width:420px; position:relative;
+}
+.cfg-search input{
+  width:100%; height:38px; padding:6px 12px 6px 34px;
+  border:1px solid #d5dce6; border-radius:9px; background:#fff;
+  font-size:13px; color:#22303f;
+}
+.cfg-search input:focus{
+  outline:none; border-color:#1565C0; box-shadow:0 0 0 3px rgba(21,101,192,.12);
+}
+.cfg-search .glyphicon{
+  position:absolute; left:11px; top:50%; transform:translateY(-50%);
+  color:#95a2b5; font-size:12px; pointer-events:none;
+}
+.cfg-count{ font-size:12px; color:#7a889c; white-space:nowrap; }
+
+/* ── Group card ────────────────────────────────────────────────────────────*/
+.cfg-group{
+  background:#fff; border:1px solid #e2e7ef; border-radius:12px;
+  box-shadow:0 3px 14px rgba(20,40,80,.05);
+  margin-bottom:16px; overflow:hidden;
+}
+.cfg-group__head{
+  display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+  padding:12px 18px; background:#f7f9fc; border-bottom:1px solid #e6ebf3;
+}
+.cfg-group__head h4{
+  margin:0; font-size:14px; font-weight:700; color:#0D3B8C; letter-spacing:.2px;
+}
+.cfg-group__head .cfg-group__n{ font-size:11px; color:#8a97aa; }
+
+/* ── One setting ───────────────────────────────────────────────────────────
+ * Grid rather than flex: the control column keeps a fixed width so every switch
+ * on the screen lines up, however long the label above it happens to be.
+ */
+.cfg-row{
+  display:grid; grid-template-columns:1fr 220px; gap:8px 20px;
+  align-items:start; padding:14px 18px; border-bottom:1px solid #eef2f7;
+}
+.cfg-row:last-child{ border-bottom:0; }
+.cfg-row:hover{ background:#fbfcfe; }
+.cfg-row__label{
+  display:block; font-size:13.5px; font-weight:650; color:#22303f; margin:0 0 3px;
+}
+.cfg-row__help{
+  display:block; font-size:12px; line-height:1.5; color:#7a889c; max-width:64ch;
+}
+.cfg-row__control{ justify-self:end; width:100%; max-width:220px; text-align:right; }
+.cfg-row__control .form-control{ height:36px; font-size:13px; }
+
+/* The saved confirmation belongs ON THE ROW. A single banner at the top of the
+ * page is unreadable once the list scrolls: you toggle something at the bottom
+ * and the only confirmation appears off-screen. */
+.cfg-row__saved{
+  grid-column:2; justify-self:end;
+  font-size:11px; font-weight:700; letter-spacing:.03em;
+  color:#0f6e56; background:#e3f3ee; border:1px solid #0f6e56;
+  border-radius:999px; padding:1px 9px;
+  opacity:0; transition:opacity .18s;
+}
+.cfg-row__saved.is-on{ opacity:1; }
+.cfg-row__saved.is-err{ color:#c0392b; background:#fdecea; border-color:#c0392b; }
+
+/* ── The switch IS the checkbox ────────────────────────────────────────────
+ * appearance:none restyles the real <input> rather than hiding it behind a
+ * decorated <span>. That keeps one focusable, labelable, screen-reader-correct
+ * control — and keeps it clickable for tests, which a 0-opacity input is not.
+ */
+.cfg-row__control input[type="checkbox"]{
+  -webkit-appearance:none; appearance:none; margin:0;
+  width:44px; height:24px; border-radius:999px;
+  background:#cfd8e6; border:1px solid #c2ccdb;
+  position:relative; cursor:pointer; vertical-align:middle;
+  transition:background .18s, border-color .18s;
+}
+.cfg-row__control input[type="checkbox"]::after{
+  content:''; position:absolute; top:2px; left:2px;
+  width:18px; height:18px; border-radius:50%; background:#fff;
+  box-shadow:0 1px 3px rgba(20,40,80,.3);
+  transition:transform .18s;
+}
+.cfg-row__control input[type="checkbox"]:checked{ background:#1565C0; border-color:#1565C0; }
+.cfg-row__control input[type="checkbox"]:checked::after{ transform:translateX(20px); }
+.cfg-row__control input[type="checkbox"]:focus-visible{
+  outline:none; box-shadow:0 0 0 3px rgba(21,101,192,.25);
+}
+.cfg-row__control input[type="checkbox"]:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* ── Empty state for the search ────────────────────────────────────────────*/
+.cfg-empty{ padding:22px; text-align:center; color:#7a889c; font-size:13px; }
+
+/* ── Phones: stack the control under its description ───────────────────────
+ * 220px of control beside a wrapped label is unreadable on a narrow screen, and
+ * 991 is the app's existing breakpoint.
+ */
+@media (max-width:991px){
+  .cfg-row{ grid-template-columns:1fr; gap:8px; }
+  .cfg-row__control{ justify-self:start; text-align:left; max-width:100%; }
+  .cfg-row__saved{ grid-column:1; justify-self:start; }
+}
+
+/* ==========================================================================
+ * Document Designer — scoped to #DocumentDesignerDiv.
+ *
+ * The screen's real flaw was not decoration: the LIVE PREVIEW sat in a column
+ * that scrolled away, so the moment you edited the columns or the header fields
+ * — the settings whose effect you most need to see — the preview was off-screen.
+ * Making it sticky is the change that matters; the cards are what make the long
+ * form navigable while it is there.
+ * ========================================================================== */
+#DocumentDesignerDiv .dd-card{
+  background:#fff; border:1px solid #e2e7ef; border-radius:12px;
+  box-shadow:0 3px 14px rgba(20,40,80,.05);
+  margin-bottom:16px; overflow:hidden;
+}
+#DocumentDesignerDiv .dd-card__head{
+  display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+  padding:12px 18px; background:#f7f9fc; border-bottom:1px solid #e6ebf3;
+}
+#DocumentDesignerDiv .dd-card__head h4,
+#DocumentDesignerDiv .dd-card__head h5{
+  margin:0; font-size:14px; font-weight:700; color:#0D3B8C;
+}
+#DocumentDesignerDiv .dd-card__head .dd-hint{ font-size:11.5px; color:#8a97aa; font-weight:normal; }
+#DocumentDesignerDiv .dd-card__body{ padding:16px 18px; }
+
+/* Section heading inside the editor card — separates Columns / Header / Summary
+   without spending a whole card on each. */
+#DocumentDesignerDiv .dd-section{
+  margin:22px 0 10px; padding-top:16px; border-top:1px solid #eef2f7;
+}
+#DocumentDesignerDiv .dd-section:first-child{ margin-top:0; padding-top:0; border-top:0; }
+#DocumentDesignerDiv .dd-section h5{
+  margin:0 0 3px; font-size:13px; font-weight:700; color:#22303f;
+}
+#DocumentDesignerDiv .dd-section .help-block{ margin:0 0 10px; font-size:12px; color:#7a889c; }
+
+/* The options block reads as a checklist, not four stray checkboxes. */
+#DocumentDesignerDiv .dd-opts{ display:flex; flex-direction:column; gap:9px; }
+#DocumentDesignerDiv .dd-opts label{
+  display:flex; align-items:center; gap:9px; margin:0;
+  font-weight:normal; font-size:13px; color:#22303f; cursor:pointer;
+}
+
+/* ── The sticky preview ────────────────────────────────────────────────────
+ * top: clears the app's sticky header. Only above 991px — on a phone the two
+ * columns stack, and a sticky panel would eat the screen.
+ */
+@media (min-width:992px){
+  #DocumentDesignerDiv .dd-preview{ position:sticky; top:84px; }
+  #DocumentDesignerDiv .dd-preview iframe{ height:calc(100vh - 210px); min-height:420px; }
+}
+#DocumentDesignerDiv .dd-preview iframe{
+  width:100%; height:560px; border:0; background:#fff; display:block;
+}
+#DocumentDesignerDiv .dd-preview .dd-card__body{ padding:0; }
+
+/* Action bar — pinned to the foot of the editor card so Save is reachable from
+   anywhere in a long form without scrolling to find it. */
+#DocumentDesignerDiv .dd-actions{
+  position:sticky; bottom:0; z-index:2;
+  display:flex; gap:8px; justify-content:flex-end;
+  padding:12px 18px; background:#fff; border-top:1px solid #e6ebf3;
+}
+
+/* The two data tables on this screen sit inside cards; drop the doubled border. */
+#DocumentDesignerDiv .dd-card__body > .table{ margin-bottom:0; }
+#DocumentDesignerDiv .dd-card__body > .table > thead > tr > th{
+  border-top:0; font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+  color:#7a889c; font-weight:700;
+}
