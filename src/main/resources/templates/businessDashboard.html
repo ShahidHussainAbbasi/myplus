@@ -1,21 +1,21 @@
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${htmlLang}" th:dir="${htmlDir}">
 <head>
 <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
-<title th:text="#{ui.businessDashboardMyplus}">Business Dashboard â€” MyPlus</title>
+<title th:text="#{ui.businessDashboardMyplus}">Business Dashboard — MyPlus</title>
 	<th:block th:replace="~{fragments/header :: header-css}"></th:block>
     <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
     <link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
 <style>
 #dueCustTableBody tr td:nth-child(3){font-weight:700;color:#c62828}
 #DashboardDiv canvas{display:block}
-/* A voided sale/purchase row is finalized & read-only â€” grey it so it reads as inactive. Its cells are dimmed,
+/* A voided sale/purchase row is finalized & read-only — grey it so it reads as inactive. Its cells are dimmed,
    but the VOID badge stays legible. Row-click edit is blocked in main.js; no Return/Void actions are rendered. */
 tr.row-voided > td{color:#9aa4b2;background:#f7f8fa;text-decoration:line-through}
 tr.row-voided > td .label{color:#fff;text-decoration:none}
 tr.row-voided > td .row-actions{text-decoration:none}
 /* A voided row is action-less: hide its per-row Edit button (the row-click also blocks it with a message). */
 tr.row-voided .js-edit-row{display:none !important}
-/* Delete is retired for purchases (a posted bill is voided, never hard-deleted). Hide just the delete checkbox â€”
+/* Delete is retired for purchases (a posted bill is voided, never hard-deleted). Hide just the delete checkbox —
    the per-row Edit button lives in the same cell and must stay. */
 #tablePurchase input[type="checkbox"]{display:none !important}
 .dataTables_wrapper{padding:0}
@@ -69,7 +69,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				<option value="CompanyDiv" th:text="#{ui.companyDistributor}">Company/Distributor</option>
 				<option value="VenderDiv" th:text="#{ui.venderSupplier}">Vender/Supplier</option>
 				<option value="CustomerDiv" th:text="#{ui.customer}">Customer</option>
-				<!-- M4e.b (slice 102): legacy Item form retired â€” register products via the Product (catalog) master form -->
+				<!-- M4e.b (slice 102): legacy Item form retired — register products via the Product (catalog) master form -->
 			</select>
 			<select name="purchaseType" id="purchaseType" class="dropdown show panel-heading" tabindex="-1">
 				<option value="" th:text="#{ui.purchase}">Purchase</option>
@@ -92,7 +92,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						<!-- Active-ORGANIZATION (tenant) switcher. A user can belong to several orgs (one they own,
 						     plus any they were added to); without this they are pinned to the one they own and can
 						     never work inside the others. Populated by /js/common/org-switcher.js, which re-issues
-						     the session JWT for the chosen tenant. Org is the OUTER scope, store the inner one â€”
+						     the session JWT for the chosen tenant. Org is the OUTER scope, store the inner one —
 						     hence it sits above the store switcher. -->
 						<div id="orgSwitcherLi" class="snav-org" style="display:none;padding: 8px 10px;color: rgb(17, 17, 113);font-size: x-small;">
 							<select id="orgSwitcher" title="Active organization" th:title="#{ui.activeOrganization}"
@@ -124,7 +124,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<!-- Slice 74: the Product master is the single creation path; the legacy Item screen is edit-only. -->
 								<!-- <li><a onclick="snavGo('registrationType','productDiv','snavRegister')"><span class="glyphicon glyphicon-barcode"></span> Product</a></li>								 -->
 								<li><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> <span th:text="#{ui.product}">Product</span></a></li>
-								<!-- M4e.b (slice 102): legacy Item form retired â€” use the Product (catalog) master form -->
+								<!-- M4e.b (slice 102): legacy Item form retired — use the Product (catalog) master form -->
 								<li><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> <span th:text="#{ui.quarantine}">Quarantine</span></a></li>
 							</ul>
 						</div>
@@ -148,12 +148,12 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li><a onclick="snavGo('sellType','sellDiv','snavSell')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newSale}">New Sale</span></a></li>
 								<li><a onclick="showParked();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-pause"></span> <span th:text="#{ui.parkedSales}">Parked Sales</span></a></li>
 								<li><a onclick="snavGo('sellType','SRDiv','snavSell')"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.saleDetailReport}">Sale Detail Report</span></a></li>
-								<!-- B2B-P4b: quotes live under Sale because a quote IS a pre-sale document â€” it converts
+								<!-- B2B-P4b: quotes live under Sale because a quote IS a pre-sale document — it converts
 								     into an invoice through the same path a counter sale uses. -->
 								<li><a onclick="showQuotes();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.quotes}">Quotes</span></a></li>
 							</ul>
 						</div>
-						<!-- Store / e-commerce (slice 46) â€” shown ONLY for MARKETPLACE users (vertical-profile feature). -->
+						<!-- Store / e-commerce (slice 46) — shown ONLY for MARKETPLACE users (vertical-profile feature). -->
 						<div class="snav-dd" id="snavStore" data-vertical-only="MARKETPLACE">
 							<button class="snav-btn" onclick="snavToggle(event,'snavStore')">
 								<span class="glyphicon glyphicon-shopping-cart"></span>
@@ -166,7 +166,7 @@ tr.row-voided .js-edit-row{display:none !important}
 									<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showOrderConfig();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.orderSettings}">Order settings</span></a></li>
 							</ul>
 						</div>
-						<!-- Pharmacy (slice 41) â€” clinical screens, shown ONLY for PHARMA users (vertical-profile feature). -->
+						<!-- Pharmacy (slice 41) — clinical screens, shown ONLY for PHARMA users (vertical-profile feature). -->
 						<div class="snav-dd" id="snavPharmacy" data-vertical-only="PHARMA">
 							<button class="snav-btn" onclick="snavToggle(event,'snavPharmacy')">
 								<span class="glyphicon glyphicon-plus"></span>
@@ -180,7 +180,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li><a onclick="showPharmAlerts();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-bell"></span> <span th:text="#{ui.alertsAndRegister}">Alerts &amp; Register</span></a></li>
 							</ul>
 						</div>
-						<!-- Till / cash drawer â€” cashier day-close (slice 39). Available to any commerce user. -->
+						<!-- Till / cash drawer — cashier day-close (slice 39). Available to any commerce user. -->
 						<div class="snav-dd" id="snavTill">
 							<button class="snav-btn" onclick="snavToggle(event,'snavTill')">
 								<span class="glyphicon glyphicon-usd"></span>
@@ -191,7 +191,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li><a onclick="showTill();document.getElementById('snavTill').classList.remove('snav-open');"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.cashDrawer}">Cash Drawer</span></a></li>
 							</ul>
 						</div>
-						<!-- Finance â€” org-wide GL statements, tax register and the immutable audit trail.
+						<!-- Finance — org-wide GL statements, tax register and the immutable audit trail.
 						     Org-scoped reports (not customer/vendor data); open the dedicated Finance page (#FinanceDiv)
 						     with a report switcher + filter criteria. Owner-only: these expose the whole org's financial
 						     position (UI gate; enforce on the finance-service endpoints too for real access control). -->
@@ -231,7 +231,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li><a id="navConfiguration" onclick="showBusinessConfig();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
 							</ul>
 						</div>
-						<!-- Team management â€” the owner AND admins/managers (an admin may create USERs in their own
+						<!-- Team management — the owner AND admins/managers (an admin may create USERs in their own
 						     stores; the server enforces that they cannot create another ADMIN). -->
 						<div class="snav-dd" id="snavTeam" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
 							<button class="snav-btn" onclick="snavToggle(event,'snavTeam')">
@@ -323,7 +323,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="chart-panel">
 							<div class="chart-panel-head">
 								<span class="glyphicon glyphicon-signal"></span>
-								<span th:text="#{ui.revenueSalesTrendLast6Months}">Revenue &amp; Sales Trend â€” Last 6 Months</span>
+								<span th:text="#{ui.revenueSalesTrendLast6Months}">Revenue &amp; Sales Trend — Last 6 Months</span>
 							</div>
 							<div class="chart-panel-body" style="position:relative;height:260px">
 								<canvas id="chartTrend"></canvas>
@@ -402,17 +402,17 @@ tr.row-voided .js-edit-row{display:none !important}
 			     reset email) and sees the current team. Server-confined to the owner's org. -->
 			<!-- B2B-P2-UI (#10): Price Rules. The engine and the CRUD API shipped in P2; without this screen an
 			     owner could not author a rule without an API client, so the requirement was not usable.
-			     ROLE_OWNER to match #snavSettings, its only entry point â€” a wider gate here would just be
+			     ROLE_OWNER to match #snavSettings, its only entry point — a wider gate here would just be
 			     unreachable. The catalog API also demands ADMIN_PRIVILEGE, so the server stays the authority.
 			     Layout follows the Tax Codes master on TaxSettingDiv: a table plus an inline editor. -->
-			<!-- B2B-P3g (3g-4) â€” Document Designer.
+			<!-- B2B-P3g (3g-4) — Document Designer.
 			     Owner-gated for the same reason the Finance screens are (decision D-5): this decides what
-			     appears on EVERY invoice the business issues â€” its name, its licence number, which figures a
+			     appears on EVERY invoice the business issues — its name, its licence number, which figures a
 			     customer sees. The server gates the write endpoints independently; this only hides the door.
 
 			     Columns are reordered with Up/Down buttons rather than HTML5 drag-and-drop. Deliberate: drag
 			     is unusable on touch without a library, unreachable by keyboard, and effectively untestable
-			     from Cypress â€” and every one of those costs more than the polish is worth on a screen an
+			     from Cypress — and every one of those costs more than the polish is worth on a screen an
 			     owner visits twice a year. -->
 			<div id="DocumentDesignerDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
 				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.documentDesigner}">Document Designer</h4>
@@ -533,14 +533,14 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 			</div>
 
-			<!-- B2B-P4b â€” sales quotes. A quote is an OFFER: numbered, time-limited, approved internally when the
+			<!-- B2B-P4b — sales quotes. A quote is an OFFER: numbered, time-limited, approved internally when the
 			     discount is large, accepted by the customer, then converted into an invoice through the SAME sale
 			     path the till uses. Not gated: quoting is normal counter work. Approving an over-threshold
 			     discount IS gated, server-side, because that is a commercial concession. -->
 			<div id="QuoteDiv" class="formDiv" style="display:none">
 				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.quotes}">Quotes</h4>
 				<p class="help-block" th:text="#{ui.quotesHelp}">
-					A quote holds its prices until it expires. Converting one raises the invoice â€” the customer's
+					A quote holds its prices until it expires. Converting one raises the invoice — the customer's
 					credit limit is checked against their whole account group at that point.
 				</p>
 
@@ -550,7 +550,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					</button>
 				</div>
 
-				<!-- Raise form: customer + PO + lines. No total field â€” the server prices it. -->
+				<!-- Raise form: customer + PO + lines. No total field — the server prices it. -->
 				<div id="QuoteFormWrap" style="display:none; border:1px solid #d5dce6; padding:12px; margin-bottom:14px; background:#fbfcfe">
 					<div class="form-inline" style="margin-bottom:8px">
 						<label for="qtCustomerDD" th:text="#{ui.customer}">Customer</label>
@@ -605,7 +605,7 @@ tr.row-voided .js-edit-row{display:none !important}
 			<div id="PriceRuleDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
 				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.priceRules}">Price Rules</h4>
 				<p class="help-block" th:text="#{ui.priceRulesHelp}">
-					One rule wins per line â€” rules never stack. The most specific live rule applies: a rule for one
+					One rule wins per line — rules never stack. The most specific live rule applies: a rule for one
 					customer beats a rule for a customer type, and a rule for one product beats a rule for a category.
 				</p>
 				<table class="table table-condensed" id="tablePriceRule" style="width:100%">
@@ -641,7 +641,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<select class="form-control" id="prCustomerId"></select>
 								<!-- The FOUR values CustomerType actually has, with the same labels the add-customer
 								     form uses. This list first shipped with a "RETAIL" that no customer can ever be
-								     (a tier rule scoped to it would silently never fire â€” the exact failure this
+								     (a tier rule scoped to it would silently never fire — the exact failure this
 								     screen exists to expose) and with VIP missing, though VIP exists precisely to
 								     grant a better price. -->
 								<select class="form-control" id="prCustomerType" style="display:none">
@@ -682,7 +682,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<label class="control-label col-sm-3" for="prStartsOnTemp" th:text="#{ui.validity}">Valid</label>
 							<div class="col-sm-4">
 								<!-- The API takes LocalDate (ISO). The visible box shows dd-MM-yyyy and mirrors the pick
-								     into the hidden ISO field via data-dp-iso â€” the documented way to feed a date API. -->
+								     into the hidden ISO field via data-dp-iso — the documented way to feed a date API. -->
 								<input type="text" class="form-control" id="prStartsOnTemp" data-dp="date" data-dp-iso="#prStartsOn" placeholder="From (optional)" th:placeholder="#{ui.fromOptional}">
 								<input type="hidden" id="prStartsOn">
 							</div>
@@ -700,7 +700,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<label style="font-weight:normal;padding-top:8px">
 									<input type="checkbox" id="prActive" checked="checked"> <span th:text="#{ui.active}">Active</span>
 								</label>
-								<span class="help-block" th:text="#{ui.priorityHelp}">Breaks ties between two equally specific rules â€” higher wins.</span>
+								<span class="help-block" th:text="#{ui.priorityHelp}">Breaks ties between two equally specific rules — higher wins.</span>
 							</div>
 						</div>
 						<div class="form-group">
@@ -720,7 +720,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				<h3 class="dash-page-title" th:text="#{ui.teamAndUsers}">Team &amp; Users</h3>
 				<div id="teamMsg" class="alert" style="display:none"></div>
 				<!-- .form-toolbar (see /css/responsive.css): wraps as a unit at every width. The plain 12-column
-				     .row put the Add button in a col-sm-1 â€” 64px on a tablet, which clipped its label. -->
+				     .row put the Add button in a col-sm-1 — 64px on a tablet, which clipped its label. -->
 				<div class="row form-toolbar" style="margin-bottom:14px">
 					<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name" th:placeholder="#{ui.firstName}"/></div>
 					<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name" th:placeholder="#{ui.lastName}"/></div>
@@ -728,7 +728,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					<div class="col-sm-2">
 						<select id="teamRole" class="form-control">
 							<option value="USER" th:text="#{ui.user}">User</option>
-							<!-- Only an owner may create an admin (server-enforced) â€” so don't offer an admin a
+							<!-- Only an owner may create an admin (server-enforced) — so don't offer an admin a
 							     choice that can only fail. -->
 							<option value="ADMIN" sec:authorize="hasAuthority('ROLE_OWNER')" th:text="#{ui.admin}">Admin</option>
 						</select>
@@ -740,7 +740,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				<div class="row" style="margin-bottom:14px">
 					<div class="col-sm-6">
 						<label style="font-weight:600;font-size:12px;color:#7a889c;margin-bottom:4px;display:block" th:text="#{ui.assignToStoreS}">Assign to store(s)</label>
-						<!-- Toggle-chip picker (see /js/common/team.js) â€” replaces a ctrl+click <select multiple>. -->
+						<!-- Toggle-chip picker (see /js/common/team.js) — replaces a ctrl+click <select multiple>. -->
 						<div id="teamStores" class="locpick"></div>
 					</div>
 				</div>
@@ -941,7 +941,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<th data-field="venderEemail" th:text="#{ui.email}">Email</th>
 								<th data-field="venderAddress" th:text="#{ui.address2}">Address</th>
 								<th data-field="venderDue" th:text="#{ui.due}">Due</th>
-								<!-- B2B-P1: editRecord() refills the form from the row â€” a missing column silently
+								<!-- B2B-P1: editRecord() refills the form from the row — a missing column silently
 								     blanks the field on every edit. Matches the form input id. -->
 								<th data-field="venderCreditLimit" th:text="#{ui.creditLimit}">Credit limit</th>
 								<th data-field="dated" th:text="#{ui.dated}">Dated</th>
@@ -950,7 +950,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						</thead>
 					</table>
 
-					<!-- F1 (AP): Pay Vendor modal â€” FIFO-settles the vendor payable + records a DISBURSEMENT (mirror of ReceivePaymentModal). -->
+					<!-- F1 (AP): Pay Vendor modal — FIFO-settles the vendor payable + records a DISBURSEMENT (mirror of ReceivePaymentModal). -->
 					<div id="PayVendorModal" class="crud-overlay">
 					  <div class="crud-box">
 						<div class="crud-head">
@@ -1013,7 +1013,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						<span class="glyphicon glyphicon-time"></span> <span th:text="#{ui.receivablesAging}">Receivables Aging</span>
 					</button>
 					<!-- Org-wide GL statements (Trial Balance / P&L / Balance Sheet / Tax / Audit) moved to the
-					     sidebar "Finance" menu â€” they are org-scoped reports, not customer data. -->
+					     sidebar "Finance" menu — they are org-scoped reports, not customer data. -->
 					<button type="button" id="deleteCustomer" class="btn btn-danger" style="display:none !important"></button>
 					<span id="bulkBarCustomer" class="crud-bulkbar" style="display:none;margin-left:10px">
 						<span class="label label-info"><span class="bulk-count">0</span> <span th:text="#{ui.selected}">selected</span></span>
@@ -1061,7 +1061,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 					<div class="form-group">
 						<!-- B2B-P0: how this customer is served. The B2B/B2C channel is DERIVED from it
-						     (CustomerType.isB2B) â€” one field to set, no second column that could disagree.
+						     (CustomerType.isB2B) — one field to set, no second column that could disagree.
 						     Defaults to Walk-in, which is exactly today's behaviour for every existing customer. -->
 						<label class="control-label col-sm-2" for="customerType" th:text="#{ui.customerType}">Customer type</label>
 						<div class="col-sm-4">
@@ -1075,7 +1075,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<!-- B2B-P1 (#9): credit limit + payment terms. Both BLANK by default, and blank means
-					     "no limit" / "no terms" â€” i.e. exactly today's behaviour. The guard only ever fires
+					     "no limit" / "no terms" — i.e. exactly today's behaviour. The guard only ever fires
 					     for an account the owner has deliberately given a number. -->
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="creditLimit" th:text="#{ui.creditLimit}">Credit limit</label>
@@ -1094,7 +1094,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					<!-- B2B-P3g (V35): trade-buyer identity, printed on the A4 invoice. All four are optional and
 					     blank prints nothing, so a corner shop's customer record is unchanged. City is its own
 					     field because `address` is one free-text line that cannot be parsed back into parts
-					     afterwards. The licence is the BUYER's â€” a distributor may only supply a licensed
+					     afterwards. The licence is the BUYER's — a distributor may only supply a licensed
 					     reseller and the invoice carries it as evidence. (The SELLER's own licence is the
 					     pos.document.licenseNo setting: one per business, not one per customer.) -->
 					<div class="form-group">
@@ -1196,7 +1196,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<th data-field="customerContact" th:text="#{ui.contact}">Contact</th>
 								<th data-field="customerEmail" th:text="#{ui.email}">Email</th>
 								<th data-field="customerAddress" th:text="#{ui.address2}">Address</th>
-								<!-- B2B-P0: also what makes the type editable â€” editRecord() fills the form from the
+								<!-- B2B-P0: also what makes the type editable — editRecord() fills the form from the
 								     rendered row, so a field with no column cannot round-trip through an edit. -->
 								<th data-field="customerType" th:text="#{ui.customerType}">Customer type</th>
 								<!-- B2B-P1: editRecord() refills the form FROM the rendered row, so a field with no
@@ -1212,7 +1212,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						</thead>
 					</table>
 
-					<!-- B2B Phase 4a â€” account groups (company â†’ branch â†’ contact).
+					<!-- B2B Phase 4a — account groups (company â†’ branch â†’ contact).
 					     Owner/admin-gated to match the server: restructuring accounts decides whose credit limit
 					     governs whose purchases, which is a commercial decision, not a counter operation. -->
 					<div id="AccountGroupCard" class="panel panel-default" style="margin-top:18px"
@@ -1263,7 +1263,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<div id="agUnbridgedWrap" style="display:none; margin-top:12px">
 								<strong th:text="#{ui.notLinkedYet}">Not linked to the contact master yet</strong>
 								<span class="text-muted" th:text="#{ui.notLinkedYetHint}">
-									â€” these cannot join a group until they are linked (save the customer again).</span>
+									— these cannot join a group until they are linked (save the customer again).</span>
 								<div id="agUnbridged" class="text-muted" style="margin-top:4px"></div>
 							</div>
 						</div>
@@ -1307,10 +1307,10 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 						<label class="control-label col-sm-2" for="purchaseBatchNo" th:text="#{ui.batchNo}">Batch #</label>
 						<div class="col-sm-4">
-							<!-- B2B-P3a (#2): optional â€” a pharmacy needs batches, a hardware shop does not.
+							<!-- B2B-P3a (#2): optional — a pharmacy needs batches, a hardware shop does not.
 							     Feeds inventory's FEFO, which already keys on batch + expiry. Nested "stock.*"
 							     like every sibling field here: StockDTO already carries batchNo, and ModelMapper
-							     flattens it onto Purchase.batchNo â€” no DTO change needed. -->
+							     flattens it onto Purchase.batchNo — no DTO change needed. -->
 							<input type="text" class="form-control" id="purchaseBatchNo" name="stock.batchNo"
 							       placeholder="Batch / lot number" th:placeholder="#{ui.batchNoPlaceholder}"/>
 						</div>
@@ -1344,7 +1344,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4">
 							<input type="number" step="any" min="0" class="form-control" id="purchaseTaxRate" name="taxRate" placeholder="Blank = org default rate" th:placeholder="#{ui.blankOrgDefaultRate}"/>
 						</div>
-						<div class="col-sm-5 help-block" style="padding-top:8px" th:text="#{ui.inputTaxPaidToTheVendor}">Input tax paid to the vendor (VAT/GST) â€” added to the bill.</div>
+						<div class="col-sm-5 help-block" style="padding-top:8px" th:text="#{ui.inputTaxPaidToTheVendor}">Input tax paid to the vendor (VAT/GST) — added to the bill.</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" th:text="#{label.product}">Select Product</label> 
@@ -1480,7 +1480,7 @@ tr.row-voided .js-edit-row{display:none !important}
 			<div id="sellDiv" class="formDiv">
 			<!-- P6 (slice 43): shown when a sale is dispensing a prescription; cleared after Complete Sale records the dispense. -->
 			<div id="dispenseBanner" class="alert alert-info" style="display:none">
-				<span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.dispensing}">Dispensing</span> <b id="dispenseRxLabel"></b> <span th:text="#{ui.addThePrescribedItemsAndComplete}">â€”
+				<span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.dispensing}">Dispensing</span> <b id="dispenseRxLabel"></b> <span th:text="#{ui.addThePrescribedItemsAndComplete}">—
 				add the prescribed items and complete the sale.</span>
 				<a href="#" onclick="cancelDispense();return false;" style="float:right" th:text="#{ui.cancel}">cancel</a>
 			</div>
@@ -1534,11 +1534,11 @@ tr.row-voided .js-edit-row{display:none !important}
 							<input type="text" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="sellItems" name="quantity"
 							 onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required"/>
 						</div>
-						<!-- B2B-P3g: free goods on this line ("Bon." on a trade invoice) â€” 20 billed, 2 free.
+						<!-- B2B-P3g: free goods on this line ("Bon." on a trade invoice) — 20 billed, 2 free.
 						     Optional; blank means no bonus and the column prints nothing. Deliberately NOT
 						     wired into calculateNetSell: bonus stock is given away, so it must not move the
-						     line total, the tax or the margin. It is also PRESENTATION ONLY for now â€” it does
-						     not decrement inventory (decision D-2) â€” so a shop that needs the stock to move
+						     line total, the tax or the margin. It is also PRESENTATION ONLY for now — it does
+						     not decrement inventory (decision D-2) — so a shop that needs the stock to move
 						     should record the free units as a normal line instead. -->
 						<label class="control-label col-sm-2 pos-more" data-pos-field="bonus" for="sellBonus" th:text="#{ui.docBonus}">Bonus</label>
 						<div class="col-sm-2 pos-more" data-pos-field="bonus">
@@ -1721,7 +1721,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number" th:placeholder="#{ui.mobileNumber2}"/>
 							</div>
 						</div>
-						<!-- Payment row â€” always visible -->
+						<!-- Payment row — always visible -->
 						<div class="form-group" style="padding-top: 8px; padding-bottom: 25px;">
 							<div class="col-xs-12 col-sm-3 col-md-2">
 								<span class="field-label" th:text="#{ui.paymentMethod}">Payment Method</span>
@@ -1736,7 +1736,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								</select>
 							</div>
 							<!-- P12 (slice 59): insurer-covered portion of a dispense; the rest is the patient co-pay.
-							     Pharmacy-only â€” a POS/retail or e-commerce sale has no insurer, so the field is
+							     Pharmacy-only — a POS/retail or e-commerce sale has no insurer, so the field is
 							     noise on those verticals (and an empty box invites the question "should I fill
 							     this in?"). module-theme.js hides it for everything but PHARMA. -->
 							<div class="col-xs-12 col-sm-3 col-md-2" data-vertical-only="PHARMA">
@@ -1767,7 +1767,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<span class="field-label" th:text="#{ui.change}">Change</span>
 								<input type="number" step="any" min="0" class="form-control" id="sellCh" name="sellCh" readonly="readonly" placeholder="Change" th:placeholder="#{ui.change}">
 							</div>
-							<!-- B2B-P3g: the invoice-level TRADE DISCOUNT â€” a whole-order concession settled at the
+							<!-- B2B-P3g: the invoice-level TRADE DISCOUNT — a whole-order concession settled at the
 							     foot of a distribution invoice, distinct from the per-line discounts on each cart
 							     line. Optional; blank sends nothing and a B2C sale is completely unchanged. -->
 							<div class="col-xs-12 col-sm-3 col-md-2" data-pos-field="tradeDiscount">
@@ -1780,7 +1780,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<input type="number" step="any" class="form-control" id="sellDueThis" readonly="readonly" placeholder="0" title="Amount still owed on this sale" th:title="#{ui.amountStillOwedOnThisSale}">
 							</div>
 							<!-- Due Date is shown & required ONLY when the sale leaves a balance (Due this sale > 0);
-							     hidden entirely otherwise â€” a fully-paid sale has nothing to follow up. -->
+							     hidden entirely otherwise — a fully-paid sale has nothing to follow up. -->
 							<div class="col-xs-12 col-sm-3 col-md-2" id="sellDueDateWrap" style="display:none">
 								<span class="field-label" id="sellDueDateLabel" th:text="#{ui.dueDate2}">Due Date *</span>
 								<!-- data-dp joins the shared calendar without a magic class; data-dp-iso mirrors the pick
@@ -1790,7 +1790,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								<input type="hidden" id="dueDate" name="dueDate"/>
 							</div>
 						</div>
-						<!-- Account balance row â€” shown only for an existing selected customer (new sale) -->
+						<!-- Account balance row — shown only for an existing selected customer (new sale) -->
 						<div class="form-group" id="sellAccountRow" data-pos-field="customerBalance" style="display:none; padding-bottom: 20px;">
 							<div class="col-xs-6 col-sm-3 col-md-2 col-sm-offset-3 col-md-offset-2">
 								<span class="field-label" th:text="#{ui.previousBalance}">Previous balance</span>
@@ -1845,7 +1845,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						<!-- POS/retail standard column order: WHEN â†’ WHICH DOCUMENT â†’ WHO â†’ WHAT â†’ MONEY â†’ ACTIONS.
 						     Dropped: "ID" (an internal key an operator never needs) and "Disc Type" (folded into
 						     Discount, so "10" is now unambiguous: "10%" vs "10 (Amt)").
-						     Renamed: "Net Amount (Paid)" â†’ "Line Total". It was never paid, and never net â€” it is
+						     Renamed: "Net Amount (Paid)" â†’ "Line Total". It was never paid, and never net — it is
 						     what this LINE was charged (discounted base + tax). Payment lives on the invoice
 						     (Payment / Invoice Due), not on a line, which is exactly what the old label implied. -->
 						<tr>
@@ -1855,9 +1855,9 @@ tr.row-voided .js-edit-row{display:none !important}
 							<th data-field="sellItemName" th:text="#{ui.product}">Product</th>
 							<th data-field="sellItems" th:text="#{ui.qty}">Qty</th>
 							<th data-field="sellSellRate" title="The rate this line was actually sold at (may differ from the catalog price)" th:title="#{ui.theRateThisLineWasActually}" th:text="#{ui.unitPrice}">Unit Price</th>
-							<th data-field="sellDiscount" title="Discount applied to this line â€” % of the line, or a flat amount" th:title="#{ui.discountAppliedToThisLineOf}" th:text="#{ui.discount}">Discount</th>
+							<th data-field="sellDiscount" title="Discount applied to this line — % of the line, or a flat amount" th:title="#{ui.discountAppliedToThisLineOf}" th:text="#{ui.discount}">Discount</th>
 							<th data-field="sellTaxAmount" th:text="#{ui.tax2}">Tax</th>
-							<th data-field="sellNetAmount" title="What this line was charged: (qty Ã— unit price âˆ’ discount) + tax" th:title="#{ui.whatThisLineWasChargedQty}" th:text="#{ui.lineTotal}">Line Total</th>
+							<th data-field="sellNetAmount" title="What this line was charged: (qty × unit price − discount) + tax" th:title="#{ui.whatThisLineWasChargedQty}" th:text="#{ui.lineTotal}">Line Total</th>
 							<th data-field="sellPaymentMode" th:text="#{ui.payment}">Payment</th>
 							<th data-field="sellDueAmount" title="Amount still owed on THIS invoice only" th:title="#{ui.amountStillOwedOnThisInvoice}" th:text="#{ui.invoiceDue}">Invoice Due</th>
 							<th data-field="sellAction" th:text="#{ui.actions}">Actions</th>
@@ -1921,7 +1921,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 			</div>
 
-			<!-- M1 (slice 42): catalog Product master registration â€” the single product master all verticals share. -->
+			<!-- M1 (slice 42): catalog Product master registration — the single product master all verticals share. -->
 			<div id="ProductDiv" class="formDiv" style="display:none">
 				<!-- <h4 data-term>Product (Catalog Master)</h4> -->
 				<p class="text-muted" th:text="#{ui.theSingleProductMasterSharedAcross}">The single product master shared across POS, pharmacy and e-commerce (catalog-service).</p>
@@ -1977,9 +1977,9 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4"><input type="number" step="any" min="0" class="form-control" id="prodPrice"></div>
 						<label class="control-label col-sm-2" for="prodTaxCode" th:text="#{ui.tax2}">Tax</label>
 						<div class="col-sm-4">
-							<!-- Multi-rate tax: pick a tax code (its rate applies), or "Custom rateâ€¦" for a one-off %. -->
+							<!-- Multi-rate tax: pick a tax code (its rate applies), or "Custom rate…" for a one-off %. -->
 							<select class="form-control" id="prodTaxCode" onchange="onProdTaxCodeChange()">
-								<option value="" th:text="#{ui.customRate}">Custom rateâ€¦</option>
+								<option value="" th:text="#{ui.customRate}">Custom rate…</option>
 							</select>
 							<input type="number" step="any" min="0" class="form-control" id="prodTax" placeholder="Tax %" th:placeholder="#{ui.tax}" style="margin-top:6px">
 						</div>
@@ -1999,8 +1999,20 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div class="form-group">
+						<!-- Manufacturer mirrors the Category control above: pick one already in use, or type a new
+						     one. It is NOT backed by a master table — the options are the distinct manufacturers
+						     already on this org's products, so "registering" one means saving a product with it.
+						     See loadManufacturers() in catalog-products.js. -->
 						<label class="control-label col-sm-2" for="prodManufacturer" th:text="#{ui.manufacturer}">Manufacturer</label>
-						<div class="col-sm-4"><input type="text" class="form-control" id="prodManufacturer"></div>
+						<div class="col-sm-4">
+							<select class="form-control" id="prodManufacturer"></select>
+							<div class="input-group" style="margin-top:6px">
+								<input type="text" class="form-control input-sm" id="prodManufacturerNew" placeholder="+ New manufacturer" th:placeholder="#{ui.newManufacturer}">
+								<span class="input-group-btn">
+									<button type="button" class="btn btn-success btn-sm" onclick="addManufacturerInline()" title="Add manufacturer" th:title="#{ui.addManufacturer}"><span class="glyphicon glyphicon-plus"></span></button>
+								</span>
+							</div>
+						</div>
 						<label class="control-label col-sm-2" for="prodDesc" th:text="#{ui.description}">Description</label>
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodDesc"></div>
 					</div>
@@ -2017,6 +2029,30 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 				  </div>
 				</div>
+				<!-- Toggle column — same control (and the same shared `a.toggle-vis` handler in business.js) the
+				     Purchase and Sell reports use. data-column is the ZERO-BASED index into #tableProduct's header:
+				       0 ID (hidden by loadDataTable)   1 checkbox   2 Name        3 SKU       4 Unit
+				       5 Price   6 Last purchase   7 Last sale      8 Tax %       9 Category  10 Manufacturer
+				      11 On hand  12 Add stock (the action control)  13 Status
+				     0, 1 and 12 are deliberately NOT offered: hiding the id/checkbox breaks row-edit and bulk
+				     select, and 12 holds the add/reduce stock buttons rather than data.
+				     ⚠ These indexes are positional — if a column is inserted into the table above, every number
+				     after it shifts. product-manufacturer.cy.js asserts header count vs row-cell count for exactly
+				     that reason. -->
+				<div>
+					<span th:text="#{ui.toggleColumn}">Toggle column:</span>
+					  <a class="toggle-vis" data-column="2" th:text="#{ui.name}">Name</a>
+					  - <a class="toggle-vis" data-column="3" th:text="#{ui.sku}">SKU</a>
+					  - <a class="toggle-vis" data-column="4" th:text="#{ui.unit}">Unit</a>
+					  - <a class="toggle-vis" data-column="5" th:text="#{ui.price}">Price</a>
+					  - <a class="toggle-vis" data-column="6" th:text="#{ui.lastPurchaseRate}">Last purchase rate</a>
+					  - <a class="toggle-vis" data-column="7" th:text="#{ui.lastSaleRate}">Last sale rate</a>
+					  - <a class="toggle-vis" data-column="8" th:text="#{ui.tax}">Tax %</a>
+					  - <a class="toggle-vis" data-column="9" th:text="#{ui.category}">Category</a>
+					  - <a class="toggle-vis" data-column="10" th:text="#{ui.manufacturer}">Manufacturer</a>
+					  - <a class="toggle-vis" data-column="11" th:text="#{ui.onHand}">On hand</a>
+					  - <a class="toggle-vis" data-column="13" th:text="#{ui.status}">Status</a>
+				</div>
 				<div>
 					<table id="tableProduct" class="table table-bordered table-striped">
 						<thead>
@@ -2029,11 +2065,12 @@ tr.row-voided .js-edit-row{display:none !important}
 								<th data-field="sellingPrice" th:text="#{ui.price}">Price</th>
 								<!-- Stamped onto the product by the purchase flow (add/edit a purchase), so both render
 								     straight from the product row. Last sale rate is what the last purchase SET the price
-								     to; the Price column is the live master price â€” they diverge on a direct price edit. -->
+								     to; the Price column is the live master price — they diverge on a direct price edit. -->
 								<th data-field="lastPurchaseRate" th:text="#{ui.lastPurchaseRate}">Last purchase rate</th>
 								<th data-field="lastSaleRate" th:text="#{ui.lastSaleRate}">Last sale rate</th>
 								<th data-field="taxRate" th:text="#{ui.tax}">Tax %</th>
 								<th data-field="categoryName" th:text="#{ui.category}">Category</th>
+								<th data-field="manufacturer" th:text="#{ui.manufacturer}">Manufacturer</th>
 								<th data-field="onHand" th:text="#{ui.onHand}">On hand</th>
 								<th data-field="addStock" th:text="#{ui.addStock}">Add stock</th>
 								<th data-field="productStatus" th:text="#{ui.status}">Status</th>
@@ -2053,7 +2090,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				<div id="quarantineEmpty" class="text-muted" style="display:none" th:text="#{ui.noQuarantinedStock}">No quarantined stock.</div>
 			</div>
 
-			<!-- Medicine registration reuses the existing Item screen (relabeled "Medicine" by module-theme.js) â€”
+			<!-- Medicine registration reuses the existing Item screen (relabeled "Medicine" by module-theme.js) —
 			     no separate Medicine screen (avoid reinventing the POS). slice 41 / 42 (itemId bridge). -->
 
 			<!-- Pharmacy P8 (slice 45): controlled-substance register + stock (near-expiry/low) alerts. PHARMA only. -->
@@ -2235,7 +2272,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				</table>
 			</div>
 
-			<!-- Owner Configuration â€” self-renders from the business-service common-settings catalog (/getBusinessConfig).
+			<!-- Owner Configuration — self-renders from the business-service common-settings catalog (/getBusinessConfig).
 			     Each policy is one catalog entry in the service; a toggle saves immediately (/saveBusinessConfig). -->
 			<!-- Owner OR admin: matches the shared SettingsController, which already permits
 			     ROLE_OWNER or ADMIN_PRIVILEGE to write an override. The screen was the narrower of the
@@ -2244,7 +2281,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				<h4 style="margin-bottom:4px" th:text="#{ui.configuration}">Configuration</h4>
 				<p style="color:#7a889c;margin-bottom:16px" th:text="#{ui.turnFeaturesOnOrOffFor}">Turn features on or off for your organization. Changes apply immediately.</p>
 				<div id="businessConfigMsg" class="alert" style="display:none"></div>
-				<div id="businessConfigBody" th:text="#{ui.loading2}">Loadingâ€¦</div>
+				<div id="businessConfigBody" th:text="#{ui.loading2}">Loading…</div>
 			</div>
 
 			<!-- OMS O3 — Order settings. Self-renders from the MARKETPLACE catalog (/getOrderConfig), so a new
@@ -2328,7 +2365,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 			</div>
 
-			<!-- Finance Reports â€” org-wide GL statements, tax register, audit trail. Owner-only (matches the
+			<!-- Finance Reports — org-wide GL statements, tax register, audit trail. Owner-only (matches the
 			     sidebar Finance menu). One page with a report switcher + per-report filter criteria. -->
 			<div id="FinanceDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
 				<style>
@@ -2349,7 +2386,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				<div class="fin-head">
 					<div>
 						<h3 class="fin-title" th:text="#{ui.financeReports}">Finance Reports</h3>
-						<p class="fin-sub" th:text="#{ui.generalLedgerStatementsTaxRegisterAnd}">General Ledger statements, tax register and the audit trail â€” organization-wide.</p>
+						<p class="fin-sub" th:text="#{ui.generalLedgerStatementsTaxRegisterAnd}">General Ledger statements, tax register and the audit trail — organization-wide.</p>
 					</div>
 					<div class="fin-tabs" id="finTabs">
 						<button type="button" class="fin-tab" data-report="trialBalance" onclick="showFinance('trialBalance')"><span class="glyphicon glyphicon-list"></span><span th:text="#{ui.trialBalance}">Trial Balance</span></button>
@@ -2402,7 +2439,7 @@ tr.row-voided .js-edit-row{display:none !important}
 
 			<div id="SRDiv" class="formDiv">
 				<style>
-					/* Sale Detail Report â€” scoped presentation */
+					/* Sale Detail Report — scoped presentation */
 					#SRDiv .sr-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;
 						background:#fff;border:1px solid #e2e7ef;border-radius:14px;padding:16px 20px;
 						box-shadow:0 4px 16px rgba(20,40,80,.06);margin-bottom:18px}
@@ -2462,14 +2499,14 @@ tr.row-voided .js-edit-row{display:none !important}
 					<span id="srFilterRail" style="display:contents"></span>
 				</form>
 
-				<!-- KPI summary â€” filled by renderSRKpis() after a successful load -->
+				<!-- KPI summary — filled by renderSRKpis() after a successful load -->
 				<div class="sr-kpis" id="srKpis">
-					<div class="sr-kpi k-sales"><div class="k-label" th:text="#{ui.grossSales}">Gross sales</div><div class="k-value" id="srkGross">â€”</div></div>
-					<div class="sr-kpi k-tax"><div class="k-label" th:text="#{ui.taxCollected}">Tax collected</div><div class="k-value" id="srkTax">â€”</div></div>
-					<div class="sr-kpi k-billed"><div class="k-label" th:text="#{ui.totalBilled}">Total billed</div><div class="k-value" id="srkBilled">â€”</div></div>
-					<div class="sr-kpi k-items"><div class="k-label" th:text="#{ui.itemsSold}">Items sold</div><div class="k-value" id="srkItems">â€”</div></div>
-					<div class="sr-kpi k-invoices"><div class="k-label" th:text="#{ui.invoices}">Invoices</div><div class="k-value" id="srkInvoices">â€”</div></div>
-					<div class="sr-kpi k-due"><div class="k-label" th:text="#{ui.outstandingDue2}">Outstanding due</div><div class="k-value" id="srkDue">â€”</div></div>
+					<div class="sr-kpi k-sales"><div class="k-label" th:text="#{ui.grossSales}">Gross sales</div><div class="k-value" id="srkGross">—</div></div>
+					<div class="sr-kpi k-tax"><div class="k-label" th:text="#{ui.taxCollected}">Tax collected</div><div class="k-value" id="srkTax">—</div></div>
+					<div class="sr-kpi k-billed"><div class="k-label" th:text="#{ui.totalBilled}">Total billed</div><div class="k-value" id="srkBilled">—</div></div>
+					<div class="sr-kpi k-items"><div class="k-label" th:text="#{ui.itemsSold}">Items sold</div><div class="k-value" id="srkItems">—</div></div>
+					<div class="sr-kpi k-invoices"><div class="k-label" th:text="#{ui.invoices}">Invoices</div><div class="k-value" id="srkInvoices">—</div></div>
+					<div class="sr-kpi k-due"><div class="k-label" th:text="#{ui.outstandingDue2}">Outstanding due</div><div class="k-value" id="srkDue">—</div></div>
 				</div>
 
 				<!-- B2B-P3e-2 (#6): subtotals when a grouping is active. The grouped view is the answer; the
@@ -2522,7 +2559,7 @@ tr.row-voided .js-edit-row{display:none !important}
         var serverContext = [[@{/}]];
         // Which commerce vertical this dashboard renders for. BusinessDashboardController sets `module` from the
         // logged-in user's type (BUSINESS=POS, PHARMA=Pharmacy, ECOMMERCE=Store); defaults BUSINESS. Drives
-        // terminology / features / theme in module-theme.js â€” one shared trade engine, white-labelled (slice 36).
+        // terminology / features / theme in module-theme.js — one shared trade engine, white-labelled (slice 36).
         window.MODULE = [[${module} ?: 'BUSINESS']];
     </script>
     <!-- Void is gated by the VOID_INVOICE privilege server-side (@PreAuthorize); the sale/purchase Void buttons show
@@ -2544,13 +2581,13 @@ tr.row-voided .js-edit-row{display:none !important}
     <!-- STEP 1: jQuery + all plugins -->
     <th:block th:replace="~{fragments/header :: header-js}"></th:block>
 
-    <!-- STEP 2: page-specific JS â€” AFTER jQuery -->
+    <!-- STEP 2: page-specific JS — AFTER jQuery -->
     <script type="text/javascript" th:src="@{/js/jspdf.min.js}"></script>
     <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
     <script th:src="@{/js/business/chart.umd.min.js}"></script>
     <script th:src="@{/js/common/dom-safe.js}"></script>
     <!-- Team & Users: shared with education. Locations for this vertical are STORES. getMyStores (not getStores)
-         so an ADMIN is only offered stores they actually manage â€” the server would drop the others anyway, and
+         so an ADMIN is only offered stores they actually manage — the server would drop the others anyway, and
          offering them would be a lie. An owner still gets every store. -->
     <script>window.TEAM_LOCATIONS_URL = 'getMyStores'; window.TEAM_LOCATION_NOUN = 'store';</script>
     <script th:src="@{/js/common/team.js}"></script>
@@ -2561,10 +2598,10 @@ tr.row-voided .js-edit-row{display:none !important}
     <!-- B2B-P3g-5: businessInvoicePrint.js removed. It was a 148-line jsPDF A4 printer gated on
          `if (userId*ONE != 37) return false;` with one shop's name, address and phone hardcoded into it, and
          it loaded on EVERY business dashboard while doing nothing for anyone else. It was also evidence of
-         real demand â€” a customer wanted an A4 invoice badly enough that one got hardcoded for them. That
+         real demand — a customer wanted an A4 invoice badly enough that one got hardcoded for them. That
          need is now served for every tenant by the Document Designer. No caller existed. -->
     <script th:src="@{/js/business/receipt.js}"></script>
-    <!-- 3g-4: must load AFTER receipt.js â€” the designer's live preview calls window.DocumentRenderer, the
+    <!-- 3g-4: must load AFTER receipt.js — the designer's live preview calls window.DocumentRenderer, the
          same renderer the printer uses, and reads its field whitelist for the default column labels. -->
     <script th:src="@{/js/business/document-designer.js}"></script>
     <script th:src="@{/js/business/till.js}"></script>
@@ -2597,7 +2634,7 @@ tr.row-voided .js-edit-row{display:none !important}
         if (btn) btn.classList.add('snav-active');
         $('#' + sel).val(val).trigger('change');
         document.getElementById(ddId).classList.remove('snav-open');
-        // Barcode-first: land the cursor in the scan box when opening a New Sale (wedge scanner ready) â€” unless the
+        // Barcode-first: land the cursor in the scan box when opening a New Sale (wedge scanner ready) — unless the
         // owner disabled barcode scanning (pos.barcode.enabled=false hides the scan box).
         if (val === 'sellDiv' && window.posBarcodeEnabled !== false) setTimeout(function(){ var s = document.getElementById('sellScan'); if (s) s.focus(); }, 150);
         // Sync the Amount Received visibility to the current payment method (a prior Credit sale may have hidden it).
@@ -2612,7 +2649,7 @@ tr.row-voided .js-edit-row{display:none !important}
     //     $('select.dropdown').each(function() { this.selectedIndex = 0; });
     // }
 	
-    // Click-away closing now lives in /js/business/sidebar.js â€” it spares the group holding the CURRENT
+    // Click-away closing now lives in /js/business/sidebar.js — it spares the group holding the CURRENT
     // selection, so clicking into the form no longer collapses the nav item you are working under.
     /* â”€â”€ Dashboard date label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     (function() {

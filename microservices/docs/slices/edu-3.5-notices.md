@@ -460,6 +460,53 @@ verified, not assumed) plus count assertions added to `notices.cy.js` and
 
 ---
 
+### ⚠️ SECOND POST-SHIP DEFECT — D3 was never actually true. Found + FIXED 2026-08-09
+
+**"Nothing sends on the request thread" (D3) was the design. The code did the opposite.**
+
+`onEnqueued` is an `AFTER_COMMIT` listener, and it ran **inline, inside the caller's commit** — so a publish
+performed one SMTP round-trip *per recipient* before the response was written. Case 7 of the test plan
+("publishing **queues** and does not block") asserted the outbox row existed, never that the request
+returned promptly, so it passed throughout.
+
+It was **masked by the first defect**: `enabled(null)` short-circuited every send, so the hook delivered
+nothing and cost nothing. Fixing that exposed this immediately — measured from the live log:
+
+```
+[nio-8084-exec-8]  22:26:28.813   outbox delivery failed
+[nio-8084-exec-8]  22:26:30.565   outbox delivery failed
+...  24 sequential SMTP attempts, ~1.75s apart  =>  ~42s on ONE request thread
+```
+
+against the gateway's `timelimiter.timeoutDuration: 20s`. The call was cancelled, the CircuitBreaker
+forwarded to `/fallback`, and the caller received `InternalError` — **for a notice that had been queued
+perfectly correctly**. Cover notices never hit it: one recipient, ~1.75s, comfortably inside the limit.
+
+**The SMTP credentials were invalid at the same time (`Authentication failed`), and that is a separate
+issue.** It matters only because it made each attempt slow enough to cross the limit. **Fixing the password
+would have HIDDEN this defect, not fixed it** — working credentials are merely faster per send, a
+whole-school notice to forty families would still have approached 20s, and the request thread would still
+have been doing SMTP, which D3 forbids outright.
+
+**Fix:** `@Async("notifyExecutor")` on the listener, with a **bounded** pool (`NotifyAsyncConfig`: 2–4
+threads, 500 queue, `CallerRunsPolicy` back-pressure — the default executor is unbounded, which would trade
+a slow request for an unstable service).
+
+The `REQUIRES_NEW` transaction moved to a separate bean, `NotifyDeliveryRunner`. Both annotations on one
+method leaves it to **advisor ordering** whether the transaction is begun on the calling thread and then
+used from another — a transaction and its connection crossing two threads. Two beans means each boundary is
+applied by its own proxy in an unambiguous order.
+
+Covered by `EduNotifyServiceTest.queueing_does_NOT_deliver_on_the_calling_thread`, which asserts the
+delivery runner is **not** called during `queueAll` and that one event is published per recipient.
+
+**Lesson, and it is the same one twice:** *case 7 asserted the artefact (a row exists), not the property
+(the request does not block)*. Together with the first defect — asserting `has property 'queued'` rather
+than a count — both of this slice's post-ship bugs were invisible to gates that checked that something was
+**there** instead of what it **was**.
+
+---
+
 ### 3. Alerts got an ungated overload, not the notices switch
 
 Migrating `sendAlerts` onto the outbox could have reused `edu.notify.notices`. It must not: turning notices

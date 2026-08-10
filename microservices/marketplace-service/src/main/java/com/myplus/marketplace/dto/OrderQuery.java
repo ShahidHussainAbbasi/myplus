@@ -66,7 +66,7 @@ public final class OrderQuery {
     public static OrderQuery of(Integer page, Integer size, String status, String paymentStatus, String source,
                                 LocalDate from, LocalDate to, String q, boolean lateOnly) {
         int p = (page == null || page < 0) ? 0 : page;                    // a negative page is page one, not an error
-        int s = (size == null || size < 1) ? DEFAULT_SIZE : Math.min(size, MAX_SIZE);
+        int s = clampSize(size);
         return new OrderQuery(p, s,
                 upper(status), upper(paymentStatus), upper(source),
                 from == null ? null : from.atStartOfDay(),
@@ -83,6 +83,17 @@ public final class OrderQuery {
     /** Everything, at the default page size — the plain "open the Orders screen" case. */
     public static OrderQuery firstPage() {
         return of(0, DEFAULT_SIZE, null, null, null, null, null, null, false);
+    }
+
+    /**
+     * The size cap, exposed so the other paged reads share this one rule rather than restating the number.
+     *
+     * <p>Extracted for the review's R5 fix: {@code /orders/backorders} needed the same clamp, and a second
+     * {@code Math.min(size, 100)} somewhere else is how two endpoints end up with two different ceilings.
+     * Absent, zero and negative all mean {@link #DEFAULT_SIZE}; anything above {@link #MAX_SIZE} is capped.
+     */
+    public static int clampSize(Integer size) {
+        return (size == null || size < 1) ? DEFAULT_SIZE : Math.min(size, MAX_SIZE);
     }
 
     public boolean hasText() {

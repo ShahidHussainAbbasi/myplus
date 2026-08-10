@@ -334,11 +334,34 @@ public class OrderService {
      *
      * <p>It deliberately does not allocate. Taking goods for an old order ahead of a customer standing at the
      * till is a merchant's decision; this shows them the choice and O5b's Ship action carries it out.
+     *
+     * <h3>Paged since the 2026-08-10 review (R5)</h3>
+     * This was the last unbounded read in the service, and the one that actually grows: a shop's backorder book
+     * grows with its trade. Oldest promise first, so page 1 is the most overdue work.
+     *
+     * <p><b>The honest limitation, stated because it cannot be designed away here:</b> {@code readyOnly} filters
+     * the PAGE, not the query. Readiness is "does inventory have the owed quantity right now", which lives in
+     * another service and cannot be a SQL predicate — so a page of 25 outstanding orders may yield fewer than 25
+     * ready ones. {@code totalElements} therefore counts what is OUTSTANDING, which is the number a merchant is
+     * actually tracking; the filtered content is what they can act on from this page. Making
+     * {@code ready=true} exact would mean walking the whole book on every request, which is precisely the
+     * unbounded read being removed. An exact ready-only view needs a stock projection marketplace can query —
+     * a later slice, and the same shape as INV-L.
+     *
+     * <p>Paging also fixed a perf defect nobody had noticed: readiness was read for the ENTIRE backlog on every
+     * call. It is now read once for the page in hand.
      */
     @Transactional(readOnly = true)
-    public List<OrderDTO> backordersOutstanding(Long orgId, Long userId, boolean readyOnly) {
-        List<Order> outstanding = repo.findOutstandingBackorders(orgId, userId);
-        if (outstanding.isEmpty()) return List.of();
+    public com.myplus.common.web.PageResponse<OrderDTO> backordersOutstanding(
+            Long orgId, Long userId, boolean readyOnly, int page, int size) {
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(
+                        Math.max(0, page), com.myplus.marketplace.dto.OrderQuery.clampSize(size));
+        org.springframework.data.domain.Page<Order> outstanding =
+                repo.pageOutstandingBackorders(orgId, userId, pageable);
+        if (outstanding.isEmpty())
+            return new com.myplus.common.web.PageResponse<>(List.of(), outstanding.getNumber(),
+                    outstanding.getSize(), outstanding.getTotalElements(), outstanding.getTotalPages(), true);
 
         java.util.Map<Long, Float> sellable = new java.util.HashMap<>();
         try {
@@ -353,7 +376,7 @@ public class OrderService {
         }
 
         List<OrderDTO> out = new ArrayList<>();
-        for (Order o : outstanding) {
+        for (Order o : outstanding.getContent()) {
             boolean ready = false;
             for (OrderItem it : o.getItems()) {
                 int owed = it.getQuantityBackordered() == null ? 0 : it.getQuantityBackordered();
@@ -366,7 +389,8 @@ public class OrderService {
             d.setReadyToFulfil(ready);
             out.add(d);
         }
-        return out;
+        return new com.myplus.common.web.PageResponse<>(out, outstanding.getNumber(), outstanding.getSize(),
+                outstanding.getTotalElements(), outstanding.getTotalPages(), outstanding.isLast());
     }
 
     // ── OMS O5c — backorders ──────────────────────────────────────────────────────────────────────────────
@@ -483,11 +507,21 @@ public class OrderService {
      * <p>Defaults to {@code LEGACY_UNPOSTED} — the pre-O1 backlog, which is the question anyone actually asks.
      * Any other {@code booksStatus} ({@code POSTED}, {@code REVERSED}) is accepted so the same read serves an
      * audit of what DID reach the books.
+     *
+     * <p>PAGED since the 2026-08-10 review (R5). The {@code LEGACY_UNPOSTED} backlog is a fixed set that only
+     * shrinks, so it was the milder of the two OMS-7 stragglers — but {@code ?booksStatus=POSTED} points this
+     * same query at every order the tenant has ever booked, which does not shrink at all.
      */
-    public List<OrderDTO> listByBooksStatus(String booksStatus, Long orgId, Long userId) {
+    @Transactional(readOnly = true)
+    public com.myplus.common.web.PageResponse<OrderDTO> pageByBooksStatus(
+            String booksStatus, Long orgId, Long userId, int page, int size) {
         String status = (booksStatus == null || booksStatus.isBlank())
                 ? "LEGACY_UNPOSTED" : booksStatus.trim().toUpperCase();
-        return repo.findByBooksStatusScoped(status, orgId, userId).stream().map(this::toDTO).collect(Collectors.toList());
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(
+                        Math.max(0, page), com.myplus.marketplace.dto.OrderQuery.clampSize(size));
+        return com.myplus.common.web.PageResponse.of(
+                repo.pageByBooksStatusScoped(status, orgId, userId, pageable), this::toDTO);
     }
 
     // `list(orgId, userId)` — the unbounded read OMS-7 named — was DELETED 2026-08-10. O4 replaced it with

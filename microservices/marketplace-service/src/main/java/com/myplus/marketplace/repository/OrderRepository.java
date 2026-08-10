@@ -95,10 +95,22 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      * (raise a manual invoice, or accept and annotate).
      *
      * <p>Scoped like every other read — one tenant's backlog is not another's business.
+     *
+     * <p>PAGED since the 2026-08-10 review (R5). O4 closed OMS-7 on the back-office list and left this one
+     * returning every matching row. It is the smaller risk of the two — the {@code LEGACY_UNPOSTED} backlog is
+     * a fixed historical set that only shrinks — but {@code ?booksStatus=POSTED} points the very same query at
+     * every order the tenant has ever booked, which grows forever. Served by
+     * {@code idx_orders_books_status (organization_id, books_status)} from V10.
+     *
+     * <p>The unpaged {@code List} form was deleted with it, for R4's reason: a callerless repository method
+     * that returns an unbounded scoped read is not spare capacity, it is the next person's reintroduction of
+     * OMS-7 with no new SQL written.
      */
     @Query("SELECT o FROM Order o WHERE o.booksStatus = :booksStatus AND " + SCOPE + " ORDER BY o.createdAt DESC")
-    List<Order> findByBooksStatusScoped(@Param("booksStatus") String booksStatus,
-                                        @Param("orgId") Long orgId, @Param("userId") Long userId);
+    org.springframework.data.domain.Page<Order> pageByBooksStatusScoped(
+            @Param("booksStatus") String booksStatus,
+            @Param("orgId") Long orgId, @Param("userId") Long userId,
+            org.springframework.data.domain.Pageable pageable);
 
     // ── OMS O2 — identity, idempotency ────────────────────────────────────────────────────────────────────
 
@@ -129,13 +141,29 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      *
      * <p>Live states only: a CANCELLED or RETURNED order may still carry backordered lines historically, and
      * listing them as outstanding would have an operator chasing goods nobody is waiting for.
+     *
+     * <p>PAGED since the 2026-08-10 review (R5) — and the unpaged form deleted with it, per R4. This is the one
+     * of the two OMS-7 stragglers that actually grows: reconciliation is a historical set, but a shop's
+     * backorder book grows with its trade, and a busy shop's is exactly the one that must not be loaded whole.
+     * Oldest promise first, so page 1 is the work that is most overdue.
+     *
+     * <p>{@code countQuery} is given explicitly because the {@code JOIN o.items} would otherwise make Spring
+     * derive a count that multiplies each order by its backordered lines — a two-line order would be counted
+     * twice and {@code totalElements} would exceed the rows that exist.
      */
-    @Query("SELECT DISTINCT o FROM Order o JOIN o.items i WHERE i.quantityBackordered > 0 AND " + SCOPE
+    @Query(value = "SELECT DISTINCT o FROM Order o JOIN o.items i WHERE i.quantityBackordered > 0 AND " + SCOPE
             + " AND o.fulfilmentStatus NOT IN ("
             + "   com.myplus.marketplace.entity.FulfilmentStatus.CANCELLED,"
             + "   com.myplus.marketplace.entity.FulfilmentStatus.RETURNED) "
-            + " ORDER BY o.promisedDate ASC, o.createdAt ASC")
-    java.util.List<Order> findOutstandingBackorders(@Param("orgId") Long orgId, @Param("userId") Long userId);
+            + " ORDER BY o.promisedDate ASC, o.createdAt ASC",
+            countQuery = "SELECT COUNT(DISTINCT o) FROM Order o JOIN o.items i WHERE i.quantityBackordered > 0 AND "
+            + SCOPE
+            + " AND o.fulfilmentStatus NOT IN ("
+            + "   com.myplus.marketplace.entity.FulfilmentStatus.CANCELLED,"
+            + "   com.myplus.marketplace.entity.FulfilmentStatus.RETURNED)")
+    org.springframework.data.domain.Page<Order> pageOutstandingBackorders(
+            @Param("orgId") Long orgId, @Param("userId") Long userId,
+            org.springframework.data.domain.Pageable pageable);
 
     /** OMS-3: has this checkout already produced an order? Same key the SALE deduplicates on. */
     @Query("SELECT o FROM Order o WHERE o.organizationId = :orgId AND o.idempotencyKey = :key")

@@ -22,7 +22,7 @@ $(document).ready(function() {
         });
     }
 
-    // B2B-P3e-1 (#6): mount the shared filter rail HERE, not inside loadSR â€” otherwise a user opening the
+    // B2B-P3e-1 (#6): mount the shared filter rail HERE, not inside loadSR — otherwise a user opening the
     // report sees no filters until they have already run it once, which is backwards.
     if (typeof mountSRFilters === 'function') mountSRFilters();
 
@@ -61,7 +61,7 @@ $(document).ready(function() {
 	        var sumCol = function ( idx ) {
 	            return api.column( idx ).data().reduce( function (a, b) { return intVal(a) + intVal(b); }, 0 );
 	        };
-	        // 3 Qty (plain), 6 Line total, 7 Tax, 8 Net (money). Invoice due (12) is invoice-level â€” not summed
+	        // 3 Qty (plain), 6 Line total, 7 Tax, 8 Net (money). Invoice due (12) is invoice-level — not summed
 	        // per line to avoid double counting; the KPI card shows outstanding due by distinct invoice.
 	        $( api.column(3).footer() ).html( srNum( sumCol(3) ) );
 	        $( api.column(6).footer() ).html( srMoney( sumCol(6) ) );
@@ -157,7 +157,7 @@ $(document).ready(function() {
     // Show dashboard on page load
     $('#DashboardDiv').show();
     getDashboardData();
-    loadPosFeatureFlags();   // owner-configurable UI toggles (e.g. barcode scanning) â€” apply on load
+    loadPosFeatureFlags();   // owner-configurable UI toggles (e.g. barcode scanning) — apply on load
 
     $("#addInviceItem").off().click(function() {
 //    	window.open(window.location.hostname + ':' + window.location.port+""+serverContext+"reports/createdocument.docx");
@@ -171,7 +171,7 @@ $(document).ready(function() {
         	var obj  = formToJSON("Sell");
 //        	obj = populateFormData();
         	obj.itemName = $( "#sellItemDD :selected" ).text();
-			// M4e.1b (slice 98): the picker value IS the catalog productId now â€” the cart line keys by productId.
+			// M4e.1b (slice 98): the picker value IS the catalog productId now — the cart line keys by productId.
 			var pickVal = $("#sellItemDD").val();
 			obj.productId = pickVal;            // cart key + productId-native submission
 			obj.itemId = pickVal;               // back-compat field (ignored once productId present; removed in M4e.5)
@@ -186,7 +186,7 @@ $(document).ready(function() {
 			// system-set rate may be re-priced later when the customer is chosen; an override must survive.
 			obj.autoRate = (window._sellAutoRate != null && Number(obj.sellRate) === Number(window._sellAutoRate))
 				? Number(window._sellAutoRate) : null;
-			// B2B-P3g: free goods on this line ("Bon." on a trade invoice) â€” 20 billed, 2 free. Blank/zero
+			// B2B-P3g: free goods on this line ("Bon." on a trade invoice) — 20 billed, 2 free. Blank/zero
 			// sends nothing, so a shop that never gives bonus stock is unaffected. Carried through to
 			// Sell.bonus_quantity and PRINTED; it takes no part in the line total, tax or margin, which is
 			// why it can ship before decision D-2 settles whether bonus should also move inventory.
@@ -197,7 +197,7 @@ $(document).ready(function() {
 
         	// (cart insert handled below: append, or replace-in-place when editing)
 			var arr = [
-				// SF-9: show the discount WITH its type so "10" is unambiguous â€” "10%" (percent) vs "10 (Amt)" (fixed).
+				// SF-9: show the discount WITH its type so "10" is unambiguous — "10%" (percent) vs "10 (Amt)" (fixed).
 				obj.productId,obj.itemName,obj.quantity,obj.stock.bsellRate,
 				(obj.stock && obj.stock.bsellDiscount ? (Number(obj.stock.bsellDiscount) + ((obj.stock.bsellDiscountType==='1'||obj.stock.bsellDiscountType==='%') ? '%' : ' (Amt)')) : (obj.stock ? obj.stock.bsellDiscount : '')),
 				($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.productId+")>Del</button>"
@@ -210,7 +210,7 @@ $(document).ready(function() {
 					: -1;
 				if (existingIdx >= 0) {
 					// The item is locked in edit mode, so carry the original line's stock identity onto the
-						// edited line. updateSell keys stock by stockId â€” the sell form never sets it, so without
+						// edited line. updateSell keys stock by stockId — the sell form never sets it, so without
 						// this the line would save with NULL stock and drop out of the report.
 						var prevStock = data[existingIdx].stock || {};
 						if (prevStock.stockId != null) obj.stock.stockId = prevStock.stockId;
@@ -230,7 +230,7 @@ $(document).ready(function() {
 			resetForm();
 			resetBSDD('sellItemDD');
 			// Cart changed (item added / qty updated) â†’ recompute Change & Due from the live cart total
-			// (#sellTotal). Standard POS: Due = bill âˆ’ Received for THIS invoice.
+			// (#sellTotal). Standard POS: Due = bill − Received for THIS invoice.
 			calculateChange();
         }else{
         	showFormError(t('ui.js.pleaseSelectAnItemAndEnterA'));
@@ -317,7 +317,7 @@ function sellScanAdd(){
 		var ref = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : null) : resp;
 		if(!ref || ref.id == null){ sellScanMsg('No product for "' + code + '"', true); $in.focus(); return; }
 		scanAddToCart(ref, qty);
-		sellScanMsg('Added ' + (ref.name || ref.sku || ('#' + ref.id)) + ' Ã—' + cartQty(ref.id), false);
+		sellScanMsg('Added ' + (ref.name || ref.sku || ('#' + ref.id)) + ' ×' + cartQty(ref.id), false);
 		$in.focus();
 	}, 'json').fail(function(){ sellScanMsg('Lookup failed (is catalog-service up?).', true); $in.focus(); });
 }
@@ -354,13 +354,13 @@ function scanAddToCart(ref, qty){
 			var row = this.data();
 			if(String(row[0]) === String(pid)){
 				row[2] = data[idx].quantity;
-				row[5] = mUp.receivable;     // the footer sums THIS column â€” a blank here reads as zero
+				row[5] = mUp.receivable;     // the footer sums THIS column — a blank here reads as zero
 				this.data(row);
 			}
 		});
 		tablesi.draw(false);
 	} else {
-		// New line â€” mirror the shape a manual "Add to Cart" pushes (data[] is submitted as `sales`).
+		// New line — mirror the shape a manual "Add to Cart" pushes (data[] is submitted as `sales`).
 		var m = lineMath(n);
 		var obj = {
 			productId: pid, itemId: pid, itemName: name,
@@ -402,7 +402,7 @@ function loadSellForEdit(sellId){
 			stk.itemId = line.itemId;
 			stk.itemName = line.itemName;
 			var item = {
-				sellId: line.sellId,            // original line â€” lets updateSell revert the right stock
+				sellId: line.sellId,            // original line — lets updateSell revert the right stock
 				quantity: line.quantity,
 				itemId: line.itemId,
 				productId: line.productId,      // M4b: keep the productId-native line on edit
@@ -424,7 +424,7 @@ function loadSellForEdit(sellId){
 			// ]);
 		});
 		// if(tablesi){ tablesi.draw(); }
-		// 3) LOCK the customer â€” in edit mode you change quantities/payment, not WHO the customer is.
+		// 3) LOCK the customer — in edit mode you change quantities/payment, not WHO the customer is.
 		//    If the invoice's customer is in the dropdown, show Select mode with it chosen + disabled;
 		//    otherwise show Manual mode. Either way the name field is filled (the save reads it) and the
 		//    customer inputs are disabled. The customerId is remembered so updateSell updates THAT
@@ -469,7 +469,7 @@ function showSellEditBanner(invoiceNo){
 	var banner = $(
 		"<div id='sellEditBanner' class='alert alert-info' style='margin:8px 0;display:flex;align-items:center;gap:10px'>"
 		+ "<span class='glyphicon glyphicon-pencil'></span> "
-		+ "<span><b>Editing invoice " + escHtml(invoiceNo || '') + "</b> â€” change items / amounts, then click <b>Add Sell</b> to update.</span>"
+		+ "<span><b>Editing invoice " + escHtml(invoiceNo || '') + "</b> — change items / amounts, then click <b>Add Sell</b> to update.</span>"
 		+ "<button type='button' id='cancelSellEdit' class='btn btn-xs btn-default' style='margin-left:auto'>Cancel edit</button>"
 		+ "</div>");
 	$('#iDiv').before(banner);
@@ -485,7 +485,7 @@ function setSellItemBtnMode(editing){
 		: "<span class='glyphicon glyphicon-shopping-cart'></span> Add to Cart");
 }
 
-// Load one cart line into the item form for editing. In edit mode the ITEM is FIXED â€” the dropdown is
+// Load one cart line into the item form for editing. In edit mode the ITEM is FIXED — the dropdown is
 // disabled so only the quantity/amounts of that line can change; "Update Item" then replaces this same
 // line in place.
 function loadCartLineIntoForm(line){
@@ -498,7 +498,7 @@ function loadCartLineIntoForm(line){
 		         : (Array.isArray(resp && resp.data) ? resp.data : []);
 		var html = "<option value=''>Nothing Selected</option>";
 		list.forEach(function(p){
-			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker â€” not sellable/purchasable
+			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker — not sellable/purchasable
 			html += "<option value='" + p.id + "' data-product='" + p.id + "' data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
 		});
 		var $dd = $('#sellItemDD').empty().append(html);
@@ -551,7 +551,7 @@ function cancelSellEdit(){
 // â”€â”€â”€ Team / Users (owner-only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // The company SUPER owner manages team members. Uses a custom show (not the generic .dropdown path)
 // so it doesn't trigger loadDataTable for a non-existent "Team" entity.
-// showTeam / loadTeamUsers / addTeamUser / teamMsg / the location picker now live in /js/common/team.js â€”
+// showTeam / loadTeamUsers / addTeamUser / teamMsg / the location picker now live in /js/common/team.js —
 // one implementation shared with education (which previously had no team screen at all).
 
 // G3 (slice 35): org tax policy. Same direct-show pattern as showTeam (no DataTable entity).
@@ -605,7 +605,7 @@ function loadTaxCodesAdmin(){
 	$.get(serverContext + 'catalogTaxCodes', function(resp){
 		var codes = Array.isArray(resp) ? resp : (typeof resp === 'string' ? (JSON.parse(resp) || []) : []);
 		var $tb = $('#taxCodeTable tbody').empty();
-		if(!codes.length){ $tb.append('<tr><td colspan="4" class="text-muted">No tax codes yet â€” add one below.</td></tr>'); return; }
+		if(!codes.length){ $tb.append('<tr><td colspan="4" class="text-muted">No tax codes yet — add one below.</td></tr>'); return; }
 		codes.forEach(function(c){
 			$tb.append('<tr>'
 				+ '<td>'+escHtml(c.name||'')+(c.active===false?' <span class="label label-default">inactive</span>':'')+'</td>'
@@ -661,12 +661,12 @@ function deleteTaxCode(id){
 // The rule engine and its CRUD API shipped in Phase 2; this screen is what makes them usable without an
 // API client. Same show/load/inline-editor shape as the tax-code master above.
 //
-// THE ONE THING THIS SCREEN MUST GET RIGHT: rules never stack â€” exactly one wins per line. An owner who
+// THE ONE THING THIS SCREEN MUST GET RIGHT: rules never stack — exactly one wins per line. An owner who
 // adds a second, overlapping rule and sees no effect will conclude the system is broken. So the table is
 // ordered by the resolver's OWN precedence and says outright which rule is being overridden.
 //
 // The order is mirrored from PriceResolver.bestRule(): specificity DESC, then priority DESC, then id ASC.
-// Mirrored rather than re-invented â€” if the resolver's order ever changes, this comment is the pointer to
+// Mirrored rather than re-invented — if the resolver's order ever changes, this comment is the pointer to
 // the one other place that must change with it.
 
 /** specificity() from commerce-pricing PriceRule: CUSTOMER +2, PRODUCT +1. Higher is more specific. */
@@ -681,7 +681,7 @@ function priceRuleKey(r){
 	return who + '|' + what;
 }
 
-/** LIVE / SCHEDULED / EXPIRED / INACTIVE â€” only a LIVE rule can ever price a line. */
+/** LIVE / SCHEDULED / EXPIRED / INACTIVE — only a LIVE rule can ever price a line. */
 function priceRuleState(r){
 	if (r.active === false) return 'INACTIVE';
 	var today = new Date(); today.setHours(0,0,0,0);
@@ -695,7 +695,7 @@ function showPriceRules(){
 	$('#PriceRuleDiv').show();
 	resetPriceRuleForm();
 	// The table names a customer by reading the picker it was loaded into, so the pickers must be populated
-	// BEFORE the rules render â€” otherwise the first paint shows "#12" instead of "Ali Traders" and only
+	// BEFORE the rules render — otherwise the first paint shows "#12" instead of "Ali Traders" and only
 	// corrects itself on the next save. Load, then render.
 	loadPriceRuleLookups().always(loadPriceRules);
 }
@@ -747,9 +747,9 @@ function renderPriceRules(rules){
 			|| ((a.id || 0) - (b.id || 0));
 	});
 
-	// Which rule actually wins each collision. Only LIVE rules compete â€” an inactive or expired rule is not
-	// "overridden", it simply cannot apply. This flags EXACT collisions only: whether a customerÃ—product rule
-	// shadows a typeÃ—category one depends on the customer and product on the line, so it cannot be decided
+	// Which rule actually wins each collision. Only LIVE rules compete — an inactive or expired rule is not
+	// "overridden", it simply cannot apply. This flags EXACT collisions only: whether a customer×product rule
+	// shadows a type×category one depends on the customer and product on the line, so it cannot be decided
 	// for the table as a whole without inventing an answer.
 	var winner = {};
 	sorted.forEach(function(r){
@@ -781,10 +781,10 @@ function renderPriceRules(rules){
 			? (r.targetName || priceRuleName('#prProductId', r.productId))
 			: (r.targetName || priceRuleName('#prCategoryId', r.categoryId));
 		var price = (r.mode === 'PERCENT')
-			? ('âˆ’' + Number(r.value || 0) + '% ' + t('ui.js.offCatalog'))
+			? ('−' + Number(r.value || 0) + '% ' + t('ui.js.offCatalog'))
 			: Number(r.value || 0).toFixed(2);
 		var valid = (r.startsOn || r.endsOn)
-			? (escHtml(r.startsOn || 'â€¦') + ' â†’ ' + escHtml(r.endsOn || 'â€¦'))
+			? (escHtml(r.startsOn || '…') + ' â†’ ' + escHtml(r.endsOn || '…'))
 			: '<span class="text-muted">' + escHtml(t('ui.js.always')) + '</span>';
 
 		var status = STATE_LABEL[state];
@@ -811,7 +811,7 @@ function renderPriceRules(rules){
 	});
 }
 
-/** The label already loaded into a picker â€” avoids a second round-trip just to name an id. */
+/** The label already loaded into a picker — avoids a second round-trip just to name an id. */
 function priceRuleName(selector, id){
 	if (id == null) return '';
 	var o = $(selector + ' option[value="' + id + '"]');
@@ -895,7 +895,7 @@ function savePriceRule(){
 	var value  = $('#prValue').val();
 	$('#prError').text('');
 
-	// Client-side checks are for a fast answer only â€” commerce-pricing remains the authority and re-checks
+	// Client-side checks are for a fast answer only — commerce-pricing remains the authority and re-checks
 	// everything server-side. Nothing here is a rule this screen owns.
 	if (scope === 'CUSTOMER' && !$('#prCustomerId').val()){ $('#prError').text(t('ui.js.pickACustomer')); return; }
 	if (target === 'PRODUCT'  && !$('#prProductId').val()){ $('#prError').text(t('ui.js.pickAProduct'));  return; }
@@ -974,7 +974,7 @@ function loadStores(){
 	$.get(serverContext + 'getStores', function(resp){
 		var rows = (resp && (resp.collection || resp.data)) || [];
 		var $tb = $('#tableStores tbody').empty();
-		if(!rows.length){ $tb.append('<tr><td colspan="5" class="text-center">No stores yet â€” add your first store above.</td></tr>'); return; }
+		if(!rows.length){ $tb.append('<tr><td colspan="5" class="text-center">No stores yet — add your first store above.</td></tr>'); return; }
 		rows.forEach(function(s){
 			$tb.append('<tr><td>'+escHtml(s.name||'')+'</td><td>'+escHtml(s.code||'')+'</td><td>'+escHtml(s.address||'')
 				+'</td><td>'+escHtml(s.phone||'')+'</td><td>'+escHtml(s.status||'')+'</td></tr>');
@@ -991,14 +991,14 @@ function saveStore(){
 				storeMsg('Store created. Pick it in the store switcher to sell from it.', false);
 				$('#storeName,#storeCode,#storeAddress,#storePhone').val('');
 				loadStores();
-				loadMyStores();   // a second store makes the switcher relevant â€” show it without a re-login
+				loadMyStores();   // a second store makes the switcher relevant — show it without a re-login
 			} else { storeMsg((resp && resp.message) || 'Could not create the store.', true); }
 		},
 		error:function(){ storeMsg('Could not create the store.', true); }
 	});
 }
 // â”€â”€ P5b: active-store switcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// The active store is what new sales/purchases/shifts get stamped with, and it lives in the JWT â€” so
+// The active store is what new sales/purchases/shifts get stamped with, and it lives in the JWT — so
 // switching means asking auth-service for a fresh token, then reloading so every section refetches
 // through the new scope. Hidden entirely for a single-store business (nothing to switch between).
 function loadMyStores(){
@@ -1007,7 +1007,7 @@ function loadMyStores(){
 		if(rows.length < 2){ $('#storeSwitcherWrap').hide(); return; }
 		var $s = $('#storeSwitcher').empty();
 		var hasActive = rows.some(function(st){ return st.active; });
-		if(!hasActive){ $s.append($('<option>').val('').text('Select a storeâ€¦')); }
+		if(!hasActive){ $s.append($('<option>').val('').text('Select a store…')); }
 		rows.forEach(function(st){
 			var $o = $('<option>').val(st.id).text(st.name + (st.code ? (' (' + st.code + ')') : ''));
 			if(st.active){ $o.prop('selected', true); }
@@ -1023,7 +1023,7 @@ function switchStore(){
 	$.ajax({ type:'POST', url:serverContext+'switchStore', contentType:'application/json',
 		data:JSON.stringify({ storeId: Number(storeId) }), dataType:'json',
 		success:function(res){
-			// The session token now carries the new active store â€” reload so every list refetches under it.
+			// The session token now carries the new active store — reload so every list refetches under it.
 			if(res && res.status === 'SUCCESS'){ window.location.reload(); }
 			else { alert((res && res.message) || 'Could not switch store.'); loadMyStores(); }
 		},
@@ -1057,11 +1057,11 @@ function resetCart(){
 	exitSellEditMode();   // a save (incl. updateSell) ends the edit: clear flag/banner, restore button
 	updateReadOnly(false);
 }
-// Product screen: build one "last rate" cell â€” the money to 2dp with the stamping date as the tooltip, or "â€”"
+// Product screen: build one "last rate" cell — the money to 2dp with the stamping date as the tooltip, or "—"
 // when this product has never been purchased (nothing stamped yet; a blank would read as a zero rate). Shared by
 // the last-purchase and last-sale columns so the two never drift apart in formatting or in what "no data" means.
 function lastRateCell(rate, stampedAt, label){
-	if (rate == null || rate === '' || isNaN(Number(rate))) return "<div class=prod-lastrate>â€”</div>";
+	if (rate == null || rate === '' || isNaN(Number(rate))) return "<div class=prod-lastrate>—</div>";
 	var day = stampedAt ? String(stampedAt).substring(0, 10) : '';   // ISO LocalDateTime â†’ yyyy-MM-dd
 	// Numbers only + an escaped label â†’ XSS-safe.
 	return "<div class=prod-lastrate title='" + escHtml(label + (day ? ' ' + day : '')) + "'>"
@@ -1087,7 +1087,7 @@ function loadDataTable(){
 		"pageLength": (offset == -1 ? 100 : Number(offset)),
 		"order": [[0, "desc"]],
 		"autoWidth": true,
-		// A voided sale/purchase is a finalized, read-only record â€” grey the row so it reads as inactive. The
+		// A voided sale/purchase is a finalized, read-only record — grey the row so it reads as inactive. The
 		// VOID badge (instead of edit/return actions) + the row-click guard already prevent any action on it.
 		"createdRow": function(row){ if (typeof isVoidedRow==='function' && isVoidedRow(getDocument($(row).html()))) $(row).addClass('row-voided'); },
 		dom: 'Bfrtip',
@@ -1095,7 +1095,7 @@ function loadDataTable(){
 			'pageLength'
 		].concat((tableV === 'Purchase') ? [{
 				// Purchase only: voiding a SALE deletes its line rows (Option B), so tableSell never has a voided row to
-				// reveal â€” the toggle would be a dead no-op there. Voided sales remain traceable via the Audit Log + receipt.
+				// reveal — the toggle would be a dead no-op there. Voided sales remain traceable via the Audit Log + receipt.
 			// Voided rows are hidden by default (they're finalized/read-only). This toggles them in/out of the list.
 			text: (window.hideVoided === false ? 'Hide voided' : 'Show voided'),
 			action: function(e, dt, node){
@@ -1145,7 +1145,7 @@ function loadDataTable(){
 				userId = collections[0].userId;
 				datatable.columns([0]).visible(false);
 				// NOTE: delete is retired for purchases (a posted bill is voided, never hard-deleted). We do NOT hide
-				// the checkbox COLUMN â€” the per-row Edit button (ensureRowEditButtons) is injected into that same
+				// the checkbox COLUMN — the per-row Edit button (ensureRowEditButtons) is injected into that same
 				// cell and needs the checkbox present. Instead the delete checkbox itself is hidden via CSS
 				// (#tablePurchase input[type=checkbox]) so Edit stays but there's no delete affordance.
 
@@ -1170,7 +1170,7 @@ function loadDataTable(){
 							"<div id=venderDue>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
 							"<div id=venderCreditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",obj.datedStr,
 							"<div class='row-actions'>"
-							// Pay only makes sense when something is owed â€” hide it when the payable is 0.
+							// Pay only makes sense when something is owed — hide it when the payable is 0.
 							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Pay this vendor'><span class='glyphicon glyphicon-usd'></span> Pay</button> " : "")
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='VENDOR' data-pid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
 							+ "</div>"
@@ -1184,7 +1184,7 @@ function loadDataTable(){
 							"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
 							"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
 							// B2B-P0/P1: these three cells MUST exist. The header has a column for each, and DataTables
-							// requires row arrays to match the column count exactly â€” a missing cell shifts every later
+							// requires row arrays to match the column count exactly — a missing cell shifts every later
 							// column and throws "Requested unknown parameter". editRecord() also refills the form FROM
 							// this row, so the id on each div is the form field it feeds.
 							"<div id=customerType>"+escHtml(obj.customerType||'WALK_IN')+"</div>",
@@ -1193,7 +1193,7 @@ function loadDataTable(){
 							"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
 							"<div id=creditBalance>"+(obj.creditBalance!=null?Number(obj.creditBalance).toFixed(2):'0.00')+"</div>",obj.updated,
 							"<div class='row-actions'>"
-							// Receive only makes sense when the customer owes something â€” hide it when the due is 0.
+							// Receive only makes sense when the customer owes something — hide it when the due is 0.
 							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> " : "")
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='CUSTOMER' data-pid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
 							// Contact-360: this customer's identity + roles across modules (the shared helper applies the
@@ -1229,28 +1229,28 @@ function loadDataTable(){
 						allRows.push([
 							"<div id=purchaseId>"+obj.purchaseId+"</div>","<input type='checkbox' value="+ obj.purchaseId+ ">",
 							"<div id=purchaseInvoiceNo>"+escHtml(obj.purchaseInvoiceNo)+"</div>","<div id=purchaseItemDD>"+escHtml(obj.iname || obj.icode || (obj.productId ? ('Product #'+obj.productId) : ''))+"</div>",
-							// Vendor column â€” same pattern as tableVender/venderCompanyDD: backend supplies the name, and
+							// Vendor column — same pattern as tableVender/venderCompanyDD: backend supplies the name, and
 							// editRecord (main.js) preselects the #purchaseVenderDD option by this text on edit.
 							"<div id=purchaseVenderDD>"+escHtml(obj.venderName||'')+"</div>",
 							"<div id=purchaseQuantity>"+obj.quantity+"</div>",
-							// B2B-P3a (#2): batch/lot. Header position 7, so the cell goes here â€” a <th> with no cell
+							// B2B-P3a (#2): batch/lot. Header position 7, so the cell goes here — a <th> with no cell
 							// shifts every later column (the tableCustomer lesson from P0).
 							"<div id=purchaseBatchNo>"+escHtml((obj.stock && obj.stock.batchNo)||'')+"</div>",
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
 							// Total = the vendor bill you owe for this line = goods (totalAmount) + input tax (taxAmount,
 							// 0 unless the org captures purchase tax). Aligns with the "Total" header. The orphaned
-							// discount cells (no header) were removed â€” they were displaying UNDER the Total/Profit
+							// discount cells (no header) were removed — they were displaying UNDER the Total/Profit
 							// headers, which is why "Profit" showed a discount. No Profit on a purchase.
-							// (Their <th>s remain COMMENTED OUT in businessDashboard.html â€” header and cell agree.)
+							// (Their <th>s remain COMMENTED OUT in businessDashboard.html — header and cell agree.)
 							"<div id=purchaseTotalAmount>"+(obj.totalAmount!=null?((Number(obj.totalAmount)||0)+(Number(obj.taxAmount)||0)):'')+"</div>",
 							// Amount paid to the vendor. Shown here AND read by editRecord to pre-fill #purchasePaid on edit
 							// (editRecord matches a form field id to the row cell of the same id).
 							"<div id=purchasePaid>"+(obj.paidAmount!=null?obj.paidAmount:'')+"</div>",
-							// Due = what's still owed on this bill = gross (goods + tax) âˆ’ paid, floored at 0. Derived
+							// Due = what's still owed on this bill = gross (goods + tax) − paid, floored at 0. Derived
 							// (display-only; no form field), consistent with the Total and Paid columns.
 							"<div id=purchaseDue>"+(obj.totalAmount!=null?Math.max(0,((Number(obj.totalAmount)||0)+(Number(obj.taxAmount)||0))-(Number(obj.paidAmount)||0)).toFixed(2):'')+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>",
-						"<div id=purchaseDate>"+obj.updated+"</div><span class='row-actions'>"+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return some or all stock to the vendor â€” reduces on-hand and the payable by the returned portion. The bill stays active.'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + (window.canVoidInvoice ? " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Cancel the WHOLE bill â€” reverses all stock-in and the payable, and makes it read-only. Use for a mistaken purchase.'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>" : ""))+ "</span>"
+						"<div id=purchaseDate>"+obj.updated+"</div><span class='row-actions'>"+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return some or all stock to the vendor — reduces on-hand and the payable by the returned portion. The bill stays active.'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + (window.canVoidInvoice ? " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Cancel the WHOLE bill — reverses all stock-in and the payable, and makes it read-only. Use for a mistaken purchase.'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>" : ""))+ "</span>"
 						]);
 					});
 				} else if (getAll === "Sell") {
@@ -1258,7 +1258,7 @@ function loadDataTable(){
 						var ch = obj.customerHistory || null;
 						var custName = (ch && ch.customer && ch.customer.name) ? ch.customer.name
 									: (obj.customer && obj.customer.name ? obj.customer.name : '');
-						// "This invoice's due": header dueAmount is stored as (paid âˆ’ bill), negative while
+						// "This invoice's due": header dueAmount is stored as (paid − bill), negative while
 						// owing; show the positive amount still owed (0 when fully paid).
 						var chDue = (ch && ch.dueAmount != null) ? Number(ch.dueAmount) : 0;
 						var owed = chDue < 0 ? (-chDue) : 0;
@@ -1284,7 +1284,7 @@ function loadDataTable(){
 							"<div id=sellSellRate>"+(obj.sellRate!=null?obj.sellRate:(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:''))+"</div>",
 							"<div id=sellDiscount>"+escHtml(String(discCell))+"</div>",
 							"<div id=sellTaxAmount>"+(obj.taxAmount!=null?obj.taxAmount:'')+"</div>",
-							// Line Total = what this line was charged (discounted base + tax) â€” the server derives it.
+							// Line Total = what this line was charged (discounted base + tax) — the server derives it.
 							"<div id=sellNetAmount>"+(obj.netAmount!=null?obj.netAmount:'')+"</div>",
 							"<div id=sellPaymentMode>"+escHtml(ch&&ch.paymentMode?ch.paymentMode:'')+"</div>",
 							"<div id=sellDueAmount>"+owed.toFixed(2)+"</div>",
@@ -1297,9 +1297,9 @@ function loadDataTable(){
 							// A voided invoice is read-only: show ONLY the VOID badge (no Return, no Void). Otherwise show
 							// Return, plus Void for a privileged user.
 							+ ((ch && ch.status === 'VOID')
-								? "<span class='label label-default' title='Voided invoice â€” read-only'>VOID</span>"
+								? "<span class='label label-default' title='Voided invoice — read-only'>VOID</span>"
 								: ("<button type='button' class='btn btn-xs btn-warning' onclick='openSaleReturn(this)'"
-									+ " title='Return some or all items â€” restocks them and refunds only the returned portion. The invoice stays active.'"
+									+ " title='Return some or all items — restocks them and refunds only the returned portion. The invoice stays active.'"
 									+ " data-sellid='"+obj.sellId+"'"
 									+ " data-stockid='"+(obj.stock&&obj.stock.stockId!=null?obj.stock.stockId:'')+"'"
 									+ " data-qty='"+(obj.quantity!=null?obj.quantity:'')+"'"
@@ -1307,7 +1307,7 @@ function loadDataTable(){
 									+ " data-item='"+escHtml(obj.itemName||'')+"'>"
 									+ "<span class='glyphicon glyphicon-share-alt'></span> Return</button>"
 									+ ((window.canVoidInvoice && ch && ch.customer_history_id)
-										? " <button type='button' class='btn btn-xs btn-danger' title='Cancel the WHOLE invoice â€” reverses every line, refunds all paid, and makes it read-only. Use for a mistaken sale.' onclick='openVoidSell(this)' data-chid='"+ch.customer_history_id+"' data-invoice='"+escHtml(ch.invoiceNo||'')+"'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>"
+										? " <button type='button' class='btn btn-xs btn-danger' title='Cancel the WHOLE invoice — reverses every line, refunds all paid, and makes it read-only. Use for a mistaken sale.' onclick='openVoidSell(this)' data-chid='"+ch.customer_history_id+"' data-invoice='"+escHtml(ch.invoiceNo||'')+"'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>"
 										: "")))
 								+ "</div>"
 						]);
@@ -1315,8 +1315,8 @@ function loadDataTable(){
 				} else if (getAll === "Product") {
 					// Product master row, rendered through the shared DataTable (same path as Customer). Columns:
 					// [id(hidden), checkbox, name, sku, unit, price, last-purchase-rate, last-sale-rate,
-					//  tax%, category, on-hand(lazy), add-stock control, status].
-					// This array MUST stay exactly as long as the #tableProduct header â€” a missing cell shifts every
+					//  tax%, category, MANUFACTURER, on-hand(lazy), add-stock control, status].
+					// This array MUST stay exactly as long as the #tableProduct header — a missing cell shifts every
 					// later column and DataTables throws "Requested unknown parameter".
 					$.each(collections, function(ind, obj) {
 						allRows.push([
@@ -1325,12 +1325,15 @@ function loadDataTable(){
 							"<div id=unit>"+escHtml(obj.unit || '')+"</div>",
 							"<div id=sellingPrice>"+(obj.sellingPrice != null ? Number(obj.sellingPrice).toFixed(2) : '')+"</div>",
 							// Last rates come stamped on the product itself (written by the purchase flow), so they
-							// render straight from this row â€” no lazy fill, no extra request.
+							// render straight from this row — no lazy fill, no extra request.
 							lastRateCell(obj.lastPurchaseRate, obj.lastRateAt, t('ui.js.lastPurchased')),
 							lastRateCell(obj.lastSaleRate,     obj.lastRateAt, t('ui.js.lastSold')),
 							"<div id=taxRate>"+(obj.taxRate != null ? Number(obj.taxRate).toFixed(2) : '')+"</div>",
 							"<div id=categoryName>"+escHtml(obj.categoryName || '')+"</div>",
-							"<div id=stk_"+obj.id+" class=prod-onhand>â€¦</div>",
+							// Manufacturer/brand — already carried by getUserProduct, so this needed no new request.
+							// escHtml because it is operator-typed free text (XSS-safe rendering rule).
+							"<div id=manufacturer>"+escHtml(obj.manufacturer || '')+"</div>",
+							"<div id=stk_"+obj.id+" class=prod-onhand>…</div>",
 							"<div class='row-actions'>"
 								+ "<input type=number min=0 step=any id=addstk_"+obj.id+" class='form-control input-sm prod-addstk' style='width:80px;display:inline-block'>"
 								+ "<button type=button id=addstkbtn_"+obj.id+" class='btn btn-xs btn-success' style='margin-left:4px' title='Add to on-hand' onclick='addProductStock("+obj.id+")'><span class='glyphicon glyphicon-plus'></span></button>"
@@ -1342,13 +1345,13 @@ function loadDataTable(){
 						]);
 					});
 				}
-				// Single draw â€” much faster than calling draw() on every row.add()
+				// Single draw — much faster than calling draw() on every row.add()
 				datatable.rows.add(allRows).draw();
 
 				// Product on-hand is inventory (not catalog). Fill EVERY row's on-hand in ONE batch call
 				// (/productStockLevels â†’ inventory /stock/levels/detail) instead of a per-row /productStock request.
 				// Show the honest SELLABLE count (what a sale can actually reserve) + a red "N expired" badge when
-				// physical stock is locked in expired batches â€” so a 16-on-hand/0-sellable product no longer lies.
+				// physical stock is locked in expired batches — so a 16-on-hand/0-sellable product no longer lies.
 				if (getAll === "Product") {
 					$.get(serverContext + "productStockLevels", function(resp){
 						var levels = (resp && resp.success && resp.levels) ? resp.levels : {};
@@ -1363,12 +1366,12 @@ function loadDataTable(){
 							var html = "<span title='" + onHand + " physical on-hand'>" + sellable + "</span>";
 							if (expired > 0) {
 								html += " <span class='label label-danger' style='margin-left:4px' title='" + expired
-									+ " unit(s) in expired batches â€” physically present but not sellable'>" + expired + " expired</span>";
+									+ " unit(s) in expired batches — physically present but not sellable'>" + expired + " expired</span>";
 							}
 							el.html(html);   // numbers only (no user data) â†’ XSS-safe
 						});
 					}).fail(function(){
-						$.each(collections, function(ind, obj){ $('#stk_' + obj.id).text('â€”'); });
+						$.each(collections, function(ind, obj){ $('#stk_' + obj.id).text('—'); });
 					});
 				}
 			},
@@ -1407,9 +1410,9 @@ function loadSellCustomers(ddId) {
 		if (res && res.collection) {
 			$.each(res.collection, function(i, c) {
 				// B2B-P1 (#9): carry the credit limit alongside the balance the option already carries, so the
-				// screen can show "available" live while typing without a call per keystroke. Only a HINT â€”
+				// screen can show "available" live while typing without a call per keystroke. Only a HINT —
 				// the server re-checks against the current balance, which another till may have moved.
-				// B2B-P2-UI: carry customerType too â€” a TIER price rule matches on it, and the till must quote
+				// B2B-P2-UI: carry customerType too — a TIER price rule matches on it, and the till must quote
 				// with the same inputs the server does or the two can disagree about the price.
 				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '" data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '" data-customer-type="' + escHtml(c.customerType || '') + '">' + escHtml(c.name) + '</option>');
 			});
@@ -1457,18 +1460,18 @@ function loadCustomerCredit(customerId){
 
 // â”€â”€â”€ B2B-P2-UI (#10): charge the price the buyer is actually entitled to â”€â”€â”€â”€â”€â”€
 //
-// THE BUG THIS FIXES. Server-side, the submitted rate WINS over a matched price rule â€” deliberately, because
+// THE BUG THIS FIXES. Server-side, the submitted rate WINS over a matched price rule — deliberately, because
 // a cashier's override must beat a rule, and `price-override.cy.js` exists to keep it that way. But this
 // screen has always prefilled the rate box from the CATALOG price the moment a product is picked. So on every
-// real sale the basket was quoted, a contract rule matched, the line's priceReason was set â€” and the customer
-// was charged catalog anyway. A receipt could read "Contract price âˆ’12%" beside an undiscounted amount.
+// real sale the basket was quoted, a contract rule matched, the line's priceReason was set — and the customer
+// was charged catalog anyway. A receipt could read "Contract price −12%" beside an undiscounted amount.
 //
-// P2's gate missed it because it posts {productId, quantity} with NO sellRate â€” the one path that takes the
+// P2's gate missed it because it posts {productId, quantity} with NO sellRate — the one path that takes the
 // server's fallback branch. It proved the engine, not the till.
 //
 // THE FIX IS HERE, NOT ON THE SERVER. The server cannot tell a deliberate 850-on-a-1000-item from this
 // screen's prefill; both arrive as a number in the same field. So the till asks what the buyer pays and puts
-// THAT in the box â€” visible, and still overridable. Server precedence is untouched.
+// THAT in the box — visible, and still overridable. Server precedence is untouched.
 
 /** The buyer to price against, or null when no rule could match anyway (walk-in / manually typed customer). */
 function sellQuoteContext(){
@@ -1489,7 +1492,7 @@ function quoteSellLines(ctx, lines, cb){
 		success: function(resp){
 			var byProduct = {};
 			((resp && resp.lines) || []).forEach(function(l){
-				// A line with no ruleId was priced at catalog â€” it would only restate what the box already has.
+				// A line with no ruleId was priced at catalog — it would only restate what the box already has.
 				if(l && l.productId != null && l.ruleId != null && l.unitPrice != null){
 					byProduct[String(l.productId)] = l;
 				}
@@ -1504,7 +1507,7 @@ function quoteSellLines(ctx, lines, cb){
 
 /**
  * Price the line being composed on the form. Runs alongside the productSellable call already made on pick,
- * so it adds no round trip to the critical path â€” the catalog price is written synchronously first and the
+ * so it adds no round trip to the critical path — the catalog price is written synchronously first and the
  * line is usable immediately; the contract price replaces it when it arrives.
  */
 function quoteSellFormPrice(productId){
@@ -1516,7 +1519,7 @@ function quoteSellFormPrice(productId){
 		var q = byProduct[String(productId)];
 		if(!q) return;
 		// Only ever replace a rate THIS code prefilled. If the cashier typed one while the quote was in
-		// flight, theirs stands â€” that is the override the server is built to honour.
+		// flight, theirs stands — that is the override the server is built to honour.
 		if(window._sellAutoRate == null || Number($('#sellSellRate').val()) !== Number(window._sellAutoRate)) return;
 		$('#sellSellRate').val(q.unitPrice);
 		window._sellAutoRate = Number(q.unitPrice);
@@ -1526,7 +1529,7 @@ function quoteSellFormPrice(productId){
 }
 
 /**
- * Re-price the cart when the customer is chosen AFTER items were added â€” the other half of the fix. Without
+ * Re-price the cart when the customer is chosen AFTER items were added — the other half of the fix. Without
  * it, "scan first, ask who's buying second" (an ordinary counter habit) still charges catalog.
  *
  * ONE call for the whole cart, never one per line.
@@ -1796,7 +1799,7 @@ function loadDashboardCharts() {
                             : '<span class="label label-info">In ' + days + 'd</span>';
                     }
                     var dueDateStr = dueDate && !isNaN(dueDate.getTime())
-                        ? dueDate.toLocaleDateString() : 'â€”';
+                        ? dueDate.toLocaleDateString() : '—';
                     return '<tr>'
                         + '<td><strong>' + escHtml(c.name || '') + '</strong></td>'
                         + '<td>' + escHtml(c.contact || '') + '</td>'
@@ -1827,7 +1830,7 @@ function loadUserCompanies(table) {
  * B2B-P0 (#8): show what the chosen vendor is already owed, before more credit is taken on.
  *
  * Delegated from document so it survives selectpicker('refresh') replacing the control, and reads the
- * data-due the server already put on the option â€” no round trip per selection. Hidden for a cash purchase
+ * data-due the server already put on the option — no round trip per selection. Hidden for a cash purchase
  * (no vendor = no payable to report).
  */
 $(document).on('change', '#purchaseVenderDD', function () {
@@ -1870,13 +1873,13 @@ function loadUserItemUnits(table) {
 
 function loadUserItems(table) {
 	// M4e.1b (slice 98): the sell/purchase picker lists catalog PRODUCTS (value = productId) sourced from the catalog
-	// master â€” not the local Item table. data-product carries the same productId so the cart submits productId-native.
+	// master — not the local Item table. data-product carries the same productId so the cart submits productId-native.
 	$.get(serverContext + "catalogProducts?size=2000", function(resp){
 		var list = (resp && resp.data && resp.data.content) ? resp.data.content
 		         : (Array.isArray(resp && resp.data) ? resp.data : []);
 		var html = "<option value=''>Nothing Selected</option>";
 		list.forEach(function(p){
-			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker â€” not sellable/purchasable
+			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker — not sellable/purchasable
 			html += "<option value='" + p.id + "' data-product='" + p.id + "' data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
 		});
 		$("#"+table+"ItemDD").empty().append(html);
@@ -1906,7 +1909,7 @@ function calculateNet(val){
 /*	if($('#discountTypeDD').val() == "Amount"){
 		$("#itemNet").val($("#itemSellAmount").val() - $("#itemPurchaseAmount").val() - $("#itemDiscount").val());
 	}else{
-		//Discount  =  List Price Ã— Discount Rate 
+		//Discount  =  List Price × Discount Rate 
 		var discount =  ($("#itemSellAmount").val() - $("#itemPurchaseAmount").val()) * ($("#itemDiscount").val()*1 / 100);
 		$("#itemNet").val($("#itemSellAmount").val() - $("#itemPurchaseAmount").val() - discount);		
 	}
@@ -1954,7 +1957,7 @@ function loadStock(label,value){
     // batches + description, by productId) instead of getStock(itemId).
     var catalogSellPrice = $("#"+(tableV?tableV.toLowerCase():'')+"ItemDD :selected").attr('data-price');
 		// Fill the sell rate IMMEDIATELY from the catalog price (data-price on the option), independent of the async
-		// on-hand/batch fetch below â€” so it shows on select even if /productStock is slow or unavailable.
+		// on-hand/batch fetch below — so it shows on select even if /productStock is slow or unavailable.
 		if (catalogSellPrice != null && catalogSellPrice !== '') {
 			if (tableV=="Purchase") $("#purchaseSellRate").val(catalogSellPrice);
 			else if (tableV=="Sell") $("#sellSellRate").val(catalogSellPrice);
@@ -2010,8 +2013,8 @@ function loadStock(label,value){
 			    	$("#sellItemDesc").val(data.idesc);
 			    	renderSellBatches(data.batches);   // P10: show the FEFO batch/expiry being dispensed
 			    	calculateNetSell();
-			    	// Sellable guard: re-key the qty guard to SELLABLE stock (non-expired, non-held) â€” what a sale can
-			    	// actually reserve â€” so the cashier can't over-sell into expired/held stock the server would reject.
+			    	// Sellable guard: re-key the qty guard to SELLABLE stock (non-expired, non-held) — what a sale can
+			    	// actually reserve — so the cashier can't over-sell into expired/held stock the server would reject.
 			    	// Also surfaces "Sellable: N (+ expired)" on the form.
 			    	$.get(serverContext+"productSellable?productId="+value, function(sd){
 			    		var sellable = (sd && sd.success && sd.sellable!=null) ? Number(sd.sellable) : Number(batchStock||0);
@@ -2023,7 +2026,7 @@ function loadStock(label,value){
 			    		$("#sellSellableInfo").html(badge).show();
 			    		if(sellable <= 0){
 			    			$("#sellItems").addClass("alert-danger");
-			    			showFormError(expired>0 ? 'All stock for this item is expired â€” not sellable. Add a fresh batch to sell.' : 'No sellable stock. Please purchase this item first.');
+			    			showFormError(expired>0 ? 'All stock for this item is expired — not sellable. Add a fresh batch to sell.' : 'No sellable stock. Please purchase this item first.');
 			    			resetBSDD('sellItemDD');
 			    			$("#sellSellableInfo").hide();
 			    			return;
@@ -2045,7 +2048,7 @@ function renderSellBatches(batches){
 	if(!el.length) return;
 	if(!batches || !batches.length){ el.hide().empty(); return; }
 	var first = batches[0];
-	var exp = first.expiryDate ? (' â€¢ Exp ' + first.expiryDate) : '';
+	var exp = first.expiryDate ? (' • Exp ' + first.expiryDate) : '';
 	var more = batches.length > 1 ? (' <span class="text-muted">(+' + (batches.length-1) + ' more)</span>') : '';
 	el.html('<span class="glyphicon glyphicon-barcode"></span> FEFO: Batch <b>' + escHtml(first.batchNo || 'n/a') + '</b>' + escHtml(exp) + more).show();
 }
@@ -2137,7 +2140,7 @@ function getStockByBatch(batchNo){
 	 }
 }
 
-// "Stock In Hand" on the purchase form = the selected product's LIVE inventory on-hand â€” NOT the purchased
+// "Stock In Hand" on the purchase form = the selected product's LIVE inventory on-hand — NOT the purchased
 // quantity. On a fresh add, loadStock already fills it (batchStock from /productStock). On EDIT the generic
 // editRecord() no longer has a stock column to copy, so it calls this to fetch on-hand for the edited product.
 function refreshPurchaseOnHand(){
@@ -2155,10 +2158,10 @@ function refreshPurchaseOnHand(){
 	});
 }
 
-// Live "Stock In Hand" preview. EDIT: the on-hand that will result after saving (base âˆ’ oldQty + newQty), so
+// Live "Stock In Hand" preview. EDIT: the on-hand that will result after saving (base − oldQty + newQty), so
 // changing 9â†’5 on a 140 on-hand previews 136. ADD: just mirrors the current live on-hand.
 function updatePurchaseProjectedOnHand(){
-	// Only treat as edit when a purchase is actually loaded (#purchaseId set) â€” guards a stale purchaseEdit
+	// Only treat as edit when a purchase is actually loaded (#purchaseId set) — guards a stale purchaseEdit
 	// left over from a previous edit when the user starts a NEW purchase.
 	if(($("#purchaseId").val()*1 > 0) && window.purchaseEdit){
 		var newQty = $("#purchaseQuantity").val()*1 || 0;
@@ -2178,7 +2181,7 @@ function calculateNetPurchase(){
 	var purchaseTotalAmount = $($("#purchaseTotalAmount").val(parseFloat(qty * p).toFixed(2))).val();
 	updatePurchaseProjectedOnHand();   // "Stock In Hand" = live on-hand (add) / projected after-save on-hand (edit)
 	if(discountType == "%"){
-		//Discount  =  List Price Ãƒâ€” Discount Rate 
+		//Discount  =  List Price × Discount Rate 
 		purchaseDiscount = purchaseTotalAmount * (purchaseDiscount*1 / 100);
 	}else{
 		purchaseDiscount = purchaseDiscount * qty;
@@ -2195,11 +2198,11 @@ function calculateNetPurchase(){
  *
  * Extracted from calculateNetSell so re-pricing a cart line (B2B-P2-UI: the customer is chosen AFTER items
  * were added, so their contract price arrives late) uses the SAME maths the form does, instead of a second
- * copy that drifts. Behaviour is unchanged â€” the rounding order below is the original's, kept exactly:
+ * copy that drifts. Behaviour is unchanged — the rounding order below is the original's, kept exactly:
  * the gross is fixed to 2dp FIRST and the percentage discount is taken off that string, so a 5% discount on
  * 99.99 cannot leak 3-4 decimals into the receivable.
  *
- * Note `profit` is what the form calls "net amount" â€” gross âˆ’ cost âˆ’ discount. That naming is the form's,
+ * Note `profit` is what the form calls "net amount" — gross − cost − discount. That naming is the form's,
  * and renaming it here would only hide the mismatch.
  */
 function sellLineMath(rate, qty, purchaseRate, discountValue, discountTypeValue){
@@ -2272,7 +2275,7 @@ function calculateNetSell(){
 // 	var sellDiscount= $("#sellDiscount").val()*1 > 0 ? $("#sellDiscount").val()*ONE : 0;
 // 	sellTotalAmount = parseFloat(qty * s).toFixed(2);
 // 	if(discountType*ONE == 1){
-// 		//Discount  =  List Price Ãƒâ€” Discount Rate 
+// 		//Discount  =  List Price × Discount Rate 
 // 		sellDiscount =  sellTotalAmount * (sellDiscount*1 / 100);
 // 	}else {
 
@@ -2313,14 +2316,14 @@ function calculateChange() {
     var insured = ($("#sellInsured") && $("#sellInsured").val() ? $("#sellInsured").val() * ONE : 0) || 0;
     var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
     // SF-1/SF-2: while EDITING, the bill is already partly covered by what was paid before, so the preview must
-    // count it: due = bill âˆ’ (priorPaid + additionalReceived + insured). The server derives the real due the same way.
+    // count it: due = bill − (priorPaid + additionalReceived + insured). The server derives the real due the same way.
     var priorPaid = (window.editingInvoice && window.editingPaid) ? Number(window.editingPaid) : 0;
     // SF-5 Model B: applied store credit counts as paid (capped at the bill for the preview; server caps at balance).
     var storeCredit = ($("#sellStoreCredit").val() * ONE) || 0;
     // SF-7: round money to 2 decimals so the on-screen change/due can't show float drift (e.g. 0.30000000004).
     var change = Math.round((recAm + insured + priorPaid + storeCredit - sellTotal) * 100) / 100;
 
-    // sellCh keeps the SIGNED change/due (received âˆ’ bill) â€” addSell submits this as customer.dueAmount.
+    // sellCh keeps the SIGNED change/due (received − bill) — addSell submits this as customer.dueAmount.
     // Do not change its meaning; the display fields below are derived from it.
     $("#sellCh").val(change);
 
@@ -2336,7 +2339,7 @@ function calculateChange() {
     $('#sellDueDateWrap').toggle(change < 0);
 }
 
-// Payment method change. "Credit (on account)" collects nothing now â€” the whole bill goes on account â€” so the
+// Payment method change. "Credit (on account)" collects nothing now — the whole bill goes on account — so the
 // Amount Received field is meaningless: hide it and zero it (Due (this sale) then shows the full amount, and the
 // Due Date becomes required via calculateChange). Any other method shows Received again. Change is left as-is.
 function onSellPayMethodChange(){
@@ -2351,7 +2354,7 @@ function onSellPayMethodChange(){
 // case the account row stays hidden. Re-derives this sale's due if not passed (e.g. on customer select).
 /**
  * B2B-P1 (#9): show the customer's limit and what is left of it, and flag an overage before the cashier
- * hits Complete Sale. Purely a HINT â€” the authoritative check runs server-side at submit, because this
+ * hits Complete Sale. Purely a HINT — the authoritative check runs server-side at submit, because this
  * page's copy of the balance is as old as the dropdown and another till may have sold to them since.
  * Hidden entirely for a customer with no limit, which is every customer until an owner sets one.
  */
@@ -2360,12 +2363,12 @@ function refreshCreditLimitHint(newTotalDue) {
 	var availWrap = document.getElementById('sellCreditAvailableWrap');
 	if (!wrap || !availWrap) { return; }
 	var limit = window.selectedCustomerLimit;
-	// Both fields appear and disappear together â€” an "Available" with no "Limit" beside it means nothing.
+	// Both fields appear and disappear together — an "Available" with no "Limit" beside it means nothing.
 	if (limit == null) { wrap.style.display = 'none'; availWrap.style.display = 'none'; return; }
 	var available = limit - (Number(newTotalDue) || 0);
 	$('#sellCreditLimit').val(limit.toFixed(2));
 	$('#sellCreditAvailable').val(available.toFixed(2));
-	// Red only when actually over â€” an "available" of 0 is at the limit, which is allowed.
+	// Red only when actually over — an "available" of 0 is at the limit, which is allowed.
 	$('#sellCreditAvailable').css('background-color', available < 0 ? '#ffd7d7' : '#eaffea');
 	wrap.style.display = '';
 	availWrap.style.display = '';
@@ -2415,9 +2418,9 @@ function srMoney(n){
 	n = (typeof n === 'number') ? n : (parseFloat(n) || 0);
 	return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-// Money for a table cell â€” blank/absent shows an em dash instead of a misleading 0.00.
+// Money for a table cell — blank/absent shows an em dash instead of a misleading 0.00.
 function srMoneyCell(v){
-	if (v === null || v === undefined || v === '') return 'â€”';
+	if (v === null || v === undefined || v === '') return '—';
 	return srMoney(v);
 }
 // Always escape user-supplied strings before injecting into DataTables HTML (XSS-safe rendering).
@@ -2429,11 +2432,11 @@ function escSR(s){
 }
 
 // The custom date-range fields (#srsd/#sred) carry class="datetimepicker", so the shared picker
-// (/js/common/date-picker.js) already owns them â€” re-binding a second plugin here is exactly what made date
+// (/js/common/date-picker.js) already owns them — re-binding a second plugin here is exactly what made date
 // fields clear on blur elsewhere. It also removes the reason this function existed: the old eonasdan widget
 // mis-initialised when bound to a display:none field, so the pickers had to be re-created each time the
 // wrapper became visible. The shared picker builds its calendar on focus and positions it then, so a field
-// that starts hidden is a non-issue. Format is unchanged (dd-MM-yyyy HH:mm:ss â€” what the backend's
+// that starts hidden is a non-issue. Format is unchanged (dd-MM-yyyy HH:mm:ss — what the backend's
 // getDateTime() parses for sd/ed). Kept as a hook for the toggle below.
 function initSRDatePickers(){
 	if (typeof initDatePickers === 'function') initDatePickers();   // pick up any newly rendered field
@@ -2448,7 +2451,7 @@ function toggleSRCustomRange(){
 	}
 }
 
-// KPI summary â€” aggregates the line collection. Invoice-level figures (due) are counted once per
+// KPI summary — aggregates the line collection. Invoice-level figures (due) are counted once per
 // distinct invoice so multiple lines on the same invoice don't double-count.
 function renderSRKpis(rows){
 	var gross = 0, tax = 0, qty = 0, invoices = {}, dueByInv = {};
@@ -2560,7 +2563,7 @@ function loadSR(){
 			if (window.srFilters) window.srFilters.categoriesFrom(rows);   // B2B-P3e-1: real categories only
 			renderSRGroups(data.object);   // B2B-P3e-2 (#6): subtotals, from the same response
 			rows.forEach(function(o){
-				var product = escSR((o.itemCode ? o.itemCode + ' â€” ' : '') + (o.itemName || ''));
+				var product = escSR((o.itemCode ? o.itemCode + ' — ' : '') + (o.itemName || ''));
 				var dueRaw  = parseFloat(o.dueAmount);
 				var owed    = (!isNaN(dueRaw) && dueRaw < 0) ? -dueRaw : 0;
 				var dueCell = owed > 0
@@ -2568,7 +2571,7 @@ function loadSR(){
 					: '<span class="sr-due-clear">Paid</span>';
 				tableSellReport.row.add([
 					escSR(o.dated || ''),
-					'<span class="sr-inv">' + escSR(o.invoiceNo || 'â€”') + '</span>',
+					'<span class="sr-inv">' + escSR(o.invoiceNo || '—') + '</span>',
 					product,
 					srNum(o.quantity),
 					srMoneyCell(o.catalogPrice),
@@ -2578,7 +2581,7 @@ function loadSR(){
 					srMoneyCell(o.netAmount),
 					escSR(o.cn || ''),
 					escSR(o.cc || ''),
-					escSR(o.paymentMode || 'â€”'),
+					escSR(o.paymentMode || '—'),
 					dueCell,
 					// SF-10: per-line margin = net revenue minus COGS (cost x qty); blank when no cost captured.
 					((!isNaN(parseFloat(o.costPrice)) && !isNaN(parseFloat(o.netAmount)) && !isNaN(parseFloat(o.quantity)))
@@ -2598,7 +2601,7 @@ function loadSR(){
 function resetPurchaseForm(){
 	resetBSDD('purchaseItemDD');
 	// B2B-P0 (#8): the vendor dues row is driven by the vendor SELECT's change event, so a native form reset
-	// clears the number but leaves the row on screen â€” an empty "Outstanding due" against no vendor at all.
+	// clears the number but leaves the row on screen — an empty "Outstanding due" against no vendor at all.
 	// Hide it with the rest of the form; it reappears the moment a vendor is picked.
 	var wrap = document.getElementById('purchaseVendorDuesWrap');
 	var box = document.getElementById('purchaseVendorDues');
@@ -2639,7 +2642,7 @@ function buildSaleReturnDialog(){
 		"<div style='background:#fff;border-radius:10px;max-width:420px;width:92%;padding:22px 24px;"
 		+ "box-shadow:0 12px 40px rgba(0,0,0,.3)'>"
 		+ "<h4 style='margin:0 0 4px;font-weight:700'>Sale Return</h4>"
-		+ "<div style='font-size:12px;color:#7a889c;margin-bottom:12px'>Take back some or all items â€” restocks them and refunds the returned portion. The invoice stays active. (To cancel the whole sale, use Void.)</div>"
+		+ "<div style='font-size:12px;color:#7a889c;margin-bottom:12px'>Take back some or all items — restocks them and refunds the returned portion. The invoice stays active. (To cancel the whole sale, use Void.)</div>"
 		+ "<div style='font-size:13px;color:#444;margin-bottom:12px'>"
 		+ "Invoice <b id='srInvoice'></b> &middot; <span id='srItem'></span><br>"
 		+ "Sold quantity: <b id='srSold'></b></div>"
@@ -2667,7 +2670,7 @@ function openSaleReturn(btn){
 	d.dataset.sellid  = btn.getAttribute('data-sellid') || '';
 	d.dataset.stockid = btn.getAttribute('data-stockid') || '';
 	d.dataset.sold    = sold;
-	document.getElementById('srInvoice').textContent = btn.getAttribute('data-invoice') || 'â€”';
+	document.getElementById('srInvoice').textContent = btn.getAttribute('data-invoice') || '—';
 	document.getElementById('srItem').textContent    = btn.getAttribute('data-item') || '';
 	document.getElementById('srSold').textContent    = sold;
 	var qtyInput = document.getElementById('srQty');
@@ -2768,7 +2771,7 @@ function submitReceivePayment() {
 			var msg = 'Payment received.' + (o.receiptNo ? ' Receipt ' + o.receiptNo : '');
 			if (typeof showSaleSuccess === 'function') showSaleSuccess(msg); else clearFormError();
 			closeModal('ReceivePaymentModal');
-			loadDataTable();   // refresh the customer list â€” due is updated
+			loadDataTable();   // refresh the customer list — due is updated
 		} else {
 			showFormError((resp && resp.message) || 'Could not record the payment.');
 		}
@@ -2776,7 +2779,7 @@ function submitReceivePayment() {
 		.always(function () { window._rcvBusy = false; });
 }
 
-// F1 (AP): Pay Vendor â€” mirror of Receive Payment. Opens the modal from the vendor row's Pay button, posts /payVendor.
+// F1 (AP): Pay Vendor — mirror of Receive Payment. Opens the modal from the vendor row's Pay button, posts /payVendor.
 $(document).on('click', '.pay-vendor-btn', function (e) {
 	e.stopPropagation();   // don't let the row-click also open the edit modal
 	openPayVendor($(this).data('vid'), $(this).data('name'), $(this).data('due'));
@@ -2813,7 +2816,7 @@ function submitPayVendor() {
 			var msg = 'Vendor paid.' + (o.voucherNo ? ' Voucher ' + o.voucherNo : '');
 			if (typeof showSaleSuccess === 'function') showSaleSuccess(msg); else clearFormError();
 			closeModal('PayVendorModal');
-			loadDataTable();   // refresh the vendor list â€” due is updated
+			loadDataTable();   // refresh the vendor list — due is updated
 		} else {
 			showFormError((resp && resp.message) || 'Could not record the payment.');
 		}
@@ -2821,13 +2824,13 @@ function submitPayVendor() {
 		.always(function () { window._pvBusy = false; });
 }
 
-// Audit #3: Void an entire invoice â€” the books-safe cancel (reverses stock + customer balance + GL). Confirm +
+// Audit #3: Void an entire invoice — the books-safe cancel (reverses stock + customer balance + GL). Confirm +
 // optional reason, POST /voidSell, then refresh the report.
 function openVoidSell(btn){
 	var chId = btn.getAttribute('data-chid');
 	var inv = btn.getAttribute('data-invoice') || '';
 	if(!chId) return;
-	// One dialog for the whole decision â€” this used to be a confirm() followed by a second prompt() popup.
+	// One dialog for the whole decision — this used to be a confirm() followed by a second prompt() popup.
 	uiPromptConfirm({
 		title: t('ui.js.voidInvoice') + inv + '?',
 		message: t('ui.js.thisReversesTheStockTheCustomerBalance'),
@@ -2843,7 +2846,7 @@ function openVoidSell(btn){
 	});
 }
 
-// Audit #3: Void a bill â€” reverses stock-in + vendor payable + GL. POST /voidPurchase, then refresh purchases.
+// Audit #3: Void a bill — reverses stock-in + vendor payable + GL. POST /voidPurchase, then refresh purchases.
 $(document).on('click', '.purchase-void-btn', function (e) {
 	e.stopPropagation();
 	var pid = this.getAttribute('data-pid'), inv = this.getAttribute('data-inv') || '';
@@ -2863,7 +2866,7 @@ $(document).on('click', '.purchase-void-btn', function (e) {
 	});
 });
 
-// Purchase Return (debit note) â€” a per-row Return button opens a small dialog and posts /purchaseReturn.
+// Purchase Return (debit note) — a per-row Return button opens a small dialog and posts /purchaseReturn.
 $(document).on('click', '.purchase-return-btn', function (e) {
 	e.stopPropagation();
 	openPurchaseReturn(this.getAttribute('data-pid'), parseFloat(this.getAttribute('data-qty')) || 0, this.getAttribute('data-inv'));
@@ -2887,7 +2890,7 @@ function openPurchaseReturn(purchaseId, soldQty, inv){
 		document.body.appendChild(d);
 	}
 	d.dataset.pid = purchaseId; d.dataset.sold = soldQty;
-	document.getElementById('prInv').textContent = inv || 'â€”';
+	document.getElementById('prInv').textContent = inv || '—';
 	document.getElementById('prSold').textContent = soldQty;
 	var q = document.getElementById('prQty'); q.value = soldQty; q.max = soldQty;
 	document.getElementById('prReason').value = ''; document.getElementById('prError').textContent = '';
@@ -2907,7 +2910,7 @@ function submitPurchaseReturn(){
 	}, 'json').fail(function(){ err.textContent = t('ui.js.anErrorOccurredPleaseTryAgain'); });
 }
 
-// F2: Statement of account + Aging â€” self-contained dialogs (no template modal needed), like the sale-return dialog.
+// F2: Statement of account + Aging — self-contained dialogs (no template modal needed), like the sale-return dialog.
 $(document).on('click', '.stmt-btn', function (e) {
 	e.stopPropagation();
 	openStatement($(this).data('ptype'), $(this).data('pid'), $(this).data('name'));
@@ -2929,7 +2932,7 @@ function buildFinanceDialog(id){
 
 /**
  * B2B-P3d (#5): put a Download button in the statement dialog header, beside Close.
- * A plain link, not an ajax call â€” the browser handles the Content-Disposition and saves the file.
+ * A plain link, not an ajax call — the browser handles the Content-Disposition and saves the file.
  */
 function addStatementDownload(partyType, partyId){
 	var title = document.getElementById('StatementDialogTitle');
@@ -2949,10 +2952,10 @@ function addStatementDownload(partyType, partyId){
 
 /**
  * B2B-P3f: statement line types, translated. The column rendered the raw enum ('BILL', 'PAYMENT'), and 3f adds
- * three more â€” CREDIT_NOTE, DEBIT_NOTE, VOID â€” so leaving it raw would put untranslated shouting SQL-ish tokens
+ * three more — CREDIT_NOTE, DEBIT_NOTE, VOID — so leaving it raw would put untranslated shouting SQL-ish tokens
  * on a document customers read. Defined ONCE here beside the only screen that renders a statement; an unknown
  * type falls through to itself rather than rendering blank, so a future type is visible instead of invisible.
- * Keys MUST carry the ui.js.* prefix â€” that is the only prefix LocaleInterceptor ships to the browser.
+ * Keys MUST carry the ui.js.* prefix — that is the only prefix LocaleInterceptor ships to the browser.
  */
 var STATEMENT_TYPE_KEYS = {
 	BILL: 'ui.js.stmtTypeBill',
@@ -2973,7 +2976,7 @@ function openStatement(partyType, partyId, name){
 	// B2B-P3d (#5): a statement is only useful if the customer can take it away. The CSV comes from the SAME
 	// service method the table below renders, so the file and the screen can never disagree.
 	addStatementDownload(partyType, partyId);
-	document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px">Loadingâ€¦</div>';
+	document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
 	$.get(serverContext + url, function(resp){
 		var lines = (resp && (resp.collection || resp.data)) || [];
 		if (!lines.length) { document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px;color:#777">No documents.</div>'; return; }
@@ -2998,12 +3001,12 @@ function openAging(partyType){
 	var url = partyType === 'VENDOR' ? 'vendorAging' : 'customerAging';
 	buildFinanceDialog('AgingDialog').style.display = 'flex';
 	document.getElementById('AgingDialogTitle').textContent = (partyType === 'VENDOR' ? 'Payables' : 'Receivables') + ' Aging';
-	document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px">Loadingâ€¦</div>';
+	document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
 	$.get(serverContext + url, function(resp){
 		var rows = (resp && (resp.collection || resp.data)) || [];
 		if (!rows.length) { document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px;color:#777">Nothing outstanding.</div>'; return; }
 		var t=[0,0,0,0,0];
-		var h = '<table class="table table-striped" style="width:100%"><thead><tr><th>'+(partyType==='VENDOR'?'Vendor':'Customer')+'</th><th class="text-right">0â€“30</th><th class="text-right">31â€“60</th><th class="text-right">61â€“90</th><th class="text-right">90+</th><th class="text-right">Total</th></tr></thead><tbody>';
+		var h = '<table class="table table-striped" style="width:100%"><thead><tr><th>'+(partyType==='VENDOR'?'Vendor':'Customer')+'</th><th class="text-right">0–30</th><th class="text-right">31–60</th><th class="text-right">61–90</th><th class="text-right">90+</th><th class="text-right">Total</th></tr></thead><tbody>';
 		rows.forEach(function(r){
 			var v=[Number(r.b0_30||0),Number(r.b31_60||0),Number(r.b61_90||0),Number(r.b90plus||0),Number(r.total||0)];
 			for(var i=0;i<5;i++) t[i]+=v[i];
@@ -3038,7 +3041,7 @@ function finSavePrefs(){
 		to:$('#finTo').val(), action:$('#finAction').val(), limit:$('#finLimit').val() })); }catch(e){}
 }
 
-// Open the Finance view on a given report â€” called by the sidebar menu + the in-page tab buttons.
+// Open the Finance view on a given report — called by the sidebar menu + the in-page tab buttons.
 function showFinance(report){
 	if(!FIN_REPORTS[report]) report='trialBalance';
 	finCurrent=report;
@@ -3061,7 +3064,7 @@ function showFinance(report){
 
 function runFinanceReport(){
 	finSavePrefs();
-	document.getElementById('FinanceResults').innerHTML='<div style="padding:10px">Loadingâ€¦</div>';
+	document.getElementById('FinanceResults').innerHTML='<div style="padding:10px">Loading…</div>';
 	FIN_REPORTS[finCurrent].run();
 }
 function finSet(html){ document.getElementById('FinanceResults').innerHTML=html; }
@@ -3080,7 +3083,7 @@ function finRunTrialBalance(){
 		var d=(typeof resp==='string')?JSON.parse(resp):resp; var rows=d.rows||[];
 		var h='<table class="table table-striped" style="width:100%"><thead><tr><th>Code</th><th>Account</th><th class="text-right">Debit</th><th class="text-right">Credit</th></tr></thead><tbody>';
 		rows.forEach(function(r){ h+='<tr><td>'+escHtml(r.code||'')+'</td><td>'+escHtml(r.name||'')+'</td><td class="text-right">'+Number(r.debit||0).toFixed(2)+'</td><td class="text-right">'+Number(r.credit||0).toFixed(2)+'</td></tr>'; });
-		if(!rows.length) h+='<tr><td colspan="4" class="text-center" style="color:#777">No ledger entries yet â€” post a sale or purchase to populate the GL.</td></tr>';
+		if(!rows.length) h+='<tr><td colspan="4" class="text-center" style="color:#777">No ledger entries yet — post a sale or purchase to populate the GL.</td></tr>';
 		h+='</tbody><tfoot><tr><th colspan="2" class="text-right">Total</th><th class="text-right">'+Number(d.totalDebit||0).toFixed(2)+'</th><th class="text-right">'+Number(d.totalCredit||0).toFixed(2)+'</th></tr></tfoot></table>';
 		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">'+(d.balanced?'Balanced âœ“':'NOT balanced')+'</div>';
 		finSet(h);
@@ -3105,7 +3108,7 @@ function finRunBalanceSheet(){
 		var eq=(d.equity||[]).slice();
 		if(Number(d.netIncome||0)!==0) eq.push({code:'',name:'Net income (current period)',amount:d.netIncome});
 		h+=finSection('Equity', eq, d.totalEquity);
-		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">Assets '+Number(d.totalAssets||0).toFixed(2)+' = Liab + Equity '+(Number(d.totalLiabilities||0)+Number(d.totalEquity||0)).toFixed(2)+(d.balanced?' âœ“':' â€” NOT balanced')+'</div>';
+		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">Assets '+Number(d.totalAssets||0).toFixed(2)+' = Liab + Equity '+(Number(d.totalLiabilities||0)+Number(d.totalEquity||0)).toFixed(2)+(d.balanced?' âœ“':' — NOT balanced')+'</div>';
 		finSet(h);
 	}, 'json').fail(finFail);
 }
@@ -3196,7 +3199,7 @@ function finRunPeriodClose(){
 		var h='<div style="max-width:560px">';
 		h+='<p style="color:#555">Closing the books through a date locks it: sales, purchases, payments, edits and voids dated on or before it are rejected until you reopen. Transactions dated after the lock are unaffected.</p>';
 		h+='<div style="padding:12px;border-radius:6px;margin:10px 0;font-weight:700;background:'+(locked?'#fdecea':'#eafaf1')+';color:'+(locked?'#c0392b':'#0f6e56')+'">'
-			+(locked?('Books are CLOSED through '+escHtml(locked)):'Books are OPEN â€” no period lock.')+'</div>';
+			+(locked?('Books are CLOSED through '+escHtml(locked)):'Books are OPEN — no period lock.')+'</div>';
 		if(window.canClosePeriod){
 			h+='<div class="form-group"><label>Lock the books through</label>'
 				+'<input type="date" id="finLockDate" class="form-control" style="max-width:220px" value="'+escHtml(locked||finToday())+'"></div>';
@@ -3235,7 +3238,7 @@ function finReopenPeriod(){
 	});
 }
 
-// Back-compat shims â€” any old caller (or the sidebar menu) routes into the page view.
+// Back-compat shims — any old caller (or the sidebar menu) routes into the page view.
 function openTrialBalance(){ showFinance('trialBalance'); }
 function openPnl(){ showFinance('pnl'); }
 function openBalanceSheet(){ showFinance('balanceSheet'); }
@@ -3290,7 +3293,7 @@ function loadPosFeatureFlags(){
 		window.posDefaultTender   = posSettingText(res, 'pos.tender.default', 'CASH');
 		window.posDefaultCustomerMode = posSettingText(res, 'pos.customer.defaultMode', 'select');
 		// Pharmacy: must a SEVERE drug interaction be acknowledged before dispensing? Fail-open like the others
-		// means fail-SAFE here â€” absent key / config hiccup â‡’ the acknowledgement is still required.
+		// means fail-SAFE here — absent key / config hiccup â‡’ the acknowledgement is still required.
 		window.pharmaBlockSevere = ('pharmacy.interaction.blockSevere' in byKey) ? byKey['pharmacy.interaction.blockSevere'] : true;
 		applyPosBarcodeVisibility();
 		applyPosRowEntry();
@@ -3416,7 +3419,7 @@ function applyPosFieldVisibility(){
 // ===== Owner Configuration (generic per-tenant settings, shared common-settings backend) =====
 // Self-renders from the business-service catalog (/getBusinessConfig â†’ ApiResponse{data:[...]}): each row is one
 // configurable policy grouped by section. A toggle saves immediately (/saveBusinessConfig key=&value=). Adding a
-// new setting is a catalog entry in the service (BusinessSettingsCatalog) â€” no change here.
+// new setting is a catalog entry in the service (BusinessSettingsCatalog) — no change here.
 function showBusinessConfig(){
 	$('.formDiv').hide();
 	$('#ConfigDiv').show();
@@ -3425,7 +3428,7 @@ function showBusinessConfig(){
 }
 
 function loadBusinessConfig(){
-	// Rendering lives in /js/common/settings-form.js â€” one renderer for all four dashboards, so a new
+	// Rendering lives in /js/common/settings-form.js — one renderer for all four dashboards, so a new
 	// setting TYPE is added once rather than four times (this file used to carry its own copy).
 	renderSettingsForm({
 		container:  '#businessConfigBody',
@@ -3492,13 +3495,13 @@ function saveOrderConfigField(el){
 
 function openPeriodClose(){ showFinance('periodClose'); }
 
-/* â•â• B2B Phase 4b â€” sales quotes (quote â†’ approval â†’ order) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* â•â• B2B Phase 4b — sales quotes (quote â†’ approval â†’ order) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  * Design: microservices/docs/slices/b2b-P4b-sales-quote-to-order.md
  *
  * A quote is an OFFER, not a calculation: numbered, time-limited, internally approved when the
  * discount is large, accepted by the customer, then CONVERTED into an invoice through the same sale
- * path the till uses. Every rule lives server-side â€” this screen only shows state and sends intent,
- * and it relays the server's own refusal text (e.g. "this quote expired on â€¦") verbatim, because
+ * path the till uses. Every rule lives server-side — this screen only shows state and sends intent,
+ * and it relays the server's own refusal text (e.g. "this quote expired on …") verbatim, because
  * that wording IS the operator's answer.
  */
 var quoteLines = [];
@@ -3512,7 +3515,7 @@ function showQuotes() {
 
 function loadQuotes() {
 	$.get(serverContext + 'getUserQuotes', function (resp) {
-		// GenericResponse puts a LIST in `collection` â€” never `data`.
+		// GenericResponse puts a LIST in `collection` — never `data`.
 		var list = (resp && resp.collection) ? resp.collection : [];
 		var $b = $('#quoteBody').empty();
 		$('#quoteEmpty').toggle(list.length === 0);
@@ -3542,7 +3545,7 @@ function quoteStatusBadge(q) {
 	return "<span class='label label-" + cls + "'>" + escHtml(s) + '</span>';
 }
 
-/** Only the moves that are legal from the CURRENT state are offered â€” the server refuses the rest anyway. */
+/** Only the moves that are legal from the CURRENT state are offered — the server refuses the rest anyway. */
 function quoteActions(q) {
 	var s = q.effectiveStatus || q.status;
 	var id = q.id;
@@ -3567,7 +3570,7 @@ function quoteAction(url, id, okKey) {
 		success: function (resp) {
 			if (resp && resp.status === 'SUCCESS') { showSaleSuccess(t(okKey)); loadQuotes(); }
 			// CONFIRM_REQUIRED = the group credit limit is breached in warn mode (4a). Ask, then re-send with
-			// the acknowledgement â€” the same "warn = take confirmation" rule the till uses.
+			// the acknowledgement — the same "warn = take confirmation" rule the till uses.
 			else showFormError((resp && resp.message) || t('ui.js.qtCouldNotUpdate'));
 		},
 		error: function () { showFormError(t('ui.js.qtCouldNotUpdate')); }
@@ -3587,7 +3590,7 @@ function newQuoteForm() {
 	quoteLines = [];
 	renderQuoteLines();
 	$('#qtPo').val(''); $('#qtDiscount').val(0); $('#qtQty').val(1); $('#qtRate').val('');
-	// Reuse the sell screen's loaders â€” same endpoints, same option shape, one implementation.
+	// Reuse the sell screen's loaders — same endpoints, same option shape, one implementation.
 	loadSellCustomers('qtCustomerDD');
 	loadUserItems('qt');            // fills #qtItemDD
 	$('#QuoteFormWrap').show();
@@ -3631,7 +3634,7 @@ function renderQuoteLines() {
 	});
 }
 
-/** Send lines + customer + PO. Deliberately NO total â€” the server prices the document (same rule as OMS-5). */
+/** Send lines + customer + PO. Deliberately NO total — the server prices the document (same rule as OMS-5). */
 function saveQuote() {
 	if (!quoteLines.length) { showFormError(t('ui.js.qtNeedsALine')); return; }
 	var body = {
@@ -3654,7 +3657,7 @@ function saveQuote() {
 	});
 }
 
-/* â•â• B2B Phase 4a â€” account groups (company â†’ branch â†’ contact) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* â•â• B2B Phase 4a — account groups (company â†’ branch â†’ contact) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  * Design: microservices/docs/slices/b2b-P4a-account-hierarchy.md
  *
  * SHARED POOL: a company sets one credit limit and its branches all draw on it. The hierarchy itself
@@ -3662,14 +3665,14 @@ function saveQuote() {
  * the sell path never crosses a service boundary to answer "whose limit applies?".
  *
  * Loading hooks #registrationType change rather than the sidebar link, because snavGo() sets that
- * select and fires change â€” one hook covers both navigation paths (same reason as education.js).
+ * select and fires change — one hook covers both navigation paths (same reason as education.js).
  */
 $(document).on('change', '#registrationType', function () {
 	if (this.value === 'CustomerDiv') loadAccountGroups();
 });
 
 function loadAccountGroups() {
-	if (!$('#AccountGroupCard').length) return;   // not owner/admin â€” the panel isn't rendered
+	if (!$('#AccountGroupCard').length) return;   // not owner/admin — the panel isn't rendered
 	// Both selects list the same customers; the parent select also offers "no parent" (detach).
 	$.get(serverContext + 'getUserCustomers', function (optionsHtml) {
 		var html = String(optionsHtml || '');
@@ -3692,7 +3695,7 @@ function refreshAccountGroup() {
 
 		var rows = '';
 		(g.members || []).forEach(function (m) {
-			// The head carries the limit the whole group is measured against â€” worth marking.
+			// The head carries the limit the whole group is measured against — worth marking.
 			rows += '<tr><td>' + escHtml(m.name)
 			      + (m.isHead ? " <span class='label label-primary'>" + escHtml(t('ui.js.agAccountHead')) + '</span>' : '')
 			      + '</td><td>' + Number(m.dueAmount || 0).toFixed(2) + '</td></tr>';
@@ -3700,7 +3703,7 @@ function refreshAccountGroup() {
 		$('#agMembers').html(rows);
 		$('#agPooled').text(Number(g.pooledDue || 0).toFixed(2));
 
-		// A group with no limit is not "limit 0" â€” it is unlimited, and saying so prevents a costly misread.
+		// A group with no limit is not "limit 0" — it is unlimited, and saying so prevents a costly misread.
 		if (g.creditLimit == null) {
 			$('#agLimitNote').text(t('ui.js.agNoLimit'));
 		} else {
@@ -3725,7 +3728,7 @@ function saveAccountParent() {
 		data: { customerId: id, parentCustomerId: parent || '', accountLevel: $('#agLevel').val() },
 		success: function (resp) {
 			// A guard rejection (cycle, cross-tenant parent, unbridged customer) comes back as FAILED with the
-			// server's own wording â€” show it verbatim rather than a generic failure, because the reason is the
+			// server's own wording — show it verbatim rather than a generic failure, because the reason is the
 			// whole value of the message.
 			if (resp && resp.status === 'SUCCESS') {
 				showSaleSuccess(t('ui.js.agSaved'));
@@ -3741,11 +3744,11 @@ function saveAccountParent() {
 
 /**
  * Customers with no party link. They cannot join a group, and the programme plan flags best-effort
- * party bridging as the risk that would otherwise make a group's exposure quietly incomplete â€” so they
+ * party bridging as the risk that would otherwise make a group's exposure quietly incomplete — so they
  * are shown rather than omitted.
  */
 function loadUnbridgedCustomers() {
-	// A List payload matches GenericResponse's Collection overload, so it arrives in `collection` â€” NOT in
+	// A List payload matches GenericResponse's Collection overload, so it arrives in `collection` — NOT in
 	// `object` like the account-group Map above. Same response class, two different fields by payload type.
 	$.get(serverContext + 'unbridgedCustomers', function (resp) {
 		var list = (resp && resp.collection) ? resp.collection : [];

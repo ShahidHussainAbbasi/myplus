@@ -27,7 +27,7 @@ import com.myplus.commerce.domain.InvoiceNumbers;
 import com.myplus.common.security.AuthenticatedUser;
 
 /**
- * B2B-P4b â€” the sales-quote lifecycle.
+ * B2B-P4b — the sales-quote lifecycle.
  *
  * <h3>One guarded write path</h3>
  * Every status change goes through {@link #transition}. Same shape as {@code PartyService.setAccountParent}
@@ -36,7 +36,7 @@ import com.myplus.common.security.AuthenticatedUser;
  * endpoint.
  *
  * <h3>The two approvals are different things</h3>
- * {@code PENDING_APPROVAL} is an INTERNAL permission gate â€” "may we offer this discount?" â€” and fires only when
+ * {@code PENDING_APPROVAL} is an INTERNAL permission gate — "may we offer this discount?" — and fires only when
  * the discount exceeds the org threshold. {@code ACCEPTED}/{@code REJECTED} record what the CUSTOMER decided.
  * Treating them as one status would mean either asking an owner to approve the customer's own answer, or
  * letting a big discount out of the building unapproved.
@@ -55,7 +55,7 @@ public class SalesQuoteService {
     static final int DEFAULT_VALIDITY_DAYS = 30;
 
     /**
-     * The legal moves. Everything not listed here is refused â€” a whitelist, not a blacklist, because the failure
+     * The legal moves. Everything not listed here is refused — a whitelist, not a blacklist, because the failure
      * mode of a missed illegal transition is a document that bills a customer from a rejected offer.
      */
     private static final Map<QuoteStatus, Set<QuoteStatus>> ALLOWED = Map.of(
@@ -70,7 +70,7 @@ public class SalesQuoteService {
     @Autowired private SalesQuoteRepo quoteRepo;
     @Autowired private CustomerRepo customerRepo;
     @Autowired private RequestUtil requestUtil;
-    @Autowired private SagaSellService sagaSellService;   // THE revenue path â€” quotes do not author invoices
+    @Autowired private SagaSellService sagaSellService;   // THE revenue path — quotes do not author invoices
 
     @Autowired(required = false)
     private com.myplus.common.settings.SettingsService settingsService;
@@ -93,7 +93,7 @@ public class SalesQuoteService {
     // â”€â”€ create / price â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
-     * Raise a quote. Totals are computed from the lines HERE â€” the caller states what is being offered, never
+     * Raise a quote. Totals are computed from the lines HERE — the caller states what is being offered, never
      * what it comes to, exactly as {@code SaleRecordRequest} refuses a client total (OMS-5).
      *
      * <p>The quote lands in {@code DRAFT}; {@link #send} decides whether it needs internal approval first.
@@ -171,7 +171,7 @@ public class SalesQuoteService {
             quoteRepo.save(q);
             throw new QuoteRefused("This quote expired on " + q.getValidUntil() + " and can no longer be used.");
         }
-        if (current == target) return q;                 // idempotent â€” asking for where it already is
+        if (current == target) return q;                 // idempotent — asking for where it already is
 
         Set<QuoteStatus> allowed = ALLOWED.getOrDefault(current, EnumSet.noneOf(QuoteStatus.class));
         if (!allowed.contains(target))
@@ -180,7 +180,7 @@ public class SalesQuoteService {
         // Sending is where the INTERNAL approval gate applies: over the org's discount threshold, a quote must
         // be approved by an owner/admin before it can leave the building.
         if (target == QuoteStatus.SENT && current == QuoteStatus.DRAFT && needsApproval(q))
-            throw new QuoteRefused("This discount is over the approval threshold â€” it needs owner approval "
+            throw new QuoteRefused("This discount is over the approval threshold — it needs owner approval "
                     + "before the quote can be sent.");
 
         if (target == QuoteStatus.SENT && current == QuoteStatus.PENDING_APPROVAL) {
@@ -196,7 +196,7 @@ public class SalesQuoteService {
         return quoteRepo.save(q);
     }
 
-    /** Raise the quote for internal approval â€” the explicit route when a discount is over threshold. */
+    /** Raise the quote for internal approval — the explicit route when a discount is over threshold. */
     @Transactional
     public SalesQuote submitForApproval(Long quoteId) {
         return transition(quoteId, QuoteStatus.PENDING_APPROVAL, null);
@@ -208,7 +208,7 @@ public class SalesQuoteService {
      * Turn an ACCEPTED quote into an invoice.
      *
      * <h3>The same single revenue path</h3>
-     * This calls {@code SagaSellService.addSell} â€” the very method the till uses and the one OMS O1 routed the
+     * This calls {@code SagaSellService.addSell} — the very method the till uses and the one OMS O1 routed the
      * storefront through. So a quote inherits idempotency, FEFO reservation, tax, COGS, the period lock, the
      * audit trail and the GL outbox for free, and a quoted sale is the same kind of record in the books as a
      * counter sale. Writing an invoice here instead would be the third revenue path, which is exactly the defect
@@ -216,7 +216,7 @@ public class SalesQuoteService {
      *
      * <h3>Credit is checked against the GROUP (4a)</h3>
      * {@code addSell} runs {@code assertCreditPolicy}, which since 4a measures the customer's whole shared pool
-     * against the account head's limit. So converting a quote for a branch is capped by its company's limit â€”
+     * against the account head's limit. So converting a quote for a branch is capped by its company's limit —
      * without that, a group could be talked past its ceiling one quote at a time.
      *
      * <h3>Idempotent by construction</h3>
@@ -235,7 +235,7 @@ public class SalesQuoteService {
         if (current == QuoteStatus.EXPIRED)
             throw new QuoteRefused("This quote expired on " + q.getValidUntil() + " and can no longer be converted.");
         if (current != QuoteStatus.ACCEPTED)
-            throw new QuoteRefused("Only an accepted quote can be converted â€” this one is " + current + ".");
+            throw new QuoteRefused("Only an accepted quote can be converted — this one is " + current + ".");
 
         CustomerHistoryDTO dto = toSaleRequest(q);
         String invoiceNo = sagaSellService.addSell(dto);   // reserve + invoice + tax + COGS + GL + audit
@@ -279,7 +279,7 @@ public class SalesQuoteService {
         dto.setSales(sales);
 
         // D-4: the whole-document concession travels to the invoice, where it posts to a CONTRA-REVENUE account
-        // rather than being netted off sales â€” so gross revenue still matches the invoice face value.
+        // rather than being netted off sales — so gross revenue still matches the invoice face value.
         dto.setTradeDiscount(nz(q.getTradeDiscount()));
 
         // The buyer's PO must reach the printed invoice, or their AP clerk cannot match it to their order.
@@ -320,7 +320,7 @@ public class SalesQuoteService {
         return pct.compareTo(threshold) > 0;
     }
 
-    /** getInt already swallows a malformed override and returns the fallback â€” a settings typo must not stop a
+    /** getInt already swallows a malformed override and returns the fallback — a settings typo must not stop a
      *  shop quoting. Guard only the >0 case, since a 0-day validity would expire every quote instantly. */
     private int validityDays() {
         if (settingsService == null) return DEFAULT_VALIDITY_DAYS;

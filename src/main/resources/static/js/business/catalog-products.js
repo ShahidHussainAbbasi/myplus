@@ -50,11 +50,16 @@
                 if (k) skuIndex[k] = String(p.id);
             });
             renderExisting();
+            // The manufacturer options ARE this index, so they are rebuilt whenever it is — keeping the
+            // currently selected value, which matters while a product is open for editing.
+            loadManufacturers($('#prodManufacturer').val());
         }, 'json').fail(function () {
             productIndex = [];
             indexState = 'failed';
             skuIndex = {};
             renderExisting();
+            // Guard 2: keep whatever the form already holds rather than rendering an empty picker.
+            loadManufacturers($('#prodManufacturer').val());
         });
     }
 
@@ -207,6 +212,7 @@
         resetProductForm();
         loadCategories();
         loadTaxCodes('');        // multi-rate tax: fresh dropdown (defaults to "Custom rate…")
+        loadManufacturers('');   // draw from the CURRENT index immediately; refresh below repaints it
         refreshProductIndex();   // re-read the catalogue each time the form opens, then paint the panel
         $('#ProductModalTitle').text('New Product');
         openModal('ProductModal');
@@ -218,6 +224,11 @@
         $('#productId').val('');
         $('#prodCategory').val('');
         $('#prodCategoryNew').val('');
+        // form.reset() restores a <select> to its FIRST option, not to blank, so clear it explicitly —
+        // otherwise a new product would silently inherit whichever manufacturer sorts first.
+        $('#prodManufacturer').val('');
+        $('#prodManufacturerNew').val('');
+        refreshPicker('#prodManufacturer');   // else the button keeps showing the cleared brand
         $('#prodSku').removeClass('alert-danger');
         $('#prodName').removeClass('alert-danger');
         formEpoch++;             // any name-check still in flight now belongs to a form that no longer exists
@@ -238,6 +249,106 @@
         });
     }
     global.loadCategories = loadCategories;
+
+    /**
+     * Push a <select>'s CURRENT options and value into its visible control.
+     *
+     * WHY THIS IS NEEDED AT ALL: /js/common/searchable-selects.js turns every eligible <select> into a
+     * bootstrap-select — a button plus a rendered menu — and HIDES the real element. Appending an <option>
+     * or calling .val() therefore updates something invisible; the button keeps showing the old text until
+     * the plugin is told to re-read.
+     *
+     * This is why addCategoryInline() appears to work and the manufacturer one did not: the category add
+     * POSTs to /addCategory, and searchable-selects refreshes every picker on jQuery's ajaxComplete. The
+     * manufacturer add is deliberately local (no master table, so no endpoint), so nothing ever refreshed it.
+     *
+     * Only refresh when an instance actually exists — see the "destroy trap" in searchable-selects.js:
+     * driving the plugin on a plain <select> can construct and immediately destroy it, taking the original
+     * element with it.
+     */
+    function refreshPicker(sel) {
+        var $s = $(sel);
+        if ($s.data('selectpicker')) {
+            try { $s.selectpicker('refresh'); } catch (e) { /* plain select — nothing to refresh */ }
+        }
+    }
+
+    /**
+     * Populate the Manufacturer dropdown from the manufacturers ALREADY IN USE on this org's products.
+     *
+     * There is no manufacturer master table and this deliberately does not create one: the field stays a
+     * plain String on the product, so `ProductRef`, the sale report and every other consumer are untouched.
+     * The "list of registered manufacturers" is simply the distinct values across `productIndex` — which is
+     * already fetched for the duplicate-name panel, so this costs no extra request.
+     *
+     * ⚠ TWO WAYS A <select> SILENTLY CORRUPTS DATA, both guarded here:
+     *  1. Editing a product whose manufacturer is NOT among the options — `.val(x)` fails quietly, the select
+     *     falls back to its first option, and saving would CHANGE the manufacturer without the user touching
+     *     it. So `selected` is injected as an option when it is missing.
+     *  2. The index failed to load — rendering an empty picker would blank the field on the next save. In
+     *     that case the current value is kept as the only option rather than offering nothing.
+     *
+     * @param selected the value to pre-select (the product being edited), or '' for a new product
+     */
+    function loadManufacturers(selected) {
+        var $sel = $('#prodManufacturer');
+        if (!$sel.length) return;
+        var cur = (selected == null) ? '' : String(selected);
+
+        // Distinct, case-insensitively de-duplicated for the LIST only — the stored value is never rewritten,
+        // so an existing "Nestle" and "nestlé" both survive on their products. This picker stops NEW
+        // divergence; it does not silently merge what is already there.
+        var seen = {}, names = [];
+        productIndex.forEach(function (p) {
+            var v = (p.manufacturer == null) ? '' : String(p.manufacturer).trim();
+            if (!v) return;
+            var k = v.toLowerCase();
+            if (seen[k]) return;
+            seen[k] = 1;
+            names.push(v);
+        });
+        // Alphabetical, case-insensitive and locale-aware — a long brand list is scanned, not ranked.
+        names.sort(function (a, b) { return a.localeCompare(b, undefined, { sensitivity: 'base' }); });
+
+        // Guard 1 + 2: the product's own value must always be selectable.
+        if (cur && !seen[cur.toLowerCase()]) { names.push(cur); }
+
+        $sel.empty().append($('<option>').val('').text(t('ui.js.noneDash')));
+        names.forEach(function (n) { $sel.append($('<option>').val(n).text(n)); });
+        $sel.val(cur);
+        refreshPicker($sel);   // the visible control is a bootstrap-select — see refreshPicker()
+    }
+    global.loadManufacturers = loadManufacturers;
+
+    /**
+     * Inline "add" for a manufacturer.
+     *
+     * DIFFERENT FROM addCategoryInline() ON PURPOSE: a Category is a real entity, so that one POSTs to
+     * /addCategory. A manufacturer has no master, so this only adds the option locally and selects it — the
+     * value becomes "registered", and visible to everyone, when the product is saved. Do not "fix" this by
+     * pointing it at an endpoint; there isn't one, and adding one would mean the schema change this design
+     * deliberately avoids.
+     */
+    global.addManufacturerInline = function () {
+        var name = $('#prodManufacturerNew').val().trim();
+        if (!name) { showFormError(t('ui.js.enterAManufacturerName')); return; }
+        var $sel = $('#prodManufacturer');
+        // Already listed (any casing)? Select the EXISTING spelling rather than adding a near-duplicate —
+        // that is the whole point of offering the list.
+        var match = null;
+        $sel.find('option').each(function () {
+            if (this.value && this.value.toLowerCase() === name.toLowerCase()) { match = this.value; return false; }
+        });
+        if (!match) {
+            $sel.append($('<option>').val(name).text(name));
+            match = name;
+        }
+        $sel.val(match);
+        // Without this the new brand lands in the hidden <select> and the button still reads "— none —":
+        // the value would be correct and invisible, which is worse than not adding it.
+        refreshPicker($sel);
+        $('#prodManufacturerNew').val('');
+    };
 
     // Inline quick-add a category, then reload the dropdown with the new one selected.
     global.addCategoryInline = function () {
@@ -348,7 +459,10 @@
             $('#prodUnit').val(p.unit || '');
             // Select by category id (dropdown). Reload the list first so the product's category option is present.
             loadCategories(p.categoryId != null ? p.categoryId : '');
-            $('#prodManufacturer').val(p.manufacturer || '');
+            // Pass the value INTO the loader rather than setting it afterwards: the option may not exist yet
+            // (a manufacturer used only by this product, or an index that failed to load), and a bare .val()
+            // on a missing option silently selects the first one — which would rewrite the field on save.
+            loadManufacturers(p.manufacturer || '');
             $('#prodDesc').val(p.description || '');
             $('#ProductModalTitle').text('Edit Product');
             formEpoch++;               // this is a different product now — drop any in-flight name check

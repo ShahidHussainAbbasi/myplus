@@ -206,6 +206,26 @@ customer at the till is a merchant's decision, and O5b's Ship action carries it 
 **Checklist correction:** ~~`BackorderSweeper`~~ → `backordersOutstanding` read + `/getBackorders` proxy. Aging
 shipped as the `late` filter on the O4 list plus a Promised column, both derived.
 
+### Amended by the 2026-08-10 standards review
+
+**R5 — the read is now PAGED.** It returned every backordered order the shop had ever taken. That is the OMS-7
+defect, and unlike reconciliation this one *grows with the trade*, so a shop doing well is the shop that breaks
+it. Now `PageResponse`, oldest promise first (page 1 = the most overdue), sharing O4's server-side size cap.
+Two consequences worth knowing:
+
+* **`ready=true` filters the PAGE, not the query** — and that cannot be fixed here. Readiness is *"does
+  inventory hold the owed quantity right now"*, which lives in another service and is not expressible as a SQL
+  predicate. Making it exact means walking the whole book on every request, which is the unbounded read this
+  removes. `totalElements` therefore counts what is OUTSTANDING — the number the merchant is tracking. An exact
+  ready-only view needs a stock projection marketplace can query: a later slice, same shape as **INV-L**.
+* **A perf defect nobody had recorded went with it:** readiness was read for the entire backlog on every call,
+  including the rows nobody was about to look at. It is now read once, for the page in hand.
+
+**R7 — this read has NO UI.** §7 says "the back office can see what is owed"; the proxy and the Cypress gate
+exist, but `grep backorder` over `ecommerce.js` returns nothing, so **no screen renders it**. The capability is
+API-only. Not half-built further here — a screen is a slice with its own gate — but the claim above should be
+read as *the API can answer this*, not *a merchant can see it*.
+
 ## 10. Gate status after the no-invoice decision — 4 of 6 (superseded, see §12)
 
 **Settled and green:** backorders off behaves exactly as before; the shopper is warned before committing; a

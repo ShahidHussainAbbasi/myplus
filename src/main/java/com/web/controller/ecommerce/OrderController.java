@@ -110,7 +110,10 @@ public class OrderController {
     @ResponseBody
     public Map<String, Object> getBackorders(final HttpServletRequest request) {
         try {
-            return client.get("/orders/backorders" + relayQuery(request, "ready"));
+            // R5 (2026-08-10): the read is paged now, so page/size ride along. Relayed verbatim and clamped
+            // server-side — the monolith has no business deciding what a valid page size is (same rule as
+            // /getOrders above).
+            return client.get("/orders/backorders" + relayQuery(request, "ready", "page", "size"));
         } catch (Exception e) {
             LOGGER.error("getBackorders proxy error", e);
             return Collections.singletonMap("success", false);

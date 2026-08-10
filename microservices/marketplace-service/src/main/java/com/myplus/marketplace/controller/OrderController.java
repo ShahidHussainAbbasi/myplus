@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -74,10 +73,13 @@ public class OrderController {
      */
     @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')")
     @GetMapping("/reconciliation")
-    public ApiResponse<List<OrderDTO>> reconciliation(
-            @RequestParam(required = false) String booksStatus) {
-        return ApiResponse.success(orderService.listByBooksStatus(
-                booksStatus, CurrentUser.organizationId(), CurrentUser.userId()));
+    public ApiResponse<com.myplus.common.web.PageResponse<OrderDTO>> reconciliation(
+            @RequestParam(required = false) String booksStatus,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ApiResponse.success(orderService.pageByBooksStatus(booksStatus,
+                CurrentUser.organizationId(), CurrentUser.userId(),
+                page == null ? 0 : page, size == null ? 0 : size));
     }
 
     /**
@@ -85,12 +87,20 @@ public class OrderController {
      *
      * <p>{@code ?ready=true} narrows to orders whose outstanding lines have stock again. Not a sweeper and not
      * an allocator: it shows the merchant the choice, and O5b's Ship action carries it out.
+     *
+     * <p>PAGED since the 2026-08-10 review (R5) — a shop's backorder book grows with its trade, so this was the
+     * unbounded read that would actually have bitten. {@code ready} filters the page rather than the query,
+     * because readiness lives in inventory and cannot be a SQL predicate; see the service method for why that
+     * is the honest trade rather than a bug.
      */
     @GetMapping("/backorders")
-    public ApiResponse<List<OrderDTO>> backorders(
-            @RequestParam(required = false, defaultValue = "false") boolean ready) {
+    public ApiResponse<com.myplus.common.web.PageResponse<OrderDTO>> backorders(
+            @RequestParam(required = false, defaultValue = "false") boolean ready,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         return ApiResponse.success(orderService.backordersOutstanding(
-                CurrentUser.organizationId(), CurrentUser.userId(), ready));
+                CurrentUser.organizationId(), CurrentUser.userId(), ready,
+                page == null ? 0 : page, size == null ? 0 : size));
     }
 
     @GetMapping("/{id}")

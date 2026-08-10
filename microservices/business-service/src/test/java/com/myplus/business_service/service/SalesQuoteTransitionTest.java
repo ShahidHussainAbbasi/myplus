@@ -28,14 +28,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * B2B-P4b â€” the quote lifecycle.
+ * B2B-P4b — the quote lifecycle.
  *
- * <p>Pure logic: mocked repo and settings, no database, no Docker â€” so it runs on every {@code mvn test}. That
+ * <p>Pure logic: mocked repo and settings, no database, no Docker — so it runs on every {@code mvn test}. That
  * matters here more than usual, because the Testcontainers suites SKIP on the dev machine and would give this
  * slice no executed unit coverage at all.
  *
  * <p>What is pinned down is what is silent when wrong: an illegal transition (billing a customer from a rejected
- * or expired offer), the internal approval gate firing at the wrong threshold, and derived expiry â€” which has no
+ * or expired offer), the internal approval gate firing at the wrong threshold, and derived expiry — which has no
  * job behind it, so nothing else would ever notice if the derivation broke.
  */
 @ExtendWith(MockitoExtension.class)
@@ -61,7 +61,7 @@ class SalesQuoteTransitionTest {
         lenient().when(user.getUserId()).thenReturn(USER);
         lenient().when(requestUtil.getCurrentUser()).thenReturn(user);
 
-        // Default: no approval threshold configured â€” the common case, and the documented "unset means off".
+        // Default: no approval threshold configured — the common case, and the documented "unset means off".
         // getDecimal, not getText: the service reads the shared decimal port, which does the parse itself.
         lenient().when(settingsService.getDecimal(SalesQuoteService.SETTING_DISCOUNT_THRESHOLD, null))
                 .thenReturn(null);
@@ -70,7 +70,7 @@ class SalesQuoteTransitionTest {
         lenient().when(quoteRepo.save(any(SalesQuote.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
-    /** A quote in a given state, valid for another week unless told otherwise. Not registered with the repo â€”
+    /** A quote in a given state, valid for another week unless told otherwise. Not registered with the repo —
      *  the pure-derivation tests never load it, and a strict-stub run would fail on the unused stub. */
     private SalesQuote newQuote(QuoteStatus status) {
         SalesQuote q = new SalesQuote();
@@ -85,7 +85,7 @@ class SalesQuoteTransitionTest {
         return q;
     }
 
-    /** â€¦and the same quote made loadable, for the tests that go through {@code transition}. */
+    /** …and the same quote made loadable, for the tests that go through {@code transition}. */
     private SalesQuote quote(QuoteStatus status) {
         SalesQuote q = newQuote(status);
         when(quoteRepo.findByIdScoped(11L, ORG, USER)).thenReturn(Optional.of(q));
@@ -130,7 +130,7 @@ class SalesQuoteTransitionTest {
     }
 
     @Test
-    @DisplayName("a CONVERTED quote cannot be converted or re-sent â€” one offer, one invoice")
+    @DisplayName("a CONVERTED quote cannot be converted or re-sent — one offer, one invoice")
     void convertedIsTerminal() {
         quote(QuoteStatus.CONVERTED);
         assertThatThrownBy(() -> service.transition(11L, QuoteStatus.SENT, null))
@@ -138,7 +138,7 @@ class SalesQuoteTransitionTest {
     }
 
     @Test
-    @DisplayName("a DRAFT cannot jump straight to ACCEPTED â€” the customer never saw it")
+    @DisplayName("a DRAFT cannot jump straight to ACCEPTED — the customer never saw it")
     void draftCannotBeAccepted() {
         quote(QuoteStatus.DRAFT);
         assertThatThrownBy(() -> service.transition(11L, QuoteStatus.ACCEPTED, null))
@@ -163,7 +163,7 @@ class SalesQuoteTransitionTest {
     }
 
     @Test
-    @DisplayName("an expired quote cannot be accepted â€” the prices are no longer a promise")
+    @DisplayName("an expired quote cannot be accepted — the prices are no longer a promise")
     void expiredCannotBeAccepted() {
         SalesQuote q = quote(QuoteStatus.SENT);
         q.setValidUntil(LocalDate.now().minusDays(1));

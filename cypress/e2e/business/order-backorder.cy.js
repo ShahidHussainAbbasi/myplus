@@ -152,10 +152,14 @@ describe('OMS O5c — an order can be accepted when stock is short', () => {
 
   it('the back office can see what is still owed, and what can now be filled', () => {
     setCfg('order.backorder.allowed', 'true')
+    // R5 (2026-08-10): this read is PAGED, so the rows live under data.content and data.totalElements counts
+    // the whole outstanding book. It used to return every backordered order the shop had ever taken.
     cy.request('/getBackorders').then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
-      const owed = r.body.data || []
+      const owed = (r.body.data && r.body.data.content) || []
       expect(owed, 'the orders placed above are outstanding').to.not.be.empty
+      expect(r.body.data.totalElements, 'the count is of the whole book, not the page').to.be.at.least(owed.length)
+      expect(r.body.data.pageSize, 'a server-enforced default page size').to.be.at.most(100)
       owed.forEach((o) => {
         expect(o).to.have.property('readyToFulfil')
         // Every one of these still owes something; a cancelled order must not appear.
@@ -165,7 +169,17 @@ describe('OMS O5c — an order can be accepted when stock is short', () => {
     // Nothing has been restocked, so nothing is ready — this is a READ, not a job, so it reflects stock now.
     cy.request('/getBackorders?ready=true').then((r) => {
       expect(r.body.success).to.eq(true)
-      expect(r.body.data || [], 'no stock has arrived yet').to.be.empty
+      expect((r.body.data && r.body.data.content) || [], 'no stock has arrived yet').to.be.empty
+    })
+  })
+
+  it('the backorder read cannot be asked for an unbounded page', () => {
+    // R5: pagination alone is not a fix if the caller picks the size — ?size=100000 is the unbounded read with
+    // extra steps. The cap is server-side (OrderQuery.MAX_SIZE), exactly as O4 did it for the main list.
+    setCfg('order.backorder.allowed', 'true')
+    cy.request('/getBackorders?size=100000').then((r) => {
+      expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
+      expect(r.body.data.pageSize, 'clamped server-side').to.eq(100)
     })
   })
 
@@ -179,8 +193,9 @@ describe('OMS O5c — an order can be accepted when stock is short', () => {
     // Readiness is DERIVED from stock that exists, so it flips the moment goods arrive. A stored "ready" flag
     // would have needed a sweeper to keep true — which is why O5c has neither.
     cy.request('/getBackorders?ready=true').then((r) => {
-      expect(r.body.data || [], 'stock arrived, so the backlog is fillable').to.not.be.empty
-      expect(r.body.data[0].readyToFulfil).to.eq(true)
+      const ready = (r.body.data && r.body.data.content) || []
+      expect(ready, 'stock arrived, so the backlog is fillable').to.not.be.empty
+      expect(ready[0].readyToFulfil).to.eq(true)
     })
   })
 

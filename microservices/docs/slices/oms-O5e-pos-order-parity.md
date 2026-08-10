@@ -289,9 +289,9 @@ green; no regression.
 - [x] `pos-order-parity.cy.js` + regression — **GREEN 2026-08-10.** Steps 2+3 un-skipped: 6 cases including
       *cancelling a POS order restores stock*, which was impossible before this slice and is the case that
       proves OMS-5 closed.
-      ⚠️ **Re-run after step 4** — the browser writer was removed *after* this run, so the green above was
-      recorded with both writers live. The specs drive `/addSell` by `cy.request` and never invoked the browser
-      hook, so nothing is expected to move; run `pos-order-parity` + `sell` + `ecommerce-orders` once more to
-      confirm the single-writer path, since "expected not to move" is not the same as observed.
+      ✅ **Re-run after step 4 — GREEN 2026-08-10.** The first green was recorded with both writers still live,
+      so it proved the server-side path worked but not that removing the browser's changed nothing. Re-run
+      alongside the standards-review batch, it now has: one writer, same result. *"Expected not to move" is not
+      the same as observed* — and this is the run that makes it observed.
 
 **OMS-5 is CLOSED.** All eight original OMS defects are now closed.

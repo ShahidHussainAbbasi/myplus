@@ -286,7 +286,12 @@ class OrderServiceTest {
         OrderDTO shipped = service.updateStatus(created.getId(), "SHIPPED", ORG, USER);
         assertThat(shipped.getFulfilmentStatus()).isEqualTo("SHIPPED");
 
-        assertThat(service.list(ORG, USER)).hasSize(1);
-        assertThat(service.list(999L, 999L)).isEmpty();   // another tenant sees nothing
+        // Tenant isolation, asserted through the PAGED read since `list()` was deleted in the 2026-08-10
+        // review (it was the unbounded read OMS-7 named, left public with no callers). The assertion is the
+        // one that matters and is unchanged: another tenant sees nothing.
+        assertThat(service.page(com.myplus.marketplace.dto.OrderQuery.firstPage(), ORG, USER).getContent())
+                .hasSize(1);
+        assertThat(service.page(com.myplus.marketplace.dto.OrderQuery.firstPage(), 999L, 999L).getContent())
+                .isEmpty();
     }
 }

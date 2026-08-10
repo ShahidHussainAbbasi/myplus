@@ -27,7 +27,7 @@
 | `marketplace`: rewire `placePublic`; cancel → reverse; drop the duplicate saga + `OrderSagaRecoveryRelay` | ✅ |
 | `order-to-ledger.cy.js` + baseline re-run | ✅ 10/10 |
 | `OrderServiceTest` rewritten to the new contract | ⚠️ compiles, SKIPPED (no Docker) |
-| Reconciliation read — `GET /orders/reconciliation` | ✅ owner/admin-gated, defaults to `LEGACY_UNPOSTED` |
+| Reconciliation read — `GET /orders/reconciliation` | 🟡 owner/admin-gated, defaults to `LEGACY_UNPOSTED`, **paged since 2026-08-10 (R5)** — but **API-ONLY: no monolith proxy and no screen** (review R7), so no operator can actually see the backlog it was built to surface. |
 
 ### The bug the gate caught
 
