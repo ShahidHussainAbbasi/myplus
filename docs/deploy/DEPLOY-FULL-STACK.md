@@ -69,10 +69,45 @@ Build only from a branch that compiles. `master` currently carries a Dependabot 
 
 ## 3. Run everything
 
+> ### ⚠️ FIRST DEPLOY ON A HOST — create the data volume once, ever
+>
+> ```bash
+> docker volume create myplus-mysql-data
+> ```
+>
+> The database volume is declared `external: true` in `docker-compose.yml`, which is what stops
+> Docker deleting it. Until it exists the stack refuses to start with *"external volume
+> myplus-mysql-data not found"* — a deliberate, loud stop. **If you see that error on a host that was
+> already serving traffic, do NOT create the volume and carry on.** It means the stack was previously
+> running against a different volume that still holds your data; find it first (§Data safety below).
+>
+> Existing host, already deployed the old way? Copy the data across once, with mysql stopped:
+>
+> ```bash
+> docker compose stop mysql
+> docker volume create myplus-mysql-data
+> docker run --rm -v myplus_mysql-data:/from -v myplus-mysql-data:/to alpine sh -c 'cd /from && cp -a . /to'
+> docker run --rm -v myplus-mysql-data:/v alpine sh -c 'ls /v; du -sh /v'   # expect ibdata1, myplusdb, …
+> ```
+>
+> Keep the old volume until the app is verified working. It costs nothing to leave it there.
+
+Back up before touching a stack that holds real data — it takes seconds and it is the only step here
+that cannot be redone afterwards:
+
+```bash
+./backup-db.sh
+```
+
 ```powershell
 cd microservices
 docker compose --profile full up -d --build
 ```
+
+**This is the same command on your laptop and on the VPS.** There is no prod override and nothing
+per-host to set: `docker-compose.yml` pins `name: myplus` (so the directory you run from cannot
+change which volume is used), declares the data volume `external` (so `down -v` cannot delete it),
+and binds MySQL to `127.0.0.1` only (so the VPS never exposes 3306 to the internet).
 
 > ### ⚠️ `--profile full` is required — a bare `up` gives you POS only
 >
@@ -242,14 +277,78 @@ are code-defined; only overrides are stored, so a fresh tenant needs no setup ro
 
 ## 8. Backup — all databases
 
+Use the script, not a hand-typed `mysqldump`:
+
 ```bash
-docker compose exec mysql sh -c \
-  'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases' > full-$(date +%F).sql
+cd microservices
+./backup-db.sh                          # -> ./backups/myplus-<date>.sql.gz
+BACKUP_DIR=/srv/backups ./backup-db.sh  # or somewhere off the app disk
 ```
 
-With this many interlinked databases, back them up **together**. A per-database backup taken at different
-moments restores into a state that never existed — an order referencing a catalog product that the
-catalog dump predates.
+`backup-db.sh` does three things a bare dump does not: it refuses to run if MySQL is down (rather than
+writing a 0-byte file that looks like a backup), it verifies the gzip is valid **and** actually contains
+the `myplusdb` schema before keeping it, and it rotates anything older than `KEEP_DAYS` (14).
+
+With this many interlinked databases, back them up **together** — that is why it is one
+`--single-transaction --all-databases` dump. A per-database backup taken at different moments restores
+into a state that never existed: an order referencing a catalog product that the catalog dump predates.
+
+**Install it as a cron job.** An uninstalled backup script is not a backup:
+
+```bash
+crontab -e
+30 2 * * * cd /root/myplus/microservices && ./backup-db.sh >> /var/log/myplus-backup.log 2>&1
+```
+
+**Copy them off the box.** A dump on the same disk as the database does not survive the failure it
+exists to protect against:
+
+```bash
+rsync -az --delete ./backups/ user@elsewhere:/srv/myplus-backups/
+```
+
+**Rehearse a restore** on a scratch host before you need one:
+
+```bash
+zcat myplus-2026-08-10-0230.sql.gz | docker compose exec -T -e "MYSQL_PWD=$DB_PASSWORD" mysql mysql -uroot
+```
+
+---
+
+## 8b. Data safety — what protects the database, and what to do when it looks gone
+
+Three guards are built into `microservices/docker-compose.yml`. None of them needs per-host setup:
+
+| Guard | What it stops |
+|---|---|
+| `name: myplus` | The directory you deploy from deciding the volume name. Renaming or re-cloning the deploy dir used to point MySQL at a new **empty** volume — it initialises, runs `init-db.sql`, and comes up healthy with zero rows. Nothing errors. |
+| `mysql-data` → `external: true`, `name: myplus-mysql-data` | `docker compose down -v` and `docker volume prune` deleting the data. Docker refuses to remove an external volume. |
+| `127.0.0.1:3306:3306` | MySQL being reachable from the public internet on a VPS. |
+
+**Never on a production host:** `down -v`, `docker volume prune`, `docker system prune`, or a bare `up`
+paired with `--remove-orphans` (it deletes containers of disabled profiles — see §3).
+
+There is no reason to `down` a running production stack at all: `up -d --build` replaces whatever
+changed, in place. `down` only adds the chance of typing `-v` after it.
+
+### If the app comes up with no data
+
+Do **not** run `down -v`, `volume prune`, or another `up` — each one makes the real volume harder to
+identify. Most of the time nothing was deleted; you are looking at a *different, empty* volume.
+
+```bash
+docker volume ls | grep -i mysql
+docker system df -v | grep -i -A40 "VOLUME NAME"        # sizes — the real one is hundreds of MB / GB
+docker run --rm -v <VOLUME>:/v alpine sh -c 'ls /v; du -sh /v'   # expect ibdata1, myplusdb, myplusdb_education, …
+```
+
+Then check for a dump (§8) before concluding anything is lost:
+
+```bash
+ls -lh backups/ /srv/backups/ 2>/dev/null
+find / -name 'myplus-*.sql.gz' 2>/dev/null | head
+tail -30 /var/log/myplus-backup.log
+```
 
 ---
 

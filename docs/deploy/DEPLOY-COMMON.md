@@ -138,15 +138,26 @@ docker compose up -d           # ← and this to bring them back
 > creates a **brand-new empty volume**, the app comes up with no data, and the real volume is still
 > sitting there untouched — looking exactly like data loss when nothing was deleted at all.
 >
-> **On the VPS, always deploy with the prod override**, which makes the volume `external` so Docker
-> refuses to delete it even if `-v` is passed:
+> **Both of those holes are now closed in `docker-compose.yml` itself** (2026-08-10), so there is
+> nothing per-host to remember and no override to forget:
+>
+> - `name: myplus` pins the project, so the directory you run from no longer decides the volume name.
+> - the volume is `external: true` / `name: myplus-mysql-data`, so Docker **refuses** to delete it —
+>   `down -v` skips it and says so.
+>
+> The only setup is one command, once per host, before the first `up`:
 >
 > ```bash
 > docker volume create myplus-mysql-data          # once, ever
-> docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full up -d
+> docker compose --profile full up -d --build     # same command local and prod
 > ```
 >
-> See `microservices/docker-compose.prod.yml` for the one-time migration of an existing volume.
+> If you skip the `volume create`, the stack refuses to start with *"external volume
+> myplus-mysql-data not found"*. That stop is deliberate — far better than silently initialising an
+> empty database.
+>
+> There is **no `docker-compose.prod.yml` any more**; it was removed once the base file carried both
+> protections. Two ways to deploy, one of them unsafe, was the root cause of the 2026-08-09 loss.
 
 ### "I ran `down` and my data is gone" — check before you despair
 

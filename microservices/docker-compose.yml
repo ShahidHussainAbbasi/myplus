@@ -1,8 +1,9 @@
 # =============================================================================
 # Phase 4 — network isolation + internal-secret enforcement.
 #
-# Only EDGE components publish host ports: mysql (3306, for the external monolith
-# + migration), eureka (8761), config-server (8888) and the api-gateway (8765).
+# Only EDGE components publish host ports: mysql (3306 on LOOPBACK ONLY, for the
+# external monolith + migration), eureka (8761), config-server (8888) and the
+# api-gateway (8765).
 # The resource services and auth-service use `expose` only, so they are reachable
 # ONLY from inside the private `myplus-net` network (i.e. via the gateway) and
 # cannot be hit directly from the host to forge X-User-* headers.
@@ -48,6 +49,20 @@
 # the network the DB host is the `mysql` service. `shahid` must exist in MySQL
 # with CREATE DATABASE privilege (createDatabaseIfNotExist needs it for the
 # catalog/finance/appointment DBs, which init-db.sql does not pre-create).
+# =============================================================================
+# PROJECT NAME — pinned, and it must stay pinned.
+#
+# With no `name:` here, Compose derives the project from THE DIRECTORY IT IS RUN FROM, and every
+# volume is prefixed with it. Renaming the deploy directory, re-cloning to a new path, or running one
+# level up therefore silently points MySQL at a DIFFERENT volume — it finds an empty datadir,
+# initialises a fresh one, runs init-db.sql, and comes up healthy with zero rows. Nothing errors.
+#
+# That is not hypothetical: it destroyed the production database on 2026-08-09. The volume below is
+# `external`, which is the real guard, but this line removes the drift that led there in the first
+# place. Both hosts run the same project name, so local and prod cannot diverge.
+# =============================================================================
+name: myplus
+
 x-db-env: &db-env
   DB_HOST: mysql
   DB_PORT: "3306"
@@ -114,8 +129,13 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    # Bound to LOOPBACK, not 0.0.0.0. The host itself still reaches it — Workbench, the external
+    # monolith, backup-db.sh, migrations — but nothing off-box can, so this one line is correct on a
+    # laptop and on a public VPS alike. `"3306:3306"` publishes on every interface, which on Hostinger
+    # means MySQL is open to the internet; that is why the old prod override had to reset it, and why
+    # forgetting the override exposed the database.
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     networks: [myplus-net]
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "shahid", "-p${DB_PASSWORD}"]
@@ -725,4 +745,27 @@ networks:
     driver: bridge
 
 volumes:
+  # =========================================================================================
+  # THE DATABASE VOLUME — external on purpose, on every host including your laptop.
+  #
+  # `external: true` tells Docker the volume is owned by someone else, and the engine then REFUSES
+  # to remove it. `docker compose down -v` skips it and says so; `docker volume prune` leaves it
+  # alone. An ordinary named volume has no such protection — no confirmation prompt, no undo.
+  #
+  # The trade is one command, once per host, before the first `up`:
+  #
+  #     docker volume create myplus-mysql-data
+  #
+  # If you skip it the stack refuses to start with "external volume myplus-mysql-data not found".
+  # That is the intended behaviour: a loud stop is strictly better than silently initialising an
+  # empty database, which is exactly how the 2026-08-09 data loss presented.
+  #
+  # `name:` pins the real volume name so it is NOT project-prefixed — the same volume regardless of
+  # what directory the stack is deployed from.
+  #
+  # This does NOT replace backups. It protects against `down -v`; it does not protect against a
+  # failed disk, a bad migration, or `docker volume rm` typed deliberately. See backup-db.sh.
+  # =========================================================================================
   mysql-data:
+    external: true
+    name: myplus-mysql-data
