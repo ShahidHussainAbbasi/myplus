@@ -180,7 +180,15 @@
         // Seller-side licence — settings-sourced, so a pharmacy can print its drug licence with no schema.
         licenseNo:      { key: 'ui.js.docLicenseNo',     resolve: function (c) { return (c.inv.letterhead || {}).licenseNo || ''; } },
         licenseExpiry:  { key: 'ui.js.docLicenseExpiry', resolve: function (c) { return (c.inv.letterhead || {}).licenseExpiry || ''; } },
-        bookedBy:       { key: 'ui.js.docBookedBy',      resolve: function (c) { return c.inv.bookedByName || ''; } },
+        // OVERRIDE WITH FALLBACK. The owner-configured line (pos.document.bookedBy) wins when set;
+        // otherwise the name stamped on the sale when it was written. The two differ in kind — one is
+        // per-tenant configuration read at print time, the other is per-sale history — so the order
+        // matters: an owner who has deliberately set a fixed line means it for every invoice.
+        // Blank config is the default, which is why existing tenants see no change at all.
+        bookedBy:       { key: 'ui.js.docBookedBy',      resolve: function (c) {
+                              var over = (c.inv.letterhead || {}).bookedBy;
+                              return (over && String(over).trim()) || c.inv.bookedByName || '';
+                          } },
         // Buyer side.
         customerName:   { key: 'ui.js.docCustomer',      resolve: function (c) {
             var code = c.cust.customerId ? '(' + c.cust.customerId + ') ' : '';

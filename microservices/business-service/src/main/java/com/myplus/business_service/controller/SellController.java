@@ -176,6 +176,9 @@ public class SellController {
 			lh.setLogoUrl(settingsService.getText("pos.document.logoUrl"));
 			lh.setLicenseNo(settingsService.getText("pos.document.licenseNo"));
 			lh.setLicenseExpiry(settingsService.getText("pos.document.licenseExpiry"));
+			// Optional override for "Booked By". Blank (the default) means the receipt keeps using the
+			// per-sale stamped name, so leaving it alone changes nothing for any existing tenant.
+			lh.setBookedBy(settingsService.getText("pos.document.bookedBy"));
 
 			if (ch.getStoreId() != null) {
 				storeRepository.findById(ch.getStoreId())

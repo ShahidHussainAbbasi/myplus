@@ -388,7 +388,21 @@
             var list = (resp && resp.collection) ? resp.collection : [];
             quickPick = list;
             $('#quickPickMsg').hide().text('');   // a stale "×3" from the previous sale is a lie
-            if (!list.length) { $wrap.hide(); return; }
+            if (!list.length) {
+                // ENABLED BUT EMPTY — say so, do not hide.
+                //
+                // This used to hide the panel, on the reasoning that a blank grid claiming to be
+                // "best sellers" is worse than no grid. True, but it made "switched on with no sales
+                // history yet" look identical to "switched off" or "broken": the owner ticks the box,
+                // nothing appears, and there is nothing to tell them why. A new shop — and every shop
+                // is new once — sees the feature silently do nothing.
+                //
+                // The panel now explains itself and fills in as soon as there are sales to rank.
+                $('#quickPickGrid').empty();
+                $('#quickPickMsg').text(t('ui.js.quickPickEmpty')).show();
+                $wrap.show();
+                return;
+            }
 
             var html = list.map(function (t, i) {
                 var price = (t.sellingPrice == null) ? ''

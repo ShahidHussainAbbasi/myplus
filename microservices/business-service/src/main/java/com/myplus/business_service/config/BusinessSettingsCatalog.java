@@ -277,6 +277,16 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "", "Documents"),
                 // The SELLER's licence. A setting, not a column: a business has one licence, not one per
                 // invoice. The BUYER's licence is a field on the customer record.
+                // "Booked By" OVERRIDE. Blank (default) keeps the per-sale behaviour: the invoice shows the
+                // person who actually rang it, stamped when the sale was written. Setting a value replaces
+                // that with one fixed line on every document — which is what a shop wants when the invoice
+                // should name a department or a licence holder rather than a cashier.
+                SettingEntry.text("pos.document.bookedBy",
+                        "Booked By line on invoices",
+                        "Leave blank (default) to print the person who rang each sale. Set a value "
+                                + "— a department, a licence holder, the proprietor — to print that on "
+                                + "every invoice instead.",
+                        "", "Documents"),
                 SettingEntry.text("pos.document.licenseNo",
                         "Your licence number",
                         "Your trade or drug licence, printed in the invoice header. Pharmacies and "

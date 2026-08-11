@@ -40,4 +40,18 @@ public class LetterheadDTO {
 
     /** The store this invoice was raised at — a fallback for the name, and printable in its own right. */
     private String storeName;
+
+    /**
+     * Owner-configured OVERRIDE for the document's "Booked By" line (pos.document.bookedBy).
+     *
+     * <p>Blank by default, and blank is the meaningful state: the receipt then falls back to
+     * {@code CustomerHistory.bookedByName}, the person stamped on the sale when it was written. A shop
+     * that wants accountability — which cashier rang this — leaves it empty; a shop that wants a fixed
+     * line on every invoice ("Sales Department", the licence holder, the proprietor) sets it here.
+     *
+     * <p>Note the two differ in KIND, not just in value: the stamped name is per-sale history, this is
+     * per-tenant configuration read at PRINT time. Changing it therefore changes what previously issued
+     * invoices print — the same behaviour every other {@code pos.document.*} field already has.
+     */
+    private String bookedBy;
 }
