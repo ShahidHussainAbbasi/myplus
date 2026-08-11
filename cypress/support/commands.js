@@ -151,6 +151,16 @@ Cypress.Commands.add('loginAsMarketplaceOwner', (email = 'owner.marketplace@mypl
   cy.loginAs(email, password, '/getOrders')
 })
 
+// OMS O7 D2 — the ORDER BOOKER: a field sales rep, and a MEMBER of the marketplace owner's org (so the booker,
+// the admin who reviews their orders and the outlets they book for are all in one tenant — otherwise a refusal
+// would prove org-scoping worked rather than that the approval gate did).
+//
+// Its value as a fixture is what it CANNOT do: ROLE_ORDER_BOOKER carries no ADMIN_PRIVILEGE, so this is the
+// account that proves a rep cannot confirm their own order.
+Cypress.Commands.add('loginAsOrderBooker', (email = 'booker.marketplace@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getOrders')
+})
+
 // NOTE: owner.inventory@ / owner.campaign@ / owner.analytics@ ARE seeded, but get no login command here on
 // purpose. Those user types have no monolith dashboard (MySimpleUrlAuthenticationSuccessHandler falls them back
 // to "/"), so a UI-session command would need a validate endpoint none of them owns. Test those services the way
@@ -376,4 +386,47 @@ Cypress.Commands.add('loginAsPortalStudent', (email = 'student.education@myplus.
   // role changed keeps replaying the old one; validation alone cannot detect that, because /portal/my/me
   // resolves by EMAIL while the deny rule keys on the ROLE.
   cy.loginAs(email, password, '/portal/my/me', 'ROLE_STUDENT')
+})
+
+/**
+ * Yield the id of a company in the current tenant, creating one if the tenant has none.
+ *
+ * Exists because a VENDOR cannot be seeded without one. VenderController.addVender ends with
+ * `obj.setCompany(companyService.getReferenceById(dto.getCompanyId()))` — an UNGUARDED dereference,
+ * so a null companyId throws and the catch-all reports "An unexpected error occurred. Please contact
+ * support." rather than naming the missing field. Nothing in VenderDTO's annotations says company is
+ * required; the requirement lives in the method body. Read the refusal branches, not just the
+ * validation annotations.
+ *
+ * NB: GenericResponse has no `data` field — a List lands in `collection` (the Collection<?> constructor
+ * overload wins). Reading r.body.data here silently sees nothing and creates a company every run.
+ *
+ * A near-identical local helper still lives in b2b-customer-type.cy.js; it should migrate to this one,
+ * but that spec is green and is not being touched as part of P6.
+ */
+Cypress.Commands.add('ensureCompany', () => {
+  // `collection` is the usual landing spot, but some endpoints answer in `object` or `data` — check all
+  // three in the order the proven b2b helper does rather than betting on one and silently seeing nothing.
+  const pick = (body) => {
+    for (const key of ['collection', 'data', 'object']) {
+      if (Array.isArray(body && body[key])) return body[key]
+    }
+    return []
+  }
+  return cy.request({ url: '/getUserCompany', failOnStatusCode: false }).then((r) => {
+    const found = pick(r.body)
+    if (found.length && found[0].id) return cy.wrap(found[0].id)
+    const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`
+    return cy.request({
+      method: 'POST', url: '/addCompany', form: true, failOnStatusCode: false,
+      body: { name: `Co_${stamp}`, phone: '042-1234567', email: `co${stamp}@test.com`, address: 'Lahore' },
+    }).then((c) => {
+      expect(c.body.status, `addCompany: ${JSON.stringify(c.body)}`).to.be.oneOf(['SUCCESS', 'FOUND'])
+      return cy.request({ url: '/getUserCompany', failOnStatusCode: false })
+    }).then((r2) => {
+      const made = pick(r2.body)
+      expect(made.length, 'a company exists for the vendor to belong to').to.be.greaterThan(0)
+      return cy.wrap(made[0].id)
+    })
+  })
 })

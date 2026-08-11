@@ -164,12 +164,30 @@ describe('POS keyboard entry — ON', () => {
     })
   })
 
-  it('Enter on Price goes to Discount', () => {
+  it('Enter on Price goes to the discount TYPE picker, then to Discount', () => {
+    // The chain is Item -> Qty -> Price -> DiscountType -> Discount. #sellDiscountTypeDD was added as
+    // a stop in P5 so a per-line concession can be switched between % and amount without the mouse;
+    // this test predates that and expected Price to reach #sellDiscount directly.
     cy.seedProduct({ name: 'KbdDisc_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
       cy.get('#sellItems').clear().type('2')
       cy.get('#sellSellRate').clear().type('30{enter}')
+      // bootstrap-select hides the real <select> behind a button, so focus lands on that button.
+      cy.focused().should(($el) => {
+        expect(Cypress.$($el).closest('.bootstrap-select').prev('#sellDiscountTypeDD').length,
+               'Price reaches the discount type picker').to.eq(1)
+      })
+      cy.window().its('data').should('have.length', 0)   // still nothing committed
+
+      // ONE Enter moves on, exactly as it does on the item picker.
+      //
+      // The handler's "double Enter" only describes the case where the menu is already OPEN. On a
+      // CLOSED picker it calls preventDefault(), which stops the button's click — so the menu never
+      // opens and the chain advances on the first press. An earlier version of this test pressed
+      // Enter twice; the second press landed on #sellDiscount, the last field, and COMMITTED the
+      // line — which is why focus was found on the scan box rather than the discount.
+      cy.focused().type('{enter}')
       cy.focused().should('have.id', 'sellDiscount')
       cy.window().its('data').should('have.length', 0)
     })
@@ -269,6 +287,30 @@ describe('POS keyboard entry — ON', () => {
     })
   })
 
+  it('switching the line discount off also hides its TYPE picker — and does not save that', () => {
+    // The type picker (% / amount) only says HOW a line discount applies. With the discount switched
+    // off it is a control with nothing to control, and a dead stop in the Enter chain. It is hidden
+    // as a CONSEQUENCE, so the tenant's own discountType setting must survive: switch the discount
+    // back on and their chooser returns. A derived value that quietly persists becomes a preference
+    // nobody chose.
+    openSell(true)
+    cy.window().then((w) => {
+      w.posFields = { lineDiscount: false, discountType: true }
+      w.applyPosFieldVisibility()
+    })
+    cy.get('#sellDiscount').should('not.be.visible')
+    cy.get('#sellDiscountTypeDD').parent().should('not.be.visible')
+    cy.window().then((w) => {
+      // The stored setting is UNTOUCHED — only the rendering changed.
+      expect(w.posFields.discountType, 'the tenant setting is not overwritten').to.eq(true)
+      // Switching the discount back on restores their chooser.
+      w.posFields = { lineDiscount: true, discountType: true }
+      w.applyPosFieldVisibility()
+    })
+    cy.get('#sellDiscount').should('be.visible')
+    cy.get('#sellDiscountTypeDD').parent().should('be.visible')
+  })
+
   it('Enter is ignored while a modal is open', () => {
     cy.seedProduct({ name: 'KbdModal_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
@@ -294,7 +336,10 @@ describe('POS row-entry layout', () => {
 
   it('the layout class drives the compact row, and only when the flag is on', () => {
     openSell(true)
-    cy.window().then((w) => { w.posKeyboardEnabled = true; w.applyPosRowEntry() })
+    // The compact row is its OWN setting (pos.entry.compactRow -> window.posRowLayoutEnabled), not a
+    // side effect of the keyboard flag. They were one switch when this test was written; they were
+    // split so a tenant can have keyboard entry without the one-row layout, which ships OFF.
+    cy.window().then((w) => { w.posRowLayoutEnabled = true; w.applyPosRowEntry() })
     cy.get('#sellDiv').should('have.class', 'pos-rowentry')
     // The four typed fields stay visible in the compact layout ...
     cy.get('#sellItemDD').should('exist')

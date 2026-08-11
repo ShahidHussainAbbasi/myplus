@@ -53,6 +53,10 @@ public class SagaSellService {
     @org.springframework.beans.factory.annotation.Autowired
     private StoreCreditService storeCreditService;   // SF-5 Model B: redeem store credit at checkout
 
+    /** O7 D2: the ONE definition of "whose limit governs" + "what does that group owe" — read and write share it. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private CreditStandingService creditStandingService;
+
     @org.springframework.beans.factory.annotation.Autowired
     private com.myplus.common.settings.SettingsService settingsService;   // B1: per-org pharmacy rx policy
 
@@ -327,29 +331,21 @@ public class SagaSellService {
         }
     }
 
-    /**
-     * The customer row whose limit governs this sale — the stamped credit account, or the customer itself.
-     *
-     * <p>Falls back to the customer when the stamp is missing or unreadable rather than skipping the check: a
-     * null credit account must degrade to "cap this customer by their own limit", never to "no limit at all".
-     */
+    // O7 D2: `creditAccountOf` and `groupExposure` MOVED to CreditStandingService and are delegated to below.
+    //
+    // They were private here, and the booker's new "is this outlet over its limit?" read needs the same two
+    // rules. Copying them would have created a second definition that answers differently the first time
+    // either changes — the booker told one thing at the counter, the sale enforcing another. One definition,
+    // used by both the read and the write, is the only version of this that cannot drift.
+
+    /** @see CreditStandingService#creditAccountOf */
     private Customer creditAccountOf(Customer customer) {
-        Long accountId = customer.getCreditAccountCustomerId();
-        if (accountId == null || accountId.equals(customer.getCustomerId())) return customer;
-        return customerRepo.findById(accountId).orElse(customer);
+        return creditStandingService.creditAccountOf(customer);
     }
 
-    /**
-     * Σ(due) across the credit account's group. Falls back to the buying customer's own due if the sum comes back
-     * null — the same fail-toward-checking rule as {@link #creditAccountOf}.
-     */
+    /** @see CreditStandingService#groupExposure */
     private BigDecimal groupExposure(Customer creditAccount, Customer customer) {
-        AuthenticatedUser user = requestUtil.getCurrentUser();
-        BigDecimal pooled = customerRepo.sumDueByCreditAccount(
-                creditAccount.getCustomerId(),
-                user == null ? null : user.getOrganizationId(),
-                user == null ? null : user.getUserId());
-        return pooled != null ? pooled : customer.getDueAmount();
+        return creditStandingService.groupExposure(creditAccount, customer);
     }
 
     /**

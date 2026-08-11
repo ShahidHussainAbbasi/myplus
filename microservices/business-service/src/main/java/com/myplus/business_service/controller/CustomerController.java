@@ -70,6 +70,9 @@ public class CustomerController {
 	com.myplus.business_service.service.CustomerAccountService customerAccountService;   // P4a: account hierarchy
 
 	@Autowired
+	com.myplus.business_service.service.CreditStandingService creditStandingService;   // O7 D2: credit at booking
+
+	@Autowired
 	AppUtil appUtil;
 	
 	@Autowired
@@ -287,6 +290,28 @@ public class CustomerController {
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > customerCredit " + e.getMessage(), e);
 			return new GenericResponse("ERROR", "Could not load store credit.");
+		}
+	}
+
+	/**
+	 * OMS O7 D2 — the outlet's CREDIT STANDING, for an order booker standing at the counter.
+	 *
+	 * <p>Deliberately named apart from {@code /customerCredit} above, which is the SF-5 store-credit balance —
+	 * money the shop is holding FOR the customer. This is the opposite: what the customer owes the shop and how
+	 * much room is left against their limit. Two different numbers with confusable names, so the names are
+	 * kept unconfusable.
+	 *
+	 * <p>Answers with {@code null} when the customer is uncapped, which the caller must render as "no limit"
+	 * rather than as zero — see {@code CreditStandingService.standingFor}.
+	 */
+	@RequestMapping(value = "/creditStanding", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse creditStanding(@RequestParam Long customerId) {
+		try {
+			return new GenericResponse("SUCCESS", "Credit standing", creditStandingService.standingFor(customerId));
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > creditStanding " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load the credit standing.");
 		}
 	}
 

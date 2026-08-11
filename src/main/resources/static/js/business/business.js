@@ -2622,9 +2622,154 @@ function newPurchase(){
 	resetPurchaseForm();
 	$('#purchaseId').val('');
 	$('#PurchaseModalTitle').text('New Purchase');
+	purchaseAddAnother = false;   // P6: a fresh bill starts with no pending "add another" intent
+	purchaseLineCount = 0;
+	$('#purchaseLineCount').hide().text('');
 	refreshPurchaseTaxRow();   // Phase B: show the tax field only when the org enabled "Purchase tax"
 	openModal('PurchaseModal');
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * P6 — rapid purchase line entry.
+ *
+ * A register (Company, Vendor, Product) creates ONE record, so the shared post-save handler wipes the
+ * form and closes the modal. A purchase is not that shape: one delivery is one vendor, one invoice and
+ * one date with MANY items, each saved as its own Purchase row. Inheriting the register behaviour meant
+ * a 30-line delivery cost 30 modal opens and 30 retyped headers.
+ *
+ * "Save & Add Another" keeps the modal open and clears only the LINE fields. #addPurchase ("Save &
+ * Close") is untouched and still runs the generic path, so single-line entry behaves exactly as before.
+ * ---------------------------------------------------------------------------------------------- */
+var purchaseAddAnother = false;   // which button submitted the form (consumed once, in afterSavePurchase)
+var purchaseLineCount  = 0;       // lines saved onto the bill currently open
+
+// Fields cleared between lines. This is an explicit list rather than "clear everything except a
+// keep-list", and the direction matters: a field added later will fail by NOT clearing (a visible
+// annoyance) instead of by silently going sticky (which, for a payment field, repeats money).
+var PURCHASE_LINE_FIELDS = [
+	'purchaseId', 'purchaseItemDesc', 'purchaseQuantity', 'purchasePurchaseRate', 'purchaseSellRate',
+	'purchaseBatchNo', 'purchaseExpiry', 'purchaseTaxRate', 'purchaseTotalAmount', 'purchaseNetAmount',
+	'purchaseTotalAmountOut', 'purchaseStock',
+	// purchasePaid is NOT a header field despite looking like one. Its placeholder is "Blank = paid in
+	// full (cash)", so carrying a typed value onto the next line posts that payment again and credits
+	// the vendor once per line. Everything else in this list is convenience; this one is money.
+	'purchasePaid'
+];
+
+/**
+ * Post-save hook consumed by $.fn.callAjax in main.js. Returning TRUE means "this module handled the
+ * reset, the modal and the grid" — the generic register path is then skipped.
+ */
+window.afterSavePurchase = function () {
+	// Consume the intent exactly once, whatever we decide below, so it can never leak into a later save.
+	var addAnother = purchaseAddAnother;
+	purchaseAddAnother = false;
+
+	// "Add another" has no meaning when EDITING an existing purchase — there is nothing to add another
+	// of. Fall through to the generic close in that case.
+	if (!addAnother) return false;
+
+	// Clear the line, keep the header (vendor + invoice # + date + the vendor dues row).
+	resetBSDD('purchaseItemDD');
+	for (var i = 0; i < PURCHASE_LINE_FIELDS.length; i++) {
+		var el = document.getElementById(PURCHASE_LINE_FIELDS[i]);
+		if (el) el.value = '';
+	}
+	if (typeof updatePurchaseProjectedOnHand === 'function') updatePurchaseProjectedOnHand();
+
+	// Refresh the grid WITHOUT clear().draw() — blanking the table between every line is the flicker
+	// that makes rapid entry feel slow.
+	try { if (typeof datatable !== 'undefined' && datatable) datatable.ajax.reload(null, false); } catch (e) {}
+	if (typeof clearFormError === 'function') clearFormError();
+
+	purchaseLineCount++;
+	$('#purchaseLineCount')
+		.text(t('ui.js.purchaseLinesOnBill').replace('{0}', purchaseLineCount))
+		.show();
+
+	// Back to the item picker — the first field of the next line. bootstrap-select hides the real
+	// <select> behind a button, so focus the button when the picker has been enhanced.
+	var $dd = $('#purchaseItemDD'), $wrap = $dd.next('.bootstrap-select');
+	if ($wrap.length) $wrap.find('button').first().focus(); else $dd.focus();
+
+	return true;
+};
+
+/* ------------------------------------------------------------------------------------------------
+ * P6 — keyboard-first purchase entry.
+ *
+ * Receiving a delivery is the same shape of work as ringing up a sale: one operator, a stack of items,
+ * a keyboard. The sale screen got an Enter-chain in P1-P3; this gives the purchase form the same thing
+ * using the SAME engine (/js/common/enter-chain.js), so the two cannot drift apart.
+ *
+ *   Enter          next field (hidden/off fields are skipped, so the chain follows configuration)
+ *   Shift+Enter    previous field
+ *   Enter on the last field   -> Save & Add Another   (the multi-line case, which is the common one)
+ *   Ctrl+Enter     -> Save & Close                    (finish the bill from ANY field)
+ *   Escape         -> Cancel
+ *
+ * Note pos-keyboard.js deliberately stands down while a .crud-overlay is open, so the sale chain and
+ * this one can never both respond to the same keystroke.
+ * ---------------------------------------------------------------------------------------------- */
+/**
+ * The chain follows the form's OWN top-to-bottom order.
+ *
+ * The first version grouped it logically instead — header fields first, then line fields — which read
+ * well in the design doc and was wrong on screen: Enter jumped from the invoice box (row 1) down to the
+ * date (row 8) and back up to the item picker (row 3). A chain the eye cannot follow is worse than no
+ * chain, because the operator has to look up after every keystroke to find the cursor.
+ *
+ * #purchaseTaxRate sits between the vendor and the item in the DOM and is included, but it is hidden
+ * unless the org enabled purchase tax — so for a tenant without it the sequence is exactly:
+ * invoice -> batch -> vendor -> item -> qty -> cost -> sell -> date -> expiry -> paid.
+ *
+ * Read-only/computed boxes (#purchaseStock, #purchaseTotalAmount, #purchaseNetAmount, #purchaseItemDesc)
+ * are deliberately absent: they are output, and a stop on a field nobody can edit is a dead keystroke.
+ */
+var PURCHASE_CHAIN = [
+	'purchaseInvoiceNo', 'purchaseBatchNo', 'purchaseVenderDD', 'purchaseTaxRate',
+	'purchaseItemDD', 'purchaseQuantity', 'purchasePurchaseRate', 'purchaseSellRate',
+	'purchaseDate', 'purchaseExpiry', 'purchasePaid'
+];
+var PURCHASE_PICKERS = ['purchaseVenderDD', 'purchaseItemDD'];
+
+function purchaseModalOpen(){
+	return $('#PurchaseModal').hasClass('open');
+}
+
+$(function () {
+	window.EnterChain.bind('purchase', {
+		chain:   PURCHASE_CHAIN,
+		pickers: PURCHASE_PICKERS,
+		active:  purchaseModalOpen,
+		// Enter past the last field saves and stays — a delivery rarely has exactly one line, and the
+		// operator who does have one line has Ctrl+Enter.
+		onEnd:       function () { $('#addPurchaseAnother').click(); return true; },
+		onCtrlEnter: function () { $('#addPurchase').click(); },
+		onEscape:    function () { closeModal('PurchaseModal'); return true; }
+	});
+
+	// NOTE: nothing here auto-focuses the first field. openModal() already does it — it calls
+	// focusFirstField() on the next animation frame, which lands on #purchaseInvoiceNo, the first
+	// field of the chain. An earlier version of P6 added a second, timer-based auto-focus that raced
+	// it; two things moving the cursor is exactly the class of bug this codebase's DRY rule exists to
+	// prevent, and the fix was to delete the duplicate rather than arbitrate between them.
+
+	// Submit via the SAME validated path as Save & Close — set the intent, then trigger that button.
+	$(document).on('click', '#addPurchaseAnother', function () {
+		// Editing an existing row: "add another" is meaningless, so behave as a plain save.
+		purchaseAddAnother = !$('#purchaseId').val();
+		$('#addPurchase').click();
+	});
+
+	// A REAL click on Save & Close cancels any stale intent — e.g. a previous "Add another" whose save
+	// failed, so afterSavePurchase never ran to consume it. Delegated on document deliberately: the
+	// generic binder does $("#addPurchase").off(), which would remove a handler bound to the element.
+	// jQuery's programmatic .click() above carries no originalEvent, so it does not clear the flag.
+	$(document).on('click', '#addPurchase', function (e) {
+		if (e.originalEvent) purchaseAddAnother = false;
+	});
+});
 
 // Phase B: the purchase-form tax field is only meaningful when the org's "Purchase tax (input credit)" toggle is on.
 function refreshPurchaseTaxRow(){
@@ -3394,6 +3539,20 @@ function applyPosRowEntry(){
  */
 function applyPosFieldVisibility(){
 	var f = window.posFields || {};
+
+	// DEPENDENT FIELDS. A control whose only job is to MODIFY another control has no meaning once that
+	// other control is gone. The discount type (% or amount) says how the line discount is applied, so
+	// a tenant who switched the line discount off was left with a chooser for a field that is not on
+	// the screen — visually a control with nothing to control, and in the keyboard chain a dead stop
+	// the cashier has to Enter past on every line.
+	//
+	// The reverse dependency was already handled below (no chooser => discounts are a fixed amount).
+	// This is the same relationship read the other way round.
+	//
+	// DERIVED, never stored: this writes to a COPY, so the tenant's own discountType setting is left
+	// alone and comes back intact the moment they switch the line discount on again. Mutating
+	// window.posFields here would quietly turn a temporary consequence into a saved preference.
+	if (f.lineDiscount === false) { f = $.extend({}, f, { discountType: false }); }
 	// A CLASS, not .toggle(). jQuery's .toggle(true) → .show() sets an INLINE display:block whenever
 	// the element is hidden by a stylesheet — which would beat pos-rowentry.css's `.pos-more{display:none}`
 	// and drag fields back onto the compact row the moment settings were applied. The two mechanisms are

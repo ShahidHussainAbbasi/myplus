@@ -19,7 +19,41 @@ import java.util.Set;
  * SHIPPED → DELIVERED → RETURNED, which puts the stock back only when it physically arrives.
  */
 public enum FulfilmentStatus {
+    /**
+     * OMS O7 D1 — booked by an order booker at the outlet, awaiting the warehouse admin's review.
+     *
+     * <p><b>Nothing has been committed.</b> No invoice, no stock reservation, no money. That is the whole point:
+     * a booker's order is a REQUEST, and the segregation of duties that makes distribution auditable depends on
+     * one person booking and a different person releasing.
+     *
+     * <p>Declared FIRST so {@code EnumSet} iteration — which drives button order in the UI — puts the approval
+     * phase before the fulfilment phase.
+     */
+    PENDING_APPROVAL,
+    /**
+     * Accepted and ready to pack.
+     *
+     * <p>O7 D1: this is also what {@code PENDING_APPROVAL} becomes when the admin CONFIRMS. There is deliberately
+     * no separate {@code CONFIRMED} state — it would mean exactly what {@code NEW} already means, and two states
+     * with one meaning is how a lifecycle starts disagreeing with itself. POS and storefront orders, which have
+     * no approval step, are still born here.
+     *
+     * <p>Declared BEFORE {@code REJECTED} on purpose. {@code EnumSet} iterates in declaration order and that
+     * order renders the approval buttons, so this puts <i>Confirm</i> ahead of <i>Reject</i> — the affirmative
+     * action first, the destructive one second. Ordinals are never persisted ({@code Order.fulfilmentStatus} is
+     * {@code @Enumerated(STRING)}), so this ordering is a UI decision and nothing else.
+     */
     NEW,
+    /**
+     * OMS O7 D1 — the admin refused it, with a reason. <b>Not terminal:</b> D-2 settled that both the booker and
+     * the admin may revise and resubmit, because forcing the booker to re-key a whole order loses the original
+     * and the reason with it.
+     *
+     * <p>Deliberately NOT {@code CANCELLED}: that means "this order is being reversed" and triggers the O1 void.
+     * A rejected order has nothing to reverse — it never took stock or raised an invoice — and conflating the
+     * two would have a rejection attempt to void an invoice that does not exist.
+     */
+    REJECTED,
     PACKED,
     /**
      * OMS O5c: accepted, but part of it cannot be filled yet. Nothing has shipped and something is owed.
@@ -46,18 +80,26 @@ public enum FulfilmentStatus {
      * not back on the shelf. A part-shipped order that fails goes DELIVERED → RETURNED, which puts stock back
      * when it physically arrives.
      */
-    private static final Map<FulfilmentStatus, Set<FulfilmentStatus>> ALLOWED = Map.of(
-            NEW,               EnumSet.of(PACKED, CANCELLED),
-            PACKED,            EnumSet.of(CANCELLED),
+    private static final Map<FulfilmentStatus, Set<FulfilmentStatus>> ALLOWED = Map.ofEntries(
+            // ── O7 D1: the approval phase, in front of everything above ──────────────────────────────────
+            // CANCELLED is reachable from PENDING_APPROVAL because a shop can call and withdraw an order before
+            // anyone has looked at it. That cancel reverses nothing (there is no invoice yet), which is exactly
+            // why returnStockQuietly is guarded on "is there anything to reverse".
+            Map.entry(PENDING_APPROVAL, EnumSet.of(NEW, REJECTED, CANCELLED)),
+            // Back to PENDING_APPROVAL on revision (D-2), or abandoned. NOT straight to NEW: a revised order is
+            // reviewed again, or "reject" would be a one-click bypass of the approval it exists to enforce.
+            Map.entry(REJECTED,          EnumSet.of(PENDING_APPROVAL, CANCELLED)),
+            Map.entry(NEW,               EnumSet.of(PACKED, CANCELLED)),
+            Map.entry(PACKED,            EnumSet.of(CANCELLED)),
             // O5c: still cancellable. The O5b prohibition is about goods on a van; a backordered order has
             // shipped nothing, so there is nothing in transit to be inconsistent about.
-            BACKORDERED,       EnumSet.of(CANCELLED),
-            PARTIALLY_SHIPPED, EnumSet.of(DELIVERED),
-            SHIPPED,           EnumSet.of(DELIVERED),
-            DELIVERED,         EnumSet.of(RETURN_REQUESTED, RETURNED),
-            RETURN_REQUESTED,  EnumSet.of(RETURNED),
-            CANCELLED,         EnumSet.noneOf(FulfilmentStatus.class),
-            RETURNED,          EnumSet.noneOf(FulfilmentStatus.class));
+            Map.entry(BACKORDERED,       EnumSet.of(CANCELLED)),
+            Map.entry(PARTIALLY_SHIPPED, EnumSet.of(DELIVERED)),
+            Map.entry(SHIPPED,           EnumSet.of(DELIVERED)),
+            Map.entry(DELIVERED,         EnumSet.of(RETURN_REQUESTED, RETURNED)),
+            Map.entry(RETURN_REQUESTED,  EnumSet.of(RETURNED)),
+            Map.entry(CANCELLED,         EnumSet.noneOf(FulfilmentStatus.class)),
+            Map.entry(RETURNED,          EnumSet.noneOf(FulfilmentStatus.class)));
 
     /**
      * Is this state reached by recording a SHIPMENT rather than by deciding?

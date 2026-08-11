@@ -55,6 +55,359 @@ public class OrderService {
     private final ShipmentService shipmentService;   // O5b: the parcels an order has gone out in
     /** O5c — one resolver shared with the quote, so what the shopper is told matches what is invoiced. */
     private final BackorderPolicy backorderPolicy;
+    /** O7 D1 — who changed what on a booked order, and why (mandatory once TWO people may edit it). */
+    private final com.myplus.marketplace.repository.OrderAmendmentRepository amendmentRepository;
+
+    // ── OMS O7 D1 — distribution pre-sales: book → review → confirm/reject ────────────────────────────────
+
+    /**
+     * {@code booksStatus} for a confirmed order that has not been invoiced yet.
+     *
+     * <p>A FOURTH books state, and distinct for the reason O5c kept {@code BACKORDER_PENDING} out of
+     * {@code LEGACY_UNPOSTED}: all three mean "no invoice", but this one is <b>correct and expected</b> — the
+     * goods have not left the building, and under {@code ON_DISPATCH} the invoice is raised when they do.
+     * Collapsing it into either of the others would bury a healthy order inside a real reconciliation backlog.
+     */
+    public static final String AWAITING_DISPATCH = "AWAITING_DISPATCH";
+
+    /**
+     * An order booker books an order at the outlet.
+     *
+     * <h3>Nothing is committed here — that is the whole point</h3>
+     * No invoice, no stock movement, no money. A booker's order is a <b>request</b>, and the segregation of
+     * duties that makes distribution auditable depends on the person who books not being the person who
+     * releases. Under {@code ON_DISPATCH} (§6 D-1) the invoice is raised when the goods actually leave, from
+     * the quantities that actually left — so an amendment here edits an order, never an issued invoice, and a
+     * rejection voids nothing.
+     *
+     * <p>It still gets its {@code SO-} number immediately: the booker has to be able to quote a reference to
+     * the shopkeeper before leaving the counter, and O5e already established that no kind of order should be
+     * the one a merchant cannot track.
+     */
+    @Transactional
+    public OrderDTO book(OrderDTO dto, Long orgId, Long userId) {
+        return book(dto, orgId, userId, null);
+    }
+
+    /** As above, stamping the rep who took the order (O7 D2). */
+    @Transactional
+    public OrderDTO book(OrderDTO dto, Long orgId, Long userId, String bookedByName) {
+        if (dto == null || dto.getItems() == null || dto.getItems().isEmpty())
+            throw new ValidationException("An order needs at least one line");
+        if (dto.getCustomerName() == null || dto.getCustomerName().isBlank())
+            throw new ValidationException("Which outlet is this order for?");
+
+        // Idempotent on the caller's key, exactly as placePublic is: a booker on a poor connection will retry,
+        // and a second order for one visit is worse than a failed one. OMS-3's lesson, applied to the field.
+        String key = (dto.getIdempotencyKey() != null && !dto.getIdempotencyKey().isBlank())
+                ? dto.getIdempotencyKey().trim() : null;
+        if (key != null) {
+            Order existing = repo.findByOrgAndIdempotencyKey(orgId, key).orElse(null);
+            if (existing != null) {
+                LOG.info("Booking replayed for key {} — returning existing order {}", key, existing.getOrderNo());
+                return toDTOWithLines(existing);
+            }
+        }
+
+        long orderSeq = repo.maxOrderSeqForOrg(orgId) + 1;
+        Order o = Order.builder()
+                .organizationId(orgId).userId(userId)
+                .orderSeq(orderSeq)
+                .orderNo(com.myplus.commerce.domain.InvoiceNumbers.order(orderSeq))
+                .idempotencyKey(key)
+                .customerName(dto.getCustomerName())
+                .customerContact(dto.getCustomerContact())
+                .shippingAddress(dto.getShippingAddress())
+                // O7 D2: who took it. The name is stamped, not resolved later — see Order.bookedByName.
+                .bookedByUserId(userId)
+                .bookedByName(bookedByName)
+                .total(lineTotal(dto.getItems()))     // indicative only — the invoice is priced at dispatch
+                .items(toItems(dto.getItems()))
+                .source("FIELD")                      // POS | STOREFRONT | FIELD — how the order was taken
+                .paymentMode(dto.getPaymentMode() != null ? dto.getPaymentMode() : "CREDIT")
+                .booksStatus(AWAITING_DISPATCH)
+                .fulfilmentStatus(FulfilmentStatus.PENDING_APPROVAL)
+                .build();
+
+        Order saved;
+        try {
+            saved = repo.saveAndFlush(o);
+        } catch (org.springframework.dao.DataIntegrityViolationException duplicate) {
+            Order winner = (key == null) ? null : repo.findByOrgAndIdempotencyKey(orgId, key).orElse(null);
+            if (winner == null) throw duplicate;
+            LOG.info("Booking for key {} lost the insert race — returning order {}", key, winner.getOrderNo());
+            return toDTOWithLines(winner);
+        }
+        notificationService.notify(saved, FulfilmentStatus.PENDING_APPROVAL.name(), "Order booked, awaiting review");
+        return toDTOWithLines(saved);
+    }
+
+    /**
+     * The warehouse admin (or the booker) amends a booked order.
+     *
+     * <h3>Only while it is still under review</h3>
+     * {@code PENDING_APPROVAL} or {@code REJECTED} — nothing else. Once confirmed, the order is a picking
+     * instruction and, once dispatched, an invoice; editing either behind the operation's back is how a
+     * warehouse comes to pack something the paperwork does not describe. A confirmed order that needs changing
+     * is rejected back or cancelled, which leaves a trail.
+     *
+     * <h3>Every amendment is recorded</h3>
+     * D-2 lets two different people edit one order and D-3 lets one of them change prices; together those make
+     * the trail mandatory (see {@link com.myplus.marketplace.entity.OrderAmendment}). A caller that changes
+     * nothing writes no row — an empty amendment is noise in the one record that must stay readable.
+     *
+     * <p><b>Concurrent edits.</b> {@code Order} carries {@code @Version} (O2), so two people saving the same
+     * order collide rather than silently overwriting each other. That surfaces as a 409 with a readable message
+     * since the 2026-08-10 review — which is exactly the case D-2 created and the reason the fix mattered.
+     */
+    @Transactional
+    public OrderDTO amend(Long id, OrderDTO dto, Long orgId, Long userId, String userName) {
+        Order o = repo.findByIdScoped(id, orgId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        FulfilmentStatus current = o.getFulfilmentStatus();
+        if (current != FulfilmentStatus.PENDING_APPROVAL && current != FulfilmentStatus.REJECTED)
+            throw new ValidationException("Only an order still under review can be amended. This one is "
+                    + current + " — reject it back to the booker, or cancel it.");
+
+        List<java.util.Map<String, String>> changes = new ArrayList<>();
+        applyHeaderAmendments(o, dto, changes);
+        applyLineAmendments(o, dto, changes);
+
+        if (changes.isEmpty()) return toDTOWithLines(o);   // nothing changed — do not write an empty audit row
+
+        o.setTotal(lineTotalOfItems(o.getItems()));
+        Order saved = repo.save(o);
+
+        amendmentRepository.save(com.myplus.marketplace.entity.OrderAmendment.builder()
+                .orderId(saved.getId()).organizationId(orgId)
+                .userId(userId).userName(userName)
+                .summary(summarise(changes))
+                .changes(toJson(changes))
+                .reason(dto.getAmendmentReason())
+                .createdAt(java.time.LocalDateTime.now())
+                .build());
+        notificationService.notify(saved, saved.getFulfilmentStatus().name(), "Amended: " + summarise(changes));
+        return toDTOWithLines(saved);
+    }
+
+    /**
+     * The admin confirms a booked order: it becomes a picking instruction.
+     *
+     * <p>Still no invoice — that is raised at dispatch, from what actually goes out (D-1). What changes is that
+     * the order is now the warehouse's work rather than the booker's proposal.
+     *
+     * <h3>Stock is NOT held here, and that is a known gap</h3>
+     * The approved design said "reserve at confirm, invoice at dispatch". Reserving would mean marketplace
+     * holding inventory again — the reservation saga <b>O1 deliberately deleted</b>, because it produced holds
+     * with no invoice behind them. Re-adding it to satisfy a design line would undo a correctness fix, so this
+     * confirms without reserving and the stock is taken atomically at dispatch by the existing sale path.
+     *
+     * <p><b>The consequence, stated plainly:</b> two orders confirmed for the last carton will both be
+     * confirmed, and the second will fail or backorder at dispatch. Doing it properly needs a reserve operation
+     * on the trade contract so business-service — which owns stock — performs the hold. That is <b>D1b</b>, and
+     * it is a contract change, not a marketplace one.
+     */
+    @Transactional
+    public OrderDTO confirm(Long id, Long orgId, Long userId) {
+        Order o = requirePending(id, orgId, userId, "confirmed");
+        o.setFulfilmentStatus(FulfilmentStatus.NEW);
+        o.setRejectionReason(null);          // a confirmed order carries no standing refusal
+        Order saved = repo.save(o);
+        notificationService.notify(saved, FulfilmentStatus.NEW.name(), "Order confirmed — ready to pack");
+        return toDTOWithLines(saved);
+    }
+
+    /**
+     * The admin rejects a booked order, with a reason.
+     *
+     * <p>The reason is <b>required</b>: a rejection without one leaves the booker unable to fix the order or
+     * explain it to the shop, so the visit is wasted twice. Not terminal — D-2 settled that the order can be
+     * revised and resubmitted, which is why {@code REJECTED → PENDING_APPROVAL} is a legal move and why the
+     * reason survives the revision.
+     */
+    @Transactional
+    public OrderDTO reject(Long id, String reason, Long orgId, Long userId) {
+        if (reason == null || reason.isBlank())
+            throw new ValidationException("Say why it is rejected — the booker cannot fix it otherwise.");
+        Order o = requirePending(id, orgId, userId, "rejected");
+        o.setFulfilmentStatus(FulfilmentStatus.REJECTED);
+        o.setRejectionReason(reason.trim());
+        Order saved = repo.save(o);
+        notificationService.notify(saved, FulfilmentStatus.REJECTED.name(), "Rejected: " + reason.trim());
+        return toDTOWithLines(saved);
+    }
+
+    /** Resubmit a rejected order for review (D-2 — either the booker or the admin may). */
+    @Transactional
+    public OrderDTO resubmit(Long id, Long orgId, Long userId) {
+        Order o = repo.findByIdScoped(id, orgId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        if (o.getFulfilmentStatus() != FulfilmentStatus.REJECTED)
+            throw new ValidationException("Only a rejected order can be resubmitted.");
+        o.setFulfilmentStatus(FulfilmentStatus.PENDING_APPROVAL);
+        Order saved = repo.save(o);
+        notificationService.notify(saved, FulfilmentStatus.PENDING_APPROVAL.name(), "Revised and resubmitted");
+        return toDTOWithLines(saved);
+    }
+
+    /** The amendment trail for one order, oldest first. */
+    @Transactional(readOnly = true)
+    public List<com.myplus.marketplace.dto.OrderAmendmentDTO> amendments(Long id, Long orgId, Long userId) {
+        repo.findByIdScoped(id, orgId, userId)      // anti-IDOR: prove the order is ours before reading its trail
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        List<com.myplus.marketplace.dto.OrderAmendmentDTO> out = new ArrayList<>();
+        for (com.myplus.marketplace.entity.OrderAmendment a
+                : amendmentRepository.findByOrderIdOrderByCreatedAtAsc(id)) {
+            com.myplus.marketplace.dto.OrderAmendmentDTO d = new com.myplus.marketplace.dto.OrderAmendmentDTO();
+            d.setUserName(a.getUserName());
+            d.setSummary(a.getSummary());
+            d.setChanges(a.getChanges());
+            d.setReason(a.getReason());
+            d.setAt(a.getCreatedAt());
+            out.add(d);
+        }
+        return out;
+    }
+
+    private Order requirePending(Long id, Long orgId, Long userId, String verb) {
+        Order o = repo.findByIdScoped(id, orgId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        if (o.getFulfilmentStatus() != FulfilmentStatus.PENDING_APPROVAL)
+            throw new ValidationException("Only an order awaiting review can be " + verb
+                    + ". This one is " + o.getFulfilmentStatus() + ".");
+        return o;
+    }
+
+    /** Header fields the reviewer may correct. Each recorded only when it actually changes. */
+    private void applyHeaderAmendments(Order o, OrderDTO dto, List<java.util.Map<String, String>> changes) {
+        if (dto.getCustomerName() != null && !dto.getCustomerName().equals(o.getCustomerName())) {
+            changes.add(change("customerName", o.getCustomerName(), dto.getCustomerName()));
+            o.setCustomerName(dto.getCustomerName());
+        }
+        if (dto.getCustomerContact() != null && !dto.getCustomerContact().equals(o.getCustomerContact())) {
+            changes.add(change("customerContact", o.getCustomerContact(), dto.getCustomerContact()));
+            o.setCustomerContact(dto.getCustomerContact());
+        }
+        if (dto.getShippingAddress() != null && !dto.getShippingAddress().equals(o.getShippingAddress())) {
+            changes.add(change("shippingAddress", o.getShippingAddress(), dto.getShippingAddress()));
+            o.setShippingAddress(dto.getShippingAddress());
+        }
+        if (dto.getDiscountAmount() != null && cmp(dto.getDiscountAmount(), o.getDiscountAmount()) != 0) {
+            changes.add(change("discountAmount", str(o.getDiscountAmount()), str(dto.getDiscountAmount())));
+            o.setDiscountAmount(dto.getDiscountAmount());
+        }
+        // The delivery date the outlet was promised. Amending it is a promise to the customer, so it is
+        // recorded like any other change rather than moved silently.
+        if (dto.getPromisedDate() != null && !dto.getPromisedDate().equals(o.getPromisedDate())) {
+            changes.add(change("promisedDate", str(o.getPromisedDate()), str(dto.getPromisedDate())));
+            o.setPromisedDate(dto.getPromisedDate());
+        }
+    }
+
+    /**
+     * Line-level amendments: quantity, price (D-3), and removal.
+     *
+     * <p>Matched on the line's own id. Matching on {@code productId} would look simpler and break on the real
+     * case — the same product on two lines at two prices, which is routine in trade orders.
+     *
+     * <p>A line whose quantity is amended to zero is REMOVED, because an order line for nothing is not a line;
+     * a picker would still see it and wonder what it means.
+     */
+    private void applyLineAmendments(Order o, OrderDTO dto, List<java.util.Map<String, String>> changes) {
+        if (dto.getItems() == null) return;
+        java.util.Map<Long, OrderDTO.Line> byId = new java.util.HashMap<>();
+        for (OrderDTO.Line l : dto.getItems()) if (l.getId() != null) byId.put(l.getId(), l);
+
+        java.util.Iterator<OrderItem> it = o.getItems().iterator();
+        while (it.hasNext()) {
+            OrderItem item = it.next();
+            OrderDTO.Line in = byId.get(item.getId());
+            if (in == null) continue;                       // not mentioned by the caller — left alone
+
+            if (in.getQuantity() != null && in.getQuantity() <= 0) {
+                changes.add(change("line[" + name(item) + "]", nzInt(item.getQuantity()) + " x", "removed"));
+                it.remove();
+                continue;
+            }
+            if (in.getQuantity() != null && in.getQuantity() != nzInt(item.getQuantity())) {
+                changes.add(change("line[" + name(item) + "].quantity",
+                        String.valueOf(nzInt(item.getQuantity())), String.valueOf(in.getQuantity())));
+                item.setQuantity(in.getQuantity());
+            }
+            // D-3: the admin may change price. The MARGIN policy that governs it is enforced by the sale path
+            // at dispatch (`pos.sale.marginPolicy`, whole-document, after discounts) — see D1b in the slice
+            // doc for why it is not also checked here yet.
+            if (in.getPrice() != null && cmp(in.getPrice(), item.getPrice()) != 0) {
+                changes.add(change("line[" + name(item) + "].price", str(item.getPrice()), str(in.getPrice())));
+                item.setPrice(in.getPrice());
+            }
+        }
+        if (o.getItems().isEmpty())
+            throw new ValidationException("An order cannot have every line removed — reject or cancel it instead.");
+    }
+
+    private static String name(OrderItem i) {
+        return i.getProductName() != null ? i.getProductName() : ("product " + i.getProductId());
+    }
+
+    private static java.util.Map<String, String> change(String field, String from, String to) {
+        java.util.Map<String, String> m = new java.util.LinkedHashMap<>();
+        m.put("field", field);
+        m.put("from", from);
+        m.put("to", to);
+        return m;
+    }
+
+    private static int cmp(BigDecimal a, BigDecimal b) {
+        return (a == null ? BigDecimal.ZERO : a).compareTo(b == null ? BigDecimal.ZERO : b);
+    }
+
+    private static String str(Object v) { return v == null ? "" : String.valueOf(v); }
+
+    private static String summarise(List<java.util.Map<String, String>> changes) {
+        if (changes.size() == 1) return changes.get(0).get("field") + " changed";
+        return changes.size() + " changes: " + changes.stream().map(c -> c.get("field")).limit(4)
+                .collect(Collectors.joining(", ")) + (changes.size() > 4 ? "…" : "");
+    }
+
+    /** Hand-built rather than Jackson: the shape is three known string fields and this cannot throw. */
+    private static String toJson(List<java.util.Map<String, String>> changes) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < changes.size(); i++) {
+            java.util.Map<String, String> c = changes.get(i);
+            if (i > 0) sb.append(',');
+            sb.append("{\"field\":\"").append(esc(c.get("field")))
+              .append("\",\"from\":\"").append(esc(c.get("from")))
+              .append("\",\"to\":\"").append(esc(c.get("to"))).append("\"}");
+        }
+        return sb.append(']').toString();
+    }
+
+    private static String esc(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ").replace("\r", " ");
+    }
+
+    private static BigDecimal lineTotal(List<OrderDTO.Line> lines) {
+        BigDecimal t = BigDecimal.ZERO;
+        if (lines == null) return t;
+        for (OrderDTO.Line l : lines) {
+            if (l.getPrice() == null || l.getQuantity() == null) continue;
+            t = t.add(l.getPrice().multiply(BigDecimal.valueOf(l.getQuantity())));
+        }
+        return t;
+    }
+
+    private static BigDecimal lineTotalOfItems(List<OrderItem> items) {
+        BigDecimal t = BigDecimal.ZERO;
+        if (items == null) return t;
+        for (OrderItem i : items) {
+            if (i.getPrice() == null) continue;
+            t = t.add(i.getPrice().multiply(BigDecimal.valueOf(nzInt(i.getQuantity()))));
+        }
+        return t;
+    }
 
     @Transactional
     public OrderDTO record(OrderDTO dto, Long orgId, Long userId) {
@@ -562,6 +915,7 @@ public class OrderService {
                         // O5c: "today" doubles as the late-filter switch — null means no filter, which keeps
                         // one query serving every combination rather than a second near-identical one.
                         q.isLateOnly() ? java.time.LocalDate.now() : null,
+                        q.getBookedBy(),          // O7 D2: one rep's own orders, or everyone's when null
                         pageable),
                 this::toDTO);
     }
@@ -653,21 +1007,11 @@ public class OrderService {
     public OrderDTO get(Long id, Long orgId, Long userId) {
         Order o = repo.findByIdScoped(id, orgId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-        OrderDTO d = toDTO(o);
-
-        List<OrderDTO.Line> lines = new ArrayList<>();
-        for (OrderItem it : o.getItems()) {
-            OrderDTO.Line l = new OrderDTO.Line();
-            l.setId(it.getId());                     // O5b: shipping is requested per LINE
-            l.setProductId(it.getProductId());
-            l.setProductName(it.getProductName());   // null for pre-V14 rows; the UI falls back to the id
-            l.setQuantity(it.getQuantity());
-            l.setQuantityShipped(it.getQuantityShipped() == null ? 0 : it.getQuantityShipped());
-            l.setQuantityBackordered(it.getQuantityBackordered() == null ? 0 : it.getQuantityBackordered());
-            l.setPrice(it.getPrice());
-            lines.add(l);
-        }
-        d.setItems(lines);
+        // O7 D1: the line mapping this used to do inline is now toDTOWithLines, shared with the review actions.
+        // It was the same fifteen lines twice, and the copies would have drifted the first time a line gained a
+        // field — the shape of defect O4 removed from the browser's rival transition map.
+        OrderDTO d = toDTOWithLines(o);
+        List<OrderDTO.Line> lines = d.getItems();
 
         List<OrderDTO.Event> timeline = new ArrayList<>();
         for (com.myplus.marketplace.entity.OrderEvent e : orderEventRepository.findByOrderIdOrderByCreatedAtAsc(id))
@@ -721,6 +1065,22 @@ public class OrderService {
                     + "recorded with it.");
 
         FulfilmentStatus current = o.getFulfilmentStatus();
+
+        // OMS O7 D1 — the approval decisions are NOT generic status moves, for the same reason O5b took the
+        // derived states out of here: this endpoint's authority check gates REVERSALS (admin) and lets
+        // everything else through as shop-floor work. Releasing a booker's order is neither — it is the control
+        // the whole pre-sales model rests on, and reaching it through the generic endpoint would bypass both the
+        // rejection REASON and the confirm gate. Named endpoints, so the refusal points at the right fix.
+        if (current == FulfilmentStatus.PENDING_APPROVAL
+                && (s == FulfilmentStatus.NEW || s == FulfilmentStatus.REJECTED)) {
+            throw new ValidationException("Confirming or rejecting a booked order is a review decision, not a "
+                    + "status change. Use POST /orders/{id}/confirm or POST /orders/{id}/reject (which records "
+                    + "the reason the booker needs).");
+        }
+        if (current == FulfilmentStatus.REJECTED && s == FulfilmentStatus.PENDING_APPROVAL)
+            throw new ValidationException("Use POST /orders/{id}/resubmit to send a revised order back for "
+                    + "review, so the revision is recorded.");
+
         // Asking for the state it is already in is a no-op, not an error: a double-click on "Ship" must not fail.
         if (current != s) {
             if (current != null && !current.canMoveTo(s))
@@ -900,6 +1260,38 @@ public class OrderService {
 
     private static int nzInt(Integer v) { return v == null ? 0 : v; }
 
+    /**
+     * O7 D1 — the order WITH its lines, for the review actions (book / amend / confirm / reject / resubmit).
+     *
+     * <h3>Why not just put lines in {@link #toDTO}</h3>
+     * Because {@code toDTO} also maps every row of the paged back-office list, and O4 deliberately kept lines
+     * out of it: a page of 25 would become 25 extra queries, which is the N+1 that pagination exists to avoid.
+     *
+     * <h3>Why the review actions need them anyway</h3>
+     * The reviewer's whole job is the lines — an amend response that does not say what the lines now are cannot
+     * drive the screen that just changed them, and the caller would have to re-read the order to find out what
+     * its own write did. One order, already loaded in this transaction, so there is no N+1 here to avoid.
+     */
+    private OrderDTO toDTOWithLines(Order o) {
+        OrderDTO d = toDTO(o);
+        List<OrderDTO.Line> lines = new ArrayList<>();
+        for (OrderItem it : o.getItems()) {
+            OrderDTO.Line l = new OrderDTO.Line();
+            l.setId(it.getId());                     // O5b: shipping is requested per LINE
+            l.setProductId(it.getProductId());
+            l.setProductName(it.getProductName());   // null for pre-V14 rows; the UI falls back to the id
+            l.setQuantity(it.getQuantity());
+            // Normalised to 0, not passed through as null: the Ship form does arithmetic on these
+            // (outstanding = quantity − shipped), and a null there reads as NaN in the browser.
+            l.setQuantityShipped(nzInt(it.getQuantityShipped()));
+            l.setQuantityBackordered(nzInt(it.getQuantityBackordered()));
+            l.setPrice(it.getPrice());
+            lines.add(l);
+        }
+        d.setItems(lines);
+        return d;
+    }
+
     private OrderDTO toDTO(Order o) {
         OrderDTO d = new OrderDTO();
         d.setId(o.getId());
@@ -925,6 +1317,9 @@ public class OrderService {
         d.setRefundedAmount(o.getRefundedAmount());
         d.setReservationId(o.getReservationId());
         d.setReservationStatus(o.getReservationStatus());
+        d.setRejectionReason(o.getRejectionReason());   // O7 D1 — the booker's only route to fixing it
+        d.setBookedByUserId(o.getBookedByUserId());     // O7 D2 — attribution
+        d.setBookedByName(o.getBookedByName());
         d.setShippingAddress(o.getShippingAddress());
         d.setReturnReason(o.getReturnReason());
         d.setCreatedAt(o.getCreatedAt());

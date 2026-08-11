@@ -46,6 +46,18 @@ public final class CurrentUser {
         return get().map(AuthenticatedUser::getUserId).orElse(null);
     }
 
+    /**
+     * Caller email, or {@code null} when unauthenticated.
+     *
+     * <p>For <b>stamping an audit record at write time</b>, which is the only reason a service should want a
+     * name rather than an id. An audit trail must still be readable after the person has left and their user
+     * row is gone, so the name is written with the record instead of resolved when it is read — the rule
+     * {@code CustomerHistory.bookedByName} already follows.
+     */
+    public static String email() {
+        return get().map(AuthenticatedUser::getEmail).orElse(null);
+    }
+
     /** The caller, or fail fast — for write paths that must be attributable to a tenant/user. */
     public static AuthenticatedUser require() {
         return get().orElseThrow(() -> new IllegalStateException("No authenticated user in security context"));

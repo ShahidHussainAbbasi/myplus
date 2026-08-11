@@ -60,6 +60,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                             com.myplus.marketplace.entity.FulfilmentStatus.DELIVERED,
                             com.myplus.marketplace.entity.FulfilmentStatus.CANCELLED,
                             com.myplus.marketplace.entity.FulfilmentStatus.RETURNED)))
+               AND (:bookedBy IS NULL OR o.bookedByUserId = :bookedBy)
              ORDER BY o.createdAt DESC
             """)
     org.springframework.data.domain.Page<Order> findPage(
@@ -73,6 +74,16 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("like") String like,
             /** OMS O5c — non-null narrows to LATE orders (promised before this date and not complete). */
             @Param("today") java.time.LocalDate today,
+            /**
+             * OMS O7 D2 — non-null narrows to one rep's own orders, served by
+             * {@code idx_orders_org_booker_created} (V19).
+             *
+             * <p>This is what lets a booker see what happened to the orders they took — the founding
+             * requirement's *"after confirm or reject the status should be visible to the order booker"*. It is
+             * a FILTER, not a security boundary: org scoping above is what keeps tenants apart, and this narrows
+             * within a tenant the caller can already see.
+             */
+            @Param("bookedBy") Long bookedBy,
             org.springframework.data.domain.Pageable pageable);
 
     @Query("SELECT o FROM Order o WHERE o.id = :id AND " + SCOPE)

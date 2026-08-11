@@ -43,6 +43,8 @@ public class ShipmentService {
     private final NotificationService notificationService;
     // No SettingsService: its only reader was O5d's withdrawn scanRequired guard. The workbench slice
     // re-injects it rather than leaving an unread dependency here advertising a policy nothing applies.
+    /** O7 D1 — `ON_DISPATCH`: a field order is invoiced when its goods actually leave, from what left. */
+    private final DispatchInvoiceService dispatchInvoiceService;
 
     /**
      * Dispatch a parcel.
@@ -57,6 +59,19 @@ public class ShipmentService {
         FulfilmentStatus current = order.getFulfilmentStatus();
         if (current == FulfilmentStatus.CANCELLED || current == FulfilmentStatus.RETURNED)
             throw new ValidationException("A " + current + " order cannot be shipped.");
+
+        // OMS O7 D1 — an UNREVIEWED order must never be dispatched.
+        //
+        // This endpoint is the one that now raises the invoice (`ON_DISPATCH`), so without this guard a booked
+        // order could be shipped AND invoiced without anyone approving it — bypassing the review that the whole
+        // pre-sales model exists to enforce, through the back door rather than the front. The lifecycle
+        // whitelist does not cover it, because dispatch is not a status move: it is a shipment, and the status
+        // follows. That is exactly why the check has to be repeated here.
+        //
+        // The general lesson this programme has hit three times: adding a capability means re-examining the
+        // existing REFUSALS. This guard is one that had nothing to refuse until D1 created the state.
+        if (current == FulfilmentStatus.PENDING_APPROVAL || current == FulfilmentStatus.REJECTED)
+            throw new ValidationException("This order has not been approved yet — confirm it before dispatching.");
 
         // OMS O5d's scanRequired refusal used to sit here, and it was WITHDRAWN 2026-08-10 along with the two
         // packing settings — see MarketplaceSettingsCatalog.entries()'s note.
@@ -97,6 +112,19 @@ public class ShipmentService {
                         + (item.getProductName() != null ? item.getProductName() : ("product " + item.getProductId()))
                         + " — only " + outstanding + " still to go.");
             }
+        }
+
+        // OMS O7 D1 — `ON_DISPATCH`. A field order carries no invoice until its goods leave, so raise it HERE,
+        // from the quantities actually going out, and only once every line above has been validated.
+        //
+        // Before the writes below, deliberately: if the invoice cannot be raised the parcel must not exist.
+        // Letting it through would send stock out of the building with no sale, no AR and no tax record behind
+        // it — OMS-1, the defect this programme started with. A no-op for POS and storefront orders, which were
+        // invoiced when they were placed.
+        String dispatchInvoice = dispatchInvoiceService.invoiceForDispatch(order, requested);
+        if (dispatchInvoice != null) {
+            order.setInvoiceNo(dispatchInvoice);
+            order.setBooksStatus("POSTED");
         }
 
         long seq = shipmentRepository.maxShipmentSeqForOrg(orgId) + 1;

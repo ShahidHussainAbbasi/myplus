@@ -41,9 +41,12 @@ public final class OrderQuery {
     private final String q;               // free text over orderNo / invoiceNo / customerName / customerContact
     /** OMS O5c — only orders promised before today and not yet complete. */
     private final boolean lateOnly;
+    /** OMS O7 D2 — only orders booked by this rep; null for everyone's. */
+    private final Long bookedBy;
 
     private OrderQuery(int page, int size, String status, String paymentStatus, String source,
-                       LocalDateTime from, LocalDateTime to, String q, boolean lateOnly) {
+                       LocalDateTime from, LocalDateTime to, String q, boolean lateOnly, Long bookedBy) {
+        this.bookedBy = bookedBy;
         this.page = page;
         this.size = size;
         this.status = status;
@@ -65,13 +68,19 @@ public final class OrderQuery {
      */
     public static OrderQuery of(Integer page, Integer size, String status, String paymentStatus, String source,
                                 LocalDate from, LocalDate to, String q, boolean lateOnly) {
+        return of(page, size, status, paymentStatus, source, from, to, q, lateOnly, null);
+    }
+
+    /** With the O7 D2 booker filter — {@code bookedBy} null means everyone's orders. */
+    public static OrderQuery of(Integer page, Integer size, String status, String paymentStatus, String source,
+                                LocalDate from, LocalDate to, String q, boolean lateOnly, Long bookedBy) {
         int p = (page == null || page < 0) ? 0 : page;                    // a negative page is page one, not an error
         int s = clampSize(size);
         return new OrderQuery(p, s,
                 upper(status), upper(paymentStatus), upper(source),
                 from == null ? null : from.atStartOfDay(),
                 to == null ? null : to.atTime(java.time.LocalTime.MAX),
-                trimToNull(q), lateOnly);
+                trimToNull(q), lateOnly, bookedBy);
     }
 
     /** Without the late filter — every caller that predates OMS O5c, and the plain unfiltered list. */
@@ -82,7 +91,7 @@ public final class OrderQuery {
 
     /** Everything, at the default page size — the plain "open the Orders screen" case. */
     public static OrderQuery firstPage() {
-        return of(0, DEFAULT_SIZE, null, null, null, null, null, null, false);
+        return of(0, DEFAULT_SIZE, null, null, null, null, null, null, false, null);
     }
 
     /**

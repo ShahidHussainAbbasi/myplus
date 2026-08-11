@@ -172,6 +172,20 @@ public class SetupDataLoader {
         // Finer per-user roles are assigned later by the owner via the upcoming user-management form.
         createOrUpdateRole("ROLE_OWNER", superSet);
         createOrUpdateRole("ROLE_APPOINTMENT_USER", user);
+        // ---- OMS O7 D2: the ORDER BOOKER — a distributor's field sales rep. ----
+        //
+        // The `user` set, and that is the whole design: this role exists to WITHHOLD, not to grant. A booker
+        // books orders and reads; they must not confirm or reject their own, because the entire pre-sales model
+        // rests on the person who books not being the person who releases. That separation is enforced by
+        // ADMIN_PRIVILEGE on /confirm and /reject — which this set deliberately does NOT include — so a booker
+        // who tries gets a 403 rather than a screen that quietly lets them approve their own work.
+        //
+        // ⚠ A ROLE IS NOT A CONFINEMENT (the same warning ROLE_GUARDIAN carries above, and for the same
+        // reason). This grants a booker the ordinary user surface of their tenant; it does not restrict them to
+        // their own outlets. Territory scoping is the multi-location grant model, and until a booker is given
+        // location grants they can see the whole org's orders — `?mine=true` is a FILTER they choose, not a
+        // wall around them. Do not read this role as a boundary it does not implement.
+        createOrUpdateRole("ROLE_ORDER_BOOKER", user);
         // ---- Slice 3.1b: PORTAL. The smallest privilege set on the platform, and deliberately so. ----
         // A guardian signing in is the first principal from OUTSIDE the organisation. They get exactly two
         // privileges: LOGIN (without it neither the monolith's `.anyRequest().hasAuthority("LOGIN_PRIVILEGE")`
@@ -523,6 +537,25 @@ public class SetupDataLoader {
             }
             log.info("Module ADMIN + USER test users ensured ({} modules): admin.<module>@ / user.<module>@, "
                     + "each a member of that module's owner org", moduleTeams.length);
+
+            // ── OMS O7 D2: an ORDER BOOKER in the marketplace owner's org ──────────────────────────────────
+            //
+            // A MEMBER of owner.marketplace@'s organization, not its own tenant, and that is the whole point of
+            // the fixture: the booker, the warehouse admin who reviews their orders, and the outlets they book
+            // for must all be inside ONE org, or a refusal proves org-scoping worked rather than that the
+            // approval gate did. Same shape method-authz.cy.js already relies on.
+            //
+            // Its value as a fixture is what it CANNOT do: ROLE_ORDER_BOOKER carries no ADMIN_PRIVILEGE, so
+            // `booker.marketplace@` is the account that proves a rep cannot confirm their own order.
+            Role bookerRole = roleRepository.findByName("ROLE_ORDER_BOOKER")
+                    .orElseThrow(() -> new IllegalStateException("ROLE_ORDER_BOOKER not seeded"));
+            User mpOwner = userRepository.findByEmail("owner.marketplace@myplus.com")
+                    .orElseThrow(() -> new IllegalStateException("owner.marketplace@ not seeded — it must be"));
+            Long mpOrgId = organizationService.getOrCreatePrimaryOrg(mpOwner).getId();
+            ensureMember("booker.marketplace@myplus.com", "Booker", "Marketplace", "MARKETPLACE",
+                    bookerRole, mpOrgId, "USER");
+            log.info("Order BOOKER test user ensured: booker.marketplace@myplus.com "
+                    + "(ROLE_ORDER_BOOKER, member of the marketplace owner org, NO admin privilege)");
         }
 
         // NOTE: real customers are NEVER seeded here. A client is onboarded through self-service signup

@@ -45,6 +45,12 @@ class ShipmentGuardTest {
     @Mock private OrderRepository orderRepository;
     @Mock private ShipmentRepository shipmentRepository;
     @Mock private NotificationService notificationService;
+    /**
+     * Required, not optional: {@code ShipmentService} raises the dispatch invoice before it writes the parcel,
+     * so without this mock {@code @InjectMocks} leaves the field null and every successful dispatch NPEs.
+     * Unstubbed it returns null, which is the genuine POS/storefront path — those were invoiced when placed.
+     */
+    @Mock private DispatchInvoiceService dispatchInvoiceService;
     @InjectMocks private ShipmentService service;
 
     private Order order;
@@ -96,6 +102,20 @@ class ShipmentGuardTest {
         assertThat(order.getFulfilmentStatus()).isEqualTo(FulfilmentStatus.PARTIALLY_SHIPPED);   // line b still owed
         service.ship(ORDER_ID, req(2L, 2), ORG, USER);
         assertThat(order.getFulfilmentStatus()).isEqualTo(FulfilmentStatus.SHIPPED);
+    }
+
+    @Test
+    @DisplayName("a dispatch invoice, when one is raised, is stamped on the header and the books marked POSTED")
+    void dispatchInvoiceIsStampedOnTheHeader() {
+        // The null path above is the POS/storefront case. THIS is the B2B case that OMS-1 exists for: goods
+        // must not leave the building without a sale, AR and a tax record behind them. Asserting only the null
+        // branch would leave that entirely unproven while every test still passed.
+        when(dispatchInvoiceService.invoiceForDispatch(any(Order.class), any())).thenReturn("INV-2026-0001");
+
+        service.ship(ORDER_ID, req(1L, 2), ORG, USER);
+
+        assertThat(order.getInvoiceNo()).isEqualTo("INV-2026-0001");
+        assertThat(order.getBooksStatus()).isEqualTo("POSTED");
     }
 
     @Test

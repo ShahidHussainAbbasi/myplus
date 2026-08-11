@@ -56,8 +56,18 @@ public class OrderController {
             java.time.LocalDate to,
             @RequestParam(required = false) String q,
             /** OMS O5c — only orders promised before today and not yet complete. */
-            @RequestParam(required = false, defaultValue = "false") boolean late) {
-        OrderQuery query = OrderQuery.of(page, size, status, paymentStatus, source, from, to, q, late);
+            @RequestParam(required = false, defaultValue = "false") boolean late,
+            /**
+             * OMS O7 D2 — {@code mine=true} narrows to the caller's OWN booked orders.
+             *
+             * <p>A boolean resolved to the caller's id here, deliberately, rather than a {@code bookedBy=<id>}
+             * parameter: a rep asking "what happened to my orders?" should not be able to ask the same question
+             * about a colleague by editing a number in the URL. The question a client may ask is "mine"; whose
+             * that is, is the server's to decide.
+             */
+            @RequestParam(required = false, defaultValue = "false") boolean mine) {
+        OrderQuery query = OrderQuery.of(page, size, status, paymentStatus, source, from, to, q, late,
+                mine ? CurrentUser.userId() : null);
         return ApiResponse.success(orderService.page(query, CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
@@ -101,6 +111,85 @@ public class OrderController {
         return ApiResponse.success(orderService.backordersOutstanding(
                 CurrentUser.organizationId(), CurrentUser.userId(), ready,
                 page == null ? 0 : page, size == null ? 0 : size));
+    }
+
+    // ── OMS O7 D1 — distribution pre-sales: book → review → confirm / reject ──────────────────────────────
+
+    /**
+     * An order booker books an order at the outlet.
+     *
+     * <p>Creates a {@code PENDING_APPROVAL} order with <b>no invoice and no stock movement</b> — it is a
+     * request, not a sale. The invoice is raised at dispatch, from what actually leaves (§6 D-1).
+     *
+     * <p>No extra privilege gate yet: every authenticated user of the tenant may book, exactly as every
+     * authenticated user may place a POS order today. The dedicated {@code ROLE_ORDER_BOOKER} — which
+     * <em>restricts</em> a booker to booking and reading their own orders rather than granting anything — is
+     * <b>D2</b>, because a role that nobody is assigned to gates nothing.
+     */
+    @PostMapping("/booking")
+    public ApiResponse<OrderDTO> book(@RequestBody OrderDTO dto) {
+        return ApiResponse.success(
+                orderService.book(dto, CurrentUser.organizationId(), CurrentUser.userId(), CurrentUser.email()),
+                "Order booked");
+    }
+
+    /**
+     * Amend an order that is still under review (D-2, D-3).
+     *
+     * <p>Lines, quantities, prices, discount, promised date and the outlet's details. Refused once the order is
+     * confirmed — at that point it is a picking instruction, and past dispatch it is an invoice.
+     *
+     * <p>A concurrent edit surfaces as <b>409</b> (the {@code @Version} O2 added, mapped by the shared handler
+     * since the 2026-08-10 review) rather than one reviewer silently overwriting the other — the case D-2
+     * created by letting both the booker and the admin edit.
+     */
+    @PutMapping("/{id}")
+    public ApiResponse<OrderDTO> amend(@PathVariable Long id, @RequestBody OrderDTO dto) {
+        return ApiResponse.success(orderService.amend(id, dto,
+                CurrentUser.organizationId(), CurrentUser.userId(), CurrentUser.email()), "Order amended");
+    }
+
+    /**
+     * The warehouse admin releases a booked order to the floor.
+     *
+     * <p>Gated at {@code ADMIN_PRIVILEGE}: this is the control the whole pre-sales model rests on — the point
+     * at which one person's proposal becomes the company's commitment — so it carries the same authority as the
+     * other decisions that move money and stock. A booker confirming their own orders would dissolve the
+     * segregation of duties that makes the model auditable.
+     */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')")
+    @PostMapping("/{id}/confirm")
+    public ApiResponse<OrderDTO> confirm(@PathVariable Long id) {
+        return ApiResponse.success(
+                orderService.confirm(id, CurrentUser.organizationId(), CurrentUser.userId()), "Order confirmed");
+    }
+
+    /** Reject a booked order. The reason is required — without it the booker cannot fix the order. */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')")
+    @PostMapping("/{id}/reject")
+    public ApiResponse<OrderDTO> reject(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        return ApiResponse.success(orderService.reject(id, body == null ? null : body.get("reason"),
+                CurrentUser.organizationId(), CurrentUser.userId()), "Order rejected");
+    }
+
+    /**
+     * Send a revised order back for review.
+     *
+     * <p>Deliberately NOT admin-gated: D-2 settled that the booker may revise their own rejected order, and
+     * requiring an admin to resubmit would put the reviewer back in the loop for the very work that was handed
+     * back. The admin still decides the outcome — resubmitting only returns it to the queue.
+     */
+    @PostMapping("/{id}/resubmit")
+    public ApiResponse<OrderDTO> resubmit(@PathVariable Long id) {
+        return ApiResponse.success(
+                orderService.resubmit(id, CurrentUser.organizationId(), CurrentUser.userId()), "Resubmitted for review");
+    }
+
+    /** Who changed what on this order, and why — oldest first. */
+    @GetMapping("/{id}/amendments")
+    public ApiResponse<java.util.List<com.myplus.marketplace.dto.OrderAmendmentDTO>> amendments(@PathVariable Long id) {
+        return ApiResponse.success(
+                orderService.amendments(id, CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
     @GetMapping("/{id}")

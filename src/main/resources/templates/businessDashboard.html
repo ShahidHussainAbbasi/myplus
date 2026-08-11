@@ -1451,14 +1451,28 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div class="form-group text-center">
+						<!-- P6: a delivery is many items on ONE bill. "Save & Add Another" keeps the modal open and
+						     retains vendor/invoice#/date so only the line fields are retyped. #addPurchase keeps the
+						     original behaviour byte-for-byte (save + close), so single-line entry cannot regress. -->
+						<button type="button" id="addPurchaseAnother" class="btn btn-primary">
+							<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.saveAddAnother}">Save &amp; Add Another</span>
+						</button>
 						<button type="button" id="addPurchase" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
+							<span class="glyphicon glyphicon-ok"></span> <span th:text="#{ui.saveAndClose}">Save &amp; Close</span>
 						</button>
 						<button type="button" id="resetPurchase" class="btn btn-warning" onclick="closeModal('PurchaseModal')">
 							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
 						<button type="reset" class="resetForm" style="display:none"></button>
-					</div>					
+						<div id="purchaseLineCount" class="text-muted" style="display:none;margin-top:8px;font-weight:600"></div>
+						<!-- P6: the chain is only useful if the operator knows it is there. -->
+						<div id="purchaseKbdHint" class="text-muted" style="margin-top:10px;font-size:12px">
+							<kbd>Enter</kbd> <span th:text="#{ui.kbd.nextField}">next field</span>
+							&nbsp;·&nbsp; <kbd>Shift</kbd>+<kbd>Enter</kbd> <span th:text="#{ui.kbd.prevField}">back</span>
+							&nbsp;·&nbsp; <kbd>Ctrl</kbd>+<kbd>Enter</kbd> <span th:text="#{ui.saveAndClose}">Save &amp; Close</span>
+							&nbsp;·&nbsp; <kbd>Esc</kbd> <span th:text="#{ui.cancel2}">Cancel</span>
+						</div>
+					</div>
 					<!-- <div class="form-group text-center">
 						<button type="button" id="addPurchase" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> Submit
@@ -1620,17 +1634,17 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div class="form-group">
+						<label class="control-label col-sm-2" data-pos-field="lineDiscount" for="sellDiscount" id="sdt" th:text="#{ui.discount}">Discount</label>
+						<div class="col-sm-2" data-pos-field="lineDiscount">
+							<input type="text" class="form-control" id="sellDiscount" inputmode="decimal"
+								name="stock.bsellDiscount" placeholder=" Discount 0.0" th:placeholder="#{ui.discount00}" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
+						</div>
 						<div class="col-sm-2" data-pos-field="discountType">
 							<select id="sellDiscountTypeDD" name="stock.bsellDiscountType" class="selectpicker" onchange="calculateNetSell()">
 								<option class="dropdown-item" selected="selected" value="0" th:text="#{ui.amount3}">amount</option>
 								<option class="dropdown-item" value="1" th:text="#{ui.percent}">Percent %</option>
 							</select>
-						</div>						<label class="control-label col-sm-2" data-pos-field="lineDiscount" for="sellDiscount" id="sdt" th:text="#{ui.discount}">Discount</label>
-						<div class="col-sm-2" data-pos-field="lineDiscount">
-							<input type="text" class="form-control" id="sellDiscount" inputmode="decimal"
-								name="stock.bsellDiscount" placeholder=" Discount 0.0" th:placeholder="#{ui.discount00}" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
-						</div>
-
+						</div>						
 	 					<label class="control-label col-sm-2 pos-more" data-pos-field="receivable" for="sellrm" th:text="#{ui.receiveable}">Receiveable</label>
 	 					<div class="col-sm-4 pos-more" data-pos-field="receivable">
 							<input type="text" class="form-control" id="sellrm" readonly="readonly"/>
@@ -2657,6 +2671,9 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/common/org-switcher.js}"></script>
     <script th:src="@{/js/business/module-theme.js}"></script>
     <script th:src="@{/js/common/report-filters.js}"></script>
+    <!-- P6: the Enter-to-advance engine shared by the sale chain (pos-keyboard.js) and the purchase
+         form (business.js). Must load before both — they call into it, they do not restate it. -->
+    <script th:src="@{/js/common/enter-chain.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <!-- B2B-P3g-5: businessInvoicePrint.js removed. It was a 148-line jsPDF A4 printer gated on
          `if (userId*ONE != 37) return false;` with one shop's name, address and phone hardcoded into it, and

@@ -167,6 +167,89 @@ purchase closes the modal as it does today — "add another" has no meaning ther
 
 ---
 
+### Mouse-free entry — the Enter chain
+
+Receiving a delivery is the same shape of work as ringing up a sale: one operator, a stack of items, a
+keyboard. So the purchase form gets the same contract the sale screen got in P1–P3:
+
+| Key | Action |
+|---|---|
+| `Enter` | next field — hidden/read-only fields are skipped, so the chain follows configuration |
+| `Shift+Enter` | previous field |
+| `Enter` on the last field | **Save & Add Another** — a delivery rarely has exactly one line |
+| `Ctrl+Enter` | **Save & Close**, from *any* field |
+| `Esc` | Cancel |
+
+Chain order — **the form's own top-to-bottom order**:
+
+```
+purchaseInvoiceNo → purchaseBatchNo → purchaseVenderDD → (purchaseTaxRate, if the org uses it)
+    → purchaseItemDD → purchaseQuantity → purchasePurchaseRate → purchaseSellRate
+    → purchaseDate → purchaseExpiry → purchasePaid → [save, stay]
+```
+
+The first version grouped this *logically* — header fields, then line fields — which read well on paper
+and was wrong on screen: Enter jumped from the invoice box (row 1) to the date (row 8) and back up to
+the item picker (row 3). A chain the eye cannot follow is worse than no chain, because the operator has
+to look up after every keystroke to find the cursor. **Follow the layout, not the data model.**
+
+Read-only/computed boxes (`purchaseStock`, `purchaseTotalAmount`, `purchaseNetAmount`,
+`purchaseItemDesc`) are absent by construction — `usable()` drops them, and a stop on a field nobody can
+edit is a dead keystroke.
+
+Opening the modal focuses `purchaseInvoiceNo`. **P6 adds no auto-focus of its own** — `openModal()`
+already calls `focusFirstField()` on the next animation frame. An earlier version added a second,
+timer-based focus that raced it and stole the cursor from anyone who started typing within 120ms.
+
+### Dates must be typeable — app-wide
+
+The calendar is faster for "some day next month" and slower for "the date I already know", which is what
+receiving a delivery is: the date is printed on the paperwork in front of you. Keyboard-first entry needs
+the second case.
+
+Masking lives in **`/js/common/date-picker.js`**, the single binder for every calendar in the app
+(included via `header.html`, so all seven dashboards get it). Type `11082026`, get `11-08-2026`:
+
+| class | typed | rendered |
+|---|---|---|
+| `.datePicker` | `11082026` | `11-08-2026` |
+| `.datetimepicker` | `11082026` + time | `11-08-2026 14:30:00` |
+| `.datePickerWithMonthName` | `11072026` | `11-Jul-2026` |
+| `.monthYearDatePicker` | `072026` | `07-2026` |
+
+The wire format is a contract parsed by `AppUtil` on both sides, so the mask emits exactly that. Three
+rules keep it from fighting the typist: it only reformats when the caret is **at the end**; an
+unparseable value is **left alone** (this field has a history of being cleared on blur, which must never
+recur); and `dd-MMM-yyyy` converts the month **name back to digits** before re-masking, or the mask eats
+its own output — `11-Jul-2026` strips to `112026` and re-masks as `11-20-26`.
+
+### A pre-existing bug this uncovered: you could not back-date a purchase
+
+`initDates()` (`main.js`) runs on every `.onChangeSelect` change and assigned **unconditionally**, so
+selecting the item snapped the purchase date back to today — silently, with no indication. Entering
+yesterday's delivery this morning, the normal case, was impossible; on a multi-line bill it re-armed on
+every line.
+
+It now **fills** rather than **overwrites**: a blank box still gets today, a value a person put there is
+theirs. "Default" and "overwrite" are not the same operation and this only ever wanted the first.
+
+This is not P6's bug — it predates the slice and affects every date field in the app. P6 made it visible
+because the header is now supposed to survive a save.
+
+**DRY — one engine, not two.** The mechanics of a chain (is this field usable? what is next? how do you
+focus a bootstrap-select?) are not sale-specific; only the *policy* is. Those mechanics move to
+**`/js/common/enter-chain.js`**, and `pos-keyboard.js` now delegates `usable()`, `walk()` and
+`focusField()` to it instead of holding its own copies. The purchase form calls `EnterChain.bind()`.
+Two keyboard-first forms, one definition of what "next field" means.
+
+The two chains can never fight: `pos-keyboard.js` already stands down whenever a `.crud-overlay` is
+open, which is exactly when the purchase modal is up.
+
+**Not gated by a setting.** Enter in this form previously did nothing (`<form onsubmit="return false">`),
+so there is no behaviour to regress and nothing to opt out of.
+
+---
+
 ## 4. Test plan — `cypress/e2e/business/purchase-rapid-entry.cy.js`
 
 1. `Save & Close` still closes the modal (no regression)
@@ -180,23 +263,34 @@ purchase closes the modal as it does today — "add another" has no meaning ther
 9. editing an existing purchase still closes the modal
 10. the Company screen still closes its modal — proof the shared handler was not broken
 
+Keyboard:
+
+11. `Enter` advances field by field
+12. `Shift+Enter` walks back
+13. a hidden field is skipped (tax row forced hidden, Expiry → Paid)
+14. `Enter` on the last field saves and stays open — a whole line, no mouse
+15. `Ctrl+Enter` finishes the bill from the middle of the chain
+16. `Esc` cancels and does **not** POST
+17. the sale screen's chain still resolves through the shared engine — the P1–P3 refactor is safe
+
 ---
 
 ## 5. Scope
 
 | File | Change |
 |---|---|
-| `main.js` | ~5 lines: `afterSave<Entity>` hook replacing the unconditional close |
-| `businessDashboard.html` | one new button + counter span in the Purchase modal |
-| `business.js` | `afterSavePurchase()` + the button's click handler |
-| `messages*.properties` ×6 | 2 keys: button label, counter text |
-| `purchase-rapid-entry.cy.js` | new, 10 tests |
+| `common/enter-chain.js` | **new** — the shared Enter-to-advance engine |
+| `pos-keyboard.js` | `usable`/`walk`/`focusField` now delegate to it (3 bodies deleted) |
+| `main.js` | `afterSave<Entity>` hook replacing the unconditional close |
+| `businessDashboard.html` | new button, counter, keyboard hint, script include |
+| `business.js` | `afterSavePurchase()`, the purchase chain, button handlers |
+| `messages*.properties` ×6 | 5 keys |
+| `purchase-rapid-entry.cy.js` | new, 17 tests |
 
 Monolith rebuild only. **No business-service change, no DB change, no new setting.**
 
 ### Explicitly out of scope
 
-- Extending the POS Enter-chain (`pos-keyboard.js`) to the purchase form. It would suit this
-  screen well and is the natural P7, but it is a separate slice and folding it in here would
-  make the change unreviewable.
 - Option B (the GRN cart / true bill document).
+- Migrating the sale screen's *policy* (skip-ahead, F-keys, quick-pick) into the shared engine. Only
+  the mechanics moved; the policy stays where it belongs, in `pos-keyboard.js`.

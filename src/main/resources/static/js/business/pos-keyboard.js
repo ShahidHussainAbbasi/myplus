@@ -104,25 +104,9 @@
     /** A field participates in the chain only if it is present, visible, and editable. This is what
      *  makes the chain follow the tenant's configuration for free: a shop that switched the line
      *  discount off has hidden #sellDiscount, so Enter on Price commits instead of landing in it. */
-    function usable(id) {
-        var $f = $('#' + id);
-        if (!$f.length) return false;
-        if ($f.prop('disabled') || $f.prop('readonly')) return false;
-
-        // A bootstrap-select HIDES the original <select> and renders a button in its place, so asking
-        // the <select> whether it is :visible always answers NO — and every picker in the chain was
-        // silently skipped. sellDiscountTypeDD could never be reached at all.
-        //
-        // Judge a managed select by the WRAPPER the plugin actually shows. The wrapper still sits
-        // inside .pos-hidden / .pos-more when the tenant or the layout hides the field, so the
-        // configuration rules keep working exactly as before.
-        var $wrap = $f.next('.bootstrap-select');
-        if ($wrap.length) return $wrap.is(':visible');
-
-        // :visible is false for anything inside a display:none ancestor, which covers both
-        // .pos-hidden (tenant turned it off) and .pos-more (off the compact row).
-        return $f.is(':visible');
-    }
+    // P6: the rule itself now lives in /js/common/enter-chain.js so the purchase form's chain cannot
+    // drift from the sale screen's. Looked up at CALL time, not load time, so script order is free.
+    function usable(id) { return global.EnterChain.usable(id); }
 
     /**
      * The next field Enter should land on, or null to commit the line.
@@ -174,15 +158,7 @@
     }
 
     /** Shared walk for both chains: the next USABLE id in `list`, or null past the forward end. */
-    function walk(list, from, dir) {
-        var i = list.indexOf(from);
-        if (i < 0) return null;
-        for (var j = i + dir; j >= 0 && j < list.length; j += dir) {
-            if (!usable(list[j])) continue;
-            return list[j];
-        }
-        return (dir > 0) ? null : from;   // forward past the end = act; back past the start = stay
-    }
+    function walk(list, from, dir) { return global.EnterChain.walk(list, from, dir); }
 
     /** True when the cursor is somewhere in the checkout block rather than the line form. */
     function inCheckout(id) { return CHECKOUT.indexOf(id) >= 0; }
@@ -208,16 +184,7 @@
 
     /** Focus a field. bootstrap-select hides the real <select> behind a button, so focusing the
      *  select itself would silently do nothing — reuse focus-flow's rule rather than restating it. */
-    function focusField(id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        if ($(el).hasClass('selectpicker')) {
-            var $btn = $(el).next('.bootstrap-select').find('button').first();
-            if ($btn.length) { $btn.trigger('focus'); return; }
-        }
-        try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
-        if (el.select) { try { el.select(); } catch (e2) {} }   // typing replaces, not appends
-    }
+    function focusField(id) { global.EnterChain.focusField(id); }
 
     /** Where the cashier starts the next line: the scan box when the org uses barcodes, else the
      *  item picker. Called after every commit so the till is always ready for the next scan. */
@@ -627,7 +594,18 @@
             if (!enabled() || !onSellScreen() || blocked()) return;
             if (e.key !== 'Enter') return;
             var $sel = $(this).closest('.bootstrap-select').prev('select');
-            if ($sel.attr('id') !== 'sellItemDD') return;
+            // Every picker in the LINE chain, not just the item.
+            //
+            // #sellDiscountTypeDD was added to CHAIN in P5 but never to this guard, so it became a
+            // stop with no keyboard way out: Enter put the cursor on it and nothing moved the cursor
+            // off. On a sale with no discount — most sales — the cashier was stranded mid-chain on a
+            // chooser they never wanted, and the only exit was the mouse.
+            //
+            // Membership of CHAIN and membership of this guard are the same fact stated twice, which
+            // is why they could drift. Derive the list from PICKERS ∩ CHAIN so adding a picker to the
+            // chain cannot again leave it unreachable-past.
+            var pickerId = $sel.attr('id');
+            if (CHAIN.indexOf(pickerId) < 0 || PICKERS.indexOf(pickerId) < 0) return;
             // DOUBLE-ENTER, done without a timer.
             //
             // The 1st Enter on a picker button opens its menu (a <button data-toggle="dropdown"> is
@@ -643,12 +621,12 @@
                 if ($sel.val()) return;              // a value is highlighted/chosen — the picker owns this Enter
                 e.preventDefault();
                 $bs.removeClass('open');             // close it; the answer is "skip"
-                var jumped = skipAhead($sel.attr('id'));
+                var jumped = skipAhead(pickerId);
                 if (jumped === false) return;        // handled (moved to checkout)
                 if (jumped) { focusField(jumped); return; }
             }
             e.preventDefault();
-            var target = nextField('sellItemDD', e.shiftKey ? -1 : 1);
+            var target = nextField(pickerId, e.shiftKey ? -1 : 1);
             if (target === null) { commitLine(); return; }
             focusField(target);
         });

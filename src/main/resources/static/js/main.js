@@ -260,15 +260,28 @@ function validateForm(){
     if(form) formFields = form.length - 2;
 }
 
+/**
+ * Default empty date boxes to now. Called on every .onChangeSelect change, so it runs whenever a picker
+ * is touched — including the purchase item picker, once per line.
+ *
+ * It used to assign UNCONDITIONALLY, which meant selecting an item silently overwrote a date the
+ * operator had typed. A back-dated purchase (yesterday's delivery entered this morning, which is the
+ * normal case) could not be saved at all: choose the item, and the date snapped back to today with no
+ * indication it had changed. On a multi-line bill it re-armed on every line.
+ *
+ * Now it FILLS rather than OVERWRITES. A blank box still gets a sensible default; a value a person put
+ * there is theirs. "Default" and "overwrite" are not the same operation and this only ever wanted the
+ * first one.
+ */
 var initDates = function(){
 	var dateTimeInputs = $('.datetimepicker');
 	for(var i=0; i<dateTimeInputs.length;i++){
-		dateTimeInputs[i].value= moment().format('DD-MM-YYYY HH:mm:ss');
+		if(!dateTimeInputs[i].value) dateTimeInputs[i].value= moment().format('DD-MM-YYYY HH:mm:ss');
 	}
 	var dateInputs = $('.datePicker');
 	for(var i=0; i<dateInputs.length;i++){
-		dateInputs[i].value= moment().format('DD-MM-YYYY');
-	}	
+		if(!dateInputs[i].value) dateInputs[i].value= moment().format('DD-MM-YYYY');
+	}
 }
 
 $(document).ready(function() {
@@ -852,6 +865,20 @@ $(document).ready(function() {
 					return false;
 				}
 				if(method!=="sendAlerts"){
+					// P6: a module may own its post-save UI. This mirrors the window.bulkDelete<Entity>
+					// convention above — the module registers an override and the generic path defers to it.
+					// Returning TRUE means "I handled the reset, the modal and the grid"; anything else
+					// (including a module that has no opinion today) keeps the register behaviour below.
+					//
+					// That behaviour — wipe the form, close the modal — is right for a REGISTER, where you
+					// create one record and you are done. It is wrong for repetitive line entry against a
+					// shared header (a purchase: one delivery, one vendor, one invoice, many items), which
+					// is what this hook exists to let a screen opt out of.
+					var afterSave = window["afterSave" + tableV];
+					if (typeof afterSave === "function" && afterSave() === true) {
+						if (typeof refreshBulkBar === 'function') refreshBulkBar(tableV);
+						return false;
+					}
 					datatable.clear().draw();
 					datatable.ajax.reload();
 					resetForm();

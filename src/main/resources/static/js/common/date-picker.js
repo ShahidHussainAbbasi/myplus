@@ -276,12 +276,89 @@
         place(pop, input);
     }
 
+    /**
+     * Type-to-enter masking for the dd-MM-yyyy modes.
+     *
+     * The calendar is faster than typing for "some day next month" and slower than typing for "the date
+     * I already know", which is what receiving a delivery is — the date is printed on the paperwork in
+     * front of you. Keyboard-first entry (P6) needs the second case to work without touching the mouse.
+     *
+     * Separators are inserted as digits arrive, so the operator types 11082026 and the box reads
+     * 11-08-2026. The wire format is a CONTRACT parsed by AppUtil on both sides, so masking emits
+     * exactly that and nothing else.
+     *
+     * Only reformats while the caret is at the END. Rewriting the value under a caret parked in the
+     * middle makes it jump, and a date box people edit mid-string is worse than one that only appends.
+     * An unparseable half-typed value is LEFT ALONE on blur — this field has a history of being cleared
+     * on blur by a picker that could not read its own output, and clearing what someone typed is the
+     * one behaviour it must never have again.
+     */
+    var MASKS = { date: [2, 2, 4], datetime: [2, 2, 4], monthname: [2, 2, 4], month: [2, 4] };
+
+    function maskDigits(digits, groups, mode) {
+        var out = [], at = 0;
+        for (var g = 0; g < groups.length && at < digits.length; g++) {
+            out.push(digits.substr(at, groups[g]));
+            at += groups[g];
+        }
+        // dd-MMM-yyyy is the only format whose middle group is not the number the operator typed.
+        // Nobody wants to type "Jul", so the mask accepts 07 and renders Jul — the same digits as every
+        // other date box, the contract's own spelling on the wire.
+        if (mode === 'monthname' && out.length >= 2 && out[1].length === 2) {
+            var m = parseInt(out[1], 10);
+            if (m < 1 || m > 12) return null;          // impossible month: leave what they typed alone
+            out[1] = MON[m - 1];
+        }
+        return out.join('-');
+    }
+
+    function bindMask(input, mode) {
+        var groups = MASKS[mode];
+        if (!groups) return;                       // dd-MMM-yyyy has a text month; leave it to the calendar
+        var max = groups.reduce(function (a, b) { return a + b; }, 0);
+
+        input.addEventListener('input', function () {
+            var atEnd = input.selectionStart === input.value.length;
+            if (!atEnd) return;
+            var raw = input.value;
+            // In datetime mode the time half is typed after a space — mask only the date half.
+            var head = mode === 'datetime' ? raw.split(' ')[0] : raw;
+            var tail = mode === 'datetime' && raw.indexOf(' ') >= 0 ? raw.slice(raw.indexOf(' ')) : '';
+            // Turn the month NAME back into its digits first. Without this the mask eats its own
+            // output: "11-Jul-2026" strips to "112026", which re-masks as "11-20-26" — every further
+            // keystroke corrupting the field a little more.
+            if (mode === 'monthname') {
+                head = head.replace(/[A-Za-z]{3}/, function (name) {
+                    var i = MON.indexOf(name.charAt(0).toUpperCase() + name.slice(1, 3).toLowerCase());
+                    return i >= 0 ? ('0' + (i + 1)).slice(-2) : name;
+                });
+            }
+            var digits = head.replace(/\D/g, '').slice(0, max);
+            var body = maskDigits(digits, groups, mode);
+            if (body === null) return;                 // mask refused it; do not fight the typist
+            var masked = body + tail;
+            if (masked !== raw) {
+                input.value = masked;
+                try { input.setSelectionRange(masked.length, masked.length); } catch (e) {}
+            }
+        });
+    }
+
     function bind(input, mode) {
         if (input._dpBound) return;
         input._dpBound = true;
         input.setAttribute('autocomplete', 'off');
+        bindMask(input, mode);
         input.addEventListener('focus', function () { openFor(input, mode); });
         input.addEventListener('click', function () { openFor(input, mode); });
+        // Keyboard entry moves focus WITHOUT a mousedown, so the outside-click listener never fires and
+        // the calendar was left hanging over whatever field the chain advanced to. Close on the way out
+        // — but only when focus actually left the popup, or clicking a day would dismiss the calendar
+        // before it could register the click.
+        input.addEventListener('blur', function (e) {
+            var to = e.relatedTarget;
+            if (open && open.input === input && !(to && open.pop.contains(to))) close();
+        });
     }
 
     /** Bind every date input on the page. Safe to call again after injecting markup — bound inputs are skipped. */

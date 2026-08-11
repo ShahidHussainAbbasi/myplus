@@ -39,6 +39,37 @@ public class OrderDTO {
     private String couponCode;          // applied promo code (slice 72)
     private BigDecimal discountAmount;  // coupon discount (slice 72)
     private String returnReason;        // RMA reason (slice 71)
+
+    // ── OMS O7 D1 — distribution pre-sales ────────────────────────────────────────────────────────────────
+
+    /**
+     * Why the warehouse admin rejected this order (out). The booker cannot fix an order without it, which is
+     * why {@code reject} refuses to proceed without one.
+     */
+    private String rejectionReason;
+
+    /** OMS O7 D2 — the rep who booked it (out). Null for POS and storefront orders, which nobody books. */
+    private Long bookedByUserId;
+    /** The rep's name as stamped at booking — not resolved at read, so it survives them leaving. */
+    private String bookedByName;
+
+    /**
+     * Why this amendment was made (in) — recorded on the amendment trail, never stored on the order itself.
+     *
+     * <p>On the DTO rather than a separate parameter because an amendment arrives as one document: the reviewer
+     * changes three things and gives one reason for the lot, and splitting the reason out would invite callers
+     * to omit it.
+     */
+    private String amendmentReason;
+
+    /**
+     * Client-supplied idempotency key for a booking (in).
+     *
+     * <p>A booker works on a phone at a shop counter with poor signal and WILL retry. Two orders from one
+     * visit is a worse failure than one that appears not to have sent — the shop gets double the goods and the
+     * booker is blamed. Same key discipline as the storefront checkout (OMS-3).
+     */
+    private String idempotencyKey;
     private List<Line> items;           // storefront cart lines — drive the stock reservation (slice 49)
     private LocalDateTime createdAt;
 

@@ -44,8 +44,11 @@ public class OrderController {
     @ResponseBody
     public Map<String, Object> getOrders(final HttpServletRequest request) {
         try {
+            // O7 D2: `mine` narrows to the caller's own booked orders. Relayed as the BOOLEAN it is — the
+            // service resolves whose "mine" that is from the token, so a rep cannot read a colleague's orders
+            // by editing an id in the URL.
             return client.get("/orders" + relayQuery(request,
-                    "page", "size", "status", "paymentStatus", "source", "from", "to", "q", "late"));
+                    "page", "size", "status", "paymentStatus", "source", "from", "to", "q", "late", "mine"));
         } catch (Exception e) {
             LOGGER.error("getOrders proxy error", e);
             return Collections.singletonMap("success", false);
@@ -130,6 +133,107 @@ public class OrderController {
               .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8));
         }
         return qs.toString();
+    }
+
+    /*
+     * OMS O7 D1 — distribution pre-sales. Six thin proxies, one per review action.
+     *
+     * These exist NOW rather than with D2's booker screen on purpose: the 2026-08-10 review found three
+     * capabilities shipped with no way to reach them (R7), and a service endpoint with no proxy is exactly that
+     * shape. The SCREENS are D2/D4; these make the lifecycle drivable and gate-testable today.
+     */
+
+    /** Book an order at the outlet — creates a PENDING_APPROVAL order with no invoice and no stock movement. */
+    @RequestMapping(value = "/bookOrder", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> bookOrder(@RequestBody final Map<String, Object> body) {
+        try { return client.postJson("/orders/booking", body); }
+        catch (HttpStatusCodeException e) { return relayError(e, "Could not book the order."); }
+        catch (Exception e) { LOGGER.error("bookOrder proxy error", e); return Collections.singletonMap("success", false); }
+    }
+
+    /**
+     * Amend an order still under review.
+     *
+     * <p>Relays the downstream status rather than flattening it — a <b>409</b> here means another reviewer
+     * changed the order first (D-2), and telling the user "could not save" instead of "someone else changed
+     * this" would send them to reload and lose their edit for no stated reason.
+     */
+    @RequestMapping(value = "/amendOrder", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> amendOrder(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body == null ? null : body.get("id");
+            return client.putJson("/orders/" + enc(String.valueOf(id)), body);
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not amend the order.");
+        } catch (Exception e) {
+            LOGGER.error("amendOrder proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    @RequestMapping(value = "/confirmOrder", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> confirmOrder(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body == null ? null : body.get("id");
+            return client.postJson("/orders/" + enc(String.valueOf(id)) + "/confirm", java.util.Map.of());
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not confirm the order.");
+        } catch (Exception e) {
+            LOGGER.error("confirmOrder proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    @RequestMapping(value = "/rejectOrder", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> rejectOrder(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body == null ? null : body.get("id");
+            Object reason = body == null ? null : body.get("reason");
+            return client.postJson("/orders/" + enc(String.valueOf(id)) + "/reject",
+                    java.util.Collections.singletonMap("reason", reason));
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not reject the order.");
+        } catch (Exception e) {
+            LOGGER.error("rejectOrder proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    @RequestMapping(value = "/resubmitOrder", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> resubmitOrder(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body == null ? null : body.get("id");
+            return client.postJson("/orders/" + enc(String.valueOf(id)) + "/resubmit", java.util.Map.of());
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not resubmit the order.");
+        } catch (Exception e) {
+            LOGGER.error("resubmitOrder proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /** Who changed what on this order, and why. */
+    @RequestMapping(value = "/getOrderAmendments", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getOrderAmendments(final HttpServletRequest request) {
+        try {
+            String id = request.getParameter("id");
+            return client.get("/orders/" + enc(id == null ? "" : id) + "/amendments");
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not load the amendment history.");
+        } catch (Exception e) {
+            LOGGER.error("getOrderAmendments proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    private static String enc(String s) {
+        return java.net.URLEncoder.encode(s == null ? "" : s, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     @RequestMapping(value = "/recordOrder", method = RequestMethod.POST)

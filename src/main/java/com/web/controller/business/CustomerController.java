@@ -83,6 +83,25 @@ public class CustomerController {
         }
     }
 
+    /**
+     * OMS O7 D2 — the outlet's credit STANDING (limit, owed, available) → business-service /creditStanding.
+     *
+     * <p>Not to be confused with {@code /customerCredit} above: that is store credit the shop is holding FOR
+     * the customer, this is what the customer owes the SHOP. The booker is shown this before writing an order,
+     * so an over-limit outlet is caught at the counter instead of by the warehouse a day later.
+     */
+    @RequestMapping(value = "/creditStanding", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> creditStanding(final HttpServletRequest request) {
+        try {
+            String id = request.getParameter("customerId");
+            return client.get("/creditStanding", "customerId=" + (id == null ? "" : id));
+        } catch (Exception e) {
+            LOGGER.error("creditStanding proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     /** Receive Payment (AR subledger) → business-service /receivePayment: allocates the receipt to the customer's
      *  open invoices, recomputes their due, and records it in the shared finance ledger. */
     @RequestMapping(value = "/receivePayment", method = RequestMethod.POST)

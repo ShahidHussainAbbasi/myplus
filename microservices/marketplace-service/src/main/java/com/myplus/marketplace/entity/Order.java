@@ -80,6 +80,33 @@ public class Order {
     @Column(name = "books_status", nullable = false, length = 20)
     private String booksStatus = "LEGACY_UNPOSTED";
 
+    /**
+     * OMS O7 D2 — the rep who booked this order at the outlet (V19). Null for POS and storefront orders, which
+     * nobody books.
+     */
+    @Column(name = "booked_by_user_id")
+    private Long bookedByUserId;
+
+    /**
+     * The rep's name, <b>stamped at write and never resolved at read</b> (V19).
+     *
+     * <p>Duplicated on purpose. An order is a commercial record that outlives its staff: when a rep leaves and
+     * their user row goes, every order they ever took would otherwise show blank — or worse, whoever inherited
+     * their id. Same rule {@code CustomerHistory.bookedByName} and {@code OrderAmendment.userName} follow.
+     */
+    @Column(name = "booked_by_name")
+    private String bookedByName;
+
+    /**
+     * OMS O7 D1 — why the warehouse admin refused this order (V18).
+     *
+     * <p>A rejection with no reason is unusable: the booker can neither fix the order nor explain it to the
+     * shop, so the trip is wasted twice. Kept when the order is revised and resubmitted, so the review history
+     * reads as a conversation rather than a series of unexplained refusals.
+     */
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
     @Column(name = "customer_name")
     private String customerName;
 
