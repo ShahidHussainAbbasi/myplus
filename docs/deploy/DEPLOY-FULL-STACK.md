@@ -81,14 +81,37 @@ Build only from a branch that compiles. `master` currently carries a Dependabot 
 > already serving traffic, do NOT create the volume and carry on.** It means the stack was previously
 > running against a different volume that still holds your data; find it first (§Data safety below).
 >
-> Existing host, already deployed the old way? Copy the data across once, with mysql stopped:
+> Existing host, already deployed the old way? Copy the data across once, with mysql stopped.
+>
+> ### 🛑 FIND the source volume first — never type a guessed name
+>
+> `docker run -v <name>:/from` **silently creates an empty volume if `<name>` does not exist**. There is
+> no error. Copying from it therefore copies *nothing*, MySQL initialises a fresh datadir, and the app
+> comes up healthy with no data — indistinguishable from data loss. This exact mistake cost a second
+> outage on 2026-08-10, from a guessed source name in this very runbook.
+>
+> ```bash
+> # 1. WHICH volume is the live database actually on? This is the only source you may use.
+> docker inspect -f '{{range .Mounts}}{{println .Name .Destination}}{{end}}' myplus-mysql
+>
+> # 2. Cross-check what each candidate holds — the real one has dozens of .ibd files under myplusdb.
+> for v in $(docker volume ls -q | grep -i mysql); do
+>   echo "=== $v"
+>   docker run --rm -v $v:/v alpine sh -c 'du -sh /v; ls /v | head; echo "myplusdb files: $(ls /v/myplusdb 2>/dev/null | wc -l)"'
+> done
+> ```
+>
+> Only once you have a verified source name, substitute it for `<LIVE_VOLUME>`:
 >
 > ```bash
 > docker compose stop mysql
 > docker volume create myplus-mysql-data
-> docker run --rm -v myplus_mysql-data:/from -v myplus-mysql-data:/to alpine sh -c 'cd /from && cp -a . /to'
+> docker run --rm -v <LIVE_VOLUME>:/from -v myplus-mysql-data:/to alpine sh -c 'cd /from && cp -a . /to'
 > docker run --rm -v myplus-mysql-data:/v alpine sh -c 'ls /v; du -sh /v'   # expect ibdata1, myplusdb, …
 > ```
+>
+> **Verify rows, not size** — a fresh empty MySQL is ~200 MB and looks identical to a real one at a
+> glance. After starting: see §3.3 "verify the data is real".
 >
 > Keep the old volume until the app is verified working. It costs nothing to leave it there.
 
@@ -275,43 +298,218 @@ are code-defined; only overrides are stored, so a fresh tenant needs no setup ro
 
 ---
 
-## 8. Backup — all databases
+## 8. Backup and restore — end to end
 
-Use the script, not a hand-typed `mysqldump`:
+Everything below assumes the production host: `/opt/myplus/microservices`, compose project `myplus`,
+container `myplus-mysql`, data on the external volume `myplus-mysql-data`.
+
+Set this once per shell; every command in this section uses it:
 
 ```bash
-cd microservices
-./backup-db.sh                          # -> ./backups/myplus-<date>.sql.gz
+cd /opt/myplus/microservices
+DB_PASSWORD="$(grep -m1 '^DB_PASSWORD=' .env | cut -d= -f2-)"
+```
+
+### 8.1 A complete backup is three things, not one
+
+Restoring the database alone will **not** bring the platform back. You need all three, from the same
+point in time:
+
+| # | What | Where it lives | Why it is required |
+|---|---|---|---|
+| 1 | **The data** | `myplus-mysql-data` → dumped to `backups/myplus-<stamp>.sql.gz` | The 16 interlinked databases. |
+| 2 | **The secrets** | `microservices/.env` | `DB_PASSWORD`, `JWT_SECRET`, `INTERNAL_SECRET`, `MAIL_PASSWORD`. Git-ignored, so it exists on **no** other machine. A restored database with a different `JWT_SECRET` invalidates every session; a different `INTERNAL_SECRET` makes every service reject the gateway's headers. |
+| 3 | **The code version** | git SHA of the deployed commit | The dump's schema matches the Flyway version of the code that wrote it. Restoring last month's dump onto today's jars, or the reverse, fails validation at startup. |
+
+Capture 2 and 3 alongside the dump:
+
+```bash
+cp .env "backups/env-$(date +%F-%H%M).bak"        # then move it OFF the host, encrypted
+git rev-parse HEAD > "backups/deployed-sha-$(date +%F-%H%M).txt"
+```
+
+> `.env` is a secret. Never commit it, never rsync it to a shared path in the clear. Encrypt it —
+> `gpg -c backups/env-*.bak` — or store it in a password manager and keep only the SHA and the dump
+> on the backup host.
+
+### 8.2 Taking the backup
+
+Use the script, never a hand-typed `mysqldump`:
+
+```bash
+./backup-db.sh                          # -> ./backups/myplus-<stamp>.sql.gz
 BACKUP_DIR=/srv/backups ./backup-db.sh  # or somewhere off the app disk
 ```
 
-`backup-db.sh` does three things a bare dump does not: it refuses to run if MySQL is down (rather than
-writing a 0-byte file that looks like a backup), it verifies the gzip is valid **and** actually contains
-the `myplusdb` schema before keeping it, and it rotates anything older than `KEEP_DAYS` (14).
+`backup-db.sh` does four things a bare dump does not: it **refuses to run if MySQL is down** (rather
+than writing a 0-byte file that looks like a backup), it takes `--single-transaction` so the shop keeps
+trading while it runs, it **verifies** the gzip is valid *and* actually contains the `myplusdb` schema
+before keeping it, and it rotates anything older than `KEEP_DAYS` (14).
 
-With this many interlinked databases, back them up **together** — that is why it is one
-`--single-transaction --all-databases` dump. A per-database backup taken at different moments restores
-into a state that never existed: an order referencing a catalog product that the catalog dump predates.
+If it fails with `Permission denied`, the execute bit is missing on this checkout — `bash backup-db.sh`
+works regardless, and `chmod +x backup-db.sh` fixes it for good.
+
+**All databases go in ONE dump on purpose.** They are interlinked: a sale in `myplusdb` references a
+product in `myplusdb_catalog` and a payment in `myplusdb_finance`. Per-database dumps taken at
+different moments restore into a state that never existed — an invoice pointing at a product row that
+is not there yet.
 
 **Install it as a cron job.** An uninstalled backup script is not a backup:
 
 ```bash
 crontab -e
-30 2 * * * cd /root/myplus/microservices && ./backup-db.sh >> /var/log/myplus-backup.log 2>&1
+30 2 * * * cd /opt/myplus/microservices && ./backup-db.sh >> /var/log/myplus-backup.log 2>&1
 ```
 
 **Copy them off the box.** A dump on the same disk as the database does not survive the failure it
-exists to protect against:
+exists to protect against — nor does it survive `docker volume rm`:
 
 ```bash
 rsync -az --delete ./backups/ user@elsewhere:/srv/myplus-backups/
 ```
 
-**Rehearse a restore** on a scratch host before you need one:
+**Know your RPO.** A 02:30 daily job means up to ~24 hours of orders can be lost. If that is too much,
+run it more often (`30 2,14 * * *`) or use §8.6 point-in-time recovery. Decide this deliberately rather
+than discovering it during an incident.
+
+### 8.3 Verify the backup — a backup you have never restored is a hope
+
+The script's own checks catch a truncated or empty dump. They do **not** prove it restores. Once a
+month, prove it on a scratch container — this touches nothing in production:
 
 ```bash
-zcat myplus-2026-08-10-0230.sql.gz | docker compose exec -T -e "MYSQL_PWD=$DB_PASSWORD" mysql mysql -uroot
+docker run -d --name verify-mysql -e MYSQL_ROOT_PASSWORD=verify mysql:8.0
+sleep 40
+zcat backups/myplus-<stamp>.sql.gz | docker exec -i -e MYSQL_PWD=verify verify-mysql mysql -uroot
+
+docker exec -e MYSQL_PWD=verify verify-mysql mysql -uroot -N -e \
+  "SELECT table_schema, COUNT(*) FROM information_schema.tables
+   WHERE table_schema LIKE 'myplusdb%' GROUP BY table_schema;"
+docker exec -e MYSQL_PWD=verify verify-mysql mysql -uroot -N -e \
+  "SELECT COUNT(*) FROM myplusdb_auth.user;"
+
+docker rm -f verify-mysql
 ```
+
+Expect ~16 schemas and a non-zero user count. **Count rows, never trust size** — a freshly initialised
+empty MySQL is ~200 MB and is indistinguishable from a full one by `du` alone. That single confusion
+caused both August 2026 incidents.
+
+### 8.4 Before every deploy
+
+Non-negotiable, and it takes seconds:
+
+```bash
+./backup-db.sh && echo "safe to deploy"
+```
+
+`up -d --build` replaces containers in place and does not touch the volume — but a bad migration in the
+new jars can rewrite data, and that is not reversible without this file.
+
+### 8.5 Restore — full disaster recovery
+
+Use when the database is corrupt, wrong, or genuinely empty. **Read §8b first**: if the app merely
+*looks* empty, you are probably on the wrong volume and restoring would overwrite good data.
+
+```bash
+# 1. Stop everything that writes. Keep the volume — NEVER -v.
+docker compose --profile full down
+
+# 2. Bring up ONLY mysql (it carries no profile, so a bare up starts just it) and wait for healthy.
+docker compose up -d mysql
+until [ "$(docker inspect -f '{{.State.Health.Status}}' myplus-mysql)" = healthy ]; do sleep 3; done
+
+# 3. Restore.
+zcat backups/myplus-<stamp>.sql.gz | docker exec -i -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot
+
+# 4. The dump includes the `mysql` system schema, so users and grants were replaced.
+docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -e "FLUSH PRIVILEGES;"
+
+# 5. Verify BEFORE starting the app — rows, not size.
+docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -N -e \
+  "SELECT table_schema, COUNT(*) FROM information_schema.tables
+   WHERE table_schema LIKE 'myplusdb%' GROUP BY table_schema ORDER BY table_schema;"
+docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -N -e \
+  "SELECT COUNT(*) FROM myplusdb_auth.user;"
+
+# 6. Restore .env from the same point in time if secrets were lost, then start the stack.
+docker compose --profile full up -d
+```
+
+Two things that bite here:
+
+- **The `shahid` app user comes from the dump, not from compose.** `MYSQL_USER`/`MYSQL_PASSWORD` only
+  take effect on a *first* initialisation of an empty datadir. If services report access denied after a
+  restore, re-apply the grants: `docker exec -i -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot < init-db.sql`.
+- **Deploy the matching code.** If the dump predates a Flyway migration, check out the SHA from §8.1
+  item 3 and rebuild, or Flyway will refuse to validate at startup.
+
+### 8.6 Restore — one database only
+
+Occasionally right (one module corrupted, the rest healthy) and usually risky, because the databases
+reference each other. `mysql -o` restricts an `--all-databases` dump to a single schema:
+
+```bash
+zcat backups/myplus-<stamp>.sql.gz \
+  | docker exec -i -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -o myplusdb_education
+```
+
+Stop that module first so nothing writes mid-restore (`docker compose stop education-service`), and
+afterwards accept that it is now at an *older* point in time than every other database. For anything
+touching orders, stock, or money, restore the whole set instead.
+
+### 8.7 Point-in-time recovery (binary logs)
+
+Binary logging is on — you can see `binlog.0000NN` in the data volume — so you can roll forward from a
+nightly dump to a few minutes before a mistake (a bad `DELETE`, a wrong bulk edit):
+
+```bash
+docker exec myplus-mysql sh -c 'ls -la /var/lib/mysql/binlog.*'
+
+# after restoring the dump per §8.5, replay events up to just before the damage
+docker exec myplus-mysql sh -c \
+  "mysqlbinlog --stop-datetime='2026-08-11 14:22:00' /var/lib/mysql/binlog.000012" \
+  | docker exec -i -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot
+```
+
+**The binlogs live inside `myplus-mysql-data`.** They are gone with the volume, so this covers logical
+mistakes only — it is not a substitute for off-host dumps.
+
+### 8.8 Cold volume snapshot (secondary, not primary)
+
+A file-level copy is only consistent with MySQL **stopped** — copying a running datadir yields a file
+that looks fine and may not restore, because InnoDB has writes in flight:
+
+```bash
+docker compose --profile full down
+docker run --rm -v myplus-mysql-data:/v -v "$(pwd)/backups:/backup" alpine \
+  tar czf /backup/volume-$(date +%F-%H%M).tar.gz -C /v .
+docker compose --profile full up -d
+```
+
+Useful as a fast rollback immediately before a risky migration. The logical dump remains the primary
+backup: it survives a MySQL version change, and a tar of a datadir does not.
+
+### 8.9 Drill schedule
+
+| Cadence | Action |
+|---|---|
+| Every deploy | §8.4 pre-deploy dump |
+| Daily 02:30 | `backup-db.sh` via cron, log to `/var/log/myplus-backup.log` |
+| Daily | rsync `backups/` off-host |
+| Weekly | read the log — a silent cron failure is the classic way to discover you have no backups |
+| Monthly | §8.3 scratch-container restore drill, ending in a real row count |
+| Quarterly | full §8.5 rehearsal on a scratch VPS, including `.env` and the matching code SHA |
+
+### 8.10 Never do these on production
+
+- `docker compose down -v` · `docker volume prune` · `docker system prune` — the volume is `external`
+  so `-v` is refused, but the other two are typed by hand and take no notice of intent.
+- `docker volume rm <anything>` before listing its contents. Both August incidents began with a volume
+  whose contents nobody had checked.
+- Copy a datadir while MySQL is running (§8.8).
+- Restore over a database you have not first dumped. Even a corrupt database is evidence.
+- Judge a database by `du`. **Count rows.**
 
 ---
 
