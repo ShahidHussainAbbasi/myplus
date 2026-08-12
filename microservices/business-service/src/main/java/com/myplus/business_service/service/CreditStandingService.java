@@ -76,7 +76,20 @@ public class CreditStandingService {
      */
     public Standing standingFor(Long customerId) {
         if (customerId == null) return null;
-        Customer customer = customerRepo.findById(customerId).orElse(null);
+
+        // ANTI-IDOR. `customerId` arrives from a query string, so this must be the SCOPED read: with a plain
+        // findById, any authenticated user on the platform could read any tenant's credit limit and outstanding
+        // balance by guessing a number. Another org's customer reads as absent, which is the same answer a
+        // genuinely missing one gives — a caller cannot distinguish "not yours" from "not there", so the
+        // endpoint cannot be used to probe for which ids exist.
+        //
+        // Note the contrast with creditAccountOf below, which follows the customer's OWN stamped account id and
+        // is legitimately unscoped: that id came from a row this caller was already allowed to read. The rule
+        // is about where the id came from, not about which method reads it.
+        AuthenticatedUser user = requestUtil.getCurrentUser();
+        Customer customer = customerRepo.findByIdScoped(customerId,
+                user == null ? null : user.getOrganizationId(),
+                user == null ? null : user.getUserId()).orElse(null);
         if (customer == null) return null;
 
         Customer account = creditAccountOf(customer);

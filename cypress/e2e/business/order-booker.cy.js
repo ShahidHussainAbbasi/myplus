@@ -125,6 +125,34 @@ describe('OMS O7 D2 — a field rep books, and cannot approve their own work', (
     })
   })
 
+  it('ANTI-IDOR — another tenant\'s credit standing is unreadable', () => {
+    // Caught by auditing D2 before the gate: `standingFor` used a plain findById, so ANY authenticated user
+    // could read ANY tenant's credit limit and outstanding balance by guessing a numeric id. The customerId
+    // arrives from a query string, so the read has to be scoped.
+    //
+    // ── THE POSITIVE CONTROL IS NOT OPTIONAL ────────────────────────────────────────────────────────────
+    // The first version of this case asserted ONLY that the other tenant got nothing back. It passed on a run
+    // where the endpoint returned 404 — no data, because no endpoint — and so proved nothing whatsoever about
+    // scoping. An absence assertion is meaningless until the mechanism is shown to be live.
+    //
+    // So: prove the OWNER can read it, THEN that the other tenant cannot. If the endpoint is missing, the
+    // first half fails loudly instead of the second half passing quietly.
+    cy.loginAsMarketplaceOwner()
+    cy.request('/creditStanding?customerId=' + outletId).then((r) => {
+      expect(r.body.status, 'positive control: the endpoint is live and the OWNER can read it').to.eq('SUCCESS')
+      expect(r.body.object, 'and it returns a real standing').to.not.be.null
+      expect(Number(r.body.object.creditLimit)).to.eq(1000)
+    })
+
+    // A business-module owner is a genuinely different tenant, so the same id must read as absent — the same
+    // answer a missing customer gives, so the endpoint cannot be used to probe which ids exist.
+    cy.loginAsBusiness()
+    cy.request({ url: '/creditStanding?customerId=' + outletId, failOnStatusCode: false }).then((r) => {
+      expect(r.status, 'the endpoint is reachable for them too — it just has nothing to say').to.eq(200)
+      expect(r.body.object, 'another tenant\'s standing must not be readable').to.be.oneOf([null, undefined])
+    })
+  })
+
   it('an outlet with NO limit reports no standing rather than a false zero', () => {
     // A customer with no limit is uncapped, not "at 0% of 0". Showing them as breached would train bookers to
     // ignore the warning — which is the failure mode that matters for a warning.

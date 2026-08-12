@@ -38,6 +38,23 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
         + "and (c.organizationId = :orgId or c.organizationId is null)")
    List<Customer> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /**
+    * ONE customer, tenant-scoped — the anti-IDOR read (O7 D2).
+    *
+    * <p>This repository had every LIST read scoped and no scoped SINGLE read, so any endpoint taking a
+    * {@code customerId} from the request had only {@code findById}, which ignores the tenant entirely. That is
+    * fine where the id was already proved to be ours (following a customer's own stamped credit-account id),
+    * and a cross-tenant leak the moment the id comes from a URL. {@code /creditStanding} is the first endpoint
+    * to take one that way, so this is what it uses: another tenant's customer reads as absent, which is the
+    * platform's standard anti-IDOR shape.
+    *
+    * <p>Same NULL-fallback as {@link #findScoped} so pre-migration rows behave identically.
+    */
+   @Query("select c from Customer c where c.customerId = :id "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
+   java.util.Optional<Customer> findByIdScoped(@Param("id") Long id,
+                                               @Param("orgId") Long orgId, @Param("userId") Long userId);
+
    // Store credit: update ONLY the cached credit_balance (targeted, not a full-entity save — a full save can rewrite
    // other columns to null when the entity isn't fully loaded, as it did on the vendor side).
    @org.springframework.data.jpa.repository.Modifying

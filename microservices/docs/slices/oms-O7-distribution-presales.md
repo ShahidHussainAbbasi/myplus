@@ -214,7 +214,7 @@ and so nothing is built that a later phase would rework.
 | # | Phase | Closes | Notes |
 |---|---|---|---|
 | **D1** | ✅ **DONE + GATE GREEN 2026-08-11.** See §8. | The two "Full" gaps that block everything | `PENDING_APPROVAL` / `CONFIRMED` / `REJECTED` + rejection reason; `PUT /orders/{id}` to amend lines, customer, **price** (D-3, inside the margin policy), discount and date **while pending only**; amendment audit trail + 409 on concurrent edit (D-2); re-run credit check on amend; `invoiceTrigger = ON_DISPATCH`, reserving at CONFIRM (D-1). **Start here.** |
-| **D2** | ✅ **BUILT 2026-08-11 — awaiting gate.** See §9. | Booker login, attribution, credit at the counter |
+| **D2** | ✅ **DONE + GATE GREEN 2026-08-12.** See §9. | Booker login, attribution, credit at the counter |
 | **D3** | **Packing workbench** | O5d's missing half | Finishes O5d and **restores its two withdrawn settings** — the honest way to close review finding R1. |
 | **D4** | **Delivery return keying + settlement** | Ahsan's half | **No device (D-5)** — so this is a keying screen for Javed, not a driver app: per-invoice outcome (delivered / part-delivered with per-line quantities / refused), settlement into the existing `receivePayment`, credit note for door rejections. Attributed as *keyed from a signed invoice*. |
 | **D5** | **Driver settlement / remittance** | B1 — the money control | Day-end reconciliation: cash counted vs invoices marked paid, deposit recorded, variance raised. |
@@ -497,7 +497,10 @@ that is the migration, not the code (V7/V15/V16's recurring lesson: a Java enum 
 
 ---
 
-## 9. D2 — built 2026-08-11
+## 9. D2 — DONE, gate green 2026-08-12
+
+**Gate: `order-booker.cy.js` GREEN — 8 cases.** The one that carries the slice: *a booker can book, but cannot
+confirm or reject their own order* — a 403 from the server, not a hidden button.
 
 **What it delivers:** a field rep has their own login, every order they take is attributed to them, they can see
 what happened to their own orders, they are told the outlet's credit standing **at the counter**, and they
@@ -527,6 +530,44 @@ cannot disagree. The arithmetic itself already lived in `common-credit`'s `Credi
 as breached would train bookers to ignore the warning, which is the only failure mode that matters for a
 warning.
 
+### 9.1b A cross-tenant leak I introduced, found by auditing before the gate
+
+`standingFor` used a plain `customerRepo.findById(customerId)`. The id arrives **from a query string**, so that
+meant **any authenticated user on the platform could read any tenant's credit limit and outstanding balance by
+guessing a number** — a straight anti-IDOR failure on financial data, in brand-new code.
+
+The cause is worth recording because it is structural, not careless: `CustomerRepo` had **every LIST read
+scoped and no scoped SINGLE read at all**. Every existing caller of `findById` receives an id that was already
+proved to belong to the caller (following a customer's own stamped credit-account id, for instance), so the gap
+never mattered until an endpoint took one straight from a URL. `/creditStanding` is the first that does.
+
+Fixed with `findByIdScoped`, same NULL-fallback as `findScoped`. Another tenant's customer now reads as absent
+— **identically to a genuinely missing one**, so the endpoint cannot be used to probe which ids exist. Gated by
+a case that reads the marketplace outlet as a business-module tenant.
+
+**The transferable rule: whether a read needs scoping depends on where the ID CAME FROM, not on which method
+reads it.** An id followed from a row the caller could already see is safe; an id off the wire is not.
+
+### 9.1c The gate run that mattered — and a false pass in my own spec
+
+The first run was **1 passing, 7 failing**, and the one that passed was the problem.
+
+* **Six failures were deployment, not code:** the monolith was never rebuilt (the `/creditStanding` proxy and
+  the `?mine` relay live there and my gate instructions listed only the three microservices), and auth-service
+  needed its restart before the booker fixture seeds at startup.
+* **The one PASS was false.** The anti-IDOR case asserted only that another tenant got nothing back. The
+  endpoint was returning **404**, so it got nothing back — *no data, because no endpoint* — and the assertion
+  passed having proved nothing at all about scoping.
+
+**The rule this establishes: an absence assertion is not evidence until the mechanism is shown to be live.**
+The case now proves the OWNER can read the standing first, and only then that another tenant cannot; if the
+endpoint goes missing again, the positive control fails loudly instead of the negative one passing quietly.
+
+**Third occurrence of this exact shape in two slices** — O5e's fixture that resolved identically under both
+candidate rules, D1's `quantityShipped === 4` which held under both bugs, and now this. Two were caught by
+reading; this one only surfaced because an unrelated failure exposed it. Any test whose core assertion is
+*"X is not there"* needs a positive control **in the same case**.
+
 ### 9.2 What D2 does NOT do — read this before assuming a boundary
 
 **`ROLE_ORDER_BOOKER` is not a confinement.** It grants the ordinary user surface of the tenant; it does **not**
@@ -534,6 +575,11 @@ restrict a rep to their own outlets. `?mine=true` is a **filter the rep chooses*
 without location grants, a booker can still list the org's other orders. Territory scoping is the multi-location
 grant model and is **not wired here**. The same warning `ROLE_GUARDIAN` carries, for the same reason: a role is
 not a boundary unless something enforces it.
+
+**`bookedByName` is the rep's EMAIL, not a display name.** It is the only name a service has: the gateway
+stamps `X-User-Email` and nothing else identifying, so `AuthenticatedUser` carries no first/last name. Honest
+and stable, but `booker.marketplace@myplus.com` is not what a warehouse screen should show a human. Putting a
+display name in the JWT is the fix, and it belongs with the screen that needs it rather than here.
 
 **No booking SCREEN yet.** The endpoints, the proxies, the role and the credit read all exist and are gated;
 what a rep would actually use on a phone is the mobile UI, and it is the larger half of D2's original scope.
@@ -547,7 +593,7 @@ mvn -pl auth-service -am clean package -DskipTests        # ROLE_ORDER_BOOKER + 
 mvn -pl business-service -am clean package -DskipTests    # CreditStandingService + /creditStanding
 mvn -pl marketplace-service -am clean package -DskipTests  # V19 + attribution + ?mine
 ```
-Then headed: `order-booker.cy.js` (7 cases). **Regression:** `credit-limit` first — `SagaSellService` now
+Then headed: `order-booker.cy.js` (8 cases). **Regression:** `credit-limit` first — `SagaSellService` now
 delegates the two credit helpers, so that spec is what proves the extraction changed no behaviour — then
 `order-approval`, `order-back-office`, `order-fulfilment`, `sell`, `method-authz`.
 
