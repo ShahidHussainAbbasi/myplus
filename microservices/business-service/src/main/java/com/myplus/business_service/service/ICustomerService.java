@@ -35,5 +35,16 @@ public interface ICustomerService extends org.springframework.data.jpa.repositor
     /** OWN customers only (role-aware) — a non-SUPER caller sees just the customers they created. */
     List<Customer> findOwnScoped(Long orgId, Long userId);
 
+    /**
+     * OMS O7 D2d — a field rep's TERRITORY: outlets assigned to them, plus every unassigned outlet.
+     *
+     * <p>Deliberately not {@link #findOwnScoped}, which keys on the audit field {@code userId} ("who created
+     * this row") and therefore returns nothing to a rep, since the company creates the outlets.
+     */
+    List<Customer> findOutletsForRep(Long orgId, Long repUserId);
+
+    /** Every outlet in the org — for a whole-org viewer (owner/admin). */
+    List<Customer> findOutletsForOrg(Long orgId);
+
 
 }

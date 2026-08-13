@@ -27,6 +27,7 @@ import com.myplus.business_service.entity.enums.CustomerType;
 import com.myplus.business_service.service.ICustomerService;
 // import com.myplus.business_service.service.ICustomerService;
 import com.myplus.business_service.dto.CustomerDTO;
+import com.myplus.business_service.dto.OutletDTO;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
 import com.myplus.business_service.util.RequestUtil;
@@ -290,6 +291,52 @@ public class CustomerController {
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > customerCredit " + e.getMessage(), e);
 			return new GenericResponse("ERROR", "Could not load store credit.");
+		}
+	}
+
+	/**
+	 * OMS O7 D2d — the outlets a field rep may book for: the booking screen's picker.
+	 *
+	 * <h3>Why this is not {@code getUserCustomer}</h3>
+	 * That read is role-aware in a way that is correct for the customer MASTER and wrong for a picker: a plain
+	 * user sees only rows they created, because {@code Customer.userId} is an audit field the visibility rule
+	 * leans on. In a shop the creator and the seller are the same person; in field sales the COMPANY creates
+	 * the outlet and a REP sells to it, so an order booker asking for their outlets got back nothing at all.
+	 *
+	 * <h3>The rule, which is the industry one</h3>
+	 * <pre>
+	 *   owner / admin            → every outlet in the org
+	 *   rep WITH assignments     → their territory (+ unassigned outlets)
+	 *   rep with NO assignments  → every outlet in the org
+	 * </pre>
+	 * Territory is how field sales works everywhere (SAP DSD, Salesforce Territory Management, the SFA products
+	 * in this market): a customer list is a distributor's most poachable asset, coverage KPIs are undefined
+	 * without an assigned universe, and commission attribution needs to know whose outlet it was.
+	 *
+	 * <p>The last line is not a loophole — it is this platform's own rule for an absent grant, the one location
+	 * scoping already follows ("empty means no constraint"). A distributor who has configured no territories
+	 * works on day one; one who assigns them narrows automatically with no code change.
+	 *
+	 * <p><b>Identity only</b> ({@link OutletDTO}). Balances and limits are not a picker's business — the rep
+	 * gets an outlet's credit position from {@code /creditStanding}, one customer at a time, deliberately.
+	 */
+	@RequestMapping(value = "/outlets", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse outlets(final HttpServletRequest request) {
+		try {
+			Long org = orgId(), me = userId();
+			List<Customer> rows = seesAllOrg()
+					? customerService.findOutletsForOrg(org)
+					: customerService.findOutletsForRep(org, me);
+			List<OutletDTO> out = new ArrayList<>();
+			for (Customer c : rows) {
+				out.add(new OutletDTO(c.getCustomerId(), c.getName(), c.getContact(), c.getAddress(),
+						me != null && me.equals(c.getAssignedRepUserId())));
+			}
+			return new GenericResponse("SUCCESS", "Outlets", null, out);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > outlets " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load the outlets.");
 		}
 	}
 

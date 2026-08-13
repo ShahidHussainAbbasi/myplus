@@ -117,6 +117,9 @@ public class OrderService {
                 .idempotencyKey(key)
                 .customerName(dto.getCustomerName())
                 .customerContact(dto.getCustomerContact())
+                // O7 D2c: WHICH outlet. Without this the invoice at dispatch resolves the buyer by name and
+                // creates a duplicate customer — see Order.customerId.
+                .customerId(dto.getCustomerId())
                 .shippingAddress(dto.getShippingAddress())
                 // O7 D2: who took it. The name is stamped, not resolved later — see Order.bookedByName.
                 .bookedByUserId(userId)
@@ -1320,6 +1323,7 @@ public class OrderService {
         d.setRejectionReason(o.getRejectionReason());   // O7 D1 — the booker's only route to fixing it
         d.setBookedByUserId(o.getBookedByUserId());     // O7 D2 — attribution
         d.setBookedByName(o.getBookedByName());
+        d.setCustomerId(o.getCustomerId());             // O7 D2c — which trade account this bills
         d.setShippingAddress(o.getShippingAddress());
         d.setReturnReason(o.getReturnReason());
         d.setCreatedAt(o.getCreatedAt());

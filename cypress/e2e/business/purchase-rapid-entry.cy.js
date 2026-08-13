@@ -253,6 +253,76 @@ describe('P6 — Purchase rapid line entry', () => {
     cy.focused({ timeout: 5000 }).should('have.id', 'purchaseInvoiceNo')
   })
 
+  // ── P7.1: the chain is DERIVED from the form, not hand-listed ──────────────
+
+  it('the derived chain is exactly the fields a person can type into, in layout order', () => {
+    // This is the whole P7.1 claim in one assertion. It used to be an explicit array of 11 ids in
+    // business.js; computing it from the DOM must produce the SAME walk, or the migration silently
+    // changed what the operator experiences.
+    //
+    // The three computed boxes (#purchaseStock, #purchaseTotalAmount, #purchaseNetAmount) fall out
+    // on their own: they carry disabled="disabled", which skip() has always excluded.
+    cy.intercept('GET', '**/getTaxSetting', {
+      body: { status: 'SUCCESS', object: { inputTaxEnabled: false } },
+    }).as('taxOff')
+    openFreshPurchaseModal()
+    cy.wait('@taxOff')
+    cy.window().then((w) => {
+      expect(w.EnterChain.fieldsIn('#Purchase')).to.deep.eq([
+        'purchaseInvoiceNo', 'purchaseBatchNo', 'purchaseVenderDD',
+        'purchaseItemDD', 'purchaseQuantity', 'purchasePurchaseRate', 'purchaseSellRate',
+        'purchaseDate', 'purchaseExpiry', 'purchasePaid',
+      ])
+    })
+  })
+
+  it('computed boxes are not stops — they are disabled, and skip() has always excluded those', () => {
+    openFreshPurchaseModal()
+    cy.window().then((w) => {
+      const chain = w.EnterChain.fieldsIn('#Purchase')
+      expect(chain, 'stock is skipped').to.not.include('purchaseStock')
+      expect(chain, 'total is skipped').to.not.include('purchaseTotalAmount')
+      expect(chain, 'net is skipped').to.not.include('purchaseNetAmount')
+    })
+    cy.get('#purchaseTotalAmount').should('have.attr', 'disabled')
+  })
+
+  it('data-kbd-skip removes a field that is otherwise a perfectly good stop', () => {
+    // The markup opt-out, exercised on a field that IS in the chain — the purchase form does not
+    // need it (its computed boxes are disabled already), so adding it at runtime is the honest way
+    // to prove the mechanism rather than decorating markup where it would do nothing.
+    openFreshPurchaseModal()
+    cy.window().then((w) => {
+      expect(w.EnterChain.fieldsIn('#Purchase')).to.include('purchaseBatchNo')
+      w.document.getElementById('purchaseBatchNo').setAttribute('data-kbd-skip', '')
+      expect(w.EnterChain.fieldsIn('#Purchase')).to.not.include('purchaseBatchNo')
+    })
+    // ...and the walk really steps over it: invoice -> vendor, not invoice -> batch.
+    cy.get('#purchaseInvoiceNo').focus().type('{enter}')
+    cy.focused().should(($el) => {
+      expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseVenderDD').length,
+             'batch was skipped').to.eq(1)
+    })
+  })
+
+  it('the derived chain FOLLOWS configuration — the tax field joins it when the org uses tax', () => {
+    cy.intercept('GET', '**/getTaxSetting', {
+      body: { status: 'SUCCESS', object: { inputTaxEnabled: true } },
+    }).as('taxOn')
+    openFreshPurchaseModal()
+    cy.wait('@taxOn')
+    // Wait for the ROW, not just the response: refreshPurchaseTaxRow shows it in the $.get callback,
+    // so reading the chain straight after the wait races the handler that makes the field visible.
+    cy.get('#purchaseTaxRow').should('be.visible')
+    cy.window().then((w) => {
+      const chain = w.EnterChain.fieldsIn('#Purchase')
+      expect(chain).to.include('purchaseTaxRate')
+      // and in its LAYOUT position — after the vendor, before the item
+      expect(chain.indexOf('purchaseTaxRate')).to.be.greaterThan(chain.indexOf('purchaseVenderDD'))
+      expect(chain.indexOf('purchaseTaxRate')).to.be.lessThan(chain.indexOf('purchaseItemDD'))
+    })
+  })
+
   it('Enter walks the WHOLE chain in the order the form is laid out', () => {
     // Pin the tax setting rather than hiding the row by hand: refreshPurchaseTaxRow() re-decides the
     // row's visibility when /getTaxSetting lands, so a forced hide is a race it happens to win.

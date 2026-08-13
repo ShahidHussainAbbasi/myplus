@@ -18,6 +18,14 @@ public class OrderDTO {
     private String booksStatus;
     private String customerName;
     private String customerContact;
+    /**
+     * OMS O7 D2c — the trade account this order is for (business-service customer id).
+     *
+     * <p>Sent by the booking screen from the outlet the rep picked, and carried to the invoice at dispatch so
+     * the sale bills THAT account rather than a name-matched duplicate. Null for storefront/POS orders, where
+     * resolving the buyer from name + contact is the correct behaviour for the channel.
+     */
+    private Long customerId;
     private BigDecimal total;
     private String fulfilmentStatus;
     private String source;              // POS | STOREFRONT

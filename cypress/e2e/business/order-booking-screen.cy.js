@@ -54,12 +54,12 @@ describe('OMS O7 D2b — a rep can actually book an order', () => {
     // Finding B3, and the reason the screen is laid out in this order: the rep learns the shop is over its
     // limit while still at the counter, not from a rejection the next day.
     cy.get('#bkCredit').should('not.be.visible')
-    cy.get('#bkOutlet').select(OUTLET)
+    cy.get('#bkOutlet').select(OUTLET, { force: true })
     cy.get('#bkCredit').should('be.visible').and('contain', '5000')
   })
 
   it('selecting a product pre-fills its price, and the rep may overwrite it', () => {
-    cy.get('#bkProduct').select(PRODUCT)
+    cy.get('#bkProduct').select(PRODUCT, { force: true })
     cy.get('#bkPrice').should('have.value', '60')
     // The agreed price is the rep's to set — that is what D-3 lets the warehouse amend later, not replace.
     cy.get('#bkPrice').clear().type('55')
@@ -72,10 +72,10 @@ describe('OMS O7 D2b — a rep can actually book an order', () => {
   it('adding the same product again REPLACES the quantity rather than stacking a second line', () => {
     // A rep correcting themselves at the counter means "make it six", not "six more". Getting this wrong
     // double-orders the shop, which is the single most expensive mistake this screen could make.
-    cy.get('#bkProduct').select(PRODUCT)
+    cy.get('#bkProduct').select(PRODUCT, { force: true })
     cy.get('#bkQty').type('4')
     cy.get('#bkAddBtn').click()
-    cy.get('#bkProduct').select(PRODUCT)
+    cy.get('#bkProduct').select(PRODUCT, { force: true })
     cy.get('#bkQty').type('6')
     cy.get('#bkAddBtn').click()
     cy.get('#bkLinesBody tr').should('have.length', 1)
@@ -83,7 +83,7 @@ describe('OMS O7 D2b — a rep can actually book an order', () => {
   })
 
   it('a line can be removed, and Book is disabled with an empty order', () => {
-    cy.get('#bkProduct').select(PRODUCT)
+    cy.get('#bkProduct').select(PRODUCT, { force: true })
     cy.get('#bkQty').type('2')
     cy.get('#bkAddBtn').click()
     cy.get('#bkSubmit').should('not.be.disabled')
@@ -94,8 +94,8 @@ describe('OMS O7 D2b — a rep can actually book an order', () => {
 
   it('THE PAYOFF — booking from the screen creates a PENDING_APPROVAL order, and the rep sees it', () => {
     cy.intercept('POST', '/bookOrder').as('book')
-    cy.get('#bkOutlet').select(OUTLET)
-    cy.get('#bkProduct').select(PRODUCT)
+    cy.get('#bkOutlet').select(OUTLET, { force: true })
+    cy.get('#bkProduct').select(PRODUCT, { force: true })
     cy.get('#bkQty').type('3')
     cy.get('#bkAddBtn').click()
     cy.get('#bkSubmit').click()
@@ -114,6 +114,66 @@ describe('OMS O7 D2b — a rep can actually book an order', () => {
     cy.get('#bkLinesBody tr').should('have.length', 0)
     cy.get('#bkMyOrdersBody tr').should('have.length.greaterThan', 0)
     cy.contains('#bkMyOrdersBody tr', OUTLET).should('contain', 'PENDING_APPROVAL')
+  })
+
+  it('THE BOOKS CASE — dispatching bills the OUTLET the rep booked, not a duplicate of it', () => {
+    // Caught by auditing D2b: the order recorded the buyer as a NAME only. At dispatch, business-service
+    // resolves the buyer by Query-By-Example on name + contact + THE ACTING USER — and since the outlet was
+    // created by the owner while the dispatch runs as the warehouse admin, the probe matched nothing and
+    // created a SECOND outlet: no credit limit, its own balance, the receivable split across two rows, and the
+    // credit standing shown at the counter applying to an account the invoice never touched.
+    //
+    // The assertion that matters is the DUPLICATE COUNT. "An invoice exists" passes under the bug too.
+    // Counted through /outlets, NOT getUserCustomer: this block runs as the BOOKER, and the audit-scoped read
+    // correctly returns them nothing (that is D2d's whole point, asserted in order-booker.cy.js). Using it here
+    // would fail for a reason unrelated to what this case is testing.
+    let before, orderId, outletId
+    cy.request('/outlets').then((r) => {
+      var rows = ((r.body.collection || r.body.data) || []).filter((c) => c.name === OUTLET)
+      before = rows.length
+      expect(before, 'positive control: the outlet exists exactly once before we start').to.eq(1)
+      outletId = rows[0].id
+    })
+
+    // Book through the SCREEN, so this proves what the rep's own workflow produces.
+    cy.get('#bkOutlet').select(OUTLET, { force: true })
+    cy.get('#bkProduct').select(PRODUCT, { force: true })
+    cy.get('#bkQty').type('2')
+    cy.get('#bkAddBtn').click()
+    cy.intercept('POST', '/bookOrder').as('book2')
+    cy.get('#bkSubmit').click()
+    cy.wait('@book2').then((i) => {
+      expect(i.request.body.customerId, 'the screen sends WHICH outlet').to.be.a('number')
+      orderId = i.response.body.data.id
+    })
+
+    // Confirm + dispatch as the warehouse — a DIFFERENT user from whoever created the outlet, which is the
+    // whole condition that made the probe fail.
+    cy.then(() => cy.loginAsMarketplaceOwner())
+    cy.then(() => cy.request({
+      method: 'POST', url: '/confirmOrder', headers: { 'Content-Type': 'application/json' },
+      body: { id: orderId }, failOnStatusCode: false,
+    })).then((s) => expect(s.body.success, JSON.stringify(s.body)).to.eq(true))
+    cy.then(() => cy.request('/getOrder?id=' + orderId)).then((r) => {
+      const line = r.body.data.items[0]
+      return cy.request({
+        method: 'POST', url: '/shipOrder', headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+        body: { id: orderId, lines: [{ orderItemId: line.id, quantity: 2 }], carrier: 'Ahsan' },
+      })
+    }).then((s) => expect(s.body.success, JSON.stringify(s.body)).to.eq(true))
+
+    // THE assertion: still exactly one outlet of that name. Under the bug this is 2.
+    cy.request('/getUserCustomer').then((r) => {
+      const rows = ((r.body.collection || r.body.data) || []).filter((c) => c.name === OUTLET)
+      expect(rows.length, 'dispatch must NOT have created a duplicate outlet').to.eq(before)
+    })
+    // And the invoice landed on THAT account, not a fresh one: the outlet the rep picked now owes money.
+    // Stronger than checking the row's credit limit, which would still read 5000 on the original row even if
+    // the invoice had gone to a duplicate — i.e. it would pass under the bug.
+    cy.then(() => cy.request('/creditStanding?customerId=' + outletId)).then((r) => {
+      expect(r.body.object, 'the picked outlet has a standing').to.not.be.null
+      expect(Number(r.body.object.owed), 'the dispatch billed THIS account').to.be.greaterThan(0)
+    })
   })
 
   it('a rejection shows its REASON on the rep\'s own list', () => {

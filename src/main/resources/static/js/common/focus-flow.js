@@ -31,13 +31,46 @@
         return window.innerWidth >= 992 && !('ontouchstart' in window);
     }
 
-    function visible(el) {
-        return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+    /**
+     * Is the control the USER sees on screen?
+     *
+     * For a bootstrap-select that is not the <select> itself. The plugin hides the original and renders
+     * a button in its place, so measuring the <select> always answers "invisible" — which silently
+     * removed every picker from any walk built on this. Measure what the plugin actually shows.
+     *
+     * This also un-breaks focusFirstField(): a modal whose first field is a picker previously got no
+     * auto-focus at all, because the only candidate looked hidden.
+     */
+    function visualEl(el) {
+        if (el && el.classList && el.classList.contains('selectpicker')) {
+            var wrap = el.nextElementSibling;
+            if (wrap && wrap.classList && wrap.classList.contains('bootstrap-select')) return wrap;
+        }
+        return el;
     }
 
+    function visible(el) {
+        var v = visualEl(el);
+        return !!(v && (v.offsetWidth || v.offsetHeight || v.getClientRects().length));
+    }
+
+    /**
+     * Is this element NOT worth putting a cursor in?
+     *
+     * P7: this is now the ONE definition of that question for the whole app. enter-chain.js used to
+     * carry its own copy for the Enter chains, and the two drifted — a picker ended up listed in the
+     * sale chain while the handler that moved off it did not know about it, so Enter walked the
+     * cashier onto a control nothing could walk them off. Same rule, two homes, one dead end.
+     *
+     * `data-kbd-skip` is the markup opt-out. It exists because "editable" and "worth stopping on" are
+     * different questions: a computed total is a real <input> that submits its value, but stopping the
+     * keyboard on it costs a keystroke and offers nothing to type. readOnly would also remove it from
+     * the chain, but readOnly changes what the FORM means, and a display decision should not.
+     */
     function skip(el) {
         if (!el || el.disabled || el.readOnly) return true;
         if (el.type === 'hidden' || el.type === 'submit' || el.type === 'button' || el.type === 'reset') return true;
+        if (el.hasAttribute && el.hasAttribute('data-kbd-skip')) return true;
         if (el.closest('.no-autofocus') || el.classList.contains('no-autofocus')) return true;
         return !visible(el);
     }
@@ -104,5 +137,49 @@
         var t = focusTarget(el);
         scrollTo(el, 'center');
         if (mayAutoFocus()) { try { t.focus({ preventScroll: true }); } catch (e) { t.focus(); } }
+    };
+
+    /**
+     * P7 — the shared field model.
+     *
+     * Published so enter-chain.js can ask THIS module "is this a stop, and what do I actually focus?"
+     * instead of keeping a second copy of the answer. Anything that walks fields — the Enter chains,
+     * modal auto-focus, validation focus — now agrees by construction rather than by review.
+     */
+    window.FocusFlow = {
+        TYPEABLE: TYPEABLE,
+        skip: skip,
+        visible: visible,
+        focusTarget: focusTarget,
+        mayAutoFocus: mayAutoFocus,
+
+        /**
+         * The ordered list of fields a keyboard walk should visit inside `container`.
+         *
+         * DOM order IS the layout, so the walk follows what the eye follows. P6 learned this the hard
+         * way: its first chain was grouped by meaning (header fields, then line fields) while the form
+         * was laid out differently, and Enter jumped row 1 -> row 8 -> back to row 3. A chain the eye
+         * cannot follow is worse than no chain, because the operator must look up after every press.
+         *
+         * `data-kbd-order` overrides position for the rare form whose visual order genuinely differs
+         * from its DOM order (a CSS-reordered grid). Absent, everything keeps document order — a
+         * stable sort, so declaring one field's position does not scramble the rest.
+         */
+        fields: function (container) {
+            if (!container) return [];
+            var out = [];
+            Array.prototype.forEach.call(container.querySelectorAll(TYPEABLE), function (el, i) {
+                if (skip(el)) return;
+                var o = el.getAttribute('data-kbd-order');
+                out.push({ el: el, ord: (o === null ? null : parseInt(o, 10)), doc: i });
+            });
+            out.sort(function (a, b) {
+                if (a.ord !== null && b.ord !== null && a.ord !== b.ord) return a.ord - b.ord;
+                if (a.ord !== null && b.ord === null) return a.ord - b.doc || -1;
+                if (a.ord === null && b.ord !== null) return a.doc - b.ord || 1;
+                return a.doc - b.doc;
+            });
+            return out.map(function (r) { return r.el; });
+        }
     };
 })();

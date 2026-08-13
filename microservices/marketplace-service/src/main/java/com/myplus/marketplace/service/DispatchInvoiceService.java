@@ -130,6 +130,18 @@ public class DispatchInvoiceService {
                         .organizationId(order.getOrganizationId())
                         .channel("FIELD")
                         .customer(SaleRecordRequest.Customer.builder()
+                                // O7 D2c — THE TRADE ACCOUNT, by id.
+                                //
+                                // This is what makes the invoice bill the outlet the rep actually booked for.
+                                // Without it, business-service resolves the buyer by Query-By-Example on
+                                // name + contact + THE ACTING USER — and since the outlet was created by the
+                                // owner while the dispatch runs as the warehouse admin, the probe matches
+                                // nothing and creates a DUPLICATE customer: no credit limit, its own balance,
+                                // the outlet's receivable split across two rows, and the credit standing shown
+                                // at the counter applying to an account this invoice never touches.
+                                //
+                                // Null for a storefront order, where resolve-or-create IS the right behaviour.
+                                .customerId(order.getCustomerId())
                                 .name(order.getCustomerName())
                                 .contact(order.getCustomerContact())
                                 .address(order.getShippingAddress())

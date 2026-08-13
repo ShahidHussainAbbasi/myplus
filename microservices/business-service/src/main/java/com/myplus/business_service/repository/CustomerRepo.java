@@ -39,6 +39,25 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
    List<Customer> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
    /**
+    * OMS O7 D2d — the outlets on a rep's round: the TERRITORY read behind the booking screen's picker.
+    *
+    * <p>Org-scoped, then narrowed to what this rep covers: their own assignments <b>plus every unassigned
+    * outlet</b>. That second half is the platform's established rule for an absent grant — an outlet nobody
+    * has been given is not hidden from everybody — and it is what lets a distributor who has configured no
+    * territories work unchanged on day one.
+    *
+    * <p>Ordered by name because this drives a picker a person reads, not a report.
+    */
+   @Query("select c from Customer c where c.organizationId = :orgId "
+        + "and (c.assignedRepUserId = :repId or c.assignedRepUserId is null) "
+        + "order by c.name asc")
+   List<Customer> findOutletsForRep(@Param("orgId") Long orgId, @Param("repId") Long repId);
+
+   /** Every outlet in the org, for a whole-org viewer (owner/admin). Same ordering, same projection use. */
+   @Query("select c from Customer c where c.organizationId = :orgId order by c.name asc")
+   List<Customer> findOutletsForOrg(@Param("orgId") Long orgId);
+
+   /**
     * ONE customer, tenant-scoped — the anti-IDOR read (O7 D2).
     *
     * <p>This repository had every LIST read scoped and no scoped SINGLE read, so any endpoint taking a

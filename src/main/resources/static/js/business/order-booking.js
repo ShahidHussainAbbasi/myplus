@@ -50,14 +50,37 @@
 
     // ── the outlet, and what it owes ────────────────────────────────────────────────────────────────────────
 
+    /**
+     * The rep's outlets — their TERRITORY.
+     *
+     * Deliberately `/outlets`, not `getUserCustomer`. That read is scoped by `Customer.userId`, which is the
+     * AUDIT field ("who created this row"): in a shop the creator and the seller are the same person, but in
+     * field sales the company creates the outlet and the rep sells to it, so a booker asking for their
+     * customers got back an empty list — the picker for the one screen they use.
+     *
+     * `/outlets` answers the question actually being asked: which shops may I book for. Identity only; an
+     * outlet's balance comes from `/creditStanding`, one at a time, when a shop is chosen.
+     */
     function loadOutlets() {
-        $.get(serverContext + 'getUserCustomer', function (resp) {
+        $.get(serverContext + 'outlets', function (resp) {
             var rows = (resp && (resp.collection || resp.data)) || [];
             var html = '<option value="">' + esc(tr('ui.js.selectOutlet', 'Select the shop…')) + '</option>';
-            rows.forEach(function (c) {
-                var id = c.customerId != null ? c.customerId : c.id;
-                html += '<option value="' + esc(id) + '">' + esc(c.name || ('#' + id)) + '</option>';
-            });
+            var mine = rows.filter(function (c) { return c.assignedToMe; });
+            var rest = rows.filter(function (c) { return !c.assignedToMe; });
+            // A rep with a territory sees their own round first, under a heading, with everything unassigned
+            // still reachable below it — narrowing without hiding. With no territory configured the grouping
+            // collapses to a plain list, which is what a small distributor sees.
+            function opts(list) {
+                return list.map(function (c) {
+                    return '<option value="' + esc(c.id) + '">' + esc(c.name || ('#' + c.id)) + '</option>';
+                }).join('');
+            }
+            if (mine.length && rest.length) {
+                html += '<optgroup label="' + esc(tr('ui.js.myOutlets', 'My outlets')) + '">' + opts(mine) + '</optgroup>'
+                     + '<optgroup label="' + esc(tr('ui.js.otherOutlets', 'Other outlets')) + '">' + opts(rest) + '</optgroup>';
+            } else {
+                html += opts(rows);
+            }
             $('#bkOutlet').empty().append(html);
         });
     }
@@ -188,6 +211,11 @@
         $.ajax({
             type: 'POST', url: serverContext + 'bookOrder', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({
+                // O7 D2c: the outlet's ID, not just its name. The name alone makes the invoice at dispatch
+                // resolve the buyer by name + contact + acting user — which cannot match an outlet created by
+                // someone else, so it silently bills a DUPLICATE customer with no credit limit. The rep picked
+                // a real account from the list; the order must carry which one.
+                customerId: Number(outletId),
                 customerName: outletName,
                 customerContact: $.trim($('#bkContact').val() || ''),
                 shippingAddress: $.trim($('#bkAddress').val() || ''),

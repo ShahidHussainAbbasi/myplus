@@ -149,6 +149,22 @@ public class Customer implements Serializable {
 	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
+	/**
+	 * OMS O7 D2d — the field rep who covers this outlet (V38). The TERRITORY assignment.
+	 *
+	 * <p>Distinct from {@link #userId}, which is <b>audit</b> — who created the row. Those are the same person
+	 * in a shop and different people in field sales, where the company creates the outlet and a rep sells to
+	 * it; conflating them is what made the booking screen's picker come back empty for the one role that needs
+	 * it.
+	 *
+	 * <p><b>Null means unassigned, and unassigned means visible to every rep in the org</b> — the same rule
+	 * the platform already applies to location grants, so a distributor who has configured no territories works
+	 * exactly as before. Assignment is set in D6 (beat plan); the picker honours this field from day one, so
+	 * nothing has to be rewritten when it does.
+	 */
+	@Column(name = "assigned_rep_user_id")
+	private Long assignedRepUserId;
+
 	@Column(name = "user_type")
 	private String userType;
 

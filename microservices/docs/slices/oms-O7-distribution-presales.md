@@ -628,13 +628,85 @@ this screen could make — so it is gated by its own case.
 *will* press Book again when nothing appears to happen. The key is cleared only when an order is actually
 accepted, so the retry replays rather than duplicates.
 
+### 10.1b D2c — a books-corrupting defect found by auditing D2b, and fixed with it
+
+**A booked order never recorded WHICH outlet it was for** — only a `customerName` string. Spanning D1, D2 and
+D2b, and it would have gone green.
+
+**Traced:** with no customer id, `CustomerService.saveUpdateCustomer` falls to Query-By-Example, and the probe
+is built *after* `setUserId(actor)` — so it matches on name + contact **+ the acting user**. The outlet is
+created by the owner; the dispatch runs as the warehouse admin. The probe cannot match, so a **second**
+"Irfan Medical Store" is created, with no credit limit and its own zero balance.
+
+**What that costs a distributor:** the invoice bills a duplicate row; the outlet's receivable is split across
+two customers, so `receivePayment`, statements and aging all disagree with reality; the credit limit never
+applies because it lives on the original row; and **the credit standing D2 shows the booker at the counter is
+for an account the order will not bill** — which quietly makes B3, the feature that justifies the whole
+check-at-booking design, advisory against the wrong customer.
+
+**Fix:** `V20 orders.customer_id` (no FK — `customer` is another service's database, and a constraint across
+that boundary is the coupling decomposition exists to prevent), carried `Order` → `OrderDTO` → `book()` →
+`DispatchInvoiceService` → `SaleRecordRequest.Customer.customerId`, which puts `saveUpdateCustomer` on its
+`getReferenceById` branch. The booking screen sends the id it already had — the picker's option value.
+
+**Not a pre-existing bug inherited.** The storefront path has the same shape and is **correct** there: a web
+shopper genuinely is a new person, so resolve-or-create is right for that channel. This is specific to the
+field channel, where the buyer is always an existing trade account.
+
+**Why the gate would have missed it.** `order-booking-screen` booked and asserted `PENDING_APPROVAL` without
+dispatching; `order-approval` dispatches but with a free-text buyer name no customer row shares, so creating
+one is the *correct* outcome there and it passes honestly. **The defect appears only when booking for an outlet
+that already exists — i.e. on every real order this feature will ever take.**
+
+The new case asserts the **duplicate count**, not that an invoice exists — "an invoice exists" passes under the
+bug too. It opens with a positive control (the outlet exists exactly once before we start), per the rule the
+D2 false pass established.
+
+### 10.1c D2d — TERRITORY, because the picker was empty for the only role that uses it
+
+Auditing D2b found the booking screen unusable by a booker: `getUserCustomer` is role-aware, and a plain user
+gets `findOwnScoped` — rows **they created**. A rep creates no outlets; the company does. Empty picker.
+
+**The root cause is worth more than the fix.** That visibility rule keys on `Customer.userId`, which the entity
+itself documents as **audit** — *who created this row*. In a shop the creator and the seller are the same
+person, so the coincidence holds and nobody notices. In field sales they are different people by definition.
+**An audit field had been carrying an authorization meaning it was never designed for.**
+
+**Rejected: granting `ADMIN_PRIVILEGE` to `ROLE_ORDER_BOOKER`.** It would fill the picker and simultaneously
+let a rep confirm and reject their own orders — `/confirm` is gated on exactly that privilege. Destroying the
+separation the whole model rests on, to fix a dropdown.
+
+**Built instead: the industry model — territory.** Every serious SFA/DSD system (SAP DSD, Salesforce Territory
+Management, the SFA products in this market) assigns outlets to reps, for three reasons that all apply here: a
+customer list is a distributor's most poachable asset; coverage KPIs are undefined without an assigned
+universe; and commission attribution needs to know whose outlet it was.
+
+| | |
+|---|---|
+| **V38** | `customer.assigned_rep_user_id` + `idx_customer_org_rep`. A NEW column — reusing `user_id` would repeat the mistake that caused this. **No backfill:** nothing can infer who covers an outlet, and inventing one would silently hide shops from the reps who sell to them. |
+| **`GET /outlets`** | owner/admin → all org outlets · rep **with** assignments → their territory **+ unassigned** · rep with **none** → all org outlets. |
+| **`OutletDTO`** | **Identity only.** Not `CustomerDTO`, which carries `dueAmount`, `creditLimit`, terms and the hierarchy links — the data the master's visibility rule exists to protect. A rep gets an outlet's position from `/creditStanding`, one at a time. Least privilege: a picker is not a financial report. |
+| **The screen** | Groups *My outlets* / *Other outlets* when a territory exists, and collapses to a plain list when none does. Narrowing without hiding. |
+
+**"No assignment = unconstrained" is not a loophole** — it is this platform's own rule for an absent grant, the
+one location scoping already follows (*"EMPTY means no location constraint … behave exactly as before"*). A
+distributor who has configured no territories works on day one; one who assigns them narrows automatically with
+no code change. **And it is not a C1 dead toggle:** the column is READ on every call from day one; it simply has
+no data until D6 builds the assignment UI, and the no-data behaviour is the documented intended one.
+
+**The trade, stated plainly:** any org member can now list the org's outlet *names*. That is a real widening
+over `findOwnScoped`, accepted deliberately — a rep who cannot see the shops on their round cannot do the job —
+and bounded by the identity-only projection and unchanged org scoping, both gated.
+
 ### 10.2 Gate
 
-Monolith only — no service changed.
 ```
-mvn clean install -DskipTests
+mvn -pl marketplace-service -am clean package -DskipTests   # V20 + customerId on the order (D2c)
+mvn -pl business-service   -am clean package -DskipTests    # V38 + /outlets territory read (D2d)
+mvn clean install -DskipTests                               # monolith: booking screen + /outlets proxy
 ```
-Then headed: `order-booking-screen.cy.js` (7 cases). **Regression:** `order-booker`, `order-approval`,
+Then headed: `order-booking-screen.cy.js` (8 cases) **and `order-booker.cy.js`** (11 — three new territory
+cases). Restart marketplace-service, business-service and the monolith: V20 and V38 apply at startup. **Regression:** `order-booker`, `order-approval`,
 `ecommerce-orders`, `sell` (shares the dashboard template), plus an i18n spec if one covers key alignment.
 
 ⚠️ `loginAsOrderBooker` now carries a `cacheKeyExtra` (`o7d2-booker`). **Bump it whenever

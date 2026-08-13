@@ -204,6 +204,18 @@ return customerRepo.exists(example);
 		return customerRepo.findOwnScoped(orgId, userId);
 	}
 
+	/** O7 D2d — the rep's territory: their assigned outlets plus every unassigned one. */
+	@Override
+	public List<Customer> findOutletsForRep(Long orgId, Long repUserId) {
+		return customerRepo.findOutletsForRep(orgId, repUserId);
+	}
+
+	/** O7 D2d — every outlet in the org (whole-org viewers only; the controller decides who qualifies). */
+	@Override
+	public List<Customer> findOutletsForOrg(Long orgId) {
+		return customerRepo.findOutletsForOrg(orgId);
+	}
+
 
 	public Customer saveUpdateCustomer(CustomerHistoryDTO dto) throws Exception {
 

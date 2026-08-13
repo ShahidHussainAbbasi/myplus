@@ -110,6 +110,49 @@ describe('OMS O7 D2 — a field rep books, and cannot approve their own work', (
     })
   })
 
+  it('TERRITORY — a rep sees the org\'s outlets, which getUserCustomer would NOT have given them', () => {
+    // The defect this endpoint exists for: `getUserCustomer` scopes by `Customer.userId`, the AUDIT field
+    // ("who created this row"). A rep creates no outlets — the company does — so the booking screen's picker
+    // came back EMPTY for the only role that uses it.
+    //
+    // Both halves asserted: the OLD read gives the rep nothing, the NEW one gives them the outlet. Without the
+    // first half this passes even if /outlets were quietly returning everything to everyone for some other
+    // reason, and without the second it proves nothing at all.
+    cy.loginAsOrderBooker()
+    cy.request({ url: '/getUserCustomer', failOnStatusCode: false }).then((r) => {
+      var rows = (r.body.collection || r.body.data) || []
+      expect(rows.filter((c) => c.name === 'Irfan Medical ' + run).length,
+        'the audit-scoped read cannot see an outlet the OWNER created').to.eq(0)
+    })
+    cy.request('/outlets').then((r) => {
+      var rows = (r.body.collection || r.body.data) || []
+      var mine = rows.filter((c) => c.name === 'Irfan Medical ' + run)
+      expect(mine.length, 'the territory read DOES — unassigned outlets are visible to every rep').to.eq(1)
+      expect(mine[0].assignedToMe, 'nobody has been assigned it yet').to.eq(false)
+      // Identity only: a picker is not a financial report. Balances come from /creditStanding, deliberately.
+      expect(mine[0], 'no credit limit on a picker row').to.not.have.property('creditLimit')
+      expect(mine[0], 'no balance on a picker row').to.not.have.property('dueAmount')
+    })
+  })
+
+  it('an owner sees every outlet in the org', () => {
+    cy.loginAsMarketplaceOwner()
+    cy.request('/outlets').then((r) => {
+      var rows = (r.body.collection || r.body.data) || []
+      expect(rows.filter((c) => c.name === 'Irfan Medical ' + run).length).to.eq(1)
+    })
+  })
+
+  it('another tenant\'s outlets are not in the list', () => {
+    // The picker widened WHO in an org can see outlet names; it must not have widened which ORG.
+    cy.loginAsBusiness()
+    cy.request('/outlets').then((r) => {
+      var rows = (r.body.collection || r.body.data) || []
+      expect(rows.filter((c) => c.name === 'Irfan Medical ' + run).length,
+        'org scoping still holds').to.eq(0)
+    })
+  })
+
   it('the booker is told the outlet\'s credit standing BEFORE writing the order', () => {
     // Finding B3. Rejecting an over-limit order a day later wastes the visit; the credit engine already
     // existed and simply was not exposed at the counter.

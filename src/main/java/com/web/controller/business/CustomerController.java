@@ -84,6 +84,23 @@ public class CustomerController {
     }
 
     /**
+     * OMS O7 D2d — the outlets a field rep may book for → business-service /outlets.
+     *
+     * <p>Territory-aware and identity-only. NOT {@code getUserCustomer}: that read is scoped by the audit field
+     * {@code userId}, so a rep — who creates no outlets, because the company does — got an empty picker.
+     */
+    @RequestMapping(value = "/outlets", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> outlets() {
+        try {
+            return client.get("/outlets", "");
+        } catch (Exception e) {
+            LOGGER.error("outlets proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    /**
      * OMS O7 D2 — the outlet's credit STANDING (limit, owed, available) → business-service /creditStanding.
      *
      * <p>Not to be confused with {@code /customerCredit} above: that is store credit the shop is holding FOR

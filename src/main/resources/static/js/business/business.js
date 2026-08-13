@@ -2712,25 +2712,24 @@ window.afterSavePurchase = function () {
  * this one can never both respond to the same keystroke.
  * ---------------------------------------------------------------------------------------------- */
 /**
- * The chain follows the form's OWN top-to-bottom order.
+ * P7.1: the chain is DERIVED from the form, not listed here.
  *
- * The first version grouped it logically instead — header fields first, then line fields — which read
- * well in the design doc and was wrong on screen: Enter jumped from the invoice box (row 1) down to the
- * date (row 8) and back up to the item picker (row 3). A chain the eye cannot follow is worse than no
- * chain, because the operator has to look up after every keystroke to find the cursor.
+ * It used to be an explicit array of 11 ids. That array was a second copy of the form, and this
+ * codebase has twice paid for exactly that: a picker listed in the sale chain that the movement
+ * handler did not know about (a keyboard dead end on the busiest screen), and P6's own first attempt,
+ * which grouped fields by MEANING while the form was laid out differently, so Enter jumped from the
+ * invoice box down to the date and back up to the item picker.
  *
- * #purchaseTaxRate sits between the vendor and the item in the DOM and is included, but it is hidden
- * unless the org enabled purchase tax — so for a tenant without it the sequence is exactly:
- * invoice -> batch -> vendor -> item -> qty -> cost -> sell -> date -> expiry -> paid.
+ * EnterChain.fieldsIn('#Purchase') reads the form itself, in DOM order — which IS the order the eye
+ * follows. Fields the tenant hid (#purchaseTaxRow when purchase tax is off), read-only boxes, and the
+ * computed totals marked data-kbd-skip in the template all fall out automatically.
  *
- * Read-only/computed boxes (#purchaseStock, #purchaseTotalAmount, #purchaseNetAmount, #purchaseItemDesc)
- * are deliberately absent: they are output, and a stop on a field nobody can edit is a dead keystroke.
+ * For a tenant without purchase tax the walk is exactly:
+ *   invoice -> batch -> vendor -> item -> qty -> cost -> sell -> date -> expiry -> paid
+ * which is the sequence the form already showed; nothing about the behaviour changed, only where the
+ * knowledge of it lives.
  */
-var PURCHASE_CHAIN = [
-	'purchaseInvoiceNo', 'purchaseBatchNo', 'purchaseVenderDD', 'purchaseTaxRate',
-	'purchaseItemDD', 'purchaseQuantity', 'purchasePurchaseRate', 'purchaseSellRate',
-	'purchaseDate', 'purchaseExpiry', 'purchasePaid'
-];
+var PURCHASE_FORM = '#Purchase';
 var PURCHASE_PICKERS = ['purchaseVenderDD', 'purchaseItemDD'];
 
 function purchaseModalOpen(){
@@ -2739,7 +2738,7 @@ function purchaseModalOpen(){
 
 $(function () {
 	window.EnterChain.bind('purchase', {
-		chain:   PURCHASE_CHAIN,
+		container: PURCHASE_FORM,   // derived per keystroke — see PURCHASE_FORM above
 		pickers: PURCHASE_PICKERS,
 		active:  purchaseModalOpen,
 		// Enter past the last field saves and stays — a delivery rarely has exactly one line, and the
