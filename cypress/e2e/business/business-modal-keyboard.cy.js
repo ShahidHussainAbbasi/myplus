@@ -230,6 +230,55 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     cy.get('#PayVendorModal').should('not.have.class', 'open')
   })
 
+  // ── dropdowns must be OPERABLE, not just walked past ──────────────────────
+
+  it('Enter OPENS an unanswered dropdown instead of stepping over it', () => {
+    // The reported bug: Enter walked past #venderCompanyDD without ever showing its 71 companies,
+    // leaving a REQUIRED field empty with no keyboard way to set it. An unanswered picker now opens.
+    openDash()
+    openSectionFor('VenderDiv')
+    cy.get('#newVender').click()
+    cy.get('#VenderModal').should('have.class', 'open')
+
+    cy.get('#venderName').focus().type(`P72Kbd_${STAMP}{enter}`)
+    cy.focused().should(($el) => expect(focusedFieldId($el)).to.eq('venderCompanyDD'))
+
+    cy.get('#venderCompanyDD').should('have.value', '')      // unanswered
+    cy.focused().type('{enter}')
+    cy.get('#venderCompanyDD').next('.bootstrap-select')
+      .should('have.class', 'open')                          // the list is on screen
+    cy.focused().should(($el) => expect(focusedFieldId($el)).to.eq('venderCompanyDD'))
+  })
+
+  it('choosing from an open dropdown sets the value AND moves on', () => {
+    openDash()
+    openSectionFor('VenderDiv')
+    cy.get('#newVender').click()
+    cy.get('#venderCompanyDD').next('.bootstrap-select').find('button').first().focus().type('{enter}')
+    cy.get('#venderCompanyDD').next('.bootstrap-select').should('have.class', 'open')
+    // Pick the first real option the way the plugin expects.
+    cy.get('#venderCompanyDD').next('.bootstrap-select').find('.dropdown-menu li:not(.disabled) a')
+      .first().click()
+    cy.get('#venderCompanyDD').should('not.have.value', '')  // the choice was RECORDED
+    // ...and the chain carried on rather than stalling on the answered field.
+    cy.focused().should(($el) => expect(focusedFieldId($el)).to.not.eq('venderCompanyDD'))
+  })
+
+  it('an ANSWERED dropdown advances on Enter — it does not re-open', () => {
+    openDash()
+    openSectionFor('VenderDiv')
+    cy.get('#newVender').click()
+    // Set a value directly, then Enter must move on rather than showing the list again.
+    cy.get('#venderCompanyDD option').eq(1).then(($o) => {
+      cy.get('#venderCompanyDD').then(($s) => {
+        $s.val($o.val()).selectpicker('refresh')
+      })
+    })
+    cy.get('#venderCompanyDD').next('.bootstrap-select').find('button').first().focus().type('{enter}')
+    cy.get('#venderCompanyDD').next('.bootstrap-select').should('not.have.class', 'open')
+    cy.focused().should(($el) => expect(focusedFieldId($el)).to.not.eq('venderCompanyDD'))
+  })
+
   // ── the guard that matters most ───────────────────────────────────────────
 
   it('the mouse path is untouched — a form still saves by clicking its button', () => {

@@ -2730,7 +2730,7 @@ window.afterSavePurchase = function () {
  * knowledge of it lives.
  */
 var PURCHASE_FORM = '#Purchase';
-var PURCHASE_PICKERS = ['purchaseVenderDD', 'purchaseItemDD'];
+// (no picker list: enter-chain asks the DOM whether a field is a bootstrap-select)
 
 function purchaseModalOpen(){
 	return $('#PurchaseModal').hasClass('open');
@@ -2739,7 +2739,6 @@ function purchaseModalOpen(){
 $(function () {
 	window.EnterChain.bind('purchase', {
 		container: PURCHASE_FORM,   // derived per keystroke — see PURCHASE_FORM above
-		pickers: PURCHASE_PICKERS,
 		active:  purchaseModalOpen,
 		// Enter past the last field saves and stays — a delivery rarely has exactly one line, and the
 		// operator who does have one line has Ctrl+Enter.

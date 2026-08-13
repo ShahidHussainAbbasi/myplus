@@ -215,7 +215,7 @@ and so nothing is built that a later phase would rework.
 |---|---|---|---|
 | **D1** | ✅ **DONE + GATE GREEN 2026-08-11.** See §8. | The two "Full" gaps that block everything | `PENDING_APPROVAL` / `CONFIRMED` / `REJECTED` + rejection reason; `PUT /orders/{id}` to amend lines, customer, **price** (D-3, inside the margin policy), discount and date **while pending only**; amendment audit trail + 409 on concurrent edit (D-2); re-run credit check on amend; `invoiceTrigger = ON_DISPATCH`, reserving at CONFIRM (D-1). **Start here.** |
 | **D2** | ✅ **DONE + GATE GREEN 2026-08-12.** See §9. | Booker login, attribution, credit at the counter |
-| **D3** | **Packing workbench** | O5d's missing half | Finishes O5d and **restores its two withdrawn settings** — the honest way to close review finding R1. |
+| **D3** | ✅ **DONE + GREEN 2026-08-13** — 9/9. See §11. | O5d's missing half | Finishes O5d and **restores its two withdrawn settings** — the honest way to close review finding R1. |
 | **D4** | **Delivery return keying + settlement** | Ahsan's half | **No device (D-5)** — so this is a keying screen for Javed, not a driver app: per-invoice outcome (delivered / part-delivered with per-line quantities / refused), settlement into the existing `receivePayment`, credit note for door rejections. Attributed as *keyed from a signed invoice*. |
 | **D5** | **Driver settlement / remittance** | B1 — the money control | Day-end reconciliation: cash counted vs invoices marked paid, deposit recorded, variance raised. |
 | **D6** | **Beat plan + visit verification + KPIs** | B4, B5 | Journey plan, geo-stamped check-in, and the standard coverage KPIs. |
@@ -750,6 +750,49 @@ cases). Restart marketplace-service, business-service and the monolith: V20 and 
 ⚠️ `loginAsOrderBooker` now carries a `cacheKeyExtra` (`o7d2-booker`). **Bump it whenever
 `ROLE_ORDER_BOOKER`'s privileges change**, or `cy.session` replays a token minted under the old identity —
 the failure that cost `loginAsPortalGuardian` six gate runs.
+
+---
+
+## 11. D3 — the PACK workbench. DONE, GREEN 2026-08-13
+
+**Gate: `order-pickpack.cy.js` 9/9** · `PackVerificationTest` 6/6 · regression 63/63 across `order-fulfilment`,
+`order-approval`, `order-booker`, `order-booking-screen`, `order-backorder`, `pos-order-parity`.
+
+**Closes O5d, and closes review finding R1 properly** — by building the thing that makes the two withdrawn
+settings honourable, not by deleting them.
+
+| | |
+|---|---|
+| `#PackDiv` + `order-packing.js` | Pick list → scan → per-line packed counts → confirm. Reached from a **Pack** button drawn beside Ship. |
+| **Writes nothing new** | Confirm posts the identical `ShipmentDTO.Request` the Ship form posts, so `ShipmentService` stays the only writer and every O5b guard remains the single enforcement point. |
+| **No second scanner** | Reuses `/lookupProduct` and `parseScanEntry` (the till's exported pure multiplier parser), exactly as O5d's design required. The new part is the question asked AFTER resolution — *is this on THIS order, and is any still owed?* |
+| `scanRequired` **restored** | Enforced again in `ShipmentService`. The guard was always right in shape; it simply had nothing to enforce against until a UI could send `verified`. |
+| `autoConfirm` **restored** | Read on the path it governs: the workbench dispatches when the last outstanding unit is scanned. Gated by the packer never touching Confirm. |
+| Typing stays possible | A barcode can be damaged. It is no longer the DEFAULT, and a typed line is recorded **unverified** — the system must not claim a verification it did not perform. |
+
+### 11.1 Three defects the gate found, all mine
+
+1. **An uncaught `TypeError` froze the whole screen.** `focusFirstField` takes a container ELEMENT; I passed a
+   selector string, so it threw `container.querySelectorAll is not a function` **inside a `$.get` success
+   handler** — which stopped jQuery firing `ajaxStop`, so the app's global "Please wait…" overlay never cleared.
+   Every open of the workbench left a packer staring at a frozen page. **The failure SCREENSHOT solved this, not
+   the source** — I had been reasoning about polling and jQuery internals; one look at the image showed the
+   exception directly.
+2. **Typing a quantity destroyed the field being typed into.** The input handler called the full `render()`,
+   rebuilding the table mid-keystroke: "12" became "1". Split into `render()` (open + after a scan) and
+   `refreshControls()` (badge, row state, buttons — never the inputs).
+3. **My own spec inherited state it never set.** Six cases failed because an EARLIER failed run left
+   `scanRequired` ON — these are per-tenant persistent settings, and I reset them only in `after()`, which a
+   failing case never reaches. Now reset at the START of every case. *Establish the state you need; never
+   inherit it.*
+
+Also: three dispatch cases raced the app's async POST (`cy.request` fired before the browser's `$.ajax`
+landed). Fixed with `cy.intercept` + `cy.wait`, asserting `success` — so a genuine server refusal now reports
+as itself instead of as "nothing shipped".
+
+**And a process note: my first fix attempt made things worse for the second time this slice** (8 failures → 9),
+by adding an overlay wait for an overlay that was never going to clear. Both times the tell was the same — my
+explanation did not account for *all* the evidence, and I edited anyway.
 
 ---
 

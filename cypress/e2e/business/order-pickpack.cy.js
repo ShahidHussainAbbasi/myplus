@@ -122,10 +122,14 @@ describe('OMS O7 D3 — a packer scans items into the box', () => {
   })
 
   it('a scanned parcel dispatches, and the order follows from what went out', () => {
+    cy.intercept('POST', '/shipOrder').as('ship')
     openPack()
     cy.get('#packScan').type('3*' + SKU + '{enter}')
     cy.get('#packConfirm').should('not.be.disabled').click()
-    cy.request('/getOrder?id=' + orderId).then((r) => {
+    // Wait for the app's OWN post. cy.request would otherwise read the order before the browser's async
+    // dispatch had landed — a race that reads as "nothing shipped" and hides whether it even tried.
+    cy.wait('@ship').its('response.body.success').should('eq', true)
+    cy.then(() => cy.request('/getOrder?id=' + orderId)).then((r) => {
       expect(r.body.data.items[0].quantityShipped, 'three went out').to.eq(3)
       // O5b: the status is DERIVED from the lines, never typed.
       expect(r.body.data.fulfilmentStatus).to.eq('PARTIALLY_SHIPPED')
@@ -161,11 +165,13 @@ describe('OMS O7 D3 — a packer scans items into the box', () => {
   it('scanRequired ON: a SCANNED parcel still goes through', () => {
     // The positive control. Without it, the case above passes for a shop that simply cannot dispatch at all.
     setCfg('order.pack.scanRequired', 'true')
+    cy.intercept('POST', '/shipOrder').as('shipScanned')
     openPack()
     cy.get('#packScan').type('2*' + SKU + '{enter}')
     cy.get('#packBlocked').should('not.be.visible')
     cy.get('#packConfirm').should('not.be.disabled').click()
-    cy.request('/getOrder?id=' + orderId)
+    cy.wait('@shipScanned').its('response.body.success').should('eq', true)
+    cy.then(() => cy.request('/getOrder?id=' + orderId))
       .then((r) => expect(r.body.data.items[0].quantityShipped).to.eq(2))
     setCfg('order.pack.scanRequired', 'false')
   })
@@ -174,10 +180,12 @@ describe('OMS O7 D3 — a packer scans items into the box', () => {
     // The setting that was read NOWHERE when O5d shipped it. It is now honoured on the path it governs —
     // asserted by the packer never touching Confirm.
     setCfg('order.pack.autoConfirm', 'true')
+    cy.intercept('POST', '/shipOrder').as('autoShip')
     openPack()
     cy.get('#packScan').type('5*' + SKU + '{enter}')
-    // No click on #packConfirm anywhere in this case.
-    cy.request('/getOrder?id=' + orderId).then((r) => {
+    // No click on #packConfirm anywhere in this case — the wait below is what proves it dispatched itself.
+    cy.wait('@autoShip').its('response.body.success').should('eq', true)
+    cy.then(() => cy.request('/getOrder?id=' + orderId)).then((r) => {
       expect(r.body.data.items[0].quantityShipped, 'dispatched without a confirm click').to.eq(5)
       expect(r.body.data.fulfilmentStatus).to.eq('SHIPPED')
     })

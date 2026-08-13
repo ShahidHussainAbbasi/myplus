@@ -547,6 +547,10 @@
                 if (jumped === false) return;        // handled (moved to checkout)
                 if (jumped) { focusField(jumped); return; }
             }
+            // CLOSED and EMPTY: let the menu open, same as the line-entry pickers. Without this the
+            // customer and tender lists could never be opened from the keyboard — Enter stepped over
+            // them, which on a CREDIT sale means the cashier cannot name the customer who owes.
+            if (!$sel.val()) return;
             e.preventDefault();
             var target = walk(CHECKOUT, id, e.shiftKey ? -1 : 1);
             if (target === null) { completeSale(); return; }
@@ -625,6 +629,14 @@
                 if (jumped === false) return;        // handled (moved to checkout)
                 if (jumped) { focusField(jumped); return; }
             }
+            // CLOSED and EMPTY: let the button's own click open the menu, so the list can actually be
+            // seen and chosen from. Preventing the default here is what used to make a dropdown
+            // unopenable from the keyboard — Enter walked past the whole catalogue without showing it.
+            //
+            // The "nothing here, move on" gesture is unchanged, it just happens on the SECOND Enter
+            // (the branch above, with the menu open). That is better feedback anyway: the open menu
+            // shows the operator that the first press registered.
+            if (!$sel.val()) return;
             e.preventDefault();
             var target = nextField(pickerId, e.shiftKey ? -1 : 1);
             if (target === null) { commitLine(); return; }

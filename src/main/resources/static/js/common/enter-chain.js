@@ -75,7 +75,7 @@
      *
      * opts:
      *   chain   [String]   ordered field ids
-     *   pickers [String]   ids that are bootstrap-selects (single Enter opens the menu)
+     *   (a bootstrap-select needs no declaring — isPicker() asks the DOM)
      *   active  Function   -> true when the chain should respond at all (e.g. "my modal is open")
      *   onEnd   Function   Enter past the last field. Return true if handled.
      *   onCtrlEnter Fn     optional: Ctrl+Enter anywhere in the form
@@ -100,13 +100,46 @@
         var chainOf = (typeof opts.chain === 'function') ? opts.chain
                     : opts.container ? function () { return derivedChain(opts.container); }
                     : function () { return opts.chain || []; };
-        var pickers = opts.pickers || [];
         var active  = opts.active || function () { return true; };
 
         // A picker whose menu is OPEN has already consumed one Enter. Tracking the menu state rather
         // than using a timer is what makes double-Enter reliable — a timer races the user.
         function menuOpen(id) {
             return $('#' + id).next('.bootstrap-select').hasClass('open');
+        }
+
+        /** Is this field a bootstrap-select? Asked of the DOM, not of a list the caller maintains —
+         *  a picker list is one more copy of the form, and copies drift. The wrapper's existence IS
+         *  the definition, so a select that gets enhanced later is picked up with no registration. */
+        function isPicker(id) {
+            return $('#' + id).next('.bootstrap-select').length > 0;
+        }
+
+        function hasValue(id) {
+            var v = $('#' + id).val();
+            return !(v === null || v === '' || v === 'default' || (Array.isArray(v) && !v.length));
+        }
+
+        /**
+         * The stall this closes.
+         *
+         * When the menu is open, Enter belongs to the plugin: it selects the highlighted row and fires
+         * changed.bs.select, which advances the chain. But re-picking the value that was ALREADY
+         * selected fires no change event at all — so the menu closes, nothing advances, and the
+         * operator is left pressing Enter at a field that will not move. That is the original
+         * "Enter is not taking control to the next field" report, and it was never really about
+         * opening: it was about this silent dead end.
+         *
+         * So arm a fallback: if the menu has closed and no change carried us onward, move on anyway.
+         */
+        var pendingPicker = null;
+        function armAdvanceFallback(id) {
+            pendingPicker = id;
+            global.setTimeout(function () {
+                if (pendingPicker !== id) return;       // a real selection already advanced us
+                pendingPicker = null;
+                if (!menuOpen(id)) advance(id, 1);
+            }, 150);
         }
 
         function advance(from, dir) {
@@ -122,6 +155,9 @@
             if (!active()) return;
             var id = e.target && e.target.id;
             if (!id || chainOf().indexOf(id) < 0) return;
+            // A real selection carries us onward, so disarm the fallback — otherwise both fire and
+            // the chain jumps two fields for one keystroke.
+            pendingPicker = null;
             // Let the change handlers (price pre-fill, stock lookup) run before moving focus.
             global.setTimeout(function () { advance(id, 1); }, 0);
         });
@@ -161,16 +197,26 @@
             if (e.target && e.target.tagName === 'TEXTAREA') return;
             if (!id) return;
 
-            // A picker with its menu OPEN is mid-choice: Enter belongs to the plugin, which selects the
-            // highlighted row and fires changed.bs.select — and THAT advances the chain. Intercepting
-            // here would advance without ever recording the choice.
+            // ── Dropdowns ─────────────────────────────────────────────────────────────────────
             //
-            // A picker with its menu CLOSED advances like any other field. An earlier version opened the
-            // menu instead, on the theory that Enter on a dropdown means "let me choose" — but that
-            // stalls the chain for the common case, where the value is already right or deliberately
-            // blank, and the operator is left pressing Enter at a menu that will not move on. The menu
-            // is still one keystroke away: Space, Alt+Down, or simply typing opens it and searches.
-            if (pickers.indexOf(id) >= 0 && menuOpen(id)) return;
+            // What Enter does depends on whether the field has been ANSWERED, because the operator
+            // means two different things by the same key:
+            //
+            //   menu open        the plugin owns it — Enter selects the highlighted row, and
+            //                    changed.bs.select advances. armAdvanceFallback covers re-picking
+            //                    the same value, which fires no change event.
+            //   closed, empty    "I still have to choose" -> let the button's own click OPEN the menu.
+            //                    Returning WITHOUT preventDefault is what allows that: preventing the
+            //                    default is precisely what used to stop the menu from ever opening.
+            //   closed, answered "already set" -> advance like any other field.
+            //
+            // The previous rule advanced in every closed case. It made a required dropdown impossible
+            // to fill from the keyboard: Enter walked straight past 71 companies without showing one,
+            // leaving a required field empty and no way to set it without the mouse.
+            if (isPicker(id)) {
+                if (menuOpen(id)) { armAdvanceFallback(id); return; }
+                if (!hasValue(id)) return;              // no preventDefault -> the menu opens
+            }
 
             e.preventDefault();
             e.stopPropagation();

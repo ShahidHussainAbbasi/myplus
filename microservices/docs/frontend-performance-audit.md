@@ -208,6 +208,31 @@ separate hosts across a constrained network** — say so and it is a two-line fo
 - Compression is applied by `ServletWebServerFactoryAutoConfiguration` (a servlet-container concern),
   which `@EnableWebMvc` does **not** disable — so unlike F1's caching properties, this one is live.
 
+**Measured live after rebuild+restart** (`curl`, ten largest assets, raw vs `Accept-Encoding: gzip`):
+
+| Asset | Raw | gzip | Saved |
+|---|---|---|---|
+| `pdfmake.min.js` | 1,093,430 | 452,255 | 58% |
+| `vfs_fonts.js` | 926,233 | 451,096 | 51% |
+| `jquery-3.3.1.js` | 282,115 | 81,620 | 71% |
+| `jspdf.min.js` | 234,558 | 73,445 | 68% |
+| `business.js` | 212,974 | 61,902 | 70% |
+| `chart.umd.min.js` | 205,242 | 69,659 | 66% |
+| `moment.js` | 138,945 | 29,737 | 78% |
+| `bootstrap-datetimepicker.js` | 106,518 | 16,067 | 84% |
+| `jquery.dataTables.min.js` | 82,577 | 28,195 | 65% |
+| `main.js` | 62,845 | 21,055 | 66% |
+| **Total** | **3,345,437** | **1,285,031** | **61%** |
+
+Responses carry `Content-Encoding: gzip` with `Content-Length` absent (chunked) — the predicted signature.
+
+One correction to the pre-implementation reasoning: Tomcat labels `business.js` as **`text/javascript`**, not
+`application/javascript`, so it is the `text/javascript` entry that actually carries JS here.
+`application/javascript` remains listed (other containers and hand-set Content-Types use it), but the
+audit's claim that Boot's default list omitting `application/javascript` was the live risk did not hold —
+`text/javascript` is in Boot's default list. **The measured win is real either way; the stated reason was
+half wrong.** Listing both is still correct.
+
 **Gate:** `cypress/e2e/ui/perf-compression.cy.js` — 6 cases. Asserts the *property* (bytes arrive
 gzip-encoded, arrive intact, and binaries are not re-compressed), never the artefact. Every case fails on
 the pre-PERF-1 build.

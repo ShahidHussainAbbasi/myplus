@@ -55,10 +55,12 @@ describe('PERF-1 — responses are gzip-compressed on the wire', () => {
     })
   })
 
-  it('business.js is compressed — proves application/javascript is in the mime list', () => {
-    // This is the load-bearing one. Spring Boot's DEFAULT compression mime-types omit
-    // application/javascript on some versions, and JS is ~4MB of the ~4.3MB page. If this test goes
-    // red while the HTML test stays green, the mime-types line lost its application/javascript entry.
+  it('business.js is compressed — JS is ~4MB of the ~4.3MB page', () => {
+    // Verified on the running app: Tomcat labels this `text/javascript`, NOT `application/javascript`,
+    // so it is the `text/javascript` entry in server.compression.mime-types that carries this request.
+    // `application/javascript` is listed too and stays listed — some containers and some hand-set
+    // Content-Types still use it, and an uncompressed 4MB of JS is the whole point of the slice.
+    // If this goes red while the HTML test stays green, the mime-types line lost its JS entries.
     cy.request({
       url: '/js/business/business.js',
       headers: { 'accept-encoding': 'gzip, deflate' }
