@@ -34,23 +34,30 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
     /** OMS O5c — accept an order when NOTHING is available, not just when part is? */
     public static final String BACKORDER_FULL_SHORTFALL = "order.backorder.acceptFullShortfall";
 
-    // ── OMS O5d — packing. WITHDRAWN from entries() 2026-08-10; see the note above entries(). ──────────────
+    // ── OMS O5d packing — withdrawn 2026-08-10, RESTORED by O7 D3 2026-08-13 with the workbench. ────────
     /** OMS O5d — must a packer SCAN what goes in the box, or may they type it? */
     public static final String PACK_SCAN_REQUIRED = "order.pack.scanRequired";
     /** OMS O5d — once everything outstanding is packed, dispatch automatically or wait for a human? */
     public static final String PACK_AUTO_CONFIRM = "order.pack.autoConfirm";
 
     private static final String GROUP = "Online orders";
-    /**
-     * Its own section: packing is a different job, done by a different person, from taking an order.
-     * Unreferenced while the two packing settings are withdrawn — kept, like the constants above, so the
-     * workbench slice restores the group under the same heading rather than inventing a second one.
-     */
-    @SuppressWarnings("unused")
+    /** Its own section: packing is a different job, done by a different person, from taking an order. */
     private static final String PACK_GROUP = "Packing & dispatch";
 
     /**
-     * <h3>Why the two O5d packing settings are NOT here (withdrawn 2026-08-10)</h3>
+     * <h3>The two packing settings, WITHDRAWN 2026-08-10 and RESTORED 2026-08-13 (O7 D3)</h3>
+     *
+     * They were pulled because neither could be honoured: {@code autoConfirm} was read nowhere, and
+     * {@code scanRequired} was worse — enforced, but unsatisfiable, because the only UI that dispatched never
+     * sent {@code verified}, so switching it on refused every dispatch. That is C1's rule applied honestly:
+     * an owner must not be offered a choice the product cannot keep.
+     *
+     * <p>D3 built the workbench that makes both real — it scans items into a parcel, marks those lines
+     * verified, and can dispatch the moment the last outstanding unit is packed. So they come back, together,
+     * with the thing that gives them meaning. <b>Both still default OFF</b>: not every shop owns a scanner, and
+     * a workflow that assumes equipment a merchant does not have is one they cannot use at all.
+     *
+     * <h3>Historic note — why the withdrawal is worth remembering</h3>
      *
      * O5d shipped its backend half and none of its packer-facing half, and both settings were left rendering on
      * the owner's screen. That breaks <b>C1</b> — <i>a toggle that changes nothing is worse than no toggle</i> —
@@ -114,6 +121,24 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
                         "Promise backordered items within (days)",
                         "How far ahead to promise the outstanding part of a backordered order. Shown to the "
                                 + "shopper at checkout and used to flag late orders in the back office.",
-                        DEFAULT_PROMISE_DAYS, GROUP));
+                        DEFAULT_PROMISE_DAYS, GROUP),
+
+                // ── OMS O7 D3 — packing. Restored with the workbench that makes them honourable. ──────
+                // Both OFF by default, and for the same reason: a shop with no scanner, or one that wants a
+                // human to look in the box before it leaves, must keep working exactly as it does today.
+                SettingEntry.bool(PACK_SCAN_REQUIRED,
+                        "Require items to be scanned when packing",
+                        "Off (default): a packer may type the quantities, as now. On: each item must be scanned "
+                                + "into the parcel on the Pack screen, so packing the wrong product is caught "
+                                + "at the shelf rather than by the customer. Lines entered by hand are always "
+                                + "recorded as unverified either way.",
+                        false, PACK_GROUP),
+                SettingEntry.bool(PACK_AUTO_CONFIRM,
+                        "Dispatch automatically once everything is packed",
+                        "Off (default): the packer confirms the parcel, adds the carrier and tracking number, "
+                                + "and then it is dispatched. On: the shipment is recorded as soon as the last "
+                                + "outstanding item is scanned — faster for a high-volume shop, but nobody "
+                                + "gets a final look before it goes.",
+                        false, PACK_GROUP));
     }
 }

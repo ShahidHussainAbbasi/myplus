@@ -41,8 +41,8 @@ public class ShipmentService {
     private final OrderRepository orderRepository;
     private final ShipmentRepository shipmentRepository;
     private final NotificationService notificationService;
-    // No SettingsService: its only reader was O5d's withdrawn scanRequired guard. The workbench slice
-    // re-injects it rather than leaving an unread dependency here advertising a policy nothing applies.
+    /** O7 D3 — the per-org packing policy, re-injected with the workbench that can satisfy it. */
+    private final com.myplus.common.settings.SettingsService settingsService;
     /** O7 D1 — `ON_DISPATCH`: a field order is invoiced when its goods actually leave, from what left. */
     private final DispatchInvoiceService dispatchInvoiceService;
 
@@ -73,17 +73,20 @@ public class ShipmentService {
         if (current == FulfilmentStatus.PENDING_APPROVAL || current == FulfilmentStatus.REJECTED)
             throw new ValidationException("This order has not been approved yet — confirm it before dispatching.");
 
-        // OMS O5d's scanRequired refusal used to sit here, and it was WITHDRAWN 2026-08-10 along with the two
-        // packing settings — see MarketplaceSettingsCatalog.entries()'s note.
+        // OMS O5d's scanRequired refusal, WITHDRAWN 2026-08-10 and RESTORED here by O7 D3.
         //
-        // The guard itself was right (enforce in the only writer, so the endpoint cannot be bypassed — O3's
-        // reasoning). What was wrong is that it had nothing to enforce AGAINST: the only UI that dispatches,
-        // `submitShipment`, posts {orderItemId, quantity} and never `verified`, so switching the setting on
-        // refused EVERY dispatch and told the packer to scan into a workbench that was never built.
+        // The guard was always right in shape — enforce in the ONLY writer, so posting to the endpoint directly
+        // cannot bypass the workbench (O3's server-side-COD reasoning). What was wrong is that it had nothing
+        // to enforce AGAINST: the only UI that dispatched never sent `verified`, so switching the setting on
+        // refused EVERY dispatch and told the packer to scan into a workbench that did not exist.
         //
-        // Removed rather than left dormant behind a withdrawn key, because a tenant who had already switched it
-        // on would otherwise stay bricked with no screen left to switch it off from. It returns with the
-        // workbench, which is the only thing that can satisfy it.
+        // D3 built that workbench. A scanned line now arrives verified, so a shop that turns this on gets what
+        // it asked for, and one that leaves it off is completely unaffected.
+        if (scanRequired(orgId) && hasUnverifiedLine(req)) {
+            throw new ValidationException("This shop requires items to be scanned when packing. "
+                    + "Use Pack on the order to scan each item into the parcel, or turn off \"Require items to "
+                    + "be scanned\" in Order settings.");
+        }
 
         Map<Long, Integer> requested = normalise(req);
         if (requested.isEmpty())
@@ -204,6 +207,36 @@ public class ShipmentService {
     static int outstanding(OrderItem item) {
         int invoiced = nz(item.getQuantity()) - nz(item.getQuantityBackordered());
         return Math.max(0, invoiced - nz(item.getQuantityShipped()));
+    }
+
+    /**
+     * Does this shop insist a packer scans, rather than types? (O5d, restored by O7 D3.)
+     *
+     * <p><b>Fails OPEN.</b> A settings hiccup must not stop a shop dispatching — that is a worse outage than an
+     * unverified parcel, and the same call C3 makes for every non-safety flag.
+     */
+    private boolean scanRequired(Long orgId) {
+        try {
+            return settingsService != null && settingsService.getBoolFor(
+                    orgId, com.myplus.marketplace.config.MarketplaceSettingsCatalog.PACK_SCAN_REQUIRED);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Any line carrying a real quantity that was NOT scanned.
+     *
+     * <p>Zero-quantity lines are ignored deliberately: the workbench posts every line of the order, and one
+     * the packer did not put in this parcel is not an unverified line — it is an absent one.
+     */
+    private static boolean hasUnverifiedLine(ShipmentDTO.Request req) {
+        if (req == null || req.getLines() == null) return false;
+        for (ShipmentDTO.LineRequest l : req.getLines()) {
+            if (l == null || l.getQuantity() == null || l.getQuantity() <= 0) continue;
+            if (!Boolean.TRUE.equals(l.getVerified())) return true;
+        }
+        return false;
     }
 
     /** Drop nulls, non-positives and duplicates (summing them), so the guards below see one clean number a line. */

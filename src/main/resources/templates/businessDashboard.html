@@ -2082,6 +2082,51 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 			</div>
 
+			<!--
+				OMS O7 D3 — the PACK workbench (Ilyas). Reached from an order's Pack action.
+
+				O5b made a dispatch recordable but not verifiable: the Ship form defaults to "everything
+				outstanding", so the fastest correct-LOOKING action is to accept the defaults whether or not
+				that is what physically went in the box. This screen asks a different question of every item —
+				is it on THIS order, and is any still owed — and refuses at the shelf rather than at the
+				customer. It posts the SAME request the Ship form does; O5b stays the only writer.
+			-->
+			<div id="PackDiv" class="formDiv" style="display:none">
+				<div style="display:flex;justify-content:space-between;align-items:center">
+					<h4 id="packTitle" style="margin:0"></h4>
+					<button class="btn btn-default btn-sm" onclick="closePackWorkbench()" th:text="#{ui.close}">Close</button>
+				</div>
+
+				<div id="packScanRow" class="form-inline" style="margin:12px 0">
+					<input type="text" class="form-control input-lg" id="packScan" style="min-width:260px"
+					       th:placeholder="#{ui.scanItem}" placeholder="Scan item…"
+					       onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();packScan();}">
+					<button class="btn btn-default btn-lg" onclick="packScan()" th:text="#{ui.add}">Add</button>
+					<span id="packScanHint" class="text-muted" style="margin-left:10px"></span>
+				</div>
+				<div id="packMsg" class="alert" style="display:none"></div>
+
+				<table class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.product}">Product</th>
+						<th class="text-right" th:text="#{ui.toPick}">To pick</th>
+						<th class="text-right" th:text="#{ui.packed}">Packed</th>
+					</tr></thead>
+					<tbody id="packBody"></tbody>
+				</table>
+				<div id="packEmpty" class="text-muted" style="display:none" th:text="#{ui.nothingLeftToPack}">Nothing left to pick on this order.</div>
+
+				<!-- Refused SERVER-side too when the shop requires scanning: this only avoids letting a packer
+				     seal a box and then be told no. -->
+				<div id="packBlocked" class="alert alert-danger" style="display:none" th:text="#{ui.scanRequiredBlocked}">This shop requires every item to be scanned — a typed quantity cannot be dispatched.</div>
+
+				<div class="form-inline" style="margin-top:8px">
+					<input type="text" class="form-control" id="packCarrier" style="width:180px" th:placeholder="#{ui.carrier}" placeholder="Carrier">
+					<input type="text" class="form-control" id="packTracking" style="width:220px" th:placeholder="#{ui.trackingNumber}" placeholder="Tracking number">
+					<button class="btn btn-success btn-lg" id="packConfirm" onclick="packConfirm()" disabled th:text="#{ui.recordShipment}">Record shipment</button>
+				</div>
+			</div>
+
 			<!-- M1 (slice 42): catalog Product master registration — the single product master all verticals share. -->
 			<div id="ProductDiv" class="formDiv" style="display:none">
 				<!-- <h4 data-term>Product (Catalog Master)</h4> -->
@@ -2788,6 +2833,8 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/ecommerce.js}"></script>
     <!-- O7 D2b: the field rep's booking screen. Separate from ecommerce.js, which is the WAREHOUSE's surface. -->
     <script th:src="@{/js/business/order-booking.js}"></script>
+    <!-- O7 D3: the packer's workbench. Composes the SAME shipment request the Ship form posts. -->
+    <script th:src="@{/js/business/order-packing.js}"></script>
 <!-- Slice 108b: one consistent, searchable dropdown across every dashboard. Education had a blanket
      initialiser inline in its own template; every other module had none, so business had 48 selects
      and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->

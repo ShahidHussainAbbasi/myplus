@@ -329,6 +329,13 @@
         // OMS O5b: Ship replaces "Mark SHIPPED". The order becomes SHIPPED because a parcel was RECORDED —
         // the status is derived from what went out, so there is no button that can claim a dispatch.
         if (outstandingUnits(o) > 0 && o.fulfilmentStatus !== 'CANCELLED' && o.fulfilmentStatus !== 'RETURNED') {
+            // O7 D3: PACK comes first and is the primary action — it verifies each item against this order as
+            // it goes in the box, which is the one error the Ship form cannot catch (right count, wrong goods).
+            // Ship stays, deliberately: a barcode can be missing or damaged, and a packer who cannot proceed
+            // will find some other way round. Typing is no longer the DEFAULT; it is still possible, and the
+            // shipment records which lines were actually scanned.
+            html += " <button class='btn btn-xs btn-primary' id='orderPackBtn' onclick=\"openPackWorkbench("
+                + Number(o.id) + ')">' + esc(t('ui.js.pack') || 'Pack') + '</button>';
             html += " <button class='btn btn-xs btn-success' id='orderShipBtn' onclick=\"openShipForm("
                 + Number(o.id) + ')">' + esc(t('ui.js.ship') || 'Ship') + '</button>';
         }

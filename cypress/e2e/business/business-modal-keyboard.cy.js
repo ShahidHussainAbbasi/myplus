@@ -20,16 +20,42 @@ const STAMP = Date.now()
 // field is stated explicitly rather than derived, so a change to the form's first field shows up
 // here as a decision rather than passing silently.
 const MODALS = [
-  { entity: 'Company',  open: '#newCompany',  first: 'companyName' },
-  { entity: 'Customer', open: '#newCustomer', first: 'customerName' },
-  { entity: 'Vender',   open: '#newVender',   first: 'venderName' },
-  { entity: 'Product',  open: '#newProduct',  first: 'prodName' },
+  { entity: 'Company',  section: 'CompanyDiv',  open: '#newCompany',  first: 'companyName' },
+  { entity: 'Customer', section: 'CustomerDiv', open: '#newCustomer', first: 'customerName' },
+  { entity: 'Vender',   section: 'VenderDiv',   open: '#newVender',   first: 'venderName' },
+  // Product is NOT on #registrationType — its screen is opened by showProducts(), the catalog
+  // master's own entry point. Same modal convention, different way in.
+  { entity: 'Product',  section: null,          open: '#newProduct',  first: 'prodName' },
 ]
+
+/** The id of the field that currently has focus.
+ *
+ * bootstrap-select hides the real <select> and focuses the BUTTON it renders, so asking the focused
+ * element for its id answers with the button's (usually nothing). Resolve back to the <select> the
+ * button stands for. Written once here because three assertions below need it and a fourth got it
+ * wrong by restating it.
+ */
+function focusedFieldId($el) {
+  return Cypress.$($el).attr('id')
+    || Cypress.$($el).closest('.bootstrap-select').prev('select').attr('id')
+}
 
 function openDash() {
   cy.visit('/businessDashboard')
   cy.window({ timeout: 30000 }).its('EnterChain').should('exist')
   cy.window().its('KeyboardForms').should('exist')
+}
+
+/** A toolbar "+ New" button lives inside its section's .formDiv, which is display:none until that
+ *  section is shown — so the section has to be opened before the button can be clicked. */
+function openSectionFor(section) {
+  if (section) {
+    cy.get('#registrationType').select(section, { force: true })
+    cy.get('#' + section).should('be.visible')
+  } else {
+    cy.window().then((w) => w.showProducts())
+    cy.get('#ProductDiv').should('be.visible')
+  }
 }
 
 describe('P7.2 — business registration modals, keyboard-first', () => {
@@ -50,9 +76,10 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     })
   })
 
-  MODALS.forEach(({ entity, open, first }) => {
+  MODALS.forEach(({ entity, section, open, first }) => {
     it(`${entity}: Enter walks the form in layout order, Shift+Enter reverses`, () => {
       openDash()
+      openSectionFor(section)
       cy.get(open).click()
       cy.get(`#${entity}Modal`).should('have.class', 'open')
 
@@ -80,15 +107,11 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
         const second = chain[1]
         cy.get(`#${first}`).focus().type('{enter}')
         cy.focused().should(($el) => {
-          const id = Cypress.$($el).attr('id')
-            || Cypress.$($el).closest('.bootstrap-select').prev('select').attr('id')
-          expect(id, `Enter reached ${second}`).to.eq(second)
+          expect(focusedFieldId($el), `Enter reached ${second}`).to.eq(second)
         })
         cy.focused().type('{shift}{enter}')
         cy.focused().should(($el) => {
-          const id = Cypress.$($el).attr('id')
-            || Cypress.$($el).closest('.bootstrap-select').prev('select').attr('id')
-          expect(id, `Shift+Enter returned to ${first}`).to.eq(first)
+          expect(focusedFieldId($el), `Shift+Enter returned to ${first}`).to.eq(first)
         })
       })
     })
@@ -97,6 +120,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
       let posted = false
       cy.intercept('POST', `/add${entity}`, (req) => { posted = true; req.continue() })
       openDash()
+      openSectionFor(section)
       cy.get(open).click()
       cy.get(`#${entity}Modal`).should('have.class', 'open')
       cy.get(`#${first}`).focus().type('{esc}')
@@ -110,6 +134,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
   it('Ctrl+Enter saves from the middle of a form', () => {
     cy.intercept('POST', '/addCompany').as('save')
     openDash()
+    openSectionFor('CompanyDiv')
     cy.get('#newCompany').click()
     cy.get('#companyName').clear().type(`P72Co_${STAMP}`)
     cy.get('#companyEmail').clear().type(`p72co${STAMP}@test.com`)
@@ -122,6 +147,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     let posts = 0
     cy.intercept('POST', '/addCompany', (req) => { posts += 1; req.continue() }).as('save')
     openDash()
+    openSectionFor('CompanyDiv')
     cy.get('#newCompany').click()
     cy.get('#companyName').clear().type(`P72Last_${STAMP}`)
     cy.window().then((w) => {
@@ -140,6 +166,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     let posted = false
     cy.intercept('POST', '/addCompany', (req) => { posted = true; req.continue() })
     openDash()
+    openSectionFor('CompanyDiv')
     cy.window().then((w) => { w.kbdEnterSubmits = false })
     cy.get('#newCompany').click()
     cy.get('#companyName').clear().type(`P72NoSub_${STAMP}`)
@@ -157,6 +184,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
 
   it('formNav=off → the chain is inert and the form behaves as it did before P7.2', () => {
     openDash()
+    openSectionFor('CompanyDiv')
     cy.window().then((w) => { w.kbdFormNavEnabled = false })
     cy.get('#newCompany').click()
     cy.get('#companyName').focus().type('{enter}')
@@ -168,17 +196,38 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
 
   it('a dialog with NO <form> still gets a chain, via data-kbd-submit', () => {
     openDash()
-    // Receive Payment is opened from a customer row; drive the modal directly, since the row journey
-    // is covered elsewhere and this test is about the CHAIN, not the journey.
+    // #ReceivePaymentModal is nested INSIDE #CustomerDiv, so the section has to be showing before its
+    // fields have any size at all. Opening the modal alone yields an empty chain — correctly, since
+    // a field inside a display:none ancestor is not something you can put a cursor in.
+    openSectionFor('CustomerDiv')
+    // Drive the modal directly: the customer-row journey is covered elsewhere and this test is about
+    // the CHAIN, not the route in.
+    cy.window().then((w) => { w.openModal('ReceivePaymentModal') })
+    cy.get('#ReceivePaymentModal').should('have.class', 'open')
     cy.window().then((w) => {
-      w.openModal('ReceivePaymentModal')
       const chain = w.EnterChain.fieldsIn('#ReceivePaymentModal')
       expect(chain, 'amount is the first stop').to.include('rcvAmount')
       expect(chain, 'reference is in the chain').to.include('rcvReference')
       expect(chain, 'the hidden customer id is not a stop').to.not.include('rcvCustomerId')
     })
     cy.get('#rcvAmount').focus().type('{enter}')
-    cy.focused().should('have.id', 'rcvMethod')
+    // rcvMethod is a bootstrap-select at runtime, so focus lands on its button, not the <select>.
+    cy.focused().should(($el) => expect(focusedFieldId($el)).to.eq('rcvMethod'))
+  })
+
+  it('the OTHER form-less dialog is wired the same way', () => {
+    openDash()
+    openSectionFor('VenderDiv')            // #PayVendorModal is nested inside #VenderDiv
+    cy.window().then((w) => { w.openModal('PayVendorModal') })
+    cy.get('#PayVendorModal').should('have.class', 'open')
+    cy.window().then((w) => {
+      expect(w.EnterChain.fieldsIn('#PayVendorModal')).to.include('pvAmount')
+    })
+    cy.get('#pvAmount').focus().type('{enter}')
+    cy.focused().should(($el) => expect(focusedFieldId($el)).to.eq('pvMethod'))
+    // Esc still closes a dialog that has no <form> and no #add<Entity>.
+    cy.focused().type('{esc}')
+    cy.get('#PayVendorModal').should('not.have.class', 'open')
   })
 
   // ── the guard that matters most ───────────────────────────────────────────
@@ -186,6 +235,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
   it('the mouse path is untouched — a form still saves by clicking its button', () => {
     cy.intercept('POST', '/addCustomer').as('save')
     openDash()
+    openSectionFor('CustomerDiv')
     cy.get('#newCustomer').click()
     cy.get('#customerName').clear().type(`P72Mouse_${STAMP}`)
     cy.get('#contact').clear().type('03001234567')
