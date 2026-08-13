@@ -3416,6 +3416,11 @@ function loadPosFeatureFlags(){
 		// costs familiarity, never function. Re-laying-out a till mid-sale because a settings call
 		// hiccuped is the surprise worth avoiding, whichever way the default points.
 		window.posKeyboardEnabled = byKey['pos.keyboard.enabled'] === true;
+		// P7.2 — registration-form keyboard nav. Fails OPEN (absent => on), the opposite of the POS
+		// flags above, because the risk is opposite: a stray function key on a till can complete a
+		// sale, whereas Enter moving to the next box does nothing Tab could not.
+		window.kbdFormNavEnabled = ('ui.keyboard.formNav.enabled' in byKey) ? byKey['ui.keyboard.formNav.enabled'] : true;
+		window.kbdEnterSubmits   = ('ui.keyboard.enterSubmits' in byKey) ? byKey['ui.keyboard.enterSubmits'] : true;
 		// The compact ROW is a SEPARATE setting from the keyboard flow. pos-keyboard.js addresses
 		// fields by id, so Enter walks the sale on the stacked layout too. Fails closed.
 		window.posRowLayoutEnabled = byKey['pos.entry.compactRow'] === true;
@@ -3461,6 +3466,8 @@ function loadPosFeatureFlags(){
 	}, 'json').fail(function(){
 		window.posBarcodeEnabled = true; window.posAutoPrintReceipt = true; window.pharmaBlockSevere = true;
 		window.posKeyboardEnabled = false;      // fail CLOSED — see above
+		window.kbdFormNavEnabled = true;        // fail OPEN — losing form nav to a hiccup is the worse outcome
+		window.kbdEnterSubmits = true;
 		window.posShortcutsEnabled = false;     // fail CLOSED
 		window.posQuickPickEnabled = false;     // fail CLOSED
 		window.posQuickPickCount = 9;

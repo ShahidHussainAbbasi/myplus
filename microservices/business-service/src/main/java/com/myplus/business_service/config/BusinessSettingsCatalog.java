@@ -37,6 +37,28 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                 // opt-in. A tenant who prefers the tall one-field-per-line form switches it off here.
                 // NOTE this is the effective default for anyone with NO stored override — so it changes the
                 // sale screen for every existing tenant that never touched the setting.
+                // P7.2 — keyboard navigation on the REGISTRATION forms (Customer, Vendor, Product,
+                // Company, payments). Separate from the sale-screen keys above: a shop can want a
+                // keyboard-driven till and ordinary mouse-driven data entry, or the reverse.
+                //
+                // Both fail OPEN, unlike the POS flags. The reasoning inverts because the risk does:
+                // an unexpected function key on a live till can complete a sale, whereas Enter moving
+                // to the next box cannot do anything a Tab press could not. Losing the feature to a
+                // config hiccup would be the worse outcome here.
+                SettingEntry.bool("ui.keyboard.formNav.enabled",
+                        "Keyboard navigation on registration forms",
+                        "On (default): Enter moves to the next field on the Customer, Vendor, Product, "
+                                + "Company and payment forms, Shift+Enter goes back, and Esc closes the form. "
+                                + "Off: those forms behave as before, with Tab only. Phones and small "
+                                + "tablets are unaffected either way.",
+                        true, "Data entry"),
+                SettingEntry.bool("ui.keyboard.enterSubmits",
+                        "Enter saves on the last field",
+                        "On (default): pressing Enter on the last field of a registration form saves it, "
+                                + "so a record is completed without reaching for the mouse. Off: only "
+                                + "Ctrl+Enter saves, which suits teams worried that a stray Enter could "
+                                + "save a half-typed record. Ctrl+Enter always saves either way.",
+                        true, "Data entry"),
                 SettingEntry.bool("pos.keyboard.enabled",
                         "Compact one-row sale entry",
                         "On (default): item, quantity, price and discount sit on a single row above the "

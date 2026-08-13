@@ -253,6 +253,16 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
 // ─── 4. Customer Mandatory Validation ────────────────────────────────────────
 
 describe('Sell Section — Customer Mandatory Validation', () => {
+  // UPDATED 2026-08-13. These asserted that a customer was ALWAYS mandatory. D-24 (2026-08-10, main.js:461)
+  // deliberately narrowed that: the customer is required only when the sale LEAVES A BALANCE, because
+  //
+  //   "a receivable against nobody cannot be chased, aged or collected"
+  //
+  // while a fully-paid walk-in needs no name. Clicking Complete Sale on an empty, fully-paid form therefore
+  // triggers no validation at all, and these cases were asserting a rule the product no longer has.
+  //
+  // They now establish the precondition first — CREDIT is the tender that guarantees a balance, and is the one
+  // case D-24 records as NOT configurable — and assert the same red border on the same elements.
   beforeEach(() => {
     cy.loginAsBusiness()
     cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
@@ -260,6 +270,8 @@ describe('Sell Section — Customer Mandatory Validation', () => {
     cy.get('#sellType').select('sellDiv', { force: true })
     cy.get('#sellDiv').should('be.visible')
     cy.wait('@getCustomers', { timeout: 10000 })
+    // The precondition: an on-account sale owes money, so it must name who owes it.
+    cy.get('#sellPayMethod').select('CREDIT', { force: true })
   })
 
   it('addSell blocked in Select mode when no customer chosen — dropdown turns red', () => {
@@ -286,7 +298,7 @@ describe('Sell Section — Customer Mandatory Validation', () => {
         cy.log('No customers in DB — border-clear test skipped')
         return
       }
-      cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val())
+      cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val(), { force: true })
       cy.get('#sellCustomerDD').should('not.have.css', 'border-color', 'rgb(255, 0, 0)')
     })
   })

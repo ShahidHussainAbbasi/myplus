@@ -602,7 +602,16 @@ delegates the two credit helpers, so that spec is what proves the extraction cha
 
 ---
 
-## 10. D2b — the booking screen, built 2026-08-12
+## 10. D2b — the booking screen. DONE, GREEN 2026-08-13
+
+**Gate green, run by me headless (identical assertions to headed):**
+`order-booking-screen` **8/8** · `order-booker` **11/11** · `order-approval` **12/12** ·
+`order-backorder` **11/11** · `pos-order-parity` **9/9** · `credit-limit` **14/14** ·
+`order-fulfilment` **12/12** · `ecommerce-orders` 3/3 · `order-cancel` 3/3 ·
+`order-back-office` 15/15 · `sell` **31/31**.
+
+Includes **D2c** (the order→outlet link) and **D2d** (territory), both found by auditing D2b before the gate.
+
 
 D1 and D2 built a complete pre-sales API **that no field rep could reach**. This is the screen they use.
 
@@ -697,6 +706,35 @@ no data until D6 builds the assignment UI, and the no-data behaviour is the docu
 **The trade, stated plainly:** any org member can now list the org's outlet *names*. That is a real widening
 over `findOwnScoped`, accepted deliberately — a rep who cannot see the shops on their round cannot do the job —
 and bounded by the identity-only projection and unchanged org scoping, both gated.
+
+### 10.1d Two REGRESSION failures, neither caused by O7 — both were stale specs
+
+Running the wider set surfaced two pre-existing problems worth recording, because both are the "test asserts a
+rule the product no longer has" shape that O4 already retired specs for.
+
+**`sell.cy.js` — 4 cases asserting a REMOVED requirement.** They clicked Complete Sale on an empty, fully-paid
+form and expected the customer field to turn red. **D-24 (2026-08-10, `main.js:461`) deliberately narrowed
+that**: the customer is required *only when the sale leaves a balance*, because *"a receivable against nobody
+cannot be chased, aged or collected"* — while a fully-paid walk-in needs no name. No balance, no requirement,
+no red border. The app was right and the spec was a year of habit.
+Fixed by establishing the precondition (`sellPayMethod = CREDIT`, the tender D-24 records as the one case that
+is **not** configurable) and asserting the same borders on the same elements. 27 → **31/31**.
+
+**A wrong first attempt, recorded because the reasoning is the useful part.** I first assumed the red border had
+moved to the bootstrap-select *wrapper* (`main.js:227` genuinely does redirect it there for `.selectpicker`
+controls) and patched the assertions accordingly. It did not help — and could not have, because `#sellCN` is a
+plain `<input>` and was failing identically. **One hypothesis explaining only half the failures was the signal I
+should have taken before editing anything.** Reverted, then diagnosed properly.
+
+**`order-backorder.cy.js` — 1 failure in a batch, 11/11 alone.** Cross-spec interference, not a defect: these
+specs share tenant state (stock levels, `order.backorder.*` settings). Recorded rather than "fixed" — there is
+nothing wrong with the code, and the honest note is that this suite is not fully isolation-safe when several
+order specs run in one batch.
+
+**Also confirmed, not a bug:** `searchable-selects.js` applies bootstrap-select to every `<select>`, hiding the
+native control, so Cypress needs `{ force: true }` to drive one. The booking screen itself needs no
+`selectpicker('refresh')` after its AJAX loads — `searchable-selects.js:93` registers a global `ajaxComplete`
+hook that refreshes every picker. I had suspected a bug there; the platform already handles it.
 
 ### 10.2 Gate
 

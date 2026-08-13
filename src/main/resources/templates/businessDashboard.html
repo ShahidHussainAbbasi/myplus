@@ -990,7 +990,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					</table>
 
 					<!-- F1 (AP): Pay Vendor modal — FIFO-settles the vendor payable + records a DISBURSEMENT (mirror of ReceivePaymentModal). -->
-					<div id="PayVendorModal" class="crud-overlay">
+					<div id="PayVendorModal" class="crud-overlay" data-kbd-submit="#submitPayVendor">
 					  <div class="crud-box">
 						<div class="crud-head">
 							<h4><span th:text="#{ui.payVendor}">Pay Vendor &mdash;</span> <span id="pvVendorName"></span></h4>
@@ -1027,7 +1027,7 @@ tr.row-voided .js-edit-row{display:none !important}
 									<div class="col-sm-3"><input type="text" class="form-control" id="pvReference" placeholder="Cheque/txn #" th:placeholder="#{ui.chequeTxn}"/></div>
 								</div>
 								<div class="form-group text-center">
-									<button type="button" class="btn btn-success" onclick="submitPayVendor()">
+									<button type="button" id="submitPayVendor" class="btn btn-success" onclick="submitPayVendor()">
 										<span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.pay}">Pay</span>
 									</button>
 									<button type="button" class="btn btn-warning" onclick="closeModal('PayVendorModal')">
@@ -1177,7 +1177,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				<div>
 					<!-- Receive Payment (AR subledger): allocate a receipt to the customer's open invoices + record it
 					     in the shared finance ledger. Opened from the "Receive" action on a customer row. -->
-					<div id="ReceivePaymentModal" class="crud-overlay">
+					<div id="ReceivePaymentModal" class="crud-overlay" data-kbd-submit="#submitReceivePayment">
 					  <div class="crud-box">
 						<div class="crud-head">
 							<h4><span th:text="#{ui.receivePayment2}">Receive Payment &mdash;</span> <span id="rcvCustomerName"></span></h4>
@@ -1214,7 +1214,7 @@ tr.row-voided .js-edit-row{display:none !important}
 									<div class="col-sm-3"><input type="text" class="form-control" id="rcvReference" placeholder="Cheque/txn #" th:placeholder="#{ui.chequeTxn}"/></div>
 								</div>
 								<div class="form-group text-center">
-									<button type="button" class="btn btn-success" onclick="submitReceivePayment()">
+									<button type="button" id="submitReceivePayment" class="btn btn-success" onclick="submitReceivePayment()">
 										<span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.receive}">Receive</span>
 									</button>
 									<button type="button" class="btn btn-warning" onclick="closeModal('ReceivePaymentModal')">
@@ -1324,7 +1324,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						<button type="button" class="btn btn-default btn-sm" onclick="clearSelection('Purchase')" th:text="#{ui.clear}">Clear</button>
 					</span>
 				</div>
-				<div id="PurchaseModal" class="crud-overlay">
+				<div id="PurchaseModal" class="crud-overlay" data-kbd-custom>
 				  <div class="crud-box">
 					<div class="crud-head">
 						<h4 id="PurchaseModalTitle" th:text="#{ui.newPurchase}">New Purchase</h4>
@@ -2762,6 +2762,9 @@ tr.row-voided .js-edit-row{display:none !important}
     <!-- P6: the Enter-to-advance engine shared by the sale chain (pos-keyboard.js) and the purchase
          form (business.js). Must load before both — they call into it, they do not restate it. -->
     <script th:src="@{/js/common/enter-chain.js}"></script>
+    <!-- P7.2: Enter-chain for every <Entity>Modal on this dashboard, bound by convention. Loading this
+         file IS the opt-in — education/welfare/agriculture stay untouched until their own phase. -->
+    <script th:src="@{/js/common/keyboard-forms.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <!-- B2B-P3g-5: businessInvoicePrint.js removed. It was a 148-line jsPDF A4 printer gated on
          `if (userId*ONE != 37) return false;` with one shop's name, address and phone hardcoded into it, and
