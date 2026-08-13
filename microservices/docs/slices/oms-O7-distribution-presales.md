@@ -581,7 +581,10 @@ stamps `X-User-Email` and nothing else identifying, so `AuthenticatedUser` carri
 and stable, but `booker.marketplace@myplus.com` is not what a warehouse screen should show a human. Putting a
 display name in the JWT is the fix, and it belongs with the screen that needs it rather than here.
 
-**No booking SCREEN yet.** The endpoints, the proxies, the role and the credit read all exist and are gated;
+**No booking SCREEN yet** — *shipped as D2b, see §10.*
+
+<!-- superseded -->
+**Historic note:** The endpoints, the proxies, the role and the credit read all exist and are gated;
 what a rep would actually use on a phone is the mobile UI, and it is the larger half of D2's original scope.
 Split out deliberately rather than half-drawn — and the API being complete first is what lets the screen be
 built against something already proven.
@@ -596,6 +599,47 @@ mvn -pl marketplace-service -am clean package -DskipTests  # V19 + attribution +
 Then headed: `order-booker.cy.js` (8 cases). **Regression:** `credit-limit` first — `SagaSellService` now
 delegates the two credit helpers, so that spec is what proves the extraction changed no behaviour — then
 `order-approval`, `order-back-office`, `order-fulfilment`, `sell`, `method-authz`.
+
+---
+
+## 10. D2b — the booking screen, built 2026-08-12
+
+D1 and D2 built a complete pre-sales API **that no field rep could reach**. This is the screen they use.
+
+| | |
+|---|---|
+| **`#BookingDiv`** + `order-booking.js` | Shop picker → credit banner → line entry → book, then the rep's own recent orders **on the same screen**. |
+| **Its own JS file** | `ecommerce.js` is the **warehouse's** surface (review, ship, refund); this is the **field's**. Same domain, different audiences — keeping them apart is what stops a booker's screen slowly acquiring the back office's buttons. |
+| **Mobile-first, genuinely** | Single column by default, widening at the shared 992px breakpoint — **the reverse of every other layout in `responsive.css`**, which starts wide and collapses. Built the usual way round, the field case (the one that matters) would have been the fallback. `.input-lg` + full-width controls, because a rep is using a thumb. |
+| **i18n ×6** | 6 new keys, all six bundles aligned at 1633. |
+
+### 10.1 Three decisions in the screen
+
+**It is NOT built from the sell screen.** That screen is a till — it prices, tenders, takes money, prints.
+Booking commits nothing; it composes a request. Reusing the till would have meant disabling most of it and
+explaining why. The parts genuinely worth sharing (product master, customer master, credit engine) are shared
+**at the server**, which is where sharing belongs.
+
+**Adding the same product twice REPLACES the quantity.** A rep correcting themselves at the counter means
+"make it six", not "six more". Getting this wrong double-orders the shop, which is the most expensive mistake
+this screen could make — so it is gated by its own case.
+
+**The idempotency key is minted per composed order and survives a failed submit.** A rep on someone else's wifi
+*will* press Book again when nothing appears to happen. The key is cleared only when an order is actually
+accepted, so the retry replays rather than duplicates.
+
+### 10.2 Gate
+
+Monolith only — no service changed.
+```
+mvn clean install -DskipTests
+```
+Then headed: `order-booking-screen.cy.js` (7 cases). **Regression:** `order-booker`, `order-approval`,
+`ecommerce-orders`, `sell` (shares the dashboard template), plus an i18n spec if one covers key alignment.
+
+⚠️ `loginAsOrderBooker` now carries a `cacheKeyExtra` (`o7d2-booker`). **Bump it whenever
+`ROLE_ORDER_BOOKER`'s privileges change**, or `cy.session` replays a token minted under the old identity —
+the failure that cost `loginAsPortalGuardian` six gate runs.
 
 ---
 

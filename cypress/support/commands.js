@@ -157,8 +157,12 @@ Cypress.Commands.add('loginAsMarketplaceOwner', (email = 'owner.marketplace@mypl
 //
 // Its value as a fixture is what it CANNOT do: ROLE_ORDER_BOOKER carries no ADMIN_PRIVILEGE, so this is the
 // account that proves a rep cannot confirm their own order.
+// The cacheKeyExtra is not decoration. This principal was CREATED by D2 and its privilege set is expected to
+// move as O7 lands (D3 packing, D4 delivery), so a session cached under the old identity would replay a token
+// whose authorities no longer match the role — the failure that cost loginAsPortalGuardian six gate runs.
+// Bump the tag whenever ROLE_ORDER_BOOKER's privileges change.
 Cypress.Commands.add('loginAsOrderBooker', (email = 'booker.marketplace@myplus.com', password = DEMO_PW) => {
-  cy.loginAs(email, password, '/getOrders')
+  cy.loginAs(email, password, '/getOrders', 'o7d2-booker')
 })
 
 // NOTE: owner.inventory@ / owner.campaign@ / owner.analytics@ ARE seeded, but get no login command here on
@@ -429,4 +433,32 @@ Cypress.Commands.add('ensureCompany', () => {
       return cy.wrap(made[0].id)
     })
   })
+})
+
+/**
+ * Open the sale screen and WAIT for the tenant's POS feature flags to land.
+ *
+ * The race this closes: businessDashboard fires loadPosFeatureFlags() on load (business.js ~line 160),
+ * an async GET /getBusinessConfig whose handler OVERWRITES every window.pos* flag — and which fails
+ * CLOSED, setting posKeyboardEnabled/posShortcutsEnabled/posQuickPickEnabled to false when the call
+ * errors. A spec that pins those flags straight after cy.visit() is racing that response: land late and
+ * the server's value silently replaces the test's, so the feature under test is simply OFF and the
+ * assertions fail somewhere unrelated — a missing <option>, an empty cart, focus that will not move.
+ *
+ * That is exactly what a burst of gateway 503s produced during the P6 gate: five failures in three
+ * different shapes, one cause, none of them where the real problem was.
+ *
+ * Waiting for the response first means the test's assignment is always the LAST write. It also makes a
+ * failed config call visible as a failed wait, instead of as a puzzle three assertions later.
+ *
+ * Each spec keeps its own module assertions and its own flag pinning — only the racy part is shared.
+ */
+Cypress.Commands.add('visitSaleScreen', () => {
+  // Registered BEFORE the visit, or the load-time request is missed entirely.
+  cy.intercept('GET', '**/getBusinessConfig').as('posFeatureFlags')
+  cy.visit('/businessDashboard')
+  cy.get('#sellType').select('sellDiv', { force: true })   // nav select is off-screen
+  cy.get('#sellDiv').should('be.visible')
+  // Resolves for an error response too — the point is that the handler has finished writing.
+  cy.wait('@posFeatureFlags', { timeout: 30000 })
 })

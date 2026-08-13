@@ -224,3 +224,33 @@ html[lang="hi"] .table > thead > tr > th{ line-height:1.8; }
 @media (min-width:992px) and (max-width:1199px){
   #content{ padding:18px 20px; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   6. OMS O7 D2b — the ORDER BOOKER's screen (#BookingDiv)
+   ══════════════════════════════════════════════════════════════════════════
+   The only screen here designed to be used standing up, on a phone, in
+   someone else's shop. So it is single-column BY DEFAULT and widens on a
+   desk — the reverse of every other layout in this file, which starts wide
+   and collapses. Building it the usual way round would mean the field case,
+   the one that actually matters, was the fallback.
+
+   The breakpoint is the shared 992px from the scale above; this section adds
+   no new one. */
+
+.booking-grid{ display:block; }
+.booking-col{ margin-bottom:4px; }
+
+/* Big tap targets: a rep is using a thumb, often one-handed, sometimes in
+   poor light. Bootstrap's .input-lg gets most of the way; this makes the
+   stacked controls full-width and gives the rows breathing room. */
+#BookingDiv .form-control{ width:100%; }
+#BookingDiv .form-group{ margin-bottom:14px; }
+#BookingDiv .btn-lg{ padding:14px 16px; }
+
+@media (min-width:992px){
+  /* On a desk the two halves sit side by side — shop details left, line entry
+     right — so the whole compose step is visible without scrolling. */
+  .booking-grid{ display:flex; gap:24px; }
+  .booking-col{ flex:1 1 0; min-width:0; }
+}

@@ -26,9 +26,9 @@
  * A test helper that swallows a missing dependency costs more than the test is worth.
  */
 function openSell(enabled) {
-  cy.visit('/businessDashboard')
-  cy.get('#sellType').select('sellDiv', { force: true })   // nav select is off-screen
-  cy.get('#sellDiv').should('be.visible')
+  // visitSaleScreen waits for loadPosFeatureFlags() to finish writing window.pos* — otherwise the
+  // assignment below is racing it, and a failed config call (which fails CLOSED) silently wins.
+  cy.visitSaleScreen()
   cy.window().should((w) => {
     expect(w.applyPosKeyboard, 'pos-keyboard.js is loaded (is the monolith rebuilt?)').to.be.a('function')
     expect(w.applyPosFieldVisibility, 'business.js exposes applyPosFieldVisibility').to.be.a('function')

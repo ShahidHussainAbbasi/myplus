@@ -161,6 +161,9 @@ tr.row-voided .js-edit-row{display:none !important}
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
+								<!-- OMS O7 D2b — the field rep's screen. Listed FIRST in this menu because for an
+								     order booker it is the only entry they use; Orders below is the warehouse's. -->
+								<li><a onclick="showOrderBooking();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-shopping-cart"></span> <span th:text="#{ui.bookOrder}">Book order</span></a></li>
 								<li><a onclick="showOrders();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.orders}">Orders</span></a></li>
 									<!-- OMS O3: per-org delivery fees / free-delivery threshold / cash-on-delivery. -->
 									<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showOrderConfig();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.orderSettings}">Order settings</span></a></li>
@@ -1940,6 +1943,91 @@ tr.row-voided .js-edit-row{display:none !important}
 			</div>
 
 			<!-- E-commerce E1 (slice 46): orders back-office (order = trade sale + fulfilment). ECOMMERCE only. -->
+			<!--
+				OMS O7 D2b — the ORDER BOOKER's screen: a field rep standing in someone else's shop, on a phone.
+
+				Deliberately NOT built from the sell screen. That screen is a till: it prices, tenders, takes
+				money and prints. This one commits nothing — it composes a REQUEST the warehouse will review —
+				so reusing the till would mean disabling most of it and explaining why. Different job, different
+				screen; the shared parts (product master, customer master, credit engine) are shared at the
+				SERVER, which is where sharing belongs.
+
+				Single-column on purpose: every control is full-width and stacks, so it works at 360px without a
+				separate mobile layout. .booking-grid widens it on a desk (responsive.css owns the breakpoints).
+			-->
+			<div id="BookingDiv" class="formDiv" style="display:none">
+				<p class="text-muted" th:text="#{ui.bookingIntro}">Book an order at the shop. It is sent to the warehouse for review — nothing is invoiced and no stock moves until it is confirmed and dispatched.</p>
+
+				<div class="booking-grid">
+					<div class="booking-col">
+						<div class="form-group">
+							<label for="bkOutlet" th:text="#{ui.shop}">Shop</label>
+							<select class="form-control input-lg" id="bkOutlet" onchange="bkOutletChanged()"></select>
+						</div>
+						<!-- Credit standing, BEFORE any line is entered (finding B3) — hidden entirely when the
+						     outlet has no limit, because "0 of 0" would train reps to ignore the banner. -->
+						<div id="bkCredit" class="alert alert-info" style="display:none"></div>
+
+						<div class="form-group">
+							<label for="bkContact" th:text="#{ui.contact}">Contact</label>
+							<input type="text" class="form-control input-lg" id="bkContact">
+						</div>
+						<div class="form-group">
+							<label for="bkAddress" th:text="#{ui.deliveryAddress}">Delivery address</label>
+							<input type="text" class="form-control input-lg" id="bkAddress">
+						</div>
+					</div>
+
+					<div class="booking-col">
+						<div class="form-group">
+							<label for="bkProduct" th:text="#{ui.product}">Product</label>
+							<select class="form-control input-lg" id="bkProduct" onchange="bkProductChanged()"></select>
+						</div>
+						<div class="row">
+							<div class="col-xs-6 form-group">
+								<label for="bkQty" th:text="#{ui.quantity}">Quantity</label>
+								<input type="number" class="form-control input-lg" id="bkQty" min="1" step="1" inputmode="numeric">
+							</div>
+							<div class="col-xs-6 form-group">
+								<label for="bkPrice" th:text="#{ui.rate}">Rate</label>
+								<input type="number" class="form-control input-lg" id="bkPrice" min="0" step="0.01" inputmode="decimal">
+							</div>
+						</div>
+						<button type="button" class="btn btn-default btn-block btn-lg" id="bkAddBtn" onclick="bkAddLine()" th:text="#{ui.addLine}">Add line</button>
+					</div>
+				</div>
+
+				<table class="table table-bordered table-striped" style="margin-top:14px">
+					<thead><tr>
+						<th th:text="#{ui.product}">Product</th>
+						<th class="text-right" th:text="#{ui.quantity}">Quantity</th>
+						<th class="text-right" th:text="#{ui.rate}">Rate</th>
+						<th class="text-right" th:text="#{ui.total}">Total</th>
+						<th></th>
+					</tr></thead>
+					<tbody id="bkLinesBody"></tbody>
+					<tfoot><tr>
+						<th colspan="3" class="text-right" th:text="#{ui.total}">Total</th>
+						<th class="text-right" id="bkTotal">0.00</th><th></th>
+					</tr></tfoot>
+				</table>
+				<div id="bkLinesEmpty" class="text-muted" th:text="#{ui.noLinesYet}">No lines yet.</div>
+
+				<button type="button" class="btn btn-primary btn-block btn-lg" id="bkSubmit" onclick="bkSubmit()" disabled th:text="#{ui.bookOrder}">Book order</button>
+
+				<!-- "What happened to the order I took here last week?" is asked AT THE COUNTER, so it lives on
+				     the same screen. ?mine=true is resolved to the caller server-side. -->
+				<h4 style="margin-top:24px" th:text="#{ui.myRecentOrders}">My recent orders</h4>
+				<table class="table table-bordered">
+					<thead><tr>
+						<th th:text="#{ui.order}">Order</th><th th:text="#{ui.shop}">Shop</th>
+						<th class="text-right" th:text="#{ui.total}">Total</th><th th:text="#{ui.status}">Status</th>
+					</tr></thead>
+					<tbody id="bkMyOrdersBody"></tbody>
+				</table>
+				<div id="bkMyOrdersEmpty" class="text-muted" style="display:none" th:text="#{ui.noOrdersYet}">No orders yet.</div>
+			</div>
+
 			<div id="OrdersDiv" class="formDiv" style="display:none">
 				<!-- <h4>Orders</h4> -->
 				<p class="text-muted" th:text="#{ui.anOrderIsASaleReused}">An order is a sale (reused trade saga) plus a fulfilment lifecycle. New sales by a Store user are recorded here automatically.</p>
@@ -2695,6 +2783,8 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/quarantine.js}"></script>
     <script th:src="@{/js/business/pharma.js}"></script>
     <script th:src="@{/js/business/ecommerce.js}"></script>
+    <!-- O7 D2b: the field rep's booking screen. Separate from ecommerce.js, which is the WAREHOUSE's surface. -->
+    <script th:src="@{/js/business/order-booking.js}"></script>
 <!-- Slice 108b: one consistent, searchable dropdown across every dashboard. Education had a blanket
      initialiser inline in its own template; every other module had none, so business had 48 selects
      and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->

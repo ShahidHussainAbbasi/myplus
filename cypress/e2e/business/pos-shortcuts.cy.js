@@ -14,9 +14,9 @@
 
 function openSell(opts) {
   var o = opts || {}
-  cy.visit('/businessDashboard')
-  cy.get('#sellType').select('sellDiv', { force: true })
-  cy.get('#sellDiv').should('be.visible')
+  // visitSaleScreen waits for loadPosFeatureFlags() to finish writing window.pos* — otherwise the
+  // assignments below are racing it, and a failed config call (which fails CLOSED) silently wins.
+  cy.visitSaleScreen()
   // Assert the modules loaded — a silent guard here turned one honest failure into seven confusing
   // ones during the P1 gate, and the lesson is cheap to keep.
   cy.window().should((w) => {
@@ -329,9 +329,18 @@ describe('P2 — ON', () => {
   })
 
   it('action keys are ignored when the sell screen is not the one on show', () => {
+    // Cannot use visitSaleScreen here — the whole point is that #sellDiv is NOT opened. But the flag
+    // race still applies, and it matters MORE for a negative assertion: if loadPosFeatureFlags lands
+    // late it fails CLOSED, posShortcutsEnabled goes false, and F8 then does nothing because
+    // shortcuts are off entirely — not because the sale screen is hidden. The test would pass while
+    // proving nothing. Wait for the config write, then pin the flag.
+    cy.intercept('GET', '**/getBusinessConfig').as('posFeatureFlags')
     cy.visit('/businessDashboard')
+    cy.wait('@posFeatureFlags', { timeout: 30000 })
     cy.window().should((w) => { expect(w.posExactCash).to.be.a('function') })
     cy.window().then((w) => { w.posShortcutsEnabled = true })
+    // Pinning must have STUCK — otherwise the assertion below is vacuous.
+    cy.window().its('posShortcutsEnabled').should('eq', true)
     // Never opened #sellDiv: the dashboard is showing.
     cy.get('#sellDiv').should('not.be.visible')
     pressKey('F8')

@@ -116,6 +116,24 @@ public class Order {
     @Column(name = "customer_account_id")
     private Long customerAccountId;     // storefront shopper account, when logged in (slice 61)
 
+    /**
+     * OMS O7 D2c — the TRADE ACCOUNT this order is for (business-service {@code customer.customer_id}, V20).
+     *
+     * <p>Set for a FIELD order, where the buyer is always an existing outlet the rep picked from a list. Null
+     * for storefront and POS orders, where resolving the buyer from name + contact is correct.
+     *
+     * <p><b>Why the id and not just the name.</b> Without it, business-service resolves the buyer by
+     * Query-By-Example on name + contact + the ACTING USER — so an order booked against an existing outlet but
+     * dispatched by the warehouse admin matches nothing and silently creates a duplicate customer, with no
+     * credit limit and its own separate balance. The outlet's receivable then lives in two places.
+     *
+     * <p>A cross-service reference by id, with no FK: {@code customer} is in another service's database, and a
+     * constraint across that boundary is the coupling the decomposition exists to prevent. Same shape as
+     * {@code order_items.product_id}.
+     */
+    @Column(name = "customer_id")
+    private Long customerId;
+
     @Builder.Default
     @Column(name = "source")
     private String source = "POS";          // POS | STOREFRONT (slice 47)

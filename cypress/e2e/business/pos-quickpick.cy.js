@@ -19,9 +19,9 @@
 
 function openSell(opts) {
   var o = opts || {}
-  cy.visit('/businessDashboard')
-  cy.get('#sellType').select('sellDiv', { force: true })
-  cy.get('#sellDiv').should('be.visible')
+  // visitSaleScreen waits for loadPosFeatureFlags() to finish writing window.pos* — otherwise the
+  // assignments below are racing it, and a failed config call (which fails CLOSED) silently wins.
+  cy.visitSaleScreen()
   cy.window().should((w) => {
     expect(w.renderQuickPick, 'pos-keyboard.js exposes renderQuickPick').to.be.a('function')
     expect(w.scanAddToCart, 'business.js exposes scanAddToCart').to.be.a('function')
