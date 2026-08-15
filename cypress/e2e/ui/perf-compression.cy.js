@@ -88,23 +88,37 @@ describe('PERF-1 — responses are gzip-compressed on the wire', () => {
   })
 
   it('compressed content arrives INTACT — the real risk of enabling compression', () => {
-    // A corrupting compression filter is the failure mode that matters: the page would still be 200 OK
-    // and still be "compressed", but render broken. Assert the decompressed payloads are the real thing.
+    // A corrupting compression filter is the failure mode that matters: the response would still be
+    // 200 OK and still be "compressed", but render broken. Assert the decompressed payloads are real.
+    //
+    // Assertions are on a BOOLEAN, never on the body itself. Asserting `expect(body).to.include(x)`
+    // dumps the entire 190KB payload into the failure message on a red — the first version of this test
+    // produced a 108k-token log that had to be grepped to find one line of signal.
+    const has = (body, marker, label) =>
+      expect(body.includes(marker), `${label} should contain ${JSON.stringify(marker)}`).to.eq(true)
+
     cy.request({
       url: '/businessDashboard',
       headers: { 'accept-encoding': 'gzip, deflate' }
     }).then((res) => {
-      expect(res.body, 'dashboard HTML body').to.include('</html>')
-      expect(res.body, 'dashboard HTML body').to.include('businessDashboard')
+      // `</html>` is the truncation guard: it is the LAST thing in the document, so a stream that was
+      // cut short cannot satisfy it.
+      has(res.body, '</html>', 'dashboard HTML')
+      // ...and this proves it is genuinely the DASHBOARD. Without it the test would pass just as well
+      // against the login page, which a lapsed session would silently serve instead (302 → login).
+      // Note: do NOT use the string 'businessDashboard' — that is the TEMPLATE's filename and never
+      // appears in rendered output. It was the original marker here and it failed for that reason.
+      has(res.body, 'tableSellReport', 'dashboard HTML')
+      expect(res.body.length, 'dashboard HTML length').to.be.greaterThan(50000)
     })
+
     cy.request({
       url: '/js/business/business.js',
       headers: { 'accept-encoding': 'gzip, deflate' }
     }).then((res) => {
-      // Known markers from the top of business.js — present only if the file decompressed correctly
-      // and completely (the second marker is ~1600 lines in, so a truncated stream fails here).
-      expect(res.body, 'business.js body').to.include('$(document).ready')
-      expect(res.body, 'business.js body').to.include('function getDashboardData')
+      has(res.body, '$(document).ready', 'business.js')
+      // ~1600 lines in, so a truncated stream fails here even though the head decompressed fine.
+      has(res.body, 'function getDashboardData', 'business.js')
     })
   })
 

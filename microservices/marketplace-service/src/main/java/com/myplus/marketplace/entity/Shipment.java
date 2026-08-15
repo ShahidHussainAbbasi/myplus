@@ -46,6 +46,14 @@ public class Shipment {
     @Column(name = "shipment_no", nullable = false, length = 32)
     private String shipmentNo;
 
+    /**
+     * O7 D4 — the invoice THIS parcel was raised as (V21). Under ON_DISPATCH each parcel gets its own, so the
+     * number belongs on the parcel; `orders.invoice_no` held only the last one, which is why a part-delivered
+     * order could not be credited for anything but its final shipment.
+     */
+    @Column(name = "invoice_no")
+    private String invoiceNo;
+
     /** Free text — what a small merchant actually has. Carrier API integration is O5c. */
     @Column(length = 120)
     private String carrier;

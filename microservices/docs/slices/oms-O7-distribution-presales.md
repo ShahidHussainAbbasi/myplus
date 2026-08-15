@@ -796,6 +796,105 @@ explanation did not account for *all* the evidence, and I edited anyway.
 
 ---
 
+## 12. D4 — delivery keying + settlement. **DONE, GREEN 2026-08-14 (7/7).**
+
+**Gate:** `order-delivery.cy.js` 7/7 · regression 47/47 (`order-fulfilment`, `order-pickpack`, `order-approval`,
+`order-booker`, `sale-return-credit`, `sale-return-audit` — the last two matter most: they prove the new
+contract op did not disturb the counter's own return path).
+
+**Option A was approved and built.**
+
+Ahsan has **no device** (§6 D-5), so this is a **keying screen for the warehouse admin**, not a driver app. He
+takes the printed invoices, the shop signs them, and Javed keys the outcome per invoice on his return.
+
+### 12.1 What is already there — and it is most of it
+
+| Need | Exists? |
+|---|---|
+| Per-line return → credit note | ✅ `saleReturn` does the whole thing: `CRN-` series, stock back to inventory, `SALE_RETURN` to the GL outbox, AR recompute, audit. **B2B-P3f settled the accounting rule** — a return is a credit note, never a retro-edit of the issued invoice, because the customer holds a copy of that invoice. |
+| Settlement paid / part / credit | ✅ `receivePayment` — FIFO across open invoices, recomputes due, posts to the shared ledger, idempotent. |
+| Delivered state | ✅ `DELIVERED` is already a legal transition from `SHIPPED`/`PARTIALLY_SHIPPED`. |
+
+### 12.2 The two things that do NOT exist
+
+**1. A shipment does not know its invoice.** `Shipment` has no `invoiceNo`, and under `ON_DISPATCH` each parcel
+raises its own. This is exactly the limitation D1 recorded and parked for D4 (§8.1c): `processReturn` reverses
+`Order.invoiceNo`, which is only the LAST parcel's. Fixed by **V21 `shipment.invoice_no`**, stamped by
+`DispatchInvoiceService` at the moment it raises one — so a delivery outcome credits the invoice that parcel
+actually went out on.
+
+**2. There is no PARTIAL return across the service boundary.** `TradeClient` has `recordSale` and
+`reverseSale(invoiceNo, reason)` — a FULL void, nothing else. A door rejection of 2 of 10 has no contract.
+
+### 12.3 The decision — how a door rejection reaches the books (**A, approved 2026-08-13**)
+
+| | | |
+|---|---|---|
+| **A — new contract op** `returnLines(invoiceNo, [{productId, qty}], reason)` **(recommended)** | business-service resolves those products to their `Sell` lines on that invoice and runs the SAME `saleReturn` path — credit note, stock, GL, AR. Marketplace knows `productId`; business-service owns `sellId`; the contract translates. | One new operation, zero new money logic, and it is **the same contract change D1b needs** for reserve-at-confirm and the amend-time policy re-check. Do them together. |
+| **B — void and re-invoice** | `reverseSale` the whole invoice, then raise a new one for what was delivered. | ❌ **Rejected.** It voids a document the shopkeeper is holding, and re-numbers their purchase record. B2B-P3f exists precisely to stop this. |
+| **C — record on the order, credit later by hand** | Marketplace stores returned quantities; an admin raises the credit note on the existing Sale Return screen afterwards. | ❌ **Rejected.** The books are wrong until someone remembers — the exact GL-drift the POS/Retail standards audit named. |
+
+**Recommending A.** It reuses `saleReturn` entirely, keeps the one-way marketplace → business-service dependency
+O1 established, and pairs with D1b so the contract is opened once rather than twice.
+
+### 12.4 Then D4 is
+
+* **V21** `shipment.invoice_no`, stamped at dispatch.
+* **V22** `shipment_line.delivered_quantity` — what actually reached the shop, per line.
+* `POST /orders/{id}/delivery` — per-line delivered/returned, plus settlement (paid / part-paid / on credit),
+  attributed as **keyed by ‹admin› from a signed invoice** and never as the driver's own confirmation (§3.3).
+  Reports must say *recorded at*, never *delivered at*: the time is when it was keyed, possibly hours later.
+* Shortfall → `returnLines` → credit note. Settlement → `receivePayment`.
+* Screen: the admin's delivery-return keying panel on the order.
+* Gate `order-delivery.cy.js`; unit `DeliveryOutcomeTest`.
+
+---
+
+### 12.5 What D4 shipped, and the four defects found building it
+
+| | |
+|---|---|
+| `TradeClient.returnLines(SaleReturnRequest)` | ONE new contract op. business-service resolves each `productId` to its `Sell` line and runs the SAME `saleReturn` the counter runs — `CRN-`, stock back, GL, AR, audit. **No new money logic exists for this feature.** |
+| **V21** | `shipment.invoice_no` (closing D1's parked limitation — an invoice now maps one-for-one to a parcel), `shipment_line.delivered_quantity`, and `delivery_record`. |
+| `POST /orders/{id}/delivery` | Per-line delivered/returned → credit note for the shortfall → settlement. Admin-gated: it raises credit notes and takes money. |
+| The keying panel | Quantities default to "all of it arrived", every one editable, with a live count of what came back and a warning that a credit note WILL be raised. |
+
+**Naming shaped by D-5 (no device):** the column is `recorded_at`, never `delivered_at` — the timestamp is when
+the admin typed it, possibly hours later, and a column with that name would be read as though the system had
+observed the moment. `recorded_by` is whoever keyed it; the driver is `delivered_by`, **a note, not an identity
+and not evidence**.
+
+**Idempotency lives in `DeliveryService`, not the contract.** `returnLines` cannot be idempotent — a shop
+genuinely can refuse the same product on two different deliveries — so the guard sits where the knowledge is:
+the service knows this parcel is already keyed. Stated in the contract's javadoc rather than implying a safety
+it cannot provide.
+
+#### The four defects
+
+1. **The contract mixed `@RequestParam` with `@RequestBody`** — every call 500'd. A Spring HTTP-interface client
+   encodes params as FORM DATA on a POST, which cannot coexist with a body. **The decisive check was not more
+   reasoning: mine was the ONLY method in the whole contract set that did it.** Fixed by carrying everything in
+   one `SaleReturnRequest`, exactly as `SaleRecordRequest` does.
+2. **`saleReturn` reads `reason` off the RAW REQUEST** (`getParameter`), so moving it into the body would have
+   silently produced credit notes with no reason — the field a refusal is explained by months later. The
+   receiving endpoint wraps the request to expose it, deliberately, making a hidden coupling explicit.
+3. **`ShipmentDTO` never carried `invoiceNo`** — textbook **D10** (*a persisted field no read returns is
+   invisible; check the READ path, not just the write*). The column was written, the entity mapped, the service
+   used it, and it still reached no screen. The delivery panel would have shown "(no invoice)" on the one screen
+   where that number makes a credit note explainable to the shopkeeper holding the paper.
+4. **My own first case passed while asserting `undefined`.** `.to.match(/\S/)` on a missing field cannot fail.
+   Strengthened to `.to.be.a('string')` + an `INV-` format check + agreement with the order's own invoice.
+   **Fourth instance of this shape in the programme** — the running rule now: *if the field vanished, would this
+   assertion notice?*
+
+**Debt recorded:** `InternalSalesController` injects `SellController` to reach `saleReturn`. Controller-into-
+controller is unusual and was the lesser evil — the alternatives were transcribing ~190 lines of ledger
+arithmetic into a second copy, or extracting it first. **Extracting `saleReturn` into a `SaleReturnService` is
+the right end state** and deserves its own gate rather than riding along with a delivery feature; the request
+wrapper in #2 disappears with it.
+
+---
+
 ## 7. Exit criteria (whole programme)
 
 A booker logs in, sees their outlets, is warned of a credit problem before booking, and books an order that

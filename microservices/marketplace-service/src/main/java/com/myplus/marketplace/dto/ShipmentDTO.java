@@ -12,6 +12,12 @@ public class ShipmentDTO {
     private Long id;
     /** Merchant- and customer-facing reference, e.g. {@code SHP-000045}. */
     private String shipmentNo;
+    /**
+     * O7 D4 — the invoice THIS parcel was billed as. Without it the delivery-keying panel cannot tell the
+     * admin which invoice a refusal will be credited against, which is the one fact that makes the credit
+     * note explainable to the shopkeeper holding the paper.
+     */
+    private String invoiceNo;
     private String carrier;
     private String trackingNumber;
     private String status;              // DISPATCHED | DELIVERED | CANCELLED
@@ -24,6 +30,8 @@ public class ShipmentDTO {
     public static class Line {
         private Long orderItemId;
         private Integer quantity;
+        /** O7 D4 — how much of this line actually reached the shop. Null until the delivery is keyed. */
+        private Integer deliveredQuantity;
         /** Filled on read so the UI need not join back to the order. */
         private String productName;
     }

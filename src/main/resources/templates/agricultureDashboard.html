@@ -537,8 +537,10 @@ var serverContext = [[@{/}]];
     <th:block th:replace="~{fragments/header :: header-js}"></th:block>
 
     <!-- STEP 2: page-specific JS — AFTER jQuery -->
-    <script type="text/javascript" th:src="@{/js/jspdf.min.js}"></script>
-    <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
+    <!-- PERF-4a: jspdf.min.js + jspdf.plugin.autotable.js removed — 304KB raw / 88KB gzipped that nothing
+         here called (agriculture.js has no jsPDF/autoTable reference). Its DataTables PDF export goes
+         through pdfmake, which is a different library entirely. -->
+
 	<script th:src="@{/js/common/dom-safe.js}"></script>
 	<script th:src="@{/js/agriculture/agriculture.js}"></script>
 	<script th:src="@{/js/business/sidebar.js}"></script>

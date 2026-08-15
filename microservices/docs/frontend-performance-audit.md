@@ -160,10 +160,10 @@ Each slice is independently shippable and gated by a headed Cypress run, per the
 
 | Slice | Change | Risk | Files |
 |---|---|---|---|
-| **PERF-1** | Enable `server.compression` (monolith) — **IMPLEMENTED, awaiting headed gate** | Very low | `application.properties` |
+| **PERF-1** | Enable `server.compression` (monolith) — **✅ DONE, 6/6 green** | Very low | `application.properties` |
 | **PERF-2** | Fix F1: set an explicit cache period + `resourceChain` with `VersionResourceResolver` on the `/**` handler, so assets can be cached **immutably** and still bust on deploy. Re-evaluate whether `@EnableWebMvc` is needed at all | Low–medium | `MvcConfig.java`, `application*.properties` |
-| **PERF-3** | Drop jQuery 1.11.2; point at `jquery-3.3.1.min.js` | Low | `fragments/header.html` |
-| **PERF-4** | Lazy-load pdfmake / vfs_fonts / jszip / jspdf on first export or print click | Medium | `fragments/header.html`, `business.js`, `receipt.js` |
+| **PERF-3** | Drop jQuery 1.11.2; point at `jquery-3.3.1.min.js` — **✅ DONE, 6/6 green** | Low | `fragments/header.html`, `login.html` |
+| **PERF-4** | Lazy-load pdfmake/vfs_fonts/jszip + delete dead jsPDF — **IMPLEMENTED, awaiting rebuild + gate**. Split into 4a (dead jsPDF, 88KB gz) + 4b (lazy pdfmake, 903KB gz). Design: `perf4-lazy-export-design.md` | Medium | `fragments/header.html`, `business/education/agriculture.js`, **new** `common/lazy-export.js` |
 | **PERF-5** | Self-host the 3 Inter weights actually used; drop the Google Fonts hop | Low | `fragments/header.html`, `static/fonts/` |
 | **PERF-6** | Delete `b.jpg`, `jsPDF-1.3.2/`, and the `js/business/` ↔ `jQExp/` duplicates | Low | `static/` |
 | **PERF-7** | Replace `catalogProducts?size=2000` with a server-side typeahead | Medium–high | `business.js`, `searchable-selects.js`, catalog-service |
@@ -233,7 +233,19 @@ audit's claim that Boot's default list omitting `application/javascript` was the
 `text/javascript` is in Boot's default list. **The measured win is real either way; the stated reason was
 half wrong.** Listing both is still correct.
 
-**Gate:** `cypress/e2e/ui/perf-compression.cy.js` — 6 cases. Asserts the *property* (bytes arrive
+**Gate: ✅ 6/6 GREEN** (headless Electron, Cypress 13.17.0 — a headed confirmation run is still the
+convention's gate). `cypress/e2e/ui/perf-compression.cy.js`.
+
+The first run was 5/6. The red was **the test, not the product** — the intactness case asserted the body
+contained `'businessDashboard'`, which is the *template's filename* and never appears in rendered output.
+`</html>` passed in the same assertion block, so content was never actually corrupt. Two fixes:
+
+- Markers corrected to `</html>` (truncation guard — it is the last thing in the document) plus
+  `tableSellReport` (proves it is genuinely the dashboard, not the login page a lapsed session would
+  serve instead — the original pair would have passed against the login page too).
+- Assertions moved onto a **boolean** rather than the body. `expect(body).to.include(x)` dumps the whole
+  190KB payload into the failure message; the first red produced a **108k-token log** that had to be
+  grepped to find one line of signal. A gate whose failure is unreadable is a gate that will be ignored. Asserts the *property* (bytes arrive
 gzip-encoded, arrive intact, and binaries are not re-compressed), never the artefact. Every case fails on
 the pre-PERF-1 build.
 
@@ -244,6 +256,126 @@ and only headers discriminate):
 curl -sI -H "Accept-Encoding: gzip" http://localhost:8080/js/business/business.js | grep -i "content-encoding\|content-length"
 # expect: content-encoding: gzip
 ```
+
+---
+
+## 4c. PERF-3 — implemented, awaiting rebuild + gate
+
+**Changed:** `templates/fragments/header.html` (all dashboards) and `templates/login.html`.
+
+| | Raw | gzip |
+|---|---|---|
+| Before — `jquery.min.js` (1.11.2) + `jquery-3.3.1.js` (unminified) | 378,046 | 114,035 |
+| After — `jquery-3.3.1.min.js` | 86,929 | 30,176 |
+| **Saved** | **291,117 (77%)** | **83,859 (73%)** |
+
+**This is not a jQuery upgrade.** 1.11.2 loaded and was overwritten by 3.3.1 on the very next line with no
+code in between to observe it, so the app has always in fact run on 3.3.1; every plugin loads after that
+line and already bound to 3.3.1. Dropping the 1.x tag is behaviourally a no-op. Verified there is no
+application-level `$.noConflict` that could have captured the 1.x instance — the only `noConflict` hits
+are plugin-internal (`$.fn.selectpicker.noConflict`, Bootstrap's per-component API), which is a different
+thing entirely.
+
+**`login.html` was a second, separate fix.** It does not use `fragments/header` and carried its own
+unminified tag. It matters more than anywhere else: it is the first page a user loads, with a cold cache.
+
+**`/js/jquery.min.js` stays on disk** — `appointment.html:85` loads it directly. Only the tag in the
+shared header was removed. (Deleting the file belongs to PERF-6, and would have to fix that page first.)
+
+**Gate: ✅ 6/6 GREEN** (headless Electron; PERF-1 re-run alongside it, also 6/6 — 12/12 total, Cypress
+exit 0). Verified live: `/login` serves exactly one jQuery tag, `jquery-3.3.1.min.js`, gzipped.
+
+`cypress/e2e/ui/perf-jquery.cy.js` — 6 cases. Asserts the version in play is still 3.3.1,
+exactly one jQuery core tag is loaded and it is the minified build, both removed tags are gone by name,
+**every plugin still bound** (`DataTable`, `selectpicker`, `datetimepicker`, `timepicker`, `modal`), and a
+real DataTable is genuinely driving the DOM. A missing plugin is the actual failure mode here — it would
+leave register screens blank while the page still returned 200, which a status-code test sails past.
+
+## 4d. PERF-3b — CDN jQuery removed (correctness fix) — ✅ DONE, 10/10 green
+
+Promoted ahead of PERF-4 because it is a **live defect on account-management screens**, not a byte count.
+
+**Changed:** eight templates, one line each — `appointment2.html`, `badUser.html`, `changePassword.html`,
+`console.html`, `forgetPassword.html`, `updatePassword.html` (were `http://`), plus `registration.html`
+and `registrationCaptcha.html` (were `https://`). All now load the local `/js/jquery.min.js`.
+
+**Kept at version 1.11.2 deliberately.** These pages load `pwstrength.js`, a jQuery-1-era plugin that
+leans on `$.isFunction` (deprecated in 3.x) and Bootstrap-2 popover APIs. The defect was the *transport*,
+not the version. Bundling an upgrade into a mixed-content fix would put unrelated regression risk on a
+password form. Moving them to 3.3.1 is a separate, optional slice.
+
+`/js/jquery.min.js` is jQuery 1.11.2 byte-for-byte the same library the CDN was serving, so this is a
+transport change with no behavioural delta.
+
+**Result — the whole class of bug is gone:** a sweep for `src="http://` / `href="http://` across every
+template now returns **zero** hits (excluding the dead `jsPDF-1.3.2/` example tree and `www.w3.org` XML
+namespaces). These eight were the entire mixed-content surface.
+
+**Gate: ✅ 10/10 GREEN** (headless Electron; all three perf specs re-run together — **22/22**, Cypress
+exit 0). Verified live: `/js/pwstrength.js` 200, the old `/pwstrength.js` still 302, and the rendered tag
+on `registration.html` is `<script src="/js/pwstrength.js">`.
+
+`cypress/e2e/ui/perf-cdn-jquery.cy.js` — 10 cases.
+
+**Coverage stated honestly:** only three of the eight pages are reachable unauthenticated (verified by
+probe): `registration.html`, `registrationCaptcha.html`, `forgetPassword.html` — all 200. The rest 302 to
+login (`badUser`, `console`, `appointment2`) or need a valid one-time reset token (`changePassword`,
+`updatePassword`, which returns 400 without one) and are **not gated**. The edit was identical and
+mechanical across all eight; the gate claims only what it proves. The mixed-content assertion is
+generalised past jQuery to *any* `http://` subresource, so it fails on the next one anyone adds.
+
+### 4d-i. Live defect found BY the PERF-3b gate — password-strength meter never ran
+
+The PERF-3b gate came back 9/10. The red was **not the slice** — it surfaced a pre-existing bug the audit
+had not looked for, because the assertion was on the PROPERTY (did the plugin bind?) rather than the
+artefact (is the script tag present?). The tag was always present. The file never arrived.
+
+**Cause.** `SecSecurityConfig.java:94-97` permits these static paths:
+
+```
+/css/**, /js/**, /images/**, /webjars/**, /static/**, /bootstrap/**, /jQExp/**,
+/main.css, /*.png, /*.ico, /*.jpeg
+```
+
+`pwstrength.js` sat at the **web root**. Root-level `*.png` / `*.ico` / `*.jpeg` are permitted; root-level
+`*.js` is not, and `/js/**` does not match a file above `/js/`. So Spring Security answered
+`GET /pwstrength.js` with a **302 to /login** for any anonymous visitor.
+
+**Impact.** `registration.html` and `registrationCaptcha.html` are anonymous pages, and
+`updatePassword.html` is reached anonymously via a reset token — on all three the password-strength meter
+silently did nothing, on the forms where password quality actually matters. Only `changePassword.html`
+(authenticated) ever received the file. `$.fn.pwstrength` was simply `undefined`.
+
+**Fix.** `git mv static/pwstrength.js static/js/pwstrength.js` (history preserved) and the four
+`th:src` references updated to `@{/js/pwstrength.js}`. Chosen over adding `/pwstrength.js` to
+`permitAll` — widening the security config for one misplaced file is worse than putting the file where
+every other script already lives.
+
+**⚠️ This is a visible behaviour change**, not a silent one: the strength meter now appears on signup
+where it previously did not.
+
+**Swept for the same bug class:** every other root-level static file that fails the permit patterns
+(13 `.jpg` files) is referenced by **no template at all**, so `pwstrength.js` was the only live case.
+Those unreferenced images are PERF-6 dead weight, including `b.jpg` at 3.4MB.
+
+### Still outstanding — third-party CDNs (perf, not correctness)
+
+Now that mixed content is gone, the remaining external round trips are `fonts.googleapis.com` (F5/PERF-5,
+20 refs), `maxcdn.bootstrapcdn.com` (13), `cdnjs.cloudflare.com` (5), `use.fontawesome.com` (2),
+`stackpath.bootstrapcdn.com` (2). These are https, so nothing breaks — but each is a DNS + TLS + fetch to
+another origin on exactly the slow links this audit targets, and none carry SRI hashes.
+
+### Out of scope, found while sizing PERF-3
+
+Eight templates load **jQuery 1.11.2 from the Google CDN**, six of them over **plain `http://`**:
+`appointment2.html:8`, `badUser.html:18`, `changePassword.html:11`, `console.html:60`,
+`forgetPassword.html:34`, `updatePassword.html:11` (http), plus `registration.html:190` and
+`registrationCaptcha.html:196` (https). Three problems: browsers block mixed content, so on an HTTPS
+deployment those pages get **no jQuery at all**; it is a third-party round trip on exactly the
+slow/captive links this audit is about; and it is a supply-chain dependency on a CDN with no SRI hash.
+`changePassword`, `updatePassword` and `forgetPassword` are live account-management screens.
+**Not touched here** — it is a correctness/security issue, not a byte-count one, and deserves its own
+slice rather than riding along inside PERF-3.
 
 ---
 

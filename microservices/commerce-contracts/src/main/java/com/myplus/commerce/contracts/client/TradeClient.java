@@ -2,6 +2,8 @@ package com.myplus.commerce.contracts.client;
 
 import com.myplus.commerce.contracts.dto.SaleRecordRequest;
 import com.myplus.commerce.contracts.dto.SaleRecordResult;
+import com.myplus.commerce.contracts.dto.SaleReturnLine;
+import com.myplus.commerce.contracts.dto.SaleReturnRequest;
 
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -52,4 +54,31 @@ public interface TradeClient {
      */
     @PostExchange("/internal/sales/reverse")
     void reverseSale(@RequestParam("invoiceNo") String invoiceNo, @RequestParam("reason") String reason);
+
+    /**
+     * OMS O7 D4 — return PART of an invoice: the goods a shop refused at the door.
+     *
+     * <h3>Why {@link #reverseSale} could not do this</h3>
+     * That is a FULL void. A door rejection of 2 of 10 is not a void — the other 8 were delivered, and the
+     * shopkeeper is holding the invoice for all 10. Voiding it would cancel a document they have in their hand
+     * and renumber their purchase record. <b>B2B-P3f settled this rule for the whole platform:</b> a return is a
+     * CREDIT NOTE against the issued invoice, never a retro-edit of it, precisely because the customer has a
+     * copy.
+     *
+     * <h3>Why it takes productId, not a line id</h3>
+     * The caller (marketplace) knows what left its warehouse: products and quantities. {@code sell_id} is
+     * business-service's own line identity and is not, and should not be, exported. So the contract speaks the
+     * language both sides share and business-service does the translation — the same reason
+     * {@link #recordSale} takes products rather than {@code Sell} rows.
+     *
+     * <h3>What happens on the other side</h3>
+     * The SAME {@code saleReturn} path a counter return takes: {@code CRN-} credit note, stock back to
+     * inventory, {@code SALE_RETURN} to the GL outbox, AR recomputed, audit written. <b>No new money logic
+     * exists for this feature</b>, which is the whole point of routing it through the contract rather than
+     * teaching marketplace to do accounting.
+     *
+     * @return the credit note numbers raised, one per line actually returned
+     */
+    @PostExchange("/internal/sales/return-lines")
+    java.util.List<String> returnLines(@RequestBody SaleReturnRequest request);
 }

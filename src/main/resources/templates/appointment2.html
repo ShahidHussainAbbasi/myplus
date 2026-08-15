@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
   <link rel="stylesheet" type="text/css" th:href="@{/main.css}" />
-  	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+  	<!-- PERF-3b: was jQuery 1.11.2 from the Google CDN. Over plain http:// that is mixed content, which
+     browsers BLOCK on an https deployment - this page got no jQuery at all. Now the local copy, same
+     version 1.11.2, so behaviour is unchanged (see microservices/docs/frontend-performance-audit.md). -->
+<script th:src="@{/js/jquery.min.js}"></script>
 	<title th:text="#{label.app.title}">Title</title>
 </head>
 <body>

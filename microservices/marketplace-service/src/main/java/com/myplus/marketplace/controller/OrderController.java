@@ -24,6 +24,8 @@ public class OrderController {
     private final OrderService orderService;
     /** OMS O5b — recording a dispatch, which is what moves an order into a shipped state. */
     private final com.myplus.marketplace.service.ShipmentService shipmentService;
+    /** O7 D4 — what happened at the shop door, keyed by the admin from the signed invoice. */
+    private final com.myplus.marketplace.service.DeliveryService deliveryService;
 
     @PostMapping
     public ApiResponse<OrderDTO> record(@RequestBody OrderDTO dto) {
@@ -183,6 +185,31 @@ public class OrderController {
     public ApiResponse<OrderDTO> resubmit(@PathVariable Long id) {
         return ApiResponse.success(
                 orderService.resubmit(id, CurrentUser.organizationId(), CurrentUser.userId()), "Resubmitted for review");
+    }
+
+    /**
+     * OMS O7 D4 — record what happened when a parcel reached the shop.
+     *
+     * <p>Keyed by the warehouse admin from the signed paper invoice the driver brings back (§6 D-5 — no
+     * device). Per-line delivered quantities; anything short is credited against the invoice that parcel went
+     * out on, and the settlement reaches the same AR ledger the counter uses.
+     *
+     * <p>Gated at {@code ADMIN_PRIVILEGE}: it raises credit notes and takes money, which is the same class of
+     * action as {@code /refund} and {@code /return}.
+     */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')")
+    @PostMapping("/{id}/delivery")
+    public ApiResponse<com.myplus.marketplace.dto.DeliveryDTO> recordDelivery(
+            @PathVariable Long id, @RequestBody com.myplus.marketplace.dto.DeliveryDTO body) {
+        return ApiResponse.success(deliveryService.record(id, body,
+                CurrentUser.organizationId(), CurrentUser.userId(), CurrentUser.email()), "Delivery recorded");
+    }
+
+    /** What has been keyed against this order's parcels, oldest first. */
+    @GetMapping("/{id}/deliveries")
+    public ApiResponse<java.util.List<com.myplus.marketplace.entity.DeliveryRecord>> deliveries(@PathVariable Long id) {
+        return ApiResponse.success(
+                deliveryService.forOrder(id, CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
     /** Who changed what on this order, and why — oldest first. */

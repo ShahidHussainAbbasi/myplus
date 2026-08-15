@@ -547,10 +547,17 @@
                 if (jumped === false) return;        // handled (moved to checkout)
                 if (jumped) { focusField(jumped); return; }
             }
-            // CLOSED and EMPTY: let the menu open, same as the line-entry pickers. Without this the
-            // customer and tender lists could never be opened from the keyboard — Enter stepped over
-            // them, which on a CREDIT sale means the cashier cannot name the customer who owes.
-            if (!$sel.val()) return;
+            // CLOSED and EMPTY: open the menu, same as the line-entry pickers. Without this the
+            // customer and tender lists could never be opened from the keyboard — which on a CREDIT
+            // sale means the cashier cannot name the customer who owes.
+            if (!$sel.val() && !e.shiftKey) {
+                // NATIVE click — the plugin has no toggle() in 1.6.2, and an unknown method there
+                // is a silent no-op, so a try/catch around it guards nothing.
+                e.preventDefault();
+                var oBtn = $bs.find('button')[0];
+                if (oBtn) oBtn.click();
+                return;
+            }
             e.preventDefault();
             var target = walk(CHECKOUT, id, e.shiftKey ? -1 : 1);
             if (target === null) { completeSale(); return; }
@@ -629,14 +636,25 @@
                 if (jumped === false) return;        // handled (moved to checkout)
                 if (jumped) { focusField(jumped); return; }
             }
-            // CLOSED and EMPTY: let the button's own click open the menu, so the list can actually be
-            // seen and chosen from. Preventing the default here is what used to make a dropdown
-            // unopenable from the keyboard — Enter walked past the whole catalogue without showing it.
+            // CLOSED and EMPTY: OPEN the menu so the list can actually be seen and chosen from.
+            // Enter used to walk past the whole catalogue without ever showing it.
             //
-            // The "nothing here, move on" gesture is unchanged, it just happens on the SECOND Enter
-            // (the branch above, with the menu open). That is better feedback anyway: the open menu
-            // shows the operator that the first press registered.
-            if (!$sel.val()) return;
+            // Opened explicitly, not by leaving the event alone and hoping the browser turns
+            // Enter-on-a-button into a click — that implicit activation is not reproducible everywhere.
+            //
+            // Shift+Enter is excluded: it means "go back", and must be able to reverse out of an
+            // empty picker rather than opening it.
+            //
+            // The "nothing here, move on" gesture is unchanged; it happens on the SECOND Enter (the
+            // branch above, menu open), which also gives the operator visible confirmation.
+            if (!$sel.val() && !e.shiftKey) {
+                // NATIVE click — the plugin has no toggle() in 1.6.2, and an unknown method there
+                // is a silent no-op, so a try/catch around it guards nothing.
+                e.preventDefault();
+                var oBtn = $bs.find('button')[0];
+                if (oBtn) oBtn.click();
+                return;
+            }
             e.preventDefault();
             var target = nextField(pickerId, e.shiftKey ? -1 : 1);
             if (target === null) { commitLine(); return; }

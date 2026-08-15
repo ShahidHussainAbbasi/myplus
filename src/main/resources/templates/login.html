@@ -195,7 +195,10 @@
 </div>
 
 <script th:if="${captchaEnabled}" src="https://www.google.com/recaptcha/api.js" async defer></script>
-<script th:src="@{/js/jquery-3.3.1.js}"></script>
+<!-- PERF-3: the minified 3.3.1 build (282KB -> 87KB). login.html does not use fragments/header, so it
+     carries its own jQuery tag and had to be fixed separately — and it matters MORE here than anywhere
+     else, because this is the first page every user loads, before anything is warm in their cache. -->
+<script th:src="@{/js/jquery-3.3.1.min.js}"></script>
 <!-- Global AJAX waiting overlay — single source for the whole app (see /js/common/ajax-overlay.js). -->
 <script th:src="@{/js/common/ajax-overlay.js}"></script>
 <script th:src="@{/js/login.js}"></script>

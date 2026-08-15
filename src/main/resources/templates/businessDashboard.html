@@ -2127,6 +2127,61 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 			</div>
 
+			<!--
+				OMS O7 D4 — the delivery-return keying panel. JAVED's screen, not Ahsan's: the driver has no
+				device (§6 D-5), so he brings back signed paper invoices and the admin keys the outcome.
+
+				Labels are deliberate. "Recorded" never "Delivered at" — the timestamp is when this was typed,
+				possibly hours after the goods arrived, and the system must not state a time it did not observe.
+				The driver is a NOTE, not the confirming party.
+			-->
+			<div id="DeliveryDiv" class="formDiv" style="display:none">
+				<div style="display:flex;justify-content:space-between;align-items:center">
+					<h4 id="delTitle" style="margin:0"></h4>
+					<button class="btn btn-default btn-sm" onclick="closeDeliveryForm()" th:text="#{ui.close}">Close</button>
+				</div>
+				<p class="text-muted" style="margin-top:8px">
+					<span th:text="#{ui.invoice}">Invoice</span>: <b id="delInvoice"></b>
+					&nbsp;·&nbsp; <span th:text="#{ui.outcome}">Outcome</span>: <b id="delOutcome"></b>
+				</p>
+
+				<table class="table table-bordered table-striped">
+					<thead><tr>
+						<th th:text="#{ui.product}">Product</th>
+						<th class="text-right" th:text="#{ui.sent}">Sent</th>
+						<th class="text-right" th:text="#{ui.taken}">Taken</th>
+						<th class="text-right" th:text="#{ui.cameBack}">Came back</th>
+					</tr></thead>
+					<tbody id="delBody"></tbody>
+				</table>
+				<div id="delCreditWarn" class="alert alert-warning" style="display:none"></div>
+
+				<div class="row">
+					<div class="col-sm-3 form-group">
+						<label for="delCarrier" th:text="#{ui.deliveredBy}">Delivered by</label>
+						<input type="text" class="form-control" id="delCarrier">
+					</div>
+					<div class="col-sm-3 form-group">
+						<label for="delSettlement" th:text="#{ui.settlement}">Settlement</label>
+						<select class="form-control" id="delSettlement">
+							<option value="CREDIT" th:text="#{ui.onCredit}">On credit</option>
+							<option value="PART_PAID" th:text="#{ui.partPaid}">Part paid</option>
+							<option value="PAID" th:text="#{ui.paid}">Paid</option>
+						</select>
+					</div>
+					<div class="col-sm-3 form-group">
+						<label for="delAmount" th:text="#{ui.amountCollected}">Amount collected</label>
+						<input type="number" class="form-control" id="delAmount" min="0" step="0.01" inputmode="decimal">
+					</div>
+					<div class="col-sm-3 form-group">
+						<label for="delNote" th:text="#{ui.note}">Note</label>
+						<input type="text" class="form-control" id="delNote">
+					</div>
+				</div>
+
+				<button class="btn btn-primary btn-lg" id="delSubmit" onclick="submitDelivery()" th:text="#{ui.recordDelivery}">Record delivery</button>
+			</div>
+
 			<!-- M1 (slice 42): catalog Product master registration — the single product master all verticals share. -->
 			<div id="ProductDiv" class="formDiv" style="display:none">
 				<!-- <h4 data-term>Product (Catalog Master)</h4> -->
@@ -2792,8 +2847,11 @@ tr.row-voided .js-edit-row{display:none !important}
     <th:block th:replace="~{fragments/header :: header-js}"></th:block>
 
     <!-- STEP 2: page-specific JS — AFTER jQuery -->
-    <script type="text/javascript" th:src="@{/js/jspdf.min.js}"></script>
-    <script type="text/javascript" th:src="@{/js/jspdf.plugin.autotable.js}"></script>
+    <!-- PERF-4a: jspdf.min.js + jspdf.plugin.autotable.js removed — 304KB raw / 88KB gzipped that NOTHING
+         on this dashboard called. The last caller was businessInvoicePrint.js, deleted in B2B-P3g-5 (see the
+         note further down this file); its script tags were left behind. receipt.js prints through a hidden
+         iframe + window.print(), not jsPDF, and no other business/* or common/* file references it.
+         educationDashboard still loads jsPDF because education.js:1062 genuinely uses it. -->
     <script th:src="@{/js/business/chart.umd.min.js}"></script>
     <script th:src="@{/js/common/dom-safe.js}"></script>
     <!-- Team & Users: shared with education. Locations for this vertical are STORES. getMyStores (not getStores)
@@ -2835,6 +2893,8 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/order-booking.js}"></script>
     <!-- O7 D3: the packer's workbench. Composes the SAME shipment request the Ship form posts. -->
     <script th:src="@{/js/business/order-packing.js}"></script>
+    <!-- O7 D4: the admin's delivery-return keying panel (the driver has no device). -->
+    <script th:src="@{/js/business/order-delivery.js}"></script>
 <!-- Slice 108b: one consistent, searchable dropdown across every dashboard. Education had a blanket
      initialiser inline in its own template; every other module had none, so business had 48 selects
      and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->

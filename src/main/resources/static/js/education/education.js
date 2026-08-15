@@ -50,13 +50,14 @@ $(document).ready(function() {
         	'pageLength',
             { extend: 'copyHtml5', footer: true },
             { extend: 'csvHtml5', footer: true },
-            { extend: 'excelHtml5', footer: true },
+            // PERF-4b: library fetched on first click (js/common/lazy-export.js). Same options.
+            lazyExcelButton({ footer: true }),
             { extend: 'print', footer: true },
-        	{ extend: 'pdfHtml5',
+        	lazyPdfButton({
               orientation: 'landscape',
               pageSize: 'LEGAL',
               footer: true
-            }
+            })
         ],
 	    
 	    "footerCallback": function ( row, data, start, end, display ) {
@@ -227,14 +228,13 @@ function loadDataTable(){
         	'pageLength',
             { extend: 'copyHtml5', footer: true },
             { extend: 'csvHtml5', footer: true },
-            { extend: 'excelHtml5', footer: true },
+            lazyExcelButton({ footer: true }),        // PERF-4b — library on first click
             {extend:'print', footer: true },
-        	{
-                extend: 'pdfHtml5',
+        	lazyPdfButton({
                 orientation: 'landscape',
                 pageSize: 'LEGAL',
                 footer: true
-            }
+            })
         ],
 		"autoWidth" : true,
 		"order": [[ 0, "desc" ]],

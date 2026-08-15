@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.myplus.business_service.dto.CustomerDTO;
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.dto.SellDTO;
+import com.myplus.business_service.util.GenericResponse;
 import com.myplus.business_service.dto.TenderDTO;
 import com.myplus.business_service.entity.CustomerHistory;
 import com.myplus.business_service.service.ICustomerHistoryService;
@@ -68,6 +69,26 @@ public class InternalSalesController {
 
     @Autowired
     private ICustomerHistoryService customerHistoryService;
+
+    @Autowired
+    private com.myplus.business_service.service.ISellService sellService;
+
+    /**
+     * O7 D4 — the counter's OWN return path, called as-is.
+     *
+     * <p>Injecting a controller into a controller is unusual and is the lesser of two evils, chosen
+     * deliberately. {@code SellController.saleReturn} is ~190 lines of money logic — credit-note numbering,
+     * pro-rata line adjustment, stock restore, header re-settlement, store credit, GL reversal, AR recompute,
+     * audit — and there are exactly two honest ways to reach it from here: call it, or extract it into a
+     * service first. <b>Duplicating it is not one of them</b>, and transcribing money arithmetic by hand into a
+     * second copy is precisely how the books drift.
+     *
+     * <p>The extraction is the right end state and is recorded as debt (§12.5 of the O7 slice). It is not done
+     * inside this slice because moving 190 lines of ledger code is a change that deserves its own gate rather
+     * than riding along with a delivery feature.
+     */
+    @Autowired
+    private SellController sellController;
 
     @PostMapping
     public ResponseEntity<?> recordSale(@RequestBody SaleRecordRequest request) {
@@ -197,5 +218,104 @@ public class InternalSalesController {
         // (grand total − paid), so an unpaid online order lands in AR exactly like an unpaid counter sale.
         dto.setPaidAmount(paid);
         return dto;
+    }
+
+    /**
+     * OMS O7 D4 — return PART of an invoice: the goods a shop refused at the door.
+     *
+     * <p>Resolves each {@code productId} to the {@code Sell} line it was sold on, then runs the SAME
+     * {@code saleReturn} the counter runs — one credit note per line, stock back, GL, AR, audit. No money logic
+     * is added here; this endpoint is a translator between the contract's language (products) and this
+     * service's own (line ids), which is exactly why the operation lives behind a contract instead of
+     * marketplace attempting accounting.
+     *
+     * <p><b>Anti-IDOR:</b> the invoice is resolved within the CALLER's tenant, so an invoice from another org
+     * reads as missing — the same rule {@code reverseSale} above follows.
+     *
+     * <p><b>Not idempotent, and honestly so.</b> Returning the same goods twice would raise two credit notes,
+     * because a shop genuinely can refuse the same product on two different deliveries. The caller
+     * (marketplace) is what knows a delivery outcome has already been keyed, and that is where the guard
+     * belongs — stating it here rather than pretending a safety this endpoint cannot provide.
+     */
+    // All-or-nothing: a partially-applied door rejection (line 1 credited, line 2 refused) would leave the
+    // books describing a delivery that never happened in that shape. The rollback is what makes the throw
+    // below safe.
+    @org.springframework.transaction.annotation.Transactional
+    @PostMapping("/return-lines")
+    public ResponseEntity<?> returnLines(
+            @RequestBody com.myplus.commerce.contracts.dto.SaleReturnRequest body,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        if (body == null || body.getInvoiceNo() == null || body.getInvoiceNo().isBlank())
+            throw new ValidationException("invoiceNo is required");
+        java.util.List<com.myplus.commerce.contracts.dto.SaleReturnLine> lines = body.getLines();
+        if (lines == null || lines.isEmpty())
+            throw new ValidationException("At least one line is required");
+        final String invoiceNo = body.getInvoiceNo();
+        final String reason = body.getReason();
+
+        // `saleReturn` reads `reason` (and `quarantine`, and `refundAs`) off the RAW REQUEST via getParameter.
+        // The reason now arrives in the JSON body, so it would be invisible to it — and the credit note would
+        // silently carry no reason at all, which is the field a shop's refusal is explained by months later.
+        //
+        // Wrapping is deliberate rather than incidental: it makes that hidden coupling explicit at the one
+        // place it matters, instead of leaving a caller to discover the reason vanished. It disappears when
+        // saleReturn is extracted into a service that takes its inputs as arguments (§12.5 debt).
+        jakarta.servlet.http.HttpServletRequest request =
+                new jakarta.servlet.http.HttpServletRequestWrapper(httpRequest) {
+                    @Override public String getParameter(String name) {
+                        if ("reason".equals(name)) return reason;
+                        return super.getParameter(name);
+                    }
+                };
+
+        AuthenticatedUser user = requestUtil.getCurrentUser();
+        Long org = (user == null) ? null : user.getOrganizationId();
+        if (org == null) throw new ValidationException("No tenant identity on the request");
+
+        CustomerHistory ch = customerHistoryService.findByOrgAndInvoiceNo(org, invoiceNo).orElse(null);
+        if (ch == null)
+            return ResponseEntity.status(404).body(java.util.Map.of("message", "Invoice not found: " + invoiceNo));
+
+        java.util.List<com.myplus.business_service.entity.Sell> sold =
+                sellService.findByInvoiceScoped(ch.getCustomer_history_id(), org, user.getUserId());
+        java.util.List<String> creditNotes = new java.util.ArrayList<>();
+
+        for (com.myplus.commerce.contracts.dto.SaleReturnLine line : lines) {
+            if (line == null || line.getProductId() == null || line.getQuantity() == null
+                    || line.getQuantity() <= 0f) continue;
+
+            com.myplus.business_service.entity.Sell match = sold.stream()
+                    .filter(x -> line.getProductId().equals(x.getProductId()))
+                    .filter(x -> x.getQuantity() != null && x.getQuantity() > 0f)
+                    .findFirst().orElse(null);
+            if (match == null) {
+                // Refuse rather than skip: a product that is not on the invoice means the caller and the books
+                // disagree about what was sold, and silently returning nothing would hide that.
+                throw new ValidationException("Product " + line.getProductId()
+                        + " is not on invoice " + invoiceNo + " — nothing was returned.");
+            }
+            if (line.getQuantity() > match.getQuantity()) {
+                throw new ValidationException("Cannot return " + line.getQuantity() + " of product "
+                        + line.getProductId() + " — only " + match.getQuantity() + " was sold on " + invoiceNo + ".");
+            }
+
+            SellDTO dto = new SellDTO();
+            dto.setSellId(match.getSellId());
+            dto.setQuantity(line.getQuantity());
+            // `reason` reaches saleReturn through the REQUEST (it reads getParameter("reason")), which is why
+            // the contract sends it as a query parameter rather than in the body.
+            GenericResponse res = sellController.saleReturn(dto, request);
+            if (res == null || !"SUCCESS".equals(res.getStatus())) {
+                // Propagate: a partially-applied door rejection is worse than a refused one, and the
+                // @Transactional boundary on this method rolls the earlier lines back with it.
+                throw new ValidationException(res == null ? "The return could not be recorded."
+                        : String.valueOf(res.getMessage()));
+            }
+            if (res.getObject() != null) creditNotes.add(String.valueOf(res.getObject()));
+        }
+
+        LOG.info("O7 D4: returned {} line(s) off invoice {} for org {} ({}) — credit notes {}",
+                creditNotes.size(), invoiceNo, org, reason, creditNotes);
+        return ResponseEntity.ok(creditNotes);
     }
 }

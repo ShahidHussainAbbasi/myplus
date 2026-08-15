@@ -54,8 +54,18 @@
             window.__MSG = /*[[${jsMessages}]]*/ {};
         /*]]>*/</script>
         <script th:src="@{/js/common/i18n.js}"></script>
-        <script th:src="@{/js/jquery.min.js}"></script>
-        <script th:src="@{/js/jquery-3.3.1.js}"></script>
+        <!-- PERF-3 (microservices/docs/frontend-performance-audit.md, finding F4).
+             This was TWO jQuery tags:
+                 /js/jquery.min.js      — jQuery 1.11.2, 96KB
+                 /js/jquery-3.3.1.js    — jQuery 3.3.1, 282KB, the UNMINIFIED development build
+             1.11.2 loaded and was then immediately overwritten by 3.3.1 on the very next line, with no
+             code in between to observe it — so the app has always in fact run on 3.3.1 and dropping the
+             1.x tag is a no-op behaviourally, not a version upgrade. Every plugin below loads AFTER this
+             line and therefore already bound to 3.3.1.
+             The remaining tag now points at the minified build that was already sitting unused in the
+             same directory. Same library, same version, 282KB -> 87KB.
+             NOTE: /js/jquery.min.js is still on disk on purpose — appointment.html loads it directly. -->
+        <script th:src="@{/js/jquery-3.3.1.min.js}"></script>
         <script th:src="@{/js/moment.js}"></script>
         <script th:src="@{/js/jquery.timepicker.min.js}"></script>
         <script th:src="@{/js/jquery.dataTables.min.js}"></script>
@@ -63,14 +73,23 @@
         <script th:src="@{/bootstrap/js/bootstrap-select.min.js}"></script>
         <script th:src="@{/jQExp/dataTables.buttons.min.js}"></script>
         <script th:src="@{/jQExp/buttons.flash.min.js}"></script>
-        <script th:src="@{/jQExp/jszip.min.js}"></script>
-        <script th:src="@{/jQExp/pdfmake.min.js}"></script>
-        <script th:src="@{/jQExp/vfs_fonts.js}"></script>
+        <!-- PERF-4b: jszip.min.js, pdfmake.min.js and vfs_fonts.js NO LONGER LOAD HERE.
+             They were 2,121,616 bytes raw / 932,627 gzipped — after PERF-1 that was ~70% of the compressed
+             JS on every dashboard — and they serve exactly two buttons (Excel, PDF) that most sessions
+             never press. js/common/lazy-export.js now fetches them on FIRST CLICK instead.
+             csv / copy / print need no library at all and are unaffected.
+             ⚠️ Do NOT "fix" a missing export button by re-adding these tags: DataTables hides pdfHtml5 and
+             excelHtml5 when their library is absent AT TABLE INIT, which is exactly why lazy-export.js
+             declares them as custom buttons instead. Re-adding these would mask that mechanism and
+             silently restore the ~900KB. -->
         <script th:src="@{/jQExp/buttons.html5.min.js}"></script>
         <script th:src="@{/jQExp/buttons.print.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
         <script th:src="@{/js/main.js}"></script>
+        <!-- PERF-4b: lazyPdfButton() / lazyExcelButton() for DataTables. Must load BEFORE the module
+             scripts (business.js / education.js / agriculture.js) that call them while building tables. -->
+        <script th:src="@{/js/common/lazy-export.js}"></script>
         <!-- Global AJAX waiting overlay — one source for the whole app; blocks interaction while any
              $.ajax/$.post is in flight (see /js/common/ajax-overlay.js). -->
         <script th:src="@{/js/common/ajax-overlay.js}"></script>

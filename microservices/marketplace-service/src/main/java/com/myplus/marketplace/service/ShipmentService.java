@@ -129,12 +129,20 @@ public class ShipmentService {
             order.setInvoiceNo(dispatchInvoice);
             order.setBooksStatus("POSTED");
         }
+        // O7 D4: the invoice belongs on the PARCEL as well. `orders.invoice_no` is overwritten by each dispatch,
+        // so a part-delivered order could only ever be credited for its LAST shipment — the limitation D1
+        // recorded (§8.1c) and this slice owns. An invoice now corresponds one-for-one to a parcel.
+        //
+        // For a POS or storefront order (invoiced at placement) `dispatchInvoice` is null, so the parcel carries
+        // the ORDER's invoice — which is the right one, because there is only ever one.
+        String parcelInvoice = dispatchInvoice != null ? dispatchInvoice : order.getInvoiceNo();
 
         long seq = shipmentRepository.maxShipmentSeqForOrg(orgId) + 1;
         Shipment shipment = Shipment.builder()
                 .organizationId(orgId).userId(userId).orderId(order.getId())
                 .shipmentSeq(seq)
                 .shipmentNo(com.myplus.commerce.domain.InvoiceNumbers.shipment(seq))
+                .invoiceNo(parcelInvoice)          // O7 D4: what this parcel is billed as
                 .carrier(trimToNull(req.getCarrier()))
                 .trackingNumber(trimToNull(req.getTrackingNumber()))
                 .note(trimToNull(req.getNote()))
@@ -254,6 +262,7 @@ public class ShipmentService {
         ShipmentDTO d = new ShipmentDTO();
         d.setId(s.getId());
         d.setShipmentNo(s.getShipmentNo());
+        d.setInvoiceNo(s.getInvoiceNo());   // O7 D4: what this parcel is billed as
         d.setCarrier(s.getCarrier());
         d.setTrackingNumber(s.getTrackingNumber());
         d.setStatus(s.getStatus());
@@ -264,6 +273,7 @@ public class ShipmentService {
             ShipmentDTO.Line dl = new ShipmentDTO.Line();
             dl.setOrderItemId(l.getOrderItemId());
             dl.setQuantity(l.getQuantity());
+            dl.setDeliveredQuantity(l.getDeliveredQuantity());   // O7 D4: what actually reached the shop
             lines.add(dl);
         }
         d.setLines(lines);

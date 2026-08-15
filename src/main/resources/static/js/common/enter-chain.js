@@ -213,9 +213,25 @@
             // The previous rule advanced in every closed case. It made a required dropdown impossible
             // to fill from the keyboard: Enter walked straight past 71 companies without showing one,
             // leaving a required field empty and no way to set it without the mouse.
-            if (isPicker(id)) {
+            // Shift+Enter is "go back" and never opens anything — it must reach the walk below even
+            // on an unanswered picker, or the chain cannot be reversed out of an empty dropdown.
+            if (isPicker(id) && !e.shiftKey) {
                 if (menuOpen(id)) { armAdvanceFallback(id); return; }
-                if (!hasValue(id)) return;              // no preventDefault -> the menu opens
+                if (!hasValue(id)) {
+                    // Open it with a NATIVE click on the button the plugin renders — exactly what a
+                    // mouse user does, so every delegated handler (bootstrap's dropdown data-api and
+                    // bootstrap-select's own) runs the same way.
+                    //
+                    // Not selectpicker('toggle'): bootstrap-select 1.6.2 has no such method, and an
+                    // unknown method there is a SILENT no-op rather than an error — so a try/catch
+                    // around it catches nothing and the fallback never runs. A guard only helps
+                    // against failures that announce themselves.
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var btn = $('#' + id).next('.bootstrap-select').find('button')[0];
+                    if (btn) btn.click();
+                    return;
+                }
             }
 
             e.preventDefault();

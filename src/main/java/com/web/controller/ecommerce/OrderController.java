@@ -217,6 +217,41 @@ public class OrderController {
         }
     }
 
+    /**
+     * OMS O7 D4 — record what happened when a parcel reached the shop.
+     *
+     * <p>Relays the downstream status: this raises credit notes and takes money, so a refusal ("already
+     * recorded", "nothing can be credited") must reach the admin verbatim rather than as a generic failure.
+     */
+    @RequestMapping(value = "/recordDelivery", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> recordDelivery(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body == null ? null : body.get("id");
+            return client.postJson("/orders/" + enc(String.valueOf(id)) + "/delivery", body);
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not record the delivery.");
+        } catch (Exception e) {
+            LOGGER.error("recordDelivery proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /** What has been keyed against this order's parcels. */
+    @RequestMapping(value = "/getDeliveries", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getDeliveries(final HttpServletRequest request) {
+        try {
+            String id = request.getParameter("id");
+            return client.get("/orders/" + enc(id == null ? "" : id) + "/deliveries");
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not load the delivery history.");
+        } catch (Exception e) {
+            LOGGER.error("getDeliveries proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
     /** Who changed what on this order, and why. */
     @RequestMapping(value = "/getOrderAmendments", method = RequestMethod.GET)
     @ResponseBody

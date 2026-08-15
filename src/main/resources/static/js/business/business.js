@@ -40,14 +40,18 @@ $(document).ready(function() {
         	'pageLength',
             { extend: 'copyHtml5', footer: true, title: t('ui.js.saleDetailReport') },
             { extend: 'csvHtml5', footer: true, title: t('ui.js.saleDetailReport') },
-            { extend: 'excelHtml5', footer: true, title: t('ui.js.saleDetailReport') },
+            // PERF-4b: Excel and PDF now fetch their library on first click (js/common/lazy-export.js).
+            // Same options, same behaviour — the ~903KB pdfmake payload just no longer loads on every
+            // dashboard for a button most sessions never press. csv/copy/print need no library and are
+            // untouched.
+            lazyExcelButton({ footer: true, title: t('ui.js.saleDetailReport') }),
             { extend: 'print', footer: true, title: t('ui.js.saleDetailReport') },
-        	{ extend: 'pdfHtml5',
+        	lazyPdfButton({
               orientation: 'landscape',
               pageSize: 'LEGAL',
               footer: true,
               title: t('ui.js.saleDetailReport')
-            }
+            })
         ],
 	    
 	    "footerCallback": function ( row, data, start, end, display ) {
@@ -1110,14 +1114,13 @@ function loadDataTable(){
 				dt.draw();
 			}
 		}] : []).concat([
-			{extend: 'excelHtml5', footer: true},
+			lazyExcelButton({footer: true}),          // PERF-4b — library on first click
 			{extend: 'print', footer: true},
-			{
-				extend: 'pdfHtml5',
+			lazyPdfButton({
 				orientation: 'landscape',
 				pageSize: 'LEGAL',
 				footer: true
-			}
+			})
 		]),
 		"ajax": {
 			// Load ALL records so DataTables handles Next/Back pagination and search locally.

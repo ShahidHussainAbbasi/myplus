@@ -193,11 +193,17 @@
     </div>
 </div>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<!-- PERF-3b: was jQuery 1.11.2 from the Google CDN. Over plain http:// that is mixed content, which
+     browsers BLOCK on an https deployment - this page got no jQuery at all. Now the local copy, same
+     version 1.11.2, so behaviour is unchanged (see microservices/docs/frontend-performance-audit.md). -->
+<script th:src="@{/js/jquery.min.js}"></script>
 <!-- Global AJAX waiting overlay (single source for the whole app) — auto-shows while the
      registration $.post is in flight; no per-page overlay markup needed. -->
 <script th:src="@{/js/common/ajax-overlay.js}"></script>
-<script th:src="@{/pwstrength.js}"></script>
+<!-- PERF-3b follow-up: moved from /pwstrength.js to /js/pwstrength.js. SecSecurityConfig permits
+     /js/** but NOT root-level *.js, so at the old path Spring Security 302-redirected this script to
+     login for ANONYMOUS users - the password-strength meter never ran on the public signup form. -->
+<script th:src="@{/js/pwstrength.js}"></script>
 <script th:inline="javascript">
 var serverContext = [[@{/}]];
 

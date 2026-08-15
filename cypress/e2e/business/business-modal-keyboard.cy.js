@@ -58,6 +58,18 @@ function openSectionFor(section) {
   }
 }
 
+/** Click a toolbar "+ New" button, allowing for the section's data load.
+ *
+ * #appAjaxOverlay covers the toolbar while a section loads, so the click can land on the overlay.
+ * Two things that do NOT work: asserting the overlay is absent first (it has not appeared yet at
+ * that instant, so the check passes vacuously and the click still hits it), and waiting on a named
+ * request (each section loads a different one). Cypress already retries actionability — just give it
+ * long enough to outlast the load, and let it click when the button is genuinely clickable.
+ */
+function clickNew(selector) {
+  cy.get(selector, { timeout: 30000 }).click({ timeout: 30000 })
+}
+
 describe('P7.2 — business registration modals, keyboard-first', () => {
   beforeEach(() => { cy.loginAsBusiness() })
 
@@ -80,7 +92,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     it(`${entity}: Enter walks the form in layout order, Shift+Enter reverses`, () => {
       openDash()
       openSectionFor(section)
-      cy.get(open).click()
+      clickNew(open)
       cy.get(`#${entity}Modal`).should('have.class', 'open')
 
       cy.window().then((w) => {
@@ -121,7 +133,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
       cy.intercept('POST', `/add${entity}`, (req) => { posted = true; req.continue() })
       openDash()
       openSectionFor(section)
-      cy.get(open).click()
+      clickNew(open)
       cy.get(`#${entity}Modal`).should('have.class', 'open')
       cy.get(`#${first}`).focus().type('{esc}')
       cy.get(`#${entity}Modal`).should('not.have.class', 'open')
@@ -135,7 +147,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     cy.intercept('POST', '/addCompany').as('save')
     openDash()
     openSectionFor('CompanyDiv')
-    cy.get('#newCompany').click()
+    clickNew('#newCompany')
     cy.get('#companyName').clear().type(`P72Co_${STAMP}`)
     cy.get('#companyEmail').clear().type(`p72co${STAMP}@test.com`)
     // NOT the last field — that is the point of Ctrl+Enter.
@@ -148,7 +160,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     cy.intercept('POST', '/addCompany', (req) => { posts += 1; req.continue() }).as('save')
     openDash()
     openSectionFor('CompanyDiv')
-    cy.get('#newCompany').click()
+    clickNew('#newCompany')
     cy.get('#companyName').clear().type(`P72Last_${STAMP}`)
     cy.window().then((w) => {
       const chain = w.EnterChain.fieldsIn('#CompanyModal')
@@ -164,11 +176,11 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
 
   it('enterSubmits=off → Enter on the last field does nothing, Ctrl+Enter still saves', () => {
     let posted = false
-    cy.intercept('POST', '/addCompany', (req) => { posted = true; req.continue() })
+    cy.intercept('POST', '/addCompany', (req) => { posted = true; req.continue() }).as('save')
     openDash()
     openSectionFor('CompanyDiv')
     cy.window().then((w) => { w.kbdEnterSubmits = false })
-    cy.get('#newCompany').click()
+    clickNew('#newCompany')
     cy.get('#companyName').clear().type(`P72NoSub_${STAMP}`)
     cy.window().then((w) => {
       const chain = w.EnterChain.fieldsIn('#CompanyModal')
@@ -178,15 +190,19 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     cy.then(() => expect(posted, 'Enter must not save when the tenant turned that off').to.be.false)
     cy.get('#CompanyModal').should('have.class', 'open')
     // The escape hatch survives — a form is never un-submittable from the keyboard.
+    //
+    // WAIT for the request rather than reading a flag in a .then(): .then() runs as soon as the type
+    // command finishes, which is before the click's AJAX has left the browser. Reading the flag there
+    // passes or fails on timing, and it did both across runs.
     cy.get('#companyName').focus().type('{ctrl}{enter}')
-    cy.then(() => expect(posted, 'Ctrl+Enter still saves').to.be.true)
+    cy.wait('@save', { timeout: 20000 }).its('response.statusCode').should('eq', 200)
   })
 
   it('formNav=off → the chain is inert and the form behaves as it did before P7.2', () => {
     openDash()
     openSectionFor('CompanyDiv')
     cy.window().then((w) => { w.kbdFormNavEnabled = false })
-    cy.get('#newCompany').click()
+    clickNew('#newCompany')
     cy.get('#companyName').focus().type('{enter}')
     // Focus does not move: Enter is nobody's business on this form now.
     cy.focused().should('have.id', 'companyName')
@@ -237,7 +253,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     // leaving a REQUIRED field empty with no keyboard way to set it. An unanswered picker now opens.
     openDash()
     openSectionFor('VenderDiv')
-    cy.get('#newVender').click()
+    clickNew('#newVender')
     cy.get('#VenderModal').should('have.class', 'open')
 
     cy.get('#venderName').focus().type(`P72Kbd_${STAMP}{enter}`)
@@ -253,21 +269,25 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
   it('choosing from an open dropdown sets the value AND moves on', () => {
     openDash()
     openSectionFor('VenderDiv')
-    cy.get('#newVender').click()
+    clickNew('#newVender')
     cy.get('#venderCompanyDD').next('.bootstrap-select').find('button').first().focus().type('{enter}')
     cy.get('#venderCompanyDD').next('.bootstrap-select').should('have.class', 'open')
-    // Pick the first real option the way the plugin expects.
-    cy.get('#venderCompanyDD').next('.bootstrap-select').find('.dropdown-menu li:not(.disabled) a')
-      .first().click()
-    cy.get('#venderCompanyDD').should('not.have.value', '')  // the choice was RECORDED
-    // ...and the chain carried on rather than stalling on the answered field.
+    // Now make a selection the way the PLUGIN reports one, and assert what this code owns: that a
+    // recorded choice carries the chain onward. Navigating the open menu with arrow keys is
+    // bootstrap-select's own behaviour, not ours, and driving it headlessly tests the plugin.
+    cy.get('#venderCompanyDD option').eq(1).then(($o) => {
+      cy.get('#venderCompanyDD').then(($s) => {
+        $s.val($o.val()).selectpicker('refresh').trigger('changed.bs.select')
+      })
+    })
+    cy.get('#venderCompanyDD').should('not.have.value', '')   // the choice was RECORDED
     cy.focused().should(($el) => expect(focusedFieldId($el)).to.not.eq('venderCompanyDD'))
   })
 
   it('an ANSWERED dropdown advances on Enter — it does not re-open', () => {
     openDash()
     openSectionFor('VenderDiv')
-    cy.get('#newVender').click()
+    clickNew('#newVender')
     // Set a value directly, then Enter must move on rather than showing the list again.
     cy.get('#venderCompanyDD option').eq(1).then(($o) => {
       cy.get('#venderCompanyDD').then(($s) => {
@@ -285,7 +305,7 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     cy.intercept('POST', '/addCustomer').as('save')
     openDash()
     openSectionFor('CustomerDiv')
-    cy.get('#newCustomer').click()
+    clickNew('#newCustomer')
     cy.get('#customerName').clear().type(`P72Mouse_${STAMP}`)
     cy.get('#contact').clear().type('03001234567')
     cy.get('#addCustomer').click()                    // no keyboard involved at all

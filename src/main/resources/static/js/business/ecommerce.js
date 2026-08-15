@@ -339,6 +339,12 @@
             html += " <button class='btn btn-xs btn-success' id='orderShipBtn' onclick=\"openShipForm("
                 + Number(o.id) + ')">' + esc(t('ui.js.ship') || 'Ship') + '</button>';
         }
+        // O7 D4: a dispatched parcel needs its outcome keying when the driver gets back. Drawn only when
+        // there is something undelivered to key, so the button never appears on a settled order.
+        if ((o.shipments || []).some(function (sh) { return sh.status === 'DISPATCHED'; })) {
+            html += " <button class='btn btn-xs btn-info' id='orderDeliveryBtn' onclick=\"openDeliveryForm("
+                + Number(o.id) + ')">' + esc(t('ui.js.recordDelivery') || 'Record delivery') + '</button>';
+        }
         if (canReverse() && Number(o.refundableAmount) > 0 && o.paymentMode === 'CARD') {
             html += " <button class='btn btn-xs btn-warning' id='orderRefundBtn' onclick=\"refundOrderPrompt("
                 + Number(o.id) + ',' + Number(o.refundableAmount) + ')">'

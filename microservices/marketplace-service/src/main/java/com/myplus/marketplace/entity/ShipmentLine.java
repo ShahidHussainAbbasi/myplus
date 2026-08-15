@@ -52,4 +52,13 @@ public class ShipmentLine {
     @Builder.Default
     @Column(nullable = false)
     private Boolean verified = false;
+
+    /**
+     * O7 D4 — how much of this line actually reached the shop (V21).
+     *
+     * <p>NULL means "not yet keyed", which is deliberately different from 0 ("keyed — they took none"): the
+     * first is an outstanding job for the admin, the second a finished one with a credit note behind it.
+     */
+    @Column(name = "delivered_quantity")
+    private Integer deliveredQuantity;
 }
