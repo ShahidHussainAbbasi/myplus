@@ -272,6 +272,13 @@ Cypress.Commands.add('loginAsPortalGuardian', (email = 'guardian.education@myplu
  * means a stuck spinner would pass the gate and fail in production.
  */
 Cypress.Commands.add('waitForAppReady', () => {
+  // Wait on BOTH the overlay and its box. Cypress names whichever element is actually on top at the
+  // point of the click, and it has named each of them on different runs: `.ao-box` when a modal-sized
+  // spinner sits over a button, `#appAjaxOverlay` (the full-viewport parent, `class="show"`) when the
+  // whole page is masked. Waiting on only one leaves the other gap open — which is how the DataTables
+  // search box and #newProduct still failed after the first version of this helper shipped.
+  // Hiding the parent implies the child is hidden too, so this is belt-and-braces, not duplication.
+  cy.get('#appAjaxOverlay', { timeout: 30000 }).should('not.be.visible')
   cy.get('.ao-box', { timeout: 30000 }).should('not.be.visible')
 })
 

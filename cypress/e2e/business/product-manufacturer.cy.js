@@ -85,7 +85,14 @@ describe('Product list — manufacturer column', () => {
     cy.seedProduct({ name: name, manufacturer: brand }).then(() => {
       openProductScreen()
       // The table is searchable — narrow to the seeded product rather than paging to find it.
-      cy.get('#tableProduct_filter input', { timeout: 20000 }).type(name)
+      cy.waitForAppReady()
+      cy.get('#tableProduct_filter input', { timeout: 20000 })
+        // Give TYPE its own long actionability window. The global AJAX overlay can reappear after
+        // waitForAppReady() returns — it is a point-in-time check, not a lock — and `.type()` uses
+        // defaultCommandTimeout (5s) for actionability regardless of the timeout passed to `get`.
+        // Waiting is what a real user does here; NEVER {force:true} past an overlay, which would
+        // click through something no human could and let a stuck spinner pass the gate.
+        .type(name, { timeout: 20000 })
       cy.get('#tableProduct tbody tr').should('have.length', 1)
       cy.get('#tableProduct tbody tr').first().should('contain', brand)
     })
@@ -101,7 +108,14 @@ describe('Product list — manufacturer column', () => {
     const name = 'MfrTog_' + Date.now()
     cy.seedProduct({ name: name, manufacturer: brand }).then(() => {
       openProductScreen()
-      cy.get('#tableProduct_filter input', { timeout: 20000 }).type(name)
+      cy.waitForAppReady()
+      cy.get('#tableProduct_filter input', { timeout: 20000 })
+        // Give TYPE its own long actionability window. The global AJAX overlay can reappear after
+        // waitForAppReady() returns — it is a point-in-time check, not a lock — and `.type()` uses
+        // defaultCommandTimeout (5s) for actionability regardless of the timeout passed to `get`.
+        // Waiting is what a real user does here; NEVER {force:true} past an overlay, which would
+        // click through something no human could and let a stuck spinner pass the gate.
+        .type(name, { timeout: 20000 })
       cy.get('#tableProduct tbody tr').should('have.length', 1).and('contain', brand)
 
       // Hide it — the link is scoped to the Product screen so it cannot hit another table's datatable.
@@ -120,7 +134,14 @@ describe('Product list — manufacturer column', () => {
     const name = 'MfrEmpty_' + Date.now()
     cy.seedProduct({ name: name }).then(() => {
       openProductScreen()
-      cy.get('#tableProduct_filter input', { timeout: 20000 }).type(name)
+      cy.waitForAppReady()
+      cy.get('#tableProduct_filter input', { timeout: 20000 })
+        // Give TYPE its own long actionability window. The global AJAX overlay can reappear after
+        // waitForAppReady() returns — it is a point-in-time check, not a lock — and `.type()` uses
+        // defaultCommandTimeout (5s) for actionability regardless of the timeout passed to `get`.
+        // Waiting is what a real user does here; NEVER {force:true} past an overlay, which would
+        // click through something no human could and let a stuck spinner pass the gate.
+        .type(name, { timeout: 20000 })
       cy.get('#tableProduct tbody tr').should('have.length', 1)
       cy.get('#tableProduct tbody tr').first().should('not.contain', 'undefined')
       cy.get('#tableProduct tbody tr').first().should('not.contain', 'null')

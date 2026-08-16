@@ -291,7 +291,8 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
       cy.window().then((w) => w.showProducts())
       cy.get('#ProductModal').should('not.have.class', 'open')
       // + New Product opens the form modal
-      cy.get('#newProduct').click()
+      cy.waitForAppReady()
+      cy.get('#newProduct').click({ timeout: 20000 })
       cy.get('#ProductModal').should('have.class', 'open')
       cy.get('#prodName').should('be.visible')
       // Let the SECTION's entrance animation finish before clicking the modal's ×.
