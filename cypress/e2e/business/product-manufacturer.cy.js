@@ -52,15 +52,22 @@ describe('Product list — manufacturer column', () => {
   it('the header and the rendered row have the same number of columns', () => {
     cy.seedProduct({ name: 'MfrCol_' + Date.now(), manufacturer: 'ColBrand_' + Date.now() }).then(() => {
       openProductScreen()
-      cy.get('#tableProduct tbody tr', { timeout: 20000 }).should('have.length.greaterThan', 0)
+      // Wait for a LOADED row before comparing. `tbody tr` length > 0 is satisfied by DataTables'
+      // "No data available" PLACEHOLDER, which is itself a `<tr>` carrying a single cell — so this case
+      // measured the placeholder and reported "Found 1, expected 14", a number that looks like a
+      // catastrophic column shift and is really just an unloaded grid. A real row has more than one cell.
+      cy.waitForAppReady()
+      cy.get('#tableProduct tbody tr:first td', { timeout: 20000 }).should('have.length.greaterThan', 1)
+
       // ALL headers vs ALL cells — one basis. Filtering either side by `:visible` compares different
       // populations and only manufactures noise (tried both ways; see product-last-rates.cy.js).
       //
-      // ⚠ This currently reports **header 14, row 13** and the shortfall is NOT explained: business.js
-      // pushes exactly 14 entries for the 14-column header, the deployed file is byte-identical to the
-      // tree, and the grid renders without the "Requested unknown parameter" a genuine shift produces.
-      // Kept as the honest comparison — this case exists precisely to catch a row/header mismatch, so
-      // loosening it to go green would disable the guard it was written to be.
+      // ⚠ With a genuinely loaded row this still reports **header 14, row 13** (see product-last-rates,
+      // which selects the row by NAME and so was never fooled by the placeholder). Not explained:
+      // business.js pushes exactly 14 entries, the deployed file is byte-identical to the tree, and the
+      // grid renders without the "Requested unknown parameter" a real shift produces. Kept as the honest
+      // comparison — this case exists precisely to catch a row/header mismatch, so loosening it to go
+      // green would disable the guard it was written to be.
       cy.get('#tableProduct thead th').then(($th) => {
         cy.get('#tableProduct tbody tr').first().find('td').should('have.length', $th.length)
       })

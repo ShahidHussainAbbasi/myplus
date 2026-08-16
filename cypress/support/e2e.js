@@ -41,12 +41,24 @@ beforeEach(() => {
   cy.task('clearDemoCaps', null, { log: false })
 })
 
-// Suppress known pre-existing JS errors in the app so Cypress doesn't fail tests for them
+// Suppress known pre-existing JS errors in the app so Cypress doesn't fail tests for them.
+//
+// ⚠ THE BARE `is not a function` CATCH-ALL WAS REMOVED (2026-08-16). It matched the most common shape of
+// TypeError there is, so it suppressed real defects in OUR OWN code — the exact opposite of the intent
+// stated in the jspdf note below, which deliberately matches on a third-party file so that "a real error
+// in our own code still fails the test".
+//
+// It was removed while hunting the wedge in `pos-quickpick` / `sell-edit` / `pos-sale-endtoend`, on the
+// theory that an uncaught throw was being swallowed. **That theory was WRONG and the removal did not fix
+// them** — with the catch-all gone the specs still hang without failing, which is itself the evidence that
+// no exception is being thrown: the page's main thread is blocked, so no Cypress timeout can fire either.
+// The removal stands on its own merits regardless; it is not the cure for that hang.
+//
+// Keep suppressions SPECIFIC. Each one below names the symbol it tolerates, so a new error still fails.
 Cypress.on('uncaught:exception', (err) => {
   if (
     err.message.includes('handleEnterKey is not defined') ||
-    err.message.includes('pwstrength is not a function') ||
-    err.message.includes('is not a function')
+    err.message.includes('pwstrength is not a function')
   ) {
     return false
   }

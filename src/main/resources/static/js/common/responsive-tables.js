@@ -79,6 +79,22 @@
 	 * querySelectorAll and a handful of string comparisons. */
 	if (window.jQuery) {
 		window.jQuery(document).ajaxComplete(wrapTables);
+
+		/* DataTables UNDOES the wrap, so ajaxComplete alone is not enough.
+		 *
+		 * On init/draw DataTables builds `.dataTables_wrapper` and re-parents the <table> into it —
+		 * the same insertBefore+appendChild move made above — so a table wrapped at DOM-ready ends up
+		 * with `.dataTables_wrapper` as its DIRECT parent again, and that wrapper does not scroll
+		 * unless DataTables' own `scrollX` is enabled (it is not, anywhere in this app). Whether the
+		 * wrap is ever restored then depends on another AJAX call happening afterwards, which on a
+		 * screen that loads its grid once never comes. Measured live: education's `#tableStudent`
+		 * overflowed 1860px with `scrollLeft` pinned at 0 — columns unreachable on a tablet.
+		 *
+		 * `draw.dt` is DataTables' own public event, so this stays a one-way dependency and covers
+		 * every grid rather than asking each screen to remember `window.wrapResponsiveTables()`.
+		 * Safe to fire often: a table already sitting in a scroller is rejected by the classList test
+		 * at the top of alreadyScrollable() before any style is resolved. */
+		window.jQuery(document).on('draw.dt', wrapTables);
 	}
 
 	/* Exposed for screens that render a grid outside an AJAX callback. */

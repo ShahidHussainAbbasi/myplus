@@ -341,6 +341,38 @@ commented block is deleted rather than left as cruft.
   chain skips absent fields) so they are harmless, but removing them touches sale-total arithmetic and
   deserves its own change rather than riding along with a test repair.
 
+## 3e. POST-REBUILD RESULTS (2026-08-16 06:27 UTC) — 4 of 5 green
+
+Monolith rebuilt and redeployed; all four resource changes verified live by unzipping the running jar
+(bundle key present, `sectionIn … both` gone, `#sellInsured` gone, `.dataTables_wrapper` skip gone).
+
+| Spec | Result |
+|---|---|
+| `ui/i18n` | ✅ **20/20** — the raw `ui.recordShipment` key is gone |
+| `business/vertical-fields` | ✅ **2/2** — `#sellInsured` removal |
+| `pharmacy/insurance-copay` | ✅ **2/2** — same |
+| `business/product-crud` | ✅ **14/14** — **the modal close × is clickable again** (§3c confirmed) |
+| `ui/responsive` | **38/39** — the clipped grid persists, see below |
+
+**§3c is confirmed by the gate**: dropping `animation-fill-mode: both` released the permanent stacking
+context and the CRUD modal's × works. That was a live user-facing defect, fixed in the app.
+
+> ⚠ **Correction.** An earlier draft of this line claimed §3.6's column count "also cleared, because
+> `product-crud` is 14/14". That was a misreading of my own numbers — **14 is that spec's TEST count, not
+> its column count**, and the column assertion does not live there at all. Re-run afterwards:
+> `product-last-rates` still reports **"Found 13, expected 14"** with the grid fully loaded (its five other
+> cases pass). So §3.6 is **NOT resolved** — the 1-cell shortfall is real and reproducible, and still needs
+> devtools to see which cell is absent at runtime.
+
+### ⬜ STILL OPEN — the education Students grid is still clipped
+
+`responsive.cy.js` reports `the wrapper actually scrolls: expected 0 to be close to 1860`. Removing the
+class-based skip was **necessary but not sufficient**. Ruled out: the `#content` selector (present on both
+dashboards). Leading hypothesis, **not confirmed**: DataTables re-parents the table into
+`.dataTables_wrapper` AFTER `responsive-tables.js` has wrapped it, so the non-scrolling wrapper is the
+direct parent again by the time the test measures. Needs devtools on a headed run — two earlier theories
+on this spec were wrong, so it should not be fixed on inference.
+
 ## 4. Still open
 
 * **`contract-price-charged`** — "the line is still in the cart: expected undefined to exist".
