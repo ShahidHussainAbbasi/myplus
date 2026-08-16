@@ -107,6 +107,34 @@ x-healthcheck: &app-healthcheck
   retries: 5
   start_period: 240s
 
+# Bootstrap tier — eureka-server and config-server. THEY NEED THEIR OWN ANCHOR, and not having one is
+# what made `docker compose up` fail intermittently with "dependency failed to start".
+#
+# Both had NO start_period at all: the 90s->240s raise above landed on the app anchor and never reached
+# the two services every other container waits on. With no start_period the FIRST probe at t=15s counts
+# as a real failure, so the whole budget to reach healthy is 15s + 5 x 15s = 75s from container start.
+# Warm, they boot in 18-22s and burn one retry every time (the health log shows the connection-refused).
+# Cold — a fresh Docker Desktop/WSL2 page cache, a loaded box, an antivirus scanning the layer — they
+# routinely need longer than 75s, take 5 consecutive failures, and are marked UNHEALTHY.
+#
+# The cascade from there is the whole reported error: api-gateway waits on config-server:service_healthy,
+# so compose refuses to start it and leaves it in `Created` (the "Container myplus-gateway Error"), and
+# education-service waits on api-gateway:service_healthy, so it reports "dependency api-gateway failed to
+# start" and never starts either. Nothing is actually wrong — the same containers come up healthy on
+# their own moments later. It is the identical LIE the comment above describes, one tier lower down.
+#
+# Note a healthcheck failure does NOT trigger `restart: unless-stopped`, so once config-server is flagged
+# unhealthy it stays flagged for the life of the container even though it is answering fine.
+#
+# 120s, not 240s: these two start before anything else so they face no thundering herd, and 6x their warm
+# boot is ample headroom. As above, failures inside start_period are free — the only cost is a slightly
+# later verdict on a container that is genuinely dead.
+x-bootstrap-healthcheck: &bootstrap-healthcheck
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 120s
+
 services:
   mysql:
     image: mysql:8.0
@@ -155,10 +183,8 @@ services:
       - "8761:8761"
     networks: [myplus-net]
     healthcheck:
+      <<: *bootstrap-healthcheck
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
 
   config-server:
     build: ./config-server
@@ -176,10 +202,8 @@ services:
       eureka-server:
         condition: service_healthy
     healthcheck:
+      <<: *bootstrap-healthcheck
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8888/actuator/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -488,8 +512,16 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      api-gateway:
-        condition: service_healthy
+      #
+      # DISABLED 2026-08-16, to match the other EIGHT dependents. This was the last live
+      # `api-gateway: service_healthy`, and it is the line that printed "dependency api-gateway failed
+      # to start" — welfare, agriculture, pharma, marketplace, campaign, analytics, appointment and the
+      # monolith had all been commented out already and education was simply missed. Which means the
+      # wave-splitting rationale above had ALREADY stopped being true: one vertical waiting on the
+      # gateway splits no herd, it just makes education the one service that cannot start whenever the
+      # gateway is late. Re-enable it here only by re-enabling all nine, or the cost buys nothing.
+      # api-gateway:
+      #   condition: service_healthy
 
   welfare-service:
     build: ./welfare-service
