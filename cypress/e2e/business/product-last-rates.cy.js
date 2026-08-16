@@ -117,30 +117,35 @@ describe('Product list — last purchase & sale rate', () => {
       cy.window().should('have.property', 'showProducts')
       cy.window().then((w) => w.showProducts())
 
-      // The row array must stay exactly as long as the header, or every later column shifts and DataTables throws
-      // "Requested unknown parameter" — assert that directly rather than trusting a column index.
+      // Re-read BOTH sides on every retry — the header count is NOT stable at first paint.
       //
-      // Compare ALL headers against ALL cells — one basis, the one the hazard is about.
+      // `loadDataTable` calls `datatable.columns([0]).visible(false)` (column 0 is the internal row id),
+      // and DataTables then REMOVES that `<th>`. So the header is 14 before it settles and 13 after,
+      // while a data row is 13 throughout. The old form snapshotted the header with
+      // `cy.get('thead th').then(...)` and retried only the `td` side against that frozen number — which
+      // is the entire "header 14, row 13" puzzle. A "-1" correction merely moved the failure to
+      // "expected 12, found 13" when the read landed late instead. Never a grid defect.
       //
-      // The hazard is a length mismatch between the header array and the row array: DataTables then throws
-      // "Requested unknown parameter" and every later column shifts. CSS visibility is irrelevant to that,
-      // so mixing bases only manufactures noise. Two wrong versions were tried before this one:
-      //   • `th:visible` vs every `td`  → "Found 13, expected 12"
-      //   • `th:visible` vs `td:visible` → "Found 8, expected 12"
-      // Both compared different populations. All-vs-all is the only coherent question.
+      // A self-describing failure settled it in ONE run by printing both lists: the row began at "Edit"
+      // where the header began at "ID", and every remaining cell sat under its correct heading
+      // (Edit→checkbox, name→NAME, sku→SKU, unit→UNIT, price→PRICE, 40.00→LAST PURCHASE,
+      // 65.00→LAST SALE, tax→TAX %, General→CATEGORY, →MANUFACTURER, …→ON HAND, →ADD STOCK,
+      // ACTIVE→STATUS). Name both sides before theorising about a count.
       //
-      // ⚠ On this environment all-vs-all reports **header 14, row 13**, and that is NOT explained: the row
-      // builder in business.js pushes exactly 14 entries, the deployed business.js is byte-identical to the
-      // tree, and the grid renders without the DataTables error a genuine shift causes. Left asserting the
-      // honest comparison rather than tuned until green — if it fails, it is reporting something real that
-      // needs devtools on a headed run, not a looser assertion.
-      cy.get('#tableProduct thead th').its('length').then((cols) => {
-        cy.contains('#tableProduct tbody tr', pname, { timeout: 10000 }).within(() => {
-          cy.get('td').should('have.length', cols)
-          // Purchase cell then sale cell — the two the renderer emits, in header order.
-          cy.get('.prod-lastrate').eq(0).should('have.text', '40.00')
-          cy.get('.prod-lastrate').eq(1).should('have.text', '65.00')
-        })
+      // `should()` re-runs the whole callback, so both numbers are re-read until DataTables settles. The
+      // guard is unchanged: a renderer emitting the wrong number of cells shifts every later column and
+      // DataTables throws "Requested unknown parameter".
+      cy.get('#tableProduct').should(($table) => {
+        const th = $table.find('thead th').length
+        const row = $table.find('tbody tr').filter((i, tr) => (tr.innerText || '').includes(pname)).first()
+        const td = row.find('td').length
+        expect(row.length, `the seeded row ${pname} is rendered`).to.eq(1)
+        expect(td, `row cells (${td}) vs header cells (${th})`).to.eq(th)
+      })
+      cy.contains('#tableProduct tbody tr', pname, { timeout: 10000 }).within(() => {
+        // Purchase cell then sale cell — the two the renderer emits, in header order.
+        cy.get('.prod-lastrate').eq(0).should('have.text', '40.00')
+        cy.get('.prod-lastrate').eq(1).should('have.text', '65.00')
       })
     })
   })

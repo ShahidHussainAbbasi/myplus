@@ -59,17 +59,22 @@ describe('Product list — manufacturer column', () => {
       cy.waitForAppReady()
       cy.get('#tableProduct tbody tr:first td', { timeout: 20000 }).should('have.length.greaterThan', 1)
 
-      // ALL headers vs ALL cells — one basis. Filtering either side by `:visible` compares different
-      // populations and only manufactures noise (tried both ways; see product-last-rates.cy.js).
+      // Re-read BOTH sides on every retry — the header count is not stable at first paint.
       //
-      // ⚠ With a genuinely loaded row this still reports **header 14, row 13** (see product-last-rates,
-      // which selects the row by NAME and so was never fooled by the placeholder). Not explained:
-      // business.js pushes exactly 14 entries, the deployed file is byte-identical to the tree, and the
-      // grid renders without the "Requested unknown parameter" a real shift produces. Kept as the honest
-      // comparison — this case exists precisely to catch a row/header mismatch, so loosening it to go
-      // green would disable the guard it was written to be.
-      cy.get('#tableProduct thead th').then(($th) => {
-        cy.get('#tableProduct tbody tr').first().find('td').should('have.length', $th.length)
+      // `loadDataTable` calls `datatable.columns([0]).visible(false)` (column 0 is the internal row id),
+      // and DataTables then REMOVES that `<th>`. So the header is 14 before it settles and 13 after,
+      // while a data row is 13 throughout. The old form snapshotted the header with
+      // `cy.get('thead th').then(...)` and retried only the `td` side against that frozen number — so it
+      // failed as "header 14, row 13" when it read early, and a "-1" correction merely swapped the
+      // failure to "expected 12, found 13" when it read late. Neither was a grid defect: the cells were
+      // verified aligned (Edit→checkbox, name→NAME, … ACTIVE→STATUS).
+      //
+      // `should()` re-runs this whole callback, so both counts are re-read until DataTables settles.
+      // The guard is unchanged: a renderer emitting the wrong number of cells still fails.
+      cy.get('#tableProduct').should(($table) => {
+        const th = $table.find('thead th').length
+        const td = $table.find('tbody tr').first().find('td').length
+        expect(td, `row cells (${td}) vs header cells (${th})`).to.eq(th)
       })
     })
   })

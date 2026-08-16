@@ -106,7 +106,20 @@ public class CatalogController {
             // "Show inactive" toggle: when true, include deactivated products (each carries isActive so the row can
             // show a status badge + a Reactivate action). Default hides them (the "delete" UX).
             boolean includeInactive = "true".equalsIgnoreCase(request.getParameter("includeInactive"));
-            Map<String, Object> resp = catalog.get("/products", "size=1000");
+            // NEWEST FIRST — `size=1000` alone silently truncated the catalogue.
+            //
+            // The page cap is fine on its own, but with the default (ascending id) ordering it returns the
+            // OLDEST thousand, so once a tenant passes 1000 products their most recent ones stop appearing
+            // on the Product screen entirely — no message, no indicator, they are simply not in the list.
+            // Measured on the demo org: 1042 products, `/getUserProduct` returned 983 with a max id of 1594
+            // while the newest was 1636. A shopkeeper would add a product and not find it.
+            //
+            // `sort=id,desc` makes the window follow the tenant forward. It does NOT change what the user
+            // sees ordered by — DataTables sorts client-side — only WHICH thousand rows are fetched, which
+            // is the half that was wrong. A proper fix is server-side paging/search on this screen; this
+            // keeps the same one request while making the truncation land on the rows least likely to be
+            // wanted rather than the most.
+            Map<String, Object> resp = catalog.get("/products", "size=1000&sort=id,desc");
             java.util.List<Map<String, Object>> collection = new java.util.ArrayList<>();
             Object data = (resp != null) ? resp.get("data") : null;
             if (data instanceof Map<?, ?> page && page.get("content") instanceof java.util.List<?> list) {
