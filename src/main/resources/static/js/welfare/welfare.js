@@ -88,9 +88,16 @@ $(document).ready(function() {
 	//  template — only in the dead templates/fragments/js copies. Every real date field is bound by the shared
 	//  /js/common/date-picker.js; nothing else may bind a picker, or fields start clearing on blur again.)
 
-	$(window).load(function() {
-
-	});
+	// (Removed: `$(window).load(function(){})`. jQuery 3.0 DELETED `.load()` as an event shorthand — it is
+	//  now only the AJAX method `.load(url, data, callback)`. Passing a function made jQuery treat it as a
+	//  URL and call `url.indexOf(" ")`, throwing **"e.indexOf is not a function"** on EVERY welfare
+	//  dashboard load. Because it sits in a document-ready handler, the throw aborted whatever followed in
+	//  that handler. The body was empty, so nothing is lost by deleting it.
+	//
+	//  It went unseen because cypress/support/e2e.js suppressed any message containing "is not a function";
+	//  removing that catch-all surfaced this immediately. The app has run jQuery 3.3.1 for a long time —
+	//  PERF-3 only removed the redundant 1.11.2 tag that was being overwritten anyway — so this has been
+	//  throwing since the jQuery 3 migration.)
 
 	$.fn.callAjax = function(method, data) {
 		$.ajax({
