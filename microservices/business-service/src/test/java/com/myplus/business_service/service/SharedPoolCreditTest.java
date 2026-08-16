@@ -1,6 +1,5 @@
 package com.myplus.business_service.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -69,6 +68,12 @@ class SharedPoolCreditTest {
         service = new SagaSellService(null, null, null, requestUtil, null, null, null);
         ReflectionTestUtils.setField(service, "settingsService", settingsService);
         ReflectionTestUtils.setField(service, "customerRepo", customerRepo);
+        // O7 D2 moved creditAccountOf/groupExposure OUT of SagaSellService into CreditStandingService, which
+        // arrives as a third @Autowired field. A REAL one over the same two mocks, not a mock of it: mocking the
+        // collaborator would stub out the pool lookup itself, and every scenario below would keep passing while
+        // asserting nothing about shared-pool credit — the only thing this test exists to pin down.
+        ReflectionTestUtils.setField(service, "creditStandingService",
+                new CreditStandingService(customerRepo, requestUtil));
 
         lenient().when(settingsService.getChoice(eq("pos.sale.creditLimitPolicy"), any(), anyString()))
                 .thenReturn("block");   // block makes a breach assert-able as a thrown refusal

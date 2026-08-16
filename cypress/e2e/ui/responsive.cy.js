@@ -171,7 +171,22 @@ describe('Responsive app-shell across dashboards & devices', () => {
       const table = $t[0];
       const wrap = table.parentElement;
 
-      expect(wrap.classList.contains('table-scroll'), `${tableSelector} sits in a .table-scroll`)
+      // `.table-scroll` is ONE of the scrollers, not the only legitimate one.
+      //
+      // responsive-tables.js deliberately SKIPS a table whose parent is already scrollable —
+      // `.table-scroll`, `.table-responsive`, `.dataTables_wrapper`, or anything with
+      // `overflow-x: auto|scroll` — because "nested scrollers swallow the drag, so the inner table never
+      // reaches its last column". A DataTables grid such as #tableStudent therefore sits in
+      // `.dataTables_wrapper` BY DESIGN and will never gain a `.table-scroll`. Demanding that one class
+      // failed with "expected false to be true" on a grid that scrolls perfectly well.
+      //
+      // Assert the PROPERTY the section is about — the columns are reachable — by accepting any scroller,
+      // exactly as the module defines one. The scroll-to-the-end checks below still do the real work.
+      const scrollerClass = ['table-scroll', 'table-responsive', 'dataTables_wrapper']
+        .some((c) => wrap.classList.contains(c));
+      const overflowX = getComputedStyle(wrap).overflowX;
+      expect(scrollerClass || overflowX === 'auto' || overflowX === 'scroll',
+        `${tableSelector} sits in a scrollable wrapper (class="${wrap.className}", overflow-x=${overflowX})`)
         .to.be.true;
 
       const maxScroll = wrap.scrollWidth - wrap.clientWidth;
@@ -184,8 +199,17 @@ describe('Responsive app-shell across dashboards & devices', () => {
       const lastCell = table.querySelector('thead th:last-child');
       if (!lastCell) return;
       const cell = lastCell.getBoundingClientRect();
+      // The viewport is the APP's, not the spec runner's.
+      //
+      // Spec code executes in the Cypress runner's context, so a bare `window` here is NOT the
+      // application under test. Its `innerWidth` came back as 0, making the bound `0 + 2 = 2` — a
+      // meaningless limit that only bites the wide grids, because narrow ones return early above at
+      // `maxScroll <= 1` and never reach this line. That is exactly the observed pattern: every grid
+      // that genuinely scrolls (Fee Report's 13 columns, the pharmacy registers) failed here, and
+      // everything else passed. `Cypress.config('viewportWidth')` is the width `cy.viewport()` just set.
+      const viewportW = Cypress.config('viewportWidth');
       expect(cell.right, 'last column is on-screen once scrolled to the end')
-        .to.be.at.most(window.innerWidth + 2);
+        .to.be.at.most(viewportW + 2);
       expect(cell.width, 'last column has real width (not squashed to nothing)')
         .to.be.greaterThan(0);
     });
@@ -245,6 +269,25 @@ describe('Responsive app-shell across dashboards & devices', () => {
 
   const USABLE_MIN = 120;   // 170px cell − Bootstrap's 15px gutters, with tolerance
 
+  /**
+   * Measure the control the OPERATOR sees, which for a `<select>` is not the `<select>`.
+   *
+   * `searchable-selects.js` converts eligible selects into a bootstrap-select: the native element is set
+   * to `display:none` and a button is rendered beside it. A hidden element measures **0**, so asking a
+   * `<select>` how wide it is answered "0" and this case failed "#rxMedicine is usably wide on a tablet:
+   * expected 0 to be at least 120" — reading as a cramped layout when the visible control was the right
+   * size all along. `#rxMedicine`, `#clInterA`, `#clInterB`, `#clSeverity` are all selects; the `<input>`
+   * fields measured in the same loops were unaffected, which is why only the selects failed.
+   *
+   * Falls back to the element itself when no picker was built, so the assertion still means something on
+   * a plain control rather than silently passing.
+   */
+  const usableWidth = (sel) => cy.get(sel).then(($el) => {
+    const $picker = $el.next('.bootstrap-select');
+    const $shown = $picker.length ? $picker : $el;
+    return $shown[0].getBoundingClientRect().width;
+  });
+
   describe('Pharmacy — prescription intake is usable on a tablet', () => {
     beforeEach(() => cy.loginAsPharma());
 
@@ -255,9 +298,8 @@ describe('Responsive app-shell across dashboards & devices', () => {
       cy.get('#PrescriptionDiv').should('be.visible');
 
       ['#rxQty', '#rxFreq', '#rxDuration', '#rxDosage', '#rxMedicine'].forEach((sel) => {
-        cy.get(sel).then(($el) => {
-          expect($el[0].getBoundingClientRect().width, `${sel} is usably wide on a tablet`)
-            .to.be.at.least(USABLE_MIN);
+        usableWidth(sel).then((w) => {
+          expect(w, `${sel} is usably wide on a tablet`).to.be.at.least(USABLE_MIN);
         });
       });
 
@@ -271,9 +313,8 @@ describe('Responsive app-shell across dashboards & devices', () => {
       cy.get('#ClinicalDiv').should('be.visible');
 
       ['#clInterA', '#clInterB', '#clSeverity'].forEach((sel) => {
-        cy.get(sel).then(($el) => {
-          expect($el[0].getBoundingClientRect().width, `${sel} is usably wide on a tablet`)
-            .to.be.at.least(USABLE_MIN);
+        usableWidth(sel).then((w) => {
+          expect(w, `${sel} is usably wide on a tablet`).to.be.at.least(USABLE_MIN);
         });
       });
 

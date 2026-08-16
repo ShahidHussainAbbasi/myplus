@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.myplus.common.security.GatewayIdentityForwarding;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.dto.DeliveryDTO;
@@ -136,6 +135,11 @@ public class DeliveryService {
         DeliveryRecord rec = deliveryRepository.save(DeliveryRecord.builder()
                 .organizationId(orgId).orderId(orderId).shipmentId(shipment.getId())
                 .invoiceNo(shipment.getInvoiceNo())
+                // O7 D5 — WHO to credit when this collection is remitted, stamped at write from the order we
+                // already hold. Deriving it at settlement time would put a join on the one list a warehouse
+                // reads every working day, and would break the moment the order row was archived.
+                .customerId(order.getCustomerId())
+                .customerName(order.getCustomerName())
                 .outcome(outcome)
                 .settlement(dto.getSettlement())
                 .amountCollected(dto.getAmountCollected())
@@ -175,20 +179,32 @@ public class DeliveryService {
         return out;
     }
 
-    /** The outcomes keyed against one order, oldest first. */
+    /**
+     * The outcomes keyed against one order, oldest first.
+     *
+     * <p>Returns DTOs, not entities. It returned {@code List<DeliveryRecord>} — a JPA entity straight out of a
+     * controller, which §1.5 forbids and which shipped {@code organizationId} and the raw row id to the
+     * browser. D1 caught and fixed exactly this shape (§8.1b #4); D4 reintroduced it. Field names are
+     * unchanged, so every existing reader is unaffected.
+     */
     @Transactional(readOnly = true)
-    public List<DeliveryRecord> forOrder(Long orderId, Long orgId, Long userId) {
+    public List<com.myplus.marketplace.dto.DeliveryRecordDTO> forOrder(Long orderId, Long orgId, Long userId) {
         orderRepository.findByIdScoped(orderId, orgId, userId)      // anti-IDOR before reading its history
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-        return deliveryRepository.findByOrderIdOrderByRecordedAtAsc(orderId);
+        return deliveryRepository.findByOrderIdOrderByRecordedAtAsc(orderId).stream()
+                .map(com.myplus.marketplace.dto.DeliveryRecordDTO::of).toList();
     }
 
     private static int nz(Integer v) { return v == null ? 0 : v; }
 
-    /** Stamp the tenant on the outbound call — the admin's identity does not travel to business-service. */
+    /**
+     * Stamp the tenant on the outbound call — the admin's identity does not travel to business-service.
+     *
+     * <p>Delegates to {@link com.myplus.marketplace.support.AsOrg}: this method existed here and, identically,
+     * in {@code DispatchInvoiceService}, and D5 wanted a third copy. It decides which identity another service
+     * sees, so two definitions would be two answers to "who wrote this" on whichever path was not edited.
+     */
     private <T> T asOrg(Long org, java.util.function.Supplier<T> call) {
-        java.util.concurrent.atomic.AtomicReference<T> out = new java.util.concurrent.atomic.AtomicReference<>();
-        GatewayIdentityForwarding.runAs(0L, org, () -> out.set(call.get()));
-        return out.get();
+        return com.myplus.marketplace.support.AsOrg.call(org, call);
     }
 }

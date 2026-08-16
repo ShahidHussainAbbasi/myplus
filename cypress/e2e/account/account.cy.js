@@ -4,13 +4,23 @@
  *  - change-password (logged in) -> PUT /api/auth/users/me/password
  *  - 2FA setup/verify/disable     -> /api/auth/2fa/{setup,verify,disable}
  *
- * Requires the full stack up (eureka, config, gateway, auth-service, monolith). Uses the seeded
- * education super user. NOTE: auth-service /2fa/setup ENABLES 2FA immediately, so the suite always
- * disables afterward (after hook) to avoid locking the shared user into a 2FA login.
+ * Requires the full stack up (eureka, config, gateway, auth-service, monolith).
+ *
+ * ── The account this runs as, and why it is that one ─────────────────────────────────────────────
+ * It used to be `super@edu.com`, a hardcoded monolith-era login that no longer exists — myplusdb no
+ * longer does auth, and auth-service seeds the `demo.` / `owner.` fixtures instead. The spec had been red
+ * ever since, failing at the session with `/login?error=true`.
+ *
+ * The replacement is deliberately an account NO other spec uses. This suite MUTATES account state:
+ * /2fa/setup ENABLES 2FA immediately, and while it is on, every login as that principal needs a code.
+ * The `after` hook disables it, but a hook is not a guarantee — a crash between setup and teardown
+ * leaves the account enrolled. On a shared login that is a run-wide outage; on a dedicated one the
+ * blast radius is this file. Same reasoning as the "seed your own fixture" rule the rest of the suite
+ * follows, applied to the principal rather than to the data.
  */
 describe('P4 — account actions delegate to auth-service', () => {
   beforeEach(() => {
-    cy.loginAs('super@edu.com', 'super', '/getDashboardData')
+    cy.loginAsAgricultureOwner()
   })
 
   it('rejects change-password when the current password is wrong (delegated check)', () => {
@@ -28,7 +38,7 @@ describe('P4 — account actions delegate to auth-service', () => {
   describe('2FA enrolment (setup -> verify -> disable)', () => {
     // Guaranteed cleanup — setup enables 2FA, so never leave the user enrolled.
     after(() => {
-      cy.loginAs('super@edu.com', 'super', '/getDashboardData')
+      cy.loginAsAgricultureOwner()
       cy.request({ method: 'POST', url: '/user/2fa/disable', failOnStatusCode: false })
     })
 

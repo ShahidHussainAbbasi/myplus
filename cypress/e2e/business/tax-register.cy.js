@@ -95,11 +95,26 @@ describe('Tax register — output tax', () => {
                 expect(p, 'purchase row').to.exist
                 cy.request({ method: 'POST', url: '/voidPurchase', form: true, body: { purchaseId: p.purchaseId, reason: 'CY tax void' }, failOnStatusCode: false })
                   .then((v) => expect(v.body.status, JSON.stringify(v.body)).to.eq('SUCCESS'))
+                // The reversal is NOT reffed to the bill — it names the DEBIT NOTE that caused it.
+                //
+                // `voidBill` delegates to `purchaseReturn` (a void is a full-quantity return), which raises a
+                // `DBN-` document and posts the journal against THAT: "the ledger line names the DEBIT NOTE
+                // that caused it, not the bill it reverses" (PurchaseService, at the enqueue). Matching on
+                // `ref === inv` therefore could never succeed, and the case had been red since the debit-note
+                // model landed — while `inputAdjusted > 0` happily passed on reversals from earlier runs.
+                //
+                // So identify the line by what this action actually produced: a PURCHASE_RETURN row that was
+                // NOT in the register a moment ago. That is a positive control — it proves THIS void wrote it,
+                // which the old aggregate assertion never did.
+                const refsBefore = new Set(
+                  (after.lines || []).filter((l) => l.source === 'PURCHASE_RETURN').map((l) => l.ref))
                 reg().then((afterVoid) => {
                   expect(Number(afterVoid.inputAdjusted), 'input tax reversed on void').to.be.greaterThan(0)
                   expect(Number(afterVoid.netInput), 'net input dropped after void').to.be.lessThan(netInputAfterBuy)
-                  const rev = (afterVoid.lines || []).find((l) => l.ref === inv && l.source === 'PURCHASE_RETURN')
-                  expect(rev, 'PURCHASE_RETURN reversal line').to.exist
+                  const rev = (afterVoid.lines || [])
+                    .find((l) => l.source === 'PURCHASE_RETURN' && !refsBefore.has(l.ref))
+                  expect(rev, 'a NEW PURCHASE_RETURN reversal line for this void').to.exist
+                  expect(String(rev.ref), 'reffed to the debit note the void raised').to.match(/^DBN-/)
                   expect(Number(rev.credit), 'input tax credited back (~10)').to.be.greaterThan(0)
                 })
               })

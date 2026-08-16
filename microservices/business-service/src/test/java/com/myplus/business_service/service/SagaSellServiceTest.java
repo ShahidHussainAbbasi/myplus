@@ -54,15 +54,21 @@ class SagaSellServiceTest {
     @Mock private com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
     @Mock private com.myplus.business_service.repository.PurchaseRepo purchaseRepo;
     // ── field-injected (@Autowired) dependencies ────────────────────────────────────────────────────
-    // ALL SIX are listed deliberately. SagaSellService mixes constructor injection with @Autowired fields,
+    // ALL SEVEN are listed deliberately. SagaSellService mixes constructor injection with @Autowired fields,
     // and Mockito populates only the constructor — so every field below stays null unless set explicitly in
     // @BeforeEach. Fixing these one NPE at a time costs a build per dependency; the whole set is wired at
-    // once so adding a seventh fails loudly here rather than three slices later.
+    // once so adding an eighth fails loudly here rather than three slices later.
+    //
+    // The seventh (creditStandingService, O7 D2) did NOT fail loudly here, and that is worth recording: these
+    // tests sell to a dto with no customer, so assertCreditPolicy returns before it can dereference the field.
+    // SharedPoolCreditTest — which does identify a customer — took all 8 of its assertions as NPEs instead.
+    // Wiring it here keeps the next test that adds a customer to dtoWithOneLine() from re-finding it.
     @Mock private StoreCreditService storeCreditService;
     @Mock private GlOutboxService glOutboxService;
     @Mock private AuditService auditService;
     @Mock private com.myplus.common.settings.SettingsService settingsService;
     @Mock private com.myplus.business_service.repository.CustomerRepo customerRepo;
+    @Mock private CreditStandingService creditStandingService;
     /**
      * Added 2026-08-03, MISSING since commit c6d411f9 ("Finance period close") added the guard to addSell.
      * It went unnoticed because every build ran -DskipTests.
@@ -85,6 +91,7 @@ class SagaSellServiceTest {
         org.springframework.test.util.ReflectionTestUtils.setField(service, "auditService", auditService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "settingsService", settingsService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "customerRepo", customerRepo);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "creditStandingService", creditStandingService);
     }
 
     private CustomerHistoryDTO dtoWithOneLine() {

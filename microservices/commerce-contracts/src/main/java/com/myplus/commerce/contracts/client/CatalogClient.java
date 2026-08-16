@@ -57,14 +57,27 @@ public interface CatalogClient {
      *  Product screen reads them off the product row instead of deriving them from purchase history.
      *  Tenant-scoped via headers; guarded server-side (a null/≤0 rate never wipes the master). Either rate may be
      *  null to leave that field unchanged. */
+    /**
+     * NOTE {@code required = false} on both params — the same trap already documented on
+     * {@code PartyClient.setAccountParent}. A Spring HTTP interface treats {@code @RequestParam} as REQUIRED by
+     * default and throws CLIENT-SIDE, before any request is sent, when the argument is null. The server has
+     * always declared both as optional; only this interface disagreed.
+     *
+     * <p>What that cost: {@code PurchaseService.stampRatesOnProduct} deliberately passes {@code null} for the
+     * rate a bill does not carry, and wraps the call in a best-effort try/catch. So a purchase with a cost but
+     * NO sell rate threw here, was swallowed as a warning, and the product's last purchase rate silently kept
+     * its previous value — the bill saved, the stamp did not. The catalog-side unit test could not see it
+     * because it calls the service directly and never crosses this interface.
+     */
     @PutExchange("/products/{id}/price")
-    void updatePrice(@PathVariable Long id, @RequestParam("price") BigDecimal price,
-                     @RequestParam("purchaseRate") BigDecimal purchaseRate);
+    void updatePrice(@PathVariable Long id,
+                     @RequestParam(name = "price", required = false) BigDecimal price,
+                     @RequestParam(name = "purchaseRate", required = false) BigDecimal purchaseRate);
 
     /** B1: set a product's pharmacy clinical flags. Catalog is the single writer for these — the pharmacy
      *  Clinical &amp; Safety screen goes through here. Either flag may be null to leave it unchanged. */
     @PutExchange("/products/{id}/clinical-flags")
     ProductRef updateClinicalFlags(@PathVariable Long id,
-                                   @RequestParam("rxRequired") Boolean rxRequired,
-                                   @RequestParam("controlledSubstance") Boolean controlledSubstance);
+                                   @RequestParam(name = "rxRequired", required = false) Boolean rxRequired,
+                                   @RequestParam(name = "controlledSubstance", required = false) Boolean controlledSubstance);
 }

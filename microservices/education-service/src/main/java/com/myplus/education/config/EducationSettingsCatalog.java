@@ -179,7 +179,30 @@ public class EducationSettingsCatalog implements SettingsCatalogProvider {
                                 + "is sent — for schools that assign cover verbally at the morning "
                                 + "briefing. A teacher with no email address on record is never emailed "
                                 + "either way, and the screen says so when that happens.",
-                        true, "Staff attendance")
+                        true, "Staff attendance"),
+                // ── UI/UX P7.3: keyboard navigation on the REGISTRATION modals (Student, Guardian,
+                // Staff, Campus, Class, Subject, Vehicle, Discount, Owner). Same two keys, same
+                // wording and same defaults as business's — one behaviour, so one contract.
+                //
+                // Both fail OPEN, unlike the branch-policy and portal switches above. The reasoning
+                // inverts because the risk does: closing a portal wrongly discloses nothing, whereas
+                // Enter moving to the next box cannot do anything a Tab press could not. Losing the
+                // feature to a config-read hiccup is the worse outcome, so an unreadable setting
+                // resolves to ON (see loadKeyboardFlags() in education.js).
+                SettingEntry.bool("ui.keyboard.formNav.enabled",
+                        "Keyboard navigation on registration forms",
+                        "On (default): Enter moves to the next field on the Student, Guardian, Staff, "
+                                + "Campus, Class, Subject, Vehicle and Discount forms, Shift+Enter goes "
+                                + "back, and Esc closes the form. Off: those forms behave as before, with "
+                                + "Tab only. Phones and small tablets are unaffected either way.",
+                        true, "Data entry"),
+                SettingEntry.bool("ui.keyboard.enterSubmits",
+                        "Enter saves on the last field",
+                        "On (default): pressing Enter on the last field of a registration form saves it, "
+                                + "so a student is enrolled without reaching for the mouse. Off: only "
+                                + "Ctrl+Enter saves, which suits offices worried that a stray Enter could "
+                                + "save a half-typed record. Ctrl+Enter always saves either way.",
+                        true, "Data entry")
         );
     }
 }

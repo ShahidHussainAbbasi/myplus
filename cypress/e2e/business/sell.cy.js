@@ -198,7 +198,10 @@ describe('Sell Section — Customer Input Mode Toggle', () => {
     cy.get('#sellCustomerDD option').then(($opts) => {
       const realOpts = $opts.filter((i, el) => el.value !== '')
       if (realOpts.length > 0) {
-        cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val())
+        // { force: true }: searchable-selects.js makes this a bootstrap-select, so the native <select>
+        // is display:none and Cypress will not act on it unenforced. Setting a value, not asserting
+        // visibility — see the note at line 344 in this file.
+        cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val(), { force: true })
       }
     })
     cy.get('#btnModeManual').click({ timeout: 30000 })

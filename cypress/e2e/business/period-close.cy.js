@@ -18,6 +18,24 @@ describe('Period close / lock', () => {
     cy.request({ method: 'POST', url: '/gl/periodLock', form: true, body: through ? { lockedThrough: through } : {}, failOnStatusCode: false })
   const readLock = () => cy.request('/gl/periodLock').then((r) => (typeof r.body === 'string' ? JSON.parse(r.body) : r.body))
 
+  /**
+   * ALWAYS reopen the books, whatever happened above.
+   *
+   * The reopen used to live only in the middle of the test body, so a case that failed before reaching it
+   * left this tenant LOCKED THROUGH TODAY — and the lock is server state shared by the whole suite, not
+   * something `testIsolation` resets. Every later spec that writes a sale then failed for a reason of this
+   * spec's making: that is exactly how one genuine defect (the void refusal below) turned into a wave of
+   * unrelated red, starting with pos-enter-chain's "a FULLY PAID sale completes with no customer named".
+   *
+   * Teardown has to re-authenticate: `testIsolation` clears the session between cases, so an unauthenticated
+   * cy.request here would 302 to /login and silently leave the books shut.
+   */
+  after(() => {
+    cy.loginAsBusiness()
+    setLock(null)
+    readLock().then((l) => expect(l.lockedThrough || null, 'books reopened for the rest of the suite').to.be.null)
+  })
+
   const sellOnce = () =>
     cy.seedProduct({ name: 'PCP_' + Date.now(), sellingPrice: 100, stock: 5 }).then(({ productId }) =>
       cy.request({

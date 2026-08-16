@@ -60,7 +60,9 @@ describe('Vender CRUD', () => {
 
       cy.get('#newVender').click()                       // open the form modal
       cy.get('#VenderModal').should('have.class', 'open')
-      cy.get('#venderCompanyDD').select(String(cId))
+      // { force: true }: searchable-selects.js converts this into a bootstrap-select, hiding the real
+      // <select> behind a rendered button, so Cypress refuses to act on it otherwise.
+      cy.get('#venderCompanyDD').select(String(cId), { force: true })
       cy.get('#venderName').type(`Cypress Trader ${Date.now()}`)
       cy.get('#venderMobile').type('03001234567')
       cy.get('#venderEmail').type(`vender${Date.now()}@test.com`)

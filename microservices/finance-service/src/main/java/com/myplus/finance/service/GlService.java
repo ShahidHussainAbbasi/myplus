@@ -10,6 +10,8 @@ import com.myplus.finance.repository.AccountRepository;
 import com.myplus.finance.repository.JournalEntryRepository;
 import com.myplus.finance.repository.JournalLineRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,7 @@ import java.util.*;
  * balance rule lives in the pure {@link #validate} (unit-testable, no Spring). Tenant-scoped via CurrentUser.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class GlService {
 
@@ -69,10 +72,29 @@ public class GlService {
         for (Object[] a : DEFAULT_COA) {
             String code = (String) a[0];
             if (accountRepository.findByOrganizationIdAndCode(org, code).isEmpty()) {
-                accountRepository.save(Account.builder()
-                        .code(code).name((String) a[1])
-                        .type((AccountType) a[2]).normalSide((NormalSide) a[3])
-                        .organizationId(org).build());
+                try {
+                    // Each account is its own transaction-visible insert, so a lost race costs one account,
+                    // not the whole chart.
+                    accountRepository.saveAndFlush(Account.builder()
+                            .code(code).name((String) a[1])
+                            .type((AccountType) a[2]).normalSide((NormalSide) a[3])
+                            .organizationId(org).build());
+                } catch (DataIntegrityViolationException dup) {
+                    // LOST THE RACE, and that is a success, not an error.
+                    //
+                    // check-then-insert is not atomic: two concurrent postings for a tenant with no chart yet
+                    // both saw isEmpty() and both inserted. Nothing rejected the second copy, because the table
+                    // only had a NON-unique index — and from that moment every findByOrganizationIdAndCode for
+                    // the code threw NonUniqueResultException, so GL posting and several reports 500'd for that
+                    // tenant permanently. Seen in dev as organization 14 with all 14 codes duplicated and its
+                    // fee postings reading 0.00 everywhere.
+                    //
+                    // V5 adds UNIQUE (organization_id, code), which turns that silent corruption into this
+                    // catchable violation. Swallowing it is correct: the row we wanted now exists, put there by
+                    // whoever won. Re-reading is what makes ensureDefaults genuinely idempotent under
+                    // concurrency rather than merely on a quiet system.
+                    log.debug("Account {} for org {} was created concurrently — using the existing row", code, org);
+                }
             }
         }
         return listAccounts();

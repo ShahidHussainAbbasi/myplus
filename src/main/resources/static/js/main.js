@@ -22,6 +22,12 @@ var formValidated = true;
 var form=null;
 var formFields = 0;
 var reload="";
+// TRUE only between "a section was opened" (loadDataTable) and that grid's FIRST successful load, which
+// is when the section's associated dropdowns are preloaded. A datatable.ajax.reload() must not preload
+// them again: P6 rapid entry reloads after every saved line with the form still open, so rebuilding the
+// pickers there wipes what the operator is in the middle of using. Declared here beside the other
+// cross-module grid state (tableV/getAll/datatable/reload) that main.js and business.js share.
+var pickerPreloadPending = false;
 var ONE = 1;
 var ZERO = 0;
 var HUNDRED = 100;

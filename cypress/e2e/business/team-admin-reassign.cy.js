@@ -26,6 +26,18 @@ describe('Team: admin rights and reassignment', () => {
   const F = {}
 
   before(() => {
+    // A cached session can be holding STALE LOCATION CLAIMS.
+    //
+    // `/getMyStores` answers from the JWT's `accessibleLocationIds`, which are minted at login. With
+    // `cy.session(cacheAcrossSpecs: true)` a session from earlier in the run is replayed as-is, so if the
+    // fixture stores were recreated since (they are keyed by NAME, and their IDs change whenever the
+    // fixture is rebuilt — 3/4 became 5/6 during this repair pass) the token still names stores that no
+    // longer exist. The endpoint then honestly reports ZERO workable stores and this hook fails with
+    // "expected 0 to be above 1", pointing at the fixture when the fixture is fine — a fresh login returns
+    // both stores.
+    //
+    // Dropping the cache first is what makes the assertion below mean what it says.
+    cy.then(() => Cypress.session.clearAllSavedSessions())
     cy.loginAsOwner()
     cy.request('/getMyStores').then((r) => {
       const stores = rows(r.body)
@@ -33,6 +45,34 @@ describe('Team: admin rights and reassignment', () => {
         .to.be.greaterThan(1)
       F.storeA = stores.find((s) => s.name === 'CY Store A').id
       F.storeB = stores.find((s) => s.name === 'CY Store B').id
+    })
+  })
+
+  /**
+   * Put cashier.a back on Store A, whatever happened above.
+   *
+   * The last case deliberately revokes ALL of this member's stores, and grants are SERVER state that
+   * `testIsolation` never touches — so the account is left bare for `void-invoice-privilege` and the two
+   * pharmacy specs that run after this one, and for the next run of `multi-location`, whose whole premise
+   * is that cashier.a holds exactly Store A.
+   *
+   * It is not currently destructive (the platform reads "no grants" as UNCONSTRAINED, the
+   * pre-multi-location behaviour), which is precisely why it would go unnoticed until a change made
+   * absent grants mean something narrower. Restoring the fixture costs one request.
+   *
+   * As the OWNER: the cases above act as an admin on purpose, and an admin may only revoke or grant
+   * stores they themselves hold.
+   */
+  after(() => {
+    cy.loginAsOwner()
+    cy.request('/team/users').then((r) => {
+      const m = rows(r.body).find((u) => u.email === 'cashier.a@myplus.com')
+      if (!m || !F.storeA) return
+      cy.request({
+        method: 'POST', url: '/assignStores', headers: { 'Content-Type': 'application/json' },
+        body: { userId: m.userId, storeIds: [F.storeA], roleAtLocation: 'USER', replace: true },
+        failOnStatusCode: false,
+      }).then((g) => expect(g.body && g.body.success, `restore cashier.a to Store A: ${JSON.stringify(g.body)}`).to.eq(true))
     })
   })
 

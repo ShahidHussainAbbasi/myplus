@@ -81,4 +81,35 @@ public interface TradeClient {
      */
     @PostExchange("/internal/sales/return-lines")
     java.util.List<String> returnLines(@RequestBody SaleReturnRequest request);
+
+    /**
+     * OMS O7 D5 — money a channel collected on business-service's behalf, handed over to be allocated and posted.
+     *
+     * <h3>Why a channel cannot do this itself</h3>
+     * Clearing a receivable means deciding which invoices a payment covers, moving the customer's running
+     * balance, writing the entry in the shared payment ledger and posting {@code Dr cash / Cr AR}. All of that
+     * is business-service's, and {@code CustomerService.receivePayment} already does it — FIFO across the
+     * customer's open invoices through the ONE allocator AR and AP share, idempotent, period-lock checked. A
+     * channel that allocated its own payments would be a second settlement rule; two rules disagreeing about
+     * the same money is exactly what this contract exists to prevent.
+     *
+     * <h3>Why it is not on {@code /internal/sales}</h3>
+     * A receipt is not a sale. It has its own controller, which needs none of the
+     * {@code InternalSalesController} machinery — {@code receivePayment} is a service and can simply be called,
+     * where {@code saleReturn} could only be reached through a controller (§12.5 debt).
+     *
+     * <h3>Idempotent, and the key must come from the CALLER's committed state</h3>
+     * A repeat with the same {@code idempotencyKey} replays the original receipt rather than allocating twice.
+     * That matters most when the caller's own transaction rolls back AFTER this call committed: the retry has
+     * to present the same key, so it must be derived from a stable fact (the collection being remitted), never
+     * from the retrying batch, which gets a new identity each attempt.
+     *
+     * <h3>Anti-IDOR</h3>
+     * {@code customerId} arrives off the wire, so the receiver resolves it within the CALLER's tenant. Another
+     * tenant's customer reads as absent — identically to a genuinely missing one, so the endpoint cannot be
+     * used to probe which ids exist.
+     */
+    @PostExchange("/internal/receipts")
+    com.myplus.commerce.contracts.dto.PaymentReceiptResult receivePayment(
+            @RequestBody com.myplus.commerce.contracts.dto.PaymentReceiptRequest request);
 }

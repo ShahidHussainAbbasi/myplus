@@ -202,11 +202,24 @@ a:hover { color: var(--brand-dark); text-decoration: none; }
   display: none;
   padding: 0;
   color: var(--txt);
-  animation: sectionIn .2s ease both;
+  /* NO `both` fill-mode — see the note below. It is load-bearing, not tidying. */
+  animation: sectionIn .2s ease;
 }
 /* Opacity-only fade: a `transform` on .formDiv would make it the containing block for any
    position:fixed descendant (the shared CRUD modal overlays), trapping them inside the section
-   instead of the viewport. Fade without transform keeps the entrance without that side effect. */
+   instead of the viewport. Fade without transform keeps the entrance without that side effect.
+
+   ⚠ The fill-mode matters just as much, and `both` was NOT safe. An element whose animation
+   affects opacity creates a STACKING CONTEXT while that animation is running OR FILLING — and
+   `both` makes it fill for as long as the element exists. So `.formDiv` held a permanent stacking
+   context, which trapped `.crud-overlay` (z-index 1050) inside a section painted BELOW
+   `.app-sidebar` (z-index 1040). The sidebar therefore covered the modal's left edge, and the
+   close × sat under `.app-sidebar__toggle`: `elementFromPoint` — what a real click and Cypress both
+   use — returned the sidebar's button, so the × could not be clicked at all. Caught by
+   product-crud.cy.js ("covered by another element: <button class=app-sidebar__toggle>").
+
+   Dropping the fill keeps the identical fade (the keyframes end at opacity 1, which is also the
+   element's natural value) and releases the stacking context the moment the animation ends. */
 @keyframes sectionIn {
   from { opacity: 0; }
   to   { opacity: 1; }

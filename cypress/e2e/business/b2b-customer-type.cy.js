@@ -193,10 +193,19 @@ describe('B2B-P0 — customer type, margin policy, vendor dues, promo footer', (
       cy.get('#newCustomer').click()
       cy.get('#CustomerModal').should('have.class', 'open')
 
-      cy.get('#customerType', { timeout: 10000 }).should('be.visible')
+      // #customerType is a bootstrap-select. The plugin sets the real <select> to display:none and
+      // renders a button in its place, so asking the <select> whether it is :visible always answers
+      // NO — the assertion could never pass once the field was enhanced. Judge visibility by the
+      // WRAPPER the plugin actually shows, which is also what this case says it wants to check
+      // ("what the shopkeeper actually sees").
+      cy.get('#customerType', { timeout: 10000 }).should('exist')
+      cy.get('#customerType').next('.bootstrap-select').should('be.visible')
+
       cy.get('#customerType option').should('have.length', 4)
       cy.get('#customerType option').then(($o) => {
-        expect([...$o].map((o) => o.value)).to.deep.eq(['WALK_IN', 'RETAILER', 'WHOLESALE', 'VIP'])
+        // .toArray() rather than spreading: a jQuery object is array-LIKE, and relying on the
+        // iterator protocol is what made auth/signup.cy.js die with "$opts is not iterable".
+        expect($o.toArray().map((o) => o.value)).to.deep.eq(['WALK_IN', 'RETAILER', 'WHOLESALE', 'VIP'])
       })
       cy.get('#customerType').should('have.value', 'WALK_IN')
 

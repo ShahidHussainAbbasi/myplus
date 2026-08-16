@@ -3340,6 +3340,12 @@ var serverContext = [[@{/}]];
 	<script type="text/javascript" th:src="@{/js/common/team.js}"></script>
 	<script type="text/javascript" th:src="@{/js/common/org-switcher.js}"></script>
 	<script type="text/javascript" th:src="@{/js/lib/chart.umd.min.js}"></script>
+	<!-- P7.1: the Enter-to-advance engine. Must load before keyboard-forms.js, which calls into it. -->
+	<script th:src="@{/js/common/enter-chain.js}"></script>
+	<!-- P7.3: Enter-chain for every <Entity>Modal on this dashboard, bound by convention — all nine
+	     already match it (#<Entity>Modal + #add<Entity>), so this script tag IS the whole opt-in and
+	     no modal needed a single attribute. Welfare/agriculture stay untouched until P7.4. -->
+	<script th:src="@{/js/common/keyboard-forms.js}"></script>
 	<script type="text/javascript" th:src="@{/js/education/education.js}"></script>
 	<script type="text/javascript" th:src="@{/js/education/educationDashboard.js}"></script>
 	<script type="text/javascript" th:src="@{/js/date.js}"></script>

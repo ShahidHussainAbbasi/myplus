@@ -273,22 +273,40 @@ public class GatewayClient {
         return headers;
     }
 
+    /**
+     * Exchange the stored refresh token for a fresh access token.
+     *
+     * <p><b>Every exit logs.</b> This method used to return {@code false} silently from all three of its
+     * failure paths, and the only thing the operator ever saw was whatever the CALLER made of the
+     * resulting 401 — for the GL proxy that was a bare {@code {"status":"ERROR"}} with no cause anywhere
+     * in the logs. The refusal and the symptom were in different files, and nothing connected them.
+     * A session that cannot refresh is the single most common cause of "the app randomly stopped
+     * working", so it has to say so.
+     */
     private boolean refreshAccessToken() {
         String refreshToken = tokenStore.getRefreshToken();
         if (refreshToken == null || refreshToken.isEmpty()) {
+            log.warn("Token refresh skipped: no refresh token in this session — the caller will see a 401.");
             return false;
         }
         try {
             AuthServerLoginResponse refreshed = authServerClient.refresh(refreshToken);
             if (refreshed == null || refreshed.getAccessToken() == null) {
+                log.warn("Token refresh returned no access token; the session cannot be revived and the "
+                        + "caller will see a 401.");
                 return false;
             }
             tokenStore.setAccessToken(refreshed.getAccessToken());
             if (refreshed.getRefreshToken() != null) {
                 tokenStore.setRefreshToken(refreshed.getRefreshToken());
             }
+            log.debug("Access token refreshed.");
             return true;
         } catch (Exception e) {
+            // "Invalid refresh token" here means auth-service does not recognise the token this session
+            // holds. Named explicitly because it is the fingerprint of a session that was displaced.
+            log.warn("Token refresh FAILED ({}): {}. The caller will see a 401.",
+                    e.getClass().getSimpleName(), e.getMessage());
             return false;
         }
     }

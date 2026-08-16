@@ -294,3 +294,59 @@ Monolith rebuild only. **No business-service change, no DB change, no new settin
 - Option B (the GRN cart / true bill document).
 - Migrating the sale screen's *policy* (skip-ahead, F-keys, quick-pick) into the shared engine. Only
   the mechanics moved; the policy stays where it belongs, in `pos-keyboard.js`.
+
+---
+
+## 6. Post-ship defect (found 2026-08-15 by the picker gate, FIXED)
+
+Rapid entry could **silently lose a line**, and the loss got more likely the longer the org had been
+in use — which is why P6 shipped green and this surfaced months later.
+
+### The chain
+
+1. `afterSavePurchase()` calls `datatable.ajax.reload()` after every *Save & Add Another*.
+2. That reload's success handler preloaded the section's dropdowns — its own comment said "once per
+   entity type", but the code ran it on **every** reload, not just on opening the section.
+3. `loadUserItems()` and `loadUserVenders()` both do `$sel.empty().append(...)` with **no attempt to
+   preserve the current selection**.
+
+So a beat after each saved line the item and vendor pickers were rebuilt **underneath the operator**.
+Pick the next item inside that window and the selection is discarded; the save is then refused
+client-side by `main.js` ("Select an item and enter a quantity greater than 0.") with **`return false`
+— no POST at all**. The operator sees a form that will not save and no explanation.
+
+In Cypress it read as `cy.wait() timed out … No request ever occurred`, on the **third** line — the
+window widens as the purchase table and the catalog grow.
+
+### Why it also mattered for performance
+
+`loadUserItems()` fetches `catalogProducts?size=2000`. That was being re-fetched **per saved line**,
+in the one flow built for speed.
+
+### The fix — three parts
+
+| Change | Why |
+|---|---|
+| `pickerPreloadPending` flag, set in `loadDataTable()`, consumed by the grid's first success | Preloading belongs to OPENING A SECTION, which is what the comment always claimed. A reload is not a section open. |
+| `loadUserVenders()` preserves the selected value across the rebuild | The vendor is bill HEADER data that P6 promises survives across lines. |
+| `loadUserItems()` likewise | This one also serves `sellItemDD`, so the sale screen had the identical wipe. |
+
+**Trade-off, accepted and commented at the site:** a product or vendor created in *another* section now
+appears in these pickers only after the section is re-opened. That was already the documented behaviour
+of the grid itself ("re-open the section to refresh from DB"); the pickers now agree with it.
+
+**Consequence that had to be paid back explicitly:** the sale-return handler relied on that incidental
+reload to refresh `sellCustomerDD`, whose options cache `data-due` / `data-credit-limit`. It now calls
+`loadSellCustomers()` itself — the writer refreshes what it invalidated, for that one list, instead of
+a grid reload re-fetching 2000 products as a side effect. ⚠ **Needs a monolith image rebuild to go
+live** (the container serves static JS from its image, not from the host).
+
+### Gate
+
+`purchase-rapid-entry.cy.js` 26 → 28 cases: the three order-of-the-chain cases now answer the pickers
+first (`answerVendor()` / `answerItem()`, native `.select()` so the answer does not also move the
+cursor), the picker RULE got its own two cases, and each saved line waits for the grid reload it
+triggers (`saveLineAndSettle()`) so the next click cannot land on `#appAjaxOverlay`.
+
+**Lesson:** a test that gets flakier as data grows is a real race, not flake. The 3rd iteration failing
+while 1 and 2 pass is the shape of "a background reload overtook the operator".

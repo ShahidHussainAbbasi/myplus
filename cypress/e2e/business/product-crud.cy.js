@@ -104,8 +104,14 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
       cy.visit('/businessDashboard')
       cy.window().then((w) => w.showProducts())
       cy.get('#ProductDiv').should('be.visible')
-      // DataTable render: the shared path builds the toolbar (length select) + the seeded row's add-stock button.
-      cy.get('select[name="tableProduct_length"]', { timeout: 10000 }).should('exist')
+      // DataTable render: the shared path builds the toolbar + the seeded row's add-stock button.
+      //
+      // NOT `select[name="tableProduct_length"]`. loadDataTable() configures `dom: 'Bfrtip'` — B(uttons)
+      // f(ilter) r t i p, with **no `l`** — so the classic length <select> is never rendered at all;
+      // page length is a Buttons-extension button. The old assertion could not pass under this config.
+      // Assert the toolbar the config really produces, using the same idiom as the other grid specs.
+      cy.get('#tableProduct_wrapper', { timeout: 10000 }).should('exist')
+      cy.get('#tableProduct_wrapper .dt-button', { timeout: 10000 }).should('exist')
       cy.get('#addstkbtn_' + productId, { timeout: 10000 }).should('exist')
       cy.get('#lessstkbtn_' + productId).should('exist')   // correct/reduce control
       cy.get('#stk_' + productId).should('exist')
@@ -288,6 +294,28 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
       cy.get('#newProduct').click()
       cy.get('#ProductModal').should('have.class', 'open')
       cy.get('#prodName').should('be.visible')
+      // Let the SECTION's entrance animation finish before clicking the modal's ×.
+      //
+      // `.formDiv { animation: sectionIn .2s ease both }` animates OPACITY, and an element with a running
+      // opacity animation creates a STACKING CONTEXT — so for those 200ms the section becomes the
+      // containing block for its `position:fixed` descendants and traps `.crud-overlay` (z-index 1050)
+      // inside a section that sits below `.app-sidebar` (z-index 1040). The sidebar then paints over the
+      // modal's left edge, where the × is, and Cypress refuses: "covered by <button
+      // class="app-sidebar__toggle">". (The rule directly above that CSS already guards against exactly
+      // this for `transform`; the opacity fade has the same effect while it runs.)
+      //
+      // Cypress waits for animations on the TARGET element, but the blocker here is an ANCESTOR's
+      // animation altering stacking, which it does not model. Waiting on the real thing —
+      // `getAnimations()` draining — beats an arbitrary sleep. A human never hits this: nobody clicks
+      // within 200ms of a section appearing.
+      // Check the animation has FINISHED, not that the list is empty. `sectionIn` is declared with
+      // `animation-fill-mode: both`, and a filled animation is deliberately NOT auto-removed — it stays in
+      // getAnimations() forever holding its final value. Waiting for length 0 therefore never succeeds
+      // ("expected 1 to equal 0"); `playState` is the property that actually settles.
+      cy.get('#ProductDiv').should(($div) => {
+        const running = $div[0].getAnimations().filter((a) => a.playState !== 'finished')
+        expect(running.length, 'section entrance animation has finished').to.eq(0)
+      })
       cy.get('#ProductModal .crud-x').click()
       cy.get('#ProductModal').should('not.have.class', 'open')
       // ticking a row reveals the contextual bulk-action bar

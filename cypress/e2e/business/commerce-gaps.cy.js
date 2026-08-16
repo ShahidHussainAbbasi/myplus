@@ -44,9 +44,13 @@ describe('G5 — Payments', () => {
 
   it('checkout shows a Payment Method selector with the expected methods', () => {
     cy.openSellSection('sellDiv')
-    cy.get('#sellPayMethod').should('be.visible')
+    // #sellPayMethod is a bootstrap-select: the plugin hides the real <select> (display:none) and
+    // renders a button in its place, so :visible on the <select> can never be true. Judge what the
+    // cashier actually sees — the wrapper — and read the options off the <select> behind it.
+    cy.get('#sellPayMethod').should('exist')
+    cy.get('#sellPayMethod').next('.bootstrap-select').should('be.visible')
     cy.get('#sellPayMethod option').then(($o) => {
-      const vals = [...$o].map((o) => o.value)
+      const vals = $o.toArray().map((o) => o.value)   // .toArray(): jQuery is array-LIKE, not iterable
       expect(vals).to.include.members(['CASH', 'CARD', 'CREDIT'])
     })
   })
@@ -97,8 +101,28 @@ describe('G2 — Sale return', () => {
     // House rule (fixture eligibility): SEED the state you need, never assert-or-skip on found data.
     const stamp = Date.now()
     const custName = 'G2Due_' + stamp
+    let owed = 0
 
-    cy.seedProduct({ name: 'G2P_' + stamp, sellingPrice: 100, stock: 5 }).then(({ productId }) => {
+    // Work out what it takes to be rank 1, BEFORE seeding — because the figure has to go on the PRODUCT.
+    //
+    // `dueCustomers` is the TOP TEN by outstanding due, so the seeded customer has to out-owe the current
+    // leader or `dueOf` reads 0 and the precondition fails on perfectly healthy data.
+    //
+    // The previous attempt computed the same figure but put it on the SALE LINE (`sellRate: owed`). That
+    // silently did nothing: the sale path is authoritative on price and re-quotes every line from the
+    // catalog and the price rules — a client cannot name its own price, which is the whole point of
+    // B2B-P2 ("the contract price is the price charged"). So the invoice was raised at the product's real
+    // value, the customer owed a couple of hundred rather than thousands, fell below the top-ten cut-off,
+    // and `dueBefore` read 0 while the debt genuinely existed. Verified in the data: the customer from the
+    // failing run holds due_amount 234.00 against a top-ten floor of 300.
+    //
+    // Price the PRODUCT at that figure instead and the server's own arithmetic produces the debt.
+    cy.request('/getDashboardChartData').then((seedRead) => {
+      const seedRows = (seedRead.body.object || {}).dueCustomers || []
+      owed = Math.ceil(seedRows.reduce((m, c) => Math.max(m, Number(c.due || 0)), 0)) + 5000
+    })
+
+    cy.then(() => cy.seedProduct({ name: 'G2P_' + stamp, sellingPrice: owed, stock: 5 })).then(({ productId }) => {
       cy.request({ method: 'POST', url: '/addCustomer', form: true, failOnStatusCode: false,
         body: { name: custName, contact: 'C' + stamp } })
         .then((r) => expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS'))
@@ -107,14 +131,20 @@ describe('G2 — Sale return', () => {
         const cust = (cr.body.collection || cr.body.data || []).find((c) => c.name === custName)
         expect(cust, 'seeded customer exists').to.exist
 
-        // A CREDIT sale — nothing paid — so the customer genuinely owes and must appear on the dashboard.
+        // A CREDIT sale — nothing paid — so the customer genuinely owes and tops the dashboard list.
+        // ONE unit (not N × rate) keeps the full-line return below the seeded stock of 5; the value comes
+        // from the product's price, which is why that is where `owed` was applied.
+        //
+        // The amounts are still sent because the endpoint's DTO carries them, but they are the SERVER's
+        // to decide — the assertion below reads the debt back from the dashboard rather than trusting
+        // anything echoed here.
         cy.request({
           method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
           failOnStatusCode: false,
           body: {
             customer: { customerId: cust.customerId, name: cust.name, contact: cust.contact },
-            sales: [{ productId, quantity: 2, sellRate: 100, totalAmount: 200, netAmount: 200 }],
-            paidAmount: 0, dueAmount: 200, grandTotal: 200,
+            sales: [{ productId, quantity: 1, sellRate: owed, totalAmount: owed, netAmount: owed }],
+            paidAmount: 0, dueAmount: owed, grandTotal: owed,
             idempotencyKey: 'cy-g2-' + stamp,
           },
         }).then((sr) => expect(sr.body.status, JSON.stringify(sr.body)).to.eq('SUCCESS'))

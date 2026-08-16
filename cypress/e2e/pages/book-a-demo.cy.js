@@ -30,25 +30,51 @@ describe('Landing — Book a Demo', () => {
     cy.get('@demo.all').should('have.length', 0)
   })
 
-  it('submits a valid demo request', () => {
+  /** Fill and submit the lead form for a given interest. */
+  const submitDemoRequest = (interest) => {
     cy.intercept('POST', '**/api/demo-request').as('demo')
     cy.get('.nav-cta').contains('Book a Demo').click()
     cy.get('#dmName').type('Jane Global')
     cy.get('#dmEmail').type('email2uncer@gmail.com')
     cy.get('#dmCompany').type('Acme Worldwide Ltd')
     cy.get('#dmCountry').select('United Kingdom')
-    cy.get('#dmInterest').select('Online Marketplace')
+    cy.get('#dmInterest').select(interest)
     cy.get('#dmConsent').check()
     cy.get('#dmSubmit').click()
     cy.wait('@demo', { timeout: 20000 }).then((i) => {
       expect(i.response.statusCode).to.eq(200)
       expect(i.response.body.success).to.eq(true)
     })
-    // On success the modal stays OPEN and swaps in a confirmation panel (slice-19 demo quota):
-    // for an interest with no demo account ("Online Marketplace") that's the "Request received" view.
+    // On success the modal stays OPEN and swaps in a panel chosen by showDemoReady(interest).
     cy.get('#overlay').should('have.class', 'open')
-    cy.get('#modal').should('contain', 'Request received')
     cy.get('#toast').should('have.class', 'on')         // success toast shown
+  }
+
+  /**
+   * The CONVERSION path, and the one worth guarding hardest: an interest we have a demo tenant for
+   * hands the visitor a working login on the spot instead of a promise of an email.
+   *
+   * This case used to pick "Online Marketplace" precisely BECAUSE it had no demo account, and asserted
+   * the "Request received" panel. A marketplace demo tenant has since been seeded
+   * (DEMO_ACCOUNTS in maxtheservice_dashboard.html), so the branch flipped under the test and it has
+   * been red since. Both branches are real product behaviour, so both are now covered — and the
+   * interest each one uses is chosen from the CURRENT map, not from a comment about it.
+   */
+  it('an interest WITH a demo tenant hands over working credentials', () => {
+    submitDemoRequest('Online Marketplace')
+    cy.get('#modal').should('contain', 'Marketplace demo').and('contain', 'ready')
+    // The credentials themselves — a panel that renders without them converts nobody.
+    cy.get('#dcEmail').should('contain', 'demo.marketplace@myplus.com')
+    cy.get('#dcPw').should('not.be.empty')
+    cy.get('#modal').contains('Open the demo').should('be.visible')
+  })
+
+  it('an interest with NO demo tenant falls back to the "Request received" acknowledgement', () => {
+    // "Other / Not sure" is deliberate: a visitor who cannot name their vertical is exactly who has no
+    // demo tenant waiting, and it is the branch that must not silently show an empty panel.
+    submitDemoRequest('Other / Not sure')
+    cy.get('#modal').should('contain', 'Request received')
+    cy.get('#modal').contains('Done').should('be.visible')
   })
 
   it('endpoint is publicly accessible without authentication', () => {

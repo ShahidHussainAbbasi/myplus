@@ -205,9 +205,15 @@ public class OrderController {
                 CurrentUser.organizationId(), CurrentUser.userId(), CurrentUser.email()), "Delivery recorded");
     }
 
-    /** What has been keyed against this order's parcels, oldest first. */
+    /**
+     * What has been keyed against this order's parcels, oldest first.
+     *
+     * <p>D5: a DTO, not the entity. This answered with {@code List<DeliveryRecord>} — the §1.5 breach D1 caught
+     * and fixed once already — which put {@code organizationId} and the raw row id on the wire. Same field
+     * names, plus the remittance state a collection now carries.
+     */
     @GetMapping("/{id}/deliveries")
-    public ApiResponse<java.util.List<com.myplus.marketplace.entity.DeliveryRecord>> deliveries(@PathVariable Long id) {
+    public ApiResponse<java.util.List<com.myplus.marketplace.dto.DeliveryRecordDTO>> deliveries(@PathVariable Long id) {
         return ApiResponse.success(
                 deliveryService.forOrder(id, CurrentUser.organizationId(), CurrentUser.userId()));
     }

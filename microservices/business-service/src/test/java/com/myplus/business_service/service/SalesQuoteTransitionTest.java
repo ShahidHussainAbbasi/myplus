@@ -46,6 +46,14 @@ class SalesQuoteTransitionTest {
     @Mock private SalesQuoteRepo quoteRepo;
     @Mock private RequestUtil requestUtil;
     @Mock private SettingsService settingsService;
+    // ALL FIVE of SalesQuoteService's @Autowired fields are wired below, including the two no test here
+    // currently reaches: customerRepo (the customer-name stamp on save, skipped because these quotes carry no
+    // customerId) and sagaSellService (the revenue path, only touched by convert). Left null they are not a
+    // passing test, they are a delayed NPE — which is exactly how SharedPoolCreditTest lost all 8 of its
+    // assertions when O7 D2 added a field to a service its fixture built by hand. The cost of wiring an
+    // unreached collaborator is one line; the cost of not wiring it is a red build in someone else's slice.
+    @Mock private com.myplus.business_service.repository.CustomerRepo customerRepo;
+    @Mock private SagaSellService sagaSellService;
 
     private SalesQuoteService service;
 
@@ -55,6 +63,8 @@ class SalesQuoteTransitionTest {
         ReflectionTestUtils.setField(service, "quoteRepo", quoteRepo);
         ReflectionTestUtils.setField(service, "requestUtil", requestUtil);
         ReflectionTestUtils.setField(service, "settingsService", settingsService);
+        ReflectionTestUtils.setField(service, "customerRepo", customerRepo);
+        ReflectionTestUtils.setField(service, "sagaSellService", sagaSellService);
 
         AuthenticatedUser user = org.mockito.Mockito.mock(AuthenticatedUser.class);
         lenient().when(user.getOrganizationId()).thenReturn(ORG);

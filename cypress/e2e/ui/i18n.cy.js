@@ -72,9 +72,16 @@ describe('Multilingual', () => {
         });
 
         // rtl.css must load for RTL locales only.
+        //
+        // The filename is HASH-TOLERANT: PERF-2 put a VersionResourceResolver on the static handlers, so
+        // local assets now render as `/css/rtl-<32 hex>.css`. A literal `/css/rtl\.css` matched nothing and
+        // reported "expected 0 to equal 1" for Arabic and Urdu — reading as though RTL had lost its
+        // stylesheet, when the link was there all along under a versioned name. The perf specs took the same
+        // change when hashing landed; this one was missed. (Google-Fonts URLs above are external and stay
+        // unhashed, which is why the webfont assertions were unaffected.)
         cy.document().then((doc) => {
           const rtl = [...doc.querySelectorAll('link[rel="stylesheet"]')]
-            .filter((n) => /\/css\/rtl\.css/.test(n.href));
+            .filter((n) => /\/css\/rtl(?:-[0-9a-f]{32})?\.css/.test(n.href));
           expect(rtl.length, `rtl.css present only for RTL (${l.tag})`).to.eq(l.dir === 'rtl' ? 1 : 0);
         });
       });
@@ -127,7 +134,17 @@ describe('Multilingual', () => {
       ['en', 'fr', 'es', 'hi', 'ar', 'ur'].forEach((tag) => {
         cy.visit(`/businessDashboard?lang=${tag}`);
         // useCodeAsDefaultMessage(true) renders a MISSING key as the key itself — catch that.
-        cy.get('body').invoke('text').should((t) => {
+        //
+        // Scan the VISIBLE text only. jQuery's .text() includes the contents of <script>, and this page
+        // deliberately ships an inline `__MSG` dictionary whose every key is a literal `ui.js.*` string —
+        // the very next case in this file asserts that dictionary must be there. So scanning raw body
+        // text made these two cases contradict each other, and this one failed on the app working as
+        // designed. Removing script/style from a CLONE keeps the real check ("a missing key rendered as
+        // its own code where a human can read it") while dropping the false positive.
+        cy.get('body').then(($body) => {
+          const visible = $body.clone();
+          visible.find('script, style, template, noscript').remove();
+          const t = visible.text();
           expect(t, `raw ui.* key visible in ${tag}`).not.to.match(/\bui\.[a-z][A-Za-z0-9]{3,}\b/);
           expect(t, `raw label.* key visible in ${tag}`).not.to.match(/\blabel\.[a-z]+\.[a-z]+\b/);
         });

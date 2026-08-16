@@ -32,8 +32,43 @@
 (function (global, $) {
     'use strict';
 
-    var PDFMAKE_URLS = ['/jQExp/pdfmake.min.js', '/jQExp/vfs_fonts.js'];
-    var JSZIP_URLS   = ['/jQExp/jszip.min.js'];
+    /**
+     * Translated string with an English fallback.
+     *
+     * i18n.js returns the KEY itself when a string is missing, which is the right behaviour for a
+     * developer but shows a user the literal text "ui.js.exportPreparing" on a button. tHas() is the
+     * documented way to ask before looking up, so the fallback is used instead of the key.
+     */
+    function msg(key, fallback) {
+        if (typeof global.tHas === 'function' && typeof global.t === 'function' && global.tHas(key)) {
+            return global.t(key);
+        }
+        return fallback;
+    }
+
+    /**
+     * PERF-2 — resolve through the server's ResourceUrlProvider when it has told us the answer.
+     *
+     * fragments/header.html publishes window.__ASSETS with these three URLs built from Thymeleaf @{...},
+     * which ResourceUrlEncodingFilter rewrites to the content-hashed form (/jQExp/pdfmake.min-<md5>.js).
+     * Using it keeps these on the same one-year `immutable` cache as every other asset while remaining
+     * bustable on deploy. Without it they would be requested unhashed — same bytes, but frozen in browser
+     * caches for a year.
+     *
+     * The literal path is the fallback, so a page that does not include the header fragment still works.
+     * It is already context-rooted when it comes from @{...}; only the fallback needs serverContext.
+     */
+    function assetUrl(key, fallback) {
+        var map = global.__ASSETS;
+        if (map && typeof map[key] === 'string' && map[key]) return map[key];
+        return (global.serverContext ? global.serverContext.replace(/\/$/, '') : '') + fallback;
+    }
+
+    var PDFMAKE_URLS = [
+        assetUrl('pdfmake',  '/jQExp/pdfmake.min.js'),
+        assetUrl('vfsFonts', '/jQExp/vfs_fonts.js')
+    ];
+    var JSZIP_URLS = [assetUrl('jszip', '/jQExp/jszip.min.js')];
 
     /* Memoised per URL. Keyed on the URL so two buttons wanting pdfmake share one download. */
     var scriptCache = {};
@@ -50,7 +85,7 @@
 
         scriptCache[url] = new Promise(function (resolve, reject) {
             var el = document.createElement('script');
-            el.src = (global.serverContext ? global.serverContext.replace(/\/$/, '') : '') + url;
+            el.src = url;
             el.async = false;   // preserve execution order between the two pdfmake files
             el.onload = function () { resolve(url); };
             el.onerror = function () {
@@ -101,9 +136,7 @@
 
                 // On a slow link this is a multi-second wait AFTER a click. Saying nothing reads as a
                 // broken button and invites repeat clicking.
-                var busyLabel = (typeof global.t === 'function' ? global.t('ui.js.preparing') : null);
-                if (!busyLabel || busyLabel === 'ui.js.preparing') busyLabel = 'Preparing…';
-                dt.button(node).text(busyLabel);
+                dt.button(node).text(msg('ui.js.exportPreparing', 'Preparing…'));
                 $node.prop('disabled', true).addClass('disabled');
 
                 var restore = function () {
@@ -125,11 +158,14 @@
                     })
                     .catch(function (err) {
                         restore();
-                        var msg = 'The export tools could not be loaded. Check your connection and try again.';
+                        console.error('[lazy-export]', err);
                         if (typeof global.uiAlert === 'function') {
-                            global.uiAlert({ title: 'Export unavailable', message: msg });
-                        } else {
-                            console.error('[lazy-export]', err);
+                            global.uiAlert({
+                                title: msg('ui.js.exportUnavailableTitle', 'Export unavailable'),
+                                message: msg('ui.js.exportUnavailableMsg',
+                                    'The export tools could not be loaded. Check your connection and try again.'),
+                                tone: 'danger'
+                            });
                         }
                     });
             }

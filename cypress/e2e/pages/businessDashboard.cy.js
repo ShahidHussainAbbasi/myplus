@@ -172,34 +172,65 @@ describe('Business Dashboard — AJAX Data Load', () => {
   })
 })
 
-describe('Business Dashboard — Form Reset Buttons', () => {
+/**
+ * The modal CANCEL buttons.
+ *
+ * These cases used to be called "Form Reset Buttons" and asserted that the field was empty straight
+ * after the click. That was true of an older dashboard; the redesign turned these controls into
+ * Cancel — they are labelled `ui.cancel2` ("Cancel") and their onclick is `closeModal(...)`. They kept
+ * their legacy `reset*` ids, which is what let the stale expectation look plausible. One case was
+ * looking for `#resetCompanyItem`, an id that does not exist at all.
+ *
+ * So the contract is re-stated as something a user can actually observe. "The input is blank" is
+ * unobservable once the modal is shut; what matters is that cancelling ABANDONS the draft — reopening
+ * must offer a clean form, not the half-typed record you walked away from. That is the property
+ * newCompany()/newVender()/newCustomer() provide by calling resetForm(), and the one that would
+ * actually hurt if it broke.
+ */
+describe('Business Dashboard — modal Cancel abandons the draft', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
     cy.visit('/businessDashboard')
   })
 
-  it('Company Reset button clears form fields', () => {
-    cy.get('#registrationType').select('CompanyDiv', { force: true })
-    cy.get('#newCompany').click()
-    cy.get('#companyName').type('Temp Name')
-    cy.get('#resetCompanyItem').click()
-    cy.get('#companyName').should('have.value', '')
+  /** #appAjaxOverlay covers the toolbar while a section loads, so a "+ New" click can land on the
+   *  overlay instead of the button. Cypress already retries actionability — it just needs long enough
+   *  to outlast the load. (Same fix as business-modal-keyboard.cy.js's clickNew.) */
+  const clickNew = (sel) => cy.get(sel, { timeout: 30000 }).click({ timeout: 30000 })
+
+  const cancelAbandonsDraft = ({ section, open, modal, cancel, field, typed }) => {
+    cy.get('#registrationType').select(section, { force: true })
+    clickNew(open)
+    cy.get(modal).should('have.class', 'open')
+    cy.get(field).clear().type(typed)
+
+    cy.get(cancel).click()
+    cy.get(modal).should('not.have.class', 'open')      // Cancel closes it
+
+    clickNew(open)                                       // ...and reopening starts clean
+    cy.get(modal).should('have.class', 'open')
+    cy.get(field).should('have.value', '')
+  }
+
+  it('Company: cancel then reopen gives a clean form', () => {
+    cancelAbandonsDraft({
+      section: 'CompanyDiv', open: '#newCompany', modal: '#CompanyModal',
+      cancel: '#resetCompany', field: '#companyName', typed: 'Temp Name',
+    })
   })
 
-  it('Vender Reset button clears form', () => {
-    cy.get('#registrationType').select('VenderDiv', { force: true })
-    cy.get('#newVender').click()
-    cy.get('#venderName').type('Temp Vender')
-    cy.get('#resetVender').click()
-    cy.get('#venderName').should('have.value', '')
+  it('Vender: cancel then reopen gives a clean form', () => {
+    cancelAbandonsDraft({
+      section: 'VenderDiv', open: '#newVender', modal: '#VenderModal',
+      cancel: '#resetVender', field: '#venderName', typed: 'Temp Vender',
+    })
   })
 
-  it('Customer Reset button clears form', () => {
-    cy.get('#registrationType').select('CustomerDiv', { force: true })
-    cy.get('#newCustomer').click()
-    cy.get('#customerName').type('Temp Customer')
-    cy.get('#resetCustomer').click()
-    cy.get('#customerName').should('have.value', '')
+  it('Customer: cancel then reopen gives a clean form', () => {
+    cancelAbandonsDraft({
+      section: 'CustomerDiv', open: '#newCustomer', modal: '#CustomerModal',
+      cancel: '#resetCustomer', field: '#customerName', typed: 'Temp Customer',
+    })
   })
 })
 

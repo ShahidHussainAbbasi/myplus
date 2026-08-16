@@ -165,6 +165,12 @@ tr.row-voided .js-edit-row{display:none !important}
 								     order booker it is the only entry they use; Orders below is the warehouse's. -->
 								<li><a onclick="showOrderBooking();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-shopping-cart"></span> <span th:text="#{ui.bookOrder}">Book order</span></a></li>
 								<li><a onclick="showOrders();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.orders}">Orders</span></a></li>
+									<!-- OMS O7 D5 — the day-end cash-up. Gated to the same authorities the service
+									     itself requires: settling posts receipts to AR and closes the only control
+									     there is on a driver's cash, and the open list states who is holding how
+									     much of the company's money. A UI gate is not the control — the endpoints
+									     refuse anyone else — but it must not be WIDER than the server's. -->
+									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showDriverSettlement();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.driverSettlement}">Driver settlement</span></a></li>
 									<!-- OMS O3: per-org delivery fees / free-delivery threshold / cash-on-delivery. -->
 									<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showOrderConfig();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.orderSettings}">Order settings</span></a></li>
 							</ul>
@@ -1796,15 +1802,13 @@ tr.row-voided .js-edit-row{display:none !important}
 									<option value="INSURANCE" data-vertical-only="PHARMA" th:text="#{ui.insurance}">Insurance</option>
 								</select>
 							</div>
-							<!-- P12 (slice 59): insurer-covered portion of a dispense; the rest is the patient co-pay.
-							     Pharmacy-only — a POS/retail or e-commerce sale has no insurer, so the field is
-							     noise on those verticals (and an empty box invites the question "should I fill
-							     this in?"). module-theme.js hides it for everything but PHARMA. -->
-							<div class="col-xs-12 col-sm-3 col-md-2" data-vertical-only="PHARMA" style="display:none">
-								<span class="field-label" th:text="#{ui.insuranceCovered}">Insurance covered</span>
-								<input type="number" step="any" min="0" class="form-control" id="sellInsured"
-									name="sellInsured" placeholder="0.00" onkeyup="calculateChange()">
-							</div>
+							<!-- P12 (slice 59) — the insurer-covered amount field (#sellInsured) is REMOVED, by decision
+							     2026-08-16. The INSURANCE tender above stays: a pharmacy can still settle a sale
+							     against an insurer, it simply does not split the amount on this screen.
+							     Readers of `$("#sellInsured")` remain in business.js, main.js and pos-keyboard.js;
+							     each guards with `val() * ONE || 0` (and the Enter chain skips absent fields), so
+							     they resolve to 0 with the element gone. Harmless, but dead — worth a sweep. -->
+
 							<!-- SF-5 Model B: apply the selected customer's store credit as a tender (server caps it at the balance). -->
 							<div class="col-xs-12 col-sm-3 col-md-2" id="sellStoreCreditWrap" style="display:none">
 								<!-- One key plus a bracketed figure, rather than translating "Store credit (" and "avail)" as two
@@ -2180,6 +2184,93 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 
 				<button class="btn btn-primary btn-lg" id="delSubmit" onclick="submitDelivery()" th:text="#{ui.recordDelivery}">Record delivery</button>
+			</div>
+
+			<!--
+				OMS O7 D5 — driver settlement / remittance. The day-end cash-up, and backlog item B1.
+
+				Ahsan has no device (§6 D-5), so the signed paper invoices and the cash bag are the ONLY
+				controls on the money. D4 records what he SAYS each shop paid; pressing Settle HERE is what
+				actually posts those receipts to AR. That ordering is the control itself: if the money reached
+				the books when the delivery was keyed, this reconciliation would be a report nobody had to run.
+
+				A row in the top table is a CLAIM that somebody is holding the company's cash. It stays there,
+				ageing, until it is counted. "Recorded" never "delivered at" — D4's timestamp is when the
+				admin typed it, which may be hours after the goods arrived.
+			-->
+			<div id="DriverSettlementDiv" class="formDiv" style="display:none">
+				<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+					<h4 style="margin:0" th:text="#{ui.driverSettlement}">Driver settlement</h4>
+					<div>
+						<select class="form-control" id="dsDriver" style="display:inline-block;width:auto"></select>
+						<button class="btn btn-default btn-sm" onclick="refreshDriverCollections()" th:text="#{ui.refresh}">Refresh</button>
+					</div>
+				</div>
+
+				<h5 style="margin-top:14px" th:text="#{ui.openCollections}">Cash not yet handed over</h5>
+				<table class="table table-bordered table-striped">
+					<thead><tr>
+						<th style="width:36px"><input type="checkbox" id="dsPickAll" checked th:title="#{ui.selectAll}" title="Select all"></th>
+						<th th:text="#{ui.recorded}">Recorded</th>
+						<th th:text="#{ui.customer}">Customer</th>
+						<th th:text="#{ui.invoice}">Invoice</th>
+						<th th:text="#{ui.driver}">Driver</th>
+						<th class="text-right" th:text="#{ui.amountCollected}">Amount collected</th>
+					</tr></thead>
+					<tbody id="dsBody"></tbody>
+				</table>
+
+				<div class="row">
+					<div class="col-sm-3 form-group">
+						<label th:text="#{ui.declared}">Declared</label>
+						<p class="form-control-static"><b id="dsDeclared">0.00</b>
+							<span class="text-muted">(<span id="dsCount">0</span>)</span></p>
+					</div>
+					<div class="col-sm-3 form-group">
+						<label for="dsCounted" th:text="#{ui.countedCash}">Counted cash</label>
+						<input type="number" class="form-control input-lg" id="dsCounted" min="0" step="0.01" inputmode="decimal">
+					</div>
+					<div class="col-sm-3 form-group">
+						<label th:text="#{ui.variance}">Variance</label>
+						<p class="form-control-static"><b id="dsVariance">&mdash;</b></p>
+					</div>
+					<div class="col-sm-3 form-group">
+						<!-- The visible box writes dd-MM-yyyy; the hidden #dsDate keeps the ISO value the server
+						     reads. Bound ONLY by /js/common/date-picker.js via data-dp — no second calendar. -->
+						<label for="dsDateShown" th:text="#{ui.date}">Date</label>
+						<input type="text" class="form-control" id="dsDateShown" data-dp="date" data-dp-iso="#dsDate" autocomplete="off">
+						<input type="hidden" id="dsDate">
+					</div>
+				</div>
+				<div id="dsVarianceHint" class="alert alert-warning" style="display:none"></div>
+
+				<div class="row">
+					<div class="col-sm-4 form-group">
+						<label for="dsDeposit" th:text="#{ui.depositReference}">Deposit reference</label>
+						<input type="text" class="form-control" id="dsDeposit">
+					</div>
+					<div class="col-sm-8 form-group">
+						<label for="dsNote" th:text="#{ui.note}">Note</label>
+						<input type="text" class="form-control" id="dsNote">
+					</div>
+				</div>
+
+				<button class="btn btn-primary btn-lg" id="dsSettle" onclick="settleDriver()" th:text="#{ui.settleDriver}">Settle driver</button>
+
+				<h5 style="margin-top:22px" th:text="#{ui.recentSettlements}">Recent settlements</h5>
+				<table class="table table-bordered table-condensed">
+					<thead><tr>
+						<th th:text="#{ui.driverSettlement}">Driver settlement</th>
+						<th th:text="#{ui.date}">Date</th>
+						<th th:text="#{ui.driver}">Driver</th>
+						<th class="text-right" th:text="#{ui.collections}">Collections</th>
+						<th class="text-right" th:text="#{ui.declared}">Declared</th>
+						<th class="text-right" th:text="#{ui.countedCash}">Counted cash</th>
+						<th class="text-right" th:text="#{ui.variance}">Variance</th>
+						<th th:text="#{ui.recordedBy}">Recorded by</th>
+					</tr></thead>
+					<tbody id="dsHistBody"></tbody>
+				</table>
 			</div>
 
 			<!-- M1 (slice 42): catalog Product master registration — the single product master all verticals share. -->
@@ -2616,13 +2707,13 @@ tr.row-voided .js-edit-row{display:none !important}
 					<h4 style="font-weight:700;color:#1f4e8c"><span th:text="#{ui.taxCodes}">Tax codes</span> <small class="text-muted" th:text="#{ui.multiRate}">(multi-rate)</small></h4>
 					<p class="help-block"><span th:text="#{ui.namedTaxClassesEG}">Named tax classes, e.g.</span> <em><span th:text="#{ui.standard18}">Standard 18%</span></em>, <em><span th:text="#{ui.reduced5}">Reduced 5%</span></em>, <em><span th:text="#{ui.zero0}">Zero 0%</span></em>, <em><span th:text="#{ui.exempt}">Exempt</span></em><span th:text="#{ui.productsReferenceACodeChangingA}">. Products reference a code; changing a code's rate updates every product using it.</span></p>
 					<table class="table table-condensed" id="taxCodeTable" style="width:100%">
-						<thead><tr><th th:text="#{ui.name}">Name</th><th class="text-right" th:text="#{ui.rate}">Rate %</th><th th:text="#{ui.default}">Default</th><th style="width:130px"></th></tr></thead>
+						<thead><tr><th th:text="#{ui.name}">Name</th><th class="text-right" th:text="#{ui.ratePercent}">Rate %</th><th th:text="#{ui.default}">Default</th><th style="width:130px"></th></tr></thead>
 						<tbody></tbody>
 					</table>
 					<div class="form-inline" style="margin-top:8px">
 						<input type="hidden" id="tcId">
 						<input type="text" class="form-control" id="tcName" placeholder="Name (e.g. Standard)" th:placeholder="#{ui.nameEGStandard}" style="width:190px">
-						<input type="number" step="any" min="0" class="form-control" id="tcRate" placeholder="Rate %" th:placeholder="#{ui.rate}" style="width:110px">
+						<input type="number" step="any" min="0" class="form-control" id="tcRate" placeholder="Rate %" th:placeholder="#{ui.ratePercent}" style="width:110px">
 						<label style="font-weight:normal;margin:0 10px"><input type="checkbox" id="tcDefault"> <span th:text="#{ui.default}">Default</span></label>
 						<button type="button" class="btn btn-success btn-sm" onclick="saveTaxCode()"><span class="glyphicon glyphicon-floppy-disk"></span> <span id="tcSaveLabel" th:text="#{ui.addCode}">Add code</span></button>
 						<button type="button" class="btn btn-default btn-sm" onclick="resetTaxCodeForm()" th:text="#{ui.clear}">Clear</button>
@@ -2895,6 +2986,9 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/order-packing.js}"></script>
     <!-- O7 D4: the admin's delivery-return keying panel (the driver has no device). -->
     <script th:src="@{/js/business/order-delivery.js}"></script>
+    <!-- O7 D5: the day-end driver cash-up. Its own file, like the two above: this is the CASH surface, and
+         the act it performs (posting the collected money to AR) is not part of keying a delivery. -->
+    <script th:src="@{/js/business/driver-settlement.js}"></script>
 <!-- Slice 108b: one consistent, searchable dropdown across every dashboard. Education had a blanket
      initialiser inline in its own template; every other module had none, so business had 48 selects
      and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->

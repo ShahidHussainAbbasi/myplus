@@ -30,6 +30,9 @@ $(document).ready(function() {
 		loadFeeSetting();
 	}
 
+	// P7.3 — keyboard navigation on the registration modals.
+	loadKeyboardFlags();
+
 	// Alerts module (slice 16).
 	if ($("#Alerts").length) {
 		$("#addAlerts").off("click").on("click", submitAlert);
@@ -2846,6 +2849,40 @@ function showConfig(){
 	$('#ConfigDiv').show();
 	$('#configMsg').hide();
 	loadConfig();
+}
+
+/**
+ * P7.3 — apply the two keyboard-navigation policies to this page.
+ *
+ * Read once at load from the SAME catalog the Configuration screen renders (/getConfig), so there is
+ * one source of truth for what the tenant chose and no second endpoint to keep in step. Education's
+ * SettingsController answers with a GenericResponse, which carries lists in `collection` — not `data`,
+ * which is what the commerce proxies use. Accept both rather than assume one.
+ *
+ * BOTH FLAGS FAIL OPEN — absent key, error response, service down ⇒ the keyboard works.
+ *
+ * That is the OPPOSITE polarity to the POS flags in business.js, and deliberately so: an unexpected
+ * function key on a live till can complete a sale, whereas Enter moving to the next box cannot do
+ * anything Tab could not. Here the worse outcome is silently losing the feature to a config hiccup,
+ * so an unreadable setting resolves to ON. (Standard C3: fail towards the harmless state, which is
+ * not always "off".)
+ *
+ * keyboard-forms.js re-reads these globals on every keystroke, so a value arriving after the modals
+ * were bound still takes effect — nothing here has to run before the bind.
+ */
+function loadKeyboardFlags(){
+	$.get(serverContext + 'getConfig', function(res){
+		var items = (res && (res.collection || res.data)) || [];
+		var byKey = {};
+		if (Array.isArray(items)) {
+			items.forEach(function(it){ byKey[it.key] = String(it.value) === 'true'; });
+		}
+		window.kbdFormNavEnabled = ('ui.keyboard.formNav.enabled' in byKey) ? byKey['ui.keyboard.formNav.enabled'] : true;
+		window.kbdEnterSubmits   = ('ui.keyboard.enterSubmits'   in byKey) ? byKey['ui.keyboard.enterSubmits']   : true;
+	}, 'json').fail(function(){
+		window.kbdFormNavEnabled = true;      // fail OPEN — see above
+		window.kbdEnterSubmits   = true;
+	});
 }
 
 function loadConfig(){

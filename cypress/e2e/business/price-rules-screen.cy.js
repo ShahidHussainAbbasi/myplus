@@ -62,21 +62,30 @@ const openPriceRules = () => {
   cy.get('#PriceRuleDiv', { timeout: 10000 }).should('be.visible')
 }
 
-/** Fill and submit the inline editor. */
+/**
+ * Fill and submit the inline editor.
+ *
+ * Every `.select()` here passes `{ force: true }`: `searchable-selects.js` converts effectively every
+ * <select> on the page into a bootstrap-select (it skips only nav headings, `[data-no-search]`,
+ * DataTables-owned and `_length` selects), which sets the real element to display:none and renders a
+ * button in its place. Cypress will not act on the hidden native element without force. Forcing is the
+ * right call because the intent is to SET A VALUE; a case asserting the control is visible to a human
+ * must instead assert on `.next('.bootstrap-select')`.
+ */
 const authorRule = ({ customerId, customerType, productId, mode, value, priority }) => {
-  cy.get('#prScope').select(customerId ? 'CUSTOMER' : 'TYPE')
+  cy.get('#prScope').select(customerId ? 'CUSTOMER' : 'TYPE', { force: true })
   if (customerId) {
     // The pickers load over the network — wait for THIS option rather than for "some options",
     // so a stale list cannot satisfy the wait.
     cy.get(`#prCustomerId option[value="${customerId}"]`, { timeout: 10000 }).should('exist')
-    cy.get('#prCustomerId').select(String(customerId))
+    cy.get('#prCustomerId').select(String(customerId), { force: true })
   } else {
-    cy.get('#prCustomerType').select(customerType)
+    cy.get('#prCustomerType').select(customerType, { force: true })
   }
-  cy.get('#prTarget').select('PRODUCT')
+  cy.get('#prTarget').select('PRODUCT', { force: true })
   cy.get(`#prProductId option[value="${productId}"]`, { timeout: 10000 }).should('exist')
-  cy.get('#prProductId').select(String(productId))
-  cy.get('#prMode').select(mode)
+  cy.get('#prProductId').select(String(productId), { force: true })
+  cy.get('#prMode').select(mode, { force: true })
   cy.get('#prValue').clear().type(String(value))
   if (priority != null) cy.get('#prPriority').clear().type(String(priority))
   cy.contains('#PriceRuleForm button', /add rule|save rule/i).click()

@@ -168,11 +168,20 @@ describe('Signup — redesigned split-panel UI (registration.html)', () => {
     cy.get('.field-grid input[name="lastName"]').should('exist')
   })
 
-  it('offers a required service/domain selector with the four domains', () => {
+  it('offers a required service selector covering every service we sell', () => {
     cy.get('select[name="userType"]').should('exist').and('have.attr', 'required')
     cy.get('select[name="userType"] option').then(($opts) => {
-      const values = [...$opts].map((o) => o.value)
-      expect(values).to.include.members(['BUSINESS', 'EDUCATION', 'WELFARE', 'AGRICULTURE'])
+      // .toArray(), not [...$opts]: a jQuery object is array-LIKE but does not implement the iterator
+      // protocol, so spreading it throws "$opts is not iterable". This is jQuery's own documented way
+      // to get a real array, and it cannot depend on which jQuery the runner happens to bundle.
+      const values = $opts.toArray().map((o) => o.value)
+      // PHARMA is not decoration — it is a sold vertical with its own dashboard and seeded owner
+      // account. A signup form that cannot route a pharmacy is a lost customer, so assert the whole
+      // catalogue rather than the four this case originally knew about.
+      expect(values).to.include.members(['BUSINESS', 'PHARMA', 'EDUCATION', 'WELFARE', 'AGRICULTURE'])
+      // ...and the placeholder must not be selectable, or "Choose your service…" posts as a userType.
+      expect(values, 'a blank placeholder option is present').to.include('')
+      cy.get('select[name="userType"] option[value=""]').should('have.attr', 'disabled')
     })
   })
 })

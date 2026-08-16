@@ -285,6 +285,13 @@ services:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8093/actuator/health/readiness"]
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      # notification-service OWNS A DATABASE (myplusdb_notification — the delivery record), so it needs
+      # the same DB env every other persistent service gets. Without this anchor its datasource URL
+      # resolves ${DB_HOST:localhost} to *localhost inside its own container* and Flyway retries
+      # "Connection refused" forever: the service never registers with Eureka and never becomes healthy.
+      # It is the one DB-backed service that was missing it. (The monolith is legitimately absent from
+      # this list — it no longer owns a schema.)
+      <<: *db-env
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
@@ -293,6 +300,8 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD}
     networks: [myplus-net]
     depends_on:
+      mysql:
+        condition: service_healthy
       config-server:
         condition: service_healthy
 

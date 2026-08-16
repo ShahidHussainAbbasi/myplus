@@ -379,8 +379,245 @@ slice rather than riding along inside PERF-3.
 
 ---
 
-## 5. Open question for the user
+## 4e. PERF-2 — static caching + content-hash versioning (design)
 
-The measurements above are from the **monolith's own static delivery**. If production fronts this with nginx, Cloudflare, or an ALB that already applies gzip/brotli and cache headers, F1 and F2 may be partly mitigated in prod even though they are absent from the repo. No such config exists in the repository.
+**Date:** 2026-08-15 · **Fixes:** F1 · **Status:** IMPLEMENTED — awaiting rebuild + gate.
 
-**Before implementing PERF-1/PERF-2, confirm what sits in front of the app in production** — that determines whether compression belongs in Spring, in the proxy, or both.
+### 4e-0. First: the §5 open question is now answered
+
+§5 asked what sits in front of the app before deciding where caching belongs. Answer, from the repo:
+
+| Deployment | Front door | Does it compress? | Does it cache? |
+|---|---|---|---|
+| Hostinger VPS (live) | nginx, `DEPLOY-POS-RETAIL.md` §4.8 | **No.** Two bare `proxy_pass` blocks. nginx's packaged default is `gzip on` but `gzip_types` defaults to `text/html` only and `gzip_proxied` defaults to `off`, so **proxied responses are not gzipped at all**. | **No.** There is no `expires` / `add_header Cache-Control` block; nginx relays upstream headers verbatim. |
+| AWS (`infrastructure/terraform/`) | ALB (`alb.tf`) | No — an ALB does not compress. | No — an ALB does not cache. |
+| Any | CloudFront / Cloudflare | **Not present.** `grep -rn cloudfront infrastructure/` returns zero. | — |
+
+So **nothing upstream compensates**, in either deployment. Both PERF-1 (done) and PERF-2 belong in Spring,
+and PERF-2's headers will pass through nginx and the ALB untouched. This is the confirmation the audit
+asked for before implementing; no proxy change is required.
+
+### 4e-1. Why the obvious fix does not work — restating F1 precisely
+
+`spring.web.resources.cache.period=3600` in `application-prod.properties:10` is read by
+`WebMvcAutoConfiguration`, which `@EnableWebMvc` (`MvcConfig.java:29`) switches off wholesale. The property
+is **inert**. Editing it — in any profile — changes nothing on the wire. The cache period has to be set
+**imperatively on the hand-rolled handler** in `MvcConfig.addResourceHandlers()`.
+
+**`@EnableWebMvc` is NOT removed in this slice**, per the standing caution: it would re-enable message
+converters, content negotiation and static-path defaults all at once. It gets its own slice and its own
+gate.
+
+`@EnableWebMvc` also disables two things this slice needs, which must therefore be supplied by hand:
+
+| Normally auto-configured | Supplied here |
+|---|---|
+| `ResourceUrlEncodingFilter` (Boot registers it under `@ConditionalOnEnabledResourceChain`) | explicit `@Bean` in `MvcConfig` |
+| `spring.web.resources.chain.*` → resolver chain | explicit `.resourceChain(…).addResolver(…)` |
+
+`ResourceUrlProvider` and `ResourceUrlProviderExposingInterceptor` are defined by
+`WebMvcConfigurationSupport` itself, so those **are** present under `@EnableWebMvc` — nothing to add.
+
+### 4e-2. The two halves must ship together
+
+A long cache without content-hash URLs means a deploy can never reach a browser that already cached the
+old file. So the slice sets **both**:
+
+- `Cache-Control: max-age=31536000, public, immutable` (one year)
+- `VersionResourceResolver` + `ContentVersionStrategy` → `/js/main-9f2c…a41.js`
+
+The URL *is* the cache key. A changed file gets a new hash, hence a new URL, hence a guaranteed fetch.
+Nothing is ever stale, and nothing is ever revalidated.
+
+### 4e-3. Request / cache / versioning path
+
+```mermaid
+flowchart TD
+    subgraph render["① Page render — URL generation"]
+        TH["Thymeleaf @{/js/main.js}"] --> SLB["SpringStandardLinkBuilder<br/>calls response.encodeURL()"]
+        SLB --> RUEF["ResourceUrlEncodingFilter<br/>(hand-registered @Bean —<br/>@EnableWebMvc killed the auto one)"]
+        RUEF --> RUP["ResourceUrlProvider<br/>picks the most specific handler"]
+        RUP --> CVS["ContentVersionStrategy<br/>md5(file bytes)"]
+        CVS --> OUT["/js/main-9f2c…a41.js<br/>emitted into the HTML"]
+    end
+
+    OUT -.->|browser requests it| ask
+
+    subgraph serve["② Asset request — URL resolution"]
+        ask["GET /js/main-9f2c…a41.js"] --> SEC{"SecSecurityConfig<br/>permitAll /js/**"}
+        SEC -->|"matches — shape unchanged"| H["ResourceHttpRequestHandler /js/**<br/>locations classpath:/static/js/"]
+        SEC -.->|"would 302 if the URL<br/>left the permitted prefix"| LOGIN["/login — the pwstrength bug class"]
+        H --> CRR["CachingResourceResolver"]
+        CRR --> VRR["VersionResourceResolver"]
+        VRR -->|"1 · try the literal path"| MISS["no file called main-9f2c….js"]
+        MISS -->|"2 · strip the version"| PRR["PathResourceResolver → main.js"]
+        PRR --> CMP{"md5(main.js) == 9f2c…a41 ?"}
+        CMP -->|yes| HIT["200 + Cache-Control: max-age=31536000, immutable<br/>+ Content-Encoding: gzip (PERF-1)"]
+        CMP -->|no| NF["404 — a forged/stale hash is refused,<br/>the version is validated, not decorative"]
+    end
+
+    subgraph deploy["③ Deploy"]
+        NEW["main.js edited"] --> NEWHASH["new md5 → new URL"]
+        NEWHASH --> FETCH["cached browsers fetch it —<br/>the old URL is simply never asked for again"]
+    end
+```
+
+### 4e-4. Blast radius of content-hash URLs across the templates — measured, not estimated
+
+The concern was that hashed URLs force every template to resolve assets through the resolver instead of
+hardcoding paths, i.e. a 40-file edit. **Measured, the template blast radius is zero.**
+
+| Probe (88 templates) | Count |
+|---|---|
+| `th:src="@{…}"` | 118 |
+| `th:href="@{…}"` | 110 |
+| Raw `src="/…{js,css,png,…}"` — would NOT be rewritten | **1** — `maxtheservice_dashboard.html:271` `/favicon.png`, root-level, deliberately unversioned anyway |
+| Raw `href="/….css"` | **0** |
+| Relative `src="js/…"` / `href="css/…"` | 0 in live templates (13 hits, all inside the dead `fragments/jsPDF-1.3.2/` example tree — PERF-6) |
+| `th:src` with a non-`@{}` expression | 1 — `qrcode.html:18`, a request parameter, not an asset |
+
+Because Thymeleaf's `@{…}` link builder routes through `HttpServletResponse.encodeURL()`, and
+`ResourceUrlEncodingFilter` wraps that call, **every one of those 228 links becomes versioned with no
+template edit at all.** The whole template cost of this slice is the single `<script>` block described
+below.
+
+Asset URLs built in **JavaScript** are the real hole, because no filter can reach them. Swept:
+
+| Probe (all app JS, vendor bundles excluded) | Result |
+|---|---|
+| `'/js/…'`, `'/css/…'`, `'/images/…'`, `'/bootstrap/…'`, `'/jQExp/…'` literals | **3**, all in `js/common/lazy-export.js:35-36` (the PERF-4 pdfmake/vfs/jszip URLs) |
+| `serverContext + "js/…"` style concatenation | 0 |
+| `createElement('script')` in app code | 1 — `lazy-export.js`, the same three |
+
+So exactly one file. Fixed by having `fragments/header.html` publish a tiny `window.__ASSETS` map built
+from `@{…}` — the resolver does the work, `lazy-export.js` just reads it, and the hardcoded literals stay
+as a fallback. No new mechanism, no duplicated logic.
+
+CSS `url(…)` references are handled automatically: `ResourceChainRegistration` inserts a
+`CssLinkResourceTransformer` whenever a version resolver is present. Of the 18 non-`data:` `url()`s in
+`static/css/`, 5 point at `/images/*.png` (rewritten, still under the permitted `/css/**` → `/images/**`
+prefixes), 2 are external `fonts.googleapis.com` (skipped — they carry a scheme), and the remaining 11
+(`../fonts/glyphicons-*`, `DataTables-1.10.18/images/*`, `resources/c.jpg`) point at files that **do not
+exist** — `static/fonts/` is absent — so the transformer cannot resolve them and leaves them verbatim.
+No change, and no new breakage.
+
+**Verdict: no phasing needed.** The blast radius is 1 JS file + 1 template block, not 40 templates.
+
+### 4e-5. Design
+
+Pattern: **Chain of Responsibility** (`ResourceResolverChain`: caching → version → path) with a **Strategy**
+for the version format (`ContentVersionStrategy` = content md5). Both are Spring's own vocabulary, which is
+the point — this is configuration of an existing extension point, not a hand-rolled cache-buster.
+
+```
+addResourceHandlers(registry):
+
+  for each of /js /css /images /img /bootstrap /jQExp /webjars      ← the VERSIONED tier
+      addResourceHandler("/<dir>/**")
+        .addResourceLocations(<each classpath location> + "<dir>/")   ⚠ see 4e-6
+        .setCacheControl(1 year, public, immutable)
+        .resourceChain(cacheChain)
+        .addResolver(new VersionResourceResolver().addContentVersionStrategy("/**"))
+
+  registry.addResourceHandler("/**")                                 ← the CATCH-ALL tier, unchanged shape
+        .addResourceLocations(CLASSPATH_RESOURCE_LOCATIONS)
+        .setCacheControl(1 hour, public, must-revalidate)
+```
+
+**Why two tiers rather than one `/**` handler carrying the version strategy.** `setCachePeriod` /
+`setCacheControl` is per *handler*, not per *URL*. A single handler would have to give root-level
+`/main.css`, `/favicon.png` and the 20 loose `*.jpg` the same one-year immutable header — and those are
+precisely the files that are **not** versioned, so a year of immutability would strand them permanently.
+Splitting lets "immutable" mean exactly "hashed".
+
+**Why these seven directories.** They are all the app's `@{…}` asset prefixes
+(`/js/` ×99, `/css/` ×36, `/bootstrap/` ×12, `/img/` ×8, `/jQExp/` ×4), plus `/images/` (reached from CSS)
+and `/webjars/`. Every one of them is a **directory prefix**, so a hashed URL keeps the same shape as the
+`permitAll` patterns in `SecSecurityConfig:94-97` (`/css/**`, `/js/**`, `/images/**`, `/webjars/**`,
+`/bootstrap/**`, `/jQExp/**`). Root-level assets are deliberately excluded: `/main.css`, `/*.png`, `/*.ico`,
+`/*.jpeg` are permitted by *exact, single-segment* patterns, so versioning `/main.css` into
+`/main-9f2c….css` would still match `/*.css`… except there is no `/*.css` rule — it would fall through to
+`anyRequest().hasAuthority("LOGIN_PRIVILEGE")` and **302 anonymous visitors to /login**. That is the
+pwstrength bug (§4d-i) exactly. Leaving root-level files unversioned avoids re-inventing it, and the gate
+asserts it as anonymous.
+
+**Why unversioned URLs keep working.** `VersionResourceResolver` tries the literal request path *first* and
+only falls back to version-stripping. So `/js/business/business.js` still returns 200 — which is why the
+PERF-1 compression gate, which requests unversioned paths directly, is unaffected.
+
+**Live, not inert.** The two knobs are new app-owned properties read by `MvcConfig` itself:
+
+| Property | Default | Meaning |
+|---|---|---|
+| `app.static.versioned-cache-seconds` | `31536000` | max-age for the hashed tier |
+| `app.static.plain-cache-seconds` | `3600` | max-age for the catch-all tier |
+| `app.static.chain-cache` | `true` | cache resolved resources + hashes in memory |
+
+They are named `app.*` on purpose: a reader must not confuse them with the `spring.web.resources.*` pair,
+which stays in the file **only as a documented tombstone** for F1.
+
+`chain-cache=true` in dev is correct here rather than sloppy: the app serves from `target/classes` and every
+static change already requires a rebuild + restart (standing rule), which drops the cache. With it off,
+every `@{…}` render would md5 the target file on every request.
+
+### 4e-6. The trap in the two-tier design, recorded so nobody re-introduces it
+
+`ResourceHttpRequestHandler` resolves the path *within the handler mapping* against the configured
+locations. For a handler mapped at `/**` with location `classpath:/static/`, `/js/business/business.js`
+becomes `js/business/business.js` → `classpath:/static/js/business/business.js`. ✔
+
+For a handler mapped at **`/js/**`** with the same location, the path within the mapping is
+`business/business.js` → `classpath:/static/business/business.js` → **404 for every script on the site.**
+
+So each versioned handler must be given locations **suffixed with its own directory**
+(`classpath:/static/js/`, …). This is the single most likely way to get PERF-2 wrong, and it fails
+loudly and totally — which is why the gate's first job is a positive control that the dashboard still boots.
+
+### 4e-7. Files changed
+
+| File | Change |
+|---|---|
+| `com/spring/MvcConfig.java` | versioned + catch-all resource tiers; `ResourceUrlEncodingFilter` bean |
+| `application.properties` | three live `app.static.*` properties; F1 tombstone comment updated |
+| `application-prod.properties` | inert `spring.web.resources.cache.period` replaced by the live property |
+| `templates/fragments/header.html` | `window.__ASSETS` — three resolver-built URLs for lazy-export |
+| `static/js/common/lazy-export.js` | reads `__ASSETS`, falls back to the literal path |
+| `cypress/e2e/ui/perf-jquery.cy.js`, `perf-cdn-jquery.cy.js` | filename regexes made hash-tolerant |
+| `cypress/e2e/ui/perf-cache-versioning.cy.js` | **NEW** — the gate |
+
+### 4e-8. Expected effect
+
+Repeat navigation, which is how this app is used all day (every action is a full page load):
+
+| | Requests | Bytes |
+|---|---|---|
+| Today | ~80, every one a conditional GET with no `Cache-Control` | ~0 body, but ~80 RTTs — several seconds at 300 ms RTT |
+| After PERF-2 | **0** for every hashed asset — the browser does not even revalidate `immutable` | **0** |
+
+The first load is unchanged (same bytes, same count). PERF-2 is entirely a *second-and-subsequent* load
+win, and on a high-latency link that is the larger of the two problems.
+
+---
+
+## 5. Open question for the user — ANSWERED (see §4e-0)
+
+nginx (VPS) and the ALB (AWS) are both pass-through: neither compresses nor caches, and there is no CDN in
+the repo. Compression and caching therefore both belong in Spring, which is where PERF-1 and PERF-2 put
+them. No proxy configuration is required for either slice.
+
+---
+
+## 6. Defects found while sizing PERF-2 — NOT fixed here
+
+Both are the **same class as the pwstrength bug** (§4d-i): a URL whose shape falls outside
+`SecSecurityConfig:94-97`, so Spring Security 302s it to `/login` for anonymous visitors. Neither is caused
+by PERF-2 and neither is changed by it — versioning preserves the path prefix in both cases. Recording them
+so they are not lost.
+
+1. **`/img/**` is not in the `permitAll` list.** `services.html` is a `permitAll` page (`/services`) and
+   loads seven images from `@{/img/…}`. `/*.png` only matches root-level single-segment paths, so
+   `/img/Finance2.png` falls through to `anyRequest().hasAuthority("LOGIN_PRIVILEGE")`. **A logged-out
+   visitor to the public services page sees seven broken images.** One-line fix: add `"/img/**"` beside
+   `"/images/**"`. Needs consent — `SecSecurityConfig` is outside this slice.
+2. **`islamicChannels.html:260`** uses `src="@{/img/ic-logo.gif}"` — a plain `src`, not `th:src`, so the
+   literal string `@{/img/ic-logo.gif}` is emitted as the URL and the logo can never load.

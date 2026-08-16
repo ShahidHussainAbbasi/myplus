@@ -17,6 +17,7 @@ describe('Purchase Section — UI Rendering', () => {
     cy.get('#tablePurchase').should('exist')
     cy.get('#newPurchase').should('be.visible')
     cy.get('#PurchaseModal').should('not.have.class', 'open')   // form hidden until New
+    cy.waitForAppReady()
     cy.get('#newPurchase').click()
     cy.get('#PurchaseModal').should('have.class', 'open')
     cy.get('#purchaseItemDD').should('exist')
@@ -31,6 +32,7 @@ describe('Purchase Section — UI Rendering', () => {
   })
 
   it('Cancel closes the form modal', () => {
+    cy.waitForAppReady()
     cy.get('#newPurchase').click()
     cy.get('#PurchaseModal').should('have.class', 'open')
     cy.get('#resetPurchase').click()
@@ -38,9 +40,11 @@ describe('Purchase Section — UI Rendering', () => {
   })
 
   it('Reset button clears the quantity field', () => {
+    cy.waitForAppReady()
     cy.get('#newPurchase').click()
     cy.get('#purchaseQuantity').type('5')
     cy.get('#resetPurchase').click()
+    cy.waitForAppReady()
     cy.get('#newPurchase').click()                              // re-open to inspect the cleared field
     cy.get('#purchaseQuantity').should('have.value', '')
   })
@@ -191,6 +195,7 @@ describe('Purchase Validation — Form Guards', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
     cy.openPurchaseSection('purchaseDiv')
+    cy.waitForAppReady()
     cy.get('#newPurchase').click()                    // form now lives in a modal — open it first
     cy.get('#PurchaseModal').should('have.class', 'open')
   })

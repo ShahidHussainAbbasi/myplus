@@ -76,7 +76,26 @@ public class SaleVoidService {
      * @return the invoice's original grand total (what was reversed)
      * @throws VoidRefused when the invoice is already void or a return was already recorded against it
      */
-    @Transactional
+    /**
+     * {@code noRollbackFor} — these two are ANSWERS, not failures, and both are thrown by the guard clauses
+     * below <b>before this method writes anything</b>, so there is nothing to undo.
+     *
+     * <p>Without it the refusal was unreadable. {@code voidSell} is itself {@code @Transactional}, so this
+     * method PARTICIPATES in the caller's transaction; a RuntimeException leaving this proxy marks that
+     * shared transaction rollback-only. The controller then catches the exception, returns its tidy
+     * {@code FAILED "…the period is closed"} — and Spring throws {@code UnexpectedRollbackException} when it
+     * tries to commit, which reaches the browser as
+     * {@code {"status":"ERROR","message":"Transaction silently rolled back because it has been marked as
+     * rollback-only"}}. The considered refusal message was replaced by plumbing, and the controller's catch
+     * block was effectively dead code.
+     *
+     * <p>It affected all three refusals here — already-void, return-already-recorded, and period-closed —
+     * i.e. every ordinary reason a shopkeeper cannot void an invoice. Note the sibling endpoints
+     * ({@code addSell}, {@code updateSell}, {@code saleReturn}) do NOT have the bug purely because they call
+     * {@code periodLockGuard.assertOpen} inline in the controller, where no inner proxy exists to mark
+     * anything — the same code one call deeper behaves differently, which is why this was invisible.
+     */
+    @Transactional(noRollbackFor = { VoidRefused.class, PeriodClosedException.class })
     public BigDecimal voidInvoice(CustomerHistory ch, String reason, boolean quarantine, Long orgId, Long userId) {
         if (ch == null) throw new VoidRefused("Invoice not found.");
         if ("VOID".equals(ch.getStatus()))

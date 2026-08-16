@@ -21,6 +21,10 @@
  * edit was identical and mechanical across all eight, but this file only claims what it actually proves.
  */
 
+// PERF-2 serves /js/** at content-hashed URLs (/js/jquery.min-<md5>.js), so the filename assertion below
+// allows an optional 32-hex suffix. The thing being asserted is unchanged: same origin, same local file.
+const LOCAL_JQ = /\/js\/jquery\.min(?:-[0-9a-f]{32})?\.js$/
+
 const PAGES = [
   { url: '/registration.html', label: 'registration' },
   { url: '/registrationCaptcha.html', label: 'registration (captcha)' },
@@ -42,10 +46,10 @@ describe('PERF-3b — local jQuery, no CDN, no mixed content', () => {
       it('serves jQuery from THIS origin, not a third party', () => {
         cy.document().then((doc) => {
           const srcs = [...doc.querySelectorAll('script[src]')].map((s) => s.getAttribute('src'))
-          const jq = srcs.filter((s) => /jquery(-[\d.]+)?(\.min)?\.js/i.test(s))
+          const jq = srcs.filter((s) => /jquery(-[\d.]+)?(\.min)?(-[0-9a-f]{32})?\.js/i.test(s))
           expect(jq, `jQuery tags on ${url}: ${JSON.stringify(jq)}`).to.have.length(1)
           expect(jq[0], 'must not be an absolute third-party URL').to.not.match(/^https?:\/\//i)
-          expect(jq[0], 'must be the local jQuery').to.match(/\/js\/jquery\.min\.js$/)
+          expect(jq[0], 'must be the local jQuery').to.match(LOCAL_JQ)
         })
       })
 

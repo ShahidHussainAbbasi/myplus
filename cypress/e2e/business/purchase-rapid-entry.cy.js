@@ -43,6 +43,59 @@ function fillHeader(invoiceNo) {
   cy.get('#purchaseInvoiceNo').clear().type(invoiceNo)
 }
 
+/**
+ * Answer the vendor picker WITHOUT letting the answer move the cursor.
+ *
+ * Why the walk tests need this at all: an UNANSWERED bootstrap-select no longer advances on Enter —
+ * it opens its menu (enter-chain.js, "closed, empty -> let the button's own click OPEN the menu"),
+ * because Enter walking past 71 vendors left a required picker unfillable from the keyboard. The
+ * order-of-the-chain tests below are not about that rule, so they answer the picker first and keep
+ * their single subject; the rule itself has its own test.
+ *
+ * Native .select() fires `change` (which the vendor-dues row listens for) but NOT
+ * `changed.bs.select`, and it is the latter the chain advances on — so focus stays exactly where the
+ * test put it. The dues input it reveals is readonly, so it never becomes a chain stop.
+ */
+function answerVendor() {
+  cy.get('#purchaseVenderDD option', { timeout: 15000 })
+    .contains(vendorName)
+    .then(($o) => cy.get('#purchaseVenderDD').select($o.val(), { force: true }))
+  cy.get('#purchaseVenderDD').should('not.have.value', '')
+}
+
+/**
+ * Answer the ITEM picker, silently — same reason as answerVendor(), plus the async pre-fill.
+ *
+ * Selecting an item fires /productStock, which writes qty and the rates. A walk that starts before
+ * that lands is racing a handler that moves values under it.
+ */
+function answerItem(productId) {
+  cy.intercept('GET', '/productStock*').as('itemPrefill')
+  cy.get('#purchaseItemDD').select(String(productId), { force: true })
+  cy.wait('@itemPrefill', { timeout: 15000 })
+}
+
+/**
+ * Save the line and let the screen SETTLE before the next one.
+ *
+ * afterSavePurchase() kicks off datatable.ajax.reload() the moment the save responds, and the app's
+ * global #appAjaxOverlay (position:fixed, inset:0, z-index:99999) covers the modal while it is in
+ * flight — so the next line's click can land on the overlay instead of the button, with no request
+ * and no error. Waiting for the reload is what makes rapid entry testable at all.
+ *
+ * The intercept is re-declared with a FRESH alias immediately before each click, so the wait can only
+ * be satisfied by the reload THIS save triggered — an alias declared once would be consumed by the
+ * section-open load and pass before the reload had even started.
+ */
+let gridSeq = 0
+function saveLineAndSettle() {
+  const alias = `grid${++gridSeq}`
+  cy.intercept('GET', '**/getUserPurchase*').as(alias)
+  cy.get('#addPurchaseAnother').click()
+  cy.wait('@save').its('response.statusCode').should('eq', 200)
+  cy.wait(`@${alias}`, { timeout: 20000 })
+}
+
 /** Fill ONE line. Selecting the item fires an async pre-fill that bumps qty, so wait for it first. */
 function fillLine(productId, qty) {
   cy.intercept('GET', '/productStock*').as('prefill')
@@ -177,18 +230,15 @@ describe('P6 — Purchase rapid line entry', () => {
     fillHeader(`P6-COUNT-${STAMP}`)
 
     fillLine(productA, 1)
-    cy.get('#addPurchaseAnother').click()
-    cy.wait('@save')
+    saveLineAndSettle()
     cy.get('#purchaseLineCount').should('be.visible').and('contain', '1')
 
     fillLine(productB, 2)
-    cy.get('#addPurchaseAnother').click()
-    cy.wait('@save')
+    saveLineAndSettle()
     cy.get('#purchaseLineCount').should('contain', '2')
 
     fillLine(productC, 3)
-    cy.get('#addPurchaseAnother').click()
-    cy.wait('@save')
+    saveLineAndSettle()
     cy.get('#purchaseLineCount').should('contain', '3')
   })
 
@@ -201,8 +251,7 @@ describe('P6 — Purchase rapid line entry', () => {
     const items = [productA, productB, productC]
     items.forEach((pid, i) => {
       fillLine(pid, i + 1)
-      cy.get('#addPurchaseAnother').click()
-      cy.wait('@save').its('response.statusCode').should('eq', 200)
+      saveLineAndSettle()
     })
 
     // Assert against the SERVER, not the grid — three rows really persisted under one invoice.
@@ -331,6 +380,11 @@ describe('P6 — Purchase rapid line entry', () => {
     }).as('taxOff')
     openFreshPurchaseModal()
     cy.wait('@taxOff')
+    // BOTH pickers, not just the vendor: this test is about ORDER, and an unanswered picker legitimately
+    // stops the walk to open its menu. Leaving the item empty put the cursor in bootstrap-select's
+    // live-search box, which is the rule working — in the one test that is not about the rule.
+    answerVendor()
+    answerItem(productA)
     cy.get('#purchaseInvoiceNo').focus().type('{enter}')
     cy.focused().should('have.id', 'purchaseBatchNo')
 
@@ -340,8 +394,8 @@ describe('P6 — Purchase rapid line entry', () => {
              'reached the vendor picker').to.eq(1)
     })
 
-    // Enter on a picker whose menu is CLOSED advances like any other field — it does not stall
-    // waiting for a choice. This is the step that was reported broken.
+    // Enter on a picker that is CLOSED and ALREADY ANSWERED advances like any other field — it does
+    // not re-open the list to ask a question the operator has answered.
     cy.focused().type('{enter}')
     cy.focused().should(($el) => {
       expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseItemDD').length,
@@ -384,6 +438,7 @@ describe('P6 — Purchase rapid line entry', () => {
       expect(w.EnterChain.usable('purchaseTaxRate'), 'a visible tax rate is in the chain').to.be.true
     })
     // Vendor -> tax rate: with the row shown it is a real stop.
+    answerVendor()                      // an unanswered picker would open instead of advancing
     cy.get('#purchaseBatchNo').focus().type('{enter}')
     cy.focused().type('{enter}')
     cy.focused().should('have.id', 'purchaseTaxRate')
@@ -400,12 +455,53 @@ describe('P6 — Purchase rapid line entry', () => {
       expect(w.EnterChain.usable('purchaseTaxRate'), 'hidden tax rate drops out of the chain').to.be.false
     })
     // batch -> vendor -> ITEM, stepping over the tax rate entirely.
+    answerVendor()                      // an unanswered picker would open instead of advancing
     cy.get('#purchaseBatchNo').focus().type('{enter}')
     cy.focused().type('{enter}')
     cy.focused().should(($el) => {
       expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseItemDD').length,
              'the hidden tax rate was skipped').to.eq(1)
     })
+  })
+
+  // ── the picker rule itself, on its own ─────────────────────────────────────
+
+  /**
+   * The reported bug, in its purchase-form form: Enter walked straight past the vendor list without
+   * ever showing it, so a picker could only be filled with the mouse. An UNANSWERED picker now opens.
+   *
+   * This is deliberately its own test rather than a step inside the walk tests above: those fail when
+   * the ORDER is wrong, this one fails when the RULE is wrong, and a failure that names itself is
+   * worth more than one fewer test.
+   */
+  it('Enter OPENS an unanswered vendor picker instead of stepping over it', () => {
+    openFreshPurchaseModal()
+    cy.get('#purchaseVenderDD').should('have.value', '')      // genuinely unanswered
+    cy.get('#purchaseBatchNo').focus().type('{enter}')
+    cy.focused().should(($el) => {
+      expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseVenderDD').length,
+             'reached the vendor picker').to.eq(1)
+    })
+
+    cy.focused().type('{enter}')
+    cy.get('#purchaseVenderDD').next('.bootstrap-select')
+      .should('have.class', 'open')                           // the list is on screen
+    // ...and the cursor stayed on the picker, so the next keystroke belongs to the open menu.
+    cy.focused().should(($el) => {
+      expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseVenderDD').length,
+             'focus stayed on the picker').to.eq(1)
+    })
+  })
+
+  it('Shift+Enter reverses out of an UNANSWERED picker — it never opens it', () => {
+    // The carve-out that keeps the chain two-way. Without it "go back" would open the menu instead,
+    // and an empty required dropdown would be a one-way door.
+    openFreshPurchaseModal()
+    cy.get('#purchaseVenderDD').should('have.value', '')
+    cy.get('#purchaseBatchNo').focus().type('{enter}')
+    cy.focused().type('{shift}{enter}')
+    cy.get('#purchaseVenderDD').next('.bootstrap-select').should('not.have.class', 'open')
+    cy.focused().should('have.id', 'purchaseBatchNo')
   })
 
   // ── date fields must be TYPEABLE, not calendar-only ────────────────────────

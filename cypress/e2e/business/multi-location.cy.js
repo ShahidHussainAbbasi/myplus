@@ -78,9 +78,24 @@ describe('Multi-location: stores, grants and role×location visibility', () => {
 
       // Assert the grant landed: the monolith proxy swallows a failed grant into {status:'ERROR'}, which
       // used to surface much later as an unrelated "product not found" when the member finally sold.
+      //
+      // `replace: true` makes this the member's COMPLETE set of stores rather than an addition, and that
+      // is load-bearing for T1 — not tidiness.
+      //
+      // T1 relies on the single-store convenience in AuthService.addLocationClaims: an active store is
+      // resolved automatically only when the member holds EXACTLY ONE grant ("with several stores and no
+      // choice made, writes stay unstamped until the user picks one"). The additive form left every grant
+      // an earlier run had made in place, so cashier A accumulated a SECOND grant pointing at a store id
+      // that no longer exists (stores are recreated per environment; `user_location_access.location_id`
+      // is polymorphic across modules and therefore cannot carry a foreign key to clean itself up).
+      // Two grants ⇒ no auto-active store ⇒ the sale was written with store_id NULL, and T1 failed with
+      // "expected 0 to equal 3" — `Number(null)`. T6b then failed as a CONSEQUENCE, because an unstamped
+      // row is legacy-shaped and T8's deliberate NULL-fallback makes it readable by any store admin.
+      //
+      // So the precondition this case depends on was never established, only assumed.
       const grant = (userId, storeId, roleAtLocation) => cy.request({
         method: 'POST', url: '/assignStores', headers: { 'Content-Type': 'application/json' },
-        body: { userId, storeIds: [storeId], roleAtLocation },
+        body: { userId, storeIds: [storeId], roleAtLocation, replace: true },
         failOnStatusCode: false,
       }).then((r) => {
         expect(r.body && r.body.success, `grant store ${storeId} to user ${userId}: ${JSON.stringify(r.body)}`).to.eq(true)
@@ -88,6 +103,21 @@ describe('Multi-location: stores, grants and role×location visibility', () => {
       grant(F.adminId, F.storeB, 'ADMIN')
       grant(F.cashierAId, F.storeA, 'USER')
       grant(F.cashierBId, F.storeB, 'USER')
+
+      // The grants above only reach a member once they MINT A NEW TOKEN.
+      //
+      // `accessibleLocationIds` / `activeLocationId` are JWT CLAIMS, written by AuthService.addLocationClaims
+      // at login. `cy.session(..., { cacheAcrossSpecs: true })` keeps one login per account for the whole
+      // run, so a member who signed in during an EARLIER spec (contact-360 uses cashier.a, and it sorts
+      // before this file) would be restored here holding a token minted under the OLD grants — and the
+      // re-grant would change the database while changing nothing this spec can observe.
+      //
+      // Dropping the cache makes the logins below mint fresh tokens. It costs one login per account and is
+      // the only way the fixture and the token can agree; the alternative, `cacheKeyExtra`, would have to be
+      // threaded through every `cy.loginAsCashierA()` call site in this file to work at all.
+      //
+      // The ACTIVE browser session is untouched, so the owner's requests either side of this keep working.
+      cy.then(() => Cypress.session.clearAllSavedSessions())
     })
 
     // One product per store so every sale below is identifiable in a list response.

@@ -58,6 +58,33 @@ Cypress.Commands.add('loginAs', (email, password, validatePath, cacheKeyExtra) =
       // followRedirect:false ensures an expired session returns 302 (not the 200 login page).
       cy.request({ url: validatePath, failOnStatusCode: false, followRedirect: false }).then((res) => {
         expect(res.status).to.eq(200)
+
+        // ── A 200 is NOT proof the session still works ────────────────────────────────────────────
+        //
+        // Two different tokens are in play. The JSESSIONID keeps the MONOLITH session alive; inside it,
+        // a session-scoped TokenStore holds the auth-service JWT used for every proxied call. The
+        // access token lives 15 minutes (jwt.access-token-expiration-ms=900000) while this cache, by
+        // design, holds ONE login for the whole run — so on any run longer than 15 minutes the JWT can
+        // die while the monolith session is still perfectly healthy.
+        //
+        // When that happens the proxy controllers do not fail loudly. They catch the downstream 401 and
+        // answer `200 {"status":"ERROR"}` (see CompanyController.getUserCompany and its siblings), so a
+        // status-only check passes, the dead session is kept, and EVERY spec from that point on fails
+        // with ERROR bodies that look like application bugs. That is what made a full-suite run go
+        // green early and red from the middle onward, for a reason no individual spec could explain.
+        //
+        // So validate the thing that actually matters — that a call THROUGH the proxy still works. A
+        // failure here simply makes cy.session re-run the login, which mints a fresh JWT.
+        const body = res.body
+        if (body && typeof body === 'object' && !Array.isArray(body)) {
+          // GenericResponse (monolith) says status:'ERROR'; ApiResponse (services) says success:false.
+          expect(body.status, 'downstream token still valid (GenericResponse)').to.not.eq('ERROR')
+          if (body.success === false) {
+            throw new Error('session validate: downstream rejected the call — ' + JSON.stringify(body).slice(0, 200))
+          }
+        }
+        // HTML validate paths (e.g. /agricultureDashboard) yield a string; there is no envelope to
+        // inspect, and a 200 page really is proof enough for those.
       })
     },
   })
@@ -228,12 +255,37 @@ Cypress.Commands.add('loginAsPortalGuardian', (email = 'guardian.education@myplu
   cy.loginAs(email, password, '/portal/me', 'ROLE_GUARDIAN')
 })
 
+/**
+ * Wait until the global AJAX overlay has let go of the page.
+ *
+ * `/js/common/ajax-overlay.js` shows `.ao-box` on jQuery's `ajaxStart` and hides it on `ajaxStop`, and it
+ * covers the whole viewport — so a click issued while a section is still loading lands on the overlay and
+ * Cypress refuses with "is being covered by another element: `<div class="ao-box">`". It is **machine-speed
+ * dependent**, which is why it hides for months and then fails a dozen specs on a loaded box.
+ *
+ * Wait on **`.ao-box`**, the element Cypress actually names as the blocker — waiting on `#appAjaxOverlay`
+ * losing a class was tried before and still left the gap.
+ *
+ * Safe when the overlay never appears: Cypress satisfies `not.be.visible` for an element that does not exist.
+ *
+ * NEVER `{force:true}` past this instead. Forcing clicks through an overlay a real user cannot click through
+ * means a stuck spinner would pass the gate and fail in production.
+ */
+Cypress.Commands.add('waitForAppReady', () => {
+  cy.get('.ao-box', { timeout: 30000 }).should('not.be.visible')
+})
+
 // Show a registration section on a dashboard (business by default). Both dashboards use the
 // same off-screen #registrationType <select>, so one command serves the whole app.
+//
+// The three nav commands below all end with waitForAppReady(): section switches fire the AJAX that raises
+// the overlay, so this is exactly where the blocker appears. Putting it here rather than in each spec is
+// what stops the next spec forgetting it — purchase.cy.js did, and lost a whole suite to a `before each`.
 Cypress.Commands.add('openSection', (sectionValue, dashboard = '/businessDashboard') => {
   cy.visit(dashboard)
   cy.get('#registrationType').select(sectionValue, { force: true })
   cy.get(`#${sectionValue}`).should('be.visible')
+  cy.waitForAppReady()
 })
 
 // Business sale sub-sections (sellDiv, SRDiv)
@@ -241,6 +293,7 @@ Cypress.Commands.add('openSellSection', (sectionValue) => {
   cy.visit('/businessDashboard')
   cy.get('#sellType').select(sectionValue, { force: true })
   cy.get(`#${sectionValue}`).should('be.visible')
+  cy.waitForAppReady()
 })
 
 // Business purchase sub-sections (purchaseDiv)
@@ -248,6 +301,7 @@ Cypress.Commands.add('openPurchaseSection', (sectionValue) => {
   cy.visit('/businessDashboard')
   cy.get('#purchaseType').select(sectionValue, { force: true })
   cy.get(`#${sectionValue}`).should('be.visible')
+  cy.waitForAppReady()
 })
 
 // M4e.d (slice 104): seed a product via the catalog MASTER — the single creation path. Creates a catalog Product

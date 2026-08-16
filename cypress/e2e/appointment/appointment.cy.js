@@ -7,7 +7,7 @@
  *
  * Requires the full stack up: eureka, config, gateway, auth-service, appointment-service, monolith.
  * Any LOGIN_PRIVILEGE user works (appointment data is org-scoped by the JWT); we reuse the seeded
- * education super user.
+ * appointment OWNER fixture (owner.appointment@myplus.com).
  */
 describe('P3 — appointment proxies to appointment-service', () => {
   const stamp = Date.now()
@@ -16,7 +16,10 @@ describe('P3 — appointment proxies to appointment-service', () => {
   const patientName = 'CyPatient ' + stamp
 
   beforeEach(() => {
-    cy.loginAs('super@edu.com', 'super', '/getDashboardData')
+    // Was `super@edu.com` — retired with the monolith auth store. Same OWNER account the dashboard
+    // spec uses, for the same reason: this file registers a hospital, a doctor and a patient, which
+    // is more writes than a demo account's per-module cap should be asked to absorb.
+    cy.loginAsAppointmentOwner()
   })
 
   // Pull the option value (id) for a name out of a rendered <select> page.

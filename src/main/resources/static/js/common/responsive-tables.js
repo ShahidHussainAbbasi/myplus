@@ -27,9 +27,18 @@
 		var parent = table.parentElement;
 		if (!parent) { return true; }
 
+		/* `.table-scroll` and `.table-responsive` are OURS and always carry overflow-x in CSS, so the
+		 * class is a safe fast path for them.
+		 *
+		 * `.dataTables_wrapper` is NOT: DataTables only makes its wrapper scrollable when `scrollX` is
+		 * enabled, and this app does not enable it. Trusting the class meant every DataTables grid was
+		 * skipped and left CLIPPED on a narrow screen — the education Students grid overflowed by
+		 * 1860px with `scrollLeft` pinned at 0, i.e. columns that cannot be reached at all, which is the
+		 * exact failure this module was written to prevent. Let it fall through to the computed check
+		 * below: a wrapper that really scrolls is still detected, and one that only looks like it should
+		 * now gets a `.table-scroll` of its own. */
 		if (parent.classList.contains('table-scroll') ||
-			parent.classList.contains('table-responsive') ||
-			parent.classList.contains('dataTables_wrapper')) {
+			parent.classList.contains('table-responsive')) {
 			return true;
 		}
 

@@ -29,6 +29,16 @@ public interface ICustomerService extends org.springframework.data.jpa.repositor
     /** Tenant-scoped customers (own org + caller's pre-migration org-NULL rows). */
     List<Customer> findScoped(Long orgId, Long userId);
 
+    /**
+     * ONE customer, org-scoped — the anti-IDOR read for an id that arrived off the wire.
+     *
+     * <p>The rule D2 established the hard way: whether a read needs scoping depends on <b>where the id came
+     * from</b>, not on which method reads it. An id followed from a row the caller could already see is safe;
+     * an id off a query string, a path or a service-to-service body is not. Another tenant's customer reads as
+     * empty — identically to a genuinely missing one, so the caller cannot probe which ids exist.
+     */
+    java.util.Optional<Customer> findByIdScoped(Long customerId, Long orgId, Long userId);
+
     /** Paged tenant-scoped customers (slice 24). */
     List<Customer> findScoped(Long orgId, Long userId, Pageable pageable);
 

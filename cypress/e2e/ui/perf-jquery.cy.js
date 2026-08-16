@@ -19,6 +19,15 @@
 
 const JQ_VERSION = '3.3.1'
 
+// PERF-2 serves every /js/** asset at a content-hashed URL: /js/jquery-3.3.1.min-<md5>.js. Filename
+// patterns here therefore allow an optional 32-hex suffix before ".js", so this gate keeps asserting the
+// same thing before and after that slice rather than failing for an unrelated reason.
+const HASH = '(?:-[0-9a-f]{32})?'
+const JQ_CORE_TAG = new RegExp(`/jquery(-[\\d.]+)?(\\.min)?${HASH}\\.js$`, 'i')
+const JQ_331_MIN = new RegExp(`/jquery-3\\.3\\.1\\.min${HASH}\\.js$`)
+const JQ_1_MIN = new RegExp(`/jquery\\.min${HASH}\\.js$`)
+const JQ_331_UNMIN = new RegExp(`/jquery-3\\.3\\.1${HASH}\\.js$`)
+
 describe('PERF-3 — a single, minified jQuery', () => {
   describe('business dashboard (via fragments/header)', () => {
     beforeEach(() => {
@@ -37,13 +46,13 @@ describe('PERF-3 — a single, minified jQuery', () => {
         const srcs = [...doc.querySelectorAll('script[src]')].map((s) => s.getAttribute('src'))
         // jQuery CORE only. The pattern deliberately anchors on the filename so plugins that merely
         // start with "jquery" (jquery.dataTables.min.js, jquery.timepicker.min.js) are not counted.
-        const jqCore = srcs.filter((s) => /\/jquery(-[\d.]+)?(\.min)?\.js$/i.test(s))
+        const jqCore = srcs.filter((s) => JQ_CORE_TAG.test(s))
         expect(jqCore, `expected exactly one jQuery core tag, got: ${JSON.stringify(jqCore)}`)
           .to.have.length(1)
-        expect(jqCore[0], 'the jQuery tag must be the minified build').to.match(/jquery-3\.3\.1\.min\.js$/)
+        expect(jqCore[0], 'the jQuery tag must be the minified build').to.match(JQ_331_MIN)
         // Both removed tags checked by name, so a future re-add is caught even if the count still reads 1.
-        expect(srcs.some((s) => /\/jquery\.min\.js$/.test(s)), 'jQuery 1.11.2 tag must be gone').to.eq(false)
-        expect(srcs.some((s) => /\/jquery-3\.3\.1\.js$/.test(s)), 'unminified 3.3.1 tag must be gone').to.eq(false)
+        expect(srcs.some((s) => JQ_1_MIN.test(s)), 'jQuery 1.11.2 tag must be gone').to.eq(false)
+        expect(srcs.some((s) => JQ_331_UNMIN.test(s)), 'unminified 3.3.1 tag must be gone').to.eq(false)
       })
     })
 
@@ -77,9 +86,9 @@ describe('PERF-3 — a single, minified jQuery', () => {
       cy.window().its('jQuery.fn.jquery').should('eq', JQ_VERSION)
       cy.document().then((doc) => {
         const srcs = [...doc.querySelectorAll('script[src]')].map((s) => s.getAttribute('src'))
-        const jqCore = srcs.filter((s) => /\/jquery(-[\d.]+)?(\.min)?\.js$/i.test(s))
+        const jqCore = srcs.filter((s) => JQ_CORE_TAG.test(s))
         expect(jqCore, `login jQuery tags: ${JSON.stringify(jqCore)}`).to.have.length(1)
-        expect(jqCore[0]).to.match(/jquery-3\.3\.1\.min\.js$/)
+        expect(jqCore[0]).to.match(JQ_331_MIN)
       })
     })
 

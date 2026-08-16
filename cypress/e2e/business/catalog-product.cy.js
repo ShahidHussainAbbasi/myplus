@@ -74,6 +74,10 @@ describe('Catalog Product master (M1)', () => {
     cy.get('#ProductDiv').should('be.visible')
     cy.window().then((w) => w.newProduct())
     cy.get('#ProductModal').should('have.class', 'open')
+    // `.open` is added when the transition STARTS, so typing here raced the modal sliding in and Cypress
+    // refused with "this element is currently animating". Wait for the field itself to be visible — the
+    // idiom this file already uses at the top — so the assertion settles with the animation.
+    cy.get('#prodName').should('be.visible')
     cy.get('#prodName').type('Another_' + Date.now())
     cy.get('#prodSku').type(sku).blur()
     cy.get('#addProduct').click()

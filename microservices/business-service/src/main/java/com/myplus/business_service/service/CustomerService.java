@@ -194,6 +194,18 @@ return customerRepo.exists(example);
 		return customerRepo.findScoped(orgId, userId);
 	}
 
+	/**
+	 * O7 D5 — the scoped single read, exposed on the service so callers outside this package can reach it
+	 * without an internal endpoint reaching around into the repository. {@code CreditStandingService} already
+	 * used the repository method directly; the internal receipts endpoint takes a customer id straight off a
+	 * service-to-service body, which is exactly the shape D2's leak had.
+	 */
+	@Override
+	public java.util.Optional<Customer> findByIdScoped(Long customerId, Long orgId, Long userId) {
+		if (customerId == null) return java.util.Optional.empty();
+		return customerRepo.findByIdScoped(customerId, orgId, userId);
+	}
+
 	@Override
 	public List<Customer> findScoped(Long orgId, Long userId, org.springframework.data.domain.Pageable pageable) {
 		return customerRepo.findScoped(orgId, userId, pageable);

@@ -158,9 +158,46 @@
             // A real selection carries us onward, so disarm the fallback — otherwise both fire and
             // the chain jumps two fields for one keystroke.
             pendingPicker = null;
+
+            // P7.3 — a MULTIPLE select is not answered by one click.
+            //
+            // bootstrap-select fires this event on every individual toggle and leaves the menu open,
+            // because that is what choosing several things looks like. Advancing on the first one took
+            // the cursor away mid-choice: on education's School form, `schoolOwnerDD` is a REQUIRED
+            // multi-select AND the first field, so naming a second owner was impossible without the
+            // mouse the moment the chain was switched on.
+            //
+            // A multi-select is answered by CLOSING it, and Enter on a closed, answered picker already
+            // advances like any other field — so the way out is unchanged, it is just no longer taken
+            // for the operator. Single selects are untouched.
+            if (e.target.multiple) return;
+
             // Let the change handlers (price pre-fill, stock lookup) run before moving focus.
             global.setTimeout(function () { advance(id, 1); }, 0);
         });
+
+        /**
+         * Is something smaller than the form currently listening for Escape?
+         *
+         * The innermost open thing owns Escape. Without this the chain's Escape — registered on
+         * `document` in the CAPTURE phase at page load — fires BEFORE the handler that a calendar
+         * registers when it OPENS (same target, same phase, so registration order decides), and
+         * "close the calendar" became "close the whole modal and throw the part-typed record away".
+         * Education's Student form has four date fields and eleven dropdowns, so this was reachable
+         * on almost every record.
+         *
+         * `.dp-active` marks the input whose calendar is up (date-picker.js), `.bootstrap-select.open`
+         * an open dropdown menu. Both plugins already close themselves on Escape; the only thing
+         * needed here is to get out of their way.
+         *
+         * Scoped to this chain's own container where there is one. A modal that was closed while a
+         * picker was still open leaves that `.open` class behind, and an unscoped query would let a
+         * dead dropdown three sections away veto Escape on the form actually in front of the user.
+         */
+        function transientOwnsEscape() {
+            var box = (opts.container && document.querySelector(opts.container)) || document;
+            return !!box.querySelector('.bootstrap-select.open, .dp-active');
+        }
 
         // CAPTURE phase, deliberately. bootstrap-select binds its own keydown to the button it renders,
         // and a bubbling listener runs AFTER that — so Enter on a picker would open the plugin's menu
@@ -177,6 +214,9 @@
             }
 
             if (e.key === 'Escape' && typeof opts.onEscape === 'function') {
+                // Defer to an open calendar / dropdown — see transientOwnsEscape(). Returning without
+                // preventDefault lets the plugin's own (later, bubbling) handler close just itself.
+                if (transientOwnsEscape()) return;
                 if (opts.onEscape() === true) { e.preventDefault(); }
                 return;
             }
@@ -195,6 +235,20 @@
             // control is for, and stealing it makes every address and description box in the app
             // unable to hold a second line. Leave one with Tab or Ctrl+Enter (above).
             if (e.target && e.target.tagName === 'TEXTAREA') return;
+
+            // P7.3 — §3: touch and narrow screens are excluded from the WALK.
+            //
+            // A soft keyboard already labels its Enter "Next"/"Go" and the browser already decides what
+            // that means; taking it over there is worse than doing nothing, which is why focus-flow has
+            // refused to auto-focus below 992px since it was written. Same predicate, so "where the app
+            // puts the cursor" and "where Enter moves the cursor" cannot disagree by screen size.
+            //
+            // Ctrl+Enter and Escape are handled ABOVE this line and stay live. They are explicit intent
+            // rather than navigation — nobody presses Ctrl+Enter on a phone by accident (or at all), and
+            // disabling them would only take Esc-closes-the-form away from someone on a narrow desktop
+            // window, which is a loss with nothing bought for it.
+            if (!global.FocusFlow.mayAutoFocus()) return;
+
             if (!id) return;
 
             // ── Dropdowns ─────────────────────────────────────────────────────────────────────

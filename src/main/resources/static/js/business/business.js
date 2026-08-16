@@ -1091,6 +1091,8 @@ function loadDataTable(){
 		datatable.destroy();
 		datatable = null;
 	}
+	// The associated dropdowns belong to the SECTION, not to a grid refresh — see the success handler.
+	pickerPreloadPending = true;
 	datatable = $("#table" + tableV).DataTable({
 		lengthMenu: [[5, 20, 50, 100, -1], ['5', '20', '50', '100', 'All']],
 		"iDisplayLength": offset,
@@ -1130,18 +1132,31 @@ function loadDataTable(){
 			"success": function(data) {
 				if(reload != tableV) reload = tableV;
 
-				// Preload associated dropdowns once per entity type
-				if (getAll == "Vender") {
-					loadUserCompanies(table);
-				} else if (getAll == "Item") {
-					loadUserCompanies(table);
-					loadUserVenders(table);
-				} else if (getAll == "Purchase") {
-					loadUserItems(table);
-					loadUserVenders(table);   // F1 (AP): populate the purchase form's Vendor select
-				} else if (getAll == "Sell") {
-					loadUserItems(table);
-					loadSellCustomers();
+				// Preload associated dropdowns ONCE per section open — which is what the comment here
+				// always claimed, but not what the code did: this success handler runs on every
+				// datatable.ajax.reload() too, and P6 rapid entry reloads the grid after EVERY saved
+				// line while the purchase modal stays open. So each line re-fetched 2000 catalog
+				// products and rebuilt the pickers underneath the operator mid-entry.
+				//
+				// The flag is set in loadDataTable(), which is the one thing that means "a section was
+				// opened". Trade-off, deliberate: a product or vendor created in ANOTHER section no
+				// longer appears in these pickers until this section is re-opened. That was already the
+				// documented behaviour of the grid itself ("re-open the section to refresh from DB"),
+				// and the pickers now simply agree with it.
+				if (pickerPreloadPending) {
+					pickerPreloadPending = false;
+					if (getAll == "Vender") {
+						loadUserCompanies(table);
+					} else if (getAll == "Item") {
+						loadUserCompanies(table);
+						loadUserVenders(table);
+					} else if (getAll == "Purchase") {
+						loadUserItems(table);
+						loadUserVenders(table);   // F1 (AP): populate the purchase form's Vendor select
+					} else if (getAll == "Sell") {
+						loadUserItems(table);
+						loadSellCustomers();
+					}
 				}
 
 				var collections = data.collection;
@@ -1854,7 +1869,14 @@ $(document).on('change', '#purchaseVenderDD', function () {
 
 function loadUserVenders(table) {
     $.get(serverContext+ "getUserVenders",function(data){
-    	$("#"+table.toLowerCase()+"VenderDD").empty().append(data).selectpicker('refresh');
+    	// A rebuild must not silently un-answer the picker. P6 rapid entry keeps the purchase modal OPEN
+    	// across saves, and every save reloads the grid, whose success handler lands here — so the vendor
+    	// the operator chose for the BILL was being wiped a beat after each line. Re-select what was
+    	// there; a value whose option no longer exists simply falls out, exactly as before.
+    	var $dd = $("#"+table.toLowerCase()+"VenderDD"), keep = $dd.val();
+    	$dd.empty().append(data);
+    	if (keep) $dd.val(keep);
+    	$dd.selectpicker('refresh');
     })
 	.fail(function(data) {
 		$("#"+table.toLowerCase()+"VenderDD").empty().append("<option value = ''> System error  </option>");
@@ -1891,8 +1913,14 @@ function loadUserItems(table) {
 			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker — not sellable/purchasable
 			html += "<option value='" + p.id + "' data-product='" + p.id + "' data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
 		});
-		$("#"+table+"ItemDD").empty().append(html);
-		if($("#"+table+"ItemDD").data('selectpicker')) $("#"+table+"ItemDD").selectpicker('refresh');
+		// Survive the rebuild: see loadUserVenders. The item picker is worse than the vendor one, because
+		// an item wiped mid-entry does not merely look wrong — main.js refuses the save outright
+		// ("Select an item and enter a quantity greater than 0.") and the line the operator just typed
+		// is lost with no request ever sent.
+		var $dd = $("#"+table+"ItemDD"), keep = $dd.val();
+		$dd.empty().append(html);
+		if (keep) $dd.val(keep);
+		if($dd.data('selectpicker')) $dd.selectpicker('refresh');
 	})
 	.fail(function() {
 		$("#"+table+"ItemDD").empty().append("<option value = ''> System error  </option>");
@@ -2865,6 +2893,15 @@ function submitSaleReturn(){
 				showSaleSuccess((data.message) || 'Sale returned successfully.');
 				datatable.clear().draw();
 				datatable.ajax.reload();
+				// A return moves the customer's BALANCE, and #sellCustomerDD caches it per option
+				// (data-due / data-credit-limit) so the till can show "available credit" while typing
+				// without a call per keystroke. Refresh the one list this write actually invalidated.
+				//
+				// This used to happen by accident: the grid reload above re-ran the section's dropdown
+				// preload as a side effect, which also re-fetched 2000 catalog products nobody asked
+				// for. That preload is now correctly tied to opening a section, so the refresh has to
+				// be stated — by the writer, at the point of the change, and for that list only.
+				if (typeof loadSellCustomers === 'function') loadSellCustomers();
 			} else {
 				err.textContent = (data && data.status ? data.status : 'Return failed') + (data && data.message ? ': ' + data.message : '.');
 			}
@@ -3124,7 +3161,15 @@ function statementTypeLabel(type){
 function openStatement(partyType, partyId, name){
 	var url = (partyType === 'VENDOR' ? 'vendorStatement?venderId=' : 'customerStatement?customerId=') + encodeURIComponent(partyId);
 	buildFinanceDialog('StatementDialog').style.display = 'flex';
-	document.getElementById('StatementDialogTitle').textContent = t('ui.js.statement') + (name || ((partyType === 'VENDOR' ? 'Vendor #' : 'Customer #') + partyId));
+	// ui.js.statementFor, not ui.js.statement: this is a PREFIX joined to the party name
+	// ("Statement — Acme Traders"), so it carries the separator. The two were ONE key until a later
+	// slice re-declared it as the bare word for a button label; the last definition in a .properties
+	// file wins, so this title silently lost its separator and rendered "StatementAcme Traders".
+	//
+	// The space is supplied HERE rather than as a trailing space in the bundle: only English ever had
+	// one, so the other five languages ran the name straight onto the dash — and a trailing space is
+	// invisible in review and stripped by most editors, so it cannot be relied on as a contract.
+	document.getElementById('StatementDialogTitle').textContent = t('ui.js.statementFor') + ' ' + (name || ((partyType === 'VENDOR' ? 'Vendor #' : 'Customer #') + partyId));
 	// B2B-P3d (#5): a statement is only useful if the customer can take it away. The CSV comes from the SAME
 	// service method the table below renders, so the file and the screen can never disagree.
 	addStatementDownload(partyType, partyId);

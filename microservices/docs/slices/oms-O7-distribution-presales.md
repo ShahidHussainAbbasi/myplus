@@ -217,7 +217,7 @@ and so nothing is built that a later phase would rework.
 | **D2** | ✅ **DONE + GATE GREEN 2026-08-12.** See §9. | Booker login, attribution, credit at the counter |
 | **D3** | ✅ **DONE + GREEN 2026-08-13** — 9/9. See §11. | O5d's missing half | Finishes O5d and **restores its two withdrawn settings** — the honest way to close review finding R1. |
 | **D4** | **Delivery return keying + settlement** | Ahsan's half | **No device (D-5)** — so this is a keying screen for Javed, not a driver app: per-invoice outcome (delivered / part-delivered with per-line quantities / refused), settlement into the existing `receivePayment`, credit note for door rejections. Attributed as *keyed from a signed invoice*. |
-| **D5** | **Driver settlement / remittance** | B1 — the money control | Day-end reconciliation: cash counted vs invoices marked paid, deposit recorded, variance raised. |
+| **D5** | **Driver settlement / remittance** — built 2026-08-15, **awaiting gate**. See §13. | B1 — the money control | Day-end reconciliation: cash counted vs invoices marked paid, deposit recorded, variance raised. **And it is what posts the receipts** — §13.1 found that D4 stored the settlement and never sent it anywhere. |
 | **D6** | **Beat plan + visit verification + KPIs** | B4, B5 | Journey plan, geo-stamped check-in, and the standard coverage KPIs. |
 | **—** | Van as stock location | B6 | **Blocked on INV-L.** Not in O7. |
 | **—** | Market returns, booker commission | B7, B8 | Later. |
@@ -892,6 +892,358 @@ controller is unusual and was the lesser evil — the alternatives were transcri
 arithmetic into a second copy, or extracting it first. **Extracting `saleReturn` into a `SaleReturnService` is
 the right end state** and deserves its own gate rather than riding along with a delivery feature; the request
 wrapper in #2 disappears with it.
+
+---
+
+## 13. D5 — driver settlement / remittance. **Design, 2026-08-15.**
+
+Closes backlog **B1**. Per §6 D-5 this is *the only real control on the money*: Ahsan has no device, so the
+signed paper invoices and the cash he hands back are the entire evidence base.
+
+### 13.1 Verified state of the code — read, not assumed, 2026-08-15
+
+**The headline finding, and it changes what D5 is.**
+
+> **D4 records the settlement but never posts it. The cash Javed keys has, today, no effect on anybody's
+> ledger.**
+
+`DeliveryService`'s own javadoc says the third of its three facts is *"What was collected — settled through
+`receivePayment`"*
+(`microservices/marketplace-service/src/main/java/com/myplus/marketplace/service/DeliveryService.java:36-38`),
+and §12.4 of this document says *"Settlement → `receivePayment`"*. Neither is true of the code. The string
+`receivePayment` appears in that file **exactly once — in the comment**. The method body stores
+`dto.getSettlement()` and `dto.getAmountCollected()` onto the `DeliveryRecord`
+(`DeliveryService.java:140-141`) and stops there. No trade-contract call, no AR movement, no receipt.
+
+`TradeClient` has three operations and none of them is a receipt: `recordSale`, `reverseSale`, `returnLines`
+(`microservices/commerce-contracts/src/main/java/com/myplus/commerce/contracts/client/TradeClient.java:38,56,83`).
+There is no contract by which marketplace could have posted a payment, so this was never a slip in one line —
+**the seam does not exist.**
+
+**Why the D4 gate went green over it.** `order-delivery.cy.js:204-205` asserts
+`rows[0].settlement === 'PAID'` and `Number(rows[0].amountCollected) === 75` — i.e. that the *record* holds
+what was typed into it. Both assertions pass whether or not a single rupee reaches AR. **The artefact, not the
+property** — the fifth instance of that shape in this programme, and the first one where the property in
+question is money. The D5 gate's central case is therefore *the customer's due actually falls*, which is an
+assertion no amount of correctly-stored form data can satisfy.
+
+Stated plainly rather than filed as a defect of D4: D4 delivered the *record* of the settlement, and D5
+delivers the *posting* of it. That split is defensible — see §13.3 — but the javadoc and §12.4 currently claim
+the posting already happened, and that is corrected below.
+
+**What else is verifiably there, and is genuinely reusable:**
+
+| Machinery | Where | State |
+|---|---|---|
+| `receivePayment` — FIFO across the customer's open invoices, ledger entry, idempotent on a key, period-lock checked | `business-service/.../service/CustomerService.java:288-360` | ✅ good, and reachable only from a **browser-facing** `@RequestParam` endpoint (`controller/CustomerController.java:367-382`) |
+| The FIFO allocator + finance-ledger record, shared by AR and AP | `common-subledger/.../SubledgerService.java:47-91` | ✅ one definition; `receivePayment` and `payVendor` both delegate |
+| Receipt → GL: `Dr cash Cr AR 1100`, cash account chosen by payment **method** | `finance-service/.../PostingService.java:241-249`, `cashAccount` at `:50-54` | ✅ — and note there is **no clearing account**: `CASH`→1000, `CARD/BANK/CHEQUE`→1010, nothing else |
+| A **precedent for exactly this reconciliation** — the till's Z report: counted vs expected → variance | `business-service/.../service/ShiftService.java:78-88`, `entity/CashierShift.java:47-53` | ✅ `variance = counted − expected`, stored, **never journalled**. D5 follows this convention rather than inventing a second one |
+| `delivery_record` — the collections themselves | `V21__shipment_invoice_and_delivery.sql:42-60` | ✅ has `amount_collected DECIMAL(19,2)`, `settlement`, `recorded_at`, `recorded_by_*`, `delivered_by` |
+| The trade account an order bills | `Order.customerId` (`entity/Order.java:135`, V20/D2c) | ✅ present — but **not** on `DeliveryRecord`, which is the row a remittance works from |
+| Anti-IDOR single reads | `OrderRepository.findByIdScoped:90`, `CustomerRepo.findByIdScoped:74` | ✅ both exist; the second is D2's leak fix and is what an internal receipt endpoint must use |
+| Per-org sequence pattern | `ShipmentRepository.maxShipmentSeqForOrg:23` + `UNIQUE(organization_id, shipment_seq)` | ✅ reused verbatim for `DS-` numbering |
+
+**Two smaller things found while reading, both fixed in this slice:**
+
+* `GET /orders/{id}/deliveries` returns **`List<DeliveryRecord>`, a JPA entity**
+  (`marketplace-service/.../controller/OrderController.java:210-213`) — the identical §1.5 breach D1 caught and
+  fixed (§8.1b #4), reintroduced by D4. It ships `organization_id` and the raw row id to the browser. D5 has to
+  touch this read anyway (a collection now has a remittance state), so it goes out as a DTO with the same field
+  names — the D4 gate is unaffected either way.
+* Nothing anywhere reads `delivery_record.settlement` or `amount_collected` — **D10**: a persisted field no
+  read returns is invisible. D5 is what makes them load-bearing.
+
+### 13.2 What D5 is, in one sentence
+
+At day end the admin picks the driver, sees every collection that driver keyed and has not yet handed over,
+counts the cash, records the deposit — and **that act is what posts the receipts to AR.** Anything the count
+does not cover is a variance, recorded against the settlement with a mandatory explanation.
+
+### 13.3 The load-bearing decision: **the receipt posts at REMITTANCE, not at keying**
+
+Two orderings were available. Both were costed.
+
+| | Post at KEYING (D4's implied model) | **Post at REMITTANCE (chosen)** |
+|---|---|---|
+| Outlet's AR | Correct within minutes of the van returning | Correct within the working day; open for the hours between keying and the cash-up |
+| Is the day-end count **mandatory**? | **No.** AR is already right, the books are already closed, so the count is a report nobody has to run — and B1's whole complaint is that *"marked paid" and "money in the safe" are two different things nobody compares* | **Yes.** The collections do not reach the books until someone counts the cash. The control cannot be skipped without the consequence being visible |
+| A driver who keeps the cash | Invisible: AR cleared, GL says the money is in account 1000 | Visible: the collection sits in the open list, unremitted, and ages |
+| Where the variance lands | Nowhere — and there is nothing left to reconcile it against | On the settlement, next to the declared total it failed to match |
+
+**Chosen: remittance.** The deciding argument is the second row. §6 D-5 concluded that *with no device, the
+day-end reconciliation is the whole control*; a design in which the reconciliation is optional is not that
+control. Making the posting depend on the count is what gives the count teeth.
+
+**The trade, stated plainly and not papered over:** between the moment Javed keys "the shop paid Ahsan 5 000"
+and the moment the cash is counted, the outlet's statement still shows that invoice open. That window is hours,
+it closes every working day, and it is the *reason* the count happens. It would be wrong if it were days — see
+open question Q5.
+
+**What this does NOT do, and must not be read as doing.** The receipt still posts `Dr 1000 Cash / Cr 1100 AR`,
+because that is what `PostingService` does with a `CASH` receipt and D5 adds **no money logic**. So the GL still
+has no representation of *"cash in a driver's pocket"*, and the variance is still not a journal — it is a
+recorded, reported fact, exactly as the till's Z report variance is (`CashierShift.variance`). The correct
+end-state is a **cash-with-drivers clearing account** and a cash-short/over expense, which is a real change
+inside finance-service and deserves its own slice. **Q1.**
+
+### 13.4 The flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Ahsan (driver, no device)
+    actor J as Javed (warehouse admin)
+    participant M as marketplace<br/>DriverSettlementService
+    participant B as business-service<br/>CustomerService.receivePayment
+    participant F as finance-service<br/>ledger + GL
+
+    Note over A,J: during the day — D4, already built
+    A->>J: signed paper invoices + cash
+    J->>M: POST /orders/{id}/delivery (per parcel)
+    Note over M: delivery_record: outcome, settlement,<br/>amount_collected, customer STAMPED.<br/>NO money posted — settlement_id is NULL
+
+    Note over J,M: day end — D5
+    J->>M: GET /driver-settlements/collections?driver=Ahsan
+    M-->>J: the un-remitted collections + declared total
+    J->>J: counts the cash bag
+    J->>M: POST /driver-settlements {driver, date, counted, depositRef, note, deliveryIds[]}
+
+    activate M
+    M->>M: 1. CLAIM the rows (UPDATE … WHERE settlement_id IS NULL)
+    Note over M: claim FIRST, post SECOND — if the claim loses<br/>a race, nothing has been posted yet
+    loop each claimed collection
+        M->>B: receivePayment(customerId, amount, CASH, date, ref, key)
+        B->>B: FIFO across that outlet's open invoices, due recomputed
+        B->>F: RECEIPT — Dr 1000 Cash / Cr 1100 AR
+        B-->>M: receiptNo
+    end
+    M->>M: 2. stamp receipt_no per collection
+    M->>M: 3. DS-n: declared, counted, variance = counted − declared
+    deactivate M
+    M-->>J: DS-7 — declared 42,300 · counted 42,000 · SHORT 300
+```
+
+### 13.5 The state machine — of a COLLECTION, not of a settlement
+
+```mermaid
+stateDiagram-v2
+    [*] --> NoCollection: parcel keyed on CREDIT<br/>(amount_collected = 0)
+    NoCollection --> [*]: nothing to remit — the invoice<br/>stays in AR, correctly
+
+    [*] --> OPEN: parcel keyed PAID / PART_PAID<br/>settlement_id = NULL, receipt_no = NULL
+    OPEN --> REMITTED: included in a confirmed settlement<br/>settlement_id = DS-n, receipt_no = RCP-n
+    REMITTED --> [*]
+
+    note right of OPEN
+      This is the control.
+      An OPEN collection is cash the
+      company believes a driver is holding.
+      It ages. It is on one screen.
+    end note
+```
+
+**There is deliberately no DRAFT settlement.** A half-finished remittance would be a row that claims custody of
+cash while posting none of it — strictly worse than no row at all, because the collections would leave the open
+list without reaching the books. One act, one transaction, confirmed on creation. (The till's shift model *does*
+have an open state, correctly: a shift accumulates events over hours. A remittance is a single handover.)
+
+**A collection is REMITTED exactly once, structurally.** `delivery_record.settlement_id` is one column, so it
+cannot belong to two settlements — the guarantee is in the schema, not in a check. The claim is a `@Modifying`
+`UPDATE … WHERE id IN (…) AND settlement_id IS NULL`, and if the affected count is not the expected count the
+transaction throws and rolls back: someone else remitted one of these rows between the read and the write.
+
+**Idempotency key = the DELIVERY RECORD, not the settlement.** `o7d5-{orgId}-{deliveryRecordId}`. This is the
+key that survives the case that matters: the receipts commit **remotely**, so a failure after receipt three of
+five rolls the local claim back but leaves three receipts standing. On retry, a key derived from the settlement
+id would be new and would mint three duplicate receipts; a key derived from the delivery record replays them.
+D1 learned this exact lesson on the dispatch key (§8.1b #3) — *the counter must be something the remote side
+already committed against.*
+
+### 13.6 Pattern, and the DRY calls
+
+**Pattern: Aggregate + Anti-Corruption Layer, with a claim-then-act batch close.**
+
+* **Aggregate** — `DriverSettlement` is the consistency boundary over a set of `DeliveryRecord` collections. It
+  owns the invariant *"a collection is remitted at most once"* and enforces it with the claim update, which is
+  why the invariant cannot be violated by two admins on two browsers.
+* **Anti-Corruption Layer** — marketplace never speaks AR. It says "this outlet paid this much" across
+  `TradeClient`; business-service decides which invoices that covers, what the receipt is called and what the
+  journal looks like. Same one-way dependency O1 established (§4.3), and the same reason `returnLines` exists.
+* **Claim-then-act** — the ordering in §13.4 is the pattern's whole point: take the local lock before making the
+  remote call, never after.
+
+**DRY — three places a second definition was available and refused:**
+
+1. **The variance formula.** `counted − declared`, sign convention negative = short — *identical* to
+   `ShiftService.closeShift` (`countedCash.subtract(expectedCash)`). Not re-derived, and deliberately not
+   inverted: an admin who reads both screens must not have to remember which way round each one is.
+2. **The allocation.** Not a line of FIFO in marketplace. `receivePayment` → `SubledgerService.settle`, the one
+   allocator AR and AP already share.
+3. **The customer's identity.** Stamped onto `delivery_record` at keying (§13.7) rather than joined from
+   `orders` at settlement time — the platform's standing *stamp-at-write* rule, and it also keeps the
+   open-collections read a single-table scan instead of a join across a list that is read every day.
+
+### 13.7 What ships
+
+**Schema — `V22__driver_settlement.sql` (marketplace-service; V21 is the last applied).** Idempotent per **D7**,
+indexed per **D3/D3b**.
+
+| | |
+|---|---|
+| `driver_settlement` | `organization_id`, `settlement_seq` + `settlement_no` (`DS-n`, `UNIQUE(organization_id, settlement_seq)` — the `SHP-` recipe), `driver_name`, `settlement_date`, `declared_amount`, `counted_amount`, `variance_amount` (all `DECIMAL(19,2)`), `collection_count`, `deposit_reference`, `note`, `settled_by_user_id`, `settled_by_name` (**stamped**, per V19's rule — a settlement outlives the staff who made it), `settled_at` |
+| `delivery_record.customer_id` / `customer_name` | Who to credit, stamped at keying. **Backfilled in the migration** from `orders` (same database, so no manual step and no cross-service join at runtime) |
+| `delivery_record.settlement_id` / `receipt_no` | NULL = an open collection. The single column *is* the once-only guarantee |
+| `idx_delivery_open (organization_id, settlement_id, recorded_at)` | The open-collections read is `org + settlement_id IS NULL` ordered oldest-first — **D3b**: the existing `idx_delivery_org` does not serve it, and the D1 pending-queue index exists for precisely this reason |
+| `idx_driver_settlement_org_date (organization_id, settlement_date)` | The settlements list |
+
+**Contract — one new operation, one `@RequestBody` DTO.** `TradeClient.receivePayment(PaymentReceiptRequest)` →
+`POST /internal/receipts`. Result `PaymentReceiptResult { receiptNo, allocated, onAccount, newDue }`.
+
+*No `@RequestParam` anywhere near it* — D4's defect #1 cost a whole round of 500s because a Spring
+HTTP-interface client encodes params as form data on a POST. `SaleRecordRequest` and `SaleReturnRequest` both
+carry everything in one body and so does this.
+
+*Its own controller, `InternalReceiptsController` at `/internal/receipts`* — **not** bolted onto
+`InternalSalesController`. A receipt is not a sale, and that class already carries the §12.5 controller-into-
+controller debt; the receipt path needs none of it, because `ICustomerService.receivePayment` is a **service**
+and can simply be called. Growing the debt-bearing class to save a file would be the wrong trade.
+
+*Anti-IDOR, and this is the D2 lesson applied before the fact:* the `customerId` arrives **off the wire**, so
+the endpoint resolves it with `CustomerRepo.findByIdScoped` against the authenticated org before doing anything
+— another tenant's customer reads as **absent, identically to a missing one**, so the endpoint cannot be used
+to probe which ids exist. `receivePayment` itself uses an unscoped `findById` (`CustomerService.java:295`), which
+is safe for its existing callers because they follow an id the caller already proved, and is exactly the gap
+`/creditStanding` fell into.
+
+**marketplace-service**
+
+* `DriverSettlement` entity + `DriverSettlementRepository`; `DeliveryRecord` gains the four columns above.
+* `DriverSettlementService` — `openCollections(...)` (paged, org-scoped) and `settle(...)` (the claim-then-post
+  transaction).
+* `DriverSettlementController` at `/driver-settlements`, **not** on `OrderController`: a remittance spans
+  orders and is not addressable under one. `@PreAuthorize` `ROLE_OWNER / ADMIN_PRIVILEGE / SUPER_PRIVILEGE` —
+  it moves money, the same class of action as `/delivery` and `/refund`.
+* `DeliveryService.record` stamps `customerId`/`customerName` from the order it already loaded.
+* `GET /orders/{id}/deliveries` → `DeliveryRecordDTO` (§13.1).
+
+**Refusals — because adding a capability means re-examining the existing ones, not just adding a path.** Each is
+gated:
+
+| Refusal | Why |
+|---|---|
+| A settlement naming **more than one driver** across its collections | A remittance is one person handing over one bag of cash. Two drivers in one row makes the driver column a lie and the variance unattributable |
+| A **non-zero variance with no note** | A short bag that nobody explained is the failure B1 exists to catch. The note is the cheapest possible control and it costs an honest admin one sentence |
+| A collection **already remitted** | Structural: the claim update matches only `settlement_id IS NULL`. A double-submit finds nothing open and is refused, not silently duplicated |
+| A collection with **no trade account** (`customer_id` NULL) | There is nobody to credit. Refuse rather than post the money to a guess |
+| An **empty** selection, or a **negative/absent** counted amount | A settlement that settles nothing is a row asserting a count that never happened |
+| A **back-dated** settlement into a closed period | Not D5's own check — `receivePayment` calls `periodLockGuard.assertOpen(paidOn)` and refuses. Named here because the message must reach the admin verbatim, not as "could not settle" |
+
+**Monolith — proxies AND the screen ship together.** *A capability that ships unreachable has happened three
+times in this programme.*
+
+* `DriverSettlementController` (monolith, `com.web.controller.ecommerce`) — `/getDriverCollections`,
+  `/settleDriver`, `/getDriverSettlements`. Downstream status **relayed**, per D3d: "the bag is 300 short and
+  you have not said why" is the admin's answer, not a server fault.
+* `#DriverSettlementDiv` + `/js/business/driver-settlement.js`, reached from **Store → Driver settlement**.
+  Driver picker → the open collections with per-row checkboxes and a running declared total → counted cash →
+  **live variance, coloured, with the shortfall named in words** → deposit reference → note → Settle behind
+  `uiConfirm`. `escHtml` before every injection; the date is built from **local components**, never
+  `toISOString()`, which is UTC and has already broken one gate in this programme.
+* i18n ×6, appended under an `# OMS O7 D5` header in all six bundles.
+
+### 13.8 Open questions — numbered rather than guessed
+
+1. **Q1 — cash custody has no GL home.** The receipt posts `Dr 1000 Cash`, but at the moment it posts, the cash
+   *is* in the safe (that is what the count established), so the entry is defensible. What has no home is the
+   *earlier* period — the hours when the shop had paid and the driver held the money — and the *variance*, which
+   is recorded but never journalled (same as the till's Z report). The correct model is a **`1020 Cash with
+   drivers`** clearing account plus a cash-short/over expense. That is new money logic inside finance-service.
+   **Do you want it as its own slice?**
+2. **Q2 — the driver is free text.** D4 decided deliberately that `delivered_by` is *"a note, not an identity
+   and not evidence"*. A remittance grouped by a typed string inherits that: "Ahsan" and "ahsan" are two
+   drivers. D5 groups on the exact string and refuses a mixed settlement, which contains the damage but does
+   not remove it. **Should drivers become real identities (a `driver` master, or users with a role) in D6?**
+3. **Q3 — every receipt posts as `CASH`.** A shop that pays the driver by cheque has nowhere to say so, and the
+   GL will route it to 1000 instead of 1010 (`PostingService.cashAccount`). **Add a tender method to the D4
+   keying screen?** Small, but it is a D4 change, not a D5 one.
+4. **Q4 — no ageing alarm on an open collection.** The open list is the control, but nothing shouts when a
+   collection has sat unremitted for four days. **Is a threshold (setting + a banner) wanted, or is the list
+   enough for now?**
+5. **Q5 — should an unsettled driver be BLOCKED from the next load-out?** Today the control is advisory: Ahsan
+   can take another van out with yesterday's cash still in his pocket. Hard-blocking dispatch on an outstanding
+   remittance is the strong version and is how the discipline actually gets enforced — but it stops the
+   warehouse working when the admin is off sick. **Advisory (as designed) or hard?**
+
+### 13.9 What actually shipped, 2026-08-15
+
+**Flyway: `V22__driver_settlement.sql`** (marketplace-service; V21 was the last applied).
+
+| Layer | Files |
+|---|---|
+| Schema | `V22__driver_settlement.sql` — `delivery_record.customer_id` / `customer_name` (**backfilled from `orders` in the migration**, same database, no manual step) / `settlement_id` / `receipt_no`; `driver_settlement`; `idx_delivery_open`; `idx_driver_settlement_org_date`; `UNIQUE(organization_id, settlement_seq)` |
+| Contract | `PaymentReceiptRequest`, `PaymentReceiptResult`, `TradeClient.receivePayment` — **one op, one `@RequestBody`** |
+| business-service | `InternalReceiptsController` at `/internal/receipts`; `ICustomerService.findByIdScoped` + its impl (the scoped single read the endpoint needs, exposed on the service rather than reaching into the repo from a controller) |
+| marketplace-service | `DriverSettlement`, `DriverSettlementRepository`, `DriverSettlementService`, `DriverSettlementDTO`, `DeliveryRecordDTO`, `DriverSettlementController`; `DeliveryRecord` + 4 columns; `DeliveryRecordRepository` + 3 queries incl. the claim; `DeliveryService` stamps the customer and now returns DTOs; `support/AsOrg` |
+| monolith | `com.web.controller.ecommerce.DriverSettlementController` — `/getDriverCollections`, `/settleDriver`, `/getDriverSettlements`, `/getDriverSettlement` |
+| screen | `#DriverSettlementDiv` in `businessDashboard.html` + `/js/business/driver-settlement.js`, reached from **Store → Driver settlement** (gated to the same authorities the service requires) |
+| i18n | 23 keys × 6 bundles, appended under `# OMS O7 D5` |
+
+**Two DRY extractions made rather than a third copy written:**
+
+* `asOrg` — the helper that decides *which identity another service sees* — existed character-for-character in
+  `DispatchInvoiceService` and `DeliveryService`, and D5 wanted a third. Now `support/AsOrg`; both delegate. A
+  divergence between copies would have been a divergence in who a downstream write is attributed to, visible
+  only on whichever path was not edited.
+* `ICustomerService.findByIdScoped` — `CreditStandingService` reached into `CustomerRepo` for it. The internal
+  receipts endpoint needed the same read, and a controller reaching past its service for an anti-IDOR check is
+  how that check ends up being skipped somewhere.
+
+**One §1.5 breach fixed on the way past:** `GET /orders/{id}/deliveries` was returning `List<DeliveryRecord>` —
+a JPA entity from a controller, shipping `organizationId` and the raw row id to the browser. D1 caught and fixed
+exactly this (§8.1b #4) and D4 reintroduced it. Now `DeliveryRecordDTO`, same field names, plus the remittance
+state D5 gives a collection.
+
+### 13.10 Gate
+
+`cypress/e2e/business/driver-settlement.cy.js` — 9 cases.
+
+**The case that carries the slice: *settling a driver reduces the outlet's outstanding balance*.** Every
+assertion available on the delivery record itself passes whether or not the money moved — which is precisely
+how the gap in §13.1 survived D4's green run — so the central assertion reads `/creditStanding`'s `owed`, which
+only moves when a receipt actually posts.
+
+Three others are worth naming because of what they refuse to accept as evidence:
+
+* *a SHORT bag is refused without an explanation — and recorded, in full, with one.* The second half is the one
+  that matters: a driver being short does not mean the SHOP did not pay, so the case asserts the outlet is
+  credited with the **declared** 500 and not the **counted** 400.
+* *a collection cannot be handed over twice — and the second attempt moves NO money.* The refusal message alone
+  would pass while a duplicate receipt posted.
+* *a refused settlement moved no money* — asserted inside the short-bag case, because "it was refused" and "it
+  changed nothing" are two different facts and only the second protects the books. This is what proves the
+  claim-then-act ordering.
+
+Every negative case carries its positive control in the same case, and the cross-tenant case uses
+`owner.business` — an **owner** of another org, so it clears the same `@PreAuthorize` and therefore proves
+scoping rather than authority.
+
+```
+mvn -pl commerce-contracts install -DskipTests        # TradeClient.receivePayment + 2 DTOs are new
+mvn -pl business-service   -am clean package -DskipTests   # /internal/receipts + findByIdScoped
+mvn -pl marketplace-service -am clean package -DskipTests  # V22 + the settlement
+mvn clean install -DskipTests                         # monolith: the screen, the 4 proxies, 23 i18n keys
+```
+
+Restart marketplace-service (V22 applies at startup), business-service and the monolith. Then headed:
+`driver-settlement.cy.js`. **Regression:** `order-delivery` first — D5 changes the shape of
+`/orders/{id}/deliveries` and adds a stamp to the keying path it owns — then `receive-payment` and
+`sale-return-credit` (the contract and `receivePayment` are both touched), then `order-approval`,
+`order-booking-screen`, `order-fulfilment`, `credit-limit`, `sell`.
+
+⚠️ **If `commerce-contracts` is only `package`d and not `install`ed**, marketplace and business build against a
+stale jar and the receipt call fails with a bare `{"status":"ERROR"}` from the proxy — the recurring lesson,
+not a bug in the logic.
 
 ---
 

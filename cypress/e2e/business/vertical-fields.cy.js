@@ -16,21 +16,23 @@ describe('Sale form: vertical-specific fields', () => {
     cy.get('#sellDiv').should('be.visible')
   }
 
-  it('POS/retail does NOT show the insurance co-pay field or the Insurance tender', () => {
+  // The insurer-covered amount field (#sellInsured) was REMOVED by decision 2026-08-16, so these cases
+  // now assert the TENDER only. That is still the property worth guarding: the Insurance option is
+  // pharmacy-only and must be absent — not merely hidden — for retail, because a hidden <option> is
+  // still selectable and would let a POS sale settle against an insurer that does not exist.
+  it('POS/retail does NOT offer the Insurance tender', () => {
     cy.loginAsBusiness()   // userType BUSINESS -> window.MODULE = 'BUSINESS'
     openSellForm()
 
-    // The input stays in the DOM (business.js reads it and treats blank as 0) — it must simply not be shown.
-    cy.get('#sellInsured').should('not.be.visible')
-    // The tender, by contrast, must be gone entirely: a hidden <option> is still selectable.
     cy.get('#sellPayMethod option[value="INSURANCE"]').should('not.exist')
+    cy.get('#sellInsured').should('not.exist')   // the field is gone from every vertical
   })
 
-  it('pharmacy still shows both (the field belongs to that vertical)', () => {
+  it('pharmacy offers the Insurance tender', () => {
     cy.loginAsPharma()     // userType PHARMA
     openSellForm()
 
-    cy.get('#sellInsured').should('be.visible')
     cy.get('#sellPayMethod option[value="INSURANCE"]').should('exist')
+    cy.get('#sellInsured').should('not.exist')   // removed; the split is not captured on this screen
   })
 })

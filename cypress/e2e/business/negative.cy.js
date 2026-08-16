@@ -43,7 +43,12 @@ describe('Negative — Sell: Empty Cart Blocks Submission', () => {
         cy.get('#btnModeManual').click()
         cy.get('#sellCN').type('Walk-in Fallback')
       } else {
-        cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val())
+        // { force: true } like every other .select() in this file (lines 17, 76, 104): searchable-selects.js
+        // turns every in-scope <select> into a bootstrap-select, which sets the real element to
+        // display:none and shows a rendered button instead. Cypress refuses to act on the hidden native
+        // element without force. The intent here is to SET A VALUE, so forcing is right — where a case
+        // means "the operator can see this control", assert on .next('.bootstrap-select') instead.
+        cy.get('#sellCustomerDD').select(Cypress.$(realOpts[0]).val(), { force: true })
       }
     })
     // No items in cart

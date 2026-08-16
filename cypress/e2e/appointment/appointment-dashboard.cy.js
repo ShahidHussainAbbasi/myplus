@@ -10,7 +10,12 @@ describe('Slice-18 — appointment dashboard UI', () => {
   const doc = 'UIDoctor ' + stamp
 
   beforeEach(() => {
-    cy.loginAs('super@edu.com', 'super', '/getDashboardData')
+    // Was `super@edu.com` — a monolith-era login that no longer exists since auth moved to
+    // auth-service, so this spec failed at the session with /login?error=true. The appointment OWNER
+    // is the right replacement rather than demo.appointment@: this case CREATES a hospital and a
+    // doctor, and a demo account is capped at 50 writes per module — a cap that surfaces as some
+    // arbitrary later write failing, not as a quota message.
+    cy.loginAsAppointmentOwner()
   })
 
   it('registers a hospital + doctor via the cards and renders the appointments table', () => {

@@ -53,6 +53,14 @@ describe('Product list — manufacturer column', () => {
     cy.seedProduct({ name: 'MfrCol_' + Date.now(), manufacturer: 'ColBrand_' + Date.now() }).then(() => {
       openProductScreen()
       cy.get('#tableProduct tbody tr', { timeout: 20000 }).should('have.length.greaterThan', 0)
+      // ALL headers vs ALL cells — one basis. Filtering either side by `:visible` compares different
+      // populations and only manufactures noise (tried both ways; see product-last-rates.cy.js).
+      //
+      // ⚠ This currently reports **header 14, row 13** and the shortfall is NOT explained: business.js
+      // pushes exactly 14 entries for the 14-column header, the deployed file is byte-identical to the
+      // tree, and the grid renders without the "Requested unknown parameter" a genuine shift produces.
+      // Kept as the honest comparison — this case exists precisely to catch a row/header mismatch, so
+      // loosening it to go green would disable the guard it was written to be.
       cy.get('#tableProduct thead th').then(($th) => {
         cy.get('#tableProduct tbody tr').first().find('td').should('have.length', $th.length)
       })
@@ -145,7 +153,13 @@ describe('Product form — manufacturer picker', () => {
     cy.get('#newProduct').click({ timeout: 30000 })
     cy.get('#prodName').type(name)
     cy.get('#prodManufacturerNew').type(brand)
-    cy.contains('#ProductModal .btn-success', '+').click({ force: true })
+    // Addressed by the BEHAVIOUR it triggers, not by its label. The old selector was
+    // `cy.contains('#ProductModal .btn-success', '+')`, which cannot match: the button renders a
+    // `<span class="glyphicon glyphicon-plus">` and carries no '+' text at all — the only literal '+'
+    // on screen is the INPUT's placeholder ("+ New manufacturer"). Text was being used to pick one of
+    // TEN .btn-success buttons in this modal; `addManufacturerInline` is unique, and survives the icon
+    // being restyled.
+    cy.get('#ProductModal button[onclick^="addManufacturerInline"]').click({ force: true })
 
     cy.get('#prodManufacturer').should('have.value', brand)
     cy.get('#prodManufacturerNew').should('have.value', '')      // consumed
@@ -172,7 +186,7 @@ describe('Product form — manufacturer picker', () => {
       cy.get('#prodManufacturer option', { timeout: 15000 }).should('contain', brand)
 
       cy.get('#prodManufacturerNew').type(brand.toUpperCase())
-      cy.contains('#ProductModal .btn-success', '+').click({ force: true })
+      cy.get('#ProductModal button[onclick^="addManufacturerInline"]').click({ force: true })
       // The point of offering the list: it must not create a near-duplicate that reports separately.
       cy.get('#prodManufacturer').should('have.value', brand)
       cy.get('#prodManufacturer option').then(($opts) => {

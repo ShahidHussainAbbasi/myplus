@@ -119,7 +119,22 @@ describe('Product list — last purchase & sale rate', () => {
 
       // The row array must stay exactly as long as the header, or every later column shifts and DataTables throws
       // "Requested unknown parameter" — assert that directly rather than trusting a column index.
-      cy.get('#tableProduct thead th:visible').its('length').then((cols) => {
+      //
+      // Compare ALL headers against ALL cells — one basis, the one the hazard is about.
+      //
+      // The hazard is a length mismatch between the header array and the row array: DataTables then throws
+      // "Requested unknown parameter" and every later column shifts. CSS visibility is irrelevant to that,
+      // so mixing bases only manufactures noise. Two wrong versions were tried before this one:
+      //   • `th:visible` vs every `td`  → "Found 13, expected 12"
+      //   • `th:visible` vs `td:visible` → "Found 8, expected 12"
+      // Both compared different populations. All-vs-all is the only coherent question.
+      //
+      // ⚠ On this environment all-vs-all reports **header 14, row 13**, and that is NOT explained: the row
+      // builder in business.js pushes exactly 14 entries, the deployed business.js is byte-identical to the
+      // tree, and the grid renders without the DataTables error a genuine shift causes. Left asserting the
+      // honest comparison rather than tuned until green — if it fails, it is reporting something real that
+      // needs devtools on a headed run, not a looser assertion.
+      cy.get('#tableProduct thead th').its('length').then((cols) => {
         cy.contains('#tableProduct tbody tr', pname, { timeout: 10000 }).within(() => {
           cy.get('td').should('have.length', cols)
           // Purchase cell then sale cell — the two the renderer emits, in header order.

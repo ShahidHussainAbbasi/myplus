@@ -87,6 +87,22 @@
         <script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
         <script th:src="@{/js/main.js}"></script>
+        <!-- PERF-2: the ONE hole content-hash versioning cannot close by itself.
+             Every asset URL in this app is a Thymeleaf @{...} link, and ResourceUrlEncodingFilter rewrites
+             those to /js/name-<md5>.js automatically — 228 links, zero template edits. But lazy-export.js
+             builds its three URLs in JavaScript at click time, where no filter can reach them, so they
+             would be requested unhashed: correct bytes, but served under an `immutable` one-year header
+             with no way to bust them on the next deploy.
+             Resolving them HERE, through @{...}, hands the resolver's own answer to the script. The
+             literal paths stay in lazy-export.js as a fallback, so nothing breaks if this block is
+             missing — it just loses the versioning. -->
+        <script th:inline="javascript">/*<![CDATA[*/
+            window.__ASSETS = {
+                pdfmake:  /*[[@{/jQExp/pdfmake.min.js}]]*/ '/jQExp/pdfmake.min.js',
+                vfsFonts: /*[[@{/jQExp/vfs_fonts.js}]]*/   '/jQExp/vfs_fonts.js',
+                jszip:    /*[[@{/jQExp/jszip.min.js}]]*/   '/jQExp/jszip.min.js'
+            };
+        /*]]>*/</script>
         <!-- PERF-4b: lazyPdfButton() / lazyExcelButton() for DataTables. Must load BEFORE the module
              scripts (business.js / education.js / agriculture.js) that call them while building tables. -->
         <script th:src="@{/js/common/lazy-export.js}"></script>

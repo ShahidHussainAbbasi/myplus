@@ -39,11 +39,15 @@ describe('Pharmacy — insurance / co-pay (P12)', () => {
     }))
   })
 
-  it('the sell screen offers the Insurance method + covered-amount field', () => {
+  // The covered-amount field (#sellInsured) was REMOVED by decision 2026-08-16 — a pharmacy still settles
+  // against an insurer via the tender, it just does not split the amount on this screen. Asserting its
+  // ABSENCE rather than dropping the case keeps the decision visible: if the field ever returns, this
+  // fails and whoever brings it back has to say so.
+  it('the sell screen offers the Insurance tender (the covered-amount field is deliberately gone)', () => {
     cy.visit('/businessDashboard')
     cy.get('#sellType', { timeout: 10000 }).select('sellDiv', { force: true })
     cy.get('#sellDiv').should('be.visible')
     cy.get('#sellPayMethod option[value="INSURANCE"]').should('exist')
-    cy.get('#sellInsured').should('exist')
+    cy.get('#sellInsured').should('not.exist')
   })
 })

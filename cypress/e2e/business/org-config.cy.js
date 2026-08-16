@@ -40,6 +40,27 @@ describe('common-settings: business-service consumes the shared engine', () => {
     login('cashier.a@myplus.com').then((t) => { cashier = t; });   // ROLE_BUSINESS_USER — not owner/admin
   });
 
+  /**
+   * Restore the default UNCONDITIONALLY.
+   *
+   * The override→restore pair below lives inside a test body, so a case that fails between them leaves
+   * this org's `pos.receipt.showTaxBreakdown` stuck at false. That is a PER-TENANT SERVER setting: it
+   * outlives the spec, `testIsolation` does not touch it, and `receipt-tax-breakdown.cy.js` asserts the
+   * very same key — so one failure here silently reddens a different spec. The header's claim that this
+   * file "restores state so reruns are clean" held only on the happy path.
+   *
+   * A fresh token, because `before`'s is ~15 minutes old by now and the access-token lifetime is exactly
+   * that; a silently-expired bearer would 401 and leave the setting wrong.
+   */
+  after(() => {
+    login('owner.business@myplus.com').then((t) => {
+      saveSetting(t, KEY, 'true');
+      listSettings(t).then((r) => {
+        expect(String(entry(r.body, KEY).value), 'default restored for the rest of the suite').to.eq('true');
+      });
+    });
+  });
+
   it('serves the business catalog with effective values', () => {
     listSettings(owner).then((r) => {
       expect(r.status, JSON.stringify(r.body)).to.eq(200);

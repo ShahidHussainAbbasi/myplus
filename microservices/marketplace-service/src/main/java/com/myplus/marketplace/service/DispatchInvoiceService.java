@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import com.myplus.commerce.contracts.dto.SaleRecordRequest;
 import com.myplus.commerce.contracts.dto.SaleRecordResult;
-import com.myplus.common.security.GatewayIdentityForwarding;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.entity.Order;
 import com.myplus.marketplace.entity.OrderItem;
@@ -178,10 +177,13 @@ public class DispatchInvoiceService {
                 .reduce((a, b) -> a + "_" + b).orElse("none");
     }
 
-    /** Stamp the tenant on the outbound call — the warehouse user's identity does not travel to inventory. */
+    /**
+     * Stamp the tenant on the outbound call — the warehouse user's identity does not travel to inventory.
+     *
+     * <p>Delegates to {@link com.myplus.marketplace.support.AsOrg}; see that class for why one definition
+     * matters here more than it usually does.
+     */
     private <T> T asOrg(Long org, java.util.function.Supplier<T> call) {
-        java.util.concurrent.atomic.AtomicReference<T> out = new java.util.concurrent.atomic.AtomicReference<>();
-        GatewayIdentityForwarding.runAs(0L, org, () -> out.set(call.get()));
-        return out.get();
+        return com.myplus.marketplace.support.AsOrg.call(org, call);
     }
 }

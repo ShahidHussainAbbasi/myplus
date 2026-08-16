@@ -13,10 +13,46 @@ describe('Register screens: row checkbox + Edit button', () => {
     cy.visit('/businessDashboard')
     cy.get('#registrationType', { timeout: 10000 }).select('CustomerDiv', { force: true })
     cy.get('#CustomerDiv').should('be.visible')
-    cy.get('#tableCustomer tbody tr', { timeout: 10000 }).should('have.length.greaterThan', 0)
+    // Wait for a LOADED row, not merely for a `<tr>`.
+    //
+    // DataTables' empty-table placeholder IS a `<tr>` carrying one cell ("No data available"), so
+    // `tbody tr` length > 0 is satisfied while the grid is still fetching — and the row-actions wrapper
+    // does not exist yet, because main.js only builds it for rows that have a checkbox. The failure then
+    // reads "Expected to find element: `.row-actions`, but never found it", which points at the wrapper
+    // rather than at the wait that let an unloaded grid through. A real row has more than one cell.
+    //
+    // ORDER MATTERS: let the fetch finish FIRST, then look at the row.
+    //
+    // The wrapper is added by the DataTables drawCallback, which runs when the fetch completes. Asserting
+    // the row before waiting for the overlay just races the same load from a different direction — the
+    // first attempt at this fix did exactly that and still timed out, on an account that demonstrably has
+    // ten customers, so an empty grid was never the explanation.
+    cy.waitForAppReady()
+    cy.get('#tableCustomer tbody tr:first td', { timeout: 20000 }).should('have.length.greaterThan', 1)
   }
 
-  beforeEach(() => cy.loginAsOwner())
+  beforeEach(() => {
+    cy.loginAsOwner()
+    // SEED a row — do not hope one exists.
+    //
+    // Every case here inspects the FIRST row of #tableCustomer, so the grid must contain a real row.
+    // `/getUserCustomer` scopes by `Customer.userId`, which the entity documents as an AUDIT field, so
+    // this owner sees only customers THEY created — fine on this environment (it has ten) but not
+    // guaranteed on a fresh one, where DataTables would render its "No data available" placeholder. That
+    // placeholder IS a `<tr>`, so a bare `tbody tr` length > 0 wait passes on an empty grid and the
+    // failure surfaces later and misleadingly as "Expected to find element: `.row-actions`" — main.js
+    // only builds that wrapper for a row that has a checkbox.
+    //
+    // NOTE: seeding was NOT what fixed the failure seen here — the account already had customers, and the
+    // real cause was asserting the row before the fetch completed (see openCustomers). It stays because
+    // the precondition should be established rather than inherited.
+    cy.request({
+      method: 'POST', url: '/addCustomer', form: true, failOnStatusCode: false,
+      body: { name: 'RowAct_' + Date.now(), contact: '0300' + String(Date.now()).slice(-6) },
+    }).then((r) => {
+      expect(r.body && r.body.status, `seed customer: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
+    })
+  })
 
   it('checkbox and Edit sit in one wrapper, vertically centred on each other', () => {
     openCustomers()
