@@ -48,6 +48,42 @@ public class SaleRecordRequest {
     @Builder.Default
     private List<Tender> tenders = new ArrayList<>();
 
+    /**
+     * A whole-document concession the channel granted — a coupon, a promo, a negotiated allowance.
+     *
+     * <h3>Why this is not "a total" and does not violate the rule above</h3>
+     * The paragraph above forbids the caller stating what the sale CAME TO, because the server must price the
+     * goods. This is not that. A coupon is a FACT ABOUT THE TRANSACTION that only the channel knows — the
+     * server cannot recompute it from the lines because the promotion lives in the channel's own coupon rules.
+     * business-service still prices every line itself and still derives every total; it simply subtracts a
+     * concession it has been told about instead of pretending it did not happen.
+     *
+     * <h3>What it does to the books</h3>
+     * It is CONTRA-REVENUE, not a price cut — the same treatment B2B D-4 settled for the trade discount. Sales
+     * is credited at the goods' list value and the concession is debited to {@code 4200 Sales Discount}, so
+     * gross revenue still reads at face value and the cost of promotions is visible as its own line rather
+     * than quietly eroding Sales.
+     *
+     * <p>Null or zero = no concession, which is every till sale, and leaves the journal byte-for-byte
+     * unchanged.
+     */
+    private BigDecimal discountTotal;
+
+    /**
+     * Delivery charged to the customer, in the sale's currency. Added to the invoice AFTER tax and credited to
+     * {@code 4300 Delivery Income}, so it never enters the goods subtotal or the tax base.
+     *
+     * <h3>Why it is not taxed</h3>
+     * The storefront quote adds this fee after tax and does not tax it. Taxing it here would put the quote and
+     * the invoice back into disagreement — which is the exact defect this contract exists to prevent. Making
+     * delivery taxable is a legitimate policy question, but it has to change the quote and the invoice
+     * together, not one of them.
+     *
+     * <p>Without this field the fee the shopper paid simply never reached the books: the order row carried it,
+     * the invoice did not, and delivery income stayed off the P&amp;L entirely.
+     */
+    private BigDecimal shippingFee;
+
     /** Free text carried onto the sale (e.g. the storefront order number). */
     private String notes;
 

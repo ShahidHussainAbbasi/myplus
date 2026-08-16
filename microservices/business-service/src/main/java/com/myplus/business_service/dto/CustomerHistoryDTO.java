@@ -143,6 +143,12 @@ public class CustomerHistoryDTO {
     private BigDecimal tradeDiscount;
 
     /**
+     * Delivery charged to the customer on this invoice. Added AFTER tax, kept out of the goods subtotal and
+     * the tax base, and credited to {@code 4300 Delivery Income}. Null on a counter sale.
+     */
+    private BigDecimal shippingFee;
+
+    /**
      * The salesperson who booked the order, STAMPED on the invoice at write time rather than resolved from
      * {@code userId} at print time. Resolving it would put an auth-service round trip on the print path, and
      * would also print today's name for a person who has since been renamed — an issued document must not

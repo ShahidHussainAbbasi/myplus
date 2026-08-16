@@ -217,6 +217,16 @@ public class InternalSalesController {
         // No tenders is not an error — it is a COD order, i.e. a receivable. addSell derives the due from
         // (grand total − paid), so an unpaid online order lands in AR exactly like an unpaid counter sale.
         dto.setPaidAmount(paid);
+
+        // The two whole-document figures a channel knows and the server cannot derive from the lines.
+        //
+        // These do NOT reopen the "no totals on the wire" rule above. The server still prices every line and
+        // still computes every total; it is simply told about a concession it has no way to recompute (the
+        // promotion lives in the channel's coupon rules) and a delivery charge it has no way to know (the fee
+        // comes from the channel's shipping policy). Before this, both were charged to the shopper, stored on
+        // the order, and never reached the books: the coupon vanished and delivery income stayed off the P&L.
+        dto.setTradeDiscount(r.getDiscountTotal());
+        dto.setShippingFee(r.getShippingFee());
         return dto;
     }
 

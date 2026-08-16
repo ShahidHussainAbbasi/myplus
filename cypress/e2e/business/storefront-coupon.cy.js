@@ -55,4 +55,32 @@ describe('E-commerce — coupons (slice 72, E13)', () => {
       expect(Number(r.body.data.total)).to.eq(18)
     }))
   })
+
+  /**
+   * The half the order row could not prove.
+   *
+   * `order.total` is copied from the INVOICE's grand total, so the assertion above only says the two agree —
+   * it cannot say they agree on the RIGHT figure. Before the contract carried a discount field they agreed on
+   * 20: the shopper paid 18, the books recorded 20, and the coupon existed nowhere in the accounts. This reads
+   * the invoice itself and pins both the amount and the concession.
+   */
+  it('the coupon reaches the BOOKS — the invoice is raised at the discounted figure', () => {
+    let token
+    cy.then(() => cartFor(2).then((t) => { token = t }))
+    cy.then(() => cy.request({ method: 'POST', url: '/storefront/checkout', headers: { 'Content-Type': 'application/json' },
+      body: { organizationId: orgId, cartToken: token, shippingMethod: 'PICKUP', customerName: 'CouponBooks_' + tag, customerContact: '0300CP', paymentMode: 'COD', couponCode: code } })
+      .then((r) => {
+        expect(r.body.success, JSON.stringify(r.body)).to.be.true
+        const invoiceNo = r.body.data.invoiceNo
+        expect(invoiceNo, 'the order produced a trade sale').to.be.a('string')
+        // GenericResponse carries a single payload on `object`, never on `data`.
+        return cy.request('/getReceipt?invoiceNo=' + encodeURIComponent(invoiceNo)).then((rr) => {
+          expect(rr.body.status, 'invoice readable: ' + JSON.stringify(rr.body)).to.eq('SUCCESS')
+          const inv = rr.body.object
+          expect(inv, 'receipt payload: ' + JSON.stringify(rr.body)).to.be.an('object')
+          expect(Number(inv.grandTotal), 'invoiced at the discounted figure, not the list price').to.eq(18)
+          expect(Number(inv.tradeDiscount), 'the concession is recorded on the invoice').to.eq(2)
+        })
+      }))
+  })
 })

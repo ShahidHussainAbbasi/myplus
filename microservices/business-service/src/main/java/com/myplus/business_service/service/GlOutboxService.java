@@ -73,6 +73,11 @@ public class GlOutboxService {
         o.setCost(req.getCost());
         o.setPaidAmount(req.getPaidAmount());
         o.setStoreCredit(req.getStoreCredit());   // SF-5 Model B: carry the store-credit split to finance (GL 2200)
+        // V40 — these two were the hole. This method copies the event onto a PERSISTED row field by field, so
+        // anything without a line here is dropped in silence: `discountTotal` had been passed in since D-4 and
+        // thrown away on every sale, which is why 4200 Sales Discount was empty in every tenant.
+        o.setDiscountTotal(req.getDiscountTotal());   // → Dr 4200
+        o.setShippingFee(req.getShippingFee());       // → Cr 4300
         o.setMethod(req.getMethod());
         o.setStatus("PENDING");
         o.setAttempts(0);
@@ -111,6 +116,7 @@ public class GlOutboxService {
                 .grandTotal(o.getGrandTotal()).subTotal(o.getSubTotal()).taxTotal(o.getTaxTotal())
                 .cost(o.getCost()).paidAmount(o.getPaidAmount()).method(o.getMethod())
                 .storeCredit(o.getStoreCredit())
+                .discountTotal(o.getDiscountTotal()).shippingFee(o.getShippingFee())   // V40 — see enqueue
                 .build();
     }
 }

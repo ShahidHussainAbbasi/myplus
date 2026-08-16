@@ -186,6 +186,10 @@ public class SagaSellService {
                     // at the invoice's face value. Captured on the invoice since 3g but never posted until now,
                     // which meant a discount printed on the document and appeared nowhere in the books.
                     .discountTotal(ch.getTradeDiscount())
+                    // Delivery charged to the customer → Cr 4300 Delivery Income. It rides inside grandTotal
+                    // but not inside subTotal/taxTotal, so finance must be told the split or it would credit
+                    // the fee to Sales and the journal would not balance.
+                    .shippingFee(ch.getShippingFee())
                     .build());
         } catch (Exception ex) {
             LOG.warn("GL enqueue failed for sale {} (sale recorded)", ch.getInvoiceNo(), ex);

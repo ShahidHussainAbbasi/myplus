@@ -826,6 +826,12 @@ public class OrderService {
                         .address(dto.getShippingAddress())
                         .build())
                 .lines(lines)
+                // The two whole-document figures the books cannot derive from the lines. Both were charged to
+                // the shopper and stored on the order, and neither reached the books: a coupon discount simply
+                // vanished (the shopper paid 18 and was invoiced 20) and delivery income never appeared on the
+                // P&L at all. The server still prices every line — these say what was taken off and added on.
+                .discountTotal(dto.getDiscountAmount())
+                .shippingFee(dto.getShippingFee())
                 .notes("Storefront order")
                 .build();
     }

@@ -145,6 +145,10 @@ public class SaleVoidService {
         // AND AR by the discount amount, drifting the books). Capture the posted totals BEFORE zeroing the header.
         BigDecimal origSub = nzbd(ch.getSubTotal()), origTax = nzbd(ch.getTaxTotal()),
                 origGrand = nzbd(ch.getGrandTotal());
+        // The two whole-document legs the sale also posted. Captured with the rest and sent on the reversal,
+        // or 4200 would keep a concession on a cancelled invoice, 4300 would keep a refunded delivery fee, and
+        // — since delivery rides inside grandTotal — the reversing journal would not balance.
+        BigDecimal origDiscount = nzbd(ch.getTradeDiscount()), origShipping = nzbd(ch.getShippingFee());
         // B2B-P3f: a void zeroes the header, so WITHOUT this the statement would read an issued value of 500
         // with nothing offsetting it and overstate every voided invoice by its full amount.
         if (ch.getIssuedTotal() == null)
@@ -152,6 +156,11 @@ public class SaleVoidService {
         ch.setSubTotal(BigDecimal.ZERO);
         ch.setTaxTotal(BigDecimal.ZERO);
         ch.setGrandTotal(BigDecimal.ZERO);
+        // Zero these with the rest: a voided invoice is zeroed IN PLACE, and leaving a concession or a delivery
+        // charge on a header whose totals are all zero would make the document contradict itself — and would
+        // re-apply both if the invoice were ever re-priced through applyInvoice, which now reads them back.
+        ch.setTradeDiscount(null);
+        ch.setShippingFee(null);
         ch.setPaidAmount(BigDecimal.ZERO);
         ch.setDueAmount(BigDecimal.ZERO);
         ch.setStatus("VOID");
@@ -172,6 +181,7 @@ public class SaleVoidService {
                 glOutboxService.enqueue(PostingEventRequest.builder()
                         .eventType("SALE_RETURN").date(LocalDate.now()).ref(ch.getInvoiceNo())
                         .grandTotal(origGrand).subTotal(origSub).taxTotal(origTax).cost(retCost).paidAmount(refund)
+                        .discountTotal(origDiscount).shippingFee(origShipping)   // reverse BOTH document legs
                         .method("CASH").storeCredit(creditReissue).build());   // re-issued credit portion → Cr 2200
         } catch (Exception glEx) {
             LOG.warn("voidInvoice GL reversal enqueue failed (void applied)", glEx);

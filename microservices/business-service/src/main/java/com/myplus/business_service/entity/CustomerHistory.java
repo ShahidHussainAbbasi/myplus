@@ -95,6 +95,19 @@ public class CustomerHistory implements Serializable {
 	private BigDecimal tradeDiscount;
 
 	/**
+	 * Delivery charged to the customer on this invoice (V39).
+	 *
+	 * <p>Added to the grand total AFTER tax and kept out of {@code subTotal} and {@code taxTotal}: delivery is
+	 * not goods and is not taxed, so folding it into either would overstate revenue and put a phantom line in
+	 * the tax register. It posts to {@code 4300 Delivery Income}.
+	 *
+	 * <p>Null on every counter sale. Before this column existed a storefront order's delivery fee was charged
+	 * to the shopper, stored on the marketplace order, and never reached the books at all.
+	 */
+	@Column(name = "shipping_fee", precision = 19, scale = 2)
+	private BigDecimal shippingFee;
+
+	/**
 	 * B2B-P3g (V35): the salesperson who booked the order, STAMPED here at write time.
 	 *
 	 * <p>Deliberately a name and not a join on {@code userId}: resolving it at print time would put an

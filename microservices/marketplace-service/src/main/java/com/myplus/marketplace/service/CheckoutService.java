@@ -1,11 +1,17 @@
 package com.myplus.marketplace.service;
 
+import com.myplus.commerce.contracts.client.TradeClient;
+import com.myplus.commerce.contracts.dto.TaxPolicyView;
+import com.myplus.commerce.domain.TaxMath;
 import com.myplus.common.web.exception.ValidationException;
+import com.myplus.marketplace.support.AsOrg;
 import com.myplus.marketplace.dto.CheckoutDTO;
 import com.myplus.marketplace.dto.OrderDTO;
 import com.myplus.marketplace.entity.Cart;
 import com.myplus.marketplace.entity.CartItem;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +19,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Checkout (slice 69 E5 + slice 72 E13 coupons). Totals are computed server-side from the persistent cart (slice 68):
@@ -24,12 +32,32 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CheckoutService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(CheckoutService.class);
+
     private static final int SCALE = 2;
-    private static final BigDecimal HUNDRED = new BigDecimal("100");
+
+    /** What a tenant looks like when tax is off — also the fail-closed answer when the books are unreachable. */
+    private static final TaxPolicyView TAX_OFF =
+            TaxPolicyView.builder().enabled(false).mode("EXCLUSIVE").defaultRate(BigDecimal.ZERO).build();
+    /**
+     * Per-tenant policy cache. An INSTANCE field, not static: the bean is a singleton so it lives just as long,
+     * and static mutable state shared between unit tests is how one test's tenant silently answers another's.
+     */
+    private final Map<Long, CachedTaxPolicy> taxPolicyCache = new ConcurrentHashMap<>();
+
+    /**
+     * How long a tenant's tax policy is reused before re-reading it. Same shape and default as
+     * business-service's {@code app.period-lock.cache-ttl-ms}, and for the same reason: this is configuration
+     * that changes at month-end sitting on a hot path. An owner who flips the switch waits at most this long
+     * for the storefront to follow — a bounded lag, not the permanent disagreement this change removes.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.tax-policy.cache-ttl-ms:15000}")
+    private long taxPolicyTtlMs = 15_000L;
 
     private final CartService cartService;
     private final OrderService orderService;
     private final CouponService couponService;
+    private final TradeClient tradeClient;         // the books own the tax policy; this service asks for it
     private final ShippingPolicy shippingPolicy;   // O3: per-org delivery fees + the COD policy
     private final BackorderPolicy backorderPolicy; // O5c: what will have to wait, shown before the shopper commits
 
@@ -128,13 +156,28 @@ public class CheckoutService {
         List<CheckoutDTO.Line> lines = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal taxTotal = BigDecimal.ZERO;
+        // Tax the way the BOOKS will, not the way this service used to guess.
+        //
+        // This loop previously did `net × item.taxRate / 100` — its own tax engine, with no tenant switch,
+        // no org default rate and no INCLUSIVE handling. business-service gates every line on
+        // `tax_setting.enabled`, which DEFAULTS TO FALSE for a tenant that has never configured tax, so a
+        // shop with tax off was shown a tax line and quoted a total its own invoice then contradicted:
+        // quoted 22, invoiced 20. Each side was locally right; only the disagreement was wrong.
+        //
+        // The policy now comes from the owner of the books over the trade contract, and the arithmetic is
+        // the shared `TaxMath` both sides call — one rule, one implementation.
+        TaxPolicyView taxPolicy = taxPolicyFor(org);
         if (cart != null) {
             for (CartItem it : cart.getItems()) {
                 BigDecimal unit = nz(it.getUnitPrice());
                 int qty = it.getQuantity() != null ? it.getQuantity() : 0;
-                BigDecimal net = unit.multiply(BigDecimal.valueOf(qty)).setScale(SCALE, RoundingMode.HALF_UP);
-                BigDecimal rate = nz(it.getTaxRate());
-                BigDecimal lineTax = net.multiply(rate).divide(HUNDRED, SCALE, RoundingMode.HALF_UP);
+                BigDecimal lineAmount = unit.multiply(BigDecimal.valueOf(qty)).setScale(SCALE, RoundingMode.HALF_UP);
+                TaxMath.TaxAmounts t = TaxMath.forLine(lineAmount, nz(it.getTaxRate()),
+                        taxPolicy.isEnabled(), taxPolicy.getDefaultRate(), taxPolicy.isInclusive());
+                // INCLUSIVE prices already contain the tax, so the goods subtotal is the amount with the tax
+                // BACKED OUT — taking `lineAmount` here would count it twice. EXCLUSIVE leaves net unchanged.
+                BigDecimal net = t.net();
+                BigDecimal lineTax = t.tax();
                 subtotal = subtotal.add(net);
                 taxTotal = taxTotal.add(lineTax);
                 lines.add(CheckoutDTO.Line.builder()
@@ -149,6 +192,44 @@ public class CheckoutService {
         BigDecimal fee = shippingPolicy.feeFor(option, subtotal, org).setScale(SCALE, RoundingMode.HALF_UP);
         return new Totals(lines, subtotal, taxTotal, fee);
     }
+
+    /**
+     * The tenant's tax policy, cached briefly — the storefront quote is a hot path.
+     *
+     * <p>Tax configuration changes at month-end, not per request, so a short TTL keeps a remote call off
+     * every keystroke-driven re-quote while still letting an owner's change take effect without a restart.
+     * Same reasoning (and roughly the same window) as business-service's period-lock cache.
+     *
+     * <p><b>Fails CLOSED, deliberately.</b> If business-service cannot be reached we treat tax as OFF rather
+     * than guessing a rate. Charging a shopper tax this service invented — which the invoice would then not
+     * record — is the exact defect this change exists to remove; showing no tax during an outage is visibly
+     * wrong to the shopkeeper and recoverable, while an invented tax line is neither. The alternative,
+     * failing the quote outright, would take the storefront down for a configuration read.
+     *
+     * <p><b>On the remote call sitting inside a transaction.</b> Both callers are {@code @Transactional}, so a
+     * MISS holds a pooled connection for the round trip. That is why the miss is rare by construction (one per
+     * tenant per TTL, not one per quote) and why the catch is here rather than at the caller: an exception
+     * escaping into the caller's transaction would mark it rollback-only and turn a configuration read into a
+     * failed checkout.
+     */
+    private TaxPolicyView taxPolicyFor(Long org) {
+        long now = System.currentTimeMillis();
+        CachedTaxPolicy hit = taxPolicyCache.get(org);
+        if (hit != null && hit.expiresAt() > now) return hit.policy();
+        TaxPolicyView fetched;
+        try {
+            fetched = AsOrg.call(org, tradeClient::taxPolicy);
+            if (fetched == null) fetched = TAX_OFF;
+        } catch (RuntimeException ex) {
+            LOG.warn("Tax policy unavailable for org {} ({}: {}) — quoting with tax OFF for {}ms",
+                    org, ex.getClass().getSimpleName(), ex.getMessage(), taxPolicyTtlMs);
+            fetched = TAX_OFF;
+        }
+        taxPolicyCache.put(org, new CachedTaxPolicy(fetched, now + taxPolicyTtlMs));
+        return fetched;
+    }
+
+    private record CachedTaxPolicy(TaxPolicyView policy, long expiresAt) {}
 
     private CheckoutDTO.Quote assemble(Totals t, ShippingOption option, CouponService.CouponResult cr, Long org) {
         BigDecimal discount = cr.discount();

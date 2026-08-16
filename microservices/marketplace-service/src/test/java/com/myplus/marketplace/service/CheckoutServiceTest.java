@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import com.myplus.commerce.contracts.dto.TaxPolicyView;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.dto.CheckoutDTO;
 import com.myplus.marketplace.dto.OrderDTO;
@@ -48,10 +49,24 @@ class CheckoutServiceTest {
      * {@code BackorderSplitTest} and the Cypress gate.
      */
     @Mock private BackorderPolicy backorderPolicy;
+    /**
+     * The tenant's tax policy now comes from the BOOKS over the trade contract, because this service used to
+     * compute tax on its own and got it wrong for any shop with tax switched off. Stubbed enabled/EXCLUSIVE in
+     * {@link #defaultShippingRates()} so every pre-existing expectation below keeps its original meaning;
+     * {@link #tax_is_off_when_the_tenant_has_not_enabled_it} pins the case that was broken.
+     */
+    @Mock private com.myplus.commerce.contracts.client.TradeClient tradeClient;
     @InjectMocks private CheckoutService service;
+
+    private static TaxPolicyView policy(boolean enabled, String mode, String defaultRate) {
+        return TaxPolicyView.builder().enabled(enabled).mode(mode)
+                .defaultRate(new BigDecimal(defaultRate)).build();
+    }
 
     @org.junit.jupiter.api.BeforeEach
     void defaultShippingRates() {
+        org.mockito.Mockito.lenient().when(tradeClient.taxPolicy())
+                .thenReturn(policy(true, "EXCLUSIVE", "0"));
         // Stubbed for ORG specifically: checkout must tell the policy WHICH store it is pricing. A shopper is
         // anonymous, so a policy that resolved the tenant from the security context would price every public
         // order at the platform default — these stubs would simply never match.
@@ -103,6 +118,79 @@ class CheckoutServiceTest {
         assertThat(q.getTotal()).isEqualByComparingTo("30.00");      // 24 + 1 + 5
         assertThat(q.getItems()).hasSize(2);
         assertThat(q.isAddressRequired()).isTrue();
+    }
+
+    /**
+     * THE defect. business-service gates every sale line on {@code tax_setting.enabled}, which is FALSE for a
+     * tenant that has never configured tax — so the invoice for this cart comes to 24.00. The storefront was
+     * running its own engine that knew only the product's rate, quoted 25.00, and the shopper was charged one
+     * figure and invoiced another. Both halves were locally correct; only the disagreement was wrong.
+     */
+    @Test
+    void tax_is_off_when_the_tenant_has_not_enabled_it() {
+        when(cartService.activeCart(ORG, "t")).thenReturn(Optional.of(sampleCart()));
+        when(couponService.validateAndCompute(eq(ORG), any(), any())).thenReturn(noCoupon());
+        when(tradeClient.taxPolicy()).thenReturn(policy(false, "EXCLUSIVE", "0"));
+
+        CheckoutDTO.Quote q = service.quote(ORG, "t", "PICKUP", null);
+
+        assertThat(q.getTaxTotal()).isEqualByComparingTo("0.00");   // was 1.00 — invented by this service
+        assertThat(q.getSubtotal()).isEqualByComparingTo("24.00");
+        assertThat(q.getTotal()).isEqualByComparingTo("24.00");     // exactly what the invoice will say
+    }
+
+    /**
+     * The org default applies to a product that carries no rate of its own — a rate of 0 means "unset", not
+     * "zero-rated", which is the books' rule and now literally the same code ({@code TaxMath.resolveRate}).
+     * The old private engine had no notion of a tenant default at all, so P20 was silently zero-rated.
+     */
+    @Test
+    void a_product_without_its_own_rate_falls_back_to_the_org_default() {
+        when(cartService.activeCart(ORG, "t")).thenReturn(Optional.of(sampleCart()));
+        when(couponService.validateAndCompute(eq(ORG), any(), any())).thenReturn(noCoupon());
+        when(tradeClient.taxPolicy()).thenReturn(policy(true, "EXCLUSIVE", "10"));
+
+        CheckoutDTO.Quote q = service.quote(ORG, "t", "PICKUP", null);
+
+        // P10 keeps its own 5% on 20.00 = 1.00; P20 has none, so the org's 10% on 4.00 = 0.40.
+        assertThat(q.getTaxTotal()).isEqualByComparingTo("1.40");
+        assertThat(q.getTotal()).isEqualByComparingTo("25.40");
+    }
+
+    /**
+     * INCLUSIVE tenants: the shelf price already contains the tax, so it is BACKED OUT of the subtotal rather
+     * than added on top. The storefront had no inclusive branch — it added tax to a tax-inclusive price and
+     * over-charged every shopper at such a store.
+     */
+    @Test
+    void inclusive_pricing_backs_the_tax_out_instead_of_adding_it() {
+        when(cartService.activeCart(ORG, "t")).thenReturn(Optional.of(sampleCart()));
+        when(couponService.validateAndCompute(eq(ORG), any(), any())).thenReturn(noCoupon());
+        when(tradeClient.taxPolicy()).thenReturn(policy(true, "INCLUSIVE", "0"));
+
+        CheckoutDTO.Quote q = service.quote(ORG, "t", "PICKUP", null);
+
+        // P10: 20.00 gross @5% → net 19.05, tax 0.95. P20: no rate, no org default → 4.00 net, no tax.
+        assertThat(q.getSubtotal()).isEqualByComparingTo("23.05");
+        assertThat(q.getTaxTotal()).isEqualByComparingTo("0.95");
+        assertThat(q.getTotal()).isEqualByComparingTo("24.00");     // the shelf price, unchanged
+    }
+
+    /**
+     * Fails CLOSED. If the books cannot be reached we quote no tax rather than inventing a figure the invoice
+     * would not record — a missing tax line is visibly wrong to the shopkeeper and recoverable; an invented one
+     * is neither. Failing the quote outright would take the storefront down for a configuration read.
+     */
+    @Test
+    void an_unreachable_books_service_quotes_without_tax_rather_than_guessing() {
+        when(cartService.activeCart(ORG, "t")).thenReturn(Optional.of(sampleCart()));
+        when(couponService.validateAndCompute(eq(ORG), any(), any())).thenReturn(noCoupon());
+        when(tradeClient.taxPolicy()).thenThrow(new IllegalStateException("business-service is down"));
+
+        CheckoutDTO.Quote q = service.quote(ORG, "t", "PICKUP", null);
+
+        assertThat(q.getTaxTotal()).isEqualByComparingTo("0.00");
+        assertThat(q.getTotal()).isEqualByComparingTo("24.00");
     }
 
     @Test

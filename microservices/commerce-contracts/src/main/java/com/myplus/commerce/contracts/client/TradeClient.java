@@ -7,6 +7,7 @@ import com.myplus.commerce.contracts.dto.SaleReturnRequest;
 
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.annotation.PostExchange;
 
@@ -112,4 +113,30 @@ public interface TradeClient {
     @PostExchange("/internal/receipts")
     com.myplus.commerce.contracts.dto.PaymentReceiptResult receivePayment(
             @RequestBody com.myplus.commerce.contracts.dto.PaymentReceiptRequest request);
+
+    /**
+     * The calling tenant's sales-tax policy, so a channel can price the way the BOOKS will.
+     *
+     * <h3>Why this op exists</h3>
+     * Whether tax applies is a per-tenant switch owned by business-service (`tax_setting`). Marketplace's
+     * checkout used to compute tax on its own — `net × product.taxRate / 100`, with no switch, no org
+     * default and no INCLUSIVE handling — so a shop with tax turned OFF was shown a tax line and quoted a
+     * total its own invoice then contradicted (quoted 22, invoiced 20). Both halves were locally correct;
+     * only the disagreement between them was wrong, which is exactly the kind of defect a shared contract
+     * exists to prevent.
+     *
+     * <h3>Policy here, arithmetic in the shared library</h3>
+     * This returns only the POLICY. The maths is {@code com.myplus.commerce.domain.TaxMath}, which
+     * business-service and every channel call, so the rule has one implementation rather than one per
+     * caller. Returning a computed figure instead would have put a second engine on the wire.
+     *
+     * <h3>Tenant</h3>
+     * Resolved from the CALLER's forwarded identity, never from a parameter — a channel cannot ask for
+     * another tenant's policy because it has no way to name one.
+     *
+     * <p>Safe to cache briefly: this is configuration that changes at month-end, not per request, and the
+     * storefront quote is a hot path.
+     */
+    @GetExchange("/internal/tax-policy")
+    com.myplus.commerce.contracts.dto.TaxPolicyView taxPolicy();
 }

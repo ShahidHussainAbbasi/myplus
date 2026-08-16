@@ -43,7 +43,16 @@ public class PostingService {
              * is a single account balance. Netting the discount off revenue instead would destroy that number —
              * a shop that discounted heavily would look identical to one that simply sold less.
              */
-            SALES_DISCOUNT = "4200";
+            SALES_DISCOUNT = "4200",
+            /**
+             * Delivery charged to the customer.
+             *
+             * <p>Its own income line rather than more Sales: goods revenue and delivery revenue answer
+             * different questions, and a shop that cannot separate them cannot tell whether its delivery
+             * operation pays for itself. Credited from {@code grandTotal}, never from {@code subTotal}, so it
+             * stays out of the goods revenue figure and out of the tax base.
+             */
+            DELIVERY_INCOME = "4300";
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
 
@@ -91,26 +100,44 @@ public class PostingService {
     // Reverse a sale (goods back, refund/AR credited): mirror image of postSale. grand = returned value,
     // paidAmount = cash refunded (rest reduces AR), cost = COGS of the returned goods (Inventory restored).
     private void postSaleReturn(PostEventRequest r) {
+        if (nz(r.getGrandTotal()).signum() <= 0) return;
+        post("SALE_RETURN", r.getDate(), r.getRef(), saleReturnLines(r));
+        BigDecimal cost = nz(r.getCost());
+        if (cost.signum() > 0) post("SALE_RETURN", r.getDate(), r.getRef(), List.of(dr(INVENTORY, cost), cr(COGS, cost)));
+    }
+
+    /** The SALE_RETURN journal, built and nothing else — the mirror of {@link #saleLines} and, like it,
+     *  extracted so the balance can be asserted without a ledger. */
+    static List<JournalLineDTO> saleReturnLines(PostEventRequest r) {
         BigDecimal grand = nz(r.getGrandTotal());
-        if (grand.signum() <= 0) return;
         BigDecimal sub = nz(r.getSubTotal()), tax = nz(r.getTaxTotal());
         BigDecimal refund = nz(r.getPaidAmount()).max(BigDecimal.ZERO).min(grand);
         BigDecimal sc = nz(r.getStoreCredit()).max(BigDecimal.ZERO).min(refund);   // refund issued as store credit (⊆ refund)
         BigDecimal cash = refund.subtract(sc);                                     // the rest handed back as cash
         BigDecimal ar = grand.subtract(refund);
+        // A VOID must reverse EVERY leg the sale posted, including the two whole-document ones. Omitting them
+        // would leave 4200 Sales Discount holding a concession on a cancelled invoice and 4300 Delivery Income
+        // holding a fee that was refunded — and, because delivery rides inside `grand`, the journal would not
+        // balance at all. Mirror image of postSale:
+        //     Dr Sales (sub + d) + Dr Tax tax + Dr Delivery ship  =  Cr Cash/SC/AR grand + Cr Discount d
+        // A PARTIAL return (credit note) sends neither — a shop refunds the goods, not the delivery — so both
+        // are zero there and the journal is byte-for-byte what it was.
+        BigDecimal discount = nz(r.getDiscountTotal()).max(BigDecimal.ZERO);
+        BigDecimal ship = nz(r.getShippingFee()).max(BigDecimal.ZERO);
+
         List<JournalLineDTO> lines = new ArrayList<>();
         if (sub.signum() > 0 || tax.signum() > 0) {
-            if (sub.signum() > 0) lines.add(dr(SALES, sub));
+            if (sub.signum() > 0 || discount.signum() > 0) lines.add(dr(SALES, sub.add(discount)));
             if (tax.signum() > 0) lines.add(dr(TAX, tax));
         } else {
-            lines.add(dr(SALES, grand));
+            lines.add(dr(SALES, grand.subtract(ship).add(discount)));
         }
+        if (ship.signum() > 0)   lines.add(dr(DELIVERY_INCOME, ship));   // the delivery income is given back
         if (sc.signum() > 0)     lines.add(cr(STORE_CREDIT, sc));   // we now owe the customer store credit
         if (cash.signum() > 0)   lines.add(cr(cashAccount(r.getMethod()), cash));
         if (ar.signum() > 0)     lines.add(cr(AR, ar));
-        post("SALE_RETURN", r.getDate(), r.getRef(), lines);
-        BigDecimal cost = nz(r.getCost());
-        if (cost.signum() > 0) post("SALE_RETURN", r.getDate(), r.getRef(), List.of(dr(INVENTORY, cost), cr(COGS, cost)));
+        if (discount.signum() > 0) lines.add(cr(SALES_DISCOUNT, discount));   // un-take the concession
+        return lines;
     }
 
     // Reverse a purchase (goods back to vendor): mirror of postPurchase. grand = returned value, paidAmount = cash
@@ -186,8 +213,24 @@ public class PostingService {
     }
 
     private void postSale(PostEventRequest r) {
+        if (nz(r.getGrandTotal()).signum() <= 0) return;
+        post("SALE", r.getDate(), r.getRef(), saleLines(r));
+
+        BigDecimal cost = nz(r.getCost());   // COGS side (accrual, using the captured line cost)
+        if (cost.signum() > 0) post("SALE", r.getDate(), r.getRef(), List.of(dr(COGS, cost), cr(INVENTORY, cost)));
+    }
+
+    /**
+     * The SALE journal, built and nothing else — no DB, no Spring, no side effects.
+     *
+     * <p>Extracted from {@link #postSale} so the property that actually matters can be asserted
+     * directly: <b>it balances</b>. The arithmetic below has four interacting legs (tender split,
+     * store credit, contra-revenue discount, delivery income) and a mistake in any of them produces a
+     * lopsided journal that no unit test could previously see, because the only way to reach this code
+     * was to post to a real ledger.
+     */
+    static List<JournalLineDTO> saleLines(PostEventRequest r) {
         BigDecimal grand = nz(r.getGrandTotal());
-        if (grand.signum() <= 0) return;
         BigDecimal sub = nz(r.getSubTotal()), tax = nz(r.getTaxTotal());
         BigDecimal paid = nz(r.getPaidAmount()).max(BigDecimal.ZERO).min(grand);   // cap tender at the bill
         BigDecimal sc = nz(r.getStoreCredit()).max(BigDecimal.ZERO).min(paid);     // store-credit redeemed (⊆ paid)
@@ -195,27 +238,34 @@ public class PostingService {
         BigDecimal ar = grand.subtract(paid);
         // D-4: a whole-document trade discount is CONTRA-REVENUE, not a reduction of revenue. The customer owes
         // the discounted figure (that is `grand`), so the debit side is unchanged; instead Sales is grossed UP by
-        // the discount and the concession debited to 4200. The journal still balances:
-        //     Dr Cash/AR grand + Dr Discount d  =  Cr Sales (sub + d) + Cr Tax tax
-        // Zero/absent discount leaves the journal byte-for-byte what it was, which is every till sale.
+        // the discount and the concession debited to 4200.
+        //
+        // The caller's contract, which the balance below depends on:
+        //   sub   = goods ex-tax, ALREADY NET of the discount
+        //   grand = sub + tax + shipping   (i.e. also net of the discount)
+        //   ship  = delivery, in `grand` but NOT in `sub` and NOT in `tax`
+        // Then, writing L for the goods' list value (L = sub + d):
+        //   Dr  grand + d  =  (sub + tax + ship) + d  =  L + tax + ship
+        //   Cr  Sales L + Tax tax + Delivery ship     =  L + tax + ship      ✓
+        // Zero discount and zero shipping leave the journal byte-for-byte what it was, which is every till sale.
         BigDecimal discount = nz(r.getDiscountTotal()).max(BigDecimal.ZERO);
+        BigDecimal ship = nz(r.getShippingFee()).max(BigDecimal.ZERO);
 
         List<JournalLineDTO> lines = new ArrayList<>();
         if (sc.signum() > 0)   lines.add(dr(STORE_CREDIT, sc));   // reduce the liability we owed the customer
         if (cash.signum() > 0) lines.add(dr(cashAccount(r.getMethod()), cash));
         if (ar.signum() > 0)   lines.add(dr(AR, ar));
         if (discount.signum() > 0) lines.add(dr(SALES_DISCOUNT, discount));
-        // Cr side = sub + tax = grand. If the caller didn't split sub/tax, credit the whole to Sales so it balances.
+        // Cr side = sub + tax + shipping = grand. If the caller didn't split sub/tax, credit the goods portion
+        // (grand less the delivery it contains) to Sales so the journal still balances.
         if (sub.signum() > 0 || tax.signum() > 0) {
             if (sub.signum() > 0 || discount.signum() > 0) lines.add(cr(SALES, sub.add(discount)));
             if (tax.signum() > 0) lines.add(cr(TAX, tax));
         } else {
-            lines.add(cr(SALES, grand.add(discount)));
+            lines.add(cr(SALES, grand.subtract(ship).add(discount)));
         }
-        post("SALE", r.getDate(), r.getRef(), lines);
-
-        BigDecimal cost = nz(r.getCost());   // COGS side (accrual, using the captured line cost)
-        if (cost.signum() > 0) post("SALE", r.getDate(), r.getRef(), List.of(dr(COGS, cost), cr(INVENTORY, cost)));
+        if (ship.signum() > 0) lines.add(cr(DELIVERY_INCOME, ship));
+        return lines;
     }
 
     private void postPurchase(PostEventRequest r) {

@@ -56,7 +56,7 @@ public class DocumentProfileValidator {
     /** Mirrors TOTAL_ROWS in receipt.js. */
     private static final Set<String> TOTAL_ROWS = Set.of(
             "itemCount", "qtyTotal", "bonusTotal", "valueTotal", "discountTotal", "subTotal", "taxTotal",
-            "tradeDiscount", "grandTotal", "amountInWords", "paidBy", "tendered", "change",
+            "tradeDiscount", "shippingFee", "grandTotal", "amountInWords", "paidBy", "tendered", "change",
             "storeCredit", "storeCreditBalance", "due", "previousBalance", "currentBalance");
 
     private static final Set<String> PAPERS = Set.of("A4", "A5", "80mm", "58mm");

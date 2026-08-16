@@ -41,4 +41,18 @@ public class PostingEventRequest {
 
     private BigDecimal storeCredit; // store credit portion: on SALE = redeemed (Dr 2200 not Cash); on SALE_RETURN =
                                     // issued (Cr 2200 not Cash). Null/0 = the classic cash posting (no regression).
+
+    /**
+     * Delivery charged to the customer on this sale → Cr 4300 Delivery Income.
+     *
+     * <p>It rides in {@code grandTotal} (the customer owes it) but deliberately NOT in {@code subTotal} or
+     * {@code taxTotal}: delivery is not goods and is not taxed, so folding it into either would overstate the
+     * revenue line and put a phantom entry in the tax register.
+     *
+     * <p>Its own account rather than more Sales, because a shop that cannot separate delivery income from
+     * goods income cannot tell whether its delivery operation pays for itself.
+     *
+     * <p>Null/zero on every counter sale, which leaves their journals byte-for-byte unchanged.
+     */
+    private BigDecimal shippingFee;
 }

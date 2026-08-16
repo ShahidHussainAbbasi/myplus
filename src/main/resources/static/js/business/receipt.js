@@ -234,6 +234,9 @@
         taxTotal:        { key: null, dynamicLabel: function (c) { return c.taxLabel; },
                            resolve: function (c) { return (c.inv.taxTotal != null && num(c.inv.taxTotal) > 0) ? money(c.inv.taxTotal) : ''; } },
         tradeDiscount:   { key: 'ui.js.docTradeDiscount',  resolve: function (c) { return c.inv.tradeDiscount != null ? money(c.inv.tradeDiscount) : ''; } },
+        // V39: delivery charged to the customer. Added after tax and already inside grandTotal, so a document
+        // that shows subtotal + tax + delivery adds up; a counter sale has none and the row renders empty.
+        shippingFee:     { key: 'ui.js.docShippingFee',    resolve: function (c) { return c.inv.shippingFee != null ? money(c.inv.shippingFee) : ''; } },
         grandTotal:      { key: 'ui.js.docGrandTotal', strong: true,
                            resolve: function (c) { return (c.inv.currencySymbol || '') + moneyG(c.grand); } },
         amountInWords:   { key: 'ui.js.docAmountInWords', wide: true,

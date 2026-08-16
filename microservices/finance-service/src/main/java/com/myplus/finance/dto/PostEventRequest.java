@@ -27,4 +27,10 @@ public class PostEventRequest {
     private BigDecimal storeCredit;   // SALE = redeemed (Dr 2200); SALE_RETURN = issued (Cr 2200); null/0 = cash posting
     /** B2B-P4b / D-4: whole-document trade discount → Dr 4200 Sales Discount (contra-revenue), Sales stays gross. */
     private BigDecimal discountTotal;
+    /**
+     * Delivery charged to the customer → Cr 4300 Delivery Income. Included in {@code grandTotal} but NOT in
+     * {@code subTotal} or {@code taxTotal}: it is not goods and it is not taxed, so it must not inflate the
+     * revenue line or the tax register. Null/0 = no delivery, which is every counter sale.
+     */
+    private BigDecimal shippingFee;
 }

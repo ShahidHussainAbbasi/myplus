@@ -44,6 +44,32 @@ public class GlOutbox implements com.myplus.common.outbox.OutboxEntry {
     @Column(name = "store_credit", precision = 19, scale = 2)
     private BigDecimal storeCredit;
 
+    /**
+     * Whole-document concession → Dr 4200 Sales Discount (V40).
+     *
+     * <p><b>This column is the reason D-4 never worked.</b> The posting rule in finance has debited 4200
+     * since D-4 shipped, and business-service has passed {@code .discountTotal(ch.getTradeDiscount())} to
+     * {@code enqueue} ever since — but the outbox is a PERSISTED table, and it had no column to put the value
+     * in. {@code enqueue} silently dropped it and {@code toReq} rebuilt the event without it, so finance
+     * always received zero and 4200 stayed empty across every tenant.
+     *
+     * <p>The lesson worth keeping: an outbox that rebuilds its payload from named columns is a place where a
+     * new field is dropped in SILENCE. Nothing fails; the number is just quietly gone.
+     */
+    @Column(name = "discount_total", precision = 19, scale = 2)
+    private BigDecimal discountTotal;
+
+    /**
+     * Delivery charged to the customer → Cr 4300 Delivery Income (V40).
+     *
+     * <p>Unlike the discount, dropping this one does not fail quietly: delivery rides inside
+     * {@code grandTotal} but not inside {@code subTotal}/{@code taxTotal}, so an event without it produces a
+     * journal short by exactly the fee, which {@code GlService.validate} rejects — the sale posts NO journal
+     * at all. Losing the number loudly turned out to be more useful than losing it silently.
+     */
+    @Column(name = "shipping_fee", precision = 19, scale = 2)
+    private BigDecimal shippingFee;
+
     @Column(length = 30)
     private String method;
 

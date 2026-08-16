@@ -55,6 +55,10 @@ public class GlService {
             // side is DEBIT — a discount REDUCES income while keeping gross Sales at the invoices' face value.
             // ensureDefaults() backfills it into charts seeded earlier, the same way 2200 Store Credit arrived.
             {"4200", "Sales Discount", AccountType.INCOME, NormalSide.DEBIT},
+            // Delivery charged to the customer gets its own income line rather than being merged into Sales:
+            // a shop that cannot separate delivery income from goods income cannot tell whether its delivery
+            // operation pays for itself. Backfilled by ensureDefaults() the same way 2200 and 4200 arrived.
+            {"4300", "Delivery Income", AccountType.INCOME, NormalSide.CREDIT},
             {"5000", "Cost of Goods Sold", AccountType.EXPENSE, NormalSide.DEBIT},
             {"5100", "Purchases / Expenses", AccountType.EXPENSE, NormalSide.DEBIT},
     };

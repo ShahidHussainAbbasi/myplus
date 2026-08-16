@@ -518,6 +518,7 @@ public class SellController {
 			// buyer's channel (a trade account books an invoice, a walk-in gets a till slip); this only
 			// carries the org's OVERRIDE of that rule, plus the letterhead and the printed wording.
 			out.setTradeDiscount(ch.getTradeDiscount());     // B2B-P3g (V35): invoice-level concession
+			out.setShippingFee(ch.getShippingFee());         // V39: delivery, added after tax — must print
 			out.setBookedByName(ch.getBookedByName());       // stamped at write, never resolved at print
 			// B2B-P4b: the buyer's PO, carried from the quote. It must reach the PRINTED invoice — that is the
 			// number their accounts-payable clerk matches against their own purchase order.
@@ -960,6 +961,11 @@ public class SellController {
 			// GL edit adjustment: capture the OLD invoice + COGS BEFORE it's recomputed.
 			java.math.BigDecimal oldGrand = nzbd(ch.getGrandTotal()), oldSub = nzbd(ch.getSubTotal()),
 					oldTax = nzbd(ch.getTaxTotal()), oldPaid = nzbd(ch.getPaidAmount());
+			// V39: the whole-document legs of the posting being reversed. The reversal has to mirror what the
+			// sale actually posted — Sales was credited at the GROSS goods value with the concession debited to
+			// 4200, and delivery was credited to 4300 — so a reversal that omits them leaves both accounts
+			// holding a stale balance and, because delivery sits inside grandTotal, does not balance at all.
+			java.math.BigDecimal oldDiscount = nzbd(ch.getTradeDiscount()), oldShipping = nzbd(ch.getShippingFee());
 			java.math.BigDecimal oldCost = java.math.BigDecimal.ZERO;
 			for (Sell o : oldLines)
 				oldCost = oldCost.add(nzbd(o.getCostPrice()).multiply(java.math.BigDecimal.valueOf(o.getQuantity() != null ? o.getQuantity() : 0f)));
@@ -988,10 +994,13 @@ public class SellController {
 				if (oldGrand.signum() > 0)
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
-							.grandTotal(oldGrand).subTotal(oldSub).taxTotal(oldTax).cost(oldCost).paidAmount(oldPaid).method(mode).build());
+							.grandTotal(oldGrand).subTotal(oldSub).taxTotal(oldTax).cost(oldCost).paidAmount(oldPaid)
+							.discountTotal(oldDiscount).shippingFee(oldShipping)   // reverse what the sale posted
+							.method(mode).build());
 				glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 						.eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
 						.grandTotal(nzbd(ch.getGrandTotal())).subTotal(nzbd(ch.getSubTotal())).taxTotal(nzbd(ch.getTaxTotal()))
+						.discountTotal(nzbd(ch.getTradeDiscount())).shippingFee(nzbd(ch.getShippingFee()))
 						.cost(newCost).paidAmount(nzbd(ch.getPaidAmount())).method(mode).build());
 			} catch (Exception glEx) {
 				LOGGER.warn(this.getClass().getName() + " > updateSell GL adjustment enqueue failed (edit applied)", glEx);
@@ -1164,10 +1173,32 @@ public class SellController {
 					subTotal = subTotal.add(nzbd(s.getTotalAmount()));
 					taxTotal = taxTotal.add(nzbd(s.getTaxAmount()));
 				}
-				java.math.BigDecimal grandTotal = subTotal.add(taxTotal);
-				ch.setSubTotal(subTotal);
+				// V39 — the two whole-document figures must survive a PARTIAL return, each in its own way.
+				// Recomputing the header from the surviving lines alone silently dropped both: the customer
+				// stopped owing a delivery fee for goods that HAD been delivered, and a concession they were
+				// granted simply disappeared, quietly increasing what they owed.
+				//
+				//  • DELIVERY is retained in full. The van went out; a shop that refunds the carriage because
+				//    one of six items came back is paying to be returned to.
+				//  • The CONCESSION follows the goods, pro-rata — the same rule the line adjustment above uses.
+				//    Keeping it whole would over-credit a customer who returned most of the order; dropping it
+				//    would charge them list price for goods they were given a discount on.
+				java.math.BigDecimal priorDiscount = nzbd(ch.getTradeDiscount());
+				java.math.BigDecimal shippingKept  = nzbd(ch.getShippingFee());
+				java.math.BigDecimal keptDiscount  = java.math.BigDecimal.ZERO;
+				if (priorDiscount.signum() > 0) {
+					// Gross goods BEFORE this return: the header's subTotal is already net of the concession.
+					java.math.BigDecimal priorGross = nzbd(ch.getSubTotal()).add(priorDiscount);
+					keptDiscount = priorGross.signum() == 0 ? java.math.BigDecimal.ZERO
+							: priorDiscount.multiply(subTotal).divide(priorGross, 2, java.math.RoundingMode.HALF_UP);
+					if (keptDiscount.compareTo(subTotal) > 0) keptDiscount = subTotal;   // never a negative invoice
+				}
+
+				java.math.BigDecimal grandTotal = subTotal.subtract(keptDiscount).add(taxTotal).add(shippingKept);
+				ch.setSubTotal(subTotal.subtract(keptDiscount));
 				ch.setTaxTotal(taxTotal);
 				ch.setGrandTotal(grandTotal);
+				ch.setTradeDiscount(keptDiscount.signum() > 0 ? keptDiscount : null);
 
 				// SF-5: reconcile the header payment against the new total. If the return leaves the invoice
 				// OVERPAID (paidAmount > grandTotal), refund exactly that overpayment (cash back to the customer,

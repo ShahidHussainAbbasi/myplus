@@ -1,6 +1,7 @@
 package com.myplus.business_service.service;
 
 import com.myplus.business_service.dto.TaxSettingDTO;
+import com.myplus.commerce.domain.TaxMath;
 import com.myplus.business_service.entity.TaxMode;
 import com.myplus.business_service.entity.TaxSetting;
 import com.myplus.business_service.repository.TaxSettingRepo;
@@ -22,7 +23,6 @@ import java.math.RoundingMode;
 public class TaxService {
 
     static final int SCALE = 2;
-    static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 
     private final TaxSettingRepo taxSettingRepo;
 
@@ -47,33 +47,23 @@ public class TaxService {
         return taxSettingRepo.save(s);
     }
 
+    // ── The arithmetic now lives ONCE, in commerce-domain's TaxMath ──────────────────────────────────
+    //
+    // These two stay as the service's public API (SagaSellService and the purchase paths call them) but
+    // they no longer own the maths. The storefront checkout used to carry its own copy of this logic and
+    // drifted from it — no tenant switch, no org default, no INCLUSIVE branch — so a shop with tax OFF was
+    // quoted a taxed total its own invoice then contradicted. A duplicated RULE is worse than a duplicated
+    // function: with one implementation behind both, the books and every channel cannot disagree again.
+
     /** Resolve the rate to apply: the product's own rate, else the org default. Never null/negative. */
     public static BigDecimal resolveRate(BigDecimal productRate, TaxSetting setting) {
-        BigDecimal rate = (productRate != null && productRate.signum() > 0)
-                ? productRate
-                : (setting != null && setting.getDefaultRate() != null ? setting.getDefaultRate() : BigDecimal.ZERO);
-        return rate.signum() < 0 ? BigDecimal.ZERO : rate;
+        return TaxMath.resolveRate(productRate, setting != null ? setting.getDefaultRate() : null);
     }
 
     /** Compute tax for one line given the line amount (after discount), the rate (%) and the mode. */
     public static TaxResult compute(BigDecimal lineAmount, BigDecimal rate, TaxMode mode) {
-        BigDecimal amount = lineAmount != null ? lineAmount : BigDecimal.ZERO;
-        BigDecimal r = (rate != null && rate.signum() > 0) ? rate : BigDecimal.ZERO;
-        if (r.signum() == 0) {
-            BigDecimal net = scale(amount);
-            return new TaxResult(net, BigDecimal.ZERO, BigDecimal.ZERO, net);
-        }
-        if (mode == TaxMode.INCLUSIVE) {
-            // price already includes tax: net = gross / (1 + r/100); tax = gross - net
-            BigDecimal gross = scale(amount);
-            BigDecimal divisor = BigDecimal.ONE.add(r.divide(HUNDRED, 6, RoundingMode.HALF_UP));
-            BigDecimal net = gross.divide(divisor, SCALE, RoundingMode.HALF_UP);
-            return new TaxResult(net, r, gross.subtract(net), gross);
-        }
-        // EXCLUSIVE: tax on top
-        BigDecimal net = scale(amount);
-        BigDecimal tax = net.multiply(r).divide(HUNDRED, SCALE, RoundingMode.HALF_UP);
-        return new TaxResult(net, r, tax, net.add(tax));
+        TaxMath.TaxAmounts a = TaxMath.compute(lineAmount, rate, mode == TaxMode.INCLUSIVE);
+        return new TaxResult(a.net(), a.rate(), a.tax(), a.gross());
     }
 
     /** Line tax honouring the org switch: when tax is disabled, the whole amount is net with zero tax. */

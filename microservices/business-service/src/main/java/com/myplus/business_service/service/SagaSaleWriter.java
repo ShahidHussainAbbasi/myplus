@@ -91,16 +91,47 @@ public class SagaSaleWriter {
             taxTotal = taxTotal.add(lineTax);
             grandTotal = grandTotal.add(lineGross);
         }
-        ch.setSubTotal(subTotal);
+        // ── Whole-document adjustments: the concession comes OFF, the delivery goes ON ──────────────────────
+        //
+        // Both must land in subTotal/grandTotal here, because this is the only place the invoice's figures are
+        // derived. Storing them beside a total computed without them is how a document ends up disagreeing
+        // with itself.
+        //
+        //   subTotal   = Σ goods ex-tax − discount        (net of the concession, like the quote's subTotal)
+        //   grandTotal = Σ goods incl-tax − discount + shipping
+        //
+        // WHY the discount reduces the total rather than only being recorded beside it: the customer owes the
+        // discounted figure — that is the whole point of granting one. `SalesQuoteService.recomputeTotals`
+        // already nets it (`sub − tradeDiscount`), and `PostingService.postSale` states the same expectation
+        // in its balance ("the customer owes the discounted figure, that is `grand`"). This method was the odd
+        // one out: it STORED the concession and charged the gross, so a quote accepted at 850 converted into
+        // an invoice for 1000 and the journal credited Sales for 1150. No invoice in the database has ever
+        // carried a trade discount, so nothing already booked is affected — but the path was wrong.
+        //
+        // WHY shipping is added after tax and left out of subTotal: delivery is not goods and is not taxed
+        // here. The storefront quote prices it the same way, and taxing it on only one of the two sides is
+        // exactly the quote-vs-invoice disagreement this work exists to remove.
+        // Both fall back to what the invoice already carries. An EDIT that does not resend them must keep
+        // them: sourcing only from the DTO would silently drop a concession or a delivery charge the moment a
+        // cashier changed a quantity, and the totals would then disagree with the values still stored on the
+        // header. Same rule the customer PO reference follows below.
+        java.math.BigDecimal docDiscount = nz(dto.getTradeDiscount() != null
+                ? dto.getTradeDiscount() : ch.getTradeDiscount()).max(java.math.BigDecimal.ZERO);
+        if (docDiscount.compareTo(subTotal) > 0) docDiscount = subTotal;   // never a negative invoice
+        java.math.BigDecimal shipping = nz(dto.getShippingFee() != null
+                ? dto.getShippingFee() : ch.getShippingFee()).max(java.math.BigDecimal.ZERO);
+
+        ch.setSubTotal(subTotal.subtract(docDiscount));
         ch.setTaxTotal(taxTotal);
-        ch.setGrandTotal(grandTotal);
+        ch.setGrandTotal(grandTotal.subtract(docDiscount).add(shipping));
+        // Store the APPLIED figures, not the requested ones — the clamp above can reduce the discount, and a
+        // receipt that printed a concession larger than the one actually taken off would not add up.
+        ch.setTradeDiscount(docDiscount.signum() > 0 ? docDiscount : null);
+        ch.setShippingFee(shipping.signum() > 0 ? shipping : null);
+        grandTotal = ch.getGrandTotal();   // settlement below owes the ADJUSTED figure, not the goods total
         // Stamp the store on a NEW invoice only; an edit keeps the store it was raised at, even if the editor's
         // active store differs (re-homing a sale to another store would silently move the money between them).
         if (!replaceLines && ch.getStoreId() == null) ch.setStoreId(user.getActiveLocationId());
-
-        // B2B-P3g: the invoice-level trade discount, as submitted. Distinct from the per-line discounts
-        // above — a distribution invoice settles a whole-order concession at the foot of the document.
-        if (dto.getTradeDiscount() != null) ch.setTradeDiscount(dto.getTradeDiscount());
 
         // B2B-P4b: the buyer's PO reference, carried from the quote. Only set when supplied, so a till sale
         // (which has no PO) is unaffected and an edit that omits it cannot blank an issued invoice's reference.
