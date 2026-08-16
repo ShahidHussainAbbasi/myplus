@@ -30,6 +30,27 @@ Cypress.Commands.overwrite('visit', (originalFn, ...args) => {
         'transition-duration:0s !important;transition-delay:0s !important;}'
       doc.head.appendChild(style)
     }
+
+    // Neutralise the post-sale AUTO-PRINT, which otherwise FREEZES THE WHOLE RUN.
+    //
+    // A successful `addSell` calls `printReceipt(invoiceNo)` (main.js) whenever `pos.receipt.autoPrint` is
+    // on — it is on by default. That renders the receipt into a hidden iframe and calls
+    // `frame.contentWindow.print()` (receipt.js). **`window.print()` is synchronous and blocking**: it
+    // opens the browser's print dialog and halts the main thread until a human dismisses it, and in an
+    // automated browser nobody ever does.
+    //
+    // The symptom was brutal to read, which is why it cost so long: the sale SUCCEEDS first (the invoice is
+    // written — INV-000220 landed mid-freeze), so the server looks healthy; then the event loop stops, so
+    // **no Cypress timeout can fire either** and the spec neither fails nor finishes. No error, no
+    // screenshot, just silence — `pos-quickpick`, `sell-edit` and `pos-sale-endtoend` each hung 12+ minutes.
+    // `sell.cy.js` passes because its cases stop short of completing a sale.
+    //
+    // This is NOT a product defect: auto-printing a receipt is exactly what a till should do. So it is
+    // neutralised HERE rather than changed in the app. Stubbed as a no-op FUNCTION because three specs
+    // assert `typeof printReceipt === 'function'` (they check the script is loaded, never that it prints).
+    try { win.print = function () {} } catch (e) { /* some browsers make print non-writable */ }
+    win.printReceipt = function () {}
+
     return win
   })
 })
