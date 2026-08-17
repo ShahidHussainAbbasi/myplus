@@ -503,9 +503,9 @@ function loadCartLineIntoForm(line){
 	// M4e.1b (slice 98): (re)load the catalog-product picker (value = productId), then select THIS line by its
 	// productId. The first-edit race (picker not yet populated) is handled by reloading here. If the product isn't in
 	// the list (e.g. deleted â†’ orphaned sale), inject a one-off option so the sale stays editable.
-	$.get(serverContext + "catalogProducts?size=2000", function(resp){
-		var list = (resp && resp.data && resp.data.content) ? resp.data.content
-		         : (Array.isArray(resp && resp.data) ? resp.data : []);
+	// EVERY page, not one big one: ?size=2000 sat exactly on Spring's max-page-size, so a tenant
+	// past the cap silently lost products from this picker (see js/common/paged-fetch.js).
+	PagedFetch.all("catalogProducts", function(list){
 		var html = "<option value=''>Nothing Selected</option>";
 		list.forEach(function(p){
 			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker — not sellable/purchasable
@@ -1905,9 +1905,9 @@ function loadUserItemUnits(table) {
 function loadUserItems(table) {
 	// M4e.1b (slice 98): the sell/purchase picker lists catalog PRODUCTS (value = productId) sourced from the catalog
 	// master — not the local Item table. data-product carries the same productId so the cart submits productId-native.
-	$.get(serverContext + "catalogProducts?size=2000", function(resp){
-		var list = (resp && resp.data && resp.data.content) ? resp.data.content
-		         : (Array.isArray(resp && resp.data) ? resp.data : []);
+	// EVERY page, not one big one: ?size=2000 sat exactly on Spring's max-page-size, so a tenant
+	// past the cap silently lost products from this picker (see js/common/paged-fetch.js).
+	PagedFetch.all("catalogProducts", function(list){
 		var html = "<option value=''>Nothing Selected</option>";
 		list.forEach(function(p){
 			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker — not sellable/purchasable
@@ -1921,8 +1921,8 @@ function loadUserItems(table) {
 		$dd.empty().append(html);
 		if (keep) $dd.val(keep);
 		if($dd.data('selectpicker')) $dd.selectpicker('refresh');
-	})
-	.fail(function() {
+	}, function() {
+		// onFail: PagedFetch.all is not a jqXHR, so the old .fail() chain moves in here.
 		$("#"+table+"ItemDD").empty().append("<option value = ''> System error  </option>");
 	});
 }
@@ -2651,6 +2651,7 @@ function resetPurchaseForm(){
 function newPurchase(){
 	resetForm();
 	resetPurchaseForm();
+	assertPurchaseFieldsAccounted();   // names any field that would silently go sticky
 	$('#purchaseId').val('');
 	$('#PurchaseModalTitle').text('New Purchase');
 	purchaseAddAnother = false;   // P6: a fresh bill starts with no pending "add another" intent
@@ -2674,18 +2675,61 @@ function newPurchase(){
 var purchaseAddAnother = false;   // which button submitted the form (consumed once, in afterSavePurchase)
 var purchaseLineCount  = 0;       // lines saved onto the bill currently open
 
-// Fields cleared between lines. This is an explicit list rather than "clear everything except a
-// keep-list", and the direction matters: a field added later will fail by NOT clearing (a visible
-// annoyance) instead of by silently going sticky (which, for a payment field, repeats money).
+// Fields cleared between lines, listed explicitly.
+//
+// ⚠ NOTE ON THE DIRECTION, corrected 2026-08-17. An earlier comment here claimed this list was the
+// safer choice because "a field added later will fail by NOT clearing (a visible annoyance) instead
+// of by silently going sticky". Those are the same outcome: a field this list does not name is
+// retained, which IS going sticky. The default here is therefore the UNSAFE one, and the proof is a
+// line below — `purchasePaid` had to be added by hand precisely to stop a payment repeating per line.
+//
+// The register screens (Customer/Vender/Company/Product) use the opposite polarity — clear everything
+// except a declared keep-list, so a new field starts out CLEARED. See registerAddAnother() in
+// crud-modal.js. This list is not flipped to match because the purchase flow is gated by 28 Cypress
+// cases and has no live defect (every field on the form today is accounted for); instead
+// assertPurchaseFieldsAccounted() below makes an unaccounted field announce itself.
 var PURCHASE_LINE_FIELDS = [
 	'purchaseId', 'purchaseItemDesc', 'purchaseQuantity', 'purchasePurchaseRate', 'purchaseSellRate',
 	'purchaseBatchNo', 'purchaseExpiry', 'purchaseTaxRate', 'purchaseTotalAmount', 'purchaseNetAmount',
-	'purchaseTotalAmountOut', 'purchaseStock',
+	'purchaseStock',
 	// purchasePaid is NOT a header field despite looking like one. Its placeholder is "Blank = paid in
 	// full (cash)", so carrying a typed value onto the next line posts that payment again and credits
 	// the vendor once per line. Everything else in this list is convenience; this one is money.
 	'purchasePaid'
 ];
+
+// The fields that SURVIVE a line deliberately — the bill header. Declared so the two sets together
+// account for the whole form, which is what makes the check below possible.
+var PURCHASE_HEADER_FIELDS = [
+	'purchaseVenderDD', 'purchaseInvoiceNo', 'purchaseDate', 'purchaseItemDD', 'purchaseVendorDues'
+];
+
+/**
+ * Fail LOUDLY when a field is neither cleared nor a declared header field.
+ *
+ * With a clear-list, adding a field to the form silently makes it sticky, and "sticky" on this form
+ * has already meant repeating a payment. This turns that into a named console warning the first time
+ * the modal is used, so the omission is discovered while someone is looking at the form rather than
+ * from a vendor's statement.
+ */
+function assertPurchaseFieldsAccounted() {
+	var box = document.getElementById('PurchaseModal');
+	if (!box || !global_consoleWarnOnce) return;
+	var unaccounted = [];
+	$(box).find('input, select, textarea').each(function () {
+		var id = this.id;
+		if (!id || this.type === 'button' || this.type === 'submit' || this.type === 'reset') return;
+		if (PURCHASE_LINE_FIELDS.indexOf(id) >= 0 || PURCHASE_HEADER_FIELDS.indexOf(id) >= 0) return;
+		unaccounted.push(id);
+	});
+	if (unaccounted.length) {
+		global_consoleWarnOnce = false;
+		console.warn('Purchase "Save & Add Another": these fields are neither cleared nor declared '
+			+ 'header fields, so they will go STICKY between lines — ' + unaccounted.join(', ')
+			+ '. Add each to PURCHASE_LINE_FIELDS or PURCHASE_HEADER_FIELDS in business.js.');
+	}
+}
+var global_consoleWarnOnce = true;
 
 /**
  * Post-save hook consumed by $.fn.callAjax in main.js. Returning TRUE means "this module handled the

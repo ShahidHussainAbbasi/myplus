@@ -569,13 +569,23 @@ docker exec -e MYSQL_PWD=verify verify-mysql mysql -uroot -N -e \
   "SELECT table_schema, COUNT(*) FROM information_schema.tables
    WHERE table_schema LIKE 'myplusdb%' GROUP BY table_schema;"
 docker exec -e MYSQL_PWD=verify verify-mysql mysql -uroot -N -e \
-  "SELECT COUNT(*) FROM myplusdb_auth.users;"
+  "SELECT 'auth.users',        COUNT(*) FROM myplusdb_auth.users
+   UNION ALL SELECT 'business.customer', COUNT(*) FROM myplusdb.customer
+   UNION ALL SELECT 'business.sell',     COUNT(*) FROM myplusdb.sell
+   UNION ALL SELECT 'catalog.products',  COUNT(*) FROM myplusdb_catalog.products
+   UNION ALL SELECT 'education.student', COUNT(*) FROM myplusdb_education.student;"
 
 docker rm -f verify-mysql
 ```
 
-Expect ~16 schemas and a non-zero user count. **The table is `users`, plural** — `myplusdb_auth.user`
-errors out, and an error scrolling past reads a lot like the clean result you were hoping for. **Count rows, never trust size** — a freshly initialised
+Expect 16 schemas and five non-zero counts. **Run against a real backup 2026-08-17** — restore exit 0,
+16 schemas, and `auth.users 70 · business.customer 885 · business.sell 689 · catalog.products 1518 ·
+education.student 118`. Your numbers differ; that they are non-zero is the point.
+
+> **Watch the table names, and read the output.** They are `users` (not `user`) and
+> `myplusdb_catalog.products` (not `product`). Get one wrong and MySQL aborts the **whole `UNION`**, so
+> you get no counts at all — and a single error line scrolling past reads a lot like the clean result you
+> were hoping for. That is exactly how this drill can "pass" while proving nothing. **Count rows, never trust size** — a freshly initialised
 empty MySQL is ~200 MB and is indistinguishable from a full one by `du` alone. That single confusion
 caused both August 2026 incidents.
 
@@ -632,7 +642,11 @@ docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -N -e \
   "SELECT table_schema, COUNT(*) FROM information_schema.tables
    WHERE table_schema LIKE 'myplusdb%' GROUP BY table_schema ORDER BY table_schema;"   # expect 16 rows
 docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -N -e \
-  "SELECT COUNT(*) FROM myplusdb_auth.users;"                                          # expect non-zero
+  "SELECT 'auth.users',        COUNT(*) FROM myplusdb_auth.users
+   UNION ALL SELECT 'business.customer', COUNT(*) FROM myplusdb.customer
+   UNION ALL SELECT 'business.sell',     COUNT(*) FROM myplusdb.sell
+   UNION ALL SELECT 'catalog.products',  COUNT(*) FROM myplusdb_catalog.products;"     # all non-zero
+# A wrong table name aborts the WHOLE union and prints one error line. Read the output.
 
 # 7. Restore .env from the same point in time if secrets were lost (§8.1), check out the
 #    matching SHA if the dump predates a migration, then start the stack.

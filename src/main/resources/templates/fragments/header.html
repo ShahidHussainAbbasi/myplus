@@ -130,6 +130,10 @@
         <script th:src="@{/js/common/lang-switcher.js}"></script>
         <!-- The self-rendering Configuration screen, shared by all four dashboards. -->
         <script th:src="@{/js/common/settings-form.js}"></script>
+        <!-- Reads a COMPLETE Spring Data page set. Callers used to ask for one huge page (?size=2000),
+             which Spring silently clamps to max-page-size — so a tenant past the cap lost products from
+             every picker with no error at all. Must precede the module scripts that use it. -->
+        <script th:src="@{/js/common/paged-fetch.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing
              AJAX call, so jQuery $.post/$.ajax pass Spring Security's CSRF check. -->
         <script>

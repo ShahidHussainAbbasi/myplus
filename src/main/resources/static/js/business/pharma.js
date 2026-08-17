@@ -23,13 +23,12 @@
     // M5 (slice 100): the medicine picker lists catalog PRODUCTS (value = productId) — the single Product master,
     // not the local business Item table. Shared by the prescription + clinical pickers.
     function loadMedicineOptions(selectSel) {
-        $.get(serverContext + 'catalogProducts?size=2000', function (resp) {
-            var list = (resp && resp.data && resp.data.content) ? resp.data.content
-                     : (Array.isArray(resp && resp.data) ? resp.data : []);
+        // Every page: a medicine missing from this list cannot be dispensed at all (paged-fetch.js).
+        PagedFetch.all('catalogProducts', function (list) {
             var html = "<option value=''>Select medicine</option>";
             list.forEach(function (p) { if (p.isActive === false) return; html += "<option value='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>"; });
             $(selectSel).html(html);
-        }).fail(function () { showFormError(t('ui.js.couldNotLoadMedicines')); });
+        }, function () { showFormError(t('ui.js.couldNotLoadMedicines')); });
     }
     function loadRxItemOptions() { loadMedicineOptions('#rxMedicine'); }
 

@@ -475,6 +475,64 @@
     global.editProduct = editProduct;
 
     // Submit: add a new product, or update the one being edited (hidden #productId set).
+    /* ------------------------------------------------------------------------------------------------
+     * Rapid cataloguing — "Save & Add Another".
+     *
+     * A register creates ONE record, so the shared post-save behaviour (wipe the form, close the modal)
+     * is right for it. Cataloguing is not that shape: a shipment is a run of products that share a
+     * brand, a category and a tax code, and the old flow made the operator re-open the modal and
+     * re-pick all three for every single item. Same argument, and the same solution, as P6 gave the
+     * purchase form.
+     *
+     * WHAT STAYS is the batch context — Manufacturer, Category, Tax code, Unit. WHAT CLEARS is what
+     * identifies the individual product. Getting that split wrong in either direction is the whole
+     * risk: clear too much and nothing is saved; keep too much and the next product silently inherits
+     * a price or an SKU that belongs to the last one.
+     * ---------------------------------------------------------------------------------------------- */
+    var productAddAnother = false;   // which button submitted (consumed once, in saveProduct's success)
+    var productSavedCount = 0;       // products catalogued into the run currently open
+
+    /** Clear ONLY what identifies this product; leave the batch context selected. */
+    function resetProductIdentityFields() {
+        $('#productId').val('');
+        ['prodName', 'prodSku', 'prodBarcode', 'prodPrice', 'prodDesc'].forEach(function (id) {
+            $('#' + id).val('');
+        });
+        $('#prodSku').removeClass('alert-danger');
+        $('#prodName').removeClass('alert-danger');
+        // Any name/SKU check still in flight belongs to a product that has now been saved.
+        formEpoch++;
+        markExistingRow(null);
+    }
+
+    /** Post-save when the operator chose "Save & Add Another": stay in the form, ready for the next one. */
+    function keepCataloguing() {
+        resetProductIdentityFields();
+
+        // Refresh the grid WITHOUT loadDataTable(): that rebuilds the DataTable and re-runs the
+        // section's dropdown preload, which would repaint Category/Manufacturer and throw away the
+        // selection this whole feature exists to keep.
+        try { if (typeof datatable !== 'undefined' && datatable) datatable.ajax.reload(null, false); } catch (e) {}
+        if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
+        if (typeof clearFormError === 'function') clearFormError();
+        if (typeof refreshProductIndex === 'function') refreshProductIndex();   // keep the dup-SKU check current
+
+        productSavedCount++;
+        $('#productSaveCount')
+            .text(t('ui.js.productsAddedCount').replace('{0}', productSavedCount))
+            .show();
+
+        $('#prodName').focus();   // the first field of the next product
+    }
+
+    // Set the intent, then run the SAME validated save path as Submit — never a second copy of it.
+    $(document).on('click', '#addProductAnother', function () {
+        // "Add another" is meaningless while EDITING an existing product: there is nothing to add
+        // another of, so fall through to the plain save-and-close.
+        productAddAnother = !$('#productId').val();
+        global.saveProduct();
+    });
+
     global.saveProduct = function () {
         if (!$('#prodName').val().trim()) { showFormError(t('ui.js.productNameIsRequired')); return; }
         var id = $('#productId').val();
@@ -508,6 +566,15 @@
             success: function (resp) {
                 if (resp && resp.success) {
                     showSaleSuccess(id ? 'Product updated.' : 'Product saved.');
+                    // Consume the intent exactly once, whatever we decide below, so it can never leak
+                    // into a later save (the same rule afterSavePurchase follows).
+                    var addAnother = productAddAnother;
+                    productAddAnother = false;
+
+                    if (addAnother) {
+                        keepCataloguing();
+                        return;
+                    }
                     resetProductForm();
                     closeModal('ProductModal');
                     loadDataTable();

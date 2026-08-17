@@ -118,9 +118,8 @@
     // ── lines ──────────────────────────────────────────────────────────────────────────────────────────────
 
     function loadProducts() {
-        $.get(serverContext + 'catalogProducts?size=2000', function (resp) {
-            var list = (resp && resp.data && resp.data.content) ? resp.data.content
-                : (Array.isArray(resp && resp.data) ? resp.data : []);
+        // Every page — a rep must be able to book ANY product, not the first 2000 (paged-fetch.js).
+        PagedFetch.all('catalogProducts', function (list) {
             state.products = list.filter(function (p) { return p.isActive !== false; });
             var html = '<option value="">' + esc(tr('ui.js.selectProduct', 'Select a product…')) + '</option>';
             state.products.forEach(function (p) {

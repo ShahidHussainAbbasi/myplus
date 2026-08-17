@@ -857,12 +857,19 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div class="form-group text-center">
+						<!-- Registering a run of records: keeps the modal open and retains only the BATCH
+						     CONTEXT (see registerAddAnother in crud-modal.js). #addCompany is unchanged, so
+						     single-record entry behaves exactly as before. -->
+						<button type="button" id="addCompanyAnother" class="btn btn-primary">
+							<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.saveAddAnother}">Save &amp; Add Another</span>
+						</button>
 						<button type="button" id="addCompany" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetCompany" class="btn btn-warning" onclick="closeModal('CompanyModal')">
 							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
+						<span id="CompanySaveCount" class="text-muted" style="display:none;margin-left:10px"></span>
 						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
@@ -966,12 +973,19 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div class="form-group text-center">
+						<!-- Registering a run of records: keeps the modal open and retains only the BATCH
+						     CONTEXT (see registerAddAnother in crud-modal.js). #addVender is unchanged, so
+						     single-record entry behaves exactly as before. -->
+						<button type="button" id="addVenderAnother" class="btn btn-primary">
+							<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.saveAddAnother}">Save &amp; Add Another</span>
+						</button>
 						<button type="button" id="addVender" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetVender" class="btn btn-warning" onclick="closeModal('VenderModal')">
 							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
+						<span id="VenderSaveCount" class="text-muted" style="display:none;margin-left:10px"></span>
 						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
@@ -1173,12 +1187,19 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div class="form-group text-center">
+						<!-- Registering a run of records: keeps the modal open and retains only the BATCH
+						     CONTEXT (see registerAddAnother in crud-modal.js). #addCustomer is unchanged, so
+						     single-record entry behaves exactly as before. -->
+						<button type="button" id="addCustomerAnother" class="btn btn-primary">
+							<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.saveAddAnother}">Save &amp; Add Another</span>
+						</button>
 						<button type="button" id="addCustomer" class="btn btn-success">
 							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetCustomer" class="btn btn-warning" onclick="closeModal('CustomerModal')">
 							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
+						<span id="CustomerSaveCount" class="text-muted" style="display:none;margin-left:10px"></span>
 						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>
@@ -2472,12 +2493,21 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodDesc"></div>
 					</div>
 					<div class="form-group text-center">
+						<!-- Cataloguing is repetitive in exactly the way receiving a delivery is: a run of products
+						     that share a brand, a category and a tax code. "Save & Add Another" keeps the modal open
+						     and retains those three (plus Unit), so only the identity fields — name, SKU, barcode,
+						     price, description — are retyped. Mirrors #addPurchaseAnother (P6); #addProduct keeps its
+						     original save-and-close behaviour byte-for-byte, so single-product entry cannot regress. -->
+						<button type="button" id="addProductAnother" class="btn btn-primary">
+							<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.saveAddAnother}">Save &amp; Add Another</span>
+						</button>
 						<button type="button" id="addProduct" class="btn btn-success" onclick="saveProduct()">
 							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
 						</button>
 						<button type="button" id="resetProduct" class="btn btn-warning" onclick="resetProductForm(); closeModal('ProductModal')">
 							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
 						</button>
+						<span id="productSaveCount" class="text-muted" style="display:none;margin-left:10px"></span>
 						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>

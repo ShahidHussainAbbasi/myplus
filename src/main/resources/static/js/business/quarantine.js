@@ -15,11 +15,12 @@
     };
 
     function loadProductNames(cb) {
-        $.get(serverContext + 'catalogProducts?size=1000', function (resp) {
-            var list = (resp && resp.data && resp.data.content) ? resp.data.content : [];
+        // Every page — this builds the id->name map, so a missed product shows as a bare id.
+        PagedFetch.all('catalogProducts', function (list) {
             nameById = {};
             list.forEach(function (p) { nameById[p.id] = p.name; });
-        }).always(function () { if (cb) cb(); });
+            if (cb) cb();          // .always() had to become an explicit call on BOTH paths
+        }, function () { if (cb) cb(); });
     }
 
     function loadQuarantine() {

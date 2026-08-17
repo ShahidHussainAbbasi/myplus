@@ -74,13 +74,35 @@ docker compose exec -T -e "MYSQL_PWD=$DB_PASSWORD" mysql \
     --routines --events --triggers \
   | gzip -9 > "$OUT"
 
-# A dump that failed midway still leaves a gzip file. Check it is a valid archive AND that it contains
-# the tenant data, so a broken backup is caught NOW and not on the day you need to restore it.
+# A dump that failed midway still leaves a gzip file. Three checks, cheapest first, so a broken backup is
+# caught NOW and not on the day you need to restore it.
+#
+# 1. Is it a valid archive at all?
 if ! gzip -t "$OUT" 2>/dev/null; then
   echo "FATAL: $OUT is not a valid gzip - the dump failed. Removing it." >&2
   rm -f "$OUT"; exit 1
 fi
-if ! zcat "$OUT" | grep -qm1 'CREATE DATABASE.*myplusdb'; then
+
+# 2. Did mysqldump actually FINISH? It writes "-- Dump completed on <date>" as its last line, and only on
+#    success - so this is the check that distinguishes a complete backup from one that died at 90%. The
+#    old version of this script never tested it: a dump truncated by a disk-full or a killed container
+#    passed every check and sat in the backup directory looking healthy.
+#    `tail` consumes the whole stream, so there is no early exit and no SIGPIPE (see 3).
+if ! zcat "$OUT" | tail -5 | grep -q 'Dump completed'; then
+  echo "FATAL: $OUT has no 'Dump completed' trailer - it is TRUNCATED. Removing it." >&2
+  rm -f "$OUT"; exit 1
+fi
+
+# 3. Does it contain the tenant data?
+#
+#    NOTE THE SUBSHELL WITH `set +o pipefail` - it is load-bearing, not decoration.
+#    `grep -qm1` exits the instant it finds a match, which hands `zcat` a SIGPIPE (exit 141). Under the
+#    `set -o pipefail` at the top of this script, that makes the PIPELINE report failure even though the
+#    match was found - so the guard concluded "no schema" and DELETED the backup it had just taken.
+#    It only misfires once the dump is large enough for grep to finish before zcat does, i.e. it passed
+#    on a small test database and destroyed the backup on a real one. Verified 2026-08-17 with a 983 KB
+#    archive: guard failed, `rm -f "$OUT"` fired.
+if ! ( set +o pipefail; zcat "$OUT" | grep -qm1 'CREATE DATABASE.*myplusdb' ); then
   echo "FATAL: $OUT contains no myplusdb schema - refusing to keep a useless backup." >&2
   rm -f "$OUT"; exit 1
 fi
