@@ -194,6 +194,24 @@ public class InternalSalesController {
             // The channel's quoted unit price. addSell still prices from catalog when this is absent, and applies
             // tax/discount rules on top either way.
             s.setSellRate(line.getUnitPrice());
+            // The per-line concession.
+            //
+            // It goes on the nested StockDTO, NOT on SellDTO.discount, because that is where the sale path
+            // reads it: resolveDiscount() looks at stock.bsellDiscount / bsellDiscountType and ignores the
+            // top-level field entirely. Setting the obvious-looking one would have shipped a discount that
+            // travelled the whole way and then did nothing.
+            //
+            // Type "0" = an absolute amount. resolveDiscount treats "%" and "1" as percentages and everything
+            // else as an amount, so sending 350.00 while the type still said percent would read as 350%.
+            //
+            // No new money logic here: buildLines already resolves the discount and taxes the DISCOUNTED base.
+            if (line.getDiscount() != null && line.getDiscount().signum() > 0) {
+                com.myplus.business_service.dto.StockDTO st = s.getStock() != null
+                        ? s.getStock() : new com.myplus.business_service.dto.StockDTO();
+                st.setBsellDiscount(line.getDiscount());
+                st.setBsellDiscountType("0");
+                s.setStock(st);
+            }
             s.setDescription(line.getDescription());
             sales.add(s);
         }

@@ -64,8 +64,39 @@ mvn -q -DskipTests clean install        # one reactor, all 22 modules — slow t
 cd .. ; mvn -q -DskipTests clean package        # monolith UI → target/myplus.jar
 ```
 
-Build only from a branch that compiles. `master` currently carries a Dependabot bump to Spring Boot
-4.1.0 that **does not compile**; 3.5.0 is the deployable line.
+### Which commit to deploy
+
+Build only from a branch that compiles. **`master` carries a Dependabot bump to Spring Boot 4.1.0 that
+does not compile** — 3.5.0 is the deployable line. As of 2026-08-17 the deployable branch is
+**`feature/UI-UX`**.
+
+**Tag the commit before you build, and deploy the tag.** A branch name moves; a tag does not, and the
+tag is what makes a rollback a one-line operation instead of an archaeology exercise:
+
+```bash
+git tag -a prod-$(date +%Y%m%d) -m "production deploy"
+git push origin prod-$(date +%Y%m%d)
+git rev-parse HEAD          # record this — backup-db.sh also captures it with every dump
+```
+
+> ### ⚠ Know what is gated and what is not
+>
+> `feature/UI-UX` HEAD contains work that has **passed** its Cypress gate and work that has **not**, with
+> no commit boundary between them: commit `1a5a4878` landed 53 files in one go, mixing O7 D4's green work
+> and PERF-1/3/3b's green work with **PERF-4 and O7 D5, which were built but never gated**.
+>
+> That is not a reason to stop — it is a reason to know which screens are unproven before customers find
+> them. Deploying ungated code is a decision to make deliberately, not one to discover afterwards. Either
+> gate those two first, or deploy and treat them as beta.
+
+Confirm the tree is clean before building, because the jars must correspond to the tag you just made:
+
+```bash
+git status --porcelain        # expect NO output
+```
+
+Uncommitted changes here mean the deployed jars match no commit at all, and the SHA recorded in your
+backups will not reproduce them.
 
 ## 3. Run everything
 
@@ -150,21 +181,39 @@ and binds MySQL to `127.0.0.1` only (so the VPS never exposes 3306 to the intern
 > CPU; the gateway can take 3+ minutes to answer its first probe. Compose gives up, aborts, and never
 > starts the monolith — then every service reports healthy a minute later.
 >
-> `start_period` is 240s (raised from 90s on 2026-08-05 for exactly this). If you still hit it, **check
-> before assuming a fault**:
+> `start_period` is 240s for the app services (`x-healthcheck`, raised from 90s on 2026-08-05 for exactly
+> this) and 120s for eureka/config (`x-bootstrap-healthcheck`, added 2026-08-16). If you still hit it,
+> **check before assuming a fault**:
 >
-> ```powershell
-> docker compose --profile full ps        # are they healthy NOW?
+> ```bash
+> docker ps -a --format 'table {{.Names}}\t{{.Status}}'   # healthy NOW? or stuck in Created?
 > ```
 >
-> If they are, only the monolith is missing — bring it up on its own, its dependency is now satisfied:
+> Whatever is left down, bring it up on its own — its dependency is satisfied by now:
 >
-> ```powershell
-> docker compose --profile full up -d monolith
+> ```bash
+> docker compose --profile full up -d
 > ```
 >
-> Read the service's log before restarting anything. A genuinely broken service shows a stack trace; a
-> slow one shows ordinary startup lines with 30–60s gaps between them. Those gaps are the tell.
+> Read the log before restarting anything. A genuinely broken service shows a stack trace; a slow one
+> shows ordinary startup lines with 30–60s gaps between them. Those gaps are the tell.
+>
+> ### `Created` is not a crash — and its own log is empty
+>
+> A container in **`Created`** never ran. Compose *refused to start it* because a `depends_on` was judged
+> unhealthy. So `docker logs` on it returns nothing, which reads like a silent crash and sends you
+> debugging the wrong container. Read the **dependency's** health log instead:
+>
+> ```bash
+> docker inspect myplus-config \
+>   --format '{{range .State.Health.Log}}{{.Start}} exit={{.ExitCode}} {{.Output}}{{end}}'
+> ```
+>
+> Two behaviours that make this confusing: a healthcheck failure does **not** trigger
+> `restart: unless-stopped`, so once a container is flagged unhealthy it stays flagged for its whole
+> life even after it starts answering normally — the stack can be entirely functional while compose
+> still refuses to start what was waiting. And **failures inside `start_period` are free**, so a
+> generous window costs nothing but a later verdict on something genuinely dead.
 
 ### Verify
 
@@ -180,24 +229,44 @@ failure, and it presents later as a confusing 500 from whichever module needed i
 registrations (everything except mysql, redis and config-server).
 
 **Confirm the schemas migrated.** Each service owns its schema via Flyway and applies it at startup, so a
-failed migration is the difference between "container up" and "app actually works":
+failed migration is the difference between "container up" and "app actually works". A container running a
+**stale jar** starts cleanly and passes its healthcheck — the schema version is the only place it shows.
 
 ```bash
-for db in myplusdb:36 myplusdb_catalog:8 myplusdb_pharma:6 myplusdb_inventory:5 \
-          myplusdb_auth:5 myplusdb_finance:4 myplusdb_party:3; do
-  docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
-    "SELECT '${db%%:*}', version FROM ${db%%:*}.flyway_schema_history
-      WHERE success=1 ORDER BY installed_rank DESC LIMIT 1;"
-done
+./verify-schemas.sh
 ```
 
-> **Do not use `MAX(version)` here.** `flyway_schema_history.version` is a **VARCHAR**, so `MAX()` compares
-> it lexically: a database sitting at V36 reports **`9`**, because the string `'9'` sorts above `'36'`. That
-> makes a fully-migrated schema look years out of date and sends you rebuilding jars that were fine.
-> Order by `installed_rank` (an integer, and the true apply order) instead.
+```
+SERVICE                DATABASE                   REPO   LIVE  STATUS
+business-service       myplusdb                    V40    V40  ok
+catalog-service        myplusdb_catalog             V8     V8  ok
+…
+All 16 schemas match this checkout.
+```
 
-Expected: business `36` · catalog `8` · pharma `6` · inventory `5` · auth `5` · finance `4` · party `3`.
-A lower number means that service is running a stale jar — rebuild (§2) before going further.
+Exit 0 means every database is at the version this checkout's migration files expect. It is read-only, so
+it is safe against production at any time, and it takes ~25s. Check one or two with
+`./verify-schemas.sh business catalog`.
+
+Four statuses matter:
+
+| Status | Meaning | Fix |
+|---|---|---|
+| `ok` | Schema matches the repo | — |
+| `STALE JAR` | The container is behind this checkout | Rebuild §2, `docker compose up -d --build <service>` |
+| `AHEAD` | The DB was written by **newer** code than this checkout | You are deploying a rollback. Flyway will refuse to validate — deploy the matching SHA |
+| `NO SCHEMA` / `FAILED migration(s)` | The service never started, or a migration errored | `docker compose logs <service> \| grep -i -A5 flyway` |
+
+> **Why a script and not a list of numbers.** This step used to carry hand-written expectations —
+> *"business 36, catalog 8, pharma 6…"*. That list went stale **four times**, and a stale expectation is
+> worse than none: it either waves through a genuinely stale deployment or sends you rebuilding jars that
+> were fine. `verify-schemas.sh` derives what to expect from the migration files on disk, so it cannot
+> drift from the repo — the same reasoning that moved the deployable service list into a compose profile.
+>
+> It also encodes the trap that keeps catching people: **never `MAX(version)`.**
+> `flyway_schema_history.version` is a **VARCHAR**, so `MAX()` compares lexically and a database at V40
+> reports **`9`** (the string `'9'` sorts above `'40'`). A fully-migrated schema looks years out of date.
+> Order by `installed_rank` — an integer, and the true apply order.
 
 ---
 
@@ -227,17 +296,29 @@ production.
 
 ## 5. Start-up order
 
-Compose staggers the stack into **tiers** via `depends_on` (changed 2026-08-05 — see below):
+Compose staggers the stack into **tiers** via `depends_on`. Verify it rather than trusting this diagram —
+it has drifted from the file before:
+
+```bash
+docker compose --profile full config --format json \
+  | python3 -c "import json,sys; d=json.load(sys.stdin)['services']; [print(f\"{n:24} <- {', '.join((s.get('depends_on') or {}).keys()) or '-'}\") for n,s in sorted(d.items())]"
+```
 
 ```
-tier 0  mysql · redis · eureka-server
-tier 1  config-server
-tier 2  api-gateway + the 8 core services (auth, notification, catalog, inventory,
-        business, finance, audit, party)
-tier 3  the 8 verticals (education, welfare, agriculture, pharma, marketplace,
-        campaign, analytics, appointment)
-tier 4  monolith
+tier 0  ( 3)  mysql · redis · eureka-server
+tier 1  ( 1)  config-server
+tier 2  ( 9)  api-gateway + the 8 core services (auth, notification, catalog,
+              inventory, business, finance, audit, party)
+tier 3  ( 9)  the 8 verticals (education, welfare, agriculture, pharma, marketplace,
+              campaign, analytics, appointment) + monolith
 ```
+
+> **Verified against the file 2026-08-17.** The tiering had been silently disabled at some point — eight
+> of the nine `api-gateway: service_healthy` lines were commented out, leaving one vertical waiting and
+> **19 JVMs starting simultaneously in tier 2**, which is precisely the herd the tiering exists to break
+> up. The monolith had no `depends_on` at all, so it was starting in **tier 0**: the UI accepted browser
+> traffic before MySQL, config-server or the gateway existed, and every request in that window failed as
+> a confusing 502 on the login page. Both restored.
 
 > ### Why the verticals wait on the gateway
 >
@@ -246,12 +327,27 @@ tier 4  monolith
 > JIT-compiled in parallel, starving each other. That is what made api-gateway take 193s to answer its
 > first probe and produce *"dependency failed to start: container myplus-gateway is unhealthy"*.
 >
-> Splitting into waves of 9 → 8 → 1 gives each wave the whole CPU. It costs nothing in capability: every
-> request routes through the gateway, so a vertical that starts before it is up serves no one.
+> Splitting into waves of 3 → 1 → 9 → 9 gives each wave the whole CPU. It costs nothing in capability:
+> every request routes through the gateway, so a vertical that starts before it is up serves no one.
 >
-> **Behaviour change:** if api-gateway never becomes healthy, the verticals now never start (previously
-> they started anyway and sat unreachable). That is a clearer failure, not a worse one — but it does mean
-> **the gateway is the single thing to diagnose first** when the full stack won't come up.
+> **Behaviour change:** if api-gateway never becomes healthy, the verticals never start (without the
+> tiering they started anyway and sat unreachable). That is a clearer failure, not a worse one — but it
+> does mean **the gateway is the single thing to diagnose first** when the full stack won't come up.
+>
+> ### The trap: do not "fix" a dependency failure by deleting the dependency
+>
+> When this fails it prints *"dependency failed to start"*, and the tempting fix is to comment the
+> `depends_on` out. That is backwards, and it is what had happened to eight of these nine lines.
+>
+> **The tiering and the gateway's boot time are coupled.** Tiering is what makes the gateway come up in
+> ~23s rather than ~193s. A gateway that boots in 23s makes this dependency trivially safe to hold.
+> Remove the tiering to dodge the dependency failure and you re-create the 193s boot that caused it —
+> the stack gets slower *and* the next `start_period` breach is more likely, not less.
+>
+> When a dependency-failed abort happens, the fault is almost always **one tier lower** than the message
+> names. On 2026-08-16 the message blamed api-gateway; the actual cause was `config-server` having no
+> `start_period`, being marked unhealthy on a cold box, and the gateway therefore never being started at
+> all. Read the health log of the thing that was *depended on*, not the thing that was reported.
 
 If you start services by hand, follow the same order.
 
@@ -310,6 +406,68 @@ cd /opt/myplus/microservices
 DB_PASSWORD="$(grep -m1 '^DB_PASSWORD=' .env | cut -d= -f2-)"
 ```
 
+### Find your situation
+
+Nobody reads a runbook top-to-bottom during an incident. Start here.
+
+| Situation | Go to | First, do NOT |
+|---|---|---|
+| Setting this up for the first time | **§8.0** | — |
+| About to deploy | **§8.4** — one command, takes seconds | deploy without it |
+| Routine: is my backup real? | **§8.3** — restore it to a scratch container | trust the file size |
+| **The app came up with no data** | **§8b** — you are probably on the wrong *volume*, nothing was deleted | run `down -v`, `volume prune`, or another `up`. Each makes the real volume harder to find |
+| Database is corrupt / wrong / genuinely empty, host is fine | **§8.5** | restore before dumping what is there now |
+| Someone ran a bad `DELETE` or a wrong bulk edit | **§8.7** — roll forward from the nightly dump to seconds before it | restore the nightly dump alone; you would discard everything since 02:30 |
+| One module's data is broken, the rest is healthy | **§8.6** — and read its caveat | assume it is safe just because it is smaller |
+| **The host itself is gone** | **§8.5b** — rebuild from dump + `.env` + SHA | start until you have confirmed you hold all three |
+| About to run a risky migration | **§8.8** — cold snapshot for a fast rollback, *plus* §8.4 | rely on the snapshot alone |
+
+**The one rule that covers all of them:** stop and identify before you act. Both August 2026 incidents
+began with a volume whose contents nobody had listed, and in neither case had anything actually been
+deleted.
+
+### 8.0 Day one — set this up before you take real traffic
+
+Six steps, once per host. Everything after this section assumes they are done. A backup plan that is
+described but not installed protects nothing, and the gap is invisible until the day it matters.
+
+```bash
+cd /opt/myplus/microservices
+
+# 1. Make both scripts executable (a fresh clone on Windows often loses the bit).
+chmod +x backup-db.sh verify-schemas.sh
+
+# 2. Prove a backup works BEFORE relying on cron. Read the output: it names three files.
+./backup-db.sh
+ls -lh backups/
+
+# 3. Install the nightly job. Note the GPG recipient — without it the nightly run writes
+#    the secrets file in plaintext (§8.1).
+crontab -e
+30 2 * * * cd /opt/myplus/microservices && BACKUP_GPG_RECIPIENT=ops@yourdomain ./backup-db.sh >> /var/log/myplus-backup.log 2>&1
+
+# 4. Prove cron can actually run it — a wrong path fails silently every night, forever.
+#    Do not wait until 02:30 to find out.
+sudo run-parts --test /etc/cron.daily >/dev/null 2>&1 || true
+bash -lc 'cd /opt/myplus/microservices && ./backup-db.sh' && echo "cron will work"
+
+# 5. Set up the off-host copy. A dump on the same disk as the database does not survive
+#    the failure it exists to protect against.
+ssh-copy-id user@backup-host
+rsync -az --delete ./backups/ user@backup-host:/srv/myplus-backups/
+
+# 6. Restore-rehearse it now, while nothing is on fire (§8.3). The number you care about
+#    is how long it took — that is your real RTO.
+```
+
+**Write down your RPO and RTO once you have measured them**, because both are decisions and neither is
+obvious after the fact:
+
+| | Meaning | With the setup above |
+|---|---|---|
+| **RPO** — how much data you can lose | Time between backups | **Up to 24h** on a 02:30 daily job. Halve it with `30 2,14 * * *`, or close the gap entirely with binlog replay (§8.7) |
+| **RTO** — how long recovery takes | Measured in the §8.3 drill | Typically minutes for a data-only restore; **hours** for a from-scratch host rebuild (§8.5b) — the build is the slow part |
+
 ### 8.1 A complete backup is three things, not one
 
 Restoring the database alone will **not** bring the platform back. You need all three, from the same
@@ -321,16 +479,37 @@ point in time:
 | 2 | **The secrets** | `microservices/.env` | `DB_PASSWORD`, `JWT_SECRET`, `INTERNAL_SECRET`, `MAIL_PASSWORD`. Git-ignored, so it exists on **no** other machine. A restored database with a different `JWT_SECRET` invalidates every session; a different `INTERNAL_SECRET` makes every service reject the gateway's headers. |
 | 3 | **The code version** | git SHA of the deployed commit | The dump's schema matches the Flyway version of the code that wrote it. Restoring last month's dump onto today's jars, or the reverse, fails validation at startup. |
 
-Capture 2 and 3 alongside the dump:
+**`backup-db.sh` captures all three**, in one run, at one point in time:
 
-```bash
-cp .env "backups/env-$(date +%F-%H%M).bak"        # then move it OFF the host, encrypted
-git rev-parse HEAD > "backups/deployed-sha-$(date +%F-%H%M).txt"
+```
+backups/myplus-<stamp>.sql.gz        1 - the 16 databases
+backups/env-<stamp>.bak[.gpg]        2 - the secrets
+backups/deployed-sha-<stamp>.txt     3 - commit, branch, and whether the tree was dirty
 ```
 
-> `.env` is a secret. Never commit it, never rsync it to a shared path in the clear. Encrypt it —
-> `gpg -c backups/env-*.bak` — or store it in a password manager and keep only the SHA and the dump
-> on the backup host.
+Items 2 and 3 used to be two extra commands to type by hand next to the cron line. **A manual step in a
+nightly job is a step that never runs** — so after an incident you would have had the data and neither of
+the two things needed to use it. They are taken by the script now.
+
+> ### 🔐 `env-<stamp>.bak` is a secret file
+>
+> It holds `DB_PASSWORD`, `JWT_SECRET`, `INTERNAL_SECRET` and `MAIL_PASSWORD`. The script writes it
+> `0600`, which protects it on that host and not one step further — the moment you `rsync backups/`
+> off-box you are moving production secrets in the clear.
+>
+> Set a GPG recipient and it is encrypted **on the host, before it ever moves**. Asymmetric, so no
+> passphrase is needed and cron stays unattended:
+>
+> ```bash
+> BACKUP_GPG_RECIPIENT=ops@yourdomain ./backup-db.sh     # -> env-<stamp>.bak.gpg
+> ```
+>
+> Put that in the crontab line too, or the nightly run keeps writing plaintext. The alternative is to
+> keep `.env` in a password manager and exclude `env-*` from the off-host copy — but then confirm the
+> manager actually has the *current* values, because a stale `JWT_SECRET` is as bad as none.
+
+**The dirty-tree warning is not noise.** If the script reports uncommitted changes, the recorded SHA does
+not describe the running jars, and item 3 will not reproduce them. Commit or tag, then re-run.
 
 ### 8.2 Taking the backup
 
@@ -358,8 +537,12 @@ is not there yet.
 
 ```bash
 crontab -e
-30 2 * * * cd /opt/myplus/microservices && ./backup-db.sh >> /var/log/myplus-backup.log 2>&1
+30 2 * * * cd /opt/myplus/microservices && BACKUP_GPG_RECIPIENT=ops@yourdomain ./backup-db.sh >> /var/log/myplus-backup.log 2>&1
 ```
+
+Then **read that log once a week**. A cron job whose `cd` fails writes one line and exits, every night,
+for months — and a silent cron failure is the single most common way people discover they have no
+backups at all. `tail -20 /var/log/myplus-backup.log` should end in three `OK` lines and a file listing.
 
 **Copy them off the box.** A dump on the same disk as the database does not survive the failure it
 exists to protect against — nor does it survive `docker volume rm`:
@@ -386,12 +569,13 @@ docker exec -e MYSQL_PWD=verify verify-mysql mysql -uroot -N -e \
   "SELECT table_schema, COUNT(*) FROM information_schema.tables
    WHERE table_schema LIKE 'myplusdb%' GROUP BY table_schema;"
 docker exec -e MYSQL_PWD=verify verify-mysql mysql -uroot -N -e \
-  "SELECT COUNT(*) FROM myplusdb_auth.user;"
+  "SELECT COUNT(*) FROM myplusdb_auth.users;"
 
 docker rm -f verify-mysql
 ```
 
-Expect ~16 schemas and a non-zero user count. **Count rows, never trust size** — a freshly initialised
+Expect ~16 schemas and a non-zero user count. **The table is `users`, plural** — `myplusdb_auth.user`
+errors out, and an error scrolling past reads a lot like the clean result you were hoping for. **Count rows, never trust size** — a freshly initialised
 empty MySQL is ~200 MB and is indistinguishable from a full one by `du` alone. That single confusion
 caused both August 2026 incidents.
 
@@ -412,37 +596,120 @@ Use when the database is corrupt, wrong, or genuinely empty. **Read §8b first**
 *looks* empty, you are probably on the wrong volume and restoring would overwrite good data.
 
 ```bash
-# 1. Stop everything that writes. Keep the volume — NEVER -v.
-docker compose --profile full down
+cd /opt/myplus/microservices
+DB_PASSWORD="$(grep -m1 '^DB_PASSWORD=' .env | cut -d= -f2-)"
+STAMP=<the backup you are restoring, e.g. 2026-08-17-0230>
 
-# 2. Bring up ONLY mysql (it carries no profile, so a bare up starts just it) and wait for healthy.
+# 0. CHECK THE ARCHIVE FIRST. Discovering the dump is truncated after you have dropped the
+#    live data is the worst possible order to learn it in.
+gzip -t "backups/myplus-$STAMP.sql.gz" && echo "archive OK"
+zcat "backups/myplus-$STAMP.sql.gz" | grep -cm1 'CREATE DATABASE.*myplusdb'    # -> 1
+zcat "backups/myplus-$STAMP.sql.gz" | tail -5 | grep -q 'Dump completed' \
+  && echo "dump is complete" || echo "TRUNCATED - do not use this file"
+
+# 1. Stop everything that writes. `stop`, NOT `down` — there is never a reason to `down`
+#    a production stack, and `down` only adds the chance of typing -v after it.
+docker compose --profile full stop
+
+# 2. Bring up ONLY mysql and wait for healthy.
 docker compose up -d mysql
 until [ "$(docker inspect -f '{{.State.Health.Status}}' myplus-mysql)" = healthy ]; do sleep 3; done
 
-# 3. Restore.
-zcat backups/myplus-<stamp>.sql.gz | docker exec -i -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot
+# 3. DUMP WHAT IS THERE NOW, even though you believe it is broken. Even a corrupt database
+#    is evidence, and this is the last moment it exists. It costs one command.
+docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql \
+  mysqldump -uroot --all-databases --single-transaction --quick \
+  | gzip > "backups/PRE-RESTORE-$(date +%F-%H%M).sql.gz"
 
-# 4. The dump includes the `mysql` system schema, so users and grants were replaced.
+# 4. Restore.
+zcat "backups/myplus-$STAMP.sql.gz" | docker exec -i -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot
+
+# 5. The dump includes the `mysql` system schema, so users and grants were replaced.
 docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -e "FLUSH PRIVILEGES;"
 
-# 5. Verify BEFORE starting the app — rows, not size.
+# 6. Verify BEFORE starting the app — rows, not size.
 docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -N -e \
   "SELECT table_schema, COUNT(*) FROM information_schema.tables
-   WHERE table_schema LIKE 'myplusdb%' GROUP BY table_schema ORDER BY table_schema;"
+   WHERE table_schema LIKE 'myplusdb%' GROUP BY table_schema ORDER BY table_schema;"   # expect 16 rows
 docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -N -e \
-  "SELECT COUNT(*) FROM myplusdb_auth.user;"
+  "SELECT COUNT(*) FROM myplusdb_auth.users;"                                          # expect non-zero
 
-# 6. Restore .env from the same point in time if secrets were lost, then start the stack.
+# 7. Restore .env from the same point in time if secrets were lost (§8.1), check out the
+#    matching SHA if the dump predates a migration, then start the stack.
 docker compose --profile full up -d
+
+# 8. Confirm the schemas match the code you just started.
+./verify-schemas.sh
 ```
 
-Two things that bite here:
+Four things that bite here:
 
-- **The `shahid` app user comes from the dump, not from compose.** `MYSQL_USER`/`MYSQL_PASSWORD` only
-  take effect on a *first* initialisation of an empty datadir. If services report access denied after a
-  restore, re-apply the grants: `docker exec -i -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot < init-db.sql`.
-- **Deploy the matching code.** If the dump predates a Flyway migration, check out the SHA from §8.1
-  item 3 and rebuild, or Flyway will refuse to validate at startup.
+- **`STAMP` must be the same for all three files.** Restoring `myplus-A.sql.gz` with `env-B.bak` gives you
+  a database whose sessions and inter-service headers do not match its secrets. Check
+  `ls backups/ | grep <stamp>` returns three files before you start.
+- **The `shahid` app user comes from the dump, not from compose.** `MYSQL_USER`/`MYSQL_PASSWORD` take
+  effect only on a *first* initialisation of an empty datadir. If services report access denied after a
+  restore, re-apply the grants:
+  `docker exec -i -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot < init-db.sql`.
+- **Deploy the matching code.** If the dump predates a Flyway migration, check out the SHA from
+  `deployed-sha-<stamp>.txt` and rebuild, or Flyway refuses to validate at startup — and the error names
+  a checksum, not the real problem. Step 8 catches the reverse case (`AHEAD`).
+- **If step 4 errors partway**, do not re-run it blindly on top of a half-restored database. Restart from
+  step 1; the dump is idempotent from a clean start because it carries `DROP`/`CREATE` for each schema.
+
+### 8.5b Restore onto a NEW host — the VPS is gone
+
+The case §8.5 does not cover: the machine itself is lost. This is the only procedure that needs all three
+backup artefacts, and it is the one worth having rehearsed, because every missing piece costs an hour.
+
+You need, from the same point in time: the **dump**, the **`.env`**, and the **SHA**. Without `.env` the
+platform comes up and rejects every session; without the SHA you are guessing which migrations the dump
+expects.
+
+```bash
+# 1. New host: base setup, Docker, swap, firewall — DEPLOY-COMMON.md §5.1-5.2, §5.6.
+
+# 2. Code, at the EXACT commit the dump came from.
+git clone <repo> /opt/myplus && cd /opt/myplus
+git checkout "$(awk '/^commit/{print $2}' /path/to/deployed-sha-<stamp>.txt)"
+
+# 3. Secrets, from the same point in time. Decrypt if you used a GPG recipient.
+gpg --decrypt env-<stamp>.bak.gpg > microservices/.env    # or: cp env-<stamp>.bak microservices/.env
+chmod 600 microservices/.env
+
+# 4. The data volume must exist before the first `up` (it is `external`, so nothing creates it for you).
+docker volume create myplus-mysql-data
+
+# 5. Start ONLY mysql, so the datadir initialises with the right root password, then restore
+#    into it before any app service can touch it.
+cd microservices
+docker compose up -d mysql
+until [ "$(docker inspect -f '{{.State.Health.Status}}' myplus-mysql)" = healthy ]; do sleep 3; done
+DB_PASSWORD="$(grep -m1 '^DB_PASSWORD=' .env | cut -d= -f2-)"
+zcat /path/to/myplus-<stamp>.sql.gz | docker exec -i -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot
+docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -e "FLUSH PRIVILEGES;"
+
+# 6. Build the jars for THIS commit, then bring the stack up.
+cd /opt/myplus/microservices && mvn -q -DskipTests clean install
+cd /opt/myplus && mvn -q -DskipTests clean package
+cd /opt/myplus/microservices && docker compose --profile full up -d --build
+
+# 7. Prove it. Schemas match the code, and the data is real.
+./verify-schemas.sh                                    # expect: all 16 match
+docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -N \
+  -e "SELECT COUNT(*) FROM myplusdb_auth.users;"       # expect non-zero
+
+# 8. Repoint DNS, re-issue TLS (certbot needs the new IP to be live first).
+```
+
+**Order matters in two places.** Restore *before* the app services start, or they will run migrations
+against an empty database and you will be restoring over a schema Flyway has already touched. And build
+*after* checking out the SHA, or you get today's jars against an older schema — the exact mismatch
+`verify-schemas.sh` reports as `AHEAD`.
+
+> **On a small host, step 6 is the risk.** The Maven reactor wants 2 GB+ of its own. If the box is under
+> 16 GB, build elsewhere and push images to a registry rather than compiling on a machine that is also
+> trying to run MySQL — see §9.
 
 ### 8.6 Restore — one database only
 
@@ -460,8 +727,17 @@ touching orders, stock, or money, restore the whole set instead.
 
 ### 8.7 Point-in-time recovery (binary logs)
 
-Binary logging is on — you can see `binlog.0000NN` in the data volume — so you can roll forward from a
-nightly dump to a few minutes before a mistake (a bad `DELETE`, a wrong bulk edit):
+Binary logging is on. **Verified 2026-08-17:** `log_bin=1`, `binlog_format=ROW`,
+`binlog_expire_logs_seconds=2592000` (**30 days**), `gtid_mode=OFF`. So you can roll forward from a
+nightly dump to a few minutes before a mistake (a bad `DELETE`, a wrong bulk edit), and this is what
+turns a 24-hour RPO into a near-zero one for logical damage.
+
+Confirm it on your own host before you rely on it — it is a server default, not something this repo sets:
+
+```bash
+docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot -N \
+  -e "SELECT @@log_bin, @@binlog_format, @@binlog_expire_logs_seconds;"
+```
 
 ```bash
 docker exec myplus-mysql sh -c 'ls -la /var/lib/mysql/binlog.*'
@@ -481,25 +757,45 @@ A file-level copy is only consistent with MySQL **stopped** — copying a runnin
 that looks fine and may not restore, because InnoDB has writes in flight:
 
 ```bash
-docker compose --profile full down
+docker compose --profile full stop        # stop, NOT down — see §8.10
 docker run --rm -v myplus-mysql-data:/v -v "$(pwd)/backups:/backup" alpine \
   tar czf /backup/volume-$(date +%F-%H%M).tar.gz -C /v .
 docker compose --profile full up -d
 ```
 
-Useful as a fast rollback immediately before a risky migration. The logical dump remains the primary
-backup: it survives a MySQL version change, and a tar of a datadir does not.
+To roll back to it, with the stack stopped and MySQL down:
+
+```bash
+docker compose --profile full stop
+docker run --rm -v myplus-mysql-data:/v -v "$(pwd)/backups:/backup" alpine \
+  sh -c 'rm -rf /v/* && tar xzf /backup/volume-<stamp>.tar.gz -C /v'
+docker compose --profile full up -d && ./verify-schemas.sh
+```
+
+> That `rm -rf /v/*` is the most destructive command in this document. It is correct only when you have
+> just verified the tarball is the one you want (`tar tzf … | head`) **and** you hold a current logical
+> dump from §8.2. Do not type it from memory.
+
+Useful as a fast rollback immediately before a risky migration — restoring a datadir is far quicker than
+replaying a dump. The logical dump remains the **primary** backup: it survives a MySQL version change, it
+can be restored one schema at a time, and it can be read on any host. A tar of a datadir does none of
+those, and is only valid if MySQL was genuinely stopped when it was taken.
 
 ### 8.9 Drill schedule
 
-| Cadence | Action |
-|---|---|
-| Every deploy | §8.4 pre-deploy dump |
-| Daily 02:30 | `backup-db.sh` via cron, log to `/var/log/myplus-backup.log` |
-| Daily | rsync `backups/` off-host |
-| Weekly | read the log — a silent cron failure is the classic way to discover you have no backups |
-| Monthly | §8.3 scratch-container restore drill, ending in a real row count |
-| Quarterly | full §8.5 rehearsal on a scratch VPS, including `.env` and the matching code SHA |
+| Cadence | Action | Proves |
+|---|---|---|
+| Once, day one | §8.0 — scripts executable, cron installed **and test-run**, off-host copy working, one rehearsal | The plan exists in reality, not just in this file |
+| Every deploy | §8.4 pre-deploy dump, then `./verify-schemas.sh` after | You can undo the deploy; the jars are not stale |
+| Daily 02:30 | `backup-db.sh` via cron → `/var/log/myplus-backup.log` | — |
+| Daily | rsync `backups/` off-host | The dump survives losing the disk |
+| Weekly | read the log; confirm three `OK` lines | A silent cron failure is the classic way to discover you have no backups |
+| Monthly | §8.3 scratch-container drill, ending in a real **row count** | The dump actually restores |
+| Quarterly | full §8.5b rehearsal on a scratch host — dump **+ `.env` + SHA** | You can rebuild from nothing, and you know how long it takes |
+
+The quarterly one is the only drill that exercises all three artefacts. It is also the only one that
+produces your real RTO. Skipping it means the first time you rebuild a host from scratch will be the time
+it is actually on fire.
 
 ### 8.10 Never do these on production
 

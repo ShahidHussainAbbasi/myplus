@@ -5074,10 +5074,10 @@ function loadNotices() {
 			var $act = $('<td>');
 			if (n.status === 'DRAFT') {
 				$act.append($('<button type="button" class="btn btn-xs btn-default">')
-					.text(t('label.form.edit')).on('click', function () { editNotice(n); }));
+					.text(t('ui.js.edit')).on('click', function () { editNotice(n); }));
 			}
 			$act.append($('<button type="button" class="btn btn-xs btn-link">')
-				.text(t('label.form.delete')).on('click', function () { deleteNotice(n.id); }));
+				.text(t('ui.js.delete')).on('click', function () { deleteNotice(n.id); }));
 			$tr.append($act);
 			$b.append($tr);
 		});

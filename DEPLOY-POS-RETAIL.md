@@ -214,17 +214,20 @@ failed migration is the difference between "container up" and "app actually work
 migration landed rather than assuming:
 
 ```bash
-docker compose logs business-service | grep -i "migrat\|flyway" | tail -5
-# expect a line reporting the schema is now at version 36 (V36 = customer credit account)
-docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
-  "SELECT version FROM myplusdb.flyway_schema_history
-    WHERE success=1 ORDER BY installed_rank DESC LIMIT 1;"   # -> 36
-# NOT MAX(version): that column is a VARCHAR, so MAX() compares lexically and a schema
-# at V36 reports '9' ('9' > '36' as strings) — a fully-migrated DB looks stale.
+cd microservices && ./verify-schemas.sh
+# -> a row per service, and "All 16 schemas match this checkout."
 ```
 
-If it reports a lower version, the jar is stale — rebuild it (§3.2) before going further. A container that
-starts on an old jar is the single most common way a deploy "succeeds" while behaving like last week's build.
+`STALE JAR` on any row means that container is running older code than your checkout — rebuild it (§3.2)
+before going further. A container that starts on an old jar is the single most common way a deploy
+"succeeds" while behaving like last week's build, and the schema version is the only place it shows.
+
+> **Why a script rather than an expected version number here.** This step used to say *"expect version
+> 36"*. Business-service is at **V40** now, and that number went stale four times across this doc set. A
+> stale expectation is worse than none — it either waves through a genuinely stale deployment or sends
+> you rebuilding jars that were fine. `verify-schemas.sh` reads the expected version from the migration
+> files on disk, so it cannot drift from the repo. It also encodes the `MAX(version)` trap: that column
+> is a VARCHAR, so `MAX()` sorts lexically and a schema at V40 reports `'9'`.
 - Gateway health: <http://localhost:8765/actuator/health> → `{"status":"UP"}`
 - **POS app: <http://localhost:8080>** — log in with your seeded/demo retail account
 - **Signup test:** register a new user → check the inbox for the verification e-mail → click the link
@@ -258,10 +261,29 @@ this — it is the degenerate case and behaves exactly as above.
 ### 3.6 Stop / clean up
 
 ```bash
-docker compose stop                 # stop containers, keep data
-docker compose down                 # remove containers+network, keep the mysql-data volume
-docker compose down -v              # ALSO delete the database volume (fresh start)
+docker compose stop                 # ← use this. Stops containers, changes nothing else
+docker compose up -d                # ← and this to bring them back
 ```
+
+> #### The data volume is now `external` — `down -v` cannot delete it
+>
+> `mysql-data` is declared `external: true` / `name: myplus-mysql-data` in `docker-compose.yml`, so
+> **Docker refuses to remove it**: `down -v` skips it and says so. That is deliberate, and it is why this
+> section no longer lists `down -v` as the way to get a fresh database.
+>
+> **There is still no reason to `down` a production stack.** `up -d --build` already replaces whatever
+> changed, in place — that is what a redeploy is. `down` only adds the chance of typing `-v` after it,
+> and `docker volume prune` / `docker volume rm` are typed by hand and take no notice of intent.
+>
+> To genuinely start clean **on a local machine only**:
+>
+> ```bash
+> docker compose down
+> docker volume rm myplus-mysql-data && docker volume create myplus-mysql-data
+> ```
+>
+> Never on a host with real data. See
+> [`docs/deploy/DEPLOY-FULL-STACK.md` §8b](docs/deploy/DEPLOY-FULL-STACK.md#8b-data-safety--what-protects-the-database-and-what-to-do-when-it-looks-gone).
 
 ---
 
@@ -315,7 +337,10 @@ java -version
 cd /opt
 git clone <YOUR_REPO_URL> myplus        # or: rsync -av from your laptop
 cd myplus
-git checkout feature/finance-ledger     # the POS branch you're deploying
+git checkout <your-release-tag>         # deploy a TAG, not a branch — a branch moves, a tag does not
+# As of 2026-08-17 the deployable line is `feature/UI-UX`. `master` carries a Dependabot bump to
+# Spring Boot 4.1.0 that does NOT compile; 3.5.0 is the deployable line.
+git status --porcelain                  # expect NO output — the jars must match the tag
 ```
 
 ### 4.5 Production secrets
@@ -523,15 +548,34 @@ git pull
 mvn -q -DskipTests -pl business-service -am install     # rebuild changed module(s)
 docker compose up -d --build business-service monolith  # recreate affected images
 
-# Backup the databases (volume-backed)
-docker exec myplus-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases' > /opt/backups/myplus-$(date +%F).sql
-
-# Restore
-cat /opt/backups/myplus-YYYY-MM-DD.sql | docker exec -i myplus-mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD"'
+# Backup — use the script. See the warning below before hand-typing a mysqldump.
+./backup-db.sh
 ```
 
+### Backup and restore
+
+> **The full procedure is [`docs/deploy/DEPLOY-FULL-STACK.md` §8](docs/deploy/DEPLOY-FULL-STACK.md#8-backup-and-restore--end-to-end).**
+> It applies unchanged to a POS deployment — every profile shares one MySQL container and one volume, so
+> there is nothing POS-specific about backing it up. §8.0 is the day-one setup; §8.5 is restore; §8.5b is
+> rebuilding a lost host from nothing.
+
+```bash
+./backup-db.sh          # 3 files: the 16 DBs, the .env secrets, and the deployed git SHA
+./verify-schemas.sh     # every schema at the version this checkout expects (read-only)
+```
+
+> #### ⚠️ This section used to recommend a hand-typed `mysqldump`. Don't.
+>
+> The old one-liner was `mysqldump --all-databases` with **no `--single-transaction`**, which takes a
+> global read lock: on a live shop that is an outage for as long as the dump runs. It also wrote an
+> uncompressed file to a directory that may not exist, verified nothing, rotated nothing, and captured
+> neither `.env` nor the deployed SHA — so a restore from it would have come back with no working
+> sessions and no way to identify the matching code.
+>
+> `backup-db.sh` does all of that, and refuses to write a 0-byte file that looks like a backup.
+
 Containers use `restart: unless-stopped`, so they survive reboots. The MySQL data lives in the
-`mysql-data` named volume and persists across `docker compose down` (but not `down -v`).
+**external** volume `myplus-mysql-data`, which Docker refuses to delete — see §3.6.
 
 ### 6.1 Log management (VPS disk / memory saving)
 
@@ -579,7 +623,9 @@ systemctl restart docker
 | `docker compose build` fails on a service | Its jar isn't built. Re-run the Maven `install`/`package` step; Dockerfiles copy `target/*.jar`. |
 | Monolith 502 / login loops right after start | Services still registering with Eureka. Wait 60–90 s; check `docker compose logs -f api-gateway`. |
 | Service can't reach MySQL on boot | MySQL still initialising. It has a healthcheck + `depends_on: service_healthy`; on a slow box give it longer, or `docker compose restart <svc>`. |
-| "Access denied" to MySQL | `DB_PASSWORD` unset/mismatched. It must be set **before** the mysql volume is first created; if you changed it later, `docker compose down -v` to recreate the DB (destroys data). |
+| "Access denied" to MySQL | `DB_PASSWORD` unset/mismatched. `MYSQL_USER`/`MYSQL_PASSWORD` take effect only on the **first** initialisation of an empty datadir, so changing `.env` later does not change the password baked into the volume. **Do not reach for `down -v`** — it cannot delete an external volume anyway. Change it in place instead: `ALTER USER 'shahid'@'%' IDENTIFIED BY '<new>'; ALTER USER 'root'@'localhost' IDENTIFIED BY '<new>'; FLUSH PRIVILEGES;` then update `.env` to match and recreate the services. |
+| `dependency failed to start` / container stuck in **`Created`** | Compose **refused to start** it because a `depends_on` was unhealthy — it never ran, so its own `docker logs` is empty and misleading. Read the dependency's health log: `docker inspect myplus-config --format '{{range .State.Health.Log}}{{.Start}} exit={{.ExitCode}} {{.Output}}{{end}}'`. Note a healthcheck failure does **not** trigger `restart: unless-stopped`, so an unhealthy flag sticks for the container's whole life even once it answers fine. |
+| Deploy "worked" but the app behaves like an older build | **Stale jar.** `./verify-schemas.sh` — any `STALE JAR` row names the service. Rebuild it and recreate. |
 | Sale fails "Not enough sellable stock" | Add stock via Product → Add stock; only non-expired batches are sellable. |
 | Add vendor/customer/item/sale fails: "could not read a hi value - you need to populate the table: `*_seq`" | Hibernate sequence tables weren't seeded. Fixed by business-service Flyway `V11__seed_sequence_tables.sql` — rebuild + restart business-service so it applies. (Only business-service uses these; other services use auto-increment.) |
 | Signup succeeds but **no verification e-mail** | `notification-service` not running (must be in the `up` list) **or** `MAIL_USER`/`MAIL_PASSWORD` wrong. Check `docker compose logs notification-service`; the Gmail value must be an **app password**. |

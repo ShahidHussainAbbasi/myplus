@@ -157,7 +157,10 @@ public class DriverSettlementService {
         String driver = oneDriverOnly(rows);
         BigDecimal declared = BigDecimal.ZERO;
         for (DeliveryRecord r : rows) {
-            if (r.getCustomerId() == null)
+            // Only when there is money. A NIL stop has nothing to credit, so an absent trade account is not a
+            // problem to refuse over — see the skip in the receipt loop below for why nil stops belong in the
+            // settlement at all.
+            if (r.getCustomerId() == null && nz(r.getAmountCollected()).signum() > 0)
                 // Nobody to credit. Refuse rather than post the money to a guess — a receipt has to clear a
                 // real account or it is not a receipt.
                 throw new ValidationException("The collection on invoice "
@@ -206,6 +209,28 @@ public class DriverSettlementService {
             // part-way through rolls the claim back locally while the earlier receipts stand; on retry a key
             // derived from the settlement would be new and would mint duplicates, while this one replays.
             // D1's dispatch key learned the same lesson (§8.1b #3).
+            /*
+             * A stop that paid NOTHING is accounted for, but raises no receipt.
+             *
+             * On the route sheet the salesman writes "CR" against these: the goods went in, no cash came out.
+             * The stop is real and belongs in the cash-up — leaving it out would make the sheet and the
+             * remittance cover different sets of stops, and the cashier could not tell an unvisited shop from
+             * one that simply paid nothing.
+             *
+             * But a receipt for zero is not a receipt, and the books say so: receivePayment refuses it with
+             * "A positive amount is required". That refusal is CORRECT and stays. What was wrong was sending it
+             * one — a single nil stop failed the whole batch, which on a 29-stop round meant the cashier had to
+             * know to exclude exactly the rows that paid nothing. The sheet lists every stop; the settlement
+             * now handles that.
+             */
+            if (nz(r.getAmountCollected()).signum() <= 0) {
+                r.setSettlementId(header.getId());     // the bulk claim bypassed the persistence context
+                deliveryRepository.save(r);
+                LOG.debug("O7 D5: collection {} (invoice {}) collected nothing — counted in settlement {}, "
+                        + "no receipt raised", r.getId(), r.getInvoiceNo(), header.getSettlementNo());
+                continue;
+            }
+
             String key = "o7d5-" + orgId + "-" + r.getId();
             PaymentReceiptResult res;
             try {

@@ -1,0 +1,48 @@
+# =============================================================================
+# Line endings.
+#
+# Development happens on Windows with core.autocrlf=true, and deployment targets Linux. Without this
+# file, what lands in a working tree depends entirely on each machine's local git config — which is
+# fine for source, and NOT fine for anything the kernel or a container has to execute.
+#
+# A shell script checked out with CRLF has a carriage return in its shebang, so Linux tries to run the
+# interpreter "/usr/bin/env bash\r" and fails with:
+#
+#     bash: ./backup-db.sh: /usr/bin/env: bad interpreter: No such file or directory
+#
+# which names neither the file nor the real cause. The same \r at the end of any `RUN` line breaks a
+# Dockerfile build in a similarly unhelpful way. Both are cheap to prevent and expensive to diagnose,
+# and the backup/restore runbook depends on those scripts running on the VPS.
+#
+# Everything else keeps the default: git normalises to LF in the repository and hands Windows whatever
+# its autocrlf setting asks for.
+# =============================================================================
+
+* text=auto
+
+# Must be LF in the WORKING TREE, on every platform — these are executed, not just read.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+.env.example    text eol=lf
+
+# Windows-only, must stay CRLF.
+*.ps1           text eol=crlf
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+
+# Never touch these — normalising a binary corrupts it.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.jar           binary
+*.gz            binary
+*.zip           binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.eot           binary
+*.mp4           binary

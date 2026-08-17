@@ -111,6 +111,25 @@ public class SaleRecordRequest {
         private BigDecimal unitPrice;
         private Long taxCodeId;
         private String description;
+        /**
+         * A concession on THIS line, as an amount off (qty × unitPrice).
+         *
+         * <h3>Why the line carries it rather than the price being lowered</h3>
+         * A rep negotiates per product. Expressing that by sending a lower {@code unitPrice} arrives at the
+         * same money and destroys the information: the invoice then shows a cheaper trade price instead of
+         * "list, less discount", the shopkeeper cannot see what they were given, and the distributor cannot
+         * total what they gave away. {@code discountTotal} above is a different thing — one concession at the
+         * foot of the document, not one per product.
+         *
+         * <h3>What the receiver does with it</h3>
+         * Nothing new. business-service's sale path already resolves a per-line discount and — importantly —
+         * taxes the DISCOUNTED base, so this field only had to reach it. An amount, not a percentage, because
+         * that is what the invoice line stores; a percentage on the wire would leave two services deciding
+         * what it is a percentage of.
+         *
+         * <p>Null or zero on an undiscounted line, which is every POS and storefront line today.
+         */
+        private BigDecimal discount;
     }
 
     /** One payment against the sale. {@code reference} carries the PSP charge id for a CARD tender. */

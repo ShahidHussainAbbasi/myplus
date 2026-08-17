@@ -40,9 +40,29 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
     /** OMS O5d — once everything outstanding is packed, dispatch automatically or wait for a human? */
     public static final String PACK_AUTO_CONFIRM = "order.pack.autoConfirm";
 
+    /**
+     * OMS O7 D1 — must a booked order be reviewed before it can be picked?
+     *
+     * <p>The approval gate was hardcoded: every order a rep books stops at {@code PENDING_APPROVAL} and waits
+     * for someone with authority. That is the right default, and it is the control the pre-sales model rests
+     * on — but it assumes there are TWO people. In a distributor where one person in the back office books,
+     * reviews and converts, the gate segregates nothing: it is the same human clicking twice. A control that
+     * cannot fail is not a control, it is friction, and friction teaches people to work around the system.
+     *
+     * <p>Off, the order enters at {@code NEW} and goes straight to picking. <b>The record survives either
+     * way</b> — {@code bookedByName} is still stamped, the timeline still logs the transition, the audit
+     * service still records who did it. What is lost is the second pair of eyes, which a one-person office
+     * never had; what is kept is the ability to answer "who did this".
+     *
+     * <p>Same shape as the quote discount threshold, which took the same view: no gate configured, no gate.
+     */
+    public static final String BOOKING_REQUIRE_APPROVAL = "order.booking.requireApproval";
+
     private static final String GROUP = "Online orders";
     /** Its own section: packing is a different job, done by a different person, from taking an order. */
     private static final String PACK_GROUP = "Packing & dispatch";
+    /** Field sales: booking and its review are a different job again from either of the above. */
+    private static final String FIELD_GROUP = "Field orders";
 
     /**
      * <h3>The two packing settings, WITHDRAWN 2026-08-10 and RESTORED 2026-08-13 (O7 D3)</h3>
@@ -139,6 +159,19 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
                                 + "and then it is dispatched. On: the shipment is recorded as soon as the last "
                                 + "outstanding item is scanned — faster for a high-volume shop, but nobody "
                                 + "gets a final look before it goes.",
-                        false, PACK_GROUP));
+                        false, PACK_GROUP),
+
+                // ── OMS O7 D1 — the approval gate, now a choice. ─────────────────────────────────────
+                // ON by default, which is exactly today's hardcoded behaviour: an org that never opens this
+                // screen sees no change. Off is for the one-person back office, where the gate segregates
+                // nothing.
+                SettingEntry.bool(BOOKING_REQUIRE_APPROVAL,
+                        "Review booked orders before picking",
+                        "On (default): an order booked by a rep waits at Pending approval until an owner or "
+                                + "admin confirms it, and the rep cannot release their own order. Off: booked "
+                                + "orders go straight to picking — for a back office where the same person "
+                                + "books and converts, so there is no second pair of eyes to wait for. Who "
+                                + "booked each order is recorded either way.",
+                        true, FIELD_GROUP));
     }
 }

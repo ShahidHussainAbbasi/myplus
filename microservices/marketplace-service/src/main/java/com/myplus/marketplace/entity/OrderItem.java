@@ -56,4 +56,22 @@ public class OrderItem {
 
     @Column(precision = 19, scale = 2)
     private BigDecimal price;
+
+    /**
+     * The concession the rep gave on THIS line, as an amount off the line total (V23).
+     *
+     * <p>A distribution rep negotiates per product, not per document — a shop takes the saline at list and
+     * argues over the Ringer. The whole-document {@code tradeDiscount} could not express that, and without a
+     * per-line field the rep's only option was to overwrite the PRICE, which loses the fact a discount was
+     * given at all: the invoice then shows a lower trade price rather than list-less-discount, and "what did
+     * we give away this month" becomes unanswerable.
+     *
+     * <p>An AMOUNT, not a percentage, because that is what {@code Sell.discount} on the invoice side takes —
+     * carrying a percentage here would mean two places deciding what it is a percentage OF. The screen lets
+     * the rep type either and converts before it leaves the browser.
+     *
+     * <p>Null on every line nobody discounted, which leaves the order total exactly what it was.
+     */
+    @Column(precision = 19, scale = 2)
+    private BigDecimal discount;
 }

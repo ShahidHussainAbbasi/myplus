@@ -320,6 +320,61 @@
             footer: { text: '', showSignature: false }
         },
 
+        /*
+         * OMS O8 slice 3 — the PER-STOP SLIP the shop signs for.
+         *
+         * A DELIVERY CHALLAN, and emphatically not a second invoice. One sale may produce only one taxable
+         * document; a slip that looked like an invoice would create a second record of the same supply, a
+         * duplicate tax entry, and an argument about which copy is real. It carries the invoice number so the
+         * shopkeeper can match the two, and says Delivery Challan on its face.
+         *
+         * It is a PRESET, not a new renderer. Everything below is data the existing renderer already
+         * understands -- which is why this document costs a table of field names rather than a second layout
+         * engine to keep in step with the first.
+         *
+         * The columns are the distribution set (code, packing, BATCH, EXPIRY, discount): batch and expiry are a
+         * regulatory obligation on pharmaceutical goods, not decoration, and the discount prints beside the
+         * list price so the shop can see what it was given rather than a quietly reduced rate.
+         *
+         * Prices ARE shown. The shop must be able to check what it is being charged before signing, and the
+         * same person carrying this slip is the one collecting the cash. (Some distributors omit prices from a
+         * driver's copy to keep them from staff; that does not apply when the carrier is the collector.)
+         */
+        DELIVERY_CHALLAN_A4: {
+            id: 'DELIVERY_CHALLAN_A4',
+            name: 'Delivery challan (A4)',
+            titleKey: 'ui.js.docDeliveryChallan',
+            paper: 'A4',
+            channel: 'B2B',
+            numberSystem: 'indian',
+            showDrCr: true,
+            header: {
+                titleStyle: 'boxed',
+                showLogo: true,
+                columns: [
+                    ['invoiceNo', 'dated', 'time', 'paymentMode'],
+                    ['bookedBy', 'customerCity', 'licenseNo', 'licenseExpiry'],
+                    ['customerName', 'customerAddress', 'customerMobile', 'customerCnic']
+                ]
+            },
+            lines: [
+                col('itemCode', 7, 'left'), col('itemName', 26, 'left'), col('packing', 9, 'left'),
+                col('batchNo', 10, 'left'), col('expiryDate', 8, 'left'),
+                col('quantity', 7, 'right'), col('bonusQty', 5, 'right'), col('tradePrice', 7, 'right'),
+                col('lineValue', 8, 'right'), col('discount', 7, 'right'), col('lineTotal', 9, 'right')
+            ],
+            totals: ['itemCount', 'qtyTotal', 'discountTotal', 'tradeDiscount', 'shippingFee',
+                'grandTotal', 'amountInWords', 'previousBalance', 'currentBalance'],
+            footer: {
+                text: '',
+                showSignature: true,
+                // Four boxes, because this slip does two jobs: it proves the goods arrived AND records what was
+                // paid for them at the door. The last two are written in by hand at the shop.
+                signature: ['ui.js.docDeliveredBy', 'ui.js.docReceivedBySign',
+                    'ui.js.docAmountReceived', 'ui.js.docBalanceLeft']
+            }
+        },
+
         /* Pharmacy B2C. Identical geometry — the vertical changes the TITLE, not the layout. */
         DISPENSE_RECEIPT_80MM: {
             id: 'DISPENSE_RECEIPT_80MM',
@@ -378,6 +433,10 @@
      */
     function titleFor(inv, profile) {
         if (profile.title) return profile.title;                       // owner override (3g-4)
+        // A PRESET's own title, as a message key. Presets are a static object literal evaluated at load, so a
+        // literal string in one would never translate -- and a document title is the last thing that should be
+        // stuck in English on a Pakistani distributor's paperwork. The owner override above still wins.
+        if (profile.titleKey) return t(profile.titleKey);
         if (isTradeCustomer(inv)) return t('ui.js.docInvoice');
         var vertical = (global.VERTICAL_PROFILE || {});
         return vertical.receiptTitle || t('ui.js.docReceipt');
@@ -573,9 +632,17 @@
         var regNo = inv.taxRegNo
             ? '<div class="dc-c dc-sm">' + escHtml(ctx.taxLabel) + ' Reg: ' + escHtml(inv.taxRegNo) + '</div>' : '';
         var footText = (profile.footer && profile.footer.text) || inv.footerText || t('ui.js.docThankYou');
+        // The signature strip, as DATA. `footer.signature` is a list of message keys; absent, it stays exactly
+        // the two boxes every invoice has always printed. A delivery challan needs more of them -- what was
+        // collected at the door, what is still owed, who took delivery -- and expressing that as a list beats a
+        // second footer renderer that would drift from this one.
+        var signKeys = (profile.footer && profile.footer.signature)
+            || ['ui.js.docPreparedBy', 'ui.js.docReceivedBy'];
         var sign = (profile.footer && profile.footer.showSignature)
-            ? '<div class="dc-sign"><div>' + escHtml(t('ui.js.docPreparedBy')) + '</div>'
-              + '<div>' + escHtml(t('ui.js.docReceivedBy')) + '</div></div>' : '';
+            ? '<div class="dc-sign">' + signKeys.map(function (k) {
+                  return '<div>' + escHtml(t(k)) + '</div>';
+              }).join('') + '</div>'
+            : '';
 
         return '<!doctype html><html><head><meta charset="utf-8"><title>'
             + escHtml(title + ' ' + (inv.invoiceNo || '')) + '</title><style>' + css(profile) + '</style>'
@@ -623,6 +690,119 @@
     }
 
     // Fetch the authoritative document by invoice number, then print.
+    /**
+     * The document, RESOLVED, as neutral data — the seam a second output format hangs off.
+     *
+     * <h3>Why this exists</h3>
+     * Nothing in the back office downloaded until now: printing goes through a hidden iframe to
+     * {@code window.print()}, which gives a shopkeeper paper and gives a manager nothing to keep. A PDF needs a
+     * different emitter (pdfmake speaks tables, not HTML), and the temptation is to write one that lays the
+     * document out again — at which point the PDF and the paper start to drift, and the first anyone notices is
+     * a customer holding two versions of the same invoice.
+     *
+     * <p>So the rules stay in one place. This walks the SAME whitelist and calls the SAME resolvers the HTML
+     * renderer does, and hands back what they produced: labels, cells, total rows. What differs between paper
+     * and PDF is only how that is drawn.
+     *
+     * <p>A profile is resolved first, so this answers for whatever the renderer would actually have printed —
+     * an owner's stored template included, not just the built-in presets.
+     */
+    function toPrintModel(inv, profile) {
+        profile = resolveProfile(inv, profile);
+        var ctx = buildContext(inv, profile);
+        var cols = normaliseColumns(profile);
+
+        var columns = cols.map(function (c) {
+            var spec = LINE_FIELDS[c.key];
+            return {
+                key: c.key,
+                label: labelOf(spec, c.label),
+                align: c.align || spec.align || 'left',
+                width: c.width || null
+            };
+        });
+
+        var rows = ctx.lines.map(function (sale, i) {
+            var cellCtx = { s: sale, m: ctx.maths[i], i: i, inv: ctx.inv, cust: ctx.cust };
+            return cols.map(function (c) { return LINE_FIELDS[c.key].resolve(cellCtx) || ''; });
+        });
+
+        // Identical filtering to renderTotals: a row whose resolver answers blank does NOT print. That is how
+        // one profile serves an invoice with no tax and one with tax, so the PDF must honour it too or it will
+        // show empty rows the paper does not.
+        var totals = [];
+        (profile.totals || []).forEach(function (key) {
+            var spec = TOTAL_ROWS[key];
+            if (!spec) return;
+            var value = spec.resolve(ctx);
+            if (value === '' || value == null) return;
+            totals.push({
+                key: key,
+                label: spec.dynamicLabel ? spec.dynamicLabel(ctx) : labelOf(spec, (profile.totalLabels || {})[key]),
+                value: value,
+                strong: spec.strong === true,
+                wide: spec.wide === true
+            });
+        });
+
+        var headerFields = [];
+        ((profile.header && profile.header.columns) || []).forEach(function (group) {
+            (group || []).forEach(function (key) {
+                var spec = HEADER_FIELDS[key];
+                if (!spec) return;
+                var value = spec.resolve(ctx);
+                if (value === '' || value == null) return;
+                headerFields.push({ key: key, label: labelOf(spec, null), value: value });
+            });
+        });
+
+        return {
+            profile: profile,
+            title: titleFor(inv, profile),
+            invoiceNo: inv.invoiceNo || '',
+            letterhead: inv.letterhead || {},
+            paper: profile.paper,
+            headerFields: headerFields,
+            columns: columns,
+            rows: rows,
+            totals: totals,
+            signature: (profile.footer && profile.footer.showSignature)
+                ? ((profile.footer.signature || ['ui.js.docPreparedBy', 'ui.js.docReceivedBy']).map(function (k) {
+                    return t(k);
+                }))
+                : [],
+            footerText: (profile.footer && profile.footer.text) || inv.footerText || ''
+        };
+    }
+
+    /**
+     * Fetch one invoice and hand it to a callback, so callers do not each restate the read and its error path.
+     *
+     * <p>The payload is on {@code object}, not {@code data} — GenericResponse carries a single payload there,
+     * and reading the wrong key returns undefined rather than failing, which is how a caller ends up rendering
+     * a blank document.
+     */
+    function withInvoice(invoiceNo, then) {
+        if (!invoiceNo) { if (global.showFormError) showFormError(t('ui.js.noInvoiceToPrint')); return; }
+        $.get(serverContext + 'getReceipt?invoiceNo=' + encodeURIComponent(invoiceNo), function (resp) {
+            if (!resp || resp.status !== 'SUCCESS' || !resp.object) {
+                if (global.showFormError) showFormError((resp && resp.message) || t('ui.js.couldNotLoadTheReceipt'));
+                return;
+            }
+            then(resp.object);
+        }).fail(function () { if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReceipt')); });
+    }
+
+    /**
+     * OMS O8 slice 3 — print the DELIVERY CHALLAN for an invoice: the slip the shop signs for.
+     *
+     * <p>A one-line wrapper on purpose. It is the same renderer, the same fetch and the same print mechanism as
+     * an invoice; only the profile differs. Anything more here would be a second document pipeline.
+     */
+    global.printChallan = function (invoiceNo) {
+        global.printReceipt(invoiceNo, PRESETS.DELIVERY_CHALLAN_A4);
+    };
+
     global.printReceipt = function (invoiceNo, profile) {
         if (!invoiceNo) { if (global.showFormError) showFormError(t('ui.js.noInvoiceToPrint')); return; }
         $.get(serverContext + 'getReceipt?invoiceNo=' + encodeURIComponent(invoiceNo), function (resp) {
@@ -641,6 +821,9 @@
      */
     global.DocumentRenderer = {
         buildHtml: buildHtml,
+        // The neutral resolved document, for any output format that is not HTML. See toPrintModel.
+        toPrintModel: toPrintModel,
+        withInvoice: withInvoice,
         resolveProfile: resolveProfile,
         PRESETS: PRESETS,
         FIELD_WHITELIST: FIELD_WHITELIST,

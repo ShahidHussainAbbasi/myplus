@@ -148,6 +148,22 @@ describe('Multilingual', () => {
           expect(t, `raw ui.* key visible in ${tag}`).not.to.match(/\bui\.[a-z][A-Za-z0-9]{3,}\b/);
           expect(t, `raw label.* key visible in ${tag}`).not.to.match(/\blabel\.[a-z]+\.[a-z]+\b/);
         });
+
+        // TEXT IS NOT THE ONLY PLACE A KEY SHOWS UP.
+        //
+        // #{ui.carrier} and #{ui.trackingNumber} shipped as th:placeholder on the pack/dispatch inputs
+        // without ever being added to a bundle, so every language rendered the literal key AS THE
+        // PLACEHOLDER — and no assertion here could see it, because a placeholder is an attribute and
+        // never appears in .text(). Same for title/aria-label, which are what a screen reader announces.
+        const ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
+        ATTRS.forEach((attr) => {
+          cy.get(`[${attr}]`).then(($els) => {
+            const leaked = $els.toArray()
+              .map((el) => el.getAttribute(attr) || '')
+              .filter((v) => /\bui\.[a-z][A-Za-z0-9]{3,}\b|\blabel\.[a-z]+\.[a-z]+\b/.test(v));
+            expect(leaked, `raw key in @${attr} (${tag}): ${leaked.slice(0, 3).join(' | ')}`).to.have.length(0);
+          });
+        });
       });
     });
 

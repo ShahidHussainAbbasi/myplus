@@ -101,6 +101,15 @@ public class DispatchInvoiceService {
                     // Sending it rather than letting the catalog re-price is the point: the shopkeeper agreed a
                     // price with the booker, and the invoice must honour it, not today's list price.
                     .unitPrice(item.getPrice())
+                    // The concession the rep agreed, line by line, for the same reason the price travels: the
+                    // shopkeeper settled BOTH at the counter. Sending only a reduced net would show a cheaper
+                    // trade price on the invoice instead of "list, less discount" -- which is what the shop
+                    // reconciles against, and what tells the distributor what the round cost in discounts.
+                    //
+                    // NOT pro-rated when a parcel is part-dispatched. The discount is stored against the whole
+                    // line, and invoicing 6 of 10 units must not carry the full concession for all ten: it is
+                    // scaled to what actually went out, so two part-invoices sum to the discount agreed once.
+                    .discount(discountFor(item, qty))
                     .description(item.getProductName())
                     .build());
         }
@@ -185,5 +194,25 @@ public class DispatchInvoiceService {
      */
     private <T> T asOrg(Long org, java.util.function.Supplier<T> call) {
         return com.myplus.marketplace.support.AsOrg.call(org, call);
+    }
+    /**
+     * The share of a line's concession that belongs to THIS parcel.
+     *
+     * <p>A line discount is agreed once, against the whole line. When a parcel carries only part of that line,
+     * carrying the whole discount would over-credit the first parcel and leave the second at list price --
+     * and the two invoices would not add up to the price the shopkeeper agreed. Scaling by the dispatched
+     * fraction is the same rule the returns path uses when it pro-rates a concession across surviving goods.
+     *
+     * <p>Full dispatch is the common case and returns the discount unchanged, exactly.
+     */
+    private static java.math.BigDecimal discountFor(com.myplus.marketplace.entity.OrderItem item, Integer dispatchedNow) {
+        java.math.BigDecimal discount = item.getDiscount();
+        if (discount == null || discount.signum() <= 0) return null;
+        int ordered = item.getQuantity() == null ? 0 : item.getQuantity();
+        int going = dispatchedNow == null ? 0 : dispatchedNow;
+        if (ordered <= 0 || going <= 0) return null;
+        if (going >= ordered) return discount;                       // the whole line, so the whole concession
+        return discount.multiply(java.math.BigDecimal.valueOf(going))
+                .divide(java.math.BigDecimal.valueOf(ordered), 2, java.math.RoundingMode.HALF_UP);
     }
 }

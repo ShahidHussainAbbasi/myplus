@@ -123,6 +123,51 @@ public class OrderController {
         }
     }
 
+    /**
+     * OMS O8 — the delivery round's recovery sheet: every stop dispatched in a date window, with what each
+     * shop owes.
+     *
+     * <p>A thin relay like the rest. The date window, the rep filter and the salesman's name ride along and are
+     * validated downstream; the monolith has no business deciding what a valid round is (same rule as
+     * /getOrders and /getBackorders above).
+     */
+    @RequestMapping(value = "/roundSheet", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> roundSheet(final HttpServletRequest request) {
+        try {
+            return client.get("/round-sheet" + relayQuery(request, "from", "to", "bookedBy", "salesman"));
+        } catch (HttpStatusCodeException e) {
+            // Relay the service's own refusal. When the balances cannot be read the sheet is deliberately NOT
+            // produced, and the reason ("a sheet with missing figures would send the salesman out asking for
+            // the wrong amounts") is the one thing the operator needs to see — a generic failure would have
+            // them retrying a print that is being refused on purpose.
+            return relayError(e, "Could not produce the round sheet.");
+        } catch (Exception e) {
+            LOGGER.error("roundSheet proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
+    /**
+     * OMS O8 slice 5 — key a whole round back in from the marked-up sheet, in one request.
+     *
+     * <p>Relays the body untouched. Partial outcomes come back in the response ({@code keyed} / {@code skipped})
+     * rather than as an error, so this must NOT treat a round with some skipped stops as a failure — the
+     * operator needs the detail, and the monolith has no business deciding which stops matter.
+     */
+    @RequestMapping(value = "/keyRound", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> keyRound(@RequestBody final Map<String, Object> body) {
+        try {
+            return client.postJson("/round-sheet/key", body);
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not key the round.");
+        } catch (Exception e) {
+            LOGGER.error("keyRound proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
     /** Rebuild the named request parameters as an encoded query string; empty when none were supplied. */
     private static String relayQuery(HttpServletRequest request, String... names) {
         StringBuilder qs = new StringBuilder();

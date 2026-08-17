@@ -168,6 +168,7 @@ public class DeliveryService {
                 shipment.getShipmentNo(), orderId, outcome, totalTaken, totalSent, creditNotes);
 
         DeliveryDTO out = new DeliveryDTO();
+        out.setId(rec.getId());                    // so a caller can settle what it just keyed
         out.setShipmentId(shipment.getId());
         out.setOutcome(outcome);
         out.setCreditNotes(creditNotes);

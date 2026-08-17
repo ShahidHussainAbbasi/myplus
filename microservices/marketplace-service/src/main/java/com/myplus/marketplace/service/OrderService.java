@@ -57,6 +57,15 @@ public class OrderService {
     private final BackorderPolicy backorderPolicy;
     /** O7 D1 — who changed what on a booked order, and why (mandatory once TWO people may edit it). */
     private final com.myplus.marketplace.repository.OrderAmendmentRepository amendmentRepository;
+    /**
+     * O7 D1 — reads {@code order.booking.requireApproval}.
+     *
+     * <p>A constructor dependency, not {@code @Autowired(required = false)}. O3 shipped inert exactly that
+     * way: the catalog and the resolver both existed, but with no {@code SettingsStore} bean the optional
+     * injection quietly became "every store keeps the platform default" instead of a startup failure. A
+     * service that means to be configurable must refuse to start unconfigurable.
+     */
+    private final com.myplus.common.settings.SettingsService settingsService;
 
     // ── OMS O7 D1 — distribution pre-sales: book → review → confirm/reject ────────────────────────────────
 
@@ -76,7 +85,16 @@ public class OrderService {
      * <h3>Nothing is committed here — that is the whole point</h3>
      * No invoice, no stock movement, no money. A booker's order is a <b>request</b>, and the segregation of
      * duties that makes distribution auditable depends on the person who books not being the person who
-     * releases. Under {@code ON_DISPATCH} (§6 D-1) the invoice is raised when the goods actually leave, from
+     * releases.
+     *
+     * <p><b>Unless there is only one person.</b> {@code order.booking.requireApproval} (ON by default,
+     * reproducing the behaviour this replaces) decides whether the order stops at {@code PENDING_APPROVAL} or
+     * enters at {@code NEW}. A back office where the same human books and converts gains nothing from the
+     * gate — it is one person clicking twice — and friction that protects nobody is friction people route
+     * around. What survives the switch is the RECORD: the booker is still stamped, the timeline still logs
+     * the transition, and the audit service still answers "who did this".
+     *
+     * <p>Under {@code ON_DISPATCH} (§6 D-1) the invoice is raised when the goods actually leave, from
      * the quantities that actually left — so an amendment here edits an order, never an issued invoice, and a
      * rejection voids nothing.
      *
@@ -109,6 +127,19 @@ public class OrderService {
             }
         }
 
+        // O7 D1 — does this org review booked orders, or go straight to picking?
+        //
+        // ON reproduces exactly the hardcoded behaviour this replaces, so an org that never opens the
+        // Configuration screen sees no change. OFF is for the one-person back office, where the same human
+        // books and converts and the gate therefore segregates nothing — see the catalog entry.
+        //
+        // Read PER ORG rather than from the security context: a booking is always made in a known tenant, and
+        // O3 learned the hard way that resolving the tenant ambiently returns the platform default to every
+        // real customer while looking correct in staff-authenticated tests.
+        boolean requireApproval = settingsService.getBoolFor(
+                orgId, com.myplus.marketplace.config.MarketplaceSettingsCatalog.BOOKING_REQUIRE_APPROVAL);
+        FulfilmentStatus entryState = requireApproval ? FulfilmentStatus.PENDING_APPROVAL : FulfilmentStatus.NEW;
+
         long orderSeq = repo.maxOrderSeqForOrg(orgId) + 1;
         Order o = Order.builder()
                 .organizationId(orgId).userId(userId)
@@ -129,7 +160,7 @@ public class OrderService {
                 .source("FIELD")                      // POS | STOREFRONT | FIELD — how the order was taken
                 .paymentMode(dto.getPaymentMode() != null ? dto.getPaymentMode() : "CREDIT")
                 .booksStatus(AWAITING_DISPATCH)
-                .fulfilmentStatus(FulfilmentStatus.PENDING_APPROVAL)
+                .fulfilmentStatus(entryState)
                 .build();
 
         Order saved;
@@ -141,7 +172,8 @@ public class OrderService {
             LOG.info("Booking for key {} lost the insert race — returning order {}", key, winner.getOrderNo());
             return toDTOWithLines(winner);
         }
-        notificationService.notify(saved, FulfilmentStatus.PENDING_APPROVAL.name(), "Order booked, awaiting review");
+        notificationService.notify(saved, entryState.name(),
+                requireApproval ? "Order booked, awaiting review" : "Order booked, ready to pick");
         return toDTOWithLines(saved);
     }
 
@@ -345,6 +377,13 @@ public class OrderService {
                 changes.add(change("line[" + name(item) + "].price", str(item.getPrice()), str(in.getPrice())));
                 item.setPrice(in.getPrice());
             }
+            // The concession is amendable for the same reason the price is — the review desk is where a rep's
+            // over-generous discount gets pulled back — and it is recorded in the amendment trail like any
+            // other change, so "who agreed to this" survives.
+            if (in.getDiscount() != null && cmp(in.getDiscount(), item.getDiscount()) != 0) {
+                changes.add(change("line[" + name(item) + "].discount", str(item.getDiscount()), str(in.getDiscount())));
+                item.setDiscount(in.getDiscount());
+            }
         }
         if (o.getItems().isEmpty())
             throw new ValidationException("An order cannot have every line removed — reject or cancel it instead.");
@@ -392,12 +431,23 @@ public class OrderService {
         return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ").replace("\r", " ");
     }
 
+    /**
+     * The order's indicative value: sum of (qty x price) LESS each line's discount.
+     *
+     * <p>Netting the discount here is what makes the figure the rep quotes at the counter the same one the
+     * office sees on the review screen. It stays indicative either way — the invoice is priced at dispatch
+     * from what physically went out — but a quoted total that ignored a concession the rep had just agreed
+     * would be wrong in the one direction that starts an argument.
+     *
+     * <p>Clamped at zero per line: a discount larger than the line is a typo, not a credit.
+     */
     private static BigDecimal lineTotal(List<OrderDTO.Line> lines) {
         BigDecimal t = BigDecimal.ZERO;
         if (lines == null) return t;
         for (OrderDTO.Line l : lines) {
             if (l.getPrice() == null || l.getQuantity() == null) continue;
-            t = t.add(l.getPrice().multiply(BigDecimal.valueOf(l.getQuantity())));
+            BigDecimal gross = l.getPrice().multiply(BigDecimal.valueOf(l.getQuantity()));
+            t = t.add(netOfDiscount(gross, l.getDiscount()));
         }
         return t;
     }
@@ -407,9 +457,17 @@ public class OrderService {
         if (items == null) return t;
         for (OrderItem i : items) {
             if (i.getPrice() == null) continue;
-            t = t.add(i.getPrice().multiply(BigDecimal.valueOf(nzInt(i.getQuantity()))));
+            BigDecimal gross = i.getPrice().multiply(BigDecimal.valueOf(nzInt(i.getQuantity())));
+            t = t.add(netOfDiscount(gross, i.getDiscount()));
         }
         return t;
+    }
+
+    /** One line, less its concession, never below zero. */
+    private static BigDecimal netOfDiscount(BigDecimal gross, BigDecimal discount) {
+        if (discount == null || discount.signum() <= 0) return gross;
+        BigDecimal net = gross.subtract(discount);
+        return net.signum() < 0 ? BigDecimal.ZERO : net;
     }
 
     @Transactional
@@ -1262,7 +1320,9 @@ public class OrderService {
                     // ordered one would lose the shortfall, and the order would read complete while still owing.
                     .quantity(nzInt(l.getQuantity()) + nzInt(l.getQuantityBackordered()))
                     .quantityBackordered(nzInt(l.getQuantityBackordered()))
-                    .price(l.getPrice()).build());
+                    .price(l.getPrice())
+                    .discount(l.getDiscount())      // the rep's per-line concession, carried onto the order
+                    .build());
         }
         return items;
     }
@@ -1295,6 +1355,7 @@ public class OrderService {
             l.setQuantityShipped(nzInt(it.getQuantityShipped()));
             l.setQuantityBackordered(nzInt(it.getQuantityBackordered()));
             l.setPrice(it.getPrice());
+            l.setDiscount(it.getDiscount());   // so the review screen shows what the rep gave away
             lines.add(l);
         }
         d.setItems(lines);

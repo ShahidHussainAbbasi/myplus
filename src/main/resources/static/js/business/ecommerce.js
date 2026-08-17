@@ -53,6 +53,33 @@
         return global.canReverseOrder === true;
     }
 
+    /**
+     * May the signed-in user RELEASE a booked order — confirm it, or reject it back to the booker?
+     *
+     * Separate from {@link canReverse} because the server's two gates are separate: cancel/return/refund want
+     * ADMIN_PRIVILEGE, while confirm/reject want ROLE_OWNER, ADMIN_PRIVILEGE or SUPER_PRIVILEGE. Reusing the
+     * reversal flag here would have hidden the review buttons from a SUPER who is allowed to press them.
+     * Set by a `sec:authorize` script in the dashboard, the same way canReverseOrder is; the server enforces
+     * the rule regardless of what the browser believes.
+     */
+    function canReview() {
+        return global.canReviewOrder === true;
+    }
+
+    /**
+     * One action button.
+     *
+     * <p>{@code data-act} + {@code data-order} rather than an id, because these are rendered per ROW: an id
+     * would be duplicated down the grid, which is invalid and makes a test select the wrong order's button.
+     * The attributes also give the gate a stable handle that does not depend on the button's label, so a
+     * translation or a wording change cannot silently stop the test exercising the thing it names.
+     */
+    function btn(cls, act, orderId, onclick, label) {
+        return "<button class='btn btn-xs " + cls + "'"
+            + " data-act='" + esc(act) + "' data-order='" + Number(orderId) + "'"
+            + ' onclick="' + onclick + '">' + esc(label) + '</button> ';
+    }
+
     global.showOrders = function () {
         $('.formDiv').hide();
         $('#OrdersDiv').show();
@@ -78,13 +105,9 @@
         return p;
     }
 
-    function toIso(v) {
-        var s = $.trim(v || '');
-        if (!s) { return ''; }
-        var m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);      // dd-MM-yyyy
-        if (m) { return m[3] + '-' + m[2] + '-' + m[1]; }
-        return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';      // already ISO, else ignore rather than send junk
-    }
+    // The picker's dd-MM-yyyy → the ISO the API takes. Delegated to /js/common/date-picker.js, which owns
+    // the wire format: this was a second, character-identical reading of it.
+    function toIso(v) { return global.dpToIso ? global.dpToIso(v) : ''; }
 
     global.applyOrderFilters = function () {
         state.page = 0;         // a new filter starts at the beginning; page 4 of the old result set is meaningless
@@ -156,20 +179,56 @@
      * status as plain text because `allowedTransitions` is empty — not because this function knows that
      * CANCELLED is terminal.
      */
+    /**
+     * The buttons for one order, drawn from the SERVER's allowedTransitions — with the review decisions
+     * routed to their own endpoints.
+     *
+     * <p>O7 D1 shipped the approval gate server-side with no reviewer UI, and this function was the reason it
+     * was invisible: it renders every allowed transition as a generic "Mark X". For a PENDING_APPROVAL order
+     * that produced <b>Mark NEW</b> and <b>Mark REJECTED</b> — buttons the server always refuses, because
+     * confirming is a review decision and not a status change (it carries an admin gate and, on reject, the
+     * REASON the booker needs). So the grid offered two buttons that could not work and hid the two that
+     * could. Same one state along: a REJECTED order needs `resubmit`, not "Mark PENDING_APPROVAL".
+     *
+     * <p>The rule this encodes: <b>a transition the generic endpoint refuses must not be drawn as a generic
+     * button.</b> The server keeps publishing those moves in allowedTransitions — they ARE legal, which is why
+     * `resubmit` and `confirm` can reach them — so the filtering belongs here, next to the buttons.
+     */
     function actionsFor(o) {
         var moves = o.allowedTransitions || [];
-        if (!moves.length) {
-            return '<span class="text-muted">' + esc(o.fulfilmentStatus || '') + '</span>';
+        var from = o.fulfilmentStatus;
+        var id = Number(o.id);
+        var html = '';
+
+        // ── review decisions, on their own endpoints ────────────────────────────────────────────────────
+        if (from === 'PENDING_APPROVAL' && canReview()) {
+            html += btn('btn-success', 'confirm', id, 'confirmBookedOrder(' + id + ')', t('ui.js.confirm') || 'Confirm');
+            html += btn('btn-warning', 'reject', id, 'rejectBookedOrder(' + id + ')', t('ui.js.reject') || 'Reject');
         }
-        return moves.map(function (to) {
+        // Resubmit is NOT admin-gated: it is the booker's own move after revising a rejected order, and
+        // gating it would leave the rejection with nobody able to answer it.
+        if (from === 'REJECTED') {
+            html += btn('btn-primary', 'resubmit', id, 'resubmitBookedOrder(' + id + ')', t('ui.js.resubmit') || 'Resubmit');
+        }
+
+        // ── everything else: generic status moves ───────────────────────────────────────────────────────
+        html += moves.map(function (to) {
+            // Handled above by a named endpoint — never draw the generic form of these.
+            if (from === 'PENDING_APPROVAL' && (to === 'NEW' || to === 'REJECTED')) { return ''; }
+            if (from === 'REJECTED' && to === 'PENDING_APPROVAL') { return ''; }
             // CANCELLED and RETURNED reverse money and stock, so they carry the server's admin gate; showing
             // them to a packer would be offering a 403.
             var reversal = (to === 'CANCELLED' || to === 'RETURNED');
             if (reversal && !canReverse()) { return ''; }
-            var cls = reversal ? 'btn-danger' : 'btn-primary';
-            return "<button class='btn btn-xs " + cls + "' onclick=\"moveOrder(" + Number(o.id) + ",'" + esc(to)
-                + "')\">" + esc(t('ui.js.mark') || 'Mark') + ' ' + esc(to) + '</button> ';
+            return btn(reversal ? 'btn-danger' : 'btn-primary', 'mark-' + to, id,
+                "moveOrder(" + id + ",'" + esc(to) + "')",
+                (t('ui.js.mark') || 'Mark') + ' ' + to);
         }).join('');
+
+        // Nothing this user may do — say what the order IS, so the cell is never blank. A booker looking at
+        // their own order in review lands here, which is the point: they can see it, they cannot release it.
+        if (!html) { return '<span class="text-muted">' + esc(from || '') + '</span>'; }
+        return html;
     }
 
     function renderPager() {
@@ -223,6 +282,67 @@
         });
     }
 
+    // ── O7 D1: the review decisions ─────────────────────────────────────────────────────────────────────
+    //
+    // Their own endpoints, not updateOrderStatus, because releasing a booker's order is the control the whole
+    // pre-sales model rests on: the generic path would bypass the admin gate AND lose the rejection reason.
+
+    /** POST one of the review endpoints and refresh, relaying the server's own wording on refusal. */
+    function postReview(path, body, id, okKey) {
+        $.ajax({
+            type: 'POST', url: serverContext + path, contentType: 'application/json', dataType: 'json',
+            data: JSON.stringify(body),
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showSaleSuccess(t(okKey) || okKey);
+                    loadOrders();
+                    if ($('#orderDetail').is(':visible')) { openOrderDetail(id); }
+                } else {
+                    // e.g. "This order is not awaiting review" — tells the reviewer what changed under them.
+                    showFormError((resp && resp.message) || t('ui.js.couldNotUpdateTheOrder'));
+                }
+            },
+            error: function (xhr) {
+                showFormError((xhr.responseJSON && xhr.responseJSON.message) || t('ui.js.couldNotUpdateTheOrder'));
+            }
+        });
+    }
+
+    /** Release a booked order for picking. */
+    global.confirmBookedOrder = function (id) {
+        postReview('confirmOrder', { id: id }, id, 'ui.js.orderConfirmed');
+    };
+
+    /**
+     * Send a booked order back to the booker.
+     *
+     * The reason is REQUIRED, not decoration: a rejection with no reason gives the rep nothing to revise, and
+     * the order comes straight back. uiPromptConfirm, never window.prompt (the platform confirm contract).
+     */
+    global.rejectBookedOrder = function (id) {
+        uiPromptConfirm({
+            title: t('ui.js.rejectThisOrder') || 'Send this order back to the booker?',
+            message: t('ui.js.theBookerSeesThisReason')
+                || 'The booker sees this reason and can revise and resubmit the order.',
+            input: { label: t('ui.js.reason') || 'Reason' },
+            confirmText: t('ui.js.reject') || 'Reject',
+            cancelText: t('ui.js.keepInReview') || 'Keep in review',
+            tone: 'warning'
+        }).then(function (reason) {
+            if (reason === null) { return; }                 // dismissed
+            if (!String(reason).trim()) {                    // confirmed with an empty box
+                showFormError(t('ui.js.aRejectionNeedsAReason') || 'A rejection needs a reason.');
+                return;
+            }
+            postReview('rejectOrder', { id: id, reason: String(reason).trim() }, id, 'ui.js.orderRejected');
+        });
+    };
+
+    /** The booker's own move: a revised order goes back for review, never straight to NEW. */
+    global.resubmitBookedOrder = function (id) {
+        postReview('resubmitOrder', { id: id }, id, 'ui.js.orderResubmitted');
+    };
+
     // Kept for callers that still say cancelOrder(id) — one implementation, no second copy of the rules.
     global.cancelOrder = function (id) { global.moveOrder(id, 'CANCELLED'); };
     global.advanceOrder = function (id, status) { global.moveOrder(id, status); };
@@ -248,9 +368,9 @@
         $('#orderDetailTitle').text((o.orderNo || ('#' + o.id)) + ' — ' + (o.customerName || ''));
 
         var html = '<div class="table-scroll"><table class="table table-condensed" style="margin-top:10px">'
-            + '<thead><tr><th>' + esc(t('ui.product') || 'Product') + '</th><th class="text-right">'
-            + esc(t('ui.quantity') || 'Qty') + '</th><th class="text-right">' + esc(t('ui.rate') || 'Price')
-            + '</th><th class="text-right">' + esc(t('ui.total') || 'Total') + '</th></tr></thead><tbody>';
+            + '<thead><tr><th>' + esc(t('ui.js.product') || 'Product') + '</th><th class="text-right">'
+            + esc(t('ui.js.quantity') || 'Qty') + '</th><th class="text-right">' + esc(t('ui.js.rate') || 'Price')
+            + '</th><th class="text-right">' + esc(t('ui.js.total') || 'Total') + '</th></tr></thead><tbody>';
 
         var lines = o.items || [];
         if (!lines.length) {
@@ -289,15 +409,15 @@
 
         html += '<div style="display:flex;flex-wrap:wrap;gap:30px;margin-top:10px">';
         html += '<div><b>' + esc(t('ui.js.totals') || 'Totals') + '</b><br>'
-            + esc(t('ui.subTotal') || 'Subtotal') + ': ' + money(o.subTotal) + '<br>'
-            + (Number(o.discountAmount) > 0 ? (esc(t('ui.discount') || 'Discount') + ': -' + money(o.discountAmount)
+            + esc(t('ui.js.subTotal') || 'Subtotal') + ': ' + money(o.subTotal) + '<br>'
+            + (Number(o.discountAmount) > 0 ? (esc(t('ui.js.discount') || 'Discount') + ': -' + money(o.discountAmount)
                 + (o.couponCode ? ' (' + esc(o.couponCode) + ')' : '') + '<br>') : '')
-            + esc(t('ui.tax') || 'Tax') + ': ' + money(o.taxTotal) + '<br>'
+            + esc(t('ui.js.tax') || 'Tax') + ': ' + money(o.taxTotal) + '<br>'
             + esc(t('ui.js.shipping') || 'Shipping') + ': ' + money(o.shippingFee)
             + (o.shippingMethod ? ' (' + esc(o.shippingMethod) + ')' : '') + '<br>'
-            + '<b>' + esc(t('ui.total') || 'Total') + ': ' + money(o.total) + '</b></div>';
+            + '<b>' + esc(t('ui.js.total') || 'Total') + ': ' + money(o.total) + '</b></div>';
 
-        html += '<div><b>' + esc(t('ui.payment') || 'Payment') + '</b><br>'
+        html += '<div><b>' + esc(t('ui.js.payment') || 'Payment') + '</b><br>'
             + esc(o.paymentMode || '') + ' / ' + esc(o.paymentStatus || '') + '<br>'
             + (o.paymentRef ? esc(o.paymentRef) + '<br>' : '')
             + (Number(o.refundedAmount) > 0
@@ -344,6 +464,24 @@
         if ((o.shipments || []).some(function (sh) { return sh.status === 'DISPATCHED'; })) {
             html += " <button class='btn btn-xs btn-info' id='orderDeliveryBtn' onclick=\"openDeliveryForm("
                 + Number(o.id) + ')">' + esc(t('ui.js.recordDelivery') || 'Record delivery') + '</button>';
+        }
+        // OMS O8 — the per-stop slip. Drawn only once the order HAS an invoice, because the challan carries the
+        // invoice number the shopkeeper matches on: offered before dispatch it would print a document with the
+        // one field that makes it useful left blank.
+        //
+        // Both buttons, deliberately. Print is for the copy that goes out with the goods and gets signed;
+        // download is for the office, which until now could keep no record of what it handed over.
+        if (o.invoiceNo) {
+            // Single-quoted JS string inside the double-quoted attribute, with the value escaped: an invoice
+            // number is server-generated (INV-000123) but it is still data being written into markup, and the
+            // rule here is escape-always rather than escape-when-it-looks-risky.
+            var invArg = "'" + esc(String(o.invoiceNo)) + "'";
+            html += " <button class='btn btn-xs btn-default' data-act='challan' data-order='" + Number(o.id) + "'"
+                + ' onclick="printChallan(' + invArg + ')">'
+                + esc(t('ui.js.printChallan') || 'Print challan') + '</button> ';
+            html += "<button class='btn btn-xs btn-default' data-act='challan-pdf' data-order='" + Number(o.id) + "'"
+                + ' onclick="downloadChallan(' + invArg + ')">'
+                + esc(t('ui.js.challanPdf') || 'Challan PDF') + '</button> ';
         }
         if (canReverse() && Number(o.refundableAmount) > 0 && o.paymentMode === 'CARD') {
             html += " <button class='btn btn-xs btn-warning' id='orderRefundBtn' onclick=\"refundOrderPrompt("
@@ -419,7 +557,7 @@
             if (!rows.length) { showFormError(t('ui.js.nothingOutstanding') || 'Nothing left to ship.'); return; }
 
             var html = '<div class="table-scroll"><table class="table table-condensed"><thead><tr>'
-                + '<th>' + esc(t('ui.product') || 'Product') + '</th>'
+                + '<th>' + esc(t('ui.js.product') || 'Product') + '</th>'
                 + '<th class="text-right">' + esc(t('ui.js.outstanding') || 'Outstanding') + '</th>'
                 + '<th class="text-right">' + esc(t('ui.js.shipNow') || 'Ship now') + '</th>'
                 + '</tr></thead><tbody>';
@@ -440,7 +578,7 @@
                 + '<button class="btn btn-success" id="shipConfirmBtn" onclick="submitShipment(' + Number(id)
                 + ')">' + esc(t('ui.js.recordShipment') || 'Record shipment') + '</button> '
                 + '<button class="btn btn-default" onclick="openOrderDetail(' + Number(id) + ')">'
-                + esc(t('ui.cancel') || 'Cancel') + '</button></div>';
+                + esc(t('ui.js.cancel') || 'Cancel') + '</button></div>';
 
             $('#orderDetailTitle').text((o.orderNo || ('#' + o.id)) + ' — ' + (t('ui.js.ship') || 'Ship'));
             $('#orderDetailBody').html(html);

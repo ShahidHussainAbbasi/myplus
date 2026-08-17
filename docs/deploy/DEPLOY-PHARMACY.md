@@ -73,23 +73,26 @@ of mid-deploy (that is exactly how the 2026-08-04 `party-service` outage happene
 
 ## 4. Schema
 
-Flyway **V1–V6** on `myplusdb_pharma` (baseline · tenant scope · productId rebase · clinical flags ·
-party bridge · scoped indexes · drop dead medicine schema). Catalog is at **V8**, business-service at
-**V36**. Confirm they migrate on first start — a container starts fine on a stale jar and reports nothing:
+`myplusdb_pharma` migrations are baseline · tenant scope · productId rebase · clinical flags · party
+bridge · scoped indexes · drop dead medicine schema. Pharmacy also depends on the catalog, inventory and
+business schemas being current.
+
+Confirm they migrated — a container starts fine on a stale jar and reports nothing anywhere:
 
 ```bash
-docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
-  "SELECT version FROM myplusdb_pharma.flyway_schema_history
-    WHERE success=1 ORDER BY installed_rank DESC LIMIT 1;"    # -> 6
-docker compose exec mysql mysql -uroot -p"$DB_PASSWORD" -N -e \
-  "SELECT version FROM myplusdb_catalog.flyway_schema_history
-    WHERE success=1 ORDER BY installed_rank DESC LIMIT 1;"    # -> 8
+cd microservices && ./verify-schemas.sh pharma catalog inventory business
+# -> a row each, and "All 4 schemas match this checkout."
 ```
 
-> **Not `MAX(version)`** — that column is a VARCHAR, so `MAX()` sorts lexically and a schema at V36 reports
-> `9`. Order by `installed_rank`.
+`STALE JAR` on any row means that container predates its migrations — rebuild (§2) before going further.
 
-A lower number means the jar predates the migration — rebuild (§2) before going further.
+> **This section used to name the expected numbers** ("pharma V6, catalog V8, business V36"). Business is
+> at **V40** now, and that list went stale four times across the doc set — a stale expectation either
+> waves through a genuinely stale deploy or sends you rebuilding jars that were fine.
+> `verify-schemas.sh` reads what to expect from the migration files on disk, so it cannot drift.
+>
+> It also encodes the trap: **never `MAX(version)`** — that column is a VARCHAR, so `MAX()` sorts
+> lexically and a schema at V40 reports `9`. Order by `installed_rank`.
 
 > **Clinical-flag backfill.** `rxRequired` / `controlledSubstance` were moved from pharma-service onto the
 > catalog product so the sell path reads them off the `ProductRef` it already fetches — no extra call at
@@ -156,10 +159,21 @@ job. Nothing to schedule; nothing to fail silently.
 ## 8. Backup
 
 ```bash
-docker compose exec mysql sh -c \
-  'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" myplusdb_pharma myplusdb_catalog myplusdb_inventory myplusdb' \
-  > pharmacy-$(date +%F).sql
+cd microservices && ./backup-db.sh
 ```
+
+**Back up all 16 databases together, not just this module's.** This section used to dump one schema and
+then tell you to "also include `myplusdb_auth`" — that instruction exists *because* the databases are
+interlinked, and hand-listing the ones you happen to think of is exactly how you end up with a backup
+that restores into a state that never existed. Accounts and tenants live in `myplusdb_auth`, anything
+financial reaches `myplusdb_finance`, contacts reach `myplusdb_party`.
+
+The old command also omitted `--single-transaction`, so it took a global read lock: on a live system
+that is an outage for as long as the dump runs.
+
+`backup-db.sh` takes all 16 in **one** consistent snapshot without locking, and captures `.env` and the
+deployed git SHA alongside it — a restore needs all three. Day-one setup, verification, restore, and
+rebuilding a lost host: [`DEPLOY-FULL-STACK.md` §8](DEPLOY-FULL-STACK.md#8-backup-and-restore--end-to-end).
 
 Back up **all four together plus `myplusdb_auth`** — a prescription references catalog products and a
 business-service invoice. Restoring one without the others yields dangling references.

@@ -60,29 +60,55 @@ Browser ──▶ :8080 monolith (UI) ──▶ :8765 gateway ──▶ <module 
 
 ## 3. Secrets
 
-Create `microservices/.env` (git-ignored). Same file for every module.
+Create `microservices/.env` (git-ignored). Same file for every module. `microservices/.env.example`
+is the authoritative template — this section mirrors it, and if the two ever disagree, believe
+`.env.example` and fix this.
 
 ```bash
 # ── database ──────────────────────────────────────────────────────────────
-DB_USER=myplus
+# ONE password, used for BOTH the MySQL root account and the app user. Compose sets
+# MYSQL_ROOT_PASSWORD: ${DB_PASSWORD} itself — there is no separate root-password variable.
+# It must be set BEFORE the mysql-data volume is first created; changing it later does not
+# change the password already baked into the datadir.
 DB_PASSWORD=<strong-value>
-MYSQL_ROOT_PASSWORD=<strong-value>
 
-# ── JWT signing ───────────────────────────────────────────────────────────
-JWT_SECRET=<64+ random chars>
+# ── JWT signing — auth-service and the gateway MUST share this exact value ────────────────
+JWT_SECRET=<64+ random chars>            # openssl rand -base64 48
 
-# ── signup e-mail (notification-service) ──────────────────────────────────
-MAIL_USERNAME=<gmail address>
-MAIL_PASSWORD=<gmail app password>
+# ── gateway↔service trust token. SET THIS IN PRODUCTION. ──────────────────
+# The gateway stamps X-Internal-Secret; each service's HeaderAuthFilter rejects identity
+# headers (X-User-*) that do not carry it. Empty = that check is OFF, which on a public host
+# means anyone who reaches a service directly can forge a user identity.
+INTERNAL_SECRET=<strong-value>           # openssl rand -base64 32   — empty is for local only
+
+# ── signup e-mail ─────────────────────────────────────────────────────────
+# TWO different variables, and they are not interchangeable:
+#   MAIL_USER     — FULL Gmail address. notification-service (signup verification + password reset).
+#   MAIL_USERNAME — legacy short form, read only by education-service and campaign-service.
+# Setting only MAIL_USERNAME is the classic "verification e-mail never arrives" cause.
+MAIL_USER=<you@gmail.com>
+MAIL_USERNAME=<you>
+MAIL_PASSWORD=<gmail app password>       # a Gmail APP password, not the account password
 
 # ── public URLs baked into e-mailed links (PROD: your real domain) ────────
 # Leave unset locally — links default to http://localhost:8765 / :8080, which work on one machine.
 APP_BASE_URL=https://your-domain
 RESET_PASSWORD_URL=https://your-domain/user/changePassword
 
-# ── seeding: LOCAL ONLY. Never set on a public host. ──────────────────────
+# ── seeding: LOCAL ONLY. Never set any of these on a public host. ─────────
+# Compose defaults all three to false, so a deploy is safe unless you opt in.
 APP_SEED_DEMO=true
+# APP_SEED_ADMIN=true
+# APP_SEED_TEST_FIXTURES=true            # the Cypress multi-location/multi-branch fixtures
+# APP_DEMO_PASSWORD= / APP_ADMIN_PASSWORD=   — unset means seeding is SKIPPED rather than
+#   falling back to the credential committed to this repo. That fallback was the real exposure.
 ```
+
+> **`DB_USER` is not in that list on purpose.** `docker-compose.yml` hardcodes `DB_USER: shahid` in its
+> `x-db-env` anchor, so a `DB_USER=` line in `.env` is read by the non-Docker `start-all.ps1` path and
+> **ignored entirely by Docker**. Setting it to anything else and expecting the containers to follow is
+> a silent no-op. The mysql container auto-creates `shahid` on first init; `init-db.sql` then grants it
+> every per-service database.
 
 > ### ⚠ `APP_SEED_DEMO` must be `false` (or unset) in production
 > It seeds the full demo/user/admin/owner account ladder **with published passwords**. §6 has the
@@ -285,11 +311,18 @@ certbot --nginx -d your-domain -d www.your-domain
 ## 6. Before real traffic — the checklist
 
 ```bash
+cd /opt/myplus/microservices
+DB_PASSWORD="$(grep -m1 '^DB_PASSWORD=' .env | cut -d= -f2-)"
+
 # 1. NO seeded demo accounts. Prefixes, not exact names: the ladder is demo./user./admin./owner.<module>@
-docker compose exec mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" myplusdb_auth -e \
-"SELECT email FROM user_account WHERE email LIKE 'demo.%' OR email LIKE 'user.%' \
- OR email LIKE 'admin.%' OR email LIKE 'owner.%' OR email LIKE '%teacher.%' OR email LIKE '%cashier.%';"
+#    The table is `users` (plural). Get it wrong and MySQL returns an ERROR, which scrolls past looking
+#    very much like the "no rows" you were hoping for — so read the output, don't just run it.
+docker exec -e MYSQL_PWD="$DB_PASSWORD" myplus-mysql mysql -uroot myplusdb_auth -e \
+"SELECT email FROM users WHERE email LIKE 'demo.%' OR email LIKE 'user.%' \
+ OR email LIKE 'admin.%' OR email LIKE 'owner.%' OR email LIKE 'teacher.%' OR email LIKE 'cashier.%' \
+ OR email = 'admin@myplus.com';"
 # Expect: NO ROWS. Any row is a live account whose password is published in this repo.
+# Turning the seed flag off stops them being RE-created; it does not delete rows already written.
 
 # 2. The one that matters most cannot log in.
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://your-domain/api/auth/login \
@@ -323,32 +356,46 @@ mvn -q -DskipTests clean package -f pom.xml
 mvn -q -DskipTests clean package -f ../pom.xml       # monolith
 docker compose up -d --build
 
-# Backup / restore  -  use the script, not a hand-typed dump
+# Backup  -  use the script, never a hand-typed mysqldump
 ./backup-db.sh                                       # all 16 DBs, one consistent point in time
-zcat backups/myplus-2026-08-06-0230.sql.gz | \
-  docker compose exec -T -e "MYSQL_PWD=$DB_PASSWORD" mysql mysql -uroot     # restore
 ```
 
-### Backups — schedule this on day one
+### Backups and restore — schedule this on day one
+
+> **The canonical procedure is [`DEPLOY-FULL-STACK.md` §8](DEPLOY-FULL-STACK.md#8-backup-and-restore--end-to-end).**
+> It is the single source of truth for taking, verifying, and restoring a backup, and it applies to
+> **every** profile — POS, pharmacy or full — because all of them share one MySQL container and one
+> volume. Read it before you need it, not during an incident.
+>
+> This section is the two-minute version. Anything below that ever contradicts §8 is the stale copy.
 
 `microservices/backup-db.sh` dumps every database in **one** `--single-transaction` snapshot, gzips it,
 verifies the archive is valid *and* contains the `myplusdb` schema, then rotates old files. It refuses
-to write a 0-byte file that looks like a backup.
+to write a 0-byte file that looks like a backup, and refuses to run at all if MySQL is down.
 
 ```bash
 chmod +x backup-db.sh
 crontab -e
-30 2 * * * cd /root/myplus/microservices && ./backup-db.sh >> /var/log/myplus-backup.log 2>&1
+30 2 * * * cd /opt/myplus/microservices && ./backup-db.sh >> /var/log/myplus-backup.log 2>&1
 ```
 
-Three rules that make the difference between a backup and the *idea* of a backup:
+> **Match that path to where you actually cloned** (§5.4 uses `/opt/myplus`). A cron line pointing at a
+> directory that does not exist fails silently every night and you find out on the day you need it —
+> `cd` failing is exactly the kind of error nobody reads in a log they never open. After installing it,
+> run the command by hand once and check `ls -lh backups/`.
+
+Four rules that make the difference between a backup and the *idea* of a backup:
 
 1. **All databases in one dump.** They are interlinked — a sale in `myplusdb` references a product in
    `myplusdb_catalog` and a payment in `myplusdb_finance`. Per-database dumps taken minutes apart
    restore into a state that never existed.
-2. **Copy them off the box.** A dump on the same disk as the database does not survive the failure it
+2. **The data alone will not bring you back.** You also need `.env` (a restored DB with a different
+   `JWT_SECRET` invalidates every session; a different `INTERNAL_SECRET` makes every service reject the
+   gateway) and the deployed git SHA (the dump's schema matches the Flyway version of the code that
+   wrote it). `backup-db.sh` captures all three — see §8.1.
+3. **Copy them off the box.** A dump on the same disk as the database does not survive the failure it
    exists to protect against. `rsync -az ./backups/ user@elsewhere:/srv/myplus-backups/`
-3. **Rehearse a restore.** A backup you have never restored is a hope. Do it once on a scratch host, and
+4. **Rehearse a restore.** A backup you have never restored is a hope. Do it once on a scratch host, and
    note how long it takes — that number is your actual recovery time.
 
 ### Log rotation (protects VPS disk)
@@ -372,6 +419,7 @@ docker compose up -d --force-recreate <service>
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| `dependency failed to start` / a container stuck in **`Created`** | A `depends_on` was judged unhealthy, so compose **refused to start** the container. It never ran, so `docker logs` on it is empty and misleading — read the **dependency's** health log instead (below) | Re-run `up -d`. If it recurs, the dependency's healthcheck deadline is too short for your box |
 | Service not in Eureka | Started before config-server | `docker compose up -d --force-recreate <service>` |
 | 502 from nginx, random logouts | Hop-by-hop headers relayed | Use the §5.7 proxy block verbatim |
 | `Access denied for user` | `.env` not loaded / wrong `DB_PASSWORD` | Services read `${DB_PASSWORD}`; unset = access denied |
@@ -379,6 +427,27 @@ docker compose up -d --force-recreate <service>
 | Code change has no effect | **Stale jar** | `package` (not `compile`), then `up -d --build` |
 | Flyway "Unknown setting" / missing column | Migration didn't run | Check the service log for `Migrating schema … to version "N"` |
 | `Data truncated for column 'status'` | Java enum value added without an `ALTER … MODIFY enum` | `@Enumerated(STRING)` → MySQL enum needs a migration; `ddl-auto` won't do it |
+
+### Reading a health verdict instead of guessing at one
+
+A container in `Created` was blocked by a dependency, not by its own code. Two commands settle it:
+
+```bash
+docker ps -a --format 'table {{.Names}}\t{{.Status}}'          # who is Created vs Up vs unhealthy
+docker inspect myplus-config \
+  --format '{{range .State.Health.Log}}{{.Start}} exit={{.ExitCode}} {{.Output}}{{end}}'
+```
+
+Two behaviours worth knowing before you debug one of these:
+
+- **A healthcheck failure does not trigger `restart: unless-stopped`.** Once a container is flagged
+  unhealthy it stays flagged for its whole life, even after it starts answering normally. So the stack
+  can be entirely functional while compose still refuses to start what was waiting on it.
+- **Failures inside `start_period` are free**, so a generous window costs nothing but a later verdict on
+  a container that is genuinely dead. `eureka-server` and `config-server` had **no** `start_period` at
+  all until 2026-08-16, which gave them a 75-second budget from cold and made this failure routine on a
+  loaded or cold box. Both now get 120s via the `x-bootstrap-healthcheck` anchor; the app services get
+  240s via `x-healthcheck`.
 
 ---
 

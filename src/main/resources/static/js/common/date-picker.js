@@ -362,6 +362,27 @@
     }
 
     /** Bind every date input on the page. Safe to call again after injecting markup — bound inputs are skipped. */
+    /**
+     * A picker's visible value → the ISO date an API takes. Blank for anything that is neither.
+     *
+     * This lives HERE because this file owns the wire format — see the contract table at the top. It was
+     * written out twice, character for character, in ecommerce.js (the Orders date filter) and again in
+     * round-sheet.js, which is one copy past the point where the platform's DRY rule bites: two readings of
+     * "what does dd-MM-yyyy mean" is exactly the drift this file exists to prevent, and the next caller would
+     * have made three.
+     *
+     * Tolerant of an ISO value already in the box (a browser date input, a value set by code) and SILENT on
+     * anything else: a filter that quietly does not apply is better than one that sends junk a server has to
+     * decide what to do with.
+     */
+    window.dpToIso = function (v) {
+        var s = String(v == null ? '' : v).trim();
+        if (!s) return '';
+        var m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);                 // dd-MM-yyyy, the picker's own format
+        if (m) return m[3] + '-' + m[2] + '-' + m[1];
+        return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';                // already ISO, else ignore
+    };
+
     window.initDatePickers = function () {
         SPECS.forEach(function (spec) {
             Array.prototype.forEach.call(document.querySelectorAll(spec.sel), function (input) {

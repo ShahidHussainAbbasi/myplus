@@ -129,13 +129,74 @@
             });
             $('#bkProduct').empty().append(html);
         });
+        loadStockLevels();
     }
 
-    /** Selecting a product pre-fills its list price — the rep may overwrite it, which is the agreed price. */
+    /**
+     * On-hand for the WHOLE catalogue, in ONE call, once per visit to the screen.
+     *
+     * <p>Deliberately not a lookup per product pick. A rep works down a shop's list choosing item after item,
+     * and a round trip on every {@code change} event is a spinner between each one on a phone on shop wifi —
+     * the one place in this product where latency is most visible and least tolerable. The tenant's levels are
+     * a few hundred numbers; fetching them with the product list makes the pick instant.
+     *
+     * <p>Silent on failure, and the badge simply stays hidden: not knowing the stock figure must never stop a
+     * rep taking an order. The warehouse re-checks availability at dispatch, which is the control that matters
+     * — this number is guidance at the counter, not a promise.
+     */
+    function loadStockLevels() {
+        state.stock = {};
+        $.get(serverContext + 'productStockLevels', function (resp) {
+            if (!resp || resp.success !== true) { return; }
+            state.stock = resp.levels || {};
+        });
+    }
+
+    /** What we can honestly tell the rep is on the shelf: the SELLABLE count, not raw on-hand. */
+    function sellableFor(productId) {
+        var lvl = state.stock ? (state.stock[productId] || state.stock[String(productId)]) : null;
+        if (!lvl) { return null; }
+        // `sellable` excludes expired and held stock; on-hand alone would promise goods that cannot be picked
+        // — the exact gap that produces "Insufficient stock" at dispatch on an order the rep was told was fine.
+        var n = (lvl.sellable != null) ? lvl.sellable : lvl.onHand;
+        return n == null ? null : Number(n);
+    }
+
+    /** Selecting a product pre-fills its list price and shows what is on the shelf. */
     global.bkProductChanged = function () {
         var price = $('#bkProduct option:selected').data('price');
         $('#bkPrice').val(price != null && price !== '' ? price : '');
+        $('#bkDiscount').val(0);                 // a concession is agreed per product, never inherited
+
+        var pid = $('#bkProduct').val();
+        var $info = $('#bkStockInfo');
+        if (!pid) { return $info.hide().empty(); }
+        var available = sellableFor(pid);
+        if (available === null) { return $info.hide().empty(); }
+        $info
+            .css('color', available > 0 ? '' : '#c0392b')
+            .text(tr('ui.js.available', 'Available') + ': ' + available
+                + (available > 0 ? '' : ' — ' + tr('ui.js.outOfStock', 'out of stock')))
+            .show();
     };
+
+    /**
+     * One line's arithmetic - REUSING the sale form's sellLineMath, not a second copy of it.
+     *
+     * That function already settles everything this screen needs: amount vs percent, the clamp that stops a
+     * discount exceeding the line, and the rounding ORDER (gross fixed to 2dp first, then the percentage taken
+     * off that) which is why a 5% discount on 99.99 cannot leak extra decimals into the receivable. A private
+     * copy here would be a second opinion about what "5% off" comes to, and the two would drift the first time
+     * either was touched. The rep quoting at the counter and the till raising the invoice must agree.
+     *
+     * purchaseRate is passed as 0: it only feeds the sale form's profit figure, which a booking has no
+     * business showing a rep standing in someone else's shop.
+     *
+     * @returns {{total:number, discount:number, receivable:number}} gross, the RESOLVED discount amount, net
+     */
+    function bkLineMath(price, qty, discountValue, discountType) {
+        return global.sellLineMath(price, qty, 0, discountValue, discountType);
+    }
 
     global.bkAddLine = function () {
         var pid = $('#bkProduct').val();
@@ -144,19 +205,33 @@
         if (!pid) { return global.uiAlert(tr('ui.js.pickProductFirst', 'Choose a product first.')); }
         if (!(qty > 0)) { return global.uiAlert(tr('ui.js.qtyGreaterThanZero', 'Enter a quantity greater than zero.')); }
 
+        // Availability is a WARNING, not a block. A distributor takes an order for goods arriving Thursday all
+        // the time, and a rep who cannot record what the shop asked for will write it on paper instead. The
+        // warehouse decides at dispatch; O5c already handles what cannot be filled today.
+        var available = sellableFor(pid);
+        if (available !== null && qty > available) {
+            global.showFormError(tr('ui.js.onlyNAvailable', 'Only {n} available - booking it anyway.')
+                .replace('{n}', available));
+        }
+
+        var m = bkLineMath(price, qty, $('#bkDiscount').val(), $('#bkDiscountTypeDD').val());
         var product = state.products.filter(function (p) { return String(p.id) === String(pid); })[0] || {};
         // Same product twice is a REPLACE of the quantity, not a second line: a rep correcting themselves at the
         // counter means "make it six", not "six more". The warehouse can still split it at review if it wants.
         var existing = state.lines.filter(function (l) { return String(l.productId) === String(pid); })[0];
-        if (existing) {
-            existing.quantity = qty;
-            existing.price = price;
-        } else {
-            state.lines.push({ productId: Number(pid), productName: product.name || ('#' + pid), quantity: qty, price: price });
-        }
+        var line = existing || { productId: Number(pid), productName: product.name || ('#' + pid) };
+        line.quantity = qty;
+        line.price = price;
+        // The RESOLVED amount, never the percentage. The order line stores an amount because the invoice line
+        // does, and keeping a percent on the wire would leave two places deciding what it is a percentage of.
+        line.discount = Number(m.discount) || 0;
+        if (!existing) { state.lines.push(line); }
+
         $('#bkProduct').val('');
         $('#bkQty').val('');
         $('#bkPrice').val('');
+        $('#bkDiscount').val(0);
+        $('#bkStockInfo').hide().empty();
         renderLines();
     };
 
@@ -166,20 +241,26 @@
     };
 
     function renderLines() {
-        var total = 0;
+        var total = 0, discountTotal = 0;
         var html = '';
         state.lines.forEach(function (l) {
-            var lineTotal = Number(l.quantity) * Number(l.price || 0);
-            total += lineTotal;
+            // The stored discount is already a resolved AMOUNT, so re-run the maths in amount mode (type 0).
+            // Re-applying it as a percentage would compound it every time the table redrew.
+            var m = bkLineMath(l.price, l.quantity, l.discount || 0, 0);
+            total += Number(m.receivable);
+            discountTotal += Number(m.discount);
             html += '<tr><td>' + esc(l.productName) + '</td>'
                 + '<td class="text-right">' + esc(l.quantity) + '</td>'
                 + '<td class="text-right">' + money(l.price) + '</td>'
-                + '<td class="text-right">' + money(lineTotal) + '</td>'
+                + '<td class="text-right">' + money(m.total) + '</td>'
+                + '<td class="text-right">' + money(m.discount) + '</td>'
+                + '<td class="text-right">' + money(m.receivable) + '</td>'
                 + '<td class="text-right"><button type="button" class="btn btn-danger btn-xs" '
                 + 'onclick="bkRemoveLine(' + Number(l.productId) + ')">&times;</button></td></tr>';
         });
         $('#bkLinesBody').html(html);
         $('#bkLinesEmpty').toggle(state.lines.length === 0);
+        $('#bkDiscountTotal').text(money(discountTotal));
         $('#bkTotal').text(money(total));
         $('#bkSubmit').prop('disabled', state.lines.length === 0);
     }

@@ -84,8 +84,19 @@ manually after every deployment — nothing will catch a regression for you.
 ## 7. Backup
 
 ```bash
-docker compose exec mysql sh -c \
-  'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" myplusdb_welfare' > welfare-$(date +%F).sql
+cd microservices && ./backup-db.sh
 ```
 
-Include `myplusdb_auth` — accounts and tenants live there.
+**Back up all 16 databases together, not just this module's.** This section used to dump one schema and
+then tell you to "also include `myplusdb_auth`" — that instruction exists *because* the databases are
+interlinked, and hand-listing the ones you happen to think of is exactly how you end up with a backup
+that restores into a state that never existed. Accounts and tenants live in `myplusdb_auth`, anything
+financial reaches `myplusdb_finance`, contacts reach `myplusdb_party`.
+
+The old command also omitted `--single-transaction`, so it took a global read lock: on a live system
+that is an outage for as long as the dump runs.
+
+`backup-db.sh` takes all 16 in **one** consistent snapshot without locking, and captures `.env` and the
+deployed git SHA alongside it — a restore needs all three. Day-one setup, verification, restore, and
+rebuilding a lost host: [`DEPLOY-FULL-STACK.md` §8](DEPLOY-FULL-STACK.md#8-backup-and-restore--end-to-end).
+

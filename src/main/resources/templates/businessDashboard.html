@@ -170,6 +170,11 @@ tr.row-voided .js-edit-row{display:none !important}
 									     there is on a driver's cash, and the open list states who is holding how
 									     much of the company's money. A UI gate is not the control — the endpoints
 									     refuse anyone else — but it must not be WIDER than the server's. -->
+									<!-- OMS O8 — the sheet the salesman takes out and the cashier reconciles. Sits next to
+									     Driver settlement because they are the two halves of one job: this one goes
+									     out with the van, that one closes the money when it comes back. Same gate,
+									     for the same reason — it states who owes how much. -->
+									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showRoundSheet();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.roundSheet}">Round sheet</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showDriverSettlement();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.driverSettlement}">Driver settlement</span></a></li>
 									<!-- OMS O3: per-org delivery fees / free-delivery threshold / cash-on-delivery. -->
 									<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showOrderConfig();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.orderSettings}">Order settings</span></a></li>
@@ -1986,6 +1991,10 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="form-group">
 							<label for="bkProduct" th:text="#{ui.product}">Product</label>
 							<select class="form-control input-lg" id="bkProduct" onchange="bkProductChanged()"></select>
+							<!-- Available stock for the picked product. Filled from the ONE /productStockLevels
+							     call made with the product list, so choosing a product costs no round trip —
+							     a rep on a phone at a shop counter should not wait to see whether goods exist. -->
+							<div id="bkStockInfo" class="text-muted" style="display:none;margin-top:6px;font-size:13px"></div>
 						</div>
 						<div class="row">
 							<div class="col-xs-6 form-group">
@@ -1997,6 +2006,22 @@ tr.row-voided .js-edit-row{display:none !important}
 								<input type="number" class="form-control input-lg" id="bkPrice" min="0" step="0.01" inputmode="decimal">
 							</div>
 						</div>
+						<!-- The per-line concession. Amount or percent, exactly as the sale form offers it, and
+						     resolved by the SAME sellLineMath() the sale form uses — the rep and the till must
+						     never disagree about what 5% off comes to. -->
+						<div class="row">
+							<div class="col-xs-6 form-group">
+								<label for="bkDiscount" th:text="#{ui.discount}">Discount</label>
+								<input type="number" class="form-control input-lg" id="bkDiscount" min="0" step="0.01" inputmode="decimal" value="0">
+							</div>
+							<div class="col-xs-6 form-group">
+								<label for="bkDiscountTypeDD" th:text="#{ui.discountType}">Discount type</label>
+								<select class="form-control input-lg" id="bkDiscountTypeDD">
+									<option value="0" th:text="#{ui.amount}">Amount</option>
+									<option value="1" selected="selected">%</option>
+								</select>
+							</div>
+						</div>
 						<button type="button" class="btn btn-default btn-block btn-lg" id="bkAddBtn" onclick="bkAddLine()" th:text="#{ui.addLine}">Add line</button>
 					</div>
 				</div>
@@ -2006,12 +2031,20 @@ tr.row-voided .js-edit-row{display:none !important}
 						<th th:text="#{ui.product}">Product</th>
 						<th class="text-right" th:text="#{ui.quantity}">Quantity</th>
 						<th class="text-right" th:text="#{ui.rate}">Rate</th>
+						<!-- Gross and discount are shown SEPARATELY from the net, so the shopkeeper can see what
+						     the goods list at and what they were given. A net-only line hides the concession,
+						     which is the whole reason a discount is a field and not a lower rate. -->
+						<th class="text-right" th:text="#{ui.value}">Value</th>
+						<th class="text-right" th:text="#{ui.discount}">Discount</th>
 						<th class="text-right" th:text="#{ui.total}">Total</th>
 						<th></th>
 					</tr></thead>
 					<tbody id="bkLinesBody"></tbody>
 					<tfoot><tr>
-						<th colspan="3" class="text-right" th:text="#{ui.total}">Total</th>
+						<th colspan="4" class="text-right" th:text="#{ui.discount}">Discount</th>
+						<th class="text-right" id="bkDiscountTotal">0.00</th><th></th>
+					</tr><tr>
+						<th colspan="4" class="text-right" th:text="#{ui.total}">Total</th>
 						<th class="text-right" id="bkTotal">0.00</th><th></th>
 					</tr></tfoot>
 				</table>
@@ -2030,6 +2063,76 @@ tr.row-voided .js-edit-row{display:none !important}
 					<tbody id="bkMyOrdersBody"></tbody>
 				</table>
 				<div id="bkMyOrdersEmpty" class="text-muted" style="display:none" th:text="#{ui.noOrdersYet}">No orders yet.</div>
+			</div>
+
+			<!--
+				OMS O8 slice 2 — the delivery round's RECOVERY SHEET.
+
+				This replaces a printed Net Sales Summary that the salesman covered in handwriting: "CR" where a
+				shop took goods on credit, an amount where he collected one. The pen was doing the work the
+				sheet did not, so the columns that were blank paper are printed columns now — Received, Balance
+				and a signature box per stop — and the sheet gains the CONTROL TOTAL it never had.
+
+				Owner/admin only, matching the server. This states which shops owe how much and is the basis on
+				which cash is collected; the salesman carries a printed copy the office produced.
+			-->
+			<div id="RoundSheetDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" style="display:none">
+				<div class="form-inline" style="margin-bottom:12px">
+					<label th:text="#{ui.from}">From</label>
+					<input type="text" class="form-control" id="rsFrom" data-dp="date" style="width:130px;margin:0 8px" th:placeholder="#{ui.from}" placeholder="From">
+					<label th:text="#{ui.to}">To</label>
+					<input type="text" class="form-control" id="rsTo" data-dp="date" style="width:130px;margin:0 8px" th:placeholder="#{ui.to}" placeholder="To">
+					<input type="text" class="form-control" id="rsSalesman" style="width:190px;margin-right:8px" th:placeholder="#{ui.salesman}" placeholder="Salesman">
+					<button class="btn btn-primary" id="rsLoadBtn" onclick="loadRoundSheet()" th:text="#{ui.load}">Load</button>
+					<button class="btn btn-default" id="rsPrintBtn" onclick="printRoundSheet()" th:text="#{ui.print}">Print</button>
+					<button class="btn btn-default" id="rsPdfBtn" onclick="downloadRoundSheet()" th:text="#{ui.downloadPdf}">Download PDF</button>
+				</div>
+
+				<!--
+					OMS O8 slice 5 — the sheet comes BACK. Same rows, now writable: the Received column becomes an
+					input and one button keys the whole round. Tick "Key the round" and the columns the salesman
+					wrote in become the deliveries and the cash-up, in the order the paper does it.
+
+					Counted amount is the cashier's own count, kept apart from the sum of the typed amounts on
+					purpose: the difference between the two IS the variance, and deriving the count from the
+					declarations would make a variance impossible to show.
+				-->
+				<div class="form-inline" style="margin-bottom:12px;padding:10px;background:#f7f7f7;border:1px solid #e3e3e3">
+					<label><input type="checkbox" id="rsKeyMode" onchange="toggleRoundKeying()"> <b th:text="#{ui.keyTheRound}">Key the round</b></label>
+					<span id="rsKeyFields" style="display:none;margin-left:12px">
+						<label th:text="#{ui.countedAmount}">Counted</label>
+						<input type="number" class="form-control" id="rsCounted" step="0.01" min="0" style="width:130px;margin:0 8px">
+						<input type="text" class="form-control" id="rsDeposit" style="width:150px;margin-right:8px" th:placeholder="#{ui.depositReference}" placeholder="Deposit ref">
+						<input type="text" class="form-control" id="rsNote" style="width:200px;margin-right:8px" th:placeholder="#{ui.varianceNote}" placeholder="Note (if the count differs)">
+						<span id="rsDeclared" class="text-muted" style="margin-right:8px"></span>
+						<button class="btn btn-success" id="rsKeyBtn" onclick="keyRound()" th:text="#{ui.submitRound}">Submit round</button>
+					</span>
+				</div>
+				<div id="rsKeyResult" style="display:none;margin-bottom:12px"></div>
+
+				<div id="rsHeading" class="text-muted" style="margin-bottom:8px"></div>
+
+				<table id="tableRoundSheet" class="table table-bordered table-striped">
+					<thead><tr>
+						<th>#</th>
+						<th th:text="#{ui.invoice}">Invoice</th>
+						<th th:text="#{ui.account}">Account</th>
+						<th th:text="#{ui.area}">Area</th>
+						<th class="text-right" th:text="#{ui.invoiceAmount}">Invoice amount</th>
+						<th class="text-right" th:text="#{ui.previousBalance}">Previous balance</th>
+						<th class="text-right" th:text="#{ui.totalDue}">Total due</th>
+						<!-- The three the salesman fills in. Printed blank on purpose. -->
+						<th class="text-right" th:text="#{ui.received}">Received</th>
+						<th class="text-right" th:text="#{ui.balance}">Balance</th>
+						<th th:text="#{ui.signature}">Signature</th>
+					</tr></thead>
+					<tbody id="rsBody"></tbody>
+					<!-- The control total: what the cash bag is counted against. Sent by the server with the rows,
+					     never summed in the browser, so the figure the cashier reconciles to and the figure the
+					     sheet lists cannot disagree. -->
+					<tfoot id="rsFoot"></tfoot>
+				</table>
+				<div id="rsEmpty" class="text-muted" style="display:none" th:text="#{ui.nothingDispatched}">Nothing was dispatched in this window.</div>
 			</div>
 
 			<div id="OrdersDiv" class="formDiv" style="display:none">
@@ -2928,6 +3031,14 @@ tr.row-voided .js-edit-row{display:none !important}
          a packer would be offering a 403. The server remains the control. -->
     <script sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')" th:inline="none">window.canReverseOrder = true;</script>
 
+    <!-- OMS O7 D1 — may this user RELEASE a booked order (confirm it, or reject it back to the booker)?
+         A SEPARATE flag from canReverseOrder above, because the server's two gates are not the same set:
+         cancel/return/refund want ADMIN_PRIVILEGE, while confirm/reject want ROLE_OWNER, ADMIN_PRIVILEGE or
+         SUPER_PRIVILEGE. Reusing the reversal flag would have hidden the review buttons from a SUPER who is
+         allowed to press them — the UI gate must mirror the server's, never be wider OR narrower.
+         Deliberately absent for ROLE_ORDER_BOOKER: a rep cannot release their own order. -->
+    <script sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" th:inline="none">window.canReviewOrder = true;</script>
+
     <!-- Register-screen modal + bulk-select styling now lives in the shared /css/crud-modal.css
          (loaded via fragments/header :: header-css) so every dashboard shares one responsive treatment. -->
     <!-- Shared confirm-delete modal (reused by every register screen's bulk Delete) -->
@@ -2966,6 +3077,9 @@ tr.row-voided .js-edit-row{display:none !important}
          real demand — a customer wanted an A4 invoice badly enough that one got hardcoded for them. That
          need is now served for every tenant by the Document Designer. No caller existed. -->
     <script th:src="@{/js/business/receipt.js}"></script>
+    <!-- OMS O8 — sale documents as a downloadable PDF. Must load AFTER receipt.js: it draws
+         DocumentRenderer.toPrintModel's output and states no layout of its own. -->
+    <script th:src="@{/js/business/document-pdf.js}"></script>
     <!-- 3g-4: must load AFTER receipt.js — the designer's live preview calls window.DocumentRenderer, the
          same renderer the printer uses, and reads its field whitelist for the default column labels. -->
     <script th:src="@{/js/business/document-designer.js}"></script>
@@ -2982,6 +3096,9 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/ecommerce.js}"></script>
     <!-- O7 D2b: the field rep's booking screen. Separate from ecommerce.js, which is the WAREHOUSE's surface. -->
     <script th:src="@{/js/business/order-booking.js}"></script>
+    <!-- OMS O8 — the round's recovery sheet (view / print / PDF). Loads after lazy-export, whose
+         ensurePdfMake() it reuses rather than pulling pdfmake of its own. -->
+    <script th:src="@{/js/business/round-sheet.js}"></script>
     <!-- O7 D3: the packer's workbench. Composes the SAME shipment request the Ship form posts. -->
     <script th:src="@{/js/business/order-packing.js}"></script>
     <!-- O7 D4: the admin's delivery-return keying panel (the driver has no device). -->

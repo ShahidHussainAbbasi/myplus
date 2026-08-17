@@ -16,6 +16,15 @@ import lombok.Data;
 public class DeliveryDTO {
 
     /** Which parcel. Null is refused: an order may have several, and they are settled separately. */
+    /**
+     * The delivery record's own id — what a settlement is built from.
+     *
+     * <p>Absent until O8 slice 5, which is a gap rather than a decision: {@code record()} CREATES this resource
+     * and answered without saying which one it had created, so the only way to settle a collection you had just
+     * keyed was to re-read every delivery on the order and match. A created resource should name itself.
+     */
+    private Long id;
+
     private Long shipmentId;
 
     /** The driver, as a note — not an identity, and not evidence. */

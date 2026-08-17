@@ -146,6 +146,14 @@ public class OrderDTO {
          */
         private Integer quantityBackordered;
         private BigDecimal price;
+        /**
+         * The concession given on THIS line, as an amount off the line total.
+         *
+         * <p>Distinct from overwriting {@code price}: a discounted line still shows what the goods LIST at,
+         * so the shopkeeper can see what they were given and the distributor can total what they gave away.
+         * Null or zero on an undiscounted line.
+         */
+        private BigDecimal discount;
     }
 
     /** One entry in the order's history — the same rows the shopper's tracking page reads. */

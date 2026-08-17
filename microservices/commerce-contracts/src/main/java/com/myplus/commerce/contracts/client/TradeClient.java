@@ -139,4 +139,36 @@ public interface TradeClient {
      */
     @GetExchange("/internal/tax-policy")
     com.myplus.commerce.contracts.dto.TaxPolicyView taxPolicy();
+
+    /**
+     * OMS O8 — the money for a delivery round's recovery sheet, for a batch of invoices at once.
+     *
+     * <h3>Why the channel asks instead of computing</h3>
+     * A route sheet is what a salesman collects against. Every figure on it is a receivable, and the system
+     * holding the receivable is the only one entitled to state it. A channel that totalled up its own orders
+     * would put a second opinion about the same debt into a shop's hands — and the salesman would be asking
+     * for a number the ledger does not recognise. The channel supplies the round's MEMBERSHIP (which invoices
+     * went out today, with whom); the books supply what each is worth and what the shop owes.
+     *
+     * <h3>Why it is a batch and not a lookup</h3>
+     * A round is 20–30 stops, and this screen is opened at the end of every day. One call per stop would be 30
+     * round trips to print one sheet. The batch shape is the reason this op exists rather than the caller
+     * looping over {@code /creditStanding}.
+     *
+     * <h3>Why not /creditStanding</h3>
+     * That endpoint answers {@code null} for a customer with no credit limit, deliberately — an uncapped shop
+     * is not "at 0% of 0", and showing them as breached teaches bookers to ignore the warning. A COLLECTION
+     * sheet has the opposite need: it must state what every shop owes, limit or no limit. So this reads the
+     * outstanding balance itself.
+     *
+     * <h3>Tenant</h3>
+     * Resolved from the caller's forwarded identity. Invoice numbers are per-org, so a number belonging to
+     * another tenant simply does not resolve — it is absent from the answer rather than refused, which is also
+     * what a genuinely unknown invoice does, so the op cannot be used to probe which invoices exist.
+     *
+     * @param invoiceNos the invoices on the round; unknown or foreign numbers are omitted from the result
+     */
+    @GetExchange("/internal/round-figures")
+    java.util.List<com.myplus.commerce.contracts.dto.RoundFigureView> roundFigures(
+            @RequestParam("invoiceNos") java.util.List<String> invoiceNos);
 }

@@ -513,15 +513,22 @@ services:
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
       #
-      # DISABLED 2026-08-16, to match the other EIGHT dependents. This was the last live
-      # `api-gateway: service_healthy`, and it is the line that printed "dependency api-gateway failed
-      # to start" — welfare, agriculture, pharma, marketplace, campaign, analytics, appointment and the
-      # monolith had all been commented out already and education was simply missed. Which means the
-      # wave-splitting rationale above had ALREADY stopped being true: one vertical waiting on the
-      # gateway splits no herd, it just makes education the one service that cannot start whenever the
-      # gateway is late. Re-enable it here only by re-enabling all nine, or the cost buys nothing.
-      # api-gateway:
-      #   condition: service_healthy
+      # RE-ENABLED 2026-08-17 along with the other eight, after a day briefly disabled. Worth recording
+      # why, because the two facts pull in opposite directions and the resolution is not obvious.
+      #
+      # On 2026-08-16 this was the LAST live `api-gateway: service_healthy` — the other seven verticals
+      # and the monolith had been commented out at some earlier point and education was simply missed.
+      # One vertical waiting on the gateway splits no herd, so it was pure fragility, and it was the line
+      # that printed "dependency api-gateway failed to start". Disabling it was right FOR THAT STATE.
+      #
+      # But the real fault was one tier lower: eureka-server and config-server had NO `start_period`, so
+      # config-server was being marked unhealthy on a cold box and the gateway was never started at all.
+      # With that fixed (see x-bootstrap-healthcheck), the honest fix is to restore the tiering rather
+      # than keep shedding it, because THE TWO ARE COUPLED: tiering is what makes the gateway boot in
+      # ~23s instead of ~193s, and a gateway that boots in 23s makes this dependency trivially safe.
+      # Removing the tiering to avoid the dependency failure re-creates the slowness that causes it.
+      api-gateway:
+        condition: service_healthy
 
   welfare-service:
     build: ./welfare-service
@@ -552,8 +559,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      # api-gateway:
-      #   condition: service_healthy
+      api-gateway:
+        condition: service_healthy
 
   agriculture-service:
     build: ./agriculture-service
@@ -584,8 +591,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      # api-gateway:
-      #   condition: service_healthy
+      api-gateway:
+        condition: service_healthy
 
   pharma-service:
     build: ./pharma-service
@@ -616,8 +623,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      # api-gateway:
-      #   condition: service_healthy
+      api-gateway:
+        condition: service_healthy
 
   marketplace-service:
     build: ./marketplace-service
@@ -648,8 +655,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      # api-gateway:
-      #   condition: service_healthy
+      api-gateway:
+        condition: service_healthy
 
   campaign-service:
     build: ./campaign-service
@@ -682,8 +689,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      # api-gateway:
-      #   condition: service_healthy
+      api-gateway:
+        condition: service_healthy
 
   analytics-service:
     build: ./analytics-service
@@ -714,8 +721,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      # api-gateway:
-      #   condition: service_healthy
+      api-gateway:
+        condition: service_healthy
 
   appointment-service:
     build: ./appointment-service
@@ -746,8 +753,8 @@ services:
       # 193s to answer its first probe and compose aborted. Waiting on the gateway splits the herd
       # into waves (core -> gateway -> verticals) and costs nothing: every request routes through the
       # gateway anyway, so a vertical that starts before it is up serves no one.
-      # api-gateway:
-      #   condition: service_healthy
+      api-gateway:
+        condition: service_healthy
 
   # The monolith (Thymeleaf UI). Built from the repo root; serves on 8080. Talks to the gateway
   # in-network and to MySQL `myplusdb`. (Build the jar first: from repo root `mvn -DskipTests package`.)
@@ -774,12 +781,18 @@ services:
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health/readiness"]
-    # depends_on:
+    depends_on:
+      # Startup tier 4 — last, on purpose.
       # service_healthy, not service_started: the monolith proxies every screen through the gateway, so
       # starting before it is ready gives the first requests a connection error. That is exactly the
       # cold-start window that made the first Cypress test of a run fail on 2026-08-05.
-      # api-gateway:
-      #   condition: service_healthy
+      #
+      # RE-ENABLED 2026-08-17 with the vertical tier. While this was commented out the monolith had NO
+      # depends_on at all, so it started in tier 0 — the UI was accepting browser traffic before MySQL,
+      # config-server or the gateway existed. Every request in that window fails, and it fails as a
+      # confusing 502/connection error on the login page rather than as anything that names the cause.
+      api-gateway:
+        condition: service_healthy
 
 networks:
   myplus-net:
