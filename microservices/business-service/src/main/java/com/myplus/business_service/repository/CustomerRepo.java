@@ -132,4 +132,24 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
         + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId)) "
         + "order by c.name asc")
    List<Customer> findUnbridgedScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   /**
+    * Slice I1 — which of these contacts already exist in this tenant, in ONE query.
+    *
+    * <p>Deliberately a batched {@code IN} over a projection, not a per-row existence check. The registration
+    * screen's duplicate check ({@code CustomerController.addCustomer}) loads every customer the caller owns and
+    * filters in memory, which is a full scan PER CALL — invisible for one save, O(n^2) for a 2 000-row import.
+    *
+    * <p>Returns the stored contact strings so the caller can match them against its own normalised keys.
+    * Same org NULL-fallback as {@link #findScoped}, so pre-migration rows still count as duplicates rather
+    * than being silently re-created.
+    *
+    * <p>Served by {@code idx_customer_org_contact} (V41), shipped in the same migration as this method.
+    */
+   @Query("select c.contact from Customer c where c.contact in :contacts "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
+   List<String> existingContactsScoped(@Param("orgId") Long orgId,
+                                       @Param("userId") Long userId,
+                                       @Param("contacts") java.util.Collection<String> contacts);
+
 }

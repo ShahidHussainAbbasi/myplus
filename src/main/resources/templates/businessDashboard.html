@@ -1598,18 +1598,20 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-6"><span id="sellScanMsg" class="help-block" style="margin:6px 0 0"></span></div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" th:text="#{ui.item}">Item</label>
-						<div class="col-sm-4">
-							<select required="required"
-								class="form-control onChangeSelect selectpicker" id="sellItemDD" name="itemId" data-live-search="true">
-							</select>
+						<div class="pos-cell pos-cell-item">
+							<label class="control-label col-sm-2 req" for="sellItemDD" th:text="#{ui.item}">Item</label>
+							<div class="col-sm-4">
+								<select required="required"
+									class="form-control onChangeSelect selectpicker" id="sellItemDD" name="itemId" data-live-search="true">
+								</select>
+							</div>
 						</div>
 						<!-- pos-more: off the line-entry ROW when pos.keyboard.enabled is on (design P1).
 						     Still in the DOM and still written by loadStock() — only its position changes,
 						     and only under .pos-rowentry. Inert otherwise. -->
-						<div>
-							<label class="control-label col-sm-2 pos-more" data-pos-field="description" for="sellItemDesc" th:text="#{ui.description}">Description</label>
-							<div class="col-sm-4 pos-more" data-pos-field="description">
+						<div class="pos-cell pos-more" data-pos-field="description">
+							<label class="control-label col-sm-2" for="sellItemDesc" th:text="#{ui.description}">Description</label>
+							<div class="col-sm-4">
 								<input type="text" placeholder="Item detail" th:placeholder="#{ui.itemDetail}" class="form-control" id="sellItemDesc" name="description" readonly="readonly"/>
 							</div>
 						</div>
@@ -1622,10 +1624,12 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div> -->
 					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="sellItems" th:text="#{ui.qty2}">QTY</label>
-						<div class="col-sm-4">
-							<input type="text" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="sellItems" name="quantity" inputmode="decimal"
-							 onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required"/>
+						<div class="pos-cell pos-cell-qty">
+							<label class="control-label col-sm-2 req" for="sellItems" th:text="#{ui.qty2}">QTY</label>
+							<div class="col-sm-4">
+								<input type="text" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="sellItems" name="quantity" inputmode="decimal"
+								 onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required"/>
+							</div>
 						</div>
 						<!-- B2B-P3g: free goods on this line ("Bon." on a trade invoice) — 20 billed, 2 free.
 						     Optional; blank means no bonus and the column prints nothing. Deliberately NOT
@@ -1633,17 +1637,24 @@ tr.row-voided .js-edit-row{display:none !important}
 						     line total, the tax or the margin. It is also PRESENTATION ONLY for now — it does
 						     not decrement inventory (decision D-2) — so a shop that needs the stock to move
 						     should record the free units as a normal line instead. -->
-						<label class="control-label col-sm-2 pos-more" data-pos-field="bonus" for="sellBonus" th:text="#{ui.docBonus}">Bonus</label>
-						<div class="col-sm-2 pos-more" data-pos-field="bonus">
-							<input type="number" step="any" min="0" class="form-control" id="sellBonus"
-							       placeholder="0" th:title="#{ui.bonusHelp}"/>
+						<div class="pos-cell pos-more" data-pos-field="bonus">
+							<label class="control-label col-sm-2" for="sellBonus" th:text="#{ui.docBonus}">Bonus</label>
+							<div class="col-sm-2">
+								<input type="number" step="any" min="0" class="form-control" id="sellBonus"
+								       placeholder="0" th:title="#{ui.bonusHelp}"/>
+							</div>
 						</div>
-						<label class="control-label col-sm-2" data-pos-field="stock" for="sellStock" th:text="#{ui.stock}">Stock</label>
-						<div class="col-sm-2" data-pos-field="stock">
-							<input type="text" class="form-control" id="sellStock" name="stock.stock" readonly="readonly"/>
+						<div class="pos-cell" data-pos-field="stock">
+							<label class="control-label col-sm-2" for="sellStock" th:text="#{ui.stock}">Stock</label>
+							<div class="col-sm-2">
+								<input type="text" class="form-control" id="sellStock" name="stock.stock" readonly="readonly"/>
+							</div>
 						</div>
-						<div class="col-sm-2" data-pos-field="expiry">
-							<input type="text" class="form-control" id="bexpDate" name="bexpDate" readonly="readonly"/>
+						<div class="pos-cell" data-pos-field="expiry">
+							<label class="control-label col-sm-2" for="bexpDate" th:text="#{ui.expiry}">Expiry</label>
+							<div class="col-sm-2">
+								<input type="text" class="form-control" id="bexpDate" name="bexpDate" readonly="readonly"/>
+							</div>
 						</div>
 					</div>
 					<!-- P10 (slice 54): the FEFO batch/expiry the next sale/dispense draws from (populated by loadStock). -->
@@ -1654,6 +1665,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div class="form-group">
+						<div class="pos-cell pos-cell-price">
 						<label class="control-label col-sm-2 req" for="sellSellRate" th:text="#{ui.sUPrice}">S/U Price</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellSellRate" inputmode="decimal"
@@ -1663,26 +1675,36 @@ tr.row-voided .js-edit-row{display:none !important}
 							     avoid, so the reason belongs beside the number, not only on the stored line. -->
 							<span class="help-block" id="sellPriceReason" style="display:none;color:#1f4e8c;font-weight:600"></span>
 						</div>
-						<label class="control-label col-sm-2" for="sellTotalAmount" th:text="#{ui.total}">Total</label>
-						<div class="col-sm-4">
-							<input type="text" class="form-control" id="sellTotalAmount" name="totalAmount" readonly="readonly"/>
+						</div>
+						<div class="pos-cell">
+							<label class="control-label col-sm-2" for="sellTotalAmount" th:text="#{ui.total}">Total</label>
+							<div class="col-sm-4">
+								<input type="text" class="form-control" id="sellTotalAmount" name="totalAmount" readonly="readonly"/>
+							</div>
 						</div>
 					</div>
 					<div class="form-group">
-						<label class="control-label col-sm-2" data-pos-field="lineDiscount" for="sellDiscount" id="sdt" th:text="#{ui.discount}">Discount</label>
-						<div class="col-sm-2" data-pos-field="lineDiscount">
-							<input type="text" class="form-control" id="sellDiscount" inputmode="decimal"
-								name="stock.bsellDiscount" placeholder=" Discount 0.0" th:placeholder="#{ui.discount00}" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
+						<div class="pos-cell" data-pos-field="lineDiscount">
+							<label class="control-label col-sm-2" for="sellDiscount" id="sdt" th:text="#{ui.discount}">Discount</label>
+							<div class="col-sm-2">
+								<input type="text" class="form-control" id="sellDiscount" inputmode="decimal"
+									name="stock.bsellDiscount" placeholder=" Discount 0.0" th:placeholder="#{ui.discount00}" onblur="calculateNetSell()" onkeyup="calculateNetSell()">
+							</div>
 						</div>
-						<div class="col-sm-2" data-pos-field="discountType">
+						<div class="pos-cell" data-pos-field="discountType">
+							<label class="control-label col-sm-2" for="sellDiscountTypeDD" th:text="#{ui.type}">Type</label>
+							<div class="col-sm-2">
 							<select id="sellDiscountTypeDD" name="stock.bsellDiscountType" class="selectpicker" onchange="calculateNetSell()">
 								<option class="dropdown-item" selected="selected" value="0" th:text="#{ui.amount3}">amount</option>
 								<option class="dropdown-item" value="1" th:text="#{ui.percent}">Percent %</option>
 							</select>
+							</div>
 						</div>						
-	 					<label class="control-label col-sm-2 pos-more" data-pos-field="receivable" for="sellrm" th:text="#{ui.receiveable}">Receiveable</label>
-	 					<div class="col-sm-4 pos-more" data-pos-field="receivable">
-							<input type="text" class="form-control" id="sellrm" readonly="readonly"/>
+	 					<div class="pos-cell pos-more" data-pos-field="receivable">
+							<label class="control-label col-sm-2" for="sellrm" th:text="#{ui.receiveable}">Receiveable</label>
+							<div class="col-sm-4">
+								<input type="text" class="form-control" id="sellrm" readonly="readonly"/>
+							</div>
 						</div>
 					</div>
 					<div class="form-group" id="pDiv" style="display: none">
@@ -3100,6 +3122,10 @@ tr.row-voided .js-edit-row{display:none !important}
     <!-- P7.2: Enter-chain for every <Entity>Modal on this dashboard, bound by convention. Loading this
          file IS the opt-in — education/welfare/agriculture stay untouched until their own phase. -->
     <script th:src="@{/js/common/keyboard-forms.js}"></script>
+    <!-- I1: the grid's Template / Import CSV buttons. Must load BEFORE business.js, whose loadDataTable()
+         concatenates importButtons(tableV) into the buttons array it already builds. The buttons are
+         registry-driven: [] unless business-service has an ImportSpec for that entity. -->
+    <script th:src="@{/js/common/data-import.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <!-- B2B-P3g-5: businessInvoicePrint.js removed. It was a 148-line jsPDF A4 printer gated on
          `if (userId*ONE != 37) return false;` with one shop's name, address and phone hardcoded into it, and

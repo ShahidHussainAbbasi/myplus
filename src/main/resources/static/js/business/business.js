@@ -1123,7 +1123,11 @@ function loadDataTable(){
 				pageSize: 'LEGAL',
 				footer: true
 			})
-		]),
+		// I1: Template + Import CSV, from /js/common/data-import.js. Returns [] unless the SERVER has an
+		// ImportSpec for this entity, so Sell/Purchase/Orders/Quote draw nothing — those are numbered
+		// documents whose creation moves stock and posts to the ledger, and a row inserted behind the sale
+		// path is a row the books disagree with. One registry decides; there is no list to keep in step here.
+		]).concat((typeof importButtons === 'function') ? importButtons(tableV) : []),
 		"ajax": {
 			// Load ALL records so DataTables handles Next/Back pagination and search locally.
 			// Search: DataTables filters the loaded set first; re-open the section to refresh from DB.
@@ -3622,9 +3626,12 @@ function applyPosRowEntry(){
  * Compose the sale screen for THIS business — the same POS serves a corner shop, a wholesale
  * distributor and a pharmacy, and they do not want the same fields.
  *
- * Every optional control carries `data-pos-field="<name>"` in the template (the label and its column
- * both, so a hidden field leaves no orphaned caption). This walks those hooks and hides the ones the
- * tenant turned off.
+ * Every optional control carries `data-pos-field="<name>"` on its `.pos-cell` — the ONE element that
+ * holds both the caption and the field, so they can never be hidden out of step. This walks those
+ * hooks and hides the ones the tenant turned off.
+ *
+ * (Before the cell existed the attribute was repeated on the label AND its column, and the pair stayed
+ * together only for as long as nobody edited one of them.)
  *
  * ⚠ HIDDEN IS NOT REMOVED, AND NEVER `disabled`.
  * formToJSON("Sell") builds the payload from `new FormData(form)`, which omits DISABLED controls but

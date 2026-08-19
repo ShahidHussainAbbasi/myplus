@@ -40,6 +40,7 @@
     <module>common-outbox</module>
     <module>common-subledger</module>
     <module>common-credit</module>
+    <module>common-import</module>
     <module>commerce-domain</module>
     <module>commerce-contracts</module>
     <module>commerce-pricing</module>

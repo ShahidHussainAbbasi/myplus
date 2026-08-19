@@ -44,9 +44,11 @@
 /* ── Per-tenant field visibility (NOT scoped to .pos-rowentry) ─────────────
  * One POS is sold to a corner shop, a wholesale distributor and a pharmacy, so
  * which fields belong on a sale is the tenant's answer. Controls that can be
- * switched off carry `data-pos-field="<name>"` in the template — on BOTH the
- * label and its column, so hiding one never leaves an orphaned caption — and
- * applyPosFieldVisibility() adds this class to the ones the org turned off.
+ * switched off carry `data-pos-field="<name>"` on their `.pos-cell` — ONE
+ * element holding both the caption and the field, so they cannot be hidden out
+ * of step — and applyPosFieldVisibility() adds this class to the ones the org
+ * turned off. (It used to be repeated on the label AND the column, which worked
+ * only for as long as nobody edited one of the two.)
  *
  * Why a class and not jQuery .hide()/.toggle(): those write an INLINE display,
  * and an inline display:block beats the .pos-more rule further down, which
@@ -152,11 +154,33 @@
   border-radius:10px;
 }
 
-/* Promote labels + field columns out of their .form-group / .col-* wrappers so
- * they become items of the flex row above. The bare `> div` covers the unnamed
- * wrapper that nests the Description label+field inside the Item group. */
-.pos-rowentry #Sell .form-group,
-.pos-rowentry #Sell .form-group > div:not([class]){
+/* ── The CELL ──────────────────────────────────────────────────────────────
+ * Each label and its field live in ONE .pos-cell. In the CLASSIC Bootstrap
+ * layout the cell must be invisible — `display:contents` makes the browser
+ * treat the label and the .col-* as though the wrapper were not there, so the
+ * horizontal form is byte-for-byte what it always was. In the row layout the
+ * same cell becomes a little column: caption on top, field beneath.
+ *
+ * WHY A CELL AT ALL. The captions used to be siblings of their fields, held
+ * beside them by negative margins — the comment this replaces admitted flex has
+ * no "keep these two adjacent" primitive. Worse, per-tenant visibility needed
+ * `data-pos-field` repeated on the label AND the column, and the pair only
+ * stayed together while nobody edited one of them. One element cannot come
+ * apart from itself: the attribute now sits on the cell, and hiding it takes
+ * the caption and the field together in BOTH layouts.
+ */
+.pos-cell{ display:contents; }
+
+.pos-rowentry #Sell .pos-cell{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;                    /* a flex item defaults to min-width:auto and
+                                     would refuse to shrink, forcing a page scroll */
+}
+
+/* The remaining wrappers still dissolve: .form-group groups cells, it is not a cell. */
+.pos-rowentry #Sell .form-group{
   display:contents;
 }
 
@@ -186,14 +210,24 @@
   letter-spacing:.06em;
   text-transform:uppercase;
   color:#7a889c;
-  align-self:flex-end;
+  /* align-self was flex-end, which was right for the OLD flex ROW: the cross axis ran vertically and
+     flex-end sat the caption on the row's baseline. Inside a .pos-cell the direction is COLUMN, so the
+     cross axis is HORIZONTAL and flex-end pushed every caption to the right edge of its own field —
+     a ~40px indent on each one. Stretch puts the caption over the field it belongs to. */
+  align-self:stretch;
   line-height:1.2;
 }
-/* The label and the field that follows it must ride together when the row
- * wraps. Flex has no "keep these two adjacent" primitive, so each label is
- * pulled flush against its field and the gap is applied on the label's left. */
-.pos-rowentry #Sell .control-label{ margin-right:-8px; margin-left:4px; }
-.pos-rowentry #Sell .control-label:first-child{ margin-left:0; }
+/* No more negative margins: a caption cannot drift from its field, because it is
+ * inside it. What the caption DOES need is a common height, so that every one of
+ * them sits on a single band across the strip — that band is the whole point of
+ * the table look, and one label wrapping to two lines is what used to break it. */
+.pos-rowentry #Sell .pos-cell > .control-label{
+  height:13px;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  margin:0;
+}
 
 /* ── Field widths ──────────────────────────────────────────────────────────
  * Explicit rather than proportional: a POS row is read by position, and columns
@@ -242,8 +276,8 @@
  * Description, Bonus, discount TYPE and Receiveable are rarely touched during a
  * sale and cost a tab stop each. They are hidden from the strip, NOT removed:
  * every one is still in the DOM and still written to, so the submitted payload
- * is unchanged. They are marked with .pos-more in the template so this file can
- * address the whole label+column pair without a :has() selector.
+ * is unchanged. They are marked with .pos-more on their .pos-cell, so this file
+ * addresses caption and field together by addressing the one element that is both.
  *
  * (Step 2 gives .pos-more a "More ▾" popover. Until then these are simply off
  * the row — which is already the correct behaviour for a scan-driven till.)
@@ -313,9 +347,17 @@
     border-radius:0;
   }
   .pos-rowentry #Sell .form-group,
-  .pos-rowentry #Sell .form-group > div:not([class]),
   .pos-rowentry #Sell .form-group.text-center{ display:block; }
+  /* The cell dissolves again on a phone. Here the classic stacked form is the right layout, and it
+     needs the label and the .col-* to be children of the .form-group — which is exactly what
+     display:contents restores. Leaving the cell as a flex column would keep the clipped 13px caption
+     band, which is a till affordance and wrong on a stacked form. */
+  .pos-rowentry #Sell .pos-cell,
+  .pos-rowentry #Sell .pos-cell.pos-more{ display:contents; }
   .pos-rowentry #Sell .pos-more{ display:block; }
+  .pos-rowentry #Sell .pos-cell > .control-label{
+    height:auto; overflow:visible; white-space:normal;
+  }
   .pos-rowentry #Sell .control-label{
     margin-left:0;
     margin-right:0;
