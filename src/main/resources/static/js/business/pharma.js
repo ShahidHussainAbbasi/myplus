@@ -24,10 +24,9 @@
     // not the local business Item table. Shared by the prescription + clinical pickers.
     function loadMedicineOptions(selectSel) {
         // Every page: a medicine missing from this list cannot be dispensed at all (paged-fetch.js).
-        PagedFetch.all('catalogProducts', function (list) {
-            var html = "<option value=''>Select medicine</option>";
-            list.forEach(function (p) { if (p.isActive === false) return; html += "<option value='" + p.id + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>"; });
-            $(selectSel).html(html);
+        // PERF-8: the shared cached picker; active filtering happens in SQL.
+        ProductPicker.load(function (list) {
+            $(selectSel).html(ProductPicker.optionsHtml(list, 'Select medicine'));
         }, function () { showFormError(t('ui.js.couldNotLoadMedicines')); });
     }
     function loadRxItemOptions() { loadMedicineOptions('#rxMedicine'); }

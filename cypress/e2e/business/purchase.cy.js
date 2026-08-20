@@ -49,18 +49,27 @@ describe('Purchase Section — UI Rendering', () => {
     cy.get('#purchaseQuantity').should('have.value', '')
   })
 
-  it('item dropdown is pre-populated via catalogProducts AJAX', () => {
-    // M4e.1b (slice 98): the purchase picker now lists catalog Products via /catalogProducts, not /getUserItems.
-    cy.intercept('GET', '/catalogProducts*').as('catalogProducts')
+  it('item dropdown is pre-populated via the product picker', () => {
+    // M4e.1b (slice 98): the purchase picker lists catalog Products, not /getUserItems.
+    // PERF-8 (2026-08-20): the READ moved from /catalogProducts to /catalogProductPicker — three fields,
+    // active only, one request instead of three. This spec named the old endpoint, so an intended change
+    // reddened it (O4's "stale spec" category).
+    cy.intercept('GET', '**/catalogProductPicker*').as('picker')
     cy.visit('/businessDashboard')
     cy.get('#purchaseType').select('purchaseDiv', { force: true })
-    cy.wait('@catalogProducts', { timeout: 10000 }).then((interception) => {
+    cy.wait('@picker', { timeout: 10000 }).then((interception) => {
       expect(interception.response.statusCode).to.eq(200)
     })
+    cy.get('#purchaseItemDD option', { timeout: 10000 }).should('have.length.greaterThan', 1)
   })
 
   it('item dropdown has at least a placeholder option', () => {
-    cy.get('#purchaseItemDD option').should('have.length.gte', 1)
+    // Establishes its own page state. It previously had no visit at all and silently inherited whatever
+    // the test above left behind — so when that one failed, this failed too, for a reason of its own that
+    // did not exist. Establish the state you need; never inherit it.
+    cy.visit('/businessDashboard')
+    cy.get('#purchaseType').select('purchaseDiv', { force: true })
+    cy.get('#purchaseItemDD option', { timeout: 10000 }).should('have.length.gte', 1)
   })
 })
 

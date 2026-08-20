@@ -119,14 +119,13 @@
 
     function loadProducts() {
         // Every page — a rep must be able to book ANY product, not the first 2000 (paged-fetch.js).
-        PagedFetch.all('catalogProducts', function (list) {
-            state.products = list.filter(function (p) { return p.isActive !== false; });
-            var html = '<option value="">' + esc(tr('ui.js.selectProduct', 'Select a product…')) + '</option>';
-            state.products.forEach(function (p) {
-                html += '<option value="' + esc(p.id) + '" data-price="' + esc(p.sellingPrice != null ? p.sellingPrice : '')
-                    + '">' + esc(p.name || ('#' + p.id)) + '</option>';
-            });
-            $('#bkProduct').empty().append(html);
+        // PERF-8: the shared cached picker. Active filtering is now done in SQL, so the client-side
+        // filter that used to build state.products is gone — the list IS the active set. This matters
+        // most here: a rep on shop wifi was downloading the whole catalogue to fill one dropdown.
+        ProductPicker.load(function (list) {
+            state.products = list;
+            $('#bkProduct').empty().append(
+                ProductPicker.optionsHtml(list, esc(tr('ui.js.selectProduct', 'Select a product…'))));
         });
         loadStockLevels();
     }

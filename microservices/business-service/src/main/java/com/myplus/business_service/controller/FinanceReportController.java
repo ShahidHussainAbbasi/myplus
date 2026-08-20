@@ -123,7 +123,7 @@ public class FinanceReportController {
             rows.add(java.util.Arrays.asList(
                     l.getDate(), l.getDocNo(), l.getType(), l.getDebit(), l.getCredit(), l.getBalance()));
         }
-        return com.myplus.business_service.util.CsvWriter.write(
+        return com.myplus.common.imports.CsvWriter.write(
                 java.util.Arrays.asList("Date", "Document", "Type", "Debit", "Credit", "Balance"), rows);
     }
 

@@ -1,4 +1,4 @@
-package com.myplus.business_service.util;
+package com.myplus.common.imports;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

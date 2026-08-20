@@ -134,6 +134,11 @@
              which Spring silently clamps to max-page-size — so a tenant past the cap lost products from
              every picker with no error at all. Must precede the module scripts that use it. -->
         <script th:src="@{/js/common/paged-fetch.js}"></script>
+        <!-- PERF-8: one CACHED, lean read behind every product <select>. Loads here, beside paged-fetch,
+             because it must precede every module script that fills a picker (business, order-booking,
+             pharma). It registers a global ajaxComplete hook that drops the cache after any catalogue
+             write, so a product added on one screen is sellable on the next without a reload. -->
+        <script th:src="@{/js/common/product-picker.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing
              AJAX call, so jQuery $.post/$.ajax pass Spring Security's CSRF check. -->
         <script>

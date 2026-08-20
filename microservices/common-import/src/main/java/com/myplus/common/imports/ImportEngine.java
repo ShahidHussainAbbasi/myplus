@@ -56,6 +56,18 @@ public class ImportEngine {
         return new ArrayList<>();
     }
 
+    /**
+     * The finished template file: header row, no data rows (see {@link #templateRows}).
+     *
+     * <p>Here rather than in each controller so that "what a template looks like" has ONE definition. When
+     * only business-service imported anything, the two-line version in its controller was harmless; the
+     * moment catalog-service gained a spec it would have become a second copy, and the first divergence
+     * would have produced a template one service could generate and the other could not parse.
+     */
+    public String templateCsv(ImportSpec<?> spec) {
+        return CsvWriter.write(templateHeaders(spec), templateRows(spec));
+    }
+
     /** Validate and classify without writing anything. */
     public ImportReport dryRun(ImportSpec<?> spec, String csv, Long orgId, Long userId) {
         Classification c = classify(spec, csv, orgId, userId);

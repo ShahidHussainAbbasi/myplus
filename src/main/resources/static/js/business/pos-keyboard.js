@@ -539,8 +539,31 @@
             // how fast two presses count as one gesture, AND the open menu is visible feedback that
             // the first press registered — which a timer can never give.
             var $bs = $(this).closest('.bootstrap-select');
-            if ($bs.hasClass('open')) {
-                if ($sel.val()) return;              // a value is highlighted/chosen — the picker owns this Enter
+            var isOpen = $bs.hasClass('open');
+            if (isOpen && $sel.val()) return;        // a value is highlighted/chosen — the picker owns this Enter
+
+            /*
+             * CLOSED, and already holding a value — ACCEPT IT AND MOVE ON.
+             *
+             * This is the commonest checkout there is and it had no way forward. Cash is the
+             * pre-selected payment method, so #sellPayMethod holds a value from the moment the screen
+             * opens. Advancing was wired only to `changed.bs.select`, which fires on a CHANGE — and
+             * keeping the default is not a change. So Enter fell through to the branch below, which
+             * opens the menu on an empty picker, did nothing useful on a full one, and left the cashier
+             * on the pay method with no keystroke that would leave it. `sellRec` was unreachable on
+             * every cash sale.
+             *
+             * "It already has the right answer" is the reason to move on, not the reason to stop.
+             * A picker with no value still opens (below) — that case is unchanged.
+             */
+            if (!isOpen && $sel.val() && !e.shiftKey) {
+                e.preventDefault();
+                var fwd = walk(CHECKOUT, id, 1);
+                if (fwd === null) { completeSale(); return; }
+                focusField(fwd);
+                return;
+            }
+            if (isOpen) {
                 e.preventDefault();
                 $bs.removeClass('open');             // close it; the answer is "skip"
                 var jumped = skipAhead($sel.attr('id'));

@@ -54,6 +54,16 @@ public class CatalogRestClient {
     }
 
     /** DELETE (multi-rate tax: remove a tax code). Empty body. */
+    /**
+     * POST with a JSON body, returning the raw response text (slice I2).
+     *
+     * <p>For endpoints that answer with a FILE rather than an envelope — the import report download posts the
+     * operator's CSV and gets CSV back, which {@link #postJson} would try to parse as a map and fail on.
+     */
+    public String postJsonString(String path, Object body) {
+        return gateway.forString(PREFIX, directBaseUrl, path, HttpMethod.POST, body, MediaType.APPLICATION_JSON);
+    }
+
     public String delete(String path) {
         return gateway.forString(PREFIX, directBaseUrl, path, HttpMethod.DELETE, null, null);
     }

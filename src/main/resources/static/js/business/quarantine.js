@@ -16,6 +16,11 @@
 
     function loadProductNames(cb) {
         // Every page — this builds the id->name map, so a missed product shows as a bare id.
+        // PERF-8 deliberately did NOT move this to ProductPicker, and the reason is worth keeping:
+        // this is not a picker. It builds a name-by-id map to DISPLAY quarantined stock, and a product
+        // can be deactivated while its quarantined batches are still on the shelf awaiting disposal.
+        // The picker is ACTIVE-ONLY by design, so switching would have silently turned those rows'
+        // names into "#123" — a regression no assertion here would have caught.
         PagedFetch.all('catalogProducts', function (list) {
             nameById = {};
             list.forEach(function (p) { nameById[p.id] = p.name; });

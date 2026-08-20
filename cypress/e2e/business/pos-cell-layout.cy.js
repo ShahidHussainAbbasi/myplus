@@ -103,7 +103,11 @@ describe('POS line entry — one cell per field', () => {
       const capBands = new Set(), fieldBands = new Set()
       ;[...$cells].forEach((c) => {
         const lab = c.querySelector('label.control-label')
-        const fld = c.querySelector('input, select')
+        // The VISIBLE control. A `selectpicker` hides its real <select> behind a generated
+        // .bootstrap-select button, and a hidden element reports top:0 — which showed up as a phantom
+        // band at zero and made the Item cell look misaligned when it was not. Measure what the cashier
+        // actually sees, which is the button.
+        const fld = c.querySelector('.bootstrap-select') || c.querySelector('input, select')
         if (lab) capBands.add(top(lab))
         if (fld) fieldBands.add(top(fld))
       })
@@ -121,6 +125,53 @@ describe('POS line entry — one cell per field', () => {
         .to.eq([...fieldBands].length)
       expect(capBands.size, 'there is at least one band to speak of').to.be.at.least(1)
     })
+  })
+
+  /**
+   * IS IT ACTUALLY ONE ROW?
+   *
+   * The assertion this suite was missing, and the reason it reported 10/10 on a screen that rendered as
+   * four separate bands with ~170px of blank space between them. Every other test here measures a CELL —
+   * caption over field, bands consistent, hiding works — and all of that was true while the layout was
+   * plainly broken. Structure is not layout.
+   *
+   * What broke it: two `.pos-fullrow` wrappers (the sellable-stock and FEFO batch notices) sat BETWEEN the
+   * field groups with an unconditional `display:block`, so each claimed a full-width flex line even when
+   * empty — which they are on a fresh screen and for every shop that does not track batches.
+   */
+  it('THE DESIGN — the entry fields are on ONE row, not stacked into bands', () => {
+    // A WIDE till. The design is explicit that the strip WRAPS rather than switching off on a small
+    // screen — "one layout from a 24in till down to a phone" — so asserting a single band at Cypress's
+    // default 1280px would be testing the viewport, not the layout. At 1600px the full field set fits,
+    // and anything that still breaks the flow is a real defect.
+    cy.viewport(1600, 900)
+    openTill()
+    setFields({})
+
+    cy.get('#Sell .pos-cell:visible').then(($cells) => {
+      const tops = [...$cells].map((c) => Math.round(c.getBoundingClientRect().top))
+      const bands = [...new Set(tops)].sort((a, b) => a - b)
+
+      // The failure this catches: an empty full-width notice wrapper sitting BETWEEN the field groups
+      // cut the strip into four bands with ~170px of dead space, while the fields themselves occupied
+      // only 732px of a 1300px form. Cells not fitting is wrapping; cells not fitting when there is
+      // room to spare is a break.
+      expect(bands.length, 'cell tops: ' + JSON.stringify(tops)).to.eq(1)
+
+      // And the strip is one row tall. Four bands measured ~600px; one row is well under 200.
+      const form = $cells.closest('#Sell')[0].getBoundingClientRect()
+      expect(form.height, 'the strip is one row tall, not several').to.be.lessThan(200)
+    })
+  })
+
+  it('an EMPTY batch notice takes no line — it is a message, not a spacer', () => {
+    openTill()
+    setFields({})
+    // Both alerts start hidden (loadStock shows them per product). Their wrappers must not reserve a
+    // full-width line while they have nothing to say.
+    cy.get('#sellSellableInfo').should('not.be.visible')
+    cy.get('#sellBatchInfo').should('not.be.visible')
+    cy.get('#sellBatchInfo').closest('.pos-fullrow').should('have.css', 'display', 'none')
   })
 
   it('a caption and its input stay in the same column when the strip wraps', () => {

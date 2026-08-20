@@ -503,14 +503,10 @@ function loadCartLineIntoForm(line){
 	// M4e.1b (slice 98): (re)load the catalog-product picker (value = productId), then select THIS line by its
 	// productId. The first-edit race (picker not yet populated) is handled by reloading here. If the product isn't in
 	// the list (e.g. deleted â†’ orphaned sale), inject a one-off option so the sale stays editable.
-	// EVERY page, not one big one: ?size=2000 sat exactly on Spring's max-page-size, so a tenant
-	// past the cap silently lost products from this picker (see js/common/paged-fetch.js).
-	PagedFetch.all("catalogProducts", function(list){
-		var html = "<option value=''>Nothing Selected</option>";
-		list.forEach(function(p){
-			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker — not sellable/purchasable
-			html += "<option value='" + p.id + "' data-product='" + p.id + "' data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
-		});
+	// PERF-8: served from the cached picker (js/common/product-picker.js). On an edit this is now
+	// free — the catalogue was already loaded when the section opened.
+	ProductPicker.load(function(list){
+		var html = ProductPicker.optionsHtml(list);
 		var $dd = $('#sellItemDD').empty().append(html);
 		var pid = (line.productId != null) ? line.productId : line.itemId;   // cart lines key by productId
 		var $opt = (pid != null) ? $dd.find('option[value="' + pid + '"]') : $();
@@ -1909,14 +1905,12 @@ function loadUserItemUnits(table) {
 function loadUserItems(table) {
 	// M4e.1b (slice 98): the sell/purchase picker lists catalog PRODUCTS (value = productId) sourced from the catalog
 	// master — not the local Item table. data-product carries the same productId so the cart submits productId-native.
-	// EVERY page, not one big one: ?size=2000 sat exactly on Spring's max-page-size, so a tenant
-	// past the cap silently lost products from this picker (see js/common/paged-fetch.js).
-	PagedFetch.all("catalogProducts", function(list){
-		var html = "<option value=''>Nothing Selected</option>";
-		list.forEach(function(p){
-			if (p.isActive === false) return;   // hide DEACTIVATED products from the picker — not sellable/purchasable
-			html += "<option value='" + p.id + "' data-product='" + p.id + "' data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>" + escHtml(p.name || ('Product #' + p.id)) + "</option>";
-		});
+	// PERF-8: one CACHED, lean read (js/common/product-picker.js) instead of downloading the whole
+	// product master here. This ran on every section open AND every cart-line edit, fetching all 23
+	// fields of every product — deactivated ones included — to build a three-field <select>. Active
+	// filtering now happens in SQL, so the isActive check that used to live in this loop is gone.
+	ProductPicker.load(function(list){
+		var html = ProductPicker.optionsHtml(list);
 		// Survive the rebuild: see loadUserVenders. The item picker is worse than the vendor one, because
 		// an item wiped mid-entry does not merely look wrong — main.js refuses the save outright
 		// ("Select an item and enter a quantity greater than 0.") and the line the operator just typed
@@ -1991,7 +1985,9 @@ function loadStock(label,value){
 	$("#sellSellRate").val("")
 	$("#sellItems").removeClass("alert-danger");
 	$("#sellBatchInfo").hide().empty();   // P10 (slice 54): FEFO batch/expiry shown when an item is picked
+	syncSellNoticeRow();
 	$("#sellSellableInfo").hide().empty();   // sellable/expired badge, refreshed on each item pick
+				syncSellNoticeRow();
 	$("pdt").html("      ");
 	
     // M4e.1b (slice 98): the picker value is a productId now â†’ pre-fill from productStock (on-hand + price + FEFO
@@ -2065,11 +2061,13 @@ function loadStock(label,value){
 			    		var badge = 'Sellable: <b>'+sellable+'</b>';
 			    		if(expired>0) badge += ' <span class="label label-danger" title="expired stock is not sellable">'+expired+' expired</span>';
 			    		$("#sellSellableInfo").html(badge).show();
+				syncSellNoticeRow();
 			    		if(sellable <= 0){
 			    			$("#sellItems").addClass("alert-danger");
 			    			showFormError(expired>0 ? 'All stock for this item is expired — not sellable. Add a fresh batch to sell.' : 'No sellable stock. Please purchase this item first.');
 			    			resetBSDD('sellItemDD');
 			    			$("#sellSellableInfo").hide();
+				syncSellNoticeRow();
 			    			return;
 			    		}
 			    		calculateNetSell();   // re-run the qty guard against sellable
@@ -2092,6 +2090,7 @@ function renderSellBatches(batches){
 	var exp = first.expiryDate ? (' • Exp ' + first.expiryDate) : '';
 	var more = batches.length > 1 ? (' <span class="text-muted">(+' + (batches.length-1) + ' more)</span>') : '';
 	el.html('<span class="glyphicon glyphicon-barcode"></span> FEFO: Batch <b>' + escHtml(first.batchNo || 'n/a') + '</b>' + escHtml(exp) + more).show();
+	syncSellNoticeRow();
 }
 
 function getBatchesByItem(itemId){
@@ -3498,7 +3497,15 @@ function loadPosFeatureFlags(){
 	$.get(serverContext + 'getBusinessConfig', function(res){
 		var items = (res && res.data) || [];
 		var byKey = {};
-		items.forEach(function(it){ byKey[it.key] = String(it.value) === 'true'; });
+		// `chosen` = keys this tenant has actually SAVED. byKey holds every catalogue entry (with its
+		// effective value), so "is the key present" cannot tell a deliberate choice from a default —
+		// which is exactly the distinction a preset has to respect. The settings payload answers it
+		// directly with isDefault, so no inference is needed.
+		var chosen = {};
+		items.forEach(function(it){
+			byKey[it.key] = String(it.value) === 'true';
+			if (it.isDefault === false) { chosen[it.key] = true; }
+		});
 		// absent key â†’ default ON (the feature ships enabled)
 		window.posBarcodeEnabled = ('pos.barcode.enabled' in byKey) ? byKey['pos.barcode.enabled'] : true;
 		window.posAutoPrintReceipt = ('pos.receipt.autoPrint' in byKey) ? byKey['pos.receipt.autoPrint'] : true;
@@ -3530,18 +3537,9 @@ function loadPosFeatureFlags(){
 		// and a pharmacy, so WHICH fields belong on the sale is the tenant's answer, not ours. Every
 		// one of these fails OPEN (absent key => shown): the default is today's full screen, and a
 		// config hiccup must never make a field the shop relies on silently disappear mid-sale.
-		window.posFields = {
-			description:  byKey['pos.entry.showDescription']       !== false,
-			bonus:        byKey['pos.entry.showBonus']             !== false,
-			stock:        byKey['pos.entry.showStock']             !== false,
-			expiry:       byKey['pos.entry.showExpiry']            !== false,
-			lineDiscount: byKey['pos.entry.lineDiscountEnabled']   !== false,
-			discountType: byKey['pos.entry.showDiscountType']      !== false,
-			receivable:   byKey['pos.entry.showReceivable']        !== false,
-			tradeDiscount:byKey['pos.invoice.tradeDiscountEnabled']!== false,
-			customerBalance: byKey['pos.customer.showBalance']     !== false,
-			park:         byKey['pos.park.enabled']                !== false
-		};
+		// The BUSINESS-TYPE preset resolves first, then the tenant's own switches override it.
+		// See POS_PRESETS / posFieldsFor for why that ordering is the contract.
+		window.posFields = posFieldsFor(posSettingText(res, 'pos.entry.preset', 'CUSTOM'), byKey, chosen);
 		window.posPriceEditable   = byKey['pos.entry.priceEditable'] !== false;
 		// Fails OPEN (absent => required), because required IS today's behaviour — an unreadable
 		// config must not quietly stop a wholesaler's invoices from naming their account.
@@ -3600,6 +3598,29 @@ function posSettingText(res, key, dflt){
 	var v = posSettingRaw(res, key);
 	return (v == null || String(v) === '') ? dflt : String(v);
 }
+/**
+ * Keep the FEFO notice wrapper in step with the notices inside it.
+ *
+ * The wrapper is a full-width block sitting BETWEEN the QTY fields and the price fields — put there
+ * because that is where loadStock() populates it. On the stacked form an empty wrapper costs nothing.
+ * On the single-row till it is a full-width flex item, so an empty one CUTS THE ROW IN HALF: Stock,
+ * Expiry, Discount and Type were pushed onto a second band with a gap in front of them.
+ *
+ * Done here rather than in CSS on purpose. A `:has()` rule looked tidy and did not work — the wrapper's
+ * inner .col-* is itself a flex item and takes a line whether or not its children are visible. The two
+ * alerts are already shown and hidden by this file, in five places; one helper called from those places
+ * is honest, whereas a selector trying to infer the same state from inline styles is a second mechanism
+ * that has to keep guessing right.
+ */
+function syncSellNoticeRow(){
+	var $wrap = $("#sellBatchInfo").closest(".pos-fullrow");
+	if(!$wrap.length) return;
+	var anyVisible = $("#sellBatchInfo").is(":visible") || $("#sellSellableInfo").is(":visible");
+	// A CLASS, not .toggle(): an inline display would fight pos-rowentry.css the way the config
+	// visibility flags already learned not to.
+	$wrap.toggleClass("pos-notice-empty", !anyVisible);
+}
+
 function applyPosBarcodeVisibility(){
 	var on = window.posBarcodeEnabled !== false;
 	$('#sellScanRow').toggle(on);          // sell screen scan box
@@ -3620,6 +3641,108 @@ function applyPosBarcodeVisibility(){
  */
 function applyPosRowEntry(){
 	$('#sellDiv').toggleClass('pos-rowentry', window.posRowLayoutEnabled === true);
+	// The notice row starts EMPTY — loadStock() has not run on a fresh screen, and never runs at all for
+	// a shop that does not track batches. Without this the wrapper takes a full-width line from the
+	// moment the till opens, which is the state the operator sees most of the time.
+	syncSellNoticeRow();
+}
+
+/**
+ * The sale line, per kind of shop — the named answers behind `pos.entry.preset`.
+ *
+ * WHY THESE EXIST. The nine per-field switches are correct and stay. What they are not is a question a
+ * shopkeeper can answer: nine booleans describe 512 possible tills, none of them designed, and all nine
+ * default ON — so a corner shop meets the busiest screen in the product and must switch nine things off
+ * to reach the four fields it uses. "I run a pharmacy" is a question they can answer.
+ *
+ * WHAT A PRESET DOES NOT DECIDE. Column ORDER. A till is read by position; a shop that can reorder its
+ * own columns has a screen no two of its staff read the same way. Presets choose which fields are
+ * PRESENT — Item, Qty, Price, Total and the Add button are on every one of them.
+ *
+ * Each entry lists ONLY what it turns off. Anything unnamed keeps the platform default (shown), so a
+ * field added to the product in future appears everywhere until a preset deliberately hides it —
+ * failing OPEN, exactly as the individual switches do.
+ */
+var POS_PRESETS = {
+	// Item · Qty · Price · Total. The four fields a counter sale actually needs.
+	RETAIL: {
+		description: false, bonus: false, stock: false, expiry: false,
+		lineDiscount: false, discountType: false, receivable: false
+	},
+	// Adds BATCH and EXPIRY: on medicines these are a traceability obligation, not a nicety.
+	// Veterinary is the same trade with the same rules, so it is the same preset.
+	PHARMACY: {
+		description: false, bonus: false, receivable: false,
+		lineDiscount: false, discountType: false
+	},
+	// Adds BONUS (free goods, "20 billed 2 free") and the line discount a rep negotiates per product.
+	DISTRIBUTION: {
+		description: false, expiry: false
+	},
+	// Item and quantity. Price is fixed on a menu, and nobody discounts a plate of food at the counter.
+	RESTAURANT: {
+		description: false, bonus: false, stock: false, expiry: false,
+		lineDiscount: false, discountType: false, receivable: false
+	}
+};
+
+/**
+ * Resolve the sale-screen field set: PRESET first, tenant overrides second.
+ *
+ * The ordering is the whole contract, and it is Strategy with an explicit escape hatch:
+ *
+ *   1. every field starts SHOWN (the platform default, and today's behaviour)
+ *   2. the preset turns off what that kind of shop does not use
+ *   3. anything the tenant has explicitly saved WINS over both
+ *
+ * Step 3 is what makes a preset safe to offer. Without it, choosing "Pharmacy" would silently destroy a
+ * deliberate choice a shop had already made, and the only safe advice would be "never touch the preset
+ * once configured" — which is not a setting, it is a trap. With it, a pharmacy that also gives bonus
+ * goods switches Bonus back on and keeps it.
+ *
+ * CUSTOM is not an error case. It means "leave the nine exactly as they are", which is precisely what
+ * every existing tenant needs on the deploy that introduces this: a new setting must not move a screen
+ * somebody already configured.
+ *
+ * @param preset  the tenant's pos.entry.preset value
+ * @param byKey   raw settings map; an ABSENT key means the tenant never chose, a present one that they did
+ */
+function posFieldsFor(preset, byKey, chosen){
+	byKey = byKey || {};
+	// Absent => nothing was explicitly saved, so the preset governs. Passing {} is what a unit test does.
+	chosen = chosen || {};
+	var base = POS_PRESETS[String(preset || '').toUpperCase()] || {};
+
+	// key on window.posFields  ->  the setting that overrides it
+	var MAP = {
+		description:     'pos.entry.showDescription',
+		bonus:           'pos.entry.showBonus',
+		stock:           'pos.entry.showStock',
+		expiry:          'pos.entry.showExpiry',
+		lineDiscount:    'pos.entry.lineDiscountEnabled',
+		discountType:    'pos.entry.showDiscountType',
+		receivable:      'pos.entry.showReceivable',
+		tradeDiscount:   'pos.invoice.tradeDiscountEnabled',
+		customerBalance: 'pos.customer.showBalance',
+		park:            'pos.park.enabled'
+	};
+
+	var out = {};
+	Object.keys(MAP).forEach(function(field){
+		var key = MAP[field];
+		if (chosen[key]) {
+			// The tenant SAVED this one, so it wins over the preset. Note the test is `chosen`, not
+			// `key in byKey`: byKey carries every catalogue entry, defaults included, so presence proves
+			// nothing. Keying on presence would have made the preset dead code — it would never once
+			// have applied, and the feature would have looked implemented while doing nothing.
+			out[field] = byKey[key] !== false;
+		} else if (field in base) {
+			out[field] = base[field];               // the preset's answer for this kind of shop
+		} else {
+			out[field] = true;                      // platform default: shown
+		}
+	});
+	return out;
 }
 
 /**

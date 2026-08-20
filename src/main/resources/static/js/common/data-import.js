@@ -198,7 +198,14 @@
 
 		html += '    </div></div></div>';
 
+		// The panel reuses the shared dialog chrome (.uiC-*), which is injected lazily by
+		// confirm-dialog.js. Without this the stylesheet may not exist yet, and .uiC-backdrop starts at
+		// opacity:0 — so the preview rendered INVISIBLY and the operator saw nothing happen at all.
+		if (typeof global.uiDialogStyles === 'function') { global.uiDialogStyles(); }
+
 		$('body').append(html);
+		// .is-open is what fades the backdrop in; without it the panel stays fully transparent.
+		global.requestAnimationFrame(function () { $('#importPanel').addClass('is-open'); });
 
 		$('#importCancel').on('click', closePanel);
 		$(document).on('keydown.importPanel', function (e) { if (e.key === 'Escape') { closePanel(); } });

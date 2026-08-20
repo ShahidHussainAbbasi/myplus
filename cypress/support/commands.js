@@ -271,15 +271,81 @@ Cypress.Commands.add('loginAsPortalGuardian', (email = 'guardian.education@myplu
  * NEVER `{force:true}` past this instead. Forcing clicks through an overlay a real user cannot click through
  * means a stuck spinner would pass the gate and fail in production.
  */
+/**
+ * Wait until the app is genuinely idle.
+ *
+ * WHY THIS IS NOT JUST "IS THE OVERLAY HIDDEN?" — the premise of the first two versions was wrong.
+ *
+ * The overlay is driven by jQuery's GLOBAL ajaxStart/ajaxStop, which fire when the first request starts
+ * and the LAST one finishes. So in any screen that loads in two waves — a request whose follow-up depends
+ * on its response, e.g. business.js:4115 issuing /customerAccountGroup once it knows a customerId — there
+ * is a real moment between the waves when zero requests are in flight. jQuery fires ajaxStop, the overlay
+ * hides, this helper said "ready", and the follow-up then re-raised the overlay underneath the next click.
+ *
+ * That produced a race whose VICTIM MOVED between runs: three consecutive runs of sell.cy.js failed on
+ * three different tests, each refused because `<div class="ao-box">` covered the element. A defect in one
+ * test does not move to another test; a timing-dependent race does.
+ *
+ * Chasing the chained requests out of the app is the wrong fix — a follow-up that needs an id from a prior
+ * response is legitimate, and every real application has some. What was wrong is this helper's question:
+ * IDLENESS IS NOT OBSERVABLE FROM ONE INSTANTANEOUS CHECK.
+ *
+ * So it now waits for the network to be QUIET — `jQuery.active === 0` sustained for longer than the
+ * overlay's own show-delay — which is what "the app has finished loading" actually means. `jQuery.active`
+ * is the exact counter ajaxStart/ajaxStop are derived from, so this reads the real signal rather than a
+ * rendered symptom of it.
+ *
+ * Cost: a floor of ~QUIET_MS per call. Paid deliberately, because the alternative is a suite that is green
+ * on a re-run and therefore proves nothing.
+ */
 Cypress.Commands.add('waitForAppReady', () => {
+  // Must exceed ajax-overlay.js's SHOW_DELAY_MS (220), or a wave could start and raise the overlay
+  // just after we declared the app quiet.
+  const QUIET_MS = 300
+  const DEADLINE_MS = 30000
+
   // Wait on BOTH the overlay and its box. Cypress names whichever element is actually on top at the
   // point of the click, and it has named each of them on different runs: `.ao-box` when a modal-sized
   // spinner sits over a button, `#appAjaxOverlay` (the full-viewport parent, `class="show"`) when the
   // whole page is masked. Waiting on only one leaves the other gap open — which is how the DataTables
   // search box and #newProduct still failed after the first version of this helper shipped.
-  // Hiding the parent implies the child is hidden too, so this is belt-and-braces, not duplication.
-  cy.get('#appAjaxOverlay', { timeout: 30000 }).should('not.be.visible')
-  cy.get('.ao-box', { timeout: 30000 }).should('not.be.visible')
+  cy.get('#appAjaxOverlay', { timeout: DEADLINE_MS }).should('not.be.visible')
+  cy.get('.ao-box', { timeout: DEADLINE_MS }).should('not.be.visible')
+
+  // Then the part the first two versions were missing: no NEW wave may start.
+  // NOTE the explicit timeout on .then(). Cypress caps a callback that returns a promise at the DEFAULT
+  // command timeout (5s) regardless of any deadline inside the promise, so the first version of this died
+  // with "your callback returned a promise that never resolved" on exactly the pages it exists for — a
+  // dashboard carrying 1 249 products legitimately takes longer than 5s to settle.
+  cy.window({ log: false }).then({ timeout: DEADLINE_MS }, (win) =>
+    new Cypress.Promise((resolve, reject) => {
+      const deadline = Date.now() + DEADLINE_MS
+      let quietSince = null
+
+      const tick = () => {
+        // No jQuery on the page (a plain template) means nothing can be in flight — treat as quiet
+        // rather than hanging for 30s on a page this helper has no opinion about.
+        const active = (win.jQuery && typeof win.jQuery.active === 'number') ? win.jQuery.active : 0
+
+        if (active === 0) {
+          if (quietSince === null) quietSince = Date.now()
+          if (Date.now() - quietSince >= QUIET_MS) return resolve()
+        } else {
+          quietSince = null          // a new wave started — the clock restarts, it does not accumulate
+        }
+
+        if (Date.now() > deadline) {
+          return reject(new Error(
+            `waitForAppReady: the app never went quiet for ${QUIET_MS}ms (jQuery.active=${active}). ` +
+            'Something is polling, or a request is hanging.'))
+        }
+        setTimeout(tick, 50)
+      }
+      tick()
+    }))
+
+  // Belt and braces: quiet network AND overlay down, asserted last so a late wave cannot slip past.
+  cy.get('#appAjaxOverlay', { timeout: DEADLINE_MS }).should('not.be.visible')
 })
 
 // Show a registration section on a dashboard (business by default). Both dashboards use the

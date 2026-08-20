@@ -80,6 +80,25 @@ public class CatalogController {
         }
     }
 
+    /**
+     * PERF-8 — the lean read behind every product picker.
+     *
+     * <p>Distinct from {@code /catalogProducts} above, which serves the product LIST and returns all 23
+     * fields including deactivated rows. This returns three fields for active products only. Both exist
+     * because a list and a picker want genuinely different things; serving one from the other was
+     * transferring 83% of each product to be discarded by the browser.
+     */
+    @GetMapping("/catalogProductPicker")
+    @ResponseBody
+    public Map<String, Object> productPicker(final HttpServletRequest request) {
+        try {
+            return catalog.get("/products/picker", request.getQueryString());
+        } catch (Exception e) {
+            LOGGER.error("catalogProductPicker proxy error", e);
+            return Collections.singletonMap("success", false);
+        }
+    }
+
     /** M1 (slice 42): register a catalog Product — the single product master. M4e.d (slice 105): the legacy
      *  business Item projection (master-sync → /syncProductItem) is retired; the catalog Product is the only master. */
     @PostMapping("/addProduct")

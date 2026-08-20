@@ -50,6 +50,17 @@ public class ProductService {
         return productRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
+    /**
+     * PERF-8 — active products, projected to the three fields a picker needs.
+     *
+     * <p>No {@code map(this::toDto)}: the projection happens in the query, so nothing wider than these three
+     * columns is ever loaded. Same tenant scoping as {@link #getAll} — org, with the NULL/user fallback.
+     */
+    public Page<com.myplus.catalog.dto.ProductPickerDTO> getPicker(Pageable pageable) {
+        return productRepository.findPickerScoped(
+                CurrentUser.organizationId(), CurrentUser.userId(), pageable);
+    }
+
     /** M4e.c (slice 103): tenant-scoped product count for the dashboard KPI. */
     @Transactional(readOnly = true)
     public long count() {

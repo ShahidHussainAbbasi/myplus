@@ -243,8 +243,13 @@
 .pos-rowentry #Sell .bootstrap-select{ width:100% !important; }
 .pos-rowentry #Sell .bootstrap-select > .btn{ height:36px; padding:7px 9px; font-size:13px; }
 
-/* The Item column carries the picker and is the one that absorbs spare width. */
-.pos-rowentry #Sell .control-label + .col-sm-4:first-of-type{ flex:1 1 210px; }
+/* The Item column carries the picker. It has a generous FIXED width and does NOT grow: a column that
+ * absorbs spare width stretches the strip until the later fields wrap onto a second line, which is
+ * exactly how Stock/Expiry/Discount/Type ended up on a band of their own with a gap in front of them.
+ * A till is read by position, and a column that resizes as the window does is a column nobody can
+ * learn the position of. */
+.pos-rowentry #Sell .pos-cell-item{ flex:0 0 210px; }
+.pos-rowentry #Sell .pos-cell-item .col-sm-4{ width:100%; }
 
 .pos-rowentry #sellItems{ width:72px; }
 .pos-rowentry #sellSellRate{ width:98px; }
@@ -301,12 +306,48 @@
 .pos-rowentry #Sell .pos-more{ display:none; }
 
 /* The FEFO batch/expiry notices and the scan box are full-width: they are
- * messages about the row, not columns within it. */
+ * messages about the row, not columns within it.
+ *
+ * BUT ONLY WHEN THEY HAVE SOMETHING TO SAY. `display:block` was unconditional, so the two batch-info
+ * wrappers — empty on a fresh screen, and empty for every shop that does not track batches — still
+ * claimed a full-width flex line EACH. The strip was cut into four bands with ~170px of blank space
+ * between them, which is what the row layout looked like on a real till.
+ *
+ * `:has()` is the honest test: the wrapper is a container whose CHILDREN are the alerts, and those are
+ * shown and hidden individually by loadStock(). A wrapper with no visible alert inside it is not a
+ * message, so it takes no line. Supported everywhere this app runs; a browser without it simply gets
+ * the previous behaviour, which is a spaced-out row rather than a broken one.
+ */
 .pos-rowentry #Sell .pos-fullrow{
   flex:1 0 100%;
   display:block;
   width:100%;
 }
+
+/* ── Painting ORDER, so a full-width block never splits the field strip ─────
+ * The scan box LEADS and the notice FOLLOWS the fields. In the DOM the notice sits between the QTY
+ * group and the price group — put there because that is where it is populated from — and a full-width
+ * flex item in the middle of a wrapping row cuts the row in half. That is exactly what happened: the
+ * strip rendered as four bands with ~170px of dead space between them.
+ *
+ * `order` moves PAINTING only. Tab order, the Enter chain and formToJSON all read the DOM, so none of
+ * them can notice — which is what makes this safe to do to a live till.
+ */
+.pos-rowentry #Sell #sellScanRow{ order:-1; }   /* leads */
+.pos-rowentry #Sell .pos-cell,
+.pos-rowentry #Sell .form-group.text-center{ order:0; }
+.pos-rowentry #Sell .pos-fullrow:not(#sellScanRow){ order:1; }   /* follows the fields */
+
+/* The NOTICE row, when it has nothing to say.
+ *
+ * A full-width block sitting BETWEEN the QTY fields and the price fields cuts the strip in two, so an
+ * EMPTY notice must take no line at all. The class is written by syncSellNoticeRow() in business.js,
+ * which already owns showing and hiding the two alerts inside it.
+ *
+ * A `:has()` selector was tried first and did not work: the wrapper's inner .col-* is itself a flex
+ * item and takes a line whether or not its children are visible. Inferring the state from inline
+ * styles was a second mechanism guessing at what the first one already knows. */
+.pos-rowentry #Sell .pos-fullrow.pos-notice-empty{ display:none; }
 
 /* ── Action buttons, at the end of the row ─────────────────────────────────
  * "Add to Cart" and "Cancel" ride on the same row as the fields, so committing
@@ -322,7 +363,11 @@
   white-space:nowrap;
   margin-left:2px;
 }
-.pos-rowentry #addInviceItem{ margin-left:auto; }   /* push the pair to the end */
+/* NO `margin-left:auto` here. It was meant to push the buttons to the end of the strip, and on a flex
+ * row an auto margin absorbs ALL the free space — so the buttons went to the far right and everything
+ * after them was forced onto the next line. The buttons simply follow the last field; with the fields
+ * at fixed widths the strip ends where the content ends, which is what a till should look like. */
+.pos-rowentry #addInviceItem{ margin-left:8px; }
 
 /* The contract-price explanation sits under the price field and must not widen
  * the column or push the row taller when it appears. */

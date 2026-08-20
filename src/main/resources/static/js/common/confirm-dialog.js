@@ -214,6 +214,18 @@
         });
     }
 
+    /**
+     * Make the dialog chrome (.uiC-*) available to a module that renders its OWN panel.
+     *
+     * Exposed because injectStyles() used to be reachable only through open(), so a module that built
+     * .uiC-backdrop / .uiC-card markup directly got NO styles unless a confirm dialog happened to have
+     * been opened first on that page — and .uiC-backdrop starts at opacity:0, so the result was an
+     * invisible panel rather than an ugly one. (Found by the CSV import's preview, slice I1/I2.)
+     *
+     * Sharing the injector rather than copying the CSS keeps one definition of what a dialog looks like.
+     */
+    global.uiDialogStyles = injectStyles;
+
     /** Themed confirm. Resolves true/false. */
     global.uiConfirm = function (opts) {
         var o = opts || {};

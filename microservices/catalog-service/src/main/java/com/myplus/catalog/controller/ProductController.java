@@ -5,9 +5,7 @@ import com.myplus.common.web.PageResponse;
 import com.myplus.common.security.CurrentUser;
 import com.myplus.catalog.dto.NameCheckDTO;
 import com.myplus.catalog.dto.ProductDTO;
-import com.myplus.commerce.contracts.dto.ProductImportLine;
-import com.myplus.commerce.contracts.dto.ProductImportResult;
-import com.myplus.catalog.service.ProductImportService;
+import com.myplus.catalog.dto.ProductPickerDTO;
 import com.myplus.catalog.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +23,33 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
-    private final ProductImportService productImportService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<ProductDTO>>> getAll(Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(PageResponse.of(productService.getAll(pageable), p -> p)));
+    }
+
+    /**
+     * PERF-8 — the read behind every product {@code <select>} on the platform.
+     *
+     * <p>Separate from {@link #getAll} because the two have genuinely different jobs: that one backs a product
+     * LIST, which needs every column and shows deactivated rows; this one backs a PICKER, which needs three
+     * columns and must never offer something unsellable.
+     *
+     * <p>Measured before it was written: the picker was being served from {@code getAll}, so 83% of every
+     * product's payload was transferred and discarded, and 3 requests were issued per section open for a
+     * 1 249-product tenant. See {@code docs/slices/perf-8-product-picker.md}.
+     *
+     * <p><b>Still paged, and that is deliberate.</b> Returning a plain list would be the unbounded read OMS-7
+     * named, and {@code paged-fetch.js} exists because a fixed {@code ?size=2000} once truncated a large
+     * tenant's catalogue in silence. The envelope is kept so the client's existing paging transport still
+     * handles the over-cap case correctly — it is simply that a lean row makes ONE page enough for any
+     * realistic tenant, which is what removes the multi-wave request pattern.
+     */
+    @GetMapping("/picker")
+    public ResponseEntity<ApiResponse<PageResponse<ProductPickerDTO>>> picker(Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(
+                PageResponse.of(productService.getPicker(pageable), p -> p)));
     }
 
     // Slice 106: @Valid enforces ProductDTO's constraints. Without it the annotations are inert decoration —
@@ -37,16 +57,6 @@ public class ProductController {
     @PostMapping
     public ResponseEntity<ApiResponse<ProductDTO>> create(@Valid @RequestBody ProductDTO dto) {
         return ResponseEntity.ok(ApiResponse.success(productService.create(dto), "Created"));
-    }
-
-    /**
-     * Bulk import for the item→product migration (slice 33, U2). Returns the clientRef→productId map.
-     * Raw (un-wrapped) response for the inter-service caller — matches {@code CatalogClient.importProducts}
-     * and the same raw convention as {@code /{id}/ref}.
-     */
-    @PostMapping("/import")
-    public List<ProductImportResult> importProducts(@RequestBody List<ProductImportLine> items) {
-        return productImportService.importProducts(items, CurrentUser.organizationId(), CurrentUser.userId());
     }
 
     @GetMapping("/{id}")

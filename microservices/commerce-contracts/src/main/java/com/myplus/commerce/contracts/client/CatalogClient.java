@@ -1,7 +1,5 @@
 package com.myplus.commerce.contracts.client;
 
-import com.myplus.commerce.contracts.dto.ProductImportLine;
-import com.myplus.commerce.contracts.dto.ProductImportResult;
 import com.myplus.commerce.contracts.dto.PriceQuote;
 import com.myplus.commerce.contracts.dto.ProductRef;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,10 +45,6 @@ public interface CatalogClient {
     /** M4e.c (slice 103): tenant-scoped product count (dashboard KPI). */
     @GetExchange("/products/count")
     long countProducts();
-
-    /** Bulk import products (item→product migration, slice 33 U2). Returns the clientRef→productId map. */
-    @PostExchange("/products/import")
-    List<ProductImportResult> importProducts(@RequestBody List<ProductImportLine> items);
 
     /** Re-price on receive (Option B): set a product's selling price from the purchase/goods-in flow AND stamp the
      *  rates that purchase carried onto the master — what it was bought at and what it is to be sold at — so the

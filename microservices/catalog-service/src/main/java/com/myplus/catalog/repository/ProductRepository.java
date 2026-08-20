@@ -25,6 +25,25 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT COUNT(p) FROM Product p WHERE " + SCOPE)
     long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /**
+     * PERF-8 — the product picker's read: ACTIVE rows only, projected to three columns.
+     *
+     * <p>A constructor expression rather than {@code SELECT p}, deliberately. Selecting the entity loads all
+     * 23 columns — including {@code description}, which is {@code varchar(2000)} — and then throws 20 of them
+     * away in the mapper. This projects in SQL, so the wide columns never leave the database.
+     *
+     * <p>{@code isActive} is filtered here rather than in the browser: every caller previously downloaded the
+     * deactivated products and hid them in JavaScript.
+     *
+     * <p>{@code Boolean.TRUE} is compared explicitly because the column is a nullable {@code Boolean} — a
+     * pre-migration row with {@code NULL} is not active and must not appear in a till's picker.
+     */
+    @Query("SELECT new com.myplus.catalog.dto.ProductPickerDTO(p.id, p.name, p.sellingPrice) "
+         + "FROM Product p WHERE p.isActive = TRUE AND " + SCOPE + " ORDER BY p.name ASC")
+    Page<com.myplus.catalog.dto.ProductPickerDTO> findPickerScoped(@Param("orgId") Long orgId,
+                                                                   @Param("userId") Long userId,
+                                                                   Pageable pageable);
+
     // Public storefront (slice 47): active products for a store (by orgId — no JWT identity on a public call).
     java.util.List<Product> findByOrganizationIdAndIsActiveTrueOrderByNameAsc(Long organizationId);
 
@@ -82,4 +101,23 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                                @Param("minPrice") java.math.BigDecimal minPrice,
                                @Param("maxPrice") java.math.BigDecimal maxPrice,
                                @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
+
+
+    /**
+     * Slice I2 — which of these product NAMES already exist in this tenant, in ONE query.
+     *
+     * <p>Name is the import's duplicate key: {@code sku} is optional (2026-08-20) and a key that is
+     * sometimes absent is not a key, whereas {@code name} is required on every row.
+     *
+     * <p>Deliberately a batched {@code IN} over a projection, never one query per row — {@code existsBySkuScoped}
+     * is right for a single save and would be O(n) round trips for a 2 000-row import, which is the shape
+     * {@code CustomerController.addCustomer}'s in-memory full scan already has.
+     *
+     * <p>Served by {@code idx_products_org_name} (V10), shipped in the same migration as this method.
+     */
+    @Query("SELECT p.name FROM Product p WHERE p.name IN :names AND " + SCOPE)
+    List<String> existingNamesScoped(@Param("names") java.util.Collection<String> names,
+                                     @Param("orgId") Long orgId,
+                                     @Param("userId") Long userId);
+
 }

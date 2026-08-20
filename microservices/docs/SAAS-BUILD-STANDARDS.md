@@ -63,6 +63,47 @@ Hibernate-invented schema proves the code and nothing about the deploy. _Inciden
 Flyway, so V2's rebase and V3's state-aware `item_id → product_id` rename — the most intricate SQL in the service
 — had never run in CI. Pattern: `pharma-service` · `FlywayMigrationTest`._
 
+**D2a. A SKIPPED Testcontainers test is indistinguishable from a passing one — read the Skipped count.**
+`@Testcontainers(disabledWithoutDocker = true)` turns an unreachable Docker daemon into a green no-op, so
+`mvn test` reports BUILD SUCCESS having executed none of them. Never accept the summary line as evidence a
+container test ran; check `target/surefire-reports/*.txt` for `Skipped: 0`.
+
+_Incident (2026-08-20): `mvn -pl business-service test` gave `Tests run: 134, Failures: 0, Skipped: 13` — and
+**all 13 were the module's Testcontainers tests**, covering the 41 migrations, invoice money arithmetic, the
+sale write's atomicity and multi-tenant scoping. The four riskiest areas in the service were the exact ones
+silently not running. The same was true of the Flyway tests in marketplace-service and pharma-service, so
+**three services satisfied D2 on paper while none executed locally.** CI was unaffected — GitHub's
+`ubuntu-latest` runners ship Docker — which is why it went unnoticed for months._
+
+**Cause and fix (measured, 2026-08-20).** It is an **API-version** rejection, not a pipe or context problem:
+
+```
+DOCKER_API_VERSION=1.32  docker version   ->  FAILS
+DOCKER_API_VERSION=1.40  docker version   ->  OK
+```
+
+Docker Engine 29.7.2 advertises *"API version: 1.55 (minimum version 1.40)"*, while docker-java as bundled in
+Testcontainers 1.21.0 falls back to **1.32** when it cannot negotiate. The daemon answers `400` with a stub
+`/info` body and Testcontainers reports the whole environment as unavailable. The `docker` CLI is unaffected
+because it negotiates properly — which is why `docker ps` working proves nothing about Testcontainers.
+
+```properties
+# ~/.testcontainers.properties
+api.version=1.41
+```
+
+⚠ **A first attempt blamed a named-pipe / context mismatch. That was wrong**, and is recorded so nobody
+re-derives it: `//./pipe/docker_engine`, `//./pipe/dockerDesktopLinuxEngine` and `//./pipe/docker_engine_linux`
+all serve a working engine (verified by pointing `DOCKER_HOST` at each in turn); only `//./pipe/docker_cli`
+does not. **Bumping the engine can silently disable every container test on a machine** — the failure looks
+like "Docker is not available" when Docker is plainly running.
+
+Separately: do not pin `docker.client.strategy`. A pinned strategy is used exclusively and hardcodes its own
+pipe, so a `docker.host` set beside it is ignored.
+
+Do **not** "fix" any of this by removing `disabledWithoutDocker` — that reddens the build on any machine
+without Docker, which is worse than skipping. The guard is right; reading the count is the discipline.
+
 **D3. Index every scoped column.** `organization_id` carries the platform's most common predicate; unindexed, every
 scoped read is a full scan. Composite `(organization_id, user_id)` where the NULL-fallback scope applies,
 `(organization_id)` alone where rows are org-only. Add it with the column, not after a customer complains.

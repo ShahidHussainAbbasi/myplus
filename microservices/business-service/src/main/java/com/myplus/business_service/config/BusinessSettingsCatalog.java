@@ -94,6 +94,80 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "30 by default. A shorter window follows what is selling right now; a longer "
                                 + "one is steadier across a slow week.",
                         30, "Sale entry"),
+                /*
+                 * WHICH BUSINESS IS THIS? — one choice instead of nine.
+                 *
+                 * The nine `pos.entry.*` switches below are correct and stay. What they are not is a
+                 * QUESTION a shopkeeper can answer: nine independent booleans describe 512 possible tills,
+                 * none of which anyone designed, and every one of them defaults ON — so a corner shop opens
+                 * the busiest screen in the product and has to switch nine things off to reach the four
+                 * fields it actually uses.
+                 *
+                 * A preset answers the question they can answer — "I run a pharmacy" — and writes the nine.
+                 *
+                 * DESIGN PATTERN. This is Strategy with an explicit escape hatch: the preset supplies a
+                 * named set of defaults, the individual switches remain and OVERRIDE it. That ordering is
+                 * the whole contract — `posFieldsFor()` applies the preset first and the tenant's own
+                 * overrides second, so choosing a preset never destroys a deliberate choice, and a shop
+                 * that wants pharmacy-plus-bonus is not forced to pick the nearest wrong answer.
+                 *
+                 * CUSTOM is not a fallback for "unrecognised". It is the honest name for "leave the nine
+                 * exactly as they are", which is what every existing tenant needs on the deploy that
+                 * introduces this: their configured screen must not move because a new setting appeared.
+                 * Hence it is also the DEFAULT.
+                 *
+                 * The column ORDER is not configurable and deliberately so. A till is read by position; a
+                 * shop that can reorder its own columns has a screen no two of its staff read the same way,
+                 * and no support call can ever be answered generically. Presets choose which fields are
+                 * PRESENT, never where they sit.
+                 */
+                SettingEntry.select("pos.entry.preset",
+                        "What kind of shop is this?",
+                        "Sets the sale line to the fields that trade normally needs — one choice instead "
+                                + "of nine switches. The individual switches below still win wherever you "
+                                + "have set one, so a preset never overwrites a decision you made on "
+                                + "purpose. Leave on Custom to keep exactly what you have today.",
+                        "CUSTOM", "Sale entry",
+                        java.util.List.of(
+                                new SettingEntry.Option("CUSTOM",
+                                        "Custom — use the individual switches below"),
+                                new SettingEntry.Option("RETAIL",
+                                        "Retail / general store — item, quantity, price"),
+                                new SettingEntry.Option("PHARMACY",
+                                        "Pharmacy / veterinary — adds batch and expiry"),
+                                new SettingEntry.Option("DISTRIBUTION",
+                                        "Distribution / wholesale — adds bonus and line discount"),
+                                new SettingEntry.Option("RESTAURANT",
+                                        "Restaurant / counter service — item and quantity only"))),
+
+                /*
+                 * THE SALE LINE AS ONE ROW — and, until now, a feature no tenant could reach.
+                 *
+                 * `pos.entry.compactRow` has been read since P1 (business.js sets posRowLayoutEnabled from
+                 * it) but was never DECLARED here, so it never appeared on the Configuration screen and no
+                 * shop could switch it on. The Configuration screen renders from this catalogue and knows
+                 * nothing about individual settings, which is its strength — and it is why an undeclared key
+                 * is invisible rather than merely undocumented. The only org that had it on was one a test
+                 * had written the row for directly.
+                 *
+                 * That is C1 read backwards. The rule here is "a toggle that changes nothing is worse than
+                 * no toggle"; this was the mirror image — a change with no toggle.
+                 *
+                 * DEFAULT ON. Every other pos.entry.* setting defaults true to preserve the behaviour it
+                 * was retrofitted onto; this one defaults true because the row IS the intended till. The
+                 * stacked form remains one switch away for a shop that prefers it.
+                 *
+                 * Note the browser still fails CLOSED on a settings FAILURE — an absent or unreadable
+                 * response yields the stacked layout, because re-laying-out a till mid-sale because a
+                 * config call hiccuped is the surprise worth avoiding whichever way the default points.
+                 */
+                SettingEntry.bool("pos.entry.compactRow",
+                        "Enter each sale line as one row",
+                        "On (default). The item, quantity, price and discount sit side by side under a "
+                                + "single header, the way a till reads, instead of stacked one per line. "
+                                + "Turn off for the taller form, which some operators prefer on a small "
+                                + "screen. Which FIELDS appear is set separately below.",
+                        true, "Sale entry"),
                 SettingEntry.bool("pos.entry.showDescription",
                         "Show the item Description field",
                         "On (default). Turn off if your product names already say enough — it is one "

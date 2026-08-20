@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.myplus.business_service.util.CsvWriter;
+import com.myplus.common.imports.CsvWriter;
 import com.myplus.business_service.util.GenericResponse;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.common.imports.ImportEngine;
@@ -96,7 +96,7 @@ public class ImportController {
         ImportSpec<?> spec = registry.get(entity);
         if (spec == null) return ResponseEntity.notFound().build();
 
-        String csv = CsvWriter.write(engine.templateHeaders(spec), engine.templateRows(spec));
+        String csv = engine.templateCsv(spec);
         return ResponseEntity.ok()
                 .header("Content-Disposition",
                         "attachment; filename=\"" + spec.entity() + "-import-template.csv\"")
