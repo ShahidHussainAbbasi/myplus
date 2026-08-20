@@ -30,20 +30,43 @@ function openTill() {
     w.posShortcutsEnabled = true
     w.applyPosKeyboard()
   })
-  /*
-   * Wait for the overlay to LIFT, not for the app to go quiet.
-   *
-   * The till keeps a poll running while it is open, so waitForAppReady() — which additionally requires
-   * jQuery.active to settle for 300ms — never returns here and times out. What actually blocks a
-   * keystroke is the overlay sitting on top of the field, so that is the thing to wait on.
-   */
+  quiet()
+}
+
+/**
+ * Wait for the overlay to LIFT — the one thing that stops a keystroke reaching a field.
+ *
+ * NOT waitForAppReady(): the till keeps a poll running while it is open, so that helper's additional
+ * "jQuery.active quiet for 300ms" condition never becomes true here and it times out. Tried, and it took
+ * this spec from six passes to two.
+ *
+ * Called at the START of every test AND before any keystroke that follows an action which refetches —
+ * the customer list, the settings read, a completed sale. The overlay comes and goes throughout, and a
+ * single wait in openTill() only covers the first wave. That partial cover is why this spec flapped:
+ * five runs of identical code gave 6, 3, 5, 2 and 6 passes with a different test failing each time.
+ */
+function quiet() {
   cy.get('#appAjaxOverlay', { timeout: 30000 }).should('not.be.visible')
   cy.get('.ao-box', { timeout: 30000 }).should('not.be.visible')
 }
 
-/** Enter, delivered to whatever currently has focus — what a cashier's keyboard actually does. */
+/**
+ * Enter, delivered to whatever currently has focus.
+ *
+ * `.type('{enter}')`, not `.trigger('keydown')`. Two reasons, both learned the hard way here:
+ *
+ *  1. A DISPATCHED KeyboardEvent is not a real key press. The handler opens an empty picker by calling
+ *     `.click()` on the plugin's button, and the browser's own key-to-click activation does not happen
+ *     for a synthetic event — so the empty-picker case failed while the till was working perfectly.
+ *
+ *  2. `.trigger()` enforces actionability at the moment it fires and does NOT retry past a cover, so a
+ *     keystroke landing while the shared AJAX overlay is up dies with "covered by <div class=ao-box>".
+ *     That is what made this spec flap: five runs of identical code gave 6, 3, 5, 2 and 6 passes, with
+ *     a different test failing each time. `.type()` waits for the element to become interactable, which
+ *     is also what a cashier does — they wait for the spinner and then press the key.
+ */
 function pressEnter() {
-  cy.focused().trigger('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true })
+  cy.focused().type('{enter}')
 }
 
 describe('Checkout chain — every route to a paid sale', () => {
@@ -174,13 +197,19 @@ describe('Checkout chain — every route to a paid sale', () => {
     // on the plugin's button, and a dispatched KeyboardEvent does not reproduce the browser's own
     // key-to-click activation — so the assertion would be measuring Cypress, not the till.
     cy.get('#sellCustomerDD').next('.bootstrap-select').find('button').focus().type('{enter}')
+    // The MENU, not just the class. Both arrive, but the visible dropdown is what a cashier is looking
+    // for, and Cypress retries this assertion while bootstrap-select finishes opening — the class alone
+    // was asserted a beat too early and reported a working picker as broken.
+    cy.get('#sellCustomerDD').next('.bootstrap-select').find('.dropdown-menu')
+      .should('be.visible')
     cy.get('#sellCustomerDD').next('.bootstrap-select').should('have.class', 'open')
   })
 
   it('SHIFT+Enter still walks BACKWARDS out of a filled picker', () => {
     openTill()
-    cy.get('#sellRec').focus()
-    cy.focused().trigger('keydown', { key: 'Enter', keyCode: 13, which: 13, shiftKey: true, bubbles: true })
+    quiet()
+    // .type, not .trigger: same reason as pressEnter — a dispatched event does not retry past a cover.
+    cy.get('#sellRec').focus().type('{shift}{enter}')
     // Backwards from received lands on the trade discount, not on nothing: a chain that only goes one
     // way is a chain a cashier cannot correct a mistake in.
     cy.focused().should(($el) => {
@@ -195,6 +224,10 @@ describe('Checkout chain — every route to a paid sale', () => {
     cy.seedProduct({ name, sellingPrice: 50, stock: 20, sku: 'CC' + Date.now() })
       .then(({ sku }) => {
         openTill()
+        // Wait for the overlay to lift before scanning. The till fires several AJAX waves as it opens and
+        // the shared spinner sits over the scan box while they run; a keystroke landing then fails with
+        // "covered by <div class=ao-box>", which reads like a layout fault and is really a race.
+        quiet()
         cy.get('#sellScan').should('be.visible').type(sku + '{enter}')
         cy.get('#sellItems', { timeout: 15000 }).should('be.visible')
         cy.focused().type('2{enter}')

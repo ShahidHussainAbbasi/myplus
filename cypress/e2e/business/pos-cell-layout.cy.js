@@ -230,6 +230,10 @@ describe('POS line entry — one cell per field', () => {
       .then(({ productId }) => {
         openTill()
         setFields({})
+        // The picker fills from PagedFetch across every page of the catalogue, so a product seeded
+        // moments ago may not be in the <select> yet. Wait for the option, or cy.select() fails with
+        // "could not find a single <option>" — a race that reads like a missing product.
+        cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
         cy.get('#sellItemDD').select(String(productId), { force: true })
         cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
 

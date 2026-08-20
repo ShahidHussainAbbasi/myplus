@@ -300,3 +300,74 @@ premise was wrong.
 
 **Not applied**: A changes the timing of every spec on the platform, and option C was chosen over it
 deliberately. That decision belongs to the user, not to me.
+
+---
+
+## 10. The helper was the real defect — `waitForAppReady` now waits for NETWORK IDLE
+
+Approved 2026-08-20 after §9.3. `sell` reached **31/31**.
+
+### 10.1 What changed and why the previous premise was wrong
+
+The helper asked *"is the overlay hidden?"* at one instant. The overlay is driven by jQuery's **global**
+`ajaxStart`/`ajaxStop`, which fire on the first request starting and the **last** one finishing — so in the
+gap between two waves the honest answer is "yes, and it is about to be no". Chasing the chained requests out
+of the app was the wrong fix: a follow-up that needs an id from a prior response is legitimate
+(`/customerAccountGroup` cannot know its `customerId` sooner), and every real application has some.
+
+It now waits for `jQuery.active === 0` **sustained past the overlay's own show-delay** — the exact counter
+`ajaxStart`/`ajaxStop` are derived from, rather than a rendered symptom of it.
+
+### 10.2 Two mistakes I made implementing it, both instructive
+
+**1. Cypress caps a promise-returning callback at the DEFAULT command timeout (5 s)**, whatever deadline the
+promise carries. The first version died with *"your callback returned a promise that never resolved"* on
+exactly the pages it exists for. Fixed with `.then({ timeout: DEADLINE_MS }, …)`.
+
+**2. My first measurement of "how long until the dashboard is quiet" said 29 SECONDS, and was wrong.**
+`const t0 = Date.now()` runs when the test function is *queued*, not when the preceding Cypress commands
+finish — so it silently included the login. The classic Cypress synchronous-vs-queued trap, and it would have
+sent me hunting a 29-second load that does not exist. **A number that surprises you is a reason to check how
+it was measured.**
+
+### 10.2b A third mistake: I tuned a verified value down and it regressed
+
+After `sell` reached **31/31** at `QUIET_MS = 300`, I lowered it to **250** — to save 50 ms per call, on the
+reasoning that it only had to clear the overlay's own `SHOW_DELAY_MS` (220).
+
+**Both halves of that were wrong.**
+
+*The reasoning:* what `QUIET_MS` must exceed is the **50 ms sampling interval**, so a gap between two waves
+cannot be sampled twice and mistaken for quiet. It has nothing to do with `SHOW_DELAY_MS`. Chained requests
+fire synchronously from success handlers — verified by grep: there is no `setTimeout`-deferred AJAX anywhere
+in the app — so the gap itself is sub-millisecond.
+
+*The value:* the next regression run came back **30/31**, failing on *"Reset Invoice Item button…"* — the
+exact test the overlay race broke in the first place.
+
+Reverted to 300, with the incident written into the code so the next reader does not repeat it.
+**Changing a value that has evidence behind it, to save 50 ms, on reasoning rather than measurement, is not
+an optimisation — it is spending someone else's afternoon.**
+
+### 10.3 The measured cost, stated plainly
+
+| | |
+|---|---|
+| First `waitForAppReady` after `cy.visit` | **~6.6 s** |
+| Every call after that | **~0.4 s** |
+
+`purchase.cy.js` went from ~4 min to ~10 min. That is a real cost and it is the right trade: the suite was
+previously fast because it raced past a screen that genuinely is not ready, and a suite that is green on a
+re-run proves nothing.
+
+### 10.4 A finding worth its own slice
+
+An XHR timeline of the dashboard shows **8 requests, all complete by 1.6 s** — yet the app is not idle until
+~6.6 s. So **roughly five seconds of a till's startup is main-thread work, not network.** Building a
+1 200-option `<select>` (plus bootstrap-select's processing of it) is the obvious suspect and matches the
+symptom, though that specific attribution is inference rather than measurement.
+
+PERF-8 fixed the *transfer* (618 KB → 77 KB). It did not touch the *render*, and the render now looks like the
+larger half of the problem. **PERF-9 candidate: stop building a 1 200-option select at all** — virtualise it,
+or move the picker to server-side type-ahead, which is the industry answer for a master of this size and was
+deliberately deferred in §3.3.

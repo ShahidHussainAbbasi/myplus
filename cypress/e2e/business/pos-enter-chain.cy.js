@@ -44,6 +44,10 @@ describe('P5 — the line chain includes the discount TYPE', () => {
     cy.seedProduct({ name: 'P5Chain_' + Date.now(), sellingPrice: 25, stock: 20 })
       .then(({ productId }) => {
         openTill()
+        // The picker fills from PagedFetch across every page of the catalogue, so a product seeded
+        // moments ago may not be in the <select> yet. Wait for the option, or cy.select() fails with
+        // "could not find a single <option>" — a race that reads like a missing product.
+        cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
         cy.get('#sellItemDD').select(String(productId), { force: true })
         cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
 
@@ -70,6 +74,10 @@ describe('P5 — the line chain includes the discount TYPE', () => {
         })
         cy.get('#sellDiscountTypeDD').should('not.be.visible')
 
+        // The picker fills from PagedFetch across every page of the catalogue, so a product seeded
+        // moments ago may not be in the <select> yet. Wait for the option, or cy.select() fails with
+        // "could not find a single <option>" — a race that reads like a missing product.
+        cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
         cy.get('#sellItemDD').select(String(productId), { force: true })
         cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
         cy.get('#sellItems').clear().type('1{enter}')
@@ -92,6 +100,10 @@ describe('P5 — D-23: a dropdown advances on SELECTION', () => {
       .then(({ productId }) => {
         openTill()
         // .select() on the underlying <select> fires the same changed.bs.select a real click does.
+        // The picker fills from PagedFetch across every page of the catalogue, so a product seeded
+        // moments ago may not be in the <select> yet. Wait for the option, or cy.select() fails with
+        // "could not find a single <option>" — a race that reads like a missing product.
+        cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
         cy.get('#sellItemDD').select(String(productId), { force: true })
         // No Enter pressed at all — selection alone advanced the chain.
         cy.focused({ timeout: 10000 }).should('have.id', 'sellItems')

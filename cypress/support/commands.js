@@ -299,10 +299,25 @@ Cypress.Commands.add('loginAsPortalGuardian', (email = 'guardian.education@myplu
  * on a re-run and therefore proves nothing.
  */
 Cypress.Commands.add('waitForAppReady', () => {
-  // Must exceed ajax-overlay.js's SHOW_DELAY_MS (220), or a wave could start and raise the overlay
-  // just after we declared the app quiet.
+  // 300ms, and it is EMPIRICALLY chosen — do not tune it down without re-running sell.cy.js.
+  //
+  // What it must exceed is the sampling interval below (50ms), so a gap between two waves cannot be
+  // mistaken for quiet. Chained requests fire synchronously from success handlers — verified: there is no
+  // setTimeout-deferred AJAX anywhere in the app — so the gap itself is sub-millisecond.
+  //
+  // I once "tuned" this to 250 on the reasoning that it only had to clear the overlay's own SHOW_DELAY_MS
+  // (220). That reasoning was wrong AND the change regressed sell.cy.js from 31/31 to 30/31, on the very
+  // test the overlay race originally broke. 300 is the value with evidence behind it.
   const QUIET_MS = 300
   const DEADLINE_MS = 30000
+
+  // MEASURED COST (business dashboard, 1 249 products), so nobody has to guess why the suite got slower:
+  //   first call after cy.visit  ~6.6s
+  //   every call after that      ~0.4s
+  // Only ~1.6s of that first wait is network — all 8 XHRs are complete by then. The rest is main-thread
+  // work the browser does before it is genuinely idle (building a 1 200-option <select> among it). So this
+  // helper did not make the suite slow; it stopped it racing past a screen that really does take that long,
+  // which is what let a click land on a button the overlay was still covering.
 
   // Wait on BOTH the overlay and its box. Cypress names whichever element is actually on top at the
   // point of the click, and it has named each of them on different runs: `.ao-box` when a modal-sized

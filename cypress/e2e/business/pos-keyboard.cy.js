@@ -47,6 +47,18 @@ function openSell(enabled) {
  * test is a stock error rather than a keyboard path. Every chain test starts from a real selection.
  */
 function pickItem(productId) {
+  /*
+   * WAIT FOR THE OPTION TO EXIST before selecting it.
+   *
+   * The picker is filled by PagedFetch, which walks every page of the catalogue — org 6 is now ~1,285
+   * products across 3 pages — and a product seeded moments earlier is simply not in the <select> yet
+   * when the test reaches this line. `cy.select()` then fails with "could not find a single <option>
+   * with value 1941", which reads like a missing product and is really a race.
+   *
+   * It got worse as the catalogue grew, which is the tell: the same specs passed for months and then
+   * began failing on a machine that had done nothing except accumulate test data.
+   */
+  cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
   cy.get('#sellItemDD').select(String(productId), { force: true })   // bootstrap-select hides the real <select>
   cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
   cy.get('#sellStock').should('not.have.value', '')

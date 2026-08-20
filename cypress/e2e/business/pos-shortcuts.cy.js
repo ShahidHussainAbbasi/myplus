@@ -117,6 +117,10 @@ describe('P2 — OFF (default): nothing changed', () => {
   it('no action key does anything', () => {
     cy.seedProduct({ name: 'ShOff_' + Date.now(), sellingPrice: 50, stock: 5 }).then(({ productId }) => {
       openSell({ shortcuts: false, keyboard: true })
+      // The picker fills from PagedFetch across every page of the catalogue, so a product seeded
+      // moments ago may not be in the <select> yet. Wait for the option, or cy.select() fails with
+      // "could not find a single <option>" — a race that reads like a missing product.
+      cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
       cy.get('#sellItemDD').select(String(productId), { force: true })
       cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
       cy.get('#sellItems').clear().type('1')
