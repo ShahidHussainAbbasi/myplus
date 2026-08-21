@@ -174,4 +174,13 @@ public class CustomerHistoryDTO {
      * logged. Initialised so callers never null-check.
      */
     private java.util.List<String> warnings = new java.util.ArrayList<>();
+
+    /**
+     * INST-1 — present only when the cashier sold this item on terms; null on every ordinary sale.
+     *
+     * ⚠ This field exists in BOTH CustomerHistoryDTOs (monolith + business-service) and must stay that way.
+     * The monolith binds this DTO and re-serialises it onward, so a block declared on one side only is
+     * silently dropped in transit — the sale succeeds, the invoice is right, and the plan never exists.
+     */
+    private InstallmentPlanDTO installmentPlan;
 }

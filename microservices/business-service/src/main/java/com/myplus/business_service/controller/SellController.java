@@ -129,6 +129,9 @@ public class SellController {
 	com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
 
 	@Autowired
+	com.myplus.business_service.service.InstallmentPlanService installmentPlanService;   // INST-1
+
+	@Autowired
 	com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;   // SF-11: return audit / credit-note
 
 	@Autowired
@@ -806,6 +809,17 @@ public class SellController {
 			if (dto.getWarnings() != null && !dto.getWarnings().isEmpty()) {
 				msg = msg + "  " + String.join("  ", dto.getWarnings());
 			}
+			// INST-1 — a sale sold on terms carries a plan block. Written AFTER the sale, deliberately:
+			// SagaSellService commits the invoice in its own REQUIRES_NEW transaction, so by the time it
+			// returns an invoice number the receivable is durable and the plan can reference it.
+			//
+			// A plan is a STRUCTURE OVER that receivable, never a second one — no GL account, no posting
+			// event, no gl_outbox column. The invoice already carries the full financed amount as AR.
+			if (dto.getInstallmentPlan() != null && invoiceNo != null) {
+				String planMsg = createInstallmentPlan(dto, invoiceNo);
+				if (planMsg != null) msg = msg + "  " + planMsg;
+			}
+
 			return new GenericResponse("SUCCESS", msg, invoiceNo);
 
 		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
@@ -1334,6 +1348,79 @@ public class SellController {
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > getSaleReturns " + e.getMessage(), e);
 			return new GenericResponse("FAILED", "Could not load sale returns.");
+		}
+	}
+
+	/**
+	 * INST-1 — turn the sale's plan block into a stored plan.
+	 *
+	 * <h3>Why a refused plan does not fail the sale</h3>
+	 * The money has already moved. By the time this runs the invoice is committed, stock is decremented and
+	 * the customer has their handset — throwing here would roll back nothing that matters and would report a
+	 * completed sale as an error, which is the worst of both. So a refusal is <b>reported in the response
+	 * message</b> and the plan is not created: the shopkeeper sees "Sale recorded… Installment plan NOT
+	 * created: …" and can fix it from the Installments screen.
+	 *
+	 * <p>The same reasoning {@code PosOrderRecorder} already applies after {@code addSell}: work that follows
+	 * a committed sale is best-effort and never throws.
+	 *
+	 * @return a message to append when something needs saying, or null when the plan was created cleanly
+	 */
+	private String createInstallmentPlan(final CustomerHistoryDTO dto, final String invoiceNo) {
+		try {
+			if (!settingsService.getBool("pos.installment.enabled")) {
+				// A default is not a decision: a shop that never turned this on must not silently acquire
+				// plans because a client sent the block.
+				return "Installment plan NOT created: selling on installment is switched off for this shop.";
+			}
+
+			com.myplus.business_service.dto.InstallmentPlanDTO p = dto.getInstallmentPlan();
+			AuthenticatedUser user = requestUtil.getCurrentUser();
+			Long orgId = user == null ? null : user.getOrganizationId();
+
+			// Read the customer from the COMMITTED INVOICE, not from the request.
+			//
+			// A walk-in sale carries a name and a contact but no customerId — SagaSaleWriter CREATES the
+			// customer during the sale (saveUpdateCustomer) and stamps the resolved row on the invoice. So
+			// the request's customerId is null for exactly the case a mobile shop cares about: a new buyer
+			// financing their first handset. Reading it from the request refused every such plan while
+			// reporting the sale as successful, which is how the first gate run found this.
+			//
+			// The invoice is the authoritative source anyway: it is what the plan is a structure over.
+			com.myplus.business_service.entity.CustomerHistory inv =
+					customerHistoryRepo.findByOrganizationIdAndInvoiceNo(orgId, invoiceNo).orElse(null);
+
+			Long customerId = (inv != null && inv.getCustomer() != null)
+					? inv.getCustomer().getCustomerId()
+					: (dto.getCustomer() != null ? dto.getCustomer().getCustomerId() : null);
+
+			if (customerId == null) {
+				// A financed sale against nobody cannot be chased, aged or reminded — the same reasoning
+				// D-24 applies to a credit sale, and more sharply here because it runs for months.
+				return "Installment plan NOT created: a plan needs a named customer.";
+			}
+
+			com.myplus.common.installment.PlanTerms terms = new com.myplus.common.installment.PlanTerms(
+					p.getCashPrice(), p.getDownPayment(),
+					p.getInstallmentCount() == null ? 0 : p.getInstallmentCount(),
+					com.myplus.common.installment.Frequency.fromSetting(p.getFrequency()),
+					p.getFirstDueDate(), p.getMarkupAmount());
+
+			String invalid = terms.validate();
+			if (invalid != null) return "Installment plan NOT created: " + invalid;
+
+			com.myplus.business_service.entity.InstallmentPlan plan = installmentPlanService.create(
+					terms, orgId, user == null ? null : user.getUserId(),
+					user == null ? null : user.getActiveLocationId(),
+					customerId, inv == null ? null : inv.getCustomer_history_id(), invoiceNo,
+					p.getAssetRef());
+
+			return "Installment plan " + plan.getPlanNo() + " created ("
+					+ plan.getInstallmentCount() + " payments).";
+
+		} catch (Exception e) {
+			LOGGER.error("INST-1: plan creation failed for invoice {} — the SALE stands", invoiceNo, e);
+			return "Installment plan NOT created — the sale is recorded. Please add the plan manually.";
 		}
 	}
 }

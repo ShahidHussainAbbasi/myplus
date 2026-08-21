@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.myplus</groupId>
+    <artifactId>myplus-microservices</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>common-installment</artifactId>
+  <name>common-installment</name>
+  <description>Selling on a plan: schedule arithmetic and eligibility rules, as PURE functions. Holds no
+    @Entity, no repository and no tenant logic — the plan tables live in the service that owns the sale
+    (business-service for POS, education-service for fees). Same shape as common-credit, for the same reason:
+    the rules must have exactly one definition, while the data stays with its owner.</description>
+
+  <dependencies>
+    <!-- Deliberately NO spring-context. Every class here is a pure function, so the whole library runs in
+         `mvn test` with no container and no Docker — which matters because standard D2a says a skipped
+         Testcontainers test is indistinguishable from a passing one. -->
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+  </dependencies>
+</project>

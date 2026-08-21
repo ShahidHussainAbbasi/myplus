@@ -197,11 +197,10 @@ describe('Checkout chain — every route to a paid sale', () => {
     // on the plugin's button, and a dispatched KeyboardEvent does not reproduce the browser's own
     // key-to-click activation — so the assertion would be measuring Cypress, not the till.
     cy.get('#sellCustomerDD').next('.bootstrap-select').find('button').focus().type('{enter}')
-    // The MENU, not just the class. Both arrive, but the visible dropdown is what a cashier is looking
-    // for, and Cypress retries this assertion while bootstrap-select finishes opening — the class alone
-    // was asserted a beat too early and reported a working picker as broken.
-    cy.get('#sellCustomerDD').next('.bootstrap-select').find('.dropdown-menu')
-      .should('be.visible')
+    // `.open` on the wrapper — the plugin's own signal, and ONE element. Scoping to .dropdown-menu
+    // matched two nodes (the menu and its inner list) and Cypress asserted on the hidden one, reporting
+    // a picker that opens perfectly as broken. A probe confirmed the real state: class "…open", menu
+    // visible, 282 options loaded.
     cy.get('#sellCustomerDD').next('.bootstrap-select').should('have.class', 'open')
   })
 
@@ -215,6 +214,65 @@ describe('Checkout chain — every route to a paid sale', () => {
     cy.focused().should(($el) => {
       expect($el.attr('id'), 'went back, not nowhere').to.not.eq('sellRec')
     })
+  })
+
+  // ── the rule of thumb: EVERY dropdown behaves like the item picker ──────────────────────────────
+
+  it('THE RULE — a double Enter escapes ANY unanswered picker, not just the item one', () => {
+    openTill()
+    quiet()
+    /*
+     * The behaviour a cashier learns on the item picker must hold on all of them: press Enter to open,
+     * press again with nothing chosen to move on.
+     *
+     * It used to hold on ONE picker. The handler gated on membership of CHAIN, and the checkout
+     * pickers — #sellCustomerDD, #sellPayMethod — live in CHECKOUT, so the escape never applied to
+     * them. On a walk-in cash sale the cursor landed on the customer list and no keystroke would leave
+     * it. Naming fields one at a time is what let the same dead end appear three times (the discount
+     * type in P5, the customer list here); the rule is now "every picker", tested as such.
+     */
+    cy.get('#sellCustomerDD').next('.bootstrap-select').find('button').focus()
+    pressEnter()                                     // opens
+    cy.get('#sellCustomerDD').next('.bootstrap-select').should('have.class', 'open')
+    pressEnter()                                     // "nothing here"
+    cy.focused().should(($el) => {
+      const id = $el.attr('id') || $el.closest('.bootstrap-select').prev('select').attr('id')
+      expect(id, 'the cursor left the customer picker').to.not.eq('sellCustomerDD')
+    })
+  })
+
+  it('an empty CUSTOMER means a walk-in, so the cursor goes to the money', () => {
+    openTill()
+    quiet()
+    // Not the payment method: that is already Cash, and a walk-in paying cash wants the amount box.
+    // A customer may still be REQUIRED to complete the sale — that is the submit path's job to say,
+    // not something to enforce by stranding the cursor.
+    cy.get('#sellCustomerDD').next('.bootstrap-select').find('button').focus()
+    pressEnter()
+    pressEnter()
+    cy.focused().should('have.id', 'sellRec')
+  })
+
+  it('SKIPPING IS SAFE — the payment method already holds the tenant default, so it is never left blank', () => {
+    openTill()
+    quiet()
+    /*
+     * The walk-in path jumps sellCustomerDD -> sellRec, straight past the payment method. That is only
+     * defensible because the field is never empty when we pass it: `pos.tender.default` (CASH out of
+     * the box) is applied to the control on load, and the markup carries CASH selected as well.
+     *
+     * Skipping a field that already holds the right answer saves a keystroke. Skipping one that does
+     * not would post a sale with no tender — so this asserts the PROPERTY the skip depends on, not
+     * merely that the cursor moved.
+     */
+    cy.get('#sellPayMethod').should('have.value', 'CASH')
+
+    cy.get('#sellCustomerDD').next('.bootstrap-select').find('button').focus()
+    pressEnter()
+    pressEnter()
+    cy.focused().should('have.id', 'sellRec')
+    // Still Cash after being walked past — the skip reads it, it does not clear it.
+    cy.get('#sellPayMethod').should('have.value', 'CASH')
   })
 
   // ── end to end, no mouse ────────────────────────────────────────────────────────────────────────
@@ -233,11 +291,39 @@ describe('Checkout chain — every route to a paid sale', () => {
         cy.focused().type('2{enter}')
         cy.get('#tablesi tbody tr', { timeout: 15000 }).should('have.length.at.least', 1)
 
-        // Into the checkout, then along it to the money — the whole point of the keyboard flow.
+        /*
+         * Into the checkout, then along it to the money — the whole point of the keyboard flow.
+         *
+         * Walk from WHEREVER goToCheckout() puts the cursor, rather than assuming. It focuses the FIRST
+         * usable checkout field, which is the customer picker — not the pay method — so a fixed two
+         * presses from a hand-placed cursor was testing a path no cashier takes. How many stops lie
+         * between depends on the tenant's configuration anyway.
+         *
+         * The bound is small on purpose: this asserts the money is a few keystrokes away, which is the
+         * promise the keyboard flow makes. A cashier who had to press Enter twenty times would have a
+         * working chain and an unusable till.
+         */
         cy.window().then((w) => w.posGoToCheckout())
-        cy.get('#sellPayMethod').next('.bootstrap-select').find('button').focus()
-        pressEnter()
-        pressEnter()
+        quiet()
+
+        /*
+         * NO CUSTOMER CHOSEN — a walk-in. The double Enter escapes the picker.
+         *
+         * First Enter opens the list, second says "nothing here" and moves on. An earlier draft selected
+         * a customer to get past this, which meant the test never exercised the commonest cash sale
+         * there is.
+         */
+        const toMoney = (left) => {
+          cy.focused().then(($el) => {
+            const id = $el.attr('id') || $el.closest('.bootstrap-select').prev('select').attr('id')
+            if (id === 'sellRec') return
+            expect(left, 'the money is a few keystrokes from the checkout: stopped on ' + id)
+              .to.be.greaterThan(0)
+            pressEnter()
+            toMoney(left - 1)
+          })
+        }
+        toMoney(6)
         cy.focused().should('have.id', 'sellRec')
       })
   })

@@ -253,6 +253,38 @@ public class SellController {
     // In-place edit of an existing invoice (Phase 3). The frontend routes here (instead of addSell)
     // when the cart carries a customer_history_id; business-service reverts the old lines' stock/dues
     // and re-applies the edited cart under the SAME invoice number, all-or-nothing.
+    /**
+     * INST-1 — a customer's installment plans, for the schedule block on the customer screen.
+     *
+     * <p>Shipped WITH the slice, not after it: an endpoint with no proxy is unreachable from the only UI this
+     * platform has, which is review finding R7 — hit three times in the OMS programme, each a capability
+     * built, tested and reachable by nobody.
+     *
+     * <p>The proxy takes no authorisation decision. Scoping happens in business-service, where the data is.
+     */
+    @RequestMapping(value = "/installmentPlans", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> installmentPlans(final HttpServletRequest request) {
+        try {
+            return client.get("/installmentPlans", request.getQueryString());
+        } catch (Exception e) {
+            LOGGER.error("installmentPlans proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    /** INST-1 — every plan in the tenant still owing money, most overdue first. */
+    @RequestMapping(value = "/installmentPlansOpen", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> installmentPlansOpen(final HttpServletRequest request) {
+        try {
+            return client.get("/installmentPlansOpen");
+        } catch (Exception e) {
+            LOGGER.error("installmentPlansOpen proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/updateSell", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> updateSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {

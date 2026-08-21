@@ -157,4 +157,59 @@ class ModuleRouterTest {
             assertEquals(ModuleRouter.LANDING, ModuleRouter.dashboardFor(user("BUSINESS", "LOGISTICS")));
         }
     }
+
+    /**
+     * INST-0b — the rule {@code CommerceDashboardController.resolveModule()} now composes.
+     *
+     * <p>That controller used to keep its OWN copy of the commerce-type set and read {@code userType} only, so
+     * the screen a user was ROUTED to and the vertical it was SKINNED as could disagree. It now asks this class
+     * both questions. Pinned here because the controller's own answer needs a Spring context to observe, while
+     * the rule behind it does not.
+     */
+    @Nested
+    @DisplayName("INST-0b — moduleOf + isCommerce decide the dashboard SKIN")
+    class CommerceSkin {
+
+        /** Exactly what the controller does, so a change to either method is caught by this test. */
+        private String skinFor(User u) {
+            String module = ModuleRouter.moduleOf(u);
+            return ModuleRouter.isCommerce(module) ? module : "BUSINESS";
+        }
+
+        @Test
+        @DisplayName("a BUSINESS user working in a PHARMA org is skinned as PHARMA, not POS")
+        void orgTypeDecidesTheSkin() {
+            // The defect INST-0b fixes: routed to /businessDashboard by the org, then relabelled by the person.
+            assertEquals("PHARMA", skinFor(user("BUSINESS", "PHARMA")));
+            assertEquals("MARKETPLACE", skinFor(user("BUSINESS", "MARKETPLACE")));
+        }
+
+        @Test
+        @DisplayName("unchanged for every tenant whose org type is null — i.e. almost all of them")
+        void unchangedForSingleModuleTenants() {
+            assertEquals("BUSINESS", skinFor(user("BUSINESS", null)));
+            assertEquals("PHARMA", skinFor(user("PHARMA", null)));
+            assertEquals("MARKETPLACE", skinFor(user("MARKETPLACE", null)));
+            assertEquals("BUSINESS", skinFor(user("BUSINESS", "BUSINESS")));
+        }
+
+        @Test
+        @DisplayName("a non-commerce module falls back to POS wording rather than a half-relabelled screen")
+        void nonCommerceFallsBackToPos() {
+            assertEquals("BUSINESS", skinFor(user("EDUCATION", null)));
+            assertEquals("BUSINESS", skinFor(user("BUSINESS", "EDUCATION")));
+            assertEquals("BUSINESS", skinFor(user(null, null)));
+            assertEquals("BUSINESS", skinFor(null));
+        }
+
+        @Test
+        @DisplayName("an unregistered org type is skinned POS — the MOBILE trap, stated as a test")
+        void unregisteredTypeIsSkinnedPos() {
+            // INST-8 note: Organization.type is free text, so 'MOBILE' can be stored today. Until it is
+            // registered in DASHBOARD_BY_TYPE it routes to LANDING, and until it is in COMMERCE_TYPES it is
+            // skinned POS. Both halves must be added together — this pins the second half.
+            assertEquals("BUSINESS", skinFor(user("BUSINESS", "MOBILE")));
+            assertEquals(ModuleRouter.LANDING, ModuleRouter.dashboardFor(user("BUSINESS", "MOBILE")));
+        }
+    }
 }

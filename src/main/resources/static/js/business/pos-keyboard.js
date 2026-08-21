@@ -142,16 +142,46 @@
      *
      * @returns an id to focus, false when already handled, or null for normal handling
      */
+    /**
+     * The second Enter on an unanswered picker: "nothing here — move me on".
+     *
+     * ONE RULE FOR EVERY DROPDOWN. It used to name two pickers explicitly and answer null for the rest,
+     * so #sellPayMethod and any picker added later had no keyboard way out of them — the same dead end
+     * #sellDiscountTypeDD had before P5, rediscovered one field along. Naming fields individually is
+     * what let that happen twice; the general answer is simply "the next usable field in this picker's
+     * own chain".
+     *
+     * Two cases stay special, and both are about where the operator IS rather than which field it is:
+     *
+     *   • an empty ITEM picker means the line is finished, so the cursor belongs in the checkout, not
+     *     at the next line field;
+     *   • an empty CUSTOMER picker means a walk-in, so the cursor belongs on the money — skipping the
+     *     payment method, which is already Cash. (A customer may still be REQUIRED to complete the
+     *     sale; that is the submit path's business, and refusing to move the cursor is not how to say
+     *     it. Blocking the keyboard does not name a customer, it just strands the cashier.)
+     *
+     * @returns an id to focus, false when this function has already moved the cursor, or null to leave it
+     */
     function skipAhead(from) {
         if (from === 'sellItemDD' && !$('#sellItemDD').val()) {
             goToCheckout();
             return false;
         }
         if (from === 'sellCustomerDD') {
+            // No customer => a WALK-IN, and a walk-in pays now. Skip straight to the money.
+            //
+            // Safe to skip the payment method because it is never empty: it opens on the tenant's
+            // `pos.tender.default` (CASH out of the box, and a distributor invoicing on account sets it
+            // to Credit). Skipping a field that already holds the right answer costs the cashier
+            // nothing; Shift+Enter walks back to it on the rare sale that differs.
             return $('#sellCustomerDD').val() ? 'sellPayMethod' : 'sellRec';
         }
-        return null;
+        // Everything else: the next usable field along, in whichever chain this picker belongs to.
+        return walk(chainFor(from), from, 1);
     }
+
+    /** The chain a field belongs to — the line form or the checkout. */
+    function chainFor(id) { return CHAIN.indexOf(id) >= 0 ? CHAIN : CHECKOUT; }
 
     function nextField(from, dir) {
         return walk(CHAIN, from, dir);
@@ -559,8 +589,15 @@
             if (!isOpen && $sel.val() && !e.shiftKey) {
                 e.preventDefault();
                 var fwd = walk(CHECKOUT, id, 1);
-                if (fwd === null) { completeSale(); return; }
-                focusField(fwd);
+                // NOTHING AHEAD => STAY PUT, do not complete the sale.
+                //
+                // Deliberately unlike the generic branch below, which does treat "past the end" as
+                // "finish". This one fires on a picker the operator has not touched — cash is
+                // pre-selected, so Enter here means "accept the default and move on". If the fields
+                // after it have not rendered yet, walk() answers null for a moment, and finishing the
+                // sale on that would turn a mistimed keystroke into a completed transaction. The
+                // operator still has F2, which says finish and means it.
+                if (fwd) { focusField(fwd); }
                 return;
             }
             if (isOpen) {
@@ -604,7 +641,7 @@
             if (!enabled() || !onSellScreen() || blocked()) return;
             if (clickedIndex === undefined || clickedIndex === null) return;   // programmatic — ignore
             var id = this.id;
-            var list = (CHAIN.indexOf(id) >= 0) ? CHAIN : CHECKOUT;
+            var list = chainFor(id);          // one answer to "which chain", shared with skipAhead
             var target = walk(list, id, 1);
             if (target === null) {
                 if (list === CHAIN) { commitLine(); } else { completeSale(); }
@@ -628,18 +665,27 @@
             if (!enabled() || !onSellScreen() || blocked()) return;
             if (e.key !== 'Enter') return;
             var $sel = $(this).closest('.bootstrap-select').prev('select');
-            // Every picker in the LINE chain, not just the item.
-            //
-            // #sellDiscountTypeDD was added to CHAIN in P5 but never to this guard, so it became a
-            // stop with no keyboard way out: Enter put the cursor on it and nothing moved the cursor
-            // off. On a sale with no discount — most sales — the cashier was stranded mid-chain on a
-            // chooser they never wanted, and the only exit was the mouse.
-            //
-            // Membership of CHAIN and membership of this guard are the same fact stated twice, which
-            // is why they could drift. Derive the list from PICKERS ∩ CHAIN so adding a picker to the
-            // chain cannot again leave it unreachable-past.
             var pickerId = $sel.attr('id');
-            if (CHAIN.indexOf(pickerId) < 0 || PICKERS.indexOf(pickerId) < 0) return;
+            /*
+             * EVERY picker on the sale screen, line form AND checkout — one rule of thumb.
+             *
+             * This used to require membership of CHAIN, which quietly excluded the checkout pickers:
+             * #sellCustomerDD and #sellPayMethod live in CHECKOUT. So the double-Enter escape below —
+             * "open it, and if I press again with nothing chosen, move on" — worked on the item picker
+             * and existed nowhere else. On a walk-in cash sale the cursor landed on the customer list
+             * and no keystroke would leave it.
+             *
+             * It is the SECOND time this exact dead end shipped. #sellDiscountTypeDD was added to CHAIN
+             * in P5 but not to this guard, and became a stop with no keyboard way out — on a sale with
+             * no discount, which is most sales, the cashier was stranded on a chooser they never
+             * wanted. Both times the cause was a list of eligible fields maintained by hand, one name
+             * at a time, beside the list that decides where the cursor goes.
+             *
+             * A behaviour a cashier learns on one dropdown must hold on all of them. Membership of
+             * PICKERS is the whole test now; which chain a picker belongs to is decided later, by
+             * chainFor(), where it is a routing question rather than an eligibility one.
+             */
+            if (PICKERS.indexOf(pickerId) < 0) return;
             // DOUBLE-ENTER, done without a timer.
             //
             // The 1st Enter on a picker button opens its menu (a <button data-toggle="dropdown"> is

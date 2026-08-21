@@ -246,6 +246,72 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                                 new SettingEntry.Option("select", "Choose an existing customer"),
                                 new SettingEntry.Option("manual", "Type the name each time"))),
 
+                // ─── Selling on installment (INST-1) ───────────────────────────────────────────
+                //
+                // OFF by default, and that is a decision rather than caution: a default is not a decision,
+                // and an existing shop that never asked for financing must see its sale screen unchanged.
+                //
+                // ⚠ EVERY select VALUE BELOW IS LOWERCASE. SettingsService.getChoice lower-cases the stored
+                // value before matching the allowed set and SILENTLY returns the fallback otherwise — so a
+                // value of "MONTHLY" here would be saved by the owner, read back as the default forever, and
+                // log nothing at all. The allowed values live as constants on the classes that read them
+                // (Frequency.SettingValue, InstallmentPlanService.ORDER_*) so the catalog and the reader
+                // cannot drift apart.
+                SettingEntry.bool("pos.installment.enabled",
+                        "Sell on installment",
+                        "Off (default). On: the sale screen offers a down payment and a dated payment "
+                                + "schedule for one high-value item — a handset, an appliance, a machine. "
+                                + "Everything else about the counter is unchanged.",
+                        false, "Installments"),
+                SettingEntry.intOf("pos.installment.defaultCount",
+                        "How many payments by default",
+                        "6 by default. The cashier can change it on any sale.",
+                        6, "Installments"),
+                SettingEntry.select("pos.installment.frequency",
+                        "How often payments fall due",
+                        "Monthly by default. Monthly dates follow the calendar, so a plan starting on the "
+                                + "31st falls due on the 30th or 28th in shorter months rather than drifting "
+                                + "earlier each time.",
+                        "monthly", "Installments",
+                        java.util.List.of(
+                                new SettingEntry.Option("monthly", "Monthly"),
+                                new SettingEntry.Option("fortnightly", "Every two weeks"),
+                                new SettingEntry.Option("weekly", "Weekly"))),
+                SettingEntry.intOf("pos.installment.minDownPaymentPct",
+                        "Smallest down payment (%)",
+                        "0 by default — no minimum. Set 20 to require a fifth of the price at the counter.",
+                        0, "Installments"),
+                SettingEntry.intOf("pos.installment.maxOpenPlansPerCustomer",
+                        "How many open plans one customer may hold",
+                        "1 by default. Raise it for a shop that finances more than one item per household.",
+                        1, "Installments"),
+                SettingEntry.intOf("pos.installment.blockIfOverdueDays",
+                        "Refuse a new plan while a payment is this many days late",
+                        "0 (off) by default. Set 30 to stop a customer taking a second plan while an "
+                                + "existing payment is a month behind.",
+                        0, "Installments"),
+                SettingEntry.bool("pos.installment.requireCnic",
+                        "Require the customer's CNIC",
+                        "Off by default. On: a plan cannot be sold to a customer with no CNIC on file — "
+                                + "the identity a financed sale is chased on.",
+                        false, "Installments"),
+                SettingEntry.select("pos.installment.allocationOrder",
+                        "When a customer owes both a plan and invoices, clear which first",
+                        "By due date (default) puts the money on whatever is owed soonest. Choose plans "
+                                + "first if you are chasing a schedule, or invoices first if you are "
+                                + "clearing the oldest paper at month end.",
+                        "by-due-date", "Installments",
+                        java.util.List.of(
+                                new SettingEntry.Option("by-due-date", "Whatever is due soonest"),
+                                new SettingEntry.Option("installments-first", "Installment plans first"),
+                                new SettingEntry.Option("invoices-first", "Ordinary invoices first"))),
+                SettingEntry.bool("pos.installment.markupEnabled",
+                        "Charge more on terms than for cash",
+                        "Off, and not yet available. Charging a markup makes the difference finance "
+                                + "income rather than sales, which needs its own account before it can be "
+                                + "booked correctly. Until then, price the item at its installment price.",
+                        false, "Installments"),
+
                 // ─── Payment ───────────────────────────────────────────────────────────────────
                 SettingEntry.select("pos.tender.default",
                         "Payment method selected by default",

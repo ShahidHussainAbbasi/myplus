@@ -31,6 +31,24 @@ public class CustomerService implements ICustomerService{
     @Autowired
     CustomerRepo customerRepo;
 
+    /**
+     * INST-1 — installment plans, when the tenant sells on terms.
+     *
+     * <p>{@code required = false} on all three, deliberately: every existing hand-built test of this class
+     * reflection-injects only the fields it knows about, and a class that silently leaves a new field null is
+     * this codebase's recurring trap (three times on {@code SagaSellService} alone). Making them optional
+     * means the installment path degrades to today's behaviour — invoices only — rather than an NPE inside a
+     * receipt. The null checks at the call site are the visible half of the same decision.
+     */
+    @Autowired(required = false)
+    com.myplus.business_service.service.InstallmentPlanService installmentPlanService;
+
+    @Autowired(required = false)
+    com.myplus.business_service.repository.InstallmentPlanRepo installmentPlanRepo;
+
+    @Autowired(required = false)
+    com.myplus.common.settings.SettingsService settingsService;
+
     @Autowired
     CustomerHistoryRepo customerHistoryRepo;
 
@@ -282,6 +300,24 @@ return customerRepo.exists(example);
 		return customerObj;
 	}
 
+	/**
+	 * INST-1 — restate every collectable plan's invoice from its installment rows.
+	 *
+	 * <p>Runs inside the settle callback, immediately before {@code recomputeDue}, because that method sums
+	 * the customer's balance from INVOICE headers. Money allocated to installments is invisible to it until
+	 * the invoice has been restated.
+	 *
+	 * <p>Silently does nothing when the installment beans are absent — the feature degrades to today's
+	 * behaviour rather than failing a receipt.
+	 */
+	private void syncPlansToInvoices(Long org, Long customerId) {
+		if (installmentPlanService == null || installmentPlanRepo == null) return;
+		for (com.myplus.business_service.entity.InstallmentPlan plan
+				: installmentPlanRepo.findCollectableByCustomer(org, customerId)) {
+			installmentPlanService.syncInvoiceFromPlan(plan, customerHistoryRepo);
+		}
+	}
+
 	@Override
 	public void recomputeDue(Customer customer) {
 		if (customer == null || customer.getCustomerId() == null) return;
@@ -329,9 +365,24 @@ return customerRepo.exists(example);
 	private java.util.Map<String, Object> doReceivePayment(Customer customer, Long customerId, java.math.BigDecimal amount,
 			String method, java.time.LocalDate paidOn, String reference, Long org, String idempotencyKey) {
 
+		// INST-1 — a customer can owe BOTH: accessories on an ordinary invoice and a handset on a plan. One
+		// receipt must clear both, in a defensible order.
+		//
+		// The invoice that CARRIES a plan is excluded from the invoice stream below, because the plan already
+		// represents that debt. Offering it twice would let one payment over-clear the balance — the same
+		// money counted against the invoice and against its own installments.
+		java.util.List<com.myplus.common.subledger.OpenDoc> planDocs =
+				(installmentPlanService == null)
+						? java.util.Collections.emptyList()
+						: installmentPlanService.openInstallments(org, customerId);
+		java.util.Set<String> planInvoiceNos = (installmentPlanService == null)
+				? java.util.Collections.emptySet()
+				: new java.util.HashSet<>(installmentPlanService.planInvoiceNumbers(org, customerId));
+
 		// The customer's still-owing invoices (oldest first) as generic OpenDocs for the shared allocator.
 		java.util.List<com.myplus.common.subledger.OpenDoc> docs = new java.util.ArrayList<>();
 		for (CustomerHistory inv : customerHistoryRepo.findOpenInvoicesByCustomer(customerId)) {
+			if (inv.getInvoiceNo() != null && planInvoiceNos.contains(inv.getInvoiceNo())) continue;
 			docs.add(new com.myplus.common.subledger.OpenDoc() {
 				public java.math.BigDecimal outstanding() {
 					java.math.BigDecimal due = inv.getDueAmount() != null ? inv.getDueAmount() : java.math.BigDecimal.ZERO;
@@ -351,11 +402,43 @@ return customerRepo.exists(example);
 			});
 		}
 
+		// INST-1 — compose the two streams into the one ordered list the allocator walks. The allocator is
+		// UNCHANGED: it already applies money FIFO across whatever OpenDocs it is handed, so the only new
+		// logic is WHICH list and in what order. No second allocator, no second settlement path — the third
+		// copy of allocate-and-record is exactly what SubledgerService was extracted to prevent.
+		java.util.List<com.myplus.common.subledger.OpenDoc> allDocs =
+				(installmentPlanService == null) ? docs
+						: installmentPlanService.composeOpenDocs(planDocs, docs,
+								settingsService == null ? null
+										: settingsService.getChoice("pos.installment.allocationOrder",
+												java.util.Set.of(
+														com.myplus.business_service.service.InstallmentPlanService.ORDER_BY_DUE_DATE,
+														com.myplus.business_service.service.InstallmentPlanService.ORDER_INSTALLMENTS_FIRST,
+														com.myplus.business_service.service.InstallmentPlanService.ORDER_INVOICES_FIRST),
+												com.myplus.business_service.service.InstallmentPlanService.ORDER_BY_DUE_DATE));
+
 		// ONE shared settlement path (FIFO allocate + best-effort finance-ledger record); recomputeDue refreshes
 		// the customer's running balance and returns the fresh due for the response.
 		com.myplus.common.subledger.SettleOutcome outcome = subledgerService.settle(
 				"RECEIPT", "CUSTOMER", customerId, customer.getName(), amount, method, paidOn, reference, "BUSINESS",
-				docs, () -> { this.recomputeDue(customer); return customer.getDueAmount(); });
+				allDocs, () -> {
+					// INST-1 — push each plan's payments down onto the invoice that carries it, BEFORE
+					// recomputeDue reads the invoice headers. Without this the allocator reduces the
+					// installments and nothing tells the invoice, so a customer pays and their outstanding
+					// balance does not move. Design D5's invariant does not maintain itself.
+					syncPlansToInvoices(org, customerId);
+					this.recomputeDue(customer);
+					return customer.getDueAmount();
+				});
+
+		// A plan whose rows all reached zero is COMPLETED. Restated from the rows rather than tracked as the
+		// money lands, so the status can never disagree with the schedule beneath it.
+		if (installmentPlanService != null && installmentPlanRepo != null) {
+			for (com.myplus.business_service.entity.InstallmentPlan plan
+					: installmentPlanRepo.findCollectableByCustomer(org, customerId)) {
+				installmentPlanService.refreshStatus(plan);
+			}
+		}
 
 		// Audit #5: record this receipt (atomic with the allocation) so a repeat with the same key replays it.
 		idempotencyService.record(org, "receivePayment", idempotencyKey, outcome.voucherNo());

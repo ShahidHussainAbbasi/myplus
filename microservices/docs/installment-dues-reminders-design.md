@@ -1,6 +1,6 @@
 # Selling on installment — dues, balances & payment reminders
 
-**Status:** ANALYSIS + DESIGN — no code written. Awaiting consent before INST-1.
+**Status:** IN IMPLEMENTATION for **Shahzad Mobile Shop** (started 2026-08-21). See §13 for progress.
 **Requested by:** a customer running a **mobile shop** — sells accessories over the counter, sells handsets
 **on installment**, and wants dues + remaining balances tracked and the customer reminded when a payment falls due.
 **Scope of this doc:** an end-to-end review of what the platform already does, what it does not, and a design that
@@ -952,3 +952,436 @@ There is no `org.timezone` setting. `LocaleSettingsCatalog` is the precedent for
 shared library, so adding one is small — but it is a **platform** decision, not this slice's, and INST-3 ships on
 the server zone with the limitation stated. Raised in
 [`vertical-profile-any-business-design.md`](vertical-profile-any-business-design.md).
+
+---
+
+## 13. Implementation log — Shahzad Mobile Shop
+
+### 13.0 Two doc claims corrected against the code before starting
+
+Per §8 (*evidence, not inference*), the prerequisites were re-read rather than trusted. Two had moved:
+
+| Doc claim | Actual state (2026-08-21) | Consequence |
+|---|---|---|
+| **INST-0b** — `CommerceDashboardController.resolveModule()` reads `userType`; a one-method defect fix | **Already done.** It calls `ModuleRouter.moduleOf(user)` then `ModuleRouter.isCommerce(module)` | INST-0b is closed. No work |
+| **D16** — "three registrations" needed for a new business type | **Two.** `CommerceDashboardController.COMMERCE_MODULES` no longer exists — grep returns zero hits | INST-8 is smaller than documented |
+
+Still true, verified directly: `OpenDoc` is `outstanding/apply/docType/docId/docNo`; `SubledgerService.allocate(List<? extends OpenDoc>, BigDecimal)` is public; **`getChoice` does lower-case before matching** (F1 is a real trap, not a theoretical one); `@EnableScheduling` is on `BusinessServiceApplication` (F5); the monolith's own `CustomerHistoryDTO` exists and mixes `Float paidAmount` with `BigDecimal tradeDiscount` (F2 + F3 both real).
+
+`ModuleRouter` still has `COMMERCE_TYPES = {BUSINESS, PHARMA, MARKETPLACE}` and a 7-entry `DASHBOARD_BY_TYPE` with no `MOBILE` — so INST-8's warning stands: setting `Organization.type = 'MOBILE'` today would bounce every login to `/`.
+
+### 13.1 INST-1 step 1 — `common-installment`, the pure library ✅ 16/16
+
+New Maven module, registered in the parent pom. **No `spring-context` dependency at all** — every class is a
+pure function, so the whole library runs in `mvn test` with no container. That is deliberate under D2a: a
+skipped Testcontainers test is indistinguishable from a passing one, and this is the arithmetic the shop's
+ledger depends on.
+
+| Type | Purpose |
+|---|---|
+| `Frequency` | `WEEKLY / FORTNIGHTLY / MONTHLY`, each owning its own calendar step. Carries the **lowercase** setting values as constants (F1) so the catalog and the reader cannot drift |
+| `PlanTerms` | the agreed deal; `financedAmount()` and `validate()` |
+| `ScheduledAmount` | one dated obligation — its own file because the counter, the service and the printed agreement all name it |
+| `ScheduleGenerator` | pure; `generate` / `total` / `finalDueDate` |
+
+**The rule the gate turns on — Σ(installments) == financed, exactly** — is proven not by one worked example but
+by a loop over **5 prices × 23 installment counts (115 combinations)**, each asserting the sum reconciles. A
+single example proves the happy case; the loop proves the rule.
+
+#### The split must round DOWN, and HALF_UP has a concrete failure
+
+Splitting one amount into many is not the same operation as scaling one amount, and using `HALF_UP` for it has
+a worked counter-example: **17.70 over 60 installments** gives `0.30` each under HALF_UP, and 59 × 0.30 is
+already the whole 17.70 — so the final installment computes as **0.00**. A schedule ending in a zero payment,
+and a reminder that would text a customer asking for nothing.
+
+Rounding **DOWN** makes each installment a floor, so the remainder is always at least as large as the others
+and can never vanish: `0.29` each and `0.59` last. `SPLIT_ROUNDING` is named separately from `ROUNDING` in the
+code so the distinction survives the next reader.
+
+#### Dates are measured from the ANCHOR, never stepped
+
+Monthly from the 31st: stepping date-to-date gives 31 Jan → 28 Feb → **28 Mar** → **28 Apr**, walking every
+later payment three days earlier than the customer agreed. Measuring each date from `firstDueDate` gives
+31 Jan → 28 Feb → **31 Mar** → **30 Apr**, which is what a person means by "the same date each month". Gated.
+
+#### Markup is REFUSED, not ignored
+
+`PlanTerms.validate()` rejects a non-zero markup with *"Markup is not supported yet"*. Accepting the number
+and dropping it would let a shop believe it was financing at a margin it is not earning. D12's A0 decision,
+made visible at the boundary rather than in a comment.
+
+### 13.2 INST-1 step 2 — tables, entities, the OpenDoc adapter, settings ✅ 17/17
+
+`mvn -pl business-service test` → **144 run, 0 failures** (was 134 — the 10 new ones all execute; the 13 skips
+are the known Testcontainers/Docker-API issue, unchanged by this work).
+
+| Artefact | Note |
+|---|---|
+| **V42** | `installment_plan` + `installment`. **InnoDB**, unlike the MyISAM baseline tables around them |
+| `InstallmentPlan` | `@Version` from day one — two staff committing one cart would otherwise bill the handset twice |
+| `Installment` | **implements `OpenDoc` directly** |
+| `InstallmentPlanRepo` | every read org-scoped; per-org `MAX+1` numbering behind `UNIQUE(organization_id, plan_seq)` |
+| `InstallmentPlanService` | plan creation, the composed open-doc supplier (D2), void cancellation |
+| `BusinessSettingsCatalog` | 9 keys, **off by default**, all select values lowercase (F1) |
+
+#### `Installment` implements `OpenDoc` on the entity, not as an inline adapter
+
+`CustomerService` and `VenderService` adapt invoices with an anonymous inner class. An installment does not
+fit that shape: a payment can leave it **`PARTIAL`**, a state an invoice adapter never has to express, and the
+status transition belongs beside the numbers it depends on. So the interface is implemented on the entity and
+tested directly — 17 cases covering part payment, over-payment flooring, waiver, and the overdue predicate.
+
+Two rules that would be easy to get wrong and are now gated:
+
+* **A `WAIVED` installment reports `outstanding() == 0` while keeping its stored balance.** The allocator must
+  never put money on a debt the owner forgave; the stored figure survives as the record of what was waived.
+  Money applied to a waived row also **cannot silently un-waive it**.
+* **An installment due TODAY is not yet overdue.** Off-by-one at that boundary is exactly how a shop texts a
+  customer on the morning the money is due.
+
+#### The sign convention is inverted, deliberately, and it is written down twice
+
+`customer_history.due_amount` stores `paid − bill` and is **negative** while owing. `installment.outstanding`
+is **positive** while owing. The two must never be summed without normalising — the note is on the migration
+and in the entity javadoc, because a future reader adding a "total dues" query is the person who will hit it.
+
+#### What was NOT built, on purpose
+
+No GL account, no posting event, no `gl_outbox` column, no finance-service change. An installment sale posts
+what a credit sale posts; a receipt posts what a receipt posts. `payment_allocations.doc_type` is a free
+`VARCHAR(20)`, so `"INSTALLMENT"` records as-is. **A design that adds no field cannot reproduce the `4200`
+defect.**
+
+`markupAmount` exists on the entity and in the table but `PlanTerms.validate()` refuses a non-zero value —
+the shape is ready for INST-6 without pretending the accounting is.
+
+### 13.3 INST-1 step 3 — the sale path and the receipt path ✅ 144/144
+
+`mvn -pl business-service test` → **144 run, 0 failures** (13 skips are the known Testcontainers/Docker-API
+issue, unchanged). Nothing is deployed yet.
+
+| Artefact | Note |
+|---|---|
+| `InstallmentPlanDTO` **×2** | one in business-service, one in the monolith — **written in the same commit**, per F2 |
+| `CustomerHistoryDTO` **×2** | `installmentPlan` block added to both |
+| `SellController.addSell` | creates the plan after the sale commits |
+| `CustomerService.doReceivePayment` | composes the two open-doc streams; excludes the plan invoice |
+
+#### F2 verified, not assumed — and the mechanism is worse than "two DTOs"
+
+The monolith's `SellController.addSell` binds `@RequestBody CustomerHistoryDTO` and then **re-serialises the
+bound object** onward (`client.postJson("/addSell", dto)`). So the monolith's copy is not a passive relay —
+**it decides what survives the hop.** A field business-service declares and the monolith does not is dropped
+silently: the sale succeeds, the invoice is correct, and the plan never exists. No error, no failing test.
+
+Both twins carry a javadoc pointing at the other.
+
+#### The plan is written AFTER the sale, and that is a decision
+
+`SagaSaleWriter.writePending` is `@Transactional(REQUIRES_NEW)`, so **the invoice is already committed** when
+`addSell` returns an invoice number. The plan is therefore written against a durable receivable rather than
+inside a transaction that could still roll back beneath it.
+
+The consequence is that a plan can fail after a successful sale — so **a refused plan does not fail the
+sale**. By then the money has moved, stock is decremented and the customer has the handset; throwing would
+roll back nothing that matters while reporting a completed sale as an error. Instead the refusal is appended
+to the response: *"Sale recorded… Installment plan NOT created: a plan needs a named customer."* Same rule
+`PosOrderRecorder` already follows for work that follows a committed sale.
+
+#### The plan invoice is excluded from the invoice stream — the over-clearing guard
+
+A customer can owe accessories on an ordinary invoice **and** a handset on a plan, and one receipt must clear
+both. But the plan and its own invoice describe **one** debt. Without the exclusion the allocator would be
+offered the same money twice and a single payment would over-clear the balance.
+
+The allocator itself is **untouched**. It already applies money FIFO across whatever `OpenDoc`s it is handed,
+so the only new logic is which list and in what order — no second allocator, no second settlement path. A
+third copy of allocate-and-record is precisely what `SubledgerService` was extracted to prevent.
+
+#### Three collaborators injected `required = false`
+
+`installmentPlanService`, `installmentPlanRepo` and `settingsService` are all optional on `CustomerService`.
+Every existing hand-built test of that class reflection-injects only the fields it knew about, and a class
+that silently leaves a new field null is this repo's recurring trap — three times on `SagaSellService` alone.
+Optional means the installment path degrades to today's behaviour (invoices only) rather than an NPE inside a
+receipt.
+
+### 13.4 INST-1 step 4 — deployed, read endpoints, and the gate WRITTEN
+
+**V42 verified against the live database**, not assumed: `flyway_schema_history` shows `version 42,
+success 1`, and both tables are InnoDB with every named index and both unique constraints exactly as the
+migration declares. All **9 settings** are live on the Configuration screen with their lowercase defaults
+(`frequency = monthly`), which is F1 proven end to end rather than argued.
+
+> ⚠ A first check of Flyway looked like V42 had **not** applied — the top two rows by `installed_rank` were
+> V41 and V40. It had: `repairThenMigrate` reorders ranks, so V42 sat below them. Querying by description
+> rather than by rank settled it. *Ordering is not recency.*
+
+| Artefact | Note |
+|---|---|
+| `InstallmentController` | `GET /installmentPlans?customerId=` · `GET /installmentPlansOpen` |
+| `InstallmentPlanViewDTO` | read DTO — never the entity, which would ship `organizationId` and the row id |
+| monolith `SellController` | both proxies, **in the same commit** |
+| `installment-plan.cy.js` | 7 cases, written and not yet run |
+
+#### The read endpoints shipped WITH the slice, deliberately
+
+An endpoint with no proxy is unreachable from the only UI this platform has — review finding **R7**, hit three
+times in the OMS programme, each a capability built, tested, and reachable by nobody. Both proxies land in
+this commit.
+
+`customerId` arrives **from the query string**, so the read is org-scoped in the repository: *whether a read
+needs scoping depends on where the id came from, not on which method reads it* — the rule the D2
+credit-standing leak established.
+
+#### The gate's headline case sells the SAME basket twice
+
+Not "an invoice exists" and not "the GL balanced" — both are true of a design that quietly books financing to
+the wrong account. The case sells one basket on **plain credit**, records the AR and Sales movements, sells
+the identical basket on a **plan**, and asserts the two journals are **equal**. It also asserts `4400` is
+untouched, because a zero-markup plan must not reach an account INST-6 has not built yet.
+
+That shape exists because `4200 Sales Discount` sat empty in every tenant for months while three specs stayed
+green — all of them checking the invoice.
+
+The other six: the schedule sums to the financed amount through the database round trip; a receipt of 2.5
+installments leaves `PAID / PAID / PARTIAL` with the exact residual; a receipt does **not** over-clear when
+the plan invoice is also open; and three refusals — markup, no named customer, and the setting off — each
+asserting the **sale still succeeds** while the plan is refused and the reason is reported.
+
+### 13.5 GATE RUN 1 — 3/7, and it found a defect that would have shipped
+
+**One cause, four failures.** Every plan for a NEW customer was silently refused while the sale reported
+success.
+
+```
+Sale recorded successfully. Invoice INV-000024  Installment plan NOT created: a plan needs a named customer.
+```
+
+#### The defect: I read the customer from the REQUEST, not from the committed invoice
+
+`createInstallmentPlan` took `dto.getCustomer().getCustomerId()`. For a walk-in that field is **null** — the
+request carries a name and a contact, and `SagaSaleWriter` **creates** the customer during the sale via
+`saveUpdateCustomer`, stamping the resolved row on the invoice.
+
+So the id exists only *after* the sale, on the `CustomerHistory`. Reading it from the request refused a plan
+for exactly the case a mobile shop cares about most: **a new buyer financing their first handset.**
+
+Fixed by reading `inv.getCustomer().getCustomerId()` from the committed invoice, falling back to the
+request's id. The invoice is the authoritative source anyway — it is the receivable the plan is a structure
+over.
+
+#### Why this passed every unit test
+
+`InstallmentPlanService.create` takes a `customerId` **parameter**, so all 17 unit cases hand it one and
+prove the plan is built correctly. The defect lives in the *caller* — in which of two sources it reads — and
+that is a wiring question no test of the service could see. The same shape as OMS D1's worst defect: two
+files each correct alone, wrong in combination.
+
+**The gate earned its place here.** A green unit suite and a successful sale response were both true while
+the feature did not work.
+
+#### What the three passes prove, and one that proves more than it looks
+
+* *a receipt does NOT over-clear* — **passed**, so plans created against an existing customer work end to end
+  and the plan-invoice exclusion is real.
+* *markup refused* and *setting off* — the refusal paths behave.
+
+⚠ *a plan needs a named customer* was **red for the wrong reason**: it asserted the refusal and got it, but
+from a bug rather than from the rule. After the fix it must still pass, and now it will be testing what it
+says it tests. Worth watching on run 2.
+
+#### A comment I wrote and then corrected
+
+I noted that `InstallmentController` had to choose the `Collection` overload of `GenericResponse` to land the
+list in `collection` rather than `object`. **There was no choice** — a `List` binds the `Collection` overload
+automatically, and the live endpoint already returned `{"status":"SUCCESS","collection":[]}`. The comment
+described a decision that never existed; corrected to state the verified fact instead.
+
+### 13.6 GATE RUN 2 — 2/7, a SECOND defect, and the log named it exactly
+
+The customer fix worked; a different failure was waiting behind it. Every case came back:
+
+```
+{"status":"ERROR","message":"Transaction silently rolled back because it has been marked as rollback-only"}
+```
+
+That message is a **symptom, not a cause** — and it is one this codebase already has a note about: an
+exception thrown inside a nested `@Transactional` marks the *caller's* transaction rollback-only, so the tidy
+refusal the caller intended is replaced by this. My best-effort `catch` around plan creation could not help,
+because the damage is done before the catch runs.
+
+**The service log named the cause in one line:**
+
+```
+SQL Error: 1048 — Column 'markup_amount' cannot be null
+```
+
+#### The defect: absent money travelled as null into a NOT NULL column
+
+A client that sells on a plan sends no `markupAmount` — there is no markup in INST-1, so the key is simply
+absent from the JSON. That deserialises to `null`, `PlanTerms` stored it verbatim, and the INSERT hit a
+`NOT NULL` column. The plan died **after the sale had already committed**.
+
+Fixed in two places, deliberately:
+
+1. **`PlanTerms` compact constructor** normalises `cashPrice`, `downPayment` and `markupAmount` to zero. One
+   place this can be wrong instead of one per caller.
+2. **`InstallmentPlanService.create`** still applies `nz()` on the way to the entity. The `NOT NULL` columns
+   are that method's responsibility, and a future caller building terms another way must not be able to
+   reproduce this.
+
+`validate()` is unchanged: absent and zero mean the same thing, and neither is "financing at a margin".
+
+#### Why 53 unit tests missed it — the transferable part
+
+Every case in `ScheduleGeneratorTest` constructed terms with **explicit `BigDecimal`s**. Not one exercised
+what a real client sends: JSON with the key missing. The arithmetic was proven over 115 combinations while the
+shape a browser actually posts was never tried.
+
+> **A test that only ever builds objects the way its author would is testing the author.**
+
+Now covered by a nested `AbsentMoney` class — absent money becomes zero, and a *missing price* is still
+refused by name rather than silently zeroed. **53 tests green.**
+
+#### Two process notes
+
+* **`docker ps` said `health: starting` when run 2 began.** It was not the cause here, but starting a gate
+  against a service that has not finished booting is how a real failure gets attributed to the wrong thing.
+  Worth waiting for `(healthy)`.
+* **The log was the diagnosis, not the assertion message.** The Cypress output said "rollback-only" seven
+  times and would have supported several wrong theories. One `docker logs | grep` gave the column name.
+  *Read the artefact before theorising* — the same lesson O7 D3 recorded when a screenshot solved what four
+  passes of reading had not.
+
+### 13.7 GATE RUN 3 — 2/7. A THIRD defect, and the pattern behind all three
+
+`markup_amount` was fixed; the next `NOT NULL` column failed instead.
+
+```
+SQL Error: 1048 — Column 'plan_id' cannot be null
+insert into installment (amount,...,plan_id,seq_no,status,updated) values (...)
+```
+
+#### The defect: a unidirectional `@OneToMany @JoinColumn` inserts children with a NULL FK
+
+`InstallmentPlan` mapped its schedule as a unidirectional `@OneToMany @JoinColumn(name = "plan_id")` — copied
+from `Order`/`OrderItem`, which is the shape most of this codebase uses. Hibernate implements that by
+inserting the child **with a null foreign key** and then issuing an `UPDATE` to set it.
+
+That works for `order_items.order_id` **because that column is nullable**. `installment.plan_id` is
+`NOT NULL`, so the insert died.
+
+**This is verbatim the trap OMS O5b hit with `shipment_line`**, and its entity javadoc already records the
+lesson in one line:
+
+> *A copied pattern can be a working example that only works because of a nullable column.*
+
+Fixed the same way O5b fixed it: **bidirectional, child owns the FK** (`@ManyToOne`, `mappedBy` on the
+parent), plus an `addInstallment` helper that sets both sides — because with the child owning the key,
+`getInstallments().add(x)` alone leaves `plan_id` null.
+
+#### The pattern behind all three defects
+
+| Run | Defect | What every unit test did instead |
+|---|---|---|
+| 1 | customer id read from the request, not the committed invoice | passed a `customerId` **parameter** |
+| 2 | absent `markupAmount` travelled as null into a `NOT NULL` column | built terms with **explicit `BigDecimal`s** |
+| 3 | unidirectional mapping leaves `plan_id` null on insert | built the object graph **in memory, never persisted** |
+
+70 unit tests, all green, none able to see any of it. Not because they are weak — they prove the arithmetic
+over 115 combinations — but because **all three defects live at a boundary the unit tests do not cross**: the
+HTTP request, the JSON wire shape, and the database.
+
+That is not an argument for more unit tests. It is the argument for this gate existing, and for running it
+before believing a feature works.
+
+`InstallmentOpenDocTest` now builds its graph with `addInstallment` rather than `getInstallments().add`, so
+the in-memory shape at least matches production. Stated plainly: **that still cannot catch a mapping fault**,
+because nothing persists there. Only the gate can.
+
+### 13.8 GATE RUN 4 — 5/7. **The headline case PASSED.**
+
+> **An installment sale posts the same journal as the same sale on plain credit.** AR moves identically,
+> Sales moves identically, the GL stays balanced, and `4400 Finance Income` is untouched.
+
+That is the claim the entire design rests on — D5's *"a plan is a structure over the existing receivable, not
+a second one"* — and it is now proven rather than argued. The schedule case and the 2.5-installment receipt
+case passed with it.
+
+#### The 4th defect, and it is the most consequential of the four
+
+*"a receipt does NOT over-clear"* failed with **due 30,000, expected 20,000** — the customer paid 10,000 and
+their balance **did not move at all**.
+
+`CustomerService.recomputeDue` computes the running balance from **invoice headers**
+(`sumDueByCustomer`). The allocator had reduced the **installments** and nothing told the invoice. So D5's
+invariant — Σ(open installments) == the plan invoice's outstanding — is true at creation and **false the
+moment a receipt lands**.
+
+The consequence is not cosmetic: a shopkeeper takes 10,000 against a plan and the customer's outstanding
+balance, statement and aging all still show the full 30,000.
+
+**Fixed with `syncInvoiceFromPlan`**, called inside the settle callback immediately before `recomputeDue`.
+The invoice is **restated from the plan's rows**, not decremented by what was just applied — a lossy in-place
+accumulation drifts, and the rows are the record. It is also the one place the two sign conventions meet:
+`installment.outstanding` is positive while owing, `CustomerHistory.dueAmount` is negative, and the negation
+lives there with a comment saying so.
+
+**The invariant does not maintain itself.** Writing it in a design doc creates an obligation, not a guarantee.
+
+#### The 7th case was removed, not fixed — it tested something unreachable
+
+*"a plan needs a named customer"* failed because the SALE returned ERROR: `addSell` with no `customer` block
+NPEs inside `CustomerService.saveUpdateCustomer:252`, which dereferences `dto.getCustomer()` with no null
+check. **Pre-existing**, and unreachable in practice — every real client sends the block, because `main.js`
+assembles `customerHistory{customer, sales, tenders}`.
+
+The guard in `createInstallmentPlan` is correct and stays. The gate case is gone, because a case asserting a
+refusal it cannot legitimately trigger would be **testing the NPE, not the rule**. The reason is written where
+the case used to be.
+
+⬜ **Recorded as a separate finding:** `saveUpdateCustomer` should refuse a null customer with a message
+rather than an NPE. Not fixed here — it is pre-existing, unrelated to installments, and changing the sale
+path's null handling mid-slice is scope this gate does not cover.
+
+### 13.9 INST-1 SERVER SIDE COMPLETE — gate GREEN 6/6, 2026-08-21
+
+| | |
+|---|---|
+| `installment-plan.cy.js` | **6/6** |
+| `mvn -pl business-service test` | **144**, 0 failures (13 skips = the known Docker-API issue) |
+| `mvn -pl common-installment test` | **53**, 0 skips — pure, no container |
+| `receive-payment` / `gl-posting` | 2/2 / 2/2 — the shared receipt path is intact |
+
+**What is proven rather than asserted:** an installment sale posts the same journal as a plain credit sale;
+the schedule sums to the financed amount through a database round trip; a receipt of 2.5 installments leaves
+`PAID / PAID / PARTIAL` with the exact residual; a payment reduces the customer's balance by exactly what was
+paid; and a markup, or the setting being off, refuses the plan **without failing the sale**.
+
+#### Four defects, four runs, one thing in common
+
+| Run | Defect | Boundary it lived at |
+|---|---|---|
+| 1 | customer read from the request, not the committed invoice | HTTP |
+| 2 | absent `markupAmount` travelled as null into a NOT NULL column | the JSON wire shape |
+| 3 | unidirectional `@OneToMany` inserts children with a null FK | the JPA mapping |
+| 4 | money on installments never reached the invoice, so the balance never moved | allocator to plan to invoice |
+
+**70 unit tests were green throughout**, and not one could see any of it — every defect lived at a boundary
+those tests do not cross. That is not an argument for more unit tests; it is why this gate exists, and why
+"the unit suite is green" is never a statement about whether a feature works.
+
+Two of the four (#2 and #4) would have shipped as **silent** wrongness: a plan that quietly failed to exist,
+and a customer whose balance quietly never moved.
+
+### 13.10 Next
+
+**The sale-screen panel** (`installment.js`): a schedule preview before commit, so a cashier reads the dates
+and amounts to the customer *before* the sale is taken. Everything behind it now works.
+
+Then **INST-2**, which this document calls the quietest risk in the feature: `AgingCalculator` is unchanged
+but its **row supplier** must learn about plans, or a 6-month plan taken today shows its entire remaining
+balance in `90+` by month four. Nothing errors, no test fails, the number is just wrong — which is why it has
+its own gate rather than riding along here.
