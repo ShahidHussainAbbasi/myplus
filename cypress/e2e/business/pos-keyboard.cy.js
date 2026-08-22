@@ -62,13 +62,45 @@ function pickItem(productId) {
   cy.get('#sellItemDD').select(String(productId), { force: true })   // bootstrap-select hides the real <select>
   cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
   cy.get('#sellStock').should('not.have.value', '')
+
+  /*
+   * ...and wait for the SCREEN to stop moving, not just for the values to arrive.
+   *
+   * Selecting an item fires loadStock(), and every AJAX response re-syncs the pickers on this page.
+   * Re-rendering a list of ~290 options reflows the sale row, so for a few frames afterwards the inputs
+   * are still settling. Cypress refuses to type into a moving element (ensureNotAnimating), and the
+   * failure names the input rather than the reflow, which reads as a broken field.
+   *
+   * Waiting for the overlay to lift is the honest signal that the fetch and its re-render are done.
+   * force:true would also make the error go away, by typing into a control mid-flight — which is not
+   * what a cashier does and not what this spec is for.
+   */
+  cy.get('#appAjaxOverlay', { timeout: 30000 }).should('not.be.visible')
 }
 
 describe('POS keyboard entry — OFF (default): the screen is unchanged', () => {
   beforeEach(() => { cy.loginAsBusiness() })
 
-  it('the row-entry layout class is not applied', () => {
+  it('the row-entry layout follows ITS OWN setting, not the keyboard flag', () => {
     openSell(false)
+    /*
+     * These are TWO switches and this test used to conflate them.
+     *
+     * It asserted that turning the keyboard off removed `pos-rowentry`, which held only while the
+     * single-row layout was part of the keyboard feature. P7 made the layout a tenant setting of its
+     * own — `pos.entry.compactRow`, default ON — because a shop may want the compact till without the
+     * keyboard chain, or the chain on the classic layout. Tying the class to `posKeyboardEnabled`
+     * would make one of those two configurations unreachable.
+     *
+     * So the contract is: the class tracks posRowLayoutEnabled, whatever the keyboard flag says.
+     */
+    cy.window().then((w) => {
+      const expected = w.posRowLayoutEnabled === true
+      cy.get('#sellDiv').should(expected ? 'have.class' : 'not.have.class', 'pos-rowentry')
+    })
+
+    // And it really is independent: flip the layout off with the keyboard still off, and it goes.
+    cy.window().then((w) => { w.posRowLayoutEnabled = false; w.applyPosRowEntry() })
     cy.get('#sellDiv').should('not.have.class', 'pos-rowentry')
   })
 

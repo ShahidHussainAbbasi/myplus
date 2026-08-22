@@ -90,8 +90,41 @@
         // instead of each helper having to remember.
         // REFRESH ONLY — never a full re-init here. Re-running the initialiser on every AJAX response
         // would destroy and rebuild all ~48 pickers each time, closing whatever the user had open.
+        //
+        // ...and REFRESH DOES THE SAME THING to the one picker that matters. bootstrap-select's
+        // refresh() calls reloadLi(), which rebuilds the option list: an open menu closes, a half-typed
+        // search is wiped, and focus falls out of the destroyed subtree onto <body>. The guard above
+        // was written against the wrong half of the risk.
+        //
+        // It is not theoretical. The sale screen keeps a poll running while it is open, so this fires
+        // repeatedly with a picker open in front of the cashier — the customer list shuts by itself
+        // mid-selection. It is also what made the checkout keyboard spec unrepeatable: five runs of
+        // identical code gave 6, 3, 5, 2 and 6 passes, a different test failing each time, because
+        // whether a keystroke landed depended on whether a poll had just returned.
+        //
+        // So: never touch a picker the operator is USING. Refresh it when they close it instead — the
+        // options cannot be stale on screen, because the screen is not showing them.
+        function isBusy($bs) {
+            if (!$bs.length) return false;
+            if ($bs.hasClass('open')) return true;
+            return !!($bs[0].contains && $bs[0].contains(document.activeElement));
+        }
+
         $(document).ajaxComplete(function () {
-            try { $('.selectpicker').selectpicker('refresh'); } catch (e) {}
+            $('.selectpicker').each(function () {
+                var $s = $(this);
+                var $bs = $s.next('.bootstrap-select');
+                if (isBusy($bs)) { $bs.attr('data-ss-stale', '1'); return; }
+                try { $s.selectpicker('refresh'); } catch (e) {}
+            });
+        });
+
+        // The deferred half. Bootstrap 3 fires this on the dropdown's parent when the menu closes.
+        $(document).on('hidden.bs.dropdown', '.bootstrap-select', function () {
+            var $bs = $(this);
+            if (!$bs.attr('data-ss-stale')) return;
+            $bs.removeAttr('data-ss-stale');
+            try { $bs.prev('select').selectpicker('refresh'); } catch (e) {}
         });
     });
 })(jQuery);

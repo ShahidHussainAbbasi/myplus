@@ -30,7 +30,9 @@ function openTill() {
     w.posShortcutsEnabled = true
     w.applyPosKeyboard()
   })
-  quiet()
+  // Not just quiet() — see settled(). Every test in this file drives the keyboard, and every one of
+  // them was racing the till's own initial focus.
+  settled()
 }
 
 /**
@@ -67,6 +69,57 @@ function quiet() {
  */
 function pressEnter() {
   cy.focused().type('{enter}')
+}
+
+/**
+ * Wait until the TILL has placed its own cursor, before this test places one.
+ *
+ * Opening the sale screen focuses the scan box, asynchronously, after applyPosKeyboard(). A test that
+ * focuses a field and immediately types is racing that, and loses often enough to look like a product
+ * bug: the key is delivered to #sellScan instead, and Enter on an empty scan box means "go to
+ * checkout", which on an empty cart puts the cursor straight back in the scan box. Measured, not
+ * inferred — the keydown's own target was #sellScan while cy.focused() had just reported the button.
+ *
+ * The app's initial focus is one-shot, so once it has landed nothing moves the cursor again on its own.
+ * Waiting for it is therefore enough; no arbitrary wait is involved.
+ */
+function settled() {
+  quiet()
+  cy.focused().should(($el) => {
+    expect($el.attr('id'), 'the till has placed its own initial cursor').to.eq('sellScan')
+  })
+}
+
+/**
+ * Put the cursor on a picker and WAIT until it is really there before returning.
+ *
+ * `.focus()` fires the event, it does not guarantee the cursor stays: the till refetches the customer
+ * list and re-runs selectpicker('refresh'), which rebuilds the very button just focused, and the cursor
+ * falls back to the entry point. Pressing a key into that gap tests nothing — one test read `sellScan`
+ * for exactly this reason and looked like a product bug.
+ *
+ * The trailing assertion is retryable, so it holds until focus settles or the test fails saying so.
+ */
+function focusPicker(id) {
+  settled()
+  cy.get('#' + id).next('.bootstrap-select').find('button').focus()
+  cy.focused().should(($el) => {
+    expect($el.closest('.bootstrap-select').prev('select').attr('id'),
+      'the cursor is really on #' + id + ' before a key is pressed').to.eq(id)
+  })
+}
+
+/**
+ * Wait for a picker's menu to be OPEN.
+ *
+ * Required between the two presses of a double Enter. The first press opens the menu and the plugin
+ * then moves focus into its live-search box; both are asynchronous. Pressing again before that settles
+ * sends the second Enter to the OLD focus, so the escape never runs — the difference between the
+ * passing and failing versions of this rule was precisely this one retryable assertion, not anything
+ * in the till.
+ */
+function expectOpen(id) {
+  cy.get('#' + id).next('.bootstrap-select').should('have.class', 'open')
 }
 
 describe('Checkout chain — every route to a paid sale', () => {
@@ -125,7 +178,7 @@ describe('Checkout chain — every route to a paid sale', () => {
 
   it('CASH — and keeps going until it reaches the amount received', () => {
     openTill()
-    cy.get('#sellPayMethod').next('.bootstrap-select').find('button').focus()
+    focusPicker('sellPayMethod')
 
     /*
      * TWO presses: pay method -> trade discount -> received.
@@ -231,9 +284,9 @@ describe('Checkout chain — every route to a paid sale', () => {
      * it. Naming fields one at a time is what let the same dead end appear three times (the discount
      * type in P5, the customer list here); the rule is now "every picker", tested as such.
      */
-    cy.get('#sellCustomerDD').next('.bootstrap-select').find('button').focus()
+    focusPicker('sellCustomerDD')
     pressEnter()                                     // opens
-    cy.get('#sellCustomerDD').next('.bootstrap-select').should('have.class', 'open')
+    expectOpen('sellCustomerDD')
     pressEnter()                                     // "nothing here"
     cy.focused().should(($el) => {
       const id = $el.attr('id') || $el.closest('.bootstrap-select').prev('select').attr('id')
@@ -247,8 +300,9 @@ describe('Checkout chain — every route to a paid sale', () => {
     // Not the payment method: that is already Cash, and a walk-in paying cash wants the amount box.
     // A customer may still be REQUIRED to complete the sale — that is the submit path's job to say,
     // not something to enforce by stranding the cursor.
-    cy.get('#sellCustomerDD').next('.bootstrap-select').find('button').focus()
+    focusPicker('sellCustomerDD')
     pressEnter()
+    expectOpen('sellCustomerDD')
     pressEnter()
     cy.focused().should('have.id', 'sellRec')
   })
@@ -267,8 +321,9 @@ describe('Checkout chain — every route to a paid sale', () => {
      */
     cy.get('#sellPayMethod').should('have.value', 'CASH')
 
-    cy.get('#sellCustomerDD').next('.bootstrap-select').find('button').focus()
+    focusPicker('sellCustomerDD')
     pressEnter()
+    expectOpen('sellCustomerDD')
     pressEnter()
     cy.focused().should('have.id', 'sellRec')
     // Still Cash after being walked past — the skip reads it, it does not clear it.

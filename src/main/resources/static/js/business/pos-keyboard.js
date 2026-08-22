@@ -550,80 +550,6 @@
             focusField(target);
         });
 
-        // Enter on the bootstrap-select button for the CUSTOMER picker (same reason as the item picker:
-        // the plugin hides the real <select>, so a keystroke never reaches it).
-        $(document).on('keydown', '.bootstrap-select > button', function (e) {
-            if (!enabled() || !onSellScreen() || blocked()) return;
-            if (e.key !== 'Enter') return;
-            var $sel = $(this).closest('.bootstrap-select').prev('select');
-            var id = $sel.attr('id');
-            if (id !== 'sellCustomerDD' && id !== 'sellPayMethod') return;
-            // DOUBLE-ENTER, done without a timer.
-            //
-            // The 1st Enter on a picker button opens its menu (a <button data-toggle="dropdown"> is
-            // activated by Enter — that is what forced the double press in the first place). If the
-            // menu is now OPEN and the field still holds NO value, this is the 2nd Enter on an
-            // unanswered field: the cashier is saying "nothing here", so skip ahead.
-            //
-            // Using the menu's open state rather than a timing window means there is no guess about
-            // how fast two presses count as one gesture, AND the open menu is visible feedback that
-            // the first press registered — which a timer can never give.
-            var $bs = $(this).closest('.bootstrap-select');
-            var isOpen = $bs.hasClass('open');
-            if (isOpen && $sel.val()) return;        // a value is highlighted/chosen — the picker owns this Enter
-
-            /*
-             * CLOSED, and already holding a value — ACCEPT IT AND MOVE ON.
-             *
-             * This is the commonest checkout there is and it had no way forward. Cash is the
-             * pre-selected payment method, so #sellPayMethod holds a value from the moment the screen
-             * opens. Advancing was wired only to `changed.bs.select`, which fires on a CHANGE — and
-             * keeping the default is not a change. So Enter fell through to the branch below, which
-             * opens the menu on an empty picker, did nothing useful on a full one, and left the cashier
-             * on the pay method with no keystroke that would leave it. `sellRec` was unreachable on
-             * every cash sale.
-             *
-             * "It already has the right answer" is the reason to move on, not the reason to stop.
-             * A picker with no value still opens (below) — that case is unchanged.
-             */
-            if (!isOpen && $sel.val() && !e.shiftKey) {
-                e.preventDefault();
-                var fwd = walk(CHECKOUT, id, 1);
-                // NOTHING AHEAD => STAY PUT, do not complete the sale.
-                //
-                // Deliberately unlike the generic branch below, which does treat "past the end" as
-                // "finish". This one fires on a picker the operator has not touched — cash is
-                // pre-selected, so Enter here means "accept the default and move on". If the fields
-                // after it have not rendered yet, walk() answers null for a moment, and finishing the
-                // sale on that would turn a mistimed keystroke into a completed transaction. The
-                // operator still has F2, which says finish and means it.
-                if (fwd) { focusField(fwd); }
-                return;
-            }
-            if (isOpen) {
-                e.preventDefault();
-                $bs.removeClass('open');             // close it; the answer is "skip"
-                var jumped = skipAhead($sel.attr('id'));
-                if (jumped === false) return;        // handled (moved to checkout)
-                if (jumped) { focusField(jumped); return; }
-            }
-            // CLOSED and EMPTY: open the menu, same as the line-entry pickers. Without this the
-            // customer and tender lists could never be opened from the keyboard — which on a CREDIT
-            // sale means the cashier cannot name the customer who owes.
-            if (!$sel.val() && !e.shiftKey) {
-                // NATIVE click — the plugin has no toggle() in 1.6.2, and an unknown method there
-                // is a silent no-op, so a try/catch around it guards nothing.
-                e.preventDefault();
-                var oBtn = $bs.find('button')[0];
-                if (oBtn) oBtn.click();
-                return;
-            }
-            e.preventDefault();
-            var target = walk(CHECKOUT, id, e.shiftKey ? -1 : 1);
-            if (target === null) { completeSale(); return; }
-            focusField(target);
-        });
-
         // ── D-23: advance when a dropdown's value is SELECTED, not when Enter is pressed ────
         //
         // Every picker here is a bootstrap-select: a <button data-toggle="dropdown">. Enter on a focused
@@ -675,6 +601,13 @@
              * and existed nowhere else. On a walk-in cash sale the cursor landed on the customer list
              * and no keystroke would leave it.
              *
+             * ONE handler, not two. There used to be a second keydown handler on this very same
+             * selector, a few lines up, that took only #sellCustomerDD and #sellPayMethod. Widening
+             * this guard to cover them made both fire on the same keystroke: that one opened the menu,
+             * this one saw it open, read that as the SECOND Enter and skipped ahead — a single press
+             * doing the work of two, so the customer list could never be opened from the keyboard at
+             * all. Two handlers on one selector cannot be reasoned about separately, so there is one.
+             *
              * It is the SECOND time this exact dead end shipped. #sellDiscountTypeDD was added to CHAIN
              * in P5 but not to this guard, and became a stop with no keyboard way out — on a sale with
              * no discount, which is most sales, the cashier was stranded on a chooser they never
@@ -696,14 +629,44 @@
             // Using the menu's open state rather than a timing window means there is no guess about
             // how fast two presses count as one gesture, AND the open menu is visible feedback that
             // the first press registered — which a timer can never give.
-            var $bs = $(this).closest('.bootstrap-select');
-            if ($bs.hasClass('open')) {
-                if ($sel.val()) return;              // a value is highlighted/chosen — the picker owns this Enter
+            var $bs    = $(this).closest('.bootstrap-select');
+            var isOpen = $bs.hasClass('open');
+            var has    = !!$sel.val();
+
+            if (isOpen && has) return;               // a value is highlighted/chosen — the picker owns this Enter
+            if (isOpen) {
                 e.preventDefault();
                 $bs.removeClass('open');             // close it; the answer is "skip"
                 var jumped = skipAhead(pickerId);
                 if (jumped === false) return;        // handled (moved to checkout)
                 if (jumped) { focusField(jumped); return; }
+                return;                              // nothing ahead: STAY PUT, menu already closed
+            }
+
+            /*
+             * CLOSED, and already holding a value — ACCEPT IT AND MOVE ON.
+             *
+             * The commonest checkout there is, and it once had no way forward. Cash is pre-selected, so
+             * #sellPayMethod holds a value from the moment the screen opens. Advancing was wired only to
+             * `changed.bs.select`, which fires on a CHANGE — and keeping the default is not a change. So
+             * Enter fell through to the open-the-menu branch, which does nothing on a full picker, and
+             * the cashier sat on the pay method with no keystroke that would leave it.
+             *
+             * "It already has the right answer" is the reason to move on, not the reason to stop.
+             */
+            if (has && !e.shiftKey) {
+                e.preventDefault();
+                var fwd = walk(chainFor(pickerId), pickerId, 1);
+                if (fwd) { focusField(fwd); return; }
+                // Past the end. What that MEANS differs by chain, and the difference is deliberate:
+                //   line chain — the operator has finished a line, so commit it.
+                //   checkout   — do NOT complete the sale. This branch fires on a picker nobody
+                //                touched (cash is pre-selected); if the fields after it have not
+                //                rendered yet walk() answers null for a moment, and finishing on that
+                //                would turn a mistimed keystroke into a completed transaction. F2 says
+                //                finish and means it.
+                if (chainFor(pickerId) === CHAIN) commitLine();
+                return;
             }
             // CLOSED and EMPTY: OPEN the menu so the list can actually be seen and chosen from.
             // Enter used to walk past the whole catalogue without ever showing it.
@@ -724,11 +687,81 @@
                 if (oBtn) oBtn.click();
                 return;
             }
+            // Shift+Enter on an empty picker: reverse out of it rather than opening it.
             e.preventDefault();
-            var target = nextField(pickerId, e.shiftKey ? -1 : 1);
-            if (target === null) { commitLine(); return; }
+            var target = walk(chainFor(pickerId), pickerId, e.shiftKey ? -1 : 1);
+            if (target === null) {
+                if (chainFor(pickerId) === CHAIN && !e.shiftKey) commitLine();
+                return;
+            }
             focusField(target);
         });
+
+        /*
+         * THE SECOND ENTER — which never arrives at the button.
+         *
+         * The handler above opens the menu, and bootstrap-select then moves focus INTO the live-search
+         * box it renders inside the menu (searchable-selects.js sets data-live-search on every select
+         * on the page). So the second Enter is delivered to that input, not to the button — and the
+         * "nothing here, move on" branch above, bound to `.bootstrap-select > button`, could not run.
+         *
+         * The escape was therefore unreachable from the keyboard on EVERY picker, including the item
+         * one it was written for. It read as implemented, had a passing test either side of it — the
+         * menu does open, and a chosen value does advance — and the one gesture in between was dead.
+         * A test that presses Enter once cannot tell an open menu from a working escape.
+         *
+         * Enter here means three different things, and the search text is what distinguishes them:
+         *   typed something   the plugin owns it — Enter picks the highlighted match
+         *   empty + no value  "nothing here" -> skip ahead (the rule)
+         *   empty + a value   accept what is already chosen and move on
+         *
+         * That last case is not merely tidy: re-selecting the value a picker already holds fires no
+         * change event, so leaving it to the plugin closes the menu and moves nothing.
+         */
+        document.addEventListener('keydown', function (e) {
+            if (!enabled() || !onSellScreen() || blocked()) return;
+            if (e.key !== 'Enter' || e.shiftKey) return;
+
+            var $box = $(e.target).closest('.bs-searchbox').find('input');
+            if (!$box.length || e.target !== $box[0]) return;
+
+            var $bs = $(e.target).closest('.bootstrap-select');
+            var $sel = $bs.prev('select');
+            var pickerId = $sel.attr('id');
+            if (PICKERS.indexOf(pickerId) < 0) return;
+
+            // The operator is filtering. Their Enter belongs to the list, not to the chain.
+            if ($box.val()) return;
+
+            /*
+             * CAPTURE PHASE, and it has to be.
+             *
+             * bootstrap-select binds its OWN delegated keydown covering `.bs-searchbox input` on
+             * document, and its script loads first — so on the bubble phase it runs before anything
+             * added here, and its Enter handler CLICKS the active row. On an unfiltered list that
+             * silently picks whichever option happens to be highlighted, which on the customer picker
+             * means the sale is invoiced to a customer nobody chose.
+             *
+             * Running first and stopping the event is the only way to take this keystroke back;
+             * stopPropagation alone would be too late, because "too late" is the whole problem.
+             */
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            $bs.removeClass('open');        // what bootstrap's own clearMenus() does
+
+            if ($sel.val()) {               // already answered: accept it and move on
+                var fwd = walk(chainFor(pickerId), pickerId, 1);
+                if (fwd) { focusField(fwd); return; }
+                if (chainFor(pickerId) === CHAIN) commitLine();
+                return;
+            }
+
+            var jumped = skipAhead(pickerId);
+            if (jumped === false) return;   // handled (moved to checkout)
+            if (jumped) { focusField(jumped); return; }
+            focusField(pickerId);           // nothing ahead: stay put, menu closed
+        }, true);
 
         // After an item is picked (typically with the MOUSE — the keyboard path already routes through
         // the chain) the async loadStock()/quote fills price and stock. Land the cursor in Qty once

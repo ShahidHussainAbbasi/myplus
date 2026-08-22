@@ -3,11 +3,17 @@
   "version": "1.0.0",
   "description": "Cypress E2E tests for myplus Spring Boot application",
   "scripts": {
+    "e2e:clean": "node scripts/kill-stale-cypress.js",
+    "pretest:e2e": "npm run e2e:clean --silent",
     "test:e2e": "cypress run",
     "test:e2e:open": "cypress open",
+    "pretest:e2e:business": "npm run e2e:clean --silent",
     "test:e2e:business": "cypress run --spec 'cypress/e2e/business/**/*.cy.js'",
+    "pretest:e2e:auth": "npm run e2e:clean --silent",
     "test:e2e:auth": "cypress run --spec 'cypress/e2e/auth/**/*.cy.js'",
+    "pretest:e2e:pages": "npm run e2e:clean --silent",
     "test:e2e:pages": "cypress run --spec 'cypress/e2e/pages/**/*.cy.js'",
+    "pretest:e2e:education:demo": "npm run e2e:clean --silent",
     "test:e2e:education:demo": "cypress run --browser chrome --headed --config video=true --spec cypress/e2e/education/demo.cy.js"
   },
   "devDependencies": {
