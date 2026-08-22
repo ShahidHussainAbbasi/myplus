@@ -40,7 +40,7 @@ class SettingsServiceDecimalTest {
         };
         SettingsCatalogProvider provider = () ->
                 List.of(SettingEntry.text("test.decimal", "Decimal", "under test", rawDefault, "Test"));
-        return new SettingsService(emptyStore, List.of(provider));
+        return new SettingsService(emptyStore, List.of(provider), 60L);
     }
 
     @Test

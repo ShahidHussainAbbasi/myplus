@@ -22,6 +22,11 @@
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId><scope>provided</scope></dependency>
+    <!-- PERF-C1: the tenant-settings cache. Version managed by the Boot parent. COMPILE scope,
+         unlike the provided-scoped Spring artifacts above: those the host service already has on
+         its classpath, this one it does not, and a provided-scoped cache would be a NoClassDefFound
+         at the first settings read in all six consuming services. -->
+    <dependency><groupId>com.github.ben-manes.caffeine</groupId><artifactId>caffeine</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
   </dependencies>
 </project>

@@ -1,8 +1,12 @@
 package com.myplus.common.settings;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.myplus.common.security.CurrentUser;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,8 +26,56 @@ public class SettingsService {
     private final SettingsStore store;
     private final Map<String, SettingEntry> catalog = new LinkedHashMap<>();
 
-    public SettingsService(SettingsStore store, List<SettingsCatalogProvider> providers) {
+    /**
+     * PERF-C1 — one tenant's whole override map, cached: {@code org -> { key -> storedValue }}.
+     *
+     * <p><b>Why the map and not the key.</b> Every typed accessor funnels into
+     * {@link #effectiveFor(Long, String)}, and that used to issue one {@code SELECT} PER KEY.
+     * {@code SellController} alone reads seventeen, eight of them consecutively just to assemble a
+     * receipt letterhead — eight queries to print one address block, on data a shop changes perhaps
+     * monthly. {@link SettingsStore#findAll(Long)} already fetches a tenant's overrides in ONE query, so
+     * caching at that grain turns seventeen queries into one on a miss and none on a hit.
+     *
+     * <p><b>Why not {@code @Cacheable}.</b> It would never fire. Spring's cache annotations are
+     * proxy-based and a call arriving from inside the same bean bypasses the proxy — and every read here
+     * is exactly that: {@code getBool → effective → effectiveFor}, three internal self-calls. The
+     * annotation would be present, reviewed, and inert; the same shape as {@code @EnableWebMvc} silently
+     * making {@code spring.web.resources.cache.period} do nothing. So the cache is held here, where
+     * nothing sits between the caller and the answer.
+     *
+     * <p><b>Keyed by organisation, and that is the load-bearing part.</b> A cache keyed without the org
+     * would serve one tenant's configuration to another: silent, absent from the logs, and invisible to
+     * every existing test because they all run as a single org. That is the property the gate asserts,
+     * rather than asserting that a second read was faster — which would pass on a leaking cache.
+     */
+    private final Cache<Long, Map<String, String>> overridesByOrg;
+
+    /**
+     * Backstop only; correctness comes from {@link #set(String, String)} invalidating on write.
+     *
+     * <p>It exists for one reason: if a service ever runs more than one replica, an eviction on instance
+     * A never reaches instance B. Each service runs as a single container today, so this is insurance
+     * against a future deployment change, not a fix for a present bug. A TTL as the PRIMARY mechanism
+     * would be a guess that is at once too slow for the owner who just changed a setting and watched the
+     * screen not change, and too fast for the overwhelming majority of reads where nothing changed.
+     */
+    public SettingsService(SettingsStore store,
+                           List<SettingsCatalogProvider> providers,
+                           @Value("${app.settings.cache-ttl-seconds:60}") long cacheTtlSeconds) {
         this.store = store;
+        // Injected through the CONSTRUCTOR, not a @Value field. Field injection happens AFTER the
+        // constructor runs, so a field here would still be 0 while the cache was being built — the knob
+        // would appear in the config, be documented, and do nothing. A setting that cannot change
+        // behaviour is worse than no setting, because it stops anyone looking further.
+        this.overridesByOrg = Caffeine.newBuilder()
+                // One small map per tenant. The bound is less about memory than about never letting a
+                // long-lived process accumulate entries for tenants it has not served in hours.
+                .maximumSize(1_000)
+                // A NEGATIVE value is nonsense and falls back to the default; ZERO is not — it is an
+                // operator saying "expire immediately", which is how you switch this off to diagnose
+                // something without a redeploy. Folding 0 into the default would quietly ignore them.
+                .expireAfterWrite(Duration.ofSeconds(cacheTtlSeconds < 0 ? 60 : cacheTtlSeconds))
+                .build();
         if (providers != null)
             for (SettingsCatalogProvider p : providers)
                 for (SettingEntry e : p.entries())
@@ -130,11 +182,33 @@ public class SettingsService {
      */
     public String effectiveFor(Long org, String key) {
         if (org != null) {
-            String v = store.find(org, key).orElse(null);
+            // The null-org branch below is deliberately NOT cached: a caller without a tenant never
+            // touches the store at all, so there is nothing to cache and nothing to get wrong.
+            String v = overridesFor(org).get(key);
             if (v != null) return v;
         }
         SettingEntry e = catalog.get(key);
         return e == null ? null : e.defaultValue();
+    }
+
+    /**
+     * This org's overrides, from cache or from one query.
+     *
+     * <p>Returns an EMPTY map for a tenant that has overridden nothing, and caches that too — otherwise
+     * the commonest tenant of all, one running entirely on defaults, would be the only one that never
+     * benefits and would re-query on every single read.
+     */
+    private Map<String, String> overridesFor(Long org) {
+        return overridesByOrg.get(org, o -> {
+            Map<String, String> m = new LinkedHashMap<>();
+            for (SettingsStore.Stored s : store.findAll(o)) m.put(s.key(), s.value());
+            return m;
+        });
+    }
+
+    /** Drop one tenant's cached overrides. Package-private so a test can prove the cache is real. */
+    void invalidate(Long org) {
+        if (org != null) overridesByOrg.invalidate(org);
     }
 
     /** {@link #getBool(String)} for an explicitly named org — see {@link #effectiveFor(Long, String)}. */
@@ -167,9 +241,9 @@ public class SettingsService {
     /** The whole catalog with each entry's effective value + whether it is an org override — feeds the UI. */
     public List<Map<String, Object>> catalogForOrg() {
         Long org = CurrentUser.organizationId();
-        Map<String, String> overrides = new LinkedHashMap<>();
-        if (org != null)
-            for (SettingsStore.Stored s : store.findAll(org)) overrides.put(s.key(), s.value());
+        // Same cached map the behaviour paths read. Querying separately here would let the settings
+        // SCREEN and the code that obeys those settings disagree about what is configured.
+        Map<String, String> overrides = (org == null) ? Map.of() : overridesFor(org);
         List<Map<String, Object>> out = new ArrayList<>();
         for (SettingEntry e : catalog.values()) {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -199,6 +273,27 @@ public class SettingsService {
     public void set(String key, String value) {
         if (!catalog.containsKey(key))
             throw new IllegalArgumentException("Unknown setting: " + key);
-        store.upsert(CurrentUser.organizationId(), CurrentUser.userId(), key, value);
+        Long org = CurrentUser.organizationId();
+        try {
+            store.upsert(org, CurrentUser.userId(), key, value);
+        } finally {
+            /*
+             * INVALIDATE IN A finally, and AFTER the write.
+             *
+             * After, because evicting first would leave a window in which a concurrent reader repopulates
+             * the cache from the pre-write row and then caches that stale answer indefinitely — the owner
+             * saves a setting, the screen goes on showing the old one, and nothing looks broken.
+             *
+             * In a finally, because a write that throws may still have reached the database: the upsert
+             * is inside the caller's transaction, and a later rollback is exactly the case where a cached
+             * map would no longer match the row. Dropping it costs one query; keeping a wrong one costs
+             * a support call nobody can reproduce.
+             *
+             * This eviction is EXACT rather than a TTL guess because settings have precisely one writer,
+             * which is this method. Same rule the codebase already follows elsewhere: stamp at write,
+             * do not derive on read.
+             */
+            invalidate(org);
+        }
     }
 }
