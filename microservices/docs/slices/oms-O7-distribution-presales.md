@@ -217,7 +217,7 @@ and so nothing is built that a later phase would rework.
 | **D2** | ✅ **DONE + GATE GREEN 2026-08-12.** See §9. | Booker login, attribution, credit at the counter |
 | **D3** | ✅ **DONE + GREEN 2026-08-13** — 9/9. See §11. | O5d's missing half | Finishes O5d and **restores its two withdrawn settings** — the honest way to close review finding R1. |
 | **D4** | **Delivery return keying + settlement** | Ahsan's half | **No device (D-5)** — so this is a keying screen for Javed, not a driver app: per-invoice outcome (delivered / part-delivered with per-line quantities / refused), settlement into the existing `receivePayment`, credit note for door rejections. Attributed as *keyed from a signed invoice*. |
-| **D5** | **Driver settlement / remittance** — built 2026-08-15, **awaiting gate**. See §13. | B1 — the money control | Day-end reconciliation: cash counted vs invoices marked paid, deposit recorded, variance raised. **And it is what posts the receipts** — §13.1 found that D4 stored the settlement and never sent it anywhere. |
+| **D5** | **Driver settlement / remittance** — built 2026-08-15, **GATED 9/9 2026-08-23**. See §13. | B1 — the money control | Day-end reconciliation: cash counted vs invoices marked paid, deposit recorded, variance raised. **And it is what posts the receipts** — §13.1 found that D4 stored the settlement and never sent it anywhere. |
 | **D6** | **Beat plan + visit verification + KPIs** | B4, B5 | Journey plan, geo-stamped check-in, and the standard coverage KPIs. |
 | **—** | Van as stock location | B6 | **Blocked on INV-L.** Not in O7. |
 | **—** | Market returns, booker commission | B7, B8 | Later. |
@@ -953,6 +953,29 @@ the posting already happened, and that is corrected below.
   names — the D4 gate is unaffected either way.
 * Nothing anywhere reads `delivery_record.settlement` or `amount_collected` — **D10**: a persisted field no
   read returns is invisible. D5 is what makes them load-bearing.
+
+### 13.1b Gate outcome — 9/9, 2026-08-23
+
+`cypress/e2e/business/driver-settlement.cy.js`, green on the first run against the deployed stack.
+
+The central case is the one §13.1 said it had to be, and it is worth recording why it counts as evidence
+rather than as another green tick:
+
+* it reads `owed` from `/creditStanding` **before and after** the settlement and requires the delta to be
+  **exactly** the cash handed over — `closeTo(before - 300, 0.01)`, not "less than before". A receipt that
+  posted the wrong amount fails just as loudly as one that never posted;
+* it carries a **positive control** — the dispatch must have put a receivable on that outlet first, so
+  "the balance is not what it was" cannot pass against an endpoint quietly returning nothing. That control
+  exists because D2's own anti-IDOR case once went green against a 404;
+* it asserts that after keying the delivery the money has **not** yet moved, which is what pins the receipt
+  to the day-end count rather than to keying time. If that assertion ever fails, D5's whole premise has
+  been undone by someone moving the post earlier;
+* `declaredAmount` is asserted to be **computed from the collections**, not echoed from the request — the
+  distinction between a control and a form field.
+
+Taken together these answer the question this programme keeps having to ask: *if the thing under test
+vanished, would the assertion notice?* Here it would — the money property cannot be satisfied by correctly
+stored form data, which is precisely what let D4 go green over a settlement that posted nothing.
 
 ### 13.2 What D5 is, in one sentence
 
