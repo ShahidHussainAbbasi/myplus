@@ -76,6 +76,22 @@ describe('INST-1 — the sale screen sells on terms', () => {
     cy.get('#sellInstallmentFields').should('not.be.visible')
   })
 
+  /**
+   * Wait for the app's "please wait" overlay to lift.
+   *
+   * Adding a cart line POSTs, and `.ao-box` covers the whole form while that is in flight — so a test that
+   * clicks Add and immediately types into the plan fields is racing it. Cypress reports that as
+   * "cy.clear() failed because this element is being covered by another element", which reads as a broken
+   * field rather than a timing problem.
+   *
+   * NOT `{force: true}`: forcing would type into a control the operator genuinely cannot reach yet, so the
+   * test would pass on a screen a human could not use. Waiting asserts the same thing a cashier experiences.
+   */
+  const overlayGone = () => {
+    cy.get('#appAjaxOverlay', { timeout: 30000 }).should('not.be.visible')
+    cy.get('.ao-box', { timeout: 30000 }).should('not.be.visible')
+  }
+
   // ── the preview ───────────────────────────────────────────────────────────────────────────────────────
 
   it('the preview shows the schedule BEFORE anything is committed', () => {
@@ -91,6 +107,7 @@ describe('INST-1 — the sale screen sells on terms', () => {
       cy.get('#sellItemDD', { timeout: 10000 }).select(String(productId), { force: true })
       cy.get('#sellItems').clear().type('1')
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
+      overlayGone()
 
       cy.get('#sellOnInstallment').check({ force: true })
       cy.get('#instCount').clear().type('6')
@@ -122,6 +139,7 @@ describe('INST-1 — the sale screen sells on terms', () => {
       cy.get('#sellItemDD', { timeout: 10000 }).select(String(productId), { force: true })
       cy.get('#sellItems').clear().type('1')
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
+      overlayGone()
 
       cy.get('#sellOnInstallment').check({ force: true })
       cy.get('#instFirstDueDateText').clear().type(ddmmyyyy(monthsOut(1))).blur()
@@ -150,6 +168,7 @@ describe('INST-1 — the sale screen sells on terms', () => {
       cy.get('#sellItemDD', { timeout: 10000 }).select(String(productId), { force: true })
       cy.get('#sellItems').clear().type('1')
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
+      overlayGone()
 
       // A financed sale needs a named customer — it is chased for months.
       cy.get('#btnModeManual').click({ force: true })

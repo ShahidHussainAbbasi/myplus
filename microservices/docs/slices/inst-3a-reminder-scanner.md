@@ -38,9 +38,9 @@ a phone call makes the shop ring the same customer three times and never ring an
 
 So: `installment_reminder` is a **log of chases**, one row per installment per stage.
 
-Calling it an outbox would import delivery semantics that have no referent today, and INST-3b would then
+Calling it an outbox would import delivery semantics that have no referent today, and INST-4 would then
 inherit a table whose columns lie. The row does carry a `dedupe_key`, and that key is deliberately **the same
-string a future SMS send will use** — so INST-3b plugs a transport into an existing idempotent record rather
+string a future SMS send will use** — so INST-4 plugs a transport into an existing idempotent record rather
 than redesigning this.
 
 ## 3. ⚠ The seam this slice will fail at, if it fails
@@ -126,7 +126,7 @@ InnoDB, VARCHAR not ENUM (adding an enum value needs `ALTER … MODIFY` or write
 
 | Column | Why |
 |---|---|
-| `dedupe_key` VARCHAR(120) **UNIQUE** | One row per installment per stage, enforced by the database rather than by the scanner remembering. Same shape and length as `notification_broadcast.dedupe_key`, so INST-3b can pass it straight through. |
+| `dedupe_key` VARCHAR(120) **UNIQUE** | One row per installment per stage, enforced by the database rather than by the scanner remembering. Same shape and length as `notification_broadcast.dedupe_key`, so INST-4 can pass it straight through. |
 | `organization_id` | Copied from the plan. Indexed with `stage` — the worklist's only query. |
 | `plan_id`, `installment_id`, `customer_id` | The join targets the worklist needs without a second lookup per row. |
 | `due_date`, `stage`, `noticed_at` | What was due, how urgent, and when we first saw it. |

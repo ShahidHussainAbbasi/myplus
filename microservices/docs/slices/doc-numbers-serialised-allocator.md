@@ -88,5 +88,29 @@ Two false trails on the way, both worth recognising next time:
 | Schema | `V45__org_document_seq.sql` — counter table, **seeded from each tenant's existing MAX** (a counter starting below it would reissue a number some document already carries) |
 | Service | `DocumentNumberService` (`MANDATORY`), `OrgDocumentSeqRepo` (all native — JPA read-modify-write would be the same race in a different costume) |
 | Call sites | sale return, repossession credit note, purchase return debit note, sales quote |
-| Unchanged | invoice + plan keep `SequenceRetry`; converging them is a separate slice, and they are green and proven as they are |
+| Converged 2026-08-23 | **invoice + plan moved onto the allocator too** (V46, seeded from each tenant's existing MAX — verified live: INVOICE 315/55/275/10/259/157, PLAN 183, every one matching). One named pattern now answers the whole concern. |
+| `SequenceRetry` | Kept as a **backstop**, and as the record of which constraint means what — `SagaSellService` still has to tell an idempotency-key duplicate (return the winner's invoice) from a lost-number race, and that knowledge holds whatever allocates the numbers. Its retry branch should no longer fire. |
 | Tests | `OrgDocumentSeqConcurrencyTest` 5/5 against real MySQL; suite **172 / 0 fail, 0 skipped** |
+
+---
+
+## 6. Convergence (2026-08-23) — all six sequences on one mechanism
+
+V46 seeds `INVOICE` and `PLAN` counters and both call sites now allocate through `DocumentNumberService`.
+
+**Safe because both sit in DB-only transactions.** The lock is held from allocation to commit, so allocating
+before a remote call would stall a whole tenant behind one slow round trip. `invoice_seq` is allocated inside
+`writePending`, which runs AFTER the inventory reserve; `plan_seq` inside `create`, which is `REQUIRES_NEW` and
+touches nothing but the database. Both were checked before the change, not after.
+
+**Seeding verified against the live database** — every counter equals its table's existing maximum, so no
+tenant's next document reuses a number. A green spec cannot show that; only reading the counters can.
+
+### ⚠ A build trap this surfaced
+
+`mvn -pl business-service test` compiles against the **installed** `commerce-contracts` jar. That jar was
+stale and missing a class, and Maven's incremental compilation hid it — an entire untracked test class
+(`PolicyCheckTest`, 7 tests) had therefore never run. `mvn install -am` fixed it and the tests appeared, one
+failing on margin arithmetic. **That failure belongs to unfinished work by someone else and has been left
+alone.** The lesson stands on its own: *building with `-pl` alone can silently test against yesterday's
+libraries.*
