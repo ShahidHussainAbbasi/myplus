@@ -56,6 +56,10 @@ public class InstallmentPlanService {
     public static final String ORDER_INVOICES_FIRST = "invoices-first";
 
     @Autowired private InstallmentPlanRepo planRepo;
+    @Autowired private DocumentNumberService documentNumberService;
+
+    /** INST-5a — serial policy. Optional so a slim test context still builds a plan. */
+    @Autowired(required = false) private com.myplus.common.settings.SettingsService settingsService;
 
     // ── creating a plan ─────────────────────────────────────────────────────────────────────────────────
 
@@ -65,8 +69,18 @@ public class InstallmentPlanService {
      *
      * @throws IllegalArgumentException with an operator-readable message when the terms cannot make a sound
      *         plan (the arithmetic library's own refusals)
+     *
+     * <h3>REQUIRES_NEW, so a lost plan-number race is survivable</h3>
+     * {@code plan_no} is allocated {@code MAX(plan_seq) + 1}, which two tills can read at the same instant;
+     * {@code uq_plan_org_seq} then refuses the loser. Joining the caller's transaction made that unrecoverable
+     * — the violation marks the CALLER rollback-only, so the retry has nowhere to run and
+     * {@code createInstallmentPlan} logged "the SALE stands" while the sale did not.
+     *
+     * <p>Its own transaction also matches what already happens: {@code SagaSellService} commits the invoice in
+     * a {@code REQUIRES_NEW} transaction of its own, so by the time this runs the receivable is durable and
+     * there is no shared transaction left to be part of.
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public InstallmentPlan create(PlanTerms terms, Long orgId, Long userId, Long storeId,
                                   Long customerId, Long invoiceId, String invoiceNo, String assetRef) {
 
@@ -126,9 +140,9 @@ public class InstallmentPlanService {
             plan.addInstallment(i);   // sets BOTH sides — the list alone leaves plan_id null
         }
 
-        // MAX+1 inside this transaction, made safe by UNIQUE(organization_id, plan_seq) — the same guarantee
-        // invoice_seq has used since slice 22.
-        long seq = planRepo.maxPlanSeqForOrg(orgId) + 1;
+        // Serialised allocator, not MAX+1. This method is REQUIRES_NEW and writes only to the database, so
+        // the counter's row lock is held across DB work alone.
+        long seq = documentNumberService.next(orgId, DocumentNumberService.PLAN);
         plan.setPlanSeq(seq);
         plan.setPlanNo(planNo(seq));
 
@@ -333,5 +347,42 @@ public class InstallmentPlanService {
         if (v == null) return null;
         String t = v.trim();
         return t.isEmpty() ? null : t;
+    }
+
+    /**
+     * INST-5a — may this serial go on a new plan? Returns a message, or {@code null} when it may.
+     *
+     * <h3>⚠ Why this RETURNS a refusal instead of throwing one</h3>
+     * It is called from {@code addSell} <b>before</b> the sale is written, and it must not be able to mark a
+     * transaction rollback-only. A business refusal thrown inside a nested {@code @Transactional} does exactly
+     * that: the tidy message is replaced by "Transaction silently rolled back because it has been marked as
+     * rollback-only", which tells a cashier nothing and this programme has already paid for twice.
+     *
+     * <h3>Why the check runs before the sale rather than during plan creation</h3>
+     * {@code SagaSellService} commits the invoice in its own {@code REQUIRES_NEW} transaction, so a refusal
+     * raised while creating the plan arrives too late — the handset is already sold, and the existing contract
+     * leaves the sale standing with a note that the plan failed. For a technical failure that is the right
+     * call. For a serial that is already financed to somebody else it is not: the sale itself should not
+     * happen. Checking first is what makes that possible.
+     *
+     * <h3>This is not what makes the rule safe</h3>
+     * {@code uq_plan_live_asset} (V44) is. Two tills can pass this check in the same millisecond and only the
+     * database can stop both inserts. What this adds is a sentence naming the plan that already holds the
+     * serial, so the cashier is told where to look instead of being shown a constraint violation.
+     */
+    public String validateSerial(Long orgId, String assetRef) {
+        String serial = trimToNull(assetRef);
+
+        if (serial == null) {
+            boolean required = settingsService != null
+                    && settingsService.getBoolFor(orgId, "pos.installment.serialRequired");
+            return required ? "This sale needs an IMEI or serial number before it can go on a plan." : null;
+        }
+
+        for (InstallmentPlan other : planRepo.findLiveByAssetRef(orgId, serial)) {
+            return "That serial is already financed on plan " + other.getPlanNo()
+                    + ". Settle or cancel it first.";
+        }
+        return null;
     }
 }

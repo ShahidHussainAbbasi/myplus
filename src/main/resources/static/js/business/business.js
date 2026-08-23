@@ -3198,7 +3198,10 @@ var STATEMENT_TYPE_KEYS = {
 	PAYMENT: 'ui.js.stmtTypePayment',
 	CREDIT_NOTE: 'ui.js.stmtTypeCreditNote',
 	DEBIT_NOTE: 'ui.js.stmtTypeDebitNote',
-	VOID: 'ui.js.stmtTypeVoid'
+	VOID: 'ui.js.stmtTypeVoid',
+	// INST-2. Not a transaction: a SCHEDULE row is an instalment still to fall due, shown so a customer
+	// reading the statement can see what they owe and WHEN without asking for a second document.
+	SCHEDULE: 'ui.js.stmtTypeSchedule'
 };
 function statementTypeLabel(type){
 	var key = STATEMENT_TYPE_KEYS[type];
@@ -3225,13 +3228,25 @@ function openStatement(partyType, partyId, name){
 		var lines = (resp && (resp.collection || resp.data)) || [];
 		if (!lines.length) { document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px;color:#777">No documents.</div>'; return; }
 		var h = '<table class="table table-striped" style="width:100%"><thead><tr><th>Date</th><th>Doc #</th><th>Type</th><th class="text-right">Debit</th><th class="text-right">Credit</th><th class="text-right">Balance</th></tr></thead><tbody>';
-		lines.forEach(function(l){
-			h += '<tr><td>'+escHtml(l.date||'')+'</td><td>'+escHtml(l.docNo||'')+'</td><td>'+escHtml(statementTypeLabel(l.type))+'</td>'
+		// INST-2: the ledger, then the forward schedule. They are separated by a caption rather than merged,
+		// because everything above has HAPPENED and everything below has not.
+		var ledger = lines.filter(function(l){ return l.type !== 'SCHEDULE'; });
+		var schedule = lines.filter(function(l){ return l.type === 'SCHEDULE'; });
+		var row = function(l, muted){
+			return '<tr'+(muted?' style="color:#777;font-style:italic"':'')+'><td>'+escHtml(l.date||'')+'</td><td>'+escHtml(l.docNo||'')+'</td><td>'+escHtml(statementTypeLabel(l.type))+'</td>'
 				+ '<td class="text-right">'+(l.debit!=null?Number(l.debit).toFixed(2):'')+'</td>'
 				+ '<td class="text-right">'+(l.credit!=null?Number(l.credit).toFixed(2):'')+'</td>'
 				+ '<td class="text-right"><b>'+(l.balance!=null?Number(l.balance).toFixed(2):'')+'</b></td></tr>';
-		});
-		var closing = Number(lines[lines.length-1].balance||0).toFixed(2);
+		};
+		ledger.forEach(function(l){ h += row(l, false); });
+		if (schedule.length) {
+			h += '<tr><td colspan="6" style="background:#f5f5f5;font-weight:600">'+escHtml(t('ui.js.stmtScheduleNote'))+'</td></tr>';
+			schedule.forEach(function(l){ h += row(l, true); });
+		}
+		// The closing balance is the last LEDGER line's, never the last row's. A schedule row's balance is what
+		// would remain after paying that instalment — it counts down toward zero, so reading the footer off
+		// lines[last] would have printed a closing balance of 0.00 for a customer who owes the lot.
+		var closing = Number((ledger.length ? ledger[ledger.length-1].balance : 0) || 0).toFixed(2);
 		h += '</tbody><tfoot><tr><th colspan="5" class="text-right">Closing balance</th><th class="text-right">'+closing+'</th></tr></tfoot></table>';
 		document.getElementById('StatementDialogBody').innerHTML = h;
 	}, 'json').fail(function(){ document.getElementById('StatementDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load the statement.</div>'; });
@@ -3547,6 +3562,12 @@ function loadPosFeatureFlags(){
 		window.posWalkInName = posSettingText(res, 'pos.customer.walkInName', 'Walk-in Customer');
 		window.posDefaultQty      = posSettingInt(res, 'pos.entry.defaultQty', 1);
 		window.posDefaultTender   = posSettingText(res, 'pos.tender.default', 'CASH');
+		// INST-1 — one settings read, one answer. installment.js reads these rather than fetching again:
+		// a second read is a second opinion about whether the feature exists.
+		window.posInstallmentEnabled   = byKey['pos.installment.enabled'] === true;
+		window.posInstallmentCount     = posSettingInt(res, 'pos.installment.defaultCount', 6);
+		window.posInstallmentFrequency = posSettingText(res, 'pos.installment.frequency', 'monthly');
+		if (typeof applyInstallmentVisibility === 'function') applyInstallmentVisibility();
 		window.posDefaultCustomerMode = posSettingText(res, 'pos.customer.defaultMode', 'select');
 		// Pharmacy: must a SEVERE drug interaction be acknowledged before dispensing? Fail-open like the others
 		// means fail-SAFE here — absent key / config hiccup â‡’ the acknowledgement is still required.

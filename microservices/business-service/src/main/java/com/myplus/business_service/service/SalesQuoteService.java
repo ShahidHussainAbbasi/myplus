@@ -46,6 +46,7 @@ import com.myplus.common.security.AuthenticatedUser;
  */
 @Service
 public class SalesQuoteService {
+    @Autowired private DocumentNumberService documentNumberService;
 
     private static final Logger LOG = LoggerFactory.getLogger(SalesQuoteService.class);
 
@@ -142,7 +143,8 @@ public class SalesQuoteService {
 
         // Allocate the number at creation so the document can be referenced immediately. MAX+1 inside this
         // transaction, made safe by UNIQUE(organization_id, quote_seq).
-        long seq = quoteRepo.maxQuoteSeqForOrg(orgId()) + 1;
+        // Serialised counter, not MAX+1.
+        long seq = documentNumberService.next(orgId(), DocumentNumberService.QUOTE);
         q.setQuoteSeq(seq);
         q.setQuoteNo(InvoiceNumbers.quote(seq));
 

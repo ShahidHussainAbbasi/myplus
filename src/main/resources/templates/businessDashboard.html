@@ -151,6 +151,10 @@ tr.row-voided .js-edit-row{display:none !important}
 								<!-- B2B-P4b: quotes live under Sale because a quote IS a pre-sale document — it converts
 								     into an invoice through the same path a counter sale uses. -->
 								<li><a onclick="showQuotes();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.quotes}">Quotes</span></a></li>
+								<!-- INST-2: installments sit under Sale because a plan IS a sale document — it structures
+								     the receivable one created. Shown to every commerce tenant; a shop that never
+								     finances anything simply has an empty list. -->
+								<li><a onclick="showInstallments();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.js.instScreenTitle}">Installment plans</span></a></li>
 							</ul>
 						</div>
 						<!-- Store / e-commerce (slice 46) — shown ONLY for MARKETPLACE users (vertical-profile feature). -->
@@ -175,6 +179,7 @@ tr.row-voided .js-edit-row{display:none !important}
 									     out with the van, that one closes the money when it comes back. Same gate,
 									     for the same reason — it states who owes how much. -->
 									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showRoundSheet();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.roundSheet}">Round sheet</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showTerritory();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-map-marker"></span> <span th:text="#{ui.territory}">Territory</span></a></li>
 									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showDriverSettlement();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.driverSettlement}">Driver settlement</span></a></li>
 									<!-- OMS O3: per-org delivery fees / free-delivery threshold / cash-on-delivery. -->
 									<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showOrderConfig();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.orderSettings}">Order settings</span></a></li>
@@ -587,6 +592,93 @@ tr.row-voided .js-edit-row{display:none !important}
 			     discount is large, accepted by the customer, then converted into an invoice through the SAME sale
 			     path the till uses. Not gated: quoting is normal counter work. Approving an over-threshold
 			     discount IS gated, server-side, because that is a commercial concession. -->
+			<!-- INST-2 — R2: "know the dues". Every plan still owing money, most overdue first, with its
+			     schedule. Read-only by design: money moves through the receipt path the counter already
+			     uses (Receive Payment on the customer), so this screen cannot become a second way to
+			     collect. It LINKS to that rather than restating it — the customer grid already carries
+			     dueAmount and a Receive action, and a second dues screen would be the DRY breach F7 warns
+			     against. -->
+			<div id="InstallmentDiv" class="formDiv" style="display:none">
+				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.js.instScreenTitle}">Installment plans</h4>
+				<p class="help-block" th:text="#{ui.js.instScreenHelp}">
+					Plans that still owe money, the most overdue first. A payment is taken from the customer's
+					Receive Payment action, and lands on whichever installment is due soonest.
+				</p>
+				<table class="table table-bordered table-striped" id="tableInstallment" style="width:100%">
+					<thead>
+						<tr>
+							<th th:text="#{ui.js.instPlanNo}">Plan</th>
+							<th th:text="#{ui.customer}">Customer</th>
+							<th th:text="#{ui.invoiceNo}">Invoice</th>
+							<th th:text="#{ui.js.instAssetRef}">IMEI / serial</th>
+							<th class="text-right" th:text="#{ui.js.instFinanced}">Financed</th>
+							<th class="text-right" th:text="#{ui.js.instPaid}">Paid</th>
+							<th class="text-right" th:text="#{ui.js.instOutstanding}">Remaining</th>
+							<th th:text="#{ui.js.instNextDue}">Next due</th>
+							<th th:text="#{ui.js.instOverdue}">Overdue</th>
+							<th th:text="#{ui.status}">Status</th>
+						</tr>
+					</thead>
+					<tbody id="installmentBody"></tbody>
+				</table>
+				<div id="installmentEmpty" class="text-muted" style="display:none"
+					th:text="#{ui.js.instNoPlans}">No installment plans yet.</div>
+				<div id="installmentSchedule"></div>
+
+				<!--
+					INST-3a — the collections worklist. A SECOND VIEW inside the Installments screen rather than
+					a screen of its own: it answers a different question about the same plans ("who do I ring
+					today?" rather than "what is outstanding?"), and a shopkeeper who has to remember two menu
+					entries for one job uses neither.
+
+					Read-and-annotate only. Money still moves through Receive Payment, so this cannot become a
+					second way to collect and there is no second place for the two to disagree.
+				-->
+				<div style="margin:18px 0 8px">
+					<button type="button" id="instTabPlans" class="btn btn-primary btn-sm"
+						onclick="showInstallmentTab('plans')" th:text="#{ui.js.instTabPlans}">Plans</button>
+					<button type="button" id="instTabCollections" class="btn btn-default btn-sm"
+						onclick="showInstallmentTab('collections')" th:text="#{ui.js.instTabCollections}">To chase</button>
+				</div>
+
+				<div id="InstallmentCollections" style="display:none">
+					<p class="help-block" th:text="#{ui.js.instCollectionsHelp}">
+						Instalments that are due soon or already late, with the number to ring. Recording the
+						outcome of a call is what stops the same customer being rung three times while another
+						is never rung at all.
+					</p>
+
+					<div class="form-inline" style="margin-bottom:10px">
+						<select id="instChaseStage" class="form-control input-sm" style="margin-right:8px">
+							<option value="" th:text="#{ui.js.instStageAll}">Everything</option>
+							<option value="OVERDUE" th:text="#{ui.js.instStageOverdue}">Late</option>
+							<option value="DUE_SOON" th:text="#{ui.js.instStageDueSoon}">Due soon</option>
+						</select>
+						<button type="button" id="instRefreshChase" class="btn btn-default btn-sm"
+							th:text="#{ui.js.instRefreshChase}">Refresh list</button>
+					</div>
+
+					<table class="table table-bordered table-striped" id="tableInstallmentChase" style="width:100%">
+						<thead>
+							<tr>
+								<th th:text="#{ui.customer}">Customer</th>
+								<th th:text="#{ui.js.instChaseContact}">Phone</th>
+								<th th:text="#{ui.js.instPlanNo}">Plan</th>
+								<th th:text="#{ui.js.instChaseDue}">Due</th>
+								<th class="text-right" th:text="#{ui.js.instChaseAmount}">Amount</th>
+								<th th:text="#{ui.js.instChaseStage}">Stage</th>
+								<th th:text="#{ui.js.instChaseCalled}">Called</th>
+								<th th:text="#{ui.js.instChaseOutcome}">Outcome</th>
+								<th></th>
+							</tr>
+						</thead>
+						<tbody id="instChaseBody"></tbody>
+					</table>
+					<div id="instChaseEmpty" class="text-muted" style="display:none"
+						th:text="#{ui.js.instNothingToChase}">Nobody to chase today.</div>
+				</div>
+			</div>
+
 			<div id="QuoteDiv" class="formDiv" style="display:none">
 				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.quotes}">Quotes</h4>
 				<p class="help-block" th:text="#{ui.quotesHelp}">
@@ -1838,6 +1930,61 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 						<!-- Select mode: pick from existing customers -->
 
+						<!-- INST-1 — selling on installment. HIDDEN unless the tenant turned on
+						     pos.installment.enabled: a grocery on the same BUSINESS type simply leaves it off,
+						     which is why this is a setting and not a vertical. installment.js shows it.
+
+						     The schedule is PREVIEWED before the sale commits, by the same generator the
+						     commit uses — so what the cashier reads to the customer and what is stored cannot
+						     differ. A preview computed a second way is a promise the system might not keep. -->
+						<div class="form-group" id="sellInstallmentWrap" style="display:none; padding-top:8px">
+							<div class="col-xs-12">
+								<label style="font-weight:600">
+									<input type="checkbox" id="sellOnInstallment" onchange="toggleInstallmentPanel()">
+									<span th:text="#{ui.js.instSellOnPlan}">Sell this on an installment plan</span>
+								</label>
+							</div>
+							<div id="sellInstallmentFields" style="display:none">
+								<div class="col-xs-6 col-sm-3 col-md-2">
+									<span class="field-label" th:text="#{ui.js.instDownPayment}">Down payment</span>
+									<input type="number" step="any" min="0" class="form-control" id="instDownPayment"
+										placeholder="0" onchange="previewInstallmentSchedule()">
+								</div>
+								<div class="col-xs-6 col-sm-2 col-md-2">
+									<span class="field-label" th:text="#{ui.js.instCount}">Payments</span>
+									<input type="number" step="1" min="1" class="form-control" id="instCount"
+										onchange="previewInstallmentSchedule()">
+								</div>
+								<div class="col-xs-6 col-sm-3 col-md-2">
+									<span class="field-label" th:text="#{ui.js.instFrequency}">How often</span>
+									<select class="form-control" id="instFrequency" onchange="previewInstallmentSchedule()">
+										<option value="monthly" th:text="#{ui.js.instMonthly}">Monthly</option>
+										<option value="fortnightly" th:text="#{ui.js.instFortnightly}">Every two weeks</option>
+										<option value="weekly" th:text="#{ui.js.instWeekly}">Weekly</option>
+									</select>
+								</div>
+								<div class="col-xs-6 col-sm-2 col-md-2">
+									<span class="field-label" th:text="#{ui.js.instFirstDue}">First payment due</span>
+									<!-- THE WIRE FORMAT IS A CONTRACT. date-picker.js shows dd-MM-yyyy in the visible
+									     box, so reading .val() and posting it as an ISO date sends the server
+									     something LocalDate.parse cannot read. data-dp-iso mirrors each pick into
+									     the hidden field below, which is what the code actually sends — the same
+									     pattern #dueDateTemp/#dueDate already uses. -->
+									<input type="text" class="form-control" id="instFirstDueDateText" data-dp
+										data-dp-iso="#instFirstDueDate" onchange="previewInstallmentSchedule()">
+									<input type="hidden" id="instFirstDueDate">
+								</div>
+								<div class="col-xs-12 col-sm-2 col-md-2">
+									<!-- INST-1: a LABEL, not a register. INST-5 replaces it with a real serial unit. -->
+									<span class="field-label" th:text="#{ui.js.instAssetRef}">IMEI / serial</span>
+									<input type="text" class="form-control" id="instAssetRef" maxlength="64">
+								</div>
+								<div class="col-xs-12" style="padding-top:10px">
+									<div id="instSchedulePreview" class="help-block"></div>
+								</div>
+							</div>
+						</div>
+
 						<!-- Payment row — always visible -->
 						<div class="form-group" style="padding-top: 8px; padding-bottom: 25px;">
 							<div class="col-xs-12 col-sm-3 col-md-2">
@@ -2009,6 +2156,47 @@ tr.row-voided .js-edit-row{display:none !important}
 				Single-column on purpose: every control is full-width and stacks, so it works at 360px without a
 				separate mobile layout. .booking-grid widens it on a desk (responsive.css owns the breakpoints).
 			-->
+			<!-- OMS O7 D6a — territory assignment. Owner/admin only; business-service refuses it to a rep,
+			     and this markup is hidden from one, so the two agree rather than relying on the screen alone. -->
+			<div id="TerritoryDiv" class="formDiv" style="display:none" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<h4 class="panel-title" th:text="#{ui.territory}">Territory</h4>
+						<p class="help-block" style="margin:6px 0 0" th:text="#{ui.territoryHelp}">Choose who covers each outlet. An outlet left unassigned stays visible to every rep.</p>
+					</div>
+					<div class="panel-body">
+						<div class="row" style="margin-bottom:12px">
+							<div class="col-sm-5 col-xs-12">
+								<label for="terrRep" th:text="#{ui.assignTo}">Assign to</label>
+								<select class="form-control" id="terrRep"></select>
+							</div>
+							<div class="col-sm-4 col-xs-12">
+								<label for="terrFilter" th:text="#{ui.search}">Search</label>
+								<input type="text" class="form-control" id="terrFilter" data-no-search="true" />
+							</div>
+							<div class="col-sm-3 col-xs-12" style="margin-top:24px">
+								<button type="button" class="btn btn-primary" id="terrApply" th:text="#{ui.apply}">Apply</button>
+								<button type="button" class="btn btn-default" id="terrClear" th:text="#{ui.unassign}">Unassign</button>
+							</div>
+						</div>
+						<div id="terrNotice" class="alert alert-info" style="display:none"></div>
+						<div class="table-responsive">
+							<table class="table table-striped" id="terrTable">
+								<thead>
+									<tr>
+										<th style="width:36px"><input type="checkbox" id="terrAll" /></th>
+										<th th:text="#{ui.outlet}">Outlet</th>
+										<th th:text="#{ui.contact}">Contact</th>
+										<th th:text="#{ui.coveredBy}">Covered by</th>
+									</tr>
+								</thead>
+								<tbody id="terrBody"></tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+
 			<div id="BookingDiv" class="formDiv" style="display:none">
 				<p class="text-muted" th:text="#{ui.bookingIntro}">Book an order at the shop. It is sent to the warehouse for review — nothing is invoiced and no stock moves until it is confirmed and dispatched.</p>
 
@@ -3146,6 +3334,9 @@ tr.row-voided .js-edit-row{display:none !important}
     <!-- Keyboard contract for the sale screen (design P1). Inert unless the org turned on
          pos.keyboard.enabled; the flag is re-read on every keystroke, not cached at bind time. -->
     <script th:src="@{/js/business/pos-keyboard.js}"></script>
+    <!-- INST-1: selling on terms. Its own file, like order-booking.js — a distinct surface with a
+         distinct audience. Inert unless the tenant turned on pos.installment.enabled. -->
+    <script th:src="@{/js/business/installment.js}"></script>
     <script th:src="@{/js/business/catalog-products.js}"></script>
     <script th:src="@{/js/business/crud-modal.js}"></script>
     <script th:src="@{/js/business/sidebar.js}"></script>
@@ -3154,6 +3345,7 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/ecommerce.js}"></script>
     <!-- O7 D2b: the field rep's booking screen. Separate from ecommerce.js, which is the WAREHOUSE's surface. -->
     <script th:src="@{/js/business/order-booking.js}"></script>
+    <script th:src="@{/js/business/territory.js}"></script>
     <!-- OMS O8 — the round's recovery sheet (view / print / PDF). Loads after lazy-export, whose
          ensurePdfMake() it reuses rather than pulling pdfmake of its own. -->
     <script th:src="@{/js/business/round-sheet.js}"></script>

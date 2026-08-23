@@ -56,6 +56,53 @@ public interface InstallmentPlanRepo extends JpaRepository<InstallmentPlan, Long
     List<InstallmentPlan> findOpenScoped(@Param("orgId") Long orgId);
 
     /**
+     * INST-3a — the tenants the reminder scanner has any work for.
+     *
+     * <p><b>The ONLY cross-tenant query in this feature, and it is named to say so.</b> The scanner runs on a
+     * {@code @Scheduled} thread where there is no authenticated user, so it cannot ask "which org am I?" — it
+     * must enumerate tenants and then work each one on its own terms.
+     *
+     * <p>Iterating tenants rather than sweeping {@code installment} by due date across all of them is the
+     * deliberate choice, for two reasons. The per-tenant read uses {@code idx_installment_org_due}, which
+     * leads with {@code organization_id} and therefore cannot serve a cross-tenant date range at all. And the
+     * enable switch is per tenant, so the scanner has to resolve a setting per org regardless — this way a
+     * tenant that has not switched reminders on costs one boolean lookup and no row reads.
+     *
+     * <p>It returns ids, never customer data: the cross-tenant licence is as narrow as it can be made.
+     */
+    @Query("SELECT DISTINCT p.organizationId FROM InstallmentPlan p "
+         + "WHERE p.status IN ('ACTIVE','DEFAULTED') AND p.organizationId IS NOT NULL")
+    List<Long> findTenantsWithOpenPlansAcrossTenants();
+
+    /**
+     * INST-3a — one tenant's open plans WITH their installments already loaded.
+     *
+     * <p>The fetch join is not an optimisation, it is what lets the scanner run with <b>no surrounding
+     * transaction at all</b>. Walking {@code plan.getInstallments()} lazily would need an open session, so the
+     * scan would have to be {@code @Transactional} — and then a duplicate-key collision between two
+     * overlapping passes would mark that transaction rollback-only and destroy the whole tenant's scan at
+     * commit, reported as the useless "Transaction silently rolled back". Loading eagerly lets each
+     * {@code save()} be its own transaction, so a lost race costs exactly one row.
+     *
+     * <p>It also removes the per-plan query the lazy walk would have issued.
+     */
+    @Query("SELECT DISTINCT p FROM InstallmentPlan p LEFT JOIN FETCH p.installments "
+         + "WHERE p.organizationId = :orgId AND p.status IN ('ACTIVE','DEFAULTED')")
+    List<InstallmentPlan> findOpenWithInstallmentsScoped(@Param("orgId") Long orgId);
+
+    /**
+     * INST-5a — the live plan already holding this serial, if any.
+     *
+     * <p>This is NOT what makes the rule safe. {@code uq_plan_live_asset} (V44) is, because a check-then-insert
+     * in application code is exactly how two tills finance the same IMEI in the same second. This query exists
+     * so the refusal can NAME the plan the cashier should go and look at, instead of the database throwing a
+     * constraint violation at somebody standing at a counter.
+     */
+    @Query("SELECT p FROM InstallmentPlan p WHERE p.organizationId = :orgId AND p.assetRef = :assetRef "
+         + "AND p.status IN ('ACTIVE','DEFAULTED') ORDER BY p.id ASC")
+    List<InstallmentPlan> findLiveByAssetRef(@Param("orgId") Long orgId, @Param("assetRef") String assetRef);
+
+    /**
      * Plans carrying a given invoice — how the sale path finds the plan to cancel when an invoice is voided.
      * A list, not an Optional: one invoice should carry one plan, and returning a list means a data problem
      * surfaces as two rows rather than as an exception in the void path.

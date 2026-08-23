@@ -3,12 +3,11 @@ package com.myplus.catalog.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 import com.myplus.catalog.dto.ProductDTO;
 import com.myplus.catalog.repository.CategoryRepository;
 import com.myplus.catalog.repository.ProductRepository;
-import com.myplus.common.security.AuthenticatedUser;
+import com.myplus.catalog.support.TestTenant;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,8 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
@@ -60,34 +57,18 @@ class ProductLastRatesTest {
     @Autowired private CategoryRepository categoryRepository;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         productRepository.deleteAll();
         categoryRepository.deleteAll();
 
-        // ProductService reads the tenant from the security context (CurrentUser).
-        // Construct an AuthenticatedUser reflectively to avoid depending on a specific ctor signature.
-        java.lang.reflect.Constructor<?> ctor = AuthenticatedUser.class.getDeclaredConstructors()[0];
-        ctor.setAccessible(true);
-        Class<?>[] pts = ctor.getParameterTypes();
-        Object[] args = new Object[pts.length];
-        for (int i = 0; i < pts.length; i++) {
-            if (pts[i].isPrimitive()) {
-                if (pts[i] == boolean.class) args[i] = false;
-                else args[i] = 0;
-            } else if (pts[i] == String.class) {
-                args[i] = "test";
-            } else {
-                args[i] = null;
-            }
-        }
-        Object u = ctor.newInstance(args);
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(u, null, List.of()));
+        // ProductService reads the tenant from the security context (CurrentUser), and every read it makes
+        // is org-scoped — so the fixture must be a REAL caller, not a placeholder. See TestTenant.
+        TestTenant.authenticate();
     }
 
     @AfterEach
     void tearDown() {
-        SecurityContextHolder.clearContext();
+        TestTenant.clear();
     }
 
     private Long newProduct() {

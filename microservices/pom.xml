@@ -28,6 +28,9 @@
          latest tag compatible with this Spring Boot line if the build complains:
          https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases -->
     <opentelemetry-instrumentation.version>2.11.0</opentelemetry-instrumentation.version>
+
+    <!-- See the maven-surefire-plugin comment below: without this every container test skips silently. -->
+    <docker.api.version>1.41</docker.api.version>
   </properties>
 
   <modules>
@@ -136,6 +139,44 @@
                 <version>${lombok.version}</version>
               </path>
             </annotationProcessorPaths>
+          </configuration>
+        </plugin>
+        <!--
+          Testcontainers: pin the Docker API version docker-java negotiates with.
+
+          WITHOUT THIS, EVERY @Testcontainers TEST SILENTLY SKIPS ON WINDOWS AND THE BUILD STILL SAYS SUCCESS.
+          docker-java as bundled in Testcontainers 1.21.0 falls back to API 1.32 when it cannot negotiate.
+          Docker Engine 29.x advertises "minimum version 1.40", so it answers 1.32 with HTTP 400 and a stub
+          /info payload; Testcontainers reads that as "no valid Docker environment" and disables every test
+          guarded by disabledWithoutDocker. The summary line then reads
+          "Tests run: 157, Failures: 0, Skipped: 13" — and a skipped test is indistinguishable from a passing
+          one at a glance. On this repo those 13 covered the migrations, invoice money arithmetic, the sale's
+          atomicity and multi-tenant scoping: the riskiest ground in the module.
+
+          ⚠ ONLY THE SYSTEM PROPERTY WORKS. Measured 2026-08-22, all three:
+            api.version=1.41 in ~/.testcontainers.properties  -> still skipped (not forwarded to docker-java)
+            DOCKER_API_VERSION=1.41 environment variable      -> still skipped
+            -Dapi.version=1.41 system property                -> 0 skipped
+
+          Harmless on CI, where negotiation already works: 1.41 sits inside the engine's supported range
+          (min 1.40, max 1.55). Override with -Ddocker.api.version=... if an engine ever raises its floor
+          past this — which fails LOUDLY, unlike the silent skipping this prevents.
+        -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <configuration>
+            <systemPropertyVariables>
+              <api.version>${docker.api.version}</api.version>
+              <!-- No OTLP collector exists during a test run, so the SDK falls back to its own
+                   localhost:4318 default (the config-server yaml is never fetched - tests set
+                   spring.cloud.config.enabled=false) and logs a ConnectException per export attempt,
+                   with a retry interceptor still flushing at shutdown. Disabled here rather than in
+                   each test class: 20 Testcontainers classes across 9 modules would each need the
+                   line, and a new one could forget it. Surefire-only, so running services are
+                   unaffected. Nothing under test exercises OpenTelemetry. -->
+              <otel.sdk.disabled>true</otel.sdk.disabled>
+            </systemPropertyVariables>
           </configuration>
         </plugin>
         <plugin>

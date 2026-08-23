@@ -81,6 +81,7 @@ public class SellController {
 	
 	@Autowired
 	RequestUtil requestUtil;
+	@Autowired private com.myplus.business_service.service.DocumentNumberService documentNumberService;
 	
 	@Autowired
 	ObjectMapperUtils objectMapperUtils;
@@ -796,6 +797,16 @@ public class SellController {
 			if (dto == null || appUtil.isEmptyOrNull(dto.getSales()))
 				return new GenericResponse("ERROR", "No sales data provided");
 
+			// INST-5a — the serial is checked BEFORE the sale is written, not while the plan is created.
+			// SagaSellService commits the invoice in its own REQUIRES_NEW transaction, so a refusal raised
+			// during plan creation arrives after the handset is already sold. A serial financed to somebody
+			// else is not a technical hiccup the sale should survive — it is a sale that should not happen.
+			if (dto.getInstallmentPlan() != null) {
+				String serialProblem = installmentPlanService.validateSerial(
+						orgId(), dto.getInstallmentPlan().getAssetRef());
+				if (serialProblem != null) return new GenericResponse("FAILED", serialProblem);
+			}
+
 			// M3c.4d (slice 86): the inventory reservation saga (catalog price + FEFO reserve/confirm) is the ONLY
 			// sell-write path — the legacy branch that decremented local Stock has been retired (Stock is being
 			// dropped). SagaSellService persists customer + invoice header + lines and manages its own committed
@@ -1150,7 +1161,11 @@ public class SellController {
 			// B2B-P3c (#1): allocate the CREDIT NOTE number here, before either use, so the document row and the
 			// GL line carry the SAME number. MAX+1 per org inside this transaction; the ledger line then names
 			// the credit note that caused it, and the invoice stays reachable via sale_return.invoice_no.
-			long creditNoteSeq = saleReturnRepo.maxCreditNoteSeqForOrg(orgId()) + 1;
+			// Allocated from the serialised counter, NOT MAX+1: this runs AFTER the inventory return, so a
+			// collision here could not be retried without putting the stock back twice. Allocated LATE — the
+			// row lock is held from here until commit.
+			long creditNoteSeq = documentNumberService.next(orgId(),
+					com.myplus.business_service.service.DocumentNumberService.CREDIT_NOTE);
 			String creditNoteNo = com.myplus.commerce.domain.InvoiceNumbers.creditNote(creditNoteSeq);
 
 			// Adjust the returned line: a full return removes it; a partial return reduces its qty and money
@@ -1409,11 +1424,20 @@ public class SellController {
 			String invalid = terms.validate();
 			if (invalid != null) return "Installment plan NOT created: " + invalid;
 
-			com.myplus.business_service.entity.InstallmentPlan plan = installmentPlanService.create(
-					terms, orgId, user == null ? null : user.getUserId(),
-					user == null ? null : user.getActiveLocationId(),
-					customerId, inv == null ? null : inv.getCustomer_history_id(), invoiceNo,
-					p.getAssetRef());
+			// Retried on a lost plan-number race, exactly as the invoice is. create() is REQUIRES_NEW, so
+			// each attempt gets a fresh transaction — retrying inside the poisoned one is what made this
+			// path report "the SALE stands" while the caller's transaction was already rollback-only.
+			final Long fOrg = orgId;
+			final Long fUser = user == null ? null : user.getUserId();
+			final Long fLoc = user == null ? null : user.getActiveLocationId();
+			final Long fCustomer = customerId;
+			final Long fInvoiceId = inv == null ? null : inv.getCustomer_history_id();
+			final com.myplus.common.installment.PlanTerms fTerms = terms;
+			final String fAsset = p.getAssetRef();
+			com.myplus.business_service.entity.InstallmentPlan plan =
+					com.myplus.business_service.util.SequenceRetry.withRetry("installment plan", () ->
+							installmentPlanService.create(fTerms, fOrg, fUser, fLoc, fCustomer, fInvoiceId,
+									invoiceNo, fAsset));
 
 			return "Installment plan " + plan.getPlanNo() + " created ("
 					+ plan.getInstallmentCount() + " payments).";

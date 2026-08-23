@@ -1385,3 +1385,432 @@ Then **INST-2**, which this document calls the quietest risk in the feature: `Ag
 but its **row supplier** must learn about plans, or a 6-month plan taken today shows its entire remaining
 balance in `90+` by month four. Nothing errors, no test fails, the number is just wrong — which is why it has
 its own gate rather than riding along here.
+
+---
+
+## 14. INST-2 step 1 — the aging row supplier. BUILT, not yet gated.
+
+`mvn -pl business-service test` → **144, 0 failures**. Nothing deployed.
+
+### 14.1 What changed, and what deliberately did not
+
+**`AgingCalculator` is untouched.** Its arithmetic was already right — including the rule that a future-dated
+row counts as current — which is evidence the library was factored at the correct seam back in F2. Only
+`FinanceReportService.customerAging()` changes:
+
+```
+for each open invoice:
+    if it carries a plan  ->  one AgingRow per OPEN INSTALLMENT   {outstanding, its own dueDate}
+    else                  ->  one AgingRow for the invoice        (today's behaviour, untouched)
+```
+
+**Plans are read in ONE query** (`findOpenScoped`, keyed by invoice number) rather than looked up per invoice.
+A per-invoice lookup is the O(n²) shape that makes a report slower every month a shop trades — the same
+mistake `addCustomer`'s in-memory duplicate scan already makes.
+
+`installmentPlanRepo` is injected `required = false`, matching `financeClient` beside it: a slim context that
+wires neither still produces an aging report, and it is exactly today's report.
+
+### 14.2 The gate asserts the SPREAD, not exact buckets — and that was a correction
+
+The first draft asserted an exact distribution. Working the fixture's arithmetic out properly showed why that
+would have been a trap:
+
+| Installment | Due | Age today | Bucket |
+|---|---|---|---|
+| #1 | −4 months | ~122 d | 90+ |
+| #2 | −3 months | **~92 d** | 90+ — **but ~89 d in a shorter month** |
+| #3 | −2 months | **~61 d** | 61–90 — **borderline** |
+| #4 | −1 month | **~31 d** | 31–60 — **borderline** |
+| #5 | today | 0 d | 0–30 |
+| #6 | +1 month | future | 0–30 |
+
+Three of the six sit within a day or two of a bucket edge, so an exact assertion would fail on a **calendar**
+rather than on a defect — green in August, red in February, for no reason anyone could act on.
+
+What is date-robust is the property that actually distinguishes the two behaviours:
+
+> Under the old supplier the entire balance sat in **exactly one** bucket. Aged by schedule it lands in
+> **more than one**.
+
+So the gate asserts: the total is unchanged (60,000), **more than one bucket is non-zero**, at least 20,000 is
+current (the two not-yet-due installments always are), and 90+ is less than the whole balance.
+
+It also caught a factual error in my own fixture comment — it claimed three installments were late when four
+are. **Working the arithmetic out beat reading the comment I had just written.**
+
+### 14.3 Two supporting cases
+
+* **An ordinary credit invoice ages exactly as before** — the negative control. A slice that changes
+  behaviour it was not asked to change is the harder kind of regression to find later.
+* **A settled installment leaves the report entirely** — `outstanding()` is half the overdue predicate, and a
+  shop chasing money it has already received is the failure that costs goodwill rather than cash.
+
+### 14.4 GREEN 2026-08-21 — first run, no defects
+
+| | |
+|---|---|
+| `installment-aging.cy.js` | **3/3** |
+| `mvn -pl business-service test` | **144**, 0 failures |
+| `finance-reports` / `finance-statements` / `statement-credit-notes` | 2/2 / 1/1 / 6/6 — the shared aging path is intact |
+
+**First green run of this programme so far**, and worth asking why, because the contrast with INST-1 is
+instructive rather than lucky:
+
+| | INST-1 | INST-2 |
+|---|---|---|
+| Crossed the HTTP boundary | ✅ a new request shape | ❌ reused the existing sale |
+| Crossed the JSON wire | ✅ a new nested DTO, twinned | ❌ none |
+| Crossed the JPA mapping | ✅ two new tables + an association | ❌ read-only |
+| Changed a write path | ✅ the sale and the receipt | ❌ a report |
+
+INST-1's four defects were all at boundaries. INST-2 crosses none of them — it changes which rows a pure
+function is handed, and the pure function was already correct. **The defect rate tracked the number of
+boundaries crossed, not the number of lines written.**
+
+That is the useful reading of both slices: risk lives at seams, not in volume.
+
+### 14.5 Next
+
+INST-2's remaining parts — the statement's schedule block, the Installments screen and the collections
+worklist. None can report a wrong number, which is why the supplier went first. Then INST-1's sale-screen
+panel, and INST-3 (the due-date scanner and reminders), which is where requirement R4 is won or lost.
+
+---
+
+## 15. INST-1 step 5 — the sale-screen panel. BUILT, not yet gated.
+
+Taken next because the standards say a slice is not done until it is reachable end to end: INST-1's server
+side was complete and gated, and a shopkeeper still could not sell on terms — only an API client could. That
+is review finding **R7** in a different costume.
+
+| Artefact | Note |
+|---|---|
+| `GET /installmentPreview` + proxy | the schedule, computed but not committed |
+| `#sellInstallmentWrap` panel | hidden unless the tenant switched the feature on |
+| `js/business/installment.js` | its own file, like `order-booking.js` |
+| `business.js` | sets `window.posInstallment*` from the settings call that already runs |
+| `main.js` | contributes the `installmentPlan` block to the sale payload |
+| i18n | 13 keys × 6 bundles, aligned at **1982** |
+
+### 15.1 The preview is a SERVER call, and that is the point of the endpoint
+
+The obvious implementation is to compute the schedule in JavaScript — it is only division. It is not:
+
+* the parts must sum to the financed amount **exactly**, residual on the last row;
+* the split rounds **DOWN**, not HALF_UP (17.70 over 60 under HALF_UP makes the final payment **0.00**);
+* monthly dates are measured **from the anchor**, never stepped.
+
+A browser reimplementation would give the customer one set of numbers and store another, and the difference
+would surface months later on a receipt, in front of them. So the preview calls the **same
+`ScheduleGenerator`** the commit calls, from the same `PlanTerms`. What is read aloud and what is stored
+cannot differ.
+
+### 15.2 Three assumptions I wrote and then checked — all three were wrong
+
+Worth recording, because the checking took a minute and the alternative was three defects in a gate run:
+
+| I assumed | Reality |
+|---|---|
+| `posSettingBool(key)` exists | it does **not** — there is `posSettingInt`/`posSettingText(res, key, dflt)`, and booleans are read as `byKey['x'] === true` |
+| the cart total is `#sellGrandTotal` | it is **`#sellTotal`** |
+| a `sell:recalculated` event exists | **I invented it.** The preview now hooks `#sellTotal` directly |
+
+Every one would have compiled, shipped, and failed silently — a panel that never appears, a plan financing
+zero, a preview that never refreshes. **Writing against a remembered API rather than the actual one is the
+same class of mistake as the four INST-1 defects: a boundary assumed instead of read.**
+
+### 15.3 One settings read, one answer
+
+`installment.js` reads `window.posInstallmentEnabled` rather than fetching settings itself. A second read is a
+second opinion, and the sale screen would then be able to disagree with itself about whether the feature
+exists. `business.js` sets it in the same block that already populates every other `pos.*` flag.
+
+### 15.4 UI GATE RUN 1 — 2/5, and the SCREENSHOT found a real defect
+
+The two panel-visibility cases passed, so the settings wiring is right. All three cart cases failed on the
+same thing: `#instScheduleTable` never rendered.
+
+**The endpoint was fine** — probed directly it returns six rows summing to 60,000. So the fault was in the
+browser, and the failure text (*"never found it"*) supported half a dozen theories.
+
+**The screenshot settled it in one look.** The date field read:
+
+```
+PAYMENT DUE:  20-26-092
+```
+
+My typed `2026-09-21`, mangled.
+
+#### The defect: I read the DISPLAY value and posted it as an ISO date
+
+`date-picker.js` binds every `data-dp` box and shows **dd-MM-yyyy**. Its own header says so in capitals —
+*"THE WIRE FORMAT IS A CONTRACT"* — and it provides the mechanism: `data-dp-iso="#hidden"` mirrors each pick
+into a companion field as `yyyy-MM-dd`. `#dueDateTemp`/`#dueDate` already work exactly that way.
+
+I used `data-dp` alone and sent `.val()` to a server that does `LocalDate.parse`. Every preview would have
+failed for a real cashier, not just for Cypress.
+
+**Fixed with the pattern already in the codebase:** a visible `#instFirstDueDateText` carrying
+`data-dp-iso="#instFirstDueDate"`, and a hidden ISO field that is what the code reads and sends. The default
+seeds both, so the cashier is never looking at an empty calendar while a date is silently in flight.
+
+#### Why the API gate could not have caught this
+
+`installment-plan.cy.js` posts `firstDueDate: '2026-09-21'` directly — a correct ISO string, because a test
+author writes what the server wants. Only a spec that **types into the form** meets the date picker at all.
+
+That is the fourth time in this slice that the defect lived on the path a person takes rather than the path an
+API client takes. It is the argument for the UI gate existing, and the reason INST-1 was not "done" when its
+server side went green.
+
+⚠ **Also worth noting:** a `data-dp` field with no `data-dp-iso` companion is a silent trap for the next
+feature too. Any new screen that posts a date needs the pair, or it sends the display format to a parser that
+cannot read it.
+
+### 15.5 UI GATE RUN 2 — the date fix held; a SECOND wrong assumption underneath it
+
+The date field now reads `21-09-2026`, so the wire-format fix worked. The same three cases still failed, and
+the screenshot again gave the answer — this time from what was **absent**.
+
+**The XHR log showed no `/installmentPreview` call at all.** Not a failed one: none. So the function was
+returning before it asked, and the only early exit is the price guard.
+
+#### The defect: `#sellTotal` is a `<th>`, not an input
+
+`cartTotal()` called `.val()` on it, which returns `undefined` → price 0 → early return → the panel silently
+did nothing. No error, no request, no message.
+
+`calculateChange()` — the app's own reader of that same figure — does:
+
+```js
+var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
+```
+
+It is the cart grid's **TOTAL-column footer**, and the codebase already carries a bugfix note about that cell
+totalling zero on a scan-only cart. Now read the same way, so there is one definition of what the cart totals.
+
+#### Four assumed selectors, four wrong — the pattern is the point
+
+| Assumed | Actual |
+|---|---|
+| `posSettingBool(key)` | does not exist — booleans are `byKey['x'] === true` |
+| `#sellGrandTotal` | it is `#sellTotal` |
+| a `sell:recalculated` event | invented |
+| `#sellTotal` is an input | it is a `<th>`; read `.innerHTML` |
+| `#addSellItem` | `#addInviceItem` (the app's id carries a typo) |
+
+Every one compiles. Every one fails silently. **Writing against a remembered API rather than the actual one
+is the same class of error as this slice's four server defects: a boundary assumed instead of read** — and
+the browser has no compiler to catch it, which is why the UI gate is finding what unit tests structurally
+cannot.
+
+The honest process note: I checked three of these before running and still shipped two more. **Grepping the
+selector I am about to use costs ten seconds and has now been worth it five times.**
+
+### 15.6 GREEN 5/5 — INST-1 is COMPLETE END TO END
+
+| | |
+|---|---|
+| `installment-screen.cy.js` | **5/5** — the cashier's path |
+| `installment-plan.cy.js` | 6/6 — the API path |
+| `installment-aging.cy.js` | 3/3 |
+| `sell.cy.js` | **31/31** — the panel did not disturb the till |
+
+**A shopkeeper can now sell a handset on terms**, see the schedule before committing, and have the plan
+created by the act of ringing up the sale. That is the slice actually finished, rather than its server half.
+
+#### What the last case proves that no API test could
+
+`a sale rung up through the FORM creates the plan` asserts on the **intercepted request body**: the browser
+put `installmentPlan` on the wire, with the right count and the right IMEI, and the server answered `PLN-`.
+
+An API spec cannot make that assertion, because it *is* the client. Every defect in this slice's UI half —
+the mangled date and the silent no-op — lived precisely there, and both were invisible from the server side.
+
+#### The five UI failures, and what they had in common
+
+| Assumed | Actual |
+|---|---|
+| `posSettingBool(key)` | does not exist |
+| `#sellGrandTotal` | `#sellTotal` |
+| `sell:recalculated` event | invented |
+| `#sellTotal` is an input | a `<th>` — read `.innerHTML` |
+| `#addSellItem` | `#addInviceItem` |
+
+Plus the date picker's display-vs-wire format. **Every one compiles and fails silently**, which is the
+defining property of browser code: there is no compiler and no type system between a wrong selector and a
+feature that quietly does nothing.
+
+**Both diagnoses came from the SCREENSHOT, not the failure text.** Once from what it showed (`20-26-092`),
+once from what it did not (no `/installmentPreview` request in the XHR log). *"Expected to find element"*
+would have supported half a dozen theories on both occasions.
+
+### 15.7 INST-1 — DONE
+
+Server, UI and gates. What remains of the customer's original request:
+
+* **INST-2** — the aging supplier is green; the statement schedule block, the Installments screen and the
+  collections worklist remain.
+* **INST-3** — reminders. The largest genuinely-new piece: the platform has **no time-triggered notification
+  of any kind** today, and requirement **R4** is where this feature is won or lost for the shop that asked
+  for it.
+
+---
+
+## 16. INST-2 step 2 — the Installments screen. BUILT, not yet gated.
+
+Requirement **R2**, *"know the dues"*, which is what the customer asked for in their own words. After INST-1
+the plan data and both read endpoints existed and **a shopkeeper could reach none of it** — review finding
+R7, worn for the fourth time in this programme.
+
+| Artefact | Note |
+|---|---|
+| `#InstallmentDiv` + sidebar entry | under **Sale**, because a plan IS a sale document — it structures the receivable one created |
+| `showInstallments()` in `installment.js` | same shape as `showQuotes()`; no new file, no second surface |
+| `InstallmentPlanViewDTO.customerName` | resolved in the controller |
+| i18n | 9 keys × 6 bundles, aligned at **1991** |
+
+### 16.1 Read-only, and that is the design
+
+Money moves through the **Receive Payment** action the counter already has. This screen shows what is owed and
+links to that, rather than offering a second way to collect — two collection paths are two places for the
+truth to diverge, and it is the same DRY call F7 makes about not building a second dues screen when the
+customer grid already carries `dueAmount` and a Receive action.
+
+### 16.2 Two decisions inside the rendering
+
+**`customerName` is resolved, not denormalised.** `CustomerHistory.bookedByName` is *stamped* at write time
+so an issued document never changes after the fact. A worklist is the opposite: it should show who the
+customer **is today**, not who they were when the plan was written. A document is a record; a worklist is a
+view.
+
+**Names are fetched in ONE query** (`findAllById` over the plans' customer ids). A lookup per plan is 200
+queries for a 200-plan worklist — the O(n²) shape `addCustomer`'s in-memory duplicate scan already has, and
+which this codebase has now paid for twice.
+
+**`overdueCount` comes from the server**, not recomputed in the browser. It is the same predicate the INST-3
+reminder scanner will use, so a row flagged late on this screen and a reminder actually sent for it cannot
+disagree. Recomputing in JS would be a second opinion about what "late" means.
+
+### 16.3 The gate
+
+`installment-worklist.cy.js`, 5 cases. Two are about the screen telling the truth after something happened
+elsewhere — a payment taken through Receive Payment, and a settled plan dropping off the list — because a
+read-only screen's whole job is to be right about facts it did not create.
+
+The overdue case carries its **negative control** in the same test: a current plan must show nothing, or
+"flagged" would be satisfied by a screen that flags everything.
+
+### 16.4 GATE GREEN 5/5 — and the REGRESSION caught what the new gate could not
+
+`installment-worklist.cy.js` passed **5/5 on the first run**. `installment-plan` 6/6. But
+`installment-screen.cy.js`, green 5/5 an hour earlier and untouched since, came back **3/5** — and it
+reproduced in isolation, so it was a real regression, not cross-spec state.
+
+#### The defect: two functions named `render` in one module
+
+Adding the worklist to `installment.js` introduced a second `function render(plans)` beside the preview's
+existing `function render(rows, financed)`.
+
+**JavaScript does not warn.** A duplicate declaration in one scope is a silent overwrite, and hoisting means
+the LAST one wins regardless of call order. So `previewInstallmentSchedule()` called the *worklist's*
+renderer, which emptied `#installmentBody` and wrote nothing into `#instSchedulePreview` — no error, no
+console message, nothing on the screen.
+
+Both are now named for what they render: `renderPreview` and `renderWorklist`.
+
+#### Why 3 of 5 cases stayed green — and why the new spec could not have caught it
+
+The refusal case writes its error message directly and never calls the renderer, so it passed while the
+feature was broken. The two panel-visibility cases never get that far either.
+
+And **`installment-worklist.cy.js` was 5/5 throughout**: the collision broke the *preview*, and the new
+spec's own path used the surviving function. A new feature's gate tests the new feature; only re-running the
+**old** one found what the new work broke.
+
+> That is the argument for the regression set being wider than the slice. This programme has recorded the
+> reverse lesson twice — specs left red because a slice's regression set was too narrow — and this is the
+> first time a wide one paid for itself immediately.
+
+#### The transferable rule
+
+**Adding a second surface to an existing module means checking the names already in it.** `grep -n "function "`
+on the file before writing costs seconds; here it would have cost none, because the collision was visible in
+the file I was editing.
+
+### 16.5 GREEN — the collision was the whole story
+
+`installment-screen` back to **5/5**, `installment-worklist` **5/5**.
+
+### 16.6 Where the customer's four requirements stand
+
+| | Requirement | State |
+|---|---|---|
+| **R1** | Sell on a plan | ✅ server + sale screen, gated |
+| **R2** | Know the dues | ✅ aging by schedule + the Installments screen, gated |
+| **R3** | Collect against the plan | ✅ one receipt clears plan and invoices, gated |
+| **R4** | **Remind, on time, reliably** | ⬜ **not started** |
+
+Three of four are done and reachable by a shopkeeper. **R4 is the one the design says this feature is won or
+lost on**, and it is the only one needing capability the platform does not have: there is no time-triggered
+notification of any kind today (`@Scheduled` appears 19 times and every one is an outbox relay or a sweeper),
+and `Channel.java`'s own javadoc says SMS is *deliberately not implemented* — which matters, because email is
+close to worthless for this customer's buyers.
+
+Remaining INST-2 tail: the statement's schedule block. Smaller than R4 and lower risk — a read-only addition
+to a document that already renders.
+
+---
+
+## 17. INST-2 step 3 — the statement schedule block. BUILT, not yet gated.
+
+Closes INST-2. D10 asked for "a schedule block under the plan invoice: each installment, its due date, what
+was paid against it, and the running remaining balance."
+
+### The design changed on contact with the code, and the reason is worth keeping
+
+D10's one-line sketch does not survive being written. `StatementBuilder.build()` does two things that make
+"a block under the invoice" the wrong shape:
+
+1. **It sums debits into a running balance.** The `BILL` line already carries the plan invoice's *whole*
+   financed amount. An installment is a breakdown of that same debt — D5's "a structure over the receivable,
+   not a second one" — so a schedule line with a debit counts the handset **twice**, silently, on the one
+   document whose entire purpose is to be believed.
+2. **It sorts by date.** A future installment cannot sit "under the invoice" in a date-ordered ledger, and a
+   statement is a record of what has *happened*. A future obligation has not happened.
+
+Giving the lines null amounts would have dodged (1) and left (2), and would have shown the customer a block of
+rows with **no figures at all** — a date, a doc number, and three empty cells.
+
+**What was built instead:** the ledger is built and balanced FIRST, and the schedule is appended AFTERWARDS.
+Nothing in the schedule can reach the running balance — not because the code avoids it, but because the
+balance is already computed before the schedule exists. That is a stronger guarantee than a rule anyone has
+to remember, and it is the property the gate asserts.
+
+On these rows `debit` is what is still owed on that installment and `balance` is what would remain after
+paying it, so the block reads *"pay this by this date, and you will owe that"* — counting **down** to zero
+rather than repeating the closing balance six times.
+
+### Consequences that had to be handled
+
+| Thing | Why it needed touching |
+|---|---|
+| `openStatement()` footer | It read `lines[lines.length-1].balance`. The last row is now a schedule row whose balance counts down to **0.00** — it would have printed a closing balance of zero for a customer who owes the lot. It now reads the last **ledger** line. |
+| `STATEMENT_TYPE_KEYS` | An unmapped type falls through to the raw token, so the column would have shouted `SCHEDULE` at a customer. Added to all **six** bundles with the block caption. |
+| `statementCsv` | **No change needed** — a straight dump with no footer, and `SCHEDULE` in the Type column keeps the file self-describing. |
+
+Settled installments are omitted: the payment that cleared them is already on the ledger as a `PAYMENT` line,
+and listing both shows the same money twice in two different ways.
+
+Plans are read through `findCollectableByCustomer` — **the same supplier the settlement path uses** (D2), so
+what the statement promises and what a receipt would actually settle cannot drift apart.
+
+### Gate — `cypress/e2e/business/installment-statement.cy.js` (4 cases)
+
+The carrying case sells the **same item twice**, once on terms and once on plain credit, and asserts the two
+customers' closing balances are **equal** and equal to the price. Double-counting shows 120,000 against one of
+them. A positive control asserts the six schedule rows exist first, or "the balance did not move" would be
+satisfied by a feature that was never added.
+
+**Requirements: R1 sell ✅ · R2 know dues ✅ · R3 collect ✅ · R4 remind ⬜ — INST-2 CLOSED, INST-3 next.**

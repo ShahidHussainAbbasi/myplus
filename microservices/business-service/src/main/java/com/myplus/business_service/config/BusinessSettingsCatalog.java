@@ -290,6 +290,53 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "0 (off) by default. Set 30 to stop a customer taking a second plan while an "
                                 + "existing payment is a month behind.",
                         0, "Installments"),
+                // ── INST-5a: serialised units and repossession ──────────────────────────────────────
+                // Five settings, and the discipline is: CONFIGURATION where TENANTS differ, PARAMETERS where
+                // TRANSACTIONS differ. Whether a shop repossesses at all is a tenant policy; whether THIS
+                // handset came back smashed is a fact about one repossession and is passed with the request.
+                // A setting for the second kind is how a screen ends up with thirty toggles nobody reads.
+                SettingEntry.bool("pos.installment.serialRequired",
+                        "Require an IMEI or serial number on a financed sale",
+                        "Off by default. On: a plan cannot be sold without a serial, and the same serial "
+                                + "cannot be on two live plans at once. A mobile or electronics shop wants "
+                                + "this on; a shop financing furniture has nothing to type in it.",
+                        false, "Installments"),
+                SettingEntry.bool("pos.installment.repossession.enabled",
+                        "Allow a financed item to be repossessed",
+                        "Off by default. On: a defaulted plan can be closed by taking the item back — the "
+                                + "unpaid balance is credited off and the unit returns to stock. Money already "
+                                + "paid is kept.",
+                        false, "Installments"),
+                SettingEntry.intOf("pos.installment.repossession.minOverdueDays",
+                        "Days late before an item may be repossessed",
+                        "30 by default. Stops a customer who is three days late having their phone taken. "
+                                + "Set 0 to allow repossession as soon as anything is overdue.",
+                        30, "Installments"),
+                SettingEntry.intOf("pos.installment.repossession.protectedGoodsPct",
+                        "Refuse repossession once this much of the price is paid (%)",
+                        "0 (off) by default. Consumer-credit rules in many markets make goods PROTECTED once "
+                                + "a share of the price has been paid — commonly two thirds — after which the "
+                                + "goods cannot be taken back without a court order. Set 66 to enforce that.",
+                        0, "Installments"),
+                SettingEntry.bool("pos.installment.repossession.writeOffBalance",
+                        "Taking the item back settles the debt",
+                        "On by default, which is the usual practice: the item comes back and the remaining "
+                                + "balance is credited off. Off: the balance stays owing as an ordinary "
+                                + "receivable after the item is recovered — a deficiency claim, which needs "
+                                + "the paperwork to support it.",
+                        true, "Installments"),
+                SettingEntry.bool("pos.installment.remind.enabled",
+                        "Build a collections worklist of who to chase",
+                        "Off by default — a default is not a decision. On: a background scan records each "
+                                + "instalment as it falls due or falls behind, so the shop gets a list of who "
+                                + "to ring with the numbers already on it. Nothing is sent to the customer; "
+                                + "this is a list for the counter, not a message.",
+                        false, "Installments"),
+                SettingEntry.intOf("pos.installment.remind.beforeDays",
+                        "Days before the due date to start chasing",
+                        "3 by default. A courtesy call this many days out; after the date it becomes a "
+                                + "collection call. Set 0 to list nothing until a payment is actually late.",
+                        3, "Installments"),
                 SettingEntry.bool("pos.installment.requireCnic",
                         "Require the customer's CNIC",
                         "Off by default. On: a plan cannot be sold to a customer with no CNIC on file — "

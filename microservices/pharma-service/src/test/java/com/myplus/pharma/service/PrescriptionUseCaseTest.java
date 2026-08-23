@@ -120,6 +120,21 @@ class PrescriptionUseCaseTest {
         return d;
     }
 
+    /**
+     * A script that has already lapsed — written a month ago, valid until yesterday.
+     *
+     * <p>It cannot be built by handing {@link #script} a past {@code validUntil} alone. {@code create()}
+     * defaults a missing {@code prescribedDate} to today and refuses a {@code validUntil} before it
+     * ("'Valid until' cannot be before the prescribed date"), so the SETUP is rejected and the test never
+     * reaches the behaviour it means to assert. That guard is correct — a script cannot expire before it was
+     * written — so an expired script has to be back-dated at BOTH ends, exactly as a real one is.
+     */
+    private PrescriptionDTO expiredScript(String patient, String doctor, PrescriptionItemDTO... lines) {
+        PrescriptionDTO d = script(patient, doctor, LocalDate.now().minusDays(1), lines);
+        d.setPrescribedDate(LocalDate.now().minusDays(30));
+        return d;
+    }
+
     /** One "trip to the counter": the sale already happened, this records what it satisfied. */
     private PrescriptionDTO dispense(Long rxId, String invoiceNo, Long productId, int qty) {
         DispenseRequest req = new DispenseRequest();
@@ -393,7 +408,7 @@ class PrescriptionUseCaseTest {
     @DisplayName("A script past its validity cannot be dispensed")
     void an_expired_script_is_refused() {
         Long rx = prescriptionService.create(
-                script("Ayesha", "Dr. Khan", LocalDate.now().minusDays(1),
+                expiredScript("Ayesha", "Dr. Khan",
                         line(AZITHROMYCIN, "Azithromycin 500mg", 6)), ORG, USER).getId();
 
         assertThatThrownBy(() -> dispense(rx, "INV-5001", AZITHROMYCIN, 6))

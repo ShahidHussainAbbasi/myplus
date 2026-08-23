@@ -30,6 +30,16 @@ public class InstallmentPlanViewDTO {
     private String invoiceNo;
     private String status;
 
+    /**
+     * INST-2 — who owes it. Resolved by the controller, not stored on the plan.
+     *
+     * <p>Not denormalised onto {@code installment_plan}: unlike an INVOICE, which must print the name it was
+     * issued with even after a rename, a worklist should show who the customer IS today. That is the
+     * opposite call to {@code CustomerHistory.bookedByName} and it is deliberate — a document is a record,
+     * a worklist is a view.
+     */
+    private String customerName;
+
     private BigDecimal cashPrice;
     private BigDecimal downPayment;
     private BigDecimal financedAmount;
@@ -68,11 +78,17 @@ public class InstallmentPlanViewDTO {
      *             {@code org.timezone} exists
      */
     public static InstallmentPlanViewDTO of(InstallmentPlan p, LocalDate asOf) {
+        return of(p, asOf, null);
+    }
+
+    /** @param customerName who owes it, resolved by the caller in ONE batched read */
+    public static InstallmentPlanViewDTO of(InstallmentPlan p, LocalDate asOf, String customerName) {
         InstallmentPlanViewDTO d = new InstallmentPlanViewDTO();
         d.setId(p.getId());
         d.setPlanNo(p.getPlanNo());
         d.setInvoiceNo(p.getInvoiceNo());
         d.setStatus(p.getStatus());
+        d.setCustomerName(customerName);
         d.setCashPrice(p.getCashPrice());
         d.setDownPayment(p.getDownPayment());
         d.setFinancedAmount(p.getFinancedAmount());

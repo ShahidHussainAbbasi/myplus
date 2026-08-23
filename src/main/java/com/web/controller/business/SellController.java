@@ -273,6 +273,80 @@ public class SellController {
         }
     }
 
+    /** INST-1 — the schedule a customer would owe, computed by the same generator the commit uses. */
+    @RequestMapping(value = "/installmentPreview", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> installmentPreview(final HttpServletRequest request) {
+        try {
+            return client.get("/installmentPreview", request.getQueryString());
+        } catch (Exception e) {
+            LOGGER.error("installmentPreview proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    // ── INST-3a: the collections worklist ─────────────────────────────────────────────────────────────────
+    // Shipped WITH the slice. The proxy takes no authorisation decision — org scoping happens in
+    // business-service, where the data is and where the anti-IDOR query lives.
+
+    /**
+     * INST-5a — repossess a financed item and close the plan.
+     *
+     * <p>The proxy takes no authorisation decision: the owner gate is a {@code @PreAuthorize} in
+     * business-service, on the method that moves the money. A check here would be advisory only, since the
+     * endpoint is reachable without it.
+     */
+    @RequestMapping(value = "/repossessPlan", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> repossessPlan(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/repossessPlan", params);
+        } catch (Exception e) {
+            LOGGER.error("repossessPlan proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    /** INST-3a — who to ring today, optionally filtered to DUE_SOON or OVERDUE. */
+    @RequestMapping(value = "/installmentReminders", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> installmentReminders(final HttpServletRequest request) {
+        try {
+            return client.get("/installmentReminders", request.getQueryString());
+        } catch (Exception e) {
+            LOGGER.error("installmentReminders proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    /** INST-3a — record that the customer was rung, and what they said. */
+    @RequestMapping(value = "/installmentReminderAction", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> installmentReminderAction(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/installmentReminderAction", params);
+        } catch (Exception e) {
+            LOGGER.error("installmentReminderAction proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    /** INST-3a — refresh the worklist now rather than waiting for the timer. Idempotent by UNIQUE key. */
+    @RequestMapping(value = "/scanInstallmentReminders", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> scanInstallmentReminders() {
+        try {
+            return client.postForm("/scanInstallmentReminders", new java.util.HashMap<>());
+        } catch (Exception e) {
+            LOGGER.error("scanInstallmentReminders proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     /** INST-1 — every plan in the tenant still owing money, most overdue first. */
     @RequestMapping(value = "/installmentPlansOpen", method = RequestMethod.GET)
     @ResponseBody

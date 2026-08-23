@@ -28,6 +28,7 @@ import com.myplus.business_service.util.RequestUtil;
 @Service
 @Transactional
 public class PurchaseService implements IPurchaseService{
+	@Autowired private DocumentNumberService documentNumberService;
 
     @Autowired
     PurchaseRepo purchaseRepo;
@@ -607,7 +608,9 @@ public class PurchaseService implements IPurchaseService{
 		// UNIQUE(organization_id, debit_note_seq); purchaseInvoiceNo is kept as the REFERENCE to the bill.
 		String debitNoteNo = null;
 		try {
-			long dbnSeq = purchaseReturnRepo.maxDebitNoteSeqForOrg(user.getOrganizationId()) + 1;
+			// Serialised counter, not MAX+1.
+			long dbnSeq = documentNumberService.next(user.getOrganizationId(),
+					com.myplus.business_service.service.DocumentNumberService.DEBIT_NOTE);
 			debitNoteNo = com.myplus.commerce.domain.InvoiceNumbers.debitNote(dbnSeq);
 			purchaseReturnRepo.save(com.myplus.business_service.entity.PurchaseReturn.builder()
 					.debitNoteSeq(dbnSeq).debitNoteNo(debitNoteNo)

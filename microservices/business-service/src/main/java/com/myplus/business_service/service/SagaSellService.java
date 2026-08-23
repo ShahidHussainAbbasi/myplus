@@ -144,11 +144,31 @@ public class SagaSellService {
             ch = saleWriter.writePending(dto, reservationId, idempotencyKey, user, lines,
                     reservation.getPicks());
         } catch (org.springframework.dao.DataIntegrityViolationException dup) {
-            // SF-3 race: a concurrent retry inserted this invoice first (unique idempotency index). The reservation
-            // is idempotent per key (a shared hold owned by the winner) — do NOT release it; just return their invoice.
-            LOG.info("addSell idempotent race for key {} -> returning the winner's invoice", idempotencyKey);
-            return customerHistoryRepo.findFirstByOrganizationIdAndIdempotencyKey(user.getOrganizationId(), idempotencyKey)
-                    .map(CustomerHistory::getInvoiceNo).orElseThrow(() -> dup);
+            // TWO DIFFERENT RACES ARRIVE HERE AND THEY NEED OPPOSITE ANSWERS. Until this branch existed both
+            // were treated as the idempotency race, so a sale that merely lost the race for an INVOICE NUMBER
+            // was looked up by a key nobody had used, found nothing, and rethrew — the customer's sale gone,
+            // reported as "Transaction silently rolled back because it has been marked as rollback-only".
+            if (com.myplus.business_service.util.SequenceRetry.isCollision(dup)) {
+                // Lost the race for invoice_seq: another till read the same MAX(seq) a moment earlier. Nothing
+                // is wrong with this sale — it just needs the next number. writePending is REQUIRES_NEW, so
+                // each attempt gets a genuinely new transaction; retrying inside the poisoned one cannot work.
+                final CustomerHistoryDTO retryDto = dto;
+                final String retryReservationId = reservationId;
+                try {
+                    ch = com.myplus.business_service.util.SequenceRetry.withRetry("invoice", () ->
+                            saleWriter.writePending(retryDto, retryReservationId, idempotencyKey, user, lines,
+                                    reservation.getPicks()));
+                } catch (RuntimeException stillColliding) {
+                    safeRelease(retryReservationId);
+                    throw stillColliding;
+                }
+            } else {
+                // SF-3 race: a concurrent retry inserted this invoice first (unique idempotency index). The reservation
+                // is idempotent per key (a shared hold owned by the winner) — do NOT release it; just return their invoice.
+                LOG.info("addSell idempotent race for key {} -> returning the winner's invoice", idempotencyKey);
+                return customerHistoryRepo.findFirstByOrganizationIdAndIdempotencyKey(user.getOrganizationId(), idempotencyKey)
+                        .map(CustomerHistory::getInvoiceNo).orElseThrow(() -> dup);
+            }
         } catch (RuntimeException writeFailure) {
             safeRelease(reservationId);
             throw writeFailure;
@@ -212,6 +232,131 @@ public class SagaSellService {
             CreditLimitPolicy.OFF, CreditLimitPolicy.WARN, CreditLimitPolicy.BLOCK);
 
     private static final java.util.Set<String> MARGIN_POLICIES = java.util.Set.of("off", "warn", "block");
+
+    /**
+     * O7 D1b — run the sale's checks and REPORT, without writing anything.
+     *
+     * <p>This is {@code addSell}'s first three steps and then stop:
+     *
+     * <pre>
+     *   buildLines(dto)          resolve products, prices, costs
+     *   assertMarginPolicy(...)  whole-invoice margin
+     *   assertCreditPolicy(...)  credit limit
+     *   ── addSell would now reserve; this returns ──
+     * </pre>
+     *
+     * <p><b>The same methods, deliberately.</b> Not a re-implementation returning booleans. The two checks are
+     * the only definition of these rules in the system, and a second copy would eventually disagree with the
+     * first — silently, because the panel would say fine and dispatch would refuse, with nothing in either log
+     * to connect them. That both checks already run BEFORE any reservation or write is what makes this
+     * possible at all; the ordering in {@code addSell} is load-bearing, not incidental.
+     *
+     * <p><b>Refusals become data.</b> The checks throw, because in the sale path a refusal must stop a write.
+     * Here there is no write to stop, so the throws are caught and reported. {@code blocked} is set only when
+     * the tenant's policy actually refuses — a {@code warn} tenant gets {@code ok=false, blocked=false}, which
+     * is "you should know", not "this cannot happen".
+     *
+     * <p><b>The DTO is a scratch copy in effect.</b> {@code assertMarginPolicy} appends to
+     * {@code dto.getWarnings()} under {@code warn}; that is how the warning is collected here. Since nothing is
+     * persisted from this call and the DTO was built for this request alone, the mutation cannot escape.
+     *
+     * <p>Advisory. Prices move, other orders consume the same credit, costs change — dispatch remains
+     * authoritative and a caller must present this as a forecast.
+     */
+    public com.myplus.commerce.contracts.dto.PolicyCheckResponse checkPolicy(CustomerHistoryDTO dto) {
+        // Resolving products needs the repositories; judging the result does not. Split so the JUDGEMENT can
+        // be tested as pure logic on every `mvn test`, instead of only against a deployed stack.
+        return checkPolicyForLines(buildLines(dto, new java.util.HashMap<>()), dto);
+    }
+
+    /**
+     * The judgement half of {@link #checkPolicy}: given built lines, what would the sale path say?
+     *
+     * <p>Separated for testability, and the seam is honest — {@code addSell} runs exactly these two checks on
+     * exactly these lines, in this order.
+     */
+    com.myplus.commerce.contracts.dto.PolicyCheckResponse checkPolicyForLines(List<SagaLine> lines,
+                                                                              CustomerHistoryDTO dto) {
+        java.util.List<String> warnings = new java.util.ArrayList<>();
+        boolean blocked = false;
+
+        /*
+         * TWO different sums, and conflating them is a real bug I wrote here once.
+         *
+         * netTotal is the WHOLE basket — what the customer pays, uncosted lines included.
+         *
+         * The MARGIN is computed only over lines whose cost is known, excluding the others from BOTH sides.
+         * That is not a simplification: assertMarginPolicy `continue`s before adding to either sum, because
+         * counting an uncosted line's revenue as pure profit would swamp a real loss and make the guard
+         * useless on exactly the legacy and never-purchased products most likely to be mispriced.
+         *
+         * My first version added every line to `net` and skipped only the cost, which reports a margin the
+         * rule would never produce — the panel and the dispatch gate disagreeing, which is the precise drift
+         * this whole slice exists to prevent. Caught by the uncosted-line case.
+         */
+        BigDecimal netTotal = BigDecimal.ZERO;
+        BigDecimal costedNet = BigDecimal.ZERO, cost = BigDecimal.ZERO;
+        boolean anyCostKnown = false;
+        for (SagaLine l : lines) {
+            BigDecimal lineNet = (l.netAmount() == null) ? BigDecimal.ZERO : l.netAmount();
+            netTotal = netTotal.add(lineNet);
+            if (l.costPrice() == null) continue;
+            anyCostKnown = true;
+            costedNet = costedNet.add(lineNet);
+            cost = cost.add(l.costPrice().multiply(BigDecimal.valueOf(l.quantity())));
+        }
+
+        int before = dto.getWarnings().size();
+        try {
+            assertMarginPolicy(lines, dto);
+        } catch (com.myplus.common.web.exception.ValidationException blockedByMargin) {
+            blocked = true;
+            warnings.add(blockedByMargin.getMessage());
+        }
+        // Under `warn` the rule does not throw — it appends. Collect only what THIS call added, so a caller
+        // that populated warnings itself does not have them echoed back as findings.
+        for (int i = before; i < dto.getWarnings().size(); i++) warnings.add(dto.getWarnings().get(i));
+
+        try {
+            assertCreditPolicy(dto, lines, null);
+        } catch (CreditConfirmationRequiredException needsConsent) {
+            // `warn` policy: the real sale would ASK rather than refuse. Reported as a warning, not a block —
+            // the reviewer is exactly the person entitled to answer that question.
+            warnings.add(needsConsent.getMessage());
+        } catch (com.myplus.common.web.exception.ValidationException blockedByCredit) {
+            blocked = true;
+            warnings.add(blockedByCredit.getMessage());
+        }
+
+        /*
+         * The account the limit belongs to — for a branch of a trade group that is the COMPANY's row, not the
+         * row being billed (B2B-P4a shared pool). Resolved through the same helper the guard uses, so the
+         * figures reported here describe the account the guard actually judged.
+         *
+         * Null for a walk-in, and left null rather than defaulted: a basket with no named customer has no
+         * credit position, and inventing a zero one would report a limit that does not exist.
+         */
+        Customer acct = null;
+        Long custId = (dto.getCustomer() == null) ? null : dto.getCustomer().getCustomerId();
+        if (custId != null && customerRepo != null) {
+            Customer billed = customerRepo.findById(custId).orElse(null);
+            if (billed != null) acct = creditAccountOf(billed);
+        }
+
+        return com.myplus.commerce.contracts.dto.PolicyCheckResponse.builder()
+                .ok(warnings.isEmpty() && !blocked)
+                .blocked(blocked)
+                .warnings(warnings)
+                .netTotal(netTotal)
+                // null, NOT zero, when no line has a known cost: "no profit" would send someone hunting a
+                // pricing error that does not exist. Same reason the margin rule excludes those lines.
+                .margin(anyCostKnown ? costedNet.subtract(cost) : null)
+                // Null limit means UNCAPPED, which is not the same as a limit of zero — a false "0 of 0"
+                // trains a reader to ignore the warning (D2).
+                .creditLimit(acct == null ? null : acct.getCreditLimit())
+                .projectedDue(acct == null ? null : acct.getDueAmount())
+                .build();
+    }
 
     /**
      * Whole-invoice margin guard (#3).

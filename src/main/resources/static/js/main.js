@@ -538,6 +538,14 @@ $(document).ready(function() {
 					// prescription-only medicine through the server-side sell guard; the post-sale dispense call
 					// then reconciles what was actually sold against what was prescribed.
 					if (window.dispensingPrescriptionId) customerHistory.prescriptionId = window.dispensingPrescriptionId;
+					// INST-1: a handset sold on terms carries its plan with the sale, so the schedule is
+					// written in the same act that creates the receivable it structures. Null on every
+					// ordinary sale. Like tradeDiscount above, this needs its twin field on BOTH
+					// CustomerHistoryDTOs or the monolith drops it when it re-serialises (design note F2).
+					if (typeof installmentPlanForSale === 'function') {
+						var instPlan = installmentPlanForSale();
+						if (instPlan) customerHistory.installmentPlan = instPlan;
+					}
 					// G5 (slice 37): record how the sale is paid. One tender from the chosen method + amount received;
 					// CREDIT = on account (not counted as paid). Backend settles paid/due against the grand total.
 					var payMethod = $("#sellPayMethod").val() || 'CASH';

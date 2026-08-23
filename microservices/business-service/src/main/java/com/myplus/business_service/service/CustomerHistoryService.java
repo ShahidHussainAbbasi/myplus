@@ -32,6 +32,9 @@ import com.myplus.business_service.util.RequestUtil;
 @Transactional
 public class CustomerHistoryService implements ICustomerHistoryService {
 
+	@org.springframework.beans.factory.annotation.Autowired
+	private DocumentNumberService documentNumberService;
+
 	@Autowired
 	RequestUtil requestUtil;
     
@@ -196,7 +199,11 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 		if (customerHistoryObj.getCustomer_history_id() == null
 				&& customerHistoryObj.getInvoiceSeq() == null
 				&& user.getOrganizationId() != null) {
-			long seq = CustomerHistoryRepo.maxInvoiceSeqForOrg(user.getOrganizationId()) + 1;
+			// Serialised allocator, not MAX+1. Safe to hold the counter's row lock here: this runs inside
+			// writePending's own DB-only transaction, AFTER the inventory reserve, so the lock never spans a
+			// remote call — which is the one thing that would turn per-tenant serialisation into a stall.
+			long seq = documentNumberService.next(user.getOrganizationId(),
+					com.myplus.business_service.service.DocumentNumberService.INVOICE);
 			customerHistoryObj.setInvoiceSeq(seq);
 			customerHistoryObj.setInvoiceNo(InvoiceNumbers.format(seq));
 		}
