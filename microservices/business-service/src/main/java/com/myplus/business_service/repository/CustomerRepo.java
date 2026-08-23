@@ -74,6 +74,37 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
    java.util.Optional<Customer> findByIdScoped(@Param("id") Long id,
                                                @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /**
+    * O7 D6a — set (or clear) the rep covering a set of outlets, in ONE statement.
+    *
+    * <p><b>The tenancy predicate is in the WHERE clause, not in a check before it.</b> Every id here arrives
+    * from the browser, so the count this returns is the number of rows that were genuinely the caller's — an
+    * id belonging to another tenant simply does not match and is not updated. That makes the anti-IDOR
+    * property structural rather than something a caller has to remember to assert first, and it is the same
+    * shape as {@link #findByIdScoped}, which exists because D2 shipped a plain {@code findById} on an id from
+    * a query string and leaked every tenant's credit limit.
+    *
+    * <p>A targeted UPDATE rather than load-and-save: this repository already learned that a full-entity save
+    * can rewrite unrelated columns to null when the entity is not fully loaded (see the store-credit note
+    * below, and the vendor side where it actually happened). Assignment touches one column and should write
+    * one column.
+    *
+    * <p>{@code repId} may be null — that is "unassign", which returns the outlet to the shared pool rather
+    * than hiding it from everyone.
+    *
+    * <p>Carries the same NULL-org fallback as every other scoped query here, so pre-migration rows stay
+    * reachable by the user who owns them.
+    *
+    * @return how many rows were actually updated — i.e. how many of the ids were the caller's
+    */
+   @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
+   @Query("update Customer c set c.assignedRepUserId = :repId where c.customerId in :ids "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
+   int assignRepScoped(@Param("ids") java.util.List<Long> ids,
+                       @Param("repId") Long repId,
+                       @Param("orgId") Long orgId,
+                       @Param("userId") Long userId);
+
    // Store credit: update ONLY the cached credit_balance (targeted, not a full-entity save — a full save can rewrite
    // other columns to null when the entity isn't fully loaded, as it did on the vendor side).
    @org.springframework.data.jpa.repository.Modifying

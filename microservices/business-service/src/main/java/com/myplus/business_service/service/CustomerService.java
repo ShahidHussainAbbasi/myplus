@@ -246,6 +246,25 @@ return customerRepo.exists(example);
 		return customerRepo.findOutletsForOrg(orgId);
 	}
 
+	/**
+	 * O7 D6a — give {@code assigned_rep_user_id} its data.
+	 *
+	 * <p>One statement, tenancy in its WHERE clause, so an id from another tenant is not updated and the
+	 * returned count says how many of the ids were actually the caller's. The controller reports that count
+	 * rather than claiming success for everything it was sent — a bulk write that says "done" when it
+	 * silently skipped half its input is how a half-applied territory goes unnoticed.
+	 *
+	 * <p>{@code @Transactional} because {@code @Modifying} queries need one, and {@code clearAutomatically}
+	 * so a Customer already loaded in this persistence context cannot go on reporting its old rep after the
+	 * update — the read that follows an assignment is usually the screen refreshing itself.
+	 */
+	@Override
+	@org.springframework.transaction.annotation.Transactional
+	public int assignOutlets(java.util.List<Long> customerIds, Long repUserId, Long orgId, Long actingUserId) {
+		if (customerIds == null || customerIds.isEmpty()) return 0;
+		return customerRepo.assignRepScoped(customerIds, repUserId, orgId, actingUserId);
+	}
+
 
 	public Customer saveUpdateCustomer(CustomerHistoryDTO dto) throws Exception {
 

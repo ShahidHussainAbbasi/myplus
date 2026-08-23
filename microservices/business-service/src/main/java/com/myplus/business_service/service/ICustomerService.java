@@ -56,5 +56,8 @@ public interface ICustomerService extends org.springframework.data.jpa.repositor
     /** Every outlet in the org — for a whole-org viewer (owner/admin). */
     List<Customer> findOutletsForOrg(Long orgId);
 
+	/** O7 D6a — set (or clear, with a null rep) the rep covering these outlets. Returns how many were ours. */
+	public int assignOutlets(java.util.List<Long> customerIds, Long repUserId, Long orgId, Long actingUserId);
+
 
 }

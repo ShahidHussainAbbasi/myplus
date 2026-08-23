@@ -134,6 +134,45 @@ public class CustomerController {
         }
     }
 
+    /**
+     * OMS O7 D6a — every outlet with the rep who covers it → business-service {@code /outletAssignments}.
+     *
+     * <p>Separate from {@code /outlets} above on purpose. That one is the REP's picker; this is the OWNER's
+     * assignment screen, and business-service refuses it to anyone who is not owner or admin — telling every
+     * rep which colleague holds which shop is the disclosure {@code OutletDTO} was kept narrow to avoid.
+     */
+    @RequestMapping(value = "/outletAssignments", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> outletAssignments() {
+        try {
+            return client.get("/outletAssignments", "");
+        } catch (Exception e) {
+            LOGGER.error("outletAssignments proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
+    /**
+     * OMS O7 D6a — assign outlets to a rep, or clear them → business-service {@code /assignOutlets}.
+     *
+     * <p>{@code customerIds} travels as ONE comma-separated value, which is what the parameter copy below can
+     * carry: it keeps only the first value of each key, so repeated {@code customerIds=1&customerIds=2} would
+     * silently assign the first outlet and drop the rest — a half-applied territory reported as success.
+     * Spring binds a comma-separated string to {@code List<Long>} on the far side.
+     */
+    @RequestMapping(value = "/assignOutlets", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> assignOutlets(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, String.join(",", v)));
+            return client.postForm("/assignOutlets", params);
+        } catch (Exception e) {
+            LOGGER.error("assignOutlets proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     // ── B2B Phase 4a — account hierarchy ────────────────────────────────────────────────────────────────────
 
     /** Put a customer under a parent account (or detach it) → business-service, which also re-stamps the credit

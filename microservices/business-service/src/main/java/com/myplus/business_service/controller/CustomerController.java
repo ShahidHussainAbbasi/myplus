@@ -27,6 +27,7 @@ import com.myplus.business_service.entity.enums.CustomerType;
 import com.myplus.business_service.service.ICustomerService;
 // import com.myplus.business_service.service.ICustomerService;
 import com.myplus.business_service.dto.CustomerDTO;
+import com.myplus.business_service.dto.OutletAssignmentDTO;
 import com.myplus.business_service.dto.OutletDTO;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
@@ -337,6 +338,87 @@ public class CustomerController {
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > outlets " + e.getMessage(), e);
 			return new GenericResponse("ERROR", "Could not load the outlets.");
+		}
+	}
+
+	/**
+	 * OMS O7 D6a — every outlet with the rep who covers it. <b>Owner/admin only.</b>
+	 *
+	 * <p>Separate from {@code /outlets} on purpose. That one is the REP's picker and answers "which shops may
+	 * I book for"; this one is the OWNER's assignment screen and answers "who covers what". Adding the holder
+	 * to the rep's picker would tell every rep which colleague owns which shop — a customer list is a
+	 * distributor's most poachable asset, and least privilege is why {@link OutletDTO} is identity-only in the
+	 * first place.
+	 *
+	 * <p>Returns the rep's ID, not their name. The screen already loads {@code /api/auth/org/users} to fill
+	 * its dropdown, so it can join names itself; resolving them here would put an auth-service call on a read
+	 * that exists only to draw a table. Nor is the name STAMPED — unlike {@code booked_by_name}, which is
+	 * frozen because an issued order outlives its staff. An assignment is CURRENT state: rename a rep and the
+	 * assignment should show the new name.
+	 */
+	@RequestMapping(value = "/outletAssignments", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse outletAssignments(final HttpServletRequest request) {
+		try {
+			if (!seesAllOrg())
+				return new GenericResponse("ERROR", "Only an owner or admin can view territory assignments.");
+			List<OutletAssignmentDTO> out = new ArrayList<>();
+			for (Customer c : customerService.findOutletsForOrg(orgId()))
+				out.add(new OutletAssignmentDTO(c.getCustomerId(), c.getName(), c.getContact(),
+						c.getAssignedRepUserId()));
+			return new GenericResponse("SUCCESS", "Outlet assignments", null, out);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > outletAssignments " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load the assignments.");
+		}
+	}
+
+	/**
+	 * OMS O7 D6a — assign outlets to a rep, or clear them. <b>Owner/admin only.</b>
+	 *
+	 * <h3>Why a rep may not do this</h3>
+	 * {@code ROLE_ORDER_BOOKER} exists to WITHHOLD: it is the plain user set with no {@code ADMIN_PRIVILEGE},
+	 * precisely so a rep cannot confirm their own orders. Letting one hand themselves outlets would undo the
+	 * same separation from the other end.
+	 *
+	 * <h3>Bulk, because a territory is not one shop</h3>
+	 * Assigning one at a time would make the screen fire fifty requests and leave a half-applied territory
+	 * when the twentieth failed. One call, one statement.
+	 *
+	 * <h3>What the count means</h3>
+	 * The repository scopes by tenant inside its WHERE clause, so ids belonging to another org are simply not
+	 * updated. Reporting the rows ACTUALLY changed — rather than echoing back how many ids were sent — is what
+	 * makes a partially-ignored request visible instead of silently successful.
+	 *
+	 * @param repUserId the rep to assign to; <b>omit or send blank to UNASSIGN</b>, returning the outlets to
+	 *                  the shared pool rather than hiding them from everybody
+	 */
+	@RequestMapping(value = "/assignOutlets", method = RequestMethod.POST)
+	@ResponseBody
+	public GenericResponse assignOutlets(@RequestParam(value = "repUserId", required = false) Long repUserId,
+	                                     @RequestParam("customerIds") List<Long> customerIds,
+	                                     final HttpServletRequest request) {
+		try {
+			if (!seesAllOrg())
+				return new GenericResponse("ERROR", "Only an owner or admin can assign territories.");
+			if (customerIds == null || customerIds.isEmpty())
+				return new GenericResponse("ERROR", "Choose at least one outlet.");
+
+			int changed = customerService.assignOutlets(customerIds, repUserId, orgId(), userId());
+			java.util.Map<String, Object> body = new java.util.HashMap<>();
+			body.put("assigned", changed);
+			body.put("requested", customerIds.size());
+			// Says so out loud when they differ. A bulk write that reports success for input it quietly
+			// skipped is how a territory ends up half applied with nobody the wiser.
+			String msg = (changed == customerIds.size())
+					? (repUserId == null ? "Outlets unassigned." : "Outlets assigned.")
+					: ("Assigned " + changed + " of " + customerIds.size() + " outlets.");
+			// 3-arg: the counts are an OBJECT, not a collection — GenericResponse puts lists in `collection`
+			// and single payloads in `object`, and the client reads them from different fields.
+			return new GenericResponse("SUCCESS", msg, body);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > assignOutlets " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not save the assignments.");
 		}
 	}
 
