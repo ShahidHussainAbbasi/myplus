@@ -84,6 +84,36 @@ public interface TradeClient {
     java.util.List<String> returnLines(@RequestBody SaleReturnRequest request);
 
     /**
+     * OMS O7 D1b — what the sale path WOULD say about this basket. <b>Writes nothing.</b>
+     *
+     * <h3>The gap it closes</h3>
+     * The margin and credit rules are enforced at DISPATCH, by the sale path, exactly as for every other sale.
+     * A reviewer amending an order therefore learned that their amendment loses money, or puts the outlet over
+     * its limit, when the van was already loading. This answers the same question at the moment they decide.
+     *
+     * <h3>It reuses the sale's OWN checks, and that is the point</h3>
+     * The receiver calls {@code assertMarginPolicy} and {@code assertCreditPolicy} — the very methods
+     * {@code addSell} calls, in the same order, with lines built by the same {@code buildLines}. It does NOT
+     * re-implement them to return booleans. A second copy of a policy is a policy that will disagree with
+     * itself, and the disagreement is silent: the panel says fine, dispatch refuses, and nothing in either log
+     * explains why. If this is ever "tidied" by inlining the rules, that is the bug being introduced.
+     *
+     * <h3>Advisory — dispatch stays authoritative</h3>
+     * Prices move, other orders consume the same credit, costs change. This is a forecast, and the screen that
+     * renders it must not promise more; a reviewer who believes it is final stops reading the real failure.
+     *
+     * <h3>Why a response and not an exception</h3>
+     * A refusal here stops nothing, because nothing is being written. Reported as data so one caller renders
+     * one panel, instead of catching two unrelated exception types to say the same thing.
+     *
+     * <h3>Anti-IDOR</h3>
+     * Same rule as {@link #recordSale}: the org in the body must match the org the caller authenticated as.
+     * A check is a read of another tenant's pricing and credit position if that guard is missing.
+     */
+    @PostExchange("/internal/sales/check-policy")
+    com.myplus.commerce.contracts.dto.PolicyCheckResponse checkPolicy(@RequestBody SaleRecordRequest request);
+
+    /**
      * OMS O7 D5 — money a channel collected on business-service's behalf, handed over to be allocated and posted.
      *
      * <h3>Why a channel cannot do this itself</h3>

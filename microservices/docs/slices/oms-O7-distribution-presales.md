@@ -368,7 +368,13 @@ will fail or backorder at dispatch. Doing it properly needs a **reserve operatio
 that business-service — which owns stock — performs the hold. That is **D1b**: a contract change, not a
 marketplace one, and the right shape rather than the quick one.
 
-**2. The margin and credit re-checks are not run at amend time.** §6 D-3 said an amendment must re-run both.
+**2. The margin and credit re-checks are not run at amend time.** ✅ **CLOSED by D1b, gated 7/7 + 6/6
+2026-08-23** — `PUT /orders/{id}` now returns `policyWarnings` from a new `checkPolicy` trade-contract op that
+runs the sale's OWN check methods and writes nothing. Departure #1 (reserve-at-confirm) remains OPEN and is
+deliberately its own slice: holding stock outside the sale path is what O1 deleted, and re-adding it needs
+expiry, release-on-reject and recovery stories that a forecast does not.
+
+**2 (as written at the time).** §6 D-3 said an amendment must re-run both.
 They **are** enforced — by the sale path, at dispatch, exactly as for every other sale — so nothing unsafe
 ships. What is missing is telling the reviewer *at the moment they amend* rather than when the van is loading.
 Doing it needs a new "check policy without writing" operation on the trade contract, which is the same contract

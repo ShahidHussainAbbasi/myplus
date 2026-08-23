@@ -214,6 +214,9 @@ public class OrderService {
         o.setTotal(lineTotalOfItems(o.getItems()));
         Order saved = repo.save(o);
 
+        // O7 D1b — tell the reviewer what this amendment costs, NOW rather than when the van is loading.
+        List<String> policyWarnings = policyWarningsFor(saved, orgId);
+
         amendmentRepository.save(com.myplus.marketplace.entity.OrderAmendment.builder()
                 .orderId(saved.getId()).organizationId(orgId)
                 .userId(userId).userName(userName)
@@ -223,7 +226,68 @@ public class OrderService {
                 .createdAt(java.time.LocalDateTime.now())
                 .build());
         notificationService.notify(saved, saved.getFulfilmentStatus().name(), "Amended: " + summarise(changes));
-        return toDTOWithLines(saved);
+
+        OrderDTO out = toDTOWithLines(saved);
+        out.setPolicyWarnings(policyWarnings);
+        return out;
+    }
+
+    /**
+     * O7 D1b — what the sale path WOULD say about this order, asked before anyone dispatches it.
+     *
+     * <h3>The gap this closes</h3>
+     * Margin and credit are enforced at DISPATCH, by the sale path, exactly as for every other sale. So a
+     * reviewer amending an order learned that their amendment loses money, or puts the outlet over its limit,
+     * when the van was already loading. §6 D-3 asked for the re-check at amend time; D1 shipped without it and
+     * §8.1 recorded the departure. This is it.
+     *
+     * <h3>Built from the SAME request dispatch sends</h3>
+     * Same customer id (D2c), same per-line price and discount, same channel. If this request were assembled
+     * differently the two answers could legitimately differ, and a reviewer told "fine" would meet a refusal
+     * at dispatch with nothing to explain it. The one deliberate difference is quantity: the check asks about
+     * the WHOLE order, because at amend time nobody has decided what goes on the first parcel.
+     *
+     * <h3>Advisory, and it must never block the amendment</h3>
+     * The amendment is already saved by the time this runs. Refusing to save because a sale WOULD fail later
+     * takes the decision away from the person the review step exists to serve — D1 established that both
+     * booker and admin may revise. Tell them; let them choose.
+     *
+     * <h3>Never fatal</h3>
+     * business-service being slow or down must not fail an amendment that has already been written. A missing
+     * forecast is a missing convenience; a failed amend is lost work. Returns empty and says so in the log.
+     */
+    private List<String> policyWarningsFor(Order order, Long orgId) {
+        try {
+            List<com.myplus.commerce.contracts.dto.SaleRecordRequest.Line> lines = new ArrayList<>();
+            for (OrderItem item : order.getItems()) {
+                if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) continue;
+                lines.add(com.myplus.commerce.contracts.dto.SaleRecordRequest.Line.builder()
+                        .productId(item.getProductId())
+                        .quantity(item.getQuantity().floatValue())
+                        .unitPrice(item.getPrice())
+                        .discount(item.getDiscount())
+                        .build());
+            }
+            if (lines.isEmpty()) return List.of();
+
+            com.myplus.commerce.contracts.dto.PolicyCheckResponse r = asStore(orgId, () ->
+                    tradeClient.checkPolicy(com.myplus.commerce.contracts.dto.SaleRecordRequest.builder()
+                            .organizationId(orgId)
+                            .channel("FIELD")
+                            .customer(com.myplus.commerce.contracts.dto.SaleRecordRequest.Customer.builder()
+                                    .customerId(order.getCustomerId())
+                                    .name(order.getCustomerName())
+                                    .contact(order.getCustomerContact())
+                                    .build())
+                            .lines(lines)
+                            .build()));
+
+            return (r == null || r.getWarnings() == null) ? List.of() : r.getWarnings();
+        } catch (Exception e) {
+            LOG.warn("D1b: policy pre-check unavailable for order {} — amendment stands, forecast omitted: {}",
+                    order.getOrderNo(), e.toString());
+            return List.of();
+        }
     }
 
     /**

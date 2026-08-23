@@ -9,6 +9,20 @@ import java.util.List;
 /** An order as the back-office sees it (E1, slice 46). */
 @Data
 public class OrderDTO {
+
+    /**
+     * O7 D1b — what the sale path forecasts for this order, returned by {@code PUT /orders/{id}}.
+     *
+     * <p><b>Outbound only, and advisory.</b> Populated on an amendment so the reviewer learns the amendment
+     * loses money or breaks the outlet's credit limit AT THE MOMENT THEY DECIDE, rather than when the van is
+     * loading. Empty when the amendment is within policy — and also empty when business-service could not be
+     * reached, because a missing forecast must never fail an amendment that is already saved.
+     *
+     * <p>Dispatch remains authoritative: prices move, other orders consume the same credit. A screen showing
+     * these must present them as a forecast, or a reviewer who trusts them stops reading the real failure.
+     */
+    private java.util.List<String> policyWarnings;
+
     private Long id;
     private Long organizationId;        // input for a public (guest) order — no JWT identity
     private String invoiceNo;

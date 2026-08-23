@@ -128,6 +128,40 @@ public class InternalSalesController {
     }
 
     /**
+     * OMS O7 D1b — what {@link #recordSale} WOULD say about this basket. <b>Writes nothing.</b>
+     *
+     * <h3>The gap</h3>
+     * Margin and credit are enforced at DISPATCH, by the sale path, exactly as for every other sale. So a
+     * reviewer amending an order learned that their amendment loses money, or puts the outlet over its limit,
+     * when the van was already loading. This answers the same question while they are still deciding.
+     *
+     * <h3>No new rule, and no new privilege</h3>
+     * Delegates to {@code SagaSellService.checkPolicy}, which runs the very methods {@code addSell} runs. This
+     * controller adds nothing but the tenancy guard — the same rule as {@link #recordSale}, because without it
+     * a caller could read another tenant's pricing and credit position by asking about their customer.
+     *
+     * <h3>Idempotency is not required here</h3>
+     * Unlike {@link #recordSale}, which demands a key because a retry must not bill twice, a check writes
+     * nothing and is therefore safe to repeat by construction. Demanding a key would be ceremony that implies
+     * a danger that does not exist.
+     */
+    @PostMapping("/check-policy")
+    public ResponseEntity<?> checkPolicy(@RequestBody SaleRecordRequest request) {
+        if (request == null) throw new ValidationException("A sale request is required");
+        if (request.getLines() == null || request.getLines().isEmpty())
+            throw new ValidationException("A policy check needs at least one line");
+
+        AuthenticatedUser user = requestUtil.getCurrentUser();
+        Long authenticatedOrg = (user == null) ? null : user.getOrganizationId();
+        if (authenticatedOrg == null)
+            throw new ValidationException("No tenant identity on the request");
+        if (request.getOrganizationId() != null && !request.getOrganizationId().equals(authenticatedOrg))
+            throw new ValidationException("Organization mismatch: a policy check may only be run for its own tenant");
+
+        return ResponseEntity.ok(sagaSellService.checkPolicy(toCustomerHistory(request)));
+    }
+
+    /**
      * Reverse the sale behind a cancelled order — the mirror of {@link #recordSale}.
      *
      * <p>Delegates to the SAME {@code SaleVoidService} the human-facing {@code /voidSell} uses, so a cancelled
