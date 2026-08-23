@@ -51,9 +51,34 @@ public class ReservationPolicy {
      * sweeper's query could not distinguish from a real one.
      */
     public LocalDateTime expiryFor(Long org, LocalDateTime from) {
-        int minutes = holdMinutes(org);
+        return expiryFor(org, from, com.myplus.commerce.contracts.dto.StockReservationRequest.HoldKind.CHECKOUT);
+    }
+
+    /**
+     * O7 D1c — the deadline for a hold of THIS KIND.
+     *
+     * <p>A checkout hold is minutes; an order hold is days. One duration cannot serve both: at 30 minutes a
+     * confirmed order is swept before the van leaves, and at three days an abandoned till sterilises stock for
+     * a weekend. The caller states its intent and the tenant configures each independently.
+     *
+     * <p>Null (0 minutes) still means "never expires" for either kind, unchanged.
+     */
+    public LocalDateTime expiryFor(Long org, LocalDateTime from,
+                                   com.myplus.commerce.contracts.dto.StockReservationRequest.HoldKind kind) {
+        int minutes = (kind == com.myplus.commerce.contracts.dto.StockReservationRequest.HoldKind.ORDER)
+                ? orderHoldMinutes(org)
+                : holdMinutes(org);
         if (minutes == 0) return null;
         return (from == null ? LocalDateTime.now() : from).plusMinutes(minutes);
+    }
+
+    /** How long this tenant keeps a CONFIRMED ORDER's stock promised. */
+    public int orderHoldMinutes(Long org) {
+        int configured = settingsService == null
+                ? InventorySettingsCatalog.DEFAULT_ORDER_HOLD_MINUTES
+                : settingsService.getIntFor(org, InventorySettingsCatalog.ORDER_HOLD_MINUTES,
+                        InventorySettingsCatalog.DEFAULT_ORDER_HOLD_MINUTES);
+        return Math.max(0, configured);
     }
 
     /**

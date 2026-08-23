@@ -49,6 +49,15 @@ describe('INST-2 — a plan ages by its schedule', () => {
   before(() => {
     cy.loginAsOwner()
     setConfig('pos.installment.enabled', 'true')
+
+    // ⚠ ESTABLISH the state this spec needs; do not inherit it. Every sale here omits a serial, so a tenant
+    // left with serialRequired ON refuses all of them. That is not hypothetical — installment-serial.cy.js
+    // turns the setting on and clears it in after(), and when an auth token expired mid-run that hook failed
+    // with the rest of the file and left the switch on. installment-plan.cy.js then dropped to 1/6 for a
+    // reason nothing inside it could explain.
+    //
+    // Cleanup is courtesy; SETUP is correctness.
+    setConfig('pos.installment.serialRequired', 'false')
   })
 
   beforeEach(() => {

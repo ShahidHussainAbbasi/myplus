@@ -22,7 +22,7 @@ import lombok.Data;
  * <h3>This is a record, not an outbox</h3>
  * There are deliberately no {@code status}, {@code attempts} or {@code lastError} fields. An outbox is a queue
  * of things to <b>send</b>, and the customer chose "worklist first, no sending yet" — so those columns would
- * describe nothing today and would lie to INST-3b tomorrow.
+ * describe nothing today and would lie to INST-4 tomorrow.
  *
  * <p>What the shop lacks is not a queue. The Installments screen can already compute who is overdue right now;
  * what it cannot do is remember a phone call, so it makes the shop ring the same customer three times and
@@ -37,7 +37,7 @@ import lombok.Data;
  * falls behind again does not produce a second {@code OVERDUE} row and the shop is not told to ring twice.
  *
  * <p>Its {@code VARCHAR(120)} matches {@code notification_broadcast.dedupe_key} in shape and length on purpose:
- * INST-3b passes this string straight through to {@code NotificationClient.sendEmail(..., dedupeKey)}, where a
+ * INST-4 passes this string straight through to {@code NotificationClient.sendEmail(..., dedupeKey)}, where a
  * UNIQUE constraint of its own already enforces it. A transport plugs in; none of this is redesigned.
  *
  * <h3>⚠ {@code organizationId} is copied from the PLAN</h3>

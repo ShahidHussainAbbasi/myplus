@@ -1,5 +1,11 @@
 -- INST-3a — the chase log behind the collections worklist.
 --
+-- NOTE ON NAMING: the two "INST-3b" references below mean the slice the plan of record calls INST-4 (the SMS
+-- transport). They are left as written ON PURPOSE. This migration has been APPLIED, and editing an applied
+-- migration changes its checksum — harmless here, since FlywayConfig repairs before it migrates, but the rule
+-- that applied migrations are immutable is worth more than a consistent comment. Everywhere else now says
+-- INST-4.
+--
 -- WHY THIS IS A RECORD AND NOT AN OUTBOX
 -- The customer chose "worklist first, no sending yet" (design slices/inst-3a-reminder-scanner.md §1), because
 -- the sale screen collects a name and a PHONE NUMBER and nothing else: `customer.email` exists as a column but

@@ -1188,7 +1188,9 @@ function loadDataTable(){
 						allRows.push([
 							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
 							"<div id=venderName>"+escHtml(obj.name)+"</div>",
-							"<div id=venderCompanyDD>"+escHtml(obj.companyName)+"</div>",
+							// A supplier can represent several brands — show them all. editRecord() reads this cell back
+							// into the multi-select, matching each comma-separated label against the options.
+							"<div id=venderCompanyDD>"+escHtml(obj.companyNames || "")+"</div>",
 							"<div id=venderPhone>"+escHtml(obj.phone)+"</div>","<div id=venderMobile>"+escHtml(obj.mobile)+"</div>",
 							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",
 							"<div id=venderDue>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
@@ -2371,6 +2373,28 @@ function calculateChange() {
     var dueThis = change < 0 ? -change : 0;
     $("#sellDueThis").val(dueThis.toFixed(2));
 
+    /*
+     * DUE TODAY vs ON THE PLAN — a display split, never an arithmetic one.
+     *
+     * `change` above keeps its exact meaning: received − bill, submitted as customer.dueAmount and
+     * negative while owing. That is right, and the comment above it says so. On a financed sale the
+     * customer really does still owe the financed part; the books are not confused.
+     *
+     * The CASHIER was. The till showed "40,000 due" on a 45,000 handset with 5,000 down, so the only
+     * number on screen was the one they must NOT type into Amount Received. Naming the two amounts
+     * separately is the whole fix: 5,000 is what the counter collects now, 40,000 is what the plan will
+     * collect later.
+     */
+    var financedNow = (typeof posFinancedAmount === 'function' ? (posFinancedAmount() || 0) : 0);
+    if (financedNow > 0) {
+        var dueToday = Math.round((dueThis - financedNow) * 100) / 100;
+        $('#sellDueTodayWrap').show();
+        $('#sellDueToday').val(dueToday.toFixed(2));
+        $('#sellOnPlan').val(financedNow.toFixed(2));
+    } else {
+        $('#sellDueTodayWrap').hide();
+    }
+
     // Account preview (existing customer only): previous balance + this sale = new total outstanding.
     refreshAccountDuePreview(dueThis);
 
@@ -3533,6 +3557,12 @@ function loadPosFeatureFlags(){
 		// costs familiarity, never function. Re-laying-out a till mid-sale because a settings call
 		// hiccuped is the surprise worth avoiding, whichever way the default points.
 		window.posKeyboardEnabled = byKey['pos.keyboard.enabled'] === true;
+		// Ask before completing a sale. Fails OPEN (absent => ON) — the opposite of its neighbours, and
+		// deliberately: those fail closed because the risk is an unexpected FEATURE arming itself on a
+		// till, whereas the risk here is a sale completing with no question asked. A config hiccup should
+		// leave the safety net in place, not remove it.
+		window.posConfirmOnComplete = ('pos.sale.confirmOnComplete' in byKey)
+			? byKey['pos.sale.confirmOnComplete'] : true;
 		// P7.2 — registration-form keyboard nav. Fails OPEN (absent => on), the opposite of the POS
 		// flags above, because the risk is opposite: a stray function key on a till can complete a
 		// sale, whereas Enter moving to the next box does nothing Tab could not.

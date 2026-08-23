@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.myplus.common.security.AuthenticatedUser;
+import com.myplus.business_service.entity.Company;
 import com.myplus.business_service.entity.Vender;
 import com.myplus.business_service.service.ICompanyService;
 import com.myplus.business_service.service.IVenderService;
@@ -73,10 +74,7 @@ public class VenderController {
 			List<VenderDTO> dtos=new ArrayList<VenderDTO>(); 
 			objs.forEach(obj ->{
 				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
-				if(!appUtil.isEmptyOrNull(obj.getCompany())) {
-					dto.setCompanyId(obj.getCompany().getId());
-					dto.setCompanyName(obj.getCompany().getName());
-				}
+				fillCompanies(dto, obj);
 				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -133,10 +131,7 @@ public class VenderController {
 			List<VenderDTO> dtos=new ArrayList<VenderDTO>();
 			objs.forEach(obj ->{
 				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
-				if(obj.getCompany() != null) {
-					dto.setCompanyId(obj.getCompany().getId());
-					dto.setCompanyName(obj.getCompany().getName());
-				}
+				fillCompanies(dto, obj);
 				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -185,7 +180,21 @@ public class VenderController {
 			obj.setUserId(user.getUserId());                  // audit
 			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 
-			obj.setCompany(companyService.getReferenceById(dto.getCompanyId()));
+			// The plural field wins; the singular one is still honoured so existing callers keep working.
+			String brandCsv = (dto.getCompanyIds() != null && !dto.getCompanyIds().isBlank())
+					? dto.getCompanyIds()
+					: (dto.getCompanyId() == null ? null : String.valueOf(dto.getCompanyId()));
+
+			// At least one brand, refused in words the operator can act on. The form marks the field required,
+			// and a server that silently accepted an empty set would let a stale page create a supplier that
+			// represents nobody — invisible on every screen that groups by brand.
+			if (brandCsv == null || brandCsv.isBlank()) {
+				return new GenericResponse("FAILED", "Choose at least one company or distributor for this vendor.");
+			}
+			applyCompanies(obj, brandCsv);
+			if (obj.getCompanies().isEmpty()) {
+				return new GenericResponse("FAILED", "None of the selected companies could be found. Reload the page and try again.");
+			}
 			obj = venderService.save(obj);
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED", "Failed to save vender. Please try again.");
@@ -258,5 +267,57 @@ public class VenderController {
 			LOGGER.error(this.getClass().getName()+" > deleteVender "+e.getCause(), e);			
 			return false;//new GenericResponse(messages.getMessage("message.userNotFound", null, request.getLocale()),
 		}
+	}
+
+	// ── brands a supplier represents ──────────────────────────────────────────────────────────────────
+
+	/**
+	 * Fill the DTO's brand fields: ids for the form to round-trip, names for the grid to show.
+	 *
+	 * <p>Both in ONE place because they were previously written out twice, in two loops, and the second copy
+	 * used a different null check than the first. Two copies of a mapping are two chances to disagree.
+	 */
+	private void fillCompanies(VenderDTO dto, Vender obj) {
+		if (obj.getCompanies() == null || obj.getCompanies().isEmpty()) return;
+
+		StringBuilder ids = new StringBuilder(), names = new StringBuilder();
+		for (Company c : obj.getCompanies()) {
+			if (c == null || c.getId() == null) continue;   // @NotFound(IGNORE) can leave a hole
+			if (ids.length() > 0) { ids.append(','); names.append(", "); }
+			ids.append(c.getId());
+			names.append(c.getName() == null ? "" : c.getName());
+		}
+		dto.setCompanyIds(ids.toString());
+		dto.setCompanyNames(names.toString());
+	}
+
+	/**
+	 * Replace this supplier's brands with exactly the set submitted.
+	 *
+	 * <p>REPLACE, not merge: the form shows the current set and the operator edits it, so an unticked brand
+	 * means "no longer represents them". Merging would make removal impossible from the only screen that
+	 * offers it.
+	 *
+	 * <p>Unparseable or unknown ids are skipped rather than failing the save — the ids come from a select the
+	 * server itself populated, so a bad one means a stale page, and losing a supplier's whole record over it
+	 * would be a poor trade. An empty result is refused by the caller.
+	 *
+	 * @param csv comma-separated company ids; see {@code VenderDTO.companyIds} for why it is a string
+	 */
+	private void applyCompanies(Vender obj, String csv) {
+		java.util.Set<Company> chosen = new java.util.LinkedHashSet<>();
+		if (csv != null && !csv.isBlank()) {
+			for (String raw : csv.split(",")) {
+				String id = raw.trim();
+				if (id.isEmpty()) continue;
+				try {
+					chosen.add(companyService.getReferenceById(Long.valueOf(id)));
+				} catch (NumberFormatException ignoredStalePage) {
+					LOGGER.warn("Ignoring unparseable company id '{}' on a vendor save", id);
+				}
+			}
+		}
+		obj.getCompanies().clear();
+		obj.getCompanies().addAll(chosen);
 	}
 }

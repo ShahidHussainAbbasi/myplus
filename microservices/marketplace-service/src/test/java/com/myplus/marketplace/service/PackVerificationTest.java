@@ -21,6 +21,7 @@ import com.myplus.marketplace.entity.OrderItem;
 import com.myplus.marketplace.entity.Shipment;
 import com.myplus.marketplace.repository.OrderRepository;
 import com.myplus.marketplace.repository.ShipmentRepository;
+import com.myplus.marketplace.support.MockWiring;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,12 +54,17 @@ class PackVerificationTest {
     @Mock private NotificationService notificationService;
     @Mock private com.myplus.common.settings.SettingsService settingsService;
     @Mock private DispatchInvoiceService dispatchInvoiceService;
+    /** O7 D1c: dispatch releases the order's stock promise. Added to the service without its tests. */
+    @Mock private OrderStockHoldService orderStockHoldService;
     @InjectMocks private ShipmentService service;
 
     private Order order;
 
     @BeforeEach
     void setUp() {
+        // A new constructor dependency must fail HERE, naming itself — not as an NPE down a dispatch path.
+        MockWiring.assertFullyWired(service);
+
         OrderItem widget = OrderItem.builder().id(1L).productId(10L).productName("Widget")
                 .quantity(5).quantityShipped(0).quantityBackordered(0).build();
         order = Order.builder().id(ORDER_ID).organizationId(ORG)

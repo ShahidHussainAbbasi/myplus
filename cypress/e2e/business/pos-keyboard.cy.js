@@ -197,6 +197,34 @@ describe('POS keyboard entry — ON', () => {
    * wherever the rate is negotiated per line, which is most trade selling. The price the system
    * proposes is a suggestion; the cashier passes through it to accept or change it.
    */
+  /**
+   * ⭐ THE PICKER HANDS OVER BY ITSELF — through the picker's OWN UI, with no focus staged for it.
+   *
+   * The case above proves the Enter HANDLER works, but it focuses the button first and then synthesizes
+   * the keystroke. That skips the very step that broke on a real till: after a selection, bootstrap-select
+   * decides where focus goes, and it does not always choose the button. When it chose the menu anchor
+   * instead, the auto-advance guard — which whitelisted the places focus was expected to be — missed, the
+   * cursor stayed on the picker, and Enter did nothing at all.
+   *
+   * So this one touches nothing but the widget: open it, click the option, and assert the cursor arrives
+   * in Qty on its own. A cashier does not focus a button before pressing Enter, and neither does this.
+   */
+  it('picking through the dropdown lands the cursor in Qty by itself', () => {
+    cy.seedProduct({ name: 'KbdHandover_' + Date.now(), sellingPrice: 30, stock: 8 }).then(({ productId }) => {
+      openSell(true)
+
+      cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
+
+      // Drive the WIDGET, not the hidden <select>: the button opens the menu, the menu item is clicked.
+      cy.get('#sellItemDD').next('.bootstrap-select').find('button').first().click({ force: true })
+      cy.get('#sellItemDD').next('.bootstrap-select').find('.dropdown-menu li a')
+        .contains('KbdHandover_').click({ force: true })
+
+      // No focus staged, no keystroke sent. The advance is the app's job once the item is chosen.
+      cy.focused({ timeout: 10000 }).should('have.id', 'sellItems')
+    })
+  })
+
   it('Enter on Qty goes to Price even though the catalog pre-filled it', () => {
     cy.seedProduct({ name: 'KbdRate_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)

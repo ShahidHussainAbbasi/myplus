@@ -4,6 +4,8 @@ import com.myplus.commerce.contracts.dto.SaleRecordRequest;
 import com.myplus.commerce.contracts.dto.SaleRecordResult;
 import com.myplus.commerce.contracts.dto.SaleReturnLine;
 import com.myplus.commerce.contracts.dto.SaleReturnRequest;
+import com.myplus.commerce.contracts.dto.StockHoldRequest;
+import com.myplus.commerce.contracts.dto.StockHoldResponse;
 
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -82,6 +84,44 @@ public interface TradeClient {
      */
     @PostExchange("/internal/sales/return-lines")
     java.util.List<String> returnLines(@RequestBody SaleReturnRequest request);
+
+    /**
+     * OMS O7 D1c — set stock aside for a CONFIRMED order. Closes §8.1 departure #1.
+     *
+     * <h3>What it fixes</h3>
+     * Until now a confirmed order held nothing, so two orders confirmed for the last carton both confirmed and
+     * the second failed at dispatch — the worst possible moment, because the rep has gone and the shopkeeper
+     * has been told. A confirmed order is a promise; this is what backs it.
+     *
+     * <h3>An ORDER hold, not a checkout hold</h3>
+     * The receiver takes the hold with {@code HoldKind.ORDER}, which carries a different deadline — days
+     * rather than the till's thirty minutes. That distinction is the whole slice: under the checkout TTL a
+     * hold taken this afternoon is swept before tomorrow's van, silently and exactly as designed, and the
+     * feature would look implemented while doing nothing on any order that waited.
+     *
+     * <h3>Idempotent on the ORDER's key</h3>
+     * Confirming twice, or retrying after a timeout, addresses the same hold rather than sterilising the stock
+     * a second time.
+     *
+     * @return whether the stock is genuinely set aside — <b>a false answer does not refuse the order</b>;
+     *         see {@link StockHoldResponse#isHeld()}
+     */
+    @PostExchange("/internal/stock/hold")
+    StockHoldResponse holdStock(@RequestBody StockHoldRequest request);
+
+    /**
+     * OMS O7 D1c — give a held order's stock back.
+     *
+     * <p>Called when the promise ends, whichever way it ends: the order is rejected, cancelled, or dispatched
+     * (at which point the sale takes its own hold and this one must go, or the goods would be held twice).
+     *
+     * <h3>Best effort, and idempotent</h3>
+     * Releasing a hold that is already gone is a no-op, not an error — the expiry sweeper may have got there
+     * first, which is what it is for. A release that throws must never fail a rejection the admin has already
+     * made; the sweeper remains the backstop.
+     */
+    @PostExchange("/internal/stock/hold/release")
+    void releaseHold(@RequestParam("holdKey") String holdKey);
 
     /**
      * OMS O7 D1b — what the sale path WOULD say about this basket. <b>Writes nothing.</b>

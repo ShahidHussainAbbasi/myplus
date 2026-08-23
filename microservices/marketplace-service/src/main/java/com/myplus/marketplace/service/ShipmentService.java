@@ -45,6 +45,7 @@ public class ShipmentService {
     private final com.myplus.common.settings.SettingsService settingsService;
     /** O7 D1 — `ON_DISPATCH`: a field order is invoiced when its goods actually leave, from what left. */
     private final DispatchInvoiceService dispatchInvoiceService;
+    private final OrderStockHoldService orderStockHoldService;   // O7 D1c: the order's stock promise
 
     /**
      * Dispatch a parcel.
@@ -124,6 +125,17 @@ public class ShipmentService {
         // Letting it through would send stock out of the building with no sale, no AR and no tax record behind
         // it — OMS-1, the defect this programme started with. A no-op for POS and storefront orders, which were
         // invoiced when they were placed.
+        // O7 D1c — HAND THE PROMISE OVER, in this order and not the other way round.
+        //
+        // The sale below takes its own hold through the normal sell path. If this order's confirm-time hold
+        // were still standing, the same cartons would be held twice: once for the order, once for the sale —
+        // and the second reserve would refuse against stock the order itself was holding. So the order hold is
+        // released first and the remainder re-held after the quantities move (below).
+        //
+        // The window between the two is milliseconds inside one request. Before D1c that window was the
+        // ENTIRE LIFE of the order, so this is strictly better rather than perfect.
+        orderStockHoldService.release(order, orgId);
+
         String dispatchInvoice = dispatchInvoiceService.invoiceForDispatch(order, requested);
         if (dispatchInvoice != null) {
             order.setInvoiceNo(dispatchInvoice);
@@ -165,6 +177,12 @@ public class ShipmentService {
         Shipment saved = shipmentRepository.save(shipment);
         applyProjection(order);
         Order savedOrder = orderRepository.save(order);
+
+        // O7 D1c — what is STILL owed stays promised. `hold` reads quantity - quantityShipped, which the loop
+        // above has just moved, so a part-delivered order re-holds only its remainder and a fully delivered
+        // one holds nothing. Without this a first parcel would silently un-promise everything left on the
+        // order — the customer is still owed those goods, and another order could take them.
+        orderStockHoldService.hold(savedOrder, orgId);
 
         notificationService.notify(savedOrder, savedOrder.getFulfilmentStatus().name(),
                 "Dispatched " + saved.getShipmentNo()

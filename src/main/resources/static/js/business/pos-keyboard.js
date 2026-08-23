@@ -181,6 +181,50 @@
     }
 
     /** The chain a field belongs to — the line form or the checkout. */
+    /**
+     * WHERE THE PAY METHOD SENDS THE CURSOR.
+     *
+     * The checkout chain walks the form's field ORDER, which is a layout decision and not a workflow one.
+     * On a cash sale that put the cursor in Trade discount — a field most cash sales never touch — while
+     * the field the method actually requires, the amount handed over, sat two stops further on. The
+     * cashier's next keystroke and the chain's next stop disagreed on every single sale.
+     *
+     * So the METHOD chooses. Each entry names the field that method cannot be completed without:
+     *   cash and its equivalents  the amount tendered, because that is what computes the change
+     *   an account sale           the due date, because a balance nobody dated cannot be chased
+     *
+     * ⚠ THE OPTIONAL FIELDS STAY REACHABLE. Trade discount, store credit and insurance are still in
+     * CHECKOUT and still walked: Shift+Enter reverses into them, and Enter from the money field carries
+     * on through whatever else the tenant has switched on. They stop being ON THE CRITICAL PATH; they do
+     * not stop existing. A tenant only sees those fields because they asked for them, and a keyboard that
+     * made them unreachable would be a worse bargain than the one it replaced.
+     *
+     * A method absent from this table falls back to the positional walk — the previous behaviour, which
+     * is the right default for anything nobody has thought about yet.
+     */
+    var AFTER_METHOD = {
+        CASH:          'sellRec',
+        CARD:          'sellRec',
+        WALLET:        'sellRec',
+        BANK_TRANSFER: 'sellRec',
+        SPLIT:         'sellRec',
+        CREDIT:        'dueDateTemp'
+    };
+
+    /**
+     * The field the CURRENT pay method wants next, or null to walk positionally.
+     *
+     * Falls back whenever the named field is not usable — hidden by configuration, or not yet rendered.
+     * A rule that pointed at a field nobody can see would strand the cursor, which is worse than the
+     * ordering it set out to improve.
+     */
+    function afterPayMethod() {
+        var wanted = AFTER_METHOD[String($('#sellPayMethod').val() || '').toUpperCase()];
+        return (wanted && usable(wanted)) ? wanted : null;
+    }
+    /** Exposed so the gate can assert the ROUTING RULE rather than a rendering of it. */
+    global.posAfterPayMethod = afterPayMethod;
+
     function chainFor(id) { return CHAIN.indexOf(id) >= 0 ? CHAIN : CHECKOUT; }
 
     function nextField(from, dir) {
@@ -542,7 +586,11 @@
             e.preventDefault();
             e.stopPropagation();
 
-            var target = walk(CHECKOUT, this.id, e.shiftKey ? -1 : 1);
+            // Forward from the PAY METHOD, the method decides — see AFTER_METHOD. Backwards is left
+            // positional on purpose: Shift+Enter means "the field before this one", and a shortcut that
+            // reversed into somewhere other than where you came from is disorienting.
+            var target = (this.id === 'sellPayMethod' && !e.shiftKey && afterPayMethod())
+                || walk(CHECKOUT, this.id, e.shiftKey ? -1 : 1);
             // Past the last checkout field = complete the sale. Same handler as the button and F2, so
             // the credit-limit checks, the due-date rule and the idempotency key all still apply —
             // this only decides WHEN it is called.
@@ -634,6 +682,9 @@
             var has    = !!$sel.val();
 
             if (isOpen && has) return;               // a value is highlighted/chosen — the picker owns this Enter
+            // Same rule as the search-box path: a row the operator ARROWED onto is a choice, and the
+            // plugin's own opening highlight is not. See the kbdArrowed note below.
+            if (isOpen && $bs.data('kbdArrowed')) return;
             if (isOpen) {
                 e.preventDefault();
                 $bs.removeClass('open');             // close it; the answer is "skip"
@@ -698,6 +749,35 @@
         });
 
         /*
+         * DID THE OPERATOR NAVIGATE THE LIST THEMSELVES?
+         *
+         * The one fact that separates "Enter means take this row" from "Enter means I am done here" on a
+         * list with nothing typed into it. bootstrap-select highlights a row on open, so the highlight
+         * alone proves nothing; an arrow key is the operator moving it.
+         *
+         * Cleared on every open, so intent never leaks from one visit to the next.
+         */
+        $(document).on('keydown', '.bs-searchbox input', function (e) {
+            if (!onSellScreen()) return;                       // the sale screen's rule, not the app's
+            if (e.keyCode !== 38 && e.keyCode !== 40) return;   // ArrowUp / ArrowDown
+            $(e.target).closest('.bootstrap-select').data('kbdArrowed', true);
+        });
+
+        /*
+         * Cleared when the menu OPENS, and the open is always a click on the toggle — including from the
+         * keyboard, because the Enter-opens-the-menu branch above performs a real `oBtn.click()`.
+         *
+         * ⚠ There is deliberately no `shown.bs.select` handler here. I wrote one, then checked: this
+         * build of bootstrap-select fires NO `bs.select` events at all — grep finds none. It would have
+         * been dead code that reads as the primary reset, leaving the real one looking like a fallback
+         * nobody needs, which is how a later edit deletes the line that was doing the work.
+         */
+        $(document).on('click', '.bootstrap-select > button', function () {
+            if (!onSellScreen()) return;
+            $(this).closest('.bootstrap-select').data('kbdArrowed', false);
+        });
+
+        /*
          * THE SECOND ENTER — which never arrives at the button.
          *
          * The handler above opens the menu, and bootstrap-select then moves focus INTO the live-search
@@ -734,6 +814,26 @@
             if ($box.val()) return;
 
             /*
+             * ⚠ AN EMPTY SEARCH BOX IS NOT AN EMPTY ANSWER — the operator may have ARROWED to a row.
+             *
+             * Arrowing down is the mouse-free way to choose and it types nothing, so the empty-box rule
+             * below read it as "nothing here, move on": the keystroke was swallowed, the menu closed and
+             * the cursor advanced WITHOUT SELECTING ANYTHING. The cashier lands on the next field with no
+             * product chosen, which is worse than doing nothing.
+             *
+             * ⚠ AND `.active` CANNOT BE THE TEST. bootstrap-select highlights a row the moment the menu
+             * opens, so "something is highlighted" is true before the operator has touched anything —
+             * handing Enter back then reinstates exactly what this handler was built to stop: on an
+             * untouched list, Enter selecting whoever happened to be highlighted and invoicing the sale
+             * to them.
+             *
+             * The question is INTENT, and only navigation answers it. `kbdArrowed` is set by an arrow key
+             * and cleared every time the menu opens, so it means "the operator moved the highlight
+             * themselves" — and that Enter is a choice.
+             */
+            if ($bs.data('kbdArrowed')) return;
+
+            /*
              * CAPTURE PHASE, and it has to be.
              *
              * bootstrap-select binds its OWN delegated keydown covering `.bs-searchbox input` on
@@ -763,23 +863,74 @@
             focusField(pickerId);           // nothing ahead: stay put, menu closed
         }, true);
 
-        // After an item is picked (typically with the MOUSE — the keyboard path already routes through
-        // the chain) the async loadStock()/quote fills price and stock. Land the cursor in Qty once
-        // that settles: it is the one field a cashier always types.
-        //
-        // Guarded on where focus actually IS when the timer fires. Without that, a cashier who picks
-        // an item and immediately types into Price has the cursor yanked back to Qty a quarter of a
-        // second later, mid-keystroke — a delayed focus steal is worse than no focus help at all.
-        $(document).on('change', '#sellItemDD', function () {
+        /*
+         * CHOOSING IS ANSWERING — every picker hands the cursor on once its value settles.
+         *
+         * This existed for the item picker alone, where the async loadStock()/quote fills price and
+         * stock and the cursor then lands in Qty. The checkout pickers had nothing: choosing a customer
+         * left the cursor parked on the picker's button, so the cashier chose and then had to press
+         * Enter AGAIN to move — and after the arrow-key fix that second press was the only way forward,
+         * which is what a till reported.
+         *
+         * One handler for all of them, with the destination coming from walk() over the picker's own
+         * chain. That is also why "what comes after the pay method" needs no rules here: usable() hides
+         * what the method makes irrelevant, so Cash lands on the amount tendered and an account sale on
+         * the due date, purely because those are the fields on screen.
+         *
+         * The delay is unchanged and still earns its place: the customer picker triggers a credit-standing
+         * read, and moving the cursor before that lands would fight it.
+         */
+        $(document).on('change', PICKERS.map(function (id) { return '#' + id; }).join(','), function () {
             if (!enabled() || !onSellScreen() || blocked()) return;
             if (!$(this).val()) return;
+            var pickerId = this.id;
             global.setTimeout(function () {
                 if (!enabled() || !onSellScreen() || blocked()) return;
+
+                /*
+                 * ASK WHETHER THE CASHIER HAS MOVED ON — do not try to enumerate where the picker leaves
+                 * the cursor.
+                 *
+                 * This used to whitelist the places focus was EXPECTED to be after a selection: the
+                 * button, the hidden <select>, or nowhere. bootstrap-select does not guarantee any of
+                 * them — depending on browser and on whether the pick came from the mouse, the live
+                 * search or a menu key, focus can land on the menu anchor or stay in the search input.
+                 * When it did, the whitelist missed, the advance was skipped, and the cashier was left
+                 * on the picker with Enter doing nothing. Reported from a real till; invisible to the
+                 * test, which focused the button itself before pressing Enter and so never took the
+                 * path a person takes.
+                 *
+                 * The guard's PURPOSE was never "is focus at the picker" — it was "has the cashier
+                 * already chosen where to type?", so a delayed jump cannot yank the cursor out of Price
+                 * mid-keystroke. That question is answered by asking whether focus is in a typing field
+                 * OUTSIDE the picker, which is a closed set and does not depend on plugin internals.
+                 */
                 var a = document.activeElement;
-                var stillAtPicker = !a || a === document.body
-                    || a.id === 'sellItemDD'
-                    || $(a).closest('.bootstrap-select').prev('select').attr('id') === 'sellItemDD';
-                if (stillAtPicker && usable('sellItems')) focusField('sellItems');
+                var list = chainFor(pickerId);
+                var here = list.indexOf(pickerId);
+                var at = (a && a.id) ? list.indexOf(a.id) : -1;
+
+                /*
+                 * ONLY a LATER FIELD OF THIS LINE counts as "the cashier has moved on".
+                 *
+                 * The concern this guard exists for is precise and narrow: someone picks an item and
+                 * immediately starts typing a PRICE, and a quarter of a second later the cursor is yanked
+                 * back to Qty mid-keystroke. That is Price and Discount — fields further down this very
+                 * chain. Nothing else.
+                 *
+                 * Anywhere else is not a decision. The barcode box in particular is where this screen
+                 * PARKS the cursor between lines, so treating it as "chosen" — which the previous version
+                 * did, by testing for any <input> outside the picker — stood the advance down on the one
+                 * screen state that is most common. That is the bug a till reported.
+                 */
+                if (at > here) return;
+
+                var next = (pickerId === 'sellPayMethod' && afterPayMethod())
+                    || walk(list, pickerId, 1);
+                if (next) focusField(next);
+                // Deliberately NOT committing the line or completing the sale when there is nothing
+                // ahead. Choosing a value is not the same as saying "and that is the last thing I want
+                // to do" — F2 finishes a sale, and a dropdown selection must never stand in for it.
             }, 250);
         });
     });

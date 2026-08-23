@@ -576,7 +576,40 @@ $(document).ready(function() {
 						// SF-3: one idempotency key per checkout attempt — a double-click / retry reuses it so the
 						// server records ONE invoice. Reset only after a successful sale (see jsonPost).
 						customerHistory.idempotencyKey = getSaleIdempotencyKey();
-						jsonPost("addSell", customerHistory);
+
+						/*
+						 * CONFIRM HERE — after validation, immediately before the post.
+						 *
+						 * Deliberately not on the button's click: asking "complete this sale?" and THEN
+						 * refusing it for an empty cart makes the cashier answer for a sale that was never
+						 * going to happen. By this line the sale is valid and the only question left is
+						 * whether they meant it.
+						 *
+						 * THREE ANSWERS, because there really are three. "Park" is not a kind of cancel —
+						 * it keeps a part-rung sale that Cancel would throw away, and it is the answer a
+						 * cashier needs when the customer says "hold on, I left my wallet in the car".
+						 * Offering only yes/no loses that basket.
+						 *
+						 * Enter still completes: the dialog's default action is the sale, so a keyboard-first
+						 * till pays one extra keystroke for the safety net. Off by tenant setting for a
+						 * counter that would rather not pay it.
+						 */
+						if (window.posConfirmOnComplete === true && typeof uiConfirm === 'function') {
+							uiConfirm({
+								title: t ? t('ui.js.completeSaleTitle') : 'Complete this sale?',
+								message: (t ? t('ui.js.completeSaleAmount') : 'Total') + ' ' +
+									($('#sellTotal').text() || '').trim(),
+								confirmText: t ? t('ui.completeSale') : 'Complete Sale',
+								altText: t ? t('ui.park') : 'Park',
+								cancelText: t ? t('ui.cancel2') : 'Cancel'
+							}).then(function (answer) {
+								if (answer === true) { jsonPost("addSell", customerHistory); return; }
+								if (answer === 'alt' && typeof parkCurrentSale === 'function') parkCurrentSale();
+								// Cancelled: the cart is left exactly as it was, ready to complete or amend.
+							});
+						} else {
+							jsonPost("addSell", customerHistory);
+						}
 					}
 			    }else{
 					    	document.getElementById("sellRec").style.setProperty('border-color', 'red', 'important');
@@ -1131,7 +1164,15 @@ function editRecord(doc){
 			var text = element.textContent;
 			if(form[i].tagName=="SELECT") {
 				var labels = text.split(",");
+				// ⚠ CLEAR ONCE, BEFORE the loop — not inside it.
+				//
+				// This code always split the cell on commas and looped the labels, so it LOOKED
+				// multi-select aware. It was not: the per-option branch below set selected=false on every
+				// non-match, so each label deselected everything the previous label had just selected and
+				// only the LAST one survived. Invisible while every select here was single-valued.
+				$("#"+form[i].id+" option").prop('selected', false);
 				labels.forEach(function(entry) {
+					var label = $.trim(entry);
 					$("#"+form[i].id+" option").each(function() {
 						// Match on the option VALUE first, then fall back to its text.
 						//
@@ -1141,11 +1182,10 @@ function editRecord(doc){
 						// "Walk-in (retail)" — could never match by text, so editing silently reset it to
 						// the first option. Checking the value first fixes that without changing what the
 						// text-matched selects do.
-						if($(this).val() === text || text === (($(this).text()).split(" ~ ")[0])) {
-							text = $(this).text();//update text if it is with siplitter
+						// Match this LABEL, not the whole cell: with several brands in one cell the cell
+						// text is "Nokia, Samsung" and matches no single option.
+						if($(this).val() === label || label === (($(this).text()).split(" ~ ")[0])) {
 							$(this).prop('selected', true);
-						}else{
-							$(this).prop('selected', false);
 						}
 					});
 				});
@@ -1155,7 +1195,12 @@ function editRecord(doc){
 			}
 			// Handled bootstrap drop down
 			if(form[i].className.indexOf("selectpicker")>-1) {
-				$( "#"+form[i].id+" :selected" ).text(text);
+				// The text rewrite is for the single "Label ~ extra" selects only. On a MULTIPLE select it
+				// would stamp the whole cell ("Nokia, Samsung") onto every selected option, renaming real
+				// options in the list. Guarded rather than removed — the single selects still rely on it.
+				if(!form[i].multiple) {
+					$( "#"+form[i].id+" :selected" ).text(text);
+				}
 				$("#"+form[i].id).selectpicker('refresh');
 			}
 		}

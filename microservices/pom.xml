@@ -176,6 +176,15 @@
                    line, and a new one could forget it. Surefire-only, so running services are
                    unaffected. Nothing under test exercises OpenTelemetry. -->
               <otel.sdk.disabled>true</otel.sdk.disabled>
+              <!-- Scheduled relays (GL outbox, saga recovery, audit, reminders) otherwise fire against the
+                   Testcontainers database - every one at least once, because a fixedDelay with no
+                   initialDelay runs immediately at startup, so raising the delay properties would not stop
+                   them. Two costs: an in-flight relay blocks on Hikari's 30s connectionTimeout when the
+                   container stops and holds shutdown (the "Surefire is going to kill self fork JVM" wait
+                   after every container class), and background threads write to the DB while tests assert on
+                   it. Honoured by each service's SchedulingConfig; a service still carrying @EnableScheduling
+                   on its application class ignores this. -->
+              <app.scheduling.enabled>false</app.scheduling.enabled>
             </systemPropertyVariables>
           </configuration>
         </plugin>

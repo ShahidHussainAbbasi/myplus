@@ -1,0 +1,25 @@
+-- Let the superseded `vender.company_id` hold NULL, so new suppliers can be inserted at all.
+--
+-- WHAT V47 GOT WRONG
+-- V47 moved the supplier→brand link to `vender_company` and stopped writing `vender.company_id`, keeping the
+-- column because standard D5 forbids dropping on inference. It kept the column but left it NOT NULL with no
+-- default, so the very next INSERT failed:
+--
+--     Field 'company_id' doesn't have a default value
+--
+-- Every attempt to create a supplier died on it. Keeping a column for safety only works if rows can still be
+-- written; a frozen column has to be optional or it is not frozen, it is mandatory and unfilled.
+--
+-- WHY A NEW SCRIPT RATHER THAN AN EDIT TO V47
+-- V47 has already been applied. Editing it changes its checksum — absorbed here, because FlywayConfig repairs
+-- before it migrates, but then what is recorded in the schema history is not what actually ran anywhere else.
+-- Applied migrations are immutable; corrections move forward.
+--
+-- WHAT HAPPENS TO THE DATA
+-- Nothing is cleared. Existing rows keep the single brand they were created with, and V47 already copied every
+-- one of them into `vender_company`, which is authoritative from now on. New rows simply leave this NULL.
+-- The column is frozen history: read it for the past, never for the present.
+--
+-- The drop is still deliberate future work and still needs a production count first (D5).
+
+ALTER TABLE vender MODIFY COLUMN company_id BIGINT NULL;

@@ -50,6 +50,15 @@ describe('INST-1 — selling on installment', () => {
     // suite; the final case turns it off again and asserts the refusal, which doubles as the cleanup.
     cy.loginAsOwner()
     setConfig('pos.installment.enabled', 'true')
+
+    // ⚠ ESTABLISH the state this spec needs; do not inherit it. Every sale below omits a serial, so a
+    // tenant left with serialRequired ON refuses all of them — and that is not hypothetical: it happened.
+    // installment-serial.cy.js turns the setting on and clears it in after(), but an after() hook is not a
+    // guarantee. When the auth token expired mid-run, that hook failed with the rest of the file and the
+    // setting stayed on, so this spec went from 6/6 to 1/6 for a reason nothing in it could explain.
+    //
+    // Cleanup is courtesy; SETUP is correctness. A spec that depends on a switch should set it.
+    setConfig('pos.installment.serialRequired', 'false')
   })
 
   beforeEach(() => {

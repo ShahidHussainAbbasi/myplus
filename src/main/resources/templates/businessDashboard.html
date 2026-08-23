@@ -1025,8 +1025,26 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4">
 							<!-- <select	class="form-control" id="venderCompanyDD" name="companyId" required="required">
 							</select> -->
-							<select required="required"
-								class="form-control onChangeSelect selectpicker" id="venderCompanyDD" name="companyId" data-live-search="true">
+							<!--
+								MULTI-SELECT: one supplier can represent several brands. "Shahzad Mobile Shop"
+								is the Nokia distributor AND the Samsung one; registering them twice split
+								their payables across two rows and made the statement understate what is owed.
+
+								name="companyIds" (plural), NOT companyId: populateFormData() joins a
+								multi-select's selected values with commas into ONE parameter, which is what
+								survives the monolith proxy — that proxy keeps only v[0] of any repeated
+								parameter, so companyIds=1&companyIds=2 would arrive as just 1.
+
+								data-actions-box gives Select All / Deselect All — a distributor carrying a
+								dozen brands should not tick twelve boxes. selected-text-format collapses the
+								button to "3 selected" past two, so the field stays one line wide instead of
+								pushing the form around as brands are added.
+							-->
+							<select required="required" multiple
+								class="form-control onChangeSelect selectpicker" id="venderCompanyDD" name="companyIds"
+								data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2"
+								data-count-selected-text="{0} companies selected"
+								title="Choose one or more">
 							</select>
 
 						</div>
@@ -2019,6 +2037,28 @@ tr.row-voided .js-edit-row{display:none !important}
 							<div class="col-xs-12 col-sm-3 col-md-2" id="sellPaidSoFarWrap" style="display:none">
 								<span class="field-label" th:text="#{ui.alreadyPaid}">Already paid</span>
 								<input type="number" step="any" class="form-control" id="sellPaidSoFar" readonly="readonly" title="Paid on this invoice so far" th:title="#{ui.paidOnThisInvoiceSoFar}">
+							</div>
+							<!--
+								A FINANCED SALE COLLECTS TWICE, AND THE TILL HAS TO SAY SO.
+								On a 45,000 handset with 5,000 down, the cashier used to see one figure — "40,000
+								due" — which is precisely the number they must NOT type into Amount Received.
+								Naming the two amounts separately is the fix: what the counter takes now, and what
+								the plan takes later. Hidden entirely unless a plan is attached, so an ordinary
+								sale is unchanged. Read-only: both are derived, never typed.
+							-->
+							<div class="col-xs-12 col-sm-6 col-md-4" id="sellDueTodayWrap" style="display:none">
+								<div class="row">
+									<div class="col-xs-6">
+										<span class="field-label" th:text="#{ui.js.dueToday}">Due today</span>
+										<input type="number" class="form-control" id="sellDueToday" readonly="readonly"
+											style="font-weight:700;background:#eef6ef;border-color:#bcdcc4"/>
+									</div>
+									<div class="col-xs-6">
+										<span class="field-label" th:text="#{ui.js.onPlan}">On plan</span>
+										<input type="number" class="form-control" id="sellOnPlan" readonly="readonly"
+											style="background:#f4f6fa"/>
+									</div>
+								</div>
 							</div>
 							<div class="col-xs-12 col-sm-3 col-md-2" id="sellRecWrap">
 								<span class="field-label" id="sellRecLabel" th:text="#{ui.amountReceived2}">Amount Received</span>

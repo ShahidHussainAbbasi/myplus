@@ -9,6 +9,7 @@ import com.myplus.commerce.contracts.dto.StockReturnRequest;
 import com.myplus.commerce.contracts.dto.StockReturnResponse;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.annotation.PostExchange;
@@ -33,6 +34,16 @@ public interface InventoryClient {
     /** Saga step 3 — confirm a held reservation: stock is decremented. Idempotent on reservationId. */
     @PostExchange("/reservations/{reservationId}/confirm")
     StockReservationResponse confirm(@PathVariable String reservationId);
+
+    /**
+     * O7 D1c — release a hold by the CALLER'S key (e.g. an order's {@code SO-42-HOLD}).
+     *
+     * <p>An order has its own key and nowhere sensible to keep inventory's reservation id; storing ours on
+     * their table would strand stock whenever that write failed. Silent when nothing matches — the expiry
+     * sweeper may have collected it, and either way the stock is free.
+     */
+    @PostExchange("/reservations/release-by-key")
+    StockReservationResponse releaseByKey(@RequestParam("key") String key);
 
     /** Compensation — release a held reservation (sale failed/abandoned): held stock returns. Idempotent. */
     @PostExchange("/reservations/{reservationId}/release")

@@ -171,6 +171,31 @@ public class AppUtil {
     	}
     	return null;
     }
+
+    /** Strict sibling of {@link #toLocalDateOrNull}: same two accepted formats, but a value that parses as
+     *  NEITHER is rejected instead of quietly becoming null.
+     *
+     *  <p>Which one to use is a question about the field, not a style choice. {@code toLocalDateOrNull} is
+     *  right where a bad date must not fail a larger operation (a batch expiry on the M3c.4b purchase path).
+     *  This one is right where the value is the point — a customer's drug-licence expiry is printed on the
+     *  invoice as evidence the buyer may be supplied, so silently storing nothing is worse than refusing the
+     *  save: the operator typed something and would never learn it was dropped.
+     *
+     *  @throws IllegalArgumentException naming both accepted formats, which Spring's data binder turns into a
+     *          field error the form can show
+     */
+    public LocalDate toLocalDateStrict(String dateStr) {
+    	// Deliberately NOT isEmptyOrNull: that overload takes Object and tests null ONLY, so "" and "   " sail
+    	// past it. toLocalDateOrNull survives that by accident (a blank fails both parsers and returns null
+    	// anyway); this method throws, so relying on it here would reject every save with an untouched licence
+    	// field — the B2B-P3g outage, reintroduced.
+    	if (dateStr == null || dateStr.trim().isEmpty()) return null;
+    	for (DateTimeFormatter fmt : new DateTimeFormatter[]{ dateformatter, dateformatterForDB }) {
+    		try { return LocalDate.parse(dateStr.trim(), fmt); } catch (java.time.format.DateTimeParseException ignore) { }
+    	}
+    	throw new IllegalArgumentException(
+    			"'" + dateStr + "' is not a date. Use dd-MM-yyyy (for example 31-08-2030).");
+    }
    	//Get current Month
     public LocalDate getLocalDateByMonthYear(String monthYearStr) throws ParseException {
     	if(StringUtils.isEmpty(monthYearStr))

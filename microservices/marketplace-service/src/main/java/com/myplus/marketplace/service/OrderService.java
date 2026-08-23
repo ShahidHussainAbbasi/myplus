@@ -48,6 +48,7 @@ public class OrderService {
     private final PaymentGateway paymentGateway;
     private final InventoryClient inventoryClient;   // O1: only the legacy (pre-invoice) cancel path still uses this
     private final com.myplus.commerce.contracts.client.TradeClient tradeClient;   // O1: the single revenue path
+    private final OrderStockHoldService orderStockHoldService;   // O7 D1c: the confirmed order's stock promise
     private final NotificationService notificationService;
     private final com.myplus.marketplace.repository.OrderEventRepository orderEventRepository;
     private final com.myplus.marketplace.repository.StorefrontCustomerRepository customerRepo;
@@ -313,8 +314,16 @@ public class OrderService {
         o.setFulfilmentStatus(FulfilmentStatus.NEW);
         o.setRejectionReason(null);          // a confirmed order carries no standing refusal
         Order saved = repo.save(o);
+
+        // O7 D1c — the promise is now backed by stock. Advisory: a refusal is reported, not enforced, because
+        // the admin is the person entitled to decide whether to promise goods the shop has not got.
+        String couldNotHold = orderStockHoldService.hold(saved, orgId);
+
         notificationService.notify(saved, FulfilmentStatus.NEW.name(), "Order confirmed — ready to pack");
-        return toDTOWithLines(saved);
+        OrderDTO out = toDTOWithLines(saved);
+        if (couldNotHold != null)
+            out.setPolicyWarnings(List.of("Confirmed, but the stock could not be set aside: " + couldNotHold));
+        return out;
     }
 
     /**
@@ -333,6 +342,17 @@ public class OrderService {
         o.setFulfilmentStatus(FulfilmentStatus.REJECTED);
         o.setRejectionReason(reason.trim());
         Order saved = repo.save(o);
+        /*
+         * O7 D1c — deliberately NO stock release here, and the reason is worth stating.
+         *
+         * `requirePending` allows a rejection only from PENDING_APPROVAL, and stock is held at CONFIRM. So an
+         * order reachable by this method has never had a hold, and there is nothing to give back. A release
+         * call here would be a remote round trip that always finds nothing.
+         *
+         * The gate proved this rather than the reading: a case written as "reject a confirmed order and the
+         * stock comes back" was answered "Only an order awaiting review can be rejected. This one is NEW."
+         * Cancel is the way a confirmed order is undone, and that is where the release lives.
+         */
         notificationService.notify(saved, FulfilmentStatus.REJECTED.name(), "Rejected: " + reason.trim());
         return toDTOWithLines(saved);
     }
@@ -1231,6 +1251,10 @@ public class OrderService {
         if (nowCancelling && hasSomethingToReverse && !o.getItems().isEmpty()) {
             returnStockQuietly(o);
         }
+        // O7 D1c — separate from the reversal above, and deliberately NOT behind the same guard. That one asks
+        // "was anything SOLD to undo"; this asks "is anything still PROMISED". A confirmed order that was
+        // never dispatched has a hold and no invoice, so it fails that test while still holding stock.
+        if (nowCancelling) orderStockHoldService.release(o, orgId);
 
         o.setFulfilmentStatus(s);
         Order saved = repo.save(o);

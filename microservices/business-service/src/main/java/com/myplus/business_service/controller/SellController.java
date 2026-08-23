@@ -1424,6 +1424,28 @@ public class SellController {
 			String invalid = terms.validate();
 			if (invalid != null) return "Installment plan NOT created: " + invalid;
 
+			/*
+			 * THE DEPOSIT MUST HAVE BEEN COLLECTED — the invariant, checked where it cannot be bypassed.
+			 *
+			 * The schedule finances (price − down payment); the invoice records what was actually paid.
+			 * Those two are the same money, and until now nothing compared them: a down payment typed
+			 * with no cash taken left 5,000 that no instalment covers and no reminder chases, and cash
+			 * taken with no down payment entered scheduled 5,000 the customer had already handed over.
+			 *
+			 * The sale screen now mirrors one field into the other, but a browser is not a control. This
+			 * refuses the plan when the money did not arrive, and the SALE STILL STANDS — the existing
+			 * contract for a plan that cannot be created — so the shop has a paid invoice to reconcile
+			 * rather than a silent mismatch nobody can see.
+			 */
+			java.math.BigDecimal down = p.getDownPayment() == null
+					? java.math.BigDecimal.ZERO : p.getDownPayment();
+			java.math.BigDecimal collected = inv == null || inv.getPaidAmount() == null
+					? java.math.BigDecimal.ZERO : inv.getPaidAmount();
+			if (down.compareTo(collected) > 0) {
+				return "Installment plan NOT created: the down payment is " + down.toPlainString()
+						+ " but only " + collected.toPlainString() + " was received. Take the deposit first.";
+			}
+
 			// Retried on a lost plan-number race, exactly as the invoice is. create() is REQUIRES_NEW, so
 			// each attempt gets a fresh transaction — retrying inside the poisoned one is what made this
 			// path report "the SALE stands" while the caller's transaction was already rollback-only.

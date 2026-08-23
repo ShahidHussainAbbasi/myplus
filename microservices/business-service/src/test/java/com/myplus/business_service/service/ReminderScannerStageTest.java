@@ -87,7 +87,7 @@ class ReminderScannerStageTest {
         assertEquals(overdue, InstallmentReminder.keyFor("PLN-0007", 3, InstallmentReminder.STAGE_OVERDUE));
 
         // And it fits the column it has to survive in — 120 chars, matching notification_broadcast.dedupe_key
-        // so INST-3b can pass it straight through.
+        // so INST-4 can pass it straight through.
         org.junit.jupiter.api.Assertions.assertTrue(overdue.length() <= 120);
     }
 }

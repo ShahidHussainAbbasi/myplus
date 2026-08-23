@@ -10,6 +10,8 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
@@ -60,10 +62,32 @@ public class Vender implements Serializable {
 
 	private String name;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@NotFound(action=NotFoundAction.IGNORE)
-	@JoinColumn(name = "company_id")
-	private Company company;
+	/**
+	 * The brands this supplier represents — Nokia AND Samsung, not one or the other.
+	 *
+	 * <h3>Why this replaced a single {@code @ManyToOne}</h3>
+	 * A supplier could previously be registered against one company, so a shop dealing with the same business
+	 * for two brands had to create the supplier twice. That splits their payables across two rows and makes
+	 * the statement understate what is owed to one business.
+	 *
+	 * <p>Widening it was cheap because the link is <b>descriptive</b>: nothing filters, reports, ages or posts
+	 * by a vendor's company. {@code findByCompanyId} exists and is called by nothing, and {@code Purchase} has
+	 * no company mapping at all.
+	 *
+	 * <h3>EAGER, deliberately</h3>
+	 * Both readers — the vendor grid and the vendor form — need the names every time, and the grid loads all
+	 * vendors at once. Lazy would issue one query per row on a 94-row grid, which is the N+1 this codebase has
+	 * already paid for twice. The set is two or three rows per supplier.
+	 *
+	 * <p>⚠ {@code vender.company_id} still exists in the database and still holds its old value. It is no
+	 * longer written or read: this collection is authoritative. Standard D5 forbids dropping a column on
+	 * inference, and production cannot be counted from here.
+	 */
+	@ManyToMany(fetch = FetchType.EAGER)
+	@JoinTable(name = "vender_company",
+	           joinColumns = @JoinColumn(name = "vender_id"),
+	           inverseJoinColumns = @JoinColumn(name = "company_id"))
+	private java.util.Set<Company> companies = new java.util.LinkedHashSet<>();
 
 	
 	@Column(name = "mobile")

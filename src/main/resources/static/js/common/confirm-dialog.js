@@ -52,6 +52,7 @@
             '.uiC-input:focus{border-color:#1565C0;box-shadow:0 0 0 3px rgba(21,101,192,.18)}' +
             '.uiC-err{margin:6px 0 0;font-size:12.5px;color:#DC2626;min-height:1px}' +
             '.uiC-foot{display:flex;gap:10px;justify-content:flex-end;padding:20px 22px 22px}' +
+            '.uiC-alt{background:#0f766e;color:#fff;border-color:#0f766e}' +
             '.uiC-btn{padding:9px 18px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;' +
             'border:1px solid transparent;font-family:inherit;transition:filter .12s,box-shadow .12s}' +
             '.uiC-btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(21,101,192,.35)}' +
@@ -145,6 +146,23 @@
             cancelBtn.textContent = opts.cancelText || 'Cancel';
             foot.appendChild(cancelBtn);
         }
+        /*
+         * OPTIONAL THIRD ANSWER — for decisions that are genuinely three-way.
+         *
+         * Completing a sale is the case that forced it: "yes", "no" and "not yet, hold it" are three
+         * different intentions, and folding the third into Cancel loses a part-rung sale the cashier
+         * meant to keep. Absent unless a caller asks for it, so every existing dialog is unchanged.
+         */
+        var altBtn = null;
+        if (!alertOnly && opts.altText) {
+            altBtn = document.createElement('button');
+            altBtn.type = 'button';
+            altBtn.className = 'uiC-btn uiC-alt';
+            altBtn.textContent = opts.altText;
+            altBtn.setAttribute('data-ui-confirm', 'alt');   // stable hook for tests
+            foot.appendChild(altBtn);
+        }
+
         var okBtn = document.createElement('button');
         okBtn.type = 'button';
         okBtn.className = 'uiC-btn uiC-ok';
@@ -176,6 +194,10 @@
 
             function cancel() { close(hasInput ? null : false); }
 
+            /** The third answer resolves 'alt' — distinct from true and false, so a caller cannot
+             *  mistake "park it" for either "complete it" or "forget it". */
+            function alternate() { close('alt'); }
+
             function accept() {
                 if (hasInput) {
                     var v = input.value.trim();
@@ -196,7 +218,7 @@
                     e.preventDefault(); accept(); return;
                 }
                 if (e.key === 'Tab') {                      // keep focus inside the dialog
-                    var f = [cancelBtn, input, okBtn].filter(Boolean);
+                    var f = [cancelBtn, input, altBtn, okBtn].filter(Boolean);
                     var i = f.indexOf(document.activeElement);
                     var next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
                     e.preventDefault();
@@ -206,6 +228,7 @@
 
             okBtn.addEventListener('click', accept);
             if (cancelBtn) cancelBtn.addEventListener('click', cancel);
+            if (altBtn) altBtn.addEventListener('click', alternate);
             backdrop.addEventListener('mousedown', function (e) { if (e.target === backdrop) cancel(); });
             document.addEventListener('keydown', onKey, true);
 

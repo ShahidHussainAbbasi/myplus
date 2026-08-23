@@ -69,6 +69,13 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                 // UI/UX P2. Fails CLOSED for the same reason as pos.keyboard.enabled: a config-read
                 // hiccup must never arm function keys on a till nobody has trained for them, nor make
                 // a '*' in a barcode suddenly mean "multiply".
+                SettingEntry.bool("pos.sale.confirmOnComplete",
+                        "Ask before completing a sale",
+                        "On (default): Complete Sale asks first, and offers to PARK the sale instead — for "
+                                + "the customer who has left their wallet in the car. Off: the sale completes "
+                                + "on the first press, which a busy counter may prefer. Enter answers the "
+                                + "question, so keyboard entry costs one extra keystroke either way.",
+                        true, "Sale entry"),
                 SettingEntry.bool("pos.keyboard.shortcuts.enabled",
                         "Keyboard shortcuts and quantity scanning",
                         "Off (default): no shortcut keys, and a scanned code is taken literally. "

@@ -45,12 +45,24 @@ public class CustomerController {
 	 * tenant, whether or not they use licences. Made explicit here rather than trusted to framework
 	 * defaults, because the failure mode is a total outage of a core screen and the cause would read as
 	 * "customer save is broken" with nothing pointing at a field nobody filled in.
+	 *
+	 * <p><b>And the other half of the same field.</b> Blank was fixed; FILLED IN was not. {@code #customerLicenseExpiry}
+	 * carries {@code class="datePicker"}, and that picker's wire format is {@code dd-MM-yyyy} — a documented
+	 * contract, not an implementation detail (see {@code /js/common/date-picker.js}). The bare
+	 * {@code LocalDate.parse} here is strict ISO, so every customer whose licence expiry was actually entered
+	 * failed to save with {@code Text '31-08-2030' could not be parsed at index 0}. The two halves of an
+	 * optional field are one behaviour: blank means absent, and anything the picker can emit must bind.
+	 *
+	 * <p>Delegated to {@link AppUtil#toLocalDateStrict} so the accepted formats have ONE definition shared with
+	 * the rest of business-service, rather than a second list drifting from the first. Strict, not lenient: an
+	 * unparseable licence expiry is refused rather than stored as null, because it is printed on the invoice as
+	 * evidence the buyer may be supplied and an operator would never learn it had been dropped.
 	 */
 	@org.springframework.web.bind.annotation.InitBinder
 	public void initBinder(org.springframework.web.bind.WebDataBinder binder) {
 		binder.registerCustomEditor(java.time.LocalDate.class, new java.beans.PropertyEditorSupport() {
 			@Override public void setAsText(String text) {
-				setValue((text == null || text.isBlank()) ? null : java.time.LocalDate.parse(text.trim()));
+				setValue(appUtil.toLocalDateStrict(text));
 			}
 		});
 	}

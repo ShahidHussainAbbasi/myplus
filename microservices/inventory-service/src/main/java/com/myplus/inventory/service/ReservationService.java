@@ -40,6 +40,28 @@ public class ReservationService {
     private static float nz(Float f) { return f == null ? 0f : f; }
     private static final float EPS = 0.0001f;
 
+    /**
+     * O7 D1c — release a hold addressed by the CALLER'S OWN KEY rather than our reservation id.
+     *
+     * <p>An order hold is identified by the order ({@code SO-42-HOLD}), which is the only handle the caller
+     * has when it later rejects, cancels or dispatches. The alternative — returning our reservation id and
+     * expecting the caller to store it — would put a column on their table to hold a foreign key into ours,
+     * and leave the stock stranded whenever that write failed.
+     *
+     * <p><b>Silent when there is nothing to release.</b> The hold may already have gone to the expiry sweeper,
+     * which is what the sweeper is for; a caller compensating a failure should not have to tell "already
+     * gone" from "never existed", because both mean the stock is free.
+     *
+     * <p>Scoped by tenant: the key arrives over the wire, so another tenant's hold is simply not found.
+     */
+    @Transactional
+    public StockReservationResponse releaseByKey(String idempotencyKey, Long orgId, Long userId) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) return null;
+        return reservationRepository.findByIdempotencyKeyScoped(idempotencyKey, orgId, userId)
+                .map(r -> release(r.getReservationId(), orgId, userId))
+                .orElse(null);
+    }
+
     /** Trim a whole-number quantity to "7" instead of "7.0" for user-facing messages. */
     private static String fmtQty(float q) {
         return (q == Math.rint(q)) ? String.valueOf((long) q) : String.valueOf(q);
@@ -47,10 +69,29 @@ public class ReservationService {
 
     @Transactional
     public StockReservationResponse reserve(StockReservationRequest req, Long orgId, Long userId) {
-        // Idempotency: a retried reserve with the same key returns the existing hold, never double-holds.
+        /*
+         * Idempotency: a retried reserve with the same key returns the existing hold, never double-holds.
+         *
+         * A RELEASED hold is deliberately NOT returned, and that is a correctness fix, not a nicety. A
+         * released hold is spent — it holds no stock — so handing it back to a caller asking to reserve would
+         * answer "here is your hold" while nothing at all was set aside.
+         *
+         * O7 D1c is what surfaced it. A part-dispatched order releases its hold so the sale can take its own,
+         * then re-holds the remainder under the SAME order key; under the old rule that re-hold silently
+         * returned the dead row and the outstanding goods were left unprotected. RESERVED and CONFIRMED are
+         * still returned as before: one is live, the other is a completed sale whose replay must not
+         * double-count.
+         */
+        Reservation revive = null;
         if (req.getIdempotencyKey() != null) {
             var existing = reservationRepository.findByIdempotencyKeyScoped(req.getIdempotencyKey(), orgId, userId);
-            if (existing.isPresent()) return toResponse(existing.get());
+            if (existing.isPresent()) {
+                if (existing.get().getStatus() != ReservationStatus.RELEASED) return toResponse(existing.get());
+                // RE-ARM, not insert: `uq_resv_org_idem (organization_id, idempotency_key)` allows exactly one
+                // row per key, so a second hold under the same key would violate it. The row IS the order's
+                // hold, and it lives through reserve -> release -> reserve again.
+                revive = existing.get();
+            }
         }
 
         final LocalDate today = LocalDate.now();   // G1: FEFO excludes batches expired before today
@@ -71,7 +112,19 @@ public class ReservationService {
         }
 
         // Pass 2 — allocate FEFO and record the holds.
-        Reservation resv = Reservation.builder()
+        final LocalDateTime deadline = reservationPolicy.expiryFor(orgId, LocalDateTime.now(),
+                req.getHoldKind() == null
+                        ? com.myplus.commerce.contracts.dto.StockReservationRequest.HoldKind.CHECKOUT
+                        : req.getHoldKind());
+        Reservation resv;
+        if (revive != null) {
+            // Same row, fresh promise: clear the spent picks, re-arm the status and take a new deadline.
+            revive.getPicks().clear();
+            revive.setStatus(ReservationStatus.RESERVED);
+            revive.setExpiresAt(deadline);
+            resv = revive;
+        } else {
+        resv = Reservation.builder()
                 .reservationId(UUID.randomUUID().toString())
                 .idempotencyKey(req.getIdempotencyKey())
                 .status(ReservationStatus.RESERVED)
@@ -80,9 +133,13 @@ public class ReservationService {
                 // compensating release never lands holds this stock FOREVER — availability is computed as
                 // (quantity - reservedQuantity), so the stock stays counted in on-hand and is permanently
                 // unsellable. Null when the tenant has switched expiry off.
-                .expiresAt(reservationPolicy.expiryFor(orgId, LocalDateTime.now()))
+                // O7 D1c: the deadline depends on WHAT KIND of promise this is. A confirmed order's hold
+                // lives for days; a till's for minutes. A null kind reads as CHECKOUT, so every pre-D1c
+                // caller keeps exactly the behaviour it had.
+                .expiresAt(deadline)
                 .picks(new ArrayList<>())
                 .build();
+        }
 
         for (StockReservationLine line : req.getLines()) {
             float remaining = line.getQuantity().floatValue();
@@ -249,6 +306,7 @@ public class ReservationService {
         for (ReservationPick p : resv.getPicks()) {
             picks.add(new StockPick(p.getProductId(), p.getBatchNo(), BigDecimal.valueOf(p.getQuantity()), p.getExpiryDate()));
         }
-        return new StockReservationResponse(resv.getReservationId(), resv.getStatus(), picks, null);
+        return new StockReservationResponse(resv.getReservationId(), resv.getStatus(), picks, null,
+                resv.getExpiresAt());
     }
 }

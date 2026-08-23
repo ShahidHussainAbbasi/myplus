@@ -38,6 +38,18 @@ public class ReservationController {
         return reservationService.release(reservationId, CurrentUser.organizationId(), CurrentUser.userId());
     }
 
+    /**
+     * O7 D1c — release a hold by the key its owner gave it, not by our id.
+     *
+     * <p>Separate path from {@code /{reservationId}/release} on purpose: an order knows its own key and has
+     * nowhere sensible to keep ours. 200 with an empty body when there was nothing to release — the expiry
+     * sweeper may have got there first, and both outcomes mean the stock is free.
+     */
+    @PostMapping("/release-by-key")
+    public StockReservationResponse releaseByKey(@RequestParam("key") String key) {
+        return reservationService.releaseByKey(key, CurrentUser.organizationId(), CurrentUser.userId());
+    }
+
     /** G2 inverse saga (slice 34) — return sold stock back to inventory for a confirmed sale. */
     @PostMapping("/{reservationId}/return")
     public StockReturnResponse returnStock(@PathVariable String reservationId, @RequestBody StockReturnRequest request) {

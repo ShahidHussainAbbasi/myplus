@@ -21,6 +21,7 @@ import com.myplus.marketplace.entity.OrderItem;
 import com.myplus.marketplace.entity.Shipment;
 import com.myplus.marketplace.repository.OrderRepository;
 import com.myplus.marketplace.repository.ShipmentRepository;
+import com.myplus.marketplace.support.MockWiring;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,12 +52,22 @@ class ShipmentGuardTest {
      * Unstubbed it returns null, which is the genuine POS/storefront path — those were invoiced when placed.
      */
     @Mock private DispatchInvoiceService dispatchInvoiceService;
+    /** O7 D3: the per-org packing policy. Absent, ShipmentService's `settingsService != null` guard reads as
+     *  "policy off" rather than failing — a wiring gap that changes BEHAVIOUR instead of erroring. */
+    @Mock private com.myplus.common.settings.SettingsService settingsService;
+    /** O7 D1c: dispatch releases the order's stock promise. Added to the service without its tests; the null
+     *  field NPE'd every successful dispatch here and in PackVerificationTest. */
+    @Mock private OrderStockHoldService orderStockHoldService;
     @InjectMocks private ShipmentService service;
 
     private Order order;
 
     @BeforeEach
     void setUp() {
+        // Before anything else: prove @InjectMocks filled every collaborator. A new constructor dependency
+        // must fail HERE, naming itself, not as an NPE somewhere down a dispatch path.
+        MockWiring.assertFullyWired(service);
+
         OrderItem a = OrderItem.builder().id(1L).productId(10L).productName("Widget")
                 .quantity(5).quantityShipped(0).build();
         OrderItem b = OrderItem.builder().id(2L).productId(20L).productName("Gadget")

@@ -116,6 +116,48 @@
 	}
 
 	/** Ask the server what the customer would owe, and show it. */
+	/**
+	 * How much of this sale is NOT payable at the counter today.
+	 *
+	 * The checkout already has a name for money that is part of the bill but not collected here: the
+	 * insured portion. A financed amount is the same kind of thing, so calculateChange() subtracts it the
+	 * same way and "due now" becomes the down payment — without anyone inventing a new concept.
+	 *
+	 * Zero whenever there is no live plan, so an ordinary sale is untouched.
+	 */
+	global.posFinancedAmount = function () {
+		if (!$('#sellOnInstallment').is(':checked')) return 0;
+		var price = cartTotal();
+		var down = Number($('#instDownPayment').val()) || 0;
+		var financed = price - down;
+		return financed > 0 ? financed : 0;
+	};
+
+	/**
+	 * The deposit is MONEY, so it has to reach the till.
+	 *
+	 * Down payment and Amount Received were two independent fields for one number: the plan read its own,
+	 * the invoice read its own, and nothing compared them. Type one and forget the other and the schedule
+	 * and the invoice described different debts — 5,000 nobody could collect, or 5,000 billed twice.
+	 *
+	 * Mirroring is ONE-WAY and only while the down payment is being typed. The cashier can still overwrite
+	 * Amount Received afterwards: a customer handing 5,000 for a 4,700 deposit gets 300 back, and a mirror
+	 * that fought that edit would break the till to protect an invariant that does not need it.
+	 */
+	function mirrorDownPaymentToTill() {
+		if (!$('#sellOnInstallment').is(':checked')) return;
+		var down = Number($('#instDownPayment').val()) || 0;
+		$('#sellRec').val(down > 0 ? down : '');
+		if (typeof global.calculateChange === 'function') global.calculateChange();
+	}
+
+	$(document).on('input change', '#instDownPayment', mirrorDownPaymentToTill);
+	// Ticking or clearing the plan changes what is payable today, so the till has to be told either way.
+	$(document).on('change', '#sellOnInstallment', function () {
+		if ($(this).is(':checked')) mirrorDownPaymentToTill();
+		else if (typeof global.calculateChange === 'function') global.calculateChange();
+	});
+
 	global.previewInstallmentSchedule = function () {
 		if (!$('#sellOnInstallment').is(':checked')) return;
 

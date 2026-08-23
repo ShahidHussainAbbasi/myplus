@@ -382,4 +382,39 @@ describe('Checkout chain — every route to a paid sale', () => {
         cy.focused().should('have.id', 'sellRec')
       })
   })
+
+  /**
+   * ⭐ THE PAY METHOD DECIDES WHERE THE CURSOR GOES — not the order the fields happen to sit in.
+   *
+   * The checkout chain walked the form's LAYOUT, so a cash sale landed in Trade discount: a field most
+   * cash sales never touch, while the amount handed over — the one field cash cannot be completed
+   * without — sat two stops further on. The cashier's next keystroke and the chain's next stop disagreed
+   * on every sale.
+   *
+   * Asserted through the app's own routing, so this tests the rule rather than a rendering of it.
+   */
+  it('cash goes to the amount tendered; an account sale goes to the due date', () => {
+    cy.visitSaleScreen()
+    cy.window().should((w) => expect(w.applyPosKeyboard).to.be.a('function'))
+    cy.window().then((w) => { w.posKeyboardEnabled = true; w.applyPosKeyboard() })
+
+    // CASH — the money field, not the discount that happens to precede it.
+    cy.get('#sellPayMethod').then(($s) => { $s.val('CASH'); $s.trigger('change') })
+    cy.window().then((w) => {
+      expect(w.EnterChain.usable('sellTradeDiscount'),
+        'trade discount is on screen — the positional walk would stop here').to.eq(true)
+      expect(w.posAfterPayMethod(), 'cash routes to the tendered amount').to.eq('sellRec')
+    })
+
+    // CREDIT — the balance needs a date, and the tendered amount means nothing.
+    cy.get('#sellPayMethod').then(($s) => { $s.val('CREDIT'); $s.trigger('change') })
+    cy.window().then((w) => {
+      const target = w.posAfterPayMethod()
+      // dueDateTemp is only on screen when the sale leaves a balance; when it is not, the rule must
+      // fall back rather than strand the cursor on a field nobody can see.
+      if (w.EnterChain.usable('dueDateTemp')) expect(target).to.eq('dueDateTemp')
+      else expect(target, 'no due date on screen — fall back to the positional walk').to.eq(null)
+    })
+  })
+
 })
