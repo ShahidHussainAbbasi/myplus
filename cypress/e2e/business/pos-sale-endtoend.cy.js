@@ -37,6 +37,25 @@ function scan(entry) {
   cy.get('#sellScan', { timeout: 30000 }).should('be.visible').type(entry, { timeout: 30000 })
 }
 
+/**
+ * Answer the "Complete this sale?" dialog the way a cashier does.
+ *
+ * `pos.sale.confirmOnComplete` DEFAULTS TO TRUE, so the sale does not post until the operator confirms —
+ * deliberate: a mis-hit on a function key should not take money. This spec drives the keyboard end to end, so
+ * it has to answer the dialog too; without it the button is clicked, nothing posts, and `cy.wait('@sale')`
+ * times out looking like a broken chain rather than an unanswered question.
+ *
+ * Tolerant of the setting being OFF: if no dialog appears the sale has already posted, and there is nothing
+ * to answer.
+ */
+function confirmSale() {
+  cy.get('body').then(($b) => {
+    if ($b.find('[data-ui-confirm="ok"]:visible').length) {
+      cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).click({ force: true })
+    }
+  })
+}
+
 function pressKey(key, alt) {
   cy.document().then((doc) => {
     doc.dispatchEvent(new doc.defaultView.KeyboardEvent('keydown', {
@@ -128,6 +147,7 @@ describe('End-to-end — a complete sale with no mouse', () => {
         cy.get('#sellRec').should('have.value', '100.00')
         pressKey('F2')
 
+        confirmSale()
         cy.wait('@sale').its('response.statusCode').should('eq', 200)
         // A completed sale clears the till for the next customer.
         cy.window({ timeout: 20000 }).its('data').should('have.length', 0)
@@ -151,6 +171,7 @@ describe('End-to-end — a complete sale with no mouse', () => {
 
         // Walk the rest of the checkout with Enter; past the last field it completes.
         cy.get('#sellRec').type('{enter}')
+        confirmSale()
         cy.wait('@sale2', { timeout: 30000 }).its('response.statusCode').should('eq', 200)
       })
   })
